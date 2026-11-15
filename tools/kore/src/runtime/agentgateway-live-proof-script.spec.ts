@@ -10,6 +10,10 @@ const script = readFileSync(
   ),
   "utf8",
 );
+const phase2 = script.slice(
+  script.indexOf('step "phase 2'),
+  script.indexOf('step "phase 3'),
+);
 const phase4 = script.slice(script.indexOf('step "phase 4'));
 const at = (needle: string): number => phase4.indexOf(needle);
 
@@ -96,5 +100,15 @@ describe("agentgateway live proof, phase 4 rollback", () => {
   it("ends with a converging run, then a third run that changes no Helm revision", () => {
     expect(at('[ "$(gateway_state)" = "ready" ]')).toBeGreaterThan(secondUp);
     expect(at("assert_no_revision_change")).toBeGreaterThan(secondUp);
+  });
+
+  it("enables gateway-rollback-order in the throwaway overlay in phase 2, and leaves it on through phase 4", () => {
+    expect(phase2).toContain(
+      `-e 's/"gateway-rollback-order": false/"gateway-rollback-order": true/'`,
+    );
+    expect(phase2).toContain(
+      `grep -qF '"gateway-rollback-order": true' "$env_file"`,
+    );
+    expect(phase4).not.toContain('"gateway-rollback-order": false/');
   });
 });

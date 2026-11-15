@@ -32,6 +32,7 @@
     {
       "autoscaling-defaults": false,
       "gateway-class-change-release": false,
+      "gateway-rollback-order": false,
       "ingress-agentgateway": false,
       "local-image-reuse": false,
       "registry-tag-pruning": false,

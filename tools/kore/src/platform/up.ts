@@ -39,7 +39,7 @@ export async function platformUp(
     }
     await reconcileConfiguration(repository, runner, component);
   }
-  // Deferred by `gateway-class-change-release`: the refusal comes once the
+  // Deferred by `gateway-rollback-order`: the refusal comes once the
   // configuration is re-rendered, and still ends the run (ADR 0081 addendum).
   if (orphanCheckDeferred(repository)) {
     await assertNoOrphanedReleases(repository, runner);

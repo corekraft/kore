@@ -78,12 +78,12 @@ outage. It prints one line before the delete. A matching class is a no-op, and s
 absent Gateway with no old proxy (a fresh profile); an absent Gateway whose old
 proxy remains (an interrupted change) still waits for the proxy. The flag off
 changes nothing. Rollback is three steps. First turn `ingress-agentgateway` off and run
-`kore local up`; with the new flag on, the run reconciles every component first
+`kore local up`; with the flag `gateway-rollback-order` on (off in every committed overlay), the run reconciles every component first
 (the class change releases the Gateway back to Istio, and Helm removes Kore's
 own `AgentgatewayParameters/kore-gateway-service` when platform-config is
 re-rendered), then refuses the gated-off releases that are still installed
 (`agentgateway-crds is gated off ... run helm uninstall ...`) and exits non-zero.
-That failure is expected. With the flag off the refusal stays up front, before
+That failure is expected. With `gateway-rollback-order` off the refusal stays up front, before
 any mutation. The operator then removes the releases, in order:
 `helm uninstall agentgateway --namespace agentgateway-system --kube-context <ctx>`,
 then `helm uninstall agentgateway-crds --namespace agentgateway-system --kube-context <ctx>`.
@@ -92,12 +92,13 @@ those kinds, so it is the operator's explicit step (data destruction needs
 consent), never Kore's; the proof checks no Agentgateway custom resource remains
 before it. The second `kore local up` converges as a no-op. A one-command
 rollback would be a separate, consented `kore` command if wanted. The refusal's
-position moved later under the flag (decided on the live run 5 of #207, ADR 0081
-addendum). Activation of
-`gateway-class-change-release` is for the live proof profile: in the throwaway
-profile of `tools/kore/scripts/agentgateway-live-proof.sh`, the script turns it
-on together with `ingress-agentgateway` in phase 2 and keeps it on through
-phase 4; no committed overlay turns it on.
+position moved later under its own flag, `gateway-rollback-order`
+(decided on the live run 5 of #207, ADR 0081 addendum); `gateway-class-change-release`
+keeps gating only the class-change step. Activation of both is for the live proof
+profile: in the throwaway profile of `tools/kore/scripts/agentgateway-live-proof.sh`,
+the script turns them on together with `ingress-agentgateway` in phase 2 and keeps
+them on through phase 4; no committed overlay turns either on, and a committed
+turn-on needs the flag activation command and a recorded live outcome.
 
 ## Step 3: Re-Prove the Identity Chain
 

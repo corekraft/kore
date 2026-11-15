@@ -50,7 +50,7 @@ The refusal moves later under the class-change flag (2026-11-15, #207 live
 run 5, #126): up front, the refusal stopped the run before
 `kore-platform-config` could be re-rendered with the flag off, while removing
 the CRDs first broke Helm's old release manifest (the `AgentgatewayParameters`
-kind was missing). So with `gateway-class-change-release` on, `kore local up`
+kind was missing). So with its own flag `gateway-rollback-order` on (off in every committed overlay; `gateway-class-change-release` keeps gating only the class change), `kore local up`
 reconciles every component first and then refuses, still naming the
 `helm uninstall` steps and still exiting non-zero; Helm itself removes Kore's
 `AgentgatewayParameters` as platform-config re-renders. With the flag off the

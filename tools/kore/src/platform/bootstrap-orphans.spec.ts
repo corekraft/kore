@@ -51,7 +51,7 @@ beforeEach(() => {
   vi.mocked(enabledComponents).mockReturnValue([gate, policy]);
 });
 
-test("with the class-change flag on, an orphaned release is reported after the components, not before them", async () => {
+test("with the rollback-order flag on, an orphaned release is reported after the components, not before them", async () => {
   vi.mocked(featureEnabled).mockReturnValue(true);
   vi.mocked(assertNoOrphanedReleases).mockImplementation(async () => {
     order.push("orphans");
@@ -63,7 +63,7 @@ test("with the class-change flag on, an orphaned release is reported after the c
   expect(order).toEqual(["cluster", "close-gate", "reconcile:gate", "orphans"]);
 });
 
-test("with the class-change flag off, an orphaned release stops bootstrap before any component runs", async () => {
+test("with the rollback-order flag off, an orphaned release stops bootstrap before any component runs", async () => {
   vi.mocked(assertNoOrphanedReleases).mockRejectedValueOnce(
     new Error("helm uninstall agentgateway"),
   );
@@ -82,8 +82,13 @@ test("a caller that runs the deferred check itself is not checked twice by boots
   expect(assertNoOrphanedReleases).not.toHaveBeenCalled();
 });
 
-test("the orphan check is deferred exactly when the class-change flag is on", () => {
+test("the orphan check is deferred exactly when gateway-rollback-order is on, and not by the class-change flag", () => {
+  vi.mocked(featureEnabled).mockImplementation(
+    (_environment, flag) => flag === "gateway-class-change-release",
+  );
   expect(orphanCheckDeferred(local)).toBe(false);
-  vi.mocked(featureEnabled).mockReturnValue(true);
+  vi.mocked(featureEnabled).mockImplementation(
+    (_environment, flag) => flag === "gateway-rollback-order",
+  );
   expect(orphanCheckDeferred(local)).toBe(true);
 });

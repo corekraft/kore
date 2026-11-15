@@ -2,7 +2,7 @@ import type { Repository } from "../config/index.js";
 import {
   enabledComponents,
   featureEnabled,
-  gatewayClassChangeFlag,
+  gatewayRollbackOrderFlag,
   isLocalProvider,
 } from "../config/index.js";
 import {
@@ -61,14 +61,14 @@ export async function closeApplicationAdmission(
 }
 
 /**
- * With `gateway-class-change-release` on, a gated-off release is reported after
+ * With `gateway-rollback-order` on, a gated-off release is reported after
  * the components are reconciled, not before: `kore-platform-config` must be
  * re-rendered without the gated-off resources before the operator can safely
  * uninstall the release (ADR 0081 addendum). With the flag off the refusal
  * stays up front, before any mutation.
  */
 export function orphanCheckDeferred(repository: Repository): boolean {
-  return featureEnabled(repository.environment, gatewayClassChangeFlag);
+  return featureEnabled(repository.environment, gatewayRollbackOrderFlag);
 }
 
 export interface BootstrapOptions {

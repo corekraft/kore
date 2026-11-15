@@ -12,7 +12,8 @@
 # Phases, on one profile:
 #   1. flag off: `kore local up`; there is no agentgateway release and no
 #      agentgateway-system namespace.
-#   2. flags ingress-agentgateway and gateway-class-change-release on in the
+#   2. flags ingress-agentgateway, gateway-class-change-release and
+#      gateway-rollback-order on in the
 #      scratch overlay (the second lets the reconcile delete and recreate the
 #      Gateway for the class change, with a brief ingress outage): `kore local up` on the same (existing)
 #      profile; the controller rolls out, the CRDs exist, the namespace is
@@ -20,7 +21,7 @@
 #      The gateway is reported ready by `kore platform status --json`, and the
 #      Istio ingress proxy (deploy and svc kore-gateway-istio) is gone.
 #   3. rerun `kore local up`; no Helm release revision changes.
-#   4. ingress-agentgateway off again (gateway-class-change-release stays on):
+#   4. ingress-agentgateway off again (the other two flags stay on):
 #      the first `kore local up` is EXPECTED to fail: it converges
 #      platform-config (the Gateway back on the istio class, Kore's own
 #      AgentgatewayParameters removed by Helm, the Istio proxy back) and then
@@ -128,7 +129,7 @@ sed -i.bak \
   "$env_file"
 rm -f "$env_file.bak"
 # 8. Every rewritten value must be there.
-for want in "\"name\": \"$scratch\"" "\"kubeContext\": \"$context\"" "\"clusterName\": \"$cluster\"" '"ingress-agentgateway": false' '"gateway-class-change-release": false'; do
+for want in "\"name\": \"$scratch\"" "\"kubeContext\": \"$context\"" "\"clusterName\": \"$cluster\"" '"ingress-agentgateway": false' '"gateway-class-change-release": false' '"gateway-rollback-order": false'; do
   grep -qF "$want" "$env_file" || fail "could not rewrite $env_file: missing $want"
 done
 [ -z "$(git status --porcelain -- infra)" ] || fail "the scratch overlay is visible to git"
@@ -161,17 +162,20 @@ if k get ns agentgateway-system >/dev/null 2>&1; then
 fi
 echo "phase 1 ok: no agentgateway release and no agentgateway-system namespace" >&2
 
-step "phase 2: both flags on in the scratch overlay, kore local up on the same profile"
+step "phase 2: all three flags on in the scratch overlay, kore local up on the same profile"
 # gateway-class-change-release lets the reconcile delete and recreate the
-# Gateway for the class change; it stays on through phase 4 so the rollback
-# swaps the Gateway back to Istio the same way.
+# Gateway for the class change, and gateway-rollback-order defers the
+# orphaned-release refusal until platform-config is re-rendered; both stay on
+# through phase 4 so the rollback swaps the Gateway back to Istio the same way.
 sed -i.bak \
   -e 's/"ingress-agentgateway": false/"ingress-agentgateway": true/' \
   -e 's/"gateway-class-change-release": false/"gateway-class-change-release": true/' \
+  -e 's/"gateway-rollback-order": false/"gateway-rollback-order": true/' \
   "$env_file"
 rm -f "$env_file.bak"
 grep -qF '"ingress-agentgateway": true' "$env_file" || fail "could not set the flag in $env_file"
 grep -qF '"gateway-class-change-release": true' "$env_file" || fail "could not set gateway-class-change-release in $env_file"
+grep -qF '"gateway-rollback-order": true' "$env_file" || fail "could not set gateway-rollback-order in $env_file"
 kore local up --environment "$scratch"
 k -n agentgateway-system rollout status deploy/agentgateway --timeout=180s
 for crd in agentgatewaybackends agentgatewaymodels agentgatewayparameters agentgatewaypolicies; do
@@ -228,11 +232,11 @@ step "phase 3: rerun kore local up, no Helm revision may change"
 assert_no_revision_change "phase 3"
 echo "phase 3 ok: no platform release changed" >&2
 
-step "phase 4: ingress flag off again (class-change flag stays on), rollback"
+step "phase 4: ingress flag off again (the other two flags stay on), rollback"
 sed -i.bak 's/"ingress-agentgateway": true/"ingress-agentgateway": false/' "$env_file"
 rm -f "$env_file.bak"
 grep -qF '"ingress-agentgateway": false' "$env_file" || fail "could not turn the flag off in $env_file"
-# With gateway-class-change-release on, Kore reconciles every component first
+# With gateway-rollback-order on, Kore reconciles every component first
 # and only then refuses a gated-off release that is still installed (ADR 0081),
 # so the first run converges platform-config (the Gateway back on the istio
 # class, Kore's AgentgatewayParameters removed by Helm) and then exits non-zero.

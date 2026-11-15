@@ -10,6 +10,7 @@ import {
   featureHelmArgs,
   gatewayClassName,
   gatewayClassChangeFlag,
+  gatewayRollbackOrderFlag,
   ingressFlag,
 } from "./features.js";
 import type { Environment } from "./types.js";
@@ -152,5 +153,12 @@ test("the class-change flag is its own switch, independent of the ingress flag",
   expect(gatewayClassChangeFlag).toBe("gateway-class-change-release");
   expect(
     gatewayClassName(environment({ [gatewayClassChangeFlag]: true })),
+  ).toBe("istio");
+});
+
+test("the rollback-order flag is its own switch, independent of the class-change and ingress flags", () => {
+  expect(gatewayRollbackOrderFlag).toBe("gateway-rollback-order");
+  expect(
+    gatewayClassName(environment({ [gatewayRollbackOrderFlag]: true })),
   ).toBe("istio");
 });
