@@ -16,7 +16,7 @@ import {
   CAPTURE,
   NO_CAPTURE,
   component,
-  gatewayCheckReturns,
+  customCheckReturns,
   primeReadinessFakes,
   repository,
   tails,
@@ -24,7 +24,7 @@ import {
 } from "./readiness-support.js";
 
 vi.mock("./probe.js");
-vi.mock("./readiness-gateway.js");
+vi.mock("./readiness-custom.js");
 vi.mock("./readiness-issuer.js");
 vi.mock("./readiness-daemonset.js");
 vi.mock("./readiness-webhook.js");
@@ -209,15 +209,28 @@ test("a webhook configuration is delegated to the webhook wait with the context,
   );
 });
 
-test("a gateway resource is checked by the gateway check, not the rollout", async () => {
+test("a resource with a custom check is checked by it, not the rollout", async () => {
   const check = vi.fn(async () => undefined);
-  gatewayCheckReturns(check);
+  customCheckReturns(check);
   const { run, wait } = waitOn(["gateway/kore"]);
 
   await wait();
 
   expect(check).toHaveBeenCalledWith("10m");
   expect(run).not.toHaveBeenCalled();
+});
+
+test("a failing custom check fails the component's readiness naming the resource, condition and cause", async () => {
+  customCheckReturns(async () => {
+    throw new Error(
+      "Application kore-local-tls is OutOfSync and Missing: chart digest is not signed",
+    );
+  });
+  const { wait } = waitOn(["applications.argoproj.io"]);
+
+  await expect(wait()).rejects.toThrow(
+    "applications.argoproj.io not ready (gateway accepted) within 10m: Application kore-local-tls is OutOfSync and Missing: chart digest is not signed",
+  );
 });
 
 test("a Gatekeeper constraint and a ConfigMap are proven by existing, not by a condition", async () => {

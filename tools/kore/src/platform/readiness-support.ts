@@ -4,7 +4,7 @@ import { vi } from "vitest";
 import type { Component, Repository } from "../config/index.js";
 import type { Runner } from "../runtime/index.js";
 import { errorMessage } from "./probe.js";
-import { gatewayCheck } from "./readiness-gateway.js";
+import { customCheck } from "./readiness-custom.js";
 import { assertIssuerReady, trustRemedy } from "./readiness-issuer.js";
 import {
   failureAcrossBounds,
@@ -27,7 +27,7 @@ export function primeReadinessFakes(): void {
     error instanceof Error ? error.message : String(error),
   );
   vi.mocked(timeoutMilliseconds).mockReturnValue(1000);
-  vi.mocked(gatewayCheck).mockReturnValue(undefined);
+  vi.mocked(customCheck).mockReturnValue(undefined);
   vi.mocked(trustRemedy).mockReturnValue(
     "Run: kore trust install --environment local",
   );
@@ -79,12 +79,12 @@ export const NO_CAPTURE = { capture: false };
 export const AVAILABLE =
   "go-template={{if .status.availableReplicas}}available{{end}}";
 
-/** Makes the gateway check for any Gateway resource run `run`. */
-export function gatewayCheckReturns(run: () => Promise<void>): void {
-  vi.mocked(gatewayCheck).mockReturnValue({
+/** Makes the custom check for any resource it covers run `run`. */
+export function customCheckReturns(run: () => Promise<void>): void {
+  vi.mocked(customCheck).mockReturnValue({
     condition: "gateway accepted",
     run,
-  } as unknown as ReturnType<typeof gatewayCheck>);
+  } as unknown as ReturnType<typeof customCheck>);
 }
 
 /** A component in kore-system with a 10m timeout and no readiness of its own unless given. */
