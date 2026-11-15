@@ -63,6 +63,20 @@ migration from an Istio-ingress profile that keeps the cluster. Whether Istio
 removes the proxy by itself when the class changes is unproven: if it does not,
 readiness times out naming the leftover resource.
 
+The live proof (phase 2) showed it does not: `kore-gateway-istio` stayed and the
+Gateway was never Programmed. So `kore-platform-config`'s reconcile now runs a
+class-change step before its Helm upgrade (`gateway-class-change.ts`). It reads
+`gateway/kore-gateway` `.spec.gatewayClassName` on the named context; when it
+differs from the class the flag derives, it deletes only that Gateway
+(Kubernetes garbage collection removes the old proxy through its
+ownerReference, so no deployment or service is deleted), waits until the
+Gateway and the old proxy are gone (a timeout names the Gateway and the
+leftover), and the Helm upgrade that follows recreates it in the new class. A
+class change therefore deletes and recreates the Gateway with a brief ingress
+outage. A matching class or an absent Gateway (a fresh profile) is a no-op, so
+the flag off changes nothing. It adds no flag; rollback is the flag off and
+`kore local up`, which makes the same swap back to Istio.
+
 ## Step 3: Re-Prove the Identity Chain
 
 ### Work
