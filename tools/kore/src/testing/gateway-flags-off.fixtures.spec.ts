@@ -5,7 +5,7 @@ const loadRepository = vi.hoisted(() => vi.fn());
 vi.mock("../config/index.js", () => ({ loadRepository }));
 
 const { loadLocalGatewayFlagsOff, withGatewayFlagsOff } =
-  await import("./gateway-flags-off.js");
+  await import("./gateway-flags-off.fixtures.js");
 
 const repository = {
   environment: {

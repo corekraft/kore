@@ -32,7 +32,7 @@ vi.mock("../../src/platform/status.js", () => ({
   },
 }));
 
-import { withGatewayFlagsOff } from "../../src/testing/gateway-flags-off.js";
+import { withGatewayFlagsOff } from "../../src/testing/gateway-flags-off.fixtures.js";
 import { loadRepository } from "../../src/config/index.js";
 import assert from "node:assert/strict";
 import { mkdtemp, rm } from "node:fs/promises";

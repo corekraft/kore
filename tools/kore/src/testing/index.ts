@@ -1,7 +1,7 @@
 export {
   loadLocalGatewayFlagsOff,
   withGatewayFlagsOff,
-} from "./gateway-flags-off.js";
+} from "./gateway-flags-off.fixtures.js";
 export {
   digest,
   gateOutput,

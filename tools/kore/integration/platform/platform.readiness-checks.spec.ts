@@ -1,5 +1,5 @@
 import { loadRepository } from "../../src/config/index.js";
-import { withGatewayFlagsOff } from "../../src/testing/gateway-flags-off.js";
+import { withGatewayFlagsOff } from "../../src/testing/gateway-flags-off.fixtures.js";
 import assert from "node:assert/strict";
 import { test } from "vitest";
 

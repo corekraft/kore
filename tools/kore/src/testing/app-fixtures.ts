@@ -1,4 +1,4 @@
-import { loadLocalGatewayFlagsOff } from "./gateway-flags-off.js";
+import { loadLocalGatewayFlagsOff } from "./gateway-flags-off.fixtures.js";
 import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, relative } from "node:path";

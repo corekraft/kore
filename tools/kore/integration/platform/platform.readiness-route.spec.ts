@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { withGatewayFlagsOff } from "../../src/testing/gateway-flags-off.js";
+import { withGatewayFlagsOff } from "../../src/testing/gateway-flags-off.fixtures.js";
 import { test } from "vitest";
 import { loadRepository } from "../../src/config/index.js";
 import type { Runner } from "../../src/runtime/index.js";

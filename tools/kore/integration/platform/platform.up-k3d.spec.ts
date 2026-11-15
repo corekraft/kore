@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { withGatewayFlagsOff } from "../../src/testing/gateway-flags-off.js";
+import { withGatewayFlagsOff } from "../../src/testing/gateway-flags-off.fixtures.js";
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
