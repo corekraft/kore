@@ -1,0 +1,11 @@
+apiVersion: apiextensions.crossplane.io/v1
+kind: Composition
+metadata:
+  name: service-local
+  labels: { platform.kore.dev/provider: local }
+spec:
+  compositeTypeRef: { apiVersion: platform.kore.dev/v1alpha1, kind: Service }
+  mode: Pipeline
+  pipeline:
+    - step: mark-ready
+      functionRef: { name: function-auto-ready }

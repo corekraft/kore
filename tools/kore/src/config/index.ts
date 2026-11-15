@@ -66,6 +66,7 @@ export {
   gatewayClassName,
   ingressFlag,
   localImageReuseFlag,
+  organizationServiceApisFlag,
   registryPruneFlag,
 } from "./features.js";
 export { managedCluster } from "./managed-cluster.js";
