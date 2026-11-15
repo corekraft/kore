@@ -257,6 +257,26 @@ Dark launch means on only in `local`.
 5. Removing the flag, its overlay entries and its gated code is the contract step of
    expand-contract, after the outcome is confirmed.
 
+## Evaluating a harness idea
+
+`node skills/bin/harness.mjs evaluate --idea <n> [--threshold 0.1] [--changed-by-pr <n>] [--json]`
+closes the loop on a `kind: harness` idea ([plan 12](../../infra/plans/12-self-improving-loop.md), Step 3).
+The change date is the idea's first `pr.merged` ledger event (the PR whose `idea` is
+`#<issue>`, or the PR named by `--changed-by-pr` when the ledger ties none). Once
+the hypothesis `window` has elapsed, it reads the hypothesis metric from the flow
+report over that window after the change and over the equal window before it, so no
+agent supplies the figure. A move in the expected direction of at least the
+threshold (default 10%) records `confirmed`, the opposite `refuted`, and anything
+inside the noise, or a window the ledger recorded nothing in, `inconclusive`: missing
+history is never `confirmed`. The result goes only through `outcome record`, so the
+comment, the one `outcome:*` label, the close and the ledger `outcome` event follow
+from the outcome tool. An inconclusive change stays in place and is flagged by its
+`outcome:inconclusive` label and its follow-up idea. A refuted one is recorded and
+nothing is reverted; the revert is a separate step. Before the window ends it exits 1
+and prints when it can run; an idea with an outcome is left as recorded, so reruns
+never overwrite. `--json` prints `status` (`recorded`, `too-early` or
+`already-recorded`) with `idea`, `result`, `before`, `after` and the outcome.
+
 ## Flow report
 
 `node skills/bin/harness.mjs flow report [--json]` reads the stage ledger

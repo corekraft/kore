@@ -9,6 +9,7 @@ import {
   recordOutcome,
   type Concluded,
 } from "../outcome/index.js";
+import type { Ledger } from "../ledger/index.js";
 import type { Command, CommandContext } from "../runtime/index.js";
 import { openLedger } from "./ledger-commands.js";
 
@@ -56,6 +57,30 @@ async function withLedger(context: CommandContext) {
   return opened.ledger;
 }
 
+/** Logs the idea's outcome event once, however many reruns: a failed ledger write is repaired by `close`. */
+export async function logOutcome(
+  ledger: Ledger,
+  deps: CommandContext["deps"],
+  done: Concluded,
+): Promise<void> {
+  const logged = await ledger.list({ idea: done.idea, kind: "outcome" });
+  if (logged.events.length === 0) {
+    const event = await ledger.record({
+      source: "github",
+      kind: "outcome",
+      occurredAt: deps.clock.now().toISOString(),
+      idea: done.idea,
+      label: labelFor(done.result),
+      number: Number(/(\d+)$/.exec(done.issue)?.[1]),
+    });
+    if (!event.ok) {
+      throw new IdeaError(
+        `The outcome was published, but its ledger event was rejected: ${event.message} Fix the ledger, then rerun \`harness outcome close --idea ${done.idea}\` to record the event.`,
+      );
+    }
+  }
+}
+
 async function conclusion(context: CommandContext, verb: "record" | "close") {
   const ledger = await withLedger(context);
   const ref = ideaRef(context, verb);
@@ -85,23 +110,7 @@ async function conclusion(context: CommandContext, verb: "record" | "close") {
           }),
         )
       : await closeOutcome(ctx, ref);
-  // One event per idea, however many reruns: a failed ledger write is repaired by `close`.
-  const logged = await ledger.list({ idea: done.idea, kind: "outcome" });
-  if (logged.events.length === 0) {
-    const event = await ledger.record({
-      source: "github",
-      kind: "outcome",
-      occurredAt: deps.clock.now().toISOString(),
-      idea: done.idea,
-      label: labelFor(done.result),
-      number: Number(/(\d+)$/.exec(done.issue)?.[1]),
-    });
-    if (!event.ok) {
-      throw new IdeaError(
-        `The outcome was published, but its ledger event was rejected: ${event.message} Fix the ledger, then rerun \`harness outcome close --idea ${done.idea}\` to record the event.`,
-      );
-    }
-  }
+  await logOutcome(ledger, deps, done);
   deps.stdout(
     context.json
       ? `${JSON.stringify(done)}\n`
