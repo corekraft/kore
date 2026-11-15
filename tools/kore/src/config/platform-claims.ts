@@ -12,6 +12,7 @@ const dnsLabel = new RegExp(dnsLabelPattern);
 
 /** XRD messages this module mirrors; the chart must still contain each one. */
 export const mirroredXrdFragments: readonly string[] = [
+  "metadata.name must be a single DNS label",
   "metadata.name must not contain a double hyphen",
   "spec.environments must not contain a double hyphen",
   "must be at most 63 characters",
@@ -63,6 +64,11 @@ function organizationErrors(claim: Claim, path: string): string[] {
 
 function serviceNameErrors(name: string, path: string): string[] {
   const errors: string[] = [];
+  if (!dnsLabel.test(name)) {
+    errors.push(
+      `${path}.metadata.name: must be a single DNS label (lowercase letters, digits and hyphens, at most 63 characters, no dots): the default host is <service>.<organization>.<platform domain>; rename it, for example "${name.replaceAll(".", "-")}"`,
+    );
+  }
   if (name.includes("--")) {
     errors.push(
       `${path}.metadata.name: must not contain a double hyphen, because the namespace is <service>--<environment>; rename it, for example "${name.replaceAll("--", "-")}"`,

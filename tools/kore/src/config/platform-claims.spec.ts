@@ -131,3 +131,11 @@ test("every error is reported, each with the index of the claim it belongs to", 
     'claims[1].spec.environments: needs at least one environment; add one, for example "local"',
   ]);
 });
+
+test("a Service name with a dot is not a single DNS label, and the fix keeps the default host valid", () => {
+  expect(
+    platformClaimErrors([{ ...service, metadata: { name: "shop.eu" } }]),
+  ).toEqual([
+    'claims[0].metadata.name: must be a single DNS label (lowercase letters, digits and hyphens, at most 63 characters, no dots): the default host is <service>.<organization>.<platform domain>; rename it, for example "shop-eu"',
+  ]);
+});
