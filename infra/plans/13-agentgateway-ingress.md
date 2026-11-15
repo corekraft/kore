@@ -287,8 +287,9 @@ Refs #126 #210 #212.
 
 The "confirmed" label rests on the same-cluster Istio comparison at a matched
 rate, not on the #320 baseline method alone: that method (29.5 to 34 requests
-per second) could not be reproduced, because Istio sustained only about 25
-requests per second with the paced load.
+per second) could not be reproduced: Istio could not sustain the earlier 30
+requests per second target and reached 20.2 and 20.3 at the 22 target
+([#212 comment](https://github.com/corekraft/kore/issues/212#issuecomment-6900314450)).
 
 Limits that stay on record: neither gateway reached the 22 requests per second
 target on this host (Istio 20.2 and 20.3, agentgateway 17.0 to 20.2, the 17.0 run having a tainted load sample), and no
