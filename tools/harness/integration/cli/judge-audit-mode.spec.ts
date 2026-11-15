@@ -70,7 +70,12 @@ describe("judge checklist audit mode", () => {
     );
     const items = (
       JSON.parse(text) as { guardrails: { rule: string; mode: string }[] }
-    ).guardrails.filter((g) => g.rule.startsWith("judge-"));
+    ).guardrails.filter(
+      // judge-guardrail-activation is new and starts in audit (audit before
+      // enforce) until a person activates it; every older item enforces.
+      (g) =>
+        g.rule.startsWith("judge-") && g.rule !== "judge-guardrail-activation",
+    );
     expect(items.map((g) => g.rule)).toEqual([
       "judge-ci",
       "judge-scan",
