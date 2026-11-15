@@ -249,6 +249,30 @@
           ]
       },
       {
+        "name": "keycloak-operator",
+        "phase": "core",
+        "namespace": "keycloak",
+        "kind": "local-chart",
+        "chart": "infra/charts/keycloak-operator",
+        "version": "local",
+        "featureFlag": "platform-portal",
+        "ownsCRDs":
+          [
+            "keycloaks.k8s.keycloak.org",
+            "keycloakrealmimports.k8s.keycloak.org"
+          ],
+        "ownsCRDGroups": ["k8s.keycloak.org"],
+        "dependencies": [],
+        "timeout": "5m",
+        "values": ["infra/environments/common/values/keycloak-operator.yaml"],
+        "readiness":
+          [
+            "crd/keycloaks.k8s.keycloak.org",
+            "crd/keycloakrealmimports.k8s.keycloak.org",
+            "deployment/keycloak-operator"
+          ]
+      },
+      {
         "name": "agentgateway-crds",
         "phase": "bootstrap",
         "namespace": "agentgateway-system",

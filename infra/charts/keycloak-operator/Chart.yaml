@@ -1,0 +1,5 @@
+apiVersion: v2
+name: keycloak-operator
+description: Keycloak operator 26.8.2 vendored from keycloak-k8s-resources with its CRDs, images set by value so they are pinned by digest, installed only under the platform-portal flag
+type: application
+version: 0.1.0

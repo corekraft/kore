@@ -120,6 +120,7 @@ test("the same status run is fully ready once the controller is back", async () 
       "agentgateway-crds",
       "agentgateway",
       "argocd",
+      "keycloak-operator",
       "metrics-server",
       "kore-config-delivery",
       "kore-platform-apis",

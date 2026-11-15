@@ -1,6 +1,9 @@
 import assert from "node:assert/strict";
+import { readFile } from "node:fs/promises";
+import { join } from "node:path";
 import { test } from "vitest";
 import {
+  approvedImageList,
   enabledComponents,
   featureEnabled,
   loadRepository,
@@ -37,4 +40,87 @@ test("the Keycloak pins are exact, so no range or tag floats into the install th
     repository.versions.components["provider-keycloak"] ?? "",
     /^v\d+\.\d+\.\d+$/,
   );
+});
+
+test("the Keycloak operator is a flag-gated chart that owns its CRDs, so with the flag off nothing reaches a cluster", async () => {
+  const repository = await loadRepository("local");
+  const operator = repository.catalog.components.find(
+    (c) => c.name === "keycloak-operator",
+  );
+  assert.equal(operator?.featureFlag, platformPortalFlag);
+  assert.equal(operator?.kind, "local-chart");
+  assert.equal(operator?.namespace, "keycloak");
+  assert.deepEqual(operator?.ownsCRDs.sort(), [
+    "keycloakrealmimports.k8s.keycloak.org",
+    "keycloaks.k8s.keycloak.org",
+  ]);
+  assert.deepEqual(operator?.ownsCRDGroups, ["k8s.keycloak.org"]);
+  const installed = enabledComponents(repository).map((c) => c.name);
+  assert.equal(installed.includes("keycloak-operator"), false);
+});
+
+test("the operator and server images are pinned by digest and named by the operator component, so the install deploys what was verified", async () => {
+  const repository = await loadRepository("local");
+  const images = repository.approved.images.filter((i) =>
+    i.name.startsWith("keycloak"),
+  );
+  assert.deepEqual(images.map((i) => i.name).sort(), [
+    "keycloak-operator",
+    "keycloak-server",
+  ]);
+  for (const image of images) {
+    assert.match(image.image, /@sha256:[0-9a-f]{64}$/);
+    assert.equal(image.component, "keycloak-operator");
+  }
+});
+
+async function imageValues(root: string, file: string): Promise<string[]> {
+  const values = JSON.parse(await readFile(join(root, file), "utf8"));
+  return [values.operator.image, values.keycloak.image];
+}
+
+test("the local values name exactly the approved images, so the operator and the servers it starts run the digests", async () => {
+  const repository = await loadRepository("local");
+  const approved = approvedImageList(repository).map((i) => i.image);
+  const images = await imageValues(
+    repository.root,
+    "infra/environments/common/values/keycloak-operator.yaml",
+  );
+  assert.deepEqual(
+    images.sort(),
+    approved.filter((i) => i.includes("keycloak")).sort(),
+  );
+});
+
+test("the chart takes both images from values and carries no tag, so nothing it renders floats", async () => {
+  const repository = await loadRepository("local");
+  const text = await readFile(
+    join(
+      repository.root,
+      "infra/charts/keycloak-operator/templates/operator.yaml",
+    ),
+    "utf8",
+  );
+  assert.equal(text.includes("quay.io"), false);
+  assert.equal(
+    [...text.matchAll(/\.Values\.(operator|keycloak)\.image/g)].length,
+    3,
+  );
+});
+
+test("managed-example overlays both images with mirror references at the same digests, so no managed cluster pulls from quay.io", async () => {
+  const repository = await loadRepository("managed-example");
+  const local = await imageValues(
+    repository.root,
+    "infra/environments/common/values/keycloak-operator.yaml",
+  );
+  const files =
+    repository.environment.componentValues?.["keycloak-operator"] ?? [];
+  assert.equal(files.length, 1);
+  const mirrored = await imageValues(repository.root, files[0]!);
+  const digest = (image: string) => image.split("@")[1];
+  assert.deepEqual(mirrored.map(digest), local.map(digest));
+  for (const image of mirrored) {
+    assert.match(image, /^ghcr\.io\/corekraft\/kore\/mirror\/keycloak/);
+  }
 });

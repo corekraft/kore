@@ -1,0 +1,10 @@
+{
+  "operator":
+    {
+      "image": "quay.io/keycloak/keycloak-operator:26.8.2@sha256:df890db951b595fe46f3f985301a38b76fcfcc264f06201c54dfaf28adeba19e"
+    },
+  "keycloak":
+    {
+      "image": "quay.io/keycloak/keycloak:26.8.2@sha256:c68e286cacd87b942ac1939a0a1481461109d6acd3a57dc496969a319a76bbf0"
+    }
+}

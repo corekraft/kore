@@ -156,6 +156,8 @@ install lands, because that file names an existing component:
 None has a cosign signature (`cosign verify`: no signatures found). The admin
 credential never enters git.
 
+The Keycloak operator 26.8.2 is cataloged, behind `platform-portal` (off in `local` and `managed-example`), as the local chart `infra/charts/keycloak-operator` (component `keycloak-operator`, namespace `keycloak`, core phase). A manifest component cannot carry a feature flag, so the chart vendors upstream's `kubernetes.yml` and both CRDs unchanged from `keycloak-k8s-resources` 26.8.2 (the `keycloaks` and `keycloakrealmimports` CRDs, about 950 KB), sets the namespace from the release, and takes the operator image and the server image (`kc.operator.keycloak.image`, `RELATED_IMAGE_KEYCLOAK`) from values at the digests above; the approved-images entries are `keycloak-operator` and `keycloak-server`, and `managed-example` overlays both with mirror references at the same digests. Owed to the live run: that the CRDs fit a Helm release at about 950 KB, that the operator starts under Gatekeeper admission with the digests, and that it creates a Keycloak from the pinned server image.
+
 Argo CD chart 10.18.0 (app v3.6.1, resolved 2026-11-14) is cataloged and pinned
 but not installed: `argocd` carries `featureFlag: platform-argocd-delivery`, off in
 `local` and `managed-example` (ADR 0043, plan 15 Step 5). With the flag off Helm
