@@ -17,6 +17,11 @@ import { validateRepository } from "./validate.js";
 
 // Factories, not automocks: each module exports exactly the names the barrel
 // re-exports, and no real module graph loads here.
+vi.mock("./alert-email.js", () => ({
+  alertEmailHelmArgs: vi.fn(),
+  smtpSecretName: "grafana-smtp",
+  smtpSecretNamespace: "observability",
+}));
 vi.mock("./approved.js", () => ({ approvedImageList: vi.fn() }));
 vi.mock("./chart-delivery.js", () => ({
   chartDeliveryValues: vi.fn(),
@@ -91,6 +96,7 @@ vi.mock("./validate.js", () => ({ validateRepository: vi.fn() }));
 test("the config barrel exposes exactly the entry points other domains use", () => {
   expect(Object.keys(config).sort()).toEqual([
     "absolute",
+    "alertEmailHelmArgs",
     "approvedImageList",
     "auditEvidence",
     "autoscalingFlag",
@@ -142,6 +148,8 @@ test("the config barrel exposes exactly the entry points other domains use", () 
     "renderedCrdNames",
     "rollbackConstraint",
     "sessionCookieViolations",
+    "smtpSecretName",
+    "smtpSecretNamespace",
     "trustedSigners",
     "validateRepository",
   ]);

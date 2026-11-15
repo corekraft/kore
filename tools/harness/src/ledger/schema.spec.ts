@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { KINDS, SOURCES, parseEvent } from "./schema.js";
+import { KINDS, POLLER_KINDS, SOURCES, parseEvent } from "./schema.js";
 
 const base = {
   source: "claude",
@@ -232,6 +232,34 @@ describe("guard.block events", () => {
   it("are refused without a rule name", () => {
     expect(parseEvent(blocked, "input").ok).toBe(false);
   });
+});
+
+describe("friction and rework events", () => {
+  const stamp = {
+    source: "claude",
+    occurredAt: "2026-01-02T03:04:05.000Z",
+    session: "s1",
+  };
+
+  it("kore.retry carries its command as the label and is refused without one", () => {
+    const retry = { ...stamp, kind: "kore.retry" };
+    expect(parseEvent({ ...retry, label: "local up" }, "input").ok).toBe(true);
+    expect(parseEvent(retry, "input").ok).toBe(false);
+  });
+
+  it("an interrupted pane is named by its pane id and needs no label", () => {
+    expect(
+      parseEvent({ ...stamp, kind: "pane.interrupted", pane: "w1:p2" }, "input")
+        .ok,
+    ).toBe(true);
+  });
+
+  it.each(["escalation", "kore.retry", "pane.interrupted"])(
+    "%s is not a poller kind, so ledger record accepts it from agents",
+    (kind) => {
+      expect(POLLER_KINDS).not.toContain(kind);
+    },
+  );
 });
 
 describe("outcome-metric events from GitHub", () => {

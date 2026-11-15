@@ -2,10 +2,11 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { Kind, LedgerEvent } from "../ledger/index.js";
 import * as attributionMeasure from "./attribution-measure.js";
 import { DEFAULT_COST, costMetrics } from "./cost.js";
+import { friction, reworkMetrics } from "./friction.js";
 import * as outcomes from "./outcomes.js";
 import { firstTime, time } from "./github-waits.js";
 import * as ideaMetricsModule from "./idea-metrics.js";
-import { ideaMetrics } from "./idea-metrics.js";
+import { frictionMetrics, ideaMetrics } from "./idea-metrics.js";
 import { inWindow, type Span } from "./scope.js";
 import { median } from "./wip.js";
 
@@ -34,6 +35,7 @@ function at(
 
 vi.mock("./attribution-measure.js");
 vi.mock("./cost.js");
+vi.mock("./friction.js");
 vi.mock("./outcomes.js");
 vi.mock("./github-waits.js");
 vi.mock("./scope.js");
@@ -136,6 +138,23 @@ describe("ideaMetrics cost", () => {
     expect(vi.mocked(costMetrics).mock.calls).toEqual([
       [new Map(), WINDOW, { ...DEFAULT_COST, trailingIdeas: 2 }],
     ]);
+  });
+});
+
+describe("frictionMetrics", () => {
+  it("measures rework over the ideas and friction over every named event, in the window", () => {
+    const byIdea = new Map([["#1", [at(1, "send-back", { number: 3 })]]]);
+    const named = [at(1, "kore.retry", { label: "up" })];
+    const rework = { trailingIdeas: 2 } as ReturnType<typeof reworkMetrics>;
+    const found = { total: 1 } as ReturnType<typeof friction>;
+    vi.mocked(reworkMetrics).mockReturnValue(rework);
+    vi.mocked(friction).mockReturnValue(found);
+    expect(frictionMetrics(named, byIdea, WINDOW, 2)).toEqual({
+      rework,
+      friction: found,
+    });
+    expect(reworkMetrics).toHaveBeenCalledWith(byIdea, WINDOW, 2);
+    expect(friction).toHaveBeenCalledWith(named, WINDOW);
   });
 });
 

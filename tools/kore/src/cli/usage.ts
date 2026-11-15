@@ -17,6 +17,7 @@ Usage:
   kore registry rotate-credentials --environment <name> --yes [--json]
   kore signer swap-key --environment local --yes [--json]
   kore secrets sync --environment local [--rotate --yes]
+  kore secrets smtp --environment <name>   (streams {"user": "...", "password": "..."} on stdin into the grafana-smtp Secret that the alert email settings read; run it after the platform is up; the login is never read from a flag, file or config)
   kore trust install --environment local
   kore journal [--environment <name>] [--limit <n>] [--json]
   kore ops inventory|recovery [--environment local] [--json]

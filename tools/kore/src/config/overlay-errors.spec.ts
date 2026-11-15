@@ -8,11 +8,13 @@ import {
   fakeRepository,
   malformed,
 } from "./config-support.js";
+import { alertEmailErrors, alertEmailWarnings } from "./alert-email.js";
 import { componentGatedOff } from "./features.js";
 import { exists } from "./files.js";
-import { overlayErrors } from "./overlay-errors.js";
+import { overlayErrors, overlayWarnings } from "./overlay-errors.js";
 
 vi.mock("node:path");
+vi.mock("./alert-email.js");
 vi.mock("./features.js");
 vi.mock("./files.js");
 
@@ -24,6 +26,8 @@ beforeEach(() => {
   vi.mocked(join).mockImplementation((...parts: string[]) => parts.join("/"));
   vi.mocked(exists).mockImplementation(async (path) => !absent.has(path));
   vi.mocked(componentGatedOff).mockReturnValue(false);
+  vi.mocked(alertEmailErrors).mockReturnValue([]);
+  vi.mocked(alertEmailWarnings).mockReturnValue([]);
 });
 
 const repository = (
@@ -172,4 +176,24 @@ test("each component's values are checked, so one component's missing file does 
   expect(await overlayErrors(repository(components))).toEqual([
     "kore-a: values file does not exist: values/a.yaml",
   ]);
+});
+
+test("the alertEmail schema errors are part of the overlay's errors", async () => {
+  vi.mocked(alertEmailErrors).mockReturnValue([
+    "environment.alertEmail must be an object",
+  ]);
+  const environment = fakeEnvironment();
+  expect(await overlayErrors(repository([], environment))).toEqual([
+    "environment.alertEmail must be an object",
+  ]);
+  expect(alertEmailErrors).toHaveBeenCalledWith(environment);
+});
+
+test("the overlay's warnings are the alert email warnings", () => {
+  vi.mocked(alertEmailWarnings).mockReturnValue([
+    "alerts have no contact point",
+  ]);
+  const repo = repository([]);
+  expect(overlayWarnings(repo)).toEqual(["alerts have no contact point"]);
+  expect(alertEmailWarnings).toHaveBeenCalledWith(repo);
 });
