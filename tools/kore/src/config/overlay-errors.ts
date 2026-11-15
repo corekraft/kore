@@ -1,4 +1,5 @@
 import { join } from "node:path";
+import { alertEmailErrors, alertEmailWarnings } from "./alert-email.js";
 import { componentGatedOff } from "./features.js";
 import { exists } from "./files.js";
 import type { Component, Environment, Repository } from "./types.js";
@@ -143,6 +144,7 @@ export async function overlayErrors(repository: Repository): Promise<string[]> {
   );
   return [
     ...featureErrors(environment),
+    ...alertEmailErrors(environment),
     ...featureFlagErrors(environment, components),
     ...gatedDependencyErrors(environment, components),
     ...unknownOverlayErrors(environment, names),
@@ -155,4 +157,9 @@ export async function overlayErrors(repository: Repository): Promise<string[]> {
       )
     ).flat(),
   ];
+}
+
+/** Warnings about the overlay that never fail validation. */
+export function overlayWarnings(repository: Repository): string[] {
+  return alertEmailWarnings(repository);
 }

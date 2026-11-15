@@ -1,4 +1,9 @@
 // Docs: infra/plans/2-implementation.md#step-6-repository-and-local-cluster-foundation
+export {
+  alertEmailHelmArgs,
+  smtpSecretName,
+  smtpSecretNamespace,
+} from "./alert-email.js";
 export { isLocalProvider } from "./provider.js";
 export {
   absolute,

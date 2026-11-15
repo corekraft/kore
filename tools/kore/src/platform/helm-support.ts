@@ -3,6 +3,7 @@
 import { vi } from "vitest";
 import {
   absolute,
+  alertEmailHelmArgs,
   componentValues,
   componentVersion,
   expandVersions,
@@ -17,6 +18,7 @@ export function configAnswers(): void {
   vi.mocked(absolute).mockImplementation(
     (repo, path) => `${repo.root}/${path}`,
   );
+  vi.mocked(alertEmailHelmArgs).mockReturnValue([]);
   vi.mocked(componentValues).mockReturnValue([]);
   vi.mocked(componentVersion).mockReturnValue("1.2.3");
   vi.mocked(expandVersions).mockImplementation((_repo, value) => value);

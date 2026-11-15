@@ -1,4 +1,5 @@
 import { beforeEach, expect, test, vi } from "vitest";
+import { alertEmailHelmArgs } from "../config/index.js";
 import {
   assertChartDelivery,
   assertGoldenPathDelivery,
@@ -9,6 +10,7 @@ import { fakeComponent, fakeRepository } from "./platform-support.js";
 
 vi.mock("../config/index.js", () => ({
   absolute: vi.fn(),
+  alertEmailHelmArgs: vi.fn(),
   componentValues: vi.fn(),
   componentVersion: vi.fn(),
   expandVersions: vi.fn(),
@@ -146,4 +148,23 @@ test("kore-golden-path-delivery without composed values is refused with the flag
   expect(() =>
     assertGoldenPathDelivery(repository, fakeComponent()),
   ).not.toThrow();
+});
+
+test("a component's alert email arguments come from the config domain with the component's name, after the other values", () => {
+  vi.mocked(alertEmailHelmArgs).mockReturnValue([
+    "--set-string",
+    "alerts.destination=kore-platform-email",
+  ]);
+  const args = helmUpgradeArgs(
+    repository,
+    fakeComponent({ name: "kore-service-observability" }),
+  );
+  expect(args.slice(-2)).toEqual([
+    "--set-string",
+    "alerts.destination=kore-platform-email",
+  ]);
+  expect(alertEmailHelmArgs).toHaveBeenCalledWith(
+    repository.environment,
+    "kore-service-observability",
+  );
 });

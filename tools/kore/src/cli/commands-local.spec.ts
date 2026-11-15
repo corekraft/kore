@@ -1,10 +1,16 @@
+import { readFile } from "node:fs/promises";
 import { beforeEach, expect, test, vi } from "vitest";
 import {
   rotateRegistryCredentials,
   swapLocalSigningKey,
 } from "../images/index.js";
 import { localDown, localUp } from "../local/index.js";
-import { installLocalTrust, syncLocalSecrets } from "../security/index.js";
+import {
+  applySmtpCredentials,
+  installLocalTrust,
+  parseSmtpCredentials,
+  syncLocalSecrets,
+} from "../security/index.js";
 import type { ActionHandler } from "./context.js";
 import { mutateAction } from "./context.js";
 import {
@@ -27,6 +33,7 @@ import {
   sharedRunner,
 } from "./cli-support.js";
 
+vi.mock("node:fs/promises");
 vi.mock("../images/index.js");
 vi.mock("../local/index.js");
 vi.mock("../platform/index.js");
@@ -182,5 +189,35 @@ test("registry rotate-credentials reports the rotation's namespaces beside its s
   expect(print).toHaveBeenCalledWith(
     { status: "rotated", namespaces: ["reference"] },
     false,
+  );
+});
+
+test("secrets smtp reads the login from stdin and applies it as a mutation, without syncing and without printing the password", async () => {
+  vi.mocked(readFile).mockResolvedValue("stdin-json");
+  vi.mocked(parseSmtpCredentials).mockReturnValue({
+    user: "u",
+    password: "p4ss",
+  });
+  const context = fakeContext({
+    command: "secrets",
+    action: "smtp",
+    repository,
+    json: true,
+  });
+  expect(await secretsCommand(context)).toBe(0);
+  expect(context.mutate).toHaveBeenCalledWith(
+    "secrets smtp",
+    expect.any(Function),
+  );
+  expect(readFile).toHaveBeenCalledWith("/dev/stdin", "utf8");
+  expect(parseSmtpCredentials).toHaveBeenCalledWith("stdin-json");
+  expect(applySmtpCredentials).toHaveBeenCalledWith(repository, runner, {
+    user: "u",
+    password: "p4ss",
+  });
+  expect(syncLocalSecrets).not.toHaveBeenCalled();
+  expect(print).toHaveBeenCalledWith(
+    { status: "applied", secret: "grafana-smtp" },
+    true,
   );
 });
