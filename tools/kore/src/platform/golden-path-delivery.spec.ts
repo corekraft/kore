@@ -57,10 +57,12 @@ test("the values carry the lock's digests, the checked-out commit and the enviro
     "template.lock.json",
   );
   expect(readFile).toHaveBeenCalledWith("template.lock.json", "utf8");
-  expect(run).toHaveBeenCalledWith("git", ["rev-parse", "HEAD"], {
-    cwd: repository.root,
-    capture: true,
-  });
+  expect(
+    run.mock.calls.map(([command, args]) => [command, ...args]),
+  ).toContainEqual(["git", "rev-parse", "HEAD"]);
+  expect(
+    run.mock.calls.every(([, , options]) => options?.cwd === repository.root),
+  ).toBe(true);
   expect(composed.goldenPathDelivery).toEqual({
     repoURL: "https://github.com/corekraft/kore.git",
     revision: sha,
