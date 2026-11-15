@@ -561,6 +561,38 @@ the window is not appended twice, but the marker still moves. Never edit the
 section or the ledger by hand. Nothing triggers `retro record` automatically
 yet (plan 12, Step 2 follow-ups).
 
+## Approve a harness idea
+
+`harness approve --idea <number or slug> [--json] [--ledger PATH]` applies the
+`ready-for-agent` label to a harness idea (`kind: harness`, a metric, direction
+and window) only when both hold. The change is reversible: safety pattern
+`no-behaviour-change`, `feature-flagged`, `dark-launched` or
+`branch-by-abstraction` (`expand-contract` migrates data, so it is not), and the
+idea's title, summary and expected outcome do not move a guardrail to enforce.
+And its metric is in the flow report with a trailing average and enough history
+(`status: ok`; a metric with `insufficient history`, one with no trailing
+average, or an unknown one is refused). Otherwise it leaves the idea for a
+person and says why.
+
+The reason is posted as a comment on the idea's issue (it opens with an HTML
+marker, `<!-- harness:auto-approved -->` or `<!-- harness:left-for-person -->`)
+and an `auto-approved` event (the metric as `label`, the issue as `number`) is
+recorded in the ledger. Each write happens once: a rerun posts, labels and
+records nothing twice, and finishes a half-done run. A label already on the
+issue is a person's and gets no event. `--json` is one object: `idea`, `issue`,
+`status` (`approved`, `already-approved`, `left-for-person` or `flag-off`) and
+`reason`.
+
+An agent's label never counts as the owner's approval: the poller skips the
+marked comments and the label the harness applied when it records
+`owner.action`, so owner minutes stay the owner's own.
+
+Nothing runs `approve` unprompted: it is a command only, with no scheduler or
+trigger. The `automatic-approval` flag is off in every overlay. With it off the
+command writes nothing (no comment, label or event) and only reports the
+verdict as `flag-off`. Turning the flag on is the owner's step, after a
+recorded outcome.
+
 ## Guardrail approval requests
 
 `harness guardrail request <rule> --to enforce|audit|removed --idea <number>

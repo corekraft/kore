@@ -9,7 +9,11 @@ import {
   when,
   type Raw,
 } from "./github-gh.js";
-import { fromActions } from "./github-owner-actions.js";
+import {
+  APPROVED_MARKER,
+  REFUSED_MARKER,
+  fromActions,
+} from "./github-owner-actions.js";
 
 vi.mock("./github-gh.js");
 
@@ -220,5 +224,62 @@ describe("fromActions: a listing that fails", () => {
     expect(await fromActions(fakeRunner(), REPO, OWNER)).toBe(
       "gh returned 200 pull requests, the most one poll lists, so some reviews may be missing. Pass --since with a later time.",
     );
+  });
+});
+
+describe("fromActions: an agent's auto-approval is not the owner's action", () => {
+  const withBody = (body: string, id: number, issue = 7) => ({
+    ...comment(OWNER, id),
+    body,
+    issue_url: `https://api.github.com/repos/corekraft/kore/issues/${issue}`,
+  });
+  const labelled = (id: number, issue: number, name = "ready-for-agent") => ({
+    id,
+    event: "labeled",
+    label: { name },
+    actor: { login: OWNER },
+    created_at: "2026-01-03T00:00:00Z",
+    issue: { number: issue },
+  });
+
+  it.each([
+    ["approval", APPROVED_MARKER],
+    ["refusal", REFUSED_MARKER],
+  ])(
+    "does not count a %s comment the harness posted under the owner's login",
+    async (_n, marker) => {
+      listings({ comments: [withBody(`${marker}\nwhy`, 5)] });
+      expect(await fromActions(fakeRunner(), REPO, OWNER)).toEqual([]);
+    },
+  );
+
+  it("still counts the owner's own comment on the same issue", async () => {
+    listings({ comments: [withBody("looks good", 6)] });
+    expect(await fromActions(fakeRunner(), REPO, OWNER)).toHaveLength(1);
+  });
+
+  it("does not count the approval label the harness applied on an auto-approved issue", async () => {
+    listings({
+      comments: [withBody(`${APPROVED_MARKER}\nwhy`, 5, 7)],
+      events: [labelled(9, 7)],
+    });
+    expect(await fromActions(fakeRunner(), REPO, OWNER)).toEqual([]);
+  });
+
+  it("counts the approval label on an issue the harness did not approve, and other labels", async () => {
+    listings({
+      comments: [withBody(`${APPROVED_MARKER}\nwhy`, 5, 7)],
+      events: [labelled(9, 8), labelled(10, 7, "outcome:x")],
+    });
+    const events = await fromActions(fakeRunner(), REPO, OWNER);
+    expect(events).toHaveLength(2);
+  });
+
+  it("counts the owner's label after the harness only left an issue for a person", async () => {
+    listings({
+      comments: [withBody(`${REFUSED_MARKER}\nwhy`, 5, 7)],
+      events: [labelled(9, 7)],
+    });
+    expect(await fromActions(fakeRunner(), REPO, OWNER)).toHaveLength(1);
   });
 });

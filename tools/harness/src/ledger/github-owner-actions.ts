@@ -10,6 +10,11 @@ import {
 } from "./github-gh.js";
 import type { EventInput } from "./schema.js";
 
+/** Opens a comment `harness approve` posts when it labels an idea; the comment and that label are the agent's, not the owner's. */
+export const APPROVED_MARKER = "<!-- harness:auto-approved -->";
+/** Opens a comment `harness approve` posts when it leaves an idea for a person. */
+export const REFUSED_MARKER = "<!-- harness:left-for-person -->";
+
 /** What GitHub says the owner did: comments, issue events and pull request reviews, as raw listings. */
 interface Sources {
   comments: Raw[];
@@ -73,6 +78,19 @@ function ownerEvents(
   owner: string,
 ): EventInput[] {
   const out: EventInput[] = [];
+  const bodyOf = (c: Raw) => (typeof c["body"] === "string" ? c["body"] : "");
+  const agentMade = (c: Raw) =>
+    bodyOf(c).startsWith(APPROVED_MARKER) ||
+    bodyOf(c).startsWith(REFUSED_MARKER);
+  const autoApproved = new Set(
+    comments
+      .filter((c) => bodyOf(c).startsWith(APPROVED_MARKER))
+      .map((c) => issueNumber(c["issue_url"])),
+  );
+  const agentLabel = (e: Raw) =>
+    e["event"] === "labeled" &&
+    asRecord(e["label"])["name"] === "ready-for-agent" &&
+    autoApproved.has(count(asRecord(e["issue"])["number"]));
   const add = (
     id: string,
     login: unknown,
@@ -90,7 +108,7 @@ function ownerEvents(
       });
     }
   };
-  for (const c of comments) {
+  for (const c of comments.filter((each) => !agentMade(each))) {
     add(
       `github:owner.action:comment:${String(c["id"])}`,
       asRecord(c["user"])["login"],
@@ -98,7 +116,7 @@ function ownerEvents(
       issueNumber(c["issue_url"]),
     );
   }
-  for (const e of events) {
+  for (const e of events.filter((each) => !agentLabel(each))) {
     add(
       `github:owner.action:event:${String(e["id"])}`,
       asRecord(e["actor"])["login"],
