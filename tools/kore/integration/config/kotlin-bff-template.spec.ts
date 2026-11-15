@@ -119,6 +119,21 @@ test("the training run can write the cache and the build proves the runtime acce
   assert.match(script, /dependsOn\(aotVerify\)/);
 });
 
+test("the class path holds jars only, because the JDK cannot dump an AOT cache from a class path directory", async () => {
+  const script = await read(build);
+  // The training class path and the image class path are one string.
+  assert.match(script, /val classPath = "\/app\/app\.jar:\/app\/libs\/\*"/);
+  assert.doesNotMatch(script, /\/app\/classes|\/app\/resources/);
+  assert.doesNotMatch(script, /resourcesDir|classesDirs/);
+  // The application is that one jar, staged and added to the image.
+  assert.match(script, /archiveFileName = "app\.jar"/);
+  assert.match(script, /from\(tasks\.jar\)/);
+  assert.match(script, /it\.file\("app\/app\.jar"\)/);
+  // The container starts with the same class path the cache was trained on.
+  assert.match(script, /entrypoint = /);
+  assert.match(script, /"-cp", classPath/);
+});
+
 test("training and image class path files carry the same modification time", async () => {
   const script = await read(build);
   assert.match(script, /val imageFileTime = "1970-01-01T00:00:01Z"/);
