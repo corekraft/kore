@@ -138,6 +138,22 @@ jobs:
             --certificate-identity "$IDENTITY" \
             --certificate-oidc-issuer "$ISSUER" \
             "${IMAGE}@${DIGEST}"
+      # The golden-path static frontend template image (ADR 0045), signed by the
+      # same keyless identity. It is published only: the image lock below stays
+      # the reference image's, because nothing deploys the template yet.
+      - name: Build, push, sign and verify the static frontend template image
+        env:
+          TEMPLATE_IMAGE: ghcr.io/corekraft/kore/templates/static-frontend
+        run: |
+          docker build --tag "$TEMPLATE_IMAGE:$TAG" templates/static-frontend
+          docker push "$TEMPLATE_IMAGE:$TAG"
+          TEMPLATE_DIGEST="$(docker inspect --format '{{ index .RepoDigests 0 }}' "$TEMPLATE_IMAGE:$TAG")"
+          TEMPLATE_DIGEST="${TEMPLATE_DIGEST##*@}"
+          mise exec -- cosign sign --yes "${TEMPLATE_IMAGE}@${TEMPLATE_DIGEST}"
+          mise exec -- cosign verify \
+            --certificate-identity "$IDENTITY" \
+            --certificate-oidc-issuer "$ISSUER" \
+            "${TEMPLATE_IMAGE}@${TEMPLATE_DIGEST}"
       - name: Write the image lock
         run: |
           jq -n --arg image "$IMAGE" --arg digest "$DIGEST" --arg signer "$IDENTITY" \

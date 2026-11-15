@@ -130,7 +130,7 @@ run = ["actionlint .github/workflows/check.yml .github/workflows/nightly.yml .gi
 
 [tasks.scan-dockerfiles]
 description = "Lint Dockerfiles with hadolint"
-run = "hadolint apps/reference/Dockerfile"
+run = "hadolint apps/reference/Dockerfile templates/static-frontend/Dockerfile"
 
 [tasks.scan]
 description = "Run every security and quality scan"
