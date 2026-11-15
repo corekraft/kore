@@ -35,10 +35,29 @@ test("an argocd release is owned by argocd once platform-argocd-delivery is on, 
   expect(releaseOwner(fakeEnvironment(), kept)).toBe("kore");
 });
 
-test("Helm installs every enabled release with the flag off, and never an argocd-owned one with it on", () => {
+test("Helm installs every enabled release with the flag off, whether or not the delivery release is installed", () => {
   const repository = fakeRepository();
   vi.mocked(enabledComponents).mockReturnValue([handedOver, kept]);
-  expect(helmInstalledComponents(repository)).toEqual([handedOver, kept]);
+  expect(helmInstalledComponents(repository, false)).toEqual([
+    handedOver,
+    kept,
+  ]);
+  expect(helmInstalledComponents(repository, true)).toEqual([handedOver, kept]);
+});
+
+test("with the flag on, Helm keeps an argocd release until kore-config-delivery is installed, so no window has no owner", () => {
+  const repository = fakeRepository();
   vi.mocked(featureEnabled).mockReturnValue(true);
-  expect(helmInstalledComponents(repository)).toEqual([kept]);
+  vi.mocked(enabledComponents).mockReturnValue([handedOver, kept]);
+  expect(helmInstalledComponents(repository, false)).toEqual([
+    handedOver,
+    kept,
+  ]);
+});
+
+test("with the flag on and kore-config-delivery installed, Helm skips every argocd-owned release", () => {
+  const repository = fakeRepository();
+  vi.mocked(featureEnabled).mockReturnValue(true);
+  vi.mocked(enabledComponents).mockReturnValue([handedOver, kept]);
+  expect(helmInstalledComponents(repository, true)).toEqual([kept]);
 });

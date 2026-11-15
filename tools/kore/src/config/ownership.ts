@@ -21,9 +21,22 @@ export function releaseOwner(
     : "kore";
 }
 
-/** The enabled releases kore installs through Helm, never one that argo cd owns. */
-export function helmInstalledComponents(repository: Repository): Component[] {
+/** The release that creates the Argo CD AppProject and Applications (ADR 0043). */
+export const configDeliveryRelease = "kore-config-delivery";
+
+/**
+ * The enabled releases kore installs through Helm. An argocd-owned release is
+ * skipped only once `kore-config-delivery` is installed, so Argo CD can take
+ * it over and there is never a window with no owner (ADR 0043). With the flag
+ * off nothing is argocd-owned, so `deliveryInstalled` changes nothing.
+ */
+export function helmInstalledComponents(
+  repository: Repository,
+  deliveryInstalled: boolean,
+): Component[] {
   return enabledComponents(repository).filter(
-    (component) => releaseOwner(repository.environment, component) === "kore",
+    (component) =>
+      !deliveryInstalled ||
+      releaseOwner(repository.environment, component) === "kore",
   );
 }
