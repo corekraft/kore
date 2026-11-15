@@ -1,5 +1,5 @@
 import {
-  enabledComponents,
+  helmInstalledComponents,
   isLocalProvider,
   type Repository,
 } from "../config/index.js";
@@ -18,7 +18,7 @@ export async function platformUp(
   if (isLocalProvider(repository.environment)) {
     await installLocalTrust(repository, runner);
   }
-  for (const component of enabledComponents(repository)) {
+  for (const component of helmInstalledComponents(repository)) {
     if (
       component.phase !== "configuration" &&
       component.phase !== "enforcement"

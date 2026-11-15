@@ -1,5 +1,5 @@
 import { beforeEach, expect, test, vi } from "vitest";
-import { enabledComponents, isLocalProvider } from "../config/index.js";
+import { helmInstalledComponents, isLocalProvider } from "../config/index.js";
 import { installLocalTrust } from "../security/index.js";
 import { bootstrapControllers, openApplicationAdmission } from "./bootstrap.js";
 import { enrollPlatformNamespaces } from "./enrollment.js";
@@ -60,7 +60,7 @@ beforeEach(() => {
   vi.mocked(isLocalProvider).mockImplementation(
     (environment) => environment.provider === "k3d",
   );
-  vi.mocked(enabledComponents).mockReturnValue([core, policy, enforce]);
+  vi.mocked(helmInstalledComponents).mockReturnValue([core, policy, enforce]);
 });
 
 test("platform up bootstraps the controllers before anything else", async () => {
