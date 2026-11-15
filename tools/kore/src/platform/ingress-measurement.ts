@@ -1,6 +1,8 @@
 import type { Runner } from "../runtime/index.js";
 import { parsePodMetrics, summarizeSamples } from "./ingress-metrics.js";
 import type { MeasurementSummary, PodUsage } from "./ingress-metrics.js";
+import { summarizeLatency } from "./ingress-metrics.js";
+import type { LatencySummary } from "./ingress-metrics.js";
 
 // Docs: infra/plans/13-agentgateway-ingress.md#measurement-method
 //
@@ -45,6 +47,11 @@ export interface MeasurementOptions {
   concurrency: number;
   /** Measuring is refused at or above this host 1-minute load average. */
   maxLoadAverage: number;
+  /**
+   * Sequential timed GETs per route at each sample, taken while the load runs.
+   * Unset or 0 sends none and reports no latency.
+   */
+  latencyProbesPerRoute?: number;
 }
 
 /** The fixed method: Step 1 and Step 4 both run exactly these values. */
@@ -55,6 +62,7 @@ export const ingressMeasurementDefaults = {
   requestsPerRoute: 200,
   concurrency: 4,
   maxLoadAverage: 10,
+  latencyProbesPerRoute: 20,
 } as const;
 
 export interface Sample {
@@ -80,6 +88,8 @@ export interface Measurement {
   pods: { ingress: string[]; ztunnel: string[] };
   samples: Sample[];
   summary: { ingress: MeasurementSummary; ztunnel: MeasurementSummary };
+  /** Request times at the Gateway under the load; absent when not probed. */
+  latency?: LatencySummary;
 }
 
 export interface MeasurementDeps {
@@ -118,10 +128,12 @@ export class IngressMeasurement {
       (error: unknown) => error,
     );
     const samples: Sample[] = [];
+    const probeMilliseconds: number[] = [];
     try {
       for (let index = 0; index < this.options.sampleCount; index++) {
         await this.deps.sleep(this.options.sampleIntervalSeconds);
         samples.push(await this.sample());
+        probeMilliseconds.push(...(await this.probeLatency()));
       }
     } finally {
       running = false;
@@ -153,7 +165,56 @@ export class IngressMeasurement {
         ingress: summarizeSamples(samples.map((sample) => sample.ingress)),
         ztunnel: summarizeSamples(samples.map((sample) => sample.ztunnel)),
       },
+      ...(probeMilliseconds.length > 0
+        ? { latency: summarizeLatency(probeMilliseconds) }
+        : {}),
     };
+  }
+
+  /** Times sequential GETs per route while the load runs, in milliseconds. */
+  private async probeLatency(): Promise<number[]> {
+    const probes = this.options.latencyProbesPerRoute ?? 0;
+    const times: number[] = [];
+    if (probes <= 0) {
+      return times;
+    }
+    const { hostname, port, caRoot } = this.options;
+    for (const route of ingressRoutes) {
+      const { stdout } = await this.loadRunner.run(
+        "curl",
+        [
+          "--silent",
+          "--show-error",
+          "--output",
+          "/dev/null",
+          "--write-out",
+          "%{time_total}\\n",
+          "--connect-timeout",
+          "5",
+          "--max-time",
+          "60",
+          "--cacert",
+          `${caRoot}/rootCA.pem`,
+          "--resolve",
+          `${hostname}:${port}:127.0.0.1`,
+          `https://${hostname}:${port}${route.path}#[1-${probes}]`,
+        ],
+        { capture: true },
+      );
+      for (const line of stdout.split("\n").map((l) => l.trim())) {
+        if (line === "") {
+          continue;
+        }
+        const seconds = Number(line);
+        if (!Number.isFinite(seconds)) {
+          throw new Error(
+            `latency probe of ${route.path} returned an unreadable time '${line}'; check that curl reached https://${hostname}:${port}`,
+          );
+        }
+        times.push(Math.round(seconds * 1000 * 10) / 10);
+      }
+    }
+    return times;
   }
 
   private loadFailure(error: unknown): Error {
