@@ -54,4 +54,24 @@ describe("agentgateway live proof, phase 4 rollback", () => {
     expect(listing).toBeGreaterThan(-1);
     expect(listing).toBeLessThan(at("helm uninstall"));
   });
+
+  it("deletes only the Kore-owned AgentgatewayParameters in the Gateway namespace, after the guards and before the per-kind listing", () => {
+    const del =
+      "k -n kore-system delete agentgatewayparameters.agentgateway.dev/kore-gateway-service --ignore-not-found --timeout=60s";
+    expect(at(del)).toBeGreaterThan(-1);
+    expect(at(del)).toBeGreaterThan(at('[ "$context" != "k3d-kore-local" ]'));
+    expect(at(del)).toBeGreaterThan(at('crds="$(k get crd -o name)" || fail'));
+    expect(at(del)).toBeLessThan(
+      at('found="$(k get "$crd" --all-namespaces -o name)" || fail'),
+    );
+    expect(phase4.match(/\bk (-n \S+ )?delete\b/g)).toHaveLength(1);
+  });
+
+  it("still fails for any other Agentgateway custom resource, and ignores nothing by name", () => {
+    expect(at("Agentgateway custom resources exist")).toBeGreaterThan(
+      at('found="$(k get "$crd" --all-namespaces -o name)" || fail'),
+    );
+    expect(phase4).toContain('[ -z "$crs" ] || fail');
+    expect(phase4).not.toContain("grep -v");
+  });
 });
