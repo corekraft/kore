@@ -23,10 +23,24 @@ spec:
     - server: https://kubernetes.default.svc
       namespace: {{ $space | quote }}
     {{- end }}
-  # Configuration includes CRDs, policy templates, constraints and cluster roles.
+  # Exactly the cluster-scoped kinds the six charts render (an integration spec
+  # renders them and fails when one is missing or a wildcard appears). A new
+  # cluster-scoped kind in a handed-over chart is added here deliberately.
   clusterResourceWhitelist:
-    - group: "*"
-      kind: "*"
+    - group: ""
+      kind: Namespace
+    - group: external-secrets.io
+      kind: ClusterSecretStore
+    - group: apiextensions.crossplane.io
+      kind: CompositeResourceDefinition
+    - group: apiextensions.crossplane.io
+      kind: Composition
+    - group: templates.gatekeeper.sh
+      kind: ConstraintTemplate
+    {{- range $kind := list "KoreContainerSecurity" "KoreImageDigest" "KoreMeshEnrollment" "KoreRBAC" "KoreRetention" "KoreSecrets" "KoreWorkloadIdentity" }}
+    - group: constraints.gatekeeper.sh
+      kind: {{ $kind }}
+    {{- end }}
   roles:
     - name: operators
       description: Platform operators change and sync the configuration
