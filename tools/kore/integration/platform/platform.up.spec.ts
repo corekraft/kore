@@ -57,7 +57,24 @@ const healthyGateway = JSON.stringify({
   },
 });
 
+/** A fresh profile: no Gateway class to read and no Gateway or old proxy left to wait for. */
+function freshGatewayRead(args: readonly string[]): boolean {
+  return (
+    args.includes("jsonpath={.spec.gatewayClassName}") ||
+    (args.includes("name") &&
+      args.some(
+        (arg) =>
+          arg === "gateway/kore-gateway" ||
+          arg.endsWith("kore-gateway-istio") ||
+          arg.includes("gateway-name="),
+      ))
+  );
+}
+
 function kubectlOutput(args: readonly string[]): string {
+  if (freshGatewayRead(args)) {
+    return "";
+  }
   if (args.includes("jsonpath={.metadata.name}")) {
     return "kube-system";
   }
@@ -122,7 +139,9 @@ test("local platform up waits for Gateway programming after applying the configu
     const gatewayProgrammed = indexOfCall(
       calls,
       ({ command, args }) =>
-        command === "kubectl" && args.includes("gateway/kore-gateway"),
+        command === "kubectl" &&
+        args.includes("gateway/kore-gateway") &&
+        args.includes("json"),
     );
     assert.ok(issuerReady >= 0);
     assert.ok(configurationApplied > issuerReady);

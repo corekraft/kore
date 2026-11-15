@@ -78,6 +78,20 @@ const healthyGateway = JSON.stringify({
   },
 });
 
+/** A fresh profile: no Gateway class to read and no Gateway or old proxy left to wait for. */
+function freshGatewayRead(args: readonly string[]): boolean {
+  return (
+    args.includes("jsonpath={.spec.gatewayClassName}") ||
+    (args.includes("name") &&
+      args.some(
+        (arg) =>
+          arg === "gateway/kore-gateway" ||
+          arg.endsWith("kore-gateway-istio") ||
+          arg.includes("gateway-name="),
+      ))
+  );
+}
+
 /** A cluster where the release is deployed with the given description. */
 function cluster(description: (revision: number) => string) {
   const calls: { command: string; args: readonly string[] }[] = [];
@@ -108,6 +122,9 @@ function cluster(description: (revision: number) => string) {
         }
         if (args.includes("service")) {
           return ok(nodePortService);
+        }
+        if (freshGatewayRead(args)) {
+          return ok("");
         }
         if (args.some((arg) => arg.startsWith("gateway/"))) {
           return ok(healthyGateway);
