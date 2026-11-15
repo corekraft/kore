@@ -21,6 +21,15 @@ const SAFETY_PATTERNS = [
   "branch-by-abstraction",
   "expand-contract",
 ];
+const HARNESS_KIND = "harness";
+const HYPOTHESIS_KEYS = [
+  "hypothesis-metric",
+  "hypothesis-direction",
+  "hypothesis-window",
+];
+const DIRECTIONS = ["up", "down"];
+// A measurement window is a number of days, such as 14d.
+const WINDOW = /^[1-9]\d*d$/;
 // The GitHub issue owns workflow state (open or closed included); an idea is closed when it has an outcome, and its file never stores state.
 const WORKFLOW_KEYS = [
   "status",
@@ -79,6 +88,75 @@ function valueProblems(file: string, keys: Keys): Finding[] {
       "issue",
       `frontmatter issue is ${issue.value}`,
       "use an issue number such as 185 or #185, or its URL",
+    );
+  }
+  return problems;
+}
+
+/** A harness idea's hypothesis: a flow report metric, a direction and a window, each present and well formed. */
+function harnessProblems(
+  file: string,
+  keys: Keys,
+  metrics: readonly string[],
+): Finding[] {
+  const kind = keys.get("kind");
+  if (!kind) {
+    return [];
+  }
+  if (kind.value !== HARNESS_KIND) {
+    return [
+      onKey(
+        file,
+        keys,
+        "kind",
+        `frontmatter kind is ${kind.value}`,
+        `use ${HARNESS_KIND}, or remove the line`,
+      ),
+    ];
+  }
+  const problems = HYPOTHESIS_KEYS.filter((key) => !keys.has(key)).map((key) =>
+    onKey(
+      file,
+      keys,
+      "kind",
+      `frontmatter ${key} is missing for a harness idea`,
+      `add a ${key}: line`,
+    ),
+  );
+  const metric = keys.get("hypothesis-metric");
+  if (metric && !metrics.includes(metric.value)) {
+    problems.push(
+      onKey(
+        file,
+        keys,
+        "hypothesis-metric",
+        `frontmatter hypothesis-metric is ${metric.value}, which is not a flow report metric`,
+        `use one of ${metrics.join(", ")} (see \`harness flow report --json\`)`,
+      ),
+    );
+  }
+  const direction = keys.get("hypothesis-direction");
+  if (direction && !DIRECTIONS.includes(direction.value)) {
+    problems.push(
+      onKey(
+        file,
+        keys,
+        "hypothesis-direction",
+        `frontmatter hypothesis-direction is ${direction.value}`,
+        "use up or down",
+      ),
+    );
+  }
+  const window = keys.get("hypothesis-window");
+  if (window && !WINDOW.test(window.value)) {
+    problems.push(
+      onKey(
+        file,
+        keys,
+        "hypothesis-window",
+        `frontmatter hypothesis-window is ${window.value}`,
+        "use a number of days such as 14d",
+      ),
     );
   }
   return problems;
@@ -154,11 +232,12 @@ function outcomeProblems(
   return [];
 }
 
-/** Frontmatter problems of one idea record; `ideas` holds the numbers of every idea file. */
+/** Frontmatter problems of one idea record; `ideas` holds the numbers of every idea file and `metrics` the flow report's metric names. */
 export function checkIdea(
   file: string,
   markdown: string,
   ideas: ReadonlyMap<string, string>,
+  metrics: readonly string[],
 ): Finding[] {
   const parsed = frontmatter(file, markdown);
   if (!parsed) {
@@ -176,6 +255,7 @@ export function checkIdea(
     ...parsed.errors,
     ...valueProblems(file, keys),
     ...parentProblems(file, keys, ideas),
+    ...harnessProblems(file, keys, metrics),
     ...outcomeProblems(file, markdown, keys),
   ];
   if (!IDEA_NAME.test(file)) {

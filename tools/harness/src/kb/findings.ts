@@ -2,6 +2,7 @@
 // frontmatter, Docs/Plan/ADR markers, and README coverage of CLI commands.
 // Docs: infra/plans/4-knowledge.md#step-3-knowledge-health-check
 
+import { flowMetricNames } from "../flow/index.js";
 import { checkFrontmatter } from "./document-checks.js";
 import { IDEA_NAME, checkIdea } from "./idea-checks.js";
 import {
@@ -160,7 +161,7 @@ function markdownProblems(tree: Tree, ideas: Map<string, string>): Finding[] {
         ...checkFrontmatter(file, text, (path) => tree.exists(path)),
       );
     } else if (IDEA.test(file)) {
-      problems.push(...checkIdea(file, text, ideas));
+      problems.push(...checkIdea(file, text, ideas, flowMetricNames()));
     }
   }
   return problems;

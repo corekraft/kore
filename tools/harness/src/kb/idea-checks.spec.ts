@@ -13,6 +13,7 @@ vi.mock("./markdown.js", async (importOriginal) => ({
 
 const FILE = "docs/ideas/0001-a.md";
 const IDEAS = new Map([["0001", FILE]]);
+const METRICS = ["outcomes.mainRed.rate", "friction.total"];
 const PROBLEM: Finding = { file: "", line: 0, message: "", fix: "" };
 const ERROR: Finding = {
   file: FILE,
@@ -35,7 +36,7 @@ beforeEach(() => {
 
 test("a file with no frontmatter is reported on line 1, naming the idea fields", () => {
   vi.mocked(frontmatter).mockReturnValue(null);
-  checkIdea(FILE, "# Idea\n", IDEAS);
+  checkIdea(FILE, "# Idea\n", IDEAS, METRICS);
   expect(vi.mocked(finding).mock.calls).toEqual([
     [
       FILE,
@@ -51,14 +52,14 @@ test("a complete idea with an issue and an issue parent is clean", () => {
   keys.set("issue", { value: "185", line: 8 });
   keys.set("parent", { value: "#127", line: 9 });
   vi.mocked(frontmatter).mockReturnValue({ keys, errors: [] });
-  expect(checkIdea(FILE, "# Idea 0001: A\n", IDEAS)).toEqual([]);
+  expect(checkIdea(FILE, "# Idea 0001: A\n", IDEAS, METRICS)).toEqual([]);
 });
 
 test("an idea missing a required field reports it on line 1", () => {
   const keys = new Map(VALID);
   keys.delete("measurement");
   vi.mocked(frontmatter).mockReturnValue({ keys, errors: [] });
-  checkIdea(FILE, "# Idea\n", IDEAS);
+  checkIdea(FILE, "# Idea\n", IDEAS, METRICS);
   expect(vi.mocked(finding).mock.calls).toEqual([
     [FILE, 1, "frontmatter measurement is missing", "add a measurement: line"],
   ]);
@@ -68,7 +69,7 @@ test("an unknown safety pattern is reported, and the fix lists the allowed ones"
   const keys = new Map(VALID);
   keys.set("safety-pattern", { value: "yolo", line: 6 });
   vi.mocked(frontmatter).mockReturnValue({ keys, errors: [] });
-  checkIdea(FILE, "# Idea\n", IDEAS);
+  checkIdea(FILE, "# Idea\n", IDEAS, METRICS);
   expect(vi.mocked(finding).mock.calls).toEqual([
     [
       FILE,
@@ -83,7 +84,7 @@ test("an outcome that is not confirmed, refuted or inconclusive is reported", ()
   const keys = new Map(VALID);
   keys.set("outcome", { value: "great", line: 8 });
   vi.mocked(frontmatter).mockReturnValue({ keys, errors: [] });
-  checkIdea(FILE, "# Idea\n\n## Outcome\n\nNo.\n", IDEAS);
+  checkIdea(FILE, "# Idea\n\n## Outcome\n\nNo.\n", IDEAS, METRICS);
   expect(vi.mocked(finding).mock.calls).toEqual([
     [
       FILE,
@@ -98,7 +99,7 @@ test("a date that is not YYYY-MM-DD is reported on the date line", () => {
   const keys = new Map(VALID);
   keys.set("date", { value: "yesterday", line: 7 });
   vi.mocked(frontmatter).mockReturnValue({ keys, errors: [] });
-  checkIdea(FILE, "# Idea\n", IDEAS);
+  checkIdea(FILE, "# Idea\n", IDEAS, METRICS);
   expect(vi.mocked(finding).mock.calls).toEqual([
     [FILE, 7, "frontmatter date is yesterday", "use a YYYY-MM-DD date"],
   ]);
@@ -118,7 +119,7 @@ test.each([
   const keys = new Map(VALID);
   keys.set(key, { value: "x", line: 8 });
   vi.mocked(frontmatter).mockReturnValue({ keys, errors: [] });
-  checkIdea(FILE, "# Idea\n", IDEAS);
+  checkIdea(FILE, "# Idea\n", IDEAS, METRICS);
   expect(vi.mocked(finding).mock.calls).toEqual([
     [
       FILE,
@@ -133,7 +134,7 @@ test("an issue must be a number, #number or a GitHub URL", () => {
   const soon = new Map(VALID);
   soon.set("issue", { value: "soon", line: 8 });
   vi.mocked(frontmatter).mockReturnValue({ keys: soon, errors: [] });
-  checkIdea(FILE, "# Idea\n", IDEAS);
+  checkIdea(FILE, "# Idea\n", IDEAS, METRICS);
   expect(vi.mocked(finding).mock.calls).toEqual([
     [
       FILE,
@@ -148,7 +149,7 @@ test("an issue must be a number, #number or a GitHub URL", () => {
     const keys = new Map(VALID);
     keys.set("issue", { value, line: 8 });
     vi.mocked(frontmatter).mockReturnValue({ keys, errors: [] });
-    expect(checkIdea(FILE, "# Idea\n", IDEAS)).toEqual([]);
+    expect(checkIdea(FILE, "# Idea\n", IDEAS, METRICS)).toEqual([]);
     expect(finding).not.toHaveBeenCalled();
   }
 });
@@ -157,7 +158,7 @@ test("a parent is an issue, or an idea number that exists", () => {
   const unknown = new Map(VALID);
   unknown.set("parent", { value: "0042", line: 8 });
   vi.mocked(frontmatter).mockReturnValue({ keys: unknown, errors: [] });
-  checkIdea(FILE, "# Idea\n", IDEAS);
+  checkIdea(FILE, "# Idea\n", IDEAS, METRICS);
   expect(vi.mocked(finding).mock.calls).toEqual([
     [
       FILE,
@@ -171,12 +172,12 @@ test("a parent is an issue, or an idea number that exists", () => {
   const existing = new Map(VALID);
   existing.set("parent", { value: "0001-a", line: 8 });
   vi.mocked(frontmatter).mockReturnValue({ keys: existing, errors: [] });
-  expect(checkIdea(FILE, "# Idea\n", IDEAS)).toEqual([]);
+  expect(checkIdea(FILE, "# Idea\n", IDEAS, METRICS)).toEqual([]);
 
   const bogus = new Map(VALID);
   bogus.set("parent", { value: "bogus", line: 8 });
   vi.mocked(frontmatter).mockReturnValue({ keys: bogus, errors: [] });
-  checkIdea(FILE, "# Idea\n", IDEAS);
+  checkIdea(FILE, "# Idea\n", IDEAS, METRICS);
   expect(vi.mocked(finding).mock.calls).toContainEqual([
     FILE,
     8,
@@ -189,7 +190,7 @@ test("an outcome line without an Outcome section is reported, naming the tool th
   const keys = new Map(VALID);
   keys.set("outcome", { value: "refuted", line: 8 });
   vi.mocked(frontmatter).mockReturnValue({ keys, errors: [] });
-  checkIdea(FILE, "# Idea\n", IDEAS);
+  checkIdea(FILE, "# Idea\n", IDEAS, METRICS);
   expect(vi.mocked(finding).mock.calls).toEqual([
     [
       FILE,
@@ -202,7 +203,7 @@ test("an outcome line without an Outcome section is reported, naming the tool th
 
 test("an Outcome section without an outcome line is reported on the heading", () => {
   vi.mocked(frontmatter).mockReturnValue({ keys: new Map(VALID), errors: [] });
-  checkIdea(FILE, "# Idea 0001: A\n\n## Outcome\n\nNo.\n", IDEAS);
+  checkIdea(FILE, "# Idea 0001: A\n\n## Outcome\n\nNo.\n", IDEAS, METRICS);
   expect(vi.mocked(finding).mock.calls).toEqual([
     [
       FILE,
@@ -215,7 +216,7 @@ test("an Outcome section without an outcome line is reported on the heading", ()
 
 test("an idea file must be named NNNN-slug.md", () => {
   vi.mocked(frontmatter).mockReturnValue({ keys: new Map(VALID), errors: [] });
-  checkIdea("docs/ideas/a.md", "# Idea\n", IDEAS);
+  checkIdea("docs/ideas/a.md", "# Idea\n", IDEAS, METRICS);
   expect(vi.mocked(finding).mock.calls).toEqual([
     [
       "docs/ideas/a.md",
@@ -237,7 +238,7 @@ test("a frontmatter parse error is reported with the idea problems", () => {
     keys: new Map(VALID),
     errors: [ERROR],
   });
-  expect(checkIdea(FILE, "# Idea\n", IDEAS)).toEqual([ERROR]);
+  expect(checkIdea(FILE, "# Idea\n", IDEAS, METRICS)).toEqual([ERROR]);
 });
 
 test("problems come in line order, and missing fields come after them", () => {
@@ -251,7 +252,7 @@ test("problems come in line order, and missing fields come after them", () => {
     ]),
     errors: [],
   });
-  checkIdea(FILE, "# Idea\n", IDEAS);
+  checkIdea(FILE, "# Idea\n", IDEAS, METRICS);
   expect(vi.mocked(finding).mock.calls).toEqual([
     [FILE, 6, "frontmatter date is soon", "use a YYYY-MM-DD date"],
     [FILE, 1, "frontmatter measurement is missing", "add a measurement: line"],

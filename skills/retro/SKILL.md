@@ -1,13 +1,13 @@
 ---
 name: retro
-description: Use to review recent sessions in this repository and propose changes to hooks, skills, AGENTS.md, or memory. Run manually after a few working sessions.
+description: Use to review recent sessions in this repository and file each finding as a harness idea with a measurable hypothesis. Run after a few working sessions, or when `retro due` says one is due.
 context: fork
 agent: Explore
 ---
 
 # Retrospective
 
-Propose changes only. Never edit hooks, settings, skills, `AGENTS.md`, or memory yourself; a human accepts or rejects each proposal.
+File findings as harness ideas only. Never edit hooks, settings, skills, `AGENTS.md`, or memory yourself: each change is built later, from its idea, through the delivery loop.
 
 ## Procedure
 
@@ -18,6 +18,9 @@ Propose changes only. Never edit hooks, settings, skills, `AGENTS.md`, or memory
    - a `corrections` entry: a hook or deny rule if a script can check it, a skill if it is a workflow, `AGENTS.md` if it is judgment, memory if it is a personal fact.
    - a block or repeated failure that hit legitimate work: a false positive in the guard.
 3. **Quote evidence only for those findings.** Open a transcript just at the `session` and `line` the scan names. Never read the rest, and never paste transcript content back.
-4. **Rank** by how often it occurred, keep the list short, and end with it, each item with a short quote. The calling thread asks the user which to accept, records them in `infra/plans/3-agent-harness.md` or an ADR, and sets `Last retrospective:` to the current UTC time, as `date -u +%Y-%m-%dT%H:%M:%SZ`; this read-only run cannot.
+4. **Rank** by how often it occurred and keep the list short.
+5. **End by filing each finding through the idea tool**, one idea per finding, and list the idea numbers it printed:
+   `node skills/bin/harness.mjs idea new --kind harness --title "<change>" --hypothesis "<if we change X, Y happens>" --expected-outcome "<what moves, by how much>" --measurement "<how it is read from the ledger>" --safety-pattern <pattern> --metric <flow report metric> --direction up|down --window <days>d`.
+   The metric must be one `harness flow report --json` reports; the tool refuses any other and lists the valid ones, and `kb-check` rejects a harness idea with no metric, direction or window. Pick the metric the finding's change should move, the direction it should move in, and a window long enough for several ideas to close. Describe the finding in your own words with counts and rule names; never paste transcript content into an idea.
 
-Step 1 is a tool. Steps 2 to 4 are judgement: which change fits a finding and which proposals are worth a human's time are not something a script can decide.
+Steps 1 and 5 are tools. Steps 2 to 4 are judgement: which change fits a finding and which metric it should move are not something a script can decide.
