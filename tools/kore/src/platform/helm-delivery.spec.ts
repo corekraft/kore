@@ -1,5 +1,5 @@
 import { beforeEach, expect, test, vi } from "vitest";
-import { helmUpgradeArgs } from "./helm.js";
+import { assertChartDelivery, helmUpgradeArgs } from "./helm.js";
 import { configAnswers } from "./helm-support.js";
 import { fakeComponent, fakeRepository } from "./platform-support.js";
 
@@ -57,4 +57,22 @@ test("no other component gets delivery values, and kore-config-delivery gets non
       fakeComponent({ name: "kore-config-delivery" }),
     ),
   ).not.toContain("--set-json");
+});
+
+test("kore-config-delivery without composed values is refused with the flag to pass and where the lock comes from", () => {
+  expect(() =>
+    assertChartDelivery(
+      repository,
+      fakeComponent({ name: "kore-config-delivery" }),
+    ),
+  ).toThrow(
+    "kore-config-delivery needs the chart lock: run `kore platform up --platform-chart-lock <platform-charts.lock.json>`, the release asset published with the charts (kore local up does not pass it yet)",
+  );
+});
+
+test("composed values, or any other component, pass the delivery check", () => {
+  const composed = { ...repository, chartDelivery: delivery };
+  const release = fakeComponent({ name: "kore-config-delivery" });
+  expect(() => assertChartDelivery(composed, release)).not.toThrow();
+  expect(() => assertChartDelivery(repository, fakeComponent())).not.toThrow();
 });

@@ -3,6 +3,7 @@ import { CommandError, type Runner } from "../runtime/index.js";
 import { FailFastError, withFailFast, type WatchOptions } from "./fail-fast.js";
 import { desiredFingerprint } from "./fingerprint.js";
 import {
+  assertChartDelivery,
   envOption,
   helmEnv,
   helmUpgradeArgs,
@@ -56,6 +57,7 @@ async function applyComponent(
     );
     return;
   }
+  assertChartDelivery(repository, component);
   const upgrade = () =>
     withFailFast(
       repository,

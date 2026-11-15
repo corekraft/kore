@@ -11,7 +11,12 @@ import { healthyClusterOutput } from "../testing/index.js";
 // converge"). The fake cluster fails one Helm upgrade once; the rerun must
 // finish every component without uninstalling a release that was deployed.
 
-const repository = await loadRepository("local");
+// Every catalog release is reconciled here, flag or not, so the delivery
+// release gets the values `platform up --platform-chart-lock` would compose.
+const repository = {
+  ...(await loadRepository("local")),
+  chartDelivery: { charts: {}, namespaces: {}, gatewayClassName: "istio" },
+};
 const ordered = orderedComponents(repository.catalog);
 
 /** A healthy cluster whose first Helm upgrade of one release fails transiently. */
