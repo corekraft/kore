@@ -33,7 +33,7 @@ vi.mock("../../src/platform/status.js", () => ({
   },
 }));
 
-import { withGatewayFlagsOff } from "../../src/testing/gateway-flags-off.fixtures.js";
+import { withGatewayFlagsOff } from "../../src/testing/index.js";
 import { loadRepository } from "../../src/config/index.js";
 import assert from "node:assert/strict";
 import { test, vi } from "vitest";

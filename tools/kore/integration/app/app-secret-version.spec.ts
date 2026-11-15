@@ -1,5 +1,5 @@
 import { loadRepository } from "../../src/config/index.js";
-import { withGatewayFlagsOff } from "../../src/testing/gateway-flags-off.fixtures.js";
+import { withGatewayFlagsOff } from "../../src/testing/index.js";
 import { createHash } from "node:crypto";
 import { execFile } from "node:child_process";
 import { join } from "node:path";

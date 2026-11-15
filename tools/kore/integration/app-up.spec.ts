@@ -3,7 +3,7 @@
 // gate, the image lock and verification. Only the runner (a recorded fake
 // cluster) and the registry lookup are faked. The unit specs in src/app cover
 // each unit alone.
-import { withGatewayFlagsOff } from "../src/testing/gateway-flags-off.fixtures.js";
+import { withGatewayFlagsOff } from "../src/testing/index.js";
 import { afterEach, expect, test, vi } from "vitest";
 import { appUp, appUpRelease } from "../src/app/index.js";
 import { loadRepository } from "../src/config/index.js";
