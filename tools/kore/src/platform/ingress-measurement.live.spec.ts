@@ -4,10 +4,8 @@ import test from "node:test";
 import { loadRepository } from "../config/index.js";
 import { ProcessRunner, liveEnvironment } from "../runtime/index.js";
 import { mkcertRoot } from "./gateway-cluster.live.js";
-import {
-  IngressMeasurement,
-  ingressMeasurementDefaults,
-} from "./ingress-measurement.js";
+import { ingressMeasurementDefaults } from "./ingress-measurement.js";
+import { RatedMeasurement } from "./ingress-rated-measurement.js";
 import { parseTargetRate, targetRateVariable } from "./ingress-pacing.js";
 
 // Docs: infra/plans/13-agentgateway-ingress.md#measurement-method
@@ -38,7 +36,7 @@ test(
     const { gateway, kubeContext } = repository.environment;
     const target = parseTargetRate(process.env[targetRateVariable]);
     const runner = new ProcessRunner();
-    const measurement = new IngressMeasurement(
+    const measurement = new RatedMeasurement(
       runner,
       runner,
       {

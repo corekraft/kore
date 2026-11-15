@@ -1,12 +1,10 @@
 import { beforeEach, expect, test, vi } from "vitest";
 import { fakeRunner } from "./platform-support.js";
-import { options } from "./ingress-measurement.fixtures.js";
 import {
   IngressMeasurement,
   type MeasurementDeps,
   type MeasurementOptions,
 } from "./ingress-measurement.js";
-import { probeLatency } from "./ingress-probe.js";
 import {
   parsePodMetrics,
   summarizeLatency,
@@ -21,24 +19,6 @@ vi.mock("./ingress-metrics.js", () => ({
   summarizeLatency: vi.fn(),
 }));
 
-// The pacer is its own unit (ingress-pacer.spec.ts); paced runs batch by 10.
-vi.mock("./ingress-pacer.js", () => ({
-  LoadPacer: vi.fn(function (target: number | undefined) {
-    return {
-      target,
-      batchSize: target === undefined ? 50 : 10,
-      begin: () => 0,
-      end: async () => undefined,
-    };
-  }),
-}));
-
-vi.mock("./ingress-probe.js", () => ({ probeLatency: vi.fn() }));
-vi.mock("./ingress-pacing.js", () => ({
-  cpuPerRequest: vi.fn(() => ({})),
-  matchRate: vi.fn(),
-}));
-
 const POD = { name: "gw", cpuMillicores: 5, memoryMiB: 50 };
 const SUMMARY = {
   samples: 2,
@@ -47,10 +27,34 @@ const SUMMARY = {
 };
 const LATENCY = { requests: 3, p50Ms: 10, p95Ms: 30, maxMs: 30 };
 
-function measurementWith(overrides: Partial<MeasurementOptions> = {}) {
+const options: MeasurementOptions = {
+  kubeContext: "k3d-kore-local",
+  gateway: { namespace: "kore-system", name: "kore-gateway" },
+  hostname: "kore.local",
+  port: 8443,
+  caRoot: "/ca",
+  settleSeconds: 60,
+  sampleCount: 2,
+  sampleIntervalSeconds: 20,
+  requestsPerRoute: 50,
+  concurrency: 4,
+  maxLoadAverage: 10,
+};
+
+const isTimed = (args: readonly string[]): boolean =>
+  args.includes("%{time_total}\\n");
+
+function measurementWith(
+  overrides: Partial<MeasurementOptions> = {},
+  timed = "0.010\n0.020\n0.030\n",
+) {
   const metrics = fakeRunner(() => "metrics");
   const load = fakeRunner((_command, args) =>
-    `${/\/api\/protected#/.test(String(args.at(-1))) ? 403 : 200}\n`.repeat(50),
+    isTimed(args)
+      ? timed
+      : `${/\/api\/protected#/.test(String(args.at(-1))) ? 403 : 200}\n`.repeat(
+          50,
+        ),
   );
   const deps: MeasurementDeps = {
     sleep: vi.fn<(seconds: number) => Promise<void>>(async () => undefined),
@@ -60,7 +64,7 @@ function measurementWith(overrides: Partial<MeasurementOptions> = {}) {
   const measurement = new IngressMeasurement(
     metrics.runner,
     load.runner,
-    options(overrides),
+    { ...options, ...overrides },
     deps,
   );
   return { measurement, load };
@@ -70,38 +74,72 @@ beforeEach(() => {
   vi.mocked(parsePodMetrics).mockReturnValue([POD]);
   vi.mocked(summarizeSamples).mockReturnValue(SUMMARY);
   vi.mocked(summarizeLatency).mockReturnValue(LATENCY);
-  vi.mocked(probeLatency).mockResolvedValue([]);
 });
 
-test("when the probe returns no times the measurement reports no latency", async () => {
-  const { measurement } = measurementWith();
+test("without latencyProbesPerRoute the measurement sends no timing request and reports no latency", async () => {
+  const { measurement, load } = measurementWith();
 
   const result = await measurement.measure();
 
+  expect(load.run.mock.calls.filter(([, args]) => isTimed(args))).toHaveLength(
+    0,
+  );
   expect(result.latency).toBeUndefined();
   expect(summarizeLatency).not.toHaveBeenCalled();
 });
 
-test("each sample probes through the load runner with the options", async () => {
+test("with latencyProbesPerRoute each sample times that many sequential GETs per route, with the local CA", async () => {
   const { measurement, load } = measurementWith({ latencyProbesPerRoute: 3 });
 
   await measurement.measure();
 
-  expect(vi.mocked(probeLatency)).toHaveBeenCalledTimes(2);
-  expect(vi.mocked(probeLatency).mock.calls[0]?.[0]).toBe(load.runner);
-  expect(vi.mocked(probeLatency).mock.calls[0]?.[1]).toMatchObject({
-    latencyProbesPerRoute: 3,
-  });
+  const timed = load.run.mock.calls.filter(([, args]) => isTimed(args));
+  expect(timed).toHaveLength(8);
+  expect(timed[0]).toEqual([
+    "curl",
+    [
+      "--silent",
+      "--show-error",
+      "--output",
+      "/dev/null",
+      "--write-out",
+      "%{time_total}\\n",
+      "--connect-timeout",
+      "5",
+      "--max-time",
+      "60",
+      "--cacert",
+      "/ca/rootCA.pem",
+      "--resolve",
+      "kore.local:8443:127.0.0.1",
+      "https://kore.local:8443/livez#[1-3]",
+    ],
+    { capture: true },
+  ]);
+  for (const [, args] of timed) {
+    expect(args).not.toContain("--insecure");
+    expect(args).not.toContain("--parallel");
+  }
 });
 
-test("reports the summary of every probe time across the samples", async () => {
-  vi.mocked(probeLatency).mockResolvedValue([10, 20, 30]);
+test("reports the summary of every probe time, converted from seconds to milliseconds", async () => {
   const { measurement } = measurementWith({ latencyProbesPerRoute: 3 });
 
   const result = await measurement.measure();
 
   expect(result.latency).toEqual(LATENCY);
   expect(vi.mocked(summarizeLatency).mock.calls).toEqual([
-    [[10, 20, 30, 10, 20, 30]],
+    [Array.from({ length: 8 }, () => [10, 20, 30]).flat()],
   ]);
+});
+
+test("an unreadable probe time fails naming the route and the fix", async () => {
+  const { measurement } = measurementWith(
+    { latencyProbesPerRoute: 3 },
+    "0.010\nnot-a-time\n",
+  );
+
+  await expect(measurement.measure()).rejects.toThrow(
+    "latency probe of /livez returned an unreadable time 'not-a-time'; check that curl reached https://kore.local:8443",
+  );
 });
