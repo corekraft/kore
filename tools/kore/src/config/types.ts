@@ -1,3 +1,4 @@
+import type { ChartDeliveryValues } from "./chart-delivery.js";
 export type Phase =
   "bootstrap" | "core" | "observability" | "configuration" | "enforcement";
 /** Who reconciles a release: kore through Helm, or the platform Argo CD (ADR 0043). */
@@ -266,6 +267,11 @@ export interface Repository {
    * address as a platform value; validation rejects hardcoded registry values.
    */
   registryComponentValues?: Record<string, Record<string, unknown>> | undefined;
+  /**
+   * The kore-config-delivery chart's values, composed from the chart lock and
+   * the catalog by `platform up` before it touches the cluster (ADR 0043).
+   */
+  chartDelivery?: ChartDeliveryValues | undefined;
   /** Findings that warn without failing validation; set by `loadRepository`. */
   warnings?: string[] | undefined;
 }

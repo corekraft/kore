@@ -2,6 +2,10 @@ import { beforeEach, expect, test, vi } from "vitest";
 import { helmInstalledComponents, isLocalProvider } from "../config/index.js";
 import { installLocalTrust } from "../security/index.js";
 import { bootstrapControllers, openApplicationAdmission } from "./bootstrap.js";
+import {
+  composeChartDelivery,
+  prepareChartDelivery,
+} from "./chart-delivery.js";
 import { enrollPlatformNamespaces } from "./enrollment.js";
 import type { ReadinessEvidence } from "./readiness-manifest.js";
 import { platformUp } from "./up.js";
@@ -16,6 +20,7 @@ import {
 vi.mock("../config/index.js");
 vi.mock("../security/index.js");
 vi.mock("./bootstrap.js");
+vi.mock("./chart-delivery.js");
 vi.mock("./enrollment.js");
 vi.mock("./platform-state.js");
 vi.mock("./reconcile.js");
@@ -49,6 +54,13 @@ beforeEach(() => {
       order.push(`configure:${c.name}`);
     },
   );
+  vi.mocked(composeChartDelivery).mockImplementation(async (repository) => {
+    order.push("compose");
+    return repository;
+  });
+  vi.mocked(prepareChartDelivery).mockImplementation(async (_r, _n, c) => {
+    order.push(`prepare:${c.name}`);
+  });
   vi.mocked(enrollPlatformNamespaces).mockImplementation(record("enroll"));
   vi.mocked(openApplicationAdmission).mockImplementation(async () => {
     order.push("open-gate");
@@ -63,14 +75,40 @@ beforeEach(() => {
   vi.mocked(helmInstalledComponents).mockReturnValue([core, policy, enforce]);
 });
 
-test("platform up bootstraps the controllers before anything else", async () => {
-  await platformUp(local, fakeRunner().runner);
-  expect(order[0]).toBe("bootstrap");
+test("platform up validates and composes the delivery values before it touches the cluster", async () => {
+  await platformUp(local, fakeRunner().runner, { platformChartLock: "l.json" });
+  expect(order.slice(0, 2)).toEqual(["compose", "bootstrap"]);
+  expect(composeChartDelivery).toHaveBeenCalledWith(local, "l.json");
+});
+
+test("a lock that fails validation stops up before bootstrap", async () => {
+  vi.mocked(composeChartDelivery).mockRejectedValueOnce(
+    new Error("platform chart lock: no entry for release opa-authorizer"),
+  );
+  await expect(platformUp(local, fakeRunner().runner)).rejects.toThrow(
+    "no entry for release opa-authorizer",
+  );
+  expect(bootstrapControllers).not.toHaveBeenCalled();
+});
+
+test("each configuration release is prepared for delivery just before it is installed", async () => {
+  const { runner } = fakeRunner();
+  await platformUp(local, runner);
+  const steps = order.filter(
+    (step) => step.startsWith("prepare:") || step.startsWith("configure:"),
+  );
+  expect(steps).toEqual([
+    "prepare:policy",
+    "configure:policy",
+    "prepare:enforce",
+    "configure:enforce",
+  ]);
+  expect(prepareChartDelivery).toHaveBeenCalledWith(local, runner, policy);
 });
 
 test("a local environment installs local trust once its controllers are bootstrapped", async () => {
   await platformUp(local, fakeRunner().runner);
-  expect(order.indexOf("trust")).toBe(1);
+  expect(order.indexOf("trust")).toBe(order.indexOf("bootstrap") + 1);
 });
 
 test("a managed environment never installs local trust", async () => {

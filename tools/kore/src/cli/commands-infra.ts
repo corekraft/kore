@@ -100,7 +100,9 @@ export async function platformCommand(
     bootstrap: async (_context, mutationRunner) =>
       await bootstrapControllers(repository, mutationRunner),
     up: async (_context, mutationRunner) =>
-      await platformUp(repository, mutationRunner),
+      await platformUp(repository, mutationRunner, {
+        platformChartLock: stringFlag(context.parsed, "platform-chart-lock"),
+      }),
     "gate-check": async (_context, mutationRunner) => {
       const result = await closeGateIfDegraded(repository, mutationRunner);
       print(

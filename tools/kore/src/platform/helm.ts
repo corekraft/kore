@@ -97,6 +97,17 @@ function chartSelectionArgs(
       `webhook.configData.no-match-policy=${noMatchPolicy(repository)}`,
     );
   }
+  const delivery = repository.chartDelivery;
+  if (component.name === "kore-config-delivery" && delivery) {
+    args.push(
+      "--set-json",
+      `charts=${JSON.stringify(delivery.charts)}`,
+      "--set-json",
+      `namespaces=${JSON.stringify(delivery.namespaces)}`,
+      "--set-string",
+      `gatewayClassName=${delivery.gatewayClassName}`,
+    );
+  }
   return args;
 }
 

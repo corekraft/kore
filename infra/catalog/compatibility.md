@@ -138,7 +138,7 @@ configuration-phase releases is owed, and `kore local up` with the flag on is
 owed a live run, which also proves the chart against Kubernetes 1.37 and
 Gatekeeper admission.
 
-The handover chart `platform-config-delivery` (release `kore-config-delivery`, same flag, off) renders the `platform-configuration` AppProject and one Application per configuration release (never the image policy) pinned by the digest in `platform-charts.lock.json`; whether this Argo CD accepts a digest as an OCI `targetRevision`, and server-side apply over Helm-created fields, are owed a live run (ADR 0043).
+The handover chart `platform-config-delivery` (release `kore-config-delivery`, same flag, off) renders the `platform-configuration` AppProject and one Application per configuration release (never the image policy) pinned by the digest in `platform-charts.lock.json`; whether this Argo CD accepts a digest as an OCI `targetRevision`, and server-side apply over Helm-created fields, are owed a live run (ADR 0043). `kore platform up --platform-chart-lock` composes its values from the lock and the catalog and streams the registry read credential for Argo CD, only with the flag on.
 
 agentgateway v1.7.0 (chart and images, resolved 2026-11-11) is cataloged and
 pinned but not installed: `agentgateway-crds` and `agentgateway` carry

@@ -1,0 +1,85 @@
+// Docs: docs/decisions/0043-platform-configuration-through-argo-cd.md (the handover values)
+import { readFile } from "node:fs/promises";
+import { beforeEach, expect, test, vi } from "vitest";
+import {
+  chartDeliveryValues,
+  helmInstalledComponents,
+} from "../config/index.js";
+import { applyChartCredential } from "./chart-credential.js";
+import {
+  composeChartDelivery,
+  prepareChartDelivery,
+} from "./chart-delivery.js";
+import {
+  fakeComponent,
+  fakeRepository,
+  fakeRunner,
+} from "./platform-support.js";
+
+vi.mock("node:fs/promises");
+vi.mock("../config/index.js");
+vi.mock("./chart-credential.js");
+
+const repository = fakeRepository();
+const values = { charts: {}, namespaces: {}, gatewayClassName: "istio" };
+
+beforeEach(() => {
+  vi.mocked(helmInstalledComponents).mockReturnValue([
+    fakeComponent({ name: "kore-config-delivery" }),
+  ]);
+  vi.mocked(readFile).mockResolvedValue('{"version":1,"entries":{}}');
+  vi.mocked(chartDeliveryValues).mockReturnValue(values);
+});
+
+test("the repository gains the values composed from the lock file and the catalog", async () => {
+  await expect(composeChartDelivery(repository, "lock.json")).resolves.toEqual({
+    ...repository,
+    chartDelivery: values,
+  });
+  expect(readFile).toHaveBeenCalledWith("lock.json", "utf8");
+  expect(chartDeliveryValues).toHaveBeenCalledWith(repository, {
+    version: 1,
+    entries: {},
+  });
+});
+
+test("with the flag off the repository is untouched and no file is read, even if a path is given", async () => {
+  vi.mocked(helmInstalledComponents).mockReturnValue([fakeComponent()]);
+  await expect(composeChartDelivery(repository, "lock.json")).resolves.toBe(
+    repository,
+  );
+  expect(readFile).not.toHaveBeenCalled();
+});
+
+test("a missing lock flag names the flag and the fix", async () => {
+  await expect(composeChartDelivery(repository, undefined)).rejects.toThrow(
+    "--platform-chart-lock <file> is required while platform-argocd-delivery is on in local; pass the platform-charts.lock.json attached to the release",
+  );
+});
+
+test("an unreadable or non-JSON lock names the path and the fix", async () => {
+  vi.mocked(readFile).mockResolvedValue("not json");
+  await expect(composeChartDelivery(repository, "lock.json")).rejects.toThrow(
+    /^--platform-chart-lock lock\.json must be the platform-charts\.lock\.json of a release: /,
+  );
+  expect(chartDeliveryValues).not.toHaveBeenCalled();
+});
+
+test("a lock that fails validation stops before any cluster call, with the errors", async () => {
+  vi.mocked(chartDeliveryValues).mockImplementation(() => {
+    throw new Error("platform chart lock: no entry for release opa-authorizer");
+  });
+  await expect(composeChartDelivery(repository, "lock.json")).rejects.toThrow(
+    "platform chart lock: no entry for release opa-authorizer",
+  );
+});
+
+test("the registry credential is applied for kore-config-delivery, and for no other release", async () => {
+  const { runner } = fakeRunner();
+  const other = fakeComponent({ name: "opa-authorizer" });
+  await prepareChartDelivery(repository, runner, other);
+  expect(applyChartCredential).not.toHaveBeenCalled();
+  const delivery = fakeComponent({ name: "kore-config-delivery" });
+  await prepareChartDelivery(repository, runner, delivery);
+  expect(applyChartCredential).toHaveBeenCalledWith(repository, runner);
+});
