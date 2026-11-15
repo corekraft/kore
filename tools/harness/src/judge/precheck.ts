@@ -4,6 +4,7 @@ import {
   gatherExpandStep,
   parsePrView,
   type Checks,
+  type ItemVerdict,
   type PrView,
 } from "./checks.js";
 import { parseDeclaration, type Pattern } from "./declaration.js";
@@ -24,6 +25,10 @@ export interface Report {
   idea: string | undefined;
   declaration: { ok: boolean; reason?: string };
   checks?: Checks;
+  /** Each checklist item with the mode it read; present once the modes were applied. */
+  checklist?: ItemVerdict[];
+  /** The audit items that did not pass: shown here, never a reason to send the change back. */
+  audited?: ItemVerdict[];
   hints?: Hints;
   patternMatches?: boolean;
   patternMismatch?: string;
@@ -176,12 +181,17 @@ export function summary(report: Report): string {
     report.patternMismatch === undefined
       ? []
       : [`pattern mismatch: ${report.patternMismatch}`];
+  const audited = (report.audited ?? []).map(
+    (a) =>
+      `audit: ${a.item} ${a.result}${a.detail === undefined || a.detail === "" ? "" : ` (${a.detail})`}; reported, not sent back`,
+  );
   const unverified = (report.unverified ?? []).map((u) => `unverified: ${u}`);
   return [
     head,
     `pattern: ${report.pattern ?? "none"}${report.idea === undefined ? "" : ` (idea ${report.idea})`}`,
     `reviewers: ${report.reviewers.join(", ")}`,
     ...checks,
+    ...audited,
     ...hints.map((h) => `hint ${h}`),
     ...mismatch,
     `cluster-facing: ${report.clusterFacing === true}`,

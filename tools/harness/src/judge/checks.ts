@@ -18,6 +18,16 @@ export interface Check {
   detail?: string;
 }
 
+/** One judge checklist item with the mode it read and its result. */
+export interface ItemVerdict {
+  item: string;
+  /** The guardrail inventory rule the mode came from. */
+  rule: string;
+  mode: "audit" | "enforce";
+  result: CheckResult;
+  detail?: string;
+}
+
 export interface Checks {
   ci: Check;
   scan: Check;

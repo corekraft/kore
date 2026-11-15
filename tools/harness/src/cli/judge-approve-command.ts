@@ -1,4 +1,4 @@
-import { JudgeError, precheck, summary, type Report } from "../judge/index.js";
+import { JudgeError, summary, type Report } from "../judge/index.js";
 import type { Command, CommandContext } from "../runtime/index.js";
 import {
   FAILED,
@@ -7,6 +7,7 @@ import {
   record,
   repoOf,
   reviewersOf,
+  checkedPrecheck,
 } from "./judge-shared.js";
 
 const APPROVE_USAGE =
@@ -116,7 +117,7 @@ async function runApprove(context: CommandContext): Promise<number> {
     const pr = prNumber(context.operand, APPROVE_USAGE);
     const root = await deps.root();
     const repo = await repoOf(context);
-    const report = await precheck(
+    const report = await checkedPrecheck(
       context,
       root,
       repo,

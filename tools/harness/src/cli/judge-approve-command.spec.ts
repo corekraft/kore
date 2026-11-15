@@ -1,6 +1,7 @@
 import { describe, expect, it, vi, type Mock } from "vitest";
-import { precheck, summary } from "../judge/index.js";
+import { summary } from "../judge/index.js";
 import {
+  checkedPrecheck,
   failed,
   prNumber,
   record,
@@ -18,11 +19,11 @@ import {
 
 vi.mock("../judge/index.js", async (importOriginal) => ({
   ...(await importOriginal<typeof import("../judge/index.js")>()),
-  precheck: vi.fn(),
   summary: vi.fn(),
 }));
 vi.mock("./judge-shared.js", async (importOriginal) => ({
   ...(await importOriginal<typeof import("./judge-shared.js")>()),
+  checkedPrecheck: vi.fn(),
   failed: vi.fn(),
   prNumber: vi.fn(),
   record: vi.fn(),
@@ -71,7 +72,7 @@ function setup(view = viewJson(), caller = "kore-judge", json = false) {
   vi.mocked(prNumber).mockReturnValue(42);
   vi.mocked(repoOf).mockResolvedValue(REPO);
   vi.mocked(reviewersOf).mockResolvedValue(["bot"]);
-  vi.mocked(precheck).mockResolvedValue(reportOf());
+  vi.mocked(checkedPrecheck).mockResolvedValue(reportOf());
   return { ...made, run, answer };
 }
 
@@ -83,7 +84,9 @@ describe("harness judge approve", () => {
     const { context, run, stdout } = setup();
 
     expect(await approveCommands.approve?.run(context)).toBe(0);
-    expect(precheck).toHaveBeenCalledWith(context, ROOT, REPO, 42, ["bot"]);
+    expect(checkedPrecheck).toHaveBeenCalledWith(context, ROOT, REPO, 42, [
+      "bot",
+    ]);
     expect(record).toHaveBeenCalledWith(context, reportOf());
     expect(reviewCalls(run)).toEqual([
       [
@@ -106,7 +109,7 @@ describe("harness judge approve", () => {
 
   it("approves nothing when the precheck does not pass, and says so on stderr", async () => {
     const { context, run, stdout, stderr } = setup();
-    vi.mocked(precheck).mockResolvedValue(reportOf({ ok: false }));
+    vi.mocked(checkedPrecheck).mockResolvedValue(reportOf({ ok: false }));
     vi.mocked(summary).mockReturnValue("SUMMARY");
 
     expect(await approveCommands.approve?.run(context)).toBe(1);
@@ -121,7 +124,7 @@ describe("harness judge approve", () => {
 
   it("approves nothing when the precheck reports no head commit", async () => {
     const { context, run } = setup();
-    vi.mocked(precheck).mockResolvedValue(reportOf({ head: "" }));
+    vi.mocked(checkedPrecheck).mockResolvedValue(reportOf({ head: "" }));
 
     expect(await approveCommands.approve?.run(context)).toBe(1);
     expect(run).not.toHaveBeenCalled();

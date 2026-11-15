@@ -1,4 +1,5 @@
 import { expect, it, vi } from "vitest";
+import * as checklist from "./checklist.js";
 import * as checks from "./checks.js";
 import * as declarationAudit from "./declaration-audit.js";
 import * as declaration from "./declaration.js";
@@ -15,6 +16,7 @@ import * as sendBack from "./send-back.js";
 
 // The barrel only re-exports its files, so each is mocked: the barrel is
 // tested as a pass-through, not as the units behind it.
+vi.mock("./checklist.js");
 vi.mock("./checks.js");
 vi.mock("./declaration.js");
 vi.mock("./declaration-audit.js");
@@ -32,11 +34,13 @@ it("the judge barrel exposes exactly the names its callers import", () => {
   expect(Object.keys(judge).sort()).toEqual([
     "JudgeError",
     "PATTERNS",
+    "applyChecklist",
     "auditDeclaration",
     "diffStat",
     "findingsFrom",
     "harnessFreshness",
     "hasSentBack",
+    "modesFrom",
     "parseDeclaration",
     "postReview",
     "precheck",
@@ -51,6 +55,8 @@ it("the judge barrel exposes exactly the names its callers import", () => {
 });
 
 it("each export is the unit's own export, not a copy or a wrapper", () => {
+  expect(judge.applyChecklist).toBe(checklist.applyChecklist);
+  expect(judge.modesFrom).toBe(checklist.modesFrom);
   expect(judge.JudgeError).toBe(errors.JudgeError);
   expect(judge.PATTERNS).toBe(declaration.PATTERNS);
   expect(judge.parseDeclaration).toBe(declaration.parseDeclaration);

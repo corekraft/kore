@@ -470,6 +470,17 @@ else the owner login (`ownerLogin`, else the repository's owner). A verdict from
 any other login is unverified. `--reviewer <login>[,<login>]` overrides both, and
 `harness judge precheck` prints the reviewers it used in its text and JSON output.
 
+Each checklist item of the precheck (`ci`, `scan`, `coverage`,
+`principles-review`, `expand-step`, `pattern-match`) reads its mode from the
+guardrail inventory, `.claude/guardrails.yaml`, as the rule `judge-<item>` of kind
+`checklist`; every item is in `enforce` today. A failing `enforce` item makes the
+report not ready, so the change goes back. A failing `audit` item is listed in the
+report (`audited` in `--json`, an `audit:` line in the text) and never makes it
+not ready; each audit firing writes one `guard.audit` ledger event labelled with
+the rule, once per item and head. An unreadable inventory or a mode other than
+`audit` or `enforce` is refused with the fix named. Moving an item to `enforce`
+needs a person's approval (ADR 0080).
+
 `harness judge precheck` also refuses to run when its harness bundle is behind
 `origin/main` for `tools/harness`: the build stamps the bundle with its commit,
 and the precheck asks GitHub's compare API whether main changed a file under
