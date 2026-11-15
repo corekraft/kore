@@ -1,10 +1,14 @@
 import { execFile } from "node:child_process";
+import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { promisify } from "node:util";
 import { expect, test } from "vitest";
 import { findRoot } from "../../src/config/index.js";
 
 const run = promisify(execFile);
+const goldenPath =
+  "tools/kore/integration/app/fixtures/workload-default-render.golden.yaml";
+const regenerate = `helm template reference apps/reference/charts/workload --set platform.gateway.hostname=kore.local > ${goldenPath}`;
 
 async function render(...set: string[]): Promise<string> {
   const chart = join(await findRoot(), "apps/reference/charts/workload");
@@ -119,4 +123,15 @@ test("autoscaling without a cpu request is refused naming the value", async () =
   await expect(
     render(...on, "--set", "resources.requests.cpu=null"),
   ).rejects.toThrow(/resources\.requests\.cpu/);
+});
+
+test("the default render is byte-identical to the golden render taken before autoscaling existed", async () => {
+  const golden = await readFile(
+    join(await findRoot(), goldenPath),
+    "utf8",
+  ).catch(() => "");
+  expect(
+    await render(),
+    `the default workload render changed; if intended, regenerate with: ${regenerate}`,
+  ).toBe(golden);
 });
