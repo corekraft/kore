@@ -1,0 +1,60 @@
+{{- /*
+  HTTPS for the portal host, backstage.<platformDomain> (ADR 0042, ADR 0111).
+  The chart owns all three resources, in its own namespace, on the same pattern
+  as a delivered service: the Gateway holds the one listener for the host,
+  cert-manager issues its Secret into the same namespace, and the route sends
+  every path to the sign-in proxy's Service. Nothing is routed to Backstage's
+  own port, so a request with no sign-in is refused by the proxy. The platform
+  Gateway in kore-system is not touched, so it keeps one owner. Nothing renders
+  until kore passes the gateway class.
+*/ -}}
+{{- with .Values.gatewayClassName }}
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+  name: backstage
+  namespace: {{ $.Release.Namespace }}
+spec:
+  gatewayClassName: {{ . | quote }}
+  listeners:
+    - name: https
+      hostname: {{ printf "backstage.%s" $.Values.platformDomain | quote }}
+      port: 443
+      protocol: HTTPS
+      tls:
+        mode: Terminate
+        certificateRefs:
+          - {kind: Secret, name: backstage-tls}
+      allowedRoutes:
+        namespaces: {from: Same}
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: backstage-tls
+  namespace: {{ $.Release.Namespace }}
+spec:
+  secretName: backstage-tls
+  dnsNames:
+    - {{ printf "backstage.%s" $.Values.platformDomain | quote }}
+  issuerRef:
+    kind: ClusterIssuer
+    name: {{ $.Values.issuer }}
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: backstage
+  namespace: {{ $.Release.Namespace }}
+spec:
+  parentRefs:
+    - kind: Gateway
+      name: backstage
+  hostnames:
+    - {{ printf "backstage.%s" $.Values.platformDomain | quote }}
+  rules:
+    - backendRefs:
+        - name: backstage
+          port: 80
+{{- end }}

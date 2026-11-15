@@ -114,7 +114,7 @@ do not yet bound anything
 
 ## Step 6: Orchestrator and Concierge
 
-Next: Step 6 (#195, #197, #199; draft PR #332) waits on #336. Land #364 (role tokens behind a flag that's off by default). The owner runs tools/harness/wizards/identities.sh; prove a spawn with tokens; turn the flag on; then run harness ruleset sync --target main with --dry-run, and with --confirm --allow-removal only on the owner's OK. Full state: #366.
+Next: Step 6 still owes #195 and #197 (agent work; draft PR #332) and the concierge item, which the concierge evals do not yet cover beyond boundaries (no file read or write), so it stays unticked. Done: #364 merged; the identities wizard was run; role tokens are on in local ([#602](https://github.com/corekraft/kore/pull/602), [#607](https://github.com/corekraft/kore/pull/607)); the live main ruleset is synced, so merges go judge approve then judge merge ([#336 comment](https://github.com/corekraft/kore/issues/336)); #338 is closed; #199 was closed by the owner on 2026-11-14 because plan 7 has no open items. Full state: #366.
 
 ### Work
 

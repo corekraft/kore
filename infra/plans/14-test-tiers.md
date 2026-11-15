@@ -21,15 +21,15 @@ the terms are in [`GLOSSARY.md`](../../GLOSSARY.md) (Testing). Tracking issue:
 
 ## Step 1: Foundations
 
-Next: Waiting only on the owner or a run, each stated on its issue and rolled up on #371: #372 (one green nightly after the live rename), #373 (owner adds 'integration' as a required check on main's ruleset; one green integration run on main), #419 (already built in #464; one workflow_dispatch run). #404 is closed on recorded main runs. Unit-run budget is 2 min (ADR 0106). Open retro items and their reasons are on #417 and the issues themselves; no agent work is owed.
+Next: Waiting only on the owner or a run, each stated on its issue and rolled up on #371: #372 (nightly dispatched by the owner on 2026-11-14; run [43683521139](https://github.com/corekraft/kore/actions/runs/43683521139) must be green and recorded; the first run was red on test:live:footprint), #419 (built in #464; needs a red integration run to prove the open and update paths). #373 is ticked: integration is a required check on main (#595 and the ruleset sync) and green main run [43652291997](https://github.com/corekraft/kore/actions/runs/43652291997) is recorded. Unit-run budget is 2 min (ADR 0106). No agent work is owed.
 
 ### Work
 
 - [ ] Rename the cluster suites to live tests (#372). #439 delivered the
       rename; a green nightly run is still owed.
 - [x] Add the integration tier with one hook test moved into it (#418).
-- [ ] Move the remaining script, hook and bundle tests to integration, and
-      make the commit gate unit-only (#373). Open.
+- [x] Move the remaining script, hook and bundle tests to integration, and
+      make the commit gate unit-only (#373).
 - [ ] A failing integration run opens one issue (#419). Open.
 - [x] Fail the unit run on the test budget, with per-domain unconverted lists
       (#374).
