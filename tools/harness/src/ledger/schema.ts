@@ -1,4 +1,5 @@
 import { HOST_RULES } from "./schema-host.js";
+import { TIER_RULES, type TierOrigin } from "./schema-tier.js";
 
 export const SOURCES = ["claude", "herdr", "github"] as const;
 export type Source = (typeof SOURCES)[number];
@@ -83,8 +84,12 @@ const TOKEN_KINDS: readonly Kind[] = ["token.usage"];
 
 export const SCHEMA_VERSION = 1;
 
-/** The fields a caller supplies. `recordedAt` and `schema` are the ledger's. */
-export interface EventInput {
+/**
+ * The fields a caller supplies. `recordedAt` and `schema` are the ledger's. On
+ * session.launch, `tierSource` and `tierReason` say where the tier came from;
+ * a launch from before they existed has neither and reads as unknown.
+ */
+export interface EventInput extends Partial<TierOrigin> {
   id?: string;
   source: Source;
   kind: Kind;
@@ -160,6 +165,7 @@ const ALLOWED = new Set<string>([
   "tokens",
   "role",
   "tier",
+  ...TIER_RULES.map((rule) => rule.field),
   "load",
   "memory",
   "swap",
@@ -259,6 +265,7 @@ const RULES: readonly Rule[] = [
   },
   { field: "role", check: isText(NAME), hint: NAME_HINT, kinds: LAUNCH_KINDS },
   { field: "tier", check: isText(NAME), hint: NAME_HINT, kinds: LAUNCH_KINDS },
+  ...TIER_RULES,
   ...HOST_RULES,
 ];
 

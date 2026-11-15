@@ -83,6 +83,8 @@ describe("the session domain's command set", () => {
       worktree: "boolean",
       branch: "string",
       idea: "string",
+      pr: "string",
+      reason: "string",
       timeout: "string",
     });
     expect(session["spawn"]?.summary).toContain("--no-wait");

@@ -315,6 +315,11 @@ takes issue numbers (`12` or `#12`) and covers only those ideas; with it,
 unattributed events are not counted as unmapped. Both flags together cover the
 named ideas inside the range.
 
+`tierShares` in `--json` (report version 9) gives, per role, the launches by
+`tierSource`, with launches from before it was recorded as their own `unknown`
+group, and the override share over the launches that know their source, so tier
+tuning can read only definition and escalation launches.
+
 Host pressure comes from the `host-sample` events each session spawn records.
 `hostPressure` in `--json` (and one short section in the human report) gives, per
 live-session count and split by whether the local platform was up, the sample
@@ -373,7 +378,7 @@ idea, from ledger events only: `token.usage` (recorded by the Stop hook from the
 session transcript, as the session's cumulative input, output and cache-creation
 tokens so far; cache reads are left out and a session counts its latest value
 once) and `session.launch` (recorded by `session spawn` with the `role` and the
-model `tier`). The hook reads the transcript incrementally: it keeps the byte
+model `tier`, and, since the tier source was recorded, `tierSource` (definition, escalation or override) and, for an override given with `--reason`, `tierReason`; older launches have neither and read as unknown). The hook reads the transcript incrementally: it keeps the byte
 offset it reached, with the running total, in a per-session state file in the
 temp directory, reads only what was added since, leaves a half-written last
 line for the next stop, and records a `token.usage` only when the total grew.

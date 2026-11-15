@@ -7,12 +7,14 @@ import { sessionNameError } from "./names.js";
 import { FAILED, USAGE_ERROR } from "./output.js";
 import { spawnLoadRefusal } from "./spawn-load.js";
 import { check } from "./spawn-check.js";
+import { tierInputError, tierOf } from "./tier-source.js";
 import { findResult, parseTimeout } from "./wait.js";
 
 vi.mock("./agent-definition.js");
 vi.mock("./host-lease.js");
 vi.mock("./names.js");
 vi.mock("./spawn-load.js");
+vi.mock("./tier-source.js");
 vi.mock("./wait.js");
 
 const BRIEF_MARKER =
@@ -44,6 +46,8 @@ beforeEach(() => {
   vi.mocked(parseTimeout).mockReturnValue(60_000);
   vi.mocked(hostLeaseRefusal).mockResolvedValue(undefined);
   vi.mocked(spawnLoadRefusal).mockReturnValue(undefined);
+  vi.mocked(tierInputError).mockReturnValue(undefined);
+  vi.mocked(tierOf).mockResolvedValue({ tierSource: "definition" });
   vi.mocked(resolveTier).mockResolvedValue({
     model: "claude-sonnet-5-5",
     effort: "high",
@@ -212,6 +216,7 @@ describe("check resolves the tier and returns the checked request", () => {
       },
       callerPane: "w3:p1",
       timeoutMs: 60_000,
+      tier: { tierSource: "definition" },
     });
   });
 
