@@ -227,10 +227,17 @@ grep -qF '"ingress-agentgateway": false' "$env_file" || fail "could not turn the
 # Kore refuses to reconcile a gated-off release that is still installed, so the
 # operator removes it first (plan 13, Step 2). Removing the CRD release deletes
 # the CRDs and every custom resource of those kinds, so check none exist.
-[ "$context" = "k3d-kore-$scratch" ] || fail "rollback uninstalls run only against the throwaway context k3d-kore-$scratch, not '$context'"
-crs="$(for crd in $(k get crd -o name | sed -n 's|^customresourcedefinition.apiextensions.k8s.io/\(.*\.agentgateway\.dev\)$|\1|p'); do
-  k get "$crd" --all-namespaces -o name
-done)"
+# Guards independent of how $context was built: never the local environment,
+# never the kore-local context, and the overlay must name this context.
+[ "$scratch" != "local" ] || fail "rollback uninstalls refuse environment 'local'; use a throwaway KORE_PROOF_ENVIRONMENT"
+[ "$context" != "k3d-kore-local" ] || fail "rollback uninstalls refuse context k3d-kore-local; use a throwaway KORE_PROOF_ENVIRONMENT"
+grep -qF "\"kubeContext\": \"$context\"" "$env_file" || fail "rollback uninstalls refuse context '$context': $env_file does not name it as its kubeContext"
+crds="$(k get crd -o name)" || fail "could not list CRDs on $context, so Agentgateway custom resources cannot be ruled out; nothing was uninstalled"
+crs=""
+for crd in $(printf '%s\n' "$crds" | sed -n 's|^customresourcedefinition.apiextensions.k8s.io/\(.*\.agentgateway\.dev\)$|\1|p'); do
+  found="$(k get "$crd" --all-namespaces -o name)" || fail "could not list $crd on $context; nothing was uninstalled"
+  [ -z "$found" ] || crs="$crs $found"
+done
 [ -z "$crs" ] || fail "Agentgateway custom resources exist and uninstalling the CRDs would delete them: $(echo $crs)"
 mise exec -- helm uninstall agentgateway --namespace agentgateway-system --kube-context "$context"
 mise exec -- helm uninstall agentgateway-crds --namespace agentgateway-system --kube-context "$context"

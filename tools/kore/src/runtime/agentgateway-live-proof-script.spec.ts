@@ -27,15 +27,29 @@ describe("agentgateway live proof, phase 4 rollback", () => {
     expect(up).toBeGreaterThan(crds);
   });
 
-  it("refuses any context other than the throwaway profile's before uninstalling", () => {
-    const guard = at('[ "$context" = "k3d-kore-$scratch" ]');
-    expect(guard).toBeGreaterThan(-1);
-    expect(guard).toBeLessThan(at("helm uninstall"));
+  it("refuses the local environment and the kore-local context before any uninstall", () => {
+    const first = at("helm uninstall");
+    const scratchGuard = at('[ "$scratch" != "local" ]');
+    const contextGuard = at('[ "$context" != "k3d-kore-local" ]');
+    const envGuard = at(
+      'grep -qF "\\"kubeContext\\": \\"$context\\"" "$env_file"',
+    );
+    for (const guard of [scratchGuard, contextGuard, envGuard]) {
+      expect(guard).toBeGreaterThan(-1);
+      expect(guard).toBeLessThan(first);
+    }
   });
 
-  it("asserts no Agentgateway custom resources remain before uninstalling the CRDs", () => {
-    const check = at("k get crd -o name");
-    expect(check).toBeGreaterThan(-1);
-    expect(check).toBeLessThan(at("helm uninstall"));
+  it("stops before any uninstall when the CRD listing fails", () => {
+    const list = at('crds="$(k get crd -o name)" || fail');
+    expect(list).toBeGreaterThan(-1);
+    expect(list).toBeLessThan(at("helm uninstall"));
+    expect(phase4).not.toContain("$(k get crd -o name |");
+  });
+
+  it("stops before any uninstall when listing the resources of a kind fails", () => {
+    const listing = at('k get "$crd" --all-namespaces -o name) || fail');
+    expect(listing).toBeGreaterThan(-1);
+    expect(listing).toBeLessThan(at("helm uninstall"));
   });
 });
