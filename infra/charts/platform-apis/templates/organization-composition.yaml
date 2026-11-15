@@ -8,5 +8,93 @@ spec:
     { apiVersion: platform.kore.dev/v1alpha1, kind: Organization }
   mode: Pipeline
   pipeline:
+{{- $features := .Values.features | default dict }}
+{{- if index $features "platform-portal" }}
+    # With platform-portal on, the Organization owns the platform Keycloak's
+    # realm and the groups that mirror it (ADR 0113), so membership has one
+    # owner. The only Organization is `platform`, so the realm and the
+    # organization's group are named for it, and the operators group Argo CD
+    # binds its role to (ADR 0043) is nested under that group. The realm holds
+    # users, so deleting the Organization never deletes it: its management
+    # policies leave out Delete. Groups are only a mirror and go with it. The
+    # provider config `keycloak` is rendered by platform-keycloak.
+    - step: compose-keycloak-realm
+      functionRef: { name: function-go-templating }
+      input:
+        apiVersion: gotemplating.fn.crossplane.io/v1beta1
+        kind: GoTemplate
+        source: Inline
+        inline:
+          template: |
+            ---
+            apiVersion: realm.keycloak.m.crossplane.io/v1alpha1
+            kind: Realm
+            metadata:
+              name: platform
+              namespace: keycloak
+              annotations:
+                gotemplating.fn.crossplane.io/composition-resource-name: realm
+            spec:
+              managementPolicies:
+                - Observe
+                - Create
+                - Update
+                - LateInitialize
+              providerConfigRef:
+                kind: ClusterProviderConfig
+                name: keycloak
+              forProvider:
+                realm: platform
+                displayName: Kore platform
+                enabled: true
+                # Hardened explicitly, so no Keycloak default decides. No
+                # self-registration; TLS required for every client outside
+                # private networks; five-minute access tokens; sessions idle out
+                # after 30 minutes and end after 10 hours, which bounds refresh
+                # tokens; each refresh token is single use. No user, client,
+                # redirect URI or web origin is composed here: each OIDC client
+                # sets its own exact ones (a later item).
+                registrationAllowed: false
+                sslRequired: external
+                accessTokenLifespan: 5m
+                ssoSessionIdleTimeout: 30m
+                ssoSessionMaxLifespan: 10h
+                revokeRefreshToken: true
+                refreshTokenMaxReuse: 0
+            ---
+            apiVersion: group.keycloak.m.crossplane.io/v1alpha1
+            kind: Group
+            metadata:
+              name: platform
+              namespace: keycloak
+              annotations:
+                gotemplating.fn.crossplane.io/composition-resource-name: group-platform
+            spec:
+              providerConfigRef:
+                kind: ClusterProviderConfig
+                name: keycloak
+              forProvider:
+                name: platform
+                realmIdRef:
+                  name: platform
+            ---
+            apiVersion: group.keycloak.m.crossplane.io/v1alpha1
+            kind: Group
+            metadata:
+              name: platform-operators
+              namespace: keycloak
+              annotations:
+                gotemplating.fn.crossplane.io/composition-resource-name: group-platform-operators
+            spec:
+              providerConfigRef:
+                kind: ClusterProviderConfig
+                name: keycloak
+              forProvider:
+                name: platform-operators
+                realmIdRef:
+                  name: platform
+                parentIdRef:
+                  name: platform
+{{- end }}
     - step: mark-ready
       functionRef: { name: function-auto-ready }

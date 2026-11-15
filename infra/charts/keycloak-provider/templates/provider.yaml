@@ -1,0 +1,11 @@
+# The Crossplane Keycloak provider (ADR 0113): it owns the keycloak.crossplane.io
+# and keycloak.m.crossplane.io API groups, and the Organization composition
+# composes its Realm and Group. The package is the approved digest, so Crossplane
+# pulls exactly what was verified. Its ClusterProviderConfig is rendered by
+# platform-keycloak, which installs after this provider is healthy.
+apiVersion: pkg.crossplane.io/v1
+kind: Provider
+metadata:
+  name: provider-keycloak
+spec:
+  package: {{ .Values.package }}

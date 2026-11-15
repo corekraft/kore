@@ -10,6 +10,10 @@
       "maxLength": 180,
       "pattern": "^([a-z0-9]([-a-z0-9]{0,61}[a-z0-9])?\\.)+[a-z0-9]([-a-z0-9]{0,61}[a-z0-9])?$"
     },
+    "features": {
+      "description": "Kore passes the environment's feature flags here (ADR 0077). Only platform-portal is read: on, the Organization composition also owns the realm.",
+      "type": "object"
+    },
     "database": {
       "type": "object",
       "additionalProperties": false,

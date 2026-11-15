@@ -4,6 +4,10 @@
   "required": ["platformDomain"],
   "additionalProperties": false,
   "properties": {
+    "features": {
+      "description": "Kore passes the environment's feature flags here (ADR 0077). Only platform-portal is read: on, the Organization composition also owns the realm.",
+      "type": "object"
+    },
     "platformDomain": {
       "description": "The environment's platform domain (ADR 0042). A service host is <service>.<organization>.<platformDomain>, so with a 63-character service and the organization the whole host stays within 253 characters.",
       "type": "string",

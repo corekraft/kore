@@ -2,6 +2,9 @@ import { randomBytes } from "node:crypto";
 import type { Repository } from "../config/index.js";
 import { withSecretsRedacted } from "../images/index.js";
 import type { Runner } from "../runtime/index.js";
+import { keycloakAdminUser } from "./keycloak-support.js";
+
+export { ensureKeycloakProviderCredentials } from "./keycloak-provider-credentials.js";
 
 // Docs: docs/decisions/0034-registry-authentication-and-authorization.md (stream-only Secrets)
 // Docs: docs/decisions/0113-run-a-keycloak-for-the-platform-organization-s-operators.md
@@ -61,7 +64,7 @@ export async function ensureKeycloakAdmin(
           kind: "Secret",
           metadata: { name: secretName, namespace },
           type: "kubernetes.io/basic-auth",
-          stringData: { username: "kore-admin", password },
+          stringData: { username: keycloakAdminUser, password },
         }),
       },
     );

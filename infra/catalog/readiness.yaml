@@ -89,6 +89,12 @@
         "components": ["keycloak-operator"]
       },
       {
+        "name": "keycloak-provider",
+        "step": 8,
+        "capability": "controller",
+        "components": ["keycloak-provider"]
+      },
+      {
         "name": "service-observability",
         "step": 8,
         "capability": "platform-api",

@@ -88,6 +88,10 @@
         [
           "infra/environments/managed-example/values/mirror/keycloak-operator.yaml"
         ],
+      "keycloak-provider":
+        [
+          "infra/environments/managed-example/values/mirror/keycloak-provider.yaml"
+        ],
       "metrics-server":
         [
           "infra/environments/managed-example/values/mirror/metrics-server.yaml"

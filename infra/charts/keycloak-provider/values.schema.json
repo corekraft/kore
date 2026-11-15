@@ -1,0 +1,14 @@
+{
+  "$schema": "https://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "required": ["package"],
+  "additionalProperties": false,
+  "properties": {
+    "package": {
+      "description": "The provider package, pinned by digest. A managed environment overlays the mirror reference at the same digest.",
+      "type": "string",
+      "pattern": "@sha256:[0-9a-f]{64}$"
+    },
+    "features": { "type": "object" }
+  }
+}

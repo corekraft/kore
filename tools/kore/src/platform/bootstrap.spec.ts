@@ -17,7 +17,10 @@ import {
   closeApplicationAdmission,
 } from "./bootstrap.js";
 import { assertNoOrphanedReleases } from "./gated-release.js";
-import { ensureKeycloakAdmin } from "./keycloak-admin.js";
+import {
+  ensureKeycloakAdmin,
+  ensureKeycloakProviderCredentials,
+} from "./keycloak-admin.js";
 import * as readinessGate from "./readiness-gate.js";
 import { reconcileIfNeeded } from "./reconcile.js";
 import {
@@ -69,6 +72,10 @@ beforeEach(() => {
   );
   vi.mocked(ensureKeycloakAdmin).mockImplementation(async () => {
     order.push("keycloak-admin");
+    return true;
+  });
+  vi.mocked(ensureKeycloakProviderCredentials).mockImplementation(async () => {
+    order.push("keycloak-provider-credentials");
     return true;
   });
   vi.mocked(reconcileIfNeeded).mockImplementation(async (_repo, _runner, c) => {
@@ -200,6 +207,30 @@ test("the Keycloak admin Secret is streamed right after the operator creates its
   vi.mocked(enabledComponents).mockReturnValue([gate, registry]);
   await bootstrapControllers(local, runner);
   expect(ensureKeycloakAdmin).not.toHaveBeenCalled();
+});
+
+test("the Keycloak provider credential is streamed right after the provider installs, and not without it", async () => {
+  const provider = fakeComponent({ name: "keycloak-provider", phase: "core" });
+  vi.mocked(enabledComponents).mockReturnValue([gate, provider, registry]);
+  const { runner } = fakeRunner();
+  await bootstrapControllers(local, runner);
+  expect(
+    order.filter(
+      (step) =>
+        step.startsWith("reconcile:") ||
+        step === "keycloak-provider-credentials",
+    ),
+  ).toEqual([
+    "reconcile:gate",
+    "reconcile:keycloak-provider",
+    "keycloak-provider-credentials",
+    "reconcile:oci-registry",
+  ]);
+  expect(ensureKeycloakProviderCredentials).toHaveBeenCalledWith(local, runner);
+  vi.mocked(ensureKeycloakProviderCredentials).mockClear();
+  vi.mocked(enabledComponents).mockReturnValue([gate, registry]);
+  await bootstrapControllers(local, runner);
+  expect(ensureKeycloakProviderCredentials).not.toHaveBeenCalled();
 });
 
 test("closing the application admission gate is the existing gate's close, with the same runner", async () => {
