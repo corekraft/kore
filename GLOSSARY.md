@@ -177,3 +177,7 @@ _Avoid_: Integration test, live spec, e2e test
 A group of units with one area of responsibility. Units in other domains
 reach it only through its public surface.
 _Avoid_: Package, layer
+
+**Distroless runtime image**:
+The image an application runs in, holding no shell and no package manager. Images may be built in any stage, but only a distroless one runs.
+_Avoid_: Slim image, minimal image
