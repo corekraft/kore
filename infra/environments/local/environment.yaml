@@ -12,6 +12,7 @@
   "registry": { "address": "10.96.0.50:5000" },
   "features":
     {
+      "autoscaling-defaults": false,
       "ingress-agentgateway": false,
       "role-tokens": true,
       "local-image-reuse": false,

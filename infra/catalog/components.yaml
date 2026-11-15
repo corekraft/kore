@@ -198,6 +198,25 @@
           ]
       },
       {
+        "name": "metrics-server",
+        "phase": "core",
+        "namespace": "metrics-server",
+        "kind": "helm",
+        "repository": "https://kubernetes-sigs.github.io/metrics-server",
+        "chart": "metrics-server",
+        "version": "metrics-server",
+        "featureFlag": "autoscaling-defaults",
+        "ownsCRDs": [],
+        "dependencies": [],
+        "timeout": "5m",
+        "values": ["infra/environments/common/values/metrics-server.yaml"],
+        "readiness":
+          [
+            "deployment/metrics-server",
+            "apiservice.apiregistration.k8s.io/v1beta1.metrics.k8s.io"
+          ]
+      },
+      {
         "name": "agentgateway-crds",
         "phase": "bootstrap",
         "namespace": "agentgateway-system",

@@ -391,6 +391,23 @@
           }
       },
       {
+        "image": "registry.k8s.io/metrics-server/metrics-server:v0.9.0@sha256:d9862115e7c7881280d3d75ca26bda8ffc0fc213315979575bf23ce9826205c0",
+        "name": "metrics-server",
+        "component": "metrics-server",
+        "evidence":
+          {
+            "method": "cosign-keyless",
+            "source": "cosign verify --certificate-oidc-issuer https://accounts.google.com --certificate-identity krel-trust@k8s-releng-prod.iam.gserviceaccount.com: verified at this index digest (crane digest registry.k8s.io/metrics-server/metrics-server:v0.9.0), Rekor entry verified.",
+            "checked": "2026-11-14",
+            "provenance":
+              {
+                "signed": true,
+                "issuer": "https://accounts.google.com",
+                "identity": "krel-trust@k8s-releng-prod.iam.gserviceaccount.com"
+              }
+          }
+      },
+      {
         "image": "registry.k8s.io/kube-state-metrics/kube-state-metrics:v2.20.0@sha256:42cfe3723a5f058171c627537fb57a3ea0f26e4380fa18555a95cb1a1b4cfc5b",
         "name": "kube-state-metrics",
         "component": "prometheus",

@@ -5,6 +5,7 @@ import { CommandError, type Runner } from "../runtime/index.js";
 const gatedOffReleases = [
   "agentgateway",
   "agentgateway-crds",
+  "metrics-server",
   "kore-platform-apis",
 ];
 
