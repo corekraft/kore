@@ -63,6 +63,30 @@ export function emptyReport(overrides: Partial<Record<string, unknown>> = {}) {
         needed: 3,
       },
     },
+    rework: {
+      trailingIdeas: 5,
+      escalationsPerIdea: {
+        status: "insufficient history",
+        closedIdeas: 1,
+        needed: 6,
+      },
+      sendBacksPerIdea: {
+        status: "insufficient history",
+        closedIdeas: 1,
+        needed: 6,
+      },
+      challengeRoundsPerIdea: {
+        status: "insufficient history",
+        closedIdeas: 1,
+        needed: 6,
+      },
+      frictionPerIdea: {
+        status: "insufficient history",
+        closedIdeas: 1,
+        needed: 6,
+      },
+    },
+    friction: { total: 0, sources: [], unknownKinds: 0 },
     bottleneck: null,
     bottleneckNote: "No bottleneck yet.",
     unmappedEvents: 0,

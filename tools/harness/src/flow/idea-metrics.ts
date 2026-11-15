@@ -13,6 +13,12 @@ export { guardBlocks, outcomes } from "./outcomes.js";
 export { COST_KINDS, measureAttribution } from "./attribution-measure.js";
 export type { GuardBlocks, Outcomes } from "./outcomes.js";
 export type { Attribution } from "./attribution-measure.js";
+import {
+  friction,
+  reworkMetrics,
+  type Friction,
+  type ReworkMetrics,
+} from "./friction.js";
 import { firstTime, time } from "./github-waits.js";
 import { inWindow, type Span } from "./scope.js";
 import { median } from "./wip.js";
@@ -58,5 +64,25 @@ export function ideaMetrics(
   return {
     leadTime: leadTime(byIdea, window),
     metrics: costMetrics(byIdea, window, { ...DEFAULT_COST, ...cost }),
+  };
+}
+
+/** Rework per closed idea, and friction by source, as the report names them. */
+export interface FrictionMetrics {
+  /** Escalations, send-backs, Challenger rounds and friction per closed idea. */
+  rework: ReworkMetrics;
+  /** Friction events in range by source. */
+  friction: Friction;
+}
+
+export function frictionMetrics(
+  named: LedgerEvent[],
+  byIdea: Map<string, LedgerEvent[]>,
+  window: Span,
+  trailingIdeas?: number,
+): FrictionMetrics {
+  return {
+    rework: reworkMetrics(byIdea, window, trailingIdeas),
+    friction: friction(named, window),
   };
 }
