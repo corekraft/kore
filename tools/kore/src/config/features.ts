@@ -27,6 +27,9 @@ export const gatewayClassChangeFlag = "gateway-class-change-release";
 /** The flag that defers the orphaned-release refusal until the components are reconciled, so a rollback can re-render platform-config first (plan 13 step 2, ADR 0081). */
 export const gatewayRollbackOrderFlag = "gateway-rollback-order";
 
+/** The flag that enrols only the agentgateway data-plane pod in the ambient mesh, with a permissive exception for its listener port (plan 13 step 3, ADR 0081). */
+export const agentgatewayMeshEnrollmentFlag = "agentgateway-mesh-enrollment";
+
 /** The GatewayClass the platform Gateway uses, derived from the ingress flag. */
 export function gatewayClassName(
   environment: Pick<Environment, "features">,

@@ -41,3 +41,9 @@ tests:
           object: objects/mesh-agentgateway-system-enrolled.yaml,
           assertions: [{ violations: 0 }]
         }
+      # Only the kore-gateway data-plane pod joins the mesh (agentgateway-mesh-enrollment, ADR 0081); kore-system itself stays unlabelled and exempt, so the namespace rule must not ask for more.
+      - {
+          name: accepts-enrolled-gateway-pod-in-unenrolled-kore-system,
+          object: objects/mesh-kore-gateway-pod-enrolled.yaml,
+          assertions: [{ violations: 0 }]
+        }

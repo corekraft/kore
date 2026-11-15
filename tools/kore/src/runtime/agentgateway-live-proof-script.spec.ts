@@ -112,3 +112,27 @@ describe("agentgateway live proof, phase 4 rollback", () => {
     expect(phase4).not.toContain('"gateway-rollback-order": false/');
   });
 });
+
+describe("agentgateway live proof, mesh enrollment", () => {
+  it("enables agentgateway-mesh-enrollment with the other flags in phase 2, and leaves it on through phase 4", () => {
+    expect(script).toContain('"agentgateway-mesh-enrollment": false\'');
+    expect(phase2).toContain(
+      `-e 's/"agentgateway-mesh-enrollment": false/"agentgateway-mesh-enrollment": true/'`,
+    );
+    expect(phase2).toContain(
+      `grep -qF '"agentgateway-mesh-enrollment": true' "$env_file"`,
+    );
+    expect(phase4).not.toContain('"agentgateway-mesh-enrollment": false/');
+  });
+
+  it("sends a request through the Gateway after phase 2 and fails unless the reference route answers 200", () => {
+    const request = phase2.indexOf("curl");
+    expect(request).toBeGreaterThan(
+      phase2.indexOf("gone svc kore-gateway-istio"),
+    );
+    expect(phase2).toContain("--resolve kore.local:8443:127.0.0.1");
+    expect(phase2).toContain("https://kore.local:8443/livez");
+    expect(phase2).toContain('[ "$status" = "200" ] || fail');
+    expect(phase2.indexOf("phase 2 ok")).toBeGreaterThan(request);
+  });
+});

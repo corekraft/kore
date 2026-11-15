@@ -5,8 +5,16 @@ metadata:
   namespace: kore-system
   labels: {app.kubernetes.io/managed-by: Helm}
 spec:
-{{- if .Values.gateway.service.type }}
+{{- if or .Values.gateway.service.type (include "platform-config.agentgatewayEnrolled" .) }}
   infrastructure:
+{{- end }}
+{{- if include "platform-config.agentgatewayEnrolled" . }}
+    # Enrols only the data-plane pod in the ambient mesh (ADR 0081): agentgateway
+    # copies Gateway infrastructure labels onto the generated pod, and the pod
+    # runs as the ServiceAccount named after the Gateway.
+    labels: {istio.io/dataplane-mode: ambient}
+{{- end }}
+{{- if .Values.gateway.service.type }}
 {{- if eq .Values.gateway.className "istio" }}
     parametersRef: {group: "", kind: ConfigMap, name: kore-gateway-service}
 {{- else if eq .Values.gateway.className "agentgateway" }}

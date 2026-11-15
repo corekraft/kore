@@ -1,6 +1,7 @@
 import { beforeEach, expect, test, vi } from "vitest";
 import { orderedComponents } from "./order.js";
 import {
+  agentgatewayMeshEnrollmentFlag,
   autoscalingFlag,
   platformArgocdDeliveryFlag,
   platformPortalFlag,
@@ -161,4 +162,20 @@ test("the rollback-order flag is its own switch, independent of the class-change
   expect(
     gatewayClassName(environment({ [gatewayRollbackOrderFlag]: true })),
   ).toBe("istio");
+});
+
+test("the mesh-enrollment flag is its own switch, independent of the ingress flag, and an omitted flag is off", () => {
+  expect(agentgatewayMeshEnrollmentFlag).toBe("agentgateway-mesh-enrollment");
+  expect(
+    gatewayClassName(environment({ [agentgatewayMeshEnrollmentFlag]: true })),
+  ).toBe("istio");
+  expect(
+    featureEnabled(environment(undefined), agentgatewayMeshEnrollmentFlag),
+  ).toBe(false);
+  expect(
+    featureEnabled(
+      environment({ [agentgatewayMeshEnrollmentFlag]: true }),
+      agentgatewayMeshEnrollmentFlag,
+    ),
+  ).toBe(true);
 });

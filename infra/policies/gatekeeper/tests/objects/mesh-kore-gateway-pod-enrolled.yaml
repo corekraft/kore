@@ -1,0 +1,8 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: kore-gateway-0
+  namespace: kore-system
+  labels:
+    gateway.networking.k8s.io/gateway-name: kore-gateway
+    istio.io/dataplane-mode: ambient

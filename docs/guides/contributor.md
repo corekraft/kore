@@ -216,7 +216,9 @@ importOriginal()), fn: vi.fn() }))`.
 - The agentgateway install is proven live by
   `KORE_RUN_AGENTGATEWAY_PROOF=1 tools/kore/scripts/agentgateway-live-proof.sh`.
   It runs a scratch copy of the local overlay with `ingress-agentgateway` and
-  `gateway-class-change-release` and `gateway-rollback-order` on (phase 4 expects the first rollback
+  `gateway-class-change-release`, `gateway-rollback-order` and
+  `agentgateway-mesh-enrollment` on, then sends a request through the Gateway to
+  the reference route and expects 200 (phase 4 expects the first rollback
   `kore local up` to fail with the gated-off refusal after converging),
   kept out of git and removed on exit, so the flag stays off in the repository.
 

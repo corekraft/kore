@@ -100,6 +100,20 @@ the script turns them on together with `ingress-agentgateway` in phase 2 and kee
 them on through phase 4; no committed overlay turns either on, and a committed
 turn-on needs the flag activation command and a recorded live outcome.
 
+Mesh enrollment of the data plane (2026-11-15, #208 live run 6, #126): with
+`ingress-agentgateway` on, the `kore-gateway` pod ran in `kore-system` without
+`istio.io/dataplane-mode`, `kore-system` uses STRICT mTLS, and ztunnel rejected
+the gateway's plaintext connection to the frontend
+(`explicitly denied by: istio-system/istio_converted_static_strict`), so the
+gateway returned 503 (#208 identity 4 of 7 and reference 7 of 8 failed). The new
+flag `agentgateway-mesh-enrollment` (off in every committed overlay; on only in
+the live proof's throwaway overlay) enrols just the gateway pod: it adds the pod
+label through `Gateway.spec.infrastructure.labels` and a second
+`PeerAuthentication` that is permissive on the gateway's listener port only. The
+live proof now also sends a request through the Gateway after phase 2 and
+expects 200 on the reference route. The #208 identity suite needs re-running
+with the flag on before the box below is ticked.
+
 ## Step 3: Re-Prove the Identity Chain
 
 ### Work

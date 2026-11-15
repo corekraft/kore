@@ -12,16 +12,18 @@
 # Phases, on one profile:
 #   1. flag off: `kore local up`; there is no agentgateway release and no
 #      agentgateway-system namespace.
-#   2. flags ingress-agentgateway, gateway-class-change-release and
-#      gateway-rollback-order on in the
+#   2. flags ingress-agentgateway, gateway-class-change-release,
+#      gateway-rollback-order and agentgateway-mesh-enrollment on in the
 #      scratch overlay (the second lets the reconcile delete and recreate the
 #      Gateway for the class change, with a brief ingress outage): `kore local up` on the same (existing)
 #      profile; the controller rolls out, the CRDs exist, the namespace is
 #      labelled ambient, platform status is clean.
 #      The gateway is reported ready by `kore platform status --json`, and the
-#      Istio ingress proxy (deploy and svc kore-gateway-istio) is gone.
+#      Istio ingress proxy (deploy and svc kore-gateway-istio) is gone. A request
+#      through the Gateway to the reference route (https://kore.local:8443/livez)
+#      must answer 200, so the proof no longer passes without sending traffic.
 #   3. rerun `kore local up`; no Helm release revision changes.
-#   4. ingress-agentgateway off again (the other two flags stay on):
+#   4. ingress-agentgateway off again (the other flags stay on):
 #      the first `kore local up` is EXPECTED to fail: it converges
 #      platform-config (the Gateway back on the istio class, Kore's own
 #      AgentgatewayParameters removed by Helm, the Istio proxy back) and then
@@ -129,7 +131,7 @@ sed -i.bak \
   "$env_file"
 rm -f "$env_file.bak"
 # 8. Every rewritten value must be there.
-for want in "\"name\": \"$scratch\"" "\"kubeContext\": \"$context\"" "\"clusterName\": \"$cluster\"" '"ingress-agentgateway": false' '"gateway-class-change-release": false' '"gateway-rollback-order": false'; do
+for want in "\"name\": \"$scratch\"" "\"kubeContext\": \"$context\"" "\"clusterName\": \"$cluster\"" '"ingress-agentgateway": false' '"gateway-class-change-release": false' '"gateway-rollback-order": false' '"agentgateway-mesh-enrollment": false'; do
   grep -qF "$want" "$env_file" || fail "could not rewrite $env_file: missing $want"
 done
 [ -z "$(git status --porcelain -- infra)" ] || fail "the scratch overlay is visible to git"
@@ -162,20 +164,24 @@ if k get ns agentgateway-system >/dev/null 2>&1; then
 fi
 echo "phase 1 ok: no agentgateway release and no agentgateway-system namespace" >&2
 
-step "phase 2: all three flags on in the scratch overlay, kore local up on the same profile"
+step "phase 2: all four flags on in the scratch overlay, kore local up on the same profile"
 # gateway-class-change-release lets the reconcile delete and recreate the
 # Gateway for the class change, and gateway-rollback-order defers the
 # orphaned-release refusal until platform-config is re-rendered; both stay on
 # through phase 4 so the rollback swaps the Gateway back to Istio the same way.
+# agentgateway-mesh-enrollment enrols the gateway pod in the ambient mesh with a
+# permissive exception for its listener port (ADR 0081 addendum).
 sed -i.bak \
   -e 's/"ingress-agentgateway": false/"ingress-agentgateway": true/' \
   -e 's/"gateway-class-change-release": false/"gateway-class-change-release": true/' \
   -e 's/"gateway-rollback-order": false/"gateway-rollback-order": true/' \
+  -e 's/"agentgateway-mesh-enrollment": false/"agentgateway-mesh-enrollment": true/' \
   "$env_file"
 rm -f "$env_file.bak"
 grep -qF '"ingress-agentgateway": true' "$env_file" || fail "could not set the flag in $env_file"
 grep -qF '"gateway-class-change-release": true' "$env_file" || fail "could not set gateway-class-change-release in $env_file"
 grep -qF '"gateway-rollback-order": true' "$env_file" || fail "could not set gateway-rollback-order in $env_file"
+grep -qF '"agentgateway-mesh-enrollment": true' "$env_file" || fail "could not set agentgateway-mesh-enrollment in $env_file"
 kore local up --environment "$scratch"
 k -n agentgateway-system rollout status deploy/agentgateway --timeout=180s
 for crd in agentgatewaybackends agentgatewaymodels agentgatewayparameters agentgatewaypolicies; do
@@ -209,7 +215,19 @@ gone() { # kind name: fail unless the object is absent
 }
 gone deploy kore-gateway-istio
 gone svc kore-gateway-istio
-echo "phase 2 ok: rollout, CRDs, ambient label, status, gateway ready and Istio proxy gone" >&2
+# A request through the Gateway: the enrolled gateway pod must reach the
+# frontend over the mesh, so a 503 here is the failure this flag exists to fix.
+ca_root="$(mise exec -- mkcert -CAROOT)"
+status=""
+for _ in 1 2 3 4 5 6; do
+  status="$(curl --silent --output /dev/null --write-out '%{http_code}' --connect-timeout 5 --max-time 20 --cacert "$ca_root/rootCA.pem" --resolve kore.local:8443:127.0.0.1 https://kore.local:8443/livez || true)"
+  [ "$status" != "200" ] || break
+  sleep 5
+done
+[ "$status" = "200" ] || fail "a request through the Gateway to https://kore.local:8443/livez answered '$status', expected 200; check the gateway pod carries istio.io/dataplane-mode=ambient and PeerAuthentication kore-gateway-listener exists in kore-system"
+dataplane_pod="$(k -n kore-system get pods -l gateway.networking.k8s.io/gateway-name=kore-gateway -o jsonpath='{.items[0].metadata.labels.istio\.io/dataplane-mode}')"
+[ "$dataplane_pod" = "ambient" ] || fail "the kore-gateway pod's istio.io/dataplane-mode is '$dataplane_pod', expected ambient"
+echo "phase 2 ok: rollout, CRDs, ambient label, status, gateway ready, Istio proxy gone and the reference route answers 200 through the Gateway" >&2
 
 assert_no_revision_change() { # label: rerun kore local up; no Helm release revision may change
   before="$(revisions)"

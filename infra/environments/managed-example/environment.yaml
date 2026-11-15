@@ -30,6 +30,7 @@
     },
   "features":
     {
+      "agentgateway-mesh-enrollment": false,
       "autoscaling-defaults": false,
       "gateway-class-change-release": false,
       "gateway-rollback-order": false,
