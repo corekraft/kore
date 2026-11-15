@@ -20,11 +20,6 @@ export async function prepareRevertFor(
 ): Promise<RevertResult> {
   const root = await deps.root();
   const issue = Number(/(\d+)$/.exec(done.concluded.issue)?.[1]);
-  if (done.changedByPr === undefined) {
-    throw new IdeaError(
-      `The ledger gave no PR for idea ${done.idea}'s change, so there is nothing to revert; rerun \`harness evaluate --idea ${done.idea} --changed-by-pr <number>\`.`,
-    );
-  }
   const git = new GitRevert(deps.runner, root, tmpdir());
   return await new PrepareRevert({
     flagOn: () => revertFlagOn(deps.fs, root),

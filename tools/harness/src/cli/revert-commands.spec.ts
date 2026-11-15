@@ -64,6 +64,20 @@ describe("prepareRevertFor", () => {
     });
   });
 
+  it("passes a missing PR on instead of throwing, so a not-refuted outcome still succeeds", async () => {
+    const { fake, run, context } = setup();
+    const unconfirmed = { ...done, changedByPr: undefined };
+    expect(await prepareRevertFor(context, fake.ledger, unconfirmed)).toEqual({
+      status: "flag-off",
+    });
+    expect(run).toHaveBeenCalledWith({
+      idea: "0007",
+      issue: 300,
+      pr: undefined,
+      result: "refuted",
+    });
+  });
+
   it("reads the flag from the local overlay", async () => {
     const { deps, fake, context } = setup();
     vi.mocked(revertFlagOn).mockResolvedValue(true);
@@ -87,7 +101,9 @@ describe("prepareRevertFor", () => {
     await prepareRevertFor(context, fake.ledger, done);
     expect(await portsOf().reverted("0007")).toBe(false);
   });
+});
 
+describe("prepareRevertFor ledger", () => {
   it("records the event as a claude harness-change-reverted event with the revert PR number", async () => {
     const { fake, context } = setup();
     await prepareRevertFor(context, fake.ledger, done);

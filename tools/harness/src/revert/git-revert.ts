@@ -95,12 +95,21 @@ export class GitRevert {
       ["worktree", "add", "-b", branch, dir, "origin/main"],
       this.root,
     );
+    let opened = false;
     try {
-      return await this.open({ idea, issue, pr }, sha, branch, dir);
+      const made = await this.open({ idea, issue, pr }, sha, branch, dir);
+      opened = true;
+      return made;
     } finally {
       await this.runner.run("git", ["worktree", "remove", "--force", dir], {
         cwd: this.root,
       });
+      if (!opened) {
+        // A branch left behind would stop a rerun at `worktree add -b`.
+        await this.runner.run("git", ["branch", "-D", branch], {
+          cwd: this.root,
+        });
+      }
     }
   }
 
@@ -136,8 +145,8 @@ export class GitRevert {
       summary,
       "Prepared by `harness evaluate`. It is not merged here: the judge approves and merges it like any change.",
       `Refs #${issue}`,
-      `Safety pattern: ${REVERT_BODY_SAFETY}`,
       `Idea: ${issue}`,
+      `Safety pattern: ${REVERT_BODY_SAFETY}`,
     ].join("\n\n");
     const created = await this.runner.run(
       "gh",

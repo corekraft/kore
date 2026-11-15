@@ -89,6 +89,9 @@ describe("GitRevert.prepare safety", () => {
     expect(body).toContain(`Safety pattern: ${REVERT_BODY_SAFETY}`);
     expect(REVERT_BODY_SAFETY).toBe("no-behaviour-change");
     expect(body).toContain("Idea: 300");
+    expect(body.split("\n").at(-1)).toBe(
+      `Safety pattern: ${REVERT_BODY_SAFETY}`,
+    );
     expect(body).toContain("Refs #300");
     expect(body).not.toMatch(/\b(closes|fixes|resolves)\b/i);
   });
@@ -120,9 +123,44 @@ describe("GitRevert.prepare safety", () => {
     const lines = text(calls);
     expect(lines.some((l) => l.startsWith("gh pr create"))).toBe(false);
     expect(lines.some((l) => l.startsWith("git push"))).toBe(false);
-    expect(lines.at(-1)).toBe(
+    expect(lines.slice(-2)).toEqual([
       "git worktree remove --force /scratch/revert-idea-300",
-    );
+      "git branch -D revert/idea-300",
+    ]);
+  });
+});
+
+describe("GitRevert.prepare cleanup", () => {
+  it.each(["revert", "commit", "push", "create"])(
+    "deletes the local branch when the %s step fails, so a rerun can add its worktree again",
+    async (step) => {
+      const { runner, calls } = runnerWith((c) => {
+        const failing =
+          c[1][0] === step || (step === "create" && c[1][1] === "create");
+        return failing ? { code: 1, stderr: "boom" } : happy(c);
+      });
+      await expect(
+        new GitRevert(runner, ROOT, SCRATCH).prepare({
+          idea: "0007",
+          issue: 300,
+          pr: 41,
+        }),
+      ).rejects.toThrow();
+      expect(text(calls).slice(-2)).toEqual([
+        "git worktree remove --force /scratch/revert-idea-300",
+        "git branch -D revert/idea-300",
+      ]);
+    },
+  );
+
+  it("keeps the local branch once the PR is open", async () => {
+    const { runner, calls } = runnerWith(happy);
+    await new GitRevert(runner, ROOT, SCRATCH).prepare({
+      idea: "0007",
+      issue: 300,
+      pr: 41,
+    });
+    expect(text(calls).some((l) => l.startsWith("git branch"))).toBe(false);
   });
 
   it("names the failing gh call when the PR cannot be read", async () => {

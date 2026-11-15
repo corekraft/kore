@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { IdeaError } from "../idea/index.js";
 import { PrepareRevert, type RevertPorts, type RevertPr } from "./revert.js";
 
 const change = { idea: "0007", issue: 300, pr: 41 };
@@ -59,6 +60,59 @@ describe("PrepareRevert", () => {
     });
     expect(fake.prepare).toHaveBeenCalledWith(change);
     expect(fake.record).toHaveBeenCalledWith("0007", 55);
+  });
+});
+
+describe("PrepareRevert needs a PR and an issue only to revert", () => {
+  it.each(["confirmed", "inconclusive"] as const)(
+    "a %s outcome with no PR is not an error",
+    async (result) => {
+      const { revert } = ports();
+      expect(
+        await revert.run({ idea: "0007", issue: 300, pr: undefined, result }),
+      ).toEqual({ status: "not-refuted" });
+    },
+  );
+
+  it("a refuted outcome with the flag off and no PR is not an error", async () => {
+    const { fake, revert } = ports();
+    fake.flagOn.mockResolvedValue(false);
+    expect(
+      await revert.run({
+        idea: "0007",
+        issue: 300,
+        pr: undefined,
+        result: "refuted",
+      }),
+    ).toEqual({ status: "flag-off" });
+  });
+
+  it("refuses a refuted outcome with the flag on and no PR, naming the fix, and prepares nothing", async () => {
+    const { fake, revert } = ports();
+    await expect(
+      revert.run({
+        idea: "0007",
+        issue: 300,
+        pr: undefined,
+        result: "refuted",
+      }),
+    ).rejects.toThrow(
+      new IdeaError(
+        "The ledger gave no PR for idea 0007's change, so there is nothing to revert; rerun `harness evaluate --idea 0007 --changed-by-pr <number>`.",
+      ),
+    );
+    expect(fake.prepare).not.toHaveBeenCalled();
+    expect(fake.record).not.toHaveBeenCalled();
+  });
+
+  it("refuses an issue number that is not a positive integer instead of passing NaN on", async () => {
+    const { fake, revert } = ports();
+    await expect(
+      revert.run({ idea: "0007", issue: NaN, pr: 41, result: "refuted" }),
+    ).rejects.toThrow(
+      "Idea 0007's issue is not a number, so its revert branch cannot be named; run `harness idea sync`, then rerun `harness evaluate`.",
+    );
+    expect(fake.prepare).not.toHaveBeenCalled();
   });
 });
 
