@@ -9,9 +9,8 @@ const bash = (role: string, command: string) =>
   });
 
 const ALL_ROLES = [
-  "orchestrator",
   "writer",
-  "concierge",
+  "challenger",
   "reader",
   "refiner",
   "challenger",
@@ -26,7 +25,7 @@ describe("role-no-merge: the judge approve tool", () => {
         "node skills/bin/harness.mjs judge approve 12 --reviewer bot --json",
       ),
     );
-    for (const role of ["orchestrator", "writer"]) {
+    for (const role of ["writer"]) {
       blocked(
         await bash(role, "node skills/bin/harness.mjs judge approve 12"),
         "role-no-merge",

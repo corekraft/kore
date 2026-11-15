@@ -1,6 +1,6 @@
 // Role bounds for the delivery loop's read-only agents (ADR 0078). Panes run in
 // bypass mode, so these guard rules, not permission prompts, keep the
-// concierge and the reader from writing files, and the concierge from reading
+// challenger and the reader from writing files, and the challenger from reading
 // code. The delivery roles are bounded in guard-role-delivery.ts. The host names the role as `agent_type` when a session starts with
 // `claude --agent <role>`; a session without one is not bounded here.
 //
@@ -37,8 +37,8 @@ const NO_CODE_ROLE_SET = new Set<string>(NO_CODE_ROLES);
 const SPAWNED_ROLE_SET = new Set<string>(SPAWNED_ROLES);
 const FILE_TOOLS = new Set(["Read", "Grep", "Glob"]);
 
-/** Paths the concierge and the challenger may read: plans, ADRs and ideas, never code. */
-const CONCIERGE_PATHS = /^(infra\/plans\/|docs\/|GLOSSARY\.md$|README\.md$)/;
+/** Paths the challenger may read: plans, ADRs and ideas, never code. */
+const NO_CODE_PATHS = /^(infra\/plans\/|docs\/|GLOSSARY\.md$|README\.md$)/;
 
 /** The path relative to the repository with `..` resolved, or undefined when it leaves the repository. */
 function insideRoot(root: string, path: string): string | undefined {
@@ -57,7 +57,7 @@ function readable(root: string, input: Record<string, unknown>): boolean {
       (value.split("/").includes("..") || value.startsWith("/")),
   );
   const inside = typeof path === "string" ? insideRoot(root, path) : undefined;
-  return !climbs && inside !== undefined && CONCIERGE_PATHS.test(inside);
+  return !climbs && inside !== undefined && NO_CODE_PATHS.test(inside);
 }
 
 const noCode = (what: string, role: string): Finding =>
@@ -67,7 +67,7 @@ const noCode = (what: string, role: string): Finding =>
       "Instead, ask a reader to look at the code and summarize it.",
   );
 
-/** The harness commands both roles may run; each is read-only. */
+/** The harness commands the read-only roles may run; each is read-only. */
 const HARNESS_READS = [
   "plan active",
   "idea list",
@@ -75,22 +75,19 @@ const HARNESS_READS = [
   "flow report",
   "ledger list",
 ];
-/** The concierge also files and mirrors ideas, the one way a request enters the queue. */
-const CONCIERGE_HARNESS = [...HARNESS_READS, "idea new", "idea sync"];
-/** The challenger records its rounds through the idea tool, which posts them on the issue. */
 /** The refiner files and mirrors the idea it refined, the one thing it produces. */
 const REFINER_HARNESS = [...HARNESS_READS, "idea new", "idea sync"];
 const CHALLENGER_HARNESS = [...HARNESS_READS, "idea challenge"];
 
-/** The only options the concierge's `git log` and `git status` take: none prints changed lines. */
-const CONCIERGE_GIT_FLAGS: Record<string, RegExp> = {
+/** The only options a no-code role's `git log` and `git status` take: none prints changed lines. */
+const NO_CODE_GIT_FLAGS: Record<string, RegExp> = {
   log: /^(--|--oneline|--graph|--decorate|--no-decorate|--all|--no-merges|--merges|--first-parent|--abbrev-commit|--since=.+|--until=.+|--author=.+|--grep=.+|--format=.+|--pretty=.+|--date=.+|--max-count=.+|-n|-\d+)$/,
   status: /^(-s|--short|-b|--branch|--porcelain|--porcelain=.+|--long)$/,
 };
 
-function conciergeGit(args: readonly string[]): boolean {
+function noCodeGit(args: readonly string[]): boolean {
   const [verb = "", ...rest] = args;
-  const flags = CONCIERGE_GIT_FLAGS[verb];
+  const flags = NO_CODE_GIT_FLAGS[verb];
   return (
     flags !== undefined &&
     rest.every((arg) => !arg.startsWith("-") || flags.test(arg))
@@ -101,14 +98,10 @@ function conciergeGit(args: readonly string[]): boolean {
 function noCodeMayRun(role: string, segment: readonly string[]): boolean {
   const { name, args } = commandOf(segment);
   return (
-    harnessAllowed(
-      name,
-      args,
-      role === "challenger" ? CHALLENGER_HARNESS : CONCIERGE_HARNESS,
-    ) ||
+    harnessAllowed(name, args, CHALLENGER_HARNESS) ||
     harnessStatus(name, args) ||
     (name === "gh" && ghMayRun(args, false)) ||
-    (name === "git" && conciergeGit(args)) ||
+    (name === "git" && noCodeGit(args)) ||
     ["date", "echo", "pwd"].includes(name)
   );
 }
@@ -129,7 +122,7 @@ function checkBash(role: string, command: string): Finding {
     const what = `\`${prefixed.join(" ")}\`, which sets an environment variable or changes shell state,`;
     return NO_CODE_ROLE_SET.has(role) ? noCode(what, role) : readOnly(what);
   }
-  // Only a role a brief asks for the notice is pointed at it; the concierge gets its usual finding.
+  // Only a role a brief asks for the notice is pointed at it; the challenger gets its usual finding.
   const typing = SPAWNED_ROLE_SET.has(role)
     ? segments.find(sendsToPane)
     : undefined;

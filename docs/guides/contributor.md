@@ -331,13 +331,13 @@ deviation). Fewer than three baseline samples give `insufficient history`. A
 reading a host could not give is left out of the figures, and a range with no
 samples says so (`samples` 0, no levels).
 
-The concierge answers "how is the loop doing?" from this report alone
+The person's main session answers "how is the loop doing?" from this report alone
 (`flow report --json`, no code or transcripts read, no file written): it leads
 with every metric whose `worsened` is true, names current against trailing
 average, and reports `insufficient history` or an absent field as such, never a
-figure the report did not print. The boundary eval case `concierge answers loop
-health from the flow report` fails when the run never calls the report
-(`expectCommand` in `.claude/evals/boundary.json`).
+figure the report did not print. A boundary eval case with
+`expectCommand` fails when the run never calls the report
+(`.claude/evals/boundary.json`).
 
 The stage rules are one table, `tools/harness/src/flow/stages.ts`. An event
 joins an idea by issue number at read time: an issue event by its own number, a
@@ -673,7 +673,7 @@ with the fix and posts nothing. A request never changes `.claude/guardrails.yaml
 `guardrail activate` is the separate step below.
 
 `harness guardrail status --json` adds `pending`: `{ rule, from, to, idea }` for
-each latest request whose rule still has the mode it would change. The concierge
+each latest request whose rule still has the mode it would change. The person's main session
 answers "what is waiting for approval?" from it.
 
 ## Guardrail activation
@@ -709,13 +709,13 @@ steps.
 
 ## Status
 
-`node skills/bin/harness.mjs status --json` is the concierge's one read-only
-status call. It never writes, and prints `{ plans, ideas, ledger }`: `plans`
+`node skills/bin/harness.mjs status --json` is the one read-only status call for the
+person's main session. It never writes, and prints `{ plans, ideas, ledger }`: `plans`
 is the `plan active` list with open items per step; `ideas` is
 `{ byState, items }`, where a state is `open` until an outcome closes the idea
 as `success` or `failure`; `ledger` is `{ recent, skipped }`, the ten latest
 stage events (`{ occurredAt, stage, kind, number?, idea? }`) newest first.
-Of the bounded roles, only the concierge may run it.
+Of the bounded roles, only the challenger may run it.
 
 ## Rules that bite
 

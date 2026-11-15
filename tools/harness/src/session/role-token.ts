@@ -168,7 +168,7 @@ async function flagOn(deps: CliDeps): Promise<boolean> {
 
 /**
  * The GitHub token a role's pane gets: a minted installation token for a
- * writer, the keychain PAT for the judge. Every other role, the orchestrator
+ * writer, the keychain PAT for the judge. Every other role, the main session
  * included, gets none (undefined) and the keychain is not read. So does every
  * role while the role-tokens flag is off, so spawn behaves as it did before.
  */

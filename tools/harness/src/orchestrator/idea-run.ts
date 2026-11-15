@@ -79,8 +79,7 @@ export interface RunResult {
  * Drives one approved idea to an outcome: a writer, then a judge, repeated while
  * the judge sends the change back. A failing precheck sends the change back
  * itself, before any judge pane. It reads the queue only between pieces of work,
- * escalates the writer after two send-backs, and never merges, edits or messages
- * the concierge: the judge merges, and only a given outcome closes the idea.
+ * escalates the writer after two send-backs, and never merges or edits: the judge merges, and only a given outcome closes the idea.
  */
 export class IdeaRun {
   /** `betweenWork` runs once when a queued idea's run ends, after every pane is closed. */

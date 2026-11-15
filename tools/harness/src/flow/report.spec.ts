@@ -185,7 +185,7 @@ describe("buildReport stage mapping", () => {
     expect(tally.count).toHaveBeenCalledWith("write");
   });
 
-  it("maps a claude session with no agent to the orchestrator", () => {
+  it("maps a claude session with no agent to the orchestrate stage, the main session's", () => {
     const tally = fakeTally();
     coverIdea(ev(1, "session.start", { session: "s1" }));
     run([]);
@@ -271,7 +271,7 @@ describe("buildReport actor time", () => {
 });
 
 describe("buildReport GitHub waits", () => {
-  it("holds GitHub waits out of a pane's lives, but not the orchestrator's", () => {
+  it("holds GitHub waits out of a pane's lives, but not the main session's", () => {
     fakeTally();
     coverIdea(
       writer(0, "pane.spawned"),

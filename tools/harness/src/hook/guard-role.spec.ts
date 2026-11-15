@@ -139,22 +139,24 @@ describe("checkRole: a read-only role's writes and file reads", () => {
     });
   });
 
-  it("lets the reader read code, but refuses the concierge reading it", () => {
+  it("lets the reader read code, but refuses the challenger reading it", () => {
     expect(call("reader", "Read", { file_path: "src/x.ts" })).toBeNull();
-    expect(call("concierge", "Read", { file_path: "src/x.ts" })).toMatchObject({
-      rule: "role-no-code",
-    });
+    expect(call("challenger", "Read", { file_path: "src/x.ts" })).toMatchObject(
+      {
+        rule: "role-no-code",
+      },
+    );
   });
 
-  it("lets the concierge read plans, ADRs and ideas, and refuses a climbing glob", () => {
-    expect(call("concierge", "Read", { file_path: "docs/a.md" })).toBeNull();
+  it("lets the challenger read plans, ADRs and ideas, and refuses a climbing glob", () => {
+    expect(call("challenger", "Read", { file_path: "docs/a.md" })).toBeNull();
     expect(
-      call("concierge", "Grep", { path: "../secret", pattern: "x" }),
+      call("challenger", "Grep", { path: "../secret", pattern: "x" }),
     ).toMatchObject({
       rule: "role-no-code",
     });
     expect(
-      call("concierge", "Glob", { path: "infra/plans", pattern: "../../x" }),
+      call("challenger", "Glob", { path: "infra/plans", pattern: "../../x" }),
     ).toMatchObject({
       rule: "role-no-code",
     });
@@ -166,7 +168,7 @@ describe("checkRole: a read-only role's shell", () => {
     expect(bash("reader", "echo $(ls)")).toMatchObject({
       rule: "role-read-only",
     });
-    expect(bash("concierge", "echo $(ls)")).toMatchObject({
+    expect(bash("challenger", "echo $(ls)")).toMatchObject({
       rule: "role-no-code",
     });
   });
@@ -196,28 +198,28 @@ describe("checkRole: a read-only role's shell", () => {
   });
 });
 
-describe("checkRole: the concierge's harness commands and gh reads", () => {
-  it("lets the concierge run its allowlisted harness commands and gh reads", () => {
+describe("checkRole: the challenger's harness commands and gh reads", () => {
+  it("lets the challenger run its allowlisted harness commands and gh reads", () => {
     vi.mocked(harnessAllowed).mockReturnValue(true);
     expect(
-      bash("concierge", "node skills/bin/harness.mjs idea new"),
+      bash("challenger", "node skills/bin/harness.mjs idea new"),
     ).toBeNull();
     vi.mocked(ghMayRun).mockReturnValue(true);
-    expect(bash("concierge", "gh pr view 1")).toBeNull();
+    expect(bash("challenger", "gh pr view 1")).toBeNull();
   });
 
   it("refuses a command a no-code role does not list, and allows its date and echo", () => {
-    expect(bash("concierge", "rm f")).toMatchObject({ rule: "role-no-code" });
-    expect(bash("concierge", "date")).toBeNull();
+    expect(bash("challenger", "rm f")).toMatchObject({ rule: "role-no-code" });
+    expect(bash("challenger", "date")).toBeNull();
   });
 
-  it("lets the concierge run git log and status with only the flags that print no code", () => {
-    expect(bash("concierge", "git log --oneline -n 3")).toBeNull();
-    expect(bash("concierge", "git status -s")).toBeNull();
-    expect(bash("concierge", "git log -p")).toMatchObject({
+  it("lets the challenger run git log and status with only the flags that print no code", () => {
+    expect(bash("challenger", "git log --oneline -n 3")).toBeNull();
+    expect(bash("challenger", "git status -s")).toBeNull();
+    expect(bash("challenger", "git log -p")).toMatchObject({
       rule: "role-no-code",
     });
-    expect(bash("concierge", "git diff")).toMatchObject({
+    expect(bash("challenger", "git diff")).toMatchObject({
       rule: "role-no-code",
     });
   });

@@ -25,7 +25,6 @@ export const ROLE_STAGES: Readonly<
 > = {
   refiner: { stage: "refine" },
   challenger: { stage: "challenge" },
-  orchestrator: { stage: "orchestrate" },
   writer: { stage: "write" },
   judge: { stage: "judge" },
   // A verifier checks the merged change; earlier events are not verification.

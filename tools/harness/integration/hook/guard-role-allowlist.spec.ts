@@ -5,7 +5,7 @@ import { allowed, blocked, decide } from "../../src/testing/index.js";
 const bash = (agent_type: string, command: string) =>
   decide({ agent_type, tool_name: "Bash", tool_input: { command } });
 
-describe("role-read-only: the judge and orchestrator run an allowlist, not a blocklist", () => {
+describe("role-read-only: the judge run an allowlist, not a blocklist", () => {
   const FORMS = [
     '/bin/bash -c "echo x > AGENTS.md"',
     "/usr/bin/env bash -c 'touch a'",
@@ -52,7 +52,7 @@ describe("role-read-only: the judge and orchestrator run an allowlist, not a blo
     "git --git-dir=/tmp log",
     "sqlite3 a.db 'create table t(x)'",
   ];
-  for (const role of ["judge", "orchestrator"]) {
+  for (const role of ["judge"]) {
     it(`${role}: refuses every unlisted write or launch form`, async () => {
       for (const command of FORMS) {
         blocked(await bash(role, command), "role-read-only");
@@ -61,7 +61,7 @@ describe("role-read-only: the judge and orchestrator run an allowlist, not a blo
   }
 });
 
-describe("role-read-only: ordinary judge and orchestrator commands still pass", () => {
+describe("role-read-only: ordinary judge commands still pass", () => {
   it("still lets the judge run its ordinary commands", async () => {
     for (const command of [
       "node skills/bin/harness.mjs judge precheck 42 --reviewer r --json",
@@ -79,25 +79,7 @@ describe("role-read-only: ordinary judge and orchestrator commands still pass", 
     }
   });
 
-  it("still lets the orchestrator run its session and herdr commands", async () => {
-    for (const command of [
-      "node skills/bin/harness.mjs session spawn --role judge --name j --brief b --no-wait",
-      "node skills/bin/harness.mjs session wait j",
-      "node skills/bin/harness.mjs ledger list",
-      "node skills/bin/harness.mjs idea list",
-      "gh issue list --label ready-for-agent",
-      "gh issue view 314",
-      "gh pr view 42",
-      "git log --oneline -5",
-      "herdr agent read j --source recent-unwrapped",
-      "herdr agent list",
-      "herdr pane list",
-    ]) {
-      allowed(await bash("orchestrator", command));
-    }
-  });
-
-  it("blocks the judge from herdr and the orchestrator from herdr verbs that send input or change panes", async () => {
+  it("blocks the judge from herdr, including the verbs that send input or change panes", async () => {
     blocked(await bash("judge", "herdr agent list"), "role-read-only");
     for (const command of [
       "herdr pane send-text w3:p1 hi",
@@ -106,7 +88,7 @@ describe("role-read-only: ordinary judge and orchestrator commands still pass", 
       "herdr pane split w1:p1",
       "herdr server stop",
     ]) {
-      blocked(await bash("orchestrator", command), "role-read-only");
+      blocked(await bash("judge", command), "role-read-only");
     }
   });
 
@@ -136,7 +118,6 @@ const RAW = [
 /** Every spawned role's brief ends with the notice, so each bounded role may run exactly it. */
 const ROLES: [string, string][] = [
   ["judge", "role-read-only"],
-  ["orchestrator", "role-read-only"],
   ["reader", "role-read-only"],
   ["refiner", "role-read-only"],
   ["challenger", "role-no-code"],
@@ -167,24 +148,15 @@ describe("role-read-only: the finish notification and benign reads", () => {
     });
   }
 
-  it("leaves the concierge, which no session spawns, without the notice", async () => {
-    blocked(await bash("concierge", NOTIFY[0] ?? ""), "role-no-code");
-    for (const command of RAW) {
-      const result = await bash("concierge", command);
-      blocked(result, "role-no-code");
-      assert.ok(!result.message.includes("session notify"), result.message);
-    }
-  });
-
-  it("keeps herdr agent prompt refused for the orchestrator: sessions are launched through session spawn (ADR 0078)", async () => {
+  it("keeps herdr agent prompt refused for the judge: sessions are launched through session spawn (ADR 0078)", async () => {
     blocked(
-      await bash("orchestrator", "herdr agent prompt j 'do it'"),
+      await bash("judge", "herdr agent prompt j 'do it'"),
       "role-read-only",
     );
   });
 
   it("allows an allowlisted read in the background: it still runs only an allowlisted command, so `&` adds no write", async () => {
-    for (const role of ["judge", "orchestrator"]) {
+    for (const role of ["judge"]) {
       allowed(await bash(role, "echo x &"));
       allowed(await bash(role, "git log --oneline -3 &"));
       blocked(await bash(role, "touch a &"), "role-read-only");
@@ -224,7 +196,7 @@ const WRITE_COMMANDS = [
   "export X=1",
   "T=x > out.txt",
 ];
-const ROLES_WITH_READS = ["reader", "refiner", "judge", "orchestrator"];
+const ROLES_WITH_READS = ["reader", "refiner", "judge"];
 
 describe("role-read-only: the retro's read commands pass for every role the allowlist names", () => {
   for (const role of ROLES_WITH_READS) {
@@ -256,8 +228,8 @@ describe("role-read-only: the retro's read commands pass for every role the allo
     }
   });
 
-  it("judge and orchestrator still refuse the retro scan: their harness lists do not name it", async () => {
-    for (const role of ["judge", "orchestrator"]) {
+  it("judge still refuse the retro scan: their harness lists do not name it", async () => {
+    for (const role of ["judge"]) {
       blocked(
         await bash(role, "node skills/bin/harness.mjs hook retro-scan"),
         "role-read-only",

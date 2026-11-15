@@ -1,8 +1,8 @@
-// Role bounds for the delivery roles (ADR 0078): the orchestrator and judge change no
+// Role bounds for the delivery roles (ADR 0078): the judge changes no
 // file, only the writer does and only inside its own worktree, and the only merge is the
 // judge's `harness judge merge`, which re-runs the precheck first (plan 11 Step 5). A
 // session with no role, such as the person's, is not bound here and keeps `gh pr merge`.
-// The orchestrator and judge run under the shared read allowlist in guard-role-allow.ts,
+// The judge runs under the shared read allowlist in guard-role-allow.ts,
 // so a write form nobody listed is refused by default. The owner approved enforcing these
 // guards on #190 and #191 (2026-11-12), so every rule blocks.
 import { isAbsolute, relative, resolve } from "node:path";
@@ -69,23 +69,6 @@ const READS = [
   "skill audit",
   "session tier",
 ];
-/** The orchestrator also launches and collects panes, and finishes the ideas it drives to an outcome. */
-const ORCHESTRATOR_HARNESS = [
-  ...READS,
-  "session spawn",
-  "session wait",
-  "session close",
-  "session equalize",
-  "session notify",
-  "idea sync",
-  "queue next",
-  "queue send-backs",
-  "queue escalate",
-  "orchestrate run",
-  "outcome record",
-  "outcome close",
-];
-
 /**
  * The judge also runs its precheck, which reads GitHub and appends one event to the
  * shared ledger, `judge diff`, which only reads a PR's diff, and the approve, merge and send-back tools, which write only through gh and that
@@ -103,33 +86,13 @@ const JUDGE_HARNESS = [
 
 /** The harness commands each delivery role may run; any other role gets the reads. */
 const HARNESS_BY_ROLE: Record<string, readonly string[]> = {
-  orchestrator: ORCHESTRATOR_HARNESS,
   judge: JUDGE_HARNESS,
 };
 const harnessFor = (role: string): readonly string[] =>
   HARNESS_BY_ROLE[role] ?? READS;
 
-/** The `herdr` queries the orchestrator may run to see its panes; none sends input or changes a pane. */
-const HERDR_READS = [
-  "agent list",
-  "agent get",
-  "agent read",
-  "agent wait",
-  "pane list",
-  "pane get",
-  "pane read",
-  "pane current",
-];
-
-/** What a reporting role's shell may run: the shared read allowlist with the role's harness commands, and for the orchestrator the herdr queries. Anything else is refused. */
+/** What a reporting role's shell may run: the shared read allowlist with the role's harness commands. Anything else is refused. */
 function reportingMayRun(role: string, segment: readonly string[]): boolean {
-  const { name, args } = commandOf(segment);
-  if (name === "herdr") {
-    return (
-      role === "orchestrator" &&
-      HERDR_READS.includes(`${args[0] ?? ""} ${args[1] ?? ""}`)
-    );
-  }
   return readMayRun(segment, harnessFor(role));
 }
 

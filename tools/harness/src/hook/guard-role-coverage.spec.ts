@@ -3,14 +3,14 @@ import { roleCoverage } from "./guard-role-coverage.js";
 
 describe("roleCoverage", () => {
   it("reports a registry role that no spec case names as missing", () => {
-    expect(roleCoverage(["concierge", "judge"], ["concierge"])).toEqual({
+    expect(roleCoverage(["reader", "judge"], ["reader"])).toEqual({
       missing: ["judge"],
       extra: [],
     });
   });
 
   it("reports a spec role the registry lacks as extra", () => {
-    expect(roleCoverage(["concierge"], ["concierge", "ghost"])).toEqual({
+    expect(roleCoverage(["reader"], ["reader", "ghost"])).toEqual({
       missing: [],
       extra: ["ghost"],
     });

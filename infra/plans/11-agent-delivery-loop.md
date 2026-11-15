@@ -28,7 +28,7 @@ do not yet bound anything
 - **One human gate.** A person approves an idea; everything after is
   autonomous.
 - **Every change declares a safety pattern.**
-- **The queue is the only channel** into `orchestrate run`: GitHub issues,
+- **The queue is the only channel into `orchestrate run`:** GitHub issues,
   labels and comments.
 
 ## Step 1: Idea and Outcome Records
@@ -120,17 +120,18 @@ do not yet bound anything
 
 ## Step 6: Orchestrator and Concierge
 
-Next: Merged: queue and escalation counting ([#707](https://github.com/corekraft/kore/pull/707)), orchestrator tracer ([#710](https://github.com/corekraft/kore/pull/710)), concierge loop health ([#711](https://github.com/corekraft/kore/pull/711)). Still open: the item that `orchestrate run` fills the Orchestrator role, whose ledger criterion needs a live or integration run (#197); the item that the person's main session answers status from plans, issues and the ledger and files requests as ideas, which its evals do not yet cover; Step 7 (plan 7 as first workload; plan 7 has no open items, #199 closed). Full state: #366.
+Next: Merged: queue and escalation counting ([#707](https://github.com/corekraft/kore/pull/707)), orchestrator tracer ([#710](https://github.com/corekraft/kore/pull/710)), loop health in the flow report ([#711](https://github.com/corekraft/kore/pull/711)). Still open: the item that `orchestrate run` fills the Orchestrator role, whose ledger criterion needs a live or integration run (#197); the item that the person's main session answers status from plans, issues and the ledger and files requests as ideas, which its evals do not yet cover; Step 7 (plan 7 as first workload; plan 7 has no open items, #199 closed). Full state: #366.
 
 ### Work
 
-- [ ] `orchestrate run` fills the Orchestrator role: it reads the queue only
-      between pieces of work, and launches readers, writers and judges as
-      panes.
+- [ ] `orchestrate run` fills the Orchestrator role, which no agent does: it
+      reads the queue only between pieces of work, and launches readers,
+      writers and judges as panes.
 - [x] Writers escalate from Haiku to Sonnet after two judge send-backs, by
       relaunching with different parameters.
-- [ ] The person's own main session answers status from plans, issues and the
-      ledger, and files requests as ideas, with no concierge pane.
+- [ ] The person's own main session answers status, loop health and requests
+      through `status`, `flow report` and `idea new`, with no agent to do it
+      for them; the proof of that is still to be settled.
 
 ### Exit Criteria
 

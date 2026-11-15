@@ -45,6 +45,12 @@ describe("the pane-role stage table", () => {
     });
     expect(ROLE_STAGES.writer).toEqual({ stage: "write" });
   });
+
+  it("names no orchestrator or concierge pane, and leaves the orchestrate stage to the main session", () => {
+    expect(Object.keys(ROLE_STAGES)).not.toContain("orchestrator");
+    expect(Object.keys(ROLE_STAGES)).not.toContain("concierge");
+    expect(MAIN_SESSION_STAGE).toBe("orchestrate");
+  });
 });
 
 describe("the GitHub event stage table", () => {

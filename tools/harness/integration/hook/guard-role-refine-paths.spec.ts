@@ -89,7 +89,7 @@ describe("role-no-code: a path with .. cannot step out of the readable folders",
     },
   ];
 
-  for (const role of ["challenger", "concierge"]) {
+  for (const role of ["challenger"]) {
     it(`${role}: blocked whichever file tool names it`, async () => {
       for (const { tool, input } of TRAVERSALS) {
         blocked(await as(role, tool, input), "role-no-code");
@@ -131,11 +131,9 @@ describe("a bounded role cannot start a command with an environment assignment",
     ". ./env.sh; git log",
   ];
   const finding = (role: string) =>
-    ["concierge", "challenger"].includes(role)
-      ? "role-no-code"
-      : "role-read-only";
+    ["challenger"].includes(role) ? "role-no-code" : "role-read-only";
 
-  for (const role of ["reader", "refiner", "concierge", "challenger"]) {
+  for (const role of ["reader", "refiner", "challenger"]) {
     it(`${role}: every assigned form is blocked`, async () => {
       for (const command of ASSIGNED) {
         blocked(await bash(role, command), finding(role));
@@ -160,9 +158,9 @@ describe("git options that run a program are refused for every bounded role", ()
     "git -c diff.external=x diff HEAD~1",
   ];
 
-  for (const role of ["reader", "refiner", "concierge", "challenger"]) {
+  for (const role of ["reader", "refiner", "challenger"]) {
     it(`${role}: each is blocked`, async () => {
-      const rule = ["concierge", "challenger"].includes(role)
+      const rule = ["challenger"].includes(role)
         ? "role-no-code"
         : "role-read-only";
       for (const command of PROGRAM_OPTIONS) {
