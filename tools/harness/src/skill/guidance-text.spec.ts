@@ -106,17 +106,35 @@ describe("the orchestrator definition", () => {
 describe("the judge definition", () => {
   const judge = read(".claude/agents/judge.md");
 
-  it("holds the safety-pattern list", () => {
-    const merges = section(judge, "Merges without asking the owner");
+  const merges = section(judge, "Merges without asking the owner").replace(
+    /\]\([^)]*\)/g,
+    "]",
+  );
+
+  it("points to judge merge and ADR 0099 instead of listing the safety patterns", () => {
+    expect(merges).toContain("judge merge");
+    expect(merges).toContain("ADR 0099");
     for (const pattern of [
-      "no-behaviour-change",
       "dark launch",
       "branch-by-abstraction",
       "expand-contract",
       "feature flag",
     ]) {
-      expect(merges).toContain(pattern);
+      expect(merges).not.toContain(pattern);
     }
+  });
+
+  it("keeps the two rules judge merge does not enforce", () => {
+    expect(merges).toMatch(/cluster-facing `no-behaviour-change`[^.]*live run/);
+    expect(merges).toMatch(/[Aa]ctivation[^.]*recorded[^.]*outcome[^.]*owner/);
+  });
+
+  it("keeps step 1 to the judgement, without the precheck internals", () => {
+    const step1 = judge.split("\n").find((l) => l.startsWith("1. ")) ?? "";
+    expect(step1).toContain("toolingPaths");
+    expect(step1).toContain("product behaviour");
+    expect(step1).not.toContain("reviewerLogins");
+    expect(step1).not.toContain("ledger");
   });
 });
 
