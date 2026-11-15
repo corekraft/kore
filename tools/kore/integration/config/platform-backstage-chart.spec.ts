@@ -41,7 +41,9 @@ async function render(environment: string): Promise<string> {
 }
 
 const document = (rendered: string, kind: string): string =>
-  rendered.split(/^---$/m).find((part) => part.includes(`kind: ${kind}`)) ?? "";
+  rendered
+    .split(/^---$/m)
+    .find((part) => new RegExp(`^kind: ${kind}$`, "m").test(part)) ?? "";
 
 test("the platform Backstage is a flag-gated chart installed after the platform Keycloak and the PostgreSQL API, so with the flag off nothing reaches a cluster", async () => {
   for (const name of ["local", "managed-example"]) {
