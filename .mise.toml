@@ -30,6 +30,10 @@ run = "npm --prefix tools/kore run build"
 description = "Run tests that do not require a cluster"
 run = "npm --prefix tools/kore test && npm --prefix apps/reference test && npm --prefix tools/harness test"
 
+[tasks.test-related]
+description = "Typecheck, lint and run only the unit tests related to the files given, through the commit hook's related-tests script: mise run test-related <files>. Starts no cluster or integration run"
+run = "node tools/kore/.husky/test-related.mjs"
+
 [tasks.test-integration]
 description = "Run the integration tier of tools/kore and tools/harness: real units together, no cluster. Not part of the default test run or the commit hook"
 run = ["npm --prefix tools/kore run test:integration", "npm --prefix tools/harness run test:integration"]
@@ -106,7 +110,7 @@ run = ["promtool check rules infra/observability/config/files/rules/platform.yam
 description = "Scan git history and tracked files for secrets with TruffleHog (verification needs network); .kore/ and SOPS ciphertext are excluded"
 run = [
   "trufflehog git file://. --results=verified,unknown,unverified --exclude-paths=.trufflehog-exclude --no-update --fail --no-color",
-  "git ls-files -z | xargs -0 trufflehog filesystem --results=verified,unknown,unverified --exclude-paths=.trufflehog-exclude --no-update --fail --no-color",
+  "git ls-files -z | xargs -0 trufflehog filesystem --results=verified,unknown,unverified --exclude-paths=.trufflehog-exclude-tree --no-update --fail --no-color",
 ]
 
 [tasks.scan-vulns]

@@ -39,22 +39,22 @@ function render(repository: Repository): string {
   );
 }
 
-test("the ingress flag is off in every overlay and picks the istio class", async () => {
-  for (const name of ["local", "managed-example"]) {
-    const base = await loadRepository(name);
-    assert.equal(gatewayClassName(base.environment), "istio");
-  }
+test("the ingress flag picks agentgateway in local and the istio class in managed-example", async () => {
+  const managed = await loadRepository("managed-example");
+  assert.equal(gatewayClassName(managed.environment), "istio");
+  const local = await loadRepository("local");
+  assert.equal(gatewayClassName(local.environment), "agentgateway");
   const flagged = await localWith({ [ingressFlag]: true });
   assert.equal(gatewayClassName(flagged.environment), "agentgateway");
 });
 
-test("the local overlay declares the ingress flag, set off", async () => {
+test("the local overlay declares the ingress flag, set on", async () => {
   const base = await loadRepository("local");
-  assert.equal(base.environment.features?.[ingressFlag], false);
+  assert.equal(base.environment.features?.[ingressFlag], true);
 });
 
 test("with the flag off the platform-config render is byte-identical to today", async () => {
-  const repository = await loadRepository("local");
+  const repository = await localWith({ [ingressFlag]: false });
   const golden = await readFile(
     `${repository.root}/tools/kore/src/platform/fixtures/platform-config.local.yaml`,
     "utf8",
