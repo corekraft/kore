@@ -22,6 +22,17 @@ const realSuites = Object.keys(
   .filter((name) => name.startsWith("test:live:"))
   .map((name) => name.slice("test:live:".length));
 
+// The measurement-only suites nightly.sh skips, so the choice can never offer one it would refuse.
+const excluded = (() => {
+  const list = /^excluded_suites=\(([^)]*)\)$/m.exec(
+    read("tools/kore/scripts/nightly.sh"),
+  )?.[1];
+  return (list ?? "")
+    .split(/\s+/)
+    .filter(Boolean)
+    .map((name) => name.replace(/^test:live:/, ""));
+})();
+
 const options = (() => {
   const block =
     /^ {6}suite:\n(?:.*\n)*?^ {8}options:\n((?: {10}- .*\n)+)/m.exec(live)?.[1];
@@ -36,24 +47,15 @@ it("runs on workflow_dispatch only, with no schedule, push or pull_request trigg
   expect(live).not.toMatch(/^ {2}(schedule|push|pull_request\w*):/m);
 });
 
-it("offers a choice input whose options are exactly the real test:live suites", () => {
+it("offers a choice input whose options are the real test:live suites minus the ones nightly.sh excludes", () => {
   expect(live).toMatch(/^ {6}suite:\n(?:.*\n)*?^ {8}type: choice$/m);
-  expect([...options].sort()).toEqual([...realSuites].sort());
-  expect(options).toContain("footprint");
+  expect(excluded).toContain("footprint");
+  expect([...options].sort()).toEqual(
+    realSuites.filter((name) => !excluded.includes(name)).sort(),
+  );
+  expect(options).not.toContain("footprint");
   expect(options).toContain("lifecycle");
   expect(live).toMatch(/^ {8}default: lifecycle$/m);
-});
-
-it("takes a number input runs, defaulting to 3, and checks its 2 to 5 range before any cluster work", () => {
-  expect(live).toMatch(/^ {6}runs:\n(?:.*\n)*?^ {8}type: number$/m);
-  expect(live).toMatch(/^ {6}runs:\n(?:.*\n)*?^ {8}default: 3$/m);
-  expect(live).toMatch(/KORE_FOOTPRINT_RUNS: \$\{\{ inputs\.runs \}\}/);
-  const check =
-    /name: Check the runs input\n(?: {8}.*\n)+/.exec(live)?.[0] ?? "";
-  expect(check).toMatch(/\[ "\$RUNS" -ge 2 \] && \[ "\$RUNS" -le 5 \]/);
-  expect(live.indexOf("Check the runs input")).toBeLessThan(
-    live.indexOf("run: tools/kore/scripts/nightly.sh"),
-  );
 });
 
 it("holds read-only contents permission at the top and on the job, and nothing else", () => {
@@ -92,14 +94,10 @@ it("runs the chosen suite through nightly.sh, which always tears down, and write
   expect(live).toMatch(/^ {4}timeout-minutes: \d+$/m);
 });
 
-it("states that footprint fails on Linux, so it is not the default", () => {
-  expect(live.split("\nname:")[0]).toMatch(/vm\.swapusage/);
-  expect(live).not.toMatch(/default: footprint/);
-});
-
-it("warns that a runner's numbers are not the local Now baseline", () => {
+it("says why footprint is excluded and that runner numbers are for the runner host", () => {
   const head = live.split("\nname:")[0] ?? "";
+  expect(head).toMatch(/macOS-only/);
+  expect(head).toMatch(/#659/);
   expect(head).toMatch(/github-hosted runner/);
-  expect(head).toMatch(/#614/);
-  expect(head).toMatch(/#623/);
+  expect(live).not.toMatch(/KORE_FOOTPRINT_RUNS|inputs\.runs/);
 });

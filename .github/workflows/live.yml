@@ -7,19 +7,13 @@
 # Concurrency: the nightly's own group, so two live runs, or a live run and the
 # nightly, never overlap and a run in progress is never cancelled.
 #
-# Host caveat: numbers from this workflow come from a github-hosted runner, a
-# different host from the local VM. A footprint run is recorded with its true
-# host (runner label, vCPU, memory) and method, and is never described as the
-# local VM. The `runs` input takes several clean measurements in one job, each
-# printed with its load average beside it. The footprint suite reads macOS
-# `sysctl vm.swapusage` and fails on a Linux runner (#659), so the default suite
-# is lifecycle; footprint stays selectable. nightly.sh also skips measurement-only
-# suites (#662), so choosing footprint ends with "found no test:live suites"
-# until #659 lets a measurement suite run here.
+# Host: numbers from this workflow are for the github-hosted runner it runs on,
+# a different host from the local VM. Say so wherever they are recorded.
 #
-# A footprint taken here must not be recorded as the local Now baseline for
-# #614/#623 (the local VM is a different host); it needs the owner's decision on
-# the issue first.
+# Footprint is excluded because it is macOS-only and the baseline is owed as debt
+# #659; add it back when the measurement has Linux support. The suite choice is
+# the real test:live scripts minus the measurement-only suites nightly.sh skips
+# (its `excluded_suites`); a spec keeps the two lists from drifting.
 
 name: live
 
@@ -34,7 +28,6 @@ on:
           - admission
           - database
           - docs
-          - footprint
           - gate
           - gateway
           - identity
@@ -48,10 +41,6 @@ on:
           - signer
           - storage
           - telemetry
-      runs:
-        description: Footprint measurements in one job (2 to 5); other suites ignore it
-        type: number
-        default: 3
 
 permissions:
   contents: read
@@ -70,15 +59,6 @@ jobs:
       MISE_TASK_RUN_AUTO_INSTALL: "false"
       KORE_RUN_NIGHTLY: "1"
     steps:
-      - name: Check the runs input
-        if: inputs.suite == 'footprint'
-        env:
-          RUNS: ${{ inputs.runs }}
-        run: |
-          if ! { [[ "$RUNS" =~ ^[0-9]+$ ]] && [ "$RUNS" -ge 2 ] && [ "$RUNS" -le 5 ]; }; then
-            echo "runs must be a whole number from 2 to 5, got '$RUNS'" >&2
-            exit 1
-          fi
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
@@ -91,7 +71,6 @@ jobs:
       - name: Clean local up and the chosen live suite
         env:
           KORE_NIGHTLY_SUITES: test:live:${{ inputs.suite }}
-          KORE_FOOTPRINT_RUNS: ${{ inputs.runs }}
         run: tools/kore/scripts/nightly.sh 2>&1 | tee "$RUNNER_TEMP/live.log"
       - name: Print the suite output in the job summary
         if: always()
