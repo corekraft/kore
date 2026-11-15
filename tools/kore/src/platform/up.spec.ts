@@ -3,6 +3,7 @@ import { helmInstalledComponents, isLocalProvider } from "../config/index.js";
 import { installLocalTrust } from "../security/index.js";
 import { bootstrapControllers, openApplicationAdmission } from "./bootstrap.js";
 import { enrollPlatformNamespaces } from "./enrollment.js";
+import { CommandError } from "../runtime/index.js";
 import type { ReadinessEvidence } from "./readiness-manifest.js";
 import { platformUp } from "./up.js";
 import { helmReleaseStatus } from "./probe.js";
@@ -170,4 +171,35 @@ test("an argocd release is not reconciled by Helm once kore-config-delivery is d
 test("with the flag off up never asks the cluster whether the delivery release is installed", async () => {
   await platformUp(local, fakeRunner().runner);
   expect(helmReleaseStatus).not.toHaveBeenCalled();
+});
+
+test("a delivery release that is not found, as on a fresh profile, leaves Helm managing the argocd release", async () => {
+  flagOn();
+  vi.mocked(helmReleaseStatus).mockRejectedValue(
+    new CommandError("helm", ["status"], {
+      stdout: "",
+      stderr: "Error: release: not found",
+      code: 1,
+    }),
+  );
+  await platformUp(local, fakeRunner().runner);
+  expect(order.filter((step) => step.startsWith("configure:"))).toEqual([
+    "configure:tls",
+    "configure:kore-config-delivery",
+    "configure:policy",
+  ]);
+});
+
+test("any other failure reading the delivery release stops up, never a guess that Helm still owns the release", async () => {
+  flagOn();
+  const unreachable = new CommandError("helm", ["status"], {
+    stdout: "",
+    stderr: "Error: Kubernetes cluster unreachable",
+    code: 1,
+  });
+  vi.mocked(helmReleaseStatus).mockRejectedValue(unreachable);
+  await expect(platformUp(local, fakeRunner().runner)).rejects.toBe(
+    unreachable,
+  );
+  expect(reconcileConfiguration).not.toHaveBeenCalled();
 });

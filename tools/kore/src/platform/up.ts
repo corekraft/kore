@@ -5,7 +5,7 @@ import {
   type Component,
   type Repository,
 } from "../config/index.js";
-import type { Runner } from "../runtime/index.js";
+import { CommandError, type Runner } from "../runtime/index.js";
 import { installLocalTrust } from "../security/index.js";
 import { bootstrapControllers, openApplicationAdmission } from "./bootstrap.js";
 import { enrollPlatformNamespaces } from "./enrollment.js";
@@ -60,7 +60,27 @@ async function handedToArgocd(
   }
   const delivery = candidates.find((c) => c.name === configDeliveryRelease);
   return (
-    delivery !== undefined &&
-    (await helmReleaseStatus(repository, runner, delivery)) === "deployed"
+    delivery !== undefined && (await isDeployed(repository, runner, delivery))
   );
+}
+
+/** A release that does not exist yet is not deployed; any other failure is rethrown. */
+async function isDeployed(
+  repository: Repository,
+  runner: Runner,
+  release: Component,
+): Promise<boolean> {
+  try {
+    return (
+      (await helmReleaseStatus(repository, runner, release)) === "deployed"
+    );
+  } catch (error) {
+    if (
+      error instanceof CommandError &&
+      /release: not found/.test(error.result.stderr)
+    ) {
+      return false;
+    }
+    throw error;
+  }
 }
