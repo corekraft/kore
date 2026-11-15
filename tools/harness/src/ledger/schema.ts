@@ -35,6 +35,7 @@ export const KINDS = [
   "kore.retry",
   "pane.interrupted",
   "retro-triggered",
+  "auto-approved",
 ] as const;
 export type Kind = (typeof KINDS)[number];
 
@@ -54,6 +55,7 @@ const NUMBER_KINDS: readonly Kind[] = [
   "send-back",
   "escalation",
   "owner.action",
+  "auto-approved",
 ];
 
 /** Workflow runs GitHub concluded: only the conclusion and its time are kept. */
@@ -234,6 +236,7 @@ const RULES: readonly Rule[] = [
       "escalation",
       "kore.retry",
       "retro-triggered",
+      "auto-approved",
     ],
   },
   {

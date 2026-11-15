@@ -20,7 +20,8 @@
       "platform-organization-service-apis": false,
       "platform-argocd-delivery": false,
       "platform-portal": false,
-      "automatic-retro": false
+      "automatic-retro": false,
+      "automatic-approval": false
     },
   "imageInventory": "audit",
   "exemptionCheck": "audit",

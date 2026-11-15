@@ -8,6 +8,7 @@ const {
   queueCommands,
   retroCommands,
   orchestrateCommands,
+  approveCommand,
 } = vi.hoisted(() => {
   const command: Command = { summary: "x", run: () => Promise.resolve(0) };
   return {
@@ -16,6 +17,7 @@ const {
     queueCommands: { next: command },
     retroCommands: { due: command },
     orchestrateCommands: { run: command },
+    approveCommand: command,
   };
 });
 
@@ -23,6 +25,7 @@ vi.mock("./ledger-commands.js", () => ({ ledgerCommands }));
 vi.mock("./flow-commands.js", () => ({ flowCommands }));
 vi.mock("./queue-commands.js", () => ({ queueCommands }));
 vi.mock("./retro-commands.js", () => ({ retroCommands }));
+vi.mock("./approve-commands.js", () => ({ approveCommand }));
 vi.mock("./orchestrate-commands.js", () => ({ orchestrateCommands }));
 
 describe("measurement command map", () => {
@@ -33,6 +36,7 @@ describe("measurement command map", () => {
       queue: queueCommands,
       retro: retroCommands,
       orchestrate: orchestrateCommands,
+      approve: { "": approveCommand },
     });
   });
 
@@ -42,5 +46,9 @@ describe("measurement command map", () => {
     expect(measurement.queue).toBe(queueCommands);
     expect(measurement.retro).toBe(retroCommands);
     expect(measurement.orchestrate).toBe(orchestrateCommands);
+  });
+
+  it("gives approve the empty command word, since it is the domain's only command", () => {
+    expect(measurement.approve).toEqual({ "": approveCommand });
   });
 });

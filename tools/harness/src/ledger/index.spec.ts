@@ -7,16 +7,22 @@ import { pollHerdr } from "./herdr-poll.js";
 vi.mock("./github-poll.js");
 vi.mock("./github-signals.js");
 vi.mock("./herdr-poll.js");
+vi.mock("./github-owner-actions.js", () => ({
+  APPROVED_MARKER: "a",
+  REFUSED_MARKER: "r",
+}));
 vi.mock("./ledger.js");
 vi.mock("./schema.js");
 
 describe("the ledger barrel", () => {
   it("exposes the domain's public names, and no file's internals", () => {
     expect(Object.keys(barrel).sort()).toEqual([
+      "APPROVED_MARKER",
       "DEFAULT_LEDGER",
       "KINDS",
       "Ledger",
       "POLLER_KINDS",
+      "REFUSED_MARKER",
       "SOURCES",
       "isName",
       "isTimestamp",

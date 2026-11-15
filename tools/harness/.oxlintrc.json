@@ -69,6 +69,10 @@
       {
         "patterns": [
           {
+            "group": ["**/approve/**", "!**/approve/index.js"],
+            "message": "import from the approve barrel (approve/index.js), not one of its files"
+          },
+          {
             "group": ["**/adr/**", "!**/adr/index.js"],
             "message": "import from the adr barrel (adr/index.js), not one of its files"
           },
@@ -183,6 +187,10 @@
           "error",
           {
             "patterns": [
+              {
+                "group": ["**/approve/**", "!**/approve/index.js"],
+                "message": "import from the approve barrel (approve/index.js), not one of its files"
+              },
               {
                 "group": ["**/adr/**", "!**/adr/index.js"],
                 "message": "import from the adr barrel (adr/index.js), not one of its files"

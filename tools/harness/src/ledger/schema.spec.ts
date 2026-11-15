@@ -300,3 +300,22 @@ describe("outcome-metric events from GitHub", () => {
     expect(parseEvent({ ...event, number: 7 }, "input").ok).toBe(false);
   });
 });
+
+describe("ledger event schema auto-approved", () => {
+  it("accepts an auto-approved event with its issue number and metric label, and requires both", () => {
+    const approved = { ...base, source: "claude", kind: "auto-approved" };
+    expect(rejected(approved).field).toBe("label");
+    expect(rejected({ ...approved, label: "x" }).field).toBe("number");
+    expect(
+      parseEvent(
+        { ...approved, number: 215, label: "metrics.tokensPerIdea" },
+        "input",
+      ).ok,
+    ).toBe(true);
+    expect(KINDS).toContain("auto-approved");
+  });
+
+  it("is not a poller kind, so only the approve command records it", () => {
+    expect(POLLER_KINDS).not.toContain("auto-approved");
+  });
+});
