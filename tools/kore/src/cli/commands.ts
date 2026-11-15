@@ -3,6 +3,7 @@ import {
   platformCommand,
   appCommand,
   dataCommand,
+  statusCommand,
 } from "./commands-infra.js";
 import { opsCommand } from "./commands-ops.js";
 import { policyCommand } from "./commands-policy.js";
@@ -32,6 +33,7 @@ export const COMMANDS: ReadonlyMap<string, CommandSpec> = new Map<
 >([
   ["doctor", { mutations: [], noAction: true, run: doctorCommand }],
   ["validate", { mutations: [], noAction: true, run: validateCommand }],
+  ["status", { mutations: [], noAction: true, run: statusCommand }],
   ["journal", { mutations: [], noAction: true, run: journalCommand }],
   ["ops", { mutations: [], run: opsCommand }],
   // Edits the repository (desired state) only; the cluster follows `platform up`.

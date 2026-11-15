@@ -22,6 +22,7 @@ test("the command table names every command, in dispatch order", () => {
   expect([...COMMANDS.keys()]).toEqual([
     "doctor",
     "validate",
+    "status",
     "journal",
     "ops",
     "policy",
@@ -45,6 +46,7 @@ test("each command's mutating actions are exactly the actions that change its en
   ).toEqual({
     doctor: [],
     validate: [],
+    status: [],
     journal: [],
     ops: [],
     policy: [],
@@ -69,6 +71,7 @@ function runOf(name: string): unknown {
 test("each command runs its own handler", () => {
   expect(runOf("doctor")).toBe(handlerOf(read, "doctorCommand"));
   expect(runOf("validate")).toBe(handlerOf(read, "validateCommand"));
+  expect(runOf("status")).toBe(handlerOf(infra, "statusCommand"));
   expect(runOf("journal")).toBe(handlerOf(read, "journalCommand"));
   expect(runOf("ops")).toBe(handlerOf(ops, "opsCommand"));
   expect(runOf("policy")).toBe(handlerOf(policy, "policyCommand"));

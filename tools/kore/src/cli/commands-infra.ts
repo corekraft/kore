@@ -10,6 +10,7 @@ import {
 import {
   bootstrapControllers,
   closeGateIfDegraded,
+  platformClaimsStatus,
   platformDestroy,
   platformRender,
   platformStatusReport,
@@ -59,6 +60,16 @@ async function platformRenderCommand(context: CommandContext): Promise<number> {
     context.json,
   );
   return 0;
+}
+
+/**
+ * Reports the Organization and Service claims' readiness. Read-only; exits 1
+ * while a claim is not ready, and 0 while the flag is off.
+ */
+export async function statusCommand(context: CommandContext): Promise<number> {
+  const report = await platformClaimsStatus(context.repository, context.runner);
+  print(report, context.json);
+  return report.status === "degraded" ? 1 : 0;
 }
 
 export async function platformCommand(

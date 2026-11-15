@@ -39,6 +39,7 @@ test("the platform barrel exposes exactly the runtime names its callers use", ()
       "helmTemplateArgs",
       "helmUpgradeArgs",
       "imageInventoryStatusName",
+      "platformClaimsStatus",
       "platformDestroy",
       "platformGeneration",
       "platformRender",
