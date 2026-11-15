@@ -1,87 +1,6 @@
 import { describe, expect, it } from "vitest";
-import type { QueueItem } from "../queue/index.js";
-import {
-  IdeaRun,
-  type Delivery,
-  type Harness,
-  type Launch,
-  type Measured,
-} from "./idea-run.js";
-
-const IDEA: QueueItem = {
-  kind: "idea",
-  idea: "0042",
-  issue: 197,
-  since: "2026-01-01T00:00:00Z",
-};
-const OUTCOME: Measured = {
-  kind: "verification",
-  source: "comparison",
-  result: "confirmed",
-  evidence: "PR #50",
-  summary: "The fixture idea merged.",
-};
-
-/** A scripted Harness: records every call in order, answers from the script. */
-class ScriptedHarness implements Harness {
-  readonly calls: string[] = [];
-  readonly launches: Launch[] = [];
-  readonly recorded: Measured[] = [];
-  private judged = 0;
-
-  constructor(
-    private readonly script: {
-      queue?: QueueItem[];
-      /** What `delivery` reports after each judge pane, in order. */
-      deliveries?: Delivery[];
-      waits?: ("done" | "blocked")[];
-      counts?: number[];
-    } = {},
-  ) {}
-
-  queue(): Promise<QueueItem[]> {
-    this.calls.push("queue");
-    return Promise.resolve(this.script.queue ?? [IDEA]);
-  }
-  spawn(launch: Launch): Promise<void> {
-    this.calls.push(`spawn ${launch.role}`);
-    this.launches.push(launch);
-    return Promise.resolve();
-  }
-  wait(name: string): Promise<"done" | "blocked"> {
-    this.calls.push(`wait ${name}`);
-    return Promise.resolve(this.script.waits?.shift() ?? "done");
-  }
-  close(name: string): Promise<void> {
-    this.calls.push(`close ${name}`);
-    return Promise.resolve();
-  }
-  delivery(): Promise<Delivery> {
-    this.calls.push("delivery");
-    const all = this.script.deliveries ?? [{ pr: 50, merged: true }];
-    const at = Math.min(this.judged, all.length - 1);
-    return Promise.resolve(all[at] ?? { merged: false });
-  }
-  sendBacks(pr: number) {
-    this.calls.push(`send-backs ${pr}`);
-    this.judged += 1;
-    const count = this.script.counts?.shift() ?? 0;
-    return Promise.resolve({
-      count,
-      escalate: count >= 2,
-      model: count >= 2 ? "claude-sonnet-5-5" : "claude-haiku-5-5",
-    });
-  }
-  escalate(pr: number): Promise<void> {
-    this.calls.push(`escalate ${pr}`);
-    return Promise.resolve();
-  }
-  recordOutcome(_idea: string, outcome: Measured): Promise<void> {
-    this.calls.push("record-outcome");
-    this.recorded.push(outcome);
-    return Promise.resolve();
-  }
-}
+import { IdeaRun } from "./idea-run.js";
+import { OUTCOME, ScriptedHarness } from "./idea-run.fixtures.js";
 
 describe("IdeaRun", () => {
   it("takes an approved idea from queue to a recorded outcome in one pass", async () => {
@@ -94,6 +13,7 @@ describe("IdeaRun", () => {
       "wait idea-0042-writer",
       "close idea-0042-writer",
       "delivery",
+      "precheck 50",
       "spawn judge",
       "wait idea-0042-judge",
       "close idea-0042-judge",
@@ -124,7 +44,9 @@ describe("IdeaRun", () => {
     }
     expect(harness.calls.filter((c) => c === "queue")).toHaveLength(2);
   });
+});
 
+describe("IdeaRun escalation", () => {
   it("relaunches the writer on Sonnet after two send-backs, and not before", async () => {
     const harness = new ScriptedHarness({
       deliveries: [

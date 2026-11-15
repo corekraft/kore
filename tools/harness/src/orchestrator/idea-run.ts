@@ -29,6 +29,10 @@ export interface Measured {
   summary: string;
 }
 
+/** The precheck's call on a change: send it back to its writer with a reason, or let the judge run. */
+export type PrecheckVerdict =
+  { sendBack: false } | { sendBack: true; reason: string };
+
 export interface SendBackTier {
   count: number;
   model: string;
@@ -47,6 +51,10 @@ export interface Harness {
   close(name: string): Promise<void>;
   /** The idea's pull request and whether the judge has merged it; read-only. */
   delivery(issue: number): Promise<Delivery>;
+  /** `judge precheck`: read-only; whether the writer must fix the change before any judge pane. */
+  precheck(pr: number): Promise<PrecheckVerdict>;
+  /** `judge send-back`: posts the reason on the PR and records the send-back event, keyed on the PR head. */
+  sendBack(pr: number, reason: string): Promise<void>;
   /** `queue send-backs`: read-only. */
   sendBacks(pr: number): Promise<SendBackTier>;
   /** `queue escalate`: appends the escalation event. */
@@ -69,7 +77,8 @@ export interface RunResult {
 
 /**
  * Drives one approved idea to an outcome: a writer, then a judge, repeated while
- * the judge sends the change back. It reads the queue only between pieces of work,
+ * the judge sends the change back. A failing precheck sends the change back
+ * itself, before any judge pane. It reads the queue only between pieces of work,
  * escalates the writer after two send-backs, and never merges, edits or messages
  * the concierge: the judge merges, and only a given outcome closes the idea.
  */
@@ -147,12 +156,17 @@ export class IdeaRun {
       : undefined;
   }
 
-  /** Runs the judge on the PR; whether it merged. */
+  /** Runs the precheck, then the judge on a pass; whether the PR merged. A failing precheck launches no judge. */
   private async judge(
     idea: string,
     pr: number,
     issue: number,
   ): Promise<boolean> {
+    const verdict = await this.harness.precheck(pr);
+    if (verdict.sendBack) {
+      await this.harness.sendBack(pr, verdict.reason);
+      return false;
+    }
     await this.pane({
       role: "judge",
       name: `idea-${idea}-judge`,
