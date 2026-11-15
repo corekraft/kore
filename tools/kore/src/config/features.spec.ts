@@ -1,6 +1,7 @@
 import { beforeEach, expect, test, vi } from "vitest";
 import { orderedComponents } from "./order.js";
 import {
+  autoscalingFlag,
   componentGatedOff,
   enabledComponents,
   featureEnabled,
@@ -100,4 +101,16 @@ test("the enabled components are the catalog in dependency order, minus those a 
   expect(vi.mocked(orderedComponents).mock.calls).toEqual([
     [repository.catalog],
   ]);
+});
+
+test("the autoscaling flag gates a component off until an overlay turns it on, and an omitted flag is off", () => {
+  expect(autoscalingFlag).toBe("autoscaling-defaults");
+  const gated = fakeComponent({ featureFlag: autoscalingFlag });
+  expect(
+    componentGatedOff(environment({ [autoscalingFlag]: false }), gated),
+  ).toBe(true);
+  expect(componentGatedOff(environment(undefined), gated)).toBe(true);
+  expect(
+    componentGatedOff(environment({ [autoscalingFlag]: true }), gated),
+  ).toBe(false);
 });

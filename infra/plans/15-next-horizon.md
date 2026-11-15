@@ -162,7 +162,7 @@ Safety pattern: `feature-flagged` (`autoscaling-defaults`, off in `local`).
 
 ### Work
 
-- [ ] Install metrics-server as a catalog Helm release, pinned and mirrored
+- [x] Install metrics-server as a catalog Helm release, pinned and mirrored
       ([ADR 0047](../../docs/decisions/0047-autoscaling-metrics-server-then-keda.md)).
 - [ ] Add a CPU HorizontalPodAutoscaler to the workload chart from chart values,
       with no replica count, at least two replicas, and a PodDisruptionBudget.

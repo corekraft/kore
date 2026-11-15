@@ -22,12 +22,14 @@ const FUNCTION_PREFIX = "function.pkg.crossplane.io/";
 /**
  * Cluster-scoped kinds proven by conditions, waited for in order: CRDs are
  * Established, Functions Installed then Healthy, and Sigstore Policy
- * Controller reports a ClusterImagePolicy Ready once its keys are inlined.
+ * Controller reports a ClusterImagePolicy Ready once its keys are inlined, and
+ * an aggregated APIService is Available once its backing Service answers.
  */
 const CONDITION_KINDS: readonly (readonly [string, string[]])[] = [
   ["crd/", ["Established"]],
   [FUNCTION_PREFIX, ["Installed", "Healthy"]],
   ["clusterimagepolicy.policy.sigstore.dev/", ["Ready"]],
+  ["apiservice.apiregistration.k8s.io/", ["Available"]],
 ];
 const NOT_FOUND = /NotFound|not found/i;
 const EXISTENCE_KINDS = [
