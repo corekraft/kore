@@ -1,5 +1,6 @@
 import {
   absolute,
+  alertEmailHelmArgs,
   componentValues,
   componentVersion,
   expandVersions,
@@ -134,6 +135,7 @@ function chartSelectionArgs(
     );
   }
   args.push(...goldenPathArgs(repository, component));
+  args.push(...alertEmailHelmArgs(repository.environment, component.name));
   return args;
 }
 

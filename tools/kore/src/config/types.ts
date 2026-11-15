@@ -169,6 +169,15 @@ export interface Environment {
    * by the CLI and passed into local chart values as `features.<name>`.
    */
   features?: Record<string, boolean>;
+  /**
+   * Where the platform's default alerts email (plan 15 step 6). Unset until the
+   * owner names an address; then the alerts have no contact point. SMTP
+   * credentials never live here (ADR 0034): `kore secrets smtp` streams them.
+   */
+  alertEmail?: {
+    addresses?: string[];
+    smtp?: { host?: string; port?: number; from?: string };
+  };
   gateway: { namespace: string; name: string; hostname: string; port: number };
   secrets: { storeName: string; sourceNamespace: string };
   telemetry: { otlpEndpoint: string };

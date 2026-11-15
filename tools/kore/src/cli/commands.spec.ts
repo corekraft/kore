@@ -57,7 +57,7 @@ test("each command's mutating actions are exactly the actions that change its en
     local: ["up", "down"],
     signer: ["swap-key"],
     registry: ["rotate-credentials"],
-    secrets: ["sync"],
+    secrets: ["sync", "smtp"],
     trust: ["install"],
   });
 });

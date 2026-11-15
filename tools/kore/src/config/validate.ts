@@ -2,7 +2,7 @@ import { registryAddressErrors } from "./registry-address.js";
 import { policyErrors } from "./policy-validation.js";
 import { catalogErrors } from "./catalog-errors.js";
 import { k3dErrors } from "./k3d-errors.js";
-import { overlayErrors } from "./overlay-errors.js";
+import { overlayErrors, overlayWarnings } from "./overlay-errors.js";
 import { imageListErrors } from "./approved.js";
 import { orderedComponents, readinessErrors } from "./order.js";
 import type {
@@ -306,6 +306,7 @@ export async function validateRepository(
   const warnings = await Promise.all(
     warningSources.map(async (source) => source(repository)),
   );
+  warnings.push(overlayWarnings(repository));
   if (exemptionCheckMode(environment) === "audit") {
     warnings.push(exemptions);
   }

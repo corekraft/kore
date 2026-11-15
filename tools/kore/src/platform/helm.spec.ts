@@ -26,6 +26,7 @@ import {
 
 vi.mock("../config/index.js", () => ({
   absolute: vi.fn(),
+  alertEmailHelmArgs: vi.fn(),
   componentValues: vi.fn(),
   componentVersion: vi.fn(),
   expandVersions: vi.fn(),

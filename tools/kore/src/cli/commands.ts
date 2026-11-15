@@ -54,7 +54,11 @@ export const COMMANDS: ReadonlyMap<string, CommandSpec> = new Map<
   // Every secrets and trust action mutates, so each one needs --environment.
   [
     "secrets",
-    { mutations: ["sync"], alwaysMutates: true, run: secretsCommand },
+    {
+      mutations: ["sync", "smtp"],
+      alwaysMutates: true,
+      run: secretsCommand,
+    },
   ],
   ["trust", { mutations: ["install"], alwaysMutates: true, run: trustCommand }],
 ]);
