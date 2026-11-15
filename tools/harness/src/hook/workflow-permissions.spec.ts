@@ -65,18 +65,6 @@ describe("permissionProblems: the release workflow", () => {
     ]);
   });
 
-  it("refuses id-token write under a job name other than release or mirror", () => {
-    const text = release()
-      .replace("  extra:", "  sneaky:")
-      .replace(
-        "contents: read\n    steps:\n      - run: echo hi\n",
-        "contents: read\n      id-token: write\n    steps:\n      - run: echo hi\n",
-      );
-    expect(permissionProblems({ "release.yaml": text })).toEqual([
-      `release.yaml: job sneaky requests id-token: write; ${SIGNERS}`,
-    ]);
-  });
-
   it("refuses a missing top-level permissions block, with the fix", () => {
     const text = release().replace(
       "permissions:\n  contents: read\njobs:",
@@ -94,6 +82,56 @@ describe("permissionProblems: the release workflow", () => {
       }),
     ).toEqual([
       "release.yaml: job extra needs explicit permissions; add `permissions: {}` or the read scopes it uses",
+    ]);
+  });
+});
+
+describe("permissionProblems: signing jobs by name", () => {
+  const charts = (gate: string) =>
+    release()
+      .replace("  extra:", "  charts:")
+      .replace(
+        "contents: read\n    steps:\n      - run: echo hi\n",
+        "contents: read\n      id-token: write\n      packages: write\n    steps:\n      - run: echo hi\n",
+      )
+      .replace("  charts:\n", `  charts:\n${gate}`);
+
+  it("refuses a charts job that is not gated to tags", () => {
+    expect(permissionProblems({ "release.yaml": charts("") })).toEqual([
+      "release.yaml: signing job charts must run only for tags; add `if: github.ref_type == 'tag'`",
+    ]);
+  });
+
+  it("refuses a charts job in any workflow but release.yaml", () => {
+    const text = charts("    if: github.ref_type == 'tag'\n");
+    expect(permissionProblems({ "nightly.yml": text })).toEqual([
+      `nightly.yml: job release requests packages: write; ${SIGNERS}`,
+      `nightly.yml: job release requests id-token: write; ${SIGNERS}`,
+      `nightly.yml: job charts requests id-token: write; ${SIGNERS}`,
+      `nightly.yml: job charts requests packages: write; ${SIGNERS}`,
+    ]);
+  });
+
+  it("lets the charts job sign and push when it runs only for tags", () => {
+    const text = release()
+      .replace("  extra:", "  charts:")
+      .replace(
+        "contents: read\n    steps:\n      - run: echo hi\n",
+        "contents: read\n      id-token: write\n      packages: write\n    steps:\n      - run: echo hi\n",
+      )
+      .replace("  charts:\n", "  charts:\n    if: github.ref_type == 'tag'\n");
+    expect(permissionProblems({ "release.yaml": text })).toEqual([]);
+  });
+
+  it("refuses id-token write under a job name other than release, mirror or charts", () => {
+    const text = release()
+      .replace("  extra:", "  sneaky:")
+      .replace(
+        "contents: read\n    steps:\n      - run: echo hi\n",
+        "contents: read\n      id-token: write\n    steps:\n      - run: echo hi\n",
+      );
+    expect(permissionProblems({ "release.yaml": text })).toEqual([
+      `release.yaml: job sneaky requests id-token: write; ${SIGNERS}`,
     ]);
   });
 });
