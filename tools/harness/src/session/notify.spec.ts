@@ -1,8 +1,14 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { CliDeps, CommandContext } from "../runtime/index.js";
+import { plain, withoutDim } from "./ansi.js";
 import { notify } from "./notify.js";
 import { fail } from "./output.js";
 
+// The real escapes are ansi.spec.ts's business; here "<dim>" marks faint text up to the line's end.
+vi.mock("./ansi.js", () => ({
+  plain: vi.fn((text: string) => text.replaceAll("<dim>", "")),
+  withoutDim: vi.fn((line: string) => line.replace(/<dim>.*$/, "")),
+}));
 vi.mock("./equalize.js", () => ({
   describeFailure: vi.fn(() => "herdr said no"),
 }));
@@ -83,7 +89,7 @@ function scripted(script: Script) {
   return { context, calls, out, sleep };
 }
 
-const READ = "herdr pane read w3:p1 --source recent-unwrapped";
+const READ = "herdr pane read w3:p1 --source recent-unwrapped --ansi";
 const SEND = `herdr pane send-text w3:p1 ${LINE}`;
 const ENTER = "herdr pane send-keys w3:p1 enter";
 const failure = () => vi.mocked(fail).mock.calls[0]?.[3];
@@ -195,6 +201,15 @@ describe("session notify leaves an unsent message alone", () => {
     },
   );
 
+  it("judges the box by what is typed, not by what is drawn faint", async () => {
+    const s = scripted({
+      reads: [ok(pane(["⏺ Waiting."], "half typed<dim>")), ok(SUBMITTED)],
+    });
+    expect(await notify(s.context)).toBe(1);
+    expect(s.calls).toEqual([READ]);
+    expect(vi.mocked(withoutDim)).toHaveBeenCalledWith("❯ half typed<dim>");
+  });
+
   it("still sends when the input box is empty inside a border", async () => {
     const s = scripted({
       reads: [ok("⏺ Waiting.\n│ ❯ │"), ok(SUBMITTED)],
@@ -244,5 +259,30 @@ describe("session notify refuses before running anything", () => {
     expect(await notify(s.context)).toBe(code);
     expect(s.calls).toEqual([]);
     expect(s.out).toEqual([]);
+  });
+});
+
+describe("session notify delivers over a suggested prompt", () => {
+  const SUGGESTED = pane(["⏺ Waiting."], "<dim>retry the notify to w3:p1");
+
+  it("sends when the box holds only the faint suggestion", async () => {
+    const s = scripted({ reads: [ok(SUGGESTED), ok(SUBMITTED)] });
+    expect(await notify(s.context)).toBe(0);
+    expect(s.calls).toEqual([READ, SEND, ENTER, READ]);
+    expect(s.out).toEqual([
+      "Notified w3:p1: image-trust-writer finished: RESULT done.\n",
+    ]);
+  });
+
+  it("counts submitted lines on the text without escapes", async () => {
+    const s = scripted({ reads: [ok(SUGGESTED), ok(SUBMITTED)] });
+    await notify(s.context);
+    expect(vi.mocked(plain)).toHaveBeenCalledWith(SUBMITTED);
+  });
+
+  it("sends once only when the read-back never shows the line", async () => {
+    const s = scripted({ reads: [ok(SUGGESTED)] });
+    expect(await notify(s.context)).toBe(1);
+    expect(s.calls.filter((c) => c === SEND)).toHaveLength(1);
   });
 });

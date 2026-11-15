@@ -1,4 +1,5 @@
 import type { CliDeps, CommandContext } from "../runtime/index.js";
+import { plain, withoutDim } from "./ansi.js";
 import { describeFailure } from "./equalize.js";
 import { FAILED, USAGE_ERROR, fail } from "./output.js";
 
@@ -31,22 +32,25 @@ export function submitted(text: string, line: string): number {
   return lines.filter((l, i) => i !== inputBox && l.includes(line)).length;
 }
 
-/** True when the input box (the last prompt line) already holds text, so typing would cut it. */
+/**
+ * True when the input box (the last prompt line) already holds typed text, so typing would cut it.
+ * Faint text there is Claude Code's suggested prompt, not a draft, so it does not count.
+ */
 export function unsent(text: string): boolean {
   const last = text
     .split("\n")
-    .filter((l) => PROMPT.test(l))
+    .filter((l) => PROMPT.test(plain(l)))
     .pop();
   return (
     last !== undefined &&
-    last
+    withoutDim(last)
       .replace(PROMPT, "")
       .replace(/[\s│|]+$/, "")
       .trim() !== ""
   );
 }
 
-/** The pane text now, or herdr's error when it cannot be read. */
+/** The pane text now, styled so faint text can be told from typed text, or herdr's error when it cannot be read. */
 async function readPane(
   deps: CliDeps,
   pane: string,
@@ -57,6 +61,7 @@ async function readPane(
     pane,
     "--source",
     "recent-unwrapped",
+    "--ansi",
   ]);
   return read.code === 0 ? read.stdout : { error: describeFailure(read) };
 }
@@ -68,7 +73,7 @@ async function count(
   line: string,
 ): Promise<number | { error: string }> {
   const text = await readPane(deps, pane);
-  return typeof text === "string" ? submitted(text, line) : text;
+  return typeof text === "string" ? submitted(plain(text), line) : text;
 }
 
 /** Types the line into the pane and submits it; an error message, or undefined when both steps succeed. */
@@ -137,7 +142,7 @@ async function deliver(
   if (unsent(text)) {
     return `Nothing was sent to ${pane}: its input box already holds unsent text. Retry later; \`session wait\` records your result from your RESULT line meanwhile.`;
   }
-  const before = submitted(text, line);
+  const before = submitted(plain(text), line);
   const sendError = await sendLine(deps, pane, line);
   if (sendError !== undefined) {
     return sendError;
