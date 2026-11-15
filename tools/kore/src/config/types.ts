@@ -1,5 +1,7 @@
 export type Phase =
   "bootstrap" | "core" | "observability" | "configuration" | "enforcement";
+/** Who reconciles a release: kore through Helm, or the platform Argo CD (ADR 0043). */
+export type Owner = "kore" | "argocd";
 export type ComponentKind = "helm" | "local-chart" | "manifest";
 
 export interface Versions {
@@ -28,6 +30,11 @@ export interface Component {
    * status reports it as gated off.
    */
   featureFlag?: string;
+  /**
+   * The release's desired-state owner; omitted means `kore`. `argocd` takes
+   * effect only while `platform-argocd-delivery` is on (ADR 0043).
+   */
+  owner?: Owner;
   /**
    * Whether the platform labels this component's namespace
    * `istio.io/dataplane-mode: ambient` once the component is enabled. Helm

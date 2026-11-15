@@ -49,6 +49,10 @@ vi.mock("./features.js", () => ({
   platformArgocdDeliveryFlag: "platform-argocd-delivery",
   registryPruneFlag: "registry-tag-pruning",
 }));
+vi.mock("./ownership.js", () => ({
+  helmInstalledComponents: vi.fn(),
+  releaseOwner: vi.fn(),
+}));
 vi.mock("./files.js", () => ({ exists: vi.fn() }));
 vi.mock("./image-trust.js", () => ({
   localSigner: "local-kore-key",
@@ -101,6 +105,7 @@ test("the config barrel exposes exactly the entry points other domains use", () 
     "featureHelmArgs",
     "findRoot",
     "gatewayClassName",
+    "helmInstalledComponents",
     "ingressFlag",
     "isLocalProvider",
     "loadRepository",
@@ -124,6 +129,7 @@ test("the config barrel exposes exactly the entry points other domains use", () 
     "registryHelmArgs",
     "registryPlan",
     "registryPruneFlag",
+    "releaseOwner",
     "renderedCrdNames",
     "rollbackConstraint",
     "sessionCookieViolations",

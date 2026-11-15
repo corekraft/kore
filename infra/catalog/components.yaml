@@ -590,6 +590,7 @@
       {
         "name": "opa-authorizer",
         "phase": "configuration",
+        "owner": "argocd",
         "namespace": "opa-system",
         "kind": "local-chart",
         "chart": "infra/charts/opa-authorizer",
@@ -631,6 +632,7 @@
       {
         "name": "kore-postgresql-api",
         "phase": "configuration",
+        "owner": "argocd",
         "namespace": "crossplane-system",
         "kind": "manifest",
         "source": "infra/apis/postgresql",
@@ -684,6 +686,7 @@
       {
         "name": "kore-policy-templates",
         "phase": "configuration",
+        "owner": "argocd",
         "namespace": "gatekeeper-system",
         "kind": "manifest",
         "source": "infra/policies/gatekeeper/templates",
@@ -725,6 +728,7 @@
       {
         "name": "kore-policy-constraints",
         "phase": "configuration",
+        "owner": "argocd",
         "namespace": "gatekeeper-system",
         "kind": "manifest",
         "source": "infra/policies/gatekeeper/constraints",
@@ -758,6 +762,7 @@
       {
         "name": "kore-local-tls",
         "phase": "configuration",
+        "owner": "argocd",
         "namespace": "kore-system",
         "kind": "local-chart",
         "chart": "infra/charts/platform-certificate",
@@ -786,6 +791,7 @@
       {
         "name": "kore-platform-config",
         "phase": "configuration",
+        "owner": "argocd",
         "namespace": "kore-system",
         "kind": "local-chart",
         "chart": "infra/charts/platform-config",
