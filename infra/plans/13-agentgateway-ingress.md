@@ -131,11 +131,11 @@ the flag on and passes (see the live proofs section under Results).
 
 ## Step 4: Outcome
 
-Next: Owner labels #212: measured memory -68% and CPU +6.3% against the baseline, at unmatched load (42.2 and 40.5/s against 29.5 and 34.0/s); the label is the owner's. Then a matched-load remeasure or #210; after the recorded outcome, the four flags (ingress-agentgateway, gateway-class-change-release, gateway-rollback-order, agentgateway-mesh-enrollment) turn on in local through the flag activation command. Full state: #366.
+Next: First action: the owner approves the flag activation command for ingress-agentgateway, gateway-class-change-release, gateway-rollback-order and agentgateway-mesh-enrollment in local, one at a time, each after its recorded outcome (#207, #208 and #212 are recorded; #212 is confirmed on memory, CPU neutral). Then a fresh `kore local up` converges with agentgateway ingress and no Istio ingress proxy (#210), then tick the remaining items. Full state: #366.
 
 ### Work
 
-- [ ] Measure ingress CPU and memory on k3d under the same routes and record it
+- [x] Measure ingress CPU and memory on k3d under the same routes and record it
       against the comparison point as the idea's outcome.
 
 ### Exit Criteria
@@ -238,7 +238,7 @@ Step 4 (a 20% drop, which exceeds each metric's spread):
 | ztunnel | CPU (m)      | 97.087   | 0.4%   | reported, does not decide |
 | ztunnel | Memory (MiB) | 9.425    | 0.5%   | reported, does not decide |
 
-Step 4 results will be added here against this table.
+Step 4 results are in [Step 4 outcome](#step-4-outcome-confirmed-on-memory-cpu-neutral-2026-11-15), below.
 
 ### Step 2 and 3 live proofs: agentgateway on k3d (2026-11-15)
 
@@ -268,4 +268,31 @@ The 42.2 and 40.5/s runs above were closed-loop, so their rate followed proxy
 latency and the host. `IngressMeasurement` now takes an optional target rate
 (`KORE_INGRESS_TARGET_RPS`), paces the load to it, and flags a `rate_mismatch`
 when the achieved rate is outside 10% of the target. No live run was made for
-this change; the matched remeasure and the outcome label are still open (#212).
+this change. The matched remeasure and the outcome label followed on 2026-11-15
+(superseded by [Step 4 outcome](#step-4-outcome-confirmed-on-memory-cpu-neutral-2026-11-15)).
+
+### Step 4 outcome: confirmed on memory, CPU neutral (2026-11-15)
+
+Owner label, recorded on #212
+([decision](https://github.com/corekraft/kore/issues/212#issuecomment-6900331792)):
+**confirmed on memory, CPU neutral.** The matched-rate remeasure
+([comment](https://github.com/corekraft/kore/issues/212#issuecomment-6900314450))
+ran both gateways in one cluster at a target of 22 requests per second.
+Refs #126 #210 #212.
+
+| Metric                      | Istio ingress (same cluster) | agentgateway              | Change                        |
+| --------------------------- | ---------------------------- | ------------------------- | ----------------------------- |
+| Memory, steady state (MiB)  | 74.7 to 74.85                | 19.2 to 19.6 (warm-up 48) | about -74%; -68% against #320 |
+| CPU per request (m per r/s) | 1.756 and 1.918              | 1.710 to 2.034            | neutral, ranges overlap       |
+
+The "confirmed" label rests on the same-cluster Istio comparison at a matched
+rate, not on the #320 baseline method alone: that method (29.5 to 34 requests
+per second) could not be reproduced: Istio could not sustain the earlier 30
+requests per second target and reached 20.2 and 20.3 at the 22 target
+([#212 comment](https://github.com/corekraft/kore/issues/212#issuecomment-6900314450)).
+
+Limits that stay on record: neither gateway reached the 22 requests per second
+target on this host (Istio 20.2 and 20.3, agentgateway 17.0 to 20.2, the 17.0 run having a tainted load sample), and no
+agentgateway run was both matched and clean, so the conclusions rest on the five
+runs together. The earlier +6.3% CPU came from a higher request rate. Turning
+the flags on in `local` is not part of this outcome (#210).
