@@ -33,6 +33,7 @@ vi.mock("../../src/platform/status.js", () => ({
   },
 }));
 
+import { withGatewayFlagsOff } from "../../src/testing/index.js";
 import { loadRepository } from "../../src/config/index.js";
 import assert from "node:assert/strict";
 import { test, vi } from "vitest";
@@ -107,7 +108,7 @@ function indexOfCall(calls: Call[], match: (call: Call) => boolean): number {
 }
 
 test("local platform up waits for Gateway programming after applying the configuration", async () => {
-  const base = await loadRepository("local");
+  const base = withGatewayFlagsOff(await loadRepository("local"));
   const root = await mkdtemp(join(tmpdir(), "kore-platform-order-"));
   const platformConfig = base.catalog.components.find(
     ({ name }) => name === "kore-platform-config",
@@ -152,7 +153,7 @@ test("local platform up waits for Gateway programming after applying the configu
 });
 
 test("platform up upgrades an already-installed configuration release", async () => {
-  const base = await loadRepository("local");
+  const base = withGatewayFlagsOff(await loadRepository("local"));
   const root = await mkdtemp(join(tmpdir(), "kore-platform-upgrade-"));
   const platformConfig = base.catalog.components.find(
     ({ name }) => name === "kore-platform-config",
@@ -219,7 +220,7 @@ test("platform up upgrades an already-installed configuration release", async ()
 });
 
 test("platform up refuses a profile whose Kubernetes context is unexpected", async () => {
-  const repository = await loadRepository("local");
+  const repository = withGatewayFlagsOff(await loadRepository("local"));
   const calls: { command: string; args: readonly string[] }[] = [];
   const runner: Runner = {
     async run(

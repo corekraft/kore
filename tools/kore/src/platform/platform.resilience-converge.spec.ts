@@ -13,8 +13,21 @@ import { healthyClusterOutput } from "../testing/index.js";
 
 // Every catalog release is reconciled here, flag or not, so the delivery
 // release gets the values `platform up --platform-chart-lock` would compose.
+const local = await loadRepository("local");
 const repository = {
-  ...(await loadRepository("local")),
+  ...local,
+  // The fake cluster answers no agentgateway readiness probe, so the gateway
+  // flags are pinned off here, whatever the committed overlay turns on.
+  environment: {
+    ...local.environment,
+    features: {
+      ...local.environment.features,
+      "ingress-agentgateway": false,
+      "gateway-class-change-release": false,
+      "gateway-rollback-order": false,
+      "agentgateway-mesh-enrollment": false,
+    },
+  },
   chartDelivery: { charts: {}, namespaces: {}, gatewayClassName: "istio" },
   goldenPathDelivery: {
     repoURL: "https://github.com/corekraft/kore.git",

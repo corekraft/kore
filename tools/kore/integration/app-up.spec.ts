@@ -3,6 +3,7 @@
 // gate, the image lock and verification. Only the runner (a recorded fake
 // cluster) and the registry lookup are faked. The unit specs in src/app cover
 // each unit alone.
+import { withGatewayFlagsOff } from "../src/testing/index.js";
 import { afterEach, expect, test, vi } from "vitest";
 import { appUp, appUpRelease } from "../src/app/index.js";
 import { loadRepository } from "../src/config/index.js";
@@ -63,7 +64,7 @@ test.each([
 ])(
   "app up refuses before touching the cluster while the gate is %s",
   async (_name, gate, message) => {
-    const repository = await loadRepository("local");
+    const repository = withGatewayFlagsOff(await loadRepository("local"));
     const calls: Call[] = [];
     localRegistryReferenceMock.mockImplementation(passthroughRegistry);
 
@@ -80,7 +81,7 @@ test.each([
 );
 
 test("app up activates the namespace for the open gate's generation before the first release installs", async () => {
-  const repository = await loadRepository("local");
+  const repository = withGatewayFlagsOff(await loadRepository("local"));
   const calls: Call[] = [];
   localRegistryReferenceMock.mockImplementation(passthroughRegistry);
 
@@ -106,7 +107,7 @@ test("app up activates the namespace for the open gate's generation before the f
 });
 
 test("app up proceeds once platform up has opened the gate it left behind", async () => {
-  const repository = await loadRepository("local");
+  const repository = withGatewayFlagsOff(await loadRepository("local"));
   const calls: Call[] = [];
   localRegistryReferenceMock.mockImplementation(passthroughRegistry);
   // The gate as `platform up` writes it when every component is ready.
@@ -132,7 +133,7 @@ test("app up runs no tunnel, no ssh and no docker exec", async () => {
 });
 
 test("app up verifies with the read-only registry identity, never the push credential, and runs no node command", async () => {
-  const repository = await loadRepository("local");
+  const repository = withGatewayFlagsOff(await loadRepository("local"));
   const calls: Call[] = [];
   const envs: (Record<string, string | undefined> | undefined)[] = [];
   const inner = healthyRunner(calls);
@@ -158,7 +159,7 @@ test("app up verifies with the read-only registry identity, never the push crede
 
 test("app up refuses a lock entry signed by the local developer key before any signature check or Helm call", async () => {
   localRegistryReferenceMock.mockImplementation(passthroughRegistry);
-  const repository = await loadRepository("local");
+  const repository = withGatewayFlagsOff(await loadRepository("local"));
   const calls: Call[] = [];
   const lock = await writeReleaseLock(repository.root, "local-kore-key");
 
@@ -171,7 +172,7 @@ test("app up refuses a lock entry signed by the local developer key before any s
 });
 
 test("app up refuses the committed placeholder lock, which carries the local key", async () => {
-  const repository = await loadRepository("local");
+  const repository = withGatewayFlagsOff(await loadRepository("local"));
   const calls: Call[] = [];
   await expect(
     appUp(repository, healthyRunner(calls), "reference"),
@@ -205,7 +206,7 @@ test("app up deploys a release-automation lock entry offline, verifying its exac
 
 test("a local developer-signed image is accepted only on k3d, from kore local up", async () => {
   localRegistryReferenceMock.mockImplementation(passthroughRegistry);
-  const base = await loadRepository("local");
+  const base = withGatewayFlagsOff(await loadRepository("local"));
   const managed = {
     ...base,
     environment: { ...base.environment, provider: "managed" as const },
@@ -222,7 +223,7 @@ test("a local developer-signed image is accepted only on k3d, from kore local up
 
 test("a release-signed entry from an identity the environment does not trust is refused on local with the remedy, before Helm", async () => {
   localRegistryReferenceMock.mockImplementation(passthroughRegistry);
-  const repository = await loadRepository("local");
+  const repository = withGatewayFlagsOff(await loadRepository("local"));
   const calls: Call[] = [];
   const lock = await writeReleaseLock(repository.root);
 
@@ -274,7 +275,7 @@ function statefulCluster(calls: Call[]): Runner {
 
 test("a changed gateway hostname upgrades both app releases on the next app up", async () => {
   localRegistryReferenceMock.mockImplementation(passthroughRegistry);
-  const repository = await loadRepository("local");
+  const repository = withGatewayFlagsOff(await loadRepository("local"));
   const calls: Call[] = [];
   const runner = statefulCluster(calls);
   await appUp(repository, runner, "reference", lockedImage(), { publicKey });

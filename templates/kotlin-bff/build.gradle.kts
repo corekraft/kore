@@ -63,13 +63,19 @@ val fetchOtelAgent by tasks.registering {
     }
 }
 
-// Lays the application out exactly as Jib places it in the image (/app/...), so
-// the training run and the container see the same class path.
+// The JDK cannot dump an AOT cache from a class path directory ("Cannot have
+// non-empty directory in paths"), so the application's classes and resources go
+// into one jar and the class path holds jars only.
+tasks.jar {
+    archiveFileName = "app.jar"
+}
+
+// Lays the application out exactly as the image has it (/app/...), so the
+// training run and the container see the same class path.
 val stageApp by tasks.registering(Copy::class) {
-    dependsOn(tasks.classes, fetchOtelAgent)
+    dependsOn(tasks.jar, fetchOtelAgent)
     into(imageStage)
-    from(sourceSets.main.get().output.classesDirs) { into("app/classes") }
-    from(sourceSets.main.get().output.resourcesDir!!) { into("app/resources") }
+    from(tasks.jar) { into("app") }
     from(configurations.runtimeClasspath) { into("app/libs") }
     from(otelAgentJar) { into("app/otel") }
     doLast { normaliseFileTimes(imageStage.get().dir("app").asFile) }
@@ -79,7 +85,12 @@ val stageApp by tasks.registering(Copy::class) {
 // as production, with only the public application.yaml, stopped once the Spring
 // context has refreshed.
 val appMount = imageStage.get().dir("app").asFile
-val classPath = "/app/resources:/app/classes:/app/libs/*"
+// Every jar is named, sorted: a wildcard expands in directory order, which
+// differs between the bind mount and the image, and the JVM rejects a cache
+// whose class path order differs from the one it was trained on.
+val classPath =
+    (listOf("/app/app.jar") + configurations.runtimeClasspath.get().files.map { "/app/libs/${it.name}" }.sorted())
+        .joinToString(":")
 val agentFlag = "-javaagent:/app/otel/opentelemetry-javaagent.jar"
 
 fun dockerJava(vararg javaArgs: String) =
@@ -98,8 +109,12 @@ val aotTraining by tasks.registering(Exec::class) {
         // The container runs as uid 65532 on a runner-owned mount: let it write.
         Files.setPosixFilePermissions(aotDir.toPath(), PosixFilePermissions.fromString("rwxrwxrwx"))
     }
+    // The agent is attached but switched off for the dump: with its shaded classes
+    // loaded, the JDK 25.0.2 AOT dump crashes (SIGSEGV in
+    // SystemDictionaryShared::check_for_exclusion). aotVerify runs with it on.
     commandLine(
         dockerJava(
+            "-Dotel.javaagent.enabled=false",
             "-XX:AOTCacheOutput=/app/aot/app.aot",
             "-Dspring.context.exit=onRefresh",
             "-Dotel.sdk.disabled=true",
@@ -128,11 +143,13 @@ val aotVerify by tasks.registering(Exec::class) {
     )
 }
 
-// The agent and the AOT cache, the two layers Jib adds beside the application.
+// The application jar, the agent and the AOT cache, the layers Jib adds beside
+// the dependencies.
 val extraStage = layout.buildDirectory.dir("extra")
 val stageExtras by tasks.registering(Copy::class) {
     dependsOn(aotVerify)
     into(extraStage)
+    from(imageStage.map { it.file("app/app.jar") })
     from(imageStage.map { it.dir("app/otel") }) { into("otel") }
     from(imageStage.map { it.dir("app/aot") }) { into("aot") }
     doLast { normaliseFileTimes(extraStage.get().asFile) }
@@ -148,9 +165,15 @@ jib {
         filesModificationTime = imageFileTime
         ports = listOf("8080")
         labels.set(mapOf("org.opencontainers.image.source" to "https://github.com/corekraft/kore"))
-        jvmFlags = listOf(
+        // The same class path the cache was trained on: a different one makes the
+        // JVM reject the cache. Jib's own entrypoint would list its class
+        // directories.
+        entrypoint = listOf(
+            "java",
             "-javaagent:/app/otel/opentelemetry-javaagent.jar",
             "-XX:AOTCache=/app/aot/app.aot",
+            "-cp", classPath,
+            "dev.kore.bff.ApplicationKt",
         )
     }
     extraDirectories {

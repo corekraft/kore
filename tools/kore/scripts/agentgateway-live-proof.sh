@@ -128,6 +128,10 @@ sed -i.bak \
   -e "s/\"name\": \"local\"/\"name\": \"$scratch\"/" \
   -e "s/\"kubeContext\": \"k3d-kore-local\"/\"kubeContext\": \"$context\"/" \
   -e "s/\"clusterName\": \"kore-local\"/\"clusterName\": \"$cluster\"/" \
+  -e 's/"ingress-agentgateway": true/"ingress-agentgateway": false/' \
+  -e 's/"gateway-class-change-release": true/"gateway-class-change-release": false/' \
+  -e 's/"gateway-rollback-order": true/"gateway-rollback-order": false/' \
+  -e 's/"agentgateway-mesh-enrollment": true/"agentgateway-mesh-enrollment": false/' \
   "$env_file"
 rm -f "$env_file.bak"
 # 8. Every rewritten value must be there.

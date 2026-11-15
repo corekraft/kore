@@ -202,6 +202,10 @@ decisions; read one only when planning that area, and expect it to change.
 ## Ideas
 
 - [`docs/ideas/0001-role-tokens.md`](ideas/0001-role-tokens.md) — Role tokens give writer and judge panes their own GitHub identities
+- [`docs/ideas/0002-ingress-agentgateway.md`](ideas/0002-ingress-agentgateway.md) — Serve ingress with agentgateway in local
+- [`docs/ideas/0003-gateway-class-change-release.md`](ideas/0003-gateway-class-change-release.md) — Release the Istio gateway proxy when the gateway class changes
+- [`docs/ideas/0004-gateway-rollback-order.md`](ideas/0004-gateway-rollback-order.md) — Roll back the gateway in order
+- [`docs/ideas/0005-agentgateway-mesh-enrollment.md`](ideas/0005-agentgateway-mesh-enrollment.md) — Enrol agentgateway in the mesh
 
 ## Operations and Guides
 
