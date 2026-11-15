@@ -3,7 +3,7 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 
-const DIR = dirname(fileURLToPath(import.meta.url));
+const DIR = join(dirname(fileURLToPath(import.meta.url)), "..", "src", "flow");
 
 describe("flow report write path", () => {
   it("has no code that writes the ledger: events are written only through the ledger tool", () => {
