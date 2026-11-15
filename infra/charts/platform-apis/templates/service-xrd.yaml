@@ -20,6 +20,8 @@ spec:
           type: object
           required: [spec]
           x-kubernetes-validations:
+            - rule: "self.metadata.name.matches('^[a-z0-9]([-a-z0-9]{0,61}[a-z0-9])?$')"
+              message: "metadata.name must be a single DNS label (lowercase letters, digits and hyphens, at most 63 characters, no dots): the default host is <service>.<organization>.<platform domain>"
             - rule: "!self.metadata.name.contains('--')"
               message: "metadata.name must not contain a double hyphen: the namespace is <service>--<environment>"
             - rule: "self.spec.environments.all(e, !e.contains('--'))"
@@ -46,6 +48,7 @@ spec:
             status:
               type: object
               properties:
+                defaultHost: { type: string }
                 conditions:
                   { type: array, x-kubernetes-preserve-unknown-fields: true }
                 phase: { type: string }
