@@ -4,6 +4,7 @@
 // Docs: infra/plans/5-self-maintenance.md#step-2-deterministic-retrospective-scan
 
 import { createHash } from "node:crypto";
+import { classifyAudit } from "../guardrail/index.js";
 import { CommandError } from "../runtime/index.js";
 import { RuleLocations } from "./retro-locations.js";
 import {
@@ -15,7 +16,6 @@ import { parseTranscript, timestamps } from "./retro-transcript.js";
 
 export { parseTranscript, summarizeError } from "./retro-transcript.js";
 
-const MIN_WARNINGS = 5;
 // The whole value on the line is captured, so a near-miss form is refused
 // rather than read as its date. Group 1 is the prefix, group 2 the value.
 const RETRO_MARKER = /^(\W*Last retrospective: )(\S.*?)[ \t\r]*$/gm;
@@ -271,11 +271,7 @@ class Tally {
     const audit = [...this.ruleStats]
       .sort(([a], [b]) => a.localeCompare(b))
       .map(([rule, stats]) => {
-        let status = "insufficient-evidence";
-        if (stats.warnings >= MIN_WARNINGS) {
-          status =
-            stats.heeded === stats.warnings ? "promotable" : "not-promotable";
-        }
+        const status = classifyAudit(stats.warnings, stats.heeded);
         return { rule, status, ...stats };
       });
     return {

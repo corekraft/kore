@@ -18,8 +18,8 @@ const fakes = vi.hoisted(() => ({
 }));
 
 vi.mock("../adr/index.js", () => ({ adrCommands: fakes.adrCommands }));
-vi.mock("../guardrail/index.js", () => ({
-  guardrailCommands: fakes.guardrailCommands,
+vi.mock("./guardrail-request-commands.js", () => ({
+  guardrailLedgerCommands: fakes.guardrailCommands,
 }));
 vi.mock("../plan/index.js", () => ({
   planActive: fakes.planActive,
