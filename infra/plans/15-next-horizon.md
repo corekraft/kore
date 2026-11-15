@@ -164,7 +164,7 @@ Safety pattern: `feature-flagged` (`autoscaling-defaults`, off in `local`).
 
 - [x] Install metrics-server as a catalog Helm release, pinned and mirrored
       ([ADR 0047](../../docs/decisions/0047-autoscaling-metrics-server-then-keda.md)).
-- [ ] Add a CPU HorizontalPodAutoscaler to the workload chart from chart values,
+- [x] Add a CPU HorizontalPodAutoscaler to the workload chart from chart values,
       with no replica count, at least two replicas, and a PodDisruptionBudget.
 - [ ] Prove a BFF scales 1→N under load and back, with no request failing
       because a pod started cold.
