@@ -6,6 +6,18 @@ export const SAFETY_PATTERNS = [
   "expand-contract",
 ] as const;
 
+/** What a harness idea expects of one flow report metric, and how long to watch it. */
+export interface Hypothesis {
+  /** A metric name from the flow report. */
+  metric: string;
+  direction: "up" | "down";
+  /** A number of days, such as 14d. */
+  window: string;
+}
+
+const DIRECTIONS = ["up", "down"] as const;
+const WINDOW = /^[1-9]\d*d$/;
+
 export interface IdeaRecord {
   number: string;
   slug: string;
@@ -20,11 +32,19 @@ export interface IdeaRecord {
   outcome?: string;
   issue?: string;
   parent?: string;
+  /** Set only on a harness idea. */
+  harness?: Hypothesis;
 }
 
 export class IdeaError extends Error {}
 
 export const IDEA_FILE = /^(\d{4})-([a-z0-9]+(?:-[a-z0-9]+)*)\.md$/;
+
+const HYPOTHESIS_KEYS = [
+  "hypothesis-metric",
+  "hypothesis-direction",
+  "hypothesis-window",
+] as const;
 
 /** Frontmatter key for each required record field, in file order. */
 const REQUIRED = [
@@ -77,6 +97,7 @@ export function parseIdea(path: string, text: string): IdeaRecord {
     );
   }
   const get = (key: string): string => keys.get(key) ?? "";
+  const harness = readHarness(path, get);
   const heading = /^# Idea \d{4}: (.+)$/m.exec(text)?.[1];
   const record: IdeaRecord = {
     number: name[1],
@@ -95,7 +116,86 @@ export function parseIdea(path: string, text: string): IdeaRecord {
       record[key] = get(key);
     }
   }
+  if (harness !== undefined) {
+    record.harness = harness;
+  }
   return record;
+}
+
+/** The hypothesis block of a `kind: harness` file; undefined for any other idea. */
+function readHarness(
+  path: string,
+  get: (key: string) => string,
+): Hypothesis | undefined {
+  if (get("kind") !== "harness") {
+    return undefined;
+  }
+  const missing = HYPOTHESIS_KEYS.filter((key) => get(key) === "");
+  if (missing.length > 0) {
+    throw new IdeaError(
+      `${path} is a harness idea missing frontmatter ${missing.join(", ")}; add each as a key: value line.`,
+    );
+  }
+  return {
+    metric: get("hypothesis-metric"),
+    direction: get("hypothesis-direction") === "up" ? "up" : "down",
+    window: get("hypothesis-window"),
+  };
+}
+
+/**
+ * The hypothesis a harness idea is created with. Undefined for an ordinary idea;
+ * an IdeaError naming what is missing or wrong otherwise. `metrics` are the flow report's.
+ */
+export function harnessHypothesis(
+  flags: {
+    kind?: string | undefined;
+    metric?: string | undefined;
+    direction?: string | undefined;
+    window?: string | undefined;
+  },
+  metrics: readonly string[],
+): Hypothesis | undefined {
+  const { kind, metric, direction, window } = flags;
+  if (kind === undefined) {
+    const stray = (["metric", "direction", "window"] as const).find(
+      (flag) => flags[flag] !== undefined,
+    );
+    if (stray !== undefined) {
+      throw new IdeaError(
+        `--${stray} needs --kind harness; add it, or leave the hypothesis flags out.`,
+      );
+    }
+    return undefined;
+  }
+  if (kind !== "harness") {
+    throw new IdeaError(
+      `--kind "${kind}" is not recognised; use harness, or leave it out.`,
+    );
+  }
+  const missing = (["metric", "direction", "window"] as const).filter(
+    (flag) => flags[flag] === undefined,
+  );
+  if (missing.length > 0) {
+    throw new IdeaError(
+      `A harness idea is missing ${missing.map((f) => `--${f}`).join(", ")}; pass each, e.g. --metric friction.total --direction down --window 14d.`,
+    );
+  }
+  if (metric === undefined || !metrics.includes(metric)) {
+    throw new IdeaError(
+      `--metric "${metric}" is not a flow report metric; use one of ${metrics.join(", ")} (see \`harness flow report --json\`).`,
+    );
+  }
+  const way = DIRECTIONS.find((d) => d === direction);
+  if (way === undefined) {
+    throw new IdeaError(`--direction "${direction}" is not up or down.`);
+  }
+  if (window === undefined || !WINDOW.test(window)) {
+    throw new IdeaError(
+      `--window "${window}" is not a number of days such as 14d.`,
+    );
+  }
+  return { metric, direction: way, window };
 }
 
 /** A single-line frontmatter scalar, or an IdeaError naming the flag. */
@@ -121,6 +221,8 @@ export interface NewIdea {
   safetyPattern: string;
   issue?: string;
   parent?: string;
+  /** Present makes it a harness idea. */
+  harness?: Hypothesis;
 }
 
 /** The markdown file for a new, open idea. It holds no workflow state. */
@@ -138,6 +240,14 @@ export function renderIdea(
     `safety-pattern: ${idea.safetyPattern}`,
     `date: ${date}`,
   ];
+  if (idea.harness !== undefined) {
+    lines.push(
+      "kind: harness",
+      `hypothesis-metric: ${idea.harness.metric}`,
+      `hypothesis-direction: ${idea.harness.direction}`,
+      `hypothesis-window: ${idea.harness.window}`,
+    );
+  }
   if (idea.issue !== undefined) {
     lines.push(`issue: ${idea.issue}`);
   }

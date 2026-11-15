@@ -12,6 +12,9 @@ import { recordFixture } from "./idea-support.js";
 import { IdeaRepository } from "./repository.js";
 import { scalar } from "./record.js";
 
+vi.mock("../flow/index.js", () => ({
+  flowMetricNames: vi.fn(() => ["friction.total"]),
+}));
 vi.mock("./repository.js");
 vi.mock("./sync.js");
 vi.mock("./record.js", async (importOriginal) => ({
@@ -72,6 +75,57 @@ describe("harness idea new", () => {
     );
     expect(repo.create.mock.calls[0]?.[0]).toBe("probe");
     expect(repo.create.mock.calls[0]?.[1]).toMatchObject({ summary: "Short" });
+  });
+});
+
+describe("harness idea new for a harness idea", () => {
+  const HARNESS = {
+    kind: "harness",
+    metric: "friction.total",
+    direction: "down",
+    window: "14d",
+  };
+
+  it("hands the hypothesis block to the repository, checked against the flow report's metrics", async () => {
+    repo.create.mockResolvedValue({ created: true, record: recordFixture() });
+    expect(await create.run(context(deps, { ...FIELDS, ...HARNESS }))).toBe(0);
+    expect(repo.create.mock.calls[0]?.[1]).toMatchObject({
+      harness: { metric: "friction.total", direction: "down", window: "14d" },
+    });
+  });
+
+  it("refuses an unknown metric on stderr, listing the valid ones, and writes nothing", async () => {
+    expect(
+      await create.run(
+        context(deps, { ...FIELDS, ...HARNESS, metric: "vibes" }),
+      ),
+    ).toBe(1);
+    expect(deps.stderr.mock.calls).toEqual([
+      [
+        '--metric "vibes" is not a flow report metric; use one of friction.total (see `harness flow report --json`).\n',
+      ],
+    ]);
+    expect(repo.create).not.toHaveBeenCalled();
+  });
+
+  it("names exactly what a harness idea is missing", async () => {
+    expect(
+      await create.run(
+        context(deps, { ...FIELDS, kind: "harness", metric: "friction.total" }),
+      ),
+    ).toBe(1);
+    expect(deps.stderr.mock.calls).toEqual([
+      [
+        "A harness idea is missing --direction, --window; pass each, e.g. --metric friction.total --direction down --window 14d.\n",
+      ],
+    ]);
+    expect(repo.create).not.toHaveBeenCalled();
+  });
+
+  it("leaves an ordinary idea with no harness block", async () => {
+    repo.create.mockResolvedValue({ created: true, record: recordFixture() });
+    await create.run(context(deps, FIELDS));
+    expect(repo.create.mock.calls[0]?.[1]).not.toHaveProperty("harness");
   });
 });
 

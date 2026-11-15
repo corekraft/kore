@@ -1,5 +1,12 @@
+import { flowMetricNames } from "../flow/index.js";
 import type { Command, CommandContext } from "../runtime/index.js";
-import { IdeaError, scalar, type IdeaRecord, type NewIdea } from "./record.js";
+import {
+  IdeaError,
+  harnessHypothesis,
+  scalar,
+  type IdeaRecord,
+  type NewIdea,
+} from "./record.js";
 import { IdeaRepository } from "./repository.js";
 import { syncIssue } from "./sync.js";
 
@@ -64,6 +71,10 @@ function describe(record: IdeaRecord): string {
       lines.push(`${label}: ${value}`);
     }
   }
+  if (record.harness !== undefined) {
+    const { metric, direction, window } = record.harness;
+    lines.push(`Harness hypothesis: ${metric} ${direction} within ${window}`);
+  }
   lines.push(`File: ${record.path}`);
   return `${lines.join("\n")}\n`;
 }
@@ -96,12 +107,24 @@ function parseNewIdea(options: CommandContext["options"]): {
       idea[key] = scalar(key, value);
     }
   }
+  const harness = harnessHypothesis(
+    {
+      kind: text(options, "kind"),
+      metric: text(options, "metric"),
+      direction: text(options, "direction"),
+      window: text(options, "window"),
+    },
+    flowMetricNames(),
+  );
+  if (harness !== undefined) {
+    idea.harness = harness;
+  }
   return { slug, idea };
 }
 
 const create: Command = {
   summary:
-    "create the next numbered idea record and index it (--title --hypothesis --expected-outcome --measurement --safety-pattern [--slug] [--summary] [--issue] [--parent])",
+    "create the next numbered idea record and index it (--title --hypothesis --expected-outcome --measurement --safety-pattern [--slug] [--summary] [--issue] [--parent] [--kind harness --metric <flow report metric> --direction up|down --window <days>d])",
   options: {
     title: "string",
     slug: "string",
@@ -112,6 +135,10 @@ const create: Command = {
     "safety-pattern": "string",
     issue: "string",
     parent: "string",
+    kind: "string",
+    metric: "string",
+    direction: "string",
+    window: "string",
   },
   run(context) {
     return guarded(context, async () => {

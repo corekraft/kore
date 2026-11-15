@@ -21,6 +21,7 @@ describe("flow barrel", () => {
         "REPORT_VERSION",
         "STAGES",
         "buildReport",
+        "flowMetricNames",
         "parseHarnessConfig",
       ].sort(),
     );

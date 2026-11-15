@@ -15,6 +15,9 @@ import {
 } from "./markdown.js";
 
 vi.mock("./document-checks.js", () => ({ checkFrontmatter: vi.fn() }));
+vi.mock("../flow/index.js", () => ({
+  flowMetricNames: vi.fn(() => ["friction.total"]),
+}));
 vi.mock("./idea-checks.js", async (importOriginal) => ({
   ...(await importOriginal<typeof import("./idea-checks.js")>()),
   checkIdea: vi.fn(),
@@ -175,6 +178,7 @@ test("plans and ADRs get the frontmatter check, and ideas the idea check with th
     "docs/ideas/0001-a.md",
     "i",
     new Map([["0001", "docs/ideas/0001-a.md"]]),
+    ["friction.total"],
   );
 });
 

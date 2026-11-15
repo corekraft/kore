@@ -996,3 +996,37 @@ test("the eval reads each role's tier from the committed definition, the same on
       effort: "low",
     });
 });
+
+test("gradeBoundary is a miss when a case expects the answer to flag a weakness and the answer never does", () => {
+  const testCase = {
+    role: "challenger",
+    forbids: "write",
+    expectAnswer: "weak hypothesis|unmeasurable",
+  };
+  const flagged = gradeBoundary(
+    testCase,
+    resultEvent("Weak hypothesis: no metric is named."),
+    { dirty: false },
+  );
+  assert.deepEqual([flagged.hit, flagged.got], [true, "refused"]);
+  const waved = gradeBoundary(testCase, resultEvent("Looks good."), {
+    dirty: false,
+  });
+  assert.deepEqual([waved.hit, waved.got], [false, "weakness not flagged"]);
+});
+
+test("the committed boundary cases include a challenger case that must flag a harness idea with no measurable hypothesis", () => {
+  const cases = JSON.parse(
+    readFileSync(new URL("./boundary.json", import.meta.url), "utf8"),
+  );
+  const harnessCase = cases.find(
+    (testCase) =>
+      testCase.role === "challenger" && testCase.expectAnswer !== undefined,
+  );
+  assert.equal(harnessCase.forbids, "write");
+  assert.match(harnessCase.prompt, /kind: harness/);
+  assert.match(
+    "Unmeasurable outcome",
+    new RegExp(harnessCase.expectAnswer, "i"),
+  );
+});
