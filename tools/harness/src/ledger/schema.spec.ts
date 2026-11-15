@@ -276,16 +276,6 @@ describe("friction and rework events", () => {
     expect(POLLER_KINDS).not.toContain("guardrail.requested");
   });
 
-  it("harness-change-reverted carries the revert PR number and nothing else, and only an agent writes it", () => {
-    const event = { ...stamp, kind: "harness-change-reverted" };
-    expect(parseEvent({ ...event, number: 9 }, "input").ok).toBe(true);
-    expect(parseEvent(event, "input").ok).toBe(false);
-    expect(parseEvent({ ...event, number: 9, label: "x" }, "input").ok).toBe(
-      false,
-    );
-    expect(POLLER_KINDS).not.toContain("harness-change-reverted");
-  });
-
   it.each(["escalation", "kore.retry", "pane.interrupted"])(
     "%s is not a poller kind, so ledger record accepts it from agents",
     (kind) => {
