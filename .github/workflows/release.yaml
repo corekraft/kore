@@ -114,8 +114,12 @@ jobs:
       - uses: jdx/mise-action@b44d12e7d0d8ee7461bb893e1b1993500433185b # v5.2.7
         with:
           install: true
-          install_args: cosign gradle
+          install_args: cosign
           cache: false
+      # Gradle builds the Kotlin BFF template image; it is installed apart from
+      # the signing tools above, at the version `.mise.toml` pins.
+      - name: Install Gradle
+        run: mise install gradle
       - name: Check the tag is a release version
         run: |
           [[ "$TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo "tag $TAG is not vX.Y.Z" >&2; exit 1; }
