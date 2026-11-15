@@ -1,0 +1,14 @@
+{
+  "$schema": "https://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "required": ["platformDomain"],
+  "additionalProperties": false,
+  "properties": {
+    "platformDomain": {
+      "description": "The environment's platform domain (ADR 0042). A service host is <service>.<organization>.<platformDomain>, so with a 63-character service and the organization the whole host stays within 253 characters.",
+      "type": "string",
+      "maxLength": 180,
+      "pattern": "^([a-z0-9]([-a-z0-9]{0,61}[a-z0-9])?\\.)+[a-z0-9]([-a-z0-9]{0,61}[a-z0-9])?$"
+    }
+  }
+}

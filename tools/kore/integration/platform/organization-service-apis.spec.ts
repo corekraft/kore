@@ -189,6 +189,56 @@ test("Crossplane may manage namespaces only through the flagged chart", async ()
   assert.match(rbac, /name: crossplane\n {4}namespace: crossplane-system/);
 });
 
+test("the Service composition composes the default host service.organization.platformDomain (ADR 0042)", async () => {
+  const source = await read(
+    "infra/charts/platform-apis/templates/service-composition.yaml",
+  );
+  assert.match(
+    source,
+    /\$domain := `\}\}\{\{ \.Values\.platformDomain \| quote \}\}\{\{`/,
+  );
+  assert.match(
+    source,
+    /\$host := printf "%s\.%s\.%s" \$service \$org \$domain/,
+  );
+  // A status field on the Service, and an annotation on each composed namespace.
+  assert.match(source, /^ {12}kind: Service$/m);
+  assert.match(source, /^ {14}defaultHost: \{\{ \$host \}\}$/m);
+  assert.match(source, /platform\.kore\.dev\/default-host: \{\{ \$host \}\}/);
+});
+
+test("the platform domain is a chart value defaulting to kore.local, validated as a hostname", async () => {
+  const values = await read("infra/charts/platform-apis/values.yaml");
+  assert.match(values, /^platformDomain: kore\.local$/m);
+  const schema = JSON.parse(
+    await read("infra/charts/platform-apis/values.schema.json"),
+  ) as {
+    required: string[];
+    properties: { platformDomain: { pattern: string; maxLength: number } };
+  };
+  assert.deepEqual(schema.required, ["platformDomain"]);
+  const { pattern, maxLength } = schema.properties.platformDomain;
+  const re = new RegExp(pattern);
+  assert.ok(re.test("kore.local"));
+  assert.ok(!re.test("Kore.local"), "uppercase is rejected");
+  assert.ok(!re.test("kore"), "a single label is not a domain");
+  assert.ok(!re.test(`${"a".repeat(64)}.local`), "labels are at most 63");
+  // A 63-character service, the organization and the domain fit 253 characters.
+  assert.equal(maxLength, 253 - 63 - "platform".length - 2);
+});
+
+test("the Service XRD validates the host label up front and declares the status field", async () => {
+  const xrd = await read(
+    "infra/charts/platform-apis/templates/service-xrd.yaml",
+  );
+  assert.match(
+    xrd,
+    /rule: "self\.metadata\.name\.matches\('\^\[a-z0-9\]\(\[-a-z0-9\]\{0,61\}\[a-z0-9\]\)\?\$'\)"/,
+  );
+  assert.match(xrd, /metadata\.name must be a single DNS label/);
+  assert.match(xrd, /defaultHost: \{ type: string \}/);
+});
+
 test("the namespace composition is rendered only when the flag is on", async () => {
   const local = await loadRepository("local");
   const chart = "infra/charts/platform-apis";

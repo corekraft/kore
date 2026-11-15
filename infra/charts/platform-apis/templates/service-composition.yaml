@@ -12,7 +12,11 @@ spec:
     # tenant root, so its name is also the tenant. The namespace is
     # <service>--<environment>; the XRD forbids a double hyphen in either part, so
     # the join is unambiguous and cannot equal a platform namespace. The go template is wrapped in
-    # a Helm raw string so Helm leaves it for Crossplane to evaluate.
+    # a Helm raw string so Helm leaves it for Crossplane to evaluate; the platform
+    # domain alone is spliced in by Helm from chart values.
+    # The default host is <service>.<organization>.<platform domain> (ADR 0042):
+    # the Service's status.defaultHost, and an annotation on each namespace. The
+    # XRD proves the service name is one DNS label; the chart schema bounds the domain.
     - step: compose-namespaces
       functionRef: { name: function-go-templating }
       input:
@@ -21,8 +25,15 @@ spec:
         source: Inline
         inline:
           template: |
-            {{`{{- $service := .observed.composite.resource.metadata.name }}
+            {{`{{- $domain := `}}{{ .Values.platformDomain | quote }}{{` }}
+            {{- $service := .observed.composite.resource.metadata.name }}
             {{- $org := .observed.composite.resource.spec.organization }}
+            {{- $host := printf "%s.%s.%s" $service $org $domain }}
+            ---
+            apiVersion: platform.kore.dev/v1alpha1
+            kind: Service
+            status:
+              defaultHost: {{ $host }}
             {{- range $env := .observed.composite.resource.spec.environments }}
             ---
             apiVersion: v1
@@ -31,6 +42,7 @@ spec:
               name: {{ $service }}--{{ $env }}
               annotations:
                 gotemplating.fn.crossplane.io/composition-resource-name: namespace-{{ $env }}
+                platform.kore.dev/default-host: {{ $host }}
               labels:
                 platform.kore.dev/tenant: {{ $org }}
                 platform.kore.dev/organization: {{ $org }}
