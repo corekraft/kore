@@ -37,7 +37,13 @@ export async function manifestSides(
   return { before, after };
 }
 
-/** Attaches the manifest's sides to the diff's manifest entry; a deleted manifest has no head text, so it is left bare. */
+const OVERLAY = /^infra\/environments\/[^/]+\/environment\.yaml$/;
+
+/**
+ * Attaches the manifest's sides to the diff's manifest entry, and the head text to each environment
+ * overlay, whose hunk can start inside `features` with its opening line out of view. A deleted file has
+ * no head text, so it is left bare.
+ */
 export async function withManifestSides(
   files: readonly ChangedFile[],
   api: Api,
@@ -46,9 +52,23 @@ export async function withManifestSides(
   headSha: string,
 ): Promise<ChangedFile[]> {
   const touched = (f: ChangedFile) => f.path === MANIFEST && !f.deleted;
-  if (!files.some(touched)) {
-    return [...files];
-  }
-  const sides = await manifestSides(api, repo, baseSha, headSha);
-  return files.map((f) => (touched(f) ? { ...f, sides } : f));
+  const overlay = (f: ChangedFile) => OVERLAY.test(f.path) && !f.deleted;
+  const sides = files.some(touched)
+    ? await manifestSides(api, repo, baseSha, headSha)
+    : undefined;
+  return Promise.all(
+    files.map(async (f) => {
+      if (touched(f) && sides !== undefined) {
+        return { ...f, sides };
+      }
+      if (overlay(f)) {
+        const after = await api([
+          ...RAW,
+          `repos/${repo}/contents/${f.path}?ref=${headSha}`,
+        ]);
+        return { ...f, sides: { before: undefined, after } };
+      }
+      return f;
+    }),
+  );
 }

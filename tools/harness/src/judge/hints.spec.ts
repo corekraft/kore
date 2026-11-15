@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import type { ChangedFile } from "./diff.js";
 import { hintsFor } from "./hints.js";
-import { add, ctx, del, file } from "./tooling.fixtures.js";
+import { add, ctx, del, file, withSides } from "./tooling.fixtures.js";
 
 vi.mock("./tooling.js", () => ({ isTooling: () => false }));
 
@@ -275,6 +275,45 @@ describe("hintsFor expand-contract counts net removals", () => {
       removedLines: 0,
       netRemovedLines: 0,
       additiveOnly: true,
+    });
+  });
+});
+
+describe("hintsFor places a hunk in the features object by the head file, not by the hunk's context", () => {
+  const PATH = "infra/environments/local/environment.yaml";
+  const HEAD_FILE = JSON.stringify({
+    name: "local",
+    features: { a: false, "new-flag": false, b: true },
+    other: true,
+  });
+
+  it("reads a flag added where the hunk shows only sibling flags and no features line", () => {
+    const changed = withSides(
+      file(PATH, [
+        [
+          ctx('      "a": false,'),
+          add('      "new-flag": false,'),
+          ctx('      "b": true'),
+        ],
+      ]),
+      undefined,
+      HEAD_FILE,
+    );
+    expect(hintsFor("feature-flagged", [changed])).toEqual({
+      flags: [{ flag: "new-flag", environment: "local", value: false }],
+      flagPresentAndOff: true,
+    });
+  });
+
+  it("does not read a top-level key added outside the features object", () => {
+    const changed = withSides(
+      file(PATH, [[ctx('  "name": "local",'), add('  "other": true,')]]),
+      undefined,
+      HEAD_FILE,
+    );
+    expect(hintsFor("feature-flagged", [changed])).toEqual({
+      flags: [],
+      flagPresentAndOff: false,
     });
   });
 });
