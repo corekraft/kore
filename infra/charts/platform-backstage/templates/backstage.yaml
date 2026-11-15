@@ -20,6 +20,7 @@ spec:
       labels:
         app.kubernetes.io/name: backstage
     spec:
+      serviceAccountName: backstage
       securityContext:
         runAsNonRoot: true
         seccompProfile:
@@ -85,6 +86,21 @@ spec:
             # because nothing reaches this container except through the proxy.
             - name: APP_CONFIG_auth_providers_guest_dangerouslyAllowOutsideDevelopment
               value: "true"
+            # In-app sign-in (ADR 0113). The proxy stays in front until a live
+            # run proves it; the client secret is the same Secret reference.
+            - name: OIDC_METADATA_URL
+              value: https://keycloak.{{ .Values.platformDomain }}/realms/platform/.well-known/openid-configuration
+            - name: OIDC_CLIENT_ID
+              value: backstage
+            - name: OIDC_CLIENT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: backstage-oidc
+                  key: client-secret
+            # The catalog provider calls the API server, whose certificate the
+            # cluster CA signed.
+            - name: NODE_EXTRA_CA_CERTS
+              value: /var/run/secrets/kubernetes.io/serviceaccount/ca.crt
             - name: POSTGRES_HOST
               value: backstage-db-rw
             - name: POSTGRES_PORT

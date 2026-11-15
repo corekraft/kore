@@ -1,0 +1,31 @@
+# Backstage's catalog provider lists the platform Organization and Service
+# objects with the pod's own token (ADR 0111). The role can only get and list
+# those two resources. The Kubernetes plugin never uses this account: it reads
+# clusters as the signed-in user, with their Keycloak token.
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: backstage
+  namespace: {{ .Release.Namespace }}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: kore-backstage-catalog
+rules:
+  - apiGroups: ["platform.kore.dev"]
+    resources: ["organizations", "services"]
+    verbs: ["get", "list"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: kore-backstage-catalog
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: kore-backstage-catalog
+subjects:
+  - kind: ServiceAccount
+    name: backstage
+    namespace: {{ .Release.Namespace }}

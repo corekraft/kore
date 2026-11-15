@@ -17,6 +17,7 @@ spec:
     appUrl: https://backstage.{{ .Values.platformDomain }}
     redirectUris:
       - https://backstage.{{ .Values.platformDomain }}/oauth2/callback
+      - https://backstage.{{ .Values.platformDomain }}/api/auth/oidc/handler/frame
     loginFlows:
       - STANDARD
     auth:
