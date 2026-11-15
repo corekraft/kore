@@ -99,6 +99,7 @@ test("the config barrel exposes exactly the entry points other domains use", () 
     "componentGatedOff",
     "componentValues",
     "componentVersion",
+    "configDeliveryRelease",
     "crdGroupErrors",
     "crdNameFormatErrors",
     "crdOwners",

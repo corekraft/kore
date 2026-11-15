@@ -1,12 +1,15 @@
 import { readFile } from "node:fs/promises";
 import {
   chartDeliveryValues,
+  configDeliveryRelease,
   helmInstalledComponents,
   type Component,
   type Repository,
 } from "../config/index.js";
 import type { Runner } from "../runtime/index.js";
 import { applyChartCredential } from "./chart-credential.js";
+
+export { handedToArgocd } from "./handover.js";
 
 // Docs: docs/decisions/0043-platform-configuration-through-argo-cd.md (the handover values)
 
@@ -21,8 +24,8 @@ export async function composeChartDelivery(
   lockPath: string | undefined,
 ): Promise<Repository> {
   if (
-    !helmInstalledComponents(repository).some(
-      (component) => component.name === "kore-config-delivery",
+    !helmInstalledComponents(repository, false).some(
+      (component) => component.name === configDeliveryRelease,
     )
   ) {
     return repository;
@@ -56,7 +59,7 @@ export async function prepareChartDelivery(
   runner: Runner,
   component: Pick<Component, "name">,
 ): Promise<void> {
-  if (component.name === "kore-config-delivery") {
+  if (component.name === configDeliveryRelease) {
     await applyChartCredential(repository, runner);
   }
 }

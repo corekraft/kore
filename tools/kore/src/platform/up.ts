@@ -8,6 +8,7 @@ import { installLocalTrust } from "../security/index.js";
 import { bootstrapControllers, openApplicationAdmission } from "./bootstrap.js";
 import {
   composeChartDelivery,
+  handedToArgocd,
   prepareChartDelivery,
 } from "./chart-delivery.js";
 import { enrollPlatformNamespaces } from "./enrollment.js";
@@ -33,11 +34,15 @@ export async function platformUp(
   if (isLocalProvider(repository.environment)) {
     await installLocalTrust(repository, runner);
   }
-  for (const component of helmInstalledComponents(repository)) {
+  const candidates = helmInstalledComponents(repository, false);
+  for (const component of candidates) {
     if (
       component.phase !== "configuration" &&
       component.phase !== "enforcement"
     ) {
+      continue;
+    }
+    if (await handedToArgocd(repository, runner, candidates, component)) {
       continue;
     }
     await prepareChartDelivery(repository, runner, component);

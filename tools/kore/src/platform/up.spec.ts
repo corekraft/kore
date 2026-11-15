@@ -4,6 +4,7 @@ import { installLocalTrust } from "../security/index.js";
 import { bootstrapControllers, openApplicationAdmission } from "./bootstrap.js";
 import {
   composeChartDelivery,
+  handedToArgocd,
   prepareChartDelivery,
 } from "./chart-delivery.js";
 import { enrollPlatformNamespaces } from "./enrollment.js";
@@ -29,6 +30,11 @@ const local = fakeRepository({ provider: "k3d" });
 const managed = fakeRepository({ provider: "managed" });
 const core = fakeComponent({ name: "gate", phase: "core" });
 const policy = fakeComponent({ name: "policy", phase: "configuration" });
+const handed = fakeComponent({
+  name: "tls",
+  phase: "configuration",
+  owner: "argocd",
+});
 const enforce = fakeComponent({ name: "enforce", phase: "enforcement" });
 const openEvidence: ReadinessEvidence = {
   manifestVersion: 1,
@@ -73,6 +79,7 @@ beforeEach(() => {
     (environment) => environment.provider === "k3d",
   );
   vi.mocked(helmInstalledComponents).mockReturnValue([core, policy, enforce]);
+  vi.mocked(handedToArgocd).mockResolvedValue(false);
 });
 
 test("platform up validates and composes the delivery values before it touches the cluster", async () => {
@@ -158,4 +165,31 @@ test("a failed bootstrap stops up before any configuration is reconciled", async
   );
   expect(reconcileConfiguration).not.toHaveBeenCalled();
   expect(installLocalTrust).not.toHaveBeenCalled();
+});
+
+test("a release handed to Argo CD is skipped by Helm, and every other release is still reconciled", async () => {
+  vi.mocked(helmInstalledComponents).mockReturnValue([policy, handed]);
+  vi.mocked(handedToArgocd).mockImplementation(
+    async (_r, _n, _candidates, c) => c === handed,
+  );
+  const { runner } = fakeRunner();
+  await platformUp(local, runner);
+  expect(order.filter((step) => step.startsWith("configure:"))).toEqual([
+    "configure:policy",
+  ]);
+  expect(handedToArgocd).toHaveBeenCalledWith(
+    local,
+    runner,
+    [policy, handed],
+    handed,
+  );
+  expect(prepareChartDelivery).not.toHaveBeenCalledWith(local, runner, handed);
+});
+
+test("a failure reading whether Argo CD took a release over stops up before anything is reconciled", async () => {
+  vi.mocked(handedToArgocd).mockRejectedValue(new Error("cluster unreachable"));
+  await expect(platformUp(local, fakeRunner().runner)).rejects.toThrow(
+    "cluster unreachable",
+  );
+  expect(reconcileConfiguration).not.toHaveBeenCalled();
 });

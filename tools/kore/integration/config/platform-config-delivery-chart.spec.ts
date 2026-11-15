@@ -249,7 +249,7 @@ test("the delivery chart is a gated release owned by kore, installed after Argo 
   await validateRepository(on);
   const component = on.catalog.components.find((c) => c.name === name)!;
   assert.equal(releaseOwner(on.environment, component), "kore");
-  assert.ok(helmInstalledComponents(on).some((c) => c.name === name));
+  assert.ok(helmInstalledComponents(on, false).some((c) => c.name === name));
   const order = orderedComponents(on.catalog).map((c) => c.name);
   assert.ok(order.indexOf("argocd") < order.indexOf(name));
 });

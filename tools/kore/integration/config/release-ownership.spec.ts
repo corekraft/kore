@@ -48,9 +48,13 @@ test("with platform-argocd-delivery on, exactly the six configuration releases a
     .map((c) => c.name)
     .sort();
   assert.deepEqual(owned, [...handedOver].sort());
-  const helm = helmInstalledComponents(on).map((c) => c.name);
+  const helm = helmInstalledComponents(on, true).map((c) => c.name);
   for (const name of handedOver) {
     assert.equal(helm.includes(name), false, name);
+  }
+  const before = helmInstalledComponents(on, false).map((c) => c.name);
+  for (const name of handedOver) {
+    assert.equal(before.includes(name), true, `${name} stays with Helm`);
   }
   assert.equal(helm.includes("kore-image-policy"), true);
   assert.equal(helm.includes("kore-golden-path-delivery"), true);
