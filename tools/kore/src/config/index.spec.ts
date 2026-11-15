@@ -110,6 +110,7 @@ test("the config barrel exposes exactly the entry points other domains use", () 
     "orderedComponents",
     "organizationServiceApisFlag",
     "patchableKinds",
+    "platformClaimErrors",
     "policyPromotionErrors",
     "probeFields",
     "probeNames",

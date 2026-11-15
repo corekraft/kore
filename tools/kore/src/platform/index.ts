@@ -8,6 +8,11 @@ export { applyProbePatches } from "./patches.js";
 export { platformStatusReport } from "./crd-ownership-status.js";
 export type { CrdOwnershipStatus } from "./crd-ownership-status.js";
 export { platformStatus } from "./status.js";
+export { platformClaimsStatus } from "./platform-claims-status.js";
+export type {
+  ClaimStatus,
+  PlatformClaimsStatus,
+} from "./platform-claims-status.js";
 export type { ComponentStatus } from "./status.js";
 export { platformUp } from "./up.js";
 export { argsFingerprint } from "./fingerprint.js";

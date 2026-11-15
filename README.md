@@ -300,6 +300,7 @@ is the source of truth.
 | --------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
 | `kore doctor`   | Checks pinned tools and prerequisites. Read-only.                                                                                              |
 | `kore validate` | Validates catalogs, environments, and release ordering. Read-only.                                                                             |
+| `kore status`   | Reports each Organization and Service claim's readiness, behind the platform-organization-service-apis flag. Read-only.                        |
 | `kore cluster`  | Starts, stops, destroys, or reports the k3d cluster.                                                                                           |
 | `kore platform` | Bootstraps, reconciles, stops, destroys, renders, or reports platform releases.                                                                |
 | `kore app`      | Deploys, removes, or reports one application's resources and workload releases.                                                                |
