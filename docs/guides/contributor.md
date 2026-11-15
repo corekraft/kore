@@ -289,6 +289,14 @@ deviation). Fewer than three baseline samples give `insufficient history`. A
 reading a host could not give is left out of the figures, and a range with no
 samples says so (`samples` 0, no levels).
 
+The concierge answers "how is the loop doing?" from this report alone
+(`flow report --json`, no code or transcripts read, no file written): it leads
+with every metric whose `worsened` is true, names current against trailing
+average, and reports `insufficient history` or an absent field as such, never a
+figure the report did not print. The boundary eval case `concierge answers loop
+health from the flow report` fails when the run never calls the report
+(`expectCommand` in `.claude/evals/boundary.json`).
+
 The stage rules are one table, `tools/harness/src/flow/stages.ts`. An event
 joins an idea by issue number at read time: an issue event by its own number, a
 PR event by the `idea` (`#<issue>`) it closes, a pane or session event by the
