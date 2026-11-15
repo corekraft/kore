@@ -6,7 +6,7 @@ import { expect, test } from "vitest";
 import {
   dnsLabelPattern,
   mirroredXrdFragments,
-} from "../../src/config/index.js";
+} from "../../src/config/platform-claims.js";
 
 const templates = new URL(
   "../../../../infra/charts/platform-apis/templates/",

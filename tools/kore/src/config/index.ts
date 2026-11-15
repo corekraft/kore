@@ -76,8 +76,4 @@ export { findRoot } from "./config.js";
 export { exemptionCheckMode, validateRepository } from "./validate.js";
 export type { WarningSource } from "./validate.js";
 export { exists } from "./files.js";
-export {
-  dnsLabelPattern,
-  mirroredXrdFragments,
-  platformClaimErrors,
-} from "./platform-claims.js";
+export { platformClaimErrors } from "./platform-claims.js";
