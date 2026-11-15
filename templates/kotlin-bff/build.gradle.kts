@@ -85,7 +85,12 @@ val stageApp by tasks.registering(Copy::class) {
 // as production, with only the public application.yaml, stopped once the Spring
 // context has refreshed.
 val appMount = imageStage.get().dir("app").asFile
-val classPath = "/app/app.jar:/app/libs/*"
+// Every jar is named, sorted: a wildcard expands in directory order, which
+// differs between the bind mount and the image, and the JVM rejects a cache
+// whose class path order differs from the one it was trained on.
+val classPath =
+    (listOf("/app/app.jar") + configurations.runtimeClasspath.get().files.map { "/app/libs/${it.name}" }.sorted())
+        .joinToString(":")
 val agentFlag = "-javaagent:/app/otel/opentelemetry-javaagent.jar"
 
 fun dockerJava(vararg javaArgs: String) =
@@ -104,8 +109,12 @@ val aotTraining by tasks.registering(Exec::class) {
         // The container runs as uid 65532 on a runner-owned mount: let it write.
         Files.setPosixFilePermissions(aotDir.toPath(), PosixFilePermissions.fromString("rwxrwxrwx"))
     }
+    // The agent is attached but switched off for the dump: with its shaded classes
+    // loaded, the JDK 25.0.2 AOT dump crashes (SIGSEGV in
+    // SystemDictionaryShared::check_for_exclusion). aotVerify runs with it on.
     commandLine(
         dockerJava(
+            "-Dotel.javaagent.enabled=false",
             "-XX:AOTCacheOutput=/app/aot/app.aot",
             "-Dspring.context.exit=onRefresh",
             "-Dotel.sdk.disabled=true",

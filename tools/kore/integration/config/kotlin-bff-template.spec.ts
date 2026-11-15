@@ -57,6 +57,7 @@ test("the container always starts the JVM with the agent and the build-time AOT 
 test("the AOT cache comes from a training run with the same agent that stops after the Spring context refreshes and holds no secret", async () => {
   const script = await read(build);
   assert.match(script, /-XX:AOTCacheOutput=/);
+  assert.match(script, /"-Dotel\.javaagent\.enabled=false",\s*"-XX:AOTCacheOutput=/);
   assert.match(script, /-Dspring\.context\.exit=onRefresh/);
   assert.match(script, /extraDirectories/);
   assert.doesNotMatch(script, /password|secret|token/i);
@@ -122,7 +123,9 @@ test("the training run can write the cache and the build proves the runtime acce
 test("the class path holds jars only, because the JDK cannot dump an AOT cache from a class path directory", async () => {
   const script = await read(build);
   // The training class path and the image class path are one string.
-  assert.match(script, /val classPath = "\/app\/app\.jar:\/app\/libs\/\*"/);
+  assert.match(script, /listOf\("\/app\/app\.jar"\)/);
+  assert.match(script, /"\/app\/libs\/\$\{it\.name\}" ?\}\.sorted\(\)/);
+  assert.doesNotMatch(script, /libs\/\*/);
   assert.doesNotMatch(script, /\/app\/classes|\/app\/resources/);
   assert.doesNotMatch(script, /resourcesDir|classesDirs/);
   // The application is that one jar, staged and added to the image.
