@@ -55,6 +55,21 @@
         "reason": "The claim is labelled Delete; every image is rebuilt from source or re-mirrored by digest from the release lock."
       },
       {
+        "name": "keycloak-operator",
+        "components": ["keycloak-operator"],
+        "data": "The Keycloak operator holds no data; the vendored CRDs only describe a persistence field that Keycloak resources may set",
+        "environment": "local",
+        "protection": "rebuild",
+        "schedule":
+          {
+            "kind": "on-demand",
+            "trigger": "kore local up reinstalls the operator (behind platform-portal)"
+          },
+        "rpoMinutes": null,
+        "rtoMinutes": 15,
+        "reason": "The operator and its CRDs are declared in the repository and pinned by digest. The data of a Keycloak lives in its PostgreSQL database claimed through the platform PostgreSQL API (retained-postgresql), not in the operator."
+      },
+      {
         "name": "managed-postgresql",
         "components": ["kore-postgresql-api", "cloudnative-pg"],
         "data": "PostgreSQL databases on a managed cluster",
