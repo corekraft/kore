@@ -180,7 +180,7 @@ existing reference app keeps working until a service moves to them.
 
 ### Work
 
-- [ ] Build a static frontend template into a signed image served from a pinned
+- [x] Build a static frontend template into a signed image served from a pinned
       static-server image
       ([ADR 0045](../../docs/decisions/0045-static-frontends-as-signed-images.md)).
 - [ ] Build a Kotlin BFF template with Jib on the GraalVM JDK, with the
