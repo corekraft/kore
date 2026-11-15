@@ -1,0 +1,16 @@
+# The platform Keycloak's database, claimed through the platform PostgreSQL API
+# and retained, so the recovery objective keycloak-data covers it
+# (infra/catalog/recovery.yaml). The API's composition creates the CloudNativePG
+# Cluster keycloak-db, its read-write Service keycloak-db-rw and the Secret
+# keycloak-db-app that the Keycloak resource reads by reference.
+apiVersion: platform.kore.dev/v1alpha1
+kind: PostgreSQLInstance
+metadata:
+  name: keycloak-db
+  namespace: {{ .Release.Namespace }}
+spec:
+  serviceClass: standard
+  storageSize: {{ .Values.database.storageSize }}
+  compatibilityVersion: {{ .Values.database.compatibilityVersion }}
+  connectionSecretName: keycloak-db-connection
+  retentionPolicy: Retain

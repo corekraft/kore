@@ -696,6 +696,24 @@
           ]
       },
       {
+        "name": "kore-platform-keycloak",
+        "phase": "configuration",
+        "namespace": "keycloak",
+        "kind": "local-chart",
+        "chart": "infra/charts/platform-keycloak",
+        "version": "local",
+        "featureFlag": "platform-portal",
+        "ownsCRDs": [],
+        "dependencies":
+          [
+            "keycloak-operator",
+            "kore-postgresql-api",
+            "kore-crossplane-functions"
+          ],
+        "timeout": "10m",
+        "readiness": ["statefulset/keycloak"]
+      },
+      {
         "name": "kore-golden-path-delivery",
         "phase": "configuration",
         "namespace": "argocd",

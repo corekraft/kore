@@ -20,6 +20,7 @@ export {
   openApplicationAdmission,
 } from "./readiness-gate.js";
 export type { GateCheckResult } from "./readiness-gate.js";
+import { ensureKeycloakAdmin } from "./keycloak-admin.js";
 import { reconcileIfNeeded } from "./reconcile.js";
 
 async function ensureCluster(
@@ -76,6 +77,12 @@ export async function bootstrapControllers(
     // (ADR 0034). A no-op unless `platform up` composed the delivery values.
     if (component.name === "argocd") {
       await applyChartCredential(repository, runner);
+    }
+    // The operator's chart creates the keycloak namespace, so the bootstrap
+    // admin Secret the platform Keycloak reads is streamed in right after it
+    // (ADR 0034). Present only with platform-portal on.
+    if (component.name === "keycloak-operator") {
+      await ensureKeycloakAdmin(repository, runner);
     }
     // The CA exists once the registry's certificate is issued. Clients that
     // live in the cluster (the node's containerd, Policy Controller) get it

@@ -1,0 +1,35 @@
+# The platform organization's Keycloak (ADR 0113), run by the Keycloak operator.
+# The image is the operator's pinned server digest, so none is set here. The
+# database credentials and the bootstrap admin are read from Secrets by
+# reference: kore streams the admin Secret (ADR 0034) and the platform API
+# creates the database Secret, so no credential is in git. Ingress is off until
+# the portal's HTTPRoute lands; the host is reserved under the platform base.
+apiVersion: k8s.keycloak.org/v2beta1
+kind: Keycloak
+metadata:
+  name: keycloak
+  namespace: {{ .Release.Namespace }}
+spec:
+  instances: 1
+  db:
+    vendor: postgres
+    host: keycloak-db-rw
+    port: 5432
+    database: app
+    usernameSecret:
+      name: keycloak-db-app
+      key: username
+    passwordSecret:
+      name: keycloak-db-app
+      key: password
+  bootstrapAdmin:
+    user:
+      secret: keycloak-admin
+  hostname:
+    hostname: keycloak.{{ .Values.platformDomain }}
+  http:
+    httpEnabled: true
+  proxy:
+    headers: xforwarded
+  ingress:
+    enabled: false

@@ -89,6 +89,12 @@
         "components": ["keycloak-operator"]
       },
       {
+        "name": "platform-keycloak",
+        "step": 8,
+        "capability": "platform-api",
+        "components": ["kore-platform-keycloak"]
+      },
+      {
         "name": "secrets",
         "step": 8,
         "capability": "controller",

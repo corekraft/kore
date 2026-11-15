@@ -1,0 +1,25 @@
+{
+  "$schema": "https://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "required": ["platformDomain"],
+  "additionalProperties": false,
+  "properties": {
+    "platformDomain": {
+      "description": "The environment's platform domain (ADR 0042). The Keycloak host is keycloak.<platformDomain>, a host under the platform base (ADR 0113).",
+      "type": "string",
+      "maxLength": 180,
+      "pattern": "^([a-z0-9]([-a-z0-9]{0,61}[a-z0-9])?\\.)+[a-z0-9]([-a-z0-9]{0,61}[a-z0-9])?$"
+    },
+    "database": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "storageSize": {
+          "type": "string",
+          "pattern": "^[1-9][0-9]*Gi$"
+        },
+        "compatibilityVersion": { "type": "integer", "enum": [16, 17, 18] }
+      }
+    }
+  }
+}

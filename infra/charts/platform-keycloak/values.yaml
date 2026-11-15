@@ -1,0 +1,5 @@
+# The database claim's portable inputs (infra/apis/postgresql). serviceClass and
+# retentionPolicy are fixed in the template: the realm is retained data.
+database:
+  storageSize: 2Gi
+  compatibilityVersion: 17
