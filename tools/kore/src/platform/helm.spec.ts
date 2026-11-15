@@ -162,6 +162,19 @@ test("the platform config release is told the gateway class from its environment
   expect(gatewayClassName).toHaveBeenCalledWith(repository.environment);
 });
 
+test("the platform Backstage release is told the gateway class from its environment, so its route has a Gateway to bind", () => {
+  const args = helmUpgradeArgs(
+    repository,
+    fakeComponent({ name: "kore-platform-backstage" }),
+  );
+  expect(args.slice(-2)).toEqual([
+    "--set-string",
+    "gatewayClassName=kore-gateway",
+  ]);
+  const other = helmUpgradeArgs(repository, fakeComponent());
+  expect(other).not.toContain("gatewayClassName=kore-gateway");
+});
+
 test("policy-controller is given its no-match policy, and no other component is", () => {
   vi.mocked(noMatchPolicy).mockReturnValue("deny");
   const args = helmUpgradeArgs(
