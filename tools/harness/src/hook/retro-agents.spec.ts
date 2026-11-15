@@ -74,6 +74,26 @@ describe("readAgentUsage", () => {
     expect(readdir).toHaveBeenCalledWith("/repo/.claude/agents");
   });
 
+  it("treats a missing .claude/agents directory as no known agents", async () => {
+    readdir.mockRejectedValue(
+      Object.assign(new Error("ENOENT"), { code: "ENOENT" }),
+    );
+    expect(await readAgentUsage(depsOf(), "/repo", 0)).toEqual({
+      known: [],
+      launched: [],
+      ledgerDays: 0,
+    });
+  });
+
+  it("rethrows an agents read fault that is not a missing directory", async () => {
+    readdir.mockRejectedValue(
+      Object.assign(new Error("denied"), { code: "EACCES" }),
+    );
+    await expect(readAgentUsage(depsOf(), "/repo", 0)).rejects.toMatchObject({
+      code: "EACCES",
+    });
+  });
+
   it("reports no days and no launches when the ledger root is unknown", async () => {
     vi.mocked(mainRoot).mockResolvedValue(undefined);
     expect(await readAgentUsage(depsOf(), "/repo", 0)).toEqual({

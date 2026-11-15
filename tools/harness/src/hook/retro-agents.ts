@@ -55,7 +55,14 @@ export async function readAgentUsage(
   root: string,
   sinceMs: number,
 ): Promise<AgentUsage> {
-  const files = await deps.fs.readdir(join(root, ".claude", "agents"));
+  let files: string[] = [];
+  try {
+    files = await deps.fs.readdir(join(root, ".claude", "agents"));
+  } catch (error) {
+    if (!isMissing(error)) {
+      throw error;
+    }
+  }
   const known = files
     .filter((file) => file.endsWith(".md"))
     .map((file) => file.slice(0, -".md".length))
