@@ -30,6 +30,7 @@
     },
   "features":
     {
+      "autoscaling-defaults": false,
       "ingress-agentgateway": false,
       "local-image-reuse": false,
       "registry-tag-pruning": false
@@ -74,6 +75,10 @@
         ["infra/environments/managed-example/values/mirror/grafana.yaml"],
       "agentgateway":
         ["infra/environments/managed-example/values/mirror/agentgateway.yaml"],
+      "metrics-server":
+        [
+          "infra/environments/managed-example/values/mirror/metrics-server.yaml"
+        ],
       "istiod":
         ["infra/environments/managed-example/values/mirror/istiod.yaml"],
       "istio-cni":

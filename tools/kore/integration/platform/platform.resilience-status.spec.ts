@@ -116,7 +116,7 @@ test("the same status run is fully ready once the controller is back", async () 
   );
   assert.deepEqual(
     rows.filter(({ status }) => status === "gated-off").map(({ name }) => name),
-    ["agentgateway-crds", "agentgateway"],
+    ["agentgateway-crds", "agentgateway", "metrics-server"],
     "the components the local feature flag gates off report gated-off, not ready",
   );
 });

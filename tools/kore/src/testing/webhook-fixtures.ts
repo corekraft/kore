@@ -2,7 +2,11 @@ import { registryTlsSecret } from "./registry-tls-fixtures.js";
 import { CommandError, type Runner } from "../runtime/index.js";
 
 /** Releases the local catalog gates off, so a healthy cluster never has them. */
-const gatedOffReleases = ["agentgateway", "agentgateway-crds"];
+const gatedOffReleases = [
+  "agentgateway",
+  "agentgateway-crds",
+  "metrics-server",
+];
 
 /**
  * What Helm answers for the status of a gated-off release: not found. Throws

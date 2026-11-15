@@ -51,3 +51,6 @@ export const localImageReuseFlag = "local-image-reuse";
 
 /** The flag that lets `kore local up` prune old per-run tags from the registry (ADR 0094). */
 export const registryPruneFlag = "registry-tag-pruning";
+
+/** The flag that installs metrics-server and turns on autoscaling defaults (ADR 0047). */
+export const autoscalingFlag = "autoscaling-defaults";

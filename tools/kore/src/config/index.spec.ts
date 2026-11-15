@@ -37,6 +37,7 @@ vi.mock("./crd-ownership.js", () => ({
   renderedCrdNames: vi.fn(),
 }));
 vi.mock("./features.js", () => ({
+  autoscalingFlag: "autoscaling-defaults",
   componentGatedOff: vi.fn(),
   enabledComponents: vi.fn(),
   featureEnabled: vi.fn(),
@@ -81,6 +82,7 @@ test("the config barrel exposes exactly the entry points other domains use", () 
     "absolute",
     "approvedImageList",
     "auditEvidence",
+    "autoscalingFlag",
     "checkCrdOwnership",
     "componentGatedOff",
     "componentValues",

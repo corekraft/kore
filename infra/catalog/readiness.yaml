@@ -59,6 +59,12 @@
         "components": ["agentgateway-crds", "agentgateway"]
       },
       {
+        "name": "metrics-server",
+        "step": 8,
+        "capability": "controller",
+        "components": ["metrics-server"]
+      },
+      {
         "name": "secrets",
         "step": 8,
         "capability": "controller",

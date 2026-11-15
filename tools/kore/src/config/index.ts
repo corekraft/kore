@@ -59,6 +59,7 @@ export { patchableKinds, probeFields, probeNames } from "./patch-validation.js";
 export { approvedImageList } from "./approved.js";
 export type { ApprovedEntry } from "./approved.js";
 export {
+  autoscalingFlag,
   componentGatedOff,
   enabledComponents,
   featureEnabled,
