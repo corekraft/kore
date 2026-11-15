@@ -1,6 +1,7 @@
 import type { Command } from "../runtime/index.js";
 import { flowCommands } from "./flow-commands.js";
 import { ledgerCommands } from "./ledger-commands.js";
+import { orchestrateCommands } from "./orchestrate-commands.js";
 import { queueCommands } from "./queue-commands.js";
 import { retroCommands } from "./retro-commands.js";
 
@@ -10,4 +11,5 @@ export const measurement: Record<string, Record<string, Command>> = {
   flow: flowCommands,
   queue: queueCommands,
   retro: retroCommands,
+  orchestrate: orchestrateCommands,
 };

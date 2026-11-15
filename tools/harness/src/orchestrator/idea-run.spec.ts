@@ -1,0 +1,217 @@
+import { describe, expect, it } from "vitest";
+import type { QueueItem } from "../queue/index.js";
+import {
+  IdeaRun,
+  type Delivery,
+  type Harness,
+  type Launch,
+  type Measured,
+} from "./idea-run.js";
+
+const IDEA: QueueItem = {
+  kind: "idea",
+  idea: "0042",
+  issue: 197,
+  since: "2026-01-01T00:00:00Z",
+};
+const OUTCOME: Measured = {
+  kind: "verification",
+  source: "comparison",
+  result: "confirmed",
+  evidence: "PR #50",
+  summary: "The fixture idea merged.",
+};
+
+/** A scripted Harness: records every call in order, answers from the script. */
+class ScriptedHarness implements Harness {
+  readonly calls: string[] = [];
+  readonly launches: Launch[] = [];
+  readonly recorded: Measured[] = [];
+  private judged = 0;
+
+  constructor(
+    private readonly script: {
+      queue?: QueueItem[];
+      /** What `delivery` reports after each judge pane, in order. */
+      deliveries?: Delivery[];
+      waits?: ("done" | "blocked")[];
+      counts?: number[];
+    } = {},
+  ) {}
+
+  queue(): Promise<QueueItem[]> {
+    this.calls.push("queue");
+    return Promise.resolve(this.script.queue ?? [IDEA]);
+  }
+  spawn(launch: Launch): Promise<void> {
+    this.calls.push(`spawn ${launch.role}`);
+    this.launches.push(launch);
+    return Promise.resolve();
+  }
+  wait(name: string): Promise<"done" | "blocked"> {
+    this.calls.push(`wait ${name}`);
+    return Promise.resolve(this.script.waits?.shift() ?? "done");
+  }
+  close(name: string): Promise<void> {
+    this.calls.push(`close ${name}`);
+    return Promise.resolve();
+  }
+  delivery(): Promise<Delivery> {
+    this.calls.push("delivery");
+    const all = this.script.deliveries ?? [{ pr: 50, merged: true }];
+    const at = Math.min(this.judged, all.length - 1);
+    return Promise.resolve(all[at] ?? { merged: false });
+  }
+  sendBacks(pr: number) {
+    this.calls.push(`send-backs ${pr}`);
+    this.judged += 1;
+    const count = this.script.counts?.shift() ?? 0;
+    return Promise.resolve({
+      count,
+      escalate: count >= 2,
+      model: count >= 2 ? "claude-sonnet-5-5" : "claude-haiku-5-5",
+    });
+  }
+  escalate(pr: number): Promise<void> {
+    this.calls.push(`escalate ${pr}`);
+    return Promise.resolve();
+  }
+  recordOutcome(_idea: string, outcome: Measured): Promise<void> {
+    this.calls.push("record-outcome");
+    this.recorded.push(outcome);
+    return Promise.resolve();
+  }
+}
+
+describe("IdeaRun", () => {
+  it("takes an approved idea from queue to a recorded outcome in one pass", async () => {
+    const harness = new ScriptedHarness();
+    const result = await new IdeaRun(harness).run("0042", OUTCOME);
+    expect(result).toEqual({ status: "outcome-recorded", rounds: 1 });
+    expect(harness.calls).toEqual([
+      "queue",
+      "spawn writer",
+      "wait idea-0042-writer",
+      "close idea-0042-writer",
+      "delivery",
+      "spawn judge",
+      "wait idea-0042-judge",
+      "close idea-0042-judge",
+      "delivery",
+      "record-outcome",
+    ]);
+    expect(harness.recorded).toEqual([OUTCOME]);
+  });
+
+  it("reads the queue only between pieces of work, never while a pane runs", async () => {
+    const harness = new ScriptedHarness({
+      deliveries: [
+        { pr: 50, merged: false },
+        { pr: 50, merged: true },
+      ],
+      counts: [1],
+    });
+    await new IdeaRun(harness).run("0042", OUTCOME);
+    let running = false;
+    for (const call of harness.calls) {
+      if (call.startsWith("spawn")) {
+        running = true;
+      }
+      if (call.startsWith("close")) {
+        running = false;
+      }
+      expect(running && call === "queue").toBe(false);
+    }
+    expect(harness.calls.filter((c) => c === "queue")).toHaveLength(2);
+  });
+
+  it("relaunches the writer on Sonnet after two send-backs, and not before", async () => {
+    const harness = new ScriptedHarness({
+      deliveries: [
+        { pr: 50, merged: false },
+        { pr: 50, merged: false },
+        { pr: 50, merged: true },
+      ],
+      counts: [1, 2],
+    });
+    const result = await new IdeaRun(harness).run("0042", OUTCOME);
+    expect(result).toEqual({ status: "outcome-recorded", rounds: 3 });
+    const writers = harness.launches.filter((l) => l.role === "writer");
+    expect(writers.map((w) => w.model)).toEqual([
+      undefined,
+      undefined,
+      "claude-sonnet-5-5",
+    ]);
+    expect(harness.calls.filter((c) => c.startsWith("escalate"))).toEqual([
+      "escalate 50",
+    ]);
+  });
+
+  it("gives every writer a worktree and the idea, and every pane its role", async () => {
+    const harness = new ScriptedHarness();
+    await new IdeaRun(harness).run("0042", OUTCOME);
+    expect(harness.launches.map((l) => [l.role, l.issue, l.worktree])).toEqual([
+      ["writer", 197, true],
+      ["judge", 197, undefined],
+    ]);
+  });
+});
+
+describe("IdeaRun boundaries", () => {
+  it("never merges, edits or messages the concierge itself", async () => {
+    const harness = new ScriptedHarness();
+    await new IdeaRun(harness).run("0042", OUTCOME);
+    const roles = harness.launches.map((l) => l.role);
+    expect(roles).not.toContain("concierge");
+    expect(harness.calls.join("\n")).not.toMatch(/merge|edit|concierge/);
+  });
+
+  it("does nothing for an idea that is not queued", async () => {
+    const harness = new ScriptedHarness({ queue: [] });
+    const result = await new IdeaRun(harness).run("0042", OUTCOME);
+    expect(result).toEqual({ status: "not-queued", rounds: 0 });
+    expect(harness.calls).toEqual(["queue"]);
+  });
+
+  it("never records an outcome when no measured outcome was given, even after the merge", async () => {
+    const harness = new ScriptedHarness();
+    const result = await new IdeaRun(harness).run("0042", undefined);
+    expect(result).toEqual({ status: "awaiting-outcome", rounds: 1 });
+    expect(harness.calls).not.toContain("record-outcome");
+  });
+
+  it("stops without an outcome when a writer reports blocked", async () => {
+    const harness = new ScriptedHarness({ waits: ["blocked"] });
+    const result = await new IdeaRun(harness).run("0042", OUTCOME);
+    expect(result).toEqual({ status: "blocked", rounds: 1 });
+    expect(harness.calls).toEqual([
+      "queue",
+      "spawn writer",
+      "wait idea-0042-writer",
+      "close idea-0042-writer",
+    ]);
+  });
+
+  it("stops without an outcome when the writer left no pull request", async () => {
+    const harness = new ScriptedHarness({ deliveries: [{ merged: false }] });
+    const result = await new IdeaRun(harness).run("0042", OUTCOME);
+    expect(result).toEqual({ status: "blocked", rounds: 1 });
+    expect(harness.calls).not.toContain("spawn judge");
+    expect(harness.calls).not.toContain("record-outcome");
+  });
+});
+
+describe("IdeaRun limits", () => {
+  it("gives up after the round limit rather than looping, recording nothing", async () => {
+    const harness = new ScriptedHarness({
+      deliveries: [{ pr: 50, merged: false }],
+      counts: [1, 2, 2, 2, 2, 2, 2, 2],
+    });
+    const result = await new IdeaRun(harness).run("0042", OUTCOME);
+    expect(result).toEqual({ status: "gave-up", rounds: 6 });
+    expect(harness.calls).not.toContain("record-outcome");
+    expect(harness.calls.filter((c) => c.startsWith("escalate"))).toHaveLength(
+      1,
+    );
+  });
+});
