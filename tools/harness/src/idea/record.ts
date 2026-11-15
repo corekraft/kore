@@ -1,3 +1,6 @@
+import { IdeaError } from "./error.js";
+import { readTier, renderTier, type Tier } from "./tier.js";
+
 export const SAFETY_PATTERNS = [
   "no-behaviour-change",
   "feature-flagged",
@@ -13,6 +16,8 @@ export interface Hypothesis {
   direction: "up" | "down";
   /** A number of days, such as 14d. */
   window: string;
+  /** Set only on a model-tier idea: the agent-frontmatter edit and its guard metric. */
+  tier?: Tier;
 }
 
 const DIRECTIONS = ["up", "down"] as const;
@@ -36,7 +41,7 @@ export interface IdeaRecord {
   harness?: Hypothesis;
 }
 
-export class IdeaError extends Error {}
+export { IdeaError };
 
 export const IDEA_FILE = /^(\d{4})-([a-z0-9]+(?:-[a-z0-9]+)*)\.md$/;
 
@@ -110,14 +115,12 @@ export function parseIdea(path: string, text: string): IdeaRecord {
     measurement: get("measurement"),
     safetyPattern: get("safety-pattern"),
     date: get("date"),
+    ...(harness === undefined ? {} : { harness }),
   };
   for (const key of ["outcome", "issue", "parent"] as const) {
     if (get(key) !== "") {
       record[key] = get(key);
     }
-  }
-  if (harness !== undefined) {
-    record.harness = harness;
   }
   return record;
 }
@@ -146,6 +149,7 @@ function readHarness(
     metric: get("hypothesis-metric"),
     direction,
     window: get("hypothesis-window"),
+    ...readTier(get),
   };
 }
 
@@ -252,6 +256,7 @@ export function renderIdea(
       `hypothesis-metric: ${idea.harness.metric}`,
       `hypothesis-direction: ${idea.harness.direction}`,
       `hypothesis-window: ${idea.harness.window}`,
+      ...renderTier(idea.harness.tier),
     );
   }
   if (idea.issue !== undefined) {

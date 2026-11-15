@@ -67,8 +67,12 @@ function recordedText(
   revert: RevertResult,
 ) {
   const { concluded } = done;
+  const sentBack =
+    done.guard === undefined
+      ? ""
+      : `; ${done.guard.metric} ${figure(done.guard.before)} to ${figure(done.guard.after)}`;
   const lines = [
-    `Idea ${done.idea} ${done.result} (${figure(done.before)} to ${figure(done.after)}); issue closed: ${concluded.issue}`,
+    `Idea ${done.idea} ${done.result} (${figure(done.before)} to ${figure(done.after)})${sentBack}; issue closed: ${concluded.issue}`,
   ];
   if (done.result === "inconclusive") {
     lines.push(
@@ -143,7 +147,7 @@ function fail(
 
 export const evaluateCommand: Command = {
   summary:
-    "after a harness idea's measurement window, compare its hypothesis metric (a flow report metric, read from the ledger, never set by an agent) over the window after its merged change with the equal window before, and record confirmed, refuted or inconclusive through the outcome tool: moved the expected direction by at least the threshold is confirmed, the opposite refuted, anything within noise or without history inconclusive; an inconclusive change stays in place and is flagged by its label and follow-up idea; a refuted one is recorded and, when the automatic-revert flag is on in the local overlay, its merged PR is reverted on a branch off main and the revert PR is opened declaring no-behaviour-change but never merged (the judge merges it), once per idea, with a harness-change-reverted ledger event, and a change that edited the guardrail inventory is left to `guardrail request`; refused inside the window with the time it can run; an idea with an outcome is left as recorded (--idea <number or slug> [--threshold <fraction>, default 0.1] [--changed-by-pr <number>, when the ledger ties no merged PR to the idea's issue] [--ledger]; --json prints status recorded|too-early|already-recorded with idea, result, before, after, the outcome and, once recorded, revert: status not-refuted|flag-off|already-reverted|already-prepared|guardrail|prepared with number and url)",
+    "after a harness idea's measurement window, compare its hypothesis metric (a flow report metric, read from the ledger, never set by an agent) over the window after its merged change with the equal window before, and record confirmed, refuted or inconclusive through the outcome tool: moved the expected direction by at least the threshold is confirmed, the opposite refuted, anything within noise or without history inconclusive; an inconclusive change stays in place and is flagged by its label and follow-up idea; a refuted one is recorded and, when the automatic-revert flag is on in the local overlay, its merged PR is reverted on a branch off main and the revert PR is opened declaring no-behaviour-change but never merged (the judge merges it), once per idea, with a harness-change-reverted ledger event, and a change that edited the guardrail inventory is left to `guardrail request`; a model-tier idea (tier-change and guard-metric in its frontmatter) is judged on both metrics: tokens per idea falling is confirmed only while judge send-backs (rework.sendBacksPerIdea) do not rise past the threshold, and refuted, so reverted, when they do; refused inside the window with the time it can run; an idea with an outcome is left as recorded (--idea <number or slug> [--threshold <fraction>, default 0.1] [--changed-by-pr <number>, when the ledger ties no merged PR to the idea's issue] [--ledger]; --json prints status recorded|too-early|already-recorded with idea, result, before, after, guard (metric, before, after) for a tier idea, the outcome and, once recorded, revert: status not-refuted|flag-off|already-reverted|already-prepared|guardrail|prepared with number and url)",
   options: {
     idea: "string",
     threshold: "string",

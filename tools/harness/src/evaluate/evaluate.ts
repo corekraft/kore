@@ -5,6 +5,7 @@ import { recordOutcome } from "../outcome/index.js";
 import type { Concluded, Context, Result } from "../outcome/index.js";
 import { judgeChange } from "./judge.js";
 import { measureChange } from "./measure.js";
+import { judgeTier } from "./tier.js";
 
 const DAY = 86_400_000;
 
@@ -27,6 +28,8 @@ export type Evaluated =
       result: Result;
       before: number | null;
       after: number | null;
+      /** The send-backs a tier change was held against; absent for any other idea. */
+      guard?: { metric: string; before: number | null; after: number | null };
       concluded: Concluded;
       /** The merged PR that delivered the change, which a revert undoes. */
       changedByPr: number | undefined;
@@ -65,6 +68,69 @@ function mergedAt(
   return { at: new Date(first.at), pr: first.pr };
 }
 
+const figure = (value: number | null) => value ?? "none";
+
+type Hypothesis = NonNullable<IdeaRecord["harness"]>;
+
+interface Judged {
+  result: Result;
+  before: number | null;
+  after: number | null;
+  guard?: { metric: string; before: number | null; after: number | null };
+  evidence: string;
+  summary: string;
+}
+
+/** The hypothesis metric judged on its own, or, for a tier change, held against send-backs too. */
+function judgeIdea(
+  events: LedgerEvent[],
+  harness: Hypothesis,
+  changedAt: Date,
+  threshold: number,
+): Judged {
+  const { metric, direction, window, tier } = harness;
+  const windowDays = Number.parseInt(window, 10);
+  const { before, after } = measureChange(events, {
+    metric,
+    changedAt,
+    windowDays,
+  });
+  const cost = judgeChange({ direction, before, after, threshold });
+  const noise = `noise threshold ${Math.round(threshold * 1000) / 10}%`;
+  const span = `${window} before ${changedAt.toISOString()} against the ${window} after`;
+  if (tier === undefined) {
+    return {
+      result: cost.result,
+      before,
+      after,
+      evidence: `ledger flow metric ${metric}: ${span}`,
+      summary: `${metric} went from ${figure(before)} to ${figure(after)} (expected ${direction}, ${noise}): ${cost.reason}.`,
+    };
+  }
+  const { guardMetric } = tier;
+  const sent = measureChange(events, {
+    metric: guardMetric,
+    changedAt,
+    windowDays,
+  });
+  const verdict = judgeTier({
+    cost,
+    guard: {
+      judgement: judgeChange({ direction: "down", ...sent, threshold }),
+      ...sent,
+    },
+    guardMetric,
+  });
+  return {
+    result: verdict.result,
+    before,
+    after,
+    guard: { metric: guardMetric, ...sent },
+    evidence: `ledger flow metrics ${metric} and ${guardMetric}: ${span}`,
+    summary: `${metric} went from ${figure(before)} to ${figure(after)} and ${guardMetric} from ${figure(sent.before)} to ${figure(sent.after)} (expected cost down with send-backs not up, ${noise}): ${verdict.reason}.`,
+  };
+}
+
 /**
  * After the measurement window, judges the hypothesis metric against the window
  * before the change and records the result through the outcome tool. It reverts
@@ -88,7 +154,7 @@ export async function evaluateIdea(
       result: record.outcome,
     };
   }
-  const { metric, direction, window } = record.harness;
+  const { window } = record.harness;
   const windowDays = Number.parseInt(window, 10);
   const { at: changedAt, pr } = mergedAt(events, record, changedByPr);
   const evaluable = new Date(changedAt.getTime() + windowDays * DAY);
@@ -99,24 +165,14 @@ export async function evaluateIdea(
       evaluableAt: evaluable.toISOString(),
     };
   }
-  const { before, after } = measureChange(events, {
-    metric,
-    changedAt,
-    windowDays,
-  });
-  const { result, reason } = judgeChange({
-    direction,
-    before,
-    after,
-    threshold,
-  });
-  const figure = (value: number | null) => value ?? "none";
+  const judged = judgeIdea(events, record.harness, changedAt, threshold);
+  const { before, after, result } = judged;
   const concluded = await recordOutcome(ctx, ref, {
     kind: "experiment",
     source: "comparison",
     result,
-    evidence: `ledger flow metric ${metric}: ${window} before ${changedAt.toISOString()} against the ${window} after`,
-    summary: `${metric} went from ${figure(before)} to ${figure(after)} (expected ${direction}, noise threshold ${Math.round(threshold * 1000) / 10}%): ${reason}.`,
+    evidence: judged.evidence,
+    summary: judged.summary,
   });
   return {
     status: "recorded",
@@ -124,6 +180,7 @@ export async function evaluateIdea(
     result,
     before,
     after,
+    ...(judged.guard === undefined ? {} : { guard: judged.guard }),
     concluded,
     changedByPr: pr,
   };

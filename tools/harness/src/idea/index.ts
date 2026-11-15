@@ -8,3 +8,9 @@ export {
   type NewIdea,
 } from "./record.js";
 export { issueTarget } from "./sync.js";
+export {
+  TIER_COST_METRIC,
+  TIER_FIELDS,
+  TIER_GUARD_METRIC,
+  type Tier,
+} from "./tier.js";

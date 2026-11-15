@@ -604,6 +604,41 @@ command writes nothing (no comment, label or event) and only reports the
 verdict as `flag-off`. Turning the flag on is the owner's step, after a
 recorded outcome.
 
+## Model-tier ideas
+
+A harness idea that edits `model` or `effort` in an agent definition's
+frontmatter is a model-tier idea. It declares both what it saves and what the
+saving must not cost, using the flow report's own metric names:
+
+```text
+kind: harness
+hypothesis-metric: metrics.tokensPerIdea
+hypothesis-direction: down
+hypothesis-window: 14d
+tier-change: model, effort
+guard-metric: rework.sendBacksPerIdea
+```
+
+`harness idea new` takes `--tier-change model|effort|model,effort` and
+`--guard-metric rework.sendBacksPerIdea` beside the `--kind harness` flags.
+`kb-check` refuses a tier idea that declares only cost (no `guard-metric`), a
+cost metric other than tokens per idea falling, a guard other than judge
+send-backs, and a `tier-change` field beyond `model` or `effort`.
+
+`harness approve` classes a tier idea as reversible only when the declared
+change is a frontmatter edit of `model` or `effort` and send-backs have a
+trailing average to compare against; a change touching anything else is left
+for a person. Nothing changes by itself: approve and revert stay behind their
+flags.
+
+`harness evaluate` judges both metrics over the same windows. Tokens per idea
+falling by at least the threshold while send-backs do not rise past it (or from
+none) is `confirmed`. Cost falling while send-backs rise past the threshold, or
+rise from none, is `refuted`, and the existing revert prepares the PR when its
+flag is on. Cost that did not fall keeps its own result; no send-backs figure
+before or after makes it `inconclusive`. `--json` adds `guard`
+(`metric`, `before`, `after`). A rerun leaves a recorded outcome as it is.
+
 ## Guardrail approval requests
 
 `harness guardrail request <rule> --to enforce|audit|removed --idea <number>

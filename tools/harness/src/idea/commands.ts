@@ -9,6 +9,7 @@ import {
 } from "./record.js";
 import { IdeaRepository } from "./repository.js";
 import { syncIssue } from "./sync.js";
+import { attachTier, tierFromFlags } from "./tier.js";
 
 const FAILED = 1;
 const SLUG = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
@@ -74,6 +75,12 @@ function describe(record: IdeaRecord): string {
   if (record.harness !== undefined) {
     const { metric, direction, window } = record.harness;
     lines.push(`Harness hypothesis: ${metric} ${direction} within ${window}`);
+    if (record.harness.tier !== undefined) {
+      const { fields, guardMetric } = record.harness.tier;
+      lines.push(
+        `Tier change: ${fields.join(", ")}, guarded by ${guardMetric}`,
+      );
+    }
   }
   lines.push(`File: ${record.path}`);
   return `${lines.join("\n")}\n`;
@@ -116,15 +123,22 @@ function parseNewIdea(options: CommandContext["options"]): {
     },
     flowMetricNames(),
   );
-  if (harness !== undefined) {
-    idea.harness = harness;
+  const tiered = attachTier(
+    harness,
+    tierFromFlags({
+      tierChange: text(options, "tier-change"),
+      guardMetric: text(options, "guard-metric"),
+    }),
+  );
+  if (tiered !== undefined) {
+    idea.harness = tiered;
   }
   return { slug, idea };
 }
 
 const create: Command = {
   summary:
-    "create the next numbered idea record and index it (--title --hypothesis --expected-outcome --measurement --safety-pattern [--slug] [--summary] [--issue] [--parent] [--kind harness --metric <flow report metric> --direction up|down --window <days>d])",
+    "create the next numbered idea record and index it (--title --hypothesis --expected-outcome --measurement --safety-pattern [--slug] [--summary] [--issue] [--parent] [--kind harness --metric <flow report metric> --direction up|down --window <days>d [--tier-change model|effort|model,effort --guard-metric rework.sendBacksPerIdea: a model-tier idea edits only those agent frontmatter fields, its hypothesis is metrics.tokensPerIdea down, and judge send-backs guard it]])",
   options: {
     title: "string",
     slug: "string",
@@ -139,6 +153,8 @@ const create: Command = {
     metric: "string",
     direction: "string",
     window: "string",
+    "tier-change": "string",
+    "guard-metric": "string",
   },
   run(context) {
     return guarded(context, async () => {
