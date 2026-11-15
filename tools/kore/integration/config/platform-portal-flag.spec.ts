@@ -51,8 +51,10 @@ test("the Keycloak operator is a flag-gated chart that owns its CRDs, so with th
   assert.equal(operator?.kind, "local-chart");
   assert.equal(operator?.namespace, "keycloak");
   assert.deepEqual(operator?.ownsCRDs.sort(), [
+    "keycloakoidcclients.k8s.keycloak.org",
     "keycloakrealmimports.k8s.keycloak.org",
     "keycloaks.k8s.keycloak.org",
+    "keycloaksamlclients.k8s.keycloak.org",
   ]);
   assert.deepEqual(operator?.ownsCRDGroups, ["k8s.keycloak.org"]);
   const installed = enabledComponents(repository).map((c) => c.name);
@@ -123,4 +125,17 @@ test("managed-example overlays both images with mirror references at the same di
   for (const image of mirrored) {
     assert.match(image, /^ghcr\.io\/corekraft\/kore\/mirror\/keycloak/);
   }
+});
+
+test("the chart ships no OpenShift ingress grant, so the operator holds no cluster-scoped read the platform does not need", async () => {
+  const repository = await loadRepository("local");
+  const text = await readFile(
+    join(
+      repository.root,
+      "infra/charts/keycloak-operator/templates/operator.yaml",
+    ),
+    "utf8",
+  );
+  assert.equal(text.includes("config.openshift.io"), false);
+  assert.equal(text.includes("keycloak-operator-clusterrole"), false);
 });

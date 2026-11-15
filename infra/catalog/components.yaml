@@ -259,7 +259,9 @@
         "ownsCRDs":
           [
             "keycloaks.k8s.keycloak.org",
-            "keycloakrealmimports.k8s.keycloak.org"
+            "keycloakrealmimports.k8s.keycloak.org",
+            "keycloaksamlclients.k8s.keycloak.org",
+            "keycloakoidcclients.k8s.keycloak.org"
           ],
         "ownsCRDGroups": ["k8s.keycloak.org"],
         "dependencies": [],
@@ -269,6 +271,8 @@
           [
             "crd/keycloaks.k8s.keycloak.org",
             "crd/keycloakrealmimports.k8s.keycloak.org",
+            "crd/keycloaksamlclients.k8s.keycloak.org",
+            "crd/keycloakoidcclients.k8s.keycloak.org",
             "deployment/keycloak-operator"
           ]
       },

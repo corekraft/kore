@@ -67,7 +67,7 @@
           },
         "rpoMinutes": null,
         "rtoMinutes": 15,
-        "reason": "The operator and its CRDs are declared in the repository and pinned by digest. The data of a Keycloak lives in its PostgreSQL database claimed through the platform PostgreSQL API (retained-postgresql), not in the operator."
+        "reason": "The operator and its CRDs are declared in the repository and pinned by digest. The operator holds no Keycloak data. The future platform Keycloak must claim its database through the platform PostgreSQL API (covered by retained-postgresql) and gets its own objective when it is installed."
       },
       {
         "name": "managed-postgresql",
