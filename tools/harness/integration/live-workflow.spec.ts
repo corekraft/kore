@@ -101,3 +101,18 @@ it("says why footprint is excluded and that runner numbers are for the runner ho
   expect(head).toMatch(/github-hosted runner/);
   expect(live).not.toMatch(/KORE_FOOTPRINT_RUNS|inputs\.runs/);
 });
+
+it("runs the nightly.sh step under pipefail, so a failed suite fails the job despite the tee", () => {
+  const step =
+    /- name: Clean local up and the chosen live suite\n((?: {8}.*\n)+)/.exec(
+      live,
+    )?.[1] ?? "";
+  expect(step).toMatch(/^ {8}shell: bash$/m);
+  expect(step).toMatch(/run: tools\/kore\/scripts\/nightly\.sh 2>&1 \| tee /);
+});
+
+it("installs tools with the mise cache off", () => {
+  const step =
+    /uses: jdx\/mise-action@\S+ # \S+\n((?: {8}.*\n)+)/.exec(live)?.[1] ?? "";
+  expect(step).toMatch(/^ {10}cache: false$/m);
+});

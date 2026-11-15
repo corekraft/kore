@@ -71,6 +71,7 @@ jobs:
       - name: Clean local up and the chosen live suite
         env:
           KORE_NIGHTLY_SUITES: test:live:${{ inputs.suite }}
+        shell: bash
         run: tools/kore/scripts/nightly.sh 2>&1 | tee "$RUNNER_TEMP/live.log"
       - name: Print the suite output in the job summary
         if: always()
