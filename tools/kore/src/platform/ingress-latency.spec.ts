@@ -1,5 +1,6 @@
 import { beforeEach, expect, test, vi } from "vitest";
 import { fakeRunner } from "./platform-support.js";
+import { options } from "./ingress-measurement.fixtures.js";
 import {
   IngressMeasurement,
   type MeasurementDeps,
@@ -20,11 +21,22 @@ vi.mock("./ingress-metrics.js", () => ({
   summarizeLatency: vi.fn(),
 }));
 
+// The pacer is its own unit (ingress-pacer.spec.ts); paced runs batch by 10.
+vi.mock("./ingress-pacer.js", () => ({
+  LoadPacer: vi.fn(function (target: number | undefined) {
+    return {
+      target,
+      batchSize: target === undefined ? 50 : 10,
+      begin: () => 0,
+      end: async () => undefined,
+    };
+  }),
+}));
+
 vi.mock("./ingress-probe.js", () => ({ probeLatency: vi.fn() }));
 vi.mock("./ingress-pacing.js", () => ({
   cpuPerRequest: vi.fn(() => ({})),
   matchRate: vi.fn(),
-  pacingPlan: vi.fn(),
 }));
 
 const POD = { name: "gw", cpuMillicores: 5, memoryMiB: 50 };
@@ -34,20 +46,6 @@ const SUMMARY = {
   memoryMiB: { median: 50, max: 51 },
 };
 const LATENCY = { requests: 3, p50Ms: 10, p95Ms: 30, maxMs: 30 };
-
-const options: MeasurementOptions = {
-  kubeContext: "k3d-kore-local",
-  gateway: { namespace: "kore-system", name: "kore-gateway" },
-  hostname: "kore.local",
-  port: 8443,
-  caRoot: "/ca",
-  settleSeconds: 60,
-  sampleCount: 2,
-  sampleIntervalSeconds: 20,
-  requestsPerRoute: 50,
-  concurrency: 4,
-  maxLoadAverage: 10,
-};
 
 function measurementWith(overrides: Partial<MeasurementOptions> = {}) {
   const metrics = fakeRunner(() => "metrics");
@@ -62,7 +60,7 @@ function measurementWith(overrides: Partial<MeasurementOptions> = {}) {
   const measurement = new IngressMeasurement(
     metrics.runner,
     load.runner,
-    { ...options, ...overrides },
+    options(overrides),
     deps,
   );
   return { measurement, load };

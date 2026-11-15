@@ -1,12 +1,13 @@
 import { beforeEach, expect, test, vi } from "vitest";
 import { fakeRunner } from "./platform-support.js";
+import { expectedStatus, options } from "./ingress-measurement.fixtures.js";
 import {
   IngressMeasurement,
   ingressRoutes,
   type MeasurementDeps,
-  type MeasurementOptions,
 } from "./ingress-measurement.js";
 import { parsePodMetrics, summarizeSamples } from "./ingress-metrics.js";
+import { cpuPerRequest, matchRate } from "./ingress-pacing.js";
 
 // The metrics parser and summary are same-domain units, so they are typed
 // stubs here. The real maths runs in integration/platform/ingress-measurement.spec.ts.
@@ -19,17 +20,23 @@ vi.mock("./ingress-metrics.js", () => ({
 vi.mock("./ingress-pacing.js", () => ({
   cpuPerRequest: vi.fn(() => ({})),
   matchRate: vi.fn(),
-  pacingPlan: vi.fn(),
 }));
 
-vi.mock("./ingress-probe.js", () => ({
-  probeLatency: vi.fn(async () => []),
+// The pacer is its own unit (ingress-pacer.spec.ts); paced runs batch by 10.
+vi.mock("./ingress-pacer.js", () => ({
+  LoadPacer: vi.fn(function (target: number | undefined) {
+    return {
+      target,
+      batchSize: target === undefined ? 50 : 10,
+      begin: () => 0,
+      end: async () => undefined,
+    };
+  }),
 }));
 
-const GATEWAY_JSON = "gateway-metrics";
-const ZTUNNEL_JSON = "ztunnel-metrics";
-const GATEWAY_POD = { name: "gw", cpuMillicores: 5, memoryMiB: 50 };
-const ZTUNNEL_POD = { name: "zt", cpuMillicores: 2, memoryMiB: 20 };
+vi.mock("./ingress-probe.js", () => ({ probeLatency: async () => [] }));
+
+const [GATEWAY_JSON, ZTUNNEL_JSON] = ["gateway-metrics", "ztunnel-metrics"];
 const INGRESS_SUMMARY = {
   samples: 2,
   cpuMillicores: { median: 5, max: 6 },
@@ -45,27 +52,6 @@ const GATEWAY_PATH =
 const ZTUNNEL_PATH =
   "/apis/metrics.k8s.io/v1beta1/namespaces/istio-system/pods?labelSelector=app.kubernetes.io%2Fname%3Dztunnel";
 
-const statusFor: Record<string, number> = {
-  "/livez": 200,
-  "/readyz": 200,
-  "/api": 200,
-  "/api/protected": 403,
-};
-
-const options: MeasurementOptions = {
-  kubeContext: "k3d-kore-local",
-  gateway: { namespace: "kore-system", name: "kore-gateway" },
-  hostname: "kore.local",
-  port: 8443,
-  caRoot: "/ca",
-  settleSeconds: 60,
-  sampleCount: 2,
-  sampleIntervalSeconds: 20,
-  requestsPerRoute: 50,
-  concurrency: 4,
-  maxLoadAverage: 10,
-};
-
 /** Answers the metrics API read for the Gateway or ztunnel pods. */
 const metricsReply = (_command: string, args: readonly string[]) =>
   String(args.at(-1)).includes("istio-system") ? ZTUNNEL_JSON : GATEWAY_JSON;
@@ -75,10 +61,10 @@ const loadReply =
   (overrides: Record<string, number> = {}, count = 50) =>
   (_command: string, args: readonly string[]) => {
     const path = /:\d+(\/[^#]*)#/.exec(String(args.at(-1)))?.[1] ?? "";
-    return `${overrides[path] ?? statusFor[path] ?? 0}\n`.repeat(count);
+    return `${overrides[path] ?? expectedStatus[path] ?? 0}\n`.repeat(count);
   };
 
-function measurementWith(loadReplyFn = loadReply()) {
+function measurementWith(loadReplyFn = loadReply(), target?: number) {
   const metrics = fakeRunner(metricsReply);
   const load = fakeRunner(loadReplyFn);
   const deps: MeasurementDeps = {
@@ -89,15 +75,18 @@ function measurementWith(loadReplyFn = loadReply()) {
   const measurement = new IngressMeasurement(
     metrics.runner,
     load.runner,
-    options,
+    options(target === undefined ? {} : { targetRequestsPerSecond: target }),
     deps,
   );
   return { measurement, metrics, load, deps };
 }
 
 beforeEach(function stubMetricsUnits() {
+  vi.mocked(matchRate).mockReset();
   vi.mocked(parsePodMetrics).mockImplementation((json) =>
-    json === GATEWAY_JSON ? [GATEWAY_POD] : [ZTUNNEL_POD],
+    json === GATEWAY_JSON
+      ? [{ name: "gw", cpuMillicores: 5, memoryMiB: 50 }]
+      : [{ name: "zt", cpuMillicores: 2, memoryMiB: 20 }],
   );
   vi.mocked(summarizeSamples).mockImplementation((samples) =>
     samples[0]?.[0]?.name === "gw" ? INGRESS_SUMMARY : ZTUNNEL_SUMMARY,
@@ -144,6 +133,7 @@ test("the request load is the fixed curl call for each route, with the local CA 
 
   await measurement.measure();
 
+  expect(matchRate).not.toHaveBeenCalled();
   expect(load.run.mock.calls[0]).toEqual([
     "curl",
     [
@@ -213,23 +203,23 @@ test("records elapsed time and a request rate that is the completed requests ove
   expect(load.requestsPerSecond).toBe(
     Math.round((load.requests / 40) * 10) / 10,
   );
+  // Unpaced, the clock is read only at the start and the end of the run.
+  expect(deps.now).toHaveBeenCalledTimes(2);
 });
 
-test("a route answering the wrong status fails the measurement and names the route", async () => {
-  const { measurement } = measurementWith(loadReply({ "/api": 502 }));
+test.each([
+  ["/api", 502, 200],
+  ["/api/protected", 200, 403],
+])(
+  "route %s answering %s instead of %s fails the measurement and names the route",
+  async (path, got, expected) => {
+    const { measurement } = measurementWith(loadReply({ [path]: got }));
 
-  await expect(measurement.measure()).rejects.toThrow(
-    "route /api answered 502 for 50 of 50 requests, expected 200",
-  );
-});
-
-test("a protected route that stops denying fails the measurement", async () => {
-  const { measurement } = measurementWith(loadReply({ "/api/protected": 200 }));
-
-  await expect(measurement.measure()).rejects.toThrow(
-    "route /api/protected answered 200 for 50 of 50 requests, expected 403",
-  );
-});
+    await expect(measurement.measure()).rejects.toThrow(
+      `route ${path} answered ${got} for 50 of 50 requests, expected ${expected}`,
+    );
+  },
+);
 
 test("a round that completes fewer requests than were sent fails the measurement", async () => {
   const { measurement } = measurementWith(loadReply({}, 10));
@@ -273,4 +263,35 @@ test("the result states the fixed method so it can be repeated exactly", async (
     sampleCount: 2,
     sampleIntervalSeconds: 20,
   });
+});
+
+test("with a target each curl call is one paced batch and the rate is checked against it", async () => {
+  const check = { status: "rate_mismatch" } as ReturnType<typeof matchRate>;
+  vi.mocked(matchRate).mockReturnValue(check);
+  const { measurement, load } = measurementWith(loadReply({}, 10), 40);
+
+  const result = await measurement.measure();
+
+  expect(load.run.mock.calls[0]?.[1].at(-1)).toBe(
+    "https://kore.local:8443/livez#[1-10]",
+  );
+  expect(result.method).toMatchObject({
+    targetRequestsPerSecond: 40,
+    batchSize: 10,
+  });
+  expect(matchRate).toHaveBeenCalledWith(40, result.load.requestsPerSecond);
+  expect(result.rate).toBe(check);
+});
+
+test("cpu per request is reported from the median millicores and the achieved rate", async () => {
+  vi.mocked(cpuPerRequest).mockReturnValue({ ingress: 0.1, ztunnel: 0.04 });
+  const { measurement } = measurementWith();
+
+  const result = await measurement.measure();
+
+  expect(cpuPerRequest).toHaveBeenCalledWith(
+    { ingress: 5, ztunnel: 2 },
+    result.load.requestsPerSecond,
+  );
+  expect(result.cpuPerRequest).toEqual({ ingress: 0.1, ztunnel: 0.04 });
 });

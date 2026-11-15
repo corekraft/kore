@@ -10,7 +10,8 @@ import type {
   MeasurementOptions,
   Sample,
 } from "./ingress-measurement-types.js";
-import { cpuPerRequest, matchRate, pacingPlan } from "./ingress-pacing.js";
+import { LoadPacer } from "./ingress-pacer.js";
+import { cpuPerRequest, matchRate } from "./ingress-pacing.js";
 
 export { ingressRoutes } from "./ingress-routes.js";
 export { ingressMeasurementDefaults } from "./ingress-measurement-types.js";
@@ -42,7 +43,7 @@ const tenth = (value: number): number => Math.round(value * 10) / 10;
 
 export class IngressMeasurement {
   private requests = 0;
-  private readonly pacing?: { batchSize: number; batchSeconds: number };
+  private readonly pacer: LoadPacer;
 
   constructor(
     private readonly runner: Runner,
@@ -50,10 +51,11 @@ export class IngressMeasurement {
     private readonly options: MeasurementOptions,
     private readonly deps: MeasurementDeps,
   ) {
-    const target = options.targetRequestsPerSecond;
-    if (target !== undefined) {
-      this.pacing = pacingPlan(target, options.requestsPerRoute);
-    }
+    this.pacer = new LoadPacer(
+      options.targetRequestsPerSecond,
+      options.requestsPerRoute,
+      deps,
+    );
   }
 
   /** Settles, then samples the pods while the fixed load runs. */
@@ -162,10 +164,10 @@ export class IngressMeasurement {
       settleSeconds,
       sampleCount: this.options.sampleCount,
       sampleIntervalSeconds: this.options.sampleIntervalSeconds,
-      ...(this.pacing !== undefined
+      ...(this.pacer.target !== undefined
         ? {
-            targetRequestsPerSecond: this.options.targetRequestsPerSecond,
-            batchSize: this.pacing.batchSize,
+            targetRequestsPerSecond: this.pacer.target,
+            batchSize: this.pacer.batchSize,
           }
         : {}),
     };
@@ -216,7 +218,7 @@ export class IngressMeasurement {
   private async loadUntil(running: () => boolean): Promise<void> {
     do {
       for (const route of ingressRoutes) {
-        const batchStart = this.deps.now();
+        const began = this.pacer.begin();
         const { stdout } = await this.loadRunner.run(
           "curl",
           this.curlArgs(route.path),
@@ -226,25 +228,9 @@ export class IngressMeasurement {
         if (!running()) {
           return;
         }
-        await this.pace(batchStart);
+        await this.pacer.end(began);
       }
     } while (running());
-  }
-
-  /** Sleeps out the rest of a paced batch's slot; a slow batch gets none. */
-  private async pace(batchStart: number): Promise<void> {
-    if (this.pacing === undefined) {
-      return;
-    }
-    const elapsed = (this.deps.now() - batchStart) / 1000;
-    const wait = Math.round((this.pacing.batchSeconds - elapsed) * 1000) / 1000;
-    if (wait > 0) {
-      await this.deps.sleep(wait);
-    }
-  }
-
-  private get batch(): number {
-    return this.pacing?.batchSize ?? this.options.requestsPerRoute;
   }
 
   /** Counts a round's requests; any wrong or missing status fails the measurement. */
@@ -252,7 +238,7 @@ export class IngressMeasurement {
     route: (typeof ingressRoutes)[number],
     stdout: string,
   ): void {
-    const sent = this.batch;
+    const sent = this.pacer.batchSize;
     const statuses = stdout
       .split("\n")
       .map((line) => line.trim())
@@ -274,7 +260,7 @@ export class IngressMeasurement {
 
   private curlArgs(path: string): string[] {
     const { hostname, port, caRoot, concurrency } = this.options;
-    const requestsPerRoute = this.batch;
+    const requestsPerRoute = this.pacer.batchSize;
     return [
       "--silent",
       "--show-error",

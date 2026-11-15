@@ -27,6 +27,15 @@ test.each(["0", "-5", "NaN", "abc", "Infinity", "12x"])(
   },
 );
 
+test.each([0, -5, Number.NaN, Number.POSITIVE_INFINITY])(
+  "a paced plan for the option value %s is rejected naming the variable, never a hang",
+  (target) => {
+    expect(() => pacingPlan(target, 200)).toThrow(
+      `${targetRateVariable} must be a positive number of requests per second, got '${target}'; unset it for the unpaced load`,
+    );
+  },
+);
+
 test("a batch is one second of the target rate, so the offered rate is steady", () => {
   expect(pacingPlan(40, 200)).toEqual({ batchSize: 40, batchSeconds: 1 });
 });

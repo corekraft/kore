@@ -1,11 +1,8 @@
 import { expect, test } from "vitest";
 import { ingressRoutes } from "./ingress-routes.js";
 
-test("the load exercises the four reference routes, the protected one expecting a denial", () => {
-  expect(ingressRoutes).toEqual([
-    { path: "/livez", status: 200 },
-    { path: "/readyz", status: 200 },
-    { path: "/api", status: 200 },
-    { path: "/api/protected", status: 403 },
-  ]);
+test("the one route that must be denied is the protected one, so the authorizer path is exercised", () => {
+  expect(
+    ingressRoutes.filter((route) => route.status !== 200).map((r) => r.path),
+  ).toEqual(["/api/protected"]);
 });

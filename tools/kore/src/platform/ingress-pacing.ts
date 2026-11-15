@@ -23,17 +23,21 @@ const round = (value: number, places: number): number => {
   return Math.round(value * scale) / scale;
 };
 
+function assertPositiveRate(value: number, shown: string): void {
+  if (!Number.isFinite(value) || value <= 0) {
+    throw new Error(
+      `${targetRateVariable} must be a positive number of requests per second, got '${shown}'; unset it for the unpaced load`,
+    );
+  }
+}
+
 /** Unset or empty is the unpaced load; anything else must be a positive number. */
 export function parseTargetRate(raw: string | undefined): number | undefined {
   if (raw === undefined || raw.trim() === "") {
     return undefined;
   }
   const value = Number(raw);
-  if (!Number.isFinite(value) || value <= 0) {
-    throw new Error(
-      `${targetRateVariable} must be a positive number of requests per second, got '${raw}'; unset it for the unpaced load`,
-    );
-  }
+  assertPositiveRate(value, raw);
   return value;
 }
 
@@ -42,6 +46,7 @@ export function pacingPlan(
   targetRequestsPerSecond: number,
   requestsPerRoute: number,
 ): { batchSize: number; batchSeconds: number } {
+  assertPositiveRate(targetRequestsPerSecond, String(targetRequestsPerSecond));
   const batchSize = Math.max(
     1,
     Math.min(requestsPerRoute, Math.round(targetRequestsPerSecond)),
