@@ -190,7 +190,9 @@ Safety pattern: `feature-flagged` (`autoscaling-defaults`, off in `local`).
 - [x] Add a CPU HorizontalPodAutoscaler to the workload chart from chart values,
       with no replica count, at least two replicas, and a PodDisruptionBudget.
 - [ ] Prove a BFF scales 1→N under load and back, with no request failing
-      because a pod started cold. - 2026-11-15 not provable: no project command exists (owner decision 2026-11-15, no command scales a BFF 1 to N under load and back while counting failed requests; tracked on [#616](https://github.com/corekraft/kore/issues/616)). Not ticked.
+      because a pod started cold.
+
+      - 2026-11-15 not provable: no project command exists (owner decision 2026-11-15, no command scales a BFF 1 to N under load and back while counting failed requests; tracked on [#616](https://github.com/corekraft/kore/issues/616)). Not ticked.
 
 ### Exit Criteria
 
@@ -270,7 +272,10 @@ ready.
       and evaluate the Crossplane Keycloak provider first.
 - [ ] Install the platform organization's Backstage, signing in through
       Keycloak and reading clusters as the user, with its catalog built from the
-      `Organization` and `Service` objects. - 2026-11-15 OIDC sign-in and the unauthenticated-request-refused check: not provable: no project command exists (owner decision 2026-11-15, no command signs in through Keycloak or sends a request with no sign-in; tracked on [#616](https://github.com/corekraft/kore/issues/616)). Not ticked, and the matching Exit Criteria stay unproven.
+      `Organization` and `Service` objects.
+
+      - 2026-11-15 OIDC sign-in and the unauthenticated-request-refused check: not provable: no project command exists (owner decision 2026-11-15, no command signs in through Keycloak or sends a request with no sign-in; tracked on [#616](https://github.com/corekraft/kore/issues/616)). Not ticked, and the matching Exit Criteria stay unproven.
+
 - [ ] Show the delivered services in Backstage with their Argo CD sync and
       rollout.
 - [ ] Provision each delivered service's default dashboard and notify-only
@@ -294,12 +299,18 @@ Safety pattern: `no-behaviour-change` (records only).
 - [ ] Record the per-stage delivery time from a merged `Service` change with a
       signed digest to a working HTTPS address, over several runs: namespace,
       sync, admission, certificate, rollout, readiness. Exclude the tenant's
-      own build, and report cold services separately from redeploys. - 2026-11-15 not provable: no project command exists (owner decision 2026-11-15, no command times each delivery stage; tracked on [#616](https://github.com/corekraft/kore/issues/616)). Not ticked; the plan marks it not delivered.
+      own build, and report cold services separately from redeploys.
+
+      - 2026-11-15 not provable: no project command exists (owner decision 2026-11-15, no command times each delivery stage; tracked on [#616](https://github.com/corekraft/kore/issues/616)). Not ticked.
+
 - [ ] Add a p95 measurement to [plan 13](13-agentgateway-ingress.md)'s load
       harness and record the golden-path frontend's p95 at the Gateway.
 - [ ] Run the end-user token test: a browser finds no access or refresh token
       readable by script, and every session cookie is host-only, `HttpOnly`,
-      `Secure` and `SameSite`. - 2026-11-15 not provable: no project command exists (owner decision 2026-11-15, no command drives a browser to look for script-readable tokens; tracked on [#616](https://github.com/corekraft/kore/issues/616)). Not ticked.
+      `Secure` and `SameSite`.
+
+      - 2026-11-15 not provable: no project command exists (owner decision 2026-11-15, no command drives a browser to look for script-readable tokens; tracked on [#616](https://github.com/corekraft/kore/issues/616)). Not ticked.
+
 - [ ] Record Next's footprint against the Now baseline.
 - [x] Check every Next "Done when" clause in the vision against a recorded run,
       and record the outcome as confirmed, refuted or inconclusive.
@@ -329,7 +340,7 @@ flag), _not provable_ (no project command exists), _not delivered_ (code still o
 | The two templates are signed by digest and recorded in a lock                       | merged, live proof owed | #666, #669, #672, #675, #680, #684                             | A live run that checks both signatures and the lock.                                                                                                                                                                                                    |
 | ...and deployed by digest                                                           | merged, live proof owed | #700                                                           | A live run that admits both images by digest (Step 4 item 4). The lock wiring is merged behind `platform-argocd-delivery`, off in every overlay.                                                                                                        |
 | Backstage shows them                                                                | merged, live proof owed | #694, #695, #698, #701 (install, image, catalog, Argo CD view) | A `platform-portal` live run that shows the delivered services with their Argo CD Application and workload (Step 6 item 3 stays open until then); the install itself is also unproven live. Not delivered: a portal route.                              |
-| People are signed in through the platform Keycloak                                  | merged, live proof owed | #688, #690, #691, #693, #694, #698                             | The Keycloak provider pod privileges run, and an in-app OIDC sign-in, both on a `platform-portal` live run; the OIDC sign-in and the refused no-sign-in request are not provable, no project command exists (owner decision 2026-11-15).                |
+| People are signed in through the platform Keycloak                                  | merged, live proof owed | #688, #690, #691, #693, #694, #698                             | The Keycloak provider pod privileges run on a `platform-portal` live run. The in-app OIDC sign-in and the refused no-sign-in request are not provable, no project command exists (owner decision 2026-11-15).                                           |
 | Each service shows its default dashboard and alerts with no setup                   | merged, live proof owed | #692                                                           | A live run that shows both for a delivered service.                                                                                                                                                                                                     |
 | Alerts notify-only until thresholds are measured                                    | merged, live proof owed | #692                                                           | The rules have no contact point: the platform alert destination is parked (Parked Owner Questions) and Step 6 item 4 stays open until the owner answers.                                                                                                |
 | Delivery time recorded per stage over several runs, cold and redeploy apart         | not provable            |                                                                | Not provable, no project command exists (owner decision 2026-11-15); Step 7 item 1.                                                                                                                                                                     |
