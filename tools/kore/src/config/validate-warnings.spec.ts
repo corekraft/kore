@@ -3,7 +3,7 @@ import { beforeEach, expect, test, vi } from "vitest";
 import { catalogErrors } from "./catalog-errors.js";
 import { k3dErrors } from "./k3d-errors.js";
 import { imageListErrors } from "./approved.js";
-import { overlayErrors } from "./overlay-errors.js";
+import { overlayErrors, overlayWarnings } from "./overlay-errors.js";
 import { orderedComponents, readinessErrors } from "./order.js";
 import { policyErrors } from "./policy-validation.js";
 import { registryAddressErrors } from "./registry-address.js";
@@ -26,7 +26,10 @@ vi.mock("./order.js", () => ({
   orderedComponents: vi.fn(),
   readinessErrors: vi.fn(),
 }));
-vi.mock("./overlay-errors.js", () => ({ overlayErrors: vi.fn() }));
+vi.mock("./overlay-errors.js", () => ({
+  overlayErrors: vi.fn(),
+  overlayWarnings: vi.fn(),
+}));
 vi.mock("./policy-validation.js", () => ({ policyErrors: vi.fn() }));
 vi.mock("./registry-address.js", () => ({ registryAddressErrors: vi.fn() }));
 
@@ -42,6 +45,7 @@ beforeEach(() => {
   vi.mocked(catalogErrors).mockReturnValue([]);
   vi.mocked(k3dErrors).mockReturnValue([]);
   vi.mocked(overlayErrors).mockResolvedValue([]);
+  vi.mocked(overlayWarnings).mockReturnValue([]);
   vi.mocked(imageListErrors).mockResolvedValue([]);
   vi.mocked(policyErrors).mockResolvedValue([]);
   vi.mocked(readinessErrors).mockReturnValue([]);
@@ -135,4 +139,11 @@ test("the exemption source is not read when another rule fails, so its errors ne
     validateRepository(repositoryWith(), [], exemptions),
   ).rejects.toThrow(new Error("k3d: bad cluster"));
   expect(exemptions).not.toHaveBeenCalled();
+});
+
+test("the overlay's warnings join the reported warnings and never fail validation", async () => {
+  vi.mocked(overlayWarnings).mockReturnValue(["alerts have no contact point"]);
+  expect(await validateRepository(repositoryWith())).toEqual([
+    "alerts have no contact point",
+  ]);
 });

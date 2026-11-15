@@ -1,3 +1,4 @@
+import { readFile } from "node:fs/promises";
 import {
   rotateRegistryCredentials,
   swapLocalSigningKey,
@@ -7,7 +8,12 @@ import {
   composeChartDelivery,
   composeGoldenPathDelivery,
 } from "../platform/index.js";
-import { installLocalTrust, syncLocalSecrets } from "../security/index.js";
+import {
+  applySmtpCredentials,
+  installLocalTrust,
+  parseSmtpCredentials,
+  syncLocalSecrets,
+} from "../security/index.js";
 import { mutateAction } from "./context.js";
 import type { CommandContext } from "./context.js";
 import { boolFlag, stringFlag } from "./flags.js";
@@ -42,6 +48,16 @@ export async function secretsCommand(context: CommandContext): Promise<number> {
   return await context.mutate(
     `secrets ${context.action ?? ""}`,
     async (runner) => {
+      if (context.action === "smtp") {
+        // The login is streamed on stdin, never read from a flag, file or config.
+        await applySmtpCredentials(
+          context.repository,
+          runner,
+          parseSmtpCredentials(await readFile("/dev/stdin", "utf8")),
+        );
+        print({ status: "applied", secret: "grafana-smtp" }, context.json);
+        return 0;
+      }
       const rotate = boolFlag(context.parsed, "rotate");
       const count = await syncLocalSecrets(context.repository, runner, {
         rotate,
