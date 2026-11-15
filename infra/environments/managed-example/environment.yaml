@@ -31,6 +31,7 @@
   "features":
     {
       "autoscaling-defaults": false,
+      "gateway-class-change-release": false,
       "ingress-agentgateway": false,
       "local-image-reuse": false,
       "registry-tag-pruning": false,

@@ -215,7 +215,8 @@ importOriginal()), fn: vi.fn() }))`.
   that run helm and docker, so the unit run never starts them.
 - The agentgateway install is proven live by
   `KORE_RUN_AGENTGATEWAY_PROOF=1 tools/kore/scripts/agentgateway-live-proof.sh`.
-  It runs a scratch copy of the local overlay with `ingress-agentgateway` on,
+  It runs a scratch copy of the local overlay with `ingress-agentgateway` and
+  `gateway-class-change-release` on,
   kept out of git and removed on exit, so the flag stays off in the repository.
 
 ## The harness bundle

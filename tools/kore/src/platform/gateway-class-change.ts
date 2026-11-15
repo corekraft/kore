@@ -1,4 +1,6 @@
 import {
+  featureEnabled,
+  gatewayClassChangeFlag,
   gatewayClassName,
   type Component,
   type Repository,
@@ -42,14 +44,18 @@ async function names(
  * collection removes the old proxy through its ownerReference), waits until it
  * and the old proxy are gone, and lets the Helm upgrade that follows recreate
  * it in the new class. The Gateway is briefly absent, so ingress has a short
- * outage. A matching class is a no-op; an absent Gateway (a fresh profile) is a no-op unless an old proxy remains from an interrupted change, which it waits out.
+ * outage. Behind `gateway-class-change-release`: with the flag off the step
+ * reads and deletes nothing. A matching class is a no-op; an absent Gateway (a fresh profile) is a no-op unless an old proxy remains from an interrupted change, which it waits out.
  */
 export async function releaseGatewayClassChange(
   repository: Repository,
   runner: Runner,
   component: Component,
 ): Promise<void> {
-  if (component.name !== OWNER) {
+  if (
+    component.name !== OWNER ||
+    !featureEnabled(repository.environment, gatewayClassChangeFlag)
+  ) {
     return;
   }
   const base = [

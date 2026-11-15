@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, expect, test, vi } from "vitest";
-import { gatewayClassName } from "../config/index.js";
+import { featureEnabled, gatewayClassName } from "../config/index.js";
 import { releaseGatewayClassChange } from "./gateway-class-change.js";
 import {
   fakeComponent,
@@ -28,6 +28,7 @@ const deletes = (run: ReturnType<typeof fakeRunner>["run"]) =>
   run.mock.calls.filter(([, args]) => args.includes("delete"));
 
 beforeEach(() => {
+  vi.mocked(featureEnabled).mockReturnValue(true);
   vi.spyOn(process.stderr, "write").mockReturnValue(true);
   vi.mocked(gatewayClassName).mockReturnValue("agentgateway");
   vi.mocked(pollUntil).mockImplementation(async (_timeout, probe) => {
@@ -147,7 +148,7 @@ test("a Gateway absent while the old proxy remains waits for the proxy, deleting
   expect(deletes(run)).toEqual([]);
 });
 
-test("a fresh profile with no Gateway and no proxy waits for nothing", async () => {
+test("a fresh profile with no Gateway and no proxy polls once and finds nothing to wait for", async () => {
   const { runner } = cluster("");
   await releaseGatewayClassChange(repository, runner, config);
   expect(pollUntil).toHaveBeenCalledTimes(1);
@@ -178,6 +179,24 @@ test("nothing is announced when no class change happens", async () => {
     config,
   );
   expect(write).not.toHaveBeenCalled();
+});
+
+test("the flag off reads nothing and deletes nothing, even with a stale Gateway and proxy", async () => {
+  vi.mocked(featureEnabled).mockReturnValue(false);
+  const { runner, run } = cluster("istio", "deployment/kore-gateway-istio");
+  await releaseGatewayClassChange(repository, runner, config);
+  expect(run).not.toHaveBeenCalled();
+  expect(pollUntil).not.toHaveBeenCalled();
+  expect(process.stderr.write).not.toHaveBeenCalled();
+});
+
+test("the step is gated by gateway-class-change-release in the repository's environment", async () => {
+  const { runner } = cluster("agentgateway");
+  await releaseGatewayClassChange(repository, runner, config);
+  expect(featureEnabled).toHaveBeenCalledWith(
+    repository.environment,
+    "gateway-class-change-release",
+  );
 });
 
 test("any other component is left alone and no cluster call is made", async () => {

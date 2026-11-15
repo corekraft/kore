@@ -9,6 +9,7 @@ import {
   featureEnabled,
   featureHelmArgs,
   gatewayClassName,
+  gatewayClassChangeFlag,
   ingressFlag,
 } from "./features.js";
 import type { Environment } from "./types.js";
@@ -145,4 +146,11 @@ test("the platform portal flag gates a component off until an overlay turns it o
   expect(
     componentGatedOff(environment({ [platformPortalFlag]: true }), gated),
   ).toBe(false);
+});
+
+test("the class-change flag is its own switch, independent of the ingress flag", () => {
+  expect(gatewayClassChangeFlag).toBe("gateway-class-change-release");
+  expect(
+    gatewayClassName(environment({ [gatewayClassChangeFlag]: true })),
+  ).toBe("istio");
 });

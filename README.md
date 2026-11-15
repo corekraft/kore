@@ -45,6 +45,9 @@ and the CLI read one switch
 The `ingress-agentgateway` flag, off in `local`, selects the platform Gateway's
 GatewayClass: `kore` derives `gateway.className` (`istio` off, `agentgateway`
 on) when rendering `kore-platform-config`.
+The `gateway-class-change-release` flag, off in every overlay, lets that reconcile
+delete and recreate the platform Gateway when its class changes, with a brief
+ingress outage; with it off the step does nothing.
 The `registry-tag-pruning` flag, off in every overlay, lets `kore local up`
 delete per-run image tags older than seven days from the local registry and
 collect garbage; it turns on registry delete support in the `oci-registry` chart
