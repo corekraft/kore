@@ -1,5 +1,9 @@
 import { beforeEach, expect, test, vi } from "vitest";
-import { assertChartDelivery, helmUpgradeArgs } from "./helm.js";
+import {
+  assertChartDelivery,
+  assertGoldenPathDelivery,
+  helmUpgradeArgs,
+} from "./helm.js";
 import { configAnswers } from "./helm-support.js";
 import { fakeComponent, fakeRepository } from "./platform-support.js";
 
@@ -66,7 +70,7 @@ test("kore-config-delivery without composed values is refused with the flag to p
       fakeComponent({ name: "kore-config-delivery" }),
     ),
   ).toThrow(
-    "kore-config-delivery needs the chart lock: run `kore platform up --platform-chart-lock <platform-charts.lock.json>`, the release asset published with the charts (kore local up does not pass it yet)",
+    "kore-config-delivery needs the chart lock: run `kore platform up --platform-chart-lock <platform-charts.lock.json>`, the release asset published with the charts (`kore local up` takes the same flag)",
   );
 });
 
@@ -75,4 +79,71 @@ test("composed values, or any other component, pass the delivery check", () => {
   const release = fakeComponent({ name: "kore-config-delivery" });
   expect(() => assertChartDelivery(composed, release)).not.toThrow();
   expect(() => assertChartDelivery(repository, fakeComponent())).not.toThrow();
+});
+
+const golden = {
+  repoURL: "https://github.com/corekraft/kore.git",
+  revision: "a".repeat(40),
+  environment: "local",
+  templateImages: {
+    "static-frontend": {
+      image: "ghcr.io/o/fe",
+      digest: `sha256:${"1".repeat(64)}`,
+    },
+    "kotlin-bff": {
+      image: "ghcr.io/o/bff",
+      digest: `sha256:${"2".repeat(64)}`,
+    },
+  },
+  ingress: { platformDomain: "kore.local", gatewayClassName: "istio" },
+};
+
+test("kore-golden-path-delivery is given the commit, the template digests and the ingress values, so the ApplicationSet deploys by digest and reaches HTTPS", () => {
+  const args = helmUpgradeArgs(
+    { ...repository, goldenPathDelivery: golden },
+    fakeComponent({ name: "kore-golden-path-delivery" }),
+  );
+  expect(args.slice(-12)).toEqual([
+    "--set-string",
+    `repoURL=${golden.repoURL}`,
+    "--set-string",
+    `revision=${golden.revision}`,
+    "--set-string",
+    "environment=local",
+    "--set-json",
+    `templateImages=${JSON.stringify(golden.templateImages)}`,
+    "--set-string",
+    "ingress.platformDomain=kore.local",
+    "--set-string",
+    "ingress.gatewayClassName=istio",
+  ]);
+});
+
+test("no other component gets the golden-path values", () => {
+  expect(
+    helmUpgradeArgs(
+      { ...repository, goldenPathDelivery: golden },
+      fakeComponent(),
+    ),
+  ).not.toContain(`revision=${golden.revision}`);
+});
+
+test("kore-golden-path-delivery without composed values is refused with the flag to pass", () => {
+  expect(() =>
+    assertGoldenPathDelivery(
+      repository,
+      fakeComponent({ name: "kore-golden-path-delivery" }),
+    ),
+  ).toThrow(
+    "kore-golden-path-delivery needs the template lock: run `kore local up --platform-template-lock <template-images.lock.json>`, the release asset published with the template images",
+  );
+  expect(() =>
+    assertGoldenPathDelivery(
+      { ...repository, goldenPathDelivery: golden },
+      fakeComponent({ name: "kore-golden-path-delivery" }),
+    ),
+  ).not.toThrow();
+  expect(() =>
+    assertGoldenPathDelivery(repository, fakeComponent()),
+  ).not.toThrow();
 });

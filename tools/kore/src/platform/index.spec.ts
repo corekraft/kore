@@ -35,6 +35,7 @@ test("the platform barrel exposes exactly the runtime names its callers use", ()
       "capacityWarningPercent",
       "closeGateIfDegraded",
       "composeChartDelivery",
+      "composeGoldenPathDelivery",
       "ensureClosedAdmissionGate",
       "envOption",
       "helmEnv",

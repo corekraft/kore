@@ -7,7 +7,11 @@ import { localDown, localUp } from "../local/index.js";
 import { installLocalTrust, syncLocalSecrets } from "../security/index.js";
 import type { ActionHandler } from "./context.js";
 import { mutateAction } from "./context.js";
-import { boolFlag } from "./flags.js";
+import {
+  composeChartDelivery,
+  composeGoldenPathDelivery,
+} from "../platform/index.js";
+import { boolFlag, stringFlag } from "./flags.js";
 import { print } from "./output.js";
 import {
   localCommand,
@@ -25,6 +29,7 @@ import {
 
 vi.mock("../images/index.js");
 vi.mock("../local/index.js");
+vi.mock("../platform/index.js");
 vi.mock("../security/index.js");
 vi.mock("./context.js");
 vi.mock("./flags.js");
@@ -32,6 +37,7 @@ vi.mock("./output.js");
 
 const repository = fakeRepository({ gateway: { name: "kore-gateway" } });
 const runner = sharedRunner;
+const chartsComposed = fakeRepository({ gateway: { name: "charts" } });
 
 /** The action table the last mutation was given. */
 function actionsOf(): Record<string, ActionHandler> {
@@ -59,10 +65,24 @@ test("local up and down run as mutations, with down's prune, purge and force opt
     repository,
     parsed: parsedArgs(),
   });
+  const delivered = fakeRepository({ gateway: { name: "delivered" } });
+  const locks: Record<string, string> = {
+    "platform-chart-lock": "charts.json",
+    "platform-template-lock": "templates.json",
+  };
+  vi.mocked(stringFlag).mockImplementation((_parsed, name) => locks[name]);
+  vi.mocked(composeChartDelivery).mockResolvedValue(chartsComposed);
+  vi.mocked(composeGoldenPathDelivery).mockResolvedValue(delivered);
   expect(await localCommand(context)).toBe(0);
   await actionsOf().up!(context, runner);
+  expect(composeChartDelivery).toHaveBeenCalledWith(repository, "charts.json");
+  expect(composeGoldenPathDelivery).toHaveBeenCalledWith(
+    chartsComposed,
+    runner,
+    "templates.json",
+  );
   await actionsOf().down!(context, runner);
-  expect(localUp).toHaveBeenCalledWith(repository, runner);
+  expect(localUp).toHaveBeenCalledWith(delivered, runner);
   expect(localDown).toHaveBeenCalledWith(repository, runner, {
     prune: true,
     purgeData: false,

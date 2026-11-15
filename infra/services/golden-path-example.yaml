@@ -1,0 +1,6 @@
+{
+  "apiVersion": "platform.kore.dev/v1alpha1",
+  "kind": "Service",
+  "metadata": { "name": "golden-path-example" },
+  "spec": { "organization": "platform", "environments": ["local"] }
+}

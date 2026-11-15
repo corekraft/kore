@@ -4,6 +4,7 @@ import { FailFastError, withFailFast, type WatchOptions } from "./fail-fast.js";
 import { desiredFingerprint } from "./fingerprint.js";
 import {
   assertChartDelivery,
+  assertGoldenPathDelivery,
   envOption,
   helmEnv,
   helmUpgradeArgs,
@@ -58,6 +59,7 @@ async function applyComponent(
     return;
   }
   assertChartDelivery(repository, component);
+  assertGoldenPathDelivery(repository, component);
   const upgrade = () =>
     withFailFast(
       repository,

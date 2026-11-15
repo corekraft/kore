@@ -198,7 +198,7 @@ existing reference app keeps working until a service moves to them.
 - [x] Add the unit-level assertion on the template's cookie and response
       settings that the vision's token test names: every session cookie
       host-only, `HttpOnly`, `Secure` and `SameSite`.
-- [ ] Sign both images through release automation and deploy them by digest.
+- [x] Sign both images through release automation and deploy them by digest.
 
 ### Exit Criteria
 

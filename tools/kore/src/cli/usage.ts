@@ -6,14 +6,14 @@ Usage:
   kore status [--environment local] [--json]   (reports each Organization and Service claim's Ready condition, read-only; exits 1 while one is not ready; reports gated-off, without reading the cluster, while the platform-organization-service-apis flag is off)
   kore cluster up|stop|destroy --environment <name> [--yes] [--purge-data]
   kore cluster status [--environment <name>] [--json]
-  kore platform bootstrap|up|gate-check|stop|destroy --environment <name> [--yes] [--purge-data] [--force] [--platform-chart-lock <platform-charts.lock.json>]   (the lock is read only by "up", and only while platform-argocd-delivery is on, when it is required: kore checks it against the catalog before touching the cluster, composes the kore-config-delivery chart values from it and gives Argo CD the registry's read credential through stdin)
+  kore platform bootstrap|up|gate-check|stop|destroy --environment <name> [--yes] [--purge-data] [--force] [--platform-chart-lock <platform-charts.lock.json>] [--platform-template-lock <template-images.lock.json>]   (the locks are read only by "up", and only while platform-argocd-delivery is on, when it is required: kore checks it against the catalog before touching the cluster, composes the kore-config-delivery chart values from the chart lock, the kore-golden-path-delivery values from the template lock, the checked-out commit and the environment, and gives Argo CD the registry's read credential through stdin)
   kore platform status|render [--environment <name>] [--output <directory>] [--json]   (a component gated off by its catalog featureFlag reports gated-off)
   kore app up <name> --environment <name> [--image-lock <release images.lock.json>]
   kore app down <name> --environment <name> [--json]
   kore app status <name> [--environment <name>] [--json]   (reports degraded when the registry or verifier is down)
   kore data export --environment <name> [--namespace reference] [--json]
   kore data restore --environment <name> --from <file> [--identity <age-key-file>] [--overwrite-data --yes] [--json]
-  kore local up|down --environment local [--prune [--purge-data]] [--force]
+  kore local up|down --environment local [--prune [--purge-data]] [--force] [--platform-chart-lock <platform-charts.lock.json>] [--platform-template-lock <template-images.lock.json>]   (the locks are read only by "up", and only while platform-argocd-delivery is on, when both are required; see "kore platform")
   kore registry rotate-credentials --environment <name> --yes [--json]
   kore signer swap-key --environment local --yes [--json]
   kore secrets sync --environment local [--rotate --yes]

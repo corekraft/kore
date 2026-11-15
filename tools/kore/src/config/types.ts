@@ -252,6 +252,15 @@ export interface ReadinessManifest {
   requirements: ReadinessRequirement[];
 }
 
+/** The kore-golden-path-delivery chart's values (infra/charts/golden-path-delivery). */
+export interface GoldenPathDeliveryValues {
+  repoURL: string;
+  revision: string;
+  environment: string;
+  templateImages: Record<string, { image: string; digest: string }>;
+  ingress: { platformDomain: string; gatewayClassName: string };
+}
+
 export interface Repository {
   root: string;
   versions: Versions;
@@ -272,6 +281,12 @@ export interface Repository {
    * the catalog by `platform up` before it touches the cluster (ADR 0043).
    */
   chartDelivery?: ChartDeliveryValues | undefined;
+  /**
+   * The kore-golden-path-delivery chart's values, composed from the template
+   * lock, the checked-out commit and the environment by `platform up` before it
+   * touches the cluster (ADR 0043).
+   */
+  goldenPathDelivery?: GoldenPathDeliveryValues | undefined;
   /** Findings that warn without failing validation; set by `loadRepository`. */
   warnings?: string[] | undefined;
 }
