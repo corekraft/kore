@@ -1,3 +1,4 @@
+# Cluster scope: ADR 0115 (the namespace composition creates cluster-scoped Namespaces).
 apiVersion: apiextensions.crossplane.io/v2
 kind: CompositeResourceDefinition
 metadata:
