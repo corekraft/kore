@@ -38,7 +38,8 @@
       "platform-argocd-delivery": false,
       "platform-portal": false,
       "automatic-retro": false,
-      "automatic-approval": false
+      "automatic-approval": false,
+      "automatic-revert": false
     },
   "secrets": { "storeName": "platform-secrets", "sourceNamespace": "external" },
   "telemetry":

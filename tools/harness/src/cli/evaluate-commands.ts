@@ -3,6 +3,8 @@ import { IdeaError, IdeaRepository } from "../idea/index.js";
 import type { Command, CommandContext } from "../runtime/index.js";
 import { openLedger } from "./ledger-commands.js";
 import { logOutcome } from "./outcome-commands.js";
+import { prepareRevertFor } from "./revert-commands.js";
+import type { RevertResult } from "../revert/index.js";
 
 const USAGE_ERROR = 2;
 const FAILED = 1;
@@ -40,7 +42,30 @@ function parse({ options }: CommandContext): Parsed {
 
 const figure = (value: number | null) => value ?? "none";
 
-function recordedText(done: Extract<Evaluated, { status: "recorded" }>) {
+const LANDS = "(not merged; the judge approves and merges it)";
+
+const FIXED: Partial<Record<RevertResult["status"], string>> = {
+  "already-reverted": "Already reverted: the ledger holds this idea's revert.",
+  "flag-off":
+    "No revert prepared: the automatic-revert flag is off in the local overlay.",
+  guardrail:
+    "Not reverted automatically: the change edited the guardrail inventory, and a guardrail never goes straight back to enforce. Run `harness guardrail request --to audit` for it.",
+};
+
+function revertLine(revert: RevertResult): string | undefined {
+  if (revert.status === "prepared") {
+    return `Revert prepared: ${revert.url} ${LANDS}.`;
+  }
+  if (revert.status === "already-prepared") {
+    return `Revert already open: ${revert.url} ${LANDS}.`;
+  }
+  return FIXED[revert.status];
+}
+
+function recordedText(
+  done: Extract<Evaluated, { status: "recorded" }>,
+  revert: RevertResult,
+) {
   const { concluded } = done;
   const lines = [
     `Idea ${done.idea} ${done.result} (${figure(done.before)} to ${figure(done.after)}); issue closed: ${concluded.issue}`,
@@ -49,8 +74,10 @@ function recordedText(done: Extract<Evaluated, { status: "recorded" }>) {
     lines.push(
       "Flagged: the change stays in place with outcome:inconclusive; no revert is issued.",
     );
-  } else if (done.result === "refuted") {
-    lines.push("The change stays in place: evaluate never reverts.");
+  }
+  const line = revertLine(revert);
+  if (line !== undefined) {
+    lines.push(line);
   }
   if (concluded.followUp !== undefined) {
     lines.push(`Follow-up idea: ${concluded.followUp}`);
@@ -88,14 +115,18 @@ async function evaluation(context: CommandContext, input: Parsed) {
     deps.stderr(json ? `${JSON.stringify(done)}\n` : `${message}\n`);
     return FAILED;
   }
-  if (done.status === "recorded") {
-    await logOutcome(opened.ledger, deps, done.concluded);
+  if (done.status !== "recorded") {
+    const text = `Idea ${done.idea} already has outcome ${done.result}; left as recorded.\n`;
+    deps.stdout(json ? `${JSON.stringify(done)}\n` : text);
+    return 0;
   }
-  const text =
-    done.status === "recorded"
-      ? recordedText(done)
-      : `Idea ${done.idea} already has outcome ${done.result}; left as recorded.\n`;
-  deps.stdout(json ? `${JSON.stringify(done)}\n` : text);
+  await logOutcome(opened.ledger, deps, done.concluded);
+  const revert = await prepareRevertFor(context, opened.ledger, done);
+  deps.stdout(
+    json
+      ? `${JSON.stringify({ ...done, revert })}\n`
+      : recordedText(done, revert),
+  );
   return 0;
 }
 
@@ -112,7 +143,7 @@ function fail(
 
 export const evaluateCommand: Command = {
   summary:
-    "after a harness idea's measurement window, compare its hypothesis metric (a flow report metric, read from the ledger, never set by an agent) over the window after its merged change with the equal window before, and record confirmed, refuted or inconclusive through the outcome tool: moved the expected direction by at least the threshold is confirmed, the opposite refuted, anything within noise or without history inconclusive; an inconclusive change stays in place and is flagged by its label and follow-up idea; a refuted one is recorded and nothing is reverted; refused inside the window with the time it can run; an idea with an outcome is left as recorded (--idea <number or slug> [--threshold <fraction>, default 0.1] [--changed-by-pr <number>, when the ledger ties no merged PR to the idea's issue] [--ledger]; --json prints status recorded|too-early|already-recorded with idea, result, before, after and the outcome)",
+    "after a harness idea's measurement window, compare its hypothesis metric (a flow report metric, read from the ledger, never set by an agent) over the window after its merged change with the equal window before, and record confirmed, refuted or inconclusive through the outcome tool: moved the expected direction by at least the threshold is confirmed, the opposite refuted, anything within noise or without history inconclusive; an inconclusive change stays in place and is flagged by its label and follow-up idea; a refuted one is recorded and, when the automatic-revert flag is on in the local overlay, its merged PR is reverted on a branch off main and the revert PR is opened declaring no-behaviour-change but never merged (the judge merges it), once per idea, with a harness-change-reverted ledger event, and a change that edited the guardrail inventory is left to `guardrail request`; refused inside the window with the time it can run; an idea with an outcome is left as recorded (--idea <number or slug> [--threshold <fraction>, default 0.1] [--changed-by-pr <number>, when the ledger ties no merged PR to the idea's issue] [--ledger]; --json prints status recorded|too-early|already-recorded with idea, result, before, after, the outcome and, once recorded, revert: status not-refuted|flag-off|already-reverted|already-prepared|guardrail|prepared with number and url)",
   options: {
     idea: "string",
     threshold: "string",

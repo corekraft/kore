@@ -28,6 +28,8 @@ export type Evaluated =
       before: number | null;
       after: number | null;
       concluded: Concluded;
+      /** The merged PR that delivered the change, which a revert undoes. */
+      changedByPr: number | undefined;
     }
   | { status: "too-early"; idea: string; evaluableAt: string }
   | { status: "already-recorded"; idea: string; result: string };
@@ -37,14 +39,14 @@ function mergedAt(
   events: LedgerEvent[],
   record: IdeaRecord,
   changedByPr: number | undefined,
-): Date {
+): { at: Date; pr: number | undefined } {
   const number = /(\d+)\/?$/.exec(record.issue ?? "")?.[1];
   if (number === undefined) {
     throw new IdeaError(
       `${record.path} has no issue; run \`harness idea sync\` first, then rerun \`harness evaluate\`.`,
     );
   }
-  const times = events
+  const merges = events
     .filter(
       (e) =>
         e.kind === "pr.merged" &&
@@ -52,14 +54,15 @@ function mergedAt(
           ? e.idea === `#${number}`
           : e.number === changedByPr),
     )
-    .map((e) => Date.parse(e.occurredAt))
-    .sort((a, b) => a - b);
-  if (times[0] === undefined) {
+    .map((e) => ({ at: Date.parse(e.occurredAt), pr: e.number }))
+    .sort((a, b) => a.at - b.at);
+  const first = merges[0];
+  if (first === undefined) {
     throw new IdeaError(
       `No merged change is recorded in the ledger for issue #${number}; run \`harness ledger poll-github\`, or pass --changed-by-pr <number> for the PR that delivered it.`,
     );
   }
-  return new Date(times[0]);
+  return { at: new Date(first.at), pr: first.pr };
 }
 
 /**
@@ -87,7 +90,7 @@ export async function evaluateIdea(
   }
   const { metric, direction, window } = record.harness;
   const windowDays = Number.parseInt(window, 10);
-  const changedAt = mergedAt(events, record, changedByPr);
+  const { at: changedAt, pr } = mergedAt(events, record, changedByPr);
   const evaluable = new Date(changedAt.getTime() + windowDays * DAY);
   if (now < evaluable) {
     return {
@@ -122,5 +125,6 @@ export async function evaluateIdea(
     before,
     after,
     concluded,
+    changedByPr: pr,
   };
 }

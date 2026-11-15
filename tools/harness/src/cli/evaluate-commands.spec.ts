@@ -6,6 +6,7 @@ import { contextWith, fakeLedger } from "./command-support.js";
 import { evaluateCommand } from "./evaluate-commands.js";
 import { openLedger } from "./ledger-commands.js";
 import { logOutcome } from "./outcome-commands.js";
+import { prepareRevertFor } from "./revert-commands.js";
 
 vi.mock("../evaluate/index.js");
 vi.mock("../idea/index.js", async (importOriginal) => ({
@@ -14,6 +15,7 @@ vi.mock("../idea/index.js", async (importOriginal) => ({
 }));
 vi.mock("./ledger-commands.js");
 vi.mock("./outcome-commands.js");
+vi.mock("./revert-commands.js");
 
 const ROOT = "a-root";
 const EVENTS = [{ kind: "pr.merged" }] as LedgerEvent[];
@@ -39,12 +41,14 @@ beforeEach(() => {
   vi.resetAllMocks();
   const ledger = fakeLedger(EVENTS);
   vi.mocked(openLedger).mockResolvedValue({ ledger: ledger.ledger });
+  vi.mocked(prepareRevertFor).mockResolvedValue({ status: "flag-off" });
   vi.mocked(evaluateIdea).mockResolvedValue({
     status: "recorded",
     idea: "0007",
     result: "refuted",
     before: 100,
     after: 130,
+    changedByPr: 41,
     concluded: {
       idea: "0007",
       result: "refuted",
@@ -67,17 +71,19 @@ describe("harness evaluate", () => {
     );
     expect(logOutcome).toHaveBeenCalledTimes(1);
     expect(deps.stdout).toHaveBeenCalledWith(
-      `Idea 0007 refuted (100 to 130); issue closed: ${ISSUE}\nThe change stays in place: evaluate never reverts.\nFollow-up idea: docs/ideas/0008-follow-up.md\n`,
+      `Idea 0007 refuted (100 to 130); issue closed: ${ISSUE}\nNo revert prepared: the automatic-revert flag is off in the local overlay.\nFollow-up idea: docs/ideas/0008-follow-up.md\n`,
     );
   });
 
   it("flags an inconclusive change and says it stays in place", async () => {
+    vi.mocked(prepareRevertFor).mockResolvedValue({ status: "not-refuted" });
     vi.mocked(evaluateIdea).mockResolvedValue({
       status: "recorded",
       idea: "0007",
       result: "inconclusive",
       before: null,
       after: 3,
+      changedByPr: 41,
       concluded: {
         idea: "0007",
         result: "inconclusive",
@@ -90,6 +96,77 @@ describe("harness evaluate", () => {
     expect(deps.stdout).toHaveBeenCalledWith(
       `Idea 0007 inconclusive (none to 3); issue closed: ${ISSUE}\nFlagged: the change stays in place with outcome:inconclusive; no revert is issued.\n`,
     );
+  });
+});
+
+describe("harness evaluate revert", () => {
+  it("prepares the revert after the outcome event is logged, and prints its PR", async () => {
+    vi.mocked(prepareRevertFor).mockResolvedValue({
+      status: "prepared",
+      number: 55,
+      url: "https://github.com/corekraft/kore/pull/55",
+    });
+    const { deps, result } = run({ idea: "7" });
+    expect(await result).toBe(0);
+    expect(vi.mocked(logOutcome).mock.invocationCallOrder[0]).toBeLessThan(
+      vi.mocked(prepareRevertFor).mock.invocationCallOrder[0] ?? 0,
+    );
+    expect(deps.stdout).toHaveBeenCalledWith(
+      `Idea 0007 refuted (100 to 130); issue closed: ${ISSUE}\nRevert prepared: https://github.com/corekraft/kore/pull/55 (not merged; the judge approves and merges it).\nFollow-up idea: docs/ideas/0008-follow-up.md\n`,
+    );
+  });
+
+  it.each([
+    [
+      { status: "already-reverted" as const },
+      "Already reverted: the ledger holds this idea's revert.",
+    ],
+    [
+      {
+        status: "already-prepared" as const,
+        number: 56,
+        url: "https://github.com/corekraft/kore/pull/56",
+      },
+      "Revert already open: https://github.com/corekraft/kore/pull/56 (not merged; the judge approves and merges it).",
+    ],
+    [
+      { status: "guardrail" as const },
+      "Not reverted automatically: the change edited the guardrail inventory, and a guardrail never goes straight back to enforce. Run `harness guardrail request --to audit` for it.",
+    ],
+  ])("says what happened for %j", async (revert, line) => {
+    vi.mocked(prepareRevertFor).mockResolvedValue(revert);
+    const { deps } = run({ idea: "7" });
+    await Promise.resolve();
+    await vi.waitFor(() => expect(deps.stdout).toHaveBeenCalled());
+    expect(deps.stdout.mock.calls[0]?.[0]).toContain(`\n${line}\n`);
+  });
+
+  it("puts the revert result in the --json output", async () => {
+    vi.mocked(prepareRevertFor).mockResolvedValue({
+      status: "prepared",
+      number: 55,
+      url: "https://github.com/corekraft/kore/pull/55",
+    });
+    const { deps, result } = run({ idea: "7" }, true);
+    await result;
+    const printed = JSON.parse(deps.stdout.mock.calls[0]?.[0] ?? "") as object;
+    expect(printed).toMatchObject({
+      revert: {
+        status: "prepared",
+        number: 55,
+        url: "https://github.com/corekraft/kore/pull/55",
+      },
+    });
+  });
+
+  it("asks for no revert on an outcome that is not recorded this run", async () => {
+    vi.mocked(evaluateIdea).mockResolvedValue({
+      status: "already-recorded",
+      idea: "0007",
+      result: "refuted",
+    });
+    await run({ idea: "7" }).result;
+    expect(prepareRevertFor).not.toHaveBeenCalled();
   });
 });
 

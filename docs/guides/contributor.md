@@ -271,11 +271,22 @@ inside the noise, or a window the ledger recorded nothing in, `inconclusive`: mi
 history is never `confirmed`. The result goes only through `outcome record`, so the
 comment, the one `outcome:*` label, the close and the ledger `outcome` event follow
 from the outcome tool. An inconclusive change stays in place and is flagged by its
-`outcome:inconclusive` label and its follow-up idea. A refuted one is recorded and
-nothing is reverted; the revert is a separate step. Before the window ends it exits 1
+`outcome:inconclusive` label and its follow-up idea. A refuted one is recorded and then
+reverted, behind the `automatic-revert` flag (off in every overlay; a person turns it
+on after a recorded outcome): `evaluate` reverts the merged PR in a throwaway
+worktree off `main`, pushes `revert/idea-<issue>` and opens a revert PR whose body
+declares `Safety pattern: no-behaviour-change` and `Refs` the idea's issue. It never
+merges or approves it: the judge and merge tool take it like any change. It appends
+one `harness-change-reverted` ledger event (the revert PR's number), and the outcome
+tool has already opened the follow-up idea. A rerun prepares nothing more: the ledger
+event, or a PR already on that branch, stops it. A change that edited
+`.claude/guardrails.yaml` is not reverted this way, because a guardrail must never go
+straight back to enforce; request the mode change with `harness guardrail request
+--to audit`. With the flag off it prints that no revert was prepared. Before the window ends it exits 1
 and prints when it can run; an idea with an outcome is left as recorded, so reruns
 never overwrite. `--json` prints `status` (`recorded`, `too-early` or
-`already-recorded`) with `idea`, `result`, `before`, `after` and the outcome.
+`already-recorded`) with `idea`, `result`, `before`, `after`, the outcome and, once
+recorded, `revert` (`status` and, when a PR exists, `number` and `url`).
 
 ## Flow report
 

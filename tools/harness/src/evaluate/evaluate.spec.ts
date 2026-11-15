@@ -118,6 +118,23 @@ describe("evaluateIdea", () => {
   });
 });
 
+describe("evaluateIdea names the delivering PR", () => {
+  it("reports the PR of the idea's first merged change so a revert can target it", async () => {
+    const { ctx } = context();
+    const done = await evaluateIdea(ctx, EVENTS, INPUT);
+    expect(done).toMatchObject({ status: "recorded", changedByPr: 55 });
+  });
+
+  it("reports the PR named by --changed-by-pr", async () => {
+    const { ctx } = context();
+    const done = await evaluateIdea(ctx, EVENTS, {
+      ...INPUT,
+      changedByPr: 40,
+    });
+    expect(done).toMatchObject({ status: "recorded", changedByPr: 40 });
+  });
+});
+
 describe("evaluateIdea timing and reruns", () => {
   it("records nothing before the window has elapsed and says when it can run", async () => {
     const { ctx } = context();
