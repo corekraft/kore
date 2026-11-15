@@ -8,7 +8,7 @@ import { join } from "node:path";
 import { CommandError, type FileSystem } from "../runtime/index.js";
 
 const RELEASE = "release.yaml";
-const SIGNING_JOBS = ["release", "mirror", "charts"];
+const SIGNING_JOBS = ["release", "mirror"];
 const SIGNING_SCOPES = ["id-token", "packages"];
 const TAG_GATE = "github.ref_type == 'tag'";
 const PR_TRIGGERS = ["pull_request", "pull_request_target"];
@@ -160,7 +160,7 @@ function jobProblems(file: string, name: string, job: unknown): string[] {
   if (!allowedSigner) {
     for (const scope of signing) {
       problems.push(
-        `${file}: job ${name} requests ${scope}: write; only the ${SIGNING_JOBS.slice(0, -1).join(", ")} and ${SIGNING_JOBS[SIGNING_JOBS.length - 1]} jobs of ${RELEASE} may sign or push, so drop it`,
+        `${file}: job ${name} requests ${scope}: write; only the ${SIGNING_JOBS.join(" and ")} jobs of ${RELEASE} may sign or push, so drop it`,
       );
     }
   }
