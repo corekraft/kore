@@ -22,6 +22,7 @@ describe("guardrail status", () => {
     expect(result.code).toBe(0);
     expect(JSON.parse(result.out)).toEqual({
       guardrails: committedInventory.guardrails,
+      pending: [],
     });
     for (const g of JSON.parse(result.out).guardrails) {
       expect(g).toEqual({
@@ -33,6 +34,36 @@ describe("guardrail status", () => {
         ...(g.note === undefined ? {} : { note: expect.any(String) }),
       });
     }
+  });
+
+  it("lists the guardrails with a pending request, from the ledger, and drops one once its mode is applied", async () => {
+    const event = JSON.stringify({
+      schema: 1,
+      id: "e1",
+      source: "claude",
+      kind: "guardrail.requested",
+      occurredAt: "2026-01-02T03:04:05.000Z",
+      recordedAt: "2026-01-02T03:04:05.000Z",
+      idea: "0223",
+      label: "bare-glob:audit>enforce",
+    });
+    const ledger = { "/repo/ledger.jsonl": `${event}\n` };
+    const args = ["--json", "--ledger", "/repo/ledger.jsonl"];
+    const waiting = await status({ ...inventory, ...ledger }, args);
+    expect(JSON.parse(waiting.out).pending).toEqual([
+      { rule: "bare-glob", from: "audit", to: "enforce", idea: "0223" },
+    ]);
+    const applied = await status(
+      {
+        [`/repo/${INVENTORY_PATH}`]: committedInventoryText.replace(
+          /("rule": "bare-glob", "kind": "bash", "mode": )"audit"/,
+          '$1"enforce"',
+        ),
+        ...ledger,
+      },
+      args,
+    );
+    expect(JSON.parse(applied.out).pending).toEqual([]);
   });
 
   it("prints one tab-separated line per guardrail without --json", async () => {

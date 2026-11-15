@@ -13,17 +13,17 @@ export class ApproveError extends Error {}
 /** Every side effect an approval has; each is a harness tool or one gh call, faked in specs. */
 export interface ApprovePorts {
   /** Whether the local overlay turns automatic approval on. */
-  flagOn(): Promise<boolean>;
-  idea(ref: string): Promise<IdeaRecord>;
+  flagOn: () => Promise<boolean>;
+  idea: (ref: string) => Promise<IdeaRecord>;
   /** The issue number an idea links to, or undefined when it has none. */
-  issueOf(record: IdeaRecord): number | undefined;
+  issueOf: (record: IdeaRecord) => number | undefined;
   /** The flow report's metric names and trailing metrics. */
-  metrics(): Promise<QualifyInput>;
-  labels(issue: number): Promise<string[]>;
-  comments(issue: number): Promise<string[]>;
-  comment(issue: number, body: string): Promise<void>;
+  metrics: () => Promise<QualifyInput>;
+  labels: (issue: number) => Promise<string[]>;
+  comments: (issue: number) => Promise<string[]>;
+  comment: (issue: number, body: string) => Promise<void>;
   /** Adds the ready-for-agent label. */
-  label(issue: number): Promise<void>;
+  label: (issue: number) => Promise<void>;
   ledger: Pick<Ledger, "list" | "record">;
   clock: Clock;
 }

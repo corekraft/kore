@@ -6,7 +6,7 @@
 
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { Command } from "../runtime/index.js";
-import { guardrailCommands } from "./commands.js";
+import { guardrailCommands, statusWith } from "./commands.js";
 import { denyDrift, denyList, settingsDeny, settingsWithDeny } from "./deny.js";
 import { GuardrailError, INVENTORY_PATH, type Inventory } from "./inventory.js";
 import { readInventory } from "./read.js";
@@ -77,7 +77,44 @@ describe("guardrail status", () => {
     const { run, stdout } = invoke("status", {}, true);
     await run();
     expect(stdout.mock.calls).toEqual([
-      [`${JSON.stringify({ guardrails: INVENTORY.guardrails })}\n`],
+      [
+        `${JSON.stringify({ guardrails: INVENTORY.guardrails, pending: [] })}\n`,
+      ],
+    ]);
+  });
+});
+
+describe("guardrail status: pending requests", () => {
+  it("lists the guardrails with a pending request in --json, from the loader it is given", async () => {
+    const pending = [
+      { rule: "no-verify", from: "enforce", to: "audit", idea: "0223" },
+    ];
+    const load = vi.fn().mockResolvedValue(pending);
+    const fake = fakeDeps();
+    const code = await statusWith(load).run({
+      json: true,
+      options: {},
+      deps: fake.deps,
+    });
+    expect(code).toBe(0);
+    expect(load.mock.calls).toEqual([[expect.anything(), INVENTORY]]);
+    expect(fake.stdout.mock.calls).toEqual([
+      [`${JSON.stringify({ guardrails: INVENTORY.guardrails, pending })}\n`],
+    ]);
+  });
+
+  it("marks a guardrail with a pending request in the text listing, and no other", async () => {
+    const load = vi
+      .fn()
+      .mockResolvedValue([
+        { rule: "no-verify", from: "enforce", to: "audit", idea: "0223" },
+      ]);
+    const fake = fakeDeps();
+    await statusWith(load).run({ json: false, options: {}, deps: fake.deps });
+    expect(fake.stdout.mock.calls).toEqual([
+      [
+        "no-verify\tbash\tenforce\ttools/harness/src/hook/guard-commands.ts\tpending: audit (idea 0223)\n",
+      ],
     ]);
   });
 

@@ -6,11 +6,17 @@ import { describe, expect, it, vi } from "vitest";
 import * as barrel from "./index.js";
 import * as commands from "./commands.js";
 import * as deny from "./deny.js";
+import * as evidence from "./evidence.js";
+import * as pending from "./pending.js";
+import * as request from "./request.js";
 import * as inventory from "./inventory.js";
 import * as read from "./read.js";
 
 vi.mock("./commands.js");
 vi.mock("./deny.js");
+vi.mock("./evidence.js");
+vi.mock("./pending.js");
+vi.mock("./request.js");
 vi.mock("./inventory.js");
 vi.mock("./read.js");
 
@@ -20,10 +26,12 @@ describe("the guardrail barrel", () => {
       [
         "GUARDRAIL_KINDS",
         "GuardrailError",
+        "GuardrailRequest",
         "INVENTORY_PATH",
         "MODES",
         "MissingInventoryError",
         "auditRuleNames",
+        "classifyAudit",
         "denyDrift",
         "denyList",
         "denyMatches",
@@ -32,8 +40,12 @@ describe("the guardrail barrel", () => {
         "guardrailCommands",
         "modeOf",
         "parseInventory",
+        "pendingRequests",
         "readInventory",
+        "requestEvidence",
+        "requestLabel",
         "settingsWithDeny",
+        "statusWith",
       ].sort(),
     );
   });
@@ -58,5 +70,14 @@ describe("the guardrail barrel", () => {
     expect(barrel.findInventory).toBe(read.findInventory);
     expect(barrel.readInventory).toBe(read.readInventory);
     expect(barrel.guardrailCommands).toBe(commands.guardrailCommands);
+  });
+
+  it("re-exports the request, evidence, pending and status names as their modules' own", () => {
+    expect(barrel.GuardrailRequest).toBe(request.GuardrailRequest);
+    expect(barrel.requestLabel).toBe(request.requestLabel);
+    expect(barrel.classifyAudit).toBe(evidence.classifyAudit);
+    expect(barrel.requestEvidence).toBe(evidence.requestEvidence);
+    expect(barrel.pendingRequests).toBe(pending.pendingRequests);
+    expect(barrel.statusWith).toBe(commands.statusWith);
   });
 });

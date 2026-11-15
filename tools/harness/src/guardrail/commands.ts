@@ -5,38 +5,60 @@ import {
   settingsDeny as currentDeny,
   settingsWithDeny,
 } from "./deny.js";
-import { GuardrailError, INVENTORY_PATH } from "./inventory.js";
+import { GuardrailError, INVENTORY_PATH, type Inventory } from "./inventory.js";
+import type { PendingRequest } from "./pending.js";
 import { readInventory } from "./read.js";
 
 const SETTINGS_PATH = ".claude/settings.json";
 
-const status: Command = {
-  summary: "list each guardrail with its kind, mode and owner",
-  async run({ json, deps }) {
-    try {
-      const { guardrails } = await readInventory(
-        (path) => deps.fs.readFile(path),
-        await deps.root(),
-      );
-      if (json) {
-        deps.stdout(`${JSON.stringify({ guardrails })}\n`);
-      } else {
-        for (const g of guardrails) {
-          deps.stdout(`${g.rule}\t${g.kind}\t${g.mode}\t${g.owner}\n`);
+/** Finds the approval requests still waiting; the caller owns where they are recorded. */
+export type LoadPending = (
+  context: CommandContext,
+  inventory: Inventory,
+) => Promise<PendingRequest[]>;
+
+/** The `status` command over a source of pending requests. */
+export function statusWith(loadPending: LoadPending): Command {
+  return {
+    summary:
+      "list each guardrail with its kind, mode and owner, and the requests waiting for a person's approval, read from the ledger (--json: guardrails, pending: rule, from, to, idea) [--ledger]",
+    options: { ledger: "string" },
+    async run(context) {
+      const { json, deps } = context;
+      try {
+        const inventory = await readInventory(
+          (path) => deps.fs.readFile(path),
+          await deps.root(),
+        );
+        const { guardrails } = inventory;
+        const pending = await loadPending(context, inventory);
+        if (json) {
+          deps.stdout(`${JSON.stringify({ guardrails, pending })}\n`);
+        } else {
+          for (const g of guardrails) {
+            const waiting = pending.find((p) => p.rule === g.rule);
+            const mark =
+              waiting === undefined
+                ? ""
+                : `\tpending: ${waiting.to} (idea ${waiting.idea})`;
+            deps.stdout(`${g.rule}\t${g.kind}\t${g.mode}\t${g.owner}${mark}\n`);
+          }
         }
+        return 0;
+      } catch (error) {
+        if (!(error instanceof GuardrailError)) {
+          throw error;
+        }
+        deps.stderr(
+          `${json ? `${JSON.stringify({ error: error.message })}\n` : ""}${error.message}\n`,
+        );
+        return 1;
       }
-      return 0;
-    } catch (error) {
-      if (!(error instanceof GuardrailError)) {
-        throw error;
-      }
-      deps.stderr(
-        `${json ? `${JSON.stringify({ error: error.message })}\n` : ""}${error.message}\n`,
-      );
-      return 1;
-    }
-  },
-};
+    },
+  };
+}
+
+const status = statusWith(() => Promise.resolve([]));
 
 /** Regenerates the settings deny list; a pattern that would leave it needs --allow-removal. */
 async function writeDeny(

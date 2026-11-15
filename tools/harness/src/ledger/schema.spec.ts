@@ -264,6 +264,18 @@ describe("friction and rework events", () => {
     expect(POLLER_KINDS).not.toContain("retro-triggered");
   });
 
+  it("guardrail.requested carries the rule and the change as its label and nothing else", () => {
+    const event = { ...stamp, kind: "guardrail.requested" };
+    expect(
+      parseEvent({ ...event, label: "bare-glob:audit>enforce" }, "input").ok,
+    ).toBe(true);
+    expect(parseEvent(event, "input").ok).toBe(false);
+    expect(
+      parseEvent({ ...event, label: "r:audit>enforce", number: 3 }, "input").ok,
+    ).toBe(false);
+    expect(POLLER_KINDS).not.toContain("guardrail.requested");
+  });
+
   it.each(["escalation", "kore.retry", "pane.interrupted"])(
     "%s is not a poller kind, so ledger record accepts it from agents",
     (kind) => {

@@ -573,6 +573,32 @@ command writes nothing (no comment, label or event) and only reports the
 verdict as `flag-off`. Turning the flag on is the owner's step, after a
 recorded outcome.
 
+## Guardrail approval requests
+
+`harness guardrail request <rule> --to enforce|audit|removed --idea <number>
+--scan <retro-scan.json> --false-positives <n> [--json] [--ledger PATH]` asks a
+person to approve changing one guardrail's mode. Run `harness hook retro-scan
+--strict` first and keep its JSON; the request reads only counts from it: how
+often the rule fired, heeded, overridden, and the false positives you state
+(`--false-positives` is the retro's count of warnings or blocks that hit
+legitimate work). An audit rule needs its `rules.audit` row, and its
+classification (`promotable`, `insufficient-evidence`, `not-promotable`) is the
+scan's own, from one shared function. An enforced rule is measured by its
+`guards` blocks. Tightening (audit to enforce), loosening (enforce to audit) and
+removal are requested the same way.
+
+It posts one comment on the idea's issue, with the idea link and the figures
+(never transcript text), and appends a `guardrail.requested` ledger event whose
+label is `<rule>:<from>><to>`. It posts once per change: a rerun finds the event,
+or the comment's marker, and posts nothing. With no evidence for the rule, no
+issue on the idea, an unknown rule or a mode the rule already has, it refuses
+with the fix and posts nothing. A request never changes `.claude/guardrails.yaml`;
+`guardrail activate` (#224) is a separate step.
+
+`harness guardrail status --json` adds `pending`: `{ rule, from, to, idea }` for
+each latest request whose rule still has the mode it would change. The concierge
+answers "what is waiting for approval?" from it.
+
 ## Status
 
 `node skills/bin/harness.mjs status --json` is the concierge's one read-only
