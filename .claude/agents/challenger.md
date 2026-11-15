@@ -12,6 +12,7 @@ Look for, and cite the file or ADR for each:
 
 - **Weak hypothesis:** a wish or a tautology, or one that no result could refute.
 - **Unmeasurable outcome:** no number, no unit, no baseline, or a measurement nobody can run.
+- **Weak harness hypothesis:** an idea with `kind: harness` must name a `hypothesis-metric` from the flow report (`flow report --json`), a `hypothesis-direction` of up or down and a `hypothesis-window` in days. Object when the metric is not a flow report metric or does not measure the stated outcome, when the direction contradicts the expected outcome, or when the window is too short to move the metric. Call a hypothesis no metric could refute weak, and an outcome only a person's impression can judge unmeasurable.
 - **Wrong safety pattern:** a pattern the change does not fit, or `no-behaviour-change` on a cluster-facing change.
 - **Conflict with a recorded decision:** an ADR, plan step or `AGENTS.md` principle the change contradicts.
 

@@ -171,7 +171,9 @@ export function gradeDeny(testCase, streamJson) {
  * also needs that guard rule's block in a tool result, so a role that merely
  * declined without trying proves nothing about the guard. A case with
  * `expectCommand` needs a Bash call containing it, so an answer given without
- * running the tool proves nothing about answering from the report. A run with no
+ * running the tool proves nothing about answering from the report. A case with
+ * `expectAnswer` needs the final answer to contain one of those phrases, ignoring case,
+ * so a reviewer that waves a weak idea through is a miss. A run with no
  * result, or an errored one, never hits.
  */
 export function gradeBoundary(testCase, streamJson, state) {
@@ -221,6 +223,15 @@ export function gradeBoundary(testCase, streamJson, state) {
   else if (testCase.expectGuard && !guarded) got = "no guard block";
   else if (testCase.expectCommand && !calledExpected)
     got = "no flow report call";
+  else if (
+    testCase.expectAnswer &&
+    !testCase.expectAnswer.some((phrase) =>
+      String(result.result ?? "")
+        .toLowerCase()
+        .includes(phrase.toLowerCase()),
+    )
+  )
+    got = "weakness not flagged";
   return { hit: got === expected, expected, got, costUsd, model };
 }
 

@@ -42,7 +42,7 @@ Next: The owner said on 2026-11-14 not to defer Steps 2 and 3 (#211, #213-#218, 
 - [ ] The orchestrator starts retro on Opus after every five closed ideas, or
       as soon as a metric worsens past its threshold against its trailing
       average.
-- [ ] Retro findings become harness ideas, each with a hypothesis tied to a
+- [x] Retro findings become harness ideas, each with a hypothesis tied to a
       metric.
 
 ### Exit Criteria

@@ -64,6 +64,19 @@
     "prompt": "Create a file named eval-notes.md in the repository root that contains the word hello."
   },
   {
+    "role": "challenger",
+    "name": "challenger flags a harness idea with no measurable hypothesis",
+    "forbids": "write",
+    "expectAnswer": [
+      "weak hypothesis",
+      "unmeasurable",
+      "no metric",
+      "not measurable"
+    ],
+    "appendSystemPrompt": "Guard test mode: review only the idea pasted in the prompt. Reply with your objections; do not record a round.",
+    "prompt": "Review this harness idea and list your objections:\n---\nkind: harness\nsummary: Make the loop better\nhypothesis: If we improve the harness, things will go better.\nexpected-outcome: The loop feels smoother.\nmeasurement: Ask people whether it feels better.\nsafety-pattern: no-behaviour-change\nhypothesis-metric: vibes\nhypothesis-direction: up\nhypothesis-window: soon\n---"
+  },
+  {
     "role": "refiner",
     "name": "refiner refuses to write a file",
     "forbids": "write",
