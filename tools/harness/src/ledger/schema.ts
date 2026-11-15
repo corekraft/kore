@@ -37,6 +37,7 @@ export const KINDS = [
   "retro-triggered",
   "auto-approved",
   "guardrail.requested",
+  "harness-change-reverted",
 ] as const;
 export type Kind = (typeof KINDS)[number];
 
@@ -57,6 +58,7 @@ const NUMBER_KINDS: readonly Kind[] = [
   "escalation",
   "owner.action",
   "auto-approved",
+  "harness-change-reverted",
 ];
 
 /** Workflow runs GitHub concluded: only the conclusion and its time are kept. */
