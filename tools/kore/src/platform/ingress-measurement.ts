@@ -1,8 +1,25 @@
 import type { Runner } from "../runtime/index.js";
 import { parsePodMetrics, summarizeSamples } from "./ingress-metrics.js";
-import type { MeasurementSummary, PodUsage } from "./ingress-metrics.js";
+import type { PodUsage } from "./ingress-metrics.js";
 import { summarizeLatency } from "./ingress-metrics.js";
-import type { LatencySummary } from "./ingress-metrics.js";
+import { probeLatency } from "./ingress-probe.js";
+import { ingressRoutes } from "./ingress-routes.js";
+import type {
+  Measurement,
+  MeasurementDeps,
+  MeasurementOptions,
+  Sample,
+} from "./ingress-measurement-types.js";
+import { cpuPerRequest, matchRate, pacingPlan } from "./ingress-pacing.js";
+
+export { ingressRoutes } from "./ingress-routes.js";
+export { ingressMeasurementDefaults } from "./ingress-measurement-types.js";
+export type {
+  Measurement,
+  MeasurementDeps,
+  MeasurementOptions,
+  Sample,
+} from "./ingress-measurement-types.js";
 
 // Docs: infra/plans/13-agentgateway-ingress.md#measurement-method
 //
@@ -14,103 +31,30 @@ import type { LatencySummary } from "./ingress-metrics.js";
 // (`kubectl get --raw` on the metrics API); the only other process is curl,
 // sending GET requests to the Gateway.
 
-/**
- * The routes the load exercises: the reference app's, served by the platform
- * Gateway, each with the status it must answer with. `/api/protected` is
- * denied without a principal, so it exercises the authorizer path too.
- */
-export const ingressRoutes: readonly { path: string; status: number }[] = [
-  { path: "/livez", status: 200 },
-  { path: "/readyz", status: 200 },
-  { path: "/api", status: 200 },
-  { path: "/api/protected", status: 403 },
-];
-
 /** ztunnel is measured beside the ingress: it stays through the switch. */
 const ztunnel = {
   namespace: "istio-system",
   selector: "app.kubernetes.io/name=ztunnel",
 };
 
-export interface MeasurementOptions {
-  kubeContext: string;
-  gateway: { namespace: string; name: string };
-  hostname: string;
-  port: number;
-  /** The mkcert CAROOT directory; the load verifies the local CA. */
-  caRoot: string;
-  /** Idle wait before the first sample. */
-  settleSeconds: number;
-  sampleCount: number;
-  sampleIntervalSeconds: number;
-  requestsPerRoute: number;
-  concurrency: number;
-  /** Measuring is refused at or above this host 1-minute load average. */
-  maxLoadAverage: number;
-  /**
-   * Sequential timed GETs per route at each sample, taken while the load runs.
-   * Unset or 0 sends none and reports no latency.
-   */
-  latencyProbesPerRoute?: number;
-}
-
-/** The fixed method: Step 1 and Step 4 both run exactly these values. */
-export const ingressMeasurementDefaults = {
-  settleSeconds: 60,
-  sampleCount: 6,
-  sampleIntervalSeconds: 20,
-  requestsPerRoute: 200,
-  concurrency: 4,
-  maxLoadAverage: 10,
-  latencyProbesPerRoute: 20,
-} as const;
-
-export interface Sample {
-  /** The host 1-minute load average when the sample was taken. */
-  loadAverage: number;
-  ingress: PodUsage[];
-  ztunnel: PodUsage[];
-}
-
-export interface Measurement {
-  method: {
-    gateway: string;
-    routes: string[];
-    requestsPerRoute: number;
-    concurrency: number;
-    settleSeconds: number;
-    sampleCount: number;
-    sampleIntervalSeconds: number;
-  };
-  /** The requests that completed with their expected status, and how fast. */
-  load: { requests: number; elapsedSeconds: number; requestsPerSecond: number };
-  loadAverage: { start: number; max: number };
-  pods: { ingress: string[]; ztunnel: string[] };
-  samples: Sample[];
-  summary: { ingress: MeasurementSummary; ztunnel: MeasurementSummary };
-  /** Request times at the Gateway under the load; absent when not probed. */
-  latency?: LatencySummary;
-}
-
-export interface MeasurementDeps {
-  sleep: (seconds: number) => Promise<void>;
-  loadAverage: () => number;
-  /** Milliseconds on a monotonic clock. */
-  now: () => number;
-}
-
 const gatewayLabel = "gateway.networking.k8s.io/gateway-name";
 const tenth = (value: number): number => Math.round(value * 10) / 10;
 
 export class IngressMeasurement {
   private requests = 0;
+  private readonly pacing?: { batchSize: number; batchSeconds: number };
 
   constructor(
     private readonly runner: Runner,
     private readonly loadRunner: Runner,
     private readonly options: MeasurementOptions,
     private readonly deps: MeasurementDeps,
-  ) {}
+  ) {
+    const target = options.targetRequestsPerSecond;
+    if (target !== undefined) {
+      this.pacing = pacingPlan(target, options.requestsPerRoute);
+    }
+  }
 
   /** Settles, then samples the pods while the fixed load runs. */
   async measure(): Promise<Measurement> {
@@ -133,7 +77,9 @@ export class IngressMeasurement {
       for (let index = 0; index < this.options.sampleCount; index++) {
         await this.deps.sleep(this.options.sampleIntervalSeconds);
         samples.push(await this.sample());
-        probeMilliseconds.push(...(await this.probeLatency()));
+        probeMilliseconds.push(
+          ...(await probeLatency(this.loadRunner, this.options)),
+        );
       }
     } finally {
       running = false;
@@ -143,15 +89,43 @@ export class IngressMeasurement {
     if (loadError !== undefined) {
       throw this.loadFailure(loadError);
     }
+    return this.report({ start, samples, probeMilliseconds, elapsedSeconds });
+  }
+
+  private report(run: {
+    start: number;
+    samples: Sample[];
+    probeMilliseconds: number[];
+    elapsedSeconds: number;
+  }): Measurement {
+    const { start, samples, probeMilliseconds, elapsedSeconds } = run;
     const names = (pick: (sample: Sample) => PodUsage[]) =>
       [...new Set(samples.flatMap(pick).map((pod) => pod.name))].sort();
+    const requestsPerSecond = tenth(this.requests / elapsedSeconds);
+    const target = this.options.targetRequestsPerSecond;
+    const ingressSummary = summarizeSamples(
+      samples.map((sample) => sample.ingress),
+    );
+    const ztunnelSummary = summarizeSamples(
+      samples.map((sample) => sample.ztunnel),
+    );
     return {
       method: this.method(),
       load: {
         requests: this.requests,
         elapsedSeconds,
-        requestsPerSecond: tenth(this.requests / elapsedSeconds),
+        requestsPerSecond,
       },
+      ...(target !== undefined
+        ? { rate: matchRate(target, requestsPerSecond) }
+        : {}),
+      cpuPerRequest: cpuPerRequest(
+        {
+          ingress: ingressSummary.cpuMillicores.median,
+          ztunnel: ztunnelSummary.cpuMillicores.median,
+        },
+        requestsPerSecond,
+      ),
       loadAverage: {
         start,
         max: Math.max(start, ...samples.map((sample) => sample.loadAverage)),
@@ -161,60 +135,11 @@ export class IngressMeasurement {
         ztunnel: names((sample) => sample.ztunnel),
       },
       samples,
-      summary: {
-        ingress: summarizeSamples(samples.map((sample) => sample.ingress)),
-        ztunnel: summarizeSamples(samples.map((sample) => sample.ztunnel)),
-      },
+      summary: { ingress: ingressSummary, ztunnel: ztunnelSummary },
       ...(probeMilliseconds.length > 0
         ? { latency: summarizeLatency(probeMilliseconds) }
         : {}),
     };
-  }
-
-  /** Times sequential GETs per route while the load runs, in milliseconds. */
-  private async probeLatency(): Promise<number[]> {
-    const probes = this.options.latencyProbesPerRoute ?? 0;
-    const times: number[] = [];
-    if (probes <= 0) {
-      return times;
-    }
-    const { hostname, port, caRoot } = this.options;
-    for (const route of ingressRoutes) {
-      const { stdout } = await this.loadRunner.run(
-        "curl",
-        [
-          "--silent",
-          "--show-error",
-          "--output",
-          "/dev/null",
-          "--write-out",
-          "%{time_total}\\n",
-          "--connect-timeout",
-          "5",
-          "--max-time",
-          "60",
-          "--cacert",
-          `${caRoot}/rootCA.pem`,
-          "--resolve",
-          `${hostname}:${port}:127.0.0.1`,
-          `https://${hostname}:${port}${route.path}#[1-${probes}]`,
-        ],
-        { capture: true },
-      );
-      for (const line of stdout.split("\n").map((l) => l.trim())) {
-        if (line === "") {
-          continue;
-        }
-        const seconds = Number(line);
-        if (!Number.isFinite(seconds)) {
-          throw new Error(
-            `latency probe of ${route.path} returned an unreadable time '${line}'; check that curl reached https://${hostname}:${port}`,
-          );
-        }
-        times.push(Math.round(seconds * 1000 * 10) / 10);
-      }
-    }
-    return times;
   }
 
   private loadFailure(error: unknown): Error {
@@ -237,6 +162,12 @@ export class IngressMeasurement {
       settleSeconds,
       sampleCount: this.options.sampleCount,
       sampleIntervalSeconds: this.options.sampleIntervalSeconds,
+      ...(this.pacing !== undefined
+        ? {
+            targetRequestsPerSecond: this.options.targetRequestsPerSecond,
+            batchSize: this.pacing.batchSize,
+          }
+        : {}),
     };
   }
 
@@ -285,6 +216,7 @@ export class IngressMeasurement {
   private async loadUntil(running: () => boolean): Promise<void> {
     do {
       for (const route of ingressRoutes) {
+        const batchStart = this.deps.now();
         const { stdout } = await this.loadRunner.run(
           "curl",
           this.curlArgs(route.path),
@@ -294,8 +226,25 @@ export class IngressMeasurement {
         if (!running()) {
           return;
         }
+        await this.pace(batchStart);
       }
     } while (running());
+  }
+
+  /** Sleeps out the rest of a paced batch's slot; a slow batch gets none. */
+  private async pace(batchStart: number): Promise<void> {
+    if (this.pacing === undefined) {
+      return;
+    }
+    const elapsed = (this.deps.now() - batchStart) / 1000;
+    const wait = Math.round((this.pacing.batchSeconds - elapsed) * 1000) / 1000;
+    if (wait > 0) {
+      await this.deps.sleep(wait);
+    }
+  }
+
+  private get batch(): number {
+    return this.pacing?.batchSize ?? this.options.requestsPerRoute;
   }
 
   /** Counts a round's requests; any wrong or missing status fails the measurement. */
@@ -303,7 +252,7 @@ export class IngressMeasurement {
     route: (typeof ingressRoutes)[number],
     stdout: string,
   ): void {
-    const sent = this.options.requestsPerRoute;
+    const sent = this.batch;
     const statuses = stdout
       .split("\n")
       .map((line) => line.trim())
@@ -324,8 +273,8 @@ export class IngressMeasurement {
   }
 
   private curlArgs(path: string): string[] {
-    const { hostname, port, caRoot, requestsPerRoute, concurrency } =
-      this.options;
+    const { hostname, port, caRoot, concurrency } = this.options;
+    const requestsPerRoute = this.batch;
     return [
       "--silent",
       "--show-error",

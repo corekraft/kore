@@ -8,12 +8,18 @@ import {
   IngressMeasurement,
   ingressMeasurementDefaults,
 } from "./ingress-measurement.js";
+import { parseTargetRate, targetRateVariable } from "./ingress-pacing.js";
 
 // Docs: infra/plans/13-agentgateway-ingress.md#measurement-method
 // Live: needs a running k3d cluster. Read-only against the cluster (metrics
 // API reads) plus the fixed request load to the Gateway; it changes no
 // resource. Prints the measurement as JSON for the plan's Results section.
 // Run with KORE_RUN_LIVE=1 (`npm run test:live:ingress-measure`).
+// Set KORE_INGRESS_TARGET_RPS=<requests per second> for a paced, matched-load
+// run: the result then carries `rate` (target, achieved, `matched` or
+// `rate_mismatch`) and the test fails on a mismatch, because a run whose
+// achieved rate is not within 10 percent of the target is not comparable.
+// Unset keeps the closed-loop load. Use the same target for both gateways.
 
 const live = {
   concurrency: false,
@@ -30,12 +36,14 @@ test(
   async () => {
     const repository = await loadRepository(liveEnvironment());
     const { gateway, kubeContext } = repository.environment;
+    const target = parseTargetRate(process.env[targetRateVariable]);
     const runner = new ProcessRunner();
     const measurement = new IngressMeasurement(
       runner,
       runner,
       {
         ...ingressMeasurementDefaults,
+        ...(target === undefined ? {} : { targetRequestsPerSecond: target }),
         kubeContext,
         gateway: { namespace: gateway.namespace, name: gateway.name },
         hostname: gateway.hostname,
@@ -63,5 +71,12 @@ test(
     }
     assert.ok(result.latency !== undefined && result.latency.p95Ms > 0);
     console.log(JSON.stringify(result, null, 2));
+    if (result.rate !== undefined) {
+      assert.equal(
+        result.rate.status,
+        "matched",
+        `rate_mismatch: achieved ${result.rate.achievedRequestsPerSecond} req/s against a target of ${result.rate.targetRequestsPerSecond}; not usable as a matched comparison, rerun at a quieter host or a lower ${targetRateVariable}`,
+      );
+    }
   },
 );

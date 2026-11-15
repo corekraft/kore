@@ -15,6 +15,17 @@ vi.mock("./ingress-metrics.js", () => ({
   summarizeSamples: vi.fn(),
 }));
 
+// Pacing and cpu-per-request maths is its own unit (ingress-pacing.spec.ts).
+vi.mock("./ingress-pacing.js", () => ({
+  cpuPerRequest: vi.fn(() => ({})),
+  matchRate: vi.fn(),
+  pacingPlan: vi.fn(),
+}));
+
+vi.mock("./ingress-probe.js", () => ({
+  probeLatency: vi.fn(async () => []),
+}));
+
 const GATEWAY_JSON = "gateway-metrics";
 const ZTUNNEL_JSON = "ztunnel-metrics";
 const GATEWAY_POD = { name: "gw", cpuMillicores: 5, memoryMiB: 50 };
