@@ -70,6 +70,21 @@
         "reason": "The operator and its CRDs are declared in the repository and pinned by digest. The operator holds no Keycloak data. The future platform Keycloak must claim its database through the platform PostgreSQL API (covered by retained-postgresql) and gets its own objective when it is installed."
       },
       {
+        "name": "keycloak-data",
+        "components": ["kore-platform-keycloak"],
+        "data": "The platform Keycloak's realm, groups and users, in the PostgreSQL database it claims with retentionPolicy Retain (behind platform-portal)",
+        "environment": "local",
+        "protection": "data-export",
+        "schedule":
+          {
+            "kind": "on-demand",
+            "trigger": "kore data export --environment local --namespace keycloak before kore local down --prune, kore cluster destroy, or any upgrade; there is no local scheduler (ADR 0029)"
+          },
+        "rpoMinutes": 1440,
+        "rtoMinutes": 30,
+        "restoreTest": "tools/kore/src/ops/data-restore.live.spec.ts"
+      },
+      {
         "name": "managed-postgresql",
         "components": ["kore-postgresql-api", "cloudnative-pg"],
         "data": "PostgreSQL databases on a managed cluster",

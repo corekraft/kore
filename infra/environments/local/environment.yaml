@@ -51,6 +51,8 @@
     {
       "kore-platform-apis":
         ["infra/environments/local/values/platform-apis.yaml"],
+      "kore-platform-keycloak":
+        ["infra/environments/local/values/platform-keycloak.yaml"],
       "istio-cni": ["infra/environments/local/values/istio-cni.yaml"],
       "prometheus": ["infra/environments/local/values/prometheus.yaml"],
       "loki": ["infra/environments/local/values/loki.yaml"],
