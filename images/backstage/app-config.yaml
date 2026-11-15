@@ -1,0 +1,47 @@
+{
+  "app": { "baseUrl": "http://localhost:7007" },
+  "backend":
+    {
+      "baseUrl": "http://localhost:7007",
+      "listen": { "port": 7007, "host": "127.0.0.1" },
+      "database": { "client": "pg" }
+    },
+  "permission": { "enabled": true },
+  "auth":
+    {
+      "environment": "production",
+      "providers":
+        {
+          "oidc":
+            {
+              "production":
+                {
+                  "metadataUrl": "${OIDC_METADATA_URL}",
+                  "clientId": "${OIDC_CLIENT_ID}",
+                  "clientSecret": "${OIDC_CLIENT_SECRET}",
+                  "prompt": "auto"
+                }
+            }
+        }
+    },
+  "kubernetes":
+    {
+      "serviceLocatorMethod": { "type": "multiTenant" },
+      "clusterLocatorMethods":
+        [
+          {
+            "type": "config",
+            "clusters":
+              [
+                {
+                  "name": "platform",
+                  "url": "https://kubernetes.default.svc",
+                  "authProvider": "oidc",
+                  "oidcTokenProvider": "oidc",
+                  "skipTLSVerify": false
+                }
+              ]
+          }
+        ]
+    }
+}

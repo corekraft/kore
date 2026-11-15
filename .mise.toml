@@ -111,7 +111,7 @@ run = [
 
 [tasks.scan-vulns]
 description = "Scan npm lockfiles for known vulnerabilities with OSV-Scanner (queries the OSV API); add each new lockfile here"
-run = "osv-scanner scan source -L tools/kore/package-lock.json -L tools/harness/package-lock.json"
+run = "osv-scanner scan source -L tools/kore/package-lock.json -L tools/harness/package-lock.json -L images/backstage/package-lock.json"
 
 [tasks.scan-sast]
 description = "Run the committed Semgrep rules (infra/policies/semgrep) over source; offline, no telemetry; tests are not scanned"
@@ -131,7 +131,7 @@ run = ["actionlint .github/workflows/check.yml .github/workflows/nightly.yml .gi
 
 [tasks.scan-dockerfiles]
 description = "Lint Dockerfiles with hadolint"
-run = "hadolint apps/reference/Dockerfile templates/static-frontend/Dockerfile"
+run = "hadolint apps/reference/Dockerfile templates/static-frontend/Dockerfile images/backstage/Dockerfile"
 
 [tasks.scan]
 description = "Run every security and quality scan"

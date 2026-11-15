@@ -221,6 +221,48 @@ jobs:
           name: template-images.lock.json
           path: template-images.lock.json
           if-no-files-found: error
+      # The platform Backstage image (plan 15 step 6): the backend with the
+      # Keycloak OIDC module, the Kubernetes plugin and the catalog, signed by the
+      # same keyless identity. Published and recorded in its own lock only:
+      # nothing deploys it yet (the chart stays behind platform-portal), so it
+      # follows every earlier lock and cannot lose them.
+      - name: Build, push, sign and verify the Backstage image
+        env:
+          BACKSTAGE_IMAGE: ghcr.io/corekraft/kore/backstage
+        run: |
+          docker build --tag "$BACKSTAGE_IMAGE:$TAG" images/backstage
+          docker push "$BACKSTAGE_IMAGE:$TAG"
+          BACKSTAGE_DIGEST="$(docker inspect --format '{{ index .RepoDigests 0 }}' "$BACKSTAGE_IMAGE:$TAG")"
+          BACKSTAGE_DIGEST="${BACKSTAGE_DIGEST##*@}"
+          echo "BACKSTAGE_IMAGE=$BACKSTAGE_IMAGE" >> "$GITHUB_ENV"
+          echo "BACKSTAGE_DIGEST=$BACKSTAGE_DIGEST" >> "$GITHUB_ENV"
+          mise exec -- cosign sign --yes "${BACKSTAGE_IMAGE}@${BACKSTAGE_DIGEST}"
+          mise exec -- cosign verify \
+            --certificate-identity "$IDENTITY" \
+            --certificate-oidc-issuer "$ISSUER" \
+            "${BACKSTAGE_IMAGE}@${BACKSTAGE_DIGEST}"
+      - name: Write the Backstage image lock
+        run: |
+          jq -n --arg signer "$IDENTITY" \
+            --arg image "$BACKSTAGE_IMAGE" --arg digest "$BACKSTAGE_DIGEST" \
+            '{version: 1, authorizedSigners: [$signer], entries: {
+              backstage: {image: $image, digest: $digest, signer: $signer}}}' \
+            > backstage-image.lock.json
+          cat backstage-image.lock.json
+      - name: Verify every Backstage lock entry
+        run: |
+          set -euo pipefail
+          jq -r '.entries[] | "\(.image)@\(.digest)"' backstage-image.lock.json | while IFS= read -r ref; do
+            mise exec -- cosign verify \
+              --certificate-identity "$IDENTITY" \
+              --certificate-oidc-issuer "$ISSUER" \
+              "$ref" > /dev/null
+          done
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: backstage-image.lock.json
+          path: backstage-image.lock.json
+          if-no-files-found: error
 
   # Mirrors the approved platform images (infra/catalog/seeds.yaml and
   # approved-images.yaml, the owners of the digest pins) into the internal
@@ -392,6 +434,39 @@ jobs:
             echo "release $TAG already carries this lock"
           else
             gh release upload "$TAG" template-images.lock.json
+          fi
+
+  # Attaches the Backstage image lock to the GitHub release, as
+  # attach-template-lock does: from a job with only the scope to write release
+  # assets. A rerun may repeat an identical upload; a different lock never
+  # replaces a published one.
+  attach-backstage-lock:
+    needs: release
+    if: github.ref_type == 'tag'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: write
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      GH_REPO: ${{ github.repository }}
+      TAG: ${{ github.ref_name }}
+    steps:
+      - uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7.0.0
+        with:
+          name: backstage-image.lock.json
+      - name: Attach the Backstage lock to the release
+        run: |
+          set -euo pipefail
+          if gh release view "$TAG" --json assets --jq '.assets[].name' | grep -qx backstage-image.lock.json; then
+            gh release download "$TAG" --pattern backstage-image.lock.json --dir published
+            cmp published/backstage-image.lock.json backstage-image.lock.json || {
+              echo "release $TAG already has a different backstage-image.lock.json; refusing to replace it" >&2
+              exit 1
+            }
+            echo "release $TAG already carries this lock"
+          else
+            gh release upload "$TAG" backstage-image.lock.json
           fi
 
   # Packages the configuration-phase releases Argo CD takes over (ADR 0043) as
