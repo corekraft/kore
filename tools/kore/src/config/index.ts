@@ -69,6 +69,7 @@ export {
   localImageReuseFlag,
   organizationServiceApisFlag,
   platformArgocdDeliveryFlag,
+  platformPortalFlag,
   registryPruneFlag,
 } from "./features.js";
 export { chartDeliveryValues, chartRepositoryUrls } from "./chart-delivery.js";

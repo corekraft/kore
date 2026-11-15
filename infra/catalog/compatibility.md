@@ -30,6 +30,8 @@ on a live cluster.
 | Argo CD chart                    | 10.18.0                  | 2026-11-14 | `oci://ghcr.io/argoproj/argo-helm/argo-cd` (digest `sha256:b9e529e96ae02d215dd4a3d354a40f7f393f4a3379337114de5926f99b7ac52e`); cataloged as `argocd` (core, `argocd` namespace) behind feature `platform-argocd-delivery` (off); Dex and notifications disabled; owns `applications`, `applicationsets` and `appprojects` (`argoproj.io`); ready when the server, repo-server, ApplicationSet controller, Redis and application controller are up; not installed by any environment                           |
 | Argo CD image                    | v3.6.1                   | 2026-11-14 | `quay.io/argoproj/argocd` pinned by index digest, cosign keyless signature (workflow `image-reuse.yaml` at the tag) verified, mirrored by name in `managed-example`                                                                                                                                                                                                                                                                                                                                           |
 | Argo CD Redis image              | 8.6.4-alpine             | 2026-11-14 | `ecr-public.aws.com/docker/library/redis` pinned by index digest, unsigned upstream (recorded as such), mirrored as `argocd-redis` in `managed-example`                                                                                                                                                                                                                                                                                                                                                       |
+| Keycloak operator and server     | 26.8.2                   | 2026-11-14 | `quay.io/keycloak/keycloak-operator` and `quay.io/keycloak/keycloak` pinned by index digest (see note), unsigned upstream; not yet installed                                                                                                                                                                                                                                                                                                                                                                  |
+| Crossplane Keycloak provider     | v3.2.3                   | 2026-11-14 | `xpkg.upbound.io/crossplane-contrib/provider-keycloak` pinned by digest (see note), Apache-2.0, namespaced `keycloak.m.crossplane.io` APIs for Crossplane 2.4.3, unsigned upstream; accepted for the realm and groups, not yet installed                                                                                                                                                                                                                                                                      |
 | Crossplane                       | 2.4.3                    | 2026-11-07 | Namespaced v2 composite resources; patch release                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
 | function-go-templating           | v0.13.2                  | 2026-11-07 | Composition pipeline function for `infra/apis/postgresql`, installed by `kore-crossplane-functions`                                                                                                                                                                                                                                                                                                                                                                                                           |
 | function-auto-ready              | v0.7.3                   | 2026-11-07 | Composition pipeline function for `infra/apis/postgresql`, installed by `kore-crossplane-functions`                                                                                                                                                                                                                                                                                                                                                                                                           |
@@ -128,6 +130,31 @@ bundled k3s metrics-server must be disabled in the cluster lifecycle before the
 flag turns on, so one tool owns the `v1beta1.metrics.k8s.io` APIService;
 `kore local up` with the flag on is owed a live run, which also proves the
 chart against Kubernetes 1.37 and Gatekeeper admission.
+
+Keycloak 26.8.2 and the Crossplane Keycloak provider v3.2.3 (resolved
+2026-11-14) are pinned but not installed: the `platform-portal` flag is off in
+`local` and `managed-example`, and no component carries it yet (ADR 0113, plan 15
+Step 6). Provider evaluation, done first as ADR 0040 requires:
+`crossplane-contrib/provider-keycloak` is Apache-2.0, released v3.2.3 on
+2026-10-19 with commits in the week of resolution, and ships the namespaced
+`*.keycloak.m.crossplane.io` APIs (`Group`, `Realm`, `DefaultGroups`) that
+Crossplane 2 composes, so the `Organization` API can own the realm and its
+groups as ADR 0113 requires. Accepted, with two known costs: the package carries
+no cosign signature, so it is recorded unsigned like the Crossplane functions,
+and it wraps the Terraform Keycloak provider, so each managed resource runs
+Terraform inside the provider pod. Not yet checked: that it reconciles against
+Keycloak 26.8.2 and that its `ProviderConfig` can take the admin credential from
+a Secret the platform streams (ADR 0034); both are owed to the live run. The
+operator ships as raw manifests, not a chart: upstream's kustomization sets the
+`keycloak` namespace, its CRDs total about 950 KB, and its image is a tag, so
+installing it by digest needs a decision recorded with that install. Digests,
+resolved with `crane digest` and entered in `approved-images.yaml` when the
+install lands, because that file names an existing component:
+`keycloak-operator:26.8.2` `sha256:df890db951b595fe46f3f985301a38b76fcfcc264f06201c54dfaf28adeba19e`,
+`keycloak:26.8.2` `sha256:c68e286cacd87b942ac1939a0a1481461109d6acd3a57dc496969a319a76bbf0`,
+`provider-keycloak:v3.2.3` `sha256:6c0daf86db540e8d20ebec9e4a981389275a2910eabd17a707945133a7d741ac`.
+None has a cosign signature (`cosign verify`: no signatures found). The admin
+credential never enters git.
 
 Argo CD chart 10.18.0 (app v3.6.1, resolved 2026-11-14) is cataloged and pinned
 but not installed: `argocd` carries `featureFlag: platform-argocd-delivery`, off in
