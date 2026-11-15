@@ -166,6 +166,7 @@ jobs:
           docker push "$TEMPLATE_IMAGE:$TAG"
           TEMPLATE_DIGEST="$(docker inspect --format '{{ index .RepoDigests 0 }}' "$TEMPLATE_IMAGE:$TAG")"
           TEMPLATE_DIGEST="${TEMPLATE_DIGEST##*@}"
+          echo "TEMPLATE_IMAGE=$TEMPLATE_IMAGE" >> "$GITHUB_ENV"
           echo "TEMPLATE_DIGEST=$TEMPLATE_DIGEST" >> "$GITHUB_ENV"
           mise exec -- cosign sign --yes "${TEMPLATE_IMAGE}@${TEMPLATE_DIGEST}"
           mise exec -- cosign verify \
@@ -186,6 +187,7 @@ jobs:
           java -version 2>&1 | grep -q '"21\.' || { echo "Gradle needs JDK 21, runner has another" >&2; exit 1; }
           mise exec -- gradle --no-daemon jib --image="$BFF_TEMPLATE_IMAGE:$TAG"
           BFF_TEMPLATE_DIGEST="$(cat build/jib-image.digest)"
+          echo "BFF_TEMPLATE_IMAGE=$BFF_TEMPLATE_IMAGE" >> "$GITHUB_ENV"
           echo "BFF_TEMPLATE_DIGEST=$BFF_TEMPLATE_DIGEST" >> "$GITHUB_ENV"
           mise exec -- cosign sign --yes "${BFF_TEMPLATE_IMAGE}@${BFF_TEMPLATE_DIGEST}"
           mise exec -- cosign verify \
@@ -197,6 +199,12 @@ jobs:
       # written only after both template images are signed.
       - name: Write the template image lock
         run: |
+          # Step-level env does not carry over, so stop on an empty value
+          # rather than write a lock entry that names no image.
+          : "${TEMPLATE_IMAGE:?the static frontend image name is empty}"
+          : "${TEMPLATE_DIGEST:?the static frontend digest is empty}"
+          : "${BFF_TEMPLATE_IMAGE:?the Kotlin BFF image name is empty}"
+          : "${BFF_TEMPLATE_DIGEST:?the Kotlin BFF digest is empty}"
           jq -n --arg signer "$IDENTITY" \
             --arg frontend "$TEMPLATE_IMAGE" --arg frontendDigest "$TEMPLATE_DIGEST" \
             --arg bff "$BFF_TEMPLATE_IMAGE" --arg bffDigest "$BFF_TEMPLATE_DIGEST" \
