@@ -25,9 +25,19 @@ export function healthyGatewayOutput(
     : undefined;
 }
 
+/** No Application yet: Argo CD's list answer on a cluster where it is healthy. */
+export function healthyApplicationOutput(
+  args: readonly string[],
+): string | undefined {
+  return args.includes("applications.argoproj.io")
+    ? JSON.stringify({ items: [] })
+    : undefined;
+}
+
 /** What a healthy cluster answers to any read-only readiness check, if args are one. */
 export function healthyClusterOutput(args: readonly string[]): string {
   return (
+    healthyApplicationOutput(args) ??
     healthyGatewayOutput(args) ??
     healthyDaemonSetOutput(args) ??
     healthyWebhookOutput(args) ??

@@ -1,7 +1,7 @@
 import type { Component, Repository } from "../config/index.js";
 import type { Runner } from "../runtime/index.js";
 import { errorMessage } from "./probe.js";
-import { gatewayCheck } from "./readiness-gateway.js";
+import { customCheck } from "./readiness-custom.js";
 import { assertIssuerReady, trustRemedy } from "./readiness-issuer.js";
 import {
   NOT_YET_THERE,
@@ -200,9 +200,9 @@ function checkFor(context: Context, resource: string): Check {
   if (WEBHOOK_CONFIGURATION.test(resource)) {
     return webhookCheck(context, resource);
   }
-  const network = gatewayCheck(context, resource);
-  if (network) {
-    return network;
+  const custom = customCheck(context, resource);
+  if (custom) {
+    return custom;
   }
   if (
     GATEKEEPER_OBJECT.test(resource) ||
