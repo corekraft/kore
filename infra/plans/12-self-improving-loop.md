@@ -28,6 +28,14 @@ weaken its own guardrails
 
 - Each metric has a trailing average and is visible in `flow report --json`.
 
+> **Baseline shift (2026-11-15).** From the change for
+> [#745](https://github.com/corekraft/kore/issues/745), `orchestrate run` runs
+> the precheck before any judge pane and sends a failing change back itself,
+> recorded as the judge `send-back` event, once per PR head. So judge
+> send-backs per idea (`rework.sendBacksPerIdea`) include precheck failures from
+> 2026-11-15; ledger events before that date are judge send-backs only. Compare
+> windows that straddle the date with that in mind.
+
 ## Step 2: Automatic Retro
 
 Next: First run the #225 closed-loop live proof, then #325 notify live proof. Then record an outcome for each of automatic-retro ([#715](https://github.com/corekraft/kore/pull/715)), automatic-approval ([#718](https://github.com/corekraft/kore/pull/718)) and automatic-revert ([#720](https://github.com/corekraft/kore/pull/720)), and only then run harness flag activate for each (owner's call). Merged: Step 1 metrics ([#708](https://github.com/corekraft/kore/pull/708), [#711](https://github.com/corekraft/kore/pull/711)); retro due, Opus retro pane, harness ideas ([#712](https://github.com/corekraft/kore/pull/712), [#716](https://github.com/corekraft/kore/pull/716)); evaluate and tier measurement ([#719](https://github.com/corekraft/kore/pull/719), [#722](https://github.com/corekraft/kore/pull/722)); judge and merge gate audit mode ([#713](https://github.com/corekraft/kore/pull/713), [#714](https://github.com/corekraft/kore/pull/714)); guardrail request and activate ([#717](https://github.com/corekraft/kore/pull/717), [#721](https://github.com/corekraft/kore/pull/721)). Step 4's land-in-audit box stays open until the owner decides whether #721's mechanism (a new rule must start in audit; judge-guardrail-activation is still in audit) satisfies it; enforcing that rule later goes through guardrail request and guardrail activate with a person's approval. Full state: #366.

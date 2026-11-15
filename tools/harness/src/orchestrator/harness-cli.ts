@@ -6,8 +6,10 @@ import type {
   Harness,
   Launch,
   Measured,
+  PrecheckVerdict,
   SendBackTier,
 } from "./idea-run.js";
+import { sendBackReason, type PrecheckReport } from "./precheck-reason.js";
 
 export class HarnessCliError extends Error {}
 
@@ -81,6 +83,39 @@ export class HarnessCli implements Harness {
     return newest === undefined
       ? { merged: false }
       : { pr: newest.number, merged: newest.mergedAt !== null };
+  }
+
+  /**
+   * `judge precheck --json`: read-only. It exits 1 on a report that is not ready,
+   * so the report is read whatever the code; no report means the precheck itself failed.
+   */
+  async precheck(pr: number): Promise<PrecheckVerdict> {
+    const done = await this.runner.run(
+      "node",
+      [HARNESS, "judge", "precheck", String(pr), "--json"],
+      { cwd: this.root },
+    );
+    let report: PrecheckReport;
+    try {
+      report = JSON.parse(done.stdout) as PrecheckReport;
+    } catch {
+      this.check(`harness judge precheck ${pr}`, {
+        ...done,
+        code: done.code || 1,
+      });
+      throw new HarnessCliError(
+        "A harness tool printed unreadable output; rerun the command.",
+      );
+    }
+    const reason = sendBackReason(report);
+    return reason === undefined
+      ? { sendBack: false }
+      : { sendBack: true, reason };
+  }
+
+  /** `judge send-back`: comments the reason on the PR and records the event with the PR head in its label. */
+  async sendBack(pr: number, reason: string): Promise<void> {
+    await this.harness("judge", "send-back", String(pr), "--reason", reason);
   }
 
   async sendBacks(pr: number): Promise<SendBackTier> {

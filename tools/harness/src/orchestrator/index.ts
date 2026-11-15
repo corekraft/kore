@@ -6,6 +6,7 @@ export {
   type Harness,
   type Launch,
   type Measured,
+  type PrecheckVerdict,
   type RunResult,
   type RunStatus,
   type SendBackTier,
