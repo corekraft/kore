@@ -23,7 +23,7 @@ beforeEach(() => {
 test("missing sign-in Secrets reach the cluster only on kubectl's stdin, in the configured context", async () => {
   const { runner, run } = fakeRunner();
   await expect(ensureBackstageOidc(repository, runner)).resolves.toBe(true);
-  const [command, args, options] = run.mock.calls[1]!;
+  const [command, args, options] = run.mock.calls[2]!;
   expect([command, args]).toEqual([
     "kubectl",
     [
@@ -49,23 +49,26 @@ test("missing sign-in Secrets reach the cluster only on kubectl's stdin, in the 
         type: "Opaque",
         stringData: { "client-secret": secret, "cookie-secret": secret },
       },
-      {
-        apiVersion: "v1",
-        kind: "Secret",
-        metadata: { name: "backstage-oidc", namespace: "keycloak" },
-        type: "Opaque",
-        stringData: { "client-secret": secret },
-      },
     ],
   });
+  expect(JSON.parse(run.mock.calls[1]![2]!.input!).items).toEqual([
+    {
+      apiVersion: "v1",
+      kind: "Secret",
+      metadata: { name: "backstage-oidc", namespace: "keycloak" },
+      type: "Opaque",
+      stringData: { "client-secret": secret },
+    },
+  ]);
 });
 
 test("the client secret is the same in both namespaces, so Keycloak and the proxy agree", async () => {
   const { runner, run } = fakeRunner();
   await ensureBackstageOidc(repository, runner);
-  const items = JSON.parse(run.mock.calls[1]![2]!.input!).items;
-  expect(items[1].stringData["client-secret"]).toBe(
-    items[2].stringData["client-secret"],
+  const keycloak = JSON.parse(run.mock.calls[1]![2]!.input!).items[0];
+  const backstage = JSON.parse(run.mock.calls[2]![2]!.input!).items[1];
+  expect(backstage.stringData["client-secret"]).toBe(
+    keycloak.stringData["client-secret"],
   );
   expect(randomBytes).toHaveBeenCalledTimes(2);
 });
@@ -109,4 +112,30 @@ test("each secret carries 192 random bits, so none can be guessed", async () => 
   const { runner } = fakeRunner();
   await ensureBackstageOidc(repository, runner);
   expect(randomBytes).toHaveBeenCalledWith(24);
+});
+
+test("a rerun after the keycloak Secret landed but the backstage one did not writes both again, so the client never lacks its secret", async () => {
+  const { runner, run } = fakeRunner();
+  run.mockImplementationOnce(async () => ({ stdout: "", stderr: "" }) as never);
+  run.mockImplementationOnce(async () => ({ stdout: "", stderr: "" }) as never);
+  run.mockRejectedValueOnce(new Error("apply failed"));
+  await expect(ensureBackstageOidc(repository, runner)).rejects.toThrow(
+    "apply failed",
+  );
+  const calls = run.mock.calls.length;
+  run.mockReset();
+  run.mockResolvedValue({ stdout: "", stderr: "" } as never);
+  await expect(ensureBackstageOidc(repository, runner)).resolves.toBe(true);
+  expect(run).toHaveBeenCalledTimes(3);
+  expect(calls).toBe(3);
+});
+
+test("a failed keycloak apply stops before the backstage Secret is written, so the done-check stays open", async () => {
+  const { runner, run } = fakeRunner();
+  run.mockResolvedValueOnce({ stdout: "", stderr: "" } as never);
+  run.mockRejectedValueOnce(new Error("keycloak apply failed"));
+  await expect(ensureBackstageOidc(repository, runner)).rejects.toThrow(
+    "keycloak apply failed",
+  );
+  expect(run).toHaveBeenCalledTimes(2);
 });
