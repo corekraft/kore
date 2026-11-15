@@ -1,4 +1,4 @@
-import { beforeEach, expect, test, vi } from "vitest";
+import { afterEach, beforeEach, expect, test, vi } from "vitest";
 import { gatewayClassName } from "../config/index.js";
 import { releaseGatewayClassChange } from "./gateway-class-change.js";
 import {
@@ -28,6 +28,7 @@ const deletes = (run: ReturnType<typeof fakeRunner>["run"]) =>
   run.mock.calls.filter(([, args]) => args.includes("delete"));
 
 beforeEach(() => {
+  vi.spyOn(process.stderr, "write").mockReturnValue(true);
   vi.mocked(gatewayClassName).mockReturnValue("agentgateway");
   vi.mocked(pollUntil).mockImplementation(async (_timeout, probe) => {
     const reason = await probe();
@@ -35,6 +36,10 @@ beforeEach(() => {
       throw new Error(reason);
     }
   });
+});
+
+afterEach(() => {
+  vi.restoreAllMocks();
 });
 
 test("a Gateway in the old class is deleted, and only the Gateway", async () => {
@@ -120,7 +125,7 @@ test("a timeout names the Gateway and the leftover resource", async () => {
   await expect(
     releaseGatewayClassChange(repository, runner, config),
   ).rejects.toThrow(
-    "Gateway kore-gateway changed class from istio to agentgateway but deployment/kore-gateway-istio still exists in kore-system; Kubernetes has not garbage-collected the old proxy. Check it with: kubectl --context k3d-kore-local --namespace kore-system get deployment,service",
+    "Gateway kore-gateway is being handed to agentgateway but deployment/kore-gateway-istio still exists in kore-system; Kubernetes has not garbage-collected the old proxy. Check it with: kubectl --context k3d-kore-local --namespace kore-system get deployment,service",
   );
 });
 
@@ -130,6 +135,49 @@ test("the wait covers the Gateway itself, bounded by the component timeout", asy
     releaseGatewayClassChange(repository, runner, config),
   ).rejects.toThrow(/but gateway\/kore-gateway still exists/);
   expect(pollUntil).toHaveBeenCalledWith("10m", expect.any(Function));
+});
+
+test("a Gateway absent while the old proxy remains waits for the proxy, deleting nothing", async () => {
+  const { runner, run } = cluster("", "deployment/kore-gateway-istio");
+  await expect(
+    releaseGatewayClassChange(repository, runner, config),
+  ).rejects.toThrow(
+    "Gateway kore-gateway is being handed to agentgateway but deployment/kore-gateway-istio still exists in kore-system; Kubernetes has not garbage-collected the old proxy. Check it with: kubectl --context k3d-kore-local --namespace kore-system get deployment,service",
+  );
+  expect(deletes(run)).toEqual([]);
+});
+
+test("a fresh profile with no Gateway and no proxy waits for nothing", async () => {
+  const { runner } = cluster("");
+  await releaseGatewayClassChange(repository, runner, config);
+  expect(pollUntil).toHaveBeenCalledTimes(1);
+});
+
+test("the deletion is announced once, before it happens, with the brief ingress outage", async () => {
+  const write = vi.mocked(process.stderr.write);
+  write.mockClear();
+  const { runner, run } = cluster("istio");
+  write.mockImplementation(() => {
+    expect(deletes(run)).toEqual([]);
+    return true;
+  });
+  await releaseGatewayClassChange(repository, runner, config);
+  expect(write.mock.calls).toEqual([
+    [
+      "gateway/kore-gateway is being deleted and recreated for the class change from istio to agentgateway; ingress has a brief outage\n",
+    ],
+  ]);
+});
+
+test("nothing is announced when no class change happens", async () => {
+  const write = vi.mocked(process.stderr.write);
+  write.mockClear();
+  await releaseGatewayClassChange(
+    repository,
+    cluster("agentgateway").runner,
+    config,
+  );
+  expect(write).not.toHaveBeenCalled();
 });
 
 test("any other component is left alone and no cluster call is made", async () => {

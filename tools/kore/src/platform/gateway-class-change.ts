@@ -42,7 +42,7 @@ async function names(
  * collection removes the old proxy through its ownerReference), waits until it
  * and the old proxy are gone, and lets the Helm upgrade that follows recreate
  * it in the new class. The Gateway is briefly absent, so ingress has a short
- * outage. A matching class or an absent Gateway (a fresh profile) is a no-op.
+ * outage. A matching class is a no-op; an absent Gateway (a fresh profile) is a no-op unless an old proxy remains from an interrupted change, which it waits out.
  */
 export async function releaseGatewayClassChange(
   repository: Repository,
@@ -72,19 +72,26 @@ export async function releaseGatewayClassChange(
     { capture: true },
   );
   const current = stdout.trim();
-  if (current === "" || current === desired) {
+  if (current === desired) {
     return;
   }
-  await runner.run(
-    "kubectl",
-    [...base, "delete", GATEWAY, "--ignore-not-found"],
-    { capture: true },
-  );
+  // An absent Gateway may follow a delete whose wait timed out: the old proxy
+  // must still be gone before Helm recreates the Gateway.
+  if (current !== "") {
+    process.stderr.write(
+      `${GATEWAY} is being deleted and recreated for the class change from ${current} to ${desired}; ingress has a brief outage\n`,
+    );
+    await runner.run(
+      "kubectl",
+      [...base, "delete", GATEWAY, "--ignore-not-found"],
+      { capture: true },
+    );
+  }
   await pollUntil(component.timeout, async () => {
     for (const query of [[GATEWAY], ...PROXY_QUERIES]) {
       const [left] = await names(runner, base, query);
       if (left !== undefined) {
-        return `Gateway kore-gateway changed class from ${current} to ${desired} but ${left} still exists in ${component.namespace}; Kubernetes has not garbage-collected the old proxy. Check it with: kubectl ${base.join(" ")} get deployment,service`;
+        return `Gateway kore-gateway is being handed to ${desired} but ${left} still exists in ${component.namespace}; Kubernetes has not garbage-collected the old proxy. Check it with: kubectl ${base.join(" ")} get deployment,service`;
       }
     }
     return undefined;

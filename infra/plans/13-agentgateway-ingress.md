@@ -73,8 +73,10 @@ ownerReference, so no deployment or service is deleted), waits until the
 Gateway and the old proxy are gone (a timeout names the Gateway and the
 leftover), and the Helm upgrade that follows recreates it in the new class. A
 class change therefore deletes and recreates the Gateway with a brief ingress
-outage. A matching class or an absent Gateway (a fresh profile) is a no-op, so
-the flag off changes nothing. It adds no flag; rollback is the flag off and
+outage. It prints one line before the delete. A matching class is a no-op, and so is an
+absent Gateway with no old proxy (a fresh profile); an absent Gateway whose old
+proxy remains (an interrupted change) still waits for the proxy. The flag off
+changes nothing. It adds no flag; rollback is the flag off and
 `kore local up`, which makes the same swap back to Istio.
 
 ## Step 3: Re-Prove the Identity Chain
