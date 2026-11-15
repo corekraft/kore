@@ -1,0 +1,5 @@
+apiVersion: v2
+name: platform-apis
+description: Organization and Service Crossplane platform APIs for the platform organization (plan 15 step 2), installed only under the platform-organization-service-apis flag
+type: application
+version: 0.1.0

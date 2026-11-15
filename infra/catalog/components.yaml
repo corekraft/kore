@@ -597,6 +597,24 @@
         "readiness": ["crd/postgresqlinstances.platform.kore.dev"]
       },
       {
+        "name": "kore-platform-apis",
+        "phase": "configuration",
+        "namespace": "crossplane-system",
+        "kind": "local-chart",
+        "chart": "infra/charts/platform-apis",
+        "version": "local",
+        "featureFlag": "platform-organization-service-apis",
+        "ownsCRDs":
+          ["organizations.platform.kore.dev", "services.platform.kore.dev"],
+        "dependencies": ["crossplane", "kore-crossplane-functions"],
+        "timeout": "10m",
+        "readiness":
+          [
+            "crd/organizations.platform.kore.dev",
+            "crd/services.platform.kore.dev"
+          ]
+      },
+      {
         "name": "kore-policy-templates",
         "phase": "configuration",
         "namespace": "gatekeeper-system",

@@ -90,6 +90,12 @@
           ]
       },
       {
+        "name": "organization-service-platform-apis",
+        "step": 10,
+        "capability": "platform-api",
+        "components": ["kore-platform-apis"]
+      },
+      {
         "name": "telemetry",
         "step": 11,
         "capability": "endpoint",
