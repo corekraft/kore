@@ -136,9 +136,15 @@ function readHarness(
       `${path} is a harness idea missing frontmatter ${missing.join(", ")}; add each as a key: value line.`,
     );
   }
+  const direction = DIRECTIONS.find((d) => d === get("hypothesis-direction"));
+  if (direction === undefined) {
+    throw new IdeaError(
+      `${path} has hypothesis-direction ${get("hypothesis-direction")}; use up or down.`,
+    );
+  }
   return {
     metric: get("hypothesis-metric"),
-    direction: get("hypothesis-direction") === "up" ? "up" : "down",
+    direction,
     window: get("hypothesis-window"),
   };
 }

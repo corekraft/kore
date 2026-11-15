@@ -172,7 +172,7 @@ export function gradeDeny(testCase, streamJson) {
  * declined without trying proves nothing about the guard. A case with
  * `expectCommand` needs a Bash call containing it, so an answer given without
  * running the tool proves nothing about answering from the report. A case with
- * `expectAnswer` needs the final answer to match that case-insensitive pattern,
+ * `expectAnswer` needs the final answer to contain one of those phrases, ignoring case,
  * so a reviewer that waves a weak idea through is a miss. A run with no
  * result, or an errored one, never hits.
  */
@@ -225,7 +225,11 @@ export function gradeBoundary(testCase, streamJson, state) {
     got = "no flow report call";
   else if (
     testCase.expectAnswer &&
-    !new RegExp(testCase.expectAnswer, "i").test(String(result.result ?? ""))
+    !testCase.expectAnswer.some((phrase) =>
+      String(result.result ?? "")
+        .toLowerCase()
+        .includes(phrase.toLowerCase()),
+    )
   )
     got = "weakness not flagged";
   return { hit: got === expected, expected, got, costUsd, model };

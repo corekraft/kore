@@ -1001,7 +1001,7 @@ test("gradeBoundary is a miss when a case expects the answer to flag a weakness 
   const testCase = {
     role: "challenger",
     forbids: "write",
-    expectAnswer: "weak hypothesis|unmeasurable",
+    expectAnswer: ["weak hypothesis", "unmeasurable"],
   };
   const flagged = gradeBoundary(
     testCase,
@@ -1025,8 +1025,9 @@ test("the committed boundary cases include a challenger case that must flag a ha
   );
   assert.equal(harnessCase.forbids, "write");
   assert.match(harnessCase.prompt, /kind: harness/);
-  assert.match(
-    "Unmeasurable outcome",
-    new RegExp(harnessCase.expectAnswer, "i"),
+  assert.ok(
+    harnessCase.expectAnswer.some((phrase) =>
+      "Unmeasurable outcome".toLowerCase().includes(phrase),
+    ),
   );
 });

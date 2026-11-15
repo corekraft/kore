@@ -10,7 +10,7 @@ import {
 import type { FakeDeps, FakeRepository } from "./idea-support.js";
 import { recordFixture } from "./idea-support.js";
 import { IdeaRepository } from "./repository.js";
-import { scalar } from "./record.js";
+import { IdeaError, harnessHypothesis, scalar } from "./record.js";
 
 vi.mock("../flow/index.js", () => ({
   flowMetricNames: vi.fn(() => ["friction.total"]),
@@ -19,6 +19,7 @@ vi.mock("./repository.js");
 vi.mock("./sync.js");
 vi.mock("./record.js", async (importOriginal) => ({
   ...(await importOriginal<typeof import("./record.js")>()),
+  harnessHypothesis: vi.fn(),
   scalar: vi.fn(),
 }));
 
@@ -85,46 +86,45 @@ describe("harness idea new for a harness idea", () => {
     direction: "down",
     window: "14d",
   };
+  const BLOCK = {
+    metric: "friction.total",
+    direction: "down" as const,
+    window: "14d",
+  };
 
-  it("hands the hypothesis block to the repository, checked against the flow report's metrics", async () => {
+  it("checks the hypothesis flags against the flow report's metrics and hands the block to the repository", async () => {
+    vi.mocked(harnessHypothesis).mockReturnValue(BLOCK);
     repo.create.mockResolvedValue({ created: true, record: recordFixture() });
     expect(await create.run(context(deps, { ...FIELDS, ...HARNESS }))).toBe(0);
-    expect(repo.create.mock.calls[0]?.[1]).toMatchObject({
-      harness: { metric: "friction.total", direction: "down", window: "14d" },
+    expect(vi.mocked(harnessHypothesis).mock.calls).toEqual([
+      [HARNESS, ["friction.total"]],
+    ]);
+    expect(repo.create.mock.calls[0]?.[1]).toMatchObject({ harness: BLOCK });
+  });
+
+  it("reports a refused hypothesis on stderr, exits 1 and writes nothing", async () => {
+    vi.mocked(harnessHypothesis).mockImplementation(() => {
+      throw new IdeaError("--metric is wrong");
     });
-  });
-
-  it("refuses an unknown metric on stderr, listing the valid ones, and writes nothing", async () => {
-    expect(
-      await create.run(
-        context(deps, { ...FIELDS, ...HARNESS, metric: "vibes" }),
-      ),
-    ).toBe(1);
-    expect(deps.stderr.mock.calls).toEqual([
-      [
-        '--metric "vibes" is not a flow report metric; use one of friction.total (see `harness flow report --json`).\n',
-      ],
-    ]);
+    expect(await create.run(context(deps, { ...FIELDS, ...HARNESS }))).toBe(1);
+    expect(deps.stderr.mock.calls).toEqual([["--metric is wrong\n"]]);
     expect(repo.create).not.toHaveBeenCalled();
   });
 
-  it("names exactly what a harness idea is missing", async () => {
-    expect(
-      await create.run(
-        context(deps, { ...FIELDS, kind: "harness", metric: "friction.total" }),
-      ),
-    ).toBe(1);
-    expect(deps.stderr.mock.calls).toEqual([
-      [
-        "A harness idea is missing --direction, --window; pass each, e.g. --metric friction.total --direction down --window 14d.\n",
-      ],
-    ]);
-    expect(repo.create).not.toHaveBeenCalled();
-  });
-
-  it("leaves an ordinary idea with no harness block", async () => {
+  it("leaves an ordinary idea with no harness block, passing no hypothesis flags", async () => {
     repo.create.mockResolvedValue({ created: true, record: recordFixture() });
     await create.run(context(deps, FIELDS));
+    expect(vi.mocked(harnessHypothesis).mock.calls).toEqual([
+      [
+        {
+          kind: undefined,
+          metric: undefined,
+          direction: undefined,
+          window: undefined,
+        },
+        ["friction.total"],
+      ],
+    ]);
     expect(repo.create.mock.calls[0]?.[1]).not.toHaveProperty("harness");
   });
 });

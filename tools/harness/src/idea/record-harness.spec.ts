@@ -72,6 +72,18 @@ describe("a harness idea", () => {
     );
   });
 
+  it("is refused on read when its direction is neither up nor down, not read as down", () => {
+    const text = FRONTMATTER.replace(
+      "date: 2026-03-04\n",
+      "date: 2026-03-04\nkind: harness\nhypothesis-metric: friction.total\nhypothesis-direction: sideways\nhypothesis-window: 14d\n",
+    );
+    expect(() => parseIdea(PATH, text)).toThrow(
+      new IdeaError(
+        `${PATH} has hypothesis-direction sideways; use up or down.`,
+      ),
+    );
+  });
+
   it("is not assumed of an ordinary idea, which reads back with no harness block", () => {
     expect(parseIdea(PATH, FRONTMATTER)).not.toHaveProperty("harness");
     expect(renderIdea("0001", "2026-03-04", idea)).not.toContain("kind:");
