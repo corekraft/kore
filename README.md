@@ -48,6 +48,10 @@ on) when rendering `kore-platform-config`.
 The `gateway-class-change-release` flag, off in every overlay, lets that reconcile
 delete and recreate the platform Gateway when its class changes, with a brief
 ingress outage; with it off the step does nothing.
+The `gateway-rollback-order` flag, off in every overlay, moves the refusal of a
+gated-off release that is still installed to after the components are reconciled,
+so a rollback can re-render `kore-platform-config` first; with it off the refusal
+stays up front.
 The `registry-tag-pruning` flag, off in every overlay, lets `kore local up`
 delete per-run image tags older than seven days from the local registry and
 collect garbage; it turns on registry delete support in the `oci-registry` chart

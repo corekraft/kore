@@ -7,7 +7,12 @@ import {
 } from "../config/index.js";
 import { CommandError, type Runner } from "../runtime/index.js";
 import { installLocalTrust } from "../security/index.js";
-import { bootstrapControllers, openApplicationAdmission } from "./bootstrap.js";
+import {
+  bootstrapControllers,
+  openApplicationAdmission,
+  orphanCheckDeferred,
+} from "./bootstrap.js";
+import { assertNoOrphanedReleases } from "./gated-release.js";
 import { enrollPlatformNamespaces } from "./enrollment.js";
 import { writePlatformState } from "./platform-state.js";
 import { helmReleaseStatus } from "./probe.js";
@@ -17,7 +22,7 @@ export async function platformUp(
   repository: Repository,
   runner: Runner,
 ): Promise<void> {
-  await bootstrapControllers(repository, runner);
+  await bootstrapControllers(repository, runner, { orphanCheck: "caller" });
   if (isLocalProvider(repository.environment)) {
     await installLocalTrust(repository, runner);
   }
@@ -33,6 +38,11 @@ export async function platformUp(
       continue;
     }
     await reconcileConfiguration(repository, runner, component);
+  }
+  // Deferred by `gateway-rollback-order`: the refusal comes once the
+  // configuration is re-rendered, and still ends the run (ADR 0081 addendum).
+  if (orphanCheckDeferred(repository)) {
+    await assertNoOrphanedReleases(repository, runner);
   }
   // Every phase is done, so Policy Controller and the image policies are ready:
   // enforce environments enroll their namespaces now, before the inventory

@@ -24,6 +24,9 @@ export const ingressFlag = "ingress-agentgateway";
 /** The flag that lets a reconcile delete and recreate the platform Gateway when its GatewayClass changes (plan 13 step 2). */
 export const gatewayClassChangeFlag = "gateway-class-change-release";
 
+/** The flag that defers the orphaned-release refusal until the components are reconciled, so a rollback can re-render platform-config first (plan 13 step 2, ADR 0081). */
+export const gatewayRollbackOrderFlag = "gateway-rollback-order";
+
 /** The GatewayClass the platform Gateway uses, derived from the ingress flag. */
 export function gatewayClassName(
   environment: Pick<Environment, "features">,

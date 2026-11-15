@@ -14,6 +14,7 @@
     {
       "autoscaling-defaults": false,
       "gateway-class-change-release": false,
+      "gateway-rollback-order": false,
       "ingress-agentgateway": false,
       "role-tokens": true,
       "local-image-reuse": false,
