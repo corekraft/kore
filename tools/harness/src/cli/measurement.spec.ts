@@ -9,6 +9,7 @@ const {
   retroCommands,
   orchestrateCommands,
   approveCommand,
+  evaluateCommand,
 } = vi.hoisted(() => {
   const command: Command = { summary: "x", run: () => Promise.resolve(0) };
   return {
@@ -18,6 +19,7 @@ const {
     retroCommands: { due: command },
     orchestrateCommands: { run: command },
     approveCommand: command,
+    evaluateCommand: command,
   };
 });
 
@@ -26,6 +28,7 @@ vi.mock("./flow-commands.js", () => ({ flowCommands }));
 vi.mock("./queue-commands.js", () => ({ queueCommands }));
 vi.mock("./retro-commands.js", () => ({ retroCommands }));
 vi.mock("./approve-commands.js", () => ({ approveCommand }));
+vi.mock("./evaluate-commands.js", () => ({ evaluateCommand }));
 vi.mock("./orchestrate-commands.js", () => ({ orchestrateCommands }));
 
 describe("measurement command map", () => {
@@ -37,6 +40,7 @@ describe("measurement command map", () => {
       retro: retroCommands,
       orchestrate: orchestrateCommands,
       approve: { "": approveCommand },
+      evaluate: { "": evaluateCommand },
     });
   });
 

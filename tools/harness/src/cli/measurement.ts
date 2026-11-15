@@ -1,5 +1,6 @@
 import type { Command } from "../runtime/index.js";
 import { approveCommand } from "./approve-commands.js";
+import { evaluateCommand } from "./evaluate-commands.js";
 import { flowCommands } from "./flow-commands.js";
 import { ledgerCommands } from "./ledger-commands.js";
 import { orchestrateCommands } from "./orchestrate-commands.js";
@@ -12,6 +13,8 @@ export const measurement: Record<string, Record<string, Command>> = {
   flow: flowCommands,
   queue: queueCommands,
   retro: retroCommands,
+  // `harness evaluate`: the one command of its domain, so it takes no command word.
+  evaluate: { "": evaluateCommand },
   orchestrate: orchestrateCommands,
   // `harness approve`: the one command of its domain, so it takes no command word.
   approve: { "": approveCommand },
