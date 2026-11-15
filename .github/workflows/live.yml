@@ -1,0 +1,87 @@
+# Manual live run: ONE chosen `test:live:<suite>` on a hosted runner, on demand
+# (#623; local Docker is unavailable). It reuses nightly.sh with a single suite,
+# so the clean `kore local up`, the scratch environment and the teardown are
+# exactly the nightly's, and the teardown always runs last.
+#
+# Runs only on dispatch: no schedule, push or pull_request trigger.
+# Concurrency: the nightly's own group, so two live runs, or a live run and the
+# nightly, never overlap and a run in progress is never cancelled.
+#
+# Host: numbers from this workflow are for the github-hosted runner it runs on,
+# a different host from the local VM. Say so wherever they are recorded.
+#
+# Footprint is excluded because it is macOS-only and the baseline is owed as debt
+# #659; add it back when the measurement has Linux support. The suite choice is
+# the real test:live scripts minus the measurement-only suites nightly.sh skips
+# (its `excluded_suites`); a spec keeps the two lists from drifting.
+
+name: live
+
+on:
+  workflow_dispatch:
+    inputs:
+      suite:
+        description: The test:live suite to run
+        type: choice
+        default: lifecycle
+        options:
+          - admission
+          - database
+          - docs
+          - gate
+          - gateway
+          - identity
+          - ingress-measure
+          - lifecycle
+          - ops
+          - policy
+          - reference
+          - registry
+          - resilience
+          - signer
+          - storage
+          - telemetry
+
+permissions:
+  contents: read
+
+concurrency:
+  group: nightly
+  cancel-in-progress: false
+
+jobs:
+  live:
+    runs-on: ubuntu-latest
+    timeout-minutes: 240
+    permissions:
+      contents: read
+    env:
+      MISE_TASK_RUN_AUTO_INSTALL: "false"
+      KORE_RUN_NIGHTLY: "1"
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: jdx/mise-action@b44d12e7d0d8ee7461bb893e1b1993500433185b # v5.2.7
+        with:
+          install: true
+          cache: false
+      - name: Install CLI dependencies
+        run: npm ci --prefix tools/kore
+      - name: Clean local up and the chosen live suite
+        env:
+          KORE_NIGHTLY_SUITES: test:live:${{ inputs.suite }}
+        shell: bash
+        run: tools/kore/scripts/nightly.sh 2>&1 | tee "$RUNNER_TEMP/live.log"
+      - name: Print the suite output in the job summary
+        if: always()
+        env:
+          SUITE: ${{ inputs.suite }}
+        run: |
+          {
+            echo "### live suite: $SUITE"
+            echo "runner: ${RUNNER_NAME} (${RUNNER_OS} ${RUNNER_ARCH}), $(nproc) vCPU, $(awk '/^MemTotal:/ { printf "%d", $2 / 1024 }' /proc/meminfo) MiB"
+            echo '```'
+            tail -n 400 "$RUNNER_TEMP/live.log" 2>/dev/null || echo "no output captured"
+            echo '```'
+          } >>"$GITHUB_STEP_SUMMARY"
