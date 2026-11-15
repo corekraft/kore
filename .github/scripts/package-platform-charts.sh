@@ -42,6 +42,10 @@ for name in "${names[@]}"; do
   if [ -n "$chart" ]; then
     mkdir -p "$stage"
     cp -R "$root/$chart/." "$stage/"
+    # The catalog name owns the published chart name: helm names the file and the
+    # OCI path after Chart.yaml, which can differ (platform-certificate).
+    sed -i.bak "s/^name:.*/name: $name/" "$stage/Chart.yaml"
+    rm "$stage/Chart.yaml.bak"
   elif [ -n "$source" ]; then
     mkdir -p "$stage/templates" "$stage/manifests"
     (cd "$root/$source" && find . -name '*.yaml' -print0 | tar -cf - --null -T -) | tar -xf - -C "$stage/manifests"

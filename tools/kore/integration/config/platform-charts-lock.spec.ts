@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
-import { mkdtempSync, readFileSync } from "node:fs";
+import { existsSync, mkdtempSync, readFileSync } from "node:fs";
 import { readFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -134,6 +134,17 @@ test("packaging is offline, content-addressed, and wraps plain manifests without
   for (const row of rows) {
     assert.match(row.version ?? "", /^0\.0\.0-[0-9a-f]{12}$/, row.name ?? "");
     assert.match(row.file ?? "", new RegExp(`${row.name ?? ""}-0\\.0\\.0-`));
+    // The release job pushes packaged/<file>, so the file must exist, and the
+    // packaged chart must carry the catalog name that the OCI path is taken from.
+    assert.ok(existsSync(join(out, row.file ?? "")), `${row.file} exists`);
+  }
+  for (const row of rows) {
+    const chartName = execFileSync(
+      "helm",
+      ["show", "chart", join(out, row.file ?? "")],
+      { encoding: "utf8" },
+    ).match(/^name: (.+)$/m)?.[1];
+    assert.equal(chartName, row.name, `${row.file} is named ${row.name}`);
   }
   // The Crossplane composition carries Go template text that Helm must not touch.
   const rendered = execFileSync(
