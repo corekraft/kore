@@ -1,0 +1,36 @@
+# The AppProject for the configuration-phase releases (ADR 0043). It admits only
+# the platform registry's charts and the namespaces those releases live in, and
+# only the platform operators' group may change it or its Applications.
+{{- $repos := dict }}
+{{- $spaces := dict }}
+{{- range $name, $entry := .Values.charts }}
+{{- $_ := set $repos (dir $entry.chart) true }}
+{{- $_ := set $spaces (required (printf "namespaces.%s is required" $name) (index $.Values.namespaces $name)) true }}
+{{- end }}
+apiVersion: argoproj.io/v1alpha1
+kind: AppProject
+metadata:
+  name: {{ .Values.project }}
+  namespace: {{ .Values.namespace }}
+spec:
+  description: Platform configuration handed over from Helm, delivered by chart digest
+  sourceRepos:
+    {{- range $repo := keys $repos | sortAlpha }}
+    - {{ $repo | quote }}
+    {{- end }}
+  destinations:
+    {{- range $space := keys $spaces | sortAlpha }}
+    - server: https://kubernetes.default.svc
+      namespace: {{ $space | quote }}
+    {{- end }}
+  # Configuration includes CRDs, policy templates, constraints and cluster roles.
+  clusterResourceWhitelist:
+    - group: "*"
+      kind: "*"
+  roles:
+    - name: operators
+      description: Platform operators change and sync the configuration
+      groups:
+        - {{ .Values.operatorsGroup | quote }}
+      policies:
+        - p, proj:{{ .Values.project }}:operators, applications, *, {{ .Values.project }}/*, allow

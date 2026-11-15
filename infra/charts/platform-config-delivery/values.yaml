@@ -1,0 +1,17 @@
+# The `entries` of the release's platform-charts.lock.json (ADR 0044), passed
+# whole, for example --set-json charts="$(jq .entries platform-charts.lock.json)".
+# There is no default: the render fails until every handed-over release has an
+# entry, and each is deployed by its signed digest, never by version or tag.
+# charts:
+#   opa-authorizer: {chart: ghcr.io/corekraft/kore/charts/opa-authorizer, version: ..., digest: sha256:...}
+
+# The namespace of each release, read from the catalog by the caller, so the
+# catalog stays the one owner of where a release lives. No default.
+# namespaces:
+#   opa-authorizer: opa-system
+
+# Argo CD namespace, the AppProject, and the Keycloak group that alone may
+# change it (ADR 0043).
+namespace: argocd
+project: platform-configuration
+operatorsGroup: platform-operators

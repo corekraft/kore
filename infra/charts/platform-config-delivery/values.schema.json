@@ -1,0 +1,74 @@
+{
+  "$schema": "https://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "required": ["charts", "namespaces"],
+  "additionalProperties": false,
+  "properties": {
+    "namespace": { "type": "string", "minLength": 1 },
+    "project": { "type": "string", "minLength": 1 },
+    "operatorsGroup": { "type": "string", "minLength": 1 },
+    "charts": {
+      "description": "One lock entry per handed-over release. The image policy is not one: kore keeps it (ADR 0028).",
+      "type": "object",
+      "required": [
+        "opa-authorizer",
+        "kore-postgresql-api",
+        "kore-policy-templates",
+        "kore-policy-constraints",
+        "kore-local-tls",
+        "kore-platform-config"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "opa-authorizer": { "$ref": "#/definitions/entry" },
+        "kore-postgresql-api": { "$ref": "#/definitions/entry" },
+        "kore-policy-templates": { "$ref": "#/definitions/entry" },
+        "kore-policy-constraints": { "$ref": "#/definitions/entry" },
+        "kore-local-tls": { "$ref": "#/definitions/entry" },
+        "kore-platform-config": { "$ref": "#/definitions/entry" }
+      }
+    },
+    "namespaces": {
+      "type": "object",
+      "required": [
+        "opa-authorizer",
+        "kore-postgresql-api",
+        "kore-policy-templates",
+        "kore-policy-constraints",
+        "kore-local-tls",
+        "kore-platform-config"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "opa-authorizer": { "$ref": "#/definitions/namespace" },
+        "kore-postgresql-api": { "$ref": "#/definitions/namespace" },
+        "kore-policy-templates": { "$ref": "#/definitions/namespace" },
+        "kore-policy-constraints": { "$ref": "#/definitions/namespace" },
+        "kore-local-tls": { "$ref": "#/definitions/namespace" },
+        "kore-platform-config": { "$ref": "#/definitions/namespace" }
+      }
+    }
+  },
+  "definitions": {
+    "namespace": {
+      "type": "string",
+      "pattern": "^[a-z0-9]([-a-z0-9]{0,61}[a-z0-9])?$"
+    },
+    "entry": {
+      "type": "object",
+      "required": ["chart", "digest"],
+      "properties": {
+        "chart": {
+          "description": "The chart's OCI reference without a scheme: <registry>/<path>/<release name>.",
+          "type": "string",
+          "pattern": "^[^@:\\s/]+(:[0-9]+)?(/[^@:\\s/]+)+$"
+        },
+        "digest": {
+          "description": "The signed sha256 digest recorded in the chart lock.",
+          "type": "string",
+          "pattern": "^sha256:[0-9a-f]{64}$"
+        }
+      }
+    }
+  }
+}
