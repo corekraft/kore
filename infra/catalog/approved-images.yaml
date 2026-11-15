@@ -485,6 +485,18 @@
           }
       },
       {
+        "image": "xpkg.upbound.io/crossplane-contrib/provider-keycloak:v3.2.3@sha256:6c0daf86db540e8d20ebec9e4a981389275a2910eabd17a707945133a7d741ac",
+        "name": "provider-keycloak",
+        "component": "keycloak-provider",
+        "evidence":
+          {
+            "method": "registry-digest",
+            "source": "crane digest xpkg.upbound.io/crossplane-contrib/provider-keycloak:v3.2.3 resolves to this digest, and the package's CRDs were read from `crane export` at that digest. Crossplane Provider package (an OCI image). No cosign signature published (cosign verify: no signatures found), so this is recorded unsigned.",
+            "checked": "2026-11-14",
+            "provenance": { "signed": false }
+          }
+      },
+      {
         "image": "registry.k8s.io/kube-state-metrics/kube-state-metrics:v2.20.0@sha256:42cfe3723a5f058171c627537fb57a3ea0f26e4380fa18555a95cb1a1b4cfc5b",
         "name": "kube-state-metrics",
         "component": "prometheus",

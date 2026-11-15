@@ -3,6 +3,8 @@ import type { Runner } from "../runtime/index.js";
 import { ensureBackstageOidc } from "./backstage-oidc.js";
 import { ensureKeycloakAdmin } from "./keycloak-admin.js";
 
+export { ensureKeycloakProviderCredentials } from "./keycloak-admin.js";
+
 // Docs: docs/decisions/0034-registry-authentication-and-authorization.md (stream-only Secrets)
 
 /**

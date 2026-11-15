@@ -1,0 +1,15 @@
+# How the Crossplane Keycloak provider reaches this Keycloak (ADR 0113). The
+# credential is a Secret that kore streams after the provider installs (ADR
+# 0034); only its name is here, so no credential is in git. The Organization
+# composition's Realm and Group name this config.
+apiVersion: keycloak.m.crossplane.io/v1beta1
+kind: ClusterProviderConfig
+metadata:
+  name: keycloak
+spec:
+  credentials:
+    source: Secret
+    secretRef:
+      name: keycloak-provider-credentials
+      namespace: crossplane-system
+      key: credentials

@@ -17,7 +17,10 @@ import {
   closeApplicationAdmission,
 } from "./bootstrap.js";
 import { assertNoOrphanedReleases } from "./gated-release.js";
-import { ensurePortalSecrets } from "./portal-secrets.js";
+import {
+  ensureKeycloakProviderCredentials,
+  ensurePortalSecrets,
+} from "./portal-secrets.js";
 import * as readinessGate from "./readiness-gate.js";
 import { reconcileIfNeeded } from "./reconcile.js";
 import {
@@ -70,6 +73,10 @@ beforeEach(() => {
   vi.mocked(ensurePortalSecrets).mockImplementation(async () => {
     order.push("portal-secrets");
     return await Promise.resolve();
+  });
+  vi.mocked(ensureKeycloakProviderCredentials).mockImplementation(async () => {
+    order.push("keycloak-provider-credentials");
+    return true;
   });
   vi.mocked(reconcileIfNeeded).mockImplementation(async (_repo, _runner, c) => {
     order.push(`reconcile:${c.name}`);
@@ -201,6 +208,30 @@ test("the portal Secrets (the Keycloak admin and the Backstage sign-in) are stre
   vi.mocked(enabledComponents).mockReturnValue([gate, registry]);
   await bootstrapControllers(local, runner);
   expect(ensurePortalSecrets).not.toHaveBeenCalled();
+});
+
+test("the Keycloak provider credential is streamed right after the provider installs, and not without it", async () => {
+  const provider = fakeComponent({ name: "keycloak-provider", phase: "core" });
+  vi.mocked(enabledComponents).mockReturnValue([gate, provider, registry]);
+  const { runner } = fakeRunner();
+  await bootstrapControllers(local, runner);
+  expect(
+    order.filter(
+      (step) =>
+        step.startsWith("reconcile:") ||
+        step === "keycloak-provider-credentials",
+    ),
+  ).toEqual([
+    "reconcile:gate",
+    "reconcile:keycloak-provider",
+    "keycloak-provider-credentials",
+    "reconcile:oci-registry",
+  ]);
+  expect(ensureKeycloakProviderCredentials).toHaveBeenCalledWith(local, runner);
+  vi.mocked(ensureKeycloakProviderCredentials).mockClear();
+  vi.mocked(enabledComponents).mockReturnValue([gate, registry]);
+  await bootstrapControllers(local, runner);
+  expect(ensureKeycloakProviderCredentials).not.toHaveBeenCalled();
 });
 
 test("closing the application admission gate is the existing gate's close, with the same runner", async () => {

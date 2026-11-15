@@ -111,14 +111,18 @@ test("Organization is accepted only as the platform organization", async () => {
   assert.match(xrd, /self\.metadata\.name == 'platform'/);
 });
 
-test("the Organization composition is still a skeleton that composes no resource", async () => {
+test("the Organization composition is a skeleton that composes no resource until platform-portal adds the realm", async () => {
   const source = await read(
     "infra/charts/platform-apis/templates/organization-composition.yaml",
   );
   assert.match(source, /^  name: organization-local$/m);
   assert.match(source, /function-auto-ready/);
   assert.doesNotMatch(source, /kind: Namespace/);
-  assert.doesNotMatch(source, /function-go-templating/);
+  const [always = "", gated = ""] = source.split(
+    /^\{\{- if index \$features "platform-portal" \}\}$/m,
+  );
+  assert.doesNotMatch(always, /function-go-templating/);
+  assert.match(gated, /function-go-templating/);
 });
 
 test("the Service composition composes one labelled namespace per environment", async () => {

@@ -1,0 +1,5 @@
+apiVersion: v2
+name: keycloak-provider
+description: The Crossplane Keycloak provider v3.2.3, installed by digest only under the platform-portal flag (ADR 0113, plan 15 step 6)
+type: application
+version: 0.1.0
