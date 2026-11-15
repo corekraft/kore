@@ -65,7 +65,18 @@ describe("permissionProblems: the release workflow", () => {
     ]);
   });
 
-  it("refuses id-token write under a job name other than release or mirror", () => {
+  it("lets the charts job sign and push when it runs only for tags", () => {
+    const text = release()
+      .replace("  extra:", "  charts:")
+      .replace(
+        "contents: read\n    steps:\n      - run: echo hi\n",
+        "contents: read\n      id-token: write\n      packages: write\n    steps:\n      - run: echo hi\n",
+      )
+      .replace("  charts:\n", "  charts:\n    if: github.ref_type == 'tag'\n");
+    expect(permissionProblems({ "release.yaml": text })).toEqual([]);
+  });
+
+  it("refuses id-token write under a job name other than release, mirror or charts", () => {
     const text = release()
       .replace("  extra:", "  sneaky:")
       .replace(
