@@ -26,6 +26,7 @@ export const KINDS = [
   "challenge.round",
   "precheck",
   "send-back",
+  "escalation",
   "ci.main",
   "ci.nightly",
   "main.revert",
@@ -48,6 +49,7 @@ const NUMBER_KINDS: readonly Kind[] = [
   "challenge.round",
   "precheck",
   "send-back",
+  "escalation",
   "owner.action",
 ];
 
@@ -226,6 +228,7 @@ const RULES: readonly Rule[] = [
       "challenge.round",
       "precheck",
       "send-back",
+      "escalation",
     ],
   },
   {
