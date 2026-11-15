@@ -195,6 +195,7 @@ test("the portal Secrets (the Keycloak admin and the Backstage sign-in) are stre
     "reconcile:oci-registry",
   ]);
   expect(ensurePortalSecrets).toHaveBeenCalledWith(local, runner);
+  expect(ensurePortalSecrets).toHaveBeenCalledTimes(1);
   vi.mocked(ensurePortalSecrets).mockClear();
   vi.mocked(enabledComponents).mockReturnValue([gate, registry]);
   await bootstrapControllers(local, runner);
