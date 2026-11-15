@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
+import { PlatformReadError } from "./kube.js";
 import { createProvider } from "./provider.js";
 
 const objects = {
@@ -33,7 +34,7 @@ test("a failed read keeps the existing catalog: nothing is applied", async () =>
   const warnings = [];
   const provider = createProvider({
     list: async () => {
-      throw new Error("forbidden");
+      throw new PlatformReadError("forbidden");
     },
     log: { warn: (m) => warnings.push(m) },
   });
@@ -49,4 +50,17 @@ test("refreshing before the catalog connects is an error", async () => {
     log: { warn() {} },
   });
   await assert.rejects(() => provider.refresh(), /not connected/);
+});
+
+test("an unexpected error is rethrown, not swallowed as a read failure", async () => {
+  const warnings = [];
+  const provider = createProvider({
+    list: async () => {
+      throw new TypeError("bug");
+    },
+    log: { warn: (m) => warnings.push(m) },
+  });
+  await provider.connect({ applyMutation: async () => {} });
+  await assert.rejects(() => provider.refresh(), /bug/);
+  assert.deepEqual(warnings, []);
 });

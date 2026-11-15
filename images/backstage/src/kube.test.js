@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { listPlatformObjects } from "./kube.js";
+import { listPlatformObjects, PlatformReadError } from "./kube.js";
 
 const base = "https://kubernetes.default.svc/apis/platform.kore.dev/v1alpha1";
 
@@ -40,5 +40,32 @@ test("a refused list names the resource and status instead of returning empty", 
   await assert.rejects(
     () => listPlatformObjects(deps({})),
     /organizations.*403/,
+  );
+});
+
+test("a refused list is a PlatformReadError", async () => {
+  await assert.rejects(() => listPlatformObjects(deps({})), PlatformReadError);
+});
+
+test("a network failure or a missing token file is a PlatformReadError naming the cause", async () => {
+  const fetchFails = {
+    readToken: async () => "t",
+    fetch: async () => {
+      throw new TypeError("fetch failed");
+    },
+  };
+  await assert.rejects(
+    () => listPlatformObjects(fetchFails),
+    (e) => e instanceof PlatformReadError && /fetch failed/.test(e.message),
+  );
+  const noToken = {
+    fetch: async () => ({}),
+    readToken: async () => {
+      throw new Error("ENOENT");
+    },
+  };
+  await assert.rejects(
+    () => listPlatformObjects(noToken),
+    (e) => e instanceof PlatformReadError && /ENOENT/.test(e.message),
   );
 });
