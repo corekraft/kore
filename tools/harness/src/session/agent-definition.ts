@@ -83,3 +83,24 @@ export async function resolveTier(
   }
   return { model: model as string, effort: effort as string };
 }
+
+/**
+ * The refusal for a role with no agent definition, naming the roles that have
+ * one; undefined when the role is defined. Without a definition a caller could
+ * pick any model by flag, so no session starts.
+ */
+export async function undefinedRoleError(
+  deps: CliDeps,
+  role: string,
+): Promise<string | undefined> {
+  const files = await deps.fs.readdir(
+    join(await deps.root(), ".claude/agents"),
+  );
+  const roles = files
+    .filter((file) => file.endsWith(".md"))
+    .map((file) => file.slice(0, -3))
+    .sort();
+  return roles.includes(role)
+    ? undefined
+    : `Role ${role} has no agent definition, so no session starts. The defined roles are ${roles.join(", ")}; brief a verifier or fixer as a reader or a writer.`;
+}

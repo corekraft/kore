@@ -1,7 +1,12 @@
 import { join } from "node:path";
 import { describe, expect, it, vi } from "vitest";
 import type { CliDeps, FileSystem } from "../runtime/index.js";
-import { parseDefinition, readTier, resolveTier } from "./agent-definition.js";
+import {
+  parseDefinition,
+  readTier,
+  resolveTier,
+  undefinedRoleError,
+} from "./agent-definition.js";
 
 vi.mock("node:path");
 
@@ -20,15 +25,22 @@ const missing = () =>
   Promise.reject(Object.assign(new Error("no such file"), { code: "ENOENT" }));
 
 /** Deps for the definition reads: a repository at /repo, and a file system whose readFile answers `read`. */
-function depsReading(read: (path: string) => Promise<string>) {
+function depsReading(
+  read: (path: string) => Promise<string>,
+  files: string[] = [],
+) {
+  const readdir = vi.fn<FileSystem["readdir"]>(() => Promise.resolve(files));
   const readFile = vi.fn<FileSystem["readFile"]>(read);
   const root = vi.fn<CliDeps["root"]>(() => Promise.resolve("/repo"));
   // Only what the definition reads; the rest of CliDeps is never read.
   const deps = {
-    fs: { readFile } as Pick<FileSystem, "readFile"> as FileSystem,
+    fs: { readFile, readdir } as Pick<
+      FileSystem,
+      "readFile" | "readdir"
+    > as FileSystem,
     root,
   } as unknown as CliDeps;
-  return { deps, readFile, root };
+  return { deps, readFile, readdir, root };
 }
 
 describe("parseDefinition reads the launch settings from the frontmatter", () => {
@@ -144,5 +156,28 @@ describe("resolveTier picks the model and effort to launch at", () => {
       error:
         "Missing --effort, and .claude/agents/writer.md does not declare it. Pass --effort or add `effort:` to that definition's frontmatter.",
     });
+  });
+});
+
+describe("undefinedRoleError refuses a role with no agent definition", () => {
+  const files = ["writer.md", "reader.md", "README.txt", "judge.md"];
+
+  it("names the defined roles, sorted, when the role has no definition", async () => {
+    const { deps } = depsReading(missing, files);
+    expect(await undefinedRoleError(deps, "verifier")).toBe(
+      "Role verifier has no agent definition, so no session starts. The defined roles are judge, reader, writer; brief a verifier or fixer as a reader or a writer.",
+    );
+  });
+
+  it("accepts a role that has a definition", async () => {
+    const { deps } = depsReading(missing, files);
+    expect(await undefinedRoleError(deps, "reader")).toBeUndefined();
+  });
+
+  it("reads the agents directory under the repository root", async () => {
+    const { deps, readdir } = depsReading(missing, files);
+    vi.mocked(join).mockReturnValue("/repo/.claude/agents");
+    await undefinedRoleError(deps, "reader");
+    expect(readdir).toHaveBeenCalledWith("/repo/.claude/agents");
   });
 });

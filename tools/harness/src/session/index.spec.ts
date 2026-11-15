@@ -72,6 +72,18 @@ describe("the session domain's command set", () => {
     expect(module).toHaveBeenCalledWith(context);
   });
 
+  it("says in spawn's usage that a pane is named for its subject and an undefined role is refused", () => {
+    const summary = session.spawn?.summary ?? "";
+    expect(summary).toContain("named after its subject");
+    expect(summary).toContain(
+      "a name with a letter, ordinal or step number is refused",
+    );
+    expect(summary).toContain("a role with an agent definition");
+    expect(summary).toContain(
+      "brief a verifier or fixer as a reader or a writer",
+    );
+  });
+
   it("declares spawn's flags, and its --no-wait pattern in its summary", () => {
     expect(session["spawn"]?.options).toEqual({
       role: "string",

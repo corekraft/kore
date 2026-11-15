@@ -1,5 +1,5 @@
 import type { CommandContext } from "../runtime/index.js";
-import { resolveTier } from "./agent-definition.js";
+import { resolveTier, undefinedRoleError } from "./agent-definition.js";
 import { hostLeaseRefusal } from "./host-lease.js";
 import { spawnLoadRefusal } from "./spawn-load.js";
 import { sessionNameError } from "./names.js";
@@ -110,6 +110,24 @@ function inputError(
   );
 }
 
+/** The role's model and effort, or the refusal: an undefined role first, then a missing setting. A flag wins over the definition, which is how a writer escalates. */
+async function launchTier(
+  deps: CommandContext["deps"],
+  role: string,
+  options: CommandContext["options"],
+): Promise<{ model: string; effort: string } | { error: string }> {
+  const undefinedRole = await undefinedRoleError(deps, role);
+  if (undefinedRole !== undefined) {
+    return { error: undefinedRole };
+  }
+  const flag = (name: (typeof TIER)[number]) =>
+    typeof options[name] === "string" ? options[name] : undefined;
+  return resolveTier(deps, role, {
+    model: flag("model"),
+    effort: flag("effort"),
+  });
+}
+
 /** Everything that can be refused is refused here, before any herdr call. */
 export async function check({
   deps,
@@ -137,13 +155,7 @@ export async function check({
   if (typeof callerPane !== "string") {
     return callerPane;
   }
-  // A flag wins, which is how a writer escalates; the definition is the default.
-  const flag = (name: (typeof TIER)[number]) =>
-    typeof options[name] === "string" ? options[name] : undefined;
-  const tier = await resolveTier(deps, given.role, {
-    model: flag("model"),
-    effort: flag("effort"),
-  });
+  const tier = await launchTier(deps, given.role, options);
   if ("error" in tier) {
     return usage(tier.error);
   }

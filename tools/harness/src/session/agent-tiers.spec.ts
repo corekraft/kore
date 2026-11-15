@@ -175,6 +175,25 @@ describe("the judge states which safety patterns merge without the owner", () =>
   });
 });
 
+/** Opus is allowed only until the challenger's own removal ticket deletes its definition. */
+const OPUS_UNTIL_REMOVED = new Set(["challenger"]);
+
+describe("every agent definition", () => {
+  it("runs on Haiku or Sonnet, so no spawned pane picks a free model", () => {
+    const offenders = [...definitions()]
+      .map(([role, body]) => [role, parseDefinition(body).model] as const)
+      .filter(
+        ([role, model]) => model !== undefined && !OPUS_UNTIL_REMOVED.has(role),
+      )
+      .filter(
+        ([, model]) =>
+          !/^(Haiku|Sonnet) /.test(displayName(model as string) ?? ""),
+      )
+      .map(([role]) => role);
+    expect(offenders).toEqual([]);
+  });
+});
+
 describe("the principles-review definition", () => {
   const found = () =>
     parseDefinition(definitions().get("principles-review") ?? "");
