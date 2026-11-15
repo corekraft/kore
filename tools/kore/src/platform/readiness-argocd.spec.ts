@@ -1,3 +1,4 @@
+import type { Repository } from "../config/index.js";
 import { beforeEach, expect, test, vi } from "vitest";
 import type { Runner } from "../runtime/index.js";
 import { argocdApplicationsCheck } from "./readiness-argocd.js";
@@ -5,6 +6,9 @@ import { pollUntil } from "./readiness-poll.js";
 
 vi.mock("./readiness-poll.js");
 
+const repository = {
+  environment: { kubeContext: "k3d-kore-local" },
+} as unknown as Repository;
 const BASE = ["--context", "kore-local", "--namespace", "argocd"];
 const RESOURCE = "applications.argoproj.io";
 
@@ -51,7 +55,7 @@ beforeEach(() => {
 test("a resource that is not the Application collection has no Argo CD check", () => {
   expect(
     argocdApplicationsCheck(
-      { runner: {} as Runner, base: BASE },
+      { repository, runner: {} as Runner, base: BASE },
       "deployment/argocd-server",
     ),
   ).toBeUndefined();
@@ -59,7 +63,7 @@ test("a resource that is not the Application collection has no Argo CD check", (
 
 test("the check names the condition it proves", () => {
   const check = argocdApplicationsCheck(
-    { runner: {} as Runner, base: BASE },
+    { repository, runner: {} as Runner, base: BASE },
     RESOURCE,
   );
 
@@ -74,7 +78,10 @@ test("every Application Synced and Healthy passes, read-only through kubectl get
     ),
   );
 
-  await argocdApplicationsCheck({ runner, base: BASE }, RESOURCE)?.run("10m");
+  await argocdApplicationsCheck(
+    { repository, runner, base: BASE },
+    RESOURCE,
+  )?.run("10m");
 
   expect(pollUntil).toHaveBeenCalledWith("10m", expect.any(Function));
   expect(run).toHaveBeenCalledTimes(1);
@@ -89,7 +96,9 @@ test("no Application yet passes, since only the Applications that exist are gate
   const { runner } = runnerReturning(list());
 
   await expect(
-    argocdApplicationsCheck({ runner, base: BASE }, RESOURCE)?.run("3s"),
+    argocdApplicationsCheck({ repository, runner, base: BASE }, RESOURCE)?.run(
+      "3s",
+    ),
   ).resolves.toBeUndefined();
 });
 
@@ -102,9 +111,11 @@ test("an OutOfSync Application fails closed and names it with its sync and healt
   );
 
   await expect(
-    argocdApplicationsCheck({ runner, base: BASE }, RESOURCE)?.run("3s"),
+    argocdApplicationsCheck({ repository, runner, base: BASE }, RESOURCE)?.run(
+      "3s",
+    ),
   ).rejects.toThrow(
-    "Application kore-policy-templates is OutOfSync and Healthy",
+    "Application kore-policy-templates is OutOfSync and Healthy; run kubectl --context k3d-kore-local -n argocd describe application kore-policy-templates",
   );
 });
 
@@ -114,14 +125,17 @@ test("a Degraded Application names the health message as the cause", async () =>
       name: "kore-postgresql-api",
       sync: "Synced",
       health: "Degraded",
-      healthMessage: "Deployment has exceeded its progress deadline",
+      healthMessage:
+        "Deployment has exceeded its progress deadline; run kubectl --context k3d-kore-local -n argocd describe application kore-postgresql-api",
     }),
   );
 
   await expect(
-    argocdApplicationsCheck({ runner, base: BASE }, RESOURCE)?.run("3s"),
+    argocdApplicationsCheck({ repository, runner, base: BASE }, RESOURCE)?.run(
+      "3s",
+    ),
   ).rejects.toThrow(
-    "Application kore-postgresql-api is Synced and Degraded: Deployment has exceeded its progress deadline",
+    "Application kore-postgresql-api is Synced and Degraded: Deployment has exceeded its progress deadline; run kubectl --context k3d-kore-local -n argocd describe application kore-postgresql-api",
   );
 });
 
@@ -138,9 +152,11 @@ test("a failed sync names the condition message when no health message exists", 
   );
 
   await expect(
-    argocdApplicationsCheck({ runner, base: BASE }, RESOURCE)?.run("3s"),
+    argocdApplicationsCheck({ repository, runner, base: BASE }, RESOURCE)?.run(
+      "3s",
+    ),
   ).rejects.toThrow(
-    "Application kore-local-tls is OutOfSync and Missing: chart digest is not signed",
+    "Application kore-local-tls is OutOfSync and Missing: chart digest is not signed; run kubectl --context k3d-kore-local -n argocd describe application kore-local-tls",
   );
 });
 
@@ -148,8 +164,12 @@ test("an Application that reports no status yet is Unknown, never assumed health
   const { runner } = runnerReturning(list({ name: "kore-storage" }));
 
   await expect(
-    argocdApplicationsCheck({ runner, base: BASE }, RESOURCE)?.run("3s"),
-  ).rejects.toThrow("Application kore-storage is Unknown and Unknown");
+    argocdApplicationsCheck({ repository, runner, base: BASE }, RESOURCE)?.run(
+      "3s",
+    ),
+  ).rejects.toThrow(
+    "Application kore-storage is Unknown and Unknown; run kubectl --context k3d-kore-local -n argocd describe application kore-storage",
+  );
 });
 
 test("every failing Application is named, joined in one reason", async () => {
@@ -161,9 +181,11 @@ test("every failing Application is named, joined in one reason", async () => {
   );
 
   await expect(
-    argocdApplicationsCheck({ runner, base: BASE }, RESOURCE)?.run("3s"),
+    argocdApplicationsCheck({ repository, runner, base: BASE }, RESOURCE)?.run(
+      "3s",
+    ),
   ).rejects.toThrow(
-    "Application a is OutOfSync and Healthy; Application b is Synced and Progressing",
+    "Application a is OutOfSync and Healthy; run kubectl --context k3d-kore-local -n argocd describe application a; Application b is Synced and Progressing; run kubectl --context k3d-kore-local -n argocd describe application b",
   );
 });
 
@@ -171,9 +193,11 @@ test("unparseable kubectl output is not ready with a message naming the cause, n
   const { runner } = runnerReturning("ready");
 
   await expect(
-    argocdApplicationsCheck({ runner, base: BASE }, RESOURCE)?.run("3s"),
+    argocdApplicationsCheck({ repository, runner, base: BASE }, RESOURCE)?.run(
+      "3s",
+    ),
   ).rejects.toThrow(
-    "kubectl get applications.argoproj.io returned output that is not a JSON Application list, so Application health is unknown",
+    "kubectl get applications.argoproj.io returned output that is not a JSON Application list, so Application health is unknown; run kubectl --context k3d-kore-local -n argocd get applications.argoproj.io",
   );
 });
 
@@ -181,6 +205,30 @@ test("a JSON answer without an item list is not ready either", async () => {
   const { runner } = runnerReturning("null");
 
   await expect(
-    argocdApplicationsCheck({ runner, base: BASE }, RESOURCE)?.run("3s"),
-  ).rejects.toThrow("Application health is unknown");
+    argocdApplicationsCheck({ repository, runner, base: BASE }, RESOURCE)?.run(
+      "3s",
+    ),
+  ).rejects.toThrow(
+    "kubectl get applications.argoproj.io returned output that is not a JSON Application list, so Application health is unknown; run kubectl --context k3d-kore-local -n argocd get applications.argoproj.io",
+  );
 });
+
+test.each([
+  ["a null item", '{"items":[null]}'],
+  ["an item without metadata", '{"items":[{"status":{}}]}'],
+  ["an item without a name", '{"items":[{"metadata":{}}]}'],
+])(
+  "%s is not a JSON Application list: not ready, never a thrown TypeError",
+  async (_name, stdout) => {
+    const { runner } = runnerReturning(stdout);
+
+    await expect(
+      argocdApplicationsCheck(
+        { repository, runner, base: BASE },
+        RESOURCE,
+      )?.run("3s"),
+    ).rejects.toThrow(
+      "kubectl get applications.argoproj.io returned output that is not a JSON Application list, so Application health is unknown; run kubectl --context k3d-kore-local -n argocd get applications.argoproj.io",
+    );
+  },
+);

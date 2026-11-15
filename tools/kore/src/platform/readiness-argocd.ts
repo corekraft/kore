@@ -1,3 +1,4 @@
+import type { Repository } from "../config/index.js";
 import type { Runner } from "../runtime/index.js";
 import { pollUntil } from "./readiness-poll.js";
 
@@ -6,8 +7,9 @@ import { pollUntil } from "./readiness-poll.js";
 /** The catalog readiness entry that stands for every Argo CD Application. */
 export const APPLICATIONS = "applications.argoproj.io";
 
-/** What an Argo CD check reads from: the runner and the kubectl scope. */
+/** What an Argo CD check reads from: the repository, runner and kubectl scope. */
 export interface ArgocdContext {
+  repository: Repository;
   runner: Runner;
   base: string[];
 }
@@ -22,8 +24,15 @@ interface Application {
   };
 }
 
+function kubectlArgocd(context: string): string {
+  return `kubectl --context ${context} -n argocd`;
+}
+
 /** Why an Application is not Synced and Healthy, or undefined when it is. */
-function problem({ metadata, status }: Application): string | undefined {
+function problem(
+  { metadata, status }: Application,
+  context: string,
+): string | undefined {
   const sync = status?.sync?.status ?? "Unknown";
   const health = status?.health?.status ?? "Unknown";
   if (sync === "Synced" && health === "Healthy") {
@@ -34,14 +43,20 @@ function problem({ metadata, status }: Application): string | undefined {
     status?.operationState?.message,
     ...(status?.conditions ?? []).map(({ message }) => message),
   ].find((message) => message);
-  return `Application ${metadata.name} is ${sync} and ${health}${cause ? `: ${cause}` : ""}`;
+  const fix = `run ${kubectlArgocd(context)} describe application ${metadata.name}`;
+  return `Application ${metadata.name} is ${sync} and ${health}${cause ? `: ${cause}` : ""}; ${fix}`;
+}
+
+function named(item: Application | null): boolean {
+  return typeof item?.metadata?.name === "string";
 }
 
 /** The Applications in kubectl's answer, or undefined when it is not a list. */
 function applicationItems(stdout: string): Application[] | undefined {
   try {
     const parsed = JSON.parse(stdout) as { items?: Application[] } | null;
-    return Array.isArray(parsed?.items) ? parsed.items : undefined;
+    const items = parsed?.items;
+    return Array.isArray(items) && items.every(named) ? items : undefined;
   } catch (error) {
     if (error instanceof SyntaxError) {
       return undefined;
@@ -55,7 +70,7 @@ function applicationItems(stdout: string): Application[] | undefined {
  * Application list is an error, never a pass, so the gate stays closed.
  */
 async function applicationsProblem(
-  { runner, base }: ArgocdContext,
+  { repository, runner, base }: ArgocdContext,
   resource: string,
 ): Promise<string | undefined> {
   const result = await runner.run(
@@ -65,9 +80,12 @@ async function applicationsProblem(
   );
   const items = applicationItems(result.stdout);
   if (items === undefined) {
-    return `kubectl get ${resource} returned output that is not a JSON Application list, so Application health is unknown`;
+    const { kubeContext } = repository.environment;
+    return `kubectl get ${resource} returned output that is not a JSON Application list, so Application health is unknown; run ${kubectlArgocd(kubeContext)} get ${resource}`;
   }
-  const problems = items.flatMap((app) => problem(app) ?? []);
+  const problems = items.flatMap(
+    (app) => problem(app, repository.environment.kubeContext) ?? [],
+  );
   return problems.length ? problems.join("; ") : undefined;
 }
 
