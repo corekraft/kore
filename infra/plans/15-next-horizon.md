@@ -231,7 +231,7 @@ ready.
 
 ### Work
 
-- [x] Install the Keycloak operator and the platform organization's Keycloak,
+- [ ] Install the Keycloak operator and the platform organization's Keycloak,
       with one realm and groups mirroring the organization
       ([ADR 0040](../../docs/decisions/0040-keycloak-human-identity.md)). Pin
       and evaluate the Crossplane Keycloak provider first.

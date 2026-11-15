@@ -1,6 +1,7 @@
 import type { Repository } from "../config/index.js";
 import { withSecretsRedacted } from "../images/index.js";
 import type { Runner } from "../runtime/index.js";
+import { keycloakAdminUser } from "./keycloak-support.js";
 
 // Docs: docs/decisions/0034-registry-authentication-and-authorization.md (stream-only Secrets)
 // Docs: docs/decisions/0113-run-a-keycloak-for-the-platform-organization-s-operators.md
@@ -87,7 +88,7 @@ export async function ensureKeycloakProviderCredentials(
           stringData: {
             credentials: JSON.stringify({
               client_id: "admin-cli",
-              username: "kore-admin",
+              username: keycloakAdminUser,
               password,
               url: `http://keycloak-service.${adminNamespace}.svc:8080`,
               realm: "master",

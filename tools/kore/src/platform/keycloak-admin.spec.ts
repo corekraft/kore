@@ -2,6 +2,7 @@
 import { randomBytes } from "node:crypto";
 import { beforeEach, expect, test, vi } from "vitest";
 import { withSecretsRedacted } from "../images/index.js";
+import { keycloakAdminUser } from "./keycloak-support.js";
 import { ensureKeycloakAdmin } from "./keycloak-admin.js";
 import { fakeRepository, fakeRunner } from "./platform-support.js";
 
@@ -41,7 +42,7 @@ test("a missing admin Secret is generated and reaches the cluster only on kubect
     kind: "Secret",
     metadata: { name: "keycloak-admin", namespace: "keycloak" },
     type: "kubernetes.io/basic-auth",
-    stringData: { username: "kore-admin", password },
+    stringData: { username: keycloakAdminUser, password },
   });
   expect(JSON.stringify(args)).not.toContain(password);
 });

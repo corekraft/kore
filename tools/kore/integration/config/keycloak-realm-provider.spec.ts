@@ -199,3 +199,43 @@ test("the group is the one Argo CD binds its operators role to", async () => {
   );
   assert.match(values, /^operatorsGroup: platform-operators$/m);
 });
+
+test("the realm is hardened: no self-registration, TLS required for outside clients, explicit short token lifespans and rotating refresh tokens", async () => {
+  const on = await render(
+    "platform-apis",
+    "local",
+    "kore-platform-apis",
+    flagOn,
+  );
+  const realm = document(on, "Composition").split("kind: Realm")[1] ?? "";
+  const provider = realm.split("kind: Group")[0] ?? "";
+  for (const setting of [
+    /registrationAllowed: false/,
+    /sslRequired: external/,
+    /accessTokenLifespan: 5m/,
+    /ssoSessionIdleTimeout: 30m/,
+    /ssoSessionMaxLifespan: 10h/,
+    /revokeRefreshToken: true/,
+    /refreshTokenMaxReuse: 0/,
+  ]) {
+    assert.match(provider, setting);
+  }
+});
+
+test("the composition creates no user, no client and no wildcard redirect URI or web origin", async () => {
+  const on = await render(
+    "platform-apis",
+    "local",
+    "kore-platform-apis",
+    flagOn,
+  );
+  const composition = document(on, "Composition");
+  assert.equal(/kind: User\b/.test(composition), false);
+  assert.equal(/user\.keycloak/.test(composition), false);
+  assert.equal(/kind: (OpenIdClient|Client)\b/.test(composition), false);
+  assert.equal(/validRedirectUris|webOrigins/i.test(composition), false);
+  assert.equal(
+    /\*/.test(composition.split("compose-keycloak-realm")[1] ?? ""),
+    false,
+  );
+});

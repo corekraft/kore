@@ -47,6 +47,20 @@ spec:
                 realm: platform
                 displayName: Kore platform
                 enabled: true
+                # Hardened explicitly, so no Keycloak default decides. No
+                # self-registration; TLS required for every client outside
+                # private networks; five-minute access tokens; sessions idle out
+                # after 30 minutes and end after 10 hours, which bounds refresh
+                # tokens; each refresh token is single use. No user, client,
+                # redirect URI or web origin is composed here: each OIDC client
+                # sets its own exact ones (a later item).
+                registrationAllowed: false
+                sslRequired: external
+                accessTokenLifespan: 5m
+                ssoSessionIdleTimeout: 30m
+                ssoSessionMaxLifespan: 10h
+                revokeRefreshToken: true
+                refreshTokenMaxReuse: 0
             ---
             apiVersion: group.keycloak.m.crossplane.io/v1alpha1
             kind: Group

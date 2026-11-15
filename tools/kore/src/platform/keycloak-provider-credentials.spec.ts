@@ -2,6 +2,7 @@
 // Docs: docs/decisions/0113-run-a-keycloak-for-the-platform-organization-s-operators.md
 import { beforeEach, expect, test, vi } from "vitest";
 import { withSecretsRedacted } from "../images/index.js";
+import { keycloakAdminUser } from "./keycloak-support.js";
 import { ensureKeycloakProviderCredentials } from "./keycloak-provider-credentials.js";
 import { fakeRepository, fakeRunner } from "./platform-support.js";
 
@@ -51,7 +52,7 @@ test("a missing provider credential is built from the admin Secret and reaches t
   expect(secret.type).toBe("Opaque");
   expect(JSON.parse(secret.stringData.credentials)).toEqual({
     client_id: "admin-cli",
-    username: "kore-admin",
+    username: keycloakAdminUser,
     password,
     url: "http://keycloak-service.keycloak.svc:8080",
     realm: "master",
