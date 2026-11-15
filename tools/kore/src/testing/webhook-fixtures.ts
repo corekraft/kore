@@ -8,6 +8,7 @@ const gatedOffReleases = [
   "metrics-server",
   "argocd",
   "kore-platform-apis",
+  "kore-golden-path-delivery",
 ];
 
 /**
