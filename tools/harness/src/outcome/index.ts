@@ -1,4 +1,10 @@
-export { closeOutcome, recordOutcome, type Concluded } from "./outcome.js";
+export {
+  closeOutcome,
+  recordOutcome,
+  type Concluded,
+  type Context,
+} from "./outcome.js";
+export type { Result } from "./model.js";
 export {
   OUTCOME_KINDS,
   OUTCOME_SOURCES,
