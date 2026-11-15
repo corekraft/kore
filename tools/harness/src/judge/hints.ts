@@ -28,8 +28,38 @@ function entries(text: string, environment: string): FlagChange[] {
   );
 }
 
-/** Flags added to the `features` object of an overlay, written inline or over several lines. */
+/** The `features` object of the overlay at the head, or undefined when the file is absent or not JSON. */
+function headFeatures(file: ChangedFile): Record<string, unknown> | undefined {
+  const text = file.sides?.after;
+  if (text === undefined) {
+    return undefined;
+  }
+  try {
+    const features = (JSON.parse(text) as { features?: unknown }).features;
+    return typeof features === "object" && features !== null
+      ? (features as Record<string, unknown>)
+      : undefined;
+  } catch (error) {
+    if (error instanceof SyntaxError) {
+      return undefined;
+    }
+    throw error;
+  }
+}
+
+/** Flags added to the `features` object of an overlay, placed by the head file when it is known, else by the hunk. */
 function overlayFlags(file: ChangedFile, environment: string): FlagChange[] {
+  const features = headFeatures(file);
+  if (features !== undefined) {
+    return file.added
+      .flatMap((text) => entries(text, environment))
+      .filter((f) => features[f.flag] === f.value);
+  }
+  return hunkFlags(file, environment);
+}
+
+/** Flags added to the `features` object of an overlay, written inline or over several lines, read from the hunk alone. */
+function hunkFlags(file: ChangedFile, environment: string): FlagChange[] {
   const found: FlagChange[] = [];
   let inside = false;
   let keyOnly = false;

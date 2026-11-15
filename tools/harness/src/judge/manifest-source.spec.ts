@@ -131,3 +131,32 @@ describe("withManifestSides", () => {
     expect(api).not.toHaveBeenCalled();
   });
 });
+
+describe("withManifestSides, for an environment overlay", () => {
+  const OVERLAY = "infra/environments/local/environment.yaml";
+
+  it("attaches the overlay's head text, so a hunk is placed by the whole file", async () => {
+    const api = fakeApi({ [HEAD]: "head overlay" });
+    const overlay = changed(OVERLAY);
+    await expect(
+      withManifestSides([overlay], api, REPO, BASE, HEAD),
+    ).resolves.toEqual([
+      { ...overlay, sides: { before: undefined, after: "head overlay" } },
+    ]);
+    expect(api).toHaveBeenCalledExactlyOnceWith([
+      "api",
+      "-H",
+      "Accept: application/vnd.github.raw",
+      `repos/${REPO}/contents/${OVERLAY}?ref=${HEAD}`,
+    ]);
+  });
+
+  it("leaves a deleted overlay without sides", async () => {
+    const api = fakeApi({});
+    const deleted = changed(OVERLAY, true);
+    await expect(
+      withManifestSides([deleted], api, REPO, BASE, HEAD),
+    ).resolves.toEqual([deleted]);
+    expect(api).not.toHaveBeenCalled();
+  });
+});
