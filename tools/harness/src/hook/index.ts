@@ -43,3 +43,4 @@ export const hook: Record<string, Command> = {
   ...testHooks,
   "workflow-permissions": workflowPermissions,
 };
+export { lastRetrospective, markerInstant } from "./retro-scan.js";

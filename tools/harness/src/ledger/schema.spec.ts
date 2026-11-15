@@ -254,6 +254,16 @@ describe("friction and rework events", () => {
     ).toBe(true);
   });
 
+  it("retro-triggered carries the reason it fired as its label and nothing else", () => {
+    const event = { ...stamp, kind: "retro-triggered" };
+    expect(parseEvent({ ...event, label: "count" }, "input").ok).toBe(true);
+    expect(parseEvent(event, "input").ok).toBe(false);
+    expect(
+      parseEvent({ ...event, label: "count", number: 3 }, "input").ok,
+    ).toBe(false);
+    expect(POLLER_KINDS).not.toContain("retro-triggered");
+  });
+
   it.each(["escalation", "kore.retry", "pane.interrupted"])(
     "%s is not a poller kind, so ledger record accepts it from agents",
     (kind) => {
