@@ -27,7 +27,7 @@ test("the release job builds, pushes, signs and verifies the Backstage image by 
   assert.match(step, /BACKSTAGE_IMAGE: ghcr\.io\/corekraft\/kore\/backstage/);
   assert.match(
     step,
-    /docker build --tag "\$BACKSTAGE_IMAGE:\$TAG" apps\/backstage/,
+    /docker build --tag "\$BACKSTAGE_IMAGE:\$TAG" images\/backstage/,
   );
   assert.match(step, /docker push "\$BACKSTAGE_IMAGE:\$TAG"/);
   assert.match(

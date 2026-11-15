@@ -230,7 +230,7 @@ jobs:
         env:
           BACKSTAGE_IMAGE: ghcr.io/corekraft/kore/backstage
         run: |
-          docker build --tag "$BACKSTAGE_IMAGE:$TAG" apps/backstage
+          docker build --tag "$BACKSTAGE_IMAGE:$TAG" images/backstage
           docker push "$BACKSTAGE_IMAGE:$TAG"
           BACKSTAGE_DIGEST="$(docker inspect --format '{{ index .RepoDigests 0 }}' "$BACKSTAGE_IMAGE:$TAG")"
           BACKSTAGE_DIGEST="${BACKSTAGE_DIGEST##*@}"

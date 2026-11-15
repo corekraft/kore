@@ -42,7 +42,7 @@ ADR 0041 keeps the per-tenant clauses, which stay in Then.
   organization.
 - Operators get a portal and git delivery before any tenant exists.
 - ADR 0041's per-tenant design builds on this one rather than replacing it.
-- The platform Backstage is a Kore-built image (`apps/backstage`: the backend
+- The platform Backstage is a Kore-built image (`images/backstage`: the backend
   with the Keycloak OIDC provider module, the Kubernetes plugin, the catalog
   and a policy that allows only the `platform-operators` group; no guest
   provider is installed), because upstream's image carries no OIDC module and
