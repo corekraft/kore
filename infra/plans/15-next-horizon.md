@@ -183,7 +183,7 @@ existing reference app keeps working until a service moves to them.
 - [x] Build a static frontend template into a signed image served from a pinned
       static-server image
       ([ADR 0045](../../docs/decisions/0045-static-frontends-as-signed-images.md)).
-- [ ] Build a Kotlin BFF template with Jib on the GraalVM JDK, with the
+- [x] Build a Kotlin BFF template with Jib on the GraalVM JDK, with the
       OpenTelemetry Java agent and a JDK AOT cache from a build-time training
       run
       ([ADR 0046](../../docs/decisions/0046-bff-jvm-with-agent-and-aot-cache.md)).

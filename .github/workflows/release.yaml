@@ -114,7 +114,7 @@ jobs:
       - uses: jdx/mise-action@b44d12e7d0d8ee7461bb893e1b1993500433185b # v5.2.7
         with:
           install: true
-          install_args: cosign
+          install_args: cosign gradle
           cache: false
       - name: Check the tag is a release version
         run: |
@@ -154,6 +154,21 @@ jobs:
             --certificate-identity "$IDENTITY" \
             --certificate-oidc-issuer "$ISSUER" \
             "${TEMPLATE_IMAGE}@${TEMPLATE_DIGEST}"
+      # The golden-path Kotlin BFF template image (ADR 0046), built by Jib with the
+      # agent and the AOT cache, and signed by the same keyless identity. Published
+      # only: nothing deploys the template yet, so the lock stays the reference's.
+      - name: Build, push, sign and verify the Kotlin BFF template image
+        env:
+          BFF_TEMPLATE_IMAGE: ghcr.io/corekraft/kore/templates/kotlin-bff
+        working-directory: templates/kotlin-bff
+        run: |
+          mise exec -- gradle --no-daemon jib --image="$BFF_TEMPLATE_IMAGE:$TAG"
+          BFF_TEMPLATE_DIGEST="$(cat build/jib-image.digest)"
+          mise exec -- cosign sign --yes "${BFF_TEMPLATE_IMAGE}@${BFF_TEMPLATE_DIGEST}"
+          mise exec -- cosign verify \
+            --certificate-identity "$IDENTITY" \
+            --certificate-oidc-issuer "$ISSUER" \
+            "${BFF_TEMPLATE_IMAGE}@${BFF_TEMPLATE_DIGEST}"
       - name: Write the image lock
         run: |
           jq -n --arg image "$IMAGE" --arg digest "$DIGEST" --arg signer "$IDENTITY" \
