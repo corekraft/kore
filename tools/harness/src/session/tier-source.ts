@@ -33,9 +33,12 @@ async function escalated(
       join(main, DEFAULT_LEDGER),
     ).list({ kind: "escalation" });
     return logged.events.some((e) => e.number === pr && e.label === model);
-  } catch {
-    // The ledger is a measurement; an unreadable one makes the launch an override, never a refusal.
-    return false;
+  } catch (error) {
+    // A file-system fault (the ledger is unreadable) degrades to an override, as the ledger never gates a spawn; anything else is a bug and surfaces.
+    if (typeof (error as NodeJS.ErrnoException).code === "string") {
+      return false;
+    }
+    throw error;
   }
 }
 

@@ -93,12 +93,22 @@ describe("tierSourceOf", () => {
     expect(ledger.list).not.toHaveBeenCalled();
   });
 
-  it("records override when the ledger cannot be read", async () => {
-    ledger.list.mockRejectedValue(new Error("unreadable"));
+  it("records override when the ledger file is unreadable, which is a file-system fault", async () => {
+    ledger.list.mockRejectedValue(
+      Object.assign(new Error("denied"), { code: "EACCES" }),
+    );
 
     await expect(
       tierSourceOf(deps, { model: "claude-opus-5-5", pr: 612 }),
     ).resolves.toEqual({ tierSource: "override" });
+  });
+
+  it("rethrows a fault that is not a file-system one, so a bug is never recorded as an override", async () => {
+    ledger.list.mockRejectedValue(new TypeError("bug"));
+
+    await expect(
+      tierSourceOf(deps, { model: "claude-opus-5-5", pr: 612 }),
+    ).rejects.toThrow("bug");
   });
 
   it("records override when there is no main checkout to hold a ledger", async () => {
