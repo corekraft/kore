@@ -37,15 +37,13 @@ the outcome is measured on k3d.
 
 ## Step 2: Replace the Gateway
 
-Next: Run the #207 live proof (KORE_RUN_AGENTGATEWAY_PROOF=1 tools/kore/scripts/agentgateway-live-proof.sh, phases 1–4 in a throwaway profile; kore-local stopped, not destroyed). Then #208, then #212 measured against #320's baseline under the same load. #210 only if the median CPU or memory drop is at least 20% (owner decision on #126). Full state: #366.
-
 ### Work
 
-- [ ] Install agentgateway as the GatewayClass for ingress, behind a feature
+- [x] Install agentgateway as the GatewayClass for ingress, behind a feature
       flag, dark launched in `local`.
-- [ ] Move the platform Gateway and routes to it, and remove Istio's ingress
+- [x] Move the platform Gateway and routes to it, and remove Istio's ingress
       gateway once the flag is on.
-- [ ] Keep ztunnel, mesh policy and tenant isolation unchanged.
+- [x] Keep ztunnel, mesh policy and tenant isolation unchanged.
 
 ### Exit Criteria
 
@@ -57,11 +55,12 @@ Pattern: `flag` (`ingress-agentgateway`, off in `local`). The flag-on render
 swaps the Gateway class and publishes its Service through
 `AgentgatewayParameters`; readiness waits for `deployment/kore-gateway-istio`
 and `service/kore-gateway-istio` to be absent. Fast specs prove the render and
-the readiness; the items above stay open until a live run on a throwaway
-profile shows the gateway live suite passing with the flag on and a
-migration from an Istio-ingress profile that keeps the cluster. Whether Istio
-removes the proxy by itself when the class changes is unproven: if it does not,
-readiness times out naming the leftover resource.
+the readiness. The items above were ticked once a live run on a throwaway
+profile showed the gateway passing with the flag on and a migration from an
+Istio-ingress profile that keeps the cluster (see
+[Step 2 and 3 live proofs](#step-2-and-3-live-proofs-agentgateway-on-k3d-2026-11-15)).
+Istio did not remove the proxy by itself when the class changed, as the next
+paragraph records.
 
 The live proof (phase 2) showed it does not: `kore-gateway-istio` stayed and the
 Gateway was never Programmed. So `kore-platform-config`'s reconcile now runs a
@@ -111,22 +110,28 @@ the live proof's throwaway overlay) enrols just the gateway pod: it adds the pod
 label through `Gateway.spec.infrastructure.labels` and a second
 `PeerAuthentication` that is permissive on the gateway's listener port only. The
 live proof now also sends a request through the Gateway after phase 2 and
-expects 200 on the reference route. The #208 identity suite needs re-running
-with the flag on before the box below is ticked.
+expects 200 on the reference route. The #208 identity suite was re-run with
+the flag on and passes (see the live proofs section under Results).
 
 ## Step 3: Re-Prove the Identity Chain
 
 ### Work
 
-- [ ] Prove that peer identity still reaches OPA (ADR 0066) and that the
-      layered authorization of ADR 0007 still holds.
-- [ ] Re-run the identity, authorizer and reference app suites.
+- [x] Prove that peer identity still reaches OPA (ADR 0066) and that the
+      layered authorization of ADR 0007 still holds. Passing spec: `authorizer.live.spec.ts`,
+      "OPA's decision input carries the authenticated source and destination
+      principals", with the fail-closed spec beside it. The one skip in the
+      identity run is the default-ServiceAccount rejection
+      (`kore-workload-identity` is still dryrun); it is not this path.
+- [x] Re-run the identity, authorizer and reference app suites.
 
 ### Exit Criteria
 
 - The identity and admission suites pass live on k3d.
 
 ## Step 4: Outcome
+
+Next: Owner labels #212: measured memory -68% and CPU +6.3% against the baseline, at unmatched load (42.2 and 40.5/s against 29.5 and 34.0/s); the label is the owner's. Then a matched-load remeasure or #210; after the recorded outcome, the four flags (ingress-agentgateway, gateway-class-change-release, gateway-rollback-order, agentgateway-mesh-enrollment) turn on in local through the flag activation command. Full state: #366.
 
 ### Work
 
@@ -221,3 +226,25 @@ Step 4 (a 20% drop, which exceeds each metric's spread):
 | ztunnel | Memory (MiB) | 9.425    | 0.5%   | reported, does not decide |
 
 Step 4 results will be added here against this table.
+
+### Step 2 and 3 live proofs: agentgateway on k3d (2026-11-15)
+
+Throwaway profile, flags on only there. Refs #126.
+
+- #207, phases 1 to 4 and the Gateway request step (200 on the reference
+  route): pass on live run 7, a retry after the first attempt overloaded the
+  Docker VM in phase 4
+  ([run 6](https://github.com/corekraft/kore/issues/207#issuecomment-6894865564),
+  [run 7](https://github.com/corekraft/kore/issues/207#issuecomment-6897416287)).
+- #208, `test:live:identity` 7 passed, 0 failed, 1 skipped; `test:live:reference`
+  8 passed
+  ([run 7](https://github.com/corekraft/kore/issues/208#issuecomment-6897416557)).
+- #212, measured, outcome not set
+  ([comment](https://github.com/corekraft/kore/issues/212#issuecomment-6897416867)):
+
+| Metric       | Mean of two medians | Baseline  | Change | Request rate (baseline 29.5 and 34.0/s) |
+| ------------ | ------------------- | --------- | ------ | --------------------------------------- |
+| Ingress CPU  | 46.7 m              | 43.94 m   | +6.3%  | 42.2 and 40.5/s                         |
+| Ingress mem. | 17.9 MiB            | 56.33 MiB | -68%   | 42.2 and 40.5/s                         |
+
+The rates are not matched, so the outcome label stays undecided.
