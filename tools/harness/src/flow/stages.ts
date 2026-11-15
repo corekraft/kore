@@ -7,6 +7,7 @@ export const STAGES = [
   "await approval",
   "orchestrate",
   "write",
+  "review",
   "judge",
   "merge",
   "verify",
@@ -26,6 +27,7 @@ export const ROLE_STAGES: Readonly<
   refiner: { stage: "refine" },
   challenger: { stage: "challenge" },
   writer: { stage: "write" },
+  reviewer: { stage: "review" },
   judge: { stage: "judge" },
   // A verifier checks the merged change; earlier events are not verification.
   verifier: { stage: "verify", after: "pr.merged" },
@@ -44,6 +46,7 @@ export const GITHUB_STAGES: Readonly<Partial<Record<Kind, Stage>>> = {
   outcome: "outcome",
   "pr.opened": "merge",
   "pr.merged": "merge",
+  "review.run": "review",
   "challenge.round": "challenge",
 };
 

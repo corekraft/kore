@@ -51,6 +51,8 @@ export interface Harness {
   close(name: string): Promise<void>;
   /** The idea's pull request and whether the judge has merged it; read-only. */
   delivery(issue: number): Promise<Delivery>;
+  /** `review run`: spawns the Reviewer for the PR's head and posts its verdict; throws when it posts none. */
+  review(pr: number): Promise<void>;
   /** `judge precheck`: read-only; whether the writer must fix the change before any judge pane. */
   precheck(pr: number): Promise<PrecheckVerdict>;
   /** `judge send-back`: posts the reason on the PR and records the send-back event, keyed on the PR head. */
@@ -155,12 +157,14 @@ export class IdeaRun {
       : undefined;
   }
 
-  /** Runs the precheck, then the judge on a pass; whether the PR merged. A failing precheck launches no judge. */
+  /** Runs the review and the precheck, then the judge on a pass; whether the PR merged. A failing precheck launches no judge. */
   private async judge(
     idea: string,
     pr: number,
     issue: number,
   ): Promise<boolean> {
+    // The precheck reads the posted verdict, so the head is reviewed first.
+    await this.harness.review(pr);
     const verdict = await this.harness.precheck(pr);
     if (verdict.sendBack) {
       await this.harness.sendBack(pr, verdict.reason);

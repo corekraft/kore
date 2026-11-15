@@ -11,6 +11,7 @@ import * as precheck from "./precheck.js";
 import * as prBody from "./pr-body.js";
 import * as reviewFindings from "./review-findings.js";
 import * as reviewPost from "./review-post.js";
+import * as reviewRun from "./review-run.js";
 import * as reviewVerdict from "./review-verdict.js";
 import * as reviewers from "./reviewers.js";
 import * as sendBack from "./send-back.js";
@@ -28,6 +29,7 @@ vi.mock("./precheck.js");
 vi.mock("./pr-body.js");
 vi.mock("./review-findings.js");
 vi.mock("./review-post.js");
+vi.mock("./review-run.js");
 vi.mock("./review-verdict.js");
 vi.mock("./reviewers.js");
 vi.mock("./send-back.js");
@@ -36,6 +38,7 @@ it("the judge barrel exposes exactly the names its callers import", () => {
   expect(Object.keys(judge).sort()).toEqual([
     "JudgeError",
     "PATTERNS",
+    "ReviewRun",
     "applyChecklist",
     "auditDeclaration",
     "diffStat",
@@ -72,6 +75,7 @@ it("each export is the unit's own export, not a copy or a wrapper", () => {
   expect(judge.summary).toBe(precheck.summary);
   expect(judge.findingsFrom).toBe(reviewFindings.findingsFrom);
   expect(judge.postReview).toBe(reviewPost.postReview);
+  expect(judge.ReviewRun).toBe(reviewRun.ReviewRun);
   expect(judge.reviewBody).toBe(reviewVerdict.reviewBody);
   expect(judge.hasSentBack).toBe(sendBack.hasSentBack);
   expect(judge.sendBackBody).toBe(sendBack.sendBackBody);

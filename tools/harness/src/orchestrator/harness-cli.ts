@@ -85,6 +85,11 @@ export class HarnessCli implements Harness {
       : { pr: newest.number, merged: newest.mergedAt !== null };
   }
 
+  /** `review run`: the Reviewer's verdict is posted for the PR's head, or this throws. */
+  async review(pr: number): Promise<void> {
+    await this.harness("review", "run", String(pr));
+  }
+
   /**
    * `judge precheck --json`: read-only. It exits 1 on a report that is not ready,
    * so the report is read whatever the code; no report means the precheck itself failed.

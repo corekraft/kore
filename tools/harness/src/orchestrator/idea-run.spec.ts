@@ -13,6 +13,7 @@ describe("IdeaRun", () => {
       "wait idea-0042-writer",
       "close idea-0042-writer",
       "delivery",
+      "review 50",
       "precheck 50",
       "spawn judge",
       "wait idea-0042-judge",
