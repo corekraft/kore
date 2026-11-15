@@ -28,8 +28,8 @@ do not yet bound anything
 - **One human gate.** A person approves an idea; everything after is
   autonomous.
 - **Every change declares a safety pattern.**
-- **The queue is the only channel** between the concierge and the
-  orchestrator.
+- **The queue is the only channel** into `orchestrate run`: GitHub issues,
+  labels and comments.
 
 ## Step 1: Idea and Outcome Records
 
@@ -62,6 +62,12 @@ do not yet bound anything
   covers each role's boundary.
 
 ## Step 3: Refiner and Challenger
+
+> **Superseded ([ADR 0117](../../docs/decisions/0117-the-delivery-loop-s-role-set.md)).**
+> The Refiner and Challenger were built and then retired: neither was ever
+> launched. For harness ideas the auto-approve qualifier stands in for the
+> Challenger; for other ideas the `ready-for-agent` label is the only gate. The
+> items below record what was built and stay ticked.
 
 ### Work
 
@@ -118,13 +124,13 @@ Next: Merged: queue and escalation counting ([#707](https://github.com/corekraft
 
 ### Work
 
-- [ ] The orchestrator runs in its own Herdr pane, reads the queue only
+- [ ] `orchestrate run` fills the Orchestrator role: it reads the queue only
       between pieces of work, and launches readers, writers and judges as
       panes.
 - [x] Writers escalate from Haiku to Sonnet after two judge send-backs, by
       relaunching with different parameters.
-- [ ] The concierge answers status from plans, issues and the ledger, and
-      files requests as ideas.
+- [ ] The person's own main session answers status from plans, issues and the
+      ledger, and files requests as ideas, with no concierge pane.
 
 ### Exit Criteria
 
