@@ -27,6 +27,20 @@ export function testHarness(
   for (const [path, content] of Object.entries(options.files ?? {})) {
     memory.files.set(path, content);
   }
+  // The spawn roles are defined, as in the repository, without a file that would show up among the written ones; a definition a spec seeds supplies the tier.
+  const AGENTS = "/repo/.claude/agents";
+  const listed = memory.readdir.bind(memory);
+  memory.readdir = async (path) =>
+    path === AGENTS
+      ? [
+          ...new Set([
+            ...(await listed(path)),
+            "reader.md",
+            "writer.md",
+            "judge.md",
+          ]),
+        ]
+      : listed(path);
   let time = Date.parse("2026-01-02T03:04:05.000Z");
   const deps: CliDeps = {
     runner,
