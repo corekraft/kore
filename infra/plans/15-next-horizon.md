@@ -141,7 +141,7 @@ dark launched. With the flag off the render adds nothing to a cluster.
 - [x] Define `Organization` and `Service` as Crossplane platform APIs for the
       platform organization only, following the PostgreSQL API's layout
       ([ADR 0008](../../docs/decisions/0008-crossplane-postgresql-platform-api.md)).
-- [ ] Compose a namespace per service environment with tenant and organization
+- [x] Compose a namespace per service environment with tenant and organization
       labels
       ([ADR 0037](../../docs/decisions/0037-tenant-isolation-by-namespace.md),
       [ADR 0038](../../docs/decisions/0038-organization-hierarchy-depth-and-labels.md)).
@@ -162,7 +162,7 @@ Safety pattern: `feature-flagged` (`autoscaling-defaults`, off in `local`).
 
 ### Work
 
-- [ ] Install metrics-server as a catalog Helm release, pinned and mirrored
+- [x] Install metrics-server as a catalog Helm release, pinned and mirrored
       ([ADR 0047](../../docs/decisions/0047-autoscaling-metrics-server-then-keda.md)).
 - [ ] Add a CPU HorizontalPodAutoscaler to the workload chart from chart values,
       with no replica count, at least two replicas, and a PodDisruptionBudget.

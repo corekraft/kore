@@ -141,6 +141,21 @@ test("a ClusterImagePolicy is proven Ready", async () => {
   ]);
 });
 
+test("the metrics APIService is proven Available, so a metrics-server that is up but unregistered is not ready", async () => {
+  const { run, wait } = waitOn([
+    "apiservice.apiregistration.k8s.io/v1beta1.metrics.k8s.io",
+  ]);
+
+  await wait();
+  expect(tails(run)).toEqual([
+    [
+      "--for=condition=Available",
+      "apiservice.apiregistration.k8s.io/v1beta1.metrics.k8s.io",
+      "--timeout=10m",
+    ],
+  ]);
+});
+
 test("a TLS Secret with both key halves is ready, and is probed within the bound", async () => {
   const { wait } = waitOn(["secret/web-tls"], () => "ready\n");
 
