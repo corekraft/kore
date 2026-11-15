@@ -32,6 +32,7 @@ vi.mock("../../src/platform/status.js", () => ({
   },
 }));
 
+import { withGatewayFlagsOff } from "../../src/testing/gateway-flags-off.js";
 import { loadRepository } from "../../src/config/index.js";
 import assert from "node:assert/strict";
 import { mkdtemp, rm } from "node:fs/promises";
@@ -140,7 +141,7 @@ function cluster(description: (revision: number) => string) {
 }
 
 async function upOnly(name: string, stale = false) {
-  const base = await loadRepository("local");
+  const base = withGatewayFlagsOff(await loadRepository("local"));
   const root = await mkdtemp(join(tmpdir(), "kore-second-run-"));
   temporary.push(root);
   const component = {

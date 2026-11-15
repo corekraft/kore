@@ -1,4 +1,8 @@
 export {
+  loadLocalGatewayFlagsOff,
+  withGatewayFlagsOff,
+} from "./gateway-flags-off.js";
+export {
   digest,
   gateOutput,
   healthyReadinessOutput,

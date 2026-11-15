@@ -1,4 +1,4 @@
-import { loadRepository } from "../config/index.js";
+import { loadLocalGatewayFlagsOff } from "./gateway-flags-off.js";
 import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, relative } from "node:path";
@@ -54,7 +54,7 @@ const registryCredentials = JSON.stringify({
 
 /** The generation of the local repository, which a gate must carry to be current. */
 export const localGeneration = platformGeneration(
-  await loadRepository("local"),
+  await loadLocalGatewayFlagsOff(),
 );
 
 export function gateOutput(
@@ -223,8 +223,8 @@ export async function removeReleaseLocks(): Promise<void> {
  */
 export async function repositoryTrustingRelease(
   signer = releaseSigner,
-): ReturnType<typeof loadRepository> {
-  const base = await loadRepository("local");
+): ReturnType<typeof loadLocalGatewayFlagsOff> {
+  const base = await loadLocalGatewayFlagsOff();
   return {
     ...base,
     imageTrustValues: {

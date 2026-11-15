@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { withGatewayFlagsOff } from "../../src/testing/gateway-flags-off.js";
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -121,7 +122,7 @@ function k3dRunner(calls: Call[]): Runner {
 }
 
 test("platform up on k3d programs the Gateway with no tunnel and no host process", async () => {
-  const base = await loadRepository("local");
+  const base = withGatewayFlagsOff(await loadRepository("local"));
   const root = await mkdtemp(join(tmpdir(), "kore-platform-k3d-"));
   const platformConfig = base.catalog.components.find(
     ({ name }) => name === "kore-platform-config",

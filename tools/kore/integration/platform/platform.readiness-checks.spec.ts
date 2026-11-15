@@ -1,4 +1,5 @@
 import { loadRepository } from "../../src/config/index.js";
+import { withGatewayFlagsOff } from "../../src/testing/gateway-flags-off.js";
 import assert from "node:assert/strict";
 import { test } from "vitest";
 
@@ -27,7 +28,7 @@ function fakeCluster(handler: Handler): { runner: Runner; calls: Call[] } {
 }
 
 async function helmComponent(readiness: string[]) {
-  const repository = await loadRepository("local");
+  const repository = withGatewayFlagsOff(await loadRepository("local"));
   const component = repository.catalog.components.find(
     ({ kind }) => kind === "helm",
   )!;

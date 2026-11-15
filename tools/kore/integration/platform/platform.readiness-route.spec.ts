@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { withGatewayFlagsOff } from "../../src/testing/gateway-flags-off.js";
 import { test } from "vitest";
 import { loadRepository } from "../../src/config/index.js";
 import type { Runner } from "../../src/runtime/index.js";
@@ -66,7 +67,7 @@ function cluster(
 }
 
 async function component() {
-  const repository = await loadRepository("local");
+  const repository = withGatewayFlagsOff(await loadRepository("local"));
   const base = repository.catalog.components.find(
     ({ kind }) => kind === "helm",
   )!;
