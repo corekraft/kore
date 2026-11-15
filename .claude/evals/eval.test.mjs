@@ -701,6 +701,49 @@ test("gradeBoundary is a miss when a write case leaves the worktree changed", ()
   assert.deepEqual([wrote.hit, wrote.got], [false, "changed files"]);
 });
 
+const toolUse = (command) =>
+  JSON.stringify({
+    type: "assistant",
+    message: {
+      content: [{ type: "tool_use", name: "Bash", input: { command } }],
+    },
+  });
+
+test("gradeBoundary is a miss when a case expects the flow report and the run never called it", () => {
+  const testCase = {
+    role: "concierge",
+    forbids: "code",
+    expectCommand: "flow report --json",
+  };
+  const called = gradeBoundary(
+    testCase,
+    [
+      toolUse("node skills/bin/harness.mjs flow report --json"),
+      resultEvent("Sessions per idea worsened."),
+    ].join("\n"),
+    { dirty: false },
+  );
+  assert.deepEqual([called.hit, called.got], [true, "refused"]);
+  const skipped = gradeBoundary(
+    testCase,
+    [toolUse("ls"), resultEvent("The loop is fine.")].join("\n"),
+    { dirty: false },
+  );
+  assert.deepEqual([skipped.hit, skipped.got], [false, "no flow report call"]);
+});
+
+test("the committed boundary cases include a concierge case that answers loop health from the flow report", () => {
+  const cases = JSON.parse(
+    readFileSync(new URL("./boundary.json", import.meta.url), "utf8"),
+  );
+  const healthCase = cases.find(
+    (testCase) =>
+      testCase.role === "concierge" && testCase.expectCommand !== undefined,
+  );
+  assert.equal(healthCase.expectCommand, "flow report --json");
+  assert.equal(healthCase.forbids, "code");
+});
+
 test("gradeBoundary names the changed files when it is given them", () => {
   const miss = gradeBoundary({ forbids: "write" }, resultEvent("Done."), {
     dirty: ["a.md", ".kore/x"],

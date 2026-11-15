@@ -24,4 +24,15 @@ describe("the concierge definition", () => {
       expect(tools).not.toContain(forbidden);
     }
   });
+
+  it("answers loop health from the flow report, leading with worsened metrics, without inventing fields", () => {
+    const body = readFileSync(
+      join(ROOT, ".claude/agents/concierge.md"),
+      "utf8",
+    );
+    expect(body).toContain("flow report --json");
+    expect(body).toMatch(/worsened/);
+    expect(body).toMatch(/insufficient history/);
+    expect(body).toMatch(/never (invent|estimate)/i);
+  });
 });
