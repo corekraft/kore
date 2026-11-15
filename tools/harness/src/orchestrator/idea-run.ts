@@ -74,9 +74,24 @@ export interface RunResult {
  * the concierge: the judge merges, and only a given outcome closes the idea.
  */
 export class IdeaRun {
-  constructor(private readonly harness: Harness) {}
+  /** `betweenWork` runs once when a queued idea's run ends, after every pane is closed. */
+  constructor(
+    private readonly harness: Harness,
+    private readonly betweenWork?: () => Promise<void>,
+  ) {}
 
   async run(idea: string, outcome: Measured | undefined): Promise<RunResult> {
+    const result = await this.drive(idea, outcome);
+    if (result.status !== "not-queued") {
+      await this.betweenWork?.();
+    }
+    return result;
+  }
+
+  private async drive(
+    idea: string,
+    outcome: Measured | undefined,
+  ): Promise<RunResult> {
     const queued = (await this.harness.queue()).find(
       (item) => item.kind === "idea" && item.idea === idea,
     );

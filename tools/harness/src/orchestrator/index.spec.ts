@@ -8,6 +8,14 @@ vi.mock("./harness-cli.js", () => ({
   HarnessCliError: vi.fn(),
 }));
 
+vi.mock("./retro-launch.js", () => ({
+  RETRO_FLAG: "f",
+  RETRO_MODEL: "m",
+  RETRO_ROLE: "r",
+  RetroLaunch: vi.fn(),
+}));
+vi.mock("./retro-flag.js", () => ({ retroFlagOn: vi.fn() }));
+
 describe("the orchestrator barrel", () => {
   it("exposes the domain's public names, and no file's internals", () => {
     expect(Object.keys(barrel).sort()).toEqual([
@@ -15,6 +23,11 @@ describe("the orchestrator barrel", () => {
       "HarnessCliError",
       "IdeaRun",
       "MAX_ROUNDS",
+      "RETRO_FLAG",
+      "RETRO_MODEL",
+      "RETRO_ROLE",
+      "RetroLaunch",
+      "retroFlagOn",
     ]);
   });
 

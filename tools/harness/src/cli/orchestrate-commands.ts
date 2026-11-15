@@ -2,6 +2,9 @@ import {
   HarnessCli,
   HarnessCliError,
   IdeaRun,
+  RETRO_MODEL,
+  RetroLaunch,
+  retroFlagOn,
   type Measured,
 } from "../orchestrator/index.js";
 import type { Command, CommandContext } from "../runtime/index.js";
@@ -58,8 +61,24 @@ async function runIdea(context: CommandContext): Promise<number> {
     return fail(outcome.error);
   }
   try {
-    const harness = new HarnessCli(deps.runner, await deps.root());
-    const result = await new IdeaRun(harness).run(idea, outcome);
+    const root = await deps.root();
+    const harness = new HarnessCli(deps.runner, root);
+    const launch = new RetroLaunch({
+      flagOn: () => retroFlagOn(deps.fs, root),
+      due: () => harness.retroDue(),
+      record: (reason) => harness.retroRecord(reason),
+      spawn: (pane) => harness.spawnRetro(pane),
+    });
+    // Between pieces of work: the run has ended and every pane is closed.
+    const betweenWork = async () => {
+      const started = await launch.run();
+      if (started.status === "launched") {
+        deps.stderr(
+          `Started retro pane ${started.name} (${started.reason}) on ${RETRO_MODEL}; collect it with \`session wait ${started.name}\`.\n`,
+        );
+      }
+    };
+    const result = await new IdeaRun(harness, betweenWork).run(idea, outcome);
     deps.stdout(
       json
         ? `${JSON.stringify(result)}\n`
@@ -76,7 +95,7 @@ async function runIdea(context: CommandContext): Promise<number> {
 
 const runCommand: Command = {
   summary:
-    "drive one approved idea to a recorded outcome through the existing tools: writer, then judge, repeated while the judge sends the change back, the writer relaunched on Sonnet after two send-backs; reads the queue only between pieces of work, never merges, edits or messages the concierge, and records the outcome through `outcome record` only when all five outcome flags are given, so an idea with no outcome is never closed; exits 1 unless the outcome is recorded (--idea [--kind --source --result --evidence --summary, as for `outcome record`])",
+    "drive one approved idea to a recorded outcome through the existing tools: writer, then judge, repeated while the judge sends the change back, the writer relaunched on Sonnet after two send-backs; reads the queue only between pieces of work, never merges, edits or messages the concierge, and records the outcome through `outcome record` only when all five outcome flags are given, so an idea with no outcome is never closed; once the run has ended and no pane is left running, starts a retro pane on Opus when `retro due` says one is due and the local `automatic-retro` flag is on, recording the trigger through `retro record` first and never launching twice for one trigger; exits 1 unless the outcome is recorded (--idea [--kind --source --result --evidence --summary, as for `outcome record`])",
   options: {
     idea: "string",
     kind: "string",

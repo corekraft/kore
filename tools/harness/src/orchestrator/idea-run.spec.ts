@@ -215,3 +215,55 @@ describe("IdeaRun limits", () => {
     );
   });
 });
+
+describe("IdeaRun between pieces of work", () => {
+  function withHook(harness: ScriptedHarness) {
+    return new IdeaRun(harness, () => {
+      harness.calls.push("between-work");
+      return Promise.resolve();
+    });
+  }
+
+  it("runs the between-work hook once, after the last pane is closed", async () => {
+    const harness = new ScriptedHarness();
+    await withHook(harness).run("0042", OUTCOME);
+    expect(harness.calls.slice(-2)).toEqual(["record-outcome", "between-work"]);
+    expect(harness.calls.filter((c) => c === "between-work")).toHaveLength(1);
+  });
+
+  it("never runs the hook while a pane runs, even across send-back rounds", async () => {
+    const harness = new ScriptedHarness({
+      deliveries: [
+        { pr: 50, merged: false },
+        { pr: 50, merged: true },
+      ],
+      counts: [1],
+    });
+    await withHook(harness).run("0042", OUTCOME);
+    let running = false;
+    for (const call of harness.calls) {
+      running = call.startsWith("spawn")
+        ? true
+        : call.startsWith("close")
+          ? false
+          : running;
+      expect(running && call === "between-work").toBe(false);
+    }
+    expect(harness.calls.filter((c) => c === "between-work")).toHaveLength(1);
+  });
+
+  it("runs the hook when the run stops blocked, since no pane is left running", async () => {
+    const harness = new ScriptedHarness({ waits: ["blocked"] });
+    await withHook(harness).run("0042", OUTCOME);
+    expect(harness.calls.slice(-2)).toEqual([
+      "close idea-0042-writer",
+      "between-work",
+    ]);
+  });
+
+  it("does not run the hook for an idea that is not queued", async () => {
+    const harness = new ScriptedHarness({ queue: [] });
+    await withHook(harness).run("0042", OUTCOME);
+    expect(harness.calls).toEqual(["queue"]);
+  });
+});

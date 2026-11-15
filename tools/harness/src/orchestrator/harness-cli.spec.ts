@@ -190,4 +190,65 @@ describe("HarnessCli escalation, outcome and failure", () => {
     const { cli } = setup(() => ({ stdout: "not json" }));
     await expect(cli.queue()).rejects.toThrow(HarnessCliError);
   });
+
+  it("reads retro due as read-only json, reduced to what the launch needs", async () => {
+    const { cli, calls } = setup(() => ({
+      stdout: JSON.stringify({
+        due: true,
+        reason: "metric",
+        metric: "tokensPerIdea",
+        closedIdeas: 6,
+        threshold: 5,
+        lastRetrospective: null,
+      }),
+    }));
+    expect(await cli.retroDue()).toEqual({
+      due: true,
+      reason: "metric",
+      metric: "tokensPerIdea",
+    });
+    expect(calls).toEqual([harness("retro", "due", "--json")]);
+  });
+
+  it("records the retro trigger through the owning retro record command", async () => {
+    const { cli, calls } = setup(() => ({
+      stdout: JSON.stringify({
+        reason: "count",
+        recordedAt: "2026-11-15T09:30:12Z",
+        appended: true,
+      }),
+    }));
+    expect(await cli.retroRecord("count")).toEqual({
+      recordedAt: "2026-11-15T09:30:12Z",
+      appended: true,
+    });
+    expect(calls).toEqual([
+      harness("retro", "record", "--reason", "count", "--json"),
+    ]);
+  });
+
+  it("spawns the retro pane on the model it is given, without waiting and without a worktree", async () => {
+    const { cli, calls } = setup();
+    await cli.spawnRetro({
+      role: "reader",
+      name: "retro-20261115-0930",
+      model: "claude-opus-5-5",
+      brief: "b",
+    });
+    expect(calls).toEqual([
+      harness(
+        "session",
+        "spawn",
+        "--role",
+        "reader",
+        "--name",
+        "retro-20261115-0930",
+        "--brief",
+        "b",
+        "--model",
+        "claude-opus-5-5",
+        "--no-wait",
+      ),
+    ]);
+  });
 });

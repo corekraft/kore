@@ -1,5 +1,6 @@
 import type { QueueItem } from "../queue/index.js";
 import type { Runner } from "../runtime/index.js";
+import type { RetroPane, RetroReport } from "./retro-launch.js";
 import type {
   Delivery,
   Harness,
@@ -109,6 +110,49 @@ export class HarnessCli implements Harness {
       outcome.evidence,
       "--summary",
       outcome.summary,
+    );
+  }
+
+  /** `retro due --json`: read-only. */
+  async retroDue(): Promise<RetroReport> {
+    const read = this.json(await this.harness("retro", "due", "--json")) as {
+      due: boolean;
+      reason?: "count" | "metric";
+      metric?: string;
+    };
+    return read.due && read.reason !== undefined
+      ? {
+          due: true,
+          reason: read.reason,
+          ...(read.metric === undefined ? {} : { metric: read.metric }),
+        }
+      : { due: false };
+  }
+
+  /** `retro record`: the owning script writes the ledger event and the marker. */
+  async retroRecord(
+    reason: string,
+  ): Promise<{ recordedAt: string; appended: boolean }> {
+    const done = this.json(
+      await this.harness("retro", "record", "--reason", reason, "--json"),
+    ) as { recordedAt: string; appended: boolean };
+    return { recordedAt: done.recordedAt, appended: done.appended };
+  }
+
+  /** `session spawn --no-wait` for the retro pane, on the model it names. */
+  async spawnRetro(pane: RetroPane): Promise<void> {
+    await this.harness(
+      "session",
+      "spawn",
+      "--role",
+      pane.role,
+      "--name",
+      pane.name,
+      "--brief",
+      pane.brief,
+      "--model",
+      pane.model,
+      "--no-wait",
     );
   }
 
