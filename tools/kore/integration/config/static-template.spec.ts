@@ -12,7 +12,7 @@ test("the static frontend template is served from a static-server image pinned b
   const dockerfile = await read("templates/static-frontend/Dockerfile");
   assert.match(
     dockerfile,
-    /^FROM nginxinc\/nginx-unprivileged:1\.31\.7-alpine@sha256:[0-9a-f]{64}$/m,
+    /^FROM nginxinc\/nginx-unprivileged:1\.31\.7-alpine3\.24@sha256:[0-9a-f]{64}$/m,
   );
   assert.equal(dockerfile.match(/^FROM /gm)?.length, 1);
 });
@@ -45,6 +45,20 @@ test("the release job signs the static frontend template image by digest and ver
   assert.match(
     workflow,
     /cosign verify[^\n]*\\\n[^\n]*certificate-identity "\$IDENTITY"[\s\S]*?\$\{TEMPLATE_IMAGE\}@/,
+  );
+});
+
+test("the static frontend base is the digest the catalog already records for the registry proxy seed", async () => {
+  const dockerfile = await read("templates/static-frontend/Dockerfile");
+  const base = /^FROM (\S+)$/m.exec(dockerfile)?.[1];
+  assert.ok(base);
+  assert.ok((await read("infra/catalog/seeds.yaml")).includes(base));
+});
+
+test("the hadolint scan covers the static frontend template Dockerfile", async () => {
+  assert.match(
+    await read(".mise.toml"),
+    /hadolint apps\/reference\/Dockerfile templates\/static-frontend\/Dockerfile/,
   );
 });
 
