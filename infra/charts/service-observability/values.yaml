@@ -1,0 +1,14 @@
+# The Kore environment this cluster serves; a Service's workload runs in the
+# namespace <service>--<environment> that the Service composition creates.
+environment: local
+
+# The names of the registered Services (infra/services/*.yaml, one Service
+# manifest each). One dashboard and one alert group are rendered for each.
+services: []
+
+# alerts.destination is the platform alert destination, a parked owner question
+# (plan 15). It is unset on purpose: the rules are notify-only and show only in
+# Grafana. Set, it is carried as a contact_point label for the routing the answer
+# defines; this chart routes nothing.
+# alerts:
+#   destination: <contact point name>

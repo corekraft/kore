@@ -1,0 +1,5 @@
+apiVersion: v2
+name: service-observability
+description: Default Grafana dashboard and notify-only alert rules for each registered Service (ADR 0114, plan 15 step 6), installed only under the platform-portal flag
+type: application
+version: 0.1.0
