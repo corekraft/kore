@@ -6,6 +6,23 @@
 {{- if lt (int $autoscaling.maxReplicas) (int $autoscaling.minReplicas) }}
 {{- fail "autoscaling.maxReplicas must not be below autoscaling.minReplicas; raise maxReplicas" }}
 {{- end }}
+{{- if not ((.Values.resources.requests | default dict).cpu) }}
+{{- fail "autoscaling.enabled needs resources.requests.cpu: the autoscaler computes CPU utilisation against the request; set resources.requests.cpu (for example 25m) or set autoscaling.enabled=false" }}
+{{- end }}
+{{- end }}
+{{- $pdb := .Values.podDisruptionBudget }}
+{{- $minAvailable := $pdb.minAvailable }}
+{{- if and $pdb.enabled (kindIs "invalid" $pdb.minAvailable) (kindIs "invalid" $pdb.maxUnavailable) }}
+{{- $minAvailable = 1 }}
+{{- end }}
+{{- if and $pdb.enabled (not (kindIs "invalid" $pdb.minAvailable)) (not (kindIs "invalid" $pdb.maxUnavailable)) }}
+{{- fail "podDisruptionBudget.minAvailable and podDisruptionBudget.maxUnavailable are both set; unset one of them" }}
+{{- end }}
+{{- if and $pdb.enabled (not (kindIs "invalid" $pdb.maxUnavailable)) (lt (int $pdb.maxUnavailable) 1) }}
+{{- fail "podDisruptionBudget.maxUnavailable must be at least 1, or no pod could ever be drained; raise it or use minAvailable" }}
+{{- end }}
+{{- if and $pdb.enabled $autoscaling.enabled (not (kindIs "invalid" $minAvailable)) (ge (int $minAvailable) (int $autoscaling.minReplicas)) }}
+{{- fail (printf "podDisruptionBudget.minAvailable (%v) must be below autoscaling.minReplicas (%v), or every node drain is blocked; lower minAvailable or raise autoscaling.minReplicas" $minAvailable $autoscaling.minReplicas) }}
 {{- end }}
 {{- if and .Values.podDisruptionBudget.enabled (not $autoscaling.enabled) }}
 {{- fail "podDisruptionBudget.enabled needs autoscaling.enabled=true: a budget over a single replica blocks every node drain; enable autoscaling or disable the budget" }}
@@ -95,7 +112,11 @@ metadata:
   name: reference-{{ $component }}
   labels: {app.kubernetes.io/name: reference-{{ $component }}, app.kubernetes.io/part-of: reference}
 spec:
-  minAvailable: {{ $.Values.podDisruptionBudget.minAvailable }}
+  {{- if not (kindIs "invalid" $pdb.maxUnavailable) }}
+  maxUnavailable: {{ $pdb.maxUnavailable }}
+  {{- else }}
+  minAvailable: {{ $minAvailable }}
+  {{- end }}
   selector: {matchLabels: {app.kubernetes.io/name: reference-{{ $component }}}}
 ---
 {{- end }}

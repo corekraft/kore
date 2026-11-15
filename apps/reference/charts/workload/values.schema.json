@@ -19,7 +19,8 @@
       "type": "object",
       "properties": {
         "enabled": { "type": "boolean" },
-        "minAvailable": { "type": "integer", "minimum": 1 }
+        "minAvailable": { "type": ["integer", "null"] },
+        "maxUnavailable": { "type": ["integer", "null"] }
       }
     }
   }

@@ -66,3 +66,57 @@ test("a maximum below the minimum is refused with the fix", async () => {
     render(...on, "--set", "autoscaling.maxReplicas=1"),
   ).rejects.toThrow(/maxReplicas/);
 });
+
+test("a budget that allows no disruption is refused naming both values", async () => {
+  for (const minAvailable of ["2", "3"]) {
+    await expect(
+      render(
+        ...on,
+        "--set",
+        `podDisruptionBudget.minAvailable=${minAvailable}`,
+      ),
+    ).rejects.toThrow(/minAvailable.*minReplicas/);
+  }
+});
+
+test("a budget below the minimum replicas renders", async () => {
+  const out = await render(
+    ...on,
+    "--set",
+    "autoscaling.minReplicas=3",
+    "--set",
+    "podDisruptionBudget.minAvailable=2",
+  );
+  expect(out).toMatch(/minAvailable: 2/);
+});
+
+test("maxUnavailable renders alone and must be at least one", async () => {
+  const out = await render(
+    ...on,
+    "--set",
+    "podDisruptionBudget.maxUnavailable=1",
+  );
+  expect(out).toMatch(/maxUnavailable: 1/);
+  expect(out).not.toMatch(/minAvailable/);
+  await expect(
+    render(...on, "--set", "podDisruptionBudget.maxUnavailable=0"),
+  ).rejects.toThrow(/maxUnavailable.*at least 1/);
+});
+
+test("minAvailable and maxUnavailable together are refused", async () => {
+  await expect(
+    render(
+      ...on,
+      "--set",
+      "podDisruptionBudget.minAvailable=1",
+      "--set",
+      "podDisruptionBudget.maxUnavailable=1",
+    ),
+  ).rejects.toThrow(/minAvailable.*maxUnavailable/);
+});
+
+test("autoscaling without a cpu request is refused naming the value", async () => {
+  await expect(
+    render(...on, "--set", "resources.requests.cpu=null"),
+  ).rejects.toThrow(/resources\.requests\.cpu/);
+});

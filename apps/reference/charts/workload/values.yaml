@@ -18,7 +18,10 @@ autoscaling:
 # Needs autoscaling.enabled, so the budget never sits over a single replica.
 podDisruptionBudget:
   enabled: false
-  minAvailable: 1
+  # Set at most one of the two; with neither set, minAvailable is 1. A
+  # minAvailable at or above autoscaling.minReplicas is refused.
+  minAvailable: null
+  maxUnavailable: null
 
 database:
   # The connection Secret's passwordSecretRef names the Secret that holds the
