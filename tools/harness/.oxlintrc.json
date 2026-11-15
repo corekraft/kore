@@ -121,6 +121,10 @@
             "message": "import from the plan barrel (plan/index.js), not one of its files"
           },
           {
+            "group": ["**/queue/**", "!**/queue/index.js"],
+            "message": "import from the queue barrel (queue/index.js), not one of its files"
+          },
+          {
             "group": ["**/ruleset/**", "!**/ruleset/index.js"],
             "message": "import from the ruleset barrel (ruleset/index.js), not one of its files"
           },
@@ -222,6 +226,10 @@
               {
                 "group": ["**/plan/**", "!**/plan/index.js"],
                 "message": "import from the plan barrel (plan/index.js), not one of its files"
+              },
+              {
+                "group": ["**/queue/**", "!**/queue/index.js"],
+                "message": "import from the queue barrel (queue/index.js), not one of its files"
               },
               {
                 "group": ["**/ruleset/**", "!**/ruleset/index.js"],

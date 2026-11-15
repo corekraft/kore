@@ -179,3 +179,31 @@ export function judgeOutcome(
   }
   return cpu <= 0 && memory <= 0 ? "refuted" : "inconclusive";
 }
+
+export interface LatencySummary {
+  requests: number;
+  p50Ms: number;
+  p95Ms: number;
+  maxMs: number;
+}
+
+/**
+ * Nearest-rank p50, p95 and max of request times in milliseconds. Same input,
+ * same output; the input is not reordered.
+ */
+export function summarizeLatency(milliseconds: number[]): LatencySummary {
+  if (milliseconds.length === 0) {
+    throw new Error(
+      "a latency summary needs at least one request time; check that the latency probe completed requests",
+    );
+  }
+  const sorted = [...milliseconds].sort((a, b) => a - b);
+  const rank = (fraction: number): number =>
+    round(sorted[Math.ceil(fraction * sorted.length) - 1] ?? 0, 1);
+  return {
+    requests: sorted.length,
+    p50Ms: rank(0.5),
+    p95Ms: rank(0.95),
+    maxMs: rank(1),
+  };
+}

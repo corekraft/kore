@@ -368,11 +368,11 @@ completed ideas and the report says "Not enough data". A label other than
 last event is charged no time past it. Equal waiting ties go to the earlier
 stage.
 
-`--json` prints one object, `version` 6; any field change bumps `version`:
+`--json` prints one object, `version` 8; any field change bumps `version`:
 
 | Field               | Meaning                                                                                                    |
 | ------------------- | ---------------------------------------------------------------------------------------------------------- |
-| `version`           | Shape version, `6`.                                                                                        |
+| `version`           | Shape version, `8`.                                                                                        |
 | `asOf`              | Time open waits are measured to.                                                                           |
 | `ideas`             | `{ total, completed }`; completed means the issue closed.                                                  |
 | `minCompletedIdeas` | Completed ideas needed before a bottleneck is named.                                                       |
@@ -382,9 +382,34 @@ stage.
 | `bottleneckNote`    | Always present: why `bottleneck` is `null` (too few completed ideas, or no waiting recorded), else `null`. |
 | `unmappedEvents`    | Events with no stage or no idea, left out of every stage.                                                  |
 | `attribution`       | `{ events, withIdea, withIdeaAndStage }`: how many events the report can place.                            |
+| `rework`            | Escalations, send-backs, Challenger rounds and friction per closed idea, see below.                        |
+| `friction`          | `{ total, sources, unknownKinds }`, see below.                                                             |
 | `guardBlocks`       | `[{ rule, blocks }]`, most blocked first, from `guard.block` events.                                       |
 | `outcomes`          | `{ mainRed, reverts, liveRuns, ownerMinutes }`, see below.                                                 |
 | `skippedLines`      | Ledger lines that were not valid events.                                                                   |
+
+### Rework and friction metrics
+
+`rework` has `escalationsPerIdea`, `sendBacksPerIdea`, `challengeRoundsPerIdea`
+and `frictionPerIdea`, each counted per closed idea from `escalation`,
+`send-back`, `challenge.round` and friction events. Like the cost metrics, each
+gives the latest closed idea (`currentIdea`, `current`), the `trailingAverage`
+of the N ideas before it, `maxIncrease` (0.25) and `worsened`, or
+`{"status": "insufficient history", "closedIdeas", "needed"}`, never zero.
+
+`friction` is `{ total, sources, unknownKinds }` for the range. A source is
+`{ kind, source, events }`: a `hook rule` (the rule of a `guard.block` or
+`guard.audit` event), a `command` (the `kore` command of a `kore.retry` event,
+one per retry of a failed command) or a `pane` (the id of a `pane.interrupted`
+event). Events of a kind the report does not know are left out and counted in
+`unknownKinds`; an empty ledger gives zeros.
+
+`kore.retry` carries the `kore` command as `label`; `pane.interrupted` carries
+the `pane`; `escalation` is the one `harness queue escalate` records, with the
+PR `number` and the model as `label`. `kore.retry` and `pane.interrupted` are
+written only through `harness ledger record` (they are not poller kinds); the
+report never writes the ledger, and `integration/flow-write-path.spec.ts`
+checks that.
 
 ### Attribution and outcome metrics
 

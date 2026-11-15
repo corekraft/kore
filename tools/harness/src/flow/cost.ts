@@ -66,7 +66,7 @@ function costOf(own: LedgerEvent[]) {
   return { tokens, measured, sessions };
 }
 
-function metric(
+export function trailingMetric(
   values: { idea: string; value: number }[],
   trailing: number,
   { maxIncrease }: Threshold,
@@ -93,6 +93,27 @@ function metric(
   };
 }
 
+/** Ideas closed in the range, oldest first, each with its events. */
+export function closedIdeas(
+  byIdea: Map<string, LedgerEvent[]>,
+  window: Span,
+): { idea: string; at: number; own: LedgerEvent[] }[] {
+  const closed: { idea: string; at: number; own: LedgerEvent[] }[] = [];
+  for (const [idea, own] of byIdea) {
+    const at = own
+      .filter((e) => e.kind === "issue.closed")
+      .map(time)
+      .sort((a, b) => a - b)[0];
+    if (at !== undefined && inWindow(window, at)) {
+      closed.push({ idea, at, own });
+    }
+  }
+  return closed.sort(
+    (a, b) =>
+      a.at - b.at || a.idea.localeCompare(b.idea, undefined, { numeric: true }),
+  );
+}
+
 /**
  * Tokens and sessions per closed idea, from ledger events only. Ideas are
  * ordered by when they closed; the trailing average covers the last N.
@@ -102,30 +123,15 @@ export function costMetrics(
   window: Span,
   options: CostOptions,
 ): CostMetrics {
-  const closed: {
-    idea: string;
-    at: number;
-    tokens: number;
-    measured: boolean;
-    sessions: number;
-  }[] = [];
-  for (const [idea, own] of byIdea) {
-    const at = own
-      .filter((e) => e.kind === "issue.closed")
-      .map(time)
-      .sort((a, b) => a - b)[0];
-    if (at !== undefined && inWindow(window, at)) {
-      closed.push({ idea, at, ...costOf(own) });
-    }
-  }
-  closed.sort(
-    (a, b) =>
-      a.at - b.at || a.idea.localeCompare(b.idea, undefined, { numeric: true }),
-  );
+  const closed = closedIdeas(byIdea, window).map(({ idea, at, own }) => ({
+    idea,
+    at,
+    ...costOf(own),
+  }));
   const { trailingIdeas } = options;
   return {
     trailingIdeas,
-    tokensPerIdea: metric(
+    tokensPerIdea: trailingMetric(
       // An idea with no token.usage was not measured; it is not a zero.
       closed
         .filter((c) => c.measured)
@@ -133,7 +139,7 @@ export function costMetrics(
       trailingIdeas,
       options.tokensPerIdea,
     ),
-    sessionsPerIdea: metric(
+    sessionsPerIdea: trailingMetric(
       closed.map((c) => ({ idea: c.idea, value: c.sessions })),
       trailingIdeas,
       options.sessionsPerIdea,

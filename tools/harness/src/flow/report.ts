@@ -18,6 +18,7 @@ import { Tally, type StageTotals } from "./tally.js";
 import {
   firstClosed,
   COST_KINDS,
+  frictionMetrics,
   DEFAULT_HOST_DAYS,
   guardBlocks,
   hostPressure,
@@ -26,6 +27,7 @@ import {
   outcomes,
   type Attribution,
   type CostMetrics,
+  type FrictionMetrics,
   type GuardBlocks,
   type HostPressure,
   type Outcomes,
@@ -41,7 +43,7 @@ import {
   type ScopeOptions,
 } from "./scope.js";
 
-export const REPORT_VERSION = 7;
+export const REPORT_VERSION = 8;
 
 export type { StageTotals, Toil } from "./tally.js";
 export type { Scope, ScopeOptions } from "./scope.js";
@@ -54,7 +56,7 @@ export interface Bottleneck {
 }
 
 /** The `flow report --json` shape; `version` changes when a field does. */
-export interface FlowReport {
+export interface FlowReport extends FrictionMetrics {
   version: typeof REPORT_VERSION;
   asOf: string;
   /** The range and ideas the report covers. */
@@ -318,6 +320,7 @@ export function buildReport(
     minCompletedIdeas,
     stages: tally.stages(),
     ...ideaMetrics(ownByIdea, window, options.cost),
+    ...frictionMetrics(named, ownByIdea, window, options.cost?.trailingIdeas),
     ...nameBottleneck(tally, completed, minCompletedIdeas),
     unmappedEvents: unmapped,
     attribution: measureAttribution(
