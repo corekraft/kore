@@ -98,7 +98,9 @@ test("a separate write-assets job attaches the chart lock and never replaces a d
 
 test("the six configuration charts are packaged and the image policy is not", async () => {
   const text = await script();
-  for (const name of CHARTS) assert.match(text, new RegExp(`\\b${name}\\b`));
+  for (const name of CHARTS) {
+    assert.match(text, new RegExp(`\\b${name}\\b`));
+  }
   assert.doesNotMatch(text, /kore-image-policy/);
   const root = await findRoot();
   const catalog = JSON.parse(
