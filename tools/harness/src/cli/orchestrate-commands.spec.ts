@@ -169,3 +169,21 @@ describe("orchestrate run between pieces of work", () => {
     expect(err.join("")).toBe("");
   });
 });
+
+describe("orchestrate run usage text", () => {
+  const summary = orchestrateCommands["run"]?.summary ?? "";
+
+  it("says a failing precheck is sent back to the writer before any judge pane", () => {
+    expect(summary).toContain(
+      "runs `judge precheck` before it launches any judge pane",
+    );
+    expect(summary).toContain(
+      "sends a failing change back to its writer with the precheck's reason through `judge send-back`",
+    );
+    expect(summary).toContain("launching no judge pane");
+  });
+
+  it("says a send-back counts once per PR head toward the writer's escalation", () => {
+    expect(summary).toContain("counted once per PR head");
+  });
+});
