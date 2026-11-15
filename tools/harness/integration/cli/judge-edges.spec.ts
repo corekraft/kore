@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { run } from "../../src/cli/index.js";
 import { testHarness } from "../../src/testing/index.js";
-import { BUNDLE } from "./judge-support.js";
+import { BUNDLE, INVENTORY, inventoryWith } from "./judge-support.js";
 import type { FakeResponse } from "../../src/testing/index.js";
 
 const URL = "https://github.com/corekraft/kore/actions/runs/9/job/1";
@@ -22,6 +22,7 @@ function pr(overrides: Record<string, unknown>, runView?: FakeResponse) {
   };
   const h = testHarness({
     env: {},
+    files: { [INVENTORY]: inventoryWith() },
     responses: [
       {
         match: (c, a) => c === "git" && a.includes("--git-common-dir"),
@@ -126,6 +127,7 @@ describe("judge precheck readable output and errors", () => {
   it("reports unreadable gh output as a JSON error under --json", async () => {
     const h = testHarness({
       env: { KORE_ROOT: "/repo" },
+      files: { [INVENTORY]: inventoryWith() },
       responses: [
         {
           match: (c, a) => c === "git" && a.includes("--git-common-dir"),

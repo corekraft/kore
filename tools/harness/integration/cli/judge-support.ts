@@ -45,6 +45,28 @@ export interface Scenario {
   files?: Record<string, string>;
 }
 
+export const INVENTORY = "/repo/.claude/guardrails.yaml";
+
+/** The inventory text with every judge checklist item in the given modes (enforce unless named). */
+export function inventoryWith(modes: Record<string, string> = {}): string {
+  const items = [
+    "ci",
+    "scan",
+    "coverage",
+    "principles-review",
+    "expand-step",
+    "pattern-match",
+  ];
+  return JSON.stringify({
+    guardrails: items.map((item) => ({
+      rule: `judge-${item}`,
+      kind: "checklist",
+      mode: modes[item] ?? "enforce",
+      owner: "tools/harness/src/judge/checklist.ts",
+    })),
+  });
+}
+
 export const passing = [
   {
     name: "check",
@@ -167,7 +189,7 @@ export function scenario(s: Scenario = {}) {
   const h = testHarness({
     env: s.env ?? {},
     responses,
-    files: s.files ?? {},
+    files: { [INVENTORY]: inventoryWith(), ...s.files },
   });
   h.deps.bundleUrl = BUNDLE;
   return h;
