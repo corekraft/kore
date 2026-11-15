@@ -37,6 +37,14 @@ spec:
               value: {{ printf "%s@%s" $frontend.image $frontend.digest | quote }}
             - name: bff.image
               value: {{ printf "%s@%s" $bff.image $bff.digest | quote }}
+            {{- with .Values.ingress }}
+            - name: ingress.host
+              value: '{{`{{ .metadata.name }}`}}.{{`{{ .spec.organization }}`}}.{{ .platformDomain }}'
+            - name: ingress.gatewayClassName
+              value: {{ .gatewayClassName | quote }}
+            - name: ingress.issuer
+              value: {{ .issuer | default "kore-local-ca" | quote }}
+            {{- end }}
       destination:
         server: https://kubernetes.default.svc
         namespace: '{{`{{ .metadata.name }}`}}--{{ .Values.environment }}'

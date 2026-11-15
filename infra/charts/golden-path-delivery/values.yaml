@@ -25,3 +25,11 @@ project: default
 # templateImages:
 #   static-frontend: {image: ghcr.io/..., digest: sha256:...}
 #   kotlin-bff: {image: ghcr.io/..., digest: sha256:...}
+
+# HTTPS for each Service's default host <service>.<organization>.<platformDomain>
+# (ADR 0042), the same host the Service composition reports in
+# status.defaultHost. Unset, the Applications carry no ingress parameter.
+# ingress:
+#   platformDomain: kore.local
+#   gatewayClassName: agentgateway
+#   issuer: kore-local-ca   # the ClusterIssuer, default kore-local-ca
