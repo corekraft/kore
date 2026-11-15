@@ -481,6 +481,13 @@ the rule, once per item and head. An unreadable inventory or a mode other than
 `audit` or `enforce` is refused with the fix named. Moving an item to `enforce`
 needs a person's approval (ADR 0080).
 
+`harness judge merge` re-runs the same precheck, so these items are the merge
+tool's gates and read the same modes. A failing `enforce` gate blocks the merge;
+a failing `audit` gate never does: the merge goes ahead, lists the gate (an
+`audit:` line, or `audited` in `--json`) and the precheck's ledger write records
+its one `guard.audit` event. An unreadable inventory or an unknown mode refuses
+the merge before anything is read or merged.
+
 `harness judge precheck` also refuses to run when its harness bundle is behind
 `origin/main` for `tools/harness`: the build stamps the bundle with its commit,
 and the precheck asks GitHub's compare API whether main changed a file under

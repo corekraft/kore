@@ -120,6 +120,77 @@ describe("harness judge merge", () => {
   });
 });
 
+describe("harness judge merge: audit gates", () => {
+  const audited = [
+    {
+      item: "scan" as const,
+      rule: "judge-scan",
+      mode: "audit" as const,
+      result: "fail" as const,
+      detail: "2 findings",
+    },
+  ];
+
+  it("merges when only an audit gate failed, and says what it would have blocked", async () => {
+    const { context, run, stdout } = contextOf("42");
+    vi.mocked(prNumber).mockReturnValue(42);
+    vi.mocked(checkedPrecheck).mockResolvedValue(reportOf({ audited }));
+
+    expect(await mergeCommands.merge?.run(context)).toBe(0);
+    expect(run).toHaveBeenCalledTimes(1);
+    expect(stdout).toHaveBeenCalledWith(
+      "PR #42: squash-merged at abc1234\naudit: scan fail (2 findings); logged, did not block the merge\n",
+    );
+  });
+
+  it("lists the audited gates in the --json merge result", async () => {
+    const { context, stdout } = contextOf("42", {}, true);
+    vi.mocked(prNumber).mockReturnValue(42);
+    vi.mocked(checkedPrecheck).mockResolvedValue(reportOf({ audited }));
+
+    await mergeCommands.merge?.run(context);
+    expect(stdout).toHaveBeenCalledWith(
+      `${JSON.stringify({ pr: 42, merged: true, head: "abc1234", audited })}\n`,
+    );
+  });
+
+  it("records the audit firing once, before the merge, through the ledger owner", async () => {
+    const { context } = contextOf("42");
+    vi.mocked(prNumber).mockReturnValue(42);
+    const report = reportOf({ audited });
+    vi.mocked(checkedPrecheck).mockResolvedValue(report);
+
+    await mergeCommands.merge?.run(context);
+    expect(record).toHaveBeenCalledTimes(1);
+    expect(record).toHaveBeenCalledWith(context, report);
+  });
+
+  it("merges nothing and records nothing when a gate mode is refused, never defaulting to enforce or audit", async () => {
+    const { context, run } = contextOf("42");
+    const refusal = new JudgeError('judge-scan has the mode "warn". Fix it.');
+    vi.mocked(prNumber).mockReturnValue(42);
+    vi.mocked(checkedPrecheck).mockRejectedValue(refusal);
+    vi.mocked(failed).mockReturnValue(1);
+
+    expect(await mergeCommands.merge?.run(context)).toBe(1);
+    expect(failed).toHaveBeenCalledWith(context, refusal);
+    expect(record).not.toHaveBeenCalled();
+    expect(run).not.toHaveBeenCalled();
+  });
+
+  it("merges nothing when an enforce gate failed beside an audit one", async () => {
+    const { context, run } = contextOf("42");
+    vi.mocked(prNumber).mockReturnValue(42);
+    vi.mocked(checkedPrecheck).mockResolvedValue(
+      reportOf({ ok: false, audited }),
+    );
+    vi.mocked(summary).mockReturnValue("SUMMARY");
+
+    expect(await mergeCommands.merge?.run(context)).toBe(1);
+    expect(run).not.toHaveBeenCalled();
+  });
+});
+
 describe("harness judge merge: refusals", () => {
   it("reports a refused gh merge with the head to verify again", async () => {
     const { context, run } = contextOf("42");
