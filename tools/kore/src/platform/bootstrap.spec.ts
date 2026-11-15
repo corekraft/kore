@@ -69,6 +69,7 @@ beforeEach(() => {
   );
   vi.mocked(ensurePortalSecrets).mockImplementation(async () => {
     order.push("portal-secrets");
+    return await Promise.resolve();
   });
   vi.mocked(reconcileIfNeeded).mockImplementation(async (_repo, _runner, c) => {
     order.push(`reconcile:${c.name}`);
