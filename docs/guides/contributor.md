@@ -43,7 +43,9 @@ see [The harness bundle](#the-harness-bundle).
    (`package.json`, `tsconfig.json`, `vitest.config.ts`, `package-lock.json`,
    kore's `src/test-setup-support.ts`) runs the whole package suite instead.
    Specs read `infra/` and `apps/` by path, so a staged file there runs the
-   specs that name its directory (`tools/kore/.husky/related-tests.mjs`). The
+   specs that name its directory (`tools/kore/.husky/related-tests.mjs`). To run the same
+   typecheck, lint and related tests by hand, without a commit, use
+   `mise run test-related <files>`; it runs every step and reports each failure. The
    full suites with coverage thresholds run in CI `check`, which the `main`
    ruleset requires before merge (changes to that ruleset go through
    `harness ruleset sync --dry-run`, then `--confirm` after the operator
