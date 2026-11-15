@@ -83,6 +83,12 @@
         "components": ["kore-config-delivery"]
       },
       {
+        "name": "keycloak-operator",
+        "step": 8,
+        "capability": "controller",
+        "components": ["keycloak-operator"]
+      },
+      {
         "name": "secrets",
         "step": 8,
         "capability": "controller",
