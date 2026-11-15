@@ -12,6 +12,7 @@
   "registry": { "address": "10.96.0.50:5000" },
   "features":
     {
+      "agentgateway-mesh-enrollment": false,
       "autoscaling-defaults": false,
       "gateway-class-change-release": false,
       "gateway-rollback-order": false,

@@ -52,6 +52,11 @@ The `gateway-rollback-order` flag, off in every overlay, moves the refusal of a
 gated-off release that is still installed to after the components are reconciled,
 so a rollback can re-render `kore-platform-config` first; with it off the refusal
 stays up front.
+The `agentgateway-mesh-enrollment` flag, off in every overlay, applies only with
+the agentgateway class: it labels the `kore-gateway` data-plane pod
+`istio.io/dataplane-mode: ambient` and adds a `PeerAuthentication` that is
+permissive on the gateway's listener port only; with it off, or under the Istio
+class, the render is unchanged.
 The `registry-tag-pruning` flag, off in every overlay, lets `kore local up`
 delete per-run image tags older than seven days from the local registry and
 collect garbage; it turns on registry delete support in the `oci-registry` chart

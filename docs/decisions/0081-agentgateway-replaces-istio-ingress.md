@@ -57,3 +57,28 @@ reconciles every component first and then refuses, still naming the
 refusal stays up front, with no Helm call before it. Kore still never
 uninstalls CRDs; that consent stays with the operator. This supersedes the
 earlier note that the live proof deletes that object by hand.
+
+Addendum, 2026-11-15 (#208 live run 6, #126): the agentgateway data plane is
+enrolled in the ambient mesh by its own flag `agentgateway-mesh-enrollment`
+(off in every committed overlay). The live run showed the `kore-gateway` pod
+outside the mesh while `kore-system` and `reference` use STRICT mTLS, so
+ztunnel denied its plaintext connection to the frontend and the gateway
+answered 503. Only the data-plane pod is enrolled, not `kore-system`: an
+enrolled pod gets STRICT inbound, so the load balancer's plaintext connection
+to the gateway port would break, and enrolling the namespace would change every
+other workload in it. Verified against agentgateway v1.7.0: the generated pod
+copies `Gateway.spec.infrastructure.labels` into its labels, so the pod label is
+set there, which works whether or not the environment publishes a Service
+through `AgentgatewayParameters` (the CRD's `deployment.spec` overlay could also
+carry it, but only with that resource present); the pod runs as the
+ServiceAccount named after the Gateway (`kore-gateway`, so its identity is
+`spiffe://cluster.local/ns/kore-system/sa/kore-gateway`, stable for ADR 0066);
+and the container port equals the listener port, so `.Values.gateway.port`
+is the pod's real port (the controller sets the unprivileged-port sysctl to 0,
+so 443 needs no remap). A second `PeerAuthentication`, `kore-gateway-listener`,
+selects the gateway pod, stays STRICT and sets `PERMISSIVE` for the listener
+port only, the same exposure the Istio gateway has today. Workload-to-workload
+mTLS, the namespace default, `default-deny` and `gateway-allow-https` are
+untouched. Both resources render only for the agentgateway class with the flag
+on. The identity chain (ADR 0066) is re-proven by the #208 suites, which this
+change does not claim to pass.

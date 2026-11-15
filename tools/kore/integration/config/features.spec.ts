@@ -113,6 +113,7 @@ test("the managed-example overlay validates with and without flags", async () =>
       ...base.environment,
       features: {
         "agent-loop": false,
+        "agentgateway-mesh-enrollment": false,
         "autoscaling-defaults": false,
         "gateway-class-change-release": false,
         "gateway-rollback-order": false,
