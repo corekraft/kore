@@ -344,12 +344,12 @@ joins an idea by issue number at read time: an issue event by its own number, a
 PR event by the `idea` (`#<issue>`) it closes, a pane or session event by the
 `idea` it carries on any event. Stages: an issue is in `await approval` from open
 until the `ready-for-agent` label; a pane or session named `...-<role>` works
-`refine`, `challenge`, `orchestrate`, `write`, `judge` or `verify` (verifier
+`refine`, `orchestrate`, `write`, `judge` or `verify` (verifier
 events count only after the PR merged); a claude session no agent name reaches is the main
 session, `orchestrate`; a PR is in `merge` from open until merged; a closed issue
 is `outcome`. A pane is active from `pane.spawned` or `pane.busy` and waiting from
 `pane.waiting` until its next event. An open issue or PR is waiting, minus any
-time a refine, challenge, write, judge or verify pane was alive, up to `--as-of`
+time a refine, write, judge or verify pane was alive, up to `--as-of`
 (default now).
 
 Toil is time an agent spent not advancing work, per stage, in seconds under
