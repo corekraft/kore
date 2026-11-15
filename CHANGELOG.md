@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.7.0](https://github.com/corekraft/kore/compare/v0.6.0...v0.7.0) (2026-11-15)
+
+
+### Features
+
+* **harness:** add a test-related task that runs only the related unit tests ([#762](https://github.com/corekraft/kore/issues/762)) ([04ef476](https://github.com/corekraft/kore/commit/04ef476e102436d049f18f647701af1694810560))
+* **harness:** send a failing precheck back before any judge pane ([#763](https://github.com/corekraft/kore/issues/763)) ([8f9b4b8](https://github.com/corekraft/kore/commit/8f9b4b8abcee8f297c2a35655cd3efe6cdc838bc))
+
+
+### Bug fixes
+
+* **release:** carry template image names to the lock step and fail on an empty one ([#767](https://github.com/corekraft/kore/issues/767)) ([d4c8565](https://github.com/corekraft/kore/commit/d4c8565c9ec0dea3e22f7bad471ecf8daeb61922))
+
 ## [0.6.0](https://github.com/corekraft/kore/compare/v0.5.0...v0.6.0) (2026-11-15)
 
 

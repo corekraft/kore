@@ -31,6 +31,34 @@ test("each template step hands its signed digest to the later lock step", async 
   );
 });
 
+test("each template step hands its image name to the later lock step, which the step-level env does not", async () => {
+  const release = job(await workflow(), "release");
+  assert.match(
+    release,
+    /echo "TEMPLATE_IMAGE=\$TEMPLATE_IMAGE" >> "\$GITHUB_ENV"/,
+  );
+  assert.match(
+    release,
+    /echo "BFF_TEMPLATE_IMAGE=\$BFF_TEMPLATE_IMAGE" >> "\$GITHUB_ENV"/,
+  );
+});
+
+test("the template lock step stops before writing when an image or digest is empty", async () => {
+  const release = job(await workflow(), "release");
+  const start = release.indexOf("- name: Write the template image lock");
+  const step = release.slice(start);
+  const guard = step.indexOf("${TEMPLATE_IMAGE:?");
+  assert.ok(guard >= 0, "guards TEMPLATE_IMAGE");
+  for (const name of [
+    "TEMPLATE_DIGEST",
+    "BFF_TEMPLATE_IMAGE",
+    "BFF_TEMPLATE_DIGEST",
+  ]) {
+    assert.match(step, new RegExp("\\$\\{" + name + ":\\?"), name);
+  }
+  assert.ok(guard < step.indexOf("jq -n"), "guards come before jq");
+});
+
 test("the template lock names both images by digest and the one signer", async () => {
   const release = job(await workflow(), "release");
   const step = release.slice(
