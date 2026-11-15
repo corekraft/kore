@@ -2,6 +2,7 @@ import { findingsFrom, postReview, type ReviewPosted } from "../judge/index.js";
 import type { Command, CommandContext } from "../runtime/index.js";
 import { failed, prNumber } from "./judge-shared.js";
 import { ghReviewIo, type ReviewIo } from "./review-gh.js";
+import { reviewRunRun } from "./review-run-command.js";
 
 const POST_USAGE =
   "Run `harness review post <pr> [--none] [--dry-run] [--json]`, with findings one per line on stdin.";
@@ -51,5 +52,11 @@ export const reviewCommands: Record<string, Command> = {
     operand: "pr",
     options: { none: "boolean", "dry-run": "boolean" },
     run: (context) => reviewPostRun(context, () => ghReviewIo(context)),
+  },
+  run: {
+    summary:
+      "mutates; reads the PR's head once, spawns the principles-review Reviewer through `session spawn` at its declared tier, collects its verdict with `session wait`, and posts it through `review post`'s code for that same head, so a tool, not a model, posts the verdict; a head that moved during the review discards the verdict and reviews again (up to 3 reviews, then fails); a pane that ends blocked or with no parsable verdict records a review.run failure event and posts nothing (<pr> [--json])",
+    operand: "pr",
+    run: reviewRunRun,
   },
 };

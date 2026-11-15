@@ -174,3 +174,18 @@ describe("the judge states which safety patterns merge without the owner", () =>
     expect(body("judge")).toMatch(/\(\.\.\/\.\.\/docs\/decisions\/0099-/);
   });
 });
+
+describe("the principles-review definition", () => {
+  const found = () =>
+    parseDefinition(definitions().get("principles-review") ?? "");
+
+  it("declares Sonnet at medium, so session spawn accepts the role and it never inherits its caller's model", () => {
+    expect(displayName(found().model ?? "")).toMatch(/^Sonnet /);
+    expect(found().effort).toBe("medium");
+  });
+
+  it("has no tool that edits a file", () => {
+    expect(found().tools ?? []).not.toEqual(expect.arrayContaining(["Edit"]));
+    expect(found().tools).toEqual(["Read", "Grep", "Glob", "Bash"]);
+  });
+});

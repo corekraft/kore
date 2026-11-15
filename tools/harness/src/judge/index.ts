@@ -10,6 +10,11 @@ export { precheck, readPr, summary, type Report } from "./precheck.js";
 export { findingsFrom } from "./review-findings.js";
 export { postReview, type ReviewPosted } from "./review-post.js";
 export { reviewBody } from "./review-verdict.js";
+export {
+  ReviewRun,
+  type ReviewPorts,
+  type ReviewRunResult,
+} from "./review-run.js";
 export { hasSentBack, sendBackBody } from "./send-back.js";
 export { reviewersFor, type ReviewerSources } from "./reviewers.js";
 export { diffStat, selectDiff, type FileStat } from "./diff-select.js";
