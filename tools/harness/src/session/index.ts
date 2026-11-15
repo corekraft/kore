@@ -1,8 +1,10 @@
 import type { Command } from "../runtime/index.js";
 export { handOff } from "./handoff.js";
+export { FOLLOW_UP_PREFIX } from "./follow-up-prefix.js";
 import { close } from "./close.js";
 import { equalize } from "./equalize.js";
 import { notify } from "./notify.js";
+import { send } from "./send.js";
 import { spawn } from "./spawn.js";
 import { tier } from "./tier.js";
 import { wait } from "./wait.js";
@@ -39,6 +41,14 @@ const notifyCommand: Command = {
   operand: "pane",
   options: { outcome: "string" },
   run: notify,
+};
+
+const sendCommand: Command = {
+  summary:
+    "send a follow-up to a spawned session's pane: adds the [orchestrator] prefix once (even when the message already starts with it, so the retro scan never counts it as an owner correction), submits it, confirms it shows in the pane, and records a session.send event (<name> --message <one line of text>)",
+  operand: "name",
+  options: { message: "string" },
+  run: send,
 };
 
 const closeCommand: Command = {
@@ -83,6 +93,7 @@ export const session: Record<string, Command> = {
   spawn: spawnCommand,
   wait: waitCommand,
   notify: notifyCommand,
+  send: sendCommand,
   close: closeCommand,
   tier: tierCommand,
   equalize: equalizeCommand,

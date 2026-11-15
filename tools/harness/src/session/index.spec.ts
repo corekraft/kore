@@ -5,6 +5,7 @@ import { close } from "./close.js";
 import { equalize, type EqualizeResult } from "./equalize.js";
 import { resolveTier as exported, session } from "./index.js";
 import { notify } from "./notify.js";
+import { send } from "./send.js";
 import { spawn } from "./spawn.js";
 import { tier } from "./tier.js";
 import { wait } from "./wait.js";
@@ -13,6 +14,7 @@ vi.mock("./agent-definition.js", () => ({ resolveTier: vi.fn() }));
 vi.mock("./close.js", () => ({ close: vi.fn() }));
 vi.mock("./equalize.js", () => ({ equalize: vi.fn() }));
 vi.mock("./notify.js", () => ({ notify: vi.fn() }));
+vi.mock("./send.js", () => ({ send: vi.fn() }));
 vi.mock("./spawn.js", () => ({ spawn: vi.fn() }));
 vi.mock("./tier.js", () => ({ tier: vi.fn() }));
 vi.mock("./wait.js", () => ({ wait: vi.fn() }));
@@ -44,11 +46,12 @@ beforeEach(() => {
 });
 
 describe("the session domain's command set", () => {
-  it("exposes spawn, wait, notify, close, tier and equalize, and no other command", () => {
+  it("exposes spawn, wait, notify, send, close, tier and equalize, and no other command", () => {
     expect(Object.keys(session).sort()).toEqual([
       "close",
       "equalize",
       "notify",
+      "send",
       "spawn",
       "tier",
       "wait",
@@ -63,6 +66,7 @@ describe("the session domain's command set", () => {
     ["spawn", spawn],
     ["wait", wait],
     ["notify", notify],
+    ["send", send],
     ["close", close],
     ["tier", tier],
   ] as const)("runs %s through its own module", async (name, module) => {
@@ -91,6 +95,7 @@ describe("the session domain's command set", () => {
   it.each([
     ["wait", "name", { timeout: "string" }],
     ["notify", "pane", { outcome: "string" }],
+    ["send", "name", { message: "string" }],
     ["close", "name", { "remove-worktree": "boolean" }],
     ["tier", "role", undefined],
   ])("takes the operand and flags %s declares", (name, operand, options) => {
