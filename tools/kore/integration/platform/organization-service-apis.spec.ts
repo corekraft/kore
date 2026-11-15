@@ -209,9 +209,32 @@ test("the Service composition composes the default host service.organization.pla
   assert.match(source, /platform\.kore\.dev\/default-host: \{\{ \$host \}\}/);
 });
 
-test("the platform domain is a chart value defaulting to kore.local, validated as a hostname", async () => {
-  const values = await read("infra/charts/platform-apis/values.yaml");
-  assert.match(values, /^platformDomain: kore\.local$/m);
+test("each environment overlay supplies its own platform domain and the chart has no default", async () => {
+  await assert.rejects(
+    read("infra/charts/platform-apis/values.yaml"),
+    /ENOENT/,
+    "a chart default would give a non-local environment the local domain",
+  );
+  for (const [name, domain] of [
+    ["local", "kore.local"],
+    ["managed-example", "platform.example.com"],
+  ] as const) {
+    const repository = await loadRepository(name);
+    const files = repository.environment.componentValues?.[component] ?? [];
+    assert.deepEqual(files, [
+      `infra/environments/${name}/values/platform-apis.yaml`,
+    ]);
+    const values = await read(files[0]!);
+    assert.match(
+      values,
+      new RegExp(`^platformDomain: ${domain.replace(/\./g, "\\.")}$`, "m"),
+    );
+  }
+  await assert.rejects(
+    helmRender(),
+    /platformDomain/,
+    "omitting it fails the schema",
+  );
   const schema = JSON.parse(
     await read("infra/charts/platform-apis/values.schema.json"),
   ) as {
