@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { test } from "vitest";
-import { findRoot } from "../../src/config/index.js";
+import { findRoot, sessionCookieViolations } from "../../src/config/index.js";
 
 async function read(path: string): Promise<string> {
   return readFile(join(await findRoot(), path), "utf8");
@@ -174,39 +174,13 @@ test("the compatibility table records each Kotlin BFF template pin with full dig
 
 // The session cookie is the Tomcat cookie Spring Boot configures under
 // server.servlet.session.cookie. Its keys are read from the public config only.
-function sessionCookieKeys(yaml: string): Map<string, string> {
-  const keys = new Map<string, string>();
-  const lines = yaml.split("\n");
-  // server > servlet > session > cookie sits at 6 spaces; its keys at 8.
-  const start = lines.indexOf("      cookie:");
-  for (const line of start < 0 ? [] : lines.slice(start + 1)) {
-    if (line.trim() !== "" && !/^ {8}\S/.test(line)) {
-      break;
-    }
-    const pair = /^ {8}([\w-]+): (\S+)$/.exec(line);
-    if (pair?.[1] !== undefined && pair[2] !== undefined) {
-      keys.set(pair[1], pair[2]);
-    }
-  }
-  return keys;
-}
-
-test("every session cookie the Kotlin BFF template sets is HttpOnly, Secure and SameSite", async () => {
-  const cookie = sessionCookieKeys(
-    await read("templates/kotlin-bff/src/main/resources/application.yaml"),
+test("every session cookie the Kotlin BFF template sets is host-only, HttpOnly, Secure and SameSite", async () => {
+  assert.deepEqual(
+    sessionCookieViolations(
+      await read("templates/kotlin-bff/src/main/resources/application.yaml"),
+    ),
+    [],
   );
-  assert.equal(cookie.get("http-only"), "true");
-  assert.equal(cookie.get("secure"), "true");
-  assert.ok(["strict", "lax"].includes(cookie.get("same-site") ?? ""));
-});
-
-test("the Kotlin BFF template never sets a cookie Domain, so the session stays host-only", async () => {
-  const yaml = await read(
-    "templates/kotlin-bff/src/main/resources/application.yaml",
-  );
-  assert.equal(sessionCookieKeys(yaml).has("domain"), false);
-  assert.doesNotMatch(yaml, /^\s*domain:/m);
-  assert.doesNotMatch(yaml, /Domain=/i);
 });
 
 test("nothing deploys the Kotlin BFF template yet", async () => {

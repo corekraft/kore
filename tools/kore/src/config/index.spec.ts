@@ -123,6 +123,7 @@ test("the config barrel exposes exactly the entry points other domains use", () 
     "registryPruneFlag",
     "renderedCrdNames",
     "rollbackConstraint",
+    "sessionCookieViolations",
     "trustedSigners",
     "validateRepository",
   ]);
