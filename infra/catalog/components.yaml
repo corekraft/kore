@@ -217,6 +217,37 @@
           ]
       },
       {
+        "name": "argocd",
+        "phase": "core",
+        "namespace": "argocd",
+        "kind": "helm",
+        "repository": "oci://ghcr.io/argoproj/argo-helm/argo-cd",
+        "chart": "argo-cd",
+        "version": "argocd",
+        "featureFlag": "platform-argocd-delivery",
+        "ownsCRDs":
+          [
+            "applications.argoproj.io",
+            "applicationsets.argoproj.io",
+            "appprojects.argoproj.io"
+          ],
+        "ownsCRDGroups": ["argoproj.io"],
+        "dependencies": [],
+        "timeout": "10m",
+        "values": ["infra/environments/common/values/argocd.yaml"],
+        "readiness":
+          [
+            "crd/applications.argoproj.io",
+            "crd/applicationsets.argoproj.io",
+            "crd/appprojects.argoproj.io",
+            "deployment/argocd-redis",
+            "deployment/argocd-server",
+            "deployment/argocd-repo-server",
+            "deployment/argocd-applicationset-controller",
+            "statefulset/argocd-application-controller"
+          ]
+      },
+      {
         "name": "agentgateway-crds",
         "phase": "bootstrap",
         "namespace": "agentgateway-system",

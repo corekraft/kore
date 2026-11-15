@@ -1,0 +1,18 @@
+{
+  "global":
+    {
+      "image":
+        {
+          "repository": "ghcr.io/corekraft/kore/mirror/argocd",
+          "tag": "v3.6.1@sha256:296e3d74f449b2ce45265613fcb68c18ed7366488360c8ea32f5f2a93d2e5c54"
+        }
+    },
+  "redis":
+    {
+      "image":
+        {
+          "repository": "ghcr.io/corekraft/kore/mirror/argocd-redis",
+          "tag": "8.6.4-alpine@sha256:2cc044fc5a07c9b701f8f1255a309ae9ad7856e694ac03513bf3648c01e40763"
+        }
+    }
+}

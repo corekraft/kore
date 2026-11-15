@@ -46,6 +46,7 @@ vi.mock("./features.js", () => ({
   ingressFlag: "ingress-agentgateway",
   localImageReuseFlag: "local-image-reuse",
   organizationServiceApisFlag: "platform-organization-service-apis",
+  platformArgocdDeliveryFlag: "platform-argocd-delivery",
   registryPruneFlag: "registry-tag-pruning",
 }));
 vi.mock("./files.js", () => ({ exists: vi.fn() }));
@@ -110,6 +111,7 @@ test("the config barrel exposes exactly the entry points other domains use", () 
     "orderedComponents",
     "organizationServiceApisFlag",
     "patchableKinds",
+    "platformArgocdDeliveryFlag",
     "platformClaimErrors",
     "policyPromotionErrors",
     "probeFields",

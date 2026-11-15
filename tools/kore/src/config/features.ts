@@ -57,3 +57,6 @@ export const autoscalingFlag = "autoscaling-defaults";
 
 /** The flag that installs the Organization and Service platform APIs, for the platform organization only (plan 15 step 2). */
 export const organizationServiceApisFlag = "platform-organization-service-apis";
+
+/** The flag that installs the platform organization's Argo CD in the core phase (ADR 0043, plan 15 step 5). */
+export const platformArgocdDeliveryFlag = "platform-argocd-delivery";

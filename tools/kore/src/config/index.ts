@@ -68,6 +68,7 @@ export {
   ingressFlag,
   localImageReuseFlag,
   organizationServiceApisFlag,
+  platformArgocdDeliveryFlag,
   registryPruneFlag,
 } from "./features.js";
 export { managedCluster } from "./managed-cluster.js";

@@ -2,6 +2,7 @@ import { beforeEach, expect, test, vi } from "vitest";
 import { orderedComponents } from "./order.js";
 import {
   autoscalingFlag,
+  platformArgocdDeliveryFlag,
   componentGatedOff,
   enabledComponents,
   featureEnabled,
@@ -112,5 +113,23 @@ test("the autoscaling flag gates a component off until an overlay turns it on, a
   expect(componentGatedOff(environment(undefined), gated)).toBe(true);
   expect(
     componentGatedOff(environment({ [autoscalingFlag]: true }), gated),
+  ).toBe(false);
+});
+
+test("the platform Argo CD delivery flag gates a component off until an overlay turns it on, and an omitted flag is off", () => {
+  expect(platformArgocdDeliveryFlag).toBe("platform-argocd-delivery");
+  const gated = fakeComponent({ featureFlag: platformArgocdDeliveryFlag });
+  expect(
+    componentGatedOff(
+      environment({ [platformArgocdDeliveryFlag]: false }),
+      gated,
+    ),
+  ).toBe(true);
+  expect(componentGatedOff(environment(undefined), gated)).toBe(true);
+  expect(
+    componentGatedOff(
+      environment({ [platformArgocdDeliveryFlag]: true }),
+      gated,
+    ),
   ).toBe(false);
 });
