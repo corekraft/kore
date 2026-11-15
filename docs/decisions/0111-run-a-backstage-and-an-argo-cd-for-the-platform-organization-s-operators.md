@@ -42,3 +42,14 @@ ADR 0041 keeps the per-tenant clauses, which stay in Then.
   organization.
 - Operators get a portal and git delivery before any tenant exists.
 - ADR 0041's per-tenant design builds on this one rather than replacing it.
+- The platform Backstage is a Kore-built image (`apps/backstage`: the backend
+  with the Keycloak OIDC provider module, the Kubernetes plugin, the catalog
+  and a policy that allows only the `platform-operators` group; no guest
+  provider is installed), because upstream's image carries no OIDC module and
+  cannot take plugins. Release automation builds and signs it by digest with
+  the tag's keyless identity and records it in `backstage-image.lock.json`,
+  attached to the release like the template lock of
+  [ADR 0045](0045-static-frontends-as-signed-images.md) and verified entry by
+  entry before upload. It is a separate lock and a step of the existing
+  `release` job, so no signing job is added. No chart consumes it yet; the
+  chart pin changes after the first tag run records a digest.

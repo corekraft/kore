@@ -55,6 +55,10 @@ test("no application chart, platform chart or catalog entry mentions k3d", async
   ];
   const mentions: string[] = [];
   for (const file of candidates) {
+    // A lockfile's base64 integrity hashes can contain "k3d" by chance.
+    if (file.endsWith("package-lock.json")) {
+      continue;
+    }
     if (/k3d/i.test(await readFile(file, "utf8"))) {
       mentions.push(file.slice(root.length + 1));
     }
