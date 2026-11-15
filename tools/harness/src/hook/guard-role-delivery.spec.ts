@@ -240,6 +240,20 @@ describe("checkDeliveryBash: a reporting role's shell", () => {
   });
 });
 
+describe("checkDeliveryBash: the orchestrator's own commands", () => {
+  it("lists `orchestrate run` for the orchestrator and for no other delivery role", () => {
+    const listed = (role: string): readonly string[] => {
+      vi.mocked(harnessAllowed).mockClear();
+      bash(role, `node ${HARNESS_PATH} orchestrate run --idea 1`);
+      return vi.mocked(harnessAllowed).mock.calls[0]?.[2] ?? [];
+    };
+
+    expect(listed("orchestrator")).toContain("orchestrate run");
+    expect(listed("judge")).not.toContain("orchestrate run");
+    expect(listed("writer")).not.toContain("orchestrate run");
+  });
+});
+
 describe("checkDeliveryBash: a writer's shell and the worktree", () => {
   it("refuses a cd or git -C that leaves the worktree", () => {
     expect(bash("writer", "cd /etc")).toMatchObject({ rule: "role-worktree" });

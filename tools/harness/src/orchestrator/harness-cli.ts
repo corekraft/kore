@@ -1,0 +1,140 @@
+import type { QueueItem } from "../queue/index.js";
+import type { Runner } from "../runtime/index.js";
+import type {
+  Delivery,
+  Harness,
+  Launch,
+  Measured,
+  SendBackTier,
+} from "./idea-run.js";
+
+export class HarnessCliError extends Error {}
+
+const HARNESS = "skills/bin/harness.mjs";
+
+/** The Harness port over the real tools: every call is one `harness` or `gh` command through the runner. */
+export class HarnessCli implements Harness {
+  constructor(
+    private readonly runner: Runner,
+    private readonly root: string,
+  ) {}
+
+  async queue(): Promise<QueueItem[]> {
+    const read = this.json(await this.harness("queue", "next", "--json"));
+    return (read as { queue: QueueItem[] }).queue;
+  }
+
+  async spawn(launch: Launch): Promise<void> {
+    await this.harness(
+      "session",
+      "spawn",
+      "--role",
+      launch.role,
+      "--name",
+      launch.name,
+      "--brief",
+      launch.brief,
+      "--idea",
+      String(launch.issue),
+      "--no-wait",
+      ...(launch.worktree === true ? ["--worktree"] : []),
+      ...(launch.model === undefined ? [] : ["--model", launch.model]),
+    );
+  }
+
+  async wait(name: string): Promise<"done" | "blocked"> {
+    const waited = this.json(
+      await this.harness("session", "wait", name, "--json"),
+    ) as { outcome: "done" | "blocked" };
+    return waited.outcome;
+  }
+
+  async close(name: string): Promise<void> {
+    await this.harness("session", "close", name);
+  }
+
+  async delivery(issue: number): Promise<Delivery> {
+    const done = await this.runner.run(
+      "gh",
+      [
+        "pr",
+        "list",
+        "--state",
+        "all",
+        "--search",
+        `Refs #${issue} in:body`,
+        "--json",
+        "number,mergedAt",
+      ],
+      { cwd: this.root },
+    );
+    this.check("gh pr list", done);
+    const prs = this.json(done.stdout) as {
+      number: number;
+      mergedAt: string | null;
+    }[];
+    const newest = prs.reduce<(typeof prs)[number] | undefined>(
+      (best, pr) => (best === undefined || pr.number > best.number ? pr : best),
+      undefined,
+    );
+    return newest === undefined
+      ? { merged: false }
+      : { pr: newest.number, merged: newest.mergedAt !== null };
+  }
+
+  async sendBacks(pr: number): Promise<SendBackTier> {
+    const tier = this.json(
+      await this.harness("queue", "send-backs", String(pr), "--json"),
+    ) as SendBackTier;
+    return { count: tier.count, model: tier.model, escalate: tier.escalate };
+  }
+
+  async escalate(pr: number): Promise<void> {
+    await this.harness("queue", "escalate", String(pr));
+  }
+
+  async recordOutcome(idea: string, outcome: Measured): Promise<void> {
+    await this.harness(
+      "outcome",
+      "record",
+      "--idea",
+      idea,
+      "--kind",
+      outcome.kind,
+      "--source",
+      outcome.source,
+      "--result",
+      outcome.result,
+      "--evidence",
+      outcome.evidence,
+      "--summary",
+      outcome.summary,
+    );
+  }
+
+  private async harness(...args: string[]): Promise<string> {
+    const done = await this.runner.run("node", [HARNESS, ...args], {
+      cwd: this.root,
+    });
+    this.check(`harness ${args.filter((a) => a !== "--json").join(" ")}`, done);
+    return done.stdout;
+  }
+
+  private check(what: string, done: { code: number; stderr: string }): void {
+    if (done.code !== 0) {
+      throw new HarnessCliError(
+        `\`${what}\` failed: ${done.stderr.trim() || "no output"}. Fix that, then rerun.`,
+      );
+    }
+  }
+
+  private json(text: string): unknown {
+    try {
+      return JSON.parse(text);
+    } catch {
+      throw new HarnessCliError(
+        "A harness tool printed unreadable output; rerun the command.",
+      );
+    }
+  }
+}

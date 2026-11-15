@@ -81,6 +81,7 @@ const ORCHESTRATOR_HARNESS = [
   "queue next",
   "queue send-backs",
   "queue escalate",
+  "orchestrate run",
   "outcome record",
   "outcome close",
 ];
