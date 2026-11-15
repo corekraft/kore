@@ -77,6 +77,12 @@ function goldenPathArgs(
   ];
 }
 
+/** The chart value each release takes the GatewayClass through. */
+const gatewayClassKeys: Record<string, string | undefined> = {
+  "kore-platform-config": "gateway.className",
+  "kore-platform-backstage": "gatewayClassName",
+};
+
 function chartSelectionArgs(
   repository: Repository,
   component: Component,
@@ -102,10 +108,11 @@ function chartSelectionArgs(
   if (component.kind === "local-chart") {
     args.push(...featureHelmArgs(repository.environment));
   }
-  if (component.name === "kore-platform-config") {
+  const classKey = gatewayClassKeys[component.name];
+  if (classKey) {
     args.push(
       "--set-string",
-      `gateway.className=${gatewayClassName(repository.environment)}`,
+      `${classKey}=${gatewayClassName(repository.environment)}`,
     );
   }
   if (component.patches?.length) {

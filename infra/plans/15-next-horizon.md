@@ -61,6 +61,9 @@ and is not part of Next.
   they show only in Grafana.
   State 2026-11-14: still parked. #692 provisions the rules with no contact
   point.
+  Decided 2026-11-14: the owner approved the plan's proposed answer, the
+  interim above (rules provisioned with no contact point, visible in Grafana
+  only). No destination is named yet, so Step 6 item 4 stays open.
 - **Footprint breach (blocks Step 1, only if it happens).** If the check shows
   Next's added components exceed the headroom, the owner decides which of
   [ADR 0040](../../docs/decisions/0040-keycloak-human-identity.md) or
@@ -69,6 +72,12 @@ and is not part of Next.
   State 2026-11-14: no breach is decided. The headroom threshold is the
   owner's call. The baseline is not recorded: two tainted local runs are on
   #623 (neither is a baseline), and a clean run is owed on an idle host.
+  Decided 2026-11-14: the owner approved this as proposed. The plan names no
+  breach rule, so the headroom threshold is set from the clean baseline on
+  [#623](https://github.com/corekraft/kore/issues/623) and
+  [#659](https://github.com/corekraft/kore/issues/659) (see
+  [Step 1](#step-1-accept-the-next-adrs), "Headroom is already thin"). Until a
+  breach is measured, ADRs 0040 and 0041 are not revisited.
 - **Plan 14 Step 4 responsiveness run (debt #659).** The #405 run is recorded
   on #405: zero failed probes, p95 864 ms under heavy load. Both it and the
   footprint baseline stay debt #659.
@@ -164,7 +173,7 @@ dark launched. With the flag off the render adds nothing to a cluster.
 
 ## Step 3: Autoscaling Defaults
 
-Next: All code deliverables except two are merged (#697-#701) behind flags that are off in every overlay. Code still owed: Step 7 item 2 (p95 in the plan 13 load harness) and the portal route. First action: run platform-argocd-delivery on a fresh and an existing profile (kore local up, one at a time at low load), record the outcome, and only then have the orchestrator turn the flag on through the flag-activation command; then platform-portal the same way. Live runs owed: BFF 1 to N scale with no cold-pod failure; both images admitted by digest; HTTPS on each host; Keycloak provider pod privileges; in-app OIDC sign-in and the Backstage Argo CD view; Step 7 item 1 (per-stage delivery time) and item 3 (browser token test); idle-host footprint with at least 2 clean runs on [#623](https://github.com/corekraft/kore/issues/623) and [#659](https://github.com/corekraft/kore/issues/659). Owner questions are parked in [Parked Owner Questions](#parked-owner-questions): alert destination, headroom threshold, footprint breach. Tick items only after their live outcome is recorded.
+Next: Run the live-proof goal: run platform-argocd-delivery on a fresh and an existing profile (kore local up, one at a time at low load) after repairing the sops age key on this host so kore local up passes the sops canary, record the outcome, and only then turn the flag on in local through harness flag activate (owner approved 2026-11-14); then platform-portal the same way. Code still owed: Step 7 item 2 (p95 in the plan 13 load harness) and the portal route. Live runs owed: BFF 1 to N scale with no cold-pod failure; both images admitted by digest; HTTPS on each host; Keycloak provider pod privileges; in-app OIDC sign-in and the Backstage Argo CD view; Step 7 item 1 (per-stage delivery time) and item 3 (browser token test); idle-host footprint with at least 2 clean runs on [#623](https://github.com/corekraft/kore/issues/623) and [#659](https://github.com/corekraft/kore/issues/659). Owner questions are decided as recorded in [Parked Owner Questions](#parked-owner-questions); the alert destination is still unnamed. Tick items only after their live outcome is recorded.
 
 Safety pattern: `feature-flagged` (`autoscaling-defaults`, off in `local`).
 

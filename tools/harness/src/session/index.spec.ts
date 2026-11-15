@@ -1,13 +1,15 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { CliDeps, CommandContext, Runner } from "../runtime/index.js";
+import { resolveTier } from "./agent-definition.js";
 import { close } from "./close.js";
 import { equalize, type EqualizeResult } from "./equalize.js";
-import { session } from "./index.js";
+import { resolveTier as exported, session } from "./index.js";
 import { notify } from "./notify.js";
 import { spawn } from "./spawn.js";
 import { tier } from "./tier.js";
 import { wait } from "./wait.js";
 
+vi.mock("./agent-definition.js", () => ({ resolveTier: vi.fn() }));
 vi.mock("./close.js", () => ({ close: vi.fn() }));
 vi.mock("./equalize.js", () => ({ equalize: vi.fn() }));
 vi.mock("./notify.js", () => ({ notify: vi.fn() }));
@@ -51,6 +53,10 @@ describe("the session domain's command set", () => {
       "tier",
       "wait",
     ]);
+  });
+
+  it("re-exports resolveTier as the unit's own function, not a copy", () => {
+    expect(exported).toBe(resolveTier);
   });
 
   it.each([

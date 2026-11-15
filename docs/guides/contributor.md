@@ -404,10 +404,12 @@ one per retry of a failed command) or a `pane` (the id of a `pane.interrupted`
 event). Events of a kind the report does not know are left out and counted in
 `unknownKinds`; an empty ledger gives zeros.
 
-`escalation` and `kore.retry` carry their reason or command as `label`;
-`pane.interrupted` carries the `pane`. All three are written only through
-`harness ledger record` (they are not poller kinds); the report never writes
-the ledger, and `integration/flow-write-path.spec.ts` checks that.
+`kore.retry` carries the `kore` command as `label`; `pane.interrupted` carries
+the `pane`; `escalation` is the one `harness queue escalate` records, with the
+PR `number` and the model as `label`. `kore.retry` and `pane.interrupted` are
+written only through `harness ledger record` (they are not poller kinds); the
+report never writes the ledger, and `integration/flow-write-path.spec.ts`
+checks that.
 
 ### Attribution and outcome metrics
 

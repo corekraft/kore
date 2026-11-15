@@ -26,12 +26,12 @@ export const KINDS = [
   "challenge.round",
   "precheck",
   "send-back",
+  "escalation",
   "ci.main",
   "ci.nightly",
   "main.revert",
   "owner.action",
   "host-sample",
-  "escalation",
   "kore.retry",
   "pane.interrupted",
 ] as const;
@@ -51,6 +51,7 @@ const NUMBER_KINDS: readonly Kind[] = [
   "challenge.round",
   "precheck",
   "send-back",
+  "escalation",
   "owner.action",
 ];
 

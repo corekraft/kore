@@ -241,15 +241,11 @@ describe("friction and rework events", () => {
     session: "s1",
   };
 
-  it.each(["escalation", "kore.retry"])(
-    "%s carries its reason or command as the label and is refused without one",
-    (kind) => {
-      expect(
-        parseEvent({ ...stamp, kind, label: "local up" }, "input").ok,
-      ).toBe(true);
-      expect(parseEvent({ ...stamp, kind }, "input").ok).toBe(false);
-    },
-  );
+  it("kore.retry carries its command as the label and is refused without one", () => {
+    const retry = { ...stamp, kind: "kore.retry" };
+    expect(parseEvent({ ...retry, label: "local up" }, "input").ok).toBe(true);
+    expect(parseEvent(retry, "input").ok).toBe(false);
+  });
 
   it("an interrupted pane is named by its pane id and needs no label", () => {
     expect(
