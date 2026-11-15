@@ -3,6 +3,7 @@ import { test } from "vitest";
 import {
   helmInstalledComponents,
   loadRepository,
+  organizationServiceApisFlag,
   platformArgocdDeliveryFlag,
   releaseOwner,
   validateRepository,
@@ -27,7 +28,7 @@ for (const name of ["local", "managed-example"]) {
   });
 }
 
-test("with platform-argocd-delivery on, exactly the six configuration releases are argocd-owned and Helm installs none of them", async () => {
+test("with platform-argocd-delivery on, exactly the six configuration releases are argocd-owned, Helm installs none of them, and golden-path delivery stays kore-owned", async () => {
   const repository = await loadRepository("local");
   const on = {
     ...repository,
@@ -36,6 +37,8 @@ test("with platform-argocd-delivery on, exactly the six configuration releases a
       features: {
         ...repository.environment.features,
         [platformArgocdDeliveryFlag]: true,
+        // kore-golden-path-delivery depends on kore-platform-apis.
+        [organizationServiceApisFlag]: true,
       },
     },
   };
@@ -50,5 +53,6 @@ test("with platform-argocd-delivery on, exactly the six configuration releases a
     assert.equal(helm.includes(name), false, name);
   }
   assert.equal(helm.includes("kore-image-policy"), true);
+  assert.equal(helm.includes("kore-golden-path-delivery"), true);
   assert.equal(helm.includes("argocd"), true);
 });
