@@ -71,11 +71,7 @@ export {
   platformArgocdDeliveryFlag,
   registryPruneFlag,
 } from "./features.js";
-export {
-  chartDeliveryErrors,
-  chartDeliveryValues,
-  chartRepositoryUrls,
-} from "./chart-delivery.js";
+export { chartDeliveryValues, chartRepositoryUrls } from "./chart-delivery.js";
 export type { ChartDeliveryValues } from "./chart-delivery.js";
 export { helmInstalledComponents, releaseOwner } from "./ownership.js";
 export { managedCluster } from "./managed-cluster.js";

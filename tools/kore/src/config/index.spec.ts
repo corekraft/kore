@@ -18,6 +18,10 @@ import { validateRepository } from "./validate.js";
 // Factories, not automocks: each module exports exactly the names the barrel
 // re-exports, and no real module graph loads here.
 vi.mock("./approved.js", () => ({ approvedImageList: vi.fn() }));
+vi.mock("./chart-delivery.js", () => ({
+  chartDeliveryValues: vi.fn(),
+  chartRepositoryUrls: vi.fn(),
+}));
 vi.mock("./config.js", () => ({
   absolute: vi.fn(),
   componentValues: vi.fn(),
@@ -89,6 +93,8 @@ test("the config barrel exposes exactly the entry points other domains use", () 
     "approvedImageList",
     "auditEvidence",
     "autoscalingFlag",
+    "chartDeliveryValues",
+    "chartRepositoryUrls",
     "checkCrdOwnership",
     "componentGatedOff",
     "componentValues",
