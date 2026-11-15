@@ -1,25 +1,14 @@
 // Docs: docs/decisions/0042-organization-domains-by-delegation.md
 // Offline mirror of the Organization and Service XRD schemas in
 // infra/charts/platform-apis. The chart stays the runtime owner; the
-// integration test in integration/config fails when the two drift apart.
+// integration test in integration/config fails when the two drift apart. That
+// test holds the chart's pattern and rule messages as literals, so this module
+// exports nothing but platformClaimErrors.
 
-export const platformApiVersion = "platform.kore.dev/v1alpha1";
+const platformApiVersion = "platform.kore.dev/v1alpha1";
 
 /** The DNS label pattern the XRDs use for tenant, parent and environment names. */
-export const dnsLabelPattern = "^[a-z0-9]([-a-z0-9]{0,61}[a-z0-9])?$";
-
-const dnsLabel = new RegExp(dnsLabelPattern);
-
-/** XRD messages this module mirrors; the chart must still contain each one. */
-export const mirroredXrdFragments: readonly string[] = [
-  "metadata.name must be a single DNS label",
-  "metadata.name must not contain a double hyphen",
-  "spec.environments must not contain a double hyphen",
-  "must be at most 63 characters",
-  "must not use a reserved prefix",
-  "only the platform organization is supported",
-  "enum: [platform]",
-];
+const dnsLabel = /^[a-z0-9]([-a-z0-9]{0,61}[a-z0-9])?$/;
 
 const platformOrganization = "platform";
 const reservedPrefixes = ["kube-", "kore-"];
