@@ -1,5 +1,6 @@
 // Matches SGR (colour and style) sequences, the only escapes herdr's --ansi read emits.
-const SGR = /\u001b\[([\d;]*)m/g;
+const ESC = String.fromCharCode(27);
+const SGR = new RegExp(`${ESC}\\[([\\d;]*)m`, "g");
 
 /** The text with every colour and style escape removed. */
 export function plain(text: string): string {
