@@ -1,10 +1,34 @@
 // Matches SGR (colour and style) sequences, the only escapes herdr's --ansi read emits.
-const ESC = String.fromCharCode(27);
-const SGR = new RegExp(`${ESC}\\[([\\d;]*)m`, "g");
+const CSI = `${String.fromCharCode(27)}[`;
+
+/** One run of the text: its characters, then the style parameters (SGR) that follow it, if any. */
+interface Run {
+  text: string;
+  params: string | undefined;
+}
+
+/** Splits the text at its SGR sequences (colour and style, the only escapes herdr's --ansi read emits). */
+function runs(text: string): Run[] {
+  const found: Run[] = [];
+  let at = 0;
+  for (;;) {
+    const start = text.indexOf(CSI, at);
+    const end = start < 0 ? -1 : text.indexOf("m", start);
+    const params = end < 0 ? "" : text.slice(start + CSI.length, end);
+    if (end < 0 || !/^[\d;]*$/.test(params)) {
+      found.push({ text: text.slice(at), params: undefined });
+      return found;
+    }
+    found.push({ text: text.slice(at, start), params });
+    at = end + 1;
+  }
+}
 
 /** The text with every colour and style escape removed. */
 export function plain(text: string): string {
-  return text.replace(SGR, "");
+  return runs(text)
+    .map((run) => run.text)
+    .join("");
 }
 
 /** Whether the parameters switch faint on (`on`), or off (`off`), or neither (undefined). */
@@ -32,13 +56,11 @@ function faint(params: string): boolean | undefined {
 export function withoutDim(line: string): string {
   let dim = false;
   let kept = "";
-  let at = 0;
-  for (const match of line.matchAll(SGR)) {
+  for (const run of runs(line)) {
     if (!dim) {
-      kept += line.slice(at, match.index);
+      kept += run.text;
     }
-    at = match.index + match[0].length;
-    dim = faint(match[1] ?? "") ?? dim;
+    dim = run.params === undefined ? dim : (faint(run.params) ?? dim);
   }
-  return dim ? kept : kept + line.slice(at);
+  return kept;
 }
