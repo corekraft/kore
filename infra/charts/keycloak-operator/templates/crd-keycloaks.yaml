@@ -133,7 +133,7 @@ spec:
                   url:
                     description: "The full database JDBC URL. If not provided, a default\
                       \ URL is set based on the selected database vendor. For instance,\
-                      \ if using 'postgres', the default JDBC URL would be 'jdbc:postgresql://localhost/keycloak'. "
+                      \ if using 'postgres', the default JDBC URL would point at the 'keycloak' database on localhost. "
                     type: "string"
                   usernameSecret:
                     description: "The reference to a secret holding the username of\
@@ -5131,7 +5131,7 @@ spec:
                   url:
                     description: "The full database JDBC URL. If not provided, a default\
                       \ URL is set based on the selected database vendor. For instance,\
-                      \ if using 'postgres', the default JDBC URL would be 'jdbc:postgresql://localhost/keycloak'. "
+                      \ if using 'postgres', the default JDBC URL would point at the 'keycloak' database on localhost. "
                     type: "string"
                   usernameSecret:
                     description: "The reference to a secret holding the username of\

@@ -7,3 +7,5 @@
 (^|/)coverage/
 # SOPS-encrypted files are expected ciphertext (ENC[...] values), not leaked secrets.
 \.enc\.yaml$
+# Vendored upstream Keycloak CRD: commit 59285ea4 holds a documentation example of a JDBC URL (no host, no credential), since trimmed from the file; history cannot change.
+(^|/)infra/charts/keycloak-operator/templates/crd-keycloaks\.yaml$
