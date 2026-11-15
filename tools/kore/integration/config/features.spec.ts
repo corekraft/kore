@@ -111,7 +111,12 @@ test("the managed-example overlay validates with and without flags", async () =>
     ...base,
     environment: {
       ...base.environment,
-      features: { "agent-loop": false, "ingress-agentgateway": false },
+      features: {
+        "agent-loop": false,
+        "autoscaling-defaults": false,
+        "ingress-agentgateway": false,
+        "platform-organization-service-apis": false,
+      },
     },
   });
 });

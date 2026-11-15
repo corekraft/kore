@@ -37,6 +37,7 @@ vi.mock("./crd-ownership.js", () => ({
   renderedCrdNames: vi.fn(),
 }));
 vi.mock("./features.js", () => ({
+  autoscalingFlag: "autoscaling-defaults",
   componentGatedOff: vi.fn(),
   enabledComponents: vi.fn(),
   featureEnabled: vi.fn(),
@@ -44,6 +45,7 @@ vi.mock("./features.js", () => ({
   gatewayClassName: vi.fn(),
   ingressFlag: "ingress-agentgateway",
   localImageReuseFlag: "local-image-reuse",
+  organizationServiceApisFlag: "platform-organization-service-apis",
   registryPruneFlag: "registry-tag-pruning",
 }));
 vi.mock("./files.js", () => ({ exists: vi.fn() }));
@@ -81,6 +83,7 @@ test("the config barrel exposes exactly the entry points other domains use", () 
     "absolute",
     "approvedImageList",
     "auditEvidence",
+    "autoscalingFlag",
     "checkCrdOwnership",
     "componentGatedOff",
     "componentValues",
@@ -105,6 +108,7 @@ test("the config barrel exposes exactly the entry points other domains use", () 
     "managedCluster",
     "noMatchPolicy",
     "orderedComponents",
+    "organizationServiceApisFlag",
     "patchableKinds",
     "policyPromotionErrors",
     "probeFields",

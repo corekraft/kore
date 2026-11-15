@@ -51,3 +51,9 @@ export const localImageReuseFlag = "local-image-reuse";
 
 /** The flag that lets `kore local up` prune old per-run tags from the registry (ADR 0094). */
 export const registryPruneFlag = "registry-tag-pruning";
+
+/** The flag that installs metrics-server and turns on autoscaling defaults (ADR 0047). */
+export const autoscalingFlag = "autoscaling-defaults";
+
+/** The flag that installs the Organization and Service platform APIs, for the platform organization only (plan 15 step 2). */
+export const organizationServiceApisFlag = "platform-organization-service-apis";

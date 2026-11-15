@@ -59,6 +59,12 @@
         "components": ["agentgateway-crds", "agentgateway"]
       },
       {
+        "name": "metrics-server",
+        "step": 8,
+        "capability": "controller",
+        "components": ["metrics-server"]
+      },
+      {
         "name": "secrets",
         "step": 8,
         "capability": "controller",
@@ -88,6 +94,12 @@
             "kore-crossplane-functions",
             "kore-postgresql-api"
           ]
+      },
+      {
+        "name": "organization-service-platform-apis",
+        "step": 10,
+        "capability": "platform-api",
+        "components": ["kore-platform-apis"]
       },
       {
         "name": "telemetry",
