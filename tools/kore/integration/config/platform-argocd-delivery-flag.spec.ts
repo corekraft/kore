@@ -64,6 +64,7 @@ test("the Argo CD pins agree, so one chart version and exact image digests are t
     "argocd",
     "argocd-redis",
   ]);
-  for (const image of images)
+  for (const image of images) {
     assert.match(image.image, /@sha256:[0-9a-f]{64}$/);
+  }
 });
