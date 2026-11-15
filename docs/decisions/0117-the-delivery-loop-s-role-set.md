@@ -7,7 +7,7 @@ last-verified: 2026-11-15
 
 # ADR 0117: The delivery loop's role set
 
-Source: [`infra/plans/11-agent-delivery-loop.md`](../../infra/plans/11-agent-delivery-loop.md)
+Source: [`infra/plans/11-agent-delivery-loop.md` § Step 6](../../infra/plans/11-agent-delivery-loop.md#step-6-orchestrator-and-concierge)
 
 Refines: [ADR 0078](0078-agent-roles-run-as-herdr-panes.md) and [ADR 0091](0091-containment-comes-from-identities-and-a-sandbox-not-role-guards.md).
 

@@ -120,7 +120,7 @@ do not yet bound anything
 
 ## Step 6: Orchestrator and Concierge
 
-Next: Merged: queue and escalation counting ([#707](https://github.com/corekraft/kore/pull/707)), orchestrator tracer ([#710](https://github.com/corekraft/kore/pull/710)), concierge loop health ([#711](https://github.com/corekraft/kore/pull/711)). Still open: the orchestrator-in-its-own-pane item, whose ledger criterion needs a live or integration run (#197); the concierge status-from-plans-and-issues and file-requests-as-ideas item, which its evals do not yet cover; Step 7 (plan 7 as first workload; plan 7 has no open items, #199 closed). Full state: #366.
+Next: Merged: queue and escalation counting ([#707](https://github.com/corekraft/kore/pull/707)), orchestrator tracer ([#710](https://github.com/corekraft/kore/pull/710)), concierge loop health ([#711](https://github.com/corekraft/kore/pull/711)). Still open: the item that `orchestrate run` fills the Orchestrator role, whose ledger criterion needs a live or integration run (#197); the item that the person's main session answers status from plans, issues and the ledger and files requests as ideas, which its evals do not yet cover; Step 7 (plan 7 as first workload; plan 7 has no open items, #199 closed). Full state: #366.
 
 ### Work
 
