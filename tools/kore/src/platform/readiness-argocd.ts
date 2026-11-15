@@ -37,6 +37,19 @@ function problem({ metadata, status }: Application): string | undefined {
   return `Application ${metadata.name} is ${sync} and ${health}${cause ? `: ${cause}` : ""}`;
 }
 
+/** The Applications in kubectl's answer, or undefined when it is not a list. */
+function applicationItems(stdout: string): Application[] | undefined {
+  try {
+    const parsed = JSON.parse(stdout) as { items?: Application[] } | null;
+    return Array.isArray(parsed?.items) ? parsed.items : undefined;
+  } catch (error) {
+    if (error instanceof SyntaxError) {
+      return undefined;
+    }
+    throw error;
+  }
+}
+
 /**
  * Every Application that exists must be Synced and Healthy. An unreadable
  * Application list is an error, never a pass, so the gate stays closed.
@@ -50,8 +63,11 @@ async function applicationsProblem(
     [...base, "get", resource, "--output", "json"],
     { capture: true },
   );
-  const { items } = JSON.parse(result.stdout) as { items?: Application[] };
-  const problems = (items ?? []).flatMap((app) => problem(app) ?? []);
+  const items = applicationItems(result.stdout);
+  if (items === undefined) {
+    return `kubectl get ${resource} returned output that is not a JSON Application list, so Application health is unknown`;
+  }
+  const problems = items.flatMap((app) => problem(app) ?? []);
   return problems.length ? problems.join("; ") : undefined;
 }
 

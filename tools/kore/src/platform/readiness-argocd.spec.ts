@@ -166,3 +166,21 @@ test("every failing Application is named, joined in one reason", async () => {
     "Application a is OutOfSync and Healthy; Application b is Synced and Progressing",
   );
 });
+
+test("unparseable kubectl output is not ready with a message naming the cause, never ready and never a thrown parse error", async () => {
+  const { runner } = runnerReturning("ready");
+
+  await expect(
+    argocdApplicationsCheck({ runner, base: BASE }, RESOURCE)?.run("3s"),
+  ).rejects.toThrow(
+    "kubectl get applications.argoproj.io returned output that is not a JSON Application list, so Application health is unknown",
+  );
+});
+
+test("a JSON answer without an item list is not ready either", async () => {
+  const { runner } = runnerReturning("null");
+
+  await expect(
+    argocdApplicationsCheck({ runner, base: BASE }, RESOURCE)?.run("3s"),
+  ).rejects.toThrow("Application health is unknown");
+});
