@@ -1,0 +1,5 @@
+apiVersion: v2
+name: platform-config-delivery
+description: AppProject and the Argo CD Applications that take over the six configuration-phase releases from Helm by chart digest (ADR 0043, plan 15 step 5), installed only under the platform-argocd-delivery flag
+type: application
+version: 0.1.0

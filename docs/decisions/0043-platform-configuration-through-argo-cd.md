@@ -74,3 +74,20 @@ on controllers that earlier phases install.
   by version, is checked before implementation.
 - The bootstrap spec's phase-boundary test gains a check that no `argocd`
   release is installed by Helm.
+
+## Amendment: the handover from Helm to Argo CD
+
+Context: Plan 15 Step 5, behind `platform-argocd-delivery` (off everywhere). The six configuration releases must pass from Helm to Argo CD on a fresh and on an existing profile without deleting a resource.
+
+Decision:
+
+- **One release, `kore-config-delivery`, owned by `kore`.** A catalog release of the chart `infra/charts/platform-config-delivery`, in the `argocd` namespace, gated by the flag and ordered after `argocd`. It renders one `AppProject`, `platform-configuration`, and one `Application` per handed-over release. Its values are the `entries` of `platform-charts.lock.json` and each release's namespace read from the catalog, so the lock owns the digests and the catalog owns the namespaces. The chart refuses a missing entry, a missing namespace, a digest that is not `sha256:` and an entry for `kore-image-policy`.
+- **Each Application pins its chart by digest.** `repoURL` is the lock's chart path in the platform registry without a scheme, `chart` the release name, and `targetRevision` the lock's digest, never the version or a tag.
+- **The Application adopts, it does not recreate.** `helm.releaseName` is the release's own name and the destination namespace is the release's own, so a rendered resource name equals the one Helm created. Sync uses server-side apply, and `CreateNamespace`, `Replace` and `Force` are off.
+- **The handover deletes nothing.** `prune: false`, so a resource the new chart no longer renders stays until a later, separate step turns pruning on; no `resources-finalizer`, so deleting an Application leaves its resources; `PruneLast`. Helm's release secret (`sh.helm.release.v1.*`) stays as an inert record: `kore` never runs `helm uninstall` on a handed-over release.
+- **The safe order, and its window.** (1) The flag turns on and `kore` installs `argocd` in core. (2) `kore` installs `kore-config-delivery`, creating the AppProject and the Applications. (3) Argo CD syncs each Application over the resources Helm made; on a fresh profile nothing exists and it creates them. (4) Only a synced and healthy Application lets the catalog's readiness checks run and the admission gate open. `releaseOwner` turns `argocd` for the six releases on the flag alone, so from the moment the flag is on `kore` stops running Helm on them, before `kore-config-delivery` exists. Until step 3 completes no tool reconciles those releases, which is a window without an owner, not with two. In that window no resource is deleted (Helm release secrets stay, nothing prunes, no Application finalizer), and every step reruns idempotently after a partial failure. Closing the window is owed before the flag is activated: `helmInstalledComponents` must skip a release only once `kore-config-delivery` is installed (a follow-up change).
+- **Access.** The AppProject admits only the platform registry's chart repositories, the six release namespaces on the in-cluster server and the exact cluster-scoped kinds those charts render (no wildcard), and its `operators` role (every action on its Applications) is bound to the group `platform-operators`. Argo CD's own RBAC mapping of that group to the Keycloak realm arrives with plan 15 Step 6.
+
+Not decided, needs a live run: that the pinned Argo CD accepts a digest as an OCI `targetRevision` (checked first on the live run; if it does not, the fallback is the lock's version, which is content-addressed and so equally immutable, with the digest verified by `kore` before the Application is created), that server-side apply adopts Helm's client-side-applied fields without a conflict, and the read credential for the registry.
+
+Remaining: `kore` composing the chart's values from the lock and the catalog, creating the registry credential Secret, waiting for each Application to be synced and healthy before the gate, and reporting it in `kore platform status` (plan 15 Step 5, second item).

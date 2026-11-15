@@ -685,6 +685,24 @@
           ]
       },
       {
+        "name": "kore-config-delivery",
+        "phase": "configuration",
+        "namespace": "argocd",
+        "kind": "local-chart",
+        "chart": "infra/charts/platform-config-delivery",
+        "version": "local",
+        "featureFlag": "platform-argocd-delivery",
+        "ownsCRDs": [],
+        "dependencies": ["argocd"],
+        "timeout": "5m",
+        "readiness":
+          [
+            "crd/applications.argoproj.io",
+            "crd/appprojects.argoproj.io",
+            "statefulset/argocd-application-controller"
+          ]
+      },
+      {
         "name": "kore-policy-templates",
         "phase": "configuration",
         "owner": "argocd",

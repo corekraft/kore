@@ -121,6 +121,7 @@ test("the same status run is fully ready once the controller is back", async () 
       "agentgateway",
       "argocd",
       "metrics-server",
+      "kore-config-delivery",
       "kore-platform-apis",
       "kore-golden-path-delivery",
     ],

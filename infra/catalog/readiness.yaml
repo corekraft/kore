@@ -77,6 +77,12 @@
         "components": ["kore-golden-path-delivery"]
       },
       {
+        "name": "config-delivery",
+        "step": 10,
+        "capability": "controller",
+        "components": ["kore-config-delivery"]
+      },
+      {
         "name": "secrets",
         "step": 8,
         "capability": "controller",

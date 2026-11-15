@@ -1,0 +1,36 @@
+# One Application per handed-over release (ADR 0043). Each renders the release's
+# chart from the platform registry at the digest the chart lock records, with the
+# Helm release's own name and namespace, so Argo CD adopts the resources Helm
+# created. The handover deletes nothing: no prune, no cascade finalizer (deleting
+# an Application leaves its resources), no namespace creation, no replace. Helm's
+# release secret stays as an inert record; kore never uninstalls it and, with the
+# flag on, never runs Helm on these releases again.
+{{- range $name, $entry := .Values.charts }}
+---
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: {{ $name }}
+  namespace: {{ $.Values.namespace }}
+  labels:
+    platform.kore.dev/release: {{ $name }}
+spec:
+  project: {{ $.Values.project | quote }}
+  source:
+    repoURL: {{ dir $entry.chart | quote }}
+    chart: {{ base $entry.chart | quote }}
+    targetRevision: {{ $entry.digest | quote }}
+    helm:
+      releaseName: {{ $name | quote }}
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: {{ required (printf "namespaces.%s is required" $name) (index $.Values.namespaces $name) | quote }}
+  syncPolicy:
+    automated:
+      prune: false
+      selfHeal: true
+    syncOptions:
+      - ServerSideApply=true
+      - ApplyOutOfSyncOnly=true
+      - PruneLast=true
+{{- end }}
