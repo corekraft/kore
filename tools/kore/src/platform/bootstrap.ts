@@ -21,9 +21,9 @@ export {
 } from "./readiness-gate.js";
 export type { GateCheckResult } from "./readiness-gate.js";
 import {
-  ensureKeycloakAdmin,
   ensureKeycloakProviderCredentials,
-} from "./keycloak-admin.js";
+  ensurePortalSecrets,
+} from "./portal-secrets.js";
 import { reconcileIfNeeded } from "./reconcile.js";
 
 async function ensureCluster(
@@ -81,11 +81,12 @@ export async function bootstrapControllers(
     if (component.name === "argocd") {
       await applyChartCredential(repository, runner);
     }
-    // The operator's chart creates the keycloak namespace, so the bootstrap
-    // admin Secret the platform Keycloak reads is streamed in right after it
-    // (ADR 0034). Present only with platform-portal on.
+    // The operator's chart creates the keycloak namespace, so the Secrets the
+    // platform Keycloak and Backstage read (the bootstrap admin, the sign-in
+    // secrets) are streamed in right after it (ADR 0034). Present only with
+    // platform-portal on.
     if (component.name === "keycloak-operator") {
-      await ensureKeycloakAdmin(repository, runner);
+      await ensurePortalSecrets(repository, runner);
     }
     // The provider's ClusterProviderConfig reads this credential, built from
     // the admin Secret above, so it follows the provider's install (ADR 0034).

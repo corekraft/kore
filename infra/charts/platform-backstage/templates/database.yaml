@@ -1,0 +1,17 @@
+# Backstage's database, claimed through the platform PostgreSQL API. Its content
+# (the catalog's cache, sessions' server state) is rebuilt from the Organization
+# and Service objects, so it is not retained data: the claim deletes with the
+# release. The composition creates the CloudNativePG Cluster backstage-db, its
+# Service backstage-db-rw and the Secret backstage-db-app that the Deployment
+# reads by reference.
+apiVersion: platform.kore.dev/v1alpha1
+kind: PostgreSQLInstance
+metadata:
+  name: backstage-db
+  namespace: {{ .Release.Namespace }}
+spec:
+  serviceClass: standard
+  storageSize: {{ .Values.database.storageSize }}
+  compatibilityVersion: {{ .Values.database.compatibilityVersion }}
+  connectionSecretName: backstage-db-connection
+  retentionPolicy: Delete

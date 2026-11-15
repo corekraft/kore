@@ -1,0 +1,26 @@
+# Backstage's client in the platform realm (ADR 0113), reconciled by the Keycloak
+# operator. The client secret is read from the Secret kore streams into the
+# keycloak namespace (ADR 0034), so none is in git. The realm itself is owned by
+# the Organization API, not by this chart: until it exists the client stays
+# unready, the proxy cannot discover the issuer and Backstage stays closed.
+apiVersion: k8s.keycloak.org/v2alpha1
+kind: KeycloakOIDCClient
+metadata:
+  name: backstage
+  namespace: keycloak
+spec:
+  keycloakCRName: keycloak
+  realm: platform
+  client:
+    displayName: Backstage
+    enabled: true
+    appUrl: https://backstage.{{ .Values.platformDomain }}
+    redirectUris:
+      - https://backstage.{{ .Values.platformDomain }}/oauth2/callback
+    loginFlows:
+      - STANDARD
+    auth:
+      method: client-secret
+      secretRef:
+        name: backstage-oidc
+        key: client-secret

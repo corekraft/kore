@@ -51,6 +51,11 @@
         ["infra/environments/managed-example/values/platform-apis.yaml"],
       "kore-platform-keycloak":
         ["infra/environments/managed-example/values/platform-keycloak.yaml"],
+      "kore-platform-backstage":
+        [
+          "infra/environments/managed-example/values/platform-backstage.yaml",
+          "infra/environments/managed-example/values/mirror/platform-backstage.yaml"
+        ],
       "otel-collector":
         [
           "infra/environments/managed-example/values/otel-collector.yaml",

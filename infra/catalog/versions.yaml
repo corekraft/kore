@@ -40,6 +40,8 @@
       "argocd": "10.18.0",
       "keycloak-operator": "26.8.2",
       "provider-keycloak": "v3.2.3",
+      "backstage": "1.55.2",
+      "oauth2-proxy": "v7.15.6",
       "crossplane": "2.4.3",
       "external-secrets": "2.14.0",
       "cloudnative-pg": "0.29.1",
