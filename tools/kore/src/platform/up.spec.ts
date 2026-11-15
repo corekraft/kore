@@ -3,8 +3,10 @@ import { helmInstalledComponents, isLocalProvider } from "../config/index.js";
 import { installLocalTrust } from "../security/index.js";
 import { bootstrapControllers, openApplicationAdmission } from "./bootstrap.js";
 import { enrollPlatformNamespaces } from "./enrollment.js";
+import { CommandError } from "../runtime/index.js";
 import type { ReadinessEvidence } from "./readiness-manifest.js";
 import { platformUp } from "./up.js";
+import { helmReleaseStatus } from "./probe.js";
 import { writePlatformState } from "./platform-state.js";
 import { reconcileConfiguration } from "./reconcile.js";
 import {
@@ -18,12 +20,22 @@ vi.mock("../security/index.js");
 vi.mock("./bootstrap.js");
 vi.mock("./enrollment.js");
 vi.mock("./platform-state.js");
+vi.mock("./probe.js");
 vi.mock("./reconcile.js");
 
 const local = fakeRepository({ provider: "k3d" });
 const managed = fakeRepository({ provider: "managed" });
 const core = fakeComponent({ name: "gate", phase: "core" });
 const policy = fakeComponent({ name: "policy", phase: "configuration" });
+const handed = fakeComponent({
+  name: "tls",
+  phase: "configuration",
+  owner: "argocd",
+});
+const delivery = fakeComponent({
+  name: "kore-config-delivery",
+  phase: "configuration",
+});
 const enforce = fakeComponent({ name: "enforce", phase: "enforcement" });
 const openEvidence: ReadinessEvidence = {
   manifestVersion: 1,
@@ -61,6 +73,7 @@ beforeEach(() => {
     (environment) => environment.provider === "k3d",
   );
   vi.mocked(helmInstalledComponents).mockReturnValue([core, policy, enforce]);
+  vi.mocked(helmReleaseStatus).mockResolvedValue(undefined);
 });
 
 test("platform up bootstraps the controllers before anything else", async () => {
@@ -120,4 +133,73 @@ test("a failed bootstrap stops up before any configuration is reconciled", async
   );
   expect(reconcileConfiguration).not.toHaveBeenCalled();
   expect(installLocalTrust).not.toHaveBeenCalled();
+});
+
+/** The flag is on: Helm lists the argocd release until the delivery release is installed. */
+function flagOn(): void {
+  vi.mocked(helmInstalledComponents).mockImplementation(
+    (_repository, deliveryInstalled) =>
+      deliveryInstalled
+        ? [core, policy, delivery]
+        : [core, handed, delivery, policy],
+  );
+}
+
+test("an argocd release is still reconciled by Helm while kore-config-delivery is not installed, so a failed delivery leaves Helm managing it", async () => {
+  flagOn();
+  vi.mocked(helmReleaseStatus).mockResolvedValue("failed");
+  await platformUp(local, fakeRunner().runner);
+  expect(order.filter((step) => step.startsWith("configure:"))).toEqual([
+    "configure:tls",
+    "configure:kore-config-delivery",
+    "configure:policy",
+  ]);
+});
+
+test("an argocd release is not reconciled by Helm once kore-config-delivery is deployed, and the delivery release still is", async () => {
+  flagOn();
+  vi.mocked(helmReleaseStatus).mockResolvedValue("deployed");
+  const { runner } = fakeRunner();
+  await platformUp(local, runner);
+  expect(order.filter((step) => step.startsWith("configure:"))).toEqual([
+    "configure:kore-config-delivery",
+    "configure:policy",
+  ]);
+  expect(helmReleaseStatus).toHaveBeenCalledWith(local, runner, delivery);
+});
+
+test("with the flag off up never asks the cluster whether the delivery release is installed", async () => {
+  await platformUp(local, fakeRunner().runner);
+  expect(helmReleaseStatus).not.toHaveBeenCalled();
+});
+
+test("a delivery release that is not found, as on a fresh profile, leaves Helm managing the argocd release", async () => {
+  flagOn();
+  vi.mocked(helmReleaseStatus).mockRejectedValue(
+    new CommandError("helm", ["status"], {
+      stdout: "",
+      stderr: "Error: release: not found",
+      code: 1,
+    }),
+  );
+  await platformUp(local, fakeRunner().runner);
+  expect(order.filter((step) => step.startsWith("configure:"))).toEqual([
+    "configure:tls",
+    "configure:kore-config-delivery",
+    "configure:policy",
+  ]);
+});
+
+test("any other failure reading the delivery release stops up, never a guess that Helm still owns the release", async () => {
+  flagOn();
+  const unreachable = new CommandError("helm", ["status"], {
+    stdout: "",
+    stderr: "Error: Kubernetes cluster unreachable",
+    code: 1,
+  });
+  vi.mocked(helmReleaseStatus).mockRejectedValue(unreachable);
+  await expect(platformUp(local, fakeRunner().runner)).rejects.toBe(
+    unreachable,
+  );
+  expect(reconcileConfiguration).not.toHaveBeenCalled();
 });
