@@ -21,7 +21,9 @@
 #      Istio ingress proxy (deploy and svc kore-gateway-istio) is gone.
 #   3. rerun `kore local up`; no Helm release revision changes.
 #   4. ingress-agentgateway off again (gateway-class-change-release stays on):
-#      assert no Agentgateway custom resources exist, uninstall the agentgateway
+#      delete Kore's own AgentgatewayParameters kore-gateway-service (rendered by
+#      platform-config for the Gateway), assert no other Agentgateway custom
+#      resources exist, uninstall the agentgateway
 #      and agentgateway-crds releases on the throwaway context only (Kore
 #      refuses to reconcile a gated-off release that is still installed), then
 #      `kore local up`: rollback. The Gateway is ready on the
@@ -233,6 +235,13 @@ grep -qF '"ingress-agentgateway": false' "$env_file" || fail "could not turn the
 [ "$context" != "k3d-kore-local" ] || fail "rollback uninstalls refuse context k3d-kore-local; use a throwaway KORE_PROOF_ENVIRONMENT"
 grep -qF "\"kubeContext\": \"$context\"" "$env_file" || fail "rollback uninstalls refuse context '$context': $env_file does not name it as its kubeContext"
 crds="$(k get crd -o name)" || fail "could not list CRDs on $context, so Agentgateway custom resources cannot be ruled out; nothing was uninstalled"
+# The Gateway's AgentgatewayParameters is Kore's own: the platform-config chart
+# renders it (templates/gateway-service.yaml) while the Gateway is on the
+# agentgateway class. Uninstalling the CRDs removes it, and the next
+# `kore local up` (flag off) renders the Istio ConfigMap instead. Delete exactly
+# that one object, in the Gateway's namespace, before the listing so it is not
+# counted; the operator is still installed, so no finalizer is left waiting.
+k -n kore-system delete agentgatewayparameters.agentgateway.dev/kore-gateway-service --ignore-not-found --timeout=60s
 crs=""
 for crd in $(printf '%s\n' "$crds" | sed -n 's|^customresourcedefinition.apiextensions.k8s.io/\(.*\.agentgateway\.dev\)$|\1|p'); do
   found="$(k get "$crd" --all-namespaces -o name)" || fail "could not list $crd on $context; nothing was uninstalled"

@@ -86,7 +86,13 @@ so the operator removes them, in order:
 then `helm uninstall agentgateway-crds --namespace agentgateway-system --kube-context <ctx>`.
 Uninstalling `agentgateway-crds` deletes the CRDs and every custom resource of
 those kinds, so it is the operator's explicit step (data destruction needs
-consent), never Kore's. A one-command rollback would be a separate, consented
+consent), never Kore's. The one exception is Kore's own
+`AgentgatewayParameters/kore-gateway-service`, which the platform-config chart
+renders for the Gateway while it is on the agentgateway class; the live proof
+deletes that named object (in `kore-system`, on the throwaway context) and still
+fails for any other Agentgateway custom resource. The next `kore local up` with
+the flag off renders the Istio ConfigMap instead, so no agentgateway object
+remains. A one-command rollback would be a separate, consented
 `kore` command if wanted. The refusal stays unchanged (decided on the #207 live
 rerun, where phase 4 failed on it). Activation of
 `gateway-class-change-release` is for the live proof profile: in the throwaway
