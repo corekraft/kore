@@ -47,15 +47,20 @@ describe("the pull request template", () => {
 describe("the writer definition", () => {
   const writer = read(".claude/agents/writer.md");
 
-  it("names both declaration lines the precheck reads", () => {
-    expect(writer).toContain("Safety pattern: <pattern>");
-    expect(writer).toContain("Idea: <number or slug>");
+  it("tells a writer to open its PR with pr open, which writes the declaration lines", () => {
+    expect(writer).toContain("node skills/bin/harness.mjs pr open");
+    expect(writer).toContain("Safety pattern:");
+    expect(writer).toContain("Idea:");
+    expect(writer).toContain("Expand step:");
   });
 
-  it("warns that gh pr create --body does not apply the template", () => {
-    expect(writer).toMatch(
-      /`gh pr create --body`[^\n]*does not apply the template/,
-    );
+  it("says pr open defaults to Refs and that --closes is for an issue the merge delivers", () => {
+    expect(writer).toContain("`Refs #n` by default");
+    expect(writer).toContain("`--closes`");
+  });
+
+  it("no longer tells a writer to copy the declaration lines into a gh pr create body by hand", () => {
+    expect(writer).not.toContain("yourself");
   });
 
   it("tells a worker to run only the related tests and typecheck locally, pointing at AGENTS.md", () => {

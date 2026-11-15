@@ -11,6 +11,7 @@ const {
   judgeCommands,
   reviewCommands,
   outcomeCommands,
+  prCommands,
 } = vi.hoisted(() => {
   const command = (name: string): Command => ({
     summary: name,
@@ -25,6 +26,7 @@ const {
     judgeCommands: { judge: command("judge") },
     reviewCommands: { review: command("review") },
     outcomeCommands: { outcome: command("outcome") },
+    prCommands: { open: command("pr open") },
   };
 });
 
@@ -33,7 +35,11 @@ vi.mock("./challenge-commands.js", () => ({ challenge }));
 vi.mock("./flag-commands.js", () => ({ flagCommands }));
 vi.mock("../ruleset/index.js", () => ({ rulesetCommands }));
 vi.mock("./status-command.js", () => ({ statusCommand }));
-vi.mock("./judge-commands.js", () => ({ judgeCommands, reviewCommands }));
+vi.mock("./judge-commands.js", () => ({
+  judgeCommands,
+  reviewCommands,
+  prCommands,
+}));
 vi.mock("./outcome-commands.js", () => ({ outcomeCommands }));
 
 describe("records command map", () => {
@@ -43,6 +49,7 @@ describe("records command map", () => {
       "idea",
       "judge",
       "outcome",
+      "pr",
       "review",
       "ruleset",
       "status",
@@ -53,12 +60,13 @@ describe("records command map", () => {
     expect(records.idea).toEqual({ create: ideaCommands.create, challenge });
   });
 
-  it("maps flag, ruleset, outcome, judge and review to their own command maps", () => {
+  it("maps flag, ruleset, outcome, judge, review and pr to their own command maps", () => {
     expect(records.flag).toBe(flagCommands);
     expect(records.ruleset).toBe(rulesetCommands);
     expect(records.outcome).toBe(outcomeCommands);
     expect(records.judge).toBe(judgeCommands);
     expect(records.review).toBe(reviewCommands);
+    expect(records.pr).toBe(prCommands);
   });
 
   it("gives status the empty command word, since it is the domain's only command", () => {
