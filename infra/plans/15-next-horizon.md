@@ -59,11 +59,19 @@ and is not part of Next.
   platform organization's contact point, for example an email address or a chat
   webhook. Until then Step 6 provisions the rules with no contact point, and
   they show only in Grafana.
+  State 2026-11-14: still parked. #692 provisions the rules with no contact
+  point.
 - **Footprint breach (blocks Step 1, only if it happens).** If the check shows
   Next's added components exceed the headroom, the owner decides which of
   [ADR 0040](../../docs/decisions/0040-keycloak-human-identity.md) or
   [ADR 0041](../../docs/decisions/0041-backstage-and-argo-cd-per-tenant.md) is
   revisited. The ADR stays `proposed` meanwhile.
+  State 2026-11-14: no breach is decided. The headroom threshold is the
+  owner's call. The baseline is not recorded: two tainted local runs are on
+  #623 (neither is a baseline), and a clean run is owed on an idle host.
+- **Plan 14 Step 4 responsiveness run (debt #659).** The #405 run is recorded
+  on #405: zero failed probes, p95 864 ms under heavy load. Both it and the
+  footprint baseline stay debt #659.
 
 ## Step 1: Accept the Next ADRs
 
@@ -131,8 +139,6 @@ changes no cluster resource.
 
 ## Step 2: Organization and Service Platform APIs
 
-Next: Step 2: Organization and Service Platform APIs, behind the platform-organization-service-apis flag, off in local.
-
 Safety pattern: `feature-flagged` (`platform-organization-service-apis`, off in `local`),
 dark launched. With the flag off the render adds nothing to a cluster.
 
@@ -157,6 +163,8 @@ dark launched. With the flag off the render adds nothing to a cluster.
 - The flag stays off until a recorded live verification turns it on.
 
 ## Step 3: Autoscaling Defaults
+
+Next: Step 5 code first: pass the chart lock from kore local up to platform up, add infra/services registrations and wire the lock digests, commit and platformDomain/gatewayClassName into the golden-path values (#679, #682, #687). Then Step 6: the provider pod privileges stay unverified until a live run, Backstage still needs a Kore-built OIDC image, catalog from Organization/Service, Argo CD sync and rollout, a portal route and group authorization (#694, #695); dashboards wait on the alert destination (#692). Step 7 unstarted. Live runs owed: platform-argocd-delivery and platform-portal on fresh and existing profiles, the BFF 1→N scale proof, HTTPS per host, the Keycloak provider run, and an idle-host footprint baseline (#623, #659).
 
 Safety pattern: `feature-flagged` (`autoscaling-defaults`, off in `local`).
 
@@ -209,7 +217,7 @@ owners.
       the configuration-phase releases except the image policy to it as Helm
       charts from the platform OCI registry
       ([ADR 0043](../../docs/decisions/0043-platform-configuration-through-argo-cd.md)).
-- [ ] Gate application admission on its health, failing closed and naming the
+- [x] Gate application admission on its health, failing closed and naming the
       cause.
 - [ ] Deliver the golden-path BFF and static frontend from git by digest with
       an ApplicationSet over the `Service` registrations, so the sync, not
@@ -228,6 +236,16 @@ owners.
 Safety pattern: `feature-flagged` (`platform-portal`, off in `local`). The portal never
 runs open: with the flag on, Backstage starts only once its Keycloak sign-in is
 ready.
+
+### Decisions
+
+- Application runtime images are distroless and builder stages can be anything
+  ([ADR 0116](../../docs/decisions/0116-application-runtime-images-are-distroless-builder-stages-can-be-anything.md),
+  #696).
+- The Backstage image source lives in `images/backstage`, not `apps/`, because
+  it is a platform component that `kore` installs, not an application (#695).
+  `platform-backstage` stays one chart for the same reason: one owner per
+  resource (#694).
 
 ### Work
 
