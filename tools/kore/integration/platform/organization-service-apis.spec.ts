@@ -111,19 +111,65 @@ test("Organization is accepted only as the platform organization", async () => {
   assert.match(xrd, /self\.metadata\.name == 'platform'/);
 });
 
-test("the compositions are skeletons that compose no resource yet", async () => {
-  for (const [file, kind] of [
-    ["organization", "Organization"],
-    ["service", "Service"],
-  ] as const) {
-    const source = await read(
-      `infra/charts/platform-apis/templates/${file}-composition.yaml`,
-    );
-    assert.match(source, new RegExp(`^  name: ${file}-local$`, "m"));
-    assert.match(source, new RegExp(`kind: ${kind} \\}`));
-    assert.match(source, /mode: Pipeline/);
-    assert.match(source, /function-auto-ready/);
-    assert.doesNotMatch(source, /kind: Namespace/);
-    assert.doesNotMatch(source, /function-go-templating/);
-  }
+test("the Organization composition is still a skeleton that composes no resource", async () => {
+  const source = await read(
+    "infra/charts/platform-apis/templates/organization-composition.yaml",
+  );
+  assert.match(source, /^  name: organization-local$/m);
+  assert.match(source, /function-auto-ready/);
+  assert.doesNotMatch(source, /kind: Namespace/);
+  assert.doesNotMatch(source, /function-go-templating/);
+});
+
+test("the Service composition composes one labelled namespace per environment", async () => {
+  const source = await read(
+    "infra/charts/platform-apis/templates/service-composition.yaml",
+  );
+  assert.match(source, /^  name: service-local$/m);
+  assert.match(source, /kind: Service \}/);
+  assert.match(source, /mode: Pipeline/);
+  assert.match(source, /functionRef: \{ name: function-go-templating \}/);
+  assert.match(
+    source,
+    /range \$env := \.observed\.composite\.resource\.spec\.environments/,
+  );
+  assert.match(source, /^ {12}kind: Namespace$/m);
+  assert.match(source, /name: \{\{ \$service \}\}-\{\{ \$env \}\}/);
+  assert.match(source, /composition-resource-name: namespace-\{\{ \$env \}\}/);
+  assert.match(source, /platform\.kore\.dev\/tenant: \{\{ \$org \}\}/);
+  assert.match(source, /platform\.kore\.dev\/organization: \{\{ \$org \}\}/);
+  assert.match(source, /function-auto-ready/);
+  assert.doesNotMatch(source, /platform\.kore\.dev\/path/);
+});
+
+test("Crossplane may manage namespaces only through the flagged chart", async () => {
+  const rbac = await read(
+    "infra/charts/platform-apis/templates/namespace-rbac.yaml",
+  );
+  assert.match(rbac, /resources: \[namespaces\]/);
+  assert.match(rbac, /name: crossplane-platform-namespaces/);
+  assert.match(rbac, /name: crossplane\n {4}namespace: crossplane-system/);
+});
+
+test("the namespace composition is rendered only when the flag is on", async () => {
+  const local = await loadRepository("local");
+  const chart = "infra/charts/platform-apis";
+  const rendering = (repository: typeof local): string[] =>
+    enabledComponents(repository)
+      .filter((c) => c.chart === chart)
+      .map((c) => c.name);
+  assert.deepEqual(rendering(local), []);
+  assert.deepEqual(
+    rendering({
+      ...local,
+      environment: {
+        ...local.environment,
+        features: {
+          ...local.environment.features,
+          [organizationServiceApisFlag]: true,
+        },
+      },
+    }),
+    [component],
+  );
 });

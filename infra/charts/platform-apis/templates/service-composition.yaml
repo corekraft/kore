@@ -7,5 +7,31 @@ spec:
   compositeTypeRef: { apiVersion: platform.kore.dev/v1alpha1, kind: Service }
   mode: Pipeline
   pipeline:
+    # One Namespace per service environment (ADR 0037), labelled with only the
+    # tenant and organization (ADR 0038). The platform organization is the
+    # tenant root, so its name is also the tenant. The go template is wrapped in
+    # a Helm raw string so Helm leaves it for Crossplane to evaluate.
+    - step: compose-namespaces
+      functionRef: { name: function-go-templating }
+      input:
+        apiVersion: gotemplating.fn.crossplane.io/v1beta1
+        kind: GoTemplate
+        source: Inline
+        inline:
+          template: |
+            {{`{{- $service := .observed.composite.resource.metadata.name }}
+            {{- $org := .observed.composite.resource.spec.organization }}
+            {{- range $env := .observed.composite.resource.spec.environments }}
+            ---
+            apiVersion: v1
+            kind: Namespace
+            metadata:
+              name: {{ $service }}-{{ $env }}
+              annotations:
+                gotemplating.fn.crossplane.io/composition-resource-name: namespace-{{ $env }}
+              labels:
+                platform.kore.dev/tenant: {{ $org }}
+                platform.kore.dev/organization: {{ $org }}
+            {{- end }}`}}
     - step: mark-ready
       functionRef: { name: function-auto-ready }
