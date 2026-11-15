@@ -1,6 +1,6 @@
 import pkg from "../../package.json" with { type: "json" };
 import { adrCommands } from "../adr/index.js";
-import { guardrailCommands } from "../guardrail/index.js";
+import { guardrailLedgerCommands } from "./guardrail-request-commands.js";
 import { measurement } from "./measurement.js";
 import { records } from "./records.js";
 import {
@@ -34,7 +34,7 @@ export const domains: Record<string, Record<string, Command>> = {
     "clear-next": planClearNext,
   },
   adr: adrCommands,
-  guardrail: guardrailCommands,
+  guardrail: guardrailLedgerCommands,
   ...hostDomains,
   ...records,
   ...measurement,

@@ -21,4 +21,12 @@ export {
   type DenyRule,
 } from "./deny.js";
 export { findInventory, readInventory } from "./read.js";
-export { guardrailCommands } from "./commands.js";
+export { guardrailCommands, statusWith } from "./commands.js";
+export { classifyAudit, requestEvidence, type Evidence } from "./evidence.js";
+export { pendingRequests, type PendingRequest } from "./pending.js";
+export {
+  GuardrailRequest,
+  requestLabel,
+  type RequestPorts,
+  type RequestResult,
+} from "./request.js";
