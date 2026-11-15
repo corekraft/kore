@@ -59,6 +59,10 @@ git, and audit-before-enforce.
   one line, or an exact path pattern with a comment in `.trufflehog-exclude`.
   Ignores for ciphertext, `.kore/`, and generated output are the only broad
   patterns.
+  The one pass-scoped ignore is release-please's `CHANGELOG.md`: whole-file
+  scanning reported a commit-hash link as an unverified GitHubOauth2 token, so
+  `.trufflehog-exclude-tree` (the working-tree pass only) skips that path while
+  the history pass still reads every committed version.
 
 ## Not added
 
