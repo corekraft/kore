@@ -170,6 +170,19 @@ comparison, so change it only with a new baseline.
   result therefore records the completed requests, the elapsed time and the
   requests per second, and the Results table reports the rate; two runs are
   comparable only when their rates are close.
+- **Target rate (optional).** `KORE_INGRESS_TARGET_RPS=<n>` (or the
+  `targetRequestsPerSecond` option) replaces the closed loop with a paced load:
+  each curl call sends one batch of about a second of the target
+  (`min(requestsPerRoute, round(n))` requests), and the run sleeps out the rest
+  of the batch's slot, so the offered rate stays near `n` unless the proxy
+  answers slower than the slot allows. Unset is exactly the load above. The
+  result records the target and the achieved rate in `rate`, with status
+  `matched` when the achieved rate is within 10% of the target and
+  `rate_mismatch` otherwise; the live test fails on `rate_mismatch`, and such a
+  run is not a matched comparison. The result also reports `cpuPerRequest`
+  (median millicores divided by the achieved requests per second, for ingress
+  and ztunnel) and the existing p50/p95 latency. A matched-load remeasure runs
+  both gateways at one target, below the lower of the two achievable rates.
 - **Settle.** 60 seconds idle after the cluster is converged, before any load.
 - **Sampling.** Six samples 20 seconds apart while the load runs, read from the
   metrics API (`kubectl get --raw /apis/metrics.k8s.io/v1beta1/…?labelSelector=…`)
@@ -248,3 +261,11 @@ Throwaway profile, flags on only there. Refs #126.
 | Ingress mem. | 17.9 MiB            | 56.33 MiB | -68%   | 42.2 and 40.5/s                         |
 
 The rates are not matched, so the outcome label stays undecided.
+
+### Matched-load measurement support (2026-11-15)
+
+The 42.2 and 40.5/s runs above were closed-loop, so their rate followed proxy
+latency and the host. `IngressMeasurement` now takes an optional target rate
+(`KORE_INGRESS_TARGET_RPS`), paces the load to it, and flags a `rate_mismatch`
+when the achieved rate is outside 10% of the target. No live run was made for
+this change; the matched remeasure and the outcome label are still open (#212).
