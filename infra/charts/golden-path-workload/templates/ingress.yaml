@@ -1,0 +1,64 @@
+{{- /*
+  HTTPS for the service's default host (ADR 0042). The sync owns all three
+  resources, in the service namespace: the Gateway holds the one listener for
+  the host, cert-manager issues its Secret into the same namespace, and the
+  route sends the BFF path to the BFF and the rest to the frontend. The
+  platform Gateway in kore-system is not touched, so it keeps one owner.
+  Nothing renders without ingress.host, which only the ApplicationSet sets.
+*/ -}}
+{{- with .Values.ingress }}
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+  name: {{ $.Values.service }}
+  labels:
+    app.kubernetes.io/part-of: {{ $.Values.service }}
+spec:
+  gatewayClassName: {{ required "ingress.gatewayClassName is required with ingress.host" .gatewayClassName | quote }}
+  listeners:
+    - name: https
+      hostname: {{ .host | quote }}
+      port: 443
+      protocol: HTTPS
+      tls:
+        mode: Terminate
+        certificateRefs:
+          - {kind: Secret, name: {{ $.Values.service }}-tls}
+      allowedRoutes:
+        namespaces: {from: Same}
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: {{ $.Values.service }}-tls
+  labels:
+    app.kubernetes.io/part-of: {{ $.Values.service }}
+spec:
+  secretName: {{ $.Values.service }}-tls
+  dnsNames:
+    - {{ .host | quote }}
+  issuerRef:
+    kind: ClusterIssuer
+    name: {{ .issuer | default "kore-local-ca" }}
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: {{ $.Values.service }}
+  labels:
+    app.kubernetes.io/part-of: {{ $.Values.service }}
+spec:
+  parentRefs:
+    - kind: Gateway
+      name: {{ $.Values.service }}
+  hostnames:
+    - {{ .host | quote }}
+  rules:
+    - matches:
+        - path: {type: PathPrefix, value: /api}
+      backendRefs:
+        - {name: {{ $.Values.service }}-bff, port: 80}
+    - backendRefs:
+        - {name: {{ $.Values.service }}-frontend, port: 80}
+{{- end }}
