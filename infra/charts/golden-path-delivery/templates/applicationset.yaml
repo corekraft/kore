@@ -1,0 +1,46 @@
+# One Application per Service registration in git (ADR 0043). The sync owns the
+# workload: kore installs this ApplicationSet and never applies what it
+# generates. The namespace is the Service composition's, so the Application
+# never creates it.
+{{- $frontend := index .Values.templateImages "static-frontend" }}
+{{- $bff := index .Values.templateImages "kotlin-bff" }}
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata:
+  name: golden-path-services
+  namespace: {{ .Values.namespace }}
+spec:
+  goTemplate: true
+  goTemplateOptions: ["missingkey=error"]
+  generators:
+    - git:
+        repoURL: {{ .Values.repoURL | quote }}
+        revision: {{ .Values.revision | quote }}
+        files:
+          - path: {{ .Values.registrationsPath | quote }}
+  template:
+    metadata:
+      name: 'golden-path-{{`{{ .metadata.name }}`}}'
+      labels:
+        platform.kore.dev/service: '{{`{{ .metadata.name }}`}}'
+    spec:
+      project: {{ .Values.project | quote }}
+      source:
+        repoURL: {{ .Values.repoURL | quote }}
+        targetRevision: {{ .Values.revision | quote }}
+        path: {{ .Values.workloadPath | quote }}
+        helm:
+          parameters:
+            - name: service
+              value: '{{`{{ .metadata.name }}`}}'
+            - name: frontend.image
+              value: {{ printf "%s@%s" $frontend.image $frontend.digest | quote }}
+            - name: bff.image
+              value: {{ printf "%s@%s" $bff.image $bff.digest | quote }}
+      destination:
+        server: https://kubernetes.default.svc
+        namespace: '{{`{{ .metadata.name }}`}}--{{ .Values.environment }}'
+      syncPolicy:
+        automated:
+          prune: true
+          selfHeal: true

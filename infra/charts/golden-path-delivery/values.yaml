@@ -1,0 +1,27 @@
+# The git repository and the exact commit the sync follows. There is no default
+# for either: the render fails until both are set.
+# repoURL: https://github.com/corekraft/kore.git
+# revision: <40-character commit sha>
+
+# The Kore environment this cluster serves; a Service's workload runs in the
+# namespace <service>--<environment> that the Service composition creates.
+environment: local
+
+# Where the Service registrations live in git: one file per Service, a manifest
+# of kind Service (platform.kore.dev/v1alpha1) from the platform-apis chart.
+registrationsPath: infra/services/*.yaml
+
+# The chart each Application renders, from the same commit.
+workloadPath: infra/charts/golden-path-workload
+
+# Argo CD namespace and AppProject. The AppProject limited to operators comes
+# with the hand-over; until then the built-in project is named here.
+namespace: argocd
+project: default
+
+# The `entries` of the release's template-images.lock.json (ADR 0045), passed
+# whole, for example --set-json templateImages="$(jq .entries lock.json)".
+# Both entries are required and each is deployed by digest.
+# templateImages:
+#   static-frontend: {image: ghcr.io/..., digest: sha256:...}
+#   kotlin-bff: {image: ghcr.io/..., digest: sha256:...}
