@@ -78,6 +78,12 @@ and is not part of Next.
   [#659](https://github.com/corekraft/kore/issues/659) (see
   [Step 1](#step-1-accept-the-next-adrs), "Headroom is already thin"). Until a
   breach is measured, ADRs 0040 and 0041 are not revisited.
+- **Live proofs blocked on the release locks (2026-11-15).** The
+  `platform-argocd-delivery` and `platform-portal` live proofs are blocked on
+  the release locks: the `platform-charts` lock, `template-images.lock.json`
+  and `backstage-image.lock.json`. Only a tag-ref `release.yaml` run publishes
+  them. The owner approved dispatching the release; the proofs follow once the
+  locks exist. Nothing is ticked until then.
 - **Plan 14 Step 4 responsiveness run (debt #659).** The #405 run is recorded
   on #405: zero failed probes, p95 864 ms under heavy load. Both it and the
   footprint baseline stay debt #659.
@@ -173,7 +179,7 @@ dark launched. With the flag off the render adds nothing to a cluster.
 
 ## Step 3: Autoscaling Defaults
 
-Next: Phase B live proofs and the parked items, all on recorded runs; the code is merged behind off flags. Run platform-argocd-delivery on a fresh and an existing profile (one at a time, low load) after repairing the sops age key so kore local up passes the sops canary, record the outcome, then harness flag activate in local; then platform-portal the same way. Live runs owed: BFF 1 to N scale; images admitted by digest; HTTPS per host; Keycloak provider pod privileges; OIDC sign-in and the Backstage Argo CD view; per-stage delivery time and browser token test (Step 7); p95 recorded at the Gateway (harness added in [#703](https://github.com/corekraft/kore/pull/703)); idle-host footprint with at least 2 clean runs on [#623](https://github.com/corekraft/kore/issues/623) and [#659](https://github.com/corekraft/kore/issues/659). The alert destination is still unnamed. Parked questions are decided as recorded in [Parked Owner Questions](#parked-owner-questions). Tick items only after their live outcome is recorded.
+Next: First obtain the release locks (platform-charts lock, template-images.lock.json, backstage-image.lock.json) by dispatching a tag-ref release.yaml run; the owner approved it. Then B3 on a throwaway profile for the four flags (organization-service-apis, autoscaling-defaults without the BFF scale proof, argocd-delivery, portal), then the alert delivery test with an address supplied at run time (never write an address in the repo). Then B4: harness flag activate for each flag that passed, Next footprint twice, Step 7 outcome, #225, #325. Not provable, no project command (owner decision 2026-11-15): BFF 1 to N scale, per-stage delivery time, browser token test, OIDC sign-in with the unauthenticated-request-refused check. Tick nothing that needs a live run.
 
 Safety pattern: `feature-flagged` (`autoscaling-defaults`, off in `local`).
 
@@ -184,7 +190,7 @@ Safety pattern: `feature-flagged` (`autoscaling-defaults`, off in `local`).
 - [x] Add a CPU HorizontalPodAutoscaler to the workload chart from chart values,
       with no replica count, at least two replicas, and a PodDisruptionBudget.
 - [ ] Prove a BFF scales 1→N under load and back, with no request failing
-      because a pod started cold.
+      because a pod started cold. - 2026-11-15 not provable: no project command exists (owner decision 2026-11-15, no command scales a BFF 1 to N under load and back while counting failed requests; tracked on [#616](https://github.com/corekraft/kore/issues/616)). Not ticked.
 
 ### Exit Criteria
 
@@ -264,7 +270,7 @@ ready.
       and evaluate the Crossplane Keycloak provider first.
 - [ ] Install the platform organization's Backstage, signing in through
       Keycloak and reading clusters as the user, with its catalog built from the
-      `Organization` and `Service` objects.
+      `Organization` and `Service` objects. - 2026-11-15 OIDC sign-in and the unauthenticated-request-refused check: not provable: no project command exists (owner decision 2026-11-15, no command signs in through Keycloak or sends a request with no sign-in; tracked on [#616](https://github.com/corekraft/kore/issues/616)). Not ticked, and the matching Exit Criteria stay unproven.
 - [ ] Show the delivered services in Backstage with their Argo CD sync and
       rollout.
 - [ ] Provision each delivered service's default dashboard and notify-only
@@ -288,12 +294,12 @@ Safety pattern: `no-behaviour-change` (records only).
 - [ ] Record the per-stage delivery time from a merged `Service` change with a
       signed digest to a working HTTPS address, over several runs: namespace,
       sync, admission, certificate, rollout, readiness. Exclude the tenant's
-      own build, and report cold services separately from redeploys.
+      own build, and report cold services separately from redeploys. - 2026-11-15 not provable: no project command exists (owner decision 2026-11-15, no command times each delivery stage; tracked on [#616](https://github.com/corekraft/kore/issues/616)). Not ticked; the plan marks it not delivered.
 - [ ] Add a p95 measurement to [plan 13](13-agentgateway-ingress.md)'s load
       harness and record the golden-path frontend's p95 at the Gateway.
 - [ ] Run the end-user token test: a browser finds no access or refresh token
       readable by script, and every session cookie is host-only, `HttpOnly`,
-      `Secure` and `SameSite`.
+      `Secure` and `SameSite`. - 2026-11-15 not provable: no project command exists (owner decision 2026-11-15, no command drives a browser to look for script-readable tokens; tracked on [#616](https://github.com/corekraft/kore/issues/616)). Not ticked.
 - [ ] Record Next's footprint against the Now baseline.
 - [x] Check every Next "Done when" clause in the vision against a recorded run,
       and record the outcome as confirmed, refuted or inconclusive.
@@ -312,23 +318,23 @@ Outcome: **inconclusive**. Every cluster-facing piece merged behind its flag,
 and every flag is still off. No clause below has recorded live proof, so none
 is confirmed and none is refuted. Nothing here claims a live run. Statuses:
 _met_ (merged, nothing owed), _merged, live proof owed_ (merged behind its
-flag), _not delivered_ (code still open).
+flag), _not provable_ (no project command exists), _not delivered_ (code still open).
 
 | Done-when clause                                                                    | Status                  | Merged                                                         | What is owed                                                                                                                                                                                                                                            |
 | ----------------------------------------------------------------------------------- | ----------------------- | -------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `Organization` and `Service` exist as platform APIs                                 | merged, live proof owed | #664, #668, #670, #673                                         | A live run on a throwaway profile with `platform-organization-service-apis` on; the flag stays off until then.                                                                                                                                          |
 | Argo CD delivers a Kotlin BFF and a static frontend                                 | merged, live proof owed | #677, #679, #681, #683, #685, #686, #687, #700                 | A `platform-argocd-delivery` live run on a fresh and an existing profile; the flag stays off until it is activated after a recorded outcome. #700 merged the registrations directory and passes the lock from `kore local up` into the delivery values. |
 | ...that reach HTTPS                                                                 | merged, live proof owed | #682, #700                                                     | A live run per host. #700 passes `platformDomain` and `gatewayClassName` into the golden-path values; HTTPS stays behind the flag and is unproven (Step 5 items 1, 3 and 4 stay open until that run).                                                   |
-| ...and scale 1→N                                                                    | merged, live proof owed | #665, #671                                                     | The BFF 1→N load proof, with no request failing on a cold pod (Step 3 item 3); `autoscaling-defaults` stays off until then.                                                                                                                             |
+| ...and scale 1→N                                                                    | not provable            | #665, #671                                                     | Not provable, no project command exists (owner decision 2026-11-15): the BFF 1→N load proof (Step 3 item 3); other `autoscaling-defaults` proofs remain.                                                                                                |
 | The two templates are signed by digest and recorded in a lock                       | merged, live proof owed | #666, #669, #672, #675, #680, #684                             | A live run that checks both signatures and the lock.                                                                                                                                                                                                    |
 | ...and deployed by digest                                                           | merged, live proof owed | #700                                                           | A live run that admits both images by digest (Step 4 item 4). The lock wiring is merged behind `platform-argocd-delivery`, off in every overlay.                                                                                                        |
 | Backstage shows them                                                                | merged, live proof owed | #694, #695, #698, #701 (install, image, catalog, Argo CD view) | A `platform-portal` live run that shows the delivered services with their Argo CD Application and workload (Step 6 item 3 stays open until then); the install itself is also unproven live. Not delivered: a portal route.                              |
-| People are signed in through the platform Keycloak                                  | merged, live proof owed | #688, #690, #691, #693, #694, #698                             | The Keycloak provider pod privileges run, and an in-app OIDC sign-in, both on a `platform-portal` live run; the refused no-sign-in request is proven in the same run.                                                                                   |
+| People are signed in through the platform Keycloak                                  | merged, live proof owed | #688, #690, #691, #693, #694, #698                             | The Keycloak provider pod privileges run, and an in-app OIDC sign-in, both on a `platform-portal` live run; the OIDC sign-in and the refused no-sign-in request are not provable, no project command exists (owner decision 2026-11-15).                |
 | Each service shows its default dashboard and alerts with no setup                   | merged, live proof owed | #692                                                           | A live run that shows both for a delivered service.                                                                                                                                                                                                     |
 | Alerts notify-only until thresholds are measured                                    | merged, live proof owed | #692                                                           | The rules have no contact point: the platform alert destination is parked (Parked Owner Questions) and Step 6 item 4 stays open until the owner answers.                                                                                                |
-| Delivery time recorded per stage over several runs, cold and redeploy apart         | not delivered           |                                                                | Step 7 item 1; it needs the Argo CD delivery working live first.                                                                                                                                                                                        |
+| Delivery time recorded per stage over several runs, cold and redeploy apart         | not provable            |                                                                | Not provable, no project command exists (owner decision 2026-11-15); Step 7 item 1.                                                                                                                                                                     |
 | The golden-path frontend's p95 at the Gateway, recorded with plan 13's load harness | not delivered           |                                                                | Step 7 item 2: add the p95 measurement to the harness, then record it.                                                                                                                                                                                  |
-| The end-user token test (clause names token and cookie settings)                    | merged, live proof owed | #672 (the unit-level cookie assertion)                         | The browser run that finds no readable token (Step 7 item 3).                                                                                                                                                                                           |
+| The end-user token test (clause names token and cookie settings)                    | not provable            | #672 (the unit-level cookie assertion)                         | Not provable, no project command exists (owner decision 2026-11-15): the browser run (Step 7 item 3).                                                                                                                                                   |
 | Next's footprint against the Now baseline                                           | not delivered           |                                                                | At least two clean runs on an idle host (#623); the baseline is debt #659, and the headroom threshold is the owner's call.                                                                                                                              |
 
 Not covered by a clause but still owed: Step 6 item 1 stays open until the
