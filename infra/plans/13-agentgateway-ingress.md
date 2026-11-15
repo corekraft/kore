@@ -55,11 +55,12 @@ Pattern: `flag` (`ingress-agentgateway`, off in `local`). The flag-on render
 swaps the Gateway class and publishes its Service through
 `AgentgatewayParameters`; readiness waits for `deployment/kore-gateway-istio`
 and `service/kore-gateway-istio` to be absent. Fast specs prove the render and
-the readiness; the items above stay open until a live run on a throwaway
-profile shows the gateway live suite passing with the flag on and a
-migration from an Istio-ingress profile that keeps the cluster. Whether Istio
-removes the proxy by itself when the class changes is unproven: if it does not,
-readiness times out naming the leftover resource.
+the readiness. The items above were ticked once a live run on a throwaway
+profile showed the gateway passing with the flag on and a migration from an
+Istio-ingress profile that keeps the cluster (see
+[Step 2 and 3 live proofs](#step-2-and-3-live-proofs-agentgateway-on-k3d-2026-11-15)).
+Istio did not remove the proxy by itself when the class changed, as the next
+paragraph records.
 
 The live proof (phase 2) showed it does not: `kore-gateway-istio` stayed and the
 Gateway was never Programmed. So `kore-platform-config`'s reconcile now runs a
@@ -109,15 +110,19 @@ the live proof's throwaway overlay) enrols just the gateway pod: it adds the pod
 label through `Gateway.spec.infrastructure.labels` and a second
 `PeerAuthentication` that is permissive on the gateway's listener port only. The
 live proof now also sends a request through the Gateway after phase 2 and
-expects 200 on the reference route. The #208 identity suite needs re-running
-with the flag on before the box below is ticked.
+expects 200 on the reference route. The #208 identity suite was re-run with
+the flag on and passes (see the live proofs section under Results).
 
 ## Step 3: Re-Prove the Identity Chain
 
 ### Work
 
 - [x] Prove that peer identity still reaches OPA (ADR 0066) and that the
-      layered authorization of ADR 0007 still holds.
+      layered authorization of ADR 0007 still holds. Passing spec: `authorizer.live.spec.ts`,
+      "OPA's decision input carries the authenticated source and destination
+      principals", with the fail-closed spec beside it. The one skip in the
+      identity run is the default-ServiceAccount rejection
+      (`kore-workload-identity` is still dryrun); it is not this path.
 - [x] Re-run the identity, authorizer and reference app suites.
 
 ### Exit Criteria
@@ -126,7 +131,7 @@ with the flag on before the box below is ticked.
 
 ## Step 4: Outcome
 
-Next: Owner labels #212 (memory confirmed at -68%, CPU inconclusive at unmatched load: 42.2 and 40.5/s against 29.5 and 34.0/s), then either a matched-load remeasure or #210; after the recorded outcome, turn on ingress-agentgateway, gateway-class-change-release, gateway-rollback-order and agentgateway-mesh-enrollment in local through harness flag activate. Full state: #366.
+Next: Owner labels #212: measured memory -68% and CPU +6.3% against the baseline, at unmatched load (42.2 and 40.5/s against 29.5 and 34.0/s); the label is the owner's. Then a matched-load remeasure or #210; after the recorded outcome, the four flags (ingress-agentgateway, gateway-class-change-release, gateway-rollback-order, agentgateway-mesh-enrollment) turn on in local through the flag activation command. Full state: #366.
 
 ### Work
 
