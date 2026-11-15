@@ -5,20 +5,11 @@ import {
   chartDeliveryValues,
   helmInstalledComponents,
 } from "../config/index.js";
-import { applyChartCredential } from "./chart-credential.js";
-import {
-  composeChartDelivery,
-  prepareChartDelivery,
-} from "./chart-delivery.js";
-import {
-  fakeComponent,
-  fakeRepository,
-  fakeRunner,
-} from "./platform-support.js";
+import { composeChartDelivery } from "./chart-delivery.js";
+import { fakeComponent, fakeRepository } from "./platform-support.js";
 
 vi.mock("node:fs/promises");
 vi.mock("../config/index.js");
-vi.mock("./chart-credential.js");
 
 const repository = fakeRepository();
 const values = { charts: {}, namespaces: {}, gatewayClassName: "istio" };
@@ -72,14 +63,4 @@ test("a lock that fails validation stops before any cluster call, with the error
   await expect(composeChartDelivery(repository, "lock.json")).rejects.toThrow(
     "platform chart lock: no entry for release opa-authorizer",
   );
-});
-
-test("the registry credential is applied for kore-config-delivery, and for no other release", async () => {
-  const { runner } = fakeRunner();
-  const other = fakeComponent({ name: "opa-authorizer" });
-  await prepareChartDelivery(repository, runner, other);
-  expect(applyChartCredential).not.toHaveBeenCalled();
-  const delivery = fakeComponent({ name: "kore-config-delivery" });
-  await prepareChartDelivery(repository, runner, delivery);
-  expect(applyChartCredential).toHaveBeenCalledWith(repository, runner);
 });

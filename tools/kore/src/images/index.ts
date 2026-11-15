@@ -15,6 +15,7 @@ export {
   swapLocalSigningKey,
   withLocalSigner,
 } from "./local-signer.js";
+export { applyChartCredential } from "./chart-credential.js";
 export { verifiedRegistryAddress } from "./registry-service.js";
 export {
   ensureRegistryAuth,

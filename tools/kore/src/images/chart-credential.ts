@@ -4,7 +4,7 @@ import {
   loadRegistryCredential,
   registryAddress,
   withSecretsRedacted,
-} from "../images/index.js";
+} from "./registry-auth.js";
 import type { Runner } from "../runtime/index.js";
 
 // Docs: docs/decisions/0034-registry-authentication-and-authorization.md (stream-only Secrets)

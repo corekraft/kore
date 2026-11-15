@@ -6,6 +6,7 @@ import {
   clusterUp,
 } from "../cluster/index.js";
 import {
+  applyChartCredential,
   ensureLocalSigningPublicKey,
   ensureRegistryAuth,
   ensureRegistryTrust,
@@ -70,6 +71,12 @@ export async function bootstrapControllers(
       await ensureRegistryAuth(repository, runner);
     }
     await reconcileIfNeeded(repository, runner, component);
+    // Argo CD is installed, so it gets the registry's read identity before
+    // kore-config-delivery creates the Applications that pull charts with it
+    // (ADR 0034). A no-op unless `platform up` composed the delivery values.
+    if (component.name === "argocd") {
+      await applyChartCredential(repository, runner);
+    }
     // The CA exists once the registry's certificate is issued. Clients that
     // live in the cluster (the node's containerd, Policy Controller) get it
     // before anything that depends on the registry runs (ADR 0058), and it is

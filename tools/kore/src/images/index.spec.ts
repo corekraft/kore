@@ -12,6 +12,7 @@ import * as registryPruneError from "./registry-prune-error.js";
 import * as registry from "./registry.js";
 import * as localSigner from "./local-signer.js";
 import * as registryService from "./registry-service.js";
+import * as chartCredential from "./chart-credential.js";
 import * as registryAuth from "./registry-auth.js";
 import * as registryTls from "./registry-tls.js";
 import * as k3dRegistryTrust from "./k3d-registry-trust.js";
@@ -31,6 +32,7 @@ vi.mock("./registry-prune-run.js");
 vi.mock("./registry.js");
 vi.mock("./local-signer.js");
 vi.mock("./registry-service.js");
+vi.mock("./chart-credential.js");
 vi.mock("./registry-auth.js");
 vi.mock("./registry-tls.js");
 vi.mock("./k3d-registry-trust.js");
@@ -59,6 +61,7 @@ test("the images barrel exposes exactly the public surface, each name from the m
     ensureLocalSigningPublicKey: localSigner.ensureLocalSigningPublicKey,
     swapLocalSigningKey: localSigner.swapLocalSigningKey,
     withLocalSigner: localSigner.withLocalSigner,
+    applyChartCredential: chartCredential.applyChartCredential,
     verifiedRegistryAddress: registryService.verifiedRegistryAddress,
     ensureRegistryAuth: registryAuth.ensureRegistryAuth,
     koreManagesRegistryAuth: registryAuth.koreManagesRegistryAuth,

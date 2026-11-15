@@ -1,35 +1,22 @@
 import {
+  configDeliveryRelease,
   helmInstalledComponents,
   isLocalProvider,
+  type Component,
   type Repository,
 } from "../config/index.js";
-import type { Runner } from "../runtime/index.js";
+import { CommandError, type Runner } from "../runtime/index.js";
 import { installLocalTrust } from "../security/index.js";
 import { bootstrapControllers, openApplicationAdmission } from "./bootstrap.js";
-import {
-  composeChartDelivery,
-  handedToArgocd,
-  prepareChartDelivery,
-} from "./chart-delivery.js";
 import { enrollPlatformNamespaces } from "./enrollment.js";
 import { writePlatformState } from "./platform-state.js";
+import { helmReleaseStatus } from "./probe.js";
 import { reconcileConfiguration } from "./reconcile.js";
 
-export interface PlatformUpOptions {
-  /** The platform-charts.lock.json of a release; required while the delivery flag is on. */
-  platformChartLock?: string | undefined;
-}
-
 export async function platformUp(
-  given: Repository,
+  repository: Repository,
   runner: Runner,
-  options: PlatformUpOptions = {},
 ): Promise<void> {
-  // Schema-check the lock and catalog before any cluster is touched.
-  const repository = await composeChartDelivery(
-    given,
-    options.platformChartLock,
-  );
   await bootstrapControllers(repository, runner);
   if (isLocalProvider(repository.environment)) {
     await installLocalTrust(repository, runner);
@@ -45,7 +32,6 @@ export async function platformUp(
     if (await handedToArgocd(repository, runner, candidates, component)) {
       continue;
     }
-    await prepareChartDelivery(repository, runner, component);
     await reconcileConfiguration(repository, runner, component);
   }
   // Every phase is done, so Policy Controller and the image policies are ready:
@@ -56,4 +42,45 @@ export async function platformUp(
   // after all phases of this run (ADR 0054).
   await openApplicationAdmission(repository, runner);
   await writePlatformState(repository, "ready");
+}
+
+/**
+ * True when Argo CD owns the release and has taken it over: Helm skips it only
+ * once `kore-config-delivery` is deployed, read from the cluster so a rerun
+ * after a failed delivery leaves Helm managing it (ADR 0043).
+ */
+async function handedToArgocd(
+  repository: Repository,
+  runner: Runner,
+  candidates: readonly Component[],
+  component: Component,
+): Promise<boolean> {
+  if (helmInstalledComponents(repository, true).includes(component)) {
+    return false;
+  }
+  const delivery = candidates.find((c) => c.name === configDeliveryRelease);
+  return (
+    delivery !== undefined && (await isDeployed(repository, runner, delivery))
+  );
+}
+
+/** A release that does not exist yet is not deployed; any other failure is rethrown. */
+async function isDeployed(
+  repository: Repository,
+  runner: Runner,
+  release: Component,
+): Promise<boolean> {
+  try {
+    return (
+      (await helmReleaseStatus(repository, runner, release)) === "deployed"
+    );
+  } catch (error) {
+    if (
+      error instanceof CommandError &&
+      /release: not found/.test(error.result.stderr)
+    ) {
+      return false;
+    }
+    throw error;
+  }
 }

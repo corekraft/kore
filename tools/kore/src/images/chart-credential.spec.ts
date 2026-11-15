@@ -6,12 +6,12 @@ import {
   loadRegistryCredential,
   registryAddress,
   withSecretsRedacted,
-} from "../images/index.js";
+} from "./registry-auth.js";
 import { applyChartCredential } from "./chart-credential.js";
-import { fakeRepository, fakeRunner } from "./platform-support.js";
+import { fakeRepository, fakeRunner } from "./images.fixtures.js";
 
 vi.mock("../config/index.js");
-vi.mock("../images/index.js");
+vi.mock("./registry-auth.js");
 
 const delivery = {
   charts: {},
@@ -37,14 +37,14 @@ beforeEach(() => {
 });
 
 test("the read credential reaches Argo CD only through kubectl's stdin, in the configured context", async () => {
-  const { runner, run } = fakeRunner();
+  const { runner, calls } = fakeRunner();
   await expect(applyChartCredential(repository, runner)).resolves.toBe(true);
   expect(loadRegistryCredential).toHaveBeenCalledWith(
     repository,
     runner,
     "read",
   );
-  const [command, args, options] = run.mock.calls[0]!;
+  const { command, args, options } = calls[0]!;
   expect([command, args]).toEqual([
     "kubectl",
     [
@@ -82,17 +82,17 @@ test("a chart host that is not the platform registry gets no credential, so the 
   vi.mocked(chartRepositoryUrls).mockReturnValue([
     "ghcr.io/corekraft/kore/charts",
   ]);
-  const { runner, run } = fakeRunner();
+  const { runner, calls } = fakeRunner();
   await expect(applyChartCredential(repository, runner)).resolves.toBe(false);
   expect(loadRegistryCredential).not.toHaveBeenCalled();
-  expect(run).not.toHaveBeenCalled();
+  expect(calls).toEqual([]);
 });
 
 test("a registry the provider owns gets no credential from kore", async () => {
   vi.mocked(koreManagesRegistryAuth).mockReturnValue(false);
-  const { runner, run } = fakeRunner();
+  const { runner, calls } = fakeRunner();
   await expect(applyChartCredential(repository, runner)).resolves.toBe(false);
-  expect(run).not.toHaveBeenCalled();
+  expect(calls).toEqual([]);
 });
 
 test("the apply runs inside secret redaction for the password, so a failure cannot leak it", async () => {
@@ -105,9 +105,9 @@ test("the apply runs inside secret redaction for the password, so a failure cann
 });
 
 test("without composed delivery values there is nothing to credential", async () => {
-  const { runner, run } = fakeRunner();
+  const { runner, calls } = fakeRunner();
   await expect(applyChartCredential(fakeRepository(), runner)).resolves.toBe(
     false,
   );
-  expect(run).not.toHaveBeenCalled();
+  expect(calls).toEqual([]);
 });
