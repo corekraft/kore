@@ -114,14 +114,14 @@ do not yet bound anything
 
 ## Step 6: Orchestrator and Concierge
 
-Next: Step 6 still owes #195 and #197 (agent work; draft PR #332) and the concierge item, which the concierge evals do not yet cover beyond boundaries (no file read or write), so it stays unticked. Done: #364 merged; the identities wizard was run; role tokens are on in local ([#602](https://github.com/corekraft/kore/pull/602), [#607](https://github.com/corekraft/kore/pull/607)); the live main ruleset is synced, so merges go judge approve then judge merge ([#336 comment](https://github.com/corekraft/kore/issues/336)); #338 is closed; #199 was closed by the owner on 2026-11-14 because plan 7 has no open items. Full state: #366.
+Next: Merged: queue and escalation counting ([#707](https://github.com/corekraft/kore/pull/707)), orchestrator tracer ([#710](https://github.com/corekraft/kore/pull/710)), concierge loop health ([#711](https://github.com/corekraft/kore/pull/711)). Still open: the orchestrator-in-its-own-pane item, whose ledger criterion needs a live or integration run (#197); the concierge status-from-plans-and-issues and file-requests-as-ideas item, which its evals do not yet cover; Step 7 (plan 7 as first workload; plan 7 has no open items, #199 closed). Full state: #366.
 
 ### Work
 
 - [ ] The orchestrator runs in its own Herdr pane, reads the queue only
       between pieces of work, and launches readers, writers and judges as
       panes.
-- [ ] Writers escalate from Haiku to Sonnet after two judge send-backs, by
+- [x] Writers escalate from Haiku to Sonnet after two judge send-backs, by
       relaunching with different parameters.
 - [ ] The concierge answers status from plans, issues and the ledger, and
       files requests as ideas.
