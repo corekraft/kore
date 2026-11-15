@@ -1,8 +1,8 @@
 ---
-status: proposed
+status: accepted
 summary: Static frontends are served in the cluster by default from a pinned static-server image that contains the build and is signed and deployed by digest, on the same host as the service's BFF; GitHub Pages or object storage is a per-service escape hatch.
 date: 2026-11-09
-last-verified: 2026-11-09
+last-verified: 2026-11-14
 ---
 
 # ADR 0045: Serve static frontends in the cluster as signed images

@@ -1,8 +1,8 @@
 ---
-status: proposed
+status: accepted
 summary: Tenants share one cluster and are isolated per service environment namespace by mesh, network policy, quotas, and admission; Kore's tenancy API owns those namespaces, without Capsule, and a vCluster is a later dedicated tier.
 date: 2026-11-08
-last-verified: 2026-11-09
+last-verified: 2026-11-14
 ---
 
 # ADR 0037: Isolate tenants by namespace in one shared cluster

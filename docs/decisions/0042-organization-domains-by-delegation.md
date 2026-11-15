@@ -1,8 +1,8 @@
 ---
-status: proposed
+status: accepted
 summary: Organizations bring domains by delegating a zone under any TLD to the platform's DNS, services are subdomains within those zones, and every organization also gets one default zone under a per-environment platform domain.
 date: 2026-11-09
-last-verified: 2026-11-09
+last-verified: 2026-11-14
 ---
 
 # ADR 0042: Bring organization domains by delegation, with one platform default zone each
