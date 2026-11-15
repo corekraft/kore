@@ -141,7 +141,7 @@ dark launched. With the flag off the render adds nothing to a cluster.
 - [x] Define `Organization` and `Service` as Crossplane platform APIs for the
       platform organization only, following the PostgreSQL API's layout
       ([ADR 0008](../../docs/decisions/0008-crossplane-postgresql-platform-api.md)).
-- [ ] Compose a namespace per service environment with tenant and organization
+- [x] Compose a namespace per service environment with tenant and organization
       labels
       ([ADR 0037](../../docs/decisions/0037-tenant-isolation-by-namespace.md),
       [ADR 0038](../../docs/decisions/0038-organization-hierarchy-depth-and-labels.md)).
