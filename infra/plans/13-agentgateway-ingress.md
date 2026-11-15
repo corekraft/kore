@@ -238,7 +238,7 @@ Step 4 (a 20% drop, which exceeds each metric's spread):
 | ztunnel | CPU (m)      | 97.087   | 0.4%   | reported, does not decide |
 | ztunnel | Memory (MiB) | 9.425    | 0.5%   | reported, does not decide |
 
-Step 4 results will be added here against this table.
+Step 4 results are in [Step 4 outcome](#step-4-outcome-confirmed-on-memory-cpu-neutral-2026-11-15), below.
 
 ### Step 2 and 3 live proofs: agentgateway on k3d (2026-11-15)
 
@@ -268,7 +268,8 @@ The 42.2 and 40.5/s runs above were closed-loop, so their rate followed proxy
 latency and the host. `IngressMeasurement` now takes an optional target rate
 (`KORE_INGRESS_TARGET_RPS`), paces the load to it, and flags a `rate_mismatch`
 when the achieved rate is outside 10% of the target. No live run was made for
-this change; the matched remeasure and the outcome label are still open (#212).
+this change. The matched remeasure and the outcome label followed on 2026-11-15
+(superseded by [Step 4 outcome](#step-4-outcome-confirmed-on-memory-cpu-neutral-2026-11-15)).
 
 ### Step 4 outcome: confirmed on memory, CPU neutral (2026-11-15)
 
@@ -284,8 +285,13 @@ Refs #126 #210 #212.
 | Memory, steady state (MiB)  | 74.7 to 74.85                | 19.2 to 19.6 (warm-up 48) | about -74%; -68% against #320 |
 | CPU per request (m per r/s) | 1.756 and 1.918              | 1.710 to 2.034            | neutral, ranges overlap       |
 
+The "confirmed" label rests on the same-cluster Istio comparison at a matched
+rate, not on the #320 baseline method alone: that method (29.5 to 34 requests
+per second) could not be reproduced, because Istio sustained only about 25
+requests per second with the paced load.
+
 Limits that stay on record: neither gateway reached the 22 requests per second
-target on this host (Istio 20.2 and 20.3, agentgateway 19.6 to 20.2), and no
+target on this host (Istio 20.2 and 20.3, agentgateway 17.0 to 20.2, the 17.0 run having a tainted load sample), and no
 agentgateway run was both matched and clean, so the conclusions rest on the five
 runs together. The earlier +6.3% CPU came from a higher request rate. Turning
 the flags on in `local` is not part of this outcome (#210).
