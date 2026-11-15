@@ -1,0 +1,13 @@
+# Non-secret configuration only: the AOT training run reads this file and the
+# resulting cache is baked into the image (ADR 0046).
+server:
+  port: 8080
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health
+  endpoint:
+    health:
+      probes:
+        enabled: true

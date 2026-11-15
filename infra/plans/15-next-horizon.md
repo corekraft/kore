@@ -164,7 +164,7 @@ Safety pattern: `feature-flagged` (`autoscaling-defaults`, off in `local`).
 
 - [x] Install metrics-server as a catalog Helm release, pinned and mirrored
       ([ADR 0047](../../docs/decisions/0047-autoscaling-metrics-server-then-keda.md)).
-- [ ] Add a CPU HorizontalPodAutoscaler to the workload chart from chart values,
+- [x] Add a CPU HorizontalPodAutoscaler to the workload chart from chart values,
       with no replica count, at least two replicas, and a PodDisruptionBudget.
 - [ ] Prove a BFF scales 1→N under load and back, with no request failing
       because a pod started cold.
@@ -183,7 +183,7 @@ existing reference app keeps working until a service moves to them.
 - [x] Build a static frontend template into a signed image served from a pinned
       static-server image
       ([ADR 0045](../../docs/decisions/0045-static-frontends-as-signed-images.md)).
-- [ ] Build a Kotlin BFF template with Jib on the GraalVM JDK, with the
+- [x] Build a Kotlin BFF template with Jib on the GraalVM JDK, with the
       OpenTelemetry Java agent and a JDK AOT cache from a build-time training
       run
       ([ADR 0046](../../docs/decisions/0046-bff-jvm-with-agent-and-aot-cache.md)).
