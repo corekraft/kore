@@ -20,9 +20,9 @@ export interface CorpusCase {
   rule: string;
 }
 
-const READ_ONLY = ["reader", "refiner", "challenger"];
+const READ_ONLY = ["reader"];
 const REPORTING = ["judge"];
-const NO_CODE = ["challenger"];
+const NO_CODE: string[] = [];
 const ROLES = [...READ_ONLY, ...REPORTING];
 
 const bash = (role: string, rule: string, ...commands: string[]) =>

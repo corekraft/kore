@@ -70,7 +70,7 @@ export function ideaMetrics(
 
 /** Rework per closed idea, and friction by source, as the report names them. */
 export interface FrictionMetrics {
-  /** Escalations, send-backs, Challenger rounds and friction per closed idea. */
+  /** Escalations, send-backs and friction per closed idea. */
   rework: ReworkMetrics;
   /** Friction events in range by source. */
   friction: Friction;

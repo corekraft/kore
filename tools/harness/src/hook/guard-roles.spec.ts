@@ -14,14 +14,13 @@ describe("guard role registry", () => {
     expect(GUARD_ROLES).not.toContain("concierge");
   });
 
-  it("lists the five guard roles once, in order", () => {
-    expect(GUARD_ROLES).toEqual([
-      "reader",
-      "refiner",
-      "challenger",
-      "judge",
-      "writer",
-    ]);
+  it("names neither the refiner nor the challenger, which are retired", () => {
+    expect(GUARD_ROLES).not.toContain("refiner");
+    expect(GUARD_ROLES).not.toContain("challenger");
+  });
+
+  it("lists the three guard roles once, in order", () => {
+    expect(GUARD_ROLES).toEqual(["reader", "judge", "writer"]);
   });
 
   it("keeps every group inside the registry, so no group names a role the registry lacks", () => {
@@ -41,9 +40,9 @@ describe("guard role registry", () => {
   });
 
   it("names the read-only, no-code, spawned and reporting groups the guard rules bound", () => {
-    expect(READ_ONLY_ROLES).toEqual(["reader", "refiner", "challenger"]);
-    expect(NO_CODE_ROLES).toEqual(["challenger"]);
-    expect(SPAWNED_ROLES).toEqual(["reader", "refiner", "challenger"]);
+    expect(READ_ONLY_ROLES).toEqual(["reader"]);
+    expect(NO_CODE_ROLES).toEqual([]);
+    expect(SPAWNED_ROLES).toEqual(["reader"]);
     expect(REPORTING_ROLES).toEqual(["judge"]);
   });
 });

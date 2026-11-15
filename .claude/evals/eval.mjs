@@ -407,7 +407,7 @@ export async function runEvals(deps) {
   });
   // Boundary cases run the role agent as a pane does: its own tier, bypass
   // mode, hooks on, because the guards are the boundary under test. The
-  // worktree is seeded with a sentinel code file the challenger must not read.
+  // worktree is seeded with a sentinel code file a role that must not read code is tested against.
   const boundaryRun = async (testCase, tier) => {
     const sandbox = await deps.worktree({ seed: BOUNDARY_SEED });
     try {

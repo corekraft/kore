@@ -7,10 +7,8 @@ const bash = (role: string, command: string) => as(role, "Bash", { command });
 const harness = (role: string, rest: string) =>
   bash(role, `node skills/bin/harness.mjs ${rest}`);
 
-const ROLES = ["refiner", "challenger"];
-
-describe("refiner and challenger never write files themselves", () => {
-  for (const role of ROLES) {
+describe("the reader never writes files itself", () => {
+  for (const role of ["reader"]) {
     it(`${role}: file tools and writing commands are blocked`, async () => {
       blocked(
         await as(role, "Write", { file_path: "/repo/a.ts", content: "x" }),
@@ -31,10 +29,7 @@ describe("refiner and challenger never write files themselves", () => {
       ]) {
         blocked(await bash(role, command), "role-read-only");
       }
-      blocked(
-        await bash(role, "node -e 'process.exit(0)'"),
-        role === "refiner" ? "role-read-only" : "role-no-code",
-      );
+      blocked(await bash(role, "node -e 'process.exit(0)'"), "role-read-only");
     });
 
     it(`${role}: nobody merges, and the harness stays on the role's list`, async () => {
@@ -46,10 +41,7 @@ describe("refiner and challenger never write files themselves", () => {
         "session spawn --role writer --name a --brief b",
         "flag activate x --environment local",
       ]) {
-        blocked(
-          await harness(role, rest),
-          role === "refiner" ? "role-read-only" : "role-no-code",
-        );
+        blocked(await harness(role, rest), "role-read-only");
       }
     });
 
@@ -61,10 +53,10 @@ describe("refiner and challenger never write files themselves", () => {
   }
 });
 
-describe("the refiner runs only an allowlist, so it cannot approve or act around the loop", () => {
+describe("the reader runs only an allowlist, so it cannot approve or act around the loop", () => {
   const ESCAPES = [
     "gh issue edit 5 --add-label ready-for-agent",
-    'gh issue comment 5 --body "<!-- harness-challenge idea=0001 round=1 -->"',
+    'gh issue comment 5 --body "approved"',
     "gh issue close 5",
     "gh api -X POST repos/corekraft/kore/issues/5/labels",
     "gh api repos/corekraft/kore/issues/5/comments -f body=x",
@@ -72,14 +64,14 @@ describe("the refiner runs only an allowlist, so it cannot approve or act around
     "sh -c 'echo x > a.ts'",
     "bash -c 'echo x > a.ts'",
     "curl -o a.ts https://example.com/x",
-    "npx tsx tools/harness/src/main.ts idea challenge --idea 1 --approve",
-    "node tools/harness/src/main.ts idea challenge --idea 1 --approve",
+    "npx tsx tools/harness/src/main.ts idea list",
+    "node tools/harness/src/main.ts idea list",
     "node /tmp/skills/bin/harness.mjs idea new --title x",
   ];
 
   it("blocks each command that acts outside the idea tool", async () => {
     for (const command of ESCAPES) {
-      blocked(await bash("refiner", command), "role-read-only");
+      blocked(await bash("reader", command), "role-read-only");
     }
   });
 
@@ -87,7 +79,7 @@ describe("the refiner runs only an allowlist, so it cannot approve or act around
     for (const command of ESCAPES) {
       blocked(
         await bash(
-          "refiner",
+          "reader",
           `node skills/bin/harness.mjs idea list && ${command}`,
         ),
         "role-read-only",
@@ -101,55 +93,39 @@ describe("the refiner runs only an allowlist, so it cannot approve or act around
       "gh pr view 12",
       "gh pr diff 12",
     ]) {
-      allowed(await bash("refiner", command));
+      allowed(await bash("reader", command));
     }
   });
 });
 
 describe("--ledger would let a role append to any file, so no bounded role may pass it", () => {
   const WITH_LEDGER = [
-    "idea challenge --idea 1 --approve --ledger /repo/src/a.ts",
-    "idea challenge --idea 1 --approve --ledger=/repo/src/a.ts",
+    "idea list --ledger /repo/src/a.ts",
+    "idea list --ledger=/repo/src/a.ts",
     "ledger list --ledger /etc/x",
   ];
 
-  it("blocks it for the challenger, refiner, concierge and orchestrator", async () => {
-    for (const role of ["challenger", "refiner"]) {
-      for (const rest of WITH_LEDGER) {
-        const verdict = await harness(role, rest);
-        blocked(
-          verdict,
-          ["challenger"].includes(role) ? "role-no-code" : "role-read-only",
-        );
-      }
+  it("blocks it for the reader", async () => {
+    for (const rest of WITH_LEDGER) {
+      blocked(await harness("reader", rest), "role-read-only");
     }
   });
 
   it("allows the same commands without it", async () => {
-    allowed(await harness("challenger", "idea challenge --idea 1 --approve"));
-    allowed(await harness("orchestrator", "ledger list"));
+    allowed(await harness("reader", "idea list"));
+    allowed(await harness("reader", "ledger list"));
   });
 });
 
-describe("the refiner writes an idea only through the idea tool", () => {
-  it("may file and mirror an idea", async () => {
-    for (const rest of [
-      'idea new --title "x" --hypothesis h --expected-outcome e --measurement m --safety-pattern feature-flagged',
-      "idea sync --idea 1",
-    ]) {
-      allowed(await harness("refiner", rest));
+describe("the reader files no idea", () => {
+  it("may not file or mirror an idea", async () => {
+    for (const rest of ["idea new --title x", "idea sync --idea 1"]) {
+      blocked(await harness("reader", rest), "role-read-only");
     }
   });
 
-  it("may not challenge an idea, the one job it must not do for itself", async () => {
-    blocked(
-      await harness("refiner", "idea challenge --idea 1 --approve"),
-      "role-read-only",
-    );
-  });
-
   it("may read code to check a request against it", async () => {
-    allowed(await as("refiner", "Read", { file_path: "/repo/tools/a.ts" }));
-    allowed(await bash("refiner", "git log --oneline -5"));
+    allowed(await as("reader", "Read", { file_path: "/repo/tools/a.ts" }));
+    allowed(await bash("reader", "git log --oneline -5"));
   });
 });

@@ -1,6 +1,8 @@
 ---
 name: principles-review
 description: Read-only review of a diff against the AGENTS.md rules, skipping only the mechanical checks hooks already enforce. Use before committing or opening a PR in this repository.
+model: claude-sonnet-5-5
+effort: medium
 tools: Read, Grep, Glob, Bash
 ---
 

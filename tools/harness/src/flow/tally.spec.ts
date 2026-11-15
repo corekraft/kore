@@ -129,7 +129,6 @@ describe("Tally.stages", () => {
     const totals = new Tally().stages();
     expect(totals.map((s) => s.stage)).toEqual([
       "refine",
-      "challenge",
       "await approval",
       "orchestrate",
       "write",

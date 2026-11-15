@@ -31,18 +31,16 @@ describe("metricLine", () => {
 });
 
 describe("reworkLines", () => {
-  it("lists escalations, send-backs, challenger rounds and friction in that order", () => {
+  it("lists escalations, send-backs and friction in that order", () => {
     const lines = reworkLines({
       trailingIdeas: 5,
       escalationsPerIdea: NONE,
       sendBacksPerIdea: NONE,
-      challengeRoundsPerIdea: NONE,
       frictionPerIdea: NONE,
     });
     expect(lines.map((l) => l.split(":")[0])).toEqual([
       "Escalations per idea",
       "Send-backs per idea",
-      "Challenger rounds per idea",
       "Friction events per idea",
     ]);
   });

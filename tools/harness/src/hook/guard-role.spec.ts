@@ -35,6 +35,16 @@ vi.mock("./guard-role-writes.js", async (importOriginal) => ({
   useNotify: vi.fn(),
   writes: vi.fn(),
 }));
+vi.mock("./guard-roles.js", async (importOriginal) => {
+  const real = await importOriginal<typeof import("./guard-roles.js")>();
+  // No registered role is a no-code role today, so the rule is exercised with a stand-in.
+  return {
+    ...real,
+    NO_CODE_ROLES: ["plan-reader"],
+    READ_ONLY_ROLES: [...real.READ_ONLY_ROLES, "plan-reader"],
+    SPAWNED_ROLES: [...real.SPAWNED_ROLES, "plan-reader"],
+  };
+});
 vi.mock("./guard-shell.js");
 vi.mock("./guard-verdict.js");
 
@@ -139,24 +149,24 @@ describe("checkRole: a read-only role's writes and file reads", () => {
     });
   });
 
-  it("lets the reader read code, but refuses the challenger reading it", () => {
+  it("lets the reader read code, but refuses the plan-reader reading it", () => {
     expect(call("reader", "Read", { file_path: "src/x.ts" })).toBeNull();
-    expect(call("challenger", "Read", { file_path: "src/x.ts" })).toMatchObject(
-      {
-        rule: "role-no-code",
-      },
-    );
+    expect(
+      call("plan-reader", "Read", { file_path: "src/x.ts" }),
+    ).toMatchObject({
+      rule: "role-no-code",
+    });
   });
 
-  it("lets the challenger read plans, ADRs and ideas, and refuses a climbing glob", () => {
-    expect(call("challenger", "Read", { file_path: "docs/a.md" })).toBeNull();
+  it("lets the plan-reader read plans, ADRs and ideas, and refuses a climbing glob", () => {
+    expect(call("plan-reader", "Read", { file_path: "docs/a.md" })).toBeNull();
     expect(
-      call("challenger", "Grep", { path: "../secret", pattern: "x" }),
+      call("plan-reader", "Grep", { path: "../secret", pattern: "x" }),
     ).toMatchObject({
       rule: "role-no-code",
     });
     expect(
-      call("challenger", "Glob", { path: "infra/plans", pattern: "../../x" }),
+      call("plan-reader", "Glob", { path: "infra/plans", pattern: "../../x" }),
     ).toMatchObject({
       rule: "role-no-code",
     });
@@ -168,7 +178,7 @@ describe("checkRole: a read-only role's shell", () => {
     expect(bash("reader", "echo $(ls)")).toMatchObject({
       rule: "role-read-only",
     });
-    expect(bash("challenger", "echo $(ls)")).toMatchObject({
+    expect(bash("plan-reader", "echo $(ls)")).toMatchObject({
       rule: "role-no-code",
     });
   });
@@ -192,34 +202,34 @@ describe("checkRole: a read-only role's shell", () => {
   it("refuses a write in the shell", () => {
     vi.mocked(writes).mockReturnValue(true);
 
-    expect(bash("refiner", "tee out")).toMatchObject({
+    expect(bash("reader", "tee out")).toMatchObject({
       rule: "role-read-only",
     });
   });
 });
 
-describe("checkRole: the challenger's harness commands and gh reads", () => {
-  it("lets the challenger run its allowlisted harness commands and gh reads", () => {
+describe("checkRole: a no-code role's harness commands and gh reads", () => {
+  it("lets the plan-reader run its allowlisted harness commands and gh reads", () => {
     vi.mocked(harnessAllowed).mockReturnValue(true);
     expect(
-      bash("challenger", "node skills/bin/harness.mjs idea new"),
+      bash("plan-reader", "node skills/bin/harness.mjs idea new"),
     ).toBeNull();
     vi.mocked(ghMayRun).mockReturnValue(true);
-    expect(bash("challenger", "gh pr view 1")).toBeNull();
+    expect(bash("plan-reader", "gh pr view 1")).toBeNull();
   });
 
   it("refuses a command a no-code role does not list, and allows its date and echo", () => {
-    expect(bash("challenger", "rm f")).toMatchObject({ rule: "role-no-code" });
-    expect(bash("challenger", "date")).toBeNull();
+    expect(bash("plan-reader", "rm f")).toMatchObject({ rule: "role-no-code" });
+    expect(bash("plan-reader", "date")).toBeNull();
   });
 
-  it("lets the challenger run git log and status with only the flags that print no code", () => {
-    expect(bash("challenger", "git log --oneline -n 3")).toBeNull();
-    expect(bash("challenger", "git status -s")).toBeNull();
-    expect(bash("challenger", "git log -p")).toMatchObject({
+  it("lets the plan-reader run git log and status with only the flags that print no code", () => {
+    expect(bash("plan-reader", "git log --oneline -n 3")).toBeNull();
+    expect(bash("plan-reader", "git status -s")).toBeNull();
+    expect(bash("plan-reader", "git log -p")).toMatchObject({
       rule: "role-no-code",
     });
-    expect(bash("challenger", "git diff")).toMatchObject({
+    expect(bash("plan-reader", "git diff")).toMatchObject({
       rule: "role-no-code",
     });
   });
@@ -228,7 +238,9 @@ describe("checkRole: the challenger's harness commands and gh reads", () => {
     vi.mocked(harnessAllowed).mockReturnValue(false);
     vi.mocked(harnessStatus).mockReturnValue(true);
 
-    expect(bash("challenger", "node skills/bin/harness.mjs status")).toBeNull();
+    expect(
+      bash("plan-reader", "node skills/bin/harness.mjs status"),
+    ).toBeNull();
   });
 
   it("refuses a command the read allowlist does not name, for a reader", () => {
@@ -237,14 +249,15 @@ describe("checkRole: the challenger's harness commands and gh reads", () => {
     expect(bash("reader", "curl x")).toMatchObject({ rule: "role-read-only" });
   });
 
-  it("gives the refiner the harness commands it may file, and the challenger its own", () => {
-    bash("refiner", "node skills/bin/harness.mjs idea new");
-    bash("challenger", "node skills/bin/harness.mjs idea challenge");
+  it("gives every read-only role the same read-only harness commands, with none that files or records", () => {
+    bash("reader", "node skills/bin/harness.mjs idea list");
+    bash("plan-reader", "node skills/bin/harness.mjs idea list");
 
-    const [refinerCall] = vi.mocked(readMayRun).mock.calls;
-    const [, , challengerList] = vi.mocked(harnessAllowed).mock.calls[0] ?? [];
-    expect(refinerCall?.[1]).toContain("idea new");
-    expect(challengerList).toContain("idea challenge");
+    const [readerCall] = vi.mocked(readMayRun).mock.calls;
+    const [, , noCodeList] = vi.mocked(harnessAllowed).mock.calls[0] ?? [];
+    expect(readerCall?.[1]).toEqual(noCodeList);
+    expect(noCodeList).toContain("idea list");
+    expect(noCodeList).not.toContain("idea new");
   });
 
   it("lets a spawned role finish with its one notice, which no allowlist names", () => {

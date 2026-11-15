@@ -1,6 +1,6 @@
 // Role bounds for the delivery loop's read-only agents (ADR 0078). Panes run in
 // bypass mode, so these guard rules, not permission prompts, keep the
-// challenger and the reader from writing files, and the challenger from reading
+// reader from writing files, and a no-code role (none today) from reading
 // code. The delivery roles are bounded in guard-role-delivery.ts. The host names the role as `agent_type` when a session starts with
 // `claude --agent <role>`; a session without one is not bounded here.
 //
@@ -37,7 +37,7 @@ const NO_CODE_ROLE_SET = new Set<string>(NO_CODE_ROLES);
 const SPAWNED_ROLE_SET = new Set<string>(SPAWNED_ROLES);
 const FILE_TOOLS = new Set(["Read", "Grep", "Glob"]);
 
-/** Paths the challenger may read: plans, ADRs and ideas, never code. */
+/** Paths a no-code role may read: plans, ADRs and ideas, never code. */
 const NO_CODE_PATHS = /^(infra\/plans\/|docs\/|GLOSSARY\.md$|README\.md$)/;
 
 /** The path relative to the repository with `..` resolved, or undefined when it leaves the repository. */
@@ -75,9 +75,6 @@ const HARNESS_READS = [
   "flow report",
   "ledger list",
 ];
-/** The refiner files and mirrors the idea it refined, the one thing it produces. */
-const REFINER_HARNESS = [...HARNESS_READS, "idea new", "idea sync"];
-const CHALLENGER_HARNESS = [...HARNESS_READS, "idea challenge"];
 
 /** The only options a no-code role's `git log` and `git status` take: none prints changed lines. */
 const NO_CODE_GIT_FLAGS: Record<string, RegExp> = {
@@ -98,7 +95,7 @@ function noCodeGit(args: readonly string[]): boolean {
 function noCodeMayRun(role: string, segment: readonly string[]): boolean {
   const { name, args } = commandOf(segment);
   return (
-    harnessAllowed(name, args, CHALLENGER_HARNESS) ||
+    harnessAllowed(name, args, HARNESS_READS) ||
     harnessStatus(name, args) ||
     (name === "gh" && ghMayRun(args, false)) ||
     (name === "git" && noCodeGit(args)) ||
@@ -122,7 +119,7 @@ function checkBash(role: string, command: string): Finding {
     const what = `\`${prefixed.join(" ")}\`, which sets an environment variable or changes shell state,`;
     return NO_CODE_ROLE_SET.has(role) ? noCode(what, role) : readOnly(what);
   }
-  // Only a role a brief asks for the notice is pointed at it; the challenger gets its usual finding.
+  // Only a role a brief asks for the notice is pointed at it; a no-code role gets its usual finding.
   const typing = SPAWNED_ROLE_SET.has(role)
     ? segments.find(sendsToPane)
     : undefined;
@@ -141,11 +138,7 @@ function checkBash(role: string, command: string): Finding {
   }
   const unknown = segments.find(
     (segment) =>
-      !finishes(role, segment) &&
-      !readMayRun(
-        segment,
-        role === "refiner" ? REFINER_HARNESS : HARNESS_READS,
-      ),
+      !finishes(role, segment) && !readMayRun(segment, HARNESS_READS),
   );
   return unknown === undefined
     ? null
