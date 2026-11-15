@@ -61,6 +61,7 @@ test(
     ]) {
       assert.ok(Number.isFinite(value) && value > 0);
     }
+    assert.ok(result.latency !== undefined && result.latency.p95Ms > 0);
     console.log(JSON.stringify(result, null, 2));
   },
 );
