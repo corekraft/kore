@@ -4,6 +4,7 @@ import {
   readPr,
   sendBackBody,
   summary,
+  type ItemVerdict,
 } from "../judge/index.js";
 import type { Command, CommandContext } from "../runtime/index.js";
 import {
@@ -21,6 +22,16 @@ const MERGE_USAGE =
   "Run `harness judge merge <pr> [--json] [--reviewer <login>[,<login>]]`.";
 const SEND_BACK_USAGE = 'Run `harness judge send-back <pr> --reason "<why>"`.';
 const LABEL_MAX = 100;
+
+/** One line per audit gate that failed and so was logged, never a reason to hold the merge. */
+function auditLines(audited: readonly ItemVerdict[]): string {
+  return audited
+    .map(
+      (a) =>
+        `audit: ${a.item} ${a.result}${a.detail === undefined || a.detail === "" ? "" : ` (${a.detail})`}; logged, did not block the merge\n`,
+    )
+    .join("");
+}
 
 /**
  * Re-runs the precheck and squash-merges the commit it verified, only when every
@@ -71,10 +82,11 @@ async function runMerge(context: CommandContext): Promise<number> {
         `gh pr merge failed for PR #${pr}: ${done.stderr.trim()}. If the head moved, rerun \`harness judge merge ${pr}\` to verify the new commit.`,
       );
     }
+    const audited = report.audited ?? [];
     deps.stdout(
       json
-        ? `${JSON.stringify({ pr, merged: true, head: report.head })}\n`
-        : `PR #${pr}: squash-merged at ${report.head}\n`,
+        ? `${JSON.stringify({ pr, merged: true, head: report.head, ...(audited.length === 0 ? {} : { audited }) })}\n`
+        : `PR #${pr}: squash-merged at ${report.head}\n${auditLines(audited)}`,
     );
     return 0;
   } catch (error) {
@@ -157,7 +169,7 @@ async function runSendBack(context: CommandContext): Promise<number> {
 export const mergeCommands: Record<string, Command> = {
   merge: {
     summary:
-      "mutates; re-runs the precheck and squash-merges the verified head commit only when it passes; with no declared pattern, a mismatching diff or a failing check it merges nothing (<pr> [--json] [--reviewer <login>[,<login>]])",
+      "mutates; re-runs the precheck and squash-merges the verified head commit only when it passes; with no declared pattern, a mismatching diff or a failing enforce gate it merges nothing; each gate reads its mode from .claude/guardrails.yaml (rule judge-<item>, kind checklist): a failing audit gate is listed (audited in --json), writes one guard.audit ledger event per item and head, and never blocks the merge; an unreadable inventory or a mode other than audit or enforce is refused (<pr> [--json] [--reviewer <login>[,<login>]])",
     operand: "pr",
     options: { reviewer: "string" },
     run: runMerge,
