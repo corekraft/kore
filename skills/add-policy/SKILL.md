@@ -14,5 +14,3 @@ New policies start in audit mode (`AGENTS.md`: audit before enforce).
 3. **Audit mode.** Ship any cluster-enforced constraint with an audit enforcement action. `kore validate` refuses a constraint with no `enforcementAction`, since a missing action means deny with no audit stage; set `enforcementAction: dryrun` explicitly for a new constraint. Then answer: what would it deny on the current tree? What evidence promotes it to enforce? Record both in the change.
 4. **Run** `mise run test-opa` and `mise run validate`. For a constraint template under `infra/policies/gatekeeper/`, also run `mise run test-gatekeeper`, which runs its suites with the pinned `gator` CLI.
 5. **Record** a significant policy decision as an ADR (see the `write-adr` skill).
-
-Step 4 is a tool, and so is `mise run test-gatekeeper` for a constraint template. Steps 1 to 3 and 5 are judgement: what a policy should deny and what evidence promotes it to enforce are design decisions.
