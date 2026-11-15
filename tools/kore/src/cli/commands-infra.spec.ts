@@ -11,6 +11,7 @@ import {
 import {
   bootstrapControllers,
   closeGateIfDegraded,
+  platformClaimsStatus,
   platformDestroy,
   platformRender,
   platformStatusReport,
@@ -23,6 +24,7 @@ import {
   clusterCommand,
   dataCommand,
   platformCommand,
+  statusCommand,
 } from "./commands-infra.js";
 import {
   actionsOf,
@@ -288,3 +290,30 @@ test.each(restoreCases)(
     expect(options).toStrictEqual(expected);
   },
 );
+
+test("status prints the claims report, exits 0 when every claim is ready, and mutates nothing", async () => {
+  const report = { status: "ready", claims: [] };
+  vi.mocked(platformClaimsStatus).mockResolvedValue(report as never);
+  const context = fakeContext({
+    command: "status",
+    repository,
+    runner,
+    json: true,
+  });
+  expect(await statusCommand(context)).toBe(0);
+  expect(platformClaimsStatus).toHaveBeenCalledWith(repository, runner);
+  expect(print).toHaveBeenCalledWith(report, true);
+  expect(context.mutate).not.toHaveBeenCalled();
+});
+
+test("status exits 1 only while a claim is not ready, so a script can gate on it", async () => {
+  for (const [status, exit] of [
+    ["degraded", 1],
+    ["gated-off", 0],
+  ] as const) {
+    vi.mocked(platformClaimsStatus).mockResolvedValue({ status } as never);
+    expect(
+      await statusCommand(fakeContext({ command: "status", repository })),
+    ).toBe(exit);
+  }
+});

@@ -1,5 +1,10 @@
 import { readFile } from "node:fs/promises";
-import { orderedComponents } from "../config/index.js";
+import {
+  featureEnabled,
+  orderedComponents,
+  organizationServiceApisFlag,
+  platformClaimErrors,
+} from "../config/index.js";
 import { managedLockErrors } from "../images/index.js";
 import {
   doctor,
@@ -34,6 +39,39 @@ async function checkPlatformImageLock(
   }
 }
 
+/**
+ * Checks a --platform-claims file against the Organization and Service schemas
+ * before validate reports valid. Read-only. Off until the flag is on: the
+ * file is then skipped with a warning, never read.
+ */
+async function checkPlatformClaims(
+  context: CommandContext,
+  path: string,
+): Promise<{ status: "gated-off" } | { status: "valid"; count: number }> {
+  const { repository } = context;
+  if (!featureEnabled(repository.environment, organizationServiceApisFlag)) {
+    console.error(
+      `warning: --platform-claims skipped: the ${organizationServiceApisFlag} flag is off in ${repository.environment.name}`,
+    );
+    return { status: "gated-off" };
+  }
+  let claims: unknown;
+  try {
+    claims = JSON.parse(await readFile(path, "utf8"));
+  } catch (error) {
+    throw new Error(
+      `--platform-claims ${path} must be a JSON array of claims: ${String(error)}`,
+    );
+  }
+  const errors = platformClaimErrors(claims);
+  if (errors.length > 0) {
+    throw new Error(
+      `--platform-claims ${path} does not satisfy the platform API schema:\n${errors.join("\n")}`,
+    );
+  }
+  return { status: "valid", count: (claims as unknown[]).length };
+}
+
 export async function validateCommand(
   context: CommandContext,
 ): Promise<number> {
@@ -42,6 +80,11 @@ export async function validateCommand(
   if (lockPath !== undefined) {
     await checkPlatformImageLock(context, lockPath);
   }
+  const claimsPath = stringFlag(context.parsed, "platform-claims");
+  const platformClaims =
+    claimsPath === undefined
+      ? undefined
+      : await checkPlatformClaims(context, claimsPath);
   const order = orderedComponents(repository.catalog).map(
     (component) => component.name,
   );
@@ -58,6 +101,7 @@ export async function validateCommand(
       applications: portability.applications,
       status: "valid",
       ...(warnings.length > 0 ? { warnings } : {}),
+      ...(platformClaims === undefined ? {} : { platformClaims }),
     },
     json,
   );

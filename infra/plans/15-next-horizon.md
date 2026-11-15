@@ -147,7 +147,7 @@ dark launched. With the flag off the render adds nothing to a cluster.
       [ADR 0038](../../docs/decisions/0038-organization-hierarchy-depth-and-labels.md)).
 - [ ] Give each `Service` a default host in the organization's default zone
       ([ADR 0042](../../docs/decisions/0042-organization-domains-by-delegation.md)).
-- [ ] Validate both kinds in `kore validate` before any mutation, and report
+- [x] Validate both kinds in `kore validate` before any mutation, and report
       their status through `kore status`.
 
 ### Exit Criteria

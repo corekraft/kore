@@ -1,6 +1,10 @@
 import { readFile } from "node:fs/promises";
 import { beforeEach, expect, test, vi } from "vitest";
-import { orderedComponents } from "../config/index.js";
+import {
+  featureEnabled,
+  orderedComponents,
+  platformClaimErrors,
+} from "../config/index.js";
 import type { Repository } from "../config/index.js";
 import { managedLockErrors } from "../images/index.js";
 import {
@@ -205,4 +209,83 @@ test("journal refuses a --limit that is not a positive whole number", async () =
       journalCommand(fakeContext({ command: "journal" })),
     ).rejects.toThrow("--limit must be a positive integer");
   }
+});
+
+test("validate with --platform-claims and the organization-service-apis flag off warns, reads no claims file, and reports the claims as gated-off", async () => {
+  const error = vi.spyOn(console, "error").mockImplementation(() => undefined);
+  vi.mocked(stringFlag).mockImplementation((_args, name) =>
+    name === "platform-claims" ? "claims.json" : undefined,
+  );
+  vi.mocked(featureEnabled).mockReturnValue(false);
+  await validateCommand(
+    fakeContext({ command: "validate", repository, json: true }),
+  );
+  expect(readFile).not.toHaveBeenCalled();
+  expect(platformClaimErrors).not.toHaveBeenCalled();
+  expect(error).toHaveBeenCalledWith(
+    expect.stringContaining("--platform-claims skipped"),
+  );
+  expect(print).toHaveBeenCalledWith(
+    expect.objectContaining({
+      status: "valid",
+      platformClaims: { status: "gated-off" },
+    }),
+    true,
+  );
+});
+
+test("validate with the flag on checks every claim in --platform-claims and reports how many it checked", async () => {
+  vi.mocked(stringFlag).mockImplementation((_args, name) =>
+    name === "platform-claims" ? "claims.json" : undefined,
+  );
+  vi.mocked(featureEnabled).mockReturnValue(true);
+  vi.mocked(readFile).mockResolvedValue(
+    '[{"kind":"Service"},{"kind":"Organization"}]',
+  );
+  vi.mocked(platformClaimErrors).mockReturnValue([]);
+  await validateCommand(
+    fakeContext({ command: "validate", repository, json: true }),
+  );
+  expect(readFile).toHaveBeenCalledWith("claims.json", "utf8");
+  expect(platformClaimErrors).toHaveBeenCalledWith([
+    { kind: "Service" },
+    { kind: "Organization" },
+  ]);
+  expect(print).toHaveBeenCalledWith(
+    expect.objectContaining({
+      status: "valid",
+      platformClaims: { status: "valid", count: 2 },
+    }),
+    true,
+  );
+});
+
+test("validate with the flag on refuses claims that break a rule, naming the file and every error, and reports nothing valid", async () => {
+  vi.mocked(stringFlag).mockImplementation((_args, name) =>
+    name === "platform-claims" ? "claims.json" : undefined,
+  );
+  vi.mocked(featureEnabled).mockReturnValue(true);
+  vi.mocked(readFile).mockResolvedValue("[{}]");
+  vi.mocked(platformClaimErrors).mockReturnValue([
+    "claims[0].kind: missing; set it to Organization or Service",
+  ]);
+  await expect(
+    validateCommand(fakeContext({ command: "validate", repository })),
+  ).rejects.toThrow(
+    "--platform-claims claims.json does not satisfy the platform API schema:\nclaims[0].kind: missing; set it to Organization or Service",
+  );
+  expect(print).not.toHaveBeenCalled();
+});
+
+test("validate names the file when --platform-claims is not JSON", async () => {
+  vi.mocked(stringFlag).mockImplementation((_args, name) =>
+    name === "platform-claims" ? "claims.json" : undefined,
+  );
+  vi.mocked(featureEnabled).mockReturnValue(true);
+  vi.mocked(readFile).mockResolvedValue("not json");
+  await expect(
+    validateCommand(fakeContext({ command: "validate", repository })),
+  ).rejects.toThrow(
+    /^--platform-claims claims\.json must be a JSON array of claims: SyntaxError/,
+  );
 });

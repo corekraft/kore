@@ -7,6 +7,7 @@ vi.mock("./commands-infra.js", () => ({
   platformCommand: vi.fn(),
   appCommand: vi.fn(),
   dataCommand: vi.fn(),
+  statusCommand: vi.fn(),
 }));
 vi.mock("./commands-ops.js", () => ({ opsCommand: vi.fn() }));
 vi.mock("./commands-policy.js", () => ({ policyCommand: vi.fn() }));
@@ -77,5 +78,14 @@ describe("kore usage text names every command in the command table", () => {
         `kore ${name} is missing from the usage text`,
       ).toContain(name);
     },
+  );
+});
+
+test("usage lists kore status read-only, and the validate --platform-claims check with its flag gate", () => {
+  expect(usage).toContain("kore status [--environment local] [--json]");
+  expect(usage).toContain("exits 1 while one is not ready");
+  expect(usage).toContain("[--platform-claims <file>]");
+  expect(usage).toContain(
+    "skipped with a warning while the platform-organization-service-apis flag is off",
   );
 });
