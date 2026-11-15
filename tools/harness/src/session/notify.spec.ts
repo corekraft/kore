@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { CliDeps, CommandContext } from "../runtime/index.js";
-import { plain, withoutDim } from "./ansi.js";
+import { garbled, plain, withoutDim } from "./ansi.js";
 import { notify } from "./notify.js";
 import { fail } from "./output.js";
 
@@ -8,6 +8,7 @@ import { fail } from "./output.js";
 vi.mock("./ansi.js", () => ({
   plain: vi.fn((text: string) => text.replaceAll("<dim>", "")),
   withoutDim: vi.fn((line: string) => line.replace(/<dim>.*$/, "")),
+  garbled: vi.fn((line: string) => line.includes("<broken>")),
 }));
 vi.mock("./equalize.js", () => ({
   describeFailure: vi.fn(() => "herdr said no"),
@@ -208,6 +209,15 @@ describe("session notify leaves an unsent message alone", () => {
     expect(await notify(s.context)).toBe(1);
     expect(s.calls).toEqual([READ]);
     expect(vi.mocked(withoutDim)).toHaveBeenCalledWith("❯ half typed<dim>");
+  });
+
+  it("treats a prompt line it cannot read reliably as holding a draft", async () => {
+    const s = scripted({
+      reads: [ok(pane(["⏺ Waiting."], "<broken>❯ half")), ok(SUBMITTED)],
+    });
+    expect(await notify(s.context)).toBe(1);
+    expect(s.calls).toEqual([READ]);
+    expect(vi.mocked(garbled)).toHaveBeenCalled();
   });
 
   it("still sends when the input box is empty inside a border", async () => {

@@ -1,5 +1,5 @@
 import type { CliDeps, CommandContext } from "../runtime/index.js";
-import { plain, withoutDim } from "./ansi.js";
+import { garbled, plain, withoutDim } from "./ansi.js";
 import { describeFailure } from "./equalize.js";
 import { FAILED, USAGE_ERROR, fail } from "./output.js";
 
@@ -39,14 +39,15 @@ export function submitted(text: string, line: string): number {
 export function unsent(text: string): boolean {
   const last = text
     .split("\n")
-    .filter((l) => PROMPT.test(plain(l)))
+    .filter((l) => PROMPT.test(plain(l)) || (garbled(l) && /[>❯]/.test(l)))
     .pop();
   return (
     last !== undefined &&
-    withoutDim(last)
-      .replace(PROMPT, "")
-      .replace(/[\s│|]+$/, "")
-      .trim() !== ""
+    (garbled(last) ||
+      withoutDim(last)
+        .replace(PROMPT, "")
+        .replace(/[\s│|]+$/, "")
+        .trim() !== "")
   );
 }
 
