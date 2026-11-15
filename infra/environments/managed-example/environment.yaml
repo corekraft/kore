@@ -32,7 +32,8 @@
     {
       "ingress-agentgateway": false,
       "local-image-reuse": false,
-      "registry-tag-pruning": false
+      "registry-tag-pruning": false,
+      "platform-organization-service-apis": false
     },
   "secrets": { "storeName": "platform-secrets", "sourceNamespace": "external" },
   "telemetry":
