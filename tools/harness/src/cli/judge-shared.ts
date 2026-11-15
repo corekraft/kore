@@ -2,7 +2,16 @@ import { join, resolve } from "node:path";
 import { HARNESS_CONFIG, parseHarnessConfig } from "../flow/index.js";
 import { DEFAULT_LEDGER, Ledger } from "../ledger/index.js";
 import { bundleMainRoot, type CommandContext } from "../runtime/index.js";
-import { JudgeError, reviewersFor, type Report } from "../judge/index.js";
+import { GuardrailError, readInventory } from "../guardrail/index.js";
+import {
+  JudgeError,
+  applyChecklist,
+  modesFrom,
+  precheck,
+  reviewersFor,
+  type ItemModes,
+  type Report,
+} from "../judge/index.js";
 
 export const FAILED = 1;
 
@@ -34,11 +43,104 @@ export async function openJudgeLedger({
   );
 }
 
+/**
+ * Each checklist item's mode, from the inventory of the main checkout that holds this
+ * bundle. The judge may not choose it: an unreadable inventory is refused, never read as
+ * every item enforcing.
+ */
+export async function checklistModes({
+  deps,
+}: CommandContext): Promise<ItemModes> {
+  const main = await bundleMainRoot(deps);
+  if (main === undefined) {
+    throw new JudgeError(
+      "Cannot find the main checkout from the harness bundle's location, so there is no guardrail inventory to read checklist modes from. Run the built skills/bin/harness.mjs (mise run harness-build) from inside the repository.",
+    );
+  }
+  try {
+    return modesFrom(
+      await readInventory((path) => deps.fs.readFile(path), main),
+    );
+  } catch (error) {
+    if (error instanceof GuardrailError) {
+      throw new JudgeError(
+        `${error.message} The judge reads each checklist item's mode from the inventory; fix it, then rerun.`,
+      );
+    }
+    throw error;
+  }
+}
+
+/** The precheck under the checklist's modes; the modes are read first, so a refused inventory reads no PR. */
+export async function checkedPrecheck(
+  context: CommandContext,
+  root: string,
+  repo: string,
+  pr: number,
+  reviewers: readonly string[],
+): Promise<Report> {
+  const modes = await checklistModes(context);
+  return applyChecklist(
+    await precheck(context, root, repo, pr, reviewers),
+    modes,
+  );
+}
+
+/**
+ * Writes one guard.audit ledger event for each audit item that failed. A firing is an
+ * item at a head: a rerun at the same head writes nothing more.
+ */
+async function recordAudits(
+  context: CommandContext,
+  ledger: Ledger,
+  report: Report,
+): Promise<void> {
+  const failing = report.audited ?? [];
+  if (failing.length === 0 || report.head === undefined) {
+    return;
+  }
+  const logged = new Set(
+    (await ledger.list({ kind: "guard.audit" })).events.map((e) => e.id),
+  );
+  const idea = report.idea;
+  for (const { rule } of failing) {
+    const id = `judge.audit:${report.pr}:${report.head}:${rule}`;
+    if (logged.has(id)) {
+      continue;
+    }
+    const event = await ledger.record({
+      source: "github",
+      kind: "guard.audit",
+      occurredAt: context.deps.clock.now().toISOString(),
+      label: rule,
+      id,
+      ...(idea !== undefined && /^[\w.:/#@-]{1,128}$/.test(idea)
+        ? { idea }
+        : {}),
+    });
+    if (!event.ok) {
+      throw new JudgeError(
+        `The precheck ran, but the ledger event for audit item ${rule} was rejected: ${event.message} Fix the ledger, then rerun \`harness judge precheck ${report.pr}\`.`,
+      );
+    }
+  }
+}
+
+/** Records the verdict, and the audit items that fired, at the shared ledger. */
 export async function record(
   context: CommandContext,
   report: Report,
 ): Promise<void> {
   const ledger = await openJudgeLedger(context);
+  await recordVerdict(context, ledger, report);
+  await recordAudits(context, ledger, report);
+}
+
+async function recordVerdict(
+  context: CommandContext,
+  ledger: Ledger,
+  report: Report,
+): Promise<void> {
   const { deps } = context;
   const idea = report.idea;
   const label = `${report.pattern ?? "none"}:${report.ok ? "pass" : "fail"}`;

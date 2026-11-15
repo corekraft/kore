@@ -1,15 +1,10 @@
 import type { CommandContext } from "../runtime/index.js";
 import {
-  ENFORCE_ALL,
-  evaluateChecklist,
-  type ItemModes,
-  type ItemVerdict,
-} from "./checklist.js";
-import {
   gatherChecks,
   gatherExpandStep,
   parsePrView,
   type Checks,
+  type ItemVerdict,
   type PrView,
 } from "./checks.js";
 import { parseDeclaration, type Pattern } from "./declaration.js";
@@ -30,7 +25,7 @@ export interface Report {
   idea: string | undefined;
   declaration: { ok: boolean; reason?: string };
   checks?: Checks;
-  /** Each checklist item with the mode it read and its result. */
+  /** Each checklist item with the mode it read; present once the modes were applied. */
   checklist?: ItemVerdict[];
   /** The audit items that did not pass: shown here, never a reason to send the change back. */
   audited?: ItemVerdict[];
@@ -106,7 +101,6 @@ export async function precheck(
   repo: string,
   pr: number,
   reviewers: readonly string[],
-  modes: ItemModes = ENFORCE_ALL,
 ): Promise<Report> {
   const view = await readPr(context, root, repo, pr);
   const declaration = parseDeclaration(view.body);
@@ -155,32 +149,17 @@ export async function precheck(
       : assess(declaration.pattern, hints, files, expand.result === "pass");
   const checks: Checks =
     expand === undefined ? gathered : { ...gathered, expandStep: expand };
-  const checklist = evaluateChecklist(
-    {
-      ci: checks.ci,
-      scan: checks.scan,
-      coverage: checks.coverage,
-      "principles-review": checks.principlesReview,
-      ...(checks.expandStep === undefined
-        ? {}
-        : { "expand-step": checks.expandStep }),
-      "pattern-match": verdict.patternMatches
-        ? { result: "pass" }
-        : { result: "fail", detail: verdict.patternMismatch ?? "" },
-    },
-    modes,
-  );
   return {
     pr,
     head: view.headSha,
     reviewers: [...reviewers],
-    ok: checklist.ok,
+    ok:
+      verdict.patternMatches &&
+      Object.values(checks).every((c) => c.result === "pass"),
     pattern: declaration.pattern,
     idea: declaration.idea,
     declaration: { ok: true },
     checks,
-    checklist: checklist.items,
-    audited: checklist.audited,
     hints,
     ...verdict,
   };

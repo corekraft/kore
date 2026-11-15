@@ -1,5 +1,5 @@
 import type { Command, CommandContext } from "../runtime/index.js";
-import { precheck, summary } from "../judge/index.js";
+import { summary } from "../judge/index.js";
 import {
   FAILED,
   failed,
@@ -7,8 +7,8 @@ import {
   record,
   repoOf,
   reviewersOf,
+  checkedPrecheck,
 } from "./judge-shared.js";
-import { checklistModes, recordAudits } from "./judge-checklist.js";
 import { requireFreshBundle } from "./judge-freshness.js";
 import { declarationCommands } from "./judge-declaration-command.js";
 import { diffCommands } from "./judge-diff-command.js";
@@ -28,17 +28,15 @@ async function runPrecheck(context: CommandContext): Promise<number> {
     const root = await deps.root();
     const repo = await repoOf(context);
     await requireFreshBundle(context, root, repo);
-    const report = await precheck(
+    const report = await checkedPrecheck(
       context,
       root,
       repo,
       pr,
       await reviewersOf(context, repo),
-      await checklistModes(context),
     );
     deps.stdout(json ? `${JSON.stringify(report)}\n` : summary(report));
     await record(context, report);
-    await recordAudits(context, report);
     return report.ok ? 0 : FAILED;
   } catch (error) {
     return failed(context, error);

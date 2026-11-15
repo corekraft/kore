@@ -2,12 +2,12 @@ import { describe, expect, it, vi } from "vitest";
 import {
   hasSentBack,
   JudgeError,
-  precheck,
   readPr,
   sendBackBody,
   summary,
 } from "../judge/index.js";
 import {
+  checkedPrecheck,
   failed,
   openJudgeLedger,
   prNumber,
@@ -15,7 +15,6 @@ import {
   repoOf,
   reviewersOf,
 } from "./judge-shared.js";
-import { checklistModes, recordAudits } from "./judge-checklist.js";
 import { fakeLedger } from "./command-support.js";
 import { mergeCommands } from "./judge-merge-commands.js";
 import {
@@ -29,14 +28,13 @@ import {
 vi.mock("../judge/index.js", async (importOriginal) => ({
   ...(await importOriginal<typeof import("../judge/index.js")>()),
   hasSentBack: vi.fn(),
-  precheck: vi.fn(),
   readPr: vi.fn(),
   sendBackBody: vi.fn(),
   summary: vi.fn(),
 }));
-vi.mock("./judge-checklist.js");
 vi.mock("./judge-shared.js", async (importOriginal) => ({
   ...(await importOriginal<typeof import("./judge-shared.js")>()),
+  checkedPrecheck: vi.fn(),
   failed: vi.fn(),
   openJudgeLedger: vi.fn(),
   prNumber: vi.fn(),
@@ -45,29 +43,18 @@ vi.mock("./judge-shared.js", async (importOriginal) => ({
   reviewersOf: vi.fn(),
 }));
 
-const MODES = { ci: "audit" } as unknown as Awaited<
-  ReturnType<typeof checklistModes>
->;
-
 describe("harness judge merge", () => {
   it("re-runs the precheck and squash-merges the head it verified", async () => {
     const { context, run, stdout } = contextOf("42");
     vi.mocked(prNumber).mockReturnValue(42);
     vi.mocked(repoOf).mockResolvedValue(REPO);
     vi.mocked(reviewersOf).mockResolvedValue(["bot"]);
-    vi.mocked(checklistModes).mockResolvedValue(MODES);
-    vi.mocked(precheck).mockResolvedValue(reportOf());
+    vi.mocked(checkedPrecheck).mockResolvedValue(reportOf());
 
     expect(await mergeCommands.merge?.run(context)).toBe(0);
-    expect(precheck).toHaveBeenCalledWith(
-      context,
-      ROOT,
-      REPO,
-      42,
-      ["bot"],
-      MODES,
-    );
-    expect(recordAudits).toHaveBeenCalledExactlyOnceWith(context, reportOf());
+    expect(checkedPrecheck).toHaveBeenCalledWith(context, ROOT, REPO, 42, [
+      "bot",
+    ]);
     expect(run.mock.calls).toEqual([
       [
         "gh",
@@ -90,7 +77,7 @@ describe("harness judge merge", () => {
   it("records the precheck verdict before it decides whether to merge", async () => {
     const { context } = contextOf("42");
     vi.mocked(prNumber).mockReturnValue(42);
-    vi.mocked(precheck).mockResolvedValue(reportOf());
+    vi.mocked(checkedPrecheck).mockResolvedValue(reportOf());
 
     await mergeCommands.merge?.run(context);
     expect(record).toHaveBeenCalledWith(context, reportOf());
@@ -99,7 +86,7 @@ describe("harness judge merge", () => {
   it("prints the merge as JSON under --json", async () => {
     const { context, stdout } = contextOf("42", {}, true);
     vi.mocked(prNumber).mockReturnValue(42);
-    vi.mocked(precheck).mockResolvedValue(reportOf());
+    vi.mocked(checkedPrecheck).mockResolvedValue(reportOf());
 
     await mergeCommands.merge?.run(context);
     expect(stdout).toHaveBeenCalledWith(
@@ -110,7 +97,7 @@ describe("harness judge merge", () => {
   it("merges nothing when the precheck does not pass, and says so on stderr", async () => {
     const { context, run, stdout, stderr } = contextOf("42");
     vi.mocked(prNumber).mockReturnValue(42);
-    vi.mocked(precheck).mockResolvedValue(reportOf({ ok: false }));
+    vi.mocked(checkedPrecheck).mockResolvedValue(reportOf({ ok: false }));
     vi.mocked(summary).mockReturnValue("SUMMARY");
 
     expect(await mergeCommands.merge?.run(context)).toBe(1);
@@ -126,7 +113,7 @@ describe("harness judge merge", () => {
   it("merges nothing when the precheck reports no head commit to match", async () => {
     const { context, run } = contextOf("42");
     vi.mocked(prNumber).mockReturnValue(42);
-    vi.mocked(precheck).mockResolvedValue(reportOf({ head: "" }));
+    vi.mocked(checkedPrecheck).mockResolvedValue(reportOf({ head: "" }));
 
     expect(await mergeCommands.merge?.run(context)).toBe(1);
     expect(run).not.toHaveBeenCalled();
@@ -138,7 +125,7 @@ describe("harness judge merge: refusals", () => {
     const { context, run } = contextOf("42");
     run.mockResolvedValue({ code: 1, stdout: "", stderr: "head moved\n" });
     vi.mocked(prNumber).mockReturnValue(42);
-    vi.mocked(precheck).mockResolvedValue(reportOf());
+    vi.mocked(checkedPrecheck).mockResolvedValue(reportOf());
     vi.mocked(failed).mockReturnValue(1);
 
     expect(await mergeCommands.merge?.run(context)).toBe(1);

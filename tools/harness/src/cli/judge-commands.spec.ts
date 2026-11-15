@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { precheck, summary } from "../judge/index.js";
+import { summary } from "../judge/index.js";
 import { contextWith } from "./command-support.js";
 import { judgeCommands } from "./judge-commands.js";
 import { declarationCommands } from "./judge-declaration-command.js";
@@ -7,6 +7,7 @@ import { diffCommands } from "./judge-diff-command.js";
 import { approveCommands } from "./judge-approve-command.js";
 import { mergeCommands } from "./judge-merge-commands.js";
 import {
+  checkedPrecheck,
   failed,
   FAILED,
   prNumber,
@@ -15,11 +16,9 @@ import {
   reviewersOf,
 } from "./judge-shared.js";
 import { REPO, reportOf, ROOT } from "./judge-command-support.js";
-import { checklistModes, recordAudits } from "./judge-checklist.js";
 import { requireFreshBundle } from "./judge-freshness.js";
 
 vi.mock("../judge/index.js");
-vi.mock("./judge-checklist.js");
 vi.mock("./judge-freshness.js");
 vi.mock("./judge-declaration-command.js", () => ({
   declarationCommands: { declaration: { summary: "declaration" } },
@@ -35,6 +34,7 @@ vi.mock("./judge-merge-commands.js", () => ({
 }));
 vi.mock("./judge-shared.js", async (importOriginal) => ({
   ...(await importOriginal<typeof import("./judge-shared.js")>()),
+  checkedPrecheck: vi.fn(),
   failed: vi.fn(),
   prNumber: vi.fn(),
   record: vi.fn(),
@@ -43,9 +43,6 @@ vi.mock("./judge-shared.js", async (importOriginal) => ({
 }));
 
 const REPORT = reportOf();
-const MODES = { ci: "audit" } as unknown as Awaited<
-  ReturnType<typeof checklistModes>
->;
 
 function contextOf(json = false, operand: string | undefined = "42") {
   const stdout = vi.fn();
@@ -62,7 +59,6 @@ function ready() {
   vi.mocked(prNumber).mockReturnValue(42);
   vi.mocked(repoOf).mockResolvedValue(REPO);
   vi.mocked(reviewersOf).mockResolvedValue(["bot"]);
-  vi.mocked(checklistModes).mockResolvedValue(MODES);
   vi.mocked(summary).mockReturnValue("SUMMARY");
 }
 
@@ -70,36 +66,30 @@ describe("harness judge precheck", () => {
   it("runs the precheck on the PR, prints the summary, and records the verdict", async () => {
     const { context, stdout } = contextOf();
     ready();
-    vi.mocked(precheck).mockResolvedValue(REPORT);
+    vi.mocked(checkedPrecheck).mockResolvedValue(REPORT);
 
     expect(await judgeCommands.precheck?.run(context)).toBe(0);
     expect(prNumber).toHaveBeenCalledWith(
       "42",
       expect.stringContaining("Run `harness judge precheck <pr>"),
     );
-    expect(precheck).toHaveBeenCalledWith(
-      context,
-      ROOT,
-      REPO,
-      42,
-      ["bot"],
-      MODES,
-    );
+    expect(checkedPrecheck).toHaveBeenCalledWith(context, ROOT, REPO, 42, [
+      "bot",
+    ]);
     expect(stdout).toHaveBeenCalledWith("SUMMARY");
     expect(record).toHaveBeenCalledWith(context, REPORT);
-    expect(recordAudits).toHaveBeenCalledExactlyOnceWith(context, REPORT);
   });
 
   it("checks the harness bundle is fresh before it reads the PR", async () => {
     const { context } = contextOf();
     ready();
-    vi.mocked(precheck).mockResolvedValue(REPORT);
+    vi.mocked(checkedPrecheck).mockResolvedValue(REPORT);
 
     await judgeCommands.precheck?.run(context);
     expect(requireFreshBundle).toHaveBeenCalledWith(context, ROOT, REPO);
     expect(
       vi.mocked(requireFreshBundle).mock.invocationCallOrder[0],
-    ).toBeLessThan(vi.mocked(precheck).mock.invocationCallOrder[0] ?? 0);
+    ).toBeLessThan(vi.mocked(checkedPrecheck).mock.invocationCallOrder[0] ?? 0);
   });
 
   it("stops without a precheck when the bundle is behind main", async () => {
@@ -111,15 +101,14 @@ describe("harness judge precheck", () => {
 
     expect(await judgeCommands.precheck?.run(context)).toBe(1);
     expect(failed).toHaveBeenCalledWith(context, error);
-    expect(precheck).not.toHaveBeenCalled();
+    expect(checkedPrecheck).not.toHaveBeenCalled();
     expect(record).not.toHaveBeenCalled();
-    expect(recordAudits).not.toHaveBeenCalled();
   });
 
   it("prints the report as JSON under --json", async () => {
     const { context, stdout } = contextOf(true);
     ready();
-    vi.mocked(precheck).mockResolvedValue(REPORT);
+    vi.mocked(checkedPrecheck).mockResolvedValue(REPORT);
 
     await judgeCommands.precheck?.run(context);
     expect(stdout).toHaveBeenCalledWith(`${JSON.stringify(REPORT)}\n`);
@@ -128,7 +117,7 @@ describe("harness judge precheck", () => {
   it("fails with the failing exit code when the precheck does not pass, still printing and recording it", async () => {
     const { context, stdout } = contextOf();
     ready();
-    vi.mocked(precheck).mockResolvedValue(reportOf({ ok: false }));
+    vi.mocked(checkedPrecheck).mockResolvedValue(reportOf({ ok: false }));
 
     expect(await judgeCommands.precheck?.run(context)).toBe(FAILED);
     expect(stdout).toHaveBeenCalledWith("SUMMARY");
@@ -145,7 +134,7 @@ describe("harness judge precheck", () => {
 
     expect(await judgeCommands.precheck?.run(context)).toBe(7);
     expect(failed).toHaveBeenCalledWith(context, error);
-    expect(precheck).not.toHaveBeenCalled();
+    expect(checkedPrecheck).not.toHaveBeenCalled();
   });
 });
 

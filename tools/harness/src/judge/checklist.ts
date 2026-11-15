@@ -2,8 +2,9 @@
 // An enforce item that fails sends the change back; an audit item that fails is
 // reported and never does (ADR 0080, AGENTS.md "Audit before enforce").
 import { modeOf, type Inventory, type Mode } from "../guardrail/index.js";
-import type { Check, CheckResult } from "./checks.js";
+import type { Check, ItemVerdict } from "./checks.js";
 import { JudgeError } from "./errors.js";
+import type { Report } from "./precheck.js";
 
 export const ITEMS = [
   "ci",
@@ -17,16 +18,6 @@ export type Item = (typeof ITEMS)[number];
 
 export type ItemModes = Readonly<Record<Item, Mode>>;
 
-/** Every item enforces: the modes the checklist had before it read them from the inventory. */
-export const ENFORCE_ALL: ItemModes = {
-  ci: "enforce",
-  scan: "enforce",
-  coverage: "enforce",
-  "principles-review": "enforce",
-  "expand-step": "enforce",
-  "pattern-match": "enforce",
-};
-
 /** The inventory rule an item's mode is read from. */
 export const ruleOf = (item: Item): string => `judge-${item}`;
 
@@ -34,14 +25,6 @@ export const ruleOf = (item: Item): string => `judge-${item}`;
 export type Findings = Readonly<
   { [I in Exclude<Item, "expand-step">]: Check } & { "expand-step"?: Check }
 >;
-
-export interface ItemVerdict {
-  item: Item;
-  rule: string;
-  mode: Mode;
-  result: CheckResult;
-  detail?: string;
-}
 
 export interface Checklist {
   /** False only when an enforce item did not pass: the change goes back. */
@@ -90,4 +73,38 @@ export function modesFrom(inventory: Inventory): ItemModes {
       return [item, mode];
     }),
   ) as ItemModes;
+}
+
+/**
+ * The report under the modes: an item that fails in enforce mode makes it not ready; one
+ * that fails in audit mode is listed under `audited` and changes nothing else. A report
+ * that stopped at its declaration has no items and is returned as it is.
+ */
+export function applyChecklist(report: Report, modes: ItemModes): Report {
+  const { checks } = report;
+  if (checks === undefined) {
+    return report;
+  }
+  const checklist = evaluateChecklist(
+    {
+      ci: checks.ci,
+      scan: checks.scan,
+      coverage: checks.coverage,
+      "principles-review": checks.principlesReview,
+      ...(checks.expandStep === undefined
+        ? {}
+        : { "expand-step": checks.expandStep }),
+      "pattern-match":
+        report.patternMatches === true
+          ? { result: "pass" }
+          : { result: "fail", detail: report.patternMismatch ?? "" },
+    },
+    modes,
+  );
+  return {
+    ...report,
+    ok: checklist.ok,
+    checklist: checklist.items,
+    audited: checklist.audited,
+  };
 }

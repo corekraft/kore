@@ -3,7 +3,9 @@ import { run } from "../../src/cli/index.js";
 import { testHarness } from "../../src/testing/index.js";
 import {
   BUNDLE,
+  INVENTORY,
   LEDGER,
+  inventoryWith,
   REVIEWER,
   passing,
   precheck,
@@ -22,6 +24,7 @@ describe("judge precheck recording and usage", () => {
     expect(git.map((c) => c.args.slice(0, 1).join(" "))).toEqual([
       "rev-parse",
       "remote",
+      "rev-parse",
       "rev-parse",
     ]);
   });
@@ -64,6 +67,7 @@ describe("judge precheck recording and usage", () => {
   it("names the gh failure when the PR cannot be read", async () => {
     const h = testHarness({
       env: { KORE_ROOT: "/repo" },
+      files: { [INVENTORY]: inventoryWith() },
       responses: [
         {
           match: (c, a) => c === "git" && a.includes("--git-common-dir"),
@@ -150,7 +154,8 @@ describe("judge precheck reruns and ledger failures", () => {
 });
 
 describe("judge precheck writes only the real main ledger", () => {
-  const written = (h: Harness) => [...h.files.keys()].sort();
+  const written = (h: Harness) =>
+    [...h.files.keys()].filter((path) => path !== INVENTORY).sort();
 
   it("ignores KORE_ROOT and CLAUDE_PROJECT_DIR: the write lands in the main root", async () => {
     const h = scenario({

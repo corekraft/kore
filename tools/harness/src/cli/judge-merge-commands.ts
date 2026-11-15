@@ -1,12 +1,10 @@
 import {
   JudgeError,
   hasSentBack,
-  precheck,
   readPr,
   sendBackBody,
   summary,
 } from "../judge/index.js";
-import { checklistModes, recordAudits } from "./judge-checklist.js";
 import type { Command, CommandContext } from "../runtime/index.js";
 import {
   FAILED,
@@ -16,6 +14,7 @@ import {
   record,
   repoOf,
   reviewersOf,
+  checkedPrecheck,
 } from "./judge-shared.js";
 
 const MERGE_USAGE =
@@ -34,16 +33,14 @@ async function runMerge(context: CommandContext): Promise<number> {
     const pr = prNumber(context.operand, MERGE_USAGE);
     const root = await deps.root();
     const repo = await repoOf(context);
-    const report = await precheck(
+    const report = await checkedPrecheck(
       context,
       root,
       repo,
       pr,
       await reviewersOf(context, repo),
-      await checklistModes(context),
     );
     await record(context, report);
-    await recordAudits(context, report);
     if (!report.ok || report.head === undefined || report.head === "") {
       deps.stdout(
         json

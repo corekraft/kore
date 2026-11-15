@@ -98,8 +98,10 @@ describe("summary of a PR the precheck read in full", () => {
       ].join("\n"),
     );
   });
+});
 
-  it("names a failing audit item as reported and not sent back, so the report never reads as a send-back", () => {
+describe("summary of a report with an audit item that failed", () => {
+  it("names the item as reported and not sent back, so the report never reads as a send-back", () => {
     const report: Report = {
       pr: 7,
       ok: true,

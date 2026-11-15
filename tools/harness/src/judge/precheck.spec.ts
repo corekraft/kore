@@ -7,7 +7,6 @@ import {
   type Checks,
   type PrView,
 } from "./checks.js";
-import { ENFORCE_ALL, evaluateChecklist, type ItemModes } from "./checklist.js";
 import { parseDeclaration, type Declaration } from "./declaration.js";
 import { parseDiff, type ChangedFile } from "./diff.js";
 import { JudgeError } from "./errors.js";
@@ -19,7 +18,6 @@ import { assess } from "./verdict.js";
 
 // Every collaborator of the precheck is mocked: its behaviour is the wiring the
 // tests below check, not what each collaborator computes.
-vi.mock("./checklist.js");
 vi.mock("./checks.js");
 vi.mock("./declaration.js");
 vi.mock("./diff.js");
@@ -66,15 +64,13 @@ const DECLARED: Declaration = {
   expandStep: undefined,
 };
 
-const READY = { ok: true, items: [], audited: [] };
 const runner = { run: vi.fn<Runner["run"]>() };
 const context = (): CommandContext => ({
   json: false,
   options: {},
   deps: fakeDeps(runner),
 });
-const run = (modes?: ItemModes) =>
-  precheck(context(), ROOT, REPO, 42, REVIEWERS, modes);
+const run = () => precheck(context(), ROOT, REPO, 42, REVIEWERS);
 
 /** A PR that passes every check and whose diff matches its declared pattern. */
 function ready(): void {
@@ -90,7 +86,6 @@ function ready(): void {
     clusterFacing: false,
     unverified: [],
   });
-  vi.mocked(evaluateChecklist).mockReturnValue(READY);
 }
 
 describe("precheck stops at a PR whose declaration is invalid", () => {
@@ -135,8 +130,6 @@ describe("precheck is ready only when the pattern matches and every check passes
       idea: "#10",
       declaration: { ok: true },
       checks: PASSING,
-      checklist: [],
-      audited: [],
       hints: HINTS,
       patternMatches: true,
       clusterFacing: false,
@@ -144,91 +137,13 @@ describe("precheck is ready only when the pattern matches and every check passes
     });
   });
 
-  it("is not ready when the checklist sends the change back, even though the pattern matches", async () => {
+  it("is not ready when a check fails, even though the pattern matches", async () => {
     ready();
-    vi.mocked(evaluateChecklist).mockReturnValue({ ...READY, ok: false });
-    expect((await run()).ok).toBe(false);
-  });
-
-  it("hands the checklist each check's result and the pattern verdict, under the modes it was given", async () => {
-    ready();
-    const modes = { ...ENFORCE_ALL, scan: "audit" } as const;
-    await run(modes);
-    expect(evaluateChecklist).toHaveBeenCalledExactlyOnceWith(
-      {
-        ci: PASSING.ci,
-        scan: PASSING.scan,
-        coverage: PASSING.coverage,
-        "principles-review": PASSING.principlesReview,
-        "pattern-match": { result: "pass" },
-      },
-      modes,
-    );
-  });
-
-  it("enforces every item when no modes are given, as it did before modes existed", async () => {
-    ready();
-    await run();
-    expect(vi.mocked(evaluateChecklist).mock.calls[0]?.[1]).toBe(ENFORCE_ALL);
-  });
-
-  it("is ready, and reports the failing audit item, when only an audit item fails", async () => {
-    ready();
-    const scan = {
-      item: "scan",
-      rule: "judge-scan",
-      mode: "audit",
-      result: "fail",
-      detail: "scan: FAILURE",
-    } as const;
     vi.mocked(gatherChecks).mockResolvedValue({
       ...PASSING,
       scan: { result: "fail", detail: "scan: FAILURE" },
     });
-    vi.mocked(evaluateChecklist).mockReturnValue({
-      ok: true,
-      items: [scan],
-      audited: [scan],
-    });
-    expect(await run()).toMatchObject({
-      ok: true,
-      checklist: [scan],
-      audited: [scan],
-    });
-  });
-
-  it("gives the checklist the pattern mismatch as a failing pattern-match item", async () => {
-    ready();
-    vi.mocked(assess).mockReturnValue({
-      patternMatches: false,
-      patternMismatch: "no flag",
-      clusterFacing: false,
-      unverified: [],
-    });
-    await run();
-    expect(vi.mocked(evaluateChecklist).mock.calls[0]?.[0]).toMatchObject({
-      "pattern-match": { result: "fail", detail: "no flag" },
-    });
-  });
-
-  it("gives the checklist a gathered expand step as its own item", async () => {
-    ready();
-    vi.mocked(parseDeclaration).mockReturnValue({
-      ok: true,
-      pattern: "expand-contract",
-      idea: "#502",
-      expandStep: 547,
-    });
-    vi.mocked(assess).mockReturnValueOnce({
-      patternMatches: false,
-      clusterFacing: false,
-      unverified: [],
-    });
-    vi.mocked(gatherExpandStep).mockResolvedValue({ result: "pass" });
-    await run();
-    expect(vi.mocked(evaluateChecklist).mock.calls[0]?.[0]).toMatchObject({
-      "expand-step": { result: "pass" },
-    });
+    expect((await run()).ok).toBe(false);
   });
 
   it("is not ready when the diff contradicts the declared pattern, and carries the mismatch", async () => {
@@ -239,7 +154,6 @@ describe("precheck is ready only when the pattern matches and every check passes
       clusterFacing: false,
       unverified: [],
     });
-    vi.mocked(evaluateChecklist).mockReturnValue({ ...READY, ok: false });
     expect(await run()).toMatchObject({
       ok: false,
       patternMatches: false,
@@ -343,6 +257,7 @@ describe("precheck reads a contract's expand step only when its diff needs one",
     vi.mocked(assess).mockReturnValueOnce(MISMATCH).mockReturnValueOnce(CLEAN);
     vi.mocked(gatherExpandStep).mockResolvedValue({ result: "pass" });
     expect(await run()).toMatchObject({
+      ok: true,
       checks: { ...PASSING, expandStep: { result: "pass" } },
     });
     expect(gatherExpandStep).toHaveBeenCalledExactlyOnceWith(
@@ -370,6 +285,7 @@ describe("precheck reads a contract's expand step only when its diff needs one",
       detail: "no proof",
     });
     expect(await run()).toMatchObject({
+      ok: false,
       checks: {
         ...PASSING,
         expandStep: { result: "missing", detail: "no proof" },

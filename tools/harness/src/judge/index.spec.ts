@@ -32,9 +32,9 @@ vi.mock("./send-back.js");
 
 it("the judge barrel exposes exactly the names its callers import", () => {
   expect(Object.keys(judge).sort()).toEqual([
-    "ENFORCE_ALL",
     "JudgeError",
     "PATTERNS",
+    "applyChecklist",
     "auditDeclaration",
     "diffStat",
     "findingsFrom",
@@ -55,7 +55,7 @@ it("the judge barrel exposes exactly the names its callers import", () => {
 });
 
 it("each export is the unit's own export, not a copy or a wrapper", () => {
-  expect(judge.ENFORCE_ALL).toBe(checklist.ENFORCE_ALL);
+  expect(judge.applyChecklist).toBe(checklist.applyChecklist);
   expect(judge.modesFrom).toBe(checklist.modesFrom);
   expect(judge.JudgeError).toBe(errors.JudgeError);
   expect(judge.PATTERNS).toBe(declaration.PATTERNS);
