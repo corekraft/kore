@@ -9,7 +9,7 @@ import { wait } from "./wait.js";
 
 const spawnCommand: Command = {
   summary:
-    "start a Claude session in a Herdr pane (--role --name --brief [--model --effort, default from .claude/agents/<role>.md] --idea N|#N stamps the idea into the pane's environment for the ledger; --timeout ms; --worktree [--branch b] runs it in a new git worktree under .claude/worktrees); with the role-tokens flag on in the local environment overlay (off by default, and spawn is unchanged while it is), a writer pane gets a minted kore-writer installation token and a judge pane the judge PAT as GH_TOKEN through a FIFO, never argv or disk (a missing identity fails with a hint naming tools/harness/wizards/identities.sh); a writer is refused while the host lease is held or while the 1-minute load average is above KORE_SPAWN_MAX_LOAD (unset by default, so no load check; set it to a number such as 20, and retry or raise it to override); it waits for the result unless --no-wait, the normal pattern: spawn with --no-wait, then run `session wait <name>` in the background",
+    "start a Claude session in a Herdr pane (--role --name --brief [--model --effort, default from .claude/agents/<role>.md] --pr N names the PR when relaunching its writer, so a model flag matching the escalation `queue escalate` recorded is logged as an escalation; any other --model or --effort is logged as an override, and --reason <why> (1 to 100 characters) is written into the launch event with it, a bare override is recorded and not refused; --idea N|#N stamps the idea into the pane's environment for the ledger; --timeout ms; --worktree [--branch b] runs it in a new git worktree under .claude/worktrees); with the role-tokens flag on in the local environment overlay (off by default, and spawn is unchanged while it is), a writer pane gets a minted kore-writer installation token and a judge pane the judge PAT as GH_TOKEN through a FIFO, never argv or disk (a missing identity fails with a hint naming tools/harness/wizards/identities.sh); a writer is refused while the host lease is held or while the 1-minute load average is above KORE_SPAWN_MAX_LOAD (unset by default, so no load check; set it to a number such as 20, and retry or raise it to override); it waits for the result unless --no-wait, the normal pattern: spawn with --no-wait, then run `session wait <name>` in the background",
   options: {
     role: "string",
     model: "string",
@@ -20,6 +20,8 @@ const spawnCommand: Command = {
     worktree: "boolean",
     branch: "string",
     idea: "string",
+    pr: "string",
+    reason: "string",
     timeout: "string",
   },
   run: spawn,

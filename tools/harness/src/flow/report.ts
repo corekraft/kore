@@ -22,6 +22,7 @@ import {
   DEFAULT_HOST_DAYS,
   guardBlocks,
   hostPressure,
+  tierShares,
   ideaMetrics,
   measureAttribution,
   outcomes,
@@ -43,7 +44,7 @@ import {
   type ScopeOptions,
 } from "./scope.js";
 
-export const REPORT_VERSION = 8;
+export const REPORT_VERSION = 9;
 
 export type { StageTotals, Toil } from "./tally.js";
 export type { Scope, ScopeOptions } from "./scope.js";
@@ -80,6 +81,8 @@ export interface FlowReport extends FrictionMetrics {
   outcomes: Outcomes;
   /** Swap and load by live-session count, with a trailing baseline, from host-sample events. */
   hostPressure: HostPressure;
+  /** Launches per role by where the tier came from, with launches from before it was recorded as unknown. */
+  tierShares: ReturnType<typeof tierShares>;
 }
 
 export interface ReportOptions extends ScopeOptions {
@@ -213,10 +216,6 @@ function stageOf(event: LedgerEvent, mergedAt: number | undefined) {
     : undefined;
 }
 
-function roundShare(share: number): number {
-  return Math.round(share * 10_000) / 10_000;
-}
-
 /** Charges one idea's in-range events to the tally; returns how many it could not map. */
 function chargeIdea(
   tally: Tally,
@@ -276,7 +275,7 @@ function nameBottleneck(
     bottleneck: {
       stage,
       waitingSeconds: worst.waitingMs / 1000,
-      share: roundShare(worst.waitingMs / totalMs),
+      share: Math.round((worst.waitingMs / totalMs) * 10_000) / 10_000,
     },
     bottleneckNote: null,
   };
@@ -340,5 +339,6 @@ export function buildReport(
       trailingDays: options.hostDays ?? DEFAULT_HOST_DAYS,
       asOf,
     }),
+    tierShares: tierShares(named, window),
   };
 }

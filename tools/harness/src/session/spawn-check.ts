@@ -4,6 +4,7 @@ import { hostLeaseRefusal } from "./host-lease.js";
 import { spawnLoadRefusal } from "./spawn-load.js";
 import { sessionNameError } from "./names.js";
 import { FAILED, USAGE_ERROR } from "./output.js";
+import { tierInputError, tierOf, type TierOrigin } from "./tier-source.js";
 import { findResult, parseTimeout } from "./wait.js";
 
 const REQUIRED = ["role", "name", "brief"] as const;
@@ -22,6 +23,8 @@ export type Checked =
       timeoutMs: number;
       /** The idea the session works, as the ledger keys it (`#338`). */
       idea?: string;
+      /** Where the tier came from, for the ledger's launch event. */
+      tier: TierOrigin;
     }
   | { error: string; code: number };
 
@@ -102,7 +105,8 @@ function inputError(
   return (
     briefError(given.brief) ??
     worktreeError(given.role, options) ??
-    (typeof idea === "object" ? idea.error : undefined)
+    (typeof idea === "object" ? idea.error : undefined) ??
+    tierInputError(options)
   );
 }
 
@@ -147,6 +151,7 @@ export async function check({
   const idea = ideaOf(options.idea) as string | undefined;
   return {
     values: { ...given, ...tier },
+    tier: await tierOf(deps, options),
     callerPane,
     timeoutMs,
     ...(idea === undefined ? {} : { idea }),
