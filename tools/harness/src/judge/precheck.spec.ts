@@ -3,6 +3,7 @@ import type { CommandContext, Runner } from "../runtime/index.js";
 import {
   gatherChecks,
   gatherExpandStep,
+  gatherGuardrailChanges,
   parsePrView,
   type Checks,
   type PrView,
@@ -202,6 +203,24 @@ describe("precheck hands each step the PR's own commits and files", () => {
       HINTS,
       FILES,
     );
+  });
+});
+
+describe("precheck carries the inventory changes a diff makes", () => {
+  it("adds them to the report, and adds nothing when the inventory is untouched", async () => {
+    ready();
+    vi.mocked(gatherGuardrailChanges).mockResolvedValue(["a:audit>enforce"]);
+    expect(await run()).toMatchObject({
+      guardrailChanges: ["a:audit>enforce"],
+    });
+    expect(vi.mocked(gatherGuardrailChanges).mock.calls[0]?.slice(1)).toEqual([
+      expect.any(Function),
+      REPO,
+      BASE,
+      HEAD,
+    ]);
+    vi.mocked(gatherGuardrailChanges).mockResolvedValue(undefined);
+    expect(await run()).not.toHaveProperty("guardrailChanges");
   });
 });
 

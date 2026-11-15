@@ -502,9 +502,9 @@ any other login is unverified. `--reviewer <login>[,<login>]` overrides both, an
 `harness judge precheck` prints the reviewers it used in its text and JSON output.
 
 Each checklist item of the precheck (`ci`, `scan`, `coverage`,
-`principles-review`, `expand-step`, `pattern-match`) reads its mode from the
+`principles-review`, `expand-step`, `pattern-match`, `guardrail-activation`) reads its mode from the
 guardrail inventory, `.claude/guardrails.yaml`, as the rule `judge-<item>` of kind
-`checklist`; every item is in `enforce` today. A failing `enforce` item makes the
+`checklist`; every item is in `enforce` today except `guardrail-activation`, which starts in `audit`. A failing `enforce` item makes the
 report not ready, so the change goes back. A failing `audit` item is listed in the
 report (`audited` in `--json`, an `audit:` line in the text) and never makes it
 not ready; each audit firing writes one `guard.audit` ledger event labelled with
@@ -624,11 +624,42 @@ label is `<rule>:<from>><to>`. It posts once per change: a rerun finds the event
 or the comment's marker, and posts nothing. With no evidence for the rule, no
 issue on the idea, an unknown rule or a mode the rule already has, it refuses
 with the fix and posts nothing. A request never changes `.claude/guardrails.yaml`;
-`guardrail activate` (#224) is a separate step.
+`guardrail activate` is the separate step below.
 
 `harness guardrail status --json` adds `pending`: `{ rule, from, to, idea }` for
 each latest request whose rule still has the mode it would change. The concierge
 answers "what is waiting for approval?" from it.
+
+## Guardrail activation
+
+`harness guardrail activate <rule> --to enforce|audit|removed --idea <number>
+[--json] [--ledger PATH]` is the only way a guardrail's mode changes or an entry
+leaves `.claude/guardrails.yaml`. It acts after `guardrail request`, and only on a
+person's approval: a comment on the idea's issue from the owner login
+(`ownerLogin` in `.claude/harness.json`, else the repository's owner), made after
+the request comment, with the line `approve <rule>:<from>><to>`. A label never
+counts, however it was applied, and neither does a comment that carries a
+harness marker (`<!--`) or comes from another login. Enforcing, loosening and
+removing need the same approval.
+
+With the approval it edits the rule's line (or drops it), regenerates the
+settings deny list for a deny rule, and appends a `guardrail.activated` ledger
+event labelled `<rule>:<from>><to>`. A ruleset rule still needs `ruleset sync` to
+reach GitHub. Without a recorded request, an approval or with only a label, it
+exits 1, leaves the file untouched, and posts one refusal comment on the idea's
+issue (a rerun with the same refusal posts nothing). `--json` prints
+`{ rule, from, to, idea, issue, activated, reason?, refusalPosted?, commentUrl? }`.
+
+Two checks hold the line elsewhere. The guard blocks an Edit or Write of the
+inventory that sets a rule to enforce, or adds one already in enforce
+(`guardrail-demotion`, which also covers demotion and deny removal); it does
+not see `guardrail activate`, which writes the file itself. The judge's
+`judge-guardrail-activation` item reads the inventory at the merge base and at
+the PR head, and sends the change back when it lands a rule in enforce,
+loosens or removes one with no matching `guardrail.activated` event; a new rule
+must start in audit. That item starts in audit mode, so today it is reported
+under `audited`, and a person turns it on with the same request and activate
+steps.
 
 ## Status
 

@@ -17,6 +17,7 @@ import {
 import { IdeaError, IdeaRepository } from "../idea/index.js";
 import { JudgeError } from "../judge/index.js";
 import type { Command, CommandContext } from "../runtime/index.js";
+import { activate } from "./guardrail-activate-commands.js";
 import { repoOf } from "./judge-shared.js";
 import { openLedger } from "./ledger-commands.js";
 
@@ -211,4 +212,5 @@ export const guardrailLedgerCommands: Record<string, Command> = {
   ...guardrailCommands,
   status: statusWith(loadPending),
   request,
+  activate,
 };

@@ -2,16 +2,17 @@ import type { CommandContext } from "../runtime/index.js";
 import {
   gatherChecks,
   gatherExpandStep,
+  gatherGuardrailChanges,
   parsePrView,
   type Checks,
   type ItemVerdict,
   type PrView,
 } from "./checks.js";
 import { parseDeclaration, type Pattern } from "./declaration.js";
-import { parseDiff } from "./diff.js";
+import { parseDiff, type ChangedFile } from "./diff.js";
 import { JudgeError } from "./errors.js";
 import { hintsFor, type Hints } from "./hints.js";
-import { withManifestSides } from "./manifest-source.js";
+import { withManifestSides, type Api } from "./manifest-source.js";
 import { assess } from "./verdict.js";
 
 export interface Report {
@@ -34,6 +35,8 @@ export interface Report {
   patternMismatch?: string;
   clusterFacing?: boolean;
   unverified?: string[];
+  /** Present only when the diff touches the guardrail inventory: each `rule:from>to` change that needs an activation. */
+  guardrailChanges?: string[];
 }
 
 const FIX =
@@ -91,6 +94,23 @@ export async function readPr(
   return view;
 }
 
+/** The guardrail inventory changes the diff makes, as a report field; nothing when it leaves the inventory alone. */
+async function inventoryChanges(
+  api: Api,
+  repo: string,
+  files: ChangedFile[],
+  view: PrView,
+): Promise<{ guardrailChanges?: string[] }> {
+  const guardrailChanges = await gatherGuardrailChanges(
+    files,
+    api,
+    repo,
+    view.baseSha,
+    view.headSha,
+  );
+  return guardrailChanges === undefined ? {} : { guardrailChanges };
+}
+
 /**
  * Reports whether a PR is ready for the judge. The declaration is checked first;
  * an invalid one fails before the diff or any check result is read.
@@ -122,9 +142,10 @@ export async function precheck(
     view,
     reviewers,
   );
+  const api: Api = (args) => run(context, root, args, pr);
   const files = await withManifestSides(
     parseDiff(diff),
-    (args) => run(context, root, args, pr),
+    api,
     repo,
     view.baseSha,
     view.headSha,
@@ -162,6 +183,7 @@ export async function precheck(
     checks,
     hints,
     ...verdict,
+    ...(await inventoryChanges(api, repo, files, view)),
   };
 }
 

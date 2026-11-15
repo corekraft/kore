@@ -47,7 +47,7 @@ export interface RequestResult {
 export const requestLabel = (rule: string, from: string, to: string): string =>
   `${rule}:${from}>${to}`;
 
-const marker = (label: string): string =>
+export const marker = (label: string): string =>
   `<!-- guardrail-request: ${label} -->`;
 
 const figure = (value: number | null): string =>

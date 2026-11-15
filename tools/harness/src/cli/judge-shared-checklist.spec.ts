@@ -111,7 +111,32 @@ describe("judge checked precheck", () => {
     const c = context();
     expect(await checkedPrecheck(c, "/r", "o/k", 42, ["bot"])).toBe(applied);
     expect(precheck).toHaveBeenCalledWith(c, "/r", "o/k", 42, ["bot"]);
-    expect(applyChecklist).toHaveBeenCalledWith(read, MODES);
+    expect(applyChecklist).toHaveBeenCalledWith(read, MODES, new Set());
+  });
+
+  it("reads the activation events from the shared ledger only when the diff changes the inventory", async () => {
+    const read = reportOf({ guardrailChanges: ["a:audit>enforce"] });
+    const fake = ledgerWith([{ label: "a:audit>enforce" }, {}]);
+    vi.mocked(readInventory).mockResolvedValue({ guardrails: [] });
+    vi.mocked(modesFrom).mockReturnValue(MODES);
+    vi.mocked(precheck).mockResolvedValue(read);
+    vi.mocked(applyChecklist).mockReturnValue(read);
+    await checkedPrecheck(context(), "/r", "o/k", 42, []);
+    expect(fake.list.mock.calls).toEqual([[{ kind: "guardrail.activated" }]]);
+    expect(applyChecklist).toHaveBeenCalledWith(
+      read,
+      MODES,
+      new Set(["a:audit>enforce"]),
+    );
+  });
+
+  it("opens no ledger when the diff leaves the inventory alone", async () => {
+    vi.mocked(readInventory).mockResolvedValue({ guardrails: [] });
+    vi.mocked(modesFrom).mockReturnValue(MODES);
+    vi.mocked(precheck).mockResolvedValue(reportOf());
+    vi.mocked(applyChecklist).mockReturnValue(reportOf());
+    await checkedPrecheck(context(), "/r", "o/k", 42, []);
+    expect(Ledger).not.toHaveBeenCalled();
   });
 
   it("reads no PR when the inventory is refused", async () => {

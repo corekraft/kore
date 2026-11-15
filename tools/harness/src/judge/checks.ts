@@ -3,6 +3,8 @@ import { NAMED_HEAD, TRAILING_HEAD, VERDICT_LINE } from "./review-verdict.js";
 
 // The expand step gather lives in its own unit; precheck imports it through here.
 export { gatherExpandStep } from "./expand-gather.js";
+// So does the guardrail inventory gather.
+export { gatherGuardrailChanges } from "./guardrail-changes.js";
 
 export const RESULTS = [
   "pass",

@@ -71,6 +71,25 @@ export async function checklistModes({
   }
 }
 
+/**
+ * The `rule:from>to` labels of the guardrail.activated events at the shared ledger, which
+ * only `guardrail activate` writes on a person's approval. Read only when the diff changes
+ * the inventory, so any other judge run opens no ledger for it.
+ */
+async function activatedBy(
+  context: CommandContext,
+  report: Report,
+): Promise<ReadonlySet<string>> {
+  if (report.guardrailChanges === undefined) {
+    return new Set();
+  }
+  const ledger = await openJudgeLedger(context);
+  const { events } = await ledger.list({ kind: "guardrail.activated" });
+  return new Set(
+    events.flatMap((e) => (e.label === undefined ? [] : [e.label])),
+  );
+}
+
 /** The precheck under the checklist's modes; the modes are read first, so a refused inventory reads no PR. */
 export async function checkedPrecheck(
   context: CommandContext,
@@ -80,10 +99,8 @@ export async function checkedPrecheck(
   reviewers: readonly string[],
 ): Promise<Report> {
   const modes = await checklistModes(context);
-  return applyChecklist(
-    await precheck(context, root, repo, pr, reviewers),
-    modes,
-  );
+  const report = await precheck(context, root, repo, pr, reviewers);
+  return applyChecklist(report, modes, await activatedBy(context, report));
 }
 
 /**

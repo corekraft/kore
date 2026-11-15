@@ -81,6 +81,27 @@ function demoted(previous: string, after: string): string[] {
     : [];
 }
 
+/**
+ * Rules the change sets to enforce by hand: an entry new in enforce, or one that
+ * was audit. Only `guardrail activate` may, with a person's approval on record.
+ */
+function enforced(previous: string, after: string): string[] {
+  const was = modes(previous);
+  const named = [...modes(after)]
+    .filter(([rule, mode]) => mode === "enforce" && was.get(rule) !== "enforce")
+    .map(([rule]) => rule);
+  if (named.length > 0) {
+    return named;
+  }
+  const unnamed = was.size === 0 && modes(after).size === 0;
+  return unnamed && count(after, "enforce") > count(previous, "enforce")
+    ? ["a rule"]
+    : [];
+}
+
+const ACTIVATE =
+  "ask the user to approve the change on the idea's issue, then run `harness guardrail activate`.";
+
 export function checkGuardrailDemotion(
   relative: string,
   previous: string,
@@ -91,7 +112,8 @@ export function checkGuardrailDemotion(
   }
   const rules = demoted(previous, after);
   const weak = weakened(previous, after);
-  if (rules.length === 0 && weak.length === 0) {
+  const raised = enforced(previous, after);
+  if (rules.length === 0 && weak.length === 0 && raised.length === 0) {
     return null;
   }
   const problems = [
@@ -103,11 +125,17 @@ export function checkGuardrailDemotion(
           `removes, narrows or renames deny patterns (${weak.join(", ")}) by hand`,
         ]
       : []),
+    ...(raised.length > 0
+      ? [`sets ${raised.join(", ")} to enforce by hand`]
+      : []),
   ];
+  const only = rules.length === 0 && weak.length === 0;
+  const advice = only
+    ? `A person approves a guardrail's mode (ADR 0080). Instead, leave it in audit, ${ACTIVATE}`
+    : `A person approves a guardrail's mode and deny patterns (ADR 0080). Instead, leave them and ask the user to approve the change${raised.length > 0 ? `; to enforce, ${ACTIVATE}` : "."}`;
   return warn(
     "guardrail-demotion",
-    `${relative} ${problems.join(" and ")}. A person approves a guardrail's mode and deny patterns (ADR 0080). ` +
-      "Instead, leave them and ask the user to approve the change.",
+    `${relative} ${problems.join(" and ")}. ${advice}`,
   );
 }
 

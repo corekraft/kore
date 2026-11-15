@@ -11,19 +11,19 @@ import {
   modes,
 } from "./guard-modes-support.js";
 
-describe("the inventory protects itself", () => {
-  const edit = (oldS: string, newS: string) => ({
-    session_id: "s1",
-    tool_name: "Edit",
-    tool_input: {
-      file_path: "/repo/.claude/guardrails.yaml",
-      old_string: oldS,
-      new_string: newS,
-    },
-  });
-  const line = (rule: string, mode: string) =>
-    `{ "rule": "${rule}", "kind": "bash", "mode": "${mode}", "owner": "x" }`;
+const edit = (oldS: string, newS: string) => ({
+  session_id: "s1",
+  tool_name: "Edit",
+  tool_input: {
+    file_path: "/repo/.claude/guardrails.yaml",
+    old_string: oldS,
+    new_string: newS,
+  },
+});
+const line = (rule: string, mode: string) =>
+  `{ "rule": "${rule}", "kind": "bash", "mode": "${mode}", "owner": "x" }`;
 
+describe("the inventory protects itself", () => {
   it("blocks, naming the rule, on an Edit that turns enforce into audit", async () => {
     const result = await guard(
       edit(line("no-verify", "enforce"), line("no-verify", "audit")),
@@ -61,20 +61,6 @@ describe("the inventory protects itself", () => {
     expect(result.err).toMatch(/destructive/);
   });
 
-  it("allows promoting, and edits that leave modes alone", async () => {
-    for (const payload of [
-      edit(line("bare-glob", "audit"), line("bare-glob", "enforce")),
-      edit(
-        line("bare-glob", "audit"),
-        line("bare-glob", "audit").replace('"x"', '"y"'),
-      ),
-    ]) {
-      const result = await guard(payload, committedInventoryText);
-      expect(result).toMatchObject({ code: 0, out: "", err: "" });
-      expect(auditEvents(result.events)).toEqual([]);
-    }
-  });
-
   it("blocks the demotion once a person promotes the rule", async () => {
     const result = await guard(
       edit(line("no-verify", "enforce"), line("no-verify", "audit")),
@@ -84,15 +70,6 @@ describe("the inventory protects itself", () => {
   });
 });
 
-const edit = (oldS: string, newS: string) => ({
-  session_id: "s1",
-  tool_name: "Edit",
-  tool_input: {
-    file_path: "/repo/.claude/guardrails.yaml",
-    old_string: oldS,
-    new_string: newS,
-  },
-});
 const denyLine = (rule: string, ...patterns: string[]) =>
   `{ "rule": "${rule}", "kind": "bash", "mode": "enforce", "owner": "x", "deny": ${JSON.stringify(patterns)} }`;
 
@@ -280,5 +257,28 @@ describe("the inventory is guarded against Bash edits too", () => {
   ])("allows: %s", async (command) => {
     const result = await guard(bash(command), committedInventoryText);
     expect(result).toMatchObject({ code: 0, out: "", err: "" });
+  });
+});
+
+describe("the inventory refuses a hand promotion", () => {
+  it("blocks a promotion to enforce by hand, naming guardrail activate", async () => {
+    const result = await guard(
+      edit(line("bare-glob", "audit"), line("bare-glob", "enforce")),
+      committedInventoryText,
+    );
+    expect(result.code).toBe(2);
+    expect(result.err).toContain("guardrail activate");
+  });
+
+  it("allows edits that leave modes alone", async () => {
+    const result = await guard(
+      edit(
+        line("bare-glob", "audit"),
+        line("bare-glob", "audit").replace('"x"', '"y"'),
+      ),
+      committedInventoryText,
+    );
+    expect(result).toMatchObject({ code: 0, out: "", err: "" });
+    expect(auditEvents(result.events)).toEqual([]);
   });
 });

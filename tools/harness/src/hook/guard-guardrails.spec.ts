@@ -100,6 +100,60 @@ describe("checkGuardrailDemotion", () => {
   });
 });
 
+describe("checkGuardrailDemotion: setting enforce by hand", () => {
+  const entry = (rule: string, mode: string): string =>
+    `{"rule": "${rule}", "kind": "bash", "mode": "${mode}", "owner": "o"}`;
+  const message = (): string => String(vi.mocked(warn).mock.calls[0]?.[1]);
+
+  it("warns when a rule moves from audit to enforce, naming activate as the way", () => {
+    const finding = checkGuardrailDemotion(
+      INVENTORY,
+      entry("bare-glob", "audit"),
+      entry("bare-glob", "enforce"),
+    );
+    expect(finding).toMatchObject({ rule: "guardrail-demotion" });
+    expect(message()).toBe(
+      ".claude/guardrails.yaml sets bare-glob to enforce by hand. A person approves a guardrail's mode (ADR 0080). Instead, leave it in audit, ask the user to approve the change on the idea's issue, then run `harness guardrail activate`.",
+    );
+  });
+
+  it("warns when a new rule lands already in enforce", () => {
+    const finding = checkGuardrailDemotion(
+      INVENTORY,
+      entry("old", "enforce"),
+      `${entry("old", "enforce")}\n${entry("fresh", "enforce")}`,
+    );
+    expect(finding).toMatchObject({ rule: "guardrail-demotion" });
+    expect(message()).toContain("sets fresh to enforce by hand");
+  });
+
+  it("does not warn when a new rule starts in audit or an enforced rule stays enforced", () => {
+    expect(
+      checkGuardrailDemotion(
+        INVENTORY,
+        entry("old", "enforce"),
+        `${entry("old", "enforce")}\n${entry("fresh", "audit")}`,
+      ),
+    ).toBeNull();
+    expect(warn).not.toHaveBeenCalled();
+  });
+
+  it("names a rule when an edit changes only a bare mode line from audit to enforce", () => {
+    checkGuardrailDemotion(INVENTORY, '"mode": "audit"', '"mode": "enforce"');
+    expect(message()).toContain("sets a rule to enforce by hand");
+  });
+
+  it("ignores the same change in a file other than the inventory", () => {
+    expect(
+      checkGuardrailDemotion(
+        SETTINGS,
+        entry("a", "audit"),
+        entry("a", "enforce"),
+      ),
+    ).toBeNull();
+  });
+});
+
 describe("checkGuardrailBash", () => {
   it("warns when a command rewrites the inventory or the settings file, naming the path", () => {
     vi.mocked(writtenPath).mockReturnValue("/repo/.claude/guardrails.yaml");

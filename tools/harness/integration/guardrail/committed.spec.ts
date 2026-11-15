@@ -95,6 +95,8 @@ describe("the committed inventory", () => {
       "idea-issue-close",
       "idea-outcome",
       "image-digest",
+      // New in plan 12 Step 4: starts in audit until a person activates it.
+      "judge-guardrail-activation",
     ]);
   });
 });
