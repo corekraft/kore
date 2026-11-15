@@ -39,3 +39,12 @@ or on a static host are not.
 - Frontends cost a small pod each; they scale with the same autoscaling defaults
   ([ADR 0047](0047-autoscaling-metrics-server-then-keda.md)).
 - The static-server base image is pinned and recorded like other images.
+- Release automation records both template images (this one and the Kotlin BFF
+  of [ADR 0046](0046-bff-jvm-with-agent-and-aot-cache.md)) by digest in
+  `template-images.lock.json`, attached to the GitHub release the way
+  [ADR 0044](0044-managed-platform-images-from-the-mirror.md) attaches the
+  platform lock. It is separate from the reference image lock, which stays the
+  reference's own. The release job re-verifies every lock entry with `cosign
+verify` against the pinned identity before upload, so a deploy that reads the
+  lock refers only to a signed digest. Deploying by digest on a live run is
+  Step 5 of plan 15.

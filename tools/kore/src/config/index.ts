@@ -77,3 +77,6 @@ export { exemptionCheckMode, validateRepository } from "./validate.js";
 export type { WarningSource } from "./validate.js";
 export { exists } from "./files.js";
 export { platformClaimErrors } from "./platform-claims.js";
+
+// Golden-path template session cookie policy (plan 15 Step 4).
+export { sessionCookieViolations } from "./template-cookie.js";
