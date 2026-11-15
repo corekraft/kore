@@ -141,9 +141,9 @@ describe("the judge definition", () => {
 describe("the add-policy skill", () => {
   const skill = read("skills/add-policy/SKILL.md");
 
-  it("runs the Gatekeeper suites for constraint templates, in the run step and the footer", () => {
+  it("runs the Gatekeeper suites for constraint templates, in the run step", () => {
     const mentions = skill.split("test-gatekeeper").length - 1;
-    expect(mentions).toBeGreaterThanOrEqual(2);
+    expect(mentions).toBe(1);
     expect(skill).toContain("mise run test-gatekeeper");
   });
 });
