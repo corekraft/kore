@@ -95,6 +95,12 @@
         "components": ["keycloak-provider"]
       },
       {
+        "name": "service-observability",
+        "step": 8,
+        "capability": "platform-api",
+        "components": ["kore-service-observability"]
+      },
+      {
         "name": "platform-keycloak",
         "step": 8,
         "capability": "platform-api",

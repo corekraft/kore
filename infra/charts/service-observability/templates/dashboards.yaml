@@ -1,0 +1,23 @@
+{{- /*
+One dashboard per registered Service, found by Grafana through the
+grafana_dashboard label. The dashboard is plain JSON with two placeholders,
+filled from the Service name and the environment.
+*/}}
+{{- range .Values.services }}
+{{- $namespace := printf "%s--%s" . $.Values.environment }}
+{{- if gt (len $namespace) 63 }}
+{{- fail (printf "the namespace %s is longer than 63 characters; shorten the Service name or the environment" $namespace) }}
+{{- end }}
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: kore-dashboard-{{ . }}
+  namespace: {{ $.Release.Namespace }}
+  labels:
+    grafana_dashboard: "1"
+    platform.kore.dev/service: {{ . }}
+data:
+  {{ . }}.json: |
+{{ $.Files.Get "files/dashboard.json" | replace "__SERVICE__" . | replace "__NAMESPACE__" $namespace | indent 4 }}
+{{- end }}

@@ -10,6 +10,7 @@ const gatedOffReleases = [
   "keycloak-operator",
   "keycloak-provider",
   "kore-platform-keycloak",
+  "kore-service-observability",
   "kore-platform-apis",
   "kore-golden-path-delivery",
   "kore-config-delivery",
