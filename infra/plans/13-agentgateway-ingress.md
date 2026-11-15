@@ -77,8 +77,18 @@ class change therefore deletes and recreates the Gateway with a brief ingress
 outage. It prints one line before the delete. A matching class is a no-op, and so is an
 absent Gateway with no old proxy (a fresh profile); an absent Gateway whose old
 proxy remains (an interrupted change) still waits for the proxy. The flag off
-changes nothing. Rollback is `ingress-agentgateway` off and `kore local up`, which makes the
-same swap back to Istio while the new flag is on. Activation of
+changes nothing. Rollback is three steps. First turn `ingress-agentgateway` off and run
+`kore local up`; with the new flag on, the class change releases the Gateway
+back to Istio. Kore then refuses to reconcile the gated-off releases that are
+still installed (`agentgateway-crds is gated off ... run helm uninstall ...`),
+so the operator removes them, in order:
+`helm uninstall agentgateway --namespace agentgateway-system --kube-context <ctx>`,
+then `helm uninstall agentgateway-crds --namespace agentgateway-system --kube-context <ctx>`.
+Uninstalling `agentgateway-crds` deletes the CRDs and every custom resource of
+those kinds, so it is the operator's explicit step (data destruction needs
+consent), never Kore's. A one-command rollback would be a separate, consented
+`kore` command if wanted. The refusal stays unchanged (decided on the #207 live
+rerun, where phase 4 failed on it). Activation of
 `gateway-class-change-release` is for the live proof profile: in the throwaway
 profile of `tools/kore/scripts/agentgateway-live-proof.sh`, the script turns it
 on together with `ingress-agentgateway` in phase 2 and keeps it on through

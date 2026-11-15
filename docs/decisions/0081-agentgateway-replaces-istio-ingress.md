@@ -41,3 +41,8 @@ paused until the outcome was measured. The owner lifted that pause for the
 replacement, its identity re-proof and the measurement, with the flag off in
 `local`; activating it in `local` waits for a measured drop of at least 20% in
 median ingress CPU or memory.
+
+Rollback stays operator-run (2026-11-15, #207): Kore refuses to reconcile a
+gated-off release that is still installed, and uninstalling `agentgateway-crds`
+deletes the CRDs and their custom resources, so the operator runs the two
+`helm uninstall` steps after `kore local up` (plan 13, Step 2).

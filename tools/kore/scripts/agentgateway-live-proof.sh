@@ -20,7 +20,10 @@
 #      The gateway is reported ready by `kore platform status --json`, and the
 #      Istio ingress proxy (deploy and svc kore-gateway-istio) is gone.
 #   3. rerun `kore local up`; no Helm release revision changes.
-#   4. ingress-agentgateway off again (gateway-class-change-release stays on),
+#   4. ingress-agentgateway off again (gateway-class-change-release stays on):
+#      assert no Agentgateway custom resources exist, uninstall the agentgateway
+#      and agentgateway-crds releases on the throwaway context only (Kore
+#      refuses to reconcile a gated-off release that is still installed), then
 #      `kore local up`: rollback. The Gateway is ready on the
 #      istio class, and the agentgateway proxy (deploy and svc kore-gateway)
 #      is gone. If a Service keeps NodePort 30443 across a class change, this
@@ -221,6 +224,16 @@ step "phase 4: ingress flag off again (class-change flag stays on), kore local u
 sed -i.bak 's/"ingress-agentgateway": true/"ingress-agentgateway": false/' "$env_file"
 rm -f "$env_file.bak"
 grep -qF '"ingress-agentgateway": false' "$env_file" || fail "could not turn the flag off in $env_file"
+# Kore refuses to reconcile a gated-off release that is still installed, so the
+# operator removes it first (plan 13, Step 2). Removing the CRD release deletes
+# the CRDs and every custom resource of those kinds, so check none exist.
+[ "$context" = "k3d-kore-$scratch" ] || fail "rollback uninstalls run only against the throwaway context k3d-kore-$scratch, not '$context'"
+crs="$(for crd in $(k get crd -o name | sed -n 's|^customresourcedefinition.apiextensions.k8s.io/\(.*\.agentgateway\.dev\)$|\1|p'); do
+  k get "$crd" --all-namespaces -o name
+done)"
+[ -z "$crs" ] || fail "Agentgateway custom resources exist and uninstalling the CRDs would delete them: $(echo $crs)"
+mise exec -- helm uninstall agentgateway --namespace agentgateway-system --kube-context "$context"
+mise exec -- helm uninstall agentgateway-crds --namespace agentgateway-system --kube-context "$context"
 kore local up --environment "$scratch"
 [ "$(gateway_state)" = "ready" ] || fail "after rollback platform status does not report the Gateway ready: '$(gateway_state)'"
 k -n kore-system get deploy kore-gateway-istio >/dev/null || fail "rollback: Istio did not recreate deploy/kore-gateway-istio"
