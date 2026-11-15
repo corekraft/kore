@@ -24,6 +24,7 @@ import {
   MarkerError,
   scan,
 } from "./retro-scan.js";
+import { agentSection, skillNames } from "./retro-agents.js";
 import { defaultDirs, readTranscripts } from "./retro-transcripts.js";
 import "./retro-hook.js";
 
@@ -37,6 +38,10 @@ vi.mock("../guardrail/index.js", async (importOriginal) => ({
 vi.mock("./retro-transcripts.js", () => ({
   defaultDirs: vi.fn(),
   readTranscripts: vi.fn(),
+}));
+vi.mock("./retro-agents.js", () => ({
+  agentSection: vi.fn(),
+  skillNames: vi.fn(),
 }));
 vi.mock("./retro-scan.js", async (importOriginal) => ({
   ...(await importOriginal<typeof import("./retro-scan.js")>()),
@@ -71,6 +76,20 @@ const SCANNED: ReturnType<typeof scan> = {
   skills: { perSession: {}, unused: [] },
   corrections: [],
   rules: { promotable: [], audit: [] },
+};
+
+const EXTRA = {
+  agents: { known: ["refiner"], launched: [], unused: ["refiner"] },
+  proposals: {
+    history: {
+      minDays: 14,
+      minSessions: 100,
+      days: 3,
+      sessions: 0,
+      sufficient: false,
+    },
+    items: [],
+  },
 };
 
 const notFound = () =>
@@ -123,6 +142,8 @@ beforeEach(() => {
   vi.mocked(lastRetrospective).mockReturnValue("2026-11-12");
   vi.mocked(auditRuleNames).mockReturnValue(["bare-glob"]);
   vi.mocked(scan).mockReturnValue(SCANNED);
+  vi.mocked(skillNames).mockResolvedValue(undefined);
+  vi.mocked(agentSection).mockResolvedValue(EXTRA);
 });
 
 describe("retro-scan command: registration and input", () => {
@@ -176,7 +197,7 @@ describe("retro-scan command: the window", () => {
       evidence: false,
     });
     expect(result).toEqual({
-      stdout: `${JSON.stringify({ since: "2026-11-12", ...SCANNED }, null, 2)}\n`,
+      stdout: `${JSON.stringify({ since: "2026-11-12", ...SCANNED, ...EXTRA }, null, 2)}\n`,
       stderr: NO_SKILLS,
     });
   });
@@ -214,13 +235,8 @@ describe("retro-scan command: the window", () => {
 
 describe("retro-scan command: skills, audit rules and evidence", () => {
   it("passes the skills that hold a SKILL.md, and the audit-mode rules", async () => {
-    const fs = fakeFs();
-    fs.readdir.mockResolvedValue(["tdd", "bin"]);
-    fs.isDirectory.mockResolvedValue(true);
-    fs.exists.mockImplementation((path) =>
-      Promise.resolve(path === "/repo/skills/tdd/SKILL.md"),
-    );
-    const result = await run({ dir: "/t" }, fs);
+    vi.mocked(skillNames).mockResolvedValue(["tdd"]);
+    const result = await run({ dir: "/t" });
     expect(vi.mocked(scan).mock.calls[0]?.[1]).toEqual({
       since: undefined,
       knownSkills: ["tdd"],
@@ -228,6 +244,13 @@ describe("retro-scan command: skills, audit rules and evidence", () => {
       evidence: false,
     });
     expect(result.stderr).toBe("");
+  });
+
+  it("adds the agents and proposals sections for the scan's findings and window", async () => {
+    await run();
+    expect(vi.mocked(agentSection).mock.calls[0]?.[1]).toBe("/repo");
+    expect(vi.mocked(agentSection).mock.calls[0]?.[2]).toBe("2026-11-12");
+    expect(vi.mocked(agentSection).mock.calls[0]?.[3]).toBe(SCANNED);
   });
 
   it("passes the evidence flag through to the scan", async () => {
@@ -251,17 +274,6 @@ describe("retro-scan command: skills, audit rules and evidence", () => {
 });
 
 describe("retro-scan command: reads through the file system", () => {
-  it("rethrows a skills/ read fault that is not a missing directory", async () => {
-    const fs = fakeFs();
-    fs.readdir.mockRejectedValue(
-      Object.assign(new Error("denied"), { code: "EACCES" }),
-    );
-    await expect(run({ dir: "/t" }, fs)).rejects.toMatchObject({
-      message: "denied",
-      code: "EACCES",
-    });
-  });
-
   it("reads the guardrail inventory through the host's file system", async () => {
     const fs = fakeFs();
     await run({ dir: "/t" }, fs);
