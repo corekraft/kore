@@ -1,5 +1,11 @@
 import type { CommandContext } from "../runtime/index.js";
 import {
+  ENFORCE_ALL,
+  evaluateChecklist,
+  type ItemModes,
+  type ItemVerdict,
+} from "./checklist.js";
+import {
   gatherChecks,
   gatherExpandStep,
   parsePrView,
@@ -24,6 +30,10 @@ export interface Report {
   idea: string | undefined;
   declaration: { ok: boolean; reason?: string };
   checks?: Checks;
+  /** Each checklist item with the mode it read and its result. */
+  checklist?: ItemVerdict[];
+  /** The audit items that did not pass: shown here, never a reason to send the change back. */
+  audited?: ItemVerdict[];
   hints?: Hints;
   patternMatches?: boolean;
   patternMismatch?: string;
@@ -96,6 +106,7 @@ export async function precheck(
   repo: string,
   pr: number,
   reviewers: readonly string[],
+  modes: ItemModes = ENFORCE_ALL,
 ): Promise<Report> {
   const view = await readPr(context, root, repo, pr);
   const declaration = parseDeclaration(view.body);
@@ -144,17 +155,32 @@ export async function precheck(
       : assess(declaration.pattern, hints, files, expand.result === "pass");
   const checks: Checks =
     expand === undefined ? gathered : { ...gathered, expandStep: expand };
+  const checklist = evaluateChecklist(
+    {
+      ci: checks.ci,
+      scan: checks.scan,
+      coverage: checks.coverage,
+      "principles-review": checks.principlesReview,
+      ...(checks.expandStep === undefined
+        ? {}
+        : { "expand-step": checks.expandStep }),
+      "pattern-match": verdict.patternMatches
+        ? { result: "pass" }
+        : { result: "fail", detail: verdict.patternMismatch ?? "" },
+    },
+    modes,
+  );
   return {
     pr,
     head: view.headSha,
     reviewers: [...reviewers],
-    ok:
-      verdict.patternMatches &&
-      Object.values(checks).every((c) => c.result === "pass"),
+    ok: checklist.ok,
     pattern: declaration.pattern,
     idea: declaration.idea,
     declaration: { ok: true },
     checks,
+    checklist: checklist.items,
+    audited: checklist.audited,
     hints,
     ...verdict,
   };
@@ -176,12 +202,17 @@ export function summary(report: Report): string {
     report.patternMismatch === undefined
       ? []
       : [`pattern mismatch: ${report.patternMismatch}`];
+  const audited = (report.audited ?? []).map(
+    (a) =>
+      `audit: ${a.item} ${a.result}${a.detail === undefined || a.detail === "" ? "" : ` (${a.detail})`}; reported, not sent back`,
+  );
   const unverified = (report.unverified ?? []).map((u) => `unverified: ${u}`);
   return [
     head,
     `pattern: ${report.pattern ?? "none"}${report.idea === undefined ? "" : ` (idea ${report.idea})`}`,
     `reviewers: ${report.reviewers.join(", ")}`,
     ...checks,
+    ...audited,
     ...hints.map((h) => `hint ${h}`),
     ...mismatch,
     `cluster-facing: ${report.clusterFacing === true}`,

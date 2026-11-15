@@ -15,9 +15,11 @@ import {
   reviewersOf,
 } from "./judge-shared.js";
 import { REPO, reportOf, ROOT } from "./judge-command-support.js";
+import { checklistModes, recordAudits } from "./judge-checklist.js";
 import { requireFreshBundle } from "./judge-freshness.js";
 
 vi.mock("../judge/index.js");
+vi.mock("./judge-checklist.js");
 vi.mock("./judge-freshness.js");
 vi.mock("./judge-declaration-command.js", () => ({
   declarationCommands: { declaration: { summary: "declaration" } },
@@ -41,6 +43,9 @@ vi.mock("./judge-shared.js", async (importOriginal) => ({
 }));
 
 const REPORT = reportOf();
+const MODES = { ci: "audit" } as unknown as Awaited<
+  ReturnType<typeof checklistModes>
+>;
 
 function contextOf(json = false, operand: string | undefined = "42") {
   const stdout = vi.fn();
@@ -57,6 +62,7 @@ function ready() {
   vi.mocked(prNumber).mockReturnValue(42);
   vi.mocked(repoOf).mockResolvedValue(REPO);
   vi.mocked(reviewersOf).mockResolvedValue(["bot"]);
+  vi.mocked(checklistModes).mockResolvedValue(MODES);
   vi.mocked(summary).mockReturnValue("SUMMARY");
 }
 
@@ -71,9 +77,17 @@ describe("harness judge precheck", () => {
       "42",
       expect.stringContaining("Run `harness judge precheck <pr>"),
     );
-    expect(precheck).toHaveBeenCalledWith(context, ROOT, REPO, 42, ["bot"]);
+    expect(precheck).toHaveBeenCalledWith(
+      context,
+      ROOT,
+      REPO,
+      42,
+      ["bot"],
+      MODES,
+    );
     expect(stdout).toHaveBeenCalledWith("SUMMARY");
     expect(record).toHaveBeenCalledWith(context, REPORT);
+    expect(recordAudits).toHaveBeenCalledExactlyOnceWith(context, REPORT);
   });
 
   it("checks the harness bundle is fresh before it reads the PR", async () => {
@@ -99,6 +113,7 @@ describe("harness judge precheck", () => {
     expect(failed).toHaveBeenCalledWith(context, error);
     expect(precheck).not.toHaveBeenCalled();
     expect(record).not.toHaveBeenCalled();
+    expect(recordAudits).not.toHaveBeenCalled();
   });
 
   it("prints the report as JSON under --json", async () => {

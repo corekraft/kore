@@ -1,5 +1,6 @@
 import { JudgeError, precheck, summary, type Report } from "../judge/index.js";
 import type { Command, CommandContext } from "../runtime/index.js";
+import { checklistModes } from "./judge-checklist.js";
 import {
   FAILED,
   failed,
@@ -122,6 +123,7 @@ async function runApprove(context: CommandContext): Promise<number> {
       repo,
       pr,
       await reviewersOf(context, repo),
+      await checklistModes(context),
     );
     await record(context, report);
     const verified = report.head;

@@ -6,6 +6,7 @@ import {
   sendBackBody,
   summary,
 } from "../judge/index.js";
+import { checklistModes, recordAudits } from "./judge-checklist.js";
 import type { Command, CommandContext } from "../runtime/index.js";
 import {
   FAILED,
@@ -39,8 +40,10 @@ async function runMerge(context: CommandContext): Promise<number> {
       repo,
       pr,
       await reviewersOf(context, repo),
+      await checklistModes(context),
     );
     await record(context, report);
+    await recordAudits(context, report);
     if (!report.ok || report.head === undefined || report.head === "") {
       deps.stdout(
         json

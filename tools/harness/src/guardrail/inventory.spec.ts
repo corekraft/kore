@@ -49,6 +49,24 @@ describe("parseInventory: rejected inventories", () => {
     expect(() => parseInventory(text(entry({ note: " " })))).toThrow(/note/);
   });
 
+  it("accepts a checklist kind for a judge checklist item", () => {
+    const inventory = parseInventory(
+      text(entry({ rule: "judge-scan", kind: "checklist", mode: "audit" })),
+    );
+    expect(inventory.guardrails[0]).toMatchObject({
+      kind: "checklist",
+      mode: "audit",
+    });
+  });
+
+  it("rejects a deny list on a checklist rule", () => {
+    expect(() =>
+      parseInventory(
+        text(entry({ kind: "checklist", deny: ["Bash(helm uninstall:*)"] })),
+      ),
+    ).toThrow(/does not fit its kind/);
+  });
+
   it("rejects a deny list on a ruleset rule", () => {
     expect(() =>
       parseInventory(

@@ -1,4 +1,10 @@
 export { PATTERNS, parseDeclaration, type Pattern } from "./declaration.js";
+export {
+  ENFORCE_ALL,
+  modesFrom,
+  type ItemModes,
+  type ItemVerdict,
+} from "./checklist.js";
 export { JudgeError } from "./errors.js";
 export { reviewCheck, type PrComment, type PrView } from "./checks.js";
 export { auditDeclaration, type Audit } from "./declaration-audit.js";

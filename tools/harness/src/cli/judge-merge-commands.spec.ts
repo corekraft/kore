@@ -15,6 +15,7 @@ import {
   repoOf,
   reviewersOf,
 } from "./judge-shared.js";
+import { checklistModes, recordAudits } from "./judge-checklist.js";
 import { fakeLedger } from "./command-support.js";
 import { mergeCommands } from "./judge-merge-commands.js";
 import {
@@ -33,6 +34,7 @@ vi.mock("../judge/index.js", async (importOriginal) => ({
   sendBackBody: vi.fn(),
   summary: vi.fn(),
 }));
+vi.mock("./judge-checklist.js");
 vi.mock("./judge-shared.js", async (importOriginal) => ({
   ...(await importOriginal<typeof import("./judge-shared.js")>()),
   failed: vi.fn(),
@@ -43,16 +45,29 @@ vi.mock("./judge-shared.js", async (importOriginal) => ({
   reviewersOf: vi.fn(),
 }));
 
+const MODES = { ci: "audit" } as unknown as Awaited<
+  ReturnType<typeof checklistModes>
+>;
+
 describe("harness judge merge", () => {
   it("re-runs the precheck and squash-merges the head it verified", async () => {
     const { context, run, stdout } = contextOf("42");
     vi.mocked(prNumber).mockReturnValue(42);
     vi.mocked(repoOf).mockResolvedValue(REPO);
     vi.mocked(reviewersOf).mockResolvedValue(["bot"]);
+    vi.mocked(checklistModes).mockResolvedValue(MODES);
     vi.mocked(precheck).mockResolvedValue(reportOf());
 
     expect(await mergeCommands.merge?.run(context)).toBe(0);
-    expect(precheck).toHaveBeenCalledWith(context, ROOT, REPO, 42, ["bot"]);
+    expect(precheck).toHaveBeenCalledWith(
+      context,
+      ROOT,
+      REPO,
+      42,
+      ["bot"],
+      MODES,
+    );
+    expect(recordAudits).toHaveBeenCalledExactlyOnceWith(context, reportOf());
     expect(run.mock.calls).toEqual([
       [
         "gh",

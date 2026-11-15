@@ -7,6 +7,7 @@ import {
   repoOf,
   reviewersOf,
 } from "./judge-shared.js";
+import { checklistModes, recordAudits } from "./judge-checklist.js";
 import { approveCommands } from "./judge-approve-command.js";
 import {
   contextOf,
@@ -21,6 +22,7 @@ vi.mock("../judge/index.js", async (importOriginal) => ({
   precheck: vi.fn(),
   summary: vi.fn(),
 }));
+vi.mock("./judge-checklist.js");
 vi.mock("./judge-shared.js", async (importOriginal) => ({
   ...(await importOriginal<typeof import("./judge-shared.js")>()),
   failed: vi.fn(),
@@ -29,6 +31,10 @@ vi.mock("./judge-shared.js", async (importOriginal) => ({
   repoOf: vi.fn(),
   reviewersOf: vi.fn(),
 }));
+
+const MODES = { ci: "audit" } as unknown as Awaited<
+  ReturnType<typeof checklistModes>
+>;
 
 interface Review {
   author: { login: string };
@@ -71,6 +77,7 @@ function setup(view = viewJson(), caller = "kore-judge", json = false) {
   vi.mocked(prNumber).mockReturnValue(42);
   vi.mocked(repoOf).mockResolvedValue(REPO);
   vi.mocked(reviewersOf).mockResolvedValue(["bot"]);
+  vi.mocked(checklistModes).mockResolvedValue(MODES);
   vi.mocked(precheck).mockResolvedValue(reportOf());
   return { ...made, run, answer };
 }
@@ -83,7 +90,14 @@ describe("harness judge approve", () => {
     const { context, run, stdout } = setup();
 
     expect(await approveCommands.approve?.run(context)).toBe(0);
-    expect(precheck).toHaveBeenCalledWith(context, ROOT, REPO, 42, ["bot"]);
+    expect(precheck).toHaveBeenCalledWith(
+      context,
+      ROOT,
+      REPO,
+      42,
+      ["bot"],
+      MODES,
+    );
     expect(record).toHaveBeenCalledWith(context, reportOf());
     expect(reviewCalls(run)).toEqual([
       [
