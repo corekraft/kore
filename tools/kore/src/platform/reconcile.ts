@@ -2,6 +2,7 @@ import type { Component, Repository } from "../config/index.js";
 import { CommandError, type Runner } from "../runtime/index.js";
 import { FailFastError, withFailFast, type WatchOptions } from "./fail-fast.js";
 import { desiredFingerprint } from "./fingerprint.js";
+import { releaseGatewayClassChange } from "./gateway-class-change.js";
 import {
   assertChartDelivery,
   assertGoldenPathDelivery,
@@ -60,6 +61,7 @@ async function applyComponent(
   }
   assertChartDelivery(repository, component);
   assertGoldenPathDelivery(repository, component);
+  await releaseGatewayClassChange(repository, runner, component);
   const upgrade = () =>
     withFailFast(
       repository,

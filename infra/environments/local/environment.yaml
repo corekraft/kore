@@ -13,6 +13,7 @@
   "features":
     {
       "autoscaling-defaults": false,
+      "gateway-class-change-release": false,
       "ingress-agentgateway": false,
       "role-tokens": true,
       "local-image-reuse": false,

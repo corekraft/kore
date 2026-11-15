@@ -21,6 +21,9 @@ export function featureHelmArgs(
 /** The flag that selects agentgateway over Istio as the ingress GatewayClass. */
 export const ingressFlag = "ingress-agentgateway";
 
+/** The flag that lets a reconcile delete and recreate the platform Gateway when its GatewayClass changes (plan 13 step 2). */
+export const gatewayClassChangeFlag = "gateway-class-change-release";
+
 /** The GatewayClass the platform Gateway uses, derived from the ingress flag. */
 export function gatewayClassName(
   environment: Pick<Environment, "features">,

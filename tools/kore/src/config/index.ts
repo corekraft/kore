@@ -69,6 +69,7 @@ export {
   enabledComponents,
   featureEnabled,
   featureHelmArgs,
+  gatewayClassChangeFlag,
   gatewayClassName,
   ingressFlag,
   localImageReuseFlag,

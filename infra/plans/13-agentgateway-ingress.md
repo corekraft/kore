@@ -63,6 +63,27 @@ migration from an Istio-ingress profile that keeps the cluster. Whether Istio
 removes the proxy by itself when the class changes is unproven: if it does not,
 readiness times out naming the leftover resource.
 
+The live proof (phase 2) showed it does not: `kore-gateway-istio` stayed and the
+Gateway was never Programmed. So `kore-platform-config`'s reconcile now runs a
+class-change step, gated by the new flag `gateway-class-change-release` (off in
+every overlay; with it off the step reads and deletes nothing) before its Helm upgrade (`gateway-class-change.ts`). It reads
+`gateway/kore-gateway` `.spec.gatewayClassName` on the named context; when it
+differs from the class the flag derives, it deletes only that Gateway
+(Kubernetes garbage collection removes the old proxy through its
+ownerReference, so no deployment or service is deleted), waits until the
+Gateway and the old proxy are gone (a timeout names the Gateway and the
+leftover), and the Helm upgrade that follows recreates it in the new class. A
+class change therefore deletes and recreates the Gateway with a brief ingress
+outage. It prints one line before the delete. A matching class is a no-op, and so is an
+absent Gateway with no old proxy (a fresh profile); an absent Gateway whose old
+proxy remains (an interrupted change) still waits for the proxy. The flag off
+changes nothing. Rollback is `ingress-agentgateway` off and `kore local up`, which makes the
+same swap back to Istio while the new flag is on. Activation of
+`gateway-class-change-release` is for the live proof profile: in the throwaway
+profile of `tools/kore/scripts/agentgateway-live-proof.sh`, the script turns it
+on together with `ingress-agentgateway` in phase 2 and keeps it on through
+phase 4; no committed overlay turns it on.
+
 ## Step 3: Re-Prove the Identity Chain
 
 ### Work
