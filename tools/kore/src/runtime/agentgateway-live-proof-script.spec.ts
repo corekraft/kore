@@ -48,7 +48,9 @@ describe("agentgateway live proof, phase 4 rollback", () => {
   });
 
   it("stops before any uninstall when listing the resources of a kind fails", () => {
-    const listing = at('k get "$crd" --all-namespaces -o name) || fail');
+    const listing = at(
+      'found="$(k get "$crd" --all-namespaces -o name)" || fail',
+    );
     expect(listing).toBeGreaterThan(-1);
     expect(listing).toBeLessThan(at("helm uninstall"));
   });
