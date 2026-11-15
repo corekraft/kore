@@ -35,7 +35,8 @@
       "local-image-reuse": false,
       "registry-tag-pruning": false,
       "platform-organization-service-apis": false,
-      "platform-argocd-delivery": false
+      "platform-argocd-delivery": false,
+      "platform-portal": false
     },
   "secrets": { "storeName": "platform-secrets", "sourceNamespace": "external" },
   "telemetry":

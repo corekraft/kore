@@ -117,6 +117,7 @@ test("the managed-example overlay validates with and without flags", async () =>
         "ingress-agentgateway": false,
         "platform-argocd-delivery": false,
         "platform-organization-service-apis": false,
+        "platform-portal": false,
       },
     },
   });

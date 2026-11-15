@@ -47,6 +47,7 @@ vi.mock("./features.js", () => ({
   localImageReuseFlag: "local-image-reuse",
   organizationServiceApisFlag: "platform-organization-service-apis",
   platformArgocdDeliveryFlag: "platform-argocd-delivery",
+  platformPortalFlag: "platform-portal",
   registryPruneFlag: "registry-tag-pruning",
 }));
 vi.mock("./ownership.js", () => ({
@@ -119,6 +120,7 @@ test("the config barrel exposes exactly the entry points other domains use", () 
     "patchableKinds",
     "platformArgocdDeliveryFlag",
     "platformClaimErrors",
+    "platformPortalFlag",
     "policyPromotionErrors",
     "probeFields",
     "probeNames",

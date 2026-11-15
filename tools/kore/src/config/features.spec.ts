@@ -3,6 +3,7 @@ import { orderedComponents } from "./order.js";
 import {
   autoscalingFlag,
   platformArgocdDeliveryFlag,
+  platformPortalFlag,
   componentGatedOff,
   enabledComponents,
   featureEnabled,
@@ -131,5 +132,17 @@ test("the platform Argo CD delivery flag gates a component off until an overlay 
       environment({ [platformArgocdDeliveryFlag]: true }),
       gated,
     ),
+  ).toBe(false);
+});
+
+test("the platform portal flag gates a component off until an overlay turns it on, and an omitted flag is off", () => {
+  expect(platformPortalFlag).toBe("platform-portal");
+  const gated = fakeComponent({ featureFlag: platformPortalFlag });
+  expect(
+    componentGatedOff(environment({ [platformPortalFlag]: false }), gated),
+  ).toBe(true);
+  expect(componentGatedOff(environment(undefined), gated)).toBe(true);
+  expect(
+    componentGatedOff(environment({ [platformPortalFlag]: true }), gated),
   ).toBe(false);
 });
