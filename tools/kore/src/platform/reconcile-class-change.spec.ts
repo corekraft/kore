@@ -15,6 +15,7 @@ import {
   fakeRepository,
   fakeRunner,
 } from "./platform-support.js";
+import { errorMessage } from "./probe.js";
 import { reconcileComponent } from "./reconcile.js";
 import { waitFor } from "./readiness.js";
 
