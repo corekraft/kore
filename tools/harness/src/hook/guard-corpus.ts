@@ -197,7 +197,7 @@ const GUARD_PATH_VARIANTS = bash(
   "echo x > .claude//hooks//guard.sh",
 );
 
-/** The writer may not flip a flag, record an outcome or dispatch a workflow: each is the person's or the person's call. */
+/** The writer may not flip a flag, record an outcome or dispatch a workflow: each is the person's call. */
 const GATED = bash(
   "writer",
   "role-no-merge",
