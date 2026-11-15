@@ -7,6 +7,7 @@ const gatedOffReleases = [
   "agentgateway-crds",
   "metrics-server",
   "argocd",
+  "keycloak-operator",
   "kore-platform-apis",
   "kore-golden-path-delivery",
   "kore-config-delivery",

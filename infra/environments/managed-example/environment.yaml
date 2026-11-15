@@ -82,6 +82,10 @@
         ["infra/environments/managed-example/values/mirror/agentgateway.yaml"],
       "argocd":
         ["infra/environments/managed-example/values/mirror/argocd.yaml"],
+      "keycloak-operator":
+        [
+          "infra/environments/managed-example/values/mirror/keycloak-operator.yaml"
+        ],
       "metrics-server":
         [
           "infra/environments/managed-example/values/mirror/metrics-server.yaml"
