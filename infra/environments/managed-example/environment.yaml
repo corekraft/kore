@@ -34,7 +34,8 @@
       "ingress-agentgateway": false,
       "local-image-reuse": false,
       "registry-tag-pruning": false,
-      "platform-organization-service-apis": false
+      "platform-organization-service-apis": false,
+      "platform-argocd-delivery": false
     },
   "secrets": { "storeName": "platform-secrets", "sourceNamespace": "external" },
   "telemetry":
@@ -78,6 +79,8 @@
         ["infra/environments/managed-example/values/mirror/grafana.yaml"],
       "agentgateway":
         ["infra/environments/managed-example/values/mirror/agentgateway.yaml"],
+      "argocd":
+        ["infra/environments/managed-example/values/mirror/argocd.yaml"],
       "metrics-server":
         [
           "infra/environments/managed-example/values/mirror/metrics-server.yaml"

@@ -408,6 +408,35 @@
           }
       },
       {
+        "image": "quay.io/argoproj/argocd:v3.6.1@sha256:296e3d74f449b2ce45265613fcb68c18ed7366488360c8ea32f5f2a93d2e5c54",
+        "name": "argocd",
+        "component": "argocd",
+        "evidence":
+          {
+            "method": "cosign-keyless",
+            "source": "cosign verify --certificate-oidc-issuer https://token.actions.githubusercontent.com --certificate-identity https://github.com/argoproj/argo-cd/.github/workflows/image-reuse.yaml@refs/tags/v3.6.1: verified at this index digest (crane digest quay.io/argoproj/argocd:v3.6.1), Rekor entry verified.",
+            "checked": "2026-11-14",
+            "provenance":
+              {
+                "signed": true,
+                "issuer": "https://token.actions.githubusercontent.com",
+                "identity": "https://github.com/argoproj/argo-cd/.github/workflows/image-reuse.yaml@refs/tags/v3.6.1"
+              }
+          }
+      },
+      {
+        "image": "ecr-public.aws.com/docker/library/redis:8.6.4-alpine@sha256:2cc044fc5a07c9b701f8f1255a309ae9ad7856e694ac03513bf3648c01e40763",
+        "name": "argocd-redis",
+        "component": "argocd",
+        "evidence":
+          {
+            "method": "registry-digest",
+            "source": "crane digest ecr-public.aws.com/docker/library/redis:8.6.4-alpine resolves to this index digest. Upstream publishes no cosign signature (cosign verify: no signatures found), so this is recorded unsigned.",
+            "checked": "2026-11-14",
+            "provenance": { "signed": false }
+          }
+      },
+      {
         "image": "registry.k8s.io/kube-state-metrics/kube-state-metrics:v2.20.0@sha256:42cfe3723a5f058171c627537fb57a3ea0f26e4380fa18555a95cb1a1b4cfc5b",
         "name": "kube-state-metrics",
         "component": "prometheus",

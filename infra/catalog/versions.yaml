@@ -37,6 +37,7 @@
       "istio": "1.31.4",
       "agentgateway": "v1.7.0",
       "metrics-server": "3.14.0",
+      "argocd": "10.18.0",
       "crossplane": "2.4.3",
       "external-secrets": "2.14.0",
       "cloudnative-pg": "0.29.1",

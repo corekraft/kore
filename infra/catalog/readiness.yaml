@@ -65,6 +65,12 @@
         "components": ["metrics-server"]
       },
       {
+        "name": "argocd",
+        "step": 8,
+        "capability": "controller",
+        "components": ["argocd"]
+      },
+      {
         "name": "secrets",
         "step": 8,
         "capability": "controller",
