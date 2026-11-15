@@ -45,6 +45,8 @@
     },
   "componentValues":
     {
+      "kore-platform-apis":
+        ["infra/environments/managed-example/values/platform-apis.yaml"],
       "otel-collector":
         [
           "infra/environments/managed-example/values/otel-collector.yaml",
