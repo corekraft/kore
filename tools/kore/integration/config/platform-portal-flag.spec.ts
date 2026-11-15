@@ -90,7 +90,7 @@ test("the local values name exactly the approved images, so the operator and the
   );
   assert.deepEqual(
     images.sort(),
-    approved.filter((i) => i.includes("keycloak")).sort(),
+    approved.filter((i) => i.includes("keycloak/")).sort(),
   );
 });
 

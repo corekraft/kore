@@ -20,7 +20,10 @@ export {
   openApplicationAdmission,
 } from "./readiness-gate.js";
 export type { GateCheckResult } from "./readiness-gate.js";
-import { ensureKeycloakAdmin } from "./keycloak-admin.js";
+import {
+  ensureKeycloakAdmin,
+  ensureKeycloakProviderCredentials,
+} from "./keycloak-admin.js";
 import { reconcileIfNeeded } from "./reconcile.js";
 
 async function ensureCluster(
@@ -83,6 +86,11 @@ export async function bootstrapControllers(
     // (ADR 0034). Present only with platform-portal on.
     if (component.name === "keycloak-operator") {
       await ensureKeycloakAdmin(repository, runner);
+    }
+    // The provider's ClusterProviderConfig reads this credential, built from
+    // the admin Secret above, so it follows the provider's install (ADR 0034).
+    if (component.name === "keycloak-provider") {
+      await ensureKeycloakProviderCredentials(repository, runner);
     }
     // The CA exists once the registry's certificate is issued. Clients that
     // live in the cluster (the node's containerd, Policy Controller) get it
