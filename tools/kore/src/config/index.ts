@@ -71,6 +71,7 @@ export {
   platformArgocdDeliveryFlag,
   registryPruneFlag,
 } from "./features.js";
+export { helmInstalledComponents, releaseOwner } from "./ownership.js";
 export { managedCluster } from "./managed-cluster.js";
 export type { ManagedCluster } from "./managed-cluster.js";
 export { findRoot } from "./config.js";

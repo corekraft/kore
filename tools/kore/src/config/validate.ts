@@ -25,6 +25,7 @@ const phases = new Set<Phase>([
   "configuration",
   "enforcement",
 ]);
+const owners = new Set<string>(["kore", "argocd"]);
 const kinds = new Set<ComponentKind>(["helm", "local-chart", "manifest"]);
 
 interface Rule<T> {
@@ -161,6 +162,25 @@ const componentRules: Rule<ComponentContext>[] = [
   rule(
     ({ component }) => `${component.name}: manifest source is required`,
     ({ component }) => component.kind === "manifest" && !component.source,
+  ),
+  rule(
+    ({ component }) => `${component.name}: owner must be kore or argocd`,
+    ({ component }) =>
+      component.owner !== undefined && !owners.has(component.owner),
+  ),
+  rule(
+    ({ component }) =>
+      `${component.name}: an argocd release must be in the configuration phase, not ${component.phase} (ADR 0043)`,
+    ({ component }) =>
+      component.owner === "argocd" &&
+      phases.has(component.phase) &&
+      component.phase !== "configuration",
+  ),
+  rule(
+    ({ component }) =>
+      `${component.name}: the image policy stays owned by kore (ADR 0043)`,
+    ({ component }) =>
+      component.owner === "argocd" && component.name === "kore-image-policy",
   ),
   rule(
     ({ component }) => `${component.name}: chart is required`,

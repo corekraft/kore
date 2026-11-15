@@ -264,3 +264,43 @@ test("the errors of every collaborator are merged, de-duplicated and sorted into
     ].join("\n"),
   );
 });
+
+test("a release owner must be kore or argocd", async () => {
+  const repository = repositoryWith({
+    components: [malformed<Component>({ ...fakeComponent(), owner: "helm" })],
+  });
+  expect(await messageOf(repository)).toBe(
+    "kore-registry: owner must be kore or argocd",
+  );
+});
+
+test("an argocd release must be in the configuration phase, because kore installs every earlier phase through Helm", async () => {
+  const repository = repositoryWith({
+    components: [fakeComponent({ owner: "argocd", phase: "core" })],
+  });
+  expect(await messageOf(repository)).toBe(
+    "kore-registry: an argocd release must be in the configuration phase, not core (ADR 0043)",
+  );
+});
+
+test("the image policy cannot be handed to argocd, so the tool that deploys cannot change which signatures are trusted", async () => {
+  const repository = repositoryWith({
+    components: [
+      fakeComponent({
+        name: "kore-image-policy",
+        owner: "argocd",
+        phase: "configuration",
+      }),
+    ],
+  });
+  expect(await messageOf(repository)).toBe(
+    "kore-image-policy: the image policy stays owned by kore (ADR 0043)",
+  );
+});
+
+test("a configuration release owned by argocd passes", async () => {
+  const repository = repositoryWith({
+    components: [fakeComponent({ owner: "argocd", phase: "configuration" })],
+  });
+  expect(await messageOf(repository)).toBeUndefined();
+});
