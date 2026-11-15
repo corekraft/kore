@@ -251,7 +251,7 @@ function text(report: Printed): string {
 }
 
 /** The cost settings from the harness config; defaults when the checkout has none. */
-async function loadCost({ deps }: CommandContext) {
+export async function loadCost({ deps }: CommandContext) {
   const root = await deps.root().catch(() => undefined);
   const file = root === undefined ? undefined : join(root, HARNESS_CONFIG);
   if (file === undefined || !(await deps.fs.exists(file))) {

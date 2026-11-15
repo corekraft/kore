@@ -2,20 +2,27 @@ import { describe, expect, it, vi } from "vitest";
 import type { Command } from "../runtime/index.js";
 import { measurement } from "./measurement.js";
 
-const { ledgerCommands, flowCommands, queueCommands, orchestrateCommands } =
-  vi.hoisted(() => {
-    const command: Command = { summary: "x", run: () => Promise.resolve(0) };
-    return {
-      ledgerCommands: { record: command },
-      flowCommands: { report: command },
-      queueCommands: { next: command },
-      orchestrateCommands: { run: command },
-    };
-  });
+const {
+  ledgerCommands,
+  flowCommands,
+  queueCommands,
+  retroCommands,
+  orchestrateCommands,
+} = vi.hoisted(() => {
+  const command: Command = { summary: "x", run: () => Promise.resolve(0) };
+  return {
+    ledgerCommands: { record: command },
+    flowCommands: { report: command },
+    queueCommands: { next: command },
+    retroCommands: { due: command },
+    orchestrateCommands: { run: command },
+  };
+});
 
 vi.mock("./ledger-commands.js", () => ({ ledgerCommands }));
 vi.mock("./flow-commands.js", () => ({ flowCommands }));
 vi.mock("./queue-commands.js", () => ({ queueCommands }));
+vi.mock("./retro-commands.js", () => ({ retroCommands }));
 vi.mock("./orchestrate-commands.js", () => ({ orchestrateCommands }));
 
 describe("measurement command map", () => {
@@ -24,6 +31,7 @@ describe("measurement command map", () => {
       ledger: ledgerCommands,
       flow: flowCommands,
       queue: queueCommands,
+      retro: retroCommands,
       orchestrate: orchestrateCommands,
     });
   });
@@ -32,6 +40,7 @@ describe("measurement command map", () => {
     expect(measurement.ledger).toBe(ledgerCommands);
     expect(measurement.flow).toBe(flowCommands);
     expect(measurement.queue).toBe(queueCommands);
+    expect(measurement.retro).toBe(retroCommands);
     expect(measurement.orchestrate).toBe(orchestrateCommands);
   });
 });

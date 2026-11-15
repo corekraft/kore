@@ -516,6 +516,31 @@ Each rate is `null`, never zero, when nothing was measured, and each counts only
 events inside `--since`/`--until`. Only counts, conclusions and times are
 stored, never a title, body or login.
 
+## Retro due and record
+
+`harness retro due [--json] [--ledger PATH]` says whether a retro is due, from
+recorded data only, and writes nothing. It is due with reason `count` once five
+distinct ideas have an `outcome` event after the `Last retrospective:` marker
+(the latest across `infra/plans`, the one the session brief reads), or early
+with reason `metric`, naming a trailing flow metric (`tokensPerIdea`,
+`sessionsPerIdea` or a `rework` metric) that `worsened` on an idea closed after
+the marker. A metric with `insufficient history` never triggers. A reason
+already recorded after the marker does not fire again: the answer is not due
+with `alreadyTriggered`. `--json` is one object: `due`, `reason`, `metric`,
+`closedIdeas`, `threshold`, `alreadyTriggered`, `lastRetrospective`. It exits 0
+whether or not a retro is due, and never starts one; running `/retro` stays a
+separate step.
+
+`harness retro record --reason count|manual|metric:<name> [--json]` appends one
+`retro-triggered` event (the reason as `label`) and moves the marker. The marker
+is the `Last retrospective:` line of the `## Retrospective marker` section the
+command keeps at the end of `infra/plans/3-agent-harness.md`; the event and the
+marker carry the same UTC second, so the new window opens exactly there. A
+malformed reason is refused with nothing written; a reason already recorded in
+the window is not appended twice, but the marker still moves. Never edit the
+section or the ledger by hand. Nothing triggers `retro record` automatically
+yet (plan 12, Step 2 follow-ups).
+
 ## Status
 
 `node skills/bin/harness.mjs status --json` is the concierge's one read-only
