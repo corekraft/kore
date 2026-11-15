@@ -6,6 +6,10 @@
 import { expect, test, vi } from "vitest";
 
 const FORWARDS: Record<string, readonly string[]> = {
+  "./gateway-flags-off.fixtures.js": [
+    "loadLocalGatewayFlagsOff",
+    "withGatewayFlagsOff",
+  ],
   "./app-fixtures.js": [
     "digest",
     "gateOutput",

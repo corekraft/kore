@@ -1,0 +1,14 @@
+# The working-tree pass of `mise run scan-secrets` reads this file: it is .trufflehog-exclude plus the CHANGELOG.md entry at the end. Keep the shared lines identical (a spec enforces it).
+# Regex patterns, one per line, matched against repository-relative paths.
+# .kore/ holds local key material; no scanner may ever read it.
+^\.kore/
+(^|/)node_modules/
+(^|/)dist/
+(^|/)bin/
+(^|/)coverage/
+# SOPS-encrypted files are expected ciphertext (ENC[...] values), not leaked secrets.
+\.enc\.yaml$
+# Vendored upstream Keycloak CRD: the JDBC detector reports a documentation example sentence in an upstream description (no host, no credential). The current file is trimmed and scans clean; the line stays only while the branch history holds the original, and can go once the change is squashed.
+(^|/)infra/charts/keycloak-operator/templates/crd-keycloaks\.yaml$
+# release-please's generated CHANGELOG.md links every entry to its 40-hex commit hash, and scanning the whole file reports one such hash as an unverified GitHubOauth2 token (release PR #735, line 634). It is a commit link, not a credential. Only this pass skips the file: the history pass still reads every committed version of it, so a real token there is caught.
+^CHANGELOG\.md$

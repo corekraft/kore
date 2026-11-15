@@ -12,11 +12,11 @@
   "registry": { "address": "10.96.0.50:5000" },
   "features":
     {
-      "agentgateway-mesh-enrollment": false,
+      "agentgateway-mesh-enrollment": true,
       "autoscaling-defaults": false,
-      "gateway-class-change-release": false,
-      "gateway-rollback-order": false,
-      "ingress-agentgateway": false,
+      "gateway-class-change-release": true,
+      "gateway-rollback-order": true,
+      "ingress-agentgateway": true,
       "role-tokens": true,
       "local-image-reuse": false,
       "registry-tag-pruning": false,

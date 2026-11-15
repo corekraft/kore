@@ -1,5 +1,26 @@
 # Changelog
 
+## [0.6.0](https://github.com/corekraft/kore/compare/v0.5.0...v0.6.0) (2026-11-15)
+
+
+### Features
+
+* **platform:** turn on the four agentgateway flags in local ([#734](https://github.com/corekraft/kore/issues/734)) ([774ca3a](https://github.com/corekraft/kore/commit/774ca3ab6832e18ab30c170d38588b5550c2253a))
+
+
+### Bug fixes
+
+* **release:** name each packaged chart after its catalog entry ([#736](https://github.com/corekraft/kore/issues/736)) ([6370981](https://github.com/corekraft/kore/commit/6370981cab62ce4fe4e001c7f948e59f42b7de03))
+* **templates:** train and run the BFF AOT cache from a jar class path ([#738](https://github.com/corekraft/kore/issues/738)) ([7ad85bf](https://github.com/corekraft/kore/commit/7ad85bfefaaa437b65454df23e6f1a26c631d351))
+
+
+### Documentation
+
+* **harness:** key the reviewer live-run rule on the declared safety pattern ([#761](https://github.com/corekraft/kore/issues/761)) ([0158a18](https://github.com/corekraft/kore/commit/0158a1864f95d8301e44fd89deca497396e7c014))
+* **harness:** trim the judge definition to its judgement ([#760](https://github.com/corekraft/kore/issues/760)) ([08dcf3e](https://github.com/corekraft/kore/commit/08dcf3edf7c114bd7d907beb8b3a7c48d59bfc53))
+* **plan:** record the confirmed agentgateway ingress outcome ([#733](https://github.com/corekraft/kore/issues/733)) ([cb91755](https://github.com/corekraft/kore/commit/cb91755d35faa7e08fe552032b53e96ac4cbdcfc))
+* **skills:** carry only judgement and align testing guidance with ADR 0098 ([#759](https://github.com/corekraft/kore/issues/759)) ([c18aa34](https://github.com/corekraft/kore/commit/c18aa340b5b0c9056f42631e6db364ccbcfb15a5))
+
 ## [0.5.0](https://github.com/corekraft/kore/compare/v0.4.0...v0.5.0) (2026-11-15)
 
 
