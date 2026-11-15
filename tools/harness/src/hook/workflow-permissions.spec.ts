@@ -65,6 +65,28 @@ describe("permissionProblems: the release workflow", () => {
     ]);
   });
 
+  it("refuses a missing top-level permissions block, with the fix", () => {
+    const text = release().replace(
+      "permissions:\n  contents: read\njobs:",
+      "jobs:",
+    );
+    expect(permissionProblems({ "release.yaml": text })).toEqual([
+      "release.yaml: top-level permissions must be present and read-only; add `permissions: {}` or `contents: read`",
+    ]);
+  });
+
+  it("refuses a job without explicit permissions, with the fix", () => {
+    expect(
+      permissionProblems({
+        "release.yaml": release({ extra: "timeout-minutes: 5" }),
+      }),
+    ).toEqual([
+      "release.yaml: job extra needs explicit permissions; add `permissions: {}` or the read scopes it uses",
+    ]);
+  });
+});
+
+describe("permissionProblems: signing jobs by name", () => {
   it("lets the charts job sign and push when it runs only for tags", () => {
     const text = release()
       .replace("  extra:", "  charts:")
@@ -85,26 +107,6 @@ describe("permissionProblems: the release workflow", () => {
       );
     expect(permissionProblems({ "release.yaml": text })).toEqual([
       `release.yaml: job sneaky requests id-token: write; ${SIGNERS}`,
-    ]);
-  });
-
-  it("refuses a missing top-level permissions block, with the fix", () => {
-    const text = release().replace(
-      "permissions:\n  contents: read\njobs:",
-      "jobs:",
-    );
-    expect(permissionProblems({ "release.yaml": text })).toEqual([
-      "release.yaml: top-level permissions must be present and read-only; add `permissions: {}` or `contents: read`",
-    ]);
-  });
-
-  it("refuses a job without explicit permissions, with the fix", () => {
-    expect(
-      permissionProblems({
-        "release.yaml": release({ extra: "timeout-minutes: 5" }),
-      }),
-    ).toEqual([
-      "release.yaml: job extra needs explicit permissions; add `permissions: {}` or the read scopes it uses",
     ]);
   });
 });
