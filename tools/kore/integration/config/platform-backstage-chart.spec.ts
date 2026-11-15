@@ -173,3 +173,135 @@ test("managed-example takes the hosts from its platform domain and both images f
   assert.equal(deployment.includes("ghcr.io/backstage"), false);
   assert.equal(deployment.includes("quay.io"), false);
 });
+
+async function renderRouted(
+  gatewayClassName = "agentgateway",
+): Promise<string> {
+  const root = await findRoot();
+  const repository = await loadRepository("local");
+  const component = repository.catalog.components.find(
+    (c) => c.name === "kore-platform-backstage",
+  );
+  const values = (component?.values ?? [])
+    .concat(
+      repository.environment.componentValues?.["kore-platform-backstage"] ?? [],
+    )
+    .flatMap((file) => ["--values", join(root, file)]);
+  const { stdout } = await run("helm", [
+    "template",
+    "kore-platform-backstage",
+    join(root, "infra/charts/platform-backstage"),
+    "--namespace",
+    "backstage",
+    ...values,
+    "--set-string",
+    `gatewayClassName=${gatewayClassName}`,
+  ]);
+  return stdout;
+}
+
+const documents = (rendered: string, kind: string): string[] =>
+  rendered
+    .split(/^---$/m)
+    .filter((part) => new RegExp(`^kind: ${kind}$`, "m").test(part));
+
+test("the portal host routes only to the sign-in proxy's Service, so a request with no sign-in never reaches Backstage", async () => {
+  const rendered = await renderRouted();
+  const routes = documents(rendered, "HTTPRoute");
+  assert.equal(routes.length, 1);
+  const route = routes[0]!;
+  assert.match(route, /hostnames:\n\s+- "backstage\.kore\.local"/);
+  const backends = [...route.matchAll(/backendRefs:[\s\S]*?(?=\n\S|$)/g)];
+  assert.equal(backends.length, 1);
+  assert.match(route, /name: backstage\n\s+port: 80/);
+  assert.equal(route.includes("7007"), false);
+  assert.equal(/name: backstage-db/.test(route), false);
+  // The Service the route names targets the proxy's port, never Backstage's.
+  assert.match(document(rendered, "Service"), /targetPort: 4180/);
+});
+
+test("exactly one route and one Service are exposed, and no route or Service names Backstage's own port, so there is no second way in", async () => {
+  const rendered = await renderRouted();
+  assert.equal(documents(rendered, "HTTPRoute").length, 1);
+  assert.equal(documents(rendered, "Service").length, 1);
+  for (const kind of ["Ingress", "TCPRoute", "GRPCRoute", "TLSRoute"]) {
+    assert.equal(documents(rendered, kind).length, 0, kind);
+  }
+  for (const part of [
+    ...documents(rendered, "HTTPRoute"),
+    ...documents(rendered, "Service"),
+  ]) {
+    assert.equal(part.includes("7007"), false);
+  }
+  assert.equal(/kind: (NodePort|LoadBalancer)/.test(rendered), false);
+});
+
+test("the portal host is served over HTTPS from a certificate for that host only, in the Backstage namespace", async () => {
+  const rendered = await renderRouted();
+  const gateway = document(rendered, "Gateway");
+  assert.match(gateway, /namespace: backstage/);
+  assert.match(gateway, /gatewayClassName: "agentgateway"/);
+  assert.match(gateway, /hostname: "backstage\.kore\.local"/);
+  assert.match(gateway, /protocol: HTTPS/);
+  assert.match(gateway, /mode: Terminate/);
+  assert.match(gateway, /from: Same/);
+  const certificate = document(rendered, "Certificate");
+  assert.match(certificate, /- "backstage\.kore\.local"/);
+  assert.match(certificate, /name: kore-local-ca/);
+  assert.match(certificate, /secretName: backstage-tls/);
+  assert.match(gateway, /name: backstage-tls/);
+  const route = document(rendered, "HTTPRoute");
+  assert.match(route, /kind: Gateway\n\s+name: backstage/);
+});
+
+test("the managed-example portal host comes from its platform domain, so the route is never a hard-coded host", async () => {
+  const root = await findRoot();
+  const repository = await loadRepository("managed-example");
+  const component = repository.catalog.components.find(
+    (c) => c.name === "kore-platform-backstage",
+  );
+  const values = [
+    ...(component?.values ?? []),
+    ...(repository.environment.componentValues?.["kore-platform-backstage"] ??
+      []),
+  ].flatMap((file) => ["--values", join(root, file)]);
+  const { stdout } = await run("helm", [
+    "template",
+    "kore-platform-backstage",
+    join(root, "infra/charts/platform-backstage"),
+    "--namespace",
+    "backstage",
+    ...values,
+    "--set-string",
+    "gatewayClassName=agentgateway",
+  ]);
+  assert.match(
+    document(stdout, "HTTPRoute"),
+    /"backstage\.platform\.example\.com"/,
+  );
+  assert.equal(stdout.includes("kore.local"), false);
+});
+
+test("the route renders only once the gateway class is given, so a render without it adds no resource", async () => {
+  const rendered = await render("local");
+  for (const kind of ["Gateway", "HTTPRoute", "Certificate"]) {
+    assert.equal(documents(rendered, kind).length, 0, kind);
+  }
+});
+
+test("group authorization stays with the platform-operators group, and the route adds no second grant", async () => {
+  const rendered = await renderRouted();
+  const rbac = documents(rendered, "ClusterRoleBinding").join("\n");
+  assert.match(rbac, /platform-operators/);
+  for (const part of [
+    ...documents(rendered, "HTTPRoute"),
+    ...documents(rendered, "Gateway"),
+  ]) {
+    assert.equal(/kind: (Cluster)?Role/.test(part), false);
+  }
+  const subjects = [...rendered.matchAll(/kind: Group\n\s+name: (\S+)/g)].map(
+    (m) => m[1],
+  );
+  assert.ok(subjects.length > 0);
+  assert.ok(subjects.every((s) => s === "platform-operators"));
+});
