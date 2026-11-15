@@ -3,6 +3,7 @@ import { CommandError } from "../runtime/index.js";
 import { FailFastError, withFailFast } from "./fail-fast.js";
 import { desiredFingerprint } from "./fingerprint.js";
 import {
+  assertChartDelivery,
   envOption,
   helmEnv,
   helmUpgradeArgs,
@@ -95,6 +96,18 @@ test("a release with nothing to clear reports that nothing changed", async () =>
   await expect(
     recoverUndeployedRelease(repository, fakeRunner().runner, chart),
   ).resolves.toBe(false);
+});
+
+test("a chart that cannot be delivered is refused before Helm runs, so no cluster call is made", async () => {
+  vi.mocked(assertChartDelivery).mockImplementation(() => {
+    throw new Error("needs the chart lock");
+  });
+  const { runner, run } = fakeRunner();
+  await expect(reconcileComponent(repository, runner, chart)).rejects.toThrow(
+    "needs the chart lock",
+  );
+  expect(assertChartDelivery).toHaveBeenCalledWith(repository, chart);
+  expect(run).not.toHaveBeenCalled();
 });
 
 test("a manifest component is applied recursively with server-side apply, then waited on", async () => {

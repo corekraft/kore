@@ -1,10 +1,15 @@
 {
   "$schema": "https://json-schema.org/draft-07/schema#",
   "type": "object",
-  "required": ["charts", "namespaces"],
+  "required": ["charts", "namespaces", "gatewayClassName"],
   "additionalProperties": false,
   "properties": {
     "namespace": { "type": "string", "minLength": 1 },
+    "gatewayClassName": {
+      "description": "The GatewayClass kore derives from the ingress flag; passed to kore-platform-config as gateway.className.",
+      "type": "string",
+      "enum": ["istio", "agentgateway"]
+    },
     "project": { "type": "string", "minLength": 1 },
     "operatorsGroup": { "type": "string", "minLength": 1 },
     "charts": {

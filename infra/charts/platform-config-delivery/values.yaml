@@ -10,6 +10,10 @@
 # namespaces:
 #   opa-authorizer: opa-system
 
+# The GatewayClass kore-platform-config renders, which kore derives from the
+# ingress feature flag and so passes in. No default.
+# gatewayClassName: istio
+
 # Argo CD namespace, the AppProject, and the Keycloak group that alone may
 # change it (ADR 0043).
 namespace: argocd

@@ -15,6 +15,7 @@ import {
   platformRender,
   platformStatusReport,
   platformStop,
+  composeChartDelivery,
   platformUp,
   readinessFailureSummary,
 } from "../platform/index.js";
@@ -100,7 +101,14 @@ export async function platformCommand(
     bootstrap: async (_context, mutationRunner) =>
       await bootstrapControllers(repository, mutationRunner),
     up: async (_context, mutationRunner) =>
-      await platformUp(repository, mutationRunner),
+      // Schema-check the chart lock before any cluster call, then install.
+      await platformUp(
+        await composeChartDelivery(
+          repository,
+          stringFlag(context.parsed, "platform-chart-lock"),
+        ),
+        mutationRunner,
+      ),
     "gate-check": async (_context, mutationRunner) => {
       const result = await closeGateIfDegraded(repository, mutationRunner);
       print(

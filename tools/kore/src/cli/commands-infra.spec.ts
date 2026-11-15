@@ -11,6 +11,7 @@ import {
 import {
   bootstrapControllers,
   closeGateIfDegraded,
+  composeChartDelivery,
   platformClaimsStatus,
   platformDestroy,
   platformRender,
@@ -115,12 +116,15 @@ test.each(renderCases)(
   },
 );
 
-test("platform bootstrap and up run as environment mutations on their own handlers", async () => {
+test("platform bootstrap and up run as environment mutations on their own handlers, up with the release's chart lock", async () => {
+  flags({ "platform-chart-lock": "l.json" });
+  vi.mocked(composeChartDelivery).mockResolvedValue(repository);
   const context = fakeContext({ command: "platform", action: "up" });
   await platformCommand(context);
   await actionsOf().bootstrap!(context, runner);
   await actionsOf().up!(context, runner);
   expect(bootstrapControllers).toHaveBeenCalledWith(repository, runner);
+  expect(composeChartDelivery).toHaveBeenCalledWith(repository, "l.json");
   expect(platformUp).toHaveBeenCalledWith(repository, runner);
 });
 

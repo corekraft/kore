@@ -72,6 +72,8 @@ export {
   platformPortalFlag,
   registryPruneFlag,
 } from "./features.js";
+export { chartDeliveryValues, chartRepositoryUrls } from "./chart-delivery.js";
+export type { ChartDeliveryValues } from "./chart-delivery.js";
 export {
   configDeliveryRelease,
   helmInstalledComponents,

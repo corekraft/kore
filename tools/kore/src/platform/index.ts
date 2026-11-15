@@ -14,6 +14,7 @@ export type {
   PlatformClaimsStatus,
 } from "./platform-claims-status.js";
 export type { ComponentStatus } from "./status.js";
+export { composeChartDelivery } from "./chart-delivery.js";
 export { platformUp } from "./up.js";
 export { argsFingerprint } from "./fingerprint.js";
 export { releaseMatchesFingerprint } from "./reconcile.js";

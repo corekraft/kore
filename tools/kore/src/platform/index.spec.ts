@@ -10,6 +10,7 @@ vi.mock("./patches.js");
 vi.mock("./crd-ownership-status.js");
 vi.mock("./status.js");
 vi.mock("./up.js");
+vi.mock("./chart-delivery.js");
 vi.mock("./fingerprint.js");
 vi.mock("./reconcile.js");
 vi.mock("./admission-gate.js");
@@ -33,6 +34,7 @@ test("the platform barrel exposes exactly the runtime names its callers use", ()
       "bootstrapControllers",
       "capacityWarningPercent",
       "closeGateIfDegraded",
+      "composeChartDelivery",
       "ensureClosedAdmissionGate",
       "envOption",
       "helmEnv",

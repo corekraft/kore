@@ -22,6 +22,11 @@ spec:
     targetRevision: {{ $entry.digest | quote }}
     helm:
       releaseName: {{ $name | quote }}
+      {{- if eq $name "kore-platform-config" }}
+      parameters:
+        - name: "gateway.className"
+          value: {{ $.Values.gatewayClassName | quote }}
+      {{- end }}
   destination:
     server: https://kubernetes.default.svc
     namespace: {{ required (printf "namespaces.%s is required" $name) (index $.Values.namespaces $name) | quote }}

@@ -97,7 +97,34 @@ function chartSelectionArgs(
       `webhook.configData.no-match-policy=${noMatchPolicy(repository)}`,
     );
   }
+  const delivery = repository.chartDelivery;
+  if (component.name === "kore-config-delivery" && delivery) {
+    args.push(
+      "--set-json",
+      `charts=${JSON.stringify(delivery.charts)}`,
+      "--set-json",
+      `namespaces=${JSON.stringify(delivery.namespaces)}`,
+      "--set-string",
+      `gatewayClassName=${delivery.gatewayClassName}`,
+    );
+  }
   return args;
+}
+
+/**
+ * Refuses to install kore-config-delivery without its composed values, naming
+ * the flag, since Helm's own schema error would not. `kore local up` reaches
+ * here without them while the lock flag is not passed through it.
+ */
+export function assertChartDelivery(
+  repository: Repository,
+  component: Component,
+): void {
+  if (component.name === "kore-config-delivery" && !repository.chartDelivery) {
+    throw new Error(
+      "kore-config-delivery needs the chart lock: run `kore platform up --platform-chart-lock <platform-charts.lock.json>`, the release asset published with the charts (kore local up does not pass it yet)",
+    );
+  }
 }
 
 export function helmUpgradeArgs(

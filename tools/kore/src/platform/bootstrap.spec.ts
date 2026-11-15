@@ -6,6 +6,7 @@ import {
 } from "../cluster/index.js";
 import { enabledComponents, isLocalProvider } from "../config/index.js";
 import {
+  applyChartCredential,
   ensureLocalSigningPublicKey,
   ensureRegistryAuth,
   ensureRegistryTrust,
@@ -57,6 +58,10 @@ beforeEach(() => {
   vi.mocked(assertNoOrphanedReleases).mockImplementation(record("orphans"));
   vi.mocked(ensureRegistryAuth).mockImplementation(record("registry-auth"));
   vi.mocked(ensureRegistryTrust).mockImplementation(record("registry-trust"));
+  vi.mocked(applyChartCredential).mockImplementation(async () => {
+    order.push("chart-credential");
+    return true;
+  });
   vi.mocked(ensureLocalSigningPublicKey).mockImplementation(
     record("signing-key"),
   );
@@ -148,6 +153,25 @@ test("a component that fails to reconcile stops bootstrap before the later steps
   ).rejects.toThrow("crd stuck");
   expect(ensureRegistryTrust).not.toHaveBeenCalled();
   expect(ensureLocalSigningPublicKey).not.toHaveBeenCalled();
+});
+
+test("the Argo CD registry credential is applied right after Argo CD is installed, and after no other release", async () => {
+  const argocd = fakeComponent({ name: "argocd", phase: "core" });
+  vi.mocked(enabledComponents).mockReturnValue([gate, argocd, registry]);
+  const { runner } = fakeRunner();
+  await bootstrapControllers(local, runner);
+  expect(
+    order.filter(
+      (step) => step.startsWith("reconcile:") || step === "chart-credential",
+    ),
+  ).toEqual([
+    "reconcile:gate",
+    "reconcile:argocd",
+    "chart-credential",
+    "reconcile:oci-registry",
+  ]);
+  expect(applyChartCredential).toHaveBeenCalledTimes(1);
+  expect(applyChartCredential).toHaveBeenCalledWith(local, runner);
 });
 
 test("closing the application admission gate is the existing gate's close, with the same runner", async () => {
