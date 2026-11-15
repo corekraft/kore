@@ -119,8 +119,6 @@ const RAW = [
 const ROLES: [string, string][] = [
   ["judge", "role-read-only"],
   ["reader", "role-read-only"],
-  ["refiner", "role-read-only"],
-  ["challenger", "role-no-code"],
 ];
 
 describe("role-read-only: the finish notification and benign reads", () => {
@@ -196,7 +194,7 @@ const WRITE_COMMANDS = [
   "export X=1",
   "T=x > out.txt",
 ];
-const ROLES_WITH_READS = ["reader", "refiner", "judge"];
+const ROLES_WITH_READS = ["reader", "judge"];
 
 describe("role-read-only: the retro's read commands pass for every role the allowlist names", () => {
   for (const role of ROLES_WITH_READS) {
@@ -210,8 +208,8 @@ describe("role-read-only: the retro's read commands pass for every role the allo
     });
   }
 
-  it("reader and refiner run the retro scan, and a ledger option stays refused", async () => {
-    for (const role of ["reader", "refiner"]) {
+  it("the reader runs the retro scan, and a ledger option stays refused", async () => {
+    for (const role of ["reader"]) {
       allowed(
         await bash(
           role,

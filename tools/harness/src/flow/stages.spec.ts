@@ -12,7 +12,6 @@ describe("the delivery loop", () => {
   it("lists the stages in the order an idea passes through them", () => {
     expect(STAGES).toEqual([
       "refine",
-      "challenge",
       "await approval",
       "orchestrate",
       "write",

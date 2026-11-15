@@ -41,7 +41,7 @@ describe("ledger record", () => {
       "ledger",
       "record",
       "--source=claude",
-      "--kind=challenge.round",
+      "--kind=send-back",
       "--occurred-at=2026-01-02T03:00:00Z",
       "--label=round-1",
       "--number=12",

@@ -19,6 +19,7 @@ export const KINDS = [
   "session.launch",
   "guard.audit",
   "guard.block",
+  // Retired: no code records it, but a ledger written earlier holds it and must still parse.
   "challenge.round",
   "precheck",
   "send-back",

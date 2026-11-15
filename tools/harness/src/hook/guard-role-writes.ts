@@ -50,10 +50,9 @@ const WRITING_GH = new Set(["merge", "close", "edit", "checkout"]);
 export const readOnly = (what: string): Finding =>
   block(
     "role-read-only",
-    `${what} changes files, and the reader, refiner, challenger and judge never write. ` +
-      "Instead, report what needs changing: the reader returns it in its summary, " +
-      "the judge sends the change back, the refiner files an idea with `idea new` " +
-      "and the challenger records a round with `idea challenge`.",
+    `${what} changes files, and the reader and judge never write. ` +
+      "Instead, report what needs changing: the reader returns it in its summary " +
+      "and the judge sends the change back.",
   );
 
 /** Output redirects and the read-write `<>`, which opens a file for writing without truncating it. */

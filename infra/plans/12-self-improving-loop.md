@@ -19,7 +19,7 @@ weaken its own guardrails
 ### Work
 
 - [x] Extend the ledger and flow report with tokens and sessions per idea,
-      writer escalations, judge send-backs, Challenger rounds, and friction
+      writer escalations, judge send-backs and friction
       events (failed or retried `kore` commands, hook blocks, interrupted
       panes).
 - [x] Let the concierge answer how the loop is doing from the report.

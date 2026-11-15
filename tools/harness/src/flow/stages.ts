@@ -3,7 +3,6 @@ import type { Kind } from "../ledger/index.js";
 /** The delivery loop's stages, in the order an idea passes through them. */
 export const STAGES = [
   "refine",
-  "challenge",
   "await approval",
   "orchestrate",
   "write",
@@ -24,8 +23,6 @@ export type Stage = (typeof STAGES)[number];
 export const ROLE_STAGES: Readonly<
   Record<string, { stage: Stage; after?: "pr.merged" }>
 > = {
-  refiner: { stage: "refine" },
-  challenger: { stage: "challenge" },
   writer: { stage: "write" },
   reviewer: { stage: "review" },
   judge: { stage: "judge" },
@@ -47,7 +44,6 @@ export const GITHUB_STAGES: Readonly<Partial<Record<Kind, Stage>>> = {
   "pr.opened": "merge",
   "pr.merged": "merge",
   "review.run": "review",
-  "challenge.round": "challenge",
 };
 
 /** Default minimum completed ideas before a bottleneck is named. */

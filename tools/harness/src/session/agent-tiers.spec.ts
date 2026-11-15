@@ -50,11 +50,11 @@ const definitions = (): Map<string, string> =>
 describe("agent definitions match the ADR 0078 tier table", () => {
   it("reads the table's roles, so an unreadable table cannot pass the test vacuously", () => {
     expect([...tiers().keys()]).toEqual(
-      expect.arrayContaining(["refiner", "reader", "writer", "judge"]),
+      expect.arrayContaining(["reader", "writer", "judge"]),
     );
   });
 
-  it.each(["refiner", "challenger", "reader", "writer", "judge"])(
+  it.each(["reader", "writer", "judge"])(
     "%s has a definition whose model and effort are the table's",
     (role) => {
       const markdown = definitions().get(role);
@@ -87,7 +87,7 @@ describe("agent definitions match the ADR 0078 tier table", () => {
 
 describe("agent definitions bound each role's tools", () => {
   it("only the writer may edit files", () => {
-    for (const role of ["refiner", "challenger", "reader", "judge"]) {
+    for (const role of ["reader", "judge"]) {
       const tools = parseDefinition(definitions().get(role) ?? "").tools ?? [];
       expect(
         tools.filter((t) => /^(Edit|Write|NotebookEdit)$/.test(t)),
@@ -99,8 +99,6 @@ describe("agent definitions bound each role's tools", () => {
   it("pins each bounded role's tools, so widening one is a reviewed change", () => {
     const tools = (role: string) =>
       parseDefinition(definitions().get(role) ?? "").tools;
-    expect(tools("refiner")).toEqual(["Bash", "Glob", "Grep", "Read"]);
-    expect(tools("challenger")).toEqual(["Bash", "Glob", "Grep", "Read"]);
     expect(tools("reader")).toEqual(["Read", "Grep", "Glob", "Bash"]);
     expect(tools("judge")).toEqual(["Bash", "Glob", "Grep", "Read"]);
     expect(tools("writer")).toEqual([
@@ -115,41 +113,33 @@ describe("agent definitions bound each role's tools", () => {
   });
 });
 
-describe("the refiner and challenger definitions", () => {
-  const body = (role: string) => definitions().get(role) ?? "";
-
-  it("declare their tiers: Sonnet at medium and Opus at high", () => {
-    const refiner = parseDefinition(body("refiner"));
-    const challenger = parseDefinition(body("challenger"));
-    expect(displayName(refiner.model ?? "")).toMatch(/^Sonnet /);
-    expect(refiner.effort).toBe("medium");
-    expect(displayName(challenger.model ?? "")).toMatch(/^Opus /);
-    expect(challenger.effort).toBe("high");
+describe("every agent definition runs on Haiku or Sonnet", () => {
+  it("lists the definitions, so an empty folder cannot pass vacuously", () => {
+    expect([...definitions().keys()].sort()).toEqual([
+      "judge",
+      "principles-review",
+      "reader",
+      "writer",
+    ]);
   });
 
-  it("forbid the challenger from reviewing code and send that to the judge", () => {
-    expect(body("challenger")).toMatch(/never review code/);
-    expect(body("challenger")).toMatch(/judge/);
-  });
+  it.each([...definitions()])(
+    "%s declares a Haiku or Sonnet model",
+    (role, markdown) => {
+      const { model } = parseDefinition(markdown);
+      expect(
+        model,
+        `.claude/agents/${role}.md must declare a model`,
+      ).toBeDefined();
+      expect(displayName(model ?? "")).toMatch(/^(Haiku|Sonnet) /);
+    },
+  );
+});
 
-  it("have the same challenger review ideas, ADRs and plans, with no second definition", () => {
-    expect(body("challenger")).toMatch(/An idea/);
-    expect(body("challenger")).toMatch(/An ADR or a plan/);
-    const challengers = [...definitions().keys()].filter((role) =>
-      /challeng|adr|plan/.test(role),
-    );
-    expect(challengers).toEqual(["challenger"]);
-  });
-
-  it("have the refiner file ideas only through the idea tool, with every field the idea needs", () => {
-    for (const field of [
-      "--hypothesis",
-      "--expected-outcome",
-      "--measurement",
-      "--safety-pattern",
-    ]) {
-      expect(body("refiner")).toContain(field);
-    }
+describe("no agent fills a role the loop retired", () => {
+  it("has no definition for the refiner or the challenger, which no session launches", () => {
+    expect([...definitions().keys()]).not.toContain("refiner");
+    expect([...definitions().keys()]).not.toContain("challenger");
   });
 });
 

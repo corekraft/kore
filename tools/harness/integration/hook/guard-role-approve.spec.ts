@@ -8,14 +8,7 @@ const bash = (role: string, command: string) =>
     tool_input: { command },
   });
 
-const ALL_ROLES = [
-  "writer",
-  "challenger",
-  "reader",
-  "refiner",
-  "challenger",
-  "judge",
-];
+const ALL_ROLES = ["writer", "reader", "judge"];
 
 describe("role-no-merge: the judge approve tool", () => {
   it("lets only the judge run the approve tool, and not past the ledger", async () => {
@@ -31,7 +24,7 @@ describe("role-no-merge: the judge approve tool", () => {
         "role-no-merge",
       );
     }
-    for (const role of ["reader", "refiner"]) {
+    for (const role of ["reader"]) {
       blocked(
         await bash(role, "node skills/bin/harness.mjs judge approve 12"),
         "role-read-only",
