@@ -123,7 +123,7 @@ describe("checkDeliveryBash: the merge and push routes every role refuses", () =
     ["a route past the ruleset", takesRoute],
   ])("blocks %s for the writer and every reporting role", (_name, check) => {
     vi.mocked(check).mockReturnValue(true);
-    for (const role of ["writer", "orchestrator", "judge"]) {
+    for (const role of ["writer", "judge"]) {
       expect(bash(role, "gh pr merge 1")).toMatchObject({
         rule: "role-no-merge",
       });
@@ -134,7 +134,7 @@ describe("checkDeliveryBash: the merge and push routes every role refuses", () =
     vi.mocked(runsJudgeTool).mockReturnValue(true);
 
     expect(
-      bash("orchestrator", "node skills/bin/harness.mjs judge merge 1"),
+      bash("writer", "node skills/bin/harness.mjs judge merge 1"),
     ).toMatchObject({
       rule: "role-no-merge",
     });
@@ -170,7 +170,7 @@ describe("checkDeliveryBash: a reporting role's shell", () => {
   it("refuses a command that wraps or launches others", () => {
     vi.mocked(wrapsCommands).mockReturnValue(true);
 
-    expect(bash("orchestrator", "xargs cat")).toMatchObject({
+    expect(bash("judge", "xargs cat")).toMatchObject({
       rule: "role-read-only",
     });
   });
@@ -210,14 +210,14 @@ describe("checkDeliveryBash: a reporting role's shell", () => {
     };
 
     expect(listed("judge")).toContain("judge diff");
-    expect(listed("orchestrator")).not.toContain("judge diff");
     expect(listed("writer")).not.toContain("judge diff");
   });
 
   it("points raw pane input at the finish notice", () => {
     vi.mocked(sendsToPane).mockReturnValue(true);
+    vi.mocked(readMayRun).mockReturnValue(false);
 
-    expect(bash("orchestrator", "herdr pane send-text w3:p1 x")).toMatchObject({
+    expect(bash("judge", "herdr pane send-text w3:p1 x")).toMatchObject({
       message: expect.stringContaining("session notify"),
     });
   });
@@ -227,7 +227,7 @@ describe("checkDeliveryBash: a reporting role's shell", () => {
 
     expect(
       bash(
-        "orchestrator",
+        "judge",
         `node ${HARNESS_PATH} session notify w3:p1 --outcome maybe`,
       ),
     ).toMatchObject({
@@ -240,43 +240,24 @@ describe("checkDeliveryBash: a reporting role's shell", () => {
   });
 });
 
-describe("checkDeliveryBash: the orchestrator's own commands", () => {
-  it("lists `orchestrate run` for the orchestrator and for no other delivery role", () => {
-    const listed = (role: string): readonly string[] => {
-      vi.mocked(harnessAllowed).mockClear();
-      bash(role, `node ${HARNESS_PATH} orchestrate run --idea 1`);
-      return vi.mocked(harnessAllowed).mock.calls[0]?.[2] ?? [];
-    };
-
-    expect(listed("orchestrator")).toContain("orchestrate run");
-    expect(listed("judge")).not.toContain("orchestrate run");
-    expect(listed("writer")).not.toContain("orchestrate run");
-  });
-});
-
-describe("checkDeliveryBash: the orchestrator's automatic retro", () => {
-  // The retro launch runs inside `orchestrate run`, so the orchestrator gains no command for it:
-  // the trigger is written by the owning script, and the orchestrator never calls it by hand.
+describe("checkDeliveryBash: the commands no delivery role lists", () => {
   const listed = (role: string, command: string): readonly string[] => {
     vi.mocked(harnessAllowed).mockClear();
     bash(role, `node ${HARNESS_PATH} ${command}`);
     return vi.mocked(harnessAllowed).mock.calls[0]?.[2] ?? [];
   };
 
-  it.each(["retro due --json", "retro record --reason count"])(
-    "does not list `%s` for the orchestrator, so it cannot record a trigger by hand",
-    (command) => {
-      const name = command.split(" --")[0] ?? command;
-      expect(listed("orchestrator", command)).not.toContain(name);
-    },
-  );
-
   it.each(["judge", "writer"])(
-    "does not list `retro record` or `orchestrate run` for the %s",
+    "does not list `orchestrate run`, `retro record` or `retro due` for the %s, since the tool runs from the person's session",
     (role) => {
-      const allowed = listed(role, "retro record --reason count");
-      expect(allowed).not.toContain("retro record");
-      expect(allowed).not.toContain("orchestrate run");
+      for (const command of [
+        "orchestrate run --idea 1",
+        "retro record --reason count",
+        "retro due --json",
+      ]) {
+        const name = command.split(" --")[0] ?? command;
+        expect(listed(role, command)).not.toContain(name);
+      }
     },
   );
 });

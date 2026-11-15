@@ -64,7 +64,7 @@ const WRITER_ONLY = [
 
 describe("role-no-merge: the cheap routes around the merge tool", () => {
   it("blocks every role-bound pane from each api, alias and git -c route", async () => {
-    for (const role of ["orchestrator", "writer", "judge"]) {
+    for (const role of ["writer", "judge"]) {
       for (const command of EVERY_ROLE) {
         blocked(await as(role, command), "role-no-merge");
       }

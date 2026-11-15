@@ -80,12 +80,10 @@ describe("IdeaRun escalation", () => {
 });
 
 describe("IdeaRun boundaries", () => {
-  it("never merges, edits or messages the concierge itself", async () => {
+  it("never merges or edits itself", async () => {
     const harness = new ScriptedHarness();
     await new IdeaRun(harness).run("0042", OUTCOME);
-    const roles = harness.launches.map((l) => l.role);
-    expect(roles).not.toContain("concierge");
-    expect(harness.calls.join("\n")).not.toMatch(/merge|edit|concierge/);
+    expect(harness.calls.join("\n")).not.toMatch(/merge|edit/);
   });
 
   it("does nothing for an idea that is not queued", async () => {

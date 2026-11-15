@@ -183,7 +183,7 @@ function actorTime(
   const lifetimes: Span[] = [];
   for (const items of byActor.values()) {
     items.sort((x, y) => time(x.event) - time(y.event));
-    // The orchestrator lives alongside every other stage, so it never hides their waits.
+    // The main session lives alongside every other stage, so it never hides their waits.
     const spans = chargeActor(tally, items);
     if ((items[0] as (typeof items)[number]).stage !== "orchestrate") {
       lifetimes.push(...spans);

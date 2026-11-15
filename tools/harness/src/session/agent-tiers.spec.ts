@@ -50,28 +50,23 @@ const definitions = (): Map<string, string> =>
 describe("agent definitions match the ADR 0078 tier table", () => {
   it("reads the table's roles, so an unreadable table cannot pass the test vacuously", () => {
     expect([...tiers().keys()]).toEqual(
-      expect.arrayContaining(["concierge", "reader", "writer", "judge"]),
+      expect.arrayContaining(["refiner", "reader", "writer", "judge"]),
     );
   });
 
-  it.each([
-    "concierge",
-    "refiner",
-    "challenger",
-    "reader",
-    "orchestrator",
-    "writer",
-    "judge",
-  ])("%s has a definition whose model and effort are the table's", (role) => {
-    const markdown = definitions().get(role);
-    expect(markdown, `.claude/agents/${role}.md must exist`).toBeDefined();
-    const found = parseDefinition(markdown ?? "");
-    const expected = tiers().get(role);
-    expect(displayName(found.model ?? "")).toMatch(
-      new RegExp(`^${expected?.family ?? "none"} `),
-    );
-    expect(found.effort).toBe(expected?.effort);
-  });
+  it.each(["refiner", "challenger", "reader", "writer", "judge"])(
+    "%s has a definition whose model and effort are the table's",
+    (role) => {
+      const markdown = definitions().get(role);
+      expect(markdown, `.claude/agents/${role}.md must exist`).toBeDefined();
+      const found = parseDefinition(markdown ?? "");
+      const expected = tiers().get(role);
+      expect(displayName(found.model ?? "")).toMatch(
+        new RegExp(`^${expected?.family ?? "none"} `),
+      );
+      expect(found.effort).toBe(expected?.effort);
+    },
+  );
 
   it("any other definition that names a role in the table also matches it", () => {
     for (const [role, markdown] of definitions()) {
@@ -92,14 +87,7 @@ describe("agent definitions match the ADR 0078 tier table", () => {
 
 describe("agent definitions bound each role's tools", () => {
   it("only the writer may edit files", () => {
-    for (const role of [
-      "concierge",
-      "refiner",
-      "challenger",
-      "reader",
-      "orchestrator",
-      "judge",
-    ]) {
+    for (const role of ["refiner", "challenger", "reader", "judge"]) {
       const tools = parseDefinition(definitions().get(role) ?? "").tools ?? [];
       expect(
         tools.filter((t) => /^(Edit|Write|NotebookEdit)$/.test(t)),
@@ -111,11 +99,9 @@ describe("agent definitions bound each role's tools", () => {
   it("pins each bounded role's tools, so widening one is a reviewed change", () => {
     const tools = (role: string) =>
       parseDefinition(definitions().get(role) ?? "").tools;
-    expect(tools("concierge")).toEqual(["Bash"]);
     expect(tools("refiner")).toEqual(["Bash", "Glob", "Grep", "Read"]);
     expect(tools("challenger")).toEqual(["Bash", "Glob", "Grep", "Read"]);
     expect(tools("reader")).toEqual(["Read", "Grep", "Glob", "Bash"]);
-    expect(tools("orchestrator")).toEqual(["Bash", "Glob", "Grep", "Read"]);
     expect(tools("judge")).toEqual(["Bash", "Glob", "Grep", "Read"]);
     expect(tools("writer")).toEqual([
       "Bash",
@@ -165,26 +151,17 @@ describe("the refiner and challenger definitions", () => {
       expect(body("refiner")).toContain(field);
     }
   });
+});
 
-  it("route a raw request from the concierge to the refiner", () => {
-    expect(body("concierge")).toMatch(/raw request goes to the refiner/);
+describe("no agent fills the orchestrator or concierge role", () => {
+  it("has no definition for either, since `orchestrate run` and the person's main session do that work", () => {
+    expect([...definitions().keys()]).not.toContain("orchestrator");
+    expect([...definitions().keys()]).not.toContain("concierge");
   });
 });
 
-describe("the judge and orchestrator state which safety patterns merge without the owner", () => {
+describe("the judge states which safety patterns merge without the owner", () => {
   const body = (role: string) => definitions().get(role) ?? "";
-
-  // The judge points to `judge merge` for the pattern list; the orchestrator points to the judge (#495, #742).
-  it("orchestrator points to the judge's rule and does not repeat the pattern list", () => {
-    // Link targets name ADRs by file, which contain pattern words; check the prose only.
-    const merges = (
-      body("orchestrator").split("## Merges without asking the owner")[1] ?? ""
-    ).replace(/\]\([^)]*\)/g, "]");
-    expect(merges).toMatch(/judge's own rule/);
-    expect(merges).not.toMatch(
-      /no-behaviour-change|dark launch|expand-contract|feature flag/,
-    );
-  });
 
   it.each(["judge"])(
     "%s keeps a cluster-facing no-behaviour-change behind its live run",
@@ -195,19 +172,5 @@ describe("the judge and orchestrator state which safety patterns merge without t
 
   it("judge links ADR 0099 instead of copying the rule", () => {
     expect(body("judge")).toMatch(/\(\.\.\/\.\.\/docs\/decisions\/0099-/);
-  });
-
-  it("orchestrator links the decisions the rule restates instead of copying them", () => {
-    expect(body("orchestrator")).toMatch(
-      /\(\.\.\/\.\.\/docs\/decisions\/0099-/,
-    );
-    expect(body("orchestrator")).toMatch(
-      /\(\.\.\/\.\.\/docs\/decisions\/0077-/,
-    );
-  });
-
-  it("never gives the orchestrator merge rights, so it still sends merges to the judge", () => {
-    expect(body("orchestrator")).toMatch(/you do not merge/);
-    expect(body("orchestrator")).not.toMatch(/squash/);
   });
 });

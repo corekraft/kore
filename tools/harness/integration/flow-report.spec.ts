@@ -35,7 +35,6 @@ describe("flow report stage mapping", () => {
   it.each([
     ["refiner", "refine"],
     ["challenger", "challenge"],
-    ["orchestrator", "orchestrate"],
     ["writer", "write"],
     ["judge", "judge"],
   ])("maps a pane whose name ends in -%s to %s", (role, name) => {

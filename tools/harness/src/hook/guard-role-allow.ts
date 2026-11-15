@@ -1,4 +1,4 @@
-// The read-only command allowlist the reader, refiner, judge and orchestrator share:
+// The read-only command allowlist the reader, refiner and judge share:
 // read utilities, read-only git and gh verbs, find without its writing actions, and the
 // harness commands each role names. Anything not listed here is refused, so a form the
 // blocklist never thought of (`awk system()`, `find -exec`, `git -c alias`) cannot write.
@@ -159,7 +159,7 @@ const retroScanMayRun = (name: string, args: readonly string[]): boolean =>
   args[2] === "retro-scan" &&
   !args.some((arg) => arg === "--ledger" || arg.startsWith("--ledger="));
 
-/** What a read-only role's shell may run (the reader, refiner, judge and orchestrator share it): read utilities, queries and allowlisted harness commands; find may not delete, execute or write. */
+/** What a read-only role's shell may run (the reader, refiner and judge share it): read utilities, queries and allowlisted harness commands; find may not delete, execute or write. */
 export function readMayRun(
   segment: readonly string[],
   harness: readonly string[],

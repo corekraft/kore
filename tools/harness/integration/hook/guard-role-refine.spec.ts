@@ -114,14 +114,12 @@ describe("--ledger would let a role append to any file, so no bounded role may p
   ];
 
   it("blocks it for the challenger, refiner, concierge and orchestrator", async () => {
-    for (const role of ["challenger", "refiner", "concierge", "orchestrator"]) {
+    for (const role of ["challenger", "refiner"]) {
       for (const rest of WITH_LEDGER) {
         const verdict = await harness(role, rest);
         blocked(
           verdict,
-          ["challenger", "concierge"].includes(role)
-            ? "role-no-code"
-            : "role-read-only",
+          ["challenger"].includes(role) ? "role-no-code" : "role-read-only",
         );
       }
     }

@@ -82,32 +82,6 @@ describe("the test-driven-development skill", () => {
   });
 });
 
-describe("the orchestrator definition", () => {
-  const orchestrator = read(".claude/agents/orchestrator.md");
-  // Link targets name ADRs by file, which contain pattern words; check prose only.
-  const merges = section(
-    orchestrator,
-    "Merges without asking the owner",
-  ).replace(/\]\([^)]*\)/g, "]");
-
-  it("does not repeat the safety-pattern list", () => {
-    for (const pattern of [
-      "no-behaviour-change",
-      "dark launch",
-      "branch-by-abstraction",
-      "expand-contract",
-      "feature flag",
-    ]) {
-      expect(merges).not.toContain(pattern);
-    }
-  });
-
-  it("points to the judge's rule in one sentence", () => {
-    expect(merges.trim().split(/(?<=[.!?])\s+/)).toHaveLength(1);
-    expect(merges).toContain("judge");
-  });
-});
-
 describe("the judge definition", () => {
   const judge = read(".claude/agents/judge.md");
 
