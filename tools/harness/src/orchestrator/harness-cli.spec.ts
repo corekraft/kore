@@ -190,7 +190,9 @@ describe("HarnessCli escalation, outcome and failure", () => {
     const { cli } = setup(() => ({ stdout: "not json" }));
     await expect(cli.queue()).rejects.toThrow(HarnessCliError);
   });
+});
 
+describe("HarnessCli retro tools", () => {
   it("reads retro due as read-only json, reduced to what the launch needs", async () => {
     const { cli, calls } = setup(() => ({
       stdout: JSON.stringify({

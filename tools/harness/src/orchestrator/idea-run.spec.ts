@@ -242,11 +242,12 @@ describe("IdeaRun between pieces of work", () => {
     await withHook(harness).run("0042", OUTCOME);
     let running = false;
     for (const call of harness.calls) {
-      running = call.startsWith("spawn")
-        ? true
-        : call.startsWith("close")
-          ? false
-          : running;
+      if (call.startsWith("spawn")) {
+        running = true;
+      }
+      if (call.startsWith("close")) {
+        running = false;
+      }
       expect(running && call === "between-work").toBe(false);
     }
     expect(harness.calls.filter((c) => c === "between-work")).toHaveLength(1);
