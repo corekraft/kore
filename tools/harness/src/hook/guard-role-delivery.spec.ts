@@ -254,6 +254,33 @@ describe("checkDeliveryBash: the orchestrator's own commands", () => {
   });
 });
 
+describe("checkDeliveryBash: the orchestrator's automatic retro", () => {
+  // The retro launch runs inside `orchestrate run`, so the orchestrator gains no command for it:
+  // the trigger is written by the owning script, and the orchestrator never calls it by hand.
+  const listed = (role: string, command: string): readonly string[] => {
+    vi.mocked(harnessAllowed).mockClear();
+    bash(role, `node ${HARNESS_PATH} ${command}`);
+    return vi.mocked(harnessAllowed).mock.calls[0]?.[2] ?? [];
+  };
+
+  it.each(["retro due --json", "retro record --reason count"])(
+    "does not list `%s` for the orchestrator, so it cannot record a trigger by hand",
+    (command) => {
+      const name = command.split(" --")[0] ?? command;
+      expect(listed("orchestrator", command)).not.toContain(name);
+    },
+  );
+
+  it.each(["judge", "writer"])(
+    "does not list `retro record` or `orchestrate run` for the %s",
+    (role) => {
+      const allowed = listed(role, "retro record --reason count");
+      expect(allowed).not.toContain("retro record");
+      expect(allowed).not.toContain("orchestrate run");
+    },
+  );
+});
+
 describe("checkDeliveryBash: a writer's shell and the worktree", () => {
   it("refuses a cd or git -C that leaves the worktree", () => {
     expect(bash("writer", "cd /etc")).toMatchObject({ rule: "role-worktree" });
