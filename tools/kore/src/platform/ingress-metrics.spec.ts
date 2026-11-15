@@ -6,6 +6,7 @@ import {
   judgeOutcome,
   parsePodMetrics,
   runSpreadPercent,
+  summarizeLatency,
   summarizeSamples,
 } from "./ingress-metrics.js";
 
@@ -131,4 +132,28 @@ test("the spread of the baseline runs is reported per metric", () => {
     cpuMillicores: 40,
     memoryMiB: 4.1,
   });
+});
+
+test("summarizes latency as nearest-rank p50, p95 and max of known samples, in any order", () => {
+  const milliseconds = Array.from({ length: 20 }, (_, index) => index + 1);
+  assert.deepEqual(summarizeLatency([...milliseconds].reverse()), {
+    requests: 20,
+    p50Ms: 10,
+    p95Ms: 19,
+    maxMs: 20,
+  });
+});
+
+test("a single latency sample is its own p95, and the input is not reordered", () => {
+  assert.equal(summarizeLatency([42]).p95Ms, 42);
+  const input = [30, 10, 20];
+  summarizeLatency(input);
+  assert.deepEqual(input, [30, 10, 20]);
+});
+
+test("refuses empty latency input and names the fix", () => {
+  assert.throws(
+    () => summarizeLatency([]),
+    /a latency summary needs at least one request time; check that the latency probe completed requests/,
+  );
 });

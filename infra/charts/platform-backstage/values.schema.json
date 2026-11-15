@@ -10,6 +10,16 @@
       "maxLength": 180,
       "pattern": "^([a-z0-9]([-a-z0-9]{0,61}[a-z0-9])?\\.)+[a-z0-9]([-a-z0-9]{0,61}[a-z0-9])?$"
     },
+    "gatewayClassName": {
+      "description": "The GatewayClass the portal's own Gateway uses, which kore derives from the ingress feature flag and passes in. With none set the chart renders no route.",
+      "type": "string",
+      "minLength": 1
+    },
+    "issuer": {
+      "description": "The ClusterIssuer that signs the portal host's certificate.",
+      "type": "string",
+      "minLength": 1
+    },
     "database": {
       "type": "object",
       "additionalProperties": false,

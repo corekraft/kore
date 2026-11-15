@@ -4,3 +4,7 @@
 database:
   storageSize: 1Gi
   compatibilityVersion: 17
+# The GatewayClass of the portal's route is set by kore from the ingress
+# feature flag, so it has no default here. The issuer is the ClusterIssuer that
+# signs the portal host's certificate.
+issuer: kore-local-ca
