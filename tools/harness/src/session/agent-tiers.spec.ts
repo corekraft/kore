@@ -175,7 +175,7 @@ describe("the judge states which safety patterns merge without the owner", () =>
   });
 });
 
-/** A definition that declares no model is checked once its own ticket adds one; Opus is allowed only until the challenger's own removal ticket deletes its definition. */
+/** Opus is allowed only until the challenger's own removal ticket deletes its definition. */
 const OPUS_UNTIL_REMOVED = new Set(["challenger"]);
 
 describe("every agent definition", () => {
@@ -191,5 +191,20 @@ describe("every agent definition", () => {
       )
       .map(([role]) => role);
     expect(offenders).toEqual([]);
+  });
+});
+
+describe("the principles-review definition", () => {
+  const found = () =>
+    parseDefinition(definitions().get("principles-review") ?? "");
+
+  it("declares Sonnet at medium, so session spawn accepts the role and it never inherits its caller's model", () => {
+    expect(displayName(found().model ?? "")).toMatch(/^Sonnet /);
+    expect(found().effort).toBe("medium");
+  });
+
+  it("has no tool that edits a file", () => {
+    expect(found().tools ?? []).not.toEqual(expect.arrayContaining(["Edit"]));
+    expect(found().tools).toEqual(["Read", "Grep", "Glob", "Bash"]);
   });
 });

@@ -4,13 +4,23 @@
 // case or a corpus case names a role the registry lacks.
 
 /** Roles that read and report and never write a file (the challenger never reads code). */
-export const READ_ONLY_ROLES = ["reader", "refiner", "challenger"];
+export const READ_ONLY_ROLES = [
+  "reader",
+  "refiner",
+  "challenger",
+  "principles-review",
+];
 
 /** Roles that answer from plans, ADRs, ideas and issues and never read code. */
 export const NO_CODE_ROLES = ["challenger"];
 
 /** Roles the harness spawns in a pane for one notice, with no allowlist of its own. */
-export const SPAWNED_ROLES = ["reader", "refiner", "challenger"];
+export const SPAWNED_ROLES = [
+  "reader",
+  "refiner",
+  "challenger",
+  "principles-review",
+];
 
 /** Delivery roles that read and report: they may run the harness and gh/git queries but change no file. */
 export const REPORTING_ROLES = ["judge"];

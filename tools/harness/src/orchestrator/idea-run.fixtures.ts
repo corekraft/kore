@@ -28,6 +28,7 @@ export class ScriptedHarness implements Harness {
   readonly recorded: Measured[] = [];
   readonly reasons: string[] = [];
   private judged = 0;
+  private reviews = 0;
 
   constructor(
     private readonly script: {
@@ -38,6 +39,8 @@ export class ScriptedHarness implements Harness {
       counts?: number[];
       /** What `precheck` answers on each call, in order; a pass once the script runs out. */
       prechecks?: PrecheckVerdict[];
+      /** Makes `review` throw on its Nth call (1-based), as a Reviewer with no verdict does. */
+      reviewFailsOn?: number;
     } = {},
   ) {}
 
@@ -63,6 +66,13 @@ export class ScriptedHarness implements Harness {
     const all = this.script.deliveries ?? [{ pr: 50, merged: true }];
     const at = Math.min(this.judged, all.length - 1);
     return Promise.resolve(all[at] ?? { merged: false });
+  }
+  review(pr: number): Promise<void> {
+    this.calls.push(`review ${pr}`);
+    this.reviews += 1;
+    return this.reviews === this.script.reviewFailsOn
+      ? Promise.reject(new Error("The Reviewer ended with no verdict."))
+      : Promise.resolve();
   }
   precheck(pr: number): Promise<PrecheckVerdict> {
     this.calls.push(`precheck ${pr}`);

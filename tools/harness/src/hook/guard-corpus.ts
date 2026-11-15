@@ -23,7 +23,8 @@ export interface CorpusCase {
 const READ_ONLY = ["reader", "refiner", "challenger"];
 const REPORTING = ["judge"];
 const NO_CODE = ["challenger"];
-const ROLES = [...READ_ONLY, ...REPORTING];
+// The Reviewer is a read-only role too: it gets every case the others get.
+const ROLES = [...READ_ONLY, "principles-review", ...REPORTING];
 
 const bash = (role: string, rule: string, ...commands: string[]) =>
   commands.map((input): CorpusCase => ({ role, tool: "Bash", input, rule }));
