@@ -101,6 +101,12 @@
         "components": ["kore-platform-keycloak"]
       },
       {
+        "name": "platform-backstage",
+        "step": 8,
+        "capability": "platform-api",
+        "components": ["kore-platform-backstage"]
+      },
+      {
         "name": "secrets",
         "step": 8,
         "capability": "controller",

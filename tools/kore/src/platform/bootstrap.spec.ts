@@ -17,7 +17,7 @@ import {
   closeApplicationAdmission,
 } from "./bootstrap.js";
 import { assertNoOrphanedReleases } from "./gated-release.js";
-import { ensureKeycloakAdmin } from "./keycloak-admin.js";
+import { ensurePortalSecrets } from "./portal-secrets.js";
 import * as readinessGate from "./readiness-gate.js";
 import { reconcileIfNeeded } from "./reconcile.js";
 import {
@@ -35,7 +35,7 @@ vi.mock("../config/index.js");
 vi.mock("../images/index.js");
 vi.mock("./admission-gate.js");
 vi.mock("./gated-release.js");
-vi.mock("./keycloak-admin.js");
+vi.mock("./portal-secrets.js");
 vi.mock("./readiness-gate.js");
 vi.mock("./reconcile.js");
 
@@ -67,9 +67,8 @@ beforeEach(() => {
   vi.mocked(ensureLocalSigningPublicKey).mockImplementation(
     record("signing-key"),
   );
-  vi.mocked(ensureKeycloakAdmin).mockImplementation(async () => {
-    order.push("keycloak-admin");
-    return true;
+  vi.mocked(ensurePortalSecrets).mockImplementation(async () => {
+    order.push("portal-secrets");
   });
   vi.mocked(reconcileIfNeeded).mockImplementation(async (_repo, _runner, c) => {
     order.push(`reconcile:${c.name}`);
@@ -180,26 +179,26 @@ test("the Argo CD registry credential is applied right after Argo CD is installe
   expect(applyChartCredential).toHaveBeenCalledWith(local, runner);
 });
 
-test("the Keycloak admin Secret is streamed right after the operator creates its namespace, and not without the operator", async () => {
+test("the portal Secrets (the Keycloak admin and the Backstage sign-in) are streamed right after the operator creates its namespace, and not without the operator", async () => {
   const operator = fakeComponent({ name: "keycloak-operator", phase: "core" });
   vi.mocked(enabledComponents).mockReturnValue([gate, operator, registry]);
   const { runner } = fakeRunner();
   await bootstrapControllers(local, runner);
   expect(
     order.filter(
-      (step) => step.startsWith("reconcile:") || step === "keycloak-admin",
+      (step) => step.startsWith("reconcile:") || step === "portal-secrets",
     ),
   ).toEqual([
     "reconcile:gate",
     "reconcile:keycloak-operator",
-    "keycloak-admin",
+    "portal-secrets",
     "reconcile:oci-registry",
   ]);
-  expect(ensureKeycloakAdmin).toHaveBeenCalledWith(local, runner);
-  vi.mocked(ensureKeycloakAdmin).mockClear();
+  expect(ensurePortalSecrets).toHaveBeenCalledWith(local, runner);
+  vi.mocked(ensurePortalSecrets).mockClear();
   vi.mocked(enabledComponents).mockReturnValue([gate, registry]);
   await bootstrapControllers(local, runner);
-  expect(ensureKeycloakAdmin).not.toHaveBeenCalled();
+  expect(ensurePortalSecrets).not.toHaveBeenCalled();
 });
 
 test("closing the application admission gate is the existing gate's close, with the same runner", async () => {

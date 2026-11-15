@@ -127,6 +127,7 @@ test("the same status run is fully ready once the controller is back", async () 
       "kore-golden-path-delivery",
       "kore-platform-keycloak",
       "kore-service-observability",
+      "kore-platform-backstage",
     ],
     "the components the local feature flag gates off report gated-off, not ready",
   );

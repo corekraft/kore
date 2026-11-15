@@ -461,6 +461,30 @@
           }
       },
       {
+        "image": "ghcr.io/backstage/backstage:1.55.2@sha256:68f2025a3f2774e04d58a65a948ccd04a93ddab7b7977be850e9df6d3beae6e3",
+        "name": "backstage",
+        "component": "kore-platform-backstage",
+        "evidence":
+          {
+            "method": "registry-digest",
+            "source": "crane digest ghcr.io/backstage/backstage:1.55.2 resolves to this index digest. Upstream publishes no cosign signature (cosign verify: no signatures found), so this is recorded unsigned. The image is upstream's evaluation build of a scaffolded app: it carries the guest sign-in only and no OIDC module, which is why the install puts a sign-in proxy in front of it.",
+            "checked": "2026-11-14",
+            "provenance": { "signed": false }
+          }
+      },
+      {
+        "image": "quay.io/oauth2-proxy/oauth2-proxy:v7.15.6@sha256:c3415e8660af553f5e18f5d90db050614c02493c0ac6260ac59442f6d9b12048",
+        "name": "oauth2-proxy",
+        "component": "kore-platform-backstage",
+        "evidence":
+          {
+            "method": "registry-digest",
+            "source": "crane digest quay.io/oauth2-proxy/oauth2-proxy:v7.15.6 resolves to this index digest. cosign verify finds no signature at this digest, so this is recorded unsigned.",
+            "checked": "2026-11-14",
+            "provenance": { "signed": false }
+          }
+      },
+      {
         "image": "registry.k8s.io/kube-state-metrics/kube-state-metrics:v2.20.0@sha256:42cfe3723a5f058171c627537fb57a3ea0f26e4380fa18555a95cb1a1b4cfc5b",
         "name": "kube-state-metrics",
         "component": "prometheus",

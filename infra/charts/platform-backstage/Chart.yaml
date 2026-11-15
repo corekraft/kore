@@ -1,0 +1,5 @@
+apiVersion: v2
+name: platform-backstage
+description: The platform organization's Backstage behind a Keycloak sign-in proxy, its database claim and its Keycloak client (ADR 0111, plan 15 step 6), installed only under the platform-portal flag
+type: application
+version: 0.1.0

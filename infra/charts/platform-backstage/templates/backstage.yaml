@@ -1,0 +1,131 @@
+# The platform organization's Backstage (ADR 0111) behind a sign-in proxy that
+# authenticates against the platform realm (ADR 0113). Backstage binds loopback
+# only, so the sole way in is the proxy, which refuses a request with no
+# session; the Service names only the proxy's port. With Keycloak or the realm
+# not ready the proxy cannot discover the issuer, never becomes ready, and the
+# Service has no endpoint: the portal never runs open. Both secrets are read
+# from the Secret kore streams (ADR 0034).
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: backstage
+  namespace: {{ .Release.Namespace }}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: backstage
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: backstage
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: proxy
+          image: {{ .Values.proxy.image | quote }}
+          args:
+            - --provider=keycloak-oidc
+            - --client-id=backstage
+            - --oidc-issuer-url=https://keycloak.{{ .Values.platformDomain }}/realms/platform
+            - --redirect-url=https://backstage.{{ .Values.platformDomain }}/oauth2/callback
+            - --upstream=http://127.0.0.1:7007
+            - --http-address=0.0.0.0:4180
+            - --email-domain=*
+            - --code-challenge-method=S256
+            - --reverse-proxy=true
+            - --pass-access-token=true
+            - --cookie-secure=true
+            - --cookie-httponly=true
+            - --cookie-samesite=lax
+          env:
+            - name: OAUTH2_PROXY_CLIENT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: backstage-oidc
+                  key: client-secret
+            - name: OAUTH2_PROXY_COOKIE_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: backstage-oidc
+                  key: cookie-secret
+          ports:
+            - name: http
+              containerPort: 4180
+          readinessProbe:
+            httpGet:
+              path: /ping
+              port: http
+          livenessProbe:
+            httpGet:
+              path: /ping
+              port: http
+          resources:
+            requests: { cpu: 10m, memory: 32Mi }
+            limits: { cpu: 200m, memory: 96Mi }
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: [ALL]
+        - name: backstage
+          image: {{ .Values.backstage.image | quote }}
+          env:
+            - name: APP_CONFIG_backend_listen
+              value: 127.0.0.1:7007
+            - name: APP_CONFIG_app_baseUrl
+              value: https://backstage.{{ .Values.platformDomain }}
+            - name: APP_CONFIG_backend_baseUrl
+              value: https://backstage.{{ .Values.platformDomain }}
+            # The image's only sign-in is the guest provider, which refuses to
+            # run outside development unless allowed. It is allowed here only
+            # because nothing reaches this container except through the proxy.
+            - name: APP_CONFIG_auth_providers_guest_dangerouslyAllowOutsideDevelopment
+              value: "true"
+            - name: POSTGRES_HOST
+              value: backstage-db-rw
+            - name: POSTGRES_PORT
+              value: "5432"
+            - name: POSTGRES_USER
+              valueFrom:
+                secretKeyRef:
+                  name: backstage-db-app
+                  key: username
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: backstage-db-app
+                  key: password
+          # The port is loopback-only, which the kubelet cannot reach over the
+          # pod address, so readiness runs inside the container.
+          readinessProbe:
+            exec:
+              command:
+                - node
+                - -e
+                - fetch("http://127.0.0.1:7007/.backstage/health/v1/readiness").then((r)=>process.exit(r.ok?0:1),()=>process.exit(1))
+            periodSeconds: 10
+            timeoutSeconds: 5
+          resources:
+            requests: { cpu: 100m, memory: 384Mi }
+            limits: { cpu: "1", memory: 768Mi }
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: [ALL]
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: backstage
+  namespace: {{ .Release.Namespace }}
+spec:
+  selector:
+    app.kubernetes.io/name: backstage
+  ports:
+    - name: http
+      port: 80
+      targetPort: 4180

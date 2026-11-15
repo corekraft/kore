@@ -1,0 +1,6 @@
+# The database claim's portable inputs (infra/apis/postgresql). The images come
+# from infra/environments/common/values/platform-backstage.yaml, so the chart
+# names none.
+database:
+  storageSize: 1Gi
+  compatibilityVersion: 17

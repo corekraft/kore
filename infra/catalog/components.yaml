@@ -727,6 +727,25 @@
         "readiness": ["configmap/kore-service-rules"]
       },
       {
+        "name": "kore-platform-backstage",
+        "phase": "configuration",
+        "namespace": "backstage",
+        "kind": "local-chart",
+        "chart": "infra/charts/platform-backstage",
+        "version": "local",
+        "featureFlag": "platform-portal",
+        "ownsCRDs": [],
+        "dependencies":
+          [
+            "kore-platform-keycloak",
+            "kore-postgresql-api",
+            "kore-crossplane-functions"
+          ],
+        "timeout": "10m",
+        "values": ["infra/environments/common/values/platform-backstage.yaml"],
+        "readiness": ["deployment/backstage"]
+      },
+      {
         "name": "kore-golden-path-delivery",
         "phase": "configuration",
         "namespace": "argocd",
