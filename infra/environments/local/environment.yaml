@@ -18,7 +18,8 @@
       "local-image-reuse": false,
       "registry-tag-pruning": false,
       "platform-organization-service-apis": false,
-      "platform-argocd-delivery": false
+      "platform-argocd-delivery": false,
+      "platform-portal": false
     },
   "imageInventory": "audit",
   "exemptionCheck": "audit",
