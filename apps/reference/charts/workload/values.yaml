@@ -7,6 +7,19 @@ resources:
   requests: { cpu: 25m, memory: 64Mi }
   limits: { cpu: 250m, memory: 256Mi }
 
+# Off by default; an environment turns it on through chart values. With it on
+# the Deployments carry no replica count: the autoscaler is the only owner
+# (ADR 0047).
+autoscaling:
+  enabled: false
+  minReplicas: 2
+  maxReplicas: 5
+  targetCPUUtilizationPercentage: 80
+# Needs autoscaling.enabled, so the budget never sits over a single replica.
+podDisruptionBudget:
+  enabled: false
+  minAvailable: 1
+
 database:
   # The connection Secret's passwordSecretRef names the Secret that holds the
   # password; Helm cannot dereference it, so the chart is told the same name.
