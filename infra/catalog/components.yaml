@@ -667,6 +667,23 @@
           ]
       },
       {
+        "name": "kore-golden-path-delivery",
+        "phase": "configuration",
+        "namespace": "argocd",
+        "kind": "local-chart",
+        "chart": "infra/charts/golden-path-delivery",
+        "version": "local",
+        "featureFlag": "platform-argocd-delivery",
+        "ownsCRDs": [],
+        "dependencies": ["argocd", "kore-platform-apis"],
+        "timeout": "5m",
+        "readiness":
+          [
+            "crd/applicationsets.argoproj.io",
+            "deployment/argocd-applicationset-controller"
+          ]
+      },
+      {
         "name": "kore-policy-templates",
         "phase": "configuration",
         "owner": "argocd",

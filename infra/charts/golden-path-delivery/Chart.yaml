@@ -1,0 +1,5 @@
+apiVersion: v2
+name: golden-path-delivery
+description: ApplicationSet that delivers the golden-path frontend and BFF of each platform Service registration from git by digest (plan 15 step 5), installed only under the platform-argocd-delivery flag
+type: application
+version: 0.1.0

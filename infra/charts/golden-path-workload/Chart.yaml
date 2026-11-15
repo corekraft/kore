@@ -1,0 +1,5 @@
+apiVersion: v2
+name: golden-path-workload
+description: The golden-path static frontend and BFF of one Service, deployed by digest. Rendered only by the Applications of the golden-path-delivery ApplicationSet; kore never installs it.
+type: application
+version: 0.1.0
