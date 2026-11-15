@@ -110,7 +110,7 @@ run = ["promtool check rules infra/observability/config/files/rules/platform.yam
 description = "Scan git history and tracked files for secrets with TruffleHog (verification needs network); .kore/ and SOPS ciphertext are excluded"
 run = [
   "trufflehog git file://. --results=verified,unknown,unverified --exclude-paths=.trufflehog-exclude --no-update --fail --no-color",
-  "git ls-files -z | xargs -0 trufflehog filesystem --results=verified,unknown,unverified --exclude-paths=.trufflehog-exclude --no-update --fail --no-color",
+  "git ls-files -z | xargs -0 trufflehog filesystem --results=verified,unknown,unverified --exclude-paths=.trufflehog-exclude-tree --no-update --fail --no-color",
 ]
 
 [tasks.scan-vulns]

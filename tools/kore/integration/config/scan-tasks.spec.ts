@@ -97,6 +97,34 @@ test("the secret scan covers history and the working tree but never reads .kore"
   assert.match(excludes, /\.enc\\\.yaml/);
 });
 
+test("only the working-tree pass skips release-please's CHANGELOG.md, so the history pass still reads every committed version of it", async () => {
+  const mise = await read(".mise.toml");
+  const block = taskBlock(mise, "scan-secrets");
+  const gitPass = block.match(/"(trufflehog git [^"]*)"/)?.[1] ?? "";
+  const treePass = block.match(/"(git ls-files [^"]*)"/)?.[1] ?? "";
+  assert.match(gitPass, /--exclude-paths=\.trufflehog-exclude\b(?!-)/);
+  assert.match(treePass, /--exclude-paths=\.trufflehog-exclude-tree\b/);
+
+  const patterns = (text: string): string[] =>
+    text.split("\n").filter((line) => line !== "" && !line.startsWith("#"));
+  const history = patterns(await read(".trufflehog-exclude"));
+  const tree = patterns(await read(".trufflehog-exclude-tree"));
+  assert.ok(
+    !history.some((pattern) => pattern.includes("CHANGELOG")),
+    "the history pass never excludes CHANGELOG.md",
+  );
+  assert.deepEqual(
+    tree.filter((pattern) => !history.includes(pattern)),
+    ["^CHANGELOG\\.md$"],
+    "the tree pass adds exactly the CHANGELOG.md path to the shared excludes",
+  );
+  assert.deepEqual(
+    history.filter((pattern) => !tree.includes(pattern)),
+    [],
+    "the tree pass keeps every shared exclude",
+  );
+});
+
 test("scanner tasks are offline-capable and send no telemetry", async () => {
   const mise = await read(".mise.toml");
   assert.match(taskBlock(mise, "scan-sast"), /--metrics=off/);

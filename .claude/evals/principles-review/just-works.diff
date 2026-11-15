@@ -1,3 +1,5 @@
+Safety pattern: no-behaviour-change
+
 diff --git a/infra/charts/oci-registry/templates/all.yaml b/infra/charts/oci-registry/templates/all.yaml
 --- a/infra/charts/oci-registry/templates/all.yaml
 +++ b/infra/charts/oci-registry/templates/all.yaml

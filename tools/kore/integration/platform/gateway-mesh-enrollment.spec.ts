@@ -98,6 +98,7 @@ test("the namespace default stays STRICT and the default-deny and allow-https po
 
 test("the flag alone does nothing under the istio class: the render equals the flag-off render and the golden", async () => {
   const repository = await overlay("local", {
+    [ingressFlag]: false,
     [agentgatewayMeshEnrollmentFlag]: true,
   });
   const golden = await readFile(

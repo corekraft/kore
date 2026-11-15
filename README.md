@@ -42,17 +42,17 @@ set `true`. `kore` validates it with the rest of the overlay before any
 mutation and passes each flag to local charts as `features.<name>`, so charts
 and the CLI read one switch
 ([ADR 0077](docs/decisions/0077-live-proof-gates-activation-not-merge.md)).
-The `ingress-agentgateway` flag, off in `local`, selects the platform Gateway's
+The `ingress-agentgateway` flag, on in `local` and off in every other overlay, selects the platform Gateway's
 GatewayClass: `kore` derives `gateway.className` (`istio` off, `agentgateway`
 on) when rendering `kore-platform-config`.
-The `gateway-class-change-release` flag, off in every overlay, lets that reconcile
+The `gateway-class-change-release` flag, on in `local` and off in every other overlay, lets that reconcile
 delete and recreate the platform Gateway when its class changes, with a brief
 ingress outage; with it off the step does nothing.
-The `gateway-rollback-order` flag, off in every overlay, moves the refusal of a
+The `gateway-rollback-order` flag, on in `local` and off in every other overlay, moves the refusal of a
 gated-off release that is still installed to after the components are reconciled,
 so a rollback can re-render `kore-platform-config` first; with it off the refusal
 stays up front.
-The `agentgateway-mesh-enrollment` flag, off in every overlay, applies only with
+The `agentgateway-mesh-enrollment` flag, on in `local` and off in every other overlay, applies only with
 the agentgateway class: it labels the `kore-gateway` data-plane pod
 `istio.io/dataplane-mode: ambient` and adds a `PeerAuthentication` that is
 permissive on the gateway's listener port only; with it off, or under the Istio

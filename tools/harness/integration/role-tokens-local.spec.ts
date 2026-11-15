@@ -13,11 +13,4 @@ describe("the local environment overlay", () => {
     };
     expect(overlay.features["role-tokens"]).toBe(true);
   });
-
-  it("leaves ingress-agentgateway as it was", () => {
-    const overlay = JSON.parse(readFileSync(OVERLAY, "utf8")) as {
-      features: Record<string, boolean>;
-    };
-    expect(overlay.features["ingress-agentgateway"]).toBe(false);
-  });
 });
