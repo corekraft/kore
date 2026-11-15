@@ -71,6 +71,12 @@
         "components": ["argocd"]
       },
       {
+        "name": "golden-path-delivery",
+        "step": 10,
+        "capability": "controller",
+        "components": ["kore-golden-path-delivery"]
+      },
+      {
         "name": "secrets",
         "step": 8,
         "capability": "controller",

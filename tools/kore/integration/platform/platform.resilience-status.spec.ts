@@ -122,6 +122,7 @@ test("the same status run is fully ready once the controller is back", async () 
       "argocd",
       "metrics-server",
       "kore-platform-apis",
+      "kore-golden-path-delivery",
     ],
     "the components the local feature flag gates off report gated-off, not ready",
   );
