@@ -144,7 +144,7 @@ jobs:
 export const TOP_BAD =
   "nightly.yml: top-level permissions must be present and read-only; add `permissions: {}` or `contents: read`";
 export const SIGNERS =
-  "only the release and mirror jobs of release.yaml may sign or push, so drop it";
+  "only the release, mirror and charts jobs of release.yaml may sign or push, so drop it";
 export const WANT = "issues: write, actions: read, contents: read";
 /** The problem for a failure-issue job that does not request exactly its scopes. */
 export const notExact = (got: string) =>
