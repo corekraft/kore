@@ -3,16 +3,32 @@ import {
   swapLocalSigningKey,
 } from "../images/index.js";
 import { localDown, localUp } from "../local/index.js";
+import {
+  composeChartDelivery,
+  composeGoldenPathDelivery,
+} from "../platform/index.js";
 import { installLocalTrust, syncLocalSecrets } from "../security/index.js";
 import { mutateAction } from "./context.js";
 import type { CommandContext } from "./context.js";
-import { boolFlag } from "./flags.js";
+import { boolFlag, stringFlag } from "./flags.js";
 import { print } from "./output.js";
 
 export async function localCommand(context: CommandContext): Promise<number> {
   const { repository } = context;
   return await mutateAction(context, {
-    up: async (_context, runner) => await localUp(repository, runner),
+    up: async (_context, runner) =>
+      // Schema-check both release locks before any cluster call (ADR 0043).
+      await localUp(
+        await composeGoldenPathDelivery(
+          await composeChartDelivery(
+            repository,
+            stringFlag(context.parsed, "platform-chart-lock"),
+          ),
+          runner,
+          stringFlag(context.parsed, "platform-template-lock"),
+        ),
+        runner,
+      ),
     down: async (_context, runner) =>
       await localDown(repository, runner, {
         prune: boolFlag(context.parsed, "prune"),

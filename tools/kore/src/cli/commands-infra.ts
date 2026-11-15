@@ -16,6 +16,7 @@ import {
   platformStatusReport,
   platformStop,
   composeChartDelivery,
+  composeGoldenPathDelivery,
   platformUp,
   readinessFailureSummary,
 } from "../platform/index.js";
@@ -103,9 +104,13 @@ export async function platformCommand(
     up: async (_context, mutationRunner) =>
       // Schema-check the chart lock before any cluster call, then install.
       await platformUp(
-        await composeChartDelivery(
-          repository,
-          stringFlag(context.parsed, "platform-chart-lock"),
+        await composeGoldenPathDelivery(
+          await composeChartDelivery(
+            repository,
+            stringFlag(context.parsed, "platform-chart-lock"),
+          ),
+          mutationRunner,
+          stringFlag(context.parsed, "platform-template-lock"),
         ),
         mutationRunner,
       ),

@@ -4,6 +4,7 @@ import { FailFastError, withFailFast } from "./fail-fast.js";
 import { desiredFingerprint } from "./fingerprint.js";
 import {
   assertChartDelivery,
+  assertGoldenPathDelivery,
   envOption,
   helmEnv,
   helmUpgradeArgs,
@@ -107,6 +108,18 @@ test("a chart that cannot be delivered is refused before Helm runs, so no cluste
     "needs the chart lock",
   );
   expect(assertChartDelivery).toHaveBeenCalledWith(repository, chart);
+  expect(run).not.toHaveBeenCalled();
+});
+
+test("a golden-path release without its template lock is refused before Helm runs", async () => {
+  vi.mocked(assertGoldenPathDelivery).mockImplementation(() => {
+    throw new Error("needs the template lock");
+  });
+  const { runner, run } = fakeRunner();
+  await expect(reconcileComponent(repository, runner, chart)).rejects.toThrow(
+    "needs the template lock",
+  );
+  expect(assertGoldenPathDelivery).toHaveBeenCalledWith(repository, chart);
   expect(run).not.toHaveBeenCalled();
 });
 

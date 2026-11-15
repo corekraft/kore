@@ -52,6 +52,31 @@ function helmTarget(component: Component): string {
   return component.chart!;
 }
 
+/** The kore-golden-path-delivery chart's composed values as Helm arguments; none for any other component. */
+function goldenPathArgs(
+  repository: Repository,
+  component: Component,
+): string[] {
+  const golden = repository.goldenPathDelivery;
+  if (component.name !== "kore-golden-path-delivery" || !golden) {
+    return [];
+  }
+  return [
+    "--set-string",
+    `repoURL=${golden.repoURL}`,
+    "--set-string",
+    `revision=${golden.revision}`,
+    "--set-string",
+    `environment=${golden.environment}`,
+    "--set-json",
+    `templateImages=${JSON.stringify(golden.templateImages)}`,
+    "--set-string",
+    `ingress.platformDomain=${golden.ingress.platformDomain}`,
+    "--set-string",
+    `ingress.gatewayClassName=${golden.ingress.gatewayClassName}`,
+  ];
+}
+
 function chartSelectionArgs(
   repository: Repository,
   component: Component,
@@ -108,6 +133,7 @@ function chartSelectionArgs(
       `gatewayClassName=${delivery.gatewayClassName}`,
     );
   }
+  args.push(...goldenPathArgs(repository, component));
   return args;
 }
 
@@ -122,7 +148,22 @@ export function assertChartDelivery(
 ): void {
   if (component.name === "kore-config-delivery" && !repository.chartDelivery) {
     throw new Error(
-      "kore-config-delivery needs the chart lock: run `kore platform up --platform-chart-lock <platform-charts.lock.json>`, the release asset published with the charts (kore local up does not pass it yet)",
+      "kore-config-delivery needs the chart lock: run `kore platform up --platform-chart-lock <platform-charts.lock.json>`, the release asset published with the charts (`kore local up` takes the same flag)",
+    );
+  }
+}
+
+/** Refuses to install kore-golden-path-delivery without its composed values, naming the flag. */
+export function assertGoldenPathDelivery(
+  repository: Repository,
+  component: Component,
+): void {
+  if (
+    component.name === "kore-golden-path-delivery" &&
+    !repository.goldenPathDelivery
+  ) {
+    throw new Error(
+      "kore-golden-path-delivery needs the template lock: run `kore local up --platform-template-lock <template-images.lock.json>`, the release asset published with the template images",
     );
   }
 }

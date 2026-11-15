@@ -16,6 +16,13 @@ import { healthyClusterOutput } from "../testing/index.js";
 const repository = {
   ...(await loadRepository("local")),
   chartDelivery: { charts: {}, namespaces: {}, gatewayClassName: "istio" },
+  goldenPathDelivery: {
+    repoURL: "https://github.com/corekraft/kore.git",
+    revision: "a".repeat(40),
+    environment: "local",
+    templateImages: {},
+    ingress: { platformDomain: "kore.local", gatewayClassName: "istio" },
+  },
 };
 const ordered = orderedComponents(repository.catalog);
 
