@@ -113,5 +113,26 @@
         "unresolved": 0
       }
     ]
+  },
+  "agents": {
+    "known": [],
+    "launched": [],
+    "unused": []
+  },
+  "proposals": {
+    "history": {
+      "minDays": 14,
+      "minSessions": 100,
+      "days": 0,
+      "sessions": 2,
+      "sufficient": false
+    },
+    "items": [
+      {
+        "kind": "promotable-rule",
+        "subject": "unquoted-glob",
+        "command": "node skills/bin/harness.mjs guardrail request unquoted-glob --to enforce --idea <idea> --scan <retro-scan.json> --false-positives 0"
+      }
+    ]
   }
 }
