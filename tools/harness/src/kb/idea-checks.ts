@@ -1,6 +1,7 @@
 // Frontmatter checks for idea records (ADR 0079).
 // Docs: infra/plans/4-knowledge.md#step-3-knowledge-health-check
 
+import { tierProblems } from "./tier-checks.js";
 import { DATE, finding, frontmatter, type Finding } from "./markdown.js";
 
 export const IDEA_NAME = /^docs\/ideas\/(\d{4})-[a-z0-9]+(?:-[a-z0-9]+)*\.md$/;
@@ -256,6 +257,7 @@ export function checkIdea(
     ...valueProblems(file, keys),
     ...parentProblems(file, keys, ideas),
     ...harnessProblems(file, keys, metrics),
+    ...tierProblems(file, keys, metrics),
     ...outcomeProblems(file, markdown, keys),
   ];
   if (!IDEA_NAME.test(file)) {

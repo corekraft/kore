@@ -4,6 +4,7 @@ import * as idea from "./index.js";
 import * as record from "./record.js";
 import * as repository from "./repository.js";
 import * as sync from "./sync.js";
+import * as tier from "./tier.js";
 
 // The barrel only re-exports its four files, so each is mocked: the barrel is
 // tested as a pass-through, not as the units behind it.
@@ -11,12 +12,16 @@ vi.mock("./commands.js");
 vi.mock("./record.js");
 vi.mock("./repository.js");
 vi.mock("./sync.js");
+vi.mock("./tier.js");
 
 it("the idea barrel exposes exactly the names its callers import", () => {
   expect(Object.keys(idea).sort()).toEqual([
     "IdeaError",
     "IdeaRepository",
     "SAFETY_PATTERNS",
+    "TIER_COST_METRIC",
+    "TIER_FIELDS",
+    "TIER_GUARD_METRIC",
     "ideaCommands",
     "issueTarget",
     "outcomeSection",
@@ -30,4 +35,7 @@ it("each export is the unit's own export, not a copy or a wrapper", () => {
   expect(idea.SAFETY_PATTERNS).toBe(record.SAFETY_PATTERNS);
   expect(idea.outcomeSection).toBe(record.outcomeSection);
   expect(idea.issueTarget).toBe(sync.issueTarget);
+  expect(idea.TIER_COST_METRIC).toBe(tier.TIER_COST_METRIC);
+  expect(idea.TIER_GUARD_METRIC).toBe(tier.TIER_GUARD_METRIC);
+  expect(idea.TIER_FIELDS).toBe(tier.TIER_FIELDS);
 });

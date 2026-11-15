@@ -1,5 +1,6 @@
 import type { CostMetric } from "../flow/index.js";
 import type { IdeaRecord } from "../idea/index.js";
+import { tierRefusal } from "./qualify-tier.js";
 
 /** Safety patterns that are one revertible change with no data or external state migration. */
 const REVERSIBLE: readonly string[] = [
@@ -60,8 +61,16 @@ export function qualify(idea: IdeaRecord, input: QualifyInput): Verdict {
       `${metric} has too little history for a trailing average (${found.closedIdeas} closed ideas, ${found.needed} needed).`,
     );
   }
+  const tier = tierRefusal(idea.harness, input);
+  if (tier !== undefined) {
+    return refuse(tier);
+  }
+  const edit =
+    idea.harness.tier === undefined
+      ? ""
+      : ", a frontmatter edit of model or effort measured on cost and judge send-backs together";
   return {
     approve: true,
-    reason: `Auto-approved: one revertible change (safety pattern ${idea.safetyPattern}, no data or external state migration), and ${metric} is in the flow report with a trailing average to measure against.`,
+    reason: `Auto-approved: one revertible change (safety pattern ${idea.safetyPattern}, no data or external state migration${edit}), and ${metric} is in the flow report with a trailing average to measure against.`,
   };
 }
