@@ -62,6 +62,16 @@ test("the hadolint scan covers the static frontend template Dockerfile", async (
   );
 });
 
+test("the static frontend sets and rewrites no cookie, so no session cookie or Domain can come from it", async () => {
+  const nginx = await read("templates/static-frontend/nginx.conf");
+  assert.doesNotMatch(nginx, /set-cookie|proxy_cookie_/i);
+  assert.doesNotMatch(nginx, /Domain=/i);
+  assert.doesNotMatch(
+    await read("templates/static-frontend/Dockerfile"),
+    /set-cookie|Domain=/i,
+  );
+});
+
 test("nothing deploys the static frontend template yet", async () => {
   const lock = await read("infra/catalog/approved-images.yaml");
   assert.doesNotMatch(lock, /static-frontend/);

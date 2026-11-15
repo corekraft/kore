@@ -187,7 +187,7 @@ existing reference app keeps working until a service moves to them.
       OpenTelemetry Java agent and a JDK AOT cache from a build-time training
       run
       ([ADR 0046](../../docs/decisions/0046-bff-jvm-with-agent-and-aot-cache.md)).
-- [ ] Add the unit-level assertion on the template's cookie and response
+- [x] Add the unit-level assertion on the template's cookie and response
       settings that the vision's token test names: every session cookie
       host-only, `HttpOnly`, `Secure` and `SameSite`.
 - [ ] Sign both images through release automation and deploy them by digest.

@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { test } from "vitest";
-import { findRoot } from "../../src/config/index.js";
+import { findRoot, sessionCookieViolations } from "../../src/config/index.js";
 
 async function read(path: string): Promise<string> {
   return readFile(join(await findRoot(), path), "utf8");
@@ -170,6 +170,17 @@ test("the compatibility table records each Kotlin BFF template pin with full dig
   );
   assert.match(table, /crane digest ghcr\.io\/graalvm\/jdk-community:25\.0\.2/);
   assert.match(table, /checksums\.txt/);
+});
+
+// The session cookie is the Tomcat cookie Spring Boot configures under
+// server.servlet.session.cookie. Its keys are read from the public config only.
+test("every session cookie the Kotlin BFF template sets is host-only, HttpOnly, Secure and SameSite", async () => {
+  assert.deepEqual(
+    sessionCookieViolations(
+      await read("templates/kotlin-bff/src/main/resources/application.yaml"),
+    ),
+    [],
+  );
 });
 
 test("nothing deploys the Kotlin BFF template yet", async () => {
