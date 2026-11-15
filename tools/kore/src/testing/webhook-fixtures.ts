@@ -6,6 +6,7 @@ const gatedOffReleases = [
   "agentgateway",
   "agentgateway-crds",
   "metrics-server",
+  "kore-platform-apis",
 ];
 
 /**
