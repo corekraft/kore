@@ -134,12 +134,50 @@ test("the Service composition composes one labelled namespace per environment", 
     /range \$env := \.observed\.composite\.resource\.spec\.environments/,
   );
   assert.match(source, /^ {12}kind: Namespace$/m);
-  assert.match(source, /name: \{\{ \$service \}\}-\{\{ \$env \}\}/);
+  assert.match(source, /name: \{\{ \$service \}\}--\{\{ \$env \}\}/);
   assert.match(source, /composition-resource-name: namespace-\{\{ \$env \}\}/);
   assert.match(source, /platform\.kore\.dev\/tenant: \{\{ \$org \}\}/);
   assert.match(source, /platform\.kore\.dev\/organization: \{\{ \$org \}\}/);
   assert.match(source, /function-auto-ready/);
   assert.doesNotMatch(source, /platform\.kore\.dev\/path/);
+});
+
+test("the Service XRD rejects an ambiguous, overlong or reserved namespace name before any mutation", async () => {
+  const xrd = await read(
+    "infra/charts/platform-apis/templates/service-xrd.yaml",
+  );
+  // Ambiguous join: the namespace is <service>--<environment>, so neither
+  // part may contain a double hyphen (a-b + c must differ from a + b-c).
+  assert.match(xrd, /rule: "!self\.metadata\.name\.contains\('--'\)"/);
+  assert.match(
+    xrd,
+    /rule: "self\.spec\.environments\.all\(e, !e\.contains\('--'\)\)"/,
+  );
+  // Overlong: service + "--" + environment must fit the 63-character limit.
+  assert.match(
+    xrd,
+    /rule: "self\.spec\.environments\.all\(e, self\.metadata\.name\.size\(\) \+ 2 \+ e\.size\(\) <= 63\)"/,
+  );
+  assert.match(xrd, /namespace name .*at most 63 characters/);
+  // Reserved: Kubernetes' kube- and Kore's kore- prefixes. Every composed name
+  // contains "--", which no platform namespace (kore-system, crossplane-system,
+  // default) does, so these two prefixes are the only remaining collisions.
+  assert.match(
+    xrd,
+    /rule: "!self\.metadata\.name\.startsWith\('kube-'\) && !self\.metadata\.name\.startsWith\('kore-'\)"/,
+  );
+  assert.match(xrd, /reserved prefix/);
+  // Environments are unique and bounded so the rules stay within CEL cost.
+  assert.match(xrd, /x-kubernetes-list-type: set/);
+  assert.match(xrd, /maxItems: 16/);
+});
+
+test("the valid case renders a namespace named service--environment", async () => {
+  const source = await read(
+    "infra/charts/platform-apis/templates/service-composition.yaml",
+  );
+  assert.match(source, /name: \{\{ \$service \}\}--\{\{ \$env \}\}/);
+  assert.doesNotMatch(source, /\{\{ \$service \}\}-\{\{ \$env \}\}/);
 });
 
 test("Crossplane may manage namespaces only through the flagged chart", async () => {

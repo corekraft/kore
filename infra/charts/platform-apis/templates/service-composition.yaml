@@ -9,7 +9,9 @@ spec:
   pipeline:
     # One Namespace per service environment (ADR 0037), labelled with only the
     # tenant and organization (ADR 0038). The platform organization is the
-    # tenant root, so its name is also the tenant. The go template is wrapped in
+    # tenant root, so its name is also the tenant. The namespace is
+    # <service>--<environment>; the XRD forbids a double hyphen in either part, so
+    # the join is unambiguous and cannot equal a platform namespace. The go template is wrapped in
     # a Helm raw string so Helm leaves it for Crossplane to evaluate.
     - step: compose-namespaces
       functionRef: { name: function-go-templating }
@@ -26,7 +28,7 @@ spec:
             apiVersion: v1
             kind: Namespace
             metadata:
-              name: {{ $service }}-{{ $env }}
+              name: {{ $service }}--{{ $env }}
               annotations:
                 gotemplating.fn.crossplane.io/composition-resource-name: namespace-{{ $env }}
               labels:
