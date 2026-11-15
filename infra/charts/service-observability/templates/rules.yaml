@@ -1,0 +1,60 @@
+{{- /*
+Default alerts for every registered Service, as one Prometheus rule file. They
+are notify-only (ADR 0114): the thresholds are not measured yet, so each rule
+carries notify: "false" and shows in Grafana only. The platform alert
+destination is a parked owner question; set, it is carried as a contact_point
+label and nothing routes on it yet.
+*/}}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: kore-service-rules
+  namespace: {{ .Release.Namespace }}
+data:
+  services.yaml: |
+{{- if not .Values.services }}
+    groups: []
+{{- else }}
+    groups:
+{{- range .Values.services }}
+{{- $namespace := printf "%s--%s" . $.Values.environment }}
+      - name: kore.service.{{ . }}
+        rules:
+          - alert: ServiceUnavailable
+            expr: sum(kube_deployment_status_replicas_available{namespace="{{ $namespace }}"}) == 0
+            for: 5m
+            labels:
+              severity: critical
+              service: {{ . }}
+              notify: "false"
+              {{- with $.Values.alerts }}{{ with .destination }}
+              contact_point: {{ . }}
+              {{- end }}{{ end }}
+            annotations:
+              summary: Service {{ . }} has no available replica
+          - alert: ServiceHighErrorRatio
+            expr: sum(rate(istio_requests_total{destination_service_namespace="{{ $namespace }}",response_code=~"5.."}[5m])) / sum(rate(istio_requests_total{destination_service_namespace="{{ $namespace }}"}[5m])) > 0.05
+            for: 10m
+            labels:
+              severity: warning
+              service: {{ . }}
+              notify: "false"
+              {{- with $.Values.alerts }}{{ with .destination }}
+              contact_point: {{ . }}
+              {{- end }}{{ end }}
+            annotations:
+              summary: Service {{ . }} answers more than 5 percent of requests with a server error
+          - alert: ServiceRestartLoop
+            expr: sum(increase(kube_pod_container_status_restarts_total{namespace="{{ $namespace }}"}[15m])) > 3
+            for: 5m
+            labels:
+              severity: warning
+              service: {{ . }}
+              notify: "false"
+              {{- with $.Values.alerts }}{{ with .destination }}
+              contact_point: {{ . }}
+              {{- end }}{{ end }}
+            annotations:
+              summary: Containers of service {{ . }} restarted more than 3 times in 15 minutes
+{{- end }}
+{{- end }}

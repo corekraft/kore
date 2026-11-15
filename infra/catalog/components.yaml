@@ -714,6 +714,19 @@
         "readiness": ["statefulset/keycloak"]
       },
       {
+        "name": "kore-service-observability",
+        "phase": "configuration",
+        "namespace": "observability",
+        "kind": "local-chart",
+        "chart": "infra/charts/service-observability",
+        "version": "local",
+        "featureFlag": "platform-portal",
+        "ownsCRDs": [],
+        "dependencies": ["grafana", "prometheus"],
+        "timeout": "2m",
+        "readiness": ["configmap/kore-service-rules"]
+      },
+      {
         "name": "kore-golden-path-delivery",
         "phase": "configuration",
         "namespace": "argocd",
