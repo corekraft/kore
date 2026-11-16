@@ -10,7 +10,7 @@ import { homedir } from "node:os";
 // The root is the git top level of CLAUDE_PROJECT_DIR, else of the payload's cwd. The guardrail
 // inventory (.claude/guardrails.yaml) is found from that root, walking up
 // through its parents when the root is a subdirectory of the repository.
-import { asCall, evaluate } from "./guard-evaluate.js";
+import { asCall, evaluate, type GuardCall } from "./guard-evaluate.js";
 import {
   GuardrailError,
   modeOf,
@@ -43,6 +43,16 @@ function blockId(
   return `guard.block:${String(call.session_id)}:${rule}:${hash}`;
 }
 
+/**
+ * The background mark on a tool.start whose command runs in the background (#854), so the
+ * stall check leaves its pane out. A foreground call carries none; the rules never read it.
+ */
+function backgroundMark(call: GuardCall): { background?: true } {
+  return call.tool_input?.["run_in_background"] === true
+    ? { background: true }
+    : {};
+}
+
 export async function guard(
   payload: unknown,
   deps: CliDeps,
@@ -53,7 +63,13 @@ export async function guard(
   const call = asCall(payload);
   const root = await launchRoot(deps, callDirectory(call, deps.cwd));
   // Recording runs beside the rules, so resolving the ledger root never adds to the guard's latency.
-  const started = recordEvent(deps, "tool.start", call);
+  const started = recordEvent(
+    deps,
+    "tool.start",
+    call,
+    undefined,
+    backgroundMark(call),
+  );
   const readFile = (path: string) => deps.fs.readFile(path);
   // Fail closed: with no usable inventory every rule enforces, and the cause is named.
   let inventory: Inventory | undefined;

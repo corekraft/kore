@@ -256,10 +256,13 @@ describe("pollHerdr: a recorded pane that goes away", () => {
 });
 
 describe("pollHerdr: reading the ledger and the result", () => {
-  it("reads only herdr's events from the ledger", async () => {
+  it("reads herdr's events, then Claude's for background commands, and asks for nothing else", async () => {
     const { fake, poll } = setupAgents([]);
     await poll();
-    expect(fake.list.mock.calls).toEqual([[{ source: "herdr" }]]);
+    expect(fake.list.mock.calls).toEqual([
+      [{ source: "herdr" }],
+      [{ source: "claude" }],
+    ]);
   });
 
   it("returns the ledger's message when a record is refused", async () => {

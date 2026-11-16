@@ -82,7 +82,48 @@ describe("guard entry", () => {
     const { deps } = fakeDeps();
     expect(await guard({}, deps)).toEqual({});
     expect(recordEvent).toHaveBeenCalledTimes(1);
-    expect(recordEvent).toHaveBeenCalledWith(deps, "tool.start", CALL);
+    expect(recordEvent).toHaveBeenCalledWith(
+      deps,
+      "tool.start",
+      CALL,
+      undefined,
+      {},
+    );
+  });
+
+  it("records the start of a background command as background, so the stall check can leave its pane out", async () => {
+    const { deps } = fakeDeps();
+    const background: GuardCall = {
+      ...CALL,
+      tool_input: { command: "npm test", run_in_background: true },
+    };
+    vi.mocked(asCall).mockReturnValue(background);
+    await guard({}, deps);
+    expect(recordEvent).toHaveBeenCalledWith(
+      deps,
+      "tool.start",
+      background,
+      undefined,
+      {
+        background: true,
+      },
+    );
+  });
+
+  it("records a foreground call without a background mark, even when run_in_background is false", async () => {
+    const { deps } = fakeDeps();
+    vi.mocked(asCall).mockReturnValue({
+      ...CALL,
+      tool_input: { command: "npm test", run_in_background: false },
+    });
+    await guard({}, deps);
+    expect(recordEvent).toHaveBeenCalledWith(
+      deps,
+      "tool.start",
+      expect.anything(),
+      undefined,
+      {},
+    );
   });
 
   it("takes the root from the launch root, asked with the call's directory, then the deps cwd", async () => {

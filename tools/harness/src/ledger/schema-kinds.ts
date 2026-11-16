@@ -47,5 +47,6 @@ export const KINDS = [
   "spawn.unstamped",
   "session.result",
   "pane.finished",
+  "pane.stalled",
 ] as const;
 export type Kind = (typeof KINDS)[number];
