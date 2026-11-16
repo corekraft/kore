@@ -3,12 +3,7 @@
 // Docs: infra/plans/5-self-maintenance.md#step-2-deterministic-retrospective-scan
 
 import { homedir } from "node:os";
-import { join } from "node:path";
-import {
-  CommandError,
-  type CliDeps,
-  type FileSystem,
-} from "../runtime/index.js";
+import { CommandError, type CliDeps } from "../runtime/index.js";
 import {
   GuardrailError,
   auditRuleNames,
@@ -22,40 +17,11 @@ import {
   markerInstant,
   scan,
 } from "./retro-scan.js";
+import { agentSection, skillNames } from "./retro-agents.js";
 import { defaultDirs, readTranscripts } from "./retro-transcripts.js";
 
 const USAGE =
-  "Usage: harness hook retro-scan [--dir <transcripts>] [--since YYYY-MM-DD|YYYY-MM-DDTHH:MM:SSZ] [--evidence]\n--since keeps sessions active at or after local midnight of that date, or at or after that UTC instant, like the session-start count.\n--evidence adds guardEvidence (the session, transcript line and excerpt of each guard block) and overriddenEvidence (the same, with the command excerpt and the unquoted glob the guard named, for each overridden audit warning), capped per rule. The default report leaves them out.";
-
-const isMissing = (error: unknown): boolean =>
-  (error as NodeJS.ErrnoException).code === "ENOENT";
-
-/** The folders under skills/ that hold a SKILL.md, or undefined when there is no skills directory. */
-async function skillNames(
-  fs: FileSystem,
-  root: string,
-): Promise<string[] | undefined> {
-  const dir = join(root, "skills");
-  let entries: string[];
-  try {
-    entries = await fs.readdir(dir);
-  } catch (error) {
-    if (isMissing(error)) {
-      return undefined;
-    }
-    throw error;
-  }
-  const names: string[] = [];
-  for (const entry of entries) {
-    if (
-      (await fs.isDirectory(join(dir, entry))) &&
-      (await fs.exists(join(dir, entry, "SKILL.md")))
-    ) {
-      names.push(entry);
-    }
-  }
-  return names;
-}
+  "Usage: harness hook retro-scan [--dir <transcripts>] [--since YYYY-MM-DD|YYYY-MM-DDTHH:MM:SSZ] [--evidence]\n--since keeps sessions active at or after local midnight of that date, or at or after that UTC instant, like the session-start count.\n--evidence adds guardEvidence (the session, transcript line and excerpt of each guard block) and overriddenEvidence (the same, with the command excerpt and the unquoted glob the guard named, for each overridden audit warning), capped per rule. The default report leaves them out. The report also lists the agents with no launch in the ledger (agents) and a ready command for each finding (proposals): an idea for an unused skill or agent, needing 14 days of ledger and 100 sessions, and a guardrail request for a promotable audit rule. The scan runs none of them.";
 
 interface Args {
   dir: string | undefined;
@@ -140,7 +106,11 @@ async function report(
     auditRules: audit,
     evidence,
   });
-  const body = { since: effective ?? null, ...result };
+  const body = {
+    since: effective ?? null,
+    ...result,
+    ...(await agentSection(deps, root, effective, result)),
+  };
   return { stdout: `${JSON.stringify(body, null, 2)}\n`, stderr };
 }
 

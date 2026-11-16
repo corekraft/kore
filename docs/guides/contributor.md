@@ -673,6 +673,14 @@ scan's own, from one shared function. An enforced rule is measured by its
 `guards` blocks. Tightening (audit to enforce), loosening (enforce to audit) and
 removal are requested the same way.
 
+The scan's report also has an `agents` section (the agents with a definition,
+those launched in the window, and those never launched) and a `proposals`
+section: the window and minimums it used (14 days of ledger, 100 sessions) and a
+ready command for each finding, an `idea new` for an unused skill or agent and a
+prefilled `guardrail request` for a promotable audit rule. Below either minimum
+it reports insufficient history and proposes no removal. The scan runs none of
+the commands, and `guardrail activate` still needs a person's approval.
+
 It posts one comment on the idea's issue, with the idea link and the figures
 (never transcript text), and appends a `guardrail.requested` ledger event whose
 label is `<rule>:<from>><to>`. It posts once per change: a rerun finds the event,
