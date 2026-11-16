@@ -1,5 +1,6 @@
 import { JudgeError, summary, type Report } from "../judge/index.js";
 import type { Command, CommandContext } from "../runtime/index.js";
+import { signedBody } from "../sender/index.js";
 import {
   FAILED,
   failed,
@@ -105,6 +106,74 @@ function refuseUnverified(context: CommandContext, report: Report): number {
   return FAILED;
 }
 
+/** The sender line the approval review carries, or a refusal when the environment cannot name the sender. */
+function senderLineOf({ deps }: CommandContext): string {
+  const line = signedBody(deps.env, "judge approve", "");
+  if ("error" in line) {
+    throw new JudgeError(line.error);
+  }
+  return line.body;
+}
+
+/** Refuses a head that moved since the precheck verified it, and the caller's own PR. */
+function assertCanApprove(
+  standing: Standing,
+  verified: string,
+  caller: string,
+  pr: number,
+): void {
+  if (standing.head !== verified) {
+    throw new JudgeError(
+      `The head of PR #${pr} moved from ${verified} to ${standing.head} after the precheck verified it. Rerun \`harness judge approve ${pr}\` to verify the new commit.`,
+    );
+  }
+  if (standing.author === caller) {
+    throw new JudgeError(
+      `PR #${pr} is authored by ${standing.author}, the login this pane runs as, and nobody approves their own change. Let a different judge identity approve it.`,
+    );
+  }
+}
+
+/** The login this pane's gh runs as; refused when gh cannot report one. */
+async function callerOf(
+  context: CommandContext,
+  root: string,
+  pr: number,
+): Promise<string> {
+  const caller = (
+    await gh(
+      context,
+      root,
+      ["api", "user", "--jq", ".login"],
+      "gh api user",
+      pr,
+    )
+  ).trim();
+  if (caller === "") {
+    throw new JudgeError(
+      `gh could not report the login this pane runs as. Run \`gh auth status\` to check the pane's GH_TOKEN, then rerun \`harness judge approve ${pr}\`.`,
+    );
+  }
+  return caller;
+}
+
+/** Approves the verified head as the pane's own identity, its sender line as the review's body. */
+async function approveReview(
+  context: CommandContext,
+  root: string,
+  repo: string,
+  pr: number,
+  body: string,
+): Promise<void> {
+  await gh(
+    context,
+    root,
+    ["pr", "review", String(pr), "--repo", repo, "--approve", "--body", body],
+    "gh pr review",
+    pr,
+  );
+}
+
 /**
  * Re-runs the precheck and, only when it passes, approves the commit it verified with the
  * pane's own gh identity (never overridden). The only review a judge pane may post: it
@@ -115,6 +184,7 @@ async function runApprove(context: CommandContext): Promise<number> {
   const { deps, json } = context;
   try {
     const pr = prNumber(context.operand, APPROVE_USAGE);
+    const body = senderLineOf(context);
     const root = await deps.root();
     const repo = await repoOf(context);
     const report = await checkedPrecheck(
@@ -129,42 +199,14 @@ async function runApprove(context: CommandContext): Promise<number> {
     if (!report.ok || verified === undefined || verified === "") {
       return refuseUnverified(context, report);
     }
-    const caller = (
-      await gh(
-        context,
-        root,
-        ["api", "user", "--jq", ".login"],
-        "gh api user",
-        pr,
-      )
-    ).trim();
+    const caller = await callerOf(context, root, pr);
     const standing = await standingOf(context, root, repo, pr);
-    if (standing.head !== verified) {
-      throw new JudgeError(
-        `The head of PR #${pr} moved from ${verified} to ${standing.head} after the precheck verified it. Rerun \`harness judge approve ${pr}\` to verify the new commit.`,
-      );
-    }
-    if (caller === "") {
-      throw new JudgeError(
-        `gh could not report the login this pane runs as. Run \`gh auth status\` to check the pane's GH_TOKEN, then rerun \`harness judge approve ${pr}\`.`,
-      );
-    }
-    if (standing.author === caller) {
-      throw new JudgeError(
-        `PR #${pr} is authored by ${standing.author}, the login this pane runs as, and nobody approves their own change. Let a different judge identity approve it.`,
-      );
-    }
+    assertCanApprove(standing, verified, caller, pr);
     const already = standing.approvals.some(
       (a) => a.login === caller && a.commit === verified,
     );
     if (!already) {
-      await gh(
-        context,
-        root,
-        ["pr", "review", String(pr), "--repo", repo, "--approve"],
-        "gh pr review",
-        pr,
-      );
+      await approveReview(context, root, repo, pr, body);
     }
     deps.stdout(
       json

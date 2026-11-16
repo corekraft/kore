@@ -537,6 +537,15 @@ from the main session. The harness takes the role and session from the spawn
 environment, so an agent cannot choose them. A comment with no sender line is the
 owner's. Older verdicts with no line still count.
 
+The same line starts every other comment or review the harness posts: `judge
+send-back`, `judge approve` (the approval's review body), `guardrail request`,
+`outcome record` and `outcome close`, `evaluate`, and the `pr open` body, which
+keeps its `Safety pattern:` line last. The posting commands take no `--role`
+flag, and a command refuses to post when the environment cannot name its sender.
+The module also refuses a body with a line of guardrail approval syntax,
+`approve <rule>:...`. That is validation of the harness's own posts, not
+containment: a bare `gh` comment never passes through it.
+
 Each checklist item of the precheck (`ci`, `scan`, `coverage`,
 `principles-review`, `expand-step`, `pattern-match`, `guardrail-activation`) reads its mode from the
 guardrail inventory, `.claude/guardrails.yaml`, as the rule `judge-<item>` of kind

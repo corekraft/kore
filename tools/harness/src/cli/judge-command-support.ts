@@ -15,6 +15,8 @@ export const ROOT = "/repo";
 export const REPO = "corekraft/kore";
 export const CLOCK = { now: () => new Date("2026-01-02T03:04:05Z") };
 export const OK = { code: 0, stdout: "", stderr: "" };
+/** The spawn environment of the judge pane that runs a judge command, so its sender line names it. */
+export const JUDGE_ENV = { KORE_ROLE: "judge", KORE_AGENT: "judge-test" };
 
 /** A context for a judge command, with its output and its runner captured. */
 export function contextOf(
@@ -32,6 +34,7 @@ export function contextOf(
       clock: CLOCK,
       stdout,
       stderr,
+      env: JUDGE_ENV,
     },
     options,
     json,

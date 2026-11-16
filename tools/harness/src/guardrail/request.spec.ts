@@ -29,7 +29,12 @@ const IDEA = {
   issue: "223",
 };
 
-function fake(idea: RequestPorts["idea"] = IDEA) {
+const ENV = { KORE_ROLE: "orchestrator", KORE_AGENT: "queue-x" };
+
+function fake(
+  idea: RequestPorts["idea"] = IDEA,
+  env: RequestPorts["env"] = ENV,
+) {
   const events = vi.fn<RequestPorts["events"]>().mockResolvedValue([]);
   const recordEvent = vi
     .fn<RequestPorts["recordEvent"]>()
@@ -46,6 +51,7 @@ function fake(idea: RequestPorts["idea"] = IDEA) {
     recordEvent,
     comments,
     comment,
+    env,
   };
   return {
     request: new GuardrailRequest(ports),
@@ -76,6 +82,7 @@ describe("posting a request", () => {
     expect(issue).toBe("223");
     expect(body).toBe(
       [
+        "sender: orchestrator queue-x (guardrail request)",
         "<!-- guardrail-request: bare-glob:audit>enforce -->",
         "### Request to enforce guardrail `bare-glob`",
         "",
@@ -234,6 +241,30 @@ describe("a request never changes a mode", () => {
     const before = JSON.stringify(INVENTORY);
     await fake().request.request(input());
     expect(JSON.stringify(INVENTORY)).toBe(before);
+  });
+});
+
+describe("the request's comment names its sender first", () => {
+  it("names the main session, with no role in the environment, as the first line", async () => {
+    const { request, comment } = fake(IDEA, {});
+    await request.request(input());
+    const [, body] = comment.mock.calls[0] ?? [];
+    expect(body?.split("\n")[0]).toBe(
+      "sender: the main session (guardrail request)",
+    );
+  });
+
+  it("refuses to post, and records nothing, when the environment cannot name the sender", async () => {
+    const { request, comment, recordEvent } = fake(IDEA, {
+      KORE_ROLE: "orchestrator",
+    });
+    await expect(request.request(input())).rejects.toEqual(
+      new GuardrailError(
+        'KORE_ROLE is "orchestrator" but KORE_AGENT is not set, so the sender line cannot name the session. Spawn the session with `harness session spawn`, which sets both, then rerun.',
+      ),
+    );
+    expect(comment).not.toHaveBeenCalled();
+    expect(recordEvent).not.toHaveBeenCalled();
   });
 });
 

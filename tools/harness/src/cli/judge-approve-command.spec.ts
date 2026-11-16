@@ -91,7 +91,16 @@ describe("harness judge approve", () => {
     expect(reviewCalls(run)).toEqual([
       [
         "gh",
-        ["pr", "review", "42", "--repo", REPO, "--approve"],
+        [
+          "pr",
+          "review",
+          "42",
+          "--repo",
+          REPO,
+          "--approve",
+          "--body",
+          "sender: judge judge-test (judge approve)",
+        ],
         { cwd: ROOT },
       ],
     ]);
@@ -252,5 +261,27 @@ describe("harness judge approve gh failures", () => {
 
     expect(await approveCommands.approve?.run(context)).toBe(1);
     expect(reviewCalls(run)).toEqual([]);
+  });
+});
+
+describe("harness judge approve: the sender line", () => {
+  it("refuses to approve, before the precheck or any gh call, when the environment cannot name the sender", async () => {
+    const { context, run } = setup();
+    const unnamed = {
+      ...context,
+      deps: { ...context.deps, env: { KORE_ROLE: "judge" } },
+    };
+
+    expect(await approveCommands.approve?.run(unnamed)).toBe(1);
+    expect(checkedPrecheck).not.toHaveBeenCalled();
+    expect(run).not.toHaveBeenCalled();
+    expect(failed).toHaveBeenCalledWith(
+      unnamed,
+      expect.objectContaining({
+        message: expect.stringContaining(
+          'KORE_ROLE is "judge" but KORE_AGENT is not set',
+        ) as unknown,
+      }),
+    );
   });
 });

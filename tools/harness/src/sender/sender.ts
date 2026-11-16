@@ -94,3 +94,42 @@ export function withoutSender(body: string): string {
   const newline = body.indexOf("\n");
   return newline === -1 ? "" : body.slice(newline + 1);
 }
+
+/** The refusal for a body that carries guardrail approval syntax; only a person may write that line. */
+export const APPROVAL_REFUSAL =
+  'The body has a line of guardrail approval syntax, "approve <rule>:...", which only a person may write. Remove that line and rerun.';
+
+/** A guardrail approval line: approve, a rule, a colon, then the change. The one line a person writes to approve a mode change. */
+const APPROVAL = /^\s*approve\s+[^\s:]+:/im;
+
+/**
+ * Whether a body carries guardrail approval syntax. This validates the harness's own posts;
+ * it does not contain a bare gh comment, which never reaches this module.
+ */
+export function carriesApproval(body: string): boolean {
+  return APPROVAL.test(body);
+}
+
+/** A body ready to post, with its sender line first, or the reason it is refused. */
+export type Signed = { readonly body: string } | { readonly error: string };
+
+/**
+ * The body a harness command posts: the sender line first, then the body; an empty body is the
+ * line alone. Refused, with the reason, when the environment cannot name the sender or the body
+ * carries approval syntax, so nothing is posted.
+ */
+export function signedBody(
+  env: Environment,
+  command: string,
+  body: string,
+): Signed {
+  const sender = senderFrom(env, command);
+  if ("error" in sender) {
+    return sender;
+  }
+  if (carriesApproval(body)) {
+    return { error: APPROVAL_REFUSAL };
+  }
+  const line = formatSender(sender);
+  return { body: body === "" ? line : `${line}\n${body}` };
+}

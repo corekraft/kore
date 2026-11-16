@@ -1,11 +1,15 @@
 export {
+  APPROVAL_REFUSAL,
   MAIN_SESSION,
   NAME_VARIABLE,
   ROLE_VARIABLE,
+  carriesApproval,
   formatSender,
   readSender,
   senderFrom,
+  signedBody,
   withoutSender,
   type Sender,
   type SenderSession,
+  type Signed,
 } from "./sender.js";

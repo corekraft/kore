@@ -1,6 +1,7 @@
 import { evaluateIdea, type Evaluated } from "../evaluate/index.js";
 import { IdeaError, IdeaRepository } from "../idea/index.js";
 import type { Command, CommandContext } from "../runtime/index.js";
+import { senderFrom, type Sender } from "../sender/index.js";
 import { openLedger } from "./ledger-commands.js";
 import { logOutcome } from "./outcome-commands.js";
 import { prepareRevertFor } from "./revert-commands.js";
@@ -89,11 +90,21 @@ function recordedText(
   return `${lines.join("\n")}\n`;
 }
 
+/** The sender of the outcome comment this run posts; refused when the environment cannot name it. */
+function senderOf({ deps }: CommandContext): Sender {
+  const sender = senderFrom(deps.env, "evaluate");
+  if ("error" in sender) {
+    throw new IdeaError(sender.error);
+  }
+  return sender;
+}
+
 async function evaluation(context: CommandContext, input: Parsed) {
   const { deps, json } = context;
   if ("error" in input) {
     return fail(context, input.error, USAGE_ERROR);
   }
+  const sender = senderOf(context);
   const opened = await openLedger(context);
   if ("error" in opened) {
     return fail(context, opened.error, FAILED);
@@ -104,6 +115,7 @@ async function evaluation(context: CommandContext, input: Parsed) {
     runner: deps.runner,
     clock: deps.clock,
     root,
+    sender,
   };
   const { events } = await opened.ledger.list({});
   const done = await evaluateIdea(ctx, events, {

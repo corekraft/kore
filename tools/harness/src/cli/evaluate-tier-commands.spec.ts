@@ -49,6 +49,7 @@ function run(json = false) {
     fs: {},
     stdout: vi.fn<(text: string) => void>(),
     stderr: vi.fn<(text: string) => void>(),
+    env: { KORE_ROLE: "orchestrator", KORE_AGENT: "queue-x" },
   };
   return {
     deps,

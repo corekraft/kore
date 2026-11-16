@@ -56,6 +56,7 @@ function fakeDeps() {
     fs: {},
     stdout: vi.fn<(text: string) => void>(),
     stderr: vi.fn<(text: string) => void>(),
+    env: { KORE_ROLE: "orchestrator", KORE_AGENT: "queue-x" },
   };
 }
 
@@ -121,6 +122,10 @@ describe("outcome record", () => {
         runner: deps.runner,
         clock: deps.clock,
         root: ROOT,
+        sender: {
+          command: "outcome record",
+          session: { role: "orchestrator", name: "queue-x" },
+        },
       }),
       "1",
       parsedOutcome(),
@@ -264,5 +269,35 @@ describe("outcome close", () => {
       "Missing --idea; run `harness outcome close --idea <number or slug>`, or `harness idea list` to see the ideas.\n",
     );
     expect(closeOutcome).not.toHaveBeenCalled();
+  });
+});
+
+describe("outcome record and close name their sender on the comment", () => {
+  it("refuses before the ledger opens when the environment cannot name the sender", async () => {
+    const deps = fakeDeps();
+    const ctx = contextWith(
+      { ...deps, env: { KORE_ROLE: "orchestrator" } },
+      RECORD_FLAGS,
+    );
+    expect(await outcomeCommands.record?.run(ctx)).toBe(1);
+    expect(openLedger).not.toHaveBeenCalled();
+    expect(recordOutcome).not.toHaveBeenCalled();
+    expect(deps.stderr).toHaveBeenCalledWith(
+      'KORE_ROLE is "orchestrator" but KORE_AGENT is not set, so the sender line cannot name the session. Spawn the session with `harness session spawn`, which sets both, then rerun.\n',
+    );
+  });
+
+  it("names outcome close as the command when it publishes the recorded outcome", async () => {
+    const { ctx } = context({ idea: "1" });
+    expect(await outcomeCommands.close?.run(ctx)).toBe(0);
+    expect(closeOutcome).toHaveBeenCalledWith(
+      expect.objectContaining({
+        sender: {
+          command: "outcome close",
+          session: { role: "orchestrator", name: "queue-x" },
+        },
+      }),
+      "1",
+    );
   });
 });

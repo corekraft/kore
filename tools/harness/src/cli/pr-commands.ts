@@ -1,5 +1,6 @@
 import { JudgeError, renderPrBody } from "../judge/index.js";
 import type { Command, CommandContext } from "../runtime/index.js";
+import { signedBody } from "../sender/index.js";
 import { failed, repoOf } from "./judge-shared.js";
 import { prCheckCommand } from "./pr-check-command.js";
 import { prChecksRun } from "./pr-checks-command.js";
@@ -33,6 +34,15 @@ function number(context: CommandContext, name: string): number | undefined {
   return Number(value);
 }
 
+/** The PR body with its sender line first; refused when the environment cannot name the sender or the body carries approval syntax. */
+function signedPrBody(context: CommandContext, body: string): string {
+  const signed = signedBody(context.deps.env, "pr open", body);
+  if ("error" in signed) {
+    throw new JudgeError(signed.error);
+  }
+  return signed.body;
+}
+
 /**
  * Opens the PR with a body the declaration module rendered, so the precheck never reads a
  * hand-written declaration. gh runs through the runner in the pane's own environment, so
@@ -55,11 +65,12 @@ export async function prOpenRun(context: CommandContext): Promise<number> {
       ...(expandStep === undefined ? {} : { expandStep }),
       ...(context.options["closes"] === true ? { closes: true } : {}),
     });
+    const body = signedPrBody(context, rendered.body);
     for (const warning of rendered.warnings) {
       deps.stderr(`warning: ${warning}\n`);
     }
     if (context.options["dry-run"] === true) {
-      deps.stdout(rendered.body);
+      deps.stdout(body);
       return 0;
     }
     const repo = await repoOf(context);
@@ -75,7 +86,7 @@ export async function prOpenRun(context: CommandContext): Promise<number> {
         "--title",
         title,
         "--body",
-        rendered.body,
+        body,
         ...(base === undefined ? [] : ["--base", base]),
         ...(head === undefined ? [] : ["--head", head]),
       ],
