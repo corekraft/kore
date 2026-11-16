@@ -1,4 +1,5 @@
 import type { Runner } from "../runtime/index.js";
+import { withoutSender } from "../sender/index.js";
 import { NAMED_HEAD, TRAILING_HEAD, VERDICT_LINE } from "./review-verdict.js";
 
 // The expand step gather lives in its own unit; precheck imports it through here.
@@ -143,7 +144,10 @@ function current(view: PrView, comment: PrComment): boolean {
  * trusted: the result is unverified, not a pass.
  */
 export function reviewCheck(view: PrView, reviewers: readonly string[]): Check {
-  const reviews = view.comments.filter((c) => VERDICT_LINE.test(c.body));
+  // A sender line is read past, so it is never taken for the verdict or its head.
+  const reviews = view.comments
+    .map((c) => ({ ...c, body: withoutSender(c.body) }))
+    .filter((c) => VERDICT_LINE.test(c.body));
   if (reviews.length === 0) {
     return {
       result: "missing",

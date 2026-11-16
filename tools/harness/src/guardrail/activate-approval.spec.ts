@@ -73,6 +73,18 @@ describe("what counts as a person's approval", () => {
     expect(f.writeInventory).not.toHaveBeenCalled();
   });
 
+  it("counts the approval line behind a sender line as it counts one alone", async () => {
+    const { f, result } = await refused((label) => [
+      request(label),
+      {
+        ...person(label),
+        body: `sender: the main session (review post)\n${approvalLine(label)}`,
+      },
+    ]);
+    expect(result.activated).toBe(true);
+    expect(f.writeInventory).toHaveBeenCalled();
+  });
+
   it("does not count a comment that carries a harness marker, even from an approver's login", async () => {
     const { result } = await refused((label) => [
       request(label),

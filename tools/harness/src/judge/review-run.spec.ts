@@ -4,6 +4,7 @@ import { JudgeError } from "./errors.js";
 import { ReviewRun, type ReviewPorts } from "./review-run.js";
 import { postReview, type ReviewPosted } from "./review-post.js";
 import { readVerdict } from "./review-verdict-read.js";
+import type { Sender } from "../sender/index.js";
 
 vi.mock("./review-post.js", () => ({
   postReview:
@@ -20,6 +21,7 @@ vi.mock("./review-verdict-read.js", () => ({
 }));
 
 const HEAD_A = "aaaaaaaa11111111aaaaaaaa11111111aaaaaaaa";
+const WHO: Sender = { command: "review run" };
 const HEAD_B = "bbbbbbbb22222222bbbbbbbb22222222bbbbbbbb";
 const view = (headSha: string): PrView => ({
   baseSha: "",
@@ -64,7 +66,7 @@ beforeEach(() => {
 describe("ReviewRun reviews one PR head and posts the verdict for it", () => {
   it("spawns the Reviewer for the PR, reads its pane, closes it and posts the verdict for the head it read", async () => {
     io.view.mockResolvedValue(view(HEAD_A));
-    const done = await new ReviewRun(io).run(42);
+    const done = await new ReviewRun(io).run(42, WHO);
     expect(io.spawn).toHaveBeenCalledExactlyOnceWith(
       "pr42-reviewer",
       expect.stringContaining("42"),
@@ -73,7 +75,7 @@ describe("ReviewRun reviews one PR head and posts the verdict for it", () => {
     expect(io.read).toHaveBeenCalledWith("p1");
     expect(io.close).toHaveBeenCalledWith("pr42-reviewer");
     expect(postReview).toHaveBeenCalledExactlyOnceWith(
-      { pr: 42, findings: [], dryRun: false },
+      { pr: 42, findings: [], dryRun: false, sender: WHO },
       view(HEAD_A),
       expect.any(Function),
     );
@@ -83,7 +85,7 @@ describe("ReviewRun reviews one PR head and posts the verdict for it", () => {
 
   it("tells the Reviewer the head to review and the form its verdict takes, and never to post", async () => {
     io.view.mockResolvedValue(view(HEAD_A));
-    await new ReviewRun(io).run(42);
+    await new ReviewRun(io).run(42, WHO);
     const brief = io.spawn.mock.calls[0]?.[1] ?? "";
     expect(brief).toContain("aaaaaaaa");
     expect(brief).toContain("VERDICT: none");
@@ -97,7 +99,7 @@ describe("ReviewRun reviews one PR head and posts the verdict for it", () => {
   it("posts the findings the pane gave", async () => {
     io.view.mockResolvedValue(view(HEAD_A));
     vi.mocked(readVerdict).mockReturnValue(["a.ts:1 | rule | wrong | fix"]);
-    await new ReviewRun(io).run(42);
+    await new ReviewRun(io).run(42, WHO);
     expect(vi.mocked(postReview).mock.calls[0]?.[0].findings).toEqual([
       "a.ts:1 | rule | wrong | fix",
     ]);
@@ -110,14 +112,14 @@ describe("ReviewRun reviews one PR head and posts the verdict for it", () => {
       await comment("BODY");
       return posted(HEAD_A);
     });
-    await new ReviewRun(io).run(42);
+    await new ReviewRun(io).run(42, WHO);
     expect(io.comment).toHaveBeenCalledExactlyOnceWith(42, "BODY");
   });
 
   it("records an unchanged verdict as nothing posted", async () => {
     io.view.mockResolvedValue(view(HEAD_A));
     vi.mocked(postReview).mockResolvedValue(posted(HEAD_A, false));
-    const done = await new ReviewRun(io).run(42);
+    const done = await new ReviewRun(io).run(42, WHO);
     expect(done.posted).toBe(false);
     expect(io.record).toHaveBeenCalledWith(42, "unchanged:aaaaaaaa");
   });
@@ -131,7 +133,7 @@ describe("ReviewRun never posts a verdict for a head it did not review", () => {
       .mockResolvedValueOnce(view(HEAD_B))
       .mockResolvedValueOnce(view(HEAD_B));
     vi.mocked(postReview).mockResolvedValue(posted(HEAD_B));
-    const done = await new ReviewRun(io).run(42);
+    const done = await new ReviewRun(io).run(42, WHO);
     expect(io.spawn).toHaveBeenCalledTimes(2);
     expect(postReview).toHaveBeenCalledExactlyOnceWith(
       expect.anything(),
@@ -148,7 +150,7 @@ describe("ReviewRun never posts a verdict for a head it did not review", () => {
     io.view.mockImplementation(async () =>
       view(`${String(n++).padStart(8, "0")}${"0".repeat(32)}`),
     );
-    await expect(new ReviewRun(io, 2).run(42)).rejects.toThrow(
+    await expect(new ReviewRun(io, 2).run(42, WHO)).rejects.toThrow(
       /moved .* every review/s,
     );
     expect(postReview).not.toHaveBeenCalled();
@@ -164,7 +166,7 @@ describe("ReviewRun records a failure and posts nothing when there is no verdict
 
   it("fails when the pane has no parsable verdict, and says how to rerun", async () => {
     vi.mocked(readVerdict).mockReturnValue(undefined);
-    const run = new ReviewRun(io).run(42);
+    const run = new ReviewRun(io).run(42, WHO);
     await expect(run).rejects.toThrow(JudgeError);
     await expect(run).rejects.toThrow(/harness review run 42/);
     expect(postReview).not.toHaveBeenCalled();
@@ -174,7 +176,7 @@ describe("ReviewRun records a failure and posts nothing when there is no verdict
 
   it("fails when the Reviewer ends blocked, without reading a verdict from its pane", async () => {
     io.wait.mockResolvedValue({ outcome: "blocked", paneId: "p1" });
-    await expect(new ReviewRun(io).run(42)).rejects.toThrow(/blocked/);
+    await expect(new ReviewRun(io).run(42, WHO)).rejects.toThrow(/blocked/);
     expect(postReview).not.toHaveBeenCalled();
     expect(io.record).toHaveBeenCalledWith(42, "failed:blocked");
     expect(io.close).toHaveBeenCalledWith("pr42-reviewer");
@@ -182,7 +184,7 @@ describe("ReviewRun records a failure and posts nothing when there is no verdict
 
   it("closes the pane even when reading it fails", async () => {
     io.read.mockRejectedValue(new Error("herdr gone"));
-    await expect(new ReviewRun(io).run(42)).rejects.toThrow(/herdr gone/);
+    await expect(new ReviewRun(io).run(42, WHO)).rejects.toThrow(/herdr gone/);
     expect(io.close).toHaveBeenCalledWith("pr42-reviewer");
     expect(postReview).not.toHaveBeenCalled();
   });
