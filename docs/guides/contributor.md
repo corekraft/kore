@@ -568,12 +568,22 @@ owner's. Older verdicts with no line still count.
 
 The same line starts every other comment or review the harness posts: `judge
 send-back`, `judge approve` (the approval's review body), `guardrail request`,
-`outcome record` and `outcome close`, `evaluate`, and the `pr open` body, which
+`outcome record` and `outcome close`, `decision make`, `evaluate`, and the `pr open` body, which
 keeps its `Safety pattern:` line last. The posting commands take no `--role`
 flag, and a command refuses to post when the environment cannot name its sender.
 The module also refuses a body with a line of guardrail approval syntax,
 `approve <rule>:...`. That is validation of the harness's own posts, not
 containment: a bare `gh` comment never passes through it.
+
+`decision make --idea <n> --category <name> --question <text> --decision <text>`
+is the advisor's tool ([ADR 0120](../decisions/0120-recommended-decisions-go-to-an-advisor-reserved-decisions-to-the-owner.md)).
+It posts the decision on the idea's issue and records `decision.made` with the
+idea and the category only; the question and the reasoning stay on the issue. It
+does nothing while the `decision-advisor` flag is off in the local overlay, and it
+refuses, posting nothing, a question that matches the reserved list in
+`tools/harness/src/decision/reserved.ts` or a category that names a reserved one.
+The patterns there are a backstop for a fail-closed router, not the boundary, and
+changing the list is itself a reserved decision.
 
 Each checklist item of the precheck (`ci`, `scan`, `coverage`,
 `principles-review`, `expand-step`, `pattern-match`, `guardrail-activation`) reads its mode from the

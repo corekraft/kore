@@ -72,6 +72,10 @@ describe("the GitHub event stage table", () => {
     expect(GITHUB_STAGES["idea.filed"]).toBe("refine");
   });
 
+  it("maps a decision.made event to the orchestrate stage, where a pane's question is answered", () => {
+    expect(GITHUB_STAGES["decision.made"]).toBe("orchestrate");
+  });
+
   it("leaves an issue label out, since only the approval label is a stage", () => {
     expect(Object.hasOwn(GITHUB_STAGES, "issue.labelled")).toBe(false);
   });

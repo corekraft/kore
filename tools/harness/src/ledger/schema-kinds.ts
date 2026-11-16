@@ -41,6 +41,7 @@ export const KINDS = [
   "guardrail.approval-warned",
   "session.send",
   "idea.filed",
+  "decision.made",
   "retro.dropped",
   "owner.asked",
   "spawn.unstamped",

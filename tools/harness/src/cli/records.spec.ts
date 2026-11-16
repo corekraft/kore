@@ -10,6 +10,7 @@ const {
   judgeCommands,
   reviewCommands,
   outcomeCommands,
+  decisionCommands,
   prCommands,
 } = vi.hoisted(() => {
   const command = (name: string): Command => ({
@@ -24,6 +25,7 @@ const {
     judgeCommands: { judge: command("judge") },
     reviewCommands: { review: command("review") },
     outcomeCommands: { outcome: command("outcome") },
+    decisionCommands: { make: command("decision make") },
     prCommands: { open: command("pr open") },
   };
 });
@@ -38,10 +40,12 @@ vi.mock("./judge-commands.js", () => ({
   prCommands,
 }));
 vi.mock("./outcome-commands.js", () => ({ outcomeCommands }));
+vi.mock("./decision-commands.js", () => ({ decisionCommands }));
 
 describe("records command map", () => {
   it("groups the delivery loop's records under exactly these domain words", () => {
     expect(Object.keys(records).sort()).toEqual([
+      "decision",
       "flag",
       "idea",
       "judge",
@@ -58,10 +62,11 @@ describe("records command map", () => {
     expect(Object.keys(records.idea ?? {})).not.toContain("challenge");
   });
 
-  it("maps flag, ruleset, outcome, judge, review and pr to their own command maps", () => {
+  it("maps flag, ruleset, outcome, decision, judge, review and pr to their own command maps", () => {
     expect(records.flag).toBe(flagCommands);
     expect(records.ruleset).toBe(rulesetCommands);
     expect(records.outcome).toBe(outcomeCommands);
+    expect(records.decision).toBe(decisionCommands);
     expect(records.judge).toBe(judgeCommands);
     expect(records.review).toBe(reviewCommands);
     expect(records.pr).toBe(prCommands);
