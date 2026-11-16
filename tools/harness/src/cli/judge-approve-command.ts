@@ -28,6 +28,15 @@ const record_ = (value: unknown): Record<string, unknown> =>
 const text = (value: unknown): string =>
   typeof value === "string" ? value : "";
 
+/**
+ * One spelling per identity. gh names a GitHub App `app/<slug>` as a PR author,
+ * `<slug>` as a reviewer, and GraphQL's viewer calls it `<slug>[bot]`.
+ */
+const loginOf = (value: unknown): string =>
+  text(value)
+    .replace(/^app\//, "")
+    .replace(/\[bot\]$/, "");
+
 /** Runs gh with the pane's own environment (its GH_TOKEN) and returns stdout, or fails naming the step. */
 async function gh(
   context: CommandContext,
@@ -56,13 +65,13 @@ function parseStanding(stdout: string, pr: number): Standing {
   }
   const reviews = Array.isArray(view["reviews"]) ? view["reviews"] : [];
   return {
-    author: text(record_(view["author"])["login"]),
+    author: loginOf(record_(view["author"])["login"]),
     head: text(view["headRefOid"]),
     approvals: reviews
       .map(record_)
       .filter((r) => r["state"] === "APPROVED")
       .map((r) => ({
-        login: text(record_(r["author"])["login"]),
+        login: loginOf(record_(r["author"])["login"]),
         commit: text(record_(r["commit"])["oid"]),
       })),
   };
@@ -134,21 +143,34 @@ function assertCanApprove(
   }
 }
 
-/** The login this pane's gh runs as; refused when gh cannot report one. */
+/**
+ * The login this pane's gh runs as; refused when gh cannot report one. GraphQL's
+ * viewer answers for a person's token and a GitHub App's installation token alike;
+ * REST /user refuses the App with 403.
+ */
 async function callerOf(
   context: CommandContext,
   root: string,
   pr: number,
 ): Promise<string> {
-  const caller = (
-    await gh(
-      context,
-      root,
-      ["api", "user", "--jq", ".login"],
-      "gh api user",
-      pr,
-    )
-  ).trim();
+  const caller = loginOf(
+    (
+      await gh(
+        context,
+        root,
+        [
+          "api",
+          "graphql",
+          "--field",
+          "query={viewer{login}}",
+          "--jq",
+          ".data.viewer.login",
+        ],
+        "gh api graphql viewer",
+        pr,
+      )
+    ).trim(),
+  );
   if (caller === "") {
     throw new JudgeError(
       `gh could not report the login this pane runs as. Run \`gh auth status\` to check the pane's GH_TOKEN, then rerun \`harness judge approve ${pr}\`.`,

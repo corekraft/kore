@@ -264,6 +264,57 @@ describe("harness judge approve gh failures", () => {
   });
 });
 
+describe("harness judge approve as a GitHub App", () => {
+  it("asks GraphQL's viewer for the caller, which an App installation token can read and REST /user cannot", async () => {
+    const { context, run } = setup();
+
+    await approveCommands.approve?.run(context);
+    const lookups = run.mock.calls.filter((c) => c[1][0] === "api");
+    expect(lookups).toEqual([
+      [
+        "gh",
+        [
+          "api",
+          "graphql",
+          "--field",
+          "query={viewer{login}}",
+          "--jq",
+          ".data.viewer.login",
+        ],
+        { cwd: ROOT },
+      ],
+    ]);
+  });
+
+  it("matches an App caller's [bot] login to its own earlier approval, so it posts nothing twice", async () => {
+    const approved: Review = {
+      author: { login: "kore-judge" },
+      state: "APPROVED",
+      commit: { oid: "abc1234" },
+    };
+    const { context, run, stdout } = setup(
+      viewJson({ reviews: [approved] }),
+      "kore-judge[bot]",
+    );
+
+    expect(await approveCommands.approve?.run(context)).toBe(0);
+    expect(reviewCalls(run)).toEqual([]);
+    expect(stdout).toHaveBeenCalledWith(
+      "PR #42: already approved at abc1234\n",
+    );
+  });
+
+  it("refuses a PR the App itself authored though gh names the author without [bot]", async () => {
+    const { context, run } = setup(
+      viewJson({ author: "app/kore-judge" }),
+      "kore-judge[bot]",
+    );
+
+    expect(await approveCommands.approve?.run(context)).toBe(1);
+    expect(reviewCalls(run)).toEqual([]);
+  });
+});
+
 describe("harness judge approve: the sender line", () => {
   it("refuses to approve, before the precheck or any gh call, when the environment cannot name the sender", async () => {
     const { context, run } = setup();
