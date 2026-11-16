@@ -126,6 +126,16 @@ describe("friction", () => {
 });
 
 describe("reworkMetrics", () => {
+  it("reports the writer follow-up figures beside the rework counts, so a flow metric path can name them", () => {
+    vi.mocked(closedIdeas).mockReturnValue([]);
+    const m = reworkMetrics(new Map(), WINDOW, 5);
+    expect(m).toMatchObject({
+      followUpsPerWriterSession: { status: "insufficient history" },
+      mainFollowUpsPerWriterSession: { status: "insufficient history" },
+      followUps: { writerSessions: 0, bySender: [] },
+    });
+  });
+
   it("hands each metric the per-idea counts of closed ideas to the trailing comparison, ignoring a retired challenge.round", () => {
     vi.mocked(closedIdeas).mockReturnValue([
       {

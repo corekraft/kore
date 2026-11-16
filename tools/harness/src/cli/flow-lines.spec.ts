@@ -90,6 +90,9 @@ describe("reworkLines", () => {
       escalationsPerIdea: NONE,
       sendBacksPerIdea: NONE,
       frictionPerIdea: NONE,
+      followUpsPerWriterSession: NONE,
+      mainFollowUpsPerWriterSession: NONE,
+      followUps: { writerSessions: 0, bySender: [] },
     });
     expect(lines.map((l) => l.split(":")[0])).toEqual([
       "Escalations per idea",
