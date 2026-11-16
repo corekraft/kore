@@ -231,6 +231,7 @@ const RULES: readonly Rule[] = [
       "retro-triggered",
       "auto-approved",
       "qualifier.warned",
+      "tick.bound",
       "guardrail.requested",
       "guardrail.activated",
       "guardrail.approval-warned",

@@ -10,10 +10,50 @@ import {
   type Harness,
   type Measured,
 } from "./idea-run.js";
+import {
+  OPEN_GATE,
+  type BoundName,
+  type PassBounds,
+  type PassGate,
+} from "./tick-bounds.js";
 
 /** A third send-back goes to a judgment pane (idea 0007), which a later step adds; the tick starts none. */
 const JUDGMENT_AFTER = 3;
 const HEAD_LENGTH = 7;
+
+/**
+ * The pane starts one pass may make. A hold stops them all; saver mode lets one
+ * through. Each start the pass holds is recorded as a bound hit before it is skipped.
+ */
+class Starts {
+  private started = 0;
+
+  constructor(
+    private readonly bounds: PassBounds,
+    private readonly gate: PassGate,
+  ) {}
+
+  /** The bound that holds a start for this issue now, recorded first; undefined when it may go ahead. */
+  async held(issue: number): Promise<BoundName | undefined> {
+    const bound: BoundName | undefined =
+      this.bounds.hold ??
+      (this.bounds.saver && this.started >= 1 ? "saver" : undefined);
+    if (bound !== undefined) {
+      await this.gate.record(issue, bound);
+    }
+    return bound;
+  }
+
+  /** Counts a start that went ahead, so saver mode lets no second one through. */
+  taken(): void {
+    this.started += 1;
+  }
+}
+
+type Done = (
+  step: StepName,
+  extra?: Partial<Pick<IdeaStep, "pr" | "pane" | "bound">>,
+) => IdeaStep;
 
 export type PaneState = "running" | "done" | "blocked" | "closed";
 
@@ -58,7 +98,8 @@ export type StepName =
   | "awaiting-judge"
   | "awaiting-outcome"
   | "needs-judgment"
-  | "not-queued";
+  | "not-queued"
+  | "held";
 
 /** The one step a pass took for an idea. */
 export interface IdeaStep {
@@ -67,9 +108,17 @@ export interface IdeaStep {
   step: StepName;
   pr?: number;
   pane?: string;
+  /** On a held step: the bound that stopped the pane start this pass. */
+  bound?: BoundName;
 }
 
 type QueuedIdea = Extract<QueueItem, { kind: "idea" }>;
+
+/** The pull request an idea's pass works on, and the head commit it is at. */
+interface Change {
+  pr: number;
+  head: string;
+}
 
 /**
  * One idempotent pass over the queue. Each queued idea advances by at most one
@@ -83,6 +132,8 @@ export class Tick {
     private readonly ports: TickPorts,
     /** The measured outcome to record for an idea once its change has merged. */
     private readonly outcomes: ReadonlyMap<string, Measured> = new Map(),
+    /** The host bounds this pass reads, and where its bound hits are recorded. */
+    private readonly gate: PassGate = OPEN_GATE,
   ) {}
 
   /** Advances every queued idea, or only `only` when given. */
@@ -92,9 +143,10 @@ export class Tick {
       (item): item is QueuedIdea =>
         item.kind === "idea" && (only === undefined || item.idea === only),
     );
+    const starts = new Starts(await this.gate.read(), this.gate);
     const steps: IdeaStep[] = [];
     for (const item of ideas) {
-      steps.push(await this.advance(item, queue));
+      steps.push(await this.advance(item, queue, starts));
     }
     if (only !== undefined && ideas.length === 0) {
       steps.push({ idea: only, step: "not-queued" });
@@ -105,12 +157,10 @@ export class Tick {
   private async advance(
     item: QueuedIdea,
     queue: readonly QueueItem[],
+    starts: Starts,
   ): Promise<IdeaStep> {
     const { idea, issue } = item;
-    const done = (
-      step: StepName,
-      extra: Pick<IdeaStep, "pr" | "pane"> = {},
-    ): IdeaStep => ({ idea, issue, step, ...extra });
+    const done: Done = (step, extra = {}) => ({ idea, issue, step, ...extra });
     const panes = await this.ports.panes(idea);
     if (panes.some((p) => p.state === "running")) {
       return done("waiting");
@@ -122,7 +172,7 @@ export class Tick {
     }
     const delivery = await this.ports.delivery(issue);
     if (delivery.pr === undefined) {
-      return this.firstWriter(item, panes, done);
+      return this.firstWriter(item, panes, done, starts);
     }
     const pr = delivery.pr;
     if (delivery.merged) {
@@ -130,21 +180,28 @@ export class Tick {
     }
     const head = (await this.ports.head(pr)).slice(0, HEAD_LENGTH);
     const sentBack = queue.some((q) => q.kind === "send-back" && q.pr === pr);
+    const change = { pr, head };
     return sentBack
-      ? this.relaunch(item, pr, head, panes, done)
-      : this.review(item, pr, head, panes, done);
+      ? this.relaunch(item, change, panes, done, starts)
+      : this.review(item, change, panes, done, starts);
   }
 
   private async firstWriter(
     { idea, issue }: QueuedIdea,
     panes: readonly IdeaPane[],
-    done: (step: StepName) => IdeaStep,
+    done: Done,
+    starts: Starts,
   ): Promise<IdeaStep> {
     // A writer that already ran and left no pull request is for a person, not a second writer.
     if (panes.some((p) => p.name === `idea-${idea}-writer`)) {
       return done("blocked");
     }
+    const bound = await starts.held(issue);
+    if (bound !== undefined) {
+      return done("held", { bound });
+    }
     await this.ports.spawn(writerLaunch(idea, issue, undefined));
+    starts.taken();
     return done("spawn-writer");
   }
 
@@ -163,10 +220,10 @@ export class Tick {
 
   private async relaunch(
     { idea, issue }: QueuedIdea,
-    pr: number,
-    head: string,
+    { pr, head }: Change,
     panes: readonly IdeaPane[],
-    done: (step: StepName, extra: Pick<IdeaStep, "pr" | "pane">) => IdeaStep,
+    done: Done,
+    starts: Starts,
   ): Promise<IdeaStep> {
     const name = `idea-${idea}-writer-${head}`;
     if (panes.some((p) => p.name === name)) {
@@ -176,27 +233,37 @@ export class Tick {
     if (tier.count >= JUDGMENT_AFTER) {
       return done("needs-judgment", { pr });
     }
+    const bound = await starts.held(issue);
+    if (bound !== undefined) {
+      return done("held", { pr, bound });
+    }
     const escalation = await escalateStage(this.ports, pr, {
       escalated: false,
       model: undefined,
     });
     await this.ports.spawn(writerLaunch(idea, issue, escalation.model, name));
+    starts.taken();
     return done("relaunch-writer", { pr, pane: name });
   }
 
   private async review(
     { idea, issue }: QueuedIdea,
-    pr: number,
-    head: string,
+    { pr, head }: Change,
     panes: readonly IdeaPane[],
-    done: (step: StepName, extra: Pick<IdeaStep, "pr" | "pane">) => IdeaStep,
+    done: Done,
+    starts: Starts,
   ): Promise<IdeaStep> {
     const name = `idea-${idea}-judge-${head}`;
     if (panes.some((p) => p.name === name)) {
       return done("awaiting-judge", { pr });
     }
     if (!(await this.ports.reviewPosted(pr, head))) {
+      const bound = await starts.held(issue);
+      if (bound !== undefined) {
+        return done("held", { pr, bound });
+      }
       await reviewStage(this.ports, pr);
+      starts.taken();
       return done("review", { pr });
     }
     const verdict = await precheckStage(this.ports, pr);
@@ -204,7 +271,12 @@ export class Tick {
       await sendBackStage(this.ports, pr, verdict.reason, verdict.category);
       return done("send-back", { pr });
     }
+    const bound = await starts.held(issue);
+    if (bound !== undefined) {
+      return done("held", { pr, bound });
+    }
     await this.ports.spawn(judgeLaunch(idea, pr, issue, name));
+    starts.taken();
     return done("spawn-judge", { pr, pane: name });
   }
 }

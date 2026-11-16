@@ -19,7 +19,7 @@ const ENDS: Partial<Record<StepName, RunStatus>> = {
 
 /**
  * `orchestrate run` under the tick: passes scoped to one idea, one step each,
- * until the idea reaches an end. It sleeps only while a pane is working.
+ * until the idea reaches an end. It sleeps only while a pane is working or a host bound holds it.
  */
 export async function runTicks(
   tick: Pick<Tick, "pass">,
@@ -33,7 +33,8 @@ export async function runTicks(
     if (status !== undefined) {
       return { status, rounds };
     }
-    if (taken?.step === "waiting") {
+    // A held pass waits as a working pane does: the host bound may clear on a later pass.
+    if (taken?.step === "waiting" || taken?.step === "held") {
       await sleep(TICK_POLL_MS);
     }
   }

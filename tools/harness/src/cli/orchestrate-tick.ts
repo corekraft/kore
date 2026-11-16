@@ -1,10 +1,13 @@
 import { hostname } from "node:os";
-import { join } from "node:path";
+import { join, resolve } from "node:path";
+import { DEFAULT_LEDGER, Ledger } from "../ledger/index.js";
 import {
+  BOUND_LABELS,
   FileLeaseStore,
   HarnessCliError,
   TICK_LEASE_MAX_AGE_MS,
   Tick,
+  TickBounds,
   TickCli,
   TickLease,
   leasedPass,
@@ -12,19 +15,57 @@ import {
   tickFlagOn,
   type IdeaStep,
   type Measured,
+  type PassGate,
   type RunResult,
 } from "../orchestrator/index.js";
 import {
   hostLocksDirectory,
   mainRoot,
+  readPower,
   type CliDeps,
   type Command,
   type CommandContext,
 } from "../runtime/index.js";
+import { hostLeaseRefusal, spawnLoadRefusal } from "../session/index.js";
 
 const FAILED = 1;
 const LEASE_FILE = "orchestrate-tick.lock";
 const SESSIONS = ".kore/state/sessions";
+
+/**
+ * The host bounds each pass reads (power, the load ceiling and a live run's lease),
+ * and the main checkout's ledger each bound hit is written to as a tick.bound event.
+ */
+function boundGate(deps: CliDeps, main: string): PassGate {
+  const bounds = new TickBounds({
+    power: () => readPower(deps.runner),
+    overLoad: () => spawnLoadRefusal(deps) !== undefined,
+    leaseHeld: async () => (await hostLeaseRefusal(deps)) !== undefined,
+  });
+  const ledger = new Ledger(
+    deps.fs,
+    deps.clock,
+    deps.ids,
+    resolve(main, DEFAULT_LEDGER),
+  );
+  return {
+    read: () => bounds.read(),
+    record: async (issue, bound) => {
+      const written = await ledger.record({
+        source: "claude",
+        kind: "tick.bound",
+        occurredAt: deps.clock.now().toISOString(),
+        idea: `#${issue}`,
+        label: BOUND_LABELS[bound],
+      });
+      if (!written.ok) {
+        throw new HarnessCliError(
+          `The tick.bound event was rejected: ${written.message}. Fix the ledger, then rerun orchestrate tick.`,
+        );
+      }
+    },
+  };
+}
 
 /** The tick, the lease it runs under and the tools it drives, wired to the machine's real files. */
 async function build(
@@ -41,11 +82,15 @@ async function build(
     { pid: process.pid, host: hostname() },
     TICK_LEASE_MAX_AGE_MS,
   );
-  return { tick: new Tick(cli, outcomes), lease, cli };
+  return {
+    tick: new Tick(cli, outcomes, boundGate(deps, main)),
+    lease,
+    cli,
+  };
 }
 
 const said = (step: IdeaStep) =>
-  `Idea ${step.idea}: ${step.step}${step.pane === undefined ? "" : ` (${step.pane})`}.\n`;
+  `Idea ${step.idea}: ${step.step}${step.pane === undefined ? "" : ` (${step.pane})`}${step.bound === undefined ? "" : ` by ${step.bound}`}.\n`;
 
 async function runTick(context: CommandContext): Promise<number> {
   const { deps, json, options } = context;
@@ -127,7 +172,7 @@ export async function runOnTicks(
 
 export const tickCommand: Command = {
   summary:
-    "behind the local orchestrator-tick flag (off): one idempotent pass over the queue that advances each approved idea by at most one step, then exits, and calls no model; per idea it starts the writer, closes a finished pane, runs `review run`, runs the precheck and sends a failing change back, starts the judge, relaunches the writer after a send-back on the tier's model, and records the outcome only when the idea's `orchestrate run` was given one; a pane is named for its idea and PR head, so a rerun starts nothing twice; a third send-back is reported as needs-judgment and nothing is started; runs under a per-machine lease in the host lock directory that the next tick recovers once it is 30 minutes old, and a held lease skips the pass; with the flag off it does nothing and exits 0 (--idea to scope the pass to one idea)",
+    "behind the local orchestrator-tick flag (off): one idempotent pass over the queue that advances each approved idea by at most one step, then exits, and calls no model; per idea it starts the writer, closes a finished pane, runs `review run`, runs the precheck and sends a failing change back, starts the judge, relaunches the writer after a send-back on the tier's model, and records the outcome only when the idea's `orchestrate run` was given one; a pane is named for its idea and PR head, so a rerun starts nothing twice; a third send-back is reported as needs-judgment and nothing is started; reads power, the load ceiling (KORE_SPAWN_MAX_LOAD) and a live run's host lease before it starts anything: on battery or unreadable power one pane starts per pass, above the ceiling or under a live run's lease no pane starts, and each start held that way is recorded as a tick.bound ledger event and reported as held; runs under a per-machine lease in the host lock directory that the next tick recovers once it is 30 minutes old, and a held lease skips the pass; with the flag off it does nothing and exits 0 (--idea to scope the pass to one idea)",
   options: { idea: "string" },
   run: runTick,
 };
