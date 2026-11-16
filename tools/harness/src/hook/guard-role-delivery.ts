@@ -20,7 +20,7 @@ import {
   writes,
   WRITE_TOOLS,
 } from "./guard-role-writes.js";
-import { readMayRun } from "./guard-role-allow.js";
+import { harnessHelp, readMayRun } from "./guard-role-allow.js";
 import {
   mergesPr,
   runsJudgeTool,
@@ -101,6 +101,9 @@ function reportingMayRun(role: string, segment: readonly string[]): boolean {
 function harnessRefused(role: string, segment: readonly string[]): boolean {
   const { name, args } = commandOf(segment);
   if (name !== "node" || !(args[0] ?? "").endsWith("harness.mjs")) {
+    return false;
+  }
+  if (harnessHelp(name, args)) {
     return false;
   }
   if (args[1] === "session" && args[2] === "notify") {
