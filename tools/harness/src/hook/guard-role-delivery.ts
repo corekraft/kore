@@ -5,7 +5,7 @@
 // The judge runs under the shared read allowlist in guard-role-allow.ts,
 // so a write form nobody listed is refused by default. The owner approved enforcing these
 // guards on #190 and #191 (2026-11-12), so every rule blocks.
-import { isAbsolute, relative, resolve } from "node:path";
+// The writer's worktree bound (role-worktree) lives in guard-role-worktree.ts.
 import {
   harnessAllowed,
   notifiesFinish,
@@ -29,7 +29,15 @@ import {
 import { pushesByTracking, pushesToMain } from "./guard-role-push.js";
 import { takesRoute, takesWriterRoute } from "./guard-role-routes.js";
 import { commandOf, splitSegments } from "./guard-shell.js";
+import {
+  leavingWorktree,
+  outside,
+  outsideWorktree,
+  runsInline,
+} from "./guard-role-worktree.js";
 import { block, type Finding } from "./guard-verdict.js";
+
+export { runsInline };
 
 const noMerge = (role: string, what: string): Finding =>
   block(
@@ -37,26 +45,6 @@ const noMerge = (role: string, what: string): Finding =>
     `${what} merges, approves or pushes to main, but the ${role} may not do that by hand: the merge tool re-runs the precheck and merges only when it passes. ` +
       "Instead, the judge approves with `harness judge approve <pr>`, then `harness judge merge <pr>`, or `harness judge send-back <pr> --reason <why> --category <category>`; every other role reports and leaves the merge to the judge.",
   );
-
-const outsideWorktree = (what: string, root: string): Finding =>
-  block(
-    "role-worktree",
-    `${what} reaches outside this worktree (${root}), and a writer works only in the worktree it was launched in. ` +
-      "Instead, make the change inside the worktree, or report that it needs another piece of work.",
-  );
-
-/** An interpreter given inline code, or an editor told to work in place, which can write anything. */
-export function runsInline(segment: readonly string[]): boolean {
-  const { name, args } = commandOf(segment);
-  return (
-    (name === "node" && args.some((a) => ["-e", "--eval", "-p"].includes(a))) ||
-    (/^python3?$/.test(name) && args.includes("-c")) ||
-    (name === "perl" && args.some((a) => /^-\w*[eEip]/.test(a))) ||
-    (name === "ruby" && args.includes("-e")) ||
-    (/^g?awk$/.test(name) &&
-      args.some((a) => a === "inplace" || a === "--in-place"))
-  );
-}
 
 /** Reads every role here may run: each prints or checks, and none writes a file. */
 const READS = [
@@ -109,88 +97,6 @@ function harnessRefused(role: string, segment: readonly string[]): boolean {
   return !(
     HARNESS.test(args[0] ?? "") && harnessAllowed(name, args, harnessFor(role))
   );
-}
-
-const SCRATCH = ["/tmp/", "/private/tmp/", "/var/folders/", "/dev/"];
-/**
- * Paths in a word: an absolute or home path that starts the word or follows a character no
- * path holds (`=`, `>`, `(`, a quote), and any `..` segment. A slash inside a word (`feat/x`
- * in a branch name) does not start a path, so an ordinary branch push is not read as an
- * absolute one.
- */
-const ABSOLUTE = /(?:^|[^\w.@~/-])((?:~|\/)[\w.@~/-]*)/g;
-const PARENT = /[\w.@~/-]*\.\.[\w.@~/-]*/g;
-
-/** The paths a word names. */
-function pathsIn(word: string): string[] {
-  const text = word.replace(/^(?:\d*>>?|&>>?)/, "");
-  return [
-    ...[...text.matchAll(ABSOLUTE)].flatMap((m) => (m[1] ? [m[1]] : [])),
-    ...(text.match(PARENT) ?? []).filter((p) => p.split("/").includes("..")),
-  ];
-}
-
-/** Whether a path, read from the directory `dir` the command runs in, is outside the worktree and not scratch space in tmp. */
-function outside(root: string, path: string, dir: string = root): boolean {
-  if (path.startsWith("~")) {
-    return true;
-  }
-  const full = resolve(dir, path);
-  const from = relative(root, full);
-  const within = from === "" || (!from.startsWith("..") && !isAbsolute(from));
-  return (
-    !within &&
-    !SCRATCH.some((tmp) => full.startsWith(tmp) || `${full}/` === tmp)
-  );
-}
-
-/** The first path in a writing command, cd or `git -C` that leaves the worktree. */
-function escapes(
-  segment: readonly string[],
-  root: string,
-  dir: string,
-): string | undefined {
-  const { name, args } = commandOf(segment);
-  const target = name === "git" ? args[args.indexOf("-C") + 1] : args[0];
-  if (
-    (name === "cd" || (name === "git" && args.includes("-C"))) &&
-    target !== undefined &&
-    outside(root, target, dir)
-  ) {
-    return target;
-  }
-  if (!writes(segment) && !runsInline(segment)) {
-    return undefined;
-  }
-  // A word with whitespace is text (a commit message, a `--body`), not a path, unless it is inline code.
-  const inline = runsInline(segment);
-  return segment
-    .filter((word) => inline || !/\s/.test(word))
-    .flatMap(pathsIn)
-    .find((path) => outside(root, path, dir));
-}
-
-/**
- * The first segment that leaves the worktree. Relative paths resolve from the directory
- * the hook ran in, and from where an earlier cd in the same command left the shell.
- */
-function leavesWorktree(
-  segments: readonly (readonly string[])[],
-  root: string,
-  cwd: string,
-): readonly string[] | undefined {
-  // A relative directory would resolve against the hook process's own, so it counts as the root.
-  let dir = isAbsolute(cwd) ? cwd : root;
-  for (const segment of segments) {
-    if (escapes(segment, root, dir) !== undefined) {
-      return segment;
-    }
-    const { name, args } = commandOf(segment);
-    if (name === "cd" && args[0] !== undefined && args[0] !== "-") {
-      dir = resolve(dir, args[0]);
-    }
-  }
-  return undefined;
 }
 
 /** The finding for a segment a reporting role may not run: raw pane input is pointed at `session notify`. */
@@ -255,10 +161,7 @@ export function checkDeliveryBash(
     );
     return changing === undefined ? null : refused(changing);
   }
-  const leaving = leavesWorktree(segments, root, cwd);
-  return leaving === undefined
-    ? null
-    : outsideWorktree(`\`${leaving.join(" ")}\``, root);
+  return leavingWorktree(command, root, cwd);
 }
 
 /** Where a tool call runs: the worktree root and the directory the hook ran in. */

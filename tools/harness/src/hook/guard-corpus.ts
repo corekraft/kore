@@ -8,6 +8,8 @@
 // and fails on any ALLOW for a corpus case. A bypass the retro or a review finds is added
 // here first, as a failing case, and then closed.
 
+import { HEREDOC } from "./guard-corpus-heredoc.js";
+
 export interface CorpusCase {
   /** The role the session runs as, or none for the person's own session. */
   role?: string;
@@ -223,6 +225,7 @@ const GATED = bash(
 );
 
 export const CORPUS: readonly CorpusCase[] = [
+  ...HEREDOC.corpus,
   ...GLUED_REDIRECTS,
   ...GLOB_QUALIFIERS,
   ...GLOB_IN_SCRIPT,
@@ -254,6 +257,7 @@ const ordinary = (role: string | undefined, ...commands: string[]) =>
 
 /** Calls the fixes must not catch: reads, null redirects, quoted `>`, harmless globs and the writer's ordinary work. */
 export const ORDINARY: readonly OrdinaryCase[] = [
+  ...HEREDOC.ordinary,
   ...ROLES.flatMap((role) =>
     ordinary(
       role,
