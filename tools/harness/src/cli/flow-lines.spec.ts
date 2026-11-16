@@ -1,6 +1,58 @@
 import { describe, expect, it } from "vitest";
 import type { FlowReport } from "../flow/index.js";
-import { frictionLine, metricLine, reworkLines } from "./flow-lines.js";
+import {
+  frictionLine,
+  metricLine,
+  reworkLines,
+  sendBackCategoryLines,
+} from "./flow-lines.js";
+
+const ZERO = {
+  declaration: 0,
+  "pattern-mismatch": 0,
+  "failed-check": 0,
+  conflict: 0,
+  "missing-proof": 0,
+  "rule-break": 0,
+  scope: 0,
+  other: 0,
+} as const;
+
+describe("sendBackCategoryLines", () => {
+  it("lists every category in the list's order, the uncategorised count, and the share of other", () => {
+    const counts = {
+      byCategory: { ...ZERO, "failed-check": 2, other: 1 },
+      uncategorised: 3,
+      otherShare: 1 / 3,
+      otherThreshold: 0.1,
+      otherOverThreshold: true,
+    };
+    expect(
+      sendBackCategoryLines({
+        perPrHead: counts,
+        perMergedChange: { ...counts, uncategorised: 0 },
+      }),
+    ).toEqual([
+      "Send-backs by category, per PR head: declaration 0, pattern-mismatch 0, failed-check 2, conflict 0, missing-proof 0, rule-break 0, scope 0, other 1; uncategorised 3; other 33% of categorised, over 10%: the list may need an entry",
+      "Send-backs by category, per merged change: declaration 0, pattern-mismatch 0, failed-check 2, conflict 0, missing-proof 0, rule-break 0, scope 0, other 1; uncategorised 0; other 33% of categorised, over 10%: the list may need an entry",
+    ]);
+  });
+
+  it("says there is no share when no send-back is categorised, rather than printing zero", () => {
+    const none = {
+      byCategory: ZERO,
+      uncategorised: 2,
+      otherShare: null,
+      otherThreshold: 0.1,
+      otherOverThreshold: false,
+    };
+    const [perPrHead] = sendBackCategoryLines({
+      perPrHead: none,
+      perMergedChange: none,
+    });
+    expect(perPrHead).toMatch(/; uncategorised 2; no categorised send-backs$/);
+  });
+});
 
 const NONE = {
   status: "insufficient history",

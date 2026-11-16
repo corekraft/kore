@@ -127,7 +127,7 @@ describe("orchestrate run usage text", () => {
       "runs `judge precheck` before it launches any judge pane",
     );
     expect(summary).toContain(
-      "sends a failing change back to its writer with the precheck's reason through `judge send-back`",
+      "sends a failing change back to its writer with the precheck's reason and category through `judge send-back`",
     );
     expect(summary).toContain("launching no judge pane");
   });

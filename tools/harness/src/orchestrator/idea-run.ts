@@ -1,3 +1,4 @@
+import type { SendBackCategory } from "../ledger/index.js";
 import type { QueueItem } from "../queue/index.js";
 
 /** Writer and judge rounds one idea may take before the run stops and leaves it to a person. */
@@ -31,7 +32,8 @@ export interface Measured {
 
 /** The precheck's call on a change: send it back to its writer with a reason, or let the judge run. */
 export type PrecheckVerdict =
-  { sendBack: false } | { sendBack: true; reason: string };
+  | { sendBack: false }
+  | { sendBack: true; reason: string; category: SendBackCategory };
 
 export interface SendBackTier {
   count: number;
@@ -55,8 +57,12 @@ export interface Harness {
   review(pr: number): Promise<void>;
   /** `judge precheck`: read-only; whether the writer must fix the change before any judge pane. */
   precheck(pr: number): Promise<PrecheckVerdict>;
-  /** `judge send-back`: posts the reason on the PR and records the send-back event, keyed on the PR head. */
-  sendBack(pr: number, reason: string): Promise<void>;
+  /** `judge send-back`: posts the reason on the PR and records the send-back event with its category, keyed on the PR head. */
+  sendBack(
+    pr: number,
+    reason: string,
+    category: SendBackCategory,
+  ): Promise<void>;
   /** `queue send-backs`: read-only. */
   sendBacks(pr: number): Promise<SendBackTier>;
   /** `queue escalate`: appends the escalation event. */
@@ -167,7 +173,7 @@ export class IdeaRun {
     await this.harness.review(pr);
     const verdict = await this.harness.precheck(pr);
     if (verdict.sendBack) {
-      await this.harness.sendBack(pr, verdict.reason);
+      await this.harness.sendBack(pr, verdict.reason, verdict.category);
       return false;
     }
     await this.pane({
