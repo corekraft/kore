@@ -8,6 +8,8 @@ import type { Command, CommandContext } from "../runtime/index.js";
 import { senderFrom } from "../sender/index.js";
 import { failed, prNumber } from "./judge-shared.js";
 import { ghReviewIo, type ReviewIo } from "./review-gh.js";
+import { reviewResampleRun } from "./review-resample-command.js";
+import { sessionResampleIo } from "./review-resample-io.js";
 import { reviewRunRun } from "./review-run-command.js";
 
 const POST_USAGE =
@@ -68,5 +70,12 @@ export const reviewCommands: Record<string, Command> = {
       "mutates; reads the PR's head once, spawns the principles-review Reviewer through `session spawn` at its declared tier, collects its verdict with `session wait`, and posts it through `review post`'s code for that same head, so a tool, not a model, posts the verdict; a head that moved during the review discards the verdict and reviews again (up to 3 reviews, then fails); a pane that ends blocked or with no parsable verdict records a review.run failure event and posts nothing (<pr> [--json])",
     operand: "pr",
     run: reviewRunRun,
+  },
+  resample: {
+    summary:
+      "mutates; draws a sample of the passed reviews of merged PRs that no re-review has taken yet, and re-reviews each sampled head with a Sonnet reader on the override tier, which `session spawn` records with its reason, collecting its verdict with `session wait`; records each re-review as a review.run labelled resample:<head> with its findings, or resample-failed:<head> when the reader ends blocked or with no verdict, and posts nothing to GitHub, so the re-reviews are counted in the flow report beside the ratio (--size n, default 5, a placeholder; [--json])",
+    options: { size: "string" },
+    run: (context) =>
+      reviewResampleRun(context, () => sessionResampleIo(context), Math.random),
   },
 };

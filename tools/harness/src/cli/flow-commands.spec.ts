@@ -213,6 +213,7 @@ describe("flow report: human lines", () => {
         "Send-backs by category, per merged change: declaration 0, pattern-mismatch 0, failed-check 0, conflict 0, missing-proof 0, rule-break 0, scope 0, other 0; uncategorised 0; no categorised send-backs",
         "Passed reviews later sent back for a rule break: no recorded reviews in this range",
         "Reviews that found a violation: no recorded reviews in this range",
+        "Re-reviews of sampled passed reviews: no re-reviews in this range",
         "Friction: none",
         "Unmapped events: 0",
         "Attribution: no stamped sessions yet, so nothing is measured",

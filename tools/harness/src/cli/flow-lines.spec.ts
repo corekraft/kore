@@ -176,27 +176,29 @@ describe("tokensPerMergedChangeLine (#829)", () => {
   });
 });
 
-describe("reviewMissLines (#851)", () => {
-  const figure = (
-    overrides: Partial<FlowReport["reviewMisses"]> = {},
-  ): FlowReport["reviewMisses"] => ({
-    trailingDays: 7,
-    reviews: 4,
-    unrecorded: 0,
-    passedRuleBreak: {
-      count: 1,
-      ratio: 0.25,
-      trailingAverage: 0.1,
-      worsened: true,
-    },
-    foundViolation: { count: 2, share: 0.5, trailingAverage: 0.2 },
-    ...overrides,
-  });
+const figure = (
+  overrides: Partial<FlowReport["reviewMisses"]> = {},
+): FlowReport["reviewMisses"] => ({
+  trailingDays: 7,
+  reviews: 4,
+  unrecorded: 0,
+  passedRuleBreak: {
+    count: 1,
+    ratio: 0.25,
+    trailingAverage: 0.1,
+    worsened: true,
+  },
+  foundViolation: { count: 2, share: 0.5, trailingAverage: 0.2 },
+  resample: { count: 0, found: 0, share: null },
+  ...overrides,
+});
 
+describe("reviewMissLines (#851)", () => {
   it("gives each figure against its trailing average, and marks the miss rate worsened", () => {
     expect(reviewMissLines(figure())).toEqual([
       "Passed reviews later sent back for a rule break: 1 of 4 reviews (25%), trailing average 10% over the trailing 7 days (worsened)",
       "Reviews that found a violation: 2 of 4 (50%), trailing average 20% over the trailing 7 days",
+      "Re-reviews of sampled passed reviews: no re-reviews in this range",
     ]);
   });
 
@@ -233,6 +235,7 @@ describe("reviewMissLines (#851)", () => {
     expect(lines).toEqual([
       "Passed reviews later sent back for a rule break: no recorded reviews in this range",
       "Reviews that found a violation: no recorded reviews in this range",
+      "Re-reviews of sampled passed reviews: no re-reviews in this range",
     ]);
   });
 
@@ -240,6 +243,36 @@ describe("reviewMissLines (#851)", () => {
     const lines = reviewMissLines(figure({ unrecorded: 3 }));
     expect(lines[0]).toContain(
       "; 3 from before the verdict was recorded left out",
+    );
+  });
+});
+
+describe("reviewMissLines: re-reviews of a passed sample (#852)", () => {
+  it("puts the re-reviews that found a violation beside the ratio, as count of re-reviews and share", () => {
+    const lines = reviewMissLines(
+      figure({ resample: { count: 3, found: 1, share: 0.3333 } }),
+    );
+    expect(lines[2]).toBe(
+      "Re-reviews of sampled passed reviews: 1 of 3 found a violation (33%)",
+    );
+  });
+
+  it("gives the re-review line even with no review in the range, since a sample can be re-reviewed alone", () => {
+    const lines = reviewMissLines(
+      figure({
+        reviews: 0,
+        passedRuleBreak: {
+          count: 0,
+          ratio: null,
+          trailingAverage: null,
+          worsened: false,
+        },
+        foundViolation: { count: 0, share: null, trailingAverage: null },
+        resample: { count: 2, found: 0, share: 0 },
+      }),
+    );
+    expect(lines[2]).toBe(
+      "Re-reviews of sampled passed reviews: 0 of 2 found a violation (0%)",
     );
   });
 });
