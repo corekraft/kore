@@ -7,6 +7,19 @@ safety-pattern: feature-flagged
 date: 2026-11-16
 parent: 0008
 issue: https://github.com/corekraft/kore/issues/916
+outcome: confirmed
 ---
 
 # Idea 0017: decision-advisor works live in local
+
+## Outcome
+
+- Result: confirmed
+- Kind: verification
+- Source: live-run
+- Flag: decision-advisor
+- Environment: local
+- Evidence: https://github.com/corekraft/kore/issues/795#issuecomment-6918446149
+- Recorded: 2026-11-16
+
+advisor decided one question under app/kore-orchestrator, decision.made recorded, reserved category refused
