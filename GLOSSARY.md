@@ -47,6 +47,16 @@ The role that drives an approved idea to an outcome, filled by a tool rather
 than an agent.
 _Avoid_: Planner, manager, lead
 
+**Main session**:
+The session the owner attends, which starts role panes and talks to them. It
+has no agent definition, holds the owner's token and is never spawned.
+_Avoid_: Orchestrator session, orchestrating session, driver
+
+**Pane result**:
+What a finished pane leaves its caller: an outcome word, done or blocked, and
+a short summary.
+_Avoid_: Finish line, notification
+
 **Reader**:
 An agent that only reads and summarizes for another agent.
 _Avoid_: Explorer, researcher
