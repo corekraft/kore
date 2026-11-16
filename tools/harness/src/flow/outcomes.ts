@@ -9,7 +9,7 @@ import { inWindow, type Span } from "./scope.js";
  * zero, when nothing was measured.
  */
 
-/** Kinds that belong to the repository, not to any idea or stage. */
+/** Kinds that belong to the repository or a session's record, not to any idea or stage. */
 export const REPOSITORY_KINDS = new Set<string>([
   "ci.main",
   "ci.nightly",
@@ -17,6 +17,7 @@ export const REPOSITORY_KINDS = new Set<string>([
   "owner.action",
   "host-sample",
   "owner.asked",
+  "spawn.unstamped",
 ]);
 
 /** Issue numbers that are ideas, and pull requests that close one: the only places owner time counts. */

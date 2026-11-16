@@ -41,5 +41,6 @@ export const KINDS = [
   "idea.filed",
   "retro.dropped",
   "owner.asked",
+  "spawn.unstamped",
 ] as const;
 export type Kind = (typeof KINDS)[number];

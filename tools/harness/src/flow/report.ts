@@ -22,6 +22,8 @@ import {
   ideaMetrics,
   measureAttribution,
   outcomes,
+  unstampedSpawns,
+  type UnstampedSpawns,
   type Attribution,
   type CostMetrics,
   type FrictionMetrics,
@@ -41,7 +43,7 @@ import {
   type ScopeOptions,
 } from "./scope.js";
 
-export const REPORT_VERSION = 10;
+export const REPORT_VERSION = 11;
 
 export type { StageTotals, Toil } from "./tally.js";
 export type { Scope, ScopeOptions } from "./scope.js";
@@ -82,6 +84,8 @@ export interface FlowReport extends FrictionMetrics {
   ownerQuestions: OwnerQuestions;
   /** Launches per role by where the tier came from, with launches from before it was recorded as unknown. */
   tierShares: ReturnType<typeof tierShares>;
+  /** Spawns in range that named no idea, and how many gave a --no-idea reason; not friction. */
+  unstampedSpawns: UnstampedSpawns;
 }
 
 export interface ReportOptions extends ScopeOptions {
@@ -314,5 +318,6 @@ export function buildReport(
       asOf,
     }),
     tierShares: tierShares(named, window),
+    unstampedSpawns: unstampedSpawns(named, window),
   };
 }
