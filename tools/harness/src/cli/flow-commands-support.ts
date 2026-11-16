@@ -78,6 +78,13 @@ const emptyTokensPerMergedChange = {
   },
 };
 
+/** A per-idea rework metric with too little history to compare. */
+const INSUFFICIENT_REWORK = {
+  status: "insufficient history",
+  closedIdeas: 1,
+  needed: 6,
+};
+
 /** A report with nothing in it, so each human line is the one the report prints. */
 export function emptyReport(overrides: Partial<Record<string, unknown>> = {}) {
   return {
@@ -101,21 +108,12 @@ export function emptyReport(overrides: Partial<Record<string, unknown>> = {}) {
     },
     rework: {
       trailingIdeas: 5,
-      escalationsPerIdea: {
-        status: "insufficient history",
-        closedIdeas: 1,
-        needed: 6,
-      },
-      sendBacksPerIdea: {
-        status: "insufficient history",
-        closedIdeas: 1,
-        needed: 6,
-      },
-      frictionPerIdea: {
-        status: "insufficient history",
-        closedIdeas: 1,
-        needed: 6,
-      },
+      escalationsPerIdea: INSUFFICIENT_REWORK,
+      sendBacksPerIdea: INSUFFICIENT_REWORK,
+      frictionPerIdea: INSUFFICIENT_REWORK,
+      followUpsPerWriterSession: INSUFFICIENT_REWORK,
+      mainFollowUpsPerWriterSession: INSUFFICIENT_REWORK,
+      followUps: { writerSessions: 0, bySender: [] },
     },
     friction: { total: 0, sources: [], unknownKinds: 0 },
     sendBackCategories: emptyCategoryReport,

@@ -6,6 +6,7 @@ import {
   trailingMetric,
   type CostMetric,
 } from "./cost.js";
+import { followUpMetrics, type FollowUpMetrics } from "./follow-ups.js";
 import { time } from "./github-waits.js";
 import { inWindow, type Span } from "./scope.js";
 
@@ -25,7 +26,7 @@ export interface Friction {
   unknownKinds: number;
 }
 
-export interface ReworkMetrics {
+export interface ReworkMetrics extends FollowUpMetrics {
   trailingIdeas: number;
   /** Writer escalations per closed idea. */
   escalationsPerIdea: CostMetric;
@@ -104,5 +105,6 @@ export function reworkMetrics(
     escalationsPerIdea: per((e) => e.kind === "escalation"),
     sendBacksPerIdea: per((e) => e.kind === "send-back"),
     frictionPerIdea: per((e) => sourceOf(e) !== undefined),
+    ...followUpMetrics(byIdea, window, trailingIdeas, maxIncrease),
   };
 }

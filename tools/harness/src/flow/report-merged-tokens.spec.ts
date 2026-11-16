@@ -79,7 +79,7 @@ describe("buildReport tokens per merged change (#829)", () => {
     );
   });
 
-  it("versions the report to 15, since a field joined it", () => {
-    expect(run([]).version).toBe(15);
+  it("versions the report to 16, since a field joined it", () => {
+    expect(run([]).version).toBe(16);
   });
 });
