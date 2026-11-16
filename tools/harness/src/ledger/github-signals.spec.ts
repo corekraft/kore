@@ -94,13 +94,21 @@ describe("pollSignals: the lock", () => {
 });
 
 describe("pollSignals: where it starts", () => {
-  it("lists with no since when nothing is recorded", async () => {
+  it("starts a day before now when nothing is recorded, so the first poll never lists every run", async () => {
     const { runner, poll } = setup();
     await poll();
-    expect(vi.mocked(list).mock.calls[0]?.[2]).not.toContain("--created");
+    expect(vi.mocked(list).mock.calls[0]?.[2]).toContain(">=2026-01-01");
     expect(vi.mocked(fromActions).mock.calls).toEqual([
-      [runner, REPO, OWNER, undefined],
+      [runner, REPO, OWNER, "2026-01-01T03:00:00Z"],
     ]);
+  });
+
+  it("takes --since as given when nothing is recorded, even a later one", async () => {
+    const { poll } = setup([], "2026-01-02T00:00:00Z");
+    await poll();
+    expect(vi.mocked(fromActions).mock.calls[0]?.[3]).toBe(
+      "2026-01-02T00:00:00Z",
+    );
   });
 
   it("starts a day before the latest recorded signal, ignoring other kinds", async () => {

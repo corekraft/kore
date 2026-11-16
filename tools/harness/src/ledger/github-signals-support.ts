@@ -68,6 +68,8 @@ export const CHECK_LIST = [
   "completed",
   "--limit",
   String(RUN_LIMIT),
+  "--created",
+  ">=2026-01-01",
   "--json",
   RUN_FIELDS,
 ];
@@ -85,6 +87,8 @@ export const NIGHTLY_LIST = [
   "completed",
   "--limit",
   String(RUN_LIMIT),
+  "--created",
+  ">=2026-01-01",
   "--json",
   RUN_FIELDS,
 ];
