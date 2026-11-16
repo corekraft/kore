@@ -12,6 +12,7 @@ import {
 } from "../guardrail/index.js";
 import { asCall, evaluate, type GuardCall } from "./guard-evaluate.js";
 import { guard } from "./guard.js";
+import { hostFacts } from "./guard-host-shell.js";
 import { launchRoot } from "./guard-launch-root.js";
 import { recordEvent } from "./ledger-event.js";
 import { allow, block, type Verdict } from "./guard-verdict.js";
@@ -24,6 +25,7 @@ vi.mock("../guardrail/index.js", async (importOriginal) => ({
   modeOf: vi.fn(),
 }));
 vi.mock("./guard-evaluate.js", () => ({ asCall: vi.fn(), evaluate: vi.fn() }));
+vi.mock("./guard-host-shell.js", () => ({ hostFacts: vi.fn() }));
 vi.mock("./guard-launch-root.js", () => ({ launchRoot: vi.fn() }));
 vi.mock("./ledger-event.js", () => ({ recordEvent: vi.fn() }));
 
@@ -68,6 +70,10 @@ beforeEach(() => {
   vi.mocked(denyRules).mockReturnValue([]);
   vi.mocked(recordEvent).mockResolvedValue(undefined);
   vi.mocked(launchRoot).mockResolvedValue("/repo");
+  vi.mocked(hostFacts).mockReturnValue({
+    home: "/home/test",
+    verifiedBash: false,
+  });
   vi.mocked(createHash).mockReturnValue(fakeHash("0123456789abcdef9999"));
 });
 
@@ -264,11 +270,24 @@ describe("guard inventory", () => {
     expect(fs.hasGlobMatch).toHaveBeenCalledWith("/work", "*.ts");
   });
 
-  it("gives the rules the home directory from the environment, for expanding a leading ~", async () => {
+  it("gives the rules the home directory and the verified shell that the host check answers for the hook's environment", async () => {
     vi.mocked(findInventory).mockResolvedValue(EMPTY);
-    const { deps } = fakeDeps();
-    await guard({}, deps);
-    expect(vi.mocked(evaluate).mock.calls[0]?.[1].home).toBe("/home/test");
+    const env = { CLAUDE_PROJECT_DIR: "/repo", HOME: "/home/test" };
+    vi.mocked(hostFacts).mockReturnValue({
+      home: "/answered",
+      verifiedBash: true,
+    });
+    await guard({}, fakeDeps(env).deps);
+    expect(hostFacts).toHaveBeenCalledWith(env);
+    const ctx = vi.mocked(evaluate).mock.calls[0]?.[1];
+    expect(ctx?.home).toBe("/answered");
+    expect(ctx?.verifiedBash).toBe(true);
+  });
+
+  it("does not verify bash when the host check does not", async () => {
+    vi.mocked(findInventory).mockResolvedValue(EMPTY);
+    await guard({}, fakeDeps().deps);
+    expect(vi.mocked(evaluate).mock.calls[0]?.[1].verifiedBash).toBe(false);
   });
 
   it("reads a glob from the directory the rule names, and the call's directory when it names none", async () => {

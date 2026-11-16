@@ -1,5 +1,4 @@
 import { createHash } from "node:crypto";
-import { homedir } from "node:os";
 // PreToolUse guard: enforces mechanically checkable rules from AGENTS.md.
 // Plan: infra/plans/3-agent-harness.md (Step 2).
 //
@@ -18,6 +17,7 @@ import {
   findInventory,
   type Inventory,
 } from "../guardrail/index.js";
+import { hostFacts } from "./guard-host-shell.js";
 import { launchRoot } from "./guard-launch-root.js";
 import { recordEvent } from "./ledger-event.js";
 import type { CliDeps } from "../runtime/index.js";
@@ -85,8 +85,8 @@ export async function guard(
   const verdict = await evaluate(payload, {
     root,
     cwd: callDirectory(call, root),
-    // The home a leading ~ expands to: the environment's HOME, as the shell reads it.
-    home: deps.env["HOME"] || homedir(),
+    // The home a leading ~ expands to, and whether the hook's own environment names bash (the zsh rules skip only then).
+    ...hostFacts(deps.env),
     readFile,
     // Globs resolve from the directory the command runs in, as the shell runs them; the call's when none is given.
     globMatches: (pattern, directory) =>
