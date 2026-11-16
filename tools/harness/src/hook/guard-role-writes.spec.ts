@@ -1,6 +1,7 @@
 import { basename } from "node:path";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { block } from "./guard-verdict.js";
+import { commandLookup } from "./guard-role-reads.js";
 import { commandOf } from "./guard-shell.js";
 import {
   bareAssignment,
@@ -22,6 +23,7 @@ import {
 
 vi.mock("node:path");
 vi.mock("./guard-shell.js");
+vi.mock("./guard-role-reads.js");
 vi.mock("./guard-verdict.js");
 
 /** Fake shell: the first word names the command, the rest are its arguments. */
@@ -31,6 +33,7 @@ const words = (tokens: readonly string[]) => ({
 });
 
 beforeEach(() => {
+  vi.mocked(commandLookup).mockReturnValue(false);
   vi.mocked(commandOf).mockImplementation(words);
   vi.mocked(basename).mockImplementation((path) => path.split("/").pop() ?? "");
   vi.mocked(block).mockImplementation((rule, message) => ({
@@ -139,6 +142,15 @@ describe("setsEnvironment: a bare assignment passes, a prefix or export is refus
 
   it("passes a plain command", () => {
     expect(setsEnvironment(["cat", "f"])).toBe(false);
+  });
+
+  it("passes command -v only when its shape check passes it, and refuses command as a wrapper", () => {
+    vi.mocked(commandLookup).mockReturnValue(true);
+    expect(setsEnvironment(["command", "-v", "git"])).toBe(false);
+
+    vi.mocked(commandLookup).mockReturnValue(false);
+    expect(setsEnvironment(["command", "-v", "git"])).toBe(true);
+    expect(setsEnvironment(["command", "git", "push"])).toBe(true);
   });
 
   it("refuses a builtin that changes shell state or sources a file", () => {
