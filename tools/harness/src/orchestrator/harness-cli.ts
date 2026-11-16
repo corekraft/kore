@@ -19,7 +19,7 @@ const HARNESS = "skills/bin/harness.mjs";
 /** The Harness port over the real tools: every call is one `harness` or `gh` command through the runner. */
 export class HarnessCli implements Harness {
   constructor(
-    private readonly runner: Runner,
+    protected readonly runner: Runner,
     private readonly root: string,
   ) {}
 
@@ -227,7 +227,7 @@ export class HarnessCli implements Harness {
     return { outcome: waited.outcome, text: done.stdout };
   }
 
-  private async harness(...args: string[]): Promise<string> {
+  protected async harness(...args: string[]): Promise<string> {
     const done = await this.runner.run("node", [HARNESS, ...args], {
       cwd: this.root,
     });
@@ -235,7 +235,7 @@ export class HarnessCli implements Harness {
     return done.stdout;
   }
 
-  private check(what: string, done: { code: number; stderr: string }): void {
+  protected check(what: string, done: { code: number; stderr: string }): void {
     if (done.code !== 0) {
       throw new HarnessCliError(
         `\`${what}\` failed: ${done.stderr.trim() || "no output"}. Fix that, then rerun.`,
@@ -243,7 +243,7 @@ export class HarnessCli implements Harness {
     }
   }
 
-  private json(text: string): unknown {
+  protected json(text: string): unknown {
     try {
       return JSON.parse(text);
     } catch {

@@ -1,14 +1,25 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { HarnessCli, IdeaRun, HarnessCliError } from "../orchestrator/index.js";
+import {
+  HarnessCli,
+  IdeaRun,
+  HarnessCliError,
+  tickFlagOn,
+} from "../orchestrator/index.js";
 import { retroHook } from "./orchestrate-retro.js";
+import { runOnTicks, tickCommand } from "./orchestrate-tick.js";
 import type { CommandContext } from "../runtime/index.js";
 import { orchestrateCommands } from "./orchestrate-commands.js";
 
 vi.mock("./orchestrate-retro.js", () => ({ retroHook: vi.fn() }));
+vi.mock("./orchestrate-tick.js", () => ({
+  runOnTicks: vi.fn(),
+  tickCommand: { summary: "tick" },
+}));
 vi.mock("../orchestrator/index.js", () => ({
   HarnessCli: vi.fn(),
   IdeaRun: vi.fn(),
   HarnessCliError: class extends Error {},
+  tickFlagOn: vi.fn(),
 }));
 
 const run = vi.fn();
@@ -90,6 +101,42 @@ describe("orchestrate run", () => {
     const { context, err } = setup({ idea: "0042", ...OUTCOME });
     expect(await orchestrateCommands["run"]?.run(context)).toBe(1);
     expect(err.join("")).toBe("`harness x` failed: no.\n");
+  });
+});
+
+describe("orchestrate run with the orchestrator-tick flag", () => {
+  it("runs the idea as ticks scoped to it, not through IdeaRun, when the flag is on", async () => {
+    vi.mocked(tickFlagOn).mockResolvedValue(true);
+    vi.mocked(runOnTicks).mockResolvedValue({
+      status: "outcome-recorded",
+      rounds: 5,
+    });
+    const { context, out } = setup({ idea: "0042", ...OUTCOME });
+
+    expect(await orchestrateCommands["run"]?.run(context)).toBe(0);
+    expect(tickFlagOn).toHaveBeenCalledWith(context.deps.fs, ROOT);
+    expect(runOnTicks).toHaveBeenCalledWith(
+      context.deps,
+      ROOT,
+      "0042",
+      OUTCOME,
+    );
+    expect(IdeaRun).not.toHaveBeenCalled();
+    expect(out.join("")).toBe("Idea 0042: outcome-recorded after 5 rounds.\n");
+  });
+
+  it("runs through IdeaRun, and starts no tick, when the flag is off", async () => {
+    vi.mocked(tickFlagOn).mockResolvedValue(false);
+    const { context } = setup({ idea: "0042" });
+
+    await orchestrateCommands["run"]?.run(context);
+
+    expect(run).toHaveBeenCalledWith("0042", undefined);
+    expect(runOnTicks).not.toHaveBeenCalled();
+  });
+
+  it("registers the tick command beside run", () => {
+    expect(orchestrateCommands["tick"]).toBe(tickCommand);
   });
 });
 

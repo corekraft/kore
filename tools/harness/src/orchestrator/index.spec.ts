@@ -18,14 +18,30 @@ vi.mock("./retro-launch.js", () => ({
 vi.mock("./retro-filing.js", () => ({ RetroFiling: vi.fn() }));
 vi.mock("./retro-filing-cli.js", () => ({ RetroFilingCli: vi.fn() }));
 vi.mock("./retro-flag.js", () => ({ retroFlagOn: vi.fn() }));
+vi.mock("./tick.js", () => ({ Tick: vi.fn() }));
+vi.mock("./tick-cli.js", () => ({ TickCli: vi.fn() }));
+vi.mock("./tick-flag.js", () => ({ TICK_FLAG: "f", tickFlagOn: vi.fn() }));
+vi.mock("./tick-lease-store.js", () => ({ FileLeaseStore: vi.fn() }));
+vi.mock("./tick-lease.js", () => ({
+  TICK_LEASE_MAX_AGE_MS: 1,
+  TickLease: vi.fn(),
+}));
+vi.mock("./tick-leased.js", () => ({ leasedPass: vi.fn() }));
+vi.mock("./tick-run.js", () => ({
+  MAX_TICK_PASSES: 1,
+  TICK_POLL_MS: 1,
+  runTicks: vi.fn(),
+}));
 
 describe("the orchestrator barrel", () => {
   it("exposes the domain's public names, and no file's internals", () => {
     expect(Object.keys(barrel).sort()).toEqual([
+      "FileLeaseStore",
       "HarnessCli",
       "HarnessCliError",
       "IdeaRun",
       "MAX_ROUNDS",
+      "MAX_TICK_PASSES",
       "RETRO_EFFORT",
       "RETRO_FLAG",
       "RETRO_MODEL",
@@ -33,7 +49,16 @@ describe("the orchestrator barrel", () => {
       "RetroFiling",
       "RetroFilingCli",
       "RetroLaunch",
+      "TICK_FLAG",
+      "TICK_LEASE_MAX_AGE_MS",
+      "TICK_POLL_MS",
+      "Tick",
+      "TickCli",
+      "TickLease",
+      "leasedPass",
       "retroFlagOn",
+      "runTicks",
+      "tickFlagOn",
     ]);
   });
 
