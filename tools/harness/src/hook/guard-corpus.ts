@@ -8,6 +8,8 @@
 // and fails on any ALLOW for a corpus case. A bypass the retro or a review finds is added
 // here first, as a failing case, and then closed.
 
+import { READS_ALLOWED, READS_REFUSED } from "./guard-corpus-reads.js";
+
 export interface CorpusCase {
   /** The role the session runs as, or none for the person's own session. */
   role?: string;
@@ -227,6 +229,7 @@ export const CORPUS: readonly CorpusCase[] = [
   ...GLOB_QUALIFIERS,
   ...GLOB_IN_SCRIPT,
   ...SECRETS,
+  ...eachRole(ROLES, "role-read-only", ...READS_REFUSED),
   ...GUARD_FILES,
   ...GUARD_PATH_VARIANTS,
   ...GATED,
@@ -266,6 +269,7 @@ export const ORDINARY: readonly OrdinaryCase[] = [
     ),
   ),
   ...ROLES.flatMap((role) => ordinary(role, "ls docs", "cat docs/index.md")),
+  ...ROLES.flatMap((role) => ordinary(role, ...READS_ALLOWED)),
   ...ordinary(
     "writer",
     "echo hi > out.txt",
