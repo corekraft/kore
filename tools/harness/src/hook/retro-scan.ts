@@ -148,6 +148,7 @@ class Tally {
   readonly failureCounts = new Map<string, number>();
   readonly perSession: Record<string, string[]> = {};
   readonly loaded = new Set<string>();
+  readonly subagents = new Map<string, number>();
   readonly phraseSessions = new Map<string, Evidence[]>();
   readonly ruleStats: Map<string, RuleStats>;
 
@@ -169,6 +170,9 @@ class Tally {
       this.failureCounts.set(key, (this.failureCounts.get(key) ?? 0) + 1);
     }
     this.addSkills(id, found);
+    for (const name of found.subagents) {
+      this.subagents.set(name, (this.subagents.get(name) ?? 0) + 1);
+    }
     this.addPhrases(id, found);
   }
 
@@ -288,6 +292,12 @@ class Tally {
     );
   }
 
+  sortedSubagents(): Record<string, number> {
+    return Object.fromEntries(
+      [...this.subagents].sort(([a], [b]) => a.localeCompare(b)),
+    );
+  }
+
   unused(): string[] {
     return this.knownSkills.filter((name) => !this.loaded.has(name)).sort();
   }
@@ -337,6 +347,7 @@ export function scan(
       : {}),
     failures: tally.failures(),
     skills: { perSession: tally.perSession, unused: tally.unused() },
+    subagents: tally.sortedSubagents(),
     corrections: tally.corrections(),
     rules: tally.rules(),
   };

@@ -121,6 +121,7 @@ describe("scan: which sessions it keeps", () => {
       "guards",
       "failures",
       "skills",
+      "subagents",
       "corrections",
       "rules",
     ]);
@@ -294,5 +295,16 @@ describe("scan: failures, skills and corrections", () => {
         ],
       },
     ]);
+  });
+});
+
+describe("scan: in-process agent launches", () => {
+  it("counts them across sessions, sorted by agent", () => {
+    add("a", { subagents: ["writer", "principles-review"] });
+    add("b", { subagents: ["principles-review"] });
+    expect(scanOf(["a", "b"]).subagents).toEqual({
+      "principles-review": 2,
+      writer: 1,
+    });
   });
 });

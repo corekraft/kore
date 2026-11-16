@@ -12,6 +12,7 @@ export type Visible = Pick<
   | "failures"
   | "skills"
   | "slashCommands"
+  | "subagents"
   | "phrases"
   | "warnings"
   | "guardBlocks"
@@ -25,6 +26,7 @@ export function analysisOf(parts: Partial<Visible> = {}): SessionAnalysis {
     failures: [],
     skills: new Set(),
     slashCommands: [],
+    subagents: [],
     phrases: [],
     warnings: [],
     guardBlocks: [],
