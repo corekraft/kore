@@ -6,6 +6,11 @@ import type { Worktree } from "./worktree.js";
 export interface SessionResult {
   outcome: "done" | "blocked";
   at: string;
+  /**
+   * The text the pane printed before its RESULT line, plain and capped (ADR 0123).
+   * Absent on a result recorded before summaries existed.
+   */
+  summary?: string;
 }
 
 /** What `session spawn` knows about a pane it created, kept so wait and close can find it. */

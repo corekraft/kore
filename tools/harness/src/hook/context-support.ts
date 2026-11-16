@@ -7,6 +7,7 @@ export function deps(over: Partial<ContextDeps> = {}): ContextDeps {
     readPlans: () => Promise.resolve({}),
     readJournals: () => Promise.resolve({}),
     sessionsSince: () => Promise.resolve(0),
+    paneResultSummaryOn: () => Promise.resolve(false),
     ...over,
   };
 }
