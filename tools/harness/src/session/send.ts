@@ -5,18 +5,29 @@ import {
   type CliDeps,
   type CommandContext,
 } from "../runtime/index.js";
-import { withFollowUpPrefix } from "./follow-up-prefix.js";
+import { signedMessage, type Sender } from "../sender/index.js";
 import { deliver } from "./notify.js";
 import { FAILED, USAGE_ERROR, fail } from "./output.js";
 import { SessionRegistry } from "./registry.js";
 
 const USAGE = "session send <name> --message <text>";
 
+/** The sender's role and session name on the event; neither is set for a send from the main session. */
+function senderFields(sender: Sender): {
+  senderRole?: string;
+  senderName?: string;
+} {
+  return sender.session === undefined
+    ? {}
+    : { senderRole: sender.session.role, senderName: sender.session.name };
+}
+
 /** The reason the event was not recorded, or undefined once it is. Only a ledger write failure is expected; anything else is rethrown. */
 async function recordSend(
   deps: CliDeps,
   pane: string,
   name: string,
+  sender: Sender,
 ): Promise<string | undefined> {
   const main = await mainRoot(deps);
   if (main === undefined) {
@@ -34,6 +45,7 @@ async function recordSend(
       occurredAt: deps.clock.now().toISOString(),
       pane,
       agent: name,
+      ...senderFields(sender),
     });
     return written.ok ? undefined : written.message;
   } catch (error) {
@@ -46,7 +58,8 @@ async function recordSend(
 
 /**
  * `session send <name> --message <text>`: a follow-up to a spawned session's pane.
- * The message carries the follow-up prefix once, is confirmed in the pane, then recorded as a stage event.
+ * The message goes out as one line that starts with the sender line, is confirmed in the pane,
+ * then is recorded as a stage event naming the sender.
  */
 export async function send(context: CommandContext): Promise<number> {
   const { json, deps, operand: name, options } = context;
@@ -63,6 +76,10 @@ export async function send(context: CommandContext): Promise<number> {
       USAGE_ERROR,
       `Missing session name, or the message is missing, blank or spans lines: ${USAGE}, with one line of text.`,
     );
+  }
+  const signed = signedMessage(deps.env, "session send", message.trim());
+  if ("error" in signed) {
+    return fail(deps, json, FAILED, signed.error);
   }
   const record = await (await SessionRegistry.open(deps)).read(name);
   if (record === undefined) {
@@ -81,11 +98,11 @@ export async function send(context: CommandContext): Promise<number> {
       `Session ${name} is closed (pane ${record.paneId}); nothing was sent.`,
     );
   }
-  const error = await deliver(deps, record.paneId, withFollowUpPrefix(message));
+  const error = await deliver(deps, record.paneId, signed.body);
   if (error !== undefined) {
     return fail(deps, json, FAILED, error);
   }
-  const unrecorded = await recordSend(deps, record.paneId, name);
+  const unrecorded = await recordSend(deps, record.paneId, name, signed.sender);
   if (unrecorded !== undefined) {
     // Delivery happened, so the exit code stays 0; the missing event is said, not hidden.
     deps.stderr(

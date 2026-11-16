@@ -12,6 +12,7 @@ vi.mock("./sender.js", () => ({
   readSender: vi.fn(),
   senderFrom: vi.fn(),
   signedBody: vi.fn(),
+  signedMessage: vi.fn(),
   withoutSender: vi.fn(),
 }));
 
@@ -27,6 +28,7 @@ describe("the sender barrel", () => {
       "readSender",
       "senderFrom",
       "signedBody",
+      "signedMessage",
       "withoutSender",
     ]);
   });

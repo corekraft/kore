@@ -8,8 +8,10 @@ export {
   readSender,
   senderFrom,
   signedBody,
+  signedMessage,
   withoutSender,
   type Sender,
   type SenderSession,
   type Signed,
+  type SignedMessage,
 } from "./sender.js";

@@ -23,8 +23,12 @@ const ok = (stdout = ""): Result => ({ code: 0, stdout, stderr: "" });
 const failed: Result = { code: 1, stdout: "", stderr: "boom" };
 
 const LINE =
-  "[herdr:image-trust-writer] finished: RESULT done; summary in pane w3:p9";
-const SESSION = { HERDR_PANE_ID: "w3:p9", KORE_AGENT: "image-trust-writer" };
+  "sender: writer image-trust-writer (session notify): finished: RESULT done; summary in pane w3:p9";
+const SESSION = {
+  HERDR_PANE_ID: "w3:p9",
+  KORE_AGENT: "image-trust-writer",
+  KORE_ROLE: "writer",
+};
 /** The caller's pane: its transcript, then the input box as the last prompt line. */
 const pane = (transcript: readonly string[], input = "") =>
   [...transcript, `❯ ${input}`].join("\n");

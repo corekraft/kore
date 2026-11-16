@@ -24,6 +24,18 @@ describe("orchestrator brief tag", () => {
     ["the legacy (orchestrator) header", "(orchestrator) brief"],
     ["the legacy orchestrator: header", "Orchestrator: brief"],
     ["a [herdr:name] header", "[herdr:retro-writer] brief"],
+    [
+      "a sender line from a session, with its message on the same line",
+      "sender: writer fix-sender-identity (session send): Rebase on main",
+    ],
+    [
+      "a sender line from the main session",
+      "sender: the main session (session send): Rebase on main",
+    ],
+    [
+      "a sender line on a finish notice",
+      "sender: writer retro-writer (session notify): finished: RESULT done; summary in pane w3:p9",
+    ],
   ])("reads a message that opens with %s as a brief", (_name, text) => {
     expect(isOrchestratorBrief(text)).toBe(true);
   });
@@ -60,6 +72,10 @@ describe("orchestrator brief tag", () => {
     [
       "a message that only mentions the orchestrator",
       "Ask the orchestrator first",
+    ],
+    [
+      "a person who quotes a sender line mid-sentence",
+      'Stop sending "sender: writer fix-x (session send)" lines to me',
     ],
   ])("does not read %s as a brief", (_name, text) => {
     expect(isOrchestratorBrief(text)).toBe(false);

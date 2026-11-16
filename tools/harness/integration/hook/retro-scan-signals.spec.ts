@@ -104,6 +104,10 @@ describe("retro scan orchestrator briefs", () => {
     ["(orchestrator) header", `(orchestrator) ${brief}`],
     ["Orchestrator: header", `Orchestrator: ${brief}`],
     ["[herdr:…] header", `[herdr:retro-writer] ${brief}`],
+    [
+      "sender line header",
+      `sender: writer retro-writer (session send): ${brief}`,
+    ],
     ["indented, any case", `  \n ORCHESTRATOR: ${brief}`],
     [
       "session-name line and no tag",

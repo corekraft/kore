@@ -27,8 +27,9 @@ type Environment = Readonly<Record<string, string | undefined>>;
 
 const ROLE = /^[a-z][a-z0-9-]*$/;
 const NAME = /^[a-z0-9_-]+$/;
+// A pane message keeps its text on the sender line after a colon; a comment body does not.
 const LINE =
-  /^sender: (?:the main session|([a-z][a-z0-9-]*) ([a-z0-9_-]+)) \(([^()\r\n]+)\)$/;
+  /^sender: (?:the main session|([a-z][a-z0-9-]*) ([a-z0-9_-]+)) \(([^()\r\n]+)\)(?:: .*)?$/;
 
 /**
  * The sender for `command`, read from the environment. A role with no usable session name is
@@ -112,6 +113,30 @@ export function carriesApproval(body: string): boolean {
 
 /** A body ready to post, with its sender line first, or the reason it is refused. */
 export type Signed = { readonly body: string } | { readonly error: string };
+
+/** A one-line pane message ready to type, with the sender it names, or the reason it is refused. */
+export type SignedMessage =
+  | { readonly body: string; readonly sender: Sender }
+  | { readonly error: string };
+
+/**
+ * The one-line pane message: the sender line, a colon, then the message on the same line.
+ * A pane message is one line, so the sender cannot sit on a line of its own above it.
+ */
+export function signedMessage(
+  env: Environment,
+  command: string,
+  message: string,
+): SignedMessage {
+  const sender = senderFrom(env, command);
+  if ("error" in sender) {
+    return sender;
+  }
+  if (carriesApproval(message)) {
+    return { error: APPROVAL_REFUSAL };
+  }
+  return { body: `${formatSender(sender)}: ${message}`, sender };
+}
 
 /**
  * The body a harness command posts: the sender line first, then the body; an empty body is the

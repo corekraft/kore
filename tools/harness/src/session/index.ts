@@ -42,7 +42,7 @@ const waitCommand: Command = {
 
 const notifyCommand: Command = {
   summary:
-    "tell the caller pane this session finished: sends `[herdr:<name>] finished: RESULT <outcome>; summary in pane <this pane>` to <pane> and submits it, then confirms it shows there (<pane> --outcome done|blocked; a spawned session runs it as its last action, from the brief)",
+    "tell the caller pane this session finished: sends `sender: <role> <name> (session notify): finished: RESULT <outcome>; summary in pane <this pane>` to <pane> and submits it, then confirms it shows there (<pane> --outcome done|blocked; a spawned session runs it as its last action, from the brief)",
   operand: "pane",
   options: { outcome: "string" },
   run: notify,
@@ -50,7 +50,7 @@ const notifyCommand: Command = {
 
 const sendCommand: Command = {
   summary:
-    "send a follow-up to a spawned session's pane: adds the [orchestrator] prefix once (even when the message already starts with it, so the retro scan never counts it as an owner correction), submits it, confirms it shows in the pane, and records a session.send event (<name> --message <one line of text>)",
+    "send a follow-up to a spawned session's pane: writes the sender line first, from this session's spawn environment (`sender: <role> <name> (session send): <message>`, or `the main session` with no role), so the retro scan never counts it as an owner correction; submits it, confirms it shows in the pane, and records a session.send event naming the sender (<name> --message <one line of text>)",
   operand: "name",
   options: { message: "string" },
   run: send,
