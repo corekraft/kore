@@ -108,6 +108,34 @@ describe("the judge definition", () => {
     expect(merges).toMatch(/[Aa]ctivation[^.]*recorded[^.]*outcome[^.]*owner/);
   });
 
+  it("lists the reads that work, and none the guard still refuses", () => {
+    const reads = section(judge, "Reads that work");
+    for (const command of [
+      "`node skills/bin/harness.mjs judge diff <pr>`",
+      "`git diff`",
+      "`git show`",
+      "`gh pr view`",
+      "`gh pr diff`",
+      "`cat`",
+      "`grep`",
+      "`node skills/bin/harness.mjs plan active`",
+    ]) {
+      expect(reads).toContain(command);
+    }
+    for (const refused of [
+      "merge-base",
+      "cat-file",
+      "ls-tree",
+      "ls-remote",
+      "git fetch",
+      "`which`",
+      "command -v",
+      "--help",
+    ]) {
+      expect(judge).not.toContain(refused);
+    }
+  });
+
   it("keeps step 1 to the judgement, without the precheck internals", () => {
     const step1 = judge.split("\n").find((l) => l.startsWith("1. ")) ?? "";
     expect(step1).toContain("toolingPaths");

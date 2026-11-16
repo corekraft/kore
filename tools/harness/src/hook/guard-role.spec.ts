@@ -149,6 +149,20 @@ describe("checkRole: a read-only role's allowlist", () => {
     expect(bash("reader", "curl x")).toMatchObject({ rule: "role-read-only" });
   });
 
+  it("refuses an unlisted read without saying it changes files", () => {
+    vi.mocked(readMayRun).mockReturnValue(false);
+
+    expect(bash("reader", "git merge-base a b")).toMatchObject({
+      rule: "role-read-only",
+      message: expect.stringContaining(
+        "`git merge-base a b`, which is not a known read-only command, is refused",
+      ),
+    });
+    expect(bash("reader", "git merge-base a b")).toMatchObject({
+      message: expect.not.stringContaining("changes files"),
+    });
+  });
+
   it("gives the reader the read-only harness commands, with none that files or records", () => {
     bash("reader", "node skills/bin/harness.mjs idea list");
 
