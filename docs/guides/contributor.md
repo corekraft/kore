@@ -749,6 +749,34 @@ must start in audit. That item starts in audit mode, so today it is reported
 under `audited`, and a person turns it on with the same request and activate
 steps.
 
+## Guard replay
+
+`harness guardrail replay --rule <rule> --old <ref> --new <ref> --since <date|UTC
+timestamp> [--until <date|UTC timestamp>]` lists the recorded Bash, Read, Write and
+Edit calls in the window that the rule refused under the old git ref and the new
+ref's guard allows, as JSON. Each ref is checked out in a detached worktree in a
+worktrees folder under `.claude`, its harness is built there, and each call is sent to that
+build's `hook guard` as the PreToolUse payload it would have been; the worktrees
+are removed when the replay ends, even after a failure. The payload names no
+session, so the guard writes no ledger event, and the replay never reads the
+ledger or writes the inventory. The calls come from the session transcripts of
+this repository and its worktrees, the same ones the retro scan reads. An empty
+`changed` list is stated as empty (`"empty": true`). It is a developer tool, not a
+guard (ADR 0101).
+
+An idea that changes what a guard blocks is confirmed on this checklist (ADR 0119):
+
+1. The guard corpus still blocks every known-bad case in CI (`CORPUS` in
+   `tools/harness/src/hook/guard-corpus.ts`).
+2. Run `guardrail replay` over the idea's window, with the guard's refs before and
+   after the change.
+3. A reader pane checks the `changed` list, and the judge reads its report.
+4. One changed command that left the worktree or wrote outside its role refutes
+   the idea, whatever the block count says.
+5. The revert restores the approved state with no approval, and the escaping
+   command joins `CORPUS` in the reverting change. The revert and the escape go in
+   the next owner digest.
+
 ## Status
 
 `node skills/bin/harness.mjs status --json` is the one read-only status call for the

@@ -22,6 +22,8 @@ export interface TranscriptEvent {
   line: number;
   type?: string;
   timestamp?: string;
+  /** The directory the session ran in when the event was written. */
+  cwd?: string;
   isSidechain?: boolean;
   isMeta?: boolean;
   isCompactSummary?: boolean;
