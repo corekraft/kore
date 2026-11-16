@@ -113,9 +113,13 @@ describe("agent definitions bound each role's tools", () => {
   });
 });
 
+/** The one pane that runs on Opus, by the owner's direction recorded in ADR 0120. */
+const OPUS_ADVISOR = "advisor";
+
 describe("every agent definition runs on Haiku or Sonnet", () => {
   it("lists the definitions, so an empty folder cannot pass vacuously", () => {
     expect([...definitions().keys()].sort()).toEqual([
+      "advisor",
       "judge",
       "principles-review",
       "reader",
@@ -123,7 +127,7 @@ describe("every agent definition runs on Haiku or Sonnet", () => {
     ]);
   });
 
-  it.each([...definitions()])(
+  it.each([...definitions()].filter(([role]) => role !== OPUS_ADVISOR))(
     "%s declares a Haiku or Sonnet model",
     (role, markdown) => {
       const { model } = parseDefinition(markdown);
@@ -173,7 +177,10 @@ describe("every agent definition", () => {
     const offenders = [...definitions()]
       .map(([role, body]) => [role, parseDefinition(body).model] as const)
       .filter(
-        ([role, model]) => model !== undefined && !OPUS_UNTIL_REMOVED.has(role),
+        ([role, model]) =>
+          model !== undefined &&
+          !OPUS_UNTIL_REMOVED.has(role) &&
+          role !== OPUS_ADVISOR,
       )
       .filter(
         ([, model]) =>
@@ -196,5 +203,38 @@ describe("the principles-review definition", () => {
   it("has no tool that edits a file", () => {
     expect(found().tools ?? []).not.toEqual(expect.arrayContaining(["Edit"]));
     expect(found().tools).toEqual(["Read", "Grep", "Glob", "Bash"]);
+  });
+});
+
+describe("the advisor definition", () => {
+  const body = () => definitions().get(OPUS_ADVISOR) ?? "";
+  const found = () => parseDefinition(body());
+
+  it("declares Opus, the one exception to the Haiku or Sonnet rule (ADR 0120)", () => {
+    expect(displayName(found().model ?? "")).toMatch(/^Opus /);
+    expect(found().effort).toBe("high");
+  });
+
+  it("is the only definition on Opus", () => {
+    const onOpus = [...definitions()]
+      .filter(([, markdown]) =>
+        displayName(parseDefinition(markdown).model ?? "")?.startsWith("Opus "),
+      )
+      .map(([role]) => role);
+    expect(onOpus).toEqual([OPUS_ADVISOR]);
+  });
+
+  it("is read-only: no tool edits a file", () => {
+    expect(found().tools).toEqual(["Read", "Grep", "Glob", "Bash"]);
+  });
+
+  it("hands reads to Haiku readers and records through the decision tool", () => {
+    expect(body()).toContain("reader");
+    expect(body()).toContain("node skills/bin/harness.mjs decision make");
+  });
+
+  it("never downgrades a reserved question, and links ADR 0120 instead of copying its list", () => {
+    expect(body()).toMatch(/escalate/);
+    expect(body()).toMatch(/\(\.\.\/\.\.\/docs\/decisions\/0120-/);
   });
 });
