@@ -235,6 +235,7 @@ const RULES: readonly Rule[] = [
       "guardrail.activated",
       "guardrail.approval-warned",
       "idea.filed",
+      "decision.made",
       "retro.dropped",
       "spawn.unstamped",
     ],

@@ -1,6 +1,6 @@
 ---
-status: proposed
-summary: Proposed, refines ADR 0117: a question that carries a recommendation goes to a read-only advisor role that records its decision on the issue, unless it is a reserved decision from a closed, fail-closed list whose entries already belong to the owner; the advisor grants nothing, reserved questions are posted at once and notified in one daily digest, a comment or pane message without a role line is the owner's; by delegation the advisor runs on Opus as ADR 0117's one exception and unattended sessions get their own identities; it becomes accepted on the owner's untagged comment.
+status: accepted
+summary: Refines ADR 0117: a question that carries a recommendation goes to a read-only advisor role that records its decision on the issue, unless it is a reserved decision from a closed, fail-closed list whose entries already belong to the owner; the advisor grants nothing, reserved questions are posted at once and notified in one daily digest, a comment or pane message without a role line is the owner's; by delegation the advisor runs on Opus as ADR 0117's one exception and unattended sessions get their own identities; accepted on the owner's untagged comments on #794.
 date: 2026-11-16
 last-verified: 2026-11-16
 ---
@@ -13,10 +13,15 @@ Refines: [ADR 0117](0117-the-delivery-loop-s-role-set.md).
 
 ## Status
 
-Proposed. Its open questions were answered by delegation on 2026-11-16 (the owner, relayed by the answering session: "you can anaswer owner's questions"); the owner may overrule any of them (below). Those answers reach this record through a tagged agent message,
-which by this record's own rule is not approval, so it becomes accepted on the
-owner's own untagged comment on #794. The `decision-advisor` flag stays off
-until then and until the identities below exist.
+Accepted on 2026-11-16, when the owner commented `approve` and then `This is
+approved` on #794, each untagged: no sender line, so by this record's own rule
+the owner's
+([first comment](https://github.com/corekraft/kore/issues/794#issuecomment-6908740064),
+[second comment](https://github.com/corekraft/kore/issues/794#issuecomment-6908745625)).
+It was proposed with its open questions answered by delegation (the owner,
+relayed by the answering session: "you can anaswer owner's questions"); the
+owner may still overrule any of them (below). The `decision-advisor` flag
+stays off until the identities below exist and a person activates it.
 
 ## Context
 

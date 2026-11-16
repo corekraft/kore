@@ -4,12 +4,14 @@ import { rulesetCommands } from "../ruleset/index.js";
 import { flagCommands } from "./flag-commands.js";
 import { statusCommand } from "./status-command.js";
 import { judgeCommands, prCommands, reviewCommands } from "./judge-commands.js";
+import { decisionCommands } from "./decision-commands.js";
 import { outcomeCommands } from "./outcome-commands.js";
 
 /** The delivery loop's records: ideas, the outcomes that close them, the flags those outcomes prove, and the judge's precheck. */
 export const records: Record<string, Record<string, Command>> = {
   idea: ideaCommands,
   outcome: outcomeCommands,
+  decision: decisionCommands,
   flag: flagCommands,
   ruleset: rulesetCommands,
   // `harness status`: the one command of its domain, so it takes no command word.

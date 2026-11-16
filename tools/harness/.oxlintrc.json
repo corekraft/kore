@@ -81,6 +81,10 @@
             "message": "import from the cli barrel (cli/index.js), not one of its files"
           },
           {
+            "group": ["**/decision/**", "!**/decision/index.js"],
+            "message": "import from the decision barrel (decision/index.js), not one of its files"
+          },
+          {
             "group": ["**/evaluate/**", "!**/evaluate/index.js"],
             "message": "import from the evaluate barrel (evaluate/index.js), not one of its files"
           },
@@ -206,6 +210,10 @@
               {
                 "group": ["**/cli/**", "!**/cli/index.js"],
                 "message": "import from the cli barrel (cli/index.js), not one of its files"
+              },
+              {
+                "group": ["**/decision/**", "!**/decision/index.js"],
+                "message": "import from the decision barrel (decision/index.js), not one of its files"
               },
               {
                 "group": ["**/evaluate/**", "!**/evaluate/index.js"],
