@@ -102,6 +102,8 @@ export interface Found {
   sessions: { count: number };
   skills: { unused: string[] };
   rules: { promotable: string[] };
+  /** Agent calls per agent definition, from the transcripts. */
+  subagents: Record<string, number>;
 }
 
 /** The report's agents and proposals sections for a scan's findings. */
@@ -112,7 +114,15 @@ export async function agentSection(
   found: Found,
 ) {
   const usage = await readAgentUsage(deps, root, windowStart(since));
-  const unused = unusedAgents(usage.known, usage.launched);
+  const inProcess = Object.fromEntries(
+    Object.entries(found.subagents)
+      .filter(([name]) => usage.known.includes(name))
+      .sort(([a], [b]) => a.localeCompare(b)),
+  );
+  const unused = unusedAgents(usage.known, [
+    ...usage.launched,
+    ...Object.keys(inProcess),
+  ]);
   const { history, proposals } = proposalsFor({
     sessions: found.sessions.count,
     days: usage.ledgerDays,
@@ -121,7 +131,7 @@ export async function agentSection(
     promotable: found.rules.promotable,
   });
   return {
-    agents: { known: usage.known, launched: usage.launched, unused },
+    agents: { known: usage.known, launched: usage.launched, inProcess, unused },
     proposals: { history, items: proposals },
   };
 }
