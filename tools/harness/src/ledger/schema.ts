@@ -2,6 +2,7 @@ import { HOST_RULES } from "./schema-host.js";
 import { KINDS, type Kind } from "./schema-kinds.js";
 import { RESULT_RULES } from "./schema-result.js";
 import { SENDER_RULES } from "./schema-sender.js";
+import { REVIEW_RULES } from "./schema-review.js";
 import { SEND_BACK_RULES, type SendBackCategory } from "./schema-send-back.js";
 import { TIER_RULES, type TierOrigin } from "./schema-tier.js";
 
@@ -77,6 +78,8 @@ export interface EventInput extends Partial<TierOrigin> {
   tokens?: number;
   /** send-back: why the change went back; absent on a send-back from before categories existed. */
   category?: SendBackCategory;
+  /** review.run: the findings the verdict gave, 0 for a clean review; absent on a review from before the verdict was recorded. */
+  findings?: number;
   /** session.launch: the role the session was launched as. */
   role?: string;
   /** session.launch: the model tier the session was launched on. */
@@ -143,7 +146,7 @@ const ALLOWED = new Set<string>([
   "role",
   "tier",
   ...TIER_RULES.map((rule) => rule.field),
-  ...SEND_BACK_RULES.map((rule) => rule.field),
+  ...[...SEND_BACK_RULES, ...REVIEW_RULES].map((rule) => rule.field),
   ...SENDER_RULES.map((rule) => rule.field),
   ...RESULT_RULES.map((rule) => rule.field),
   "load",
@@ -262,6 +265,7 @@ const RULES: readonly Rule[] = [
   { field: "tier", check: isText(NAME), hint: NAME_HINT, kinds: LAUNCH_KINDS },
   ...TIER_RULES,
   ...SEND_BACK_RULES,
+  ...REVIEW_RULES,
   ...SENDER_RULES,
   ...RESULT_RULES,
   ...HOST_RULES,

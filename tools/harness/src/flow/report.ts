@@ -18,6 +18,8 @@ import {
   guardBlocks,
   hostPressure,
   ownerQuestions,
+  reviewMisses,
+  type ReviewMisses,
   mergedChangeTokens,
   tierShares,
   ideaMetrics,
@@ -47,7 +49,7 @@ import {
   type ScopeOptions,
 } from "./scope.js";
 
-export const REPORT_VERSION = 16;
+export const REPORT_VERSION = 17;
 
 export type { StageTotals, Toil } from "./tally.js";
 export type { Scope, ScopeOptions } from "./scope.js";
@@ -86,6 +88,8 @@ export interface FlowReport extends FrictionMetrics {
   hostPressure: HostPressure;
   /** Owner questions per merged change over the window, with the trailing days before it (#859). */
   ownerQuestions: OwnerQuestions;
+  /** Passed reviews later sent back for a rule break, and reviews that found a violation, each with the trailing days before it (#851). */
+  reviewMisses: ReviewMisses;
   /** Tokens per merged change over the window, with the trailing days before it as the average (#829). */
   tokensPerMergedChange: TokensPerMergedChange;
   /** Launches per role by where the tier came from, with launches from before it was recorded as unknown. */
@@ -329,6 +333,7 @@ export function buildReport(
       trailingDays: DEFAULT_QUESTION_DAYS,
       asOf,
     }),
+    reviewMisses: reviewMisses(named, window, { asOf }),
     tokensPerMergedChange: mergedChangeTokens(named, window, options),
     tierShares: tierShares(named, window),
     unstampedSpawns: unstampedSpawns(named, window),

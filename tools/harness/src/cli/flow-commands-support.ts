@@ -66,6 +66,20 @@ const emptyCategoryReport = {
   perMergedChange: emptyCategories,
 };
 
+/** Review misses with no review in the range, so neither figure is read. */
+const NO_REVIEWS = {
+  trailingDays: 7,
+  reviews: 0,
+  unrecorded: 0,
+  passedRuleBreak: {
+    count: 0,
+    ratio: null,
+    trailingAverage: null,
+    worsened: false,
+  },
+  foundViolation: { count: 0, share: null, trailingAverage: null },
+};
+
 /** Tokens per merged change with no merged change in either span, so neither figure is read. */
 const emptyTokensPerMergedChange = {
   trailingDays: 7,
@@ -144,6 +158,7 @@ export function emptyReport(overrides: Partial<Record<string, unknown>> = {}) {
       worsened: false,
     },
     tokensPerMergedChange: emptyTokensPerMergedChange,
+    reviewMisses: NO_REVIEWS,
     ...overrides,
     // The cast stands in for the fields the report prints but these tests never read.
   } as unknown as FlowReport;
@@ -207,6 +222,20 @@ const POPULATED_HOST = {
   ],
 } as const;
 
+/** Review misses with reviews in the range and a trailing average, for the populated fixture. */
+const POPULATED_REVIEWS = {
+  trailingDays: 7,
+  reviews: 4,
+  unrecorded: 0,
+  passedRuleBreak: {
+    count: 1,
+    ratio: 0.25,
+    trailingAverage: 0.1,
+    worsened: true,
+  },
+  foundViolation: { count: 2, share: 0.5, trailingAverage: 0.2 },
+};
+
 /** The fixture for a report with every optional section filled in. */
 export function populatedReport() {
   return emptyReport({
@@ -241,6 +270,7 @@ export function populatedReport() {
       ownerMinutes: { perMerged: 5, minutes: 20, merged: 4 },
     },
     guardBlocks: [{ rule: "push", blocks: 2 }],
+    reviewMisses: POPULATED_REVIEWS,
     hostPressure: POPULATED_HOST,
     ownerQuestions: {
       trailingDays: 7,
