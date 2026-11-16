@@ -11,6 +11,8 @@ export { DEFAULT_HOST_DAYS, hostPressure } from "./host-pressure.js";
 export type { HostPressure } from "./host-pressure.js";
 export { DEFAULT_QUESTION_DAYS, ownerQuestions } from "./owner-questions.js";
 export type { OwnerQuestions } from "./owner-questions.js";
+export { mergedChangeTokens } from "./merged-tokens.js";
+export type { TokensPerMergedChange } from "./merged-tokens.js";
 export { tierShares } from "./tier-share.js";
 export { guardBlocks, outcomes } from "./outcomes.js";
 export { COST_KINDS, measureAttribution } from "./attribution-measure.js";
