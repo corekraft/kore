@@ -108,6 +108,17 @@ The model and effort a role runs at. Its definition declares it, and only an
 escalation or a recorded override changes it.
 _Avoid_: Level, size
 
+**Primary metric**:
+The one flow-report metric a harness idea claims to move, which no other idea
+open in the same window claims, read from events the changed code does not
+write.
+_Avoid_: Hypothesis metric (the frontmatter field that holds it), KPI
+
+**Guard metric**:
+A flow-report metric several ideas move, which each of them must not worsen
+and none of them claims.
+_Avoid_: Guardrail (a rule that blocks), shared metric, counter-metric
+
 **Toil**:
 Time a person or an agent spends not advancing work: waiting, starting up,
 stopping, retrying.
@@ -142,6 +153,11 @@ _Avoid_: Pipeline, throughput
 A stage event the flow report cannot place in a stage or attribute to an idea,
 such as a label that is not the approval label or a pane with no role. It is
 counted but left out of every stage.
+
+**Merged change**:
+One pull request merged to `main`, the unit a per-merge metric counts. It
+measures delivering a change, never an idea reaching its outcome.
+_Avoid_: Shipped, delivered idea
 
 **Completed idea**:
 An idea whose issue has closed, which is its outcome. The flow report names a
