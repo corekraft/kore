@@ -19,6 +19,7 @@ try {
     clock: systemClock,
     fs: nodeFileSystem,
     ids: systemIds,
+    random: Math.random,
     hostLoad: systemHostLoad,
     bundleUrl: import.meta.url,
     env: process.env,
