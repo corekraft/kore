@@ -745,8 +745,8 @@ steps.
 `harness guardrail replay --rule <rule> --old <ref> --new <ref> --since <date|UTC
 timestamp> [--until <date|UTC timestamp>]` lists the recorded Bash, Read, Write and
 Edit calls in the window that the rule refused under the old git ref and the new
-ref's guard allows, as JSON. Each ref is checked out in a detached worktree under
-`.claude/worktrees`, its harness is built there, and each call is sent to that
+ref's guard allows, as JSON. Each ref is checked out in a detached worktree in a
+worktrees folder under `.claude`, its harness is built there, and each call is sent to that
 build's `hook guard` as the PreToolUse payload it would have been; the worktrees
 are removed when the replay ends, even after a failure. The payload names no
 session, so the guard writes no ledger event, and the replay never reads the
