@@ -9,6 +9,7 @@ kind: harness
 hypothesis-metric: tokensPerMergedChange.current
 hypothesis-direction: down
 hypothesis-window: 14d
+issue: https://github.com/corekraft/kore/issues/937
 ---
 
 # Idea 0020: Carry a pane's result summary in its session state file

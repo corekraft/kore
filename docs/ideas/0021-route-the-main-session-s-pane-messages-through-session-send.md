@@ -9,6 +9,7 @@ kind: harness
 hypothesis-metric: rework.mainFollowUpsPerWriterSession
 hypothesis-direction: up
 hypothesis-window: 14d
+issue: https://github.com/corekraft/kore/issues/938
 ---
 
 # Idea 0021: Route the main session's pane messages through session send

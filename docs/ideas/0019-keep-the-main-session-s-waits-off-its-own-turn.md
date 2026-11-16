@@ -9,6 +9,7 @@ kind: harness
 hypothesis-metric: outcomes.ownerMinutes.perMerged
 hypothesis-direction: down
 hypothesis-window: 14d
+issue: https://github.com/corekraft/kore/issues/936
 ---
 
 # Idea 0019: Keep the main session's waits off its own turn
