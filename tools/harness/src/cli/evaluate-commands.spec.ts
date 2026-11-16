@@ -22,7 +22,13 @@ const EVENTS = [{ kind: "pr.merged" }] as LedgerEvent[];
 const NOW = new Date("2026-11-14T08:30:00Z");
 const ISSUE = "https://github.com/corekraft/kore/issues/300";
 
-function run(options: Record<string, string | boolean>, json = false) {
+const EVALUATOR_ENV = { KORE_ROLE: "orchestrator", KORE_AGENT: "queue-x" };
+
+function run(
+  options: Record<string, string | boolean>,
+  json = false,
+  env: Record<string, string | undefined> = EVALUATOR_ENV,
+) {
   const deps = {
     root: vi.fn(() => Promise.resolve(ROOT)),
     runner: { run: vi.fn() },
@@ -30,6 +36,7 @@ function run(options: Record<string, string | boolean>, json = false) {
     fs: {},
     stdout: vi.fn<(text: string) => void>(),
     stderr: vi.fn<(text: string) => void>(),
+    env,
   };
   return {
     deps,
@@ -65,7 +72,14 @@ describe("harness evaluate", () => {
     expect(await result).toBe(0);
     expect(IdeaRepository).toHaveBeenCalledWith(deps.fs, deps.clock, ROOT);
     expect(evaluateIdea).toHaveBeenCalledWith(
-      expect.objectContaining({ runner: deps.runner, root: ROOT }),
+      expect.objectContaining({
+        runner: deps.runner,
+        root: ROOT,
+        sender: {
+          command: "evaluate",
+          session: { role: "orchestrator", name: "queue-x" },
+        },
+      }),
       EVENTS,
       { ref: "7", now: NOW, threshold: 0.1 },
     );
@@ -199,6 +213,20 @@ describe("harness evaluate flags", () => {
     expect(await result).toBe(2);
     expect(deps.stderr).toHaveBeenCalledWith(
       "Missing --idea; run `harness evaluate --idea <number or slug>`.\n",
+    );
+  });
+});
+
+describe("harness evaluate names its sender on the outcome comment", () => {
+  it("refuses before the ledger opens when the environment cannot name the sender, and posts nothing", async () => {
+    const { deps, result } = run({ idea: "7" }, false, {
+      KORE_ROLE: "orchestrator",
+    });
+    expect(await result).toBe(1);
+    expect(openLedger).not.toHaveBeenCalled();
+    expect(evaluateIdea).not.toHaveBeenCalled();
+    expect(deps.stderr).toHaveBeenCalledWith(
+      'KORE_ROLE is "orchestrator" but KORE_AGENT is not set, so the sender line cannot name the session. Spawn the session with `harness session spawn`, which sets both, then rerun.\n',
     );
   });
 });

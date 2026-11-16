@@ -11,6 +11,7 @@ import {
 } from "../outcome/index.js";
 import type { Ledger } from "../ledger/index.js";
 import type { Command, CommandContext } from "../runtime/index.js";
+import { senderFrom } from "../sender/index.js";
 import { openLedger } from "./ledger-commands.js";
 
 const FAILED = 1;
@@ -82,9 +83,13 @@ export async function logOutcome(
 }
 
 async function conclusion(context: CommandContext, verb: "record" | "close") {
+  const { deps } = context;
+  const sender = senderFrom(deps.env, `outcome ${verb}`);
+  if ("error" in sender) {
+    throw new IdeaError(sender.error);
+  }
   const ledger = await withLedger(context);
   const ref = ideaRef(context, verb);
-  const { deps } = context;
   const root = await deps.root().catch((cause: unknown) => {
     throw new IdeaError(cause instanceof Error ? cause.message : String(cause));
   });
@@ -93,6 +98,7 @@ async function conclusion(context: CommandContext, verb: "record" | "close") {
     runner: deps.runner,
     clock: deps.clock,
     root,
+    sender,
   };
   const done: Concluded =
     verb === "record"

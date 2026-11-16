@@ -132,6 +132,7 @@ async function requestMode(context: CommandContext): Promise<number> {
   const scan = await readScan(context, flag(options, "scan") ?? "");
   const repo = await repoOf(context);
   const ports: RequestPorts = {
+    env: deps.env,
     inventory: await readInventory((p) => deps.fs.readFile(p), root),
     idea: await new IdeaRepository(deps.fs, deps.clock, root).get(
       flag(options, "idea") ?? "",

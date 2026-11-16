@@ -2,6 +2,12 @@ import { IdeaError, outcomeSection, issueTarget } from "../idea/index.js";
 import type { IdeaRecord, IdeaRepository } from "../idea/index.js";
 import type { Clock, Runner } from "../runtime/index.js";
 import {
+  APPROVAL_REFUSAL,
+  carriesApproval,
+  formatSender,
+  type Sender,
+} from "../sender/index.js";
+import {
   RESULTS,
   followUpOf,
   markerFor,
@@ -24,6 +30,8 @@ export interface Context {
   runner: Runner;
   clock: Clock;
   root: string;
+  /** Who posts the outcome comment; its line is the comment's first line. */
+  sender: Sender;
 }
 
 async function finish(
@@ -47,7 +55,7 @@ async function finish(
     idea: record.number,
     result,
     marker: markerFor(record),
-    comment: `${comment}\n`,
+    comment: `${formatSender(ctx.sender)}\n${comment}\n`,
   });
   return {
     idea: record.number,
@@ -73,11 +81,12 @@ export async function recordOutcome(
   // Resolved before the write, so an idea with no issue changes nothing.
   const target = await issueTarget(ctx.runner, ctx.root, record);
   const date = ctx.clock.now().toISOString().slice(0, 10);
-  await ctx.repo.recordOutcome(
-    record,
-    outcome.result,
-    renderSection(outcome, date),
-  );
+  const section = renderSection(outcome, date);
+  // Refused before the write: an outcome written here could never be published again.
+  if (carriesApproval(section)) {
+    throw new IdeaError(APPROVAL_REFUSAL);
+  }
+  await ctx.repo.recordOutcome(record, outcome.result, section);
   return await finish(ctx, record, outcome.result, target);
 }
 

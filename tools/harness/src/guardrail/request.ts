@@ -3,6 +3,7 @@
 // A request never changes a mode; `guardrail activate` is a later step.
 // Plan: infra/plans/12-self-improving-loop.md (Step 4).
 
+import { signedBody } from "../sender/index.js";
 import { requestEvidence, type Evidence } from "./evidence.js";
 import { GuardrailError, INVENTORY_PATH, type Inventory } from "./inventory.js";
 
@@ -22,6 +23,8 @@ export interface RequestPorts {
   ): Promise<{ ok: true } | { ok: false; message: string }>;
   comments(issue: string): Promise<string[]>;
   comment(issue: string, body: string): Promise<string>;
+  /** The environment the request runs in; it names the sender on the comment's first line. */
+  env: Readonly<Record<string, string | undefined>>;
 }
 
 export interface RequestInput {
@@ -146,8 +149,9 @@ export class GuardrailRequest {
     }
     const existing = await this.ports.comments(issue);
     if (!existing.some((text) => text.includes(marker(label)))) {
-      result.commentUrl = await this.ports.comment(
-        issue,
+      const signed = signedBody(
+        this.ports.env,
+        "guardrail request",
         body(
           { rule: input.rule, from, to, label },
           idea,
@@ -155,6 +159,10 @@ export class GuardrailRequest {
           evidence,
         ),
       );
+      if ("error" in signed) {
+        throw new GuardrailError(signed.error);
+      }
+      result.commentUrl = await this.ports.comment(issue, signed.body);
       result.posted = true;
     }
     const written = await this.ports.recordEvent(label, idea.number);

@@ -11,6 +11,7 @@ import {
   type SendBackCategory,
 } from "../ledger/index.js";
 import type { Command, CommandContext } from "../runtime/index.js";
+import { signedBody } from "../sender/index.js";
 import {
   FAILED,
   failed,
@@ -174,17 +175,17 @@ async function runSendBack(context: CommandContext): Promise<number> {
     const ledger = await openJudgeLedger(context);
     const view = await readPr(context, root, repo, pr);
     if (!hasSentBack(view, reason)) {
+      const signed = signedBody(
+        deps.env,
+        "judge send-back",
+        sendBackBody(reason, view.headSha),
+      );
+      if ("error" in signed) {
+        throw new JudgeError(signed.error);
+      }
       const done = await deps.runner.run(
         "gh",
-        [
-          "pr",
-          "comment",
-          String(pr),
-          "--repo",
-          repo,
-          "--body",
-          sendBackBody(reason, view.headSha),
-        ],
+        ["pr", "comment", String(pr), "--repo", repo, "--body", signed.body],
         { cwd: root },
       );
       if (done.code !== 0) {

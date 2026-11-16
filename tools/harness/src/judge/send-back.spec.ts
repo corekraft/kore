@@ -48,4 +48,9 @@ describe("hasSentBack", () => {
     const body = sendBackBody("the body has no declaration", HEAD);
     expect(hasSentBack(view([comment(body)]), "the diff is empty")).toBe(false);
   });
+
+  it("is true when the send-back carries its sender line first, so a rerun posts nothing", () => {
+    const body = `sender: judge judge-x (judge send-back)\n${sendBackBody("the diff is empty", HEAD)}`;
+    expect(hasSentBack(view([comment(body)]), "the diff is empty")).toBe(true);
+  });
 });
