@@ -439,6 +439,19 @@ merged changes (measured, for the lead time) to be read, else they are
 `{"status": "insufficient merged changes"}` with `merged`, `measured` where
 they apply, and `needed`, never zero.
 
+`tokensByStage` is the tokens spent in the range, split by stage (#831): every
+stage is a key, zero where it spent nothing. A session's spend goes to the stage
+its launch stamped, else its role's stage, else `orchestrate`, so a session with
+no role counts there. A session's spend is its last count at the range's end
+less its last count before the range's start, as for `tokensPerMergedChange`,
+so the stages add up to that figure's `tokens`. `tokensByStagePerMergedChange` gives each stage's
+tokens over the range's merged changes as `perMerged`, rounded to four places,
+with `merged`, and a `trailingAverage` over the 7 days before the range, read
+the same way. It needs `cost.minMergedChanges` merged changes, else it is
+`{"status": "insufficient merged changes"}` with `merged` and `needed`, never
+zero. Its names are the figures themselves, `tokensByStagePerMergedChange.current`
+and `.trailingAverage`; a stage's own value sits inside `perMerged`.
+
 `reviewMisses` measures the Reviewer against the judge (#851). A review is a
 `review.run` event that posted or left unchanged a verdict, counted once per PR
 head by its first verdict; a review with `findings` 0 passed, and one with more

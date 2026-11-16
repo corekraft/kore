@@ -43,6 +43,8 @@ const KEYS = [
   "tokensPerMergedChange",
   "sendBacksPerMergedChange",
   "leadTimePerMergedChange",
+  "tokensByStage",
+  "tokensByStagePerMergedChange",
   "tierShares",
   "unstampedSpawns",
   "finishDetection",

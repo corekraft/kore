@@ -48,12 +48,19 @@ export interface MergedTokensOptions {
 
 const round = (value: number) => Math.round(value * 10_000) / 10_000;
 
+/** The session a token reading belongs to: its session, else its pane, else the event itself. */
+export const tokenSession = (event: LedgerEvent): string =>
+  event.session ?? event.pane ?? event.id;
+
 /**
  * The latest cumulative token count per session at or before `at`. A token.usage
  * event is a session's total so far, so a session's spend over a span is its count
  * at the span's end less its count at the span's start.
  */
-function countsBefore(events: LedgerEvent[], at: number): Map<string, number> {
+export function countsBefore(
+  events: LedgerEvent[],
+  at: number,
+): Map<string, number> {
   const latest = new Map<string, { at: number; tokens: number }>();
   for (const event of events) {
     if (event.kind !== "token.usage" || event.tokens === undefined) {
@@ -63,7 +70,7 @@ function countsBefore(events: LedgerEvent[], at: number): Map<string, number> {
     if (t >= at) {
       continue;
     }
-    const key = event.session ?? event.pane ?? event.id;
+    const key = tokenSession(event);
     const seen = latest.get(key);
     if (seen === undefined || t >= seen.at) {
       latest.set(key, { at: t, tokens: event.tokens });
