@@ -2396,8 +2396,13 @@
                 <a
                   href="https://github.com/corekraft/kore/blob/main/infra/plans/9-k3d-local-cluster.md"
                   >plan 9</a
-                >'s Machine load section measured it. If a horizon exceeds it,
-                the per-tenant component ADRs (<a
+                >'s Machine load section measured it. The Now baseline, recorded
+                2026-11-15 on a Mac with a 11956 MiB Docker VM over two clean
+                runs, is about 5.9 GiB of memory used, leaving 50.7% of the VM
+                free at the median (50.4% at peak); no threshold is set (<a
+                  href="https://github.com/corekraft/kore/blob/main/infra/plans/2-implementation.md"
+                  >plan 2</a
+                >). If a horizon exceeds it, the per-tenant component ADRs (<a
                   href="https://github.com/corekraft/kore/blob/main/docs/decisions/0040-keycloak-human-identity.md"
                   >0040</a
                 >,

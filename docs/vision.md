@@ -1,7 +1,7 @@
 ---
 status: active
 summary: North star for Kore as a multi-tenant business and developer platform that hosts every app by organization, with static frontends, small backends for frontend, org-scoped data services and telemetry, and Backstage and Argo CD out of the box.
-last-verified: 2026-11-14
+last-verified: 2026-11-15
 ---
 
 # Platform Vision Board
@@ -527,7 +527,10 @@ What exists or is in flight today, and what the vision adds.
 - Each horizon's proof settles inside the default local Docker VM with stated
   headroom. Headroom is measured per horizon from a Now baseline, the way
   [plan 9](../infra/plans/9-k3d-local-cluster.md)'s Machine load section
-  measured it. If a horizon exceeds it, the per-tenant component ADRs
+  measured it. The Now baseline, recorded 2026-11-15 on a Mac with a 11956 MiB
+  Docker VM over two clean runs, is about 5.9 GiB of memory used, leaving 50.7%
+  of the VM free at the median (50.4% at peak); no threshold is set
+  ([plan 2](../infra/plans/2-implementation.md)). If a horizon exceeds it, the per-tenant component ADRs
   ([0040](decisions/0040-keycloak-human-identity.md),
   [0041](decisions/0041-backstage-and-argo-cd-per-tenant.md),
   [0050](decisions/0050-tenant-telemetry-isolation.md)) are revisited while
