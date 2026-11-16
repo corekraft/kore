@@ -30,4 +30,5 @@ export type {
   HostPressure,
 } from "./host-pressure.js";
 export type { LeadTime } from "./idea-metrics.js";
+export type { ReviewMisses } from "./review-misses.js";
 export type { Wip } from "./wip.js";

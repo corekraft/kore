@@ -22,8 +22,8 @@ export interface ReviewPorts {
   read(paneId: string): Promise<string>;
   /** `session close`. */
   close(name: string): Promise<void>;
-  /** Appends a review.run event for the PR; a failed event is an error. */
-  record(pr: number, label: string): Promise<void>;
+  /** Appends a review.run event for the PR, with the findings a verdict gave; a failed event is an error. */
+  record(pr: number, label: string, findings?: number): Promise<void>;
 }
 
 export interface ReviewRunResult {
@@ -83,6 +83,7 @@ export class ReviewRun {
       await this.ports.record(
         pr,
         `${done.posted ? "posted" : "unchanged"}:${short(reviewed)}`,
+        done.count,
       );
       return { pr, head: done.head, posted: done.posted, runs };
     }

@@ -13,6 +13,7 @@ async function recordReviewRun(
   ledger: Ledger,
   pr: number,
   label: string,
+  findings?: number,
 ): Promise<void> {
   const event = await ledger.record({
     source: "claude",
@@ -21,6 +22,7 @@ async function recordReviewRun(
     number: pr,
     label,
     stage: "review",
+    ...(findings === undefined ? {} : { findings }),
   });
   if (!event.ok) {
     throw new JudgeError(
@@ -89,6 +91,7 @@ export async function sessionReviewPorts(
     close: async (name) => {
       await harness("session", "close", name);
     },
-    record: (pr, label) => recordReviewRun(context, ledger, pr, label),
+    record: (pr, label, findings) =>
+      recordReviewRun(context, ledger, pr, label, findings),
   };
 }

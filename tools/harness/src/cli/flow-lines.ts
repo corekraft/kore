@@ -75,6 +75,36 @@ export function questionLines(q: FlowReport["ownerQuestions"]): string[] {
   ];
 }
 
+const ratePercent = (rate: number | null) =>
+  rate === null ? "n/a" : `${Math.round(rate * 100)}%`;
+
+/**
+ * The passed-then-rule-break ratio and the found-violation share, each against its
+ * trailing average (#851). With no review in the range the line says so, never a rate.
+ */
+export function reviewMissLines(m: FlowReport["reviewMisses"]): string[] {
+  const left =
+    m.unrecorded === 0
+      ? ""
+      : `; ${m.unrecorded} from before the verdict was recorded left out`;
+  const passed = "Passed reviews later sent back for a rule break";
+  if (m.reviews === 0) {
+    return [
+      `${passed}: no recorded reviews in this range${left}`,
+      "Reviews that found a violation: no recorded reviews in this range",
+    ];
+  }
+  const average = (value: number | null) =>
+    value === null
+      ? "no reviews in the trailing days"
+      : `trailing average ${ratePercent(value)} over the trailing ${m.trailingDays} days`;
+  const { passedRuleBreak: p, foundViolation: f } = m;
+  return [
+    `${passed}: ${p.count} of ${m.reviews} reviews (${ratePercent(p.ratio)}), ${average(p.trailingAverage)}${p.worsened ? " (worsened)" : ""}${left}`,
+    `Reviews that found a violation: ${f.count} of ${m.reviews} (${ratePercent(f.share)}), ${average(f.trailingAverage)}`,
+  ];
+}
+
 /** The friction total with its sources, and how many unknown record kinds were ignored. */
 export function frictionLine({
   total,

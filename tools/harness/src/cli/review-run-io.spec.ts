@@ -143,6 +143,20 @@ describe("the review run port records its events in the ledger", () => {
     });
   });
 
+  it("records the findings count on the event when the verdict gave one", async () => {
+    record.mockResolvedValue({ ok: true } as never);
+    await (await sessionReviewPorts(context)).record(42, "posted:abc1234d", 2);
+    expect(record).toHaveBeenCalledExactlyOnceWith({
+      source: "claude",
+      kind: "review.run",
+      occurredAt: NOW,
+      number: 42,
+      label: "posted:abc1234d",
+      stage: "review",
+      findings: 2,
+    });
+  });
+
   it("refuses a rejected ledger event with the reason", async () => {
     record.mockResolvedValue({ ok: false, message: "bad label" } as never);
     await expect(
