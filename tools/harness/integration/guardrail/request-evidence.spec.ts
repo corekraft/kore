@@ -8,10 +8,7 @@ import { describe, expect, it } from "vitest";
 import { requestEvidence } from "../../src/guardrail/index.js";
 import { scan } from "../../src/testing/index.js";
 
-const fixtures = new URL(
-  "../../../../.claude/hooks/fixtures/retro/",
-  import.meta.url,
-).pathname;
+const fixtures = new URL("../fixtures/retro/", import.meta.url).pathname;
 const sessions = ["alpha", "bravo", "charlie"].map((id) => ({
   id,
   text: readFileSync(`${fixtures}${id}.jsonl`, "utf8"),
