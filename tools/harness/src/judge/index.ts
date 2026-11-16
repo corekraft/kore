@@ -7,6 +7,12 @@ export { auditDeclaration, type Audit } from "./declaration-audit.js";
 export { harnessFreshness, type Freshness } from "./freshness.js";
 export { renderPrBody, type PrBody, type PrBodyInput } from "./pr-body.js";
 export { precheck, readPr, summary, type Report } from "./precheck.js";
+export {
+  authorCheck,
+  type AuthorCategory,
+  type AuthorCheck,
+  type AuthorFailure,
+} from "./author-check.js";
 export { findingsFrom } from "./review-findings.js";
 export { postReview, type ReviewPosted } from "./review-post.js";
 export { reviewBody } from "./review-verdict.js";

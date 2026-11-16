@@ -13,6 +13,7 @@ export const KINDS = [
   "issue.closed",
   "pr.opened",
   "pr.merged",
+  "pr.checked",
   "outcome",
   "flag.activated",
   "token.usage",

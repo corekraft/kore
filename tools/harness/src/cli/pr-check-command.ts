@@ -1,0 +1,95 @@
+import { authorCheck, JudgeError, type AuthorCheck } from "../judge/index.js";
+import type { Command, CommandContext } from "../runtime/index.js";
+import {
+  checkedPrecheck,
+  FAILED,
+  failed,
+  openJudgeLedger,
+  prNumber,
+  repoOf,
+  reviewersOf,
+} from "./judge-shared.js";
+
+const USAGE = "Run `harness pr check <pr> [--json]`.";
+
+const IDEA = /^[\w.:/#@-]{1,128}$/;
+
+/** What the writer reads: the failures it owns to fix, and the pending items the judge waits on. */
+function render(view: AuthorCheck): string {
+  const pending =
+    view.pending.length === 0
+      ? ""
+      : `pending, the judge waits on these: ${view.pending.join(", ")}\n`;
+  if (view.failures.length === 0) {
+    return view.pending.length === 0
+      ? `PR #${view.pr}: ready for the judge\n`
+      : `PR #${view.pr}: nothing for you to fix\n${pending}`;
+  }
+  const lines = view.failures
+    .map(
+      (f) =>
+        `  ${f.category}: ${f.item}${f.detail === undefined ? "" : ` (${f.detail})`}\n`,
+    )
+    .join("");
+  return `PR #${view.pr}: fix these, push, then run harness pr check once more\n${lines}${pending}`;
+}
+
+/**
+ * Appends one pr.checked event at the shared ledger, naming the failure categories it found
+ * ("none" when it found none). It never records a send-back: the check is the writer's own.
+ */
+async function recordChecked(
+  context: CommandContext,
+  idea: string | undefined,
+  view: AuthorCheck,
+): Promise<void> {
+  const ledger = await openJudgeLedger(context);
+  const categories = [...new Set(view.failures.map((f) => f.category))];
+  const event = await ledger.record({
+    source: "github",
+    kind: "pr.checked",
+    occurredAt: context.deps.clock.now().toISOString(),
+    number: view.pr,
+    label: categories.length === 0 ? "none" : categories.join(","),
+    ...(idea !== undefined && IDEA.test(idea) ? { idea } : {}),
+  });
+  if (!event.ok) {
+    throw new JudgeError(
+      `The check ran, but its ledger event was rejected: ${event.message} Fix the ledger, then rerun \`harness pr check ${view.pr}\`.`,
+    );
+  }
+}
+
+/**
+ * `harness pr check <pr>`: the judge's precheck, read the way the writer must act on it. Exits 0
+ * when no failure the writer owns remains (pending CI or review is listed, not failed) and 1 when
+ * one does. Reads the same report the judge reads; records one pr.checked event.
+ */
+export async function prCheckRun(context: CommandContext): Promise<number> {
+  const { deps, json } = context;
+  try {
+    const pr = prNumber(context.operand, USAGE);
+    const root = await deps.root();
+    const repo = await repoOf(context);
+    const report = await checkedPrecheck(
+      context,
+      root,
+      repo,
+      pr,
+      await reviewersOf(context, repo),
+    );
+    const view = authorCheck(report);
+    await recordChecked(context, report.idea, view);
+    deps.stdout(json ? `${JSON.stringify(view)}\n` : render(view));
+    return view.ok ? 0 : FAILED;
+  } catch (error) {
+    return failed(context, error);
+  }
+}
+
+export const prCheckCommand: Command = {
+  summary:
+    "mutates; checks a pull request the way its writer must act on the judge's precheck: prints the failures the writer owns to fix (each with its category and detail) and the pending items the judge waits on (CI still running, a review not yet posted), exits 0 when no failure the writer owns remains and 1 when one does, and appends one pr.checked event at the shared ledger naming the failure categories (never a send-back); --json prints the result as one object (<pr> [--json])",
+  operand: "pr",
+  run: prCheckRun,
+};

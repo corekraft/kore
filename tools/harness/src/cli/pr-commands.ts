@@ -1,6 +1,7 @@
 import { JudgeError, renderPrBody } from "../judge/index.js";
 import type { Command, CommandContext } from "../runtime/index.js";
 import { failed, repoOf } from "./judge-shared.js";
+import { prCheckCommand } from "./pr-check-command.js";
 import { prChecksRun } from "./pr-checks-command.js";
 
 const USAGE =
@@ -105,6 +106,7 @@ export const prCommands: Record<string, Command> = {
     options: { wait: "boolean" },
     run: prChecksRun,
   },
+  check: prCheckCommand,
   open: {
     summary:
       "mutates; opens a pull request whose body ends with the declaration the precheck reads, rendered from the same module that parses it: `Refs #<issue>` (or `Closes` under --closes, which warns and cites ADR 0079 beside --idea, and never refuses), `Idea:`, `Expand step: #<pr>`, then `Safety pattern:` last; refuses an expand-contract PR with no --expand-step, and a pattern or number it would not accept, before gh is reached; --dry-run prints the body and creates nothing; gh runs through the runner in this pane's environment (--title <title> --pattern <pattern> [--body <summary>] [--issue <n>] [--closes] [--idea <number or slug>] [--expand-step <pr>] [--base <branch>] [--head <branch>] [--dry-run])",

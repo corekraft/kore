@@ -63,6 +63,18 @@ describe("the writer definition", () => {
     expect(writer).not.toContain("yourself");
   });
 
+  it("tells a writer to run pr check after pr open, fix what it lists, push, and run it once more", () => {
+    const step =
+      writer.split("\n").find((line) => line.startsWith("3. ")) ?? "";
+    expect(step).toContain("node skills/bin/harness.mjs pr check <pr>");
+    expect(step).toContain(
+      "Fix every failure it lists, push, and run it once more",
+    );
+    expect(step).toContain(
+      "Pending CI or a missing review is the judge's to wait on, not a failure you fix",
+    );
+  });
+
   it("tells a worker to run only the related tests and typecheck locally, pointing at AGENTS.md", () => {
     expect(writer).toContain(LOCAL_CHECKS_SENTENCE);
   });
