@@ -77,7 +77,7 @@ outward-facing, so it is proposed to the user and not done by an agent.
   - user messages that repeat a correction across sessions: same normalized
     phrase in two or more sessions
 - [x] Export the parsing and grouping as pure functions, and test them against
-      small fixture transcripts in `.claude/hooks/fixtures/retro/`.
+      small fixture transcripts in `tools/harness/integration/fixtures/retro/`.
 - [x] Make `skills/retro/SKILL.md` run the scan first and read transcripts only
       to quote evidence for a finding the scan surfaced. The skill stays under about
       25 lines.
