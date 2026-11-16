@@ -17,6 +17,7 @@ import {
 import { checkProtected } from "./guard-role-protected.js";
 import {
   notifiesFinish,
+  notRead,
   readOnly,
   sendsToPane,
   setsEnvironment,
@@ -45,13 +46,13 @@ const finishes = (role: string, segment: readonly string[]): boolean =>
 function checkBash(role: string, command: string): Finding {
   // A substitution runs a command the segment check never sees.
   if (/\$\(|`|<\(|>\(/.test(command)) {
-    return readOnly("A command substitution");
+    return notRead("A command substitution");
   }
   const segments = splitSegments(command);
   const prefixed = segments.find(setsEnvironment);
   if (prefixed !== undefined) {
     const what = `\`${prefixed.join(" ")}\`, which sets an environment variable or changes shell state,`;
-    return readOnly(what);
+    return notRead(what);
   }
   // Only a role a brief asks for the notice is pointed at it.
   const typing = SPAWNED_ROLE_SET.has(role)
@@ -70,7 +71,7 @@ function checkBash(role: string, command: string): Finding {
   );
   return unknown === undefined
     ? null
-    : readOnly(
+    : notRead(
         `\`${unknown.join(" ")}\`, which is not a known read-only command,`,
       );
 }
