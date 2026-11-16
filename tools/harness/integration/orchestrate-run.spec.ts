@@ -3,9 +3,9 @@
 // tools (ADR 0104). It gates a release only, never a commit or a merge (ADR 0098).
 
 import { describe, expect, it } from "vitest";
-import { orchestrateCommands } from "../src/cli/orchestrate-commands.js";
+import { run as harnessRun } from "../src/cli/index.js";
 import {
-  context,
+  deps,
   host,
   repo,
   PROPOSALS,
@@ -33,8 +33,15 @@ const kinds = (events: Event[]) =>
   );
 
 async function run(h: ReturnType<typeof host>, root: string) {
-  const { context: ctx, stderr } = context(h, root, OUTCOME);
-  const code = await orchestrateCommands["run"]?.run(ctx);
+  const { deps: d, stderr } = deps(h, root);
+  const code = await harnessRun(
+    [
+      "orchestrate",
+      "run",
+      ...Object.entries(OUTCOME).flatMap(([k, v]) => [`--${k}`, v]),
+    ],
+    d,
+  );
   return { code, stderr: stderr.join("") };
 }
 
