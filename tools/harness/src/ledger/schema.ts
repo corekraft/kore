@@ -33,6 +33,7 @@ const NUMBER_KINDS: readonly Kind[] = [
   "escalation",
   "owner.action",
   "auto-approved",
+  "qualifier.warned",
   "harness-change-reverted",
   "retro.dropped",
 ];
@@ -229,6 +230,7 @@ const RULES: readonly Rule[] = [
       "kore.retry",
       "retro-triggered",
       "auto-approved",
+      "qualifier.warned",
       "guardrail.requested",
       "guardrail.activated",
       "guardrail.approval-warned",

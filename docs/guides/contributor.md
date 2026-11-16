@@ -498,6 +498,11 @@ null when none did. The 300-second threshold is a placeholder until the owner
 sets it. Results with no pane are not counted. A failed `session notify` leaves
 no ledger event, so the report does not count those.
 
+`qualifierWarnings` counts the qualifier's warnings (`qualifier.warned` events)
+over the ideas filed in the range (`idea.filed` events), as `warnings`, `filed`
+and `perFiled` (#866). It is a figure only: the qualifier warns and never
+refuses.
+
 `stalledPanes` counts stalled panes from two sources that do not read each
 other (#854). `recorded` counts the `pane.stalled` events the herdr poll appends
 when a session-spawned pane has been idle or gone for 300 seconds with no RESULT
@@ -770,8 +775,20 @@ and an `auto-approved` event (the metric as `label`, the issue as `number`) is
 recorded in the ledger. Each write happens once: a rerun posts, labels and
 records nothing twice, and finishes a half-done run. A label already on the
 issue is a person's and gets no event. `--json` is one object: `idea`, `issue`,
-`status` (`approved`, `already-approved`, `left-for-person` or `flag-off`) and
-`reason`.
+`status` (`approved`, `already-approved`, `left-for-person` or `flag-off`),
+`reason` and `warnings`.
+
+The qualifier also warns, and never refuses (#866, ADR 0119). It warns when the
+idea's primary metric is a guard metric (`GUARD_METRICS` in
+`tools/harness/src/flow/metric-names.ts`: tokens, send-backs, friction, owner
+minutes and lead time), or when another harness idea with no outcome yet names
+the same primary. Each warning is printed, listed in `warnings`, and recorded
+once as a `qualifier.warned` event (the warning as `label`, the issue as
+`number`). A warning leaves the status as it was. The flow report's
+`qualifierWarnings` gives `warnings` over `filed` (the `idea.filed` events in
+the range) as `perFiled`, null while no idea was filed. Note that `idea new`
+does not write `idea.filed` yet, so `filed` counts only the ideas retro filing
+records until that is wired.
 
 An agent's label never counts as the owner's approval: the poller skips the
 marked comments and the label the harness applied when it records

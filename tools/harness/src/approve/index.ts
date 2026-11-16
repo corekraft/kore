@@ -4,3 +4,4 @@ export { APPROVE_FLAG, approveFlagOn } from "./flag.js";
 export { qualify } from "./qualify.js";
 export type { QualifyInput, Verdict } from "./qualify.js";
 export { trailingOf } from "./trailing.js";
+export { sharingWarnings, type Warning } from "./warnings.js";
