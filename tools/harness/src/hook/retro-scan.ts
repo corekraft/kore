@@ -6,6 +6,7 @@
 import { createHash } from "node:crypto";
 import { classifyAudit } from "../guardrail/index.js";
 import { CommandError } from "../runtime/index.js";
+import { BareTally } from "./retro-bare.js";
 import { RuleLocations } from "./retro-locations.js";
 import {
   SessionAnalysis,
@@ -34,6 +35,8 @@ export interface ScanOptions {
   auditRules?: readonly string[];
   /** Add the location of each guard block per rule; off by default so the default report is unchanged. */
   evidence?: boolean;
+  /** The role each session name was launched as, from the ledger. A name it does not hold is counted as an unknown role. */
+  roles?: Readonly<Record<string, string>>;
 }
 
 interface Evidence {
@@ -151,15 +154,20 @@ class Tally {
   readonly subagents = new Map<string, number>();
   readonly phraseSessions = new Map<string, Evidence[]>();
   readonly ruleStats: Map<string, RuleStats>;
+  /** Bare sends per role session, rolled up per role. */
+  readonly bare: BareTally;
 
   constructor(
     audit: readonly string[],
     private readonly knownSkills: readonly string[],
+    roles: Readonly<Record<string, string>>,
   ) {
     this.ruleStats = new Map(audit.map((rule) => [rule, emptyStats()]));
+    this.bare = new BareTally(roles);
   }
 
   add(id: string, found: SessionAnalysis): void {
+    this.bare.add(id, found);
     this.addGuards(found);
     for (const { rule, line, excerpt } of found.guardBlocks) {
       this.guardEvidence.add(rule, { session: id, line, excerpt });
@@ -311,6 +319,7 @@ export function scan(
     knownSkills = [],
     auditRules: audit = [],
     evidence = false,
+    roles = {},
   }: ScanOptions = {},
 ) {
   const included = inputs
@@ -320,7 +329,7 @@ export function scan(
       ({ last }) => last !== null && Date.parse(last) >= windowStart(since),
     )
     .sort((a, b) => (a.first ?? "").localeCompare(b.first ?? ""));
-  const tally = new Tally(audit, knownSkills);
+  const tally = new Tally(audit, knownSkills, roles);
   for (const { session } of included) {
     tally.add(session.id, new SessionAnalysis(session));
   }
@@ -348,6 +357,7 @@ export function scan(
     failures: tally.failures(),
     skills: { perSession: tally.perSession, unused: tally.unused() },
     subagents: tally.sortedSubagents(),
+    bareCommands: tally.bare.report(),
     corrections: tally.corrections(),
     rules: tally.rules(),
   };

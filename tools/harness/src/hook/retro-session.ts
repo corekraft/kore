@@ -2,8 +2,10 @@
 // loaded, correction phrases, and what the agent did after each warning.
 // Docs: infra/plans/5-self-maintenance.md#step-2-deterministic-retrospective-scan
 
+import { bareSends, type BareSend } from "./retro-bare.js";
 import {
   blocksOf,
+  briefSessionName,
   callSignature,
   humanText,
   isOrchestratorBrief,
@@ -85,6 +87,11 @@ export class SessionAnalysis {
   readonly warnings: Warning[] = [];
   readonly guardBlocks: GuardBlock[] = [];
   readonly ordered: Ordered[] = [];
+  /** Bare GitHub posts and pane sends the agent made with Bash, counted per command segment. */
+  readonly bare: Record<BareSend, number> = { gh: 0, herdr: 0 };
+  /** The session name its spawn brief names, or undefined when its first typed message is no brief. */
+  sessionName: string | undefined = undefined;
+  private namedAlready = false;
   private readonly calls = new Map<string, string>();
   private readonly excerpts = new Map<string, string>();
   private failedSinceHuman = false;
@@ -128,6 +135,12 @@ export class SessionAnalysis {
       name,
       signature: callSignature(block.input),
     });
+    const command = block.input?.["command"];
+    if (name === "Bash" && typeof command === "string") {
+      for (const send of bareSends(command)) {
+        this.bare[send]++;
+      }
+    }
     const skill = block.input?.["skill"];
     if (name === "Skill" && typeof skill === "string" && skill) {
       this.skills.add(skill);
@@ -193,6 +206,10 @@ export class SessionAnalysis {
       return;
     }
     this.ordered.push({ kind: "human" });
+    if (!this.namedAlready) {
+      this.namedAlready = true;
+      this.sessionName = briefSessionName(text);
+    }
     const own = ownWords(text);
     // Orchestrator briefs are pasted into many panes; they are never corrections.
     // A repeated prompt is only a correction if it reads like one or follows a failure.

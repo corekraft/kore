@@ -8,8 +8,10 @@ import {
   HARNESS_CONFIG,
   parseHarnessConfig,
 } from "../flow/index.js";
-import { DEFAULT_LEDGER, Ledger } from "../ledger/index.js";
-import { mainRoot, type CliDeps, type FileSystem } from "../runtime/index.js";
+import { type CliDeps, type FileSystem } from "../runtime/index.js";
+import { ledgerEvents } from "./retro-ledger.js";
+
+export { sessionRoles } from "./retro-ledger.js";
 import { proposalsFor, unusedAgents } from "./retro-proposals.js";
 import { windowStart } from "./retro-scan.js";
 
@@ -100,17 +102,10 @@ export async function readAgentUsage(
     .filter((file) => file.endsWith(".md"))
     .map((file) => file.slice(0, -".md".length))
     .sort();
-  const main = await mainRoot(deps);
-  if (main === undefined) {
+  const events = await ledgerEvents(deps);
+  if (events === undefined) {
     return { known, launched: [], ledgerDays: 0 };
   }
-  const ledger = new Ledger(
-    deps.fs,
-    deps.clock,
-    deps.ids,
-    join(main, DEFAULT_LEDGER),
-  );
-  const { events } = await ledger.list({});
   const first = events
     .map((event) => Date.parse(event.recordedAt))
     .reduce((a, b) => Math.min(a, b), Number.POSITIVE_INFINITY);

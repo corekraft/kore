@@ -24,7 +24,7 @@ import {
   MarkerError,
   scan,
 } from "./retro-scan.js";
-import { agentSection, skillNames } from "./retro-agents.js";
+import { agentSection, sessionRoles, skillNames } from "./retro-agents.js";
 import { defaultDirs, readTranscripts } from "./retro-transcripts.js";
 import "./retro-hook.js";
 
@@ -41,6 +41,7 @@ vi.mock("./retro-transcripts.js", () => ({
 }));
 vi.mock("./retro-agents.js", () => ({
   agentSection: vi.fn(),
+  sessionRoles: vi.fn(),
   skillNames: vi.fn(),
 }));
 vi.mock("./retro-scan.js", async (importOriginal) => ({
@@ -64,7 +65,7 @@ function registeredHandler(): Handler {
 const handler = registeredHandler();
 
 const USAGE =
-  "Usage: harness hook retro-scan [--dir <transcripts>] [--since YYYY-MM-DD|YYYY-MM-DDTHH:MM:SSZ] [--evidence]\n--since keeps sessions active at or after local midnight of that date, or at or after that UTC instant, like the session-start count.\n--evidence adds guardEvidence (the session, transcript line and excerpt of each guard block) and overriddenEvidence (the same, with the command excerpt and the unquoted glob the guard named, for each overridden audit warning), capped per rule. The default report leaves them out. The report also lists the agents with no launch in the ledger or in-process Agent call (agents; pane launches under launched, in-process Agent calls counted per agent under inProcess) and a ready command for each finding (proposals): an idea for an unused skill or agent, needing 14 days of ledger or 100 sessions (retro in .claude/harness.json sets each), and a guardrail request for a promotable audit rule. The scan runs none of them.";
+  "Usage: harness hook retro-scan [--dir <transcripts>] [--since YYYY-MM-DD|YYYY-MM-DDTHH:MM:SSZ] [--evidence]\n--since keeps sessions active at or after local midnight of that date, or at or after that UTC instant, like the session-start count.\n--evidence adds guardEvidence (the session, transcript line and excerpt of each guard block) and overriddenEvidence (the same, with the command excerpt and the unquoted glob the guard named, for each overridden audit warning), capped per rule. The default report leaves them out. The report also counts bareCommands: the bare gh comments and bare pane sends (send-text, send-keys) each role session made with Bash, per session and per role, the role read from the ledger's launch of its name. The main session, whose first message is no spawn brief, is left out. The report also lists the agents with no launch in the ledger or in-process Agent call (agents; pane launches under launched, in-process Agent calls counted per agent under inProcess) and a ready command for each finding (proposals): an idea for an unused skill or agent, needing 14 days of ledger or 100 sessions (retro in .claude/harness.json sets each), and a guardrail request for a promotable audit rule. The scan runs none of them.";
 const NO_SKILLS = "No skills/ directory found; skills.unused will be empty.\n";
 
 /** A scan report as the scan returns it, with nothing in it. */
@@ -75,6 +76,7 @@ const SCANNED: ReturnType<typeof scan> = {
   failures: [],
   skills: { perSession: {}, unused: [] },
   subagents: {},
+  bareCommands: { perSession: {}, perRole: {} },
   corrections: [],
   rules: { promotable: [], audit: [] },
 };
@@ -152,6 +154,7 @@ beforeEach(() => {
   vi.mocked(scan).mockReturnValue(SCANNED);
   vi.mocked(skillNames).mockResolvedValue(undefined);
   vi.mocked(agentSection).mockResolvedValue(EXTRA);
+  vi.mocked(sessionRoles).mockResolvedValue({});
 });
 
 describe("retro-scan command: registration and input", () => {
@@ -195,6 +198,17 @@ describe("retro-scan command: transcripts", () => {
   });
 });
 
+describe("retro-scan command: the roles of bare sends", () => {
+  it("hands the scan the session roles the ledger names, read before the transcripts are scanned", async () => {
+    vi.mocked(sessionRoles).mockResolvedValue({ w1: "writer" });
+    await run();
+    expect(vi.mocked(sessionRoles)).toHaveBeenCalledTimes(1);
+    expect(vi.mocked(scan).mock.calls[0]?.[1]).toMatchObject({
+      roles: { w1: "writer" },
+    });
+  });
+});
+
 describe("retro-scan command: the window", () => {
   it("takes the window from the latest Last retrospective: marker, and prints the report", async () => {
     const result = await run();
@@ -203,6 +217,7 @@ describe("retro-scan command: the window", () => {
       knownSkills: [],
       auditRules: ["bare-glob"],
       evidence: false,
+      roles: {},
     });
     expect(result).toEqual({
       stdout: `${JSON.stringify({ since: "2026-11-12", ...SCANNED, ...EXTRA }, null, 2)}\n`,
@@ -250,6 +265,7 @@ describe("retro-scan command: skills, audit rules and evidence", () => {
       knownSkills: ["tdd"],
       auditRules: ["bare-glob"],
       evidence: false,
+      roles: {},
     });
     expect(result.stderr).toBe("");
   });

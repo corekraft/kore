@@ -5,6 +5,7 @@ import { describe, expect, it } from "vitest";
 import { FOLLOW_UP_PREFIX } from "../session/index.js";
 import {
   blocksOf,
+  briefSessionName,
   callSignature,
   humanText,
   isOrchestratorBrief,
@@ -244,5 +245,29 @@ describe("timestamps", () => {
       first: null,
       last: null,
     });
+  });
+});
+
+describe("spawn brief session name", () => {
+  it("reads the session name a spawn brief names, whichever role spawned it", () => {
+    expect(
+      briefSessionName(
+        "Implement #836.\n\nYou are bare-posts-retro-count; your session name is bare-posts-retro-count.\n\nWhen you finish",
+      ),
+    ).toBe("bare-posts-retro-count");
+  });
+
+  it.each([
+    ["a message with no brief line", "Please count the bare sends."],
+    [
+      "a line whose two names differ",
+      "You are writer-a; your session name is writer-b.",
+    ],
+    [
+      "a brief line quoted inside a sentence",
+      "The line reads: You are x; your session name is x. ok",
+    ],
+  ])("reads no name from %s", (_label, text) => {
+    expect(briefSessionName(text)).toBeUndefined();
   });
 });
