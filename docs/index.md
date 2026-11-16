@@ -209,6 +209,12 @@ decisions; read one only when planning that area, and expect it to change.
 - [`docs/ideas/0004-gateway-rollback-order.md`](ideas/0004-gateway-rollback-order.md) — Roll back the gateway in order
 - [`docs/ideas/0005-agentgateway-mesh-enrollment.md`](ideas/0005-agentgateway-mesh-enrollment.md) — Enrol agentgateway in the mesh
 - [`docs/ideas/0006-reuse-the-signed-local-image-on-a-rerun-of-kore-local-up.md`](ideas/0006-reuse-the-signed-local-image-on-a-rerun-of-kore-local-up.md) — Reuse the signed local image on a rerun of kore local up
+- [`docs/ideas/0007-orchestrator-tick.md`](ideas/0007-orchestrator-tick.md) — Run the orchestrator as a tick over the ledger and queue
+- [`docs/ideas/0008-decision-advisor.md`](ideas/0008-decision-advisor.md) — Send recommended decisions to an advisor role, not the owner
+- [`docs/ideas/0009-pane-completion-from-ledger.md`](ideas/0009-pane-completion-from-ledger.md) — Take pane completion from session wait and a watchdog timer
+- [`docs/ideas/0010-writer-precheck-before-done.md`](ideas/0010-writer-precheck-before-done.md) — Writers run the judge precheck before they report done
+- [`docs/ideas/0011-guard-blocks-on-legitimate-work.md`](ideas/0011-guard-blocks-on-legitimate-work.md) — Stop guard blocks that hit legitimate work
+- [`docs/ideas/0012-idea-stamping-and-retro-threshold.md`](ideas/0012-idea-stamping-and-retro-threshold.md) — Stamp every loop event with its idea and stage
 
 ## Operations and Guides
 
