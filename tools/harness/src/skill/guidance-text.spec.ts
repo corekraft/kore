@@ -78,6 +78,12 @@ describe("the writer definition", () => {
   it("tells a worker to run only the related tests and typecheck locally, pointing at AGENTS.md", () => {
     expect(writer).toContain(LOCAL_CHECKS_SENTENCE);
   });
+
+  it("tells a writer to write multi-line files with the Write tool, not a heredoc, because the guard reads heredoc bodies as commands", () => {
+    expect(writer).toContain(
+      "Write multi-line files and scripts with the Write tool, not a heredoc; the guard reads heredoc bodies as commands.",
+    );
+  });
 });
 
 describe("the test-driven-development skill", () => {
