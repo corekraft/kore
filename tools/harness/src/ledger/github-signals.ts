@@ -200,12 +200,15 @@ export async function pollSignals(deps: {
       .reduce((a, b) => Math.max(a, b), Number.NEGATIVE_INFINITY);
     // The earlier of --since and the default: a --since can reach back further,
     // never step over a run recorded after the latest signal.
-    const recent = Number.isFinite(latest)
-      ? new Date(latest - DAY_MS).toISOString().replace(/\.\d+Z$/, "Z")
-      : undefined;
-    const since = [deps.since, recent]
-      .filter((t): t is string => t !== undefined)
-      .sort()[0];
+    // With nothing recorded it is a day before now: an unbounded first poll lists
+    // every run and fails on the cap, so no signal was ever recorded.
+    const from = Number.isFinite(latest) ? latest : deps.clock.now().getTime();
+    const recent = new Date(from - DAY_MS)
+      .toISOString()
+      .replace(/\.\d+Z$/, "Z");
+    const since = Number.isFinite(latest)
+      ? [deps.since, recent].filter((t) => t !== undefined).sort()[0]
+      : (deps.since ?? recent);
     const have = new Set(known.map((e) => e.id));
     const parts = [
       await fromRuns(deps.runner, deps.repo, {
