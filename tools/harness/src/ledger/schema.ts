@@ -1,5 +1,6 @@
 import { HOST_RULES } from "./schema-host.js";
 import { KINDS, type Kind } from "./schema-kinds.js";
+import { SENDER_RULES } from "./schema-sender.js";
 import { SEND_BACK_RULES, type SendBackCategory } from "./schema-send-back.js";
 import { TIER_RULES, type TierOrigin } from "./schema-tier.js";
 
@@ -79,6 +80,9 @@ export interface EventInput extends Partial<TierOrigin> {
   role?: string;
   /** session.launch: the model tier the session was launched on. */
   tier?: string;
+  /** session.send: the sender's role and session name; absent for a send from the main session. */
+  senderRole?: string;
+  senderName?: string;
   /** host-sample: the host's 1-minute load average; absent when the host reported none. */
   load?: number;
   /** host-sample: free memory as a share of total, 0 to 1; absent when unreadable. */
@@ -137,6 +141,7 @@ const ALLOWED = new Set<string>([
   "tier",
   ...TIER_RULES.map((rule) => rule.field),
   ...SEND_BACK_RULES.map((rule) => rule.field),
+  ...SENDER_RULES.map((rule) => rule.field),
   "load",
   "memory",
   "swap",
@@ -252,6 +257,7 @@ const RULES: readonly Rule[] = [
   { field: "tier", check: isText(NAME), hint: NAME_HINT, kinds: LAUNCH_KINDS },
   ...TIER_RULES,
   ...SEND_BACK_RULES,
+  ...SENDER_RULES,
   ...HOST_RULES,
 ];
 

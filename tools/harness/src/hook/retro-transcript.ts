@@ -2,6 +2,7 @@
 // error summaries, and the user's own words. Never keeps assistant text.
 // Docs: infra/plans/5-self-maintenance.md#step-2-deterministic-retrospective-scan
 
+import { readSender } from "../sender/index.js";
 import { FOLLOW_UP_PREFIX } from "../session/index.js";
 
 const MAX_ERROR = 120;
@@ -159,8 +160,13 @@ const LEGACY_TAG = /^\s*(\(orchestrator\)|orchestrator:|\[herdr:)/i;
 const SESSION_NAME_LINE =
   /^\s*You are ([^;\n]+); your session name is \1\.\s*$/m;
 
-/** Whether a message is a brief pasted in by the orchestrator, not the person's own words. */
+/**
+ * Whether a message is a brief or a pane message from an agent, not the person's own words. The
+ * sender line `session send` and `session notify` write is read through the sender module; the
+ * fixed prefix stays matched so older transcripts count the same.
+ */
 export const isOrchestratorBrief = (text: string): boolean =>
+  readSender(text.trimStart()) !== undefined ||
   text.trimStart().toLowerCase().startsWith(FOLLOW_UP_PREFIX) ||
   LEGACY_TAG.test(text) ||
   SESSION_NAME_LINE.test(text);

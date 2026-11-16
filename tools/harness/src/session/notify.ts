@@ -1,4 +1,5 @@
 import type { CliDeps, CommandContext } from "../runtime/index.js";
+import { signedMessage } from "../sender/index.js";
 import { garbled, plain, withoutDim } from "./ansi.js";
 import { describeFailure } from "./equalize.js";
 import { FAILED, USAGE_ERROR, fail } from "./output.js";
@@ -10,13 +11,9 @@ const USAGE = "session notify <pane> --outcome done|blocked";
 const NO_RESEND =
   "Do not send it again: `session wait` records your result from your RESULT line, so end your turn.";
 
-/** The line a finished session sends its caller: the name is the session's own, and the summary is in its pane. */
-export function finishLine(
-  name: string,
-  outcome: string,
-  ownPane: string,
-): string {
-  return `[herdr:${name}] finished: RESULT ${outcome}; summary in pane ${ownPane}`;
+/** The text a finished session sends its caller, after its sender line: the summary is in its own pane. */
+export function finishText(outcome: string, ownPane: string): string {
+  return `finished: RESULT ${outcome}; summary in pane ${ownPane}`;
 }
 
 /** A line that starts with the agent's prompt mark, after any box border. */
@@ -191,7 +188,15 @@ export async function notify(context: CommandContext): Promise<number> {
       "Not inside a spawned session (KORE_AGENT or HERDR_PANE_ID is unset). session notify runs in the pane session spawn started.",
     );
   }
-  const error = await deliver(deps, pane, finishLine(name, outcome, ownPane));
+  const signed = signedMessage(
+    deps.env,
+    "session notify",
+    finishText(outcome, ownPane),
+  );
+  if ("error" in signed) {
+    return fail(deps, json, FAILED, signed.error);
+  }
+  const error = await deliver(deps, pane, signed.body);
   if (error !== undefined) {
     return fail(deps, json, FAILED, error);
   }
