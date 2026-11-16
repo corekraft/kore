@@ -224,6 +224,7 @@ decisions; read one only when planning that area, and expect it to change.
 - [`docs/ideas/0015-writer-follow-up-rules.md`](ideas/0015-writer-follow-up-rules.md) — Put the writer's standing follow-up rules in writer.md
 - [`docs/ideas/0016-principles-review-in-the-loop.md`](ideas/0016-principles-review-in-the-loop.md) — Run principles-review in the delivery loop or archive it
 - [`docs/ideas/0017-decision-advisor-live-verification.md`](ideas/0017-decision-advisor-live-verification.md) — decision-advisor works live in local
+- [`docs/ideas/0018-writer-prs-are-authored-by-the-owner-so-main-credits-the-own.md`](ideas/0018-writer-prs-are-authored-by-the-owner-so-main-credits-the-own.md) — Writer panes act as the owner and the judge approves through its own kore-judge App, so squash commits on main count toward the owner's contributions
 
 ## Operations and Guides
 
