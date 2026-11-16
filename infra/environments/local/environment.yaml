@@ -26,7 +26,7 @@
       "automatic-retro": false,
       "automatic-approval": false,
       "automatic-revert": false,
-      "decision-advisor": false
+      "decision-advisor": true
     },
   "imageInventory": "audit",
   "exemptionCheck": "audit",

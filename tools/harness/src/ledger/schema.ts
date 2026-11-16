@@ -2,8 +2,12 @@ import { HOST_RULES } from "./schema-host.js";
 import { KINDS, type Kind } from "./schema-kinds.js";
 import { RESULT_RULES } from "./schema-result.js";
 import { SENDER_RULES } from "./schema-sender.js";
+import { REVIEW_RULES } from "./schema-review.js";
 import { SEND_BACK_RULES, type SendBackCategory } from "./schema-send-back.js";
 import { TIER_RULES, type TierOrigin } from "./schema-tier.js";
+import { MERGED_RULES, isTimestamp, type MergedOrigin } from "./schema-time.js";
+
+export { isTimestamp };
 
 export const SOURCES = ["claude", "herdr", "github"] as const;
 export type Source = (typeof SOURCES)[number];
@@ -59,7 +63,7 @@ export const SCHEMA_VERSION = 1;
  * session.launch, `tierSource` and `tierReason` say where the tier came from;
  * a launch from before they existed has neither and reads as unknown.
  */
-export interface EventInput extends Partial<TierOrigin> {
+export interface EventInput extends Partial<TierOrigin>, Partial<MergedOrigin> {
   id?: string;
   source: Source;
   kind: Kind;
@@ -77,6 +81,8 @@ export interface EventInput extends Partial<TierOrigin> {
   tokens?: number;
   /** send-back: why the change went back; absent on a send-back from before categories existed. */
   category?: SendBackCategory;
+  /** review.run: the findings the verdict gave, 0 for a clean review; absent on a review from before the verdict was recorded. */
+  findings?: number;
   /** session.launch: the role the session was launched as. */
   role?: string;
   /** session.launch: the model tier the session was launched on. */
@@ -114,7 +120,6 @@ export type ParseMode = "input" | "stored";
 const NAME = /^[\w.:/#@-]{1,128}$/;
 const TOOL = /^[\w.:-]{1,100}$/;
 const LABEL = /^[^\p{Cc}]{1,100}$/u;
-const TIMESTAMP = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d{1,3})?Z$/;
 const NAME_HINT = "must be 1-128 letters, digits or . _ : / # @ -";
 const TIME_HINT =
   "must be an ISO 8601 UTC time such as 2026-01-02T03:04:05.000Z";
@@ -143,8 +148,9 @@ const ALLOWED = new Set<string>([
   "role",
   "tier",
   ...TIER_RULES.map((rule) => rule.field),
-  ...SEND_BACK_RULES.map((rule) => rule.field),
+  ...[...SEND_BACK_RULES, ...REVIEW_RULES].map((rule) => rule.field),
   ...SENDER_RULES.map((rule) => rule.field),
+  ...MERGED_RULES.map((rule) => rule.field),
   ...RESULT_RULES.map((rule) => rule.field),
   "load",
   "memory",
@@ -156,18 +162,6 @@ const ALLOWED = new Set<string>([
 /** Whether a value passes the ledger's name rule (session, pane, agent and similar fields). */
 export function isName(value: unknown): value is string {
   return typeof value === "string" && NAME.test(value);
-}
-
-export function isTimestamp(value: string): boolean {
-  if (!TIMESTAMP.test(value)) {
-    return false;
-  }
-  const time = new Date(value);
-  if (Number.isNaN(time.getTime())) {
-    return false;
-  }
-  // Rejects overflow such as 02-31, which Date would roll into March.
-  return time.toISOString().slice(0, 10) === value.slice(0, 10);
 }
 
 function bad(field: string, problem: string): Failure {
@@ -262,7 +256,9 @@ const RULES: readonly Rule[] = [
   { field: "tier", check: isText(NAME), hint: NAME_HINT, kinds: LAUNCH_KINDS },
   ...TIER_RULES,
   ...SEND_BACK_RULES,
+  ...REVIEW_RULES,
   ...SENDER_RULES,
+  ...MERGED_RULES,
   ...RESULT_RULES,
   ...HOST_RULES,
 ];

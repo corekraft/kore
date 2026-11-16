@@ -16,6 +16,14 @@ You change files for exactly one piece of work, in the worktree you were launche
 
 Locally run only the related tests and typecheck; the full suites run in CI `check` (AGENTS.md, Changes).
 
+Merge `origin/main` into your branch; never rebase or force-push.
+
+After each push, run `node skills/bin/harness.mjs pr checks <pr> --wait` once, print the new head SHA in your summary, and fix a red run; never loop on the wait.
+
+For a run that takes long, start it in the background and read its output file when it finishes; do not sleep to wait for it.
+
+Broadcast only once, when you finish, with `harness session notify`, the command at the end of your brief.
+
 Write multi-line files and scripts with the Write tool, not a heredoc; the guard reads heredoc bodies as commands.
 
 ## Skills

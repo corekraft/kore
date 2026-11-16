@@ -5,12 +5,12 @@
 import type { LedgerEvent } from "../ledger/index.js";
 import { DEFAULT_COST, type CostOptions } from "./cost.js";
 import { time } from "./github-waits.js";
-import { inWindow, type Span } from "./scope.js";
-
-const DAY_MS = 86_400_000;
-
-/** The trailing days the per-merged average covers, the same as the owner questions figure (#859). */
-export const DEFAULT_MERGED_TRAILING_DAYS = 7;
+import { type Span } from "./scope.js";
+import {
+  DEFAULT_MERGED_TRAILING_DAYS,
+  mergedIn,
+  trailingBefore,
+} from "./merged-span.js";
 
 /** One figure: tokens and merged changes in a span, or insufficient when the span has too few merged changes. */
 export type MergedFigure =
@@ -89,9 +89,7 @@ function figureIn(
   span: Span,
   minMergedChanges: number,
 ): MergedFigure {
-  const merged = events.filter(
-    (e) => e.kind === "pr.merged" && inWindow(span, time(e)),
-  ).length;
+  const merged = mergedIn(events, span);
   if (merged < minMergedChanges) {
     return {
       status: "insufficient merged changes",
@@ -119,13 +117,15 @@ export function tokensPerMergedChange(
   window: Span,
   { trailingDays, minMergedChanges, asOf }: MergedTokensOptions,
 ): TokensPerMergedChange {
-  const end = Number.isFinite(window[0]) ? window[0] : asOf.getTime();
-  const trailing: Span = [end - trailingDays * DAY_MS, end];
   return {
     trailingDays,
     minMergedChanges,
     current: figureIn(events, window, minMergedChanges),
-    trailingAverage: figureIn(events, trailing, minMergedChanges),
+    trailingAverage: figureIn(
+      events,
+      trailingBefore(window, trailingDays, asOf),
+      minMergedChanges,
+    ),
   };
 }
 

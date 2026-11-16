@@ -5,7 +5,7 @@ export interface BriefInput {
   name: string;
   /** The caller's pane id, read fresh from its own environment. */
   callerPane: string;
-  /** The session's role; only the roles that push code get the review follow-up section. */
+  /** The session's role; only the roles that push code get the live-proof section. */
   role?: string;
 }
 
@@ -17,18 +17,13 @@ export function notifyCommand(callerPane: string): string {
   return `node skills/bin/harness.mjs session notify ${callerPane} --outcome <done|blocked>`;
 }
 
-/** The local-check rule for a pushing session; the full suites gate in CI, pointing at AGENTS.md (Changes). */
-const LOCAL_CHECKS = [
-  "Local checks:",
-  "- Locally run only the related tests and typecheck; the full suites run in CI `check` (AGENTS.md, Changes).",
-].join("\n");
-
-/** The review follow-up rules for a pushing session. The broadcast is the finish command at the end of the brief, not a second one. */
-const REVIEW_FOLLOW_UP = [
-  "Review follow-up:",
-  "- After each fix push, print the new head SHA in your summary and wait for CI to pass before the next change.",
-  "- Never merge; only the judge merges.",
-  "- Broadcast only once, when you finish, with harness session notify (the command at the end of this brief).",
+/**
+ * The live-proof rule for a pushing session. It is the one standing rule the brief keeps: it turns on
+ * a proof pinned to a head, which only this session's brief can name. Every other standing rule has
+ * its one owner in the role's definition (writer.md).
+ */
+const LIVE_PROOF = [
+  "Live proof:",
   "- While a live proof is pinned to a head, change no code, because a change invalidates that proof.",
 ].join("\n");
 
@@ -39,7 +34,6 @@ function skillSection(task: string): string {
     return [
       "Skills:",
       "- No skill was named, because the brief names no path that one covers.",
-      "- `test-driven-development` always applies; load it with the Skill tool.",
     ].join("\n");
   }
   const named = skills.map((skill) => `\`${skill}\``);
@@ -50,11 +44,10 @@ function skillSection(task: string): string {
   return [
     "Skills for the paths you change:",
     `- Load ${list} with the Skill tool before you edit.`,
-    "- `test-driven-development` always applies.",
   ].join("\n");
 }
 
-/** The task, the session name, the review follow-up for pushing roles, and the finish instructions. */
+/** The task, the session name, the skills and live-proof sections for pushing roles, and the finish instructions. */
 export function buildBrief({
   task,
   name,
@@ -63,7 +56,7 @@ export function buildBrief({
 }: BriefInput): string {
   const followUp =
     role !== undefined && PUSHING_ROLES.has(role)
-      ? [skillSection(task), "", LOCAL_CHECKS, "", REVIEW_FOLLOW_UP, ""]
+      ? [skillSection(task), "", LIVE_PROOF, ""]
       : [];
   return [
     task,
