@@ -55,6 +55,53 @@ export const readOnly = (what: string): Finding =>
       "and the judge sends the change back.",
   );
 
+/** The reads a read-only role allows, named in the block message so a refused role can pick one that works; guard-role-allow.spec.ts checks each is allowed. */
+export const WORKING_READS: readonly string[] = [
+  "cat",
+  "head",
+  "tail",
+  "ls",
+  "grep",
+  "rg",
+  "wc",
+  "sort",
+  "diff",
+  "tree",
+  "jq",
+  "stat",
+  "file",
+  "git log",
+  "git status",
+  "git show",
+  "git diff",
+  "git blame",
+  "git ls-files",
+  "git grep",
+  "git rev-parse",
+  "gh pr view",
+  "gh pr list",
+  "gh pr checks",
+  "gh pr diff",
+  "gh issue view",
+  "gh issue list",
+  "gh label list",
+  "node skills/bin/harness.mjs plan active",
+  "node skills/bin/harness.mjs idea list",
+  "node skills/bin/harness.mjs idea show",
+  "node skills/bin/harness.mjs flow report",
+  "node skills/bin/harness.mjs ledger list",
+];
+
+const READS_TEXT = WORKING_READS.map((read) => `\`${read}\``).join(", ");
+
+/** A command a read-only role may not run that is not a write: it names the reads that work and never says it changes files. */
+export const notRead = (what: string): Finding =>
+  block(
+    "role-read-only",
+    `${what} is refused: a read-only role runs only the reads it allows. Instead, run one of these reads, such as ${READS_TEXT}. ` +
+      "If none of them does what you need, report what needs changing: the reader returns it in its summary and the judge sends the change back.",
+  );
+
 /** Output redirects and the read-write `<>`, which opens a file for writing without truncating it. */
 const FD_OPERATOR = /^(?:\d*>[>|]?|&>>?|\d*<>)$/;
 const harmless = (target: string | undefined): boolean =>

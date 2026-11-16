@@ -1,6 +1,10 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ghMayRun, readMayRun } from "./guard-role-allow.js";
-import { bareAssignment, harnessAllowed } from "./guard-role-writes.js";
+import {
+  bareAssignment,
+  harnessAllowed,
+  WORKING_READS,
+} from "./guard-role-writes.js";
 import { commandOf } from "./guard-shell.js";
 
 // commandOf, harnessAllowed and bareAssignment are collaborators outside the unit: typed
@@ -271,5 +275,27 @@ describe("readMayRun: read utilities and their write options", () => {
 
   it("refuses a command the allowlist does not name", () => {
     expect(mayRun(["rm", "-rf", "x"])).toBe(false);
+  });
+});
+
+describe("the reads the refusal names are reads the guard allows", () => {
+  // The harness reads a reader may run, as the reader's allowlist passes them.
+  const HARNESS_READS = [
+    "plan active",
+    "idea list",
+    "idea show",
+    "flow report",
+    "ledger list",
+  ];
+
+  it.each(WORKING_READS)("allows %s", (line) => {
+    expect(readMayRun(line.split(" "), HARNESS_READS)).toBe(true);
+  });
+
+  it("still refuses the reads the owner has not yet allowed, so the message does not promise them", () => {
+    expect(mayRun(["git", "merge-base", "a", "b"])).toBe(false);
+    expect(mayRun(["git", "cat-file", "-p", "HEAD"])).toBe(false);
+    expect(mayRun(["git", "ls-tree", "HEAD"])).toBe(false);
+    expect(mayRun(["git", "fetch", "origin"])).toBe(false);
   });
 });
