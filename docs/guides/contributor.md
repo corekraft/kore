@@ -407,9 +407,22 @@ time nor unmapped. Only ideas inside `--since`/`--until`/`--idea` count, so a
 narrow scope shortens the history. N is `--trailing N`, else
 `cost.trailingIdeas` in `.claude/harness.json`, else 5. The file is committed
 with the defaults, optional if removed, and checked before any report; its keys
-are `cost.trailingIdeas`, `cost.tokensPerIdea.maxIncrease` and
-`cost.sessionsPerIdea.maxIncrease` (default 0.25 each), and a bad one fails with
+are `cost.trailingIdeas`, `cost.minMergedChanges` (a placeholder, default 5),
+`cost.tokensPerIdea.maxIncrease` and `cost.sessionsPerIdea.maxIncrease` (default
+0.25 each), and a bad one fails with
 the file, the key and the fix. The human report prints the same numbers.
+
+`tokensPerMergedChange` is read per window, not per closed idea (#829).
+`current` is the tokens spent inside the range and the merged changes (its
+`pr.merged` events) in it, with `perMerged` as their ratio, rounded to four
+places. Each session's `token.usage` is cumulative, so its spend in the range is
+its last count before the range's end less its last count before the range's
+start. `trailingAverage` is the same figure over the 7 days before the range, or
+before `--as-of` when the range has no start. A span with fewer merged changes
+than `cost.minMergedChanges` is `{"status": "insufficient merged changes",
+"merged", "needed"}`, never zero, and the trailing average is read the same way.
+That minimum defaults to 5, a placeholder until it is re-checked from data
+(#808).
 
 Known limits until plan 8 Step 3 lands its producers: nothing records
 `issue.closed` or the `idea` link on PR events yet, so real ledgers show no

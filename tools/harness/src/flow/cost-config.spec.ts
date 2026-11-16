@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { HARNESS_CONFIG, parseHarnessConfig } from "./cost-config.js";
-import { DEFAULT_COST } from "./cost.js";
+import { DEFAULT_COST, DEFAULT_MIN_MERGED_CHANGES } from "./cost.js";
 
 const parse = (value: unknown) =>
   parseHarnessConfig(JSON.stringify(value), HARNESS_CONFIG);
@@ -36,6 +36,7 @@ describe("harness config", () => {
     ).toEqual({
       cost: {
         trailingIdeas: 8,
+        minMergedChanges: DEFAULT_COST.minMergedChanges,
         tokensPerIdea: { maxIncrease: 0.5 },
         sessionsPerIdea: { maxIncrease: 0 },
       },
@@ -110,6 +111,30 @@ describe("harness config reviewer logins", () => {
   ])("refuses reviewer logins %j, naming the key and the fix", (config) => {
     expect(parse(config)).toEqual({
       error: expect.stringContaining('key "reviewerLogins"'),
+    });
+  });
+});
+
+describe("harness config: the merged-change minimum", () => {
+  it("reads the fewest merged changes a window needs before its per-merged figure is read", () => {
+    expect(parse({ cost: { minMergedChanges: 9 } })).toEqual({
+      cost: { ...DEFAULT_COST, minMergedChanges: 9 },
+    });
+  });
+
+  it("uses the placeholder minimum merged changes when the config leaves it out", () => {
+    expect(parse({ cost: { trailingIdeas: 8 } })).toMatchObject({
+      cost: { minMergedChanges: DEFAULT_MIN_MERGED_CHANGES },
+    });
+  });
+
+  it.each([
+    [{ cost: { minMergedChanges: 0 } }],
+    [{ cost: { minMergedChanges: 2.5 } }],
+    [{ cost: { minMergedChanges: "many" } }],
+  ])("rejects %j, naming the key and the fix", (config) => {
+    expect(parse(config)).toEqual({
+      error: expect.stringContaining('key "cost.minMergedChanges"'),
     });
   });
 });

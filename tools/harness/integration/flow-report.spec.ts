@@ -213,3 +213,54 @@ describe("flow report verify, outcome and unmapped events", () => {
     expect(r.ideas.total).toBe(1);
   });
 });
+
+describe("flow report tokens per merged change (#829)", () => {
+  // Window: 1000 s to 2000 s after T0. Readings are cumulative per session.
+  const WINDOW = {
+    since: new Date(T0 + 1000 * 1000),
+    until: new Date(T0 + 2000 * 1000),
+  };
+  const EVENTS = [
+    at(500, "token.usage", { session: "s1", tokens: 100 }),
+    at(1500, "token.usage", { session: "s1", tokens: 700 }),
+    at(1600, "token.usage", { session: "s2", tokens: 200 }),
+    at(1700, "pr.merged", { number: 11 }),
+    at(1800, "pr.merged", { number: 12 }),
+    at(2500, "pr.merged", { number: 13 }),
+  ];
+
+  it("divides the tokens spent inside the window by its merged changes, with the trailing average", () => {
+    const r = buildReport(EVENTS, {
+      asOf: ASOF,
+      minCompletedIdeas: 1,
+      ...WINDOW,
+      cost: { minMergedChanges: 2 },
+    });
+
+    expect(r.tokensPerMergedChange).toEqual({
+      trailingDays: 7,
+      minMergedChanges: 2,
+      current: { status: "ok", tokens: 800, merged: 2, perMerged: 400 },
+      trailingAverage: {
+        status: "insufficient merged changes",
+        merged: 0,
+        needed: 2,
+      },
+    });
+  });
+
+  it("reads no figure below the placeholder minimum, so a thin window is never read", () => {
+    const r = buildReport(EVENTS, {
+      asOf: ASOF,
+      minCompletedIdeas: 1,
+      ...WINDOW,
+    });
+
+    expect(r.tokensPerMergedChange.minMergedChanges).toBe(5);
+    expect(r.tokensPerMergedChange.current).toEqual({
+      status: "insufficient merged changes",
+      merged: 2,
+      needed: 5,
+    });
+  });
+});

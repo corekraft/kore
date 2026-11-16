@@ -66,6 +66,18 @@ const emptyCategoryReport = {
   perMergedChange: emptyCategories,
 };
 
+/** Tokens per merged change with no merged change in either span, so neither figure is read. */
+const emptyTokensPerMergedChange = {
+  trailingDays: 7,
+  minMergedChanges: 5,
+  current: { status: "insufficient merged changes", merged: 0, needed: 5 },
+  trailingAverage: {
+    status: "insufficient merged changes",
+    merged: 0,
+    needed: 5,
+  },
+};
+
 /** A report with nothing in it, so each human line is the one the report prints. */
 export function emptyReport(overrides: Partial<Record<string, unknown>> = {}) {
   return {
@@ -133,6 +145,7 @@ export function emptyReport(overrides: Partial<Record<string, unknown>> = {}) {
       trailingAverage: null,
       worsened: false,
     },
+    tokensPerMergedChange: emptyTokensPerMergedChange,
     ...overrides,
     // The cast stands in for the fields the report prints but these tests never read.
   } as unknown as FlowReport;

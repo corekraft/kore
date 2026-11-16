@@ -87,3 +87,24 @@ export function frictionLine({
     ? `Friction: none${ignored}`
     : `Friction: ${total} (${sources.map((s) => `${s.source} ${s.events}`).join(", ")})${ignored}`;
 }
+
+const changes = (n: number) => `${n} merged change${n === 1 ? "" : "s"}`;
+
+/**
+ * Tokens per merged change over the range, with the trailing average (#829). A
+ * figure below the minimum merged changes says it is not read, never a zero.
+ */
+export function tokensPerMergedChangeLine(
+  t: FlowReport["tokensPerMergedChange"],
+): string {
+  const { current, trailingAverage, trailingDays } = t;
+  const now =
+    current.status === "ok"
+      ? `${current.perMerged} (${current.tokens} tokens over ${changes(current.merged)})`
+      : `not read, ${changes(current.merged)} in this range (${current.needed} needed)`;
+  const before =
+    trailingAverage.status === "ok"
+      ? `average ${trailingAverage.perMerged} over the trailing ${trailingDays} days`
+      : `no average: ${changes(trailingAverage.merged)} in the trailing ${trailingDays} days (${trailingAverage.needed} needed)`;
+  return `Tokens per merged change: ${now}; ${before}`;
+}

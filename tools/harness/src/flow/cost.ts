@@ -4,6 +4,11 @@ import { inWindow, type Span } from "./scope.js";
 
 export const DEFAULT_TRAILING_IDEAS = 5;
 export const DEFAULT_MAX_INCREASE = 0.25;
+/**
+ * The fewest merged changes a window needs before its per-merged figure is read.
+ * A placeholder until the owner re-checks it from data (#808, #829).
+ */
+export const DEFAULT_MIN_MERGED_CHANGES = 5;
 
 /** How much a metric may rise above its trailing average before it counts as worse. */
 export interface Threshold {
@@ -14,12 +19,15 @@ export interface Threshold {
 export interface CostOptions {
   /** How many closed ideas the trailing average covers. */
   trailingIdeas: number;
+  /** The fewest merged changes a window needs before its per-merged figure is read. */
+  minMergedChanges: number;
   tokensPerIdea: Threshold;
   sessionsPerIdea: Threshold;
 }
 
 export const DEFAULT_COST: CostOptions = {
   trailingIdeas: DEFAULT_TRAILING_IDEAS,
+  minMergedChanges: DEFAULT_MIN_MERGED_CHANGES,
   tokensPerIdea: { maxIncrease: DEFAULT_MAX_INCREASE },
   sessionsPerIdea: { maxIncrease: DEFAULT_MAX_INCREASE },
 };
