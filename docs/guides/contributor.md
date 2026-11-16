@@ -473,6 +473,15 @@ gives the latest closed idea (`currentIdea`, `current`), the `trailingAverage`
 of the N ideas before it, `maxIncrease` (0.25) and `worsened`, or
 `{"status": "insufficient history", "closedIdeas", "needed"}`, never zero.
 
+`rework` also has `followUpsPerWriterSession` and `mainFollowUpsPerWriterSession`,
+the orchestrator's follow-ups per writer session: a `session.send` to a pane
+that a `session.launch` with role `writer` started in the same idea. The first
+counts every sender, the second only the main session (a send with no
+`senderRole`). Each is a per-idea metric in the same form, over the closed
+ideas that had a writer session. `rework.followUps` is `{ writerSessions,
+bySender }` for the range: the writer sessions launched, and the follow-ups per
+sender (`main session`, or a `senderRole`), most first.
+
 `friction` is `{ total, sources, unknownKinds }` for the range. A source is
 `{ kind, source, events }`: a `hook rule` (the rule of a `guard.block` or
 `guard.audit` event), a `command` (the `kore` command of a `kore.retry` event,
