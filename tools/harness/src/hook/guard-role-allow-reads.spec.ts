@@ -17,7 +17,7 @@ vi.mock("./guard-role-writes.js", async (importOriginal) => ({
   bareAssignment: vi.fn(),
 }));
 
-const run = (...words: string[]): boolean => readMayRun(words, []);
+const mayRun = (words: string[]): boolean => readMayRun(words, []);
 
 beforeEach(() => {
   vi.mocked(commandOf).mockImplementation((tokens) => ({
@@ -34,30 +34,30 @@ beforeEach(() => {
 describe("readMayRun: the seven reads (#847) are decided by guard-role-reads.ts", () => {
   it("allows a git read only when its exact shape check passes it, and never git fetch", () => {
     vi.mocked(gitReadMayRun).mockReturnValue(true);
-    expect(run("git", "ls-tree", "HEAD")).toBe(true);
+    expect(mayRun(["git", "ls-tree", "HEAD"])).toBe(true);
     expect(vi.mocked(gitReadMayRun)).toHaveBeenCalledWith(["ls-tree", "HEAD"]);
 
     vi.mocked(gitReadMayRun).mockReturnValue(false);
-    expect(run("git", "ls-tree", "HEAD")).toBe(false);
-    expect(run("git", "fetch", "origin")).toBe(false);
+    expect(mayRun(["git", "ls-tree", "HEAD"])).toBe(false);
+    expect(mayRun(["git", "fetch", "origin"])).toBe(false);
   });
 
   it("refuses a passed git read that carries a writing option before it", () => {
     vi.mocked(gitReadMayRun).mockReturnValue(true);
-    expect(run("git", "--git-dir=/e", "ls-tree", "HEAD")).toBe(false);
-    expect(run("git", "ls-tree", "--output=f", "HEAD")).toBe(false);
+    expect(mayRun(["git", "--git-dir=/e", "ls-tree", "HEAD"])).toBe(false);
+    expect(mayRun(["git", "ls-tree", "--output=f", "HEAD"])).toBe(false);
   });
 
   it("allows which and command -v only when their shape checks pass them", () => {
     vi.mocked(whichMayRun).mockReturnValue(true);
-    expect(run("which", "git")).toBe(true);
+    expect(mayRun(["which", "git"])).toBe(true);
     vi.mocked(whichMayRun).mockReturnValue(false);
-    expect(run("which", "git")).toBe(false);
+    expect(mayRun(["which", "git"])).toBe(false);
 
     vi.mocked(commandLookup).mockReturnValue(true);
-    expect(run("command", "-v", "git")).toBe(true);
+    expect(mayRun(["command", "-v", "git"])).toBe(true);
     vi.mocked(commandLookup).mockReturnValue(false);
-    expect(run("command", "-v", "git")).toBe(false);
+    expect(mayRun(["command", "-v", "git"])).toBe(false);
   });
 });
 
@@ -77,7 +77,7 @@ describe("harnessHelp: node harness.mjs --help and nothing else", () => {
   });
 
   it("lets readMayRun run it as a read", () => {
-    expect(run("node", "skills/bin/harness.mjs", "--help")).toBe(true);
-    expect(run("node", "skills/bin/harness.mjs", "--version")).toBe(false);
+    expect(mayRun(["node", "skills/bin/harness.mjs", "--help"])).toBe(true);
+    expect(mayRun(["node", "skills/bin/harness.mjs", "--version"])).toBe(false);
   });
 });
