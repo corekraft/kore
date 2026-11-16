@@ -143,6 +143,6 @@ describe("buildReport per-merged-change figures (#829, #830)", () => {
   });
 
   it("versions the report to 20, since the writer cost joined it (#868)", () => {
-    expect(run([]).version).toBe(20);
+    expect(run([]).version).toBe(21);
   });
 });

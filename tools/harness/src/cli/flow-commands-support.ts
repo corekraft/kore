@@ -78,6 +78,7 @@ const NO_REVIEWS = {
     worsened: false,
   },
   foundViolation: { count: 0, share: null, trailingAverage: null },
+  resample: { count: 0, found: 0, share: null },
 };
 
 /** Tokens per merged change with no merged change in either span, so neither figure is read. */
@@ -257,6 +258,7 @@ const POPULATED_REVIEWS = {
     worsened: true,
   },
   foundViolation: { count: 2, share: 0.5, trailingAverage: 0.2 },
+  resample: { count: 3, found: 1, share: 0.3333 },
 };
 
 /** The fixture for a report with every optional section filled in. */

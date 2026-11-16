@@ -223,3 +223,33 @@ describe("review misses: the trailing average and the first window", () => {
     expect(r.foundViolation.trailingAverage).toBeNull();
   });
 });
+
+describe("review misses: the re-review of a passed sample (#852)", () => {
+  it("counts the re-reviews in the window, and those that found a violation, beside the ratio", () => {
+    const r = measure([
+      review(10.1 * DAY, 42, "resample:1111111", 0),
+      review(10.2 * DAY, 43, "resample:2222222", 2),
+      review(10.3 * DAY, 44, "resample:3333333", 1),
+    ]);
+    expect(r.resample).toEqual({ count: 3, found: 2, share: 0.6667 });
+  });
+
+  it("keeps a re-review out of the reviews the ratio is taken over", () => {
+    const r = measure([review(10.1 * DAY, 42, "resample:1111111", 0)]);
+    expect(r.reviews).toBe(0);
+    expect(r.passedRuleBreak.ratio).toBeNull();
+  });
+
+  it("leaves out a re-review that failed, which read no verdict", () => {
+    const r = measure([
+      review(10.1 * DAY, 42, "resample-failed:1111111"),
+      review(10.2 * DAY, 43, "resample:2222222", 0),
+    ]);
+    expect(r.resample).toEqual({ count: 1, found: 0, share: 0 });
+  });
+
+  it("leaves out a re-review outside the window", () => {
+    const r = measure([review(9.5 * DAY, 42, "resample:1111111", 3)]);
+    expect(r.resample).toEqual({ count: 0, found: 0, share: null });
+  });
+});

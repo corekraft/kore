@@ -90,7 +90,47 @@ describe("flow report review misses, from the ledger (#851)", () => {
         worsened: true,
       },
       foundViolation: { count: 1, share: 0.3333, trailingAverage: 0 },
+      resample: { count: 0, found: 0, share: null },
     });
+  });
+
+  it("counts the re-reviews of sampled passed reviews beside the ratio, and keeps them out of the reviews", async () => {
+    const h = harness();
+    const events = [
+      // In the range: a clean review that nothing sent back, the only review.
+      review("w1", "11", 42, "posted:1111111", 0),
+      // In the range: two re-reviews that read a verdict, one of them with a violation.
+      review("r1", "15", 42, "resample:1111111", 0),
+      review("r2", "15", 43, "resample:2222222", 2),
+      // In the range: a re-review that read no verdict, which is in no figure.
+      review("r3", "16", 44, "resample-failed:3333333"),
+    ];
+    h.fs.files.set(
+      DEFAULT,
+      events.map((e) => `${JSON.stringify(e)}\n`).join(""),
+    );
+
+    expect(await run(["flow", "report", "--json", ...RANGE], h.deps)).toBe(0);
+    const { reviewMisses } = JSON.parse(h.out()) as Record<string, unknown>;
+
+    expect(reviewMisses).toMatchObject({
+      reviews: 1,
+      passedRuleBreak: { count: 0, ratio: 0 },
+      resample: { count: 2, found: 1, share: 0.5 },
+    });
+  });
+
+  it("prints the re-review line beside the two review figures in the human report", async () => {
+    const h = harness();
+    h.fs.files.set(
+      DEFAULT,
+      `${JSON.stringify(review("w1", "11", 42, "posted:1111111", 0))}\n${JSON.stringify(review("r1", "15", 43, "resample:2222222", 2))}\n`,
+    );
+
+    expect(await run(["flow", "report", ...RANGE], h.deps)).toBe(0);
+    expect(h.out()).toContain(
+      "Re-reviews of sampled passed reviews: 1 of 1 found a violation (100%)",
+    );
   });
 
   it("prints both review figures in the human report, with the trailing average", async () => {

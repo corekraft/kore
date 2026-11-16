@@ -11,6 +11,8 @@ const DAY_MS = 86_400_000;
 
 /** A review.run that posted or left unchanged a verdict: `posted:<head>` or `unchanged:<head>`. */
 const VERDICT = /^(?:posted|unchanged):([0-9a-f]{7,40})$/;
+/** A re-review that read a verdict (#852): `resample:<head>`. A failed one is `resample-failed:<head>`, which does not match. */
+const RESAMPLE = /^resample:[0-9a-f]{7,40}$/;
 
 export interface ReviewMisses {
   /** The trailing days the averages cover, before the window (or before as-of when the window has no start). */
@@ -36,6 +38,15 @@ export interface ReviewMisses {
     share: number | null;
     /** The same share over the trailing days; null when there were no reviews there. */
     trailingAverage: number | null;
+  };
+  /** Re-reviews of sampled passed reviews in the window (#852); a failed re-review is in no figure. */
+  resample: {
+    /** Re-reviews that read a verdict. */
+    count: number;
+    /** Re-reviews that found at least one violation. */
+    found: number;
+    /** found over count; null when there are none, never zero. */
+    share: number | null;
   };
 }
 
@@ -114,11 +125,31 @@ function tally(
   };
 }
 
+/** The re-reviews in a span that read a verdict, and how many found a violation (#852). */
+function resampleTally(
+  events: LedgerEvent[],
+  span: Span,
+): ReviewMisses["resample"] {
+  const reads = events.filter(
+    (e) =>
+      e.kind === "review.run" &&
+      RESAMPLE.test(e.label ?? "") &&
+      inWindow(span, time(e)),
+  );
+  const found = reads.filter((e) => (e.findings ?? 0) > 0).length;
+  return {
+    count: reads.length,
+    found,
+    share: reads.length === 0 ? null : round(found / reads.length),
+  };
+}
+
 /**
  * Passed reviews later sent back for a rule break, and reviews that found a
  * violation, over the window, each with the same figure over the trailing days
  * before it. The trailing days end where the window starts, or at as-of when
- * the window has no start.
+ * the window has no start. The re-reviews of sampled passed reviews are beside
+ * them, over the window only.
  */
 export function reviewMisses(
   events: LedgerEvent[],
@@ -151,5 +182,6 @@ export function reviewMisses(
       share: share(now),
       trailingAverage: share(before),
     },
+    resample: resampleTally(events, window),
   };
 }
