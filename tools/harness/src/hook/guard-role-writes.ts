@@ -98,7 +98,7 @@ const READS_TEXT = WORKING_READS.map((read) => `\`${read}\``).join(", ");
 export const notRead = (what: string): Finding =>
   block(
     "role-read-only",
-    `${what} is refused: a read-only role runs only the reads it allows, such as ${READS_TEXT}. ` +
+    `${what} is refused: a read-only role runs only the reads it allows. Instead, run one of these reads, such as ${READS_TEXT}. ` +
       "If none of them does what you need, report what needs changing: the reader returns it in its summary and the judge sends the change back.",
   );
 
