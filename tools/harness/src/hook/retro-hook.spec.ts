@@ -64,7 +64,7 @@ function registeredHandler(): Handler {
 const handler = registeredHandler();
 
 const USAGE =
-  "Usage: harness hook retro-scan [--dir <transcripts>] [--since YYYY-MM-DD|YYYY-MM-DDTHH:MM:SSZ] [--evidence]\n--since keeps sessions active at or after local midnight of that date, or at or after that UTC instant, like the session-start count.\n--evidence adds guardEvidence (the session, transcript line and excerpt of each guard block) and overriddenEvidence (the same, with the command excerpt and the unquoted glob the guard named, for each overridden audit warning), capped per rule. The default report leaves them out. The report also lists the agents with no launch in the ledger or in-process Agent call (agents; pane launches under launched, in-process Agent calls counted per agent under inProcess) and a ready command for each finding (proposals): an idea for an unused skill or agent, needing 14 days of ledger and 100 sessions, and a guardrail request for a promotable audit rule. The scan runs none of them.";
+  "Usage: harness hook retro-scan [--dir <transcripts>] [--since YYYY-MM-DD|YYYY-MM-DDTHH:MM:SSZ] [--evidence]\n--since keeps sessions active at or after local midnight of that date, or at or after that UTC instant, like the session-start count.\n--evidence adds guardEvidence (the session, transcript line and excerpt of each guard block) and overriddenEvidence (the same, with the command excerpt and the unquoted glob the guard named, for each overridden audit warning), capped per rule. The default report leaves them out. The report also lists the agents with no launch in the ledger or in-process Agent call (agents; pane launches under launched, in-process Agent calls counted per agent under inProcess) and a ready command for each finding (proposals): an idea for an unused skill or agent, needing 14 days of ledger or 100 sessions (retro in .claude/harness.json sets each), and a guardrail request for a promotable audit rule. The scan runs none of them.";
 const NO_SKILLS = "No skills/ directory found; skills.unused will be empty.\n";
 
 /** A scan report as the scan returns it, with nothing in it. */
@@ -107,7 +107,9 @@ function fakeFs() {
     readdir: vi.fn<FileSystem["readdir"]>(() => notFound()),
     isDirectory: vi.fn<FileSystem["isDirectory"]>(() => Promise.resolve(false)),
     exists: vi.fn<FileSystem["exists"]>(() => Promise.resolve(false)),
-    readFile: vi.fn<FileSystem["readFile"]>(),
+    readFile: vi.fn<FileSystem["readFile"]>((path) =>
+      path.endsWith("harness.json") ? notFound() : Promise.resolve(""),
+    ),
   };
 }
 
