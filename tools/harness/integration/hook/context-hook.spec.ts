@@ -43,6 +43,33 @@ describe("harness hook context", () => {
   });
 });
 
+describe("harness hook context, role panes", () => {
+  it("gives a writer pane no plan brief, and the main session the brief", async () => {
+    const root = repository({
+      "AGENTS.md": agents,
+      "infra/plans/3-agent-harness.md": plan,
+    });
+    const main = await context(
+      root,
+      JSON.stringify({ hook_event_name: "SessionStart", source: "startup" }),
+    );
+    expect(additional(main)).toMatch(
+      /^Session brief from infra\/plans\/3-agent-harness\.md:$/m,
+    );
+
+    const pane = await context(
+      root,
+      JSON.stringify({
+        hook_event_name: "SessionStart",
+        source: "startup",
+        agent_type: "writer",
+      }),
+    );
+    expect(pane.code).toBe(0);
+    expect(pane.out).toBe("");
+  });
+});
+
 describe("harness hook context, failing open", () => {
   it("malformed input fails open", async () => {
     const result = await context(repository(), "not json");

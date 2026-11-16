@@ -2,8 +2,9 @@
 // active plans' open items, since compaction may drop them. On a fresh session
 // or /clear it prints a short brief: where each active plan stands, its Next:
 // line and upcoming steps, the last operation per environment, and whether a
-// retrospective is due. The plans are read by the shared plan parser, so the
-// brief, `plan active` and the handoff cannot disagree.
+// retrospective is due. A writer, judge, reader or principles-review session
+// gets no plan lines (idea 0014). The plans are read by the shared plan parser,
+// so the brief, `plan active` and the handoff cannot disagree.
 // Docs: infra/plans/4-knowledge.md#step-4-upward-context
 
 import {
@@ -14,9 +15,16 @@ import {
   openItems,
   upcomingSteps,
 } from "../plan/index.js";
+import { GUARD_ROLES } from "./guard-roles.js";
 import { lastRetrospective, MarkerError, PLANS_DIR } from "./retro-scan.js";
 
 const RETRO_AFTER_SESSIONS = 5;
+
+/**
+ * The roles that get no plan session brief: their orchestrator-only steps are
+ * not theirs (idea 0014). Every other agent type, and a missing one, gets it.
+ */
+const NO_PLAN_BRIEF = new Set<string>(GUARD_ROLES);
 
 /** One line of an operation journal; only the fields the brief reads. */
 export interface JournalEntry {
@@ -43,6 +51,8 @@ export interface ContextDeps {
 export interface SessionEvent {
   source?: unknown;
   session_id?: unknown;
+  /** The role a session was started with by `claude --agent <role>`, when it was. */
+  agent_type?: unknown;
 }
 
 /** Every AGENTS.md rule, with its enforcement markers kept. */
@@ -107,12 +117,15 @@ function environmentLines(
   return lines;
 }
 
-/** A few lines for a fresh session: active plans, Next: lines, upcoming steps, environments, retrospective due. */
-export async function brief(
-  event: SessionEvent,
-  deps: ContextDeps,
-): Promise<string> {
-  const plans = await deps.readPlans();
+/** Whether the session gets the plan session brief: every session but a guard role's. */
+function givesPlanBrief(event: SessionEvent): boolean {
+  return (
+    typeof event.agent_type !== "string" || !NO_PLAN_BRIEF.has(event.agent_type)
+  );
+}
+
+/** Each active plan's open items, Next: line and upcoming steps. */
+function planLines(plans: Readonly<Record<string, string>>): string[] {
   const lines: string[] = [];
   for (const plan of activePlans(plans)) {
     const markdown = plans[plan] ?? "";
@@ -132,6 +145,16 @@ export async function brief(
       lines.push(`Upcoming: ${upcoming.join("; ")}.`);
     }
   }
+  return lines;
+}
+
+/** A few lines for a fresh session: active plans, Next: lines, upcoming steps, environments, retrospective due. */
+export async function brief(
+  event: SessionEvent,
+  deps: ContextDeps,
+): Promise<string> {
+  const plans = await deps.readPlans();
+  const lines: string[] = givesPlanBrief(event) ? planLines(plans) : [];
   lines.push(...environmentLines(await deps.readJournals()));
   const reminder = await retroLine(event, plans, deps);
   if (reminder !== null) {
