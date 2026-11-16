@@ -36,4 +36,12 @@ export const READS_REFUSED: readonly string[] = [
   "git fetch --upload-pack=sh origin",
   "command -p git push",
   "which git > out.txt",
+  "git cat-file --batch",
+  "git cat-file -p HEAD; rm x",
+  "which $(rm x)",
+  "command -v x > /elsewhere",
+  "git ls-remote ext::sh -c id",
+  "git ls-remote --receive-pack=sh origin",
+  "git ls-remote --config-env=core.pager=X origin",
+  "git -c core.hooksPath=/x ls-remote origin",
 ];
