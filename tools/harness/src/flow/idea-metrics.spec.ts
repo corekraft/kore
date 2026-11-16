@@ -8,8 +8,11 @@ import { firstTime, time } from "./github-waits.js";
 import * as ideaMetricsModule from "./idea-metrics.js";
 import { frictionMetrics, ideaMetrics } from "./idea-metrics.js";
 import { retroProposalsDropped } from "./retro-dropped.js";
+import { categoryReport } from "./send-back-categories.js";
 import { inWindow, type Span } from "./scope.js";
 import { median } from "./wip.js";
+
+vi.mock("./send-back-categories.js");
 
 const T0 = Date.parse("2026-01-02T00:00:00.000Z");
 
@@ -149,17 +152,23 @@ describe("frictionMetrics", () => {
     const named = [at(1, "kore.retry", { label: "up" })];
     const rework = { trailingIdeas: 2 } as ReturnType<typeof reworkMetrics>;
     const found = { total: 1 } as ReturnType<typeof friction>;
+    const categories = { perPrHead: {}, perMergedChange: {} } as ReturnType<
+      typeof categoryReport
+    >;
     vi.mocked(reworkMetrics).mockReturnValue(rework);
     vi.mocked(friction).mockReturnValue(found);
     vi.mocked(retroProposalsDropped).mockReturnValue(4);
+    vi.mocked(categoryReport).mockReturnValue(categories);
     expect(frictionMetrics(named, byIdea, WINDOW, 2)).toEqual({
       rework,
       friction: found,
       retroProposalsDropped: 4,
+      sendBackCategories: categories,
     });
     expect(retroProposalsDropped).toHaveBeenCalledWith(named, WINDOW);
     expect(reworkMetrics).toHaveBeenCalledWith(byIdea, WINDOW, 2);
     expect(friction).toHaveBeenCalledWith(named, WINDOW);
+    expect(categoryReport).toHaveBeenCalledWith(named, byIdea, WINDOW);
   });
 });
 

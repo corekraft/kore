@@ -1,3 +1,4 @@
+import type { SendBackCategory } from "../ledger/index.js";
 import type { QueueItem } from "../queue/index.js";
 import type {
   Delivery,
@@ -27,6 +28,8 @@ export class ScriptedHarness implements Harness {
   readonly launches: Launch[] = [];
   readonly recorded: Measured[] = [];
   readonly reasons: string[] = [];
+  /** The category each send-back was recorded with, in order. */
+  readonly categories: SendBackCategory[] = [];
   private judged = 0;
   private reviews = 0;
 
@@ -80,9 +83,14 @@ export class ScriptedHarness implements Harness {
       this.script.prechecks?.shift() ?? { sendBack: false },
     );
   }
-  sendBack(pr: number, reason: string): Promise<void> {
+  sendBack(
+    pr: number,
+    reason: string,
+    category: SendBackCategory,
+  ): Promise<void> {
     this.calls.push(`send-back ${pr}`);
     this.reasons.push(reason);
+    this.categories.push(category);
     return Promise.resolve();
   }
   sendBacks(pr: number) {

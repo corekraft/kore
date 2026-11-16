@@ -42,6 +42,24 @@ export function ledgerOf(events: unknown[] = [], skipped = 0) {
   vi.mocked(openLedger).mockResolvedValue({ ledger });
 }
 
+/** Send-backs by category with none sent back. */
+const emptyCategories = {
+  byCategory: {
+    declaration: 0,
+    "pattern-mismatch": 0,
+    "failed-check": 0,
+    conflict: 0,
+    "missing-proof": 0,
+    "rule-break": 0,
+    scope: 0,
+    other: 0,
+  },
+  uncategorised: 0,
+  otherShare: null,
+  otherThreshold: 0.1,
+  otherOverThreshold: false,
+};
+
 /** A report with nothing in it, so each human line is the one the report prints. */
 export function emptyReport(overrides: Partial<Record<string, unknown>> = {}) {
   return {
@@ -82,6 +100,10 @@ export function emptyReport(overrides: Partial<Record<string, unknown>> = {}) {
       },
     },
     friction: { total: 0, sources: [], unknownKinds: 0 },
+    sendBackCategories: {
+      perPrHead: emptyCategories,
+      perMergedChange: emptyCategories,
+    },
     bottleneck: null,
     bottleneckNote: "No bottleneck yet.",
     unmappedEvents: 0,

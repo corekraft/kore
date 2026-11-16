@@ -20,3 +20,7 @@ export {
   type Source,
 } from "./schema.js";
 export type { TierOrigin, TierSource } from "./schema-tier.js";
+export {
+  SEND_BACK_CATEGORIES,
+  type SendBackCategory,
+} from "./schema-send-back.js";

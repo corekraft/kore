@@ -37,8 +37,7 @@ import {
   type Span,
   type ScopeOptions,
 } from "./scope.js";
-
-export const REPORT_VERSION = 9;
+export const REPORT_VERSION = 10;
 
 export type { StageTotals, Toil } from "./tally.js";
 export type { Scope, ScopeOptions } from "./scope.js";

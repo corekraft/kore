@@ -5,9 +5,23 @@ import { OUTCOME, ScriptedHarness } from "./idea-run.fixtures.js";
 const FAIL = {
   sendBack: true,
   reason: "The precheck failed: ci: fail",
+  category: "failed-check",
 } as const;
 
 describe("IdeaRun precheck", () => {
+  it("sends the category the precheck named along with the reason", async () => {
+    const harness = new ScriptedHarness({
+      prechecks: [FAIL],
+      deliveries: [
+        { pr: 50, merged: false },
+        { pr: 50, merged: true },
+      ],
+      counts: [1],
+    });
+    await new IdeaRun(harness).run("0042", OUTCOME);
+    expect(harness.categories).toEqual(["failed-check"]);
+  });
+
   it("launches the judge only after a passing precheck", async () => {
     const harness = new ScriptedHarness({ prechecks: [{ sendBack: false }] });
     await new IdeaRun(harness).run("0042", OUTCOME);
