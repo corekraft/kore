@@ -100,7 +100,7 @@ function refuseUnverified(context: CommandContext, report: Report): number {
       : summary(report),
   );
   deps.stderr(
-    `PR #${report.pr} was not approved: the precheck did not pass. Fix what it reports, or send the change back with \`harness judge send-back ${report.pr} --reason <why>\`.\n`,
+    `PR #${report.pr} was not approved: the precheck did not pass. Fix what it reports, or send the change back with \`harness judge send-back ${report.pr} --reason <why> --category <category>\`.\n`,
   );
   return FAILED;
 }

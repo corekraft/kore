@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { RunResult, Runner } from "../runtime/index.js";
 import { HarnessCli, HarnessCliError } from "./harness-cli.js";
-import { sendBackReason } from "./precheck-reason.js";
+import { sendBackFor } from "./precheck-reason.js";
 
 vi.mock("./precheck-reason.js");
 
@@ -24,15 +24,19 @@ const REPORT = { pr: 9, ok: false, declaration: { ok: false } };
 
 describe("HarnessCli precheck", () => {
   beforeEach(() => {
-    vi.mocked(sendBackReason).mockReset();
+    vi.mocked(sendBackFor).mockReset();
   });
 
-  it("reads the precheck read-only as JSON and sends back with the reason the helper names", async () => {
-    vi.mocked(sendBackReason).mockReturnValue("The precheck failed: ci: fail");
+  it("reads the precheck read-only as JSON and sends back with the reason and category the helper names", async () => {
+    vi.mocked(sendBackFor).mockReturnValue({
+      reason: "The precheck failed: ci: fail",
+      category: "failed-check",
+    });
     const { cli, calls } = setup({ code: 1, stdout: JSON.stringify(REPORT) });
     await expect(cli.precheck(9)).resolves.toEqual({
       sendBack: true,
       reason: "The precheck failed: ci: fail",
+      category: "failed-check",
     });
     expect(calls).toEqual([
       {
@@ -41,11 +45,11 @@ describe("HarnessCli precheck", () => {
         cwd: "/repo",
       },
     ]);
-    expect(vi.mocked(sendBackReason)).toHaveBeenCalledWith(REPORT);
+    expect(vi.mocked(sendBackFor)).toHaveBeenCalledWith(REPORT);
   });
 
   it("lets the judge run when the helper names no reason", async () => {
-    vi.mocked(sendBackReason).mockReturnValue(undefined);
+    vi.mocked(sendBackFor).mockReturnValue(undefined);
     const { cli } = setup({ code: 1, stdout: JSON.stringify(REPORT) });
     await expect(cli.precheck(9)).resolves.toEqual({ sendBack: false });
   });
@@ -57,12 +61,12 @@ describe("HarnessCli precheck", () => {
       stderr: "bundle behind origin/main",
     });
     await expect(cli.precheck(9)).rejects.toThrow(HarnessCliError);
-    expect(vi.mocked(sendBackReason)).not.toHaveBeenCalled();
+    expect(vi.mocked(sendBackFor)).not.toHaveBeenCalled();
   });
 
-  it("sends back through `judge send-back`, which keys the event on the PR head", async () => {
+  it("sends back through `judge send-back` with the reason and its category, which keys the event on the PR head", async () => {
     const { cli, calls } = setup({});
-    await cli.sendBack(9, "The precheck failed: ci: fail");
+    await cli.sendBack(9, "The precheck failed: ci: fail", "failed-check");
     expect(calls).toEqual([
       {
         command: "node",
@@ -73,6 +77,8 @@ describe("HarnessCli precheck", () => {
           "9",
           "--reason",
           "The precheck failed: ci: fail",
+          "--category",
+          "failed-check",
         ],
         cwd: "/repo",
       },
