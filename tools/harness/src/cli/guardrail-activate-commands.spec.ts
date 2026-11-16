@@ -77,6 +77,7 @@ type Ports = {
   writeInventory(text: string): Promise<void>;
   syncDeny(inventory: Inventory): Promise<void>;
   recordEvent(label: string, idea: string): Promise<unknown>;
+  recordWarning(label: string, idea: string): Promise<unknown>;
 };
 async function ports(): Promise<Ports> {
   await activate.run(ctx());
@@ -117,6 +118,25 @@ describe("guardrail activate", () => {
       [
         "bare-glob is now in enforce mode, on a person's approval (idea 0224).\n",
       ],
+    ]);
+  });
+
+  it("prints the sender-line warning on stderr after a change that still goes ahead, and exits 0", async () => {
+    unit.mockResolvedValue({ ...RESULT, warning: "W" });
+    expect(await activate.run(ctx())).toBe(0);
+    expect(stderr.mock.calls).toEqual([["Warning: W\n"]]);
+    expect(stdout.mock.calls).toEqual([
+      [
+        "bare-glob is now in enforce mode, on a person's approval (idea 0224).\n",
+      ],
+    ]);
+  });
+
+  it("carries the warning in the JSON outcome, next to the change", async () => {
+    unit.mockResolvedValue({ ...RESULT, warning: "W" });
+    expect(await activate.run(ctx(FLAGS, true))).toBe(0);
+    expect(stdout.mock.calls).toEqual([
+      [`${JSON.stringify({ ...RESULT, warning: "W" })}\n`],
     ]);
   });
 
@@ -208,6 +228,27 @@ describe("guardrail activate ports", () => {
     ]);
   });
 
+  it("records the sender-line warning as a claude guardrail.approval-warned event", async () => {
+    const fake = fakeLedger();
+    vi.mocked(openLedger).mockResolvedValue({ ledger: fake.ledger });
+    expect(
+      await (await ports()).recordWarning("a:audit>enforce", "0224"),
+    ).toEqual({
+      ok: true,
+    });
+    expect(fake.write.mock.calls).toEqual([
+      [
+        {
+          source: "claude",
+          kind: "guardrail.approval-warned",
+          occurredAt: "2026-01-02T03:04:05.000Z",
+          idea: "0224",
+          label: "a:audit>enforce",
+        },
+      ],
+    ]);
+  });
+
   it("writes the edited inventory to the repository's inventory file", async () => {
     await (await ports()).writeInventory("NEW");
     expect(writeFile.mock.calls).toEqual([
@@ -237,18 +278,23 @@ describe("guardrail activate gh ports", () => {
     stdout: JSON.stringify({
       labels: [{ name: "approved" }],
       comments: [
-        { body: "b", createdAt: "t", author: { login: "junners" } },
+        {
+          body: "b",
+          createdAt: "t",
+          author: { login: "junners" },
+          url: "https://x/c1",
+        },
         { body: "c", createdAt: "u" },
       ],
     }),
     stderr: "",
   };
 
-  it("reads an issue's comments with authors and times, and its label names, through gh", async () => {
+  it("reads an issue's comments with authors, times and URLs, and its label names, through gh", async () => {
     run.mockResolvedValue(VIEW);
     const given = await ports();
     expect(await given.comments("224")).toEqual([
-      { body: "b", createdAt: "t", author: "junners" },
+      { body: "b", createdAt: "t", author: "junners", url: "https://x/c1" },
       { body: "c", createdAt: "u", author: "" },
     ]);
     expect(await given.labels("224")).toEqual(["approved"]);

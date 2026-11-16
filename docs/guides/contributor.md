@@ -418,25 +418,25 @@ completed ideas and the report says "Not enough data". A label other than
 last event is charged no time past it. Equal waiting ties go to the earlier
 stage.
 
-`--json` prints one object, `version` 8; any field change bumps `version`:
+`--json` prints one object, `version` 13; any field change bumps `version`:
 
-| Field               | Meaning                                                                                                    |
-| ------------------- | ---------------------------------------------------------------------------------------------------------- |
-| `version`           | Shape version, `8`.                                                                                        |
-| `asOf`              | Time open waits are measured to.                                                                           |
-| `ideas`             | `{ total, completed }`; completed means the issue closed.                                                  |
-| `minCompletedIdeas` | Completed ideas needed before a bottleneck is named.                                                       |
-| `stages`            | Nine entries in loop order: `{ stage, activeSeconds, waitingSeconds, events, toil, wip }`.                 |
-| `leadTime`          | `{ ideas: [{ idea, seconds }], medianSeconds, maxSeconds }`, completed ideas only.                         |
-| `bottleneck`        | `{ stage, waitingSeconds, share }` (share 0 to 1), or `null`.                                              |
-| `bottleneckNote`    | Always present: why `bottleneck` is `null` (too few completed ideas, or no waiting recorded), else `null`. |
-| `unmappedEvents`    | Events with no stage or no idea, left out of every stage.                                                  |
-| `attribution`       | `{ events, withIdea, withIdeaAndStage }`: how many events the report can place.                            |
-| `rework`            | Escalations, send-backs and friction per closed idea, see below.                                           |
-| `friction`          | `{ total, sources, unknownKinds }`, see below.                                                             |
-| `guardBlocks`       | `[{ rule, blocks }]`, most blocked first, from `guard.block` events.                                       |
-| `outcomes`          | `{ mainRed, reverts, liveRuns, ownerMinutes }`, see below.                                                 |
-| `skippedLines`      | Ledger lines that were not valid events.                                                                   |
+| Field               | Meaning                                                                                                                                                        |
+| ------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `version`           | Shape version, `13`.                                                                                                                                           |
+| `asOf`              | Time open waits are measured to.                                                                                                                               |
+| `ideas`             | `{ total, completed }`; completed means the issue closed.                                                                                                      |
+| `minCompletedIdeas` | Completed ideas needed before a bottleneck is named.                                                                                                           |
+| `stages`            | Nine entries in loop order: `{ stage, activeSeconds, waitingSeconds, events, toil, wip }`.                                                                     |
+| `leadTime`          | `{ ideas: [{ idea, seconds }], medianSeconds, maxSeconds }`, completed ideas only.                                                                             |
+| `bottleneck`        | `{ stage, waitingSeconds, share }` (share 0 to 1), or `null`.                                                                                                  |
+| `bottleneckNote`    | Always present: why `bottleneck` is `null` (too few completed ideas, or no waiting recorded), else `null`.                                                     |
+| `unmappedEvents`    | Events with no stage or no idea, left out of every stage.                                                                                                      |
+| `attribution`       | `{ since, events, withIdea, withIdeaAndStage, noRoleShare }`: how many role-session events the report can place, and the share of session events with no role. |
+| `rework`            | Escalations, send-backs and friction per closed idea, see below.                                                                                               |
+| `friction`          | `{ total, sources, unknownKinds }`, see below.                                                                                                                 |
+| `guardBlocks`       | `[{ rule, blocks }]`, most blocked first, from `guard.block` events.                                                                                           |
+| `outcomes`          | `{ mainRed, reverts, liveRuns, ownerMinutes }`, see below.                                                                                                     |
+| `skippedLines`      | Ledger lines that were not valid events.                                                                                                                       |
 
 ### Rework and friction metrics
 
@@ -479,12 +479,16 @@ pane's events to a stage by its role suffix and to its idea. The stamp is set
 by the harness at spawn, not typed by the agent. A claude event with no agent
 takes the name its pane was last given by a herdr event, so older ledgers map
 too; a claude session still unnamed is the main session, `orchestrate`.
-`attribution` counts the events in range (cost events and the repository-wide
-events below left out) that have an idea, and an idea and a stage, from the
-moment sessions began carrying the stamp: `since` is the first claude event that
-names its agent, and is `null` until there is one. Events recorded before that
-cannot carry a stamp, so they stay unattributed and are not counted against the
-figure.
+`attribution` counts the role-session events in range (cost events, GitHub
+events and the repository-wide events below left out) that have an idea, and an
+idea and a stage, from the moment sessions began carrying the stamp: `since` is
+the first claude event that names its agent, and is `null` until there is one.
+A role-session event is one whose session was stamped at launch or whose name
+ends in a role; the main session has none. Events recorded before the stamp
+cannot carry one, so they stay unattributed and are not counted against the
+figure. `noRoleShare` is the share, 0 to 1, of the session events since the
+stamp that come from sessions with no role, so it shows how much orchestration
+still runs in the main session; it is `null` when no session event is in range.
 
 A blocked tool call records a `guard.block` event whose `label` is the rule
 name, never the command; `guardBlocks` counts them per rule. The event id holds
@@ -730,13 +734,21 @@ counts, however it was applied, and neither does a comment that carries a
 harness marker (`<!--`) or comes from another login. Enforcing, loosening and
 removing need the same approval.
 
+An approving comment whose first line is a sender line (`sender: ...`) was
+posted by a session, not the owner. It still approves, so the gate is unchanged,
+but the activation warns: the result carries a `warning` naming the comment, the
+warning goes to stderr, and a `guardrail.approval-warned` ledger event is
+recorded for the change before anything is written. Refusing such a comment is
+the owner's decision, not this command's. When the owner's own untagged
+approval is also on the issue, that approval counts and no warning is given.
+
 With the approval it edits the rule's line (or drops it), regenerates the
 settings deny list for a deny rule, and appends a `guardrail.activated` ledger
 event labelled `<rule>:<from>><to>`. A ruleset rule still needs `ruleset sync` to
 reach GitHub. Without a recorded request, an approval or with only a label, it
 exits 1, leaves the file untouched, and posts one refusal comment on the idea's
 issue (a rerun with the same refusal posts nothing). `--json` prints
-`{ rule, from, to, idea, issue, activated, reason?, refusalPosted?, commentUrl? }`.
+`{ rule, from, to, idea, issue, activated, reason?, refusalPosted?, commentUrl?, warning? }`.
 
 Two checks hold the line elsewhere. The guard blocks an Edit or Write of the
 inventory that sets a rule to enforce, or adds one already in enforce

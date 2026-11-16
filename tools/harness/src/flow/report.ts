@@ -1,5 +1,5 @@
 import type { Kind, LedgerEvent } from "../ledger/index.js";
-import { stageResolver, type Stage } from "./stage-of.js";
+import { roleResolver, stageResolver, type Stage } from "./stage-of.js";
 import {
   firstTime,
   githubWaits,
@@ -43,7 +43,7 @@ import {
   type ScopeOptions,
 } from "./scope.js";
 
-export const REPORT_VERSION = 12;
+export const REPORT_VERSION = 13;
 
 export type { StageTotals, Toil } from "./tally.js";
 export type { Scope, ScopeOptions } from "./scope.js";
@@ -265,6 +265,7 @@ export function buildReport(
 ): FlowReport {
   const { asOf, minCompletedIdeas } = options;
   const stageOf = stageResolver(events);
+  const hasRole = roleResolver(events);
   const scope = scopeOf(options);
   const window = windowOf(options);
   const { byIdea, unattributed, orphans, named, landed } = groupByIdea(
@@ -301,11 +302,14 @@ export function buildReport(
       scope.ideas === null ? orphans : [],
       window,
       landed,
-      (event, own) =>
-        stageOf(
-          event,
-          firstTime(own, (e) => e.kind === "pr.merged"),
-        ) !== undefined,
+      {
+        hasStage: (event, own) =>
+          stageOf(
+            event,
+            firstTime(own, (e) => e.kind === "pr.merged"),
+          ) !== undefined,
+        hasRole,
+      },
     ),
     guardBlocks: guardBlocks(named, window),
     outcomes: outcomes(named, window),

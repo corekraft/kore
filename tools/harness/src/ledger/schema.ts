@@ -229,6 +229,7 @@ const RULES: readonly Rule[] = [
       "auto-approved",
       "guardrail.requested",
       "guardrail.activated",
+      "guardrail.approval-warned",
       "idea.filed",
       "retro.dropped",
       "spawn.unstamped",
