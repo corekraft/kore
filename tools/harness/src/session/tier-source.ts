@@ -98,3 +98,21 @@ export function tierOf(deps: CliDeps, options: Options): Promise<TierOrigin> {
     reason: text("reason"),
   });
 }
+
+/** The stage each role's session works; a reader works one only when it names a PR. */
+const ROLE_STAGE: Readonly<Record<string, string>> = {
+  writer: "write",
+  "principles-review": "review",
+  judge: "judge",
+};
+
+/** The stage a session is launched into, or undefined when its role has none; nobody types a stage by hand. */
+export function launchStage(
+  role: string,
+  pr: string | undefined,
+): string | undefined {
+  if (role === "reader") {
+    return pr === undefined ? undefined : "verify";
+  }
+  return Object.hasOwn(ROLE_STAGE, role) ? ROLE_STAGE[role] : undefined;
+}

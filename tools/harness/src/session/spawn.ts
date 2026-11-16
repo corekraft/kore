@@ -51,5 +51,6 @@ export async function spawn(context: CommandContext): Promise<number> {
     },
     timeoutMs: checked.timeoutMs,
     tier: checked.tier,
+    ...(checked.stage === undefined ? {} : { stage: checked.stage }),
   });
 }
