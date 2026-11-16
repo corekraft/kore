@@ -75,45 +75,46 @@ describe("hook feedback records ledger events", () => {
   });
 });
 
-describe("hook feedback records token usage at stop", () => {
-  const TRANSCRIPT = "/home/t/session.jsonl";
-  const turn = (id: string, input: number, output: number, cached = 0) =>
-    JSON.stringify({
-      type: "assistant",
-      message: {
-        id,
-        content: [{ type: "text", text: "private words" }],
-        usage: {
-          input_tokens: input,
-          output_tokens: output,
-          cache_creation_input_tokens: cached,
-          cache_read_input_tokens: 99_999,
-        },
+const STOP_TRANSCRIPT = "/home/t/session.jsonl";
+const usageTurn = (id: string, input: number, output: number, cached = 0) =>
+  JSON.stringify({
+    type: "assistant",
+    message: {
+      id,
+      content: [{ type: "text", text: "private words" }],
+      usage: {
+        input_tokens: input,
+        output_tokens: output,
+        cache_creation_input_tokens: cached,
+        cache_read_input_tokens: 99_999,
       },
-    });
+    },
+  });
 
-  async function stopWith(lines: string[], extra: object = {}) {
-    const h = testHarness({
-      env: { CLAUDE_PROJECT_DIR: root, KORE_ROOT: root },
-    });
-    h.files.set(TRANSCRIPT, lines.join("\n"));
-    h.deps.stdin = () =>
-      Promise.resolve(
-        JSON.stringify({
-          session_id: "s1",
-          transcript_path: TRANSCRIPT,
-          ...extra,
-        }),
-      );
-    await run(["hook", "feedback", "stop"], h.deps);
-    return ledgerEvents(h.files);
-  }
+/** Runs one stop over a transcript of these lines, and returns the ledger events it wrote. */
+async function stopWith(lines: string[], extra: object = {}) {
+  const h = testHarness({
+    env: { CLAUDE_PROJECT_DIR: root, KORE_ROOT: root },
+  });
+  h.files.set(STOP_TRANSCRIPT, lines.join("\n"));
+  h.deps.stdin = () =>
+    Promise.resolve(
+      JSON.stringify({
+        session_id: "s1",
+        transcript_path: STOP_TRANSCRIPT,
+        ...extra,
+      }),
+    );
+  await run(["hook", "feedback", "stop"], h.deps);
+  return ledgerEvents(h.files);
+}
 
+describe("hook feedback records token usage at stop", () => {
   it("records the session's tokens so far, counting each message once and leaving cache reads out", async () => {
     const events = await stopWith([
-      turn("m1", 10, 5),
-      turn("m1", 10, 20),
-      turn("m2", 100, 30, 40),
+      usageTurn("m1", 10, 5),
+      usageTurn("m1", 10, 20),
+      usageTurn("m2", 100, 30, 40),
       "not json",
     ]);
     expect(events).toMatchObject([
@@ -137,8 +138,34 @@ describe("hook feedback records token usage at stop", () => {
 
   it("records nothing on a stop re-entry", async () => {
     expect(
-      await stopWith([turn("m1", 1, 1)], { stop_hook_active: true }),
+      await stopWith([usageTurn("m1", 1, 1)], { stop_hook_active: true }),
     ).toEqual([]);
+  });
+});
+
+describe("hook feedback records the session result at stop (#853)", () => {
+  it("records session.result with only the outcome word, between the stop and the tokens, and keeps none of the turn's text", async () => {
+    const said = (id: string, text: string, usage?: object) =>
+      JSON.stringify({
+        type: "assistant",
+        message: { id, content: [{ type: "text", text }], usage },
+      });
+    const events = await stopWith([
+      said("m1", "working on the tests"),
+      said("m2", "all green\nRESULT: blocked", { input_tokens: 10 }),
+      "",
+    ]);
+    expect(events).toMatchObject([
+      { kind: "session.stop" },
+      {
+        kind: "session.result",
+        session: "s1",
+        source: "claude",
+        result: "blocked",
+      },
+      { kind: "token.usage", tokens: 10 },
+    ]);
+    expect(JSON.stringify(events)).not.toMatch(/all green|working on/);
   });
 });
 

@@ -131,12 +131,25 @@ describe("feedback token reads, what is counted", () => {
     expect(await readTokens(port(fs), undefined, state)).toEqual({
       total: 0,
       grew: false,
+      added: "",
     });
     expect(await readTokens(port(fs), "", state)).toEqual({
       total: 0,
       grew: false,
+      added: "",
     });
     expect(fs.readFrom).not.toHaveBeenCalled();
+  });
+
+  it("returns only the complete lines it read as added, so a half-written turn is never read as its outcome", async () => {
+    const fs = fakeFs();
+    fs.readFile.mockResolvedValue(JSON.stringify(saved));
+    fs.readFrom.mockResolvedValue(`${usage("m1", 5, 0)}\n{"type":"assi`);
+    expect(await readTokens(port(fs), "/t.jsonl", state)).toEqual({
+      total: 15,
+      grew: true,
+      added: `${usage("m1", 5, 0)}\n`,
+    });
   });
 
   it("reads the transcript from the saved offset, and saves the new state", async () => {
@@ -146,6 +159,7 @@ describe("feedback token reads, what is counted", () => {
     expect(await readTokens(port(fs), "/t.jsonl", state)).toEqual({
       total: 15,
       grew: true,
+      added: `${usage("m1", 5, 0)}\n`,
     });
     expect(fs.readFrom.mock.calls).toEqual([["/t.jsonl", 4]]);
     expect(fs.writeFile.mock.calls).toEqual([
@@ -170,12 +184,14 @@ describe("feedback token reads, damaged and unreadable input", () => {
     expect(await readTokens(port(fs), "/t.jsonl", state)).toEqual({
       total: 0,
       grew: false,
+      added: "",
     });
     fs.readFile.mockResolvedValueOnce("{");
     fs.readFrom.mockResolvedValueOnce("");
     expect(await readTokens(port(fs), "/t.jsonl", state)).toEqual({
       total: 0,
       grew: false,
+      added: "",
     });
     expect(fs.readFrom.mock.calls).toEqual([
       ["/t.jsonl", 0],
@@ -198,6 +214,7 @@ describe("feedback token reads, damaged and unreadable input", () => {
     expect(await readTokens(port(fs), "/t.jsonl", state)).toEqual({
       total: 10,
       grew: false,
+      added: "",
     });
     expect(fs.writeFile).not.toHaveBeenCalled();
   });
@@ -209,6 +226,7 @@ describe("feedback token reads, damaged and unreadable input", () => {
     expect(await readTokens(port(fs), "/t.jsonl", state)).toEqual({
       total: 0,
       grew: false,
+      added: "",
     });
   });
 });

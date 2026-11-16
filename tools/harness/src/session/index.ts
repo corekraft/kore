@@ -2,6 +2,7 @@
 import type { Command } from "../runtime/index.js";
 export { handOff } from "./handoff.js";
 export { FOLLOW_UP_PREFIX } from "./follow-up-prefix.js";
+export { findResult } from "./wait.js";
 import { check } from "./check.js";
 import { close } from "./close.js";
 import { equalize } from "./equalize.js";
