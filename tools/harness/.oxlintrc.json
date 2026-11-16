@@ -149,6 +149,10 @@
             "message": "import from the runtime barrel (runtime/index.js), not one of its files"
           },
           {
+            "group": ["**/sender/**", "!**/sender/index.js"],
+            "message": "import from the sender barrel (sender/index.js), not one of its files"
+          },
+          {
             "group": ["**/session/**", "!**/session/index.js"],
             "message": "import from the session barrel (session/index.js), not one of its files"
           },
@@ -270,6 +274,10 @@
               {
                 "group": ["**/runtime/**", "!**/runtime/index.js"],
                 "message": "import from the runtime barrel (runtime/index.js), not one of its files"
+              },
+              {
+                "group": ["**/sender/**", "!**/sender/index.js"],
+                "message": "import from the sender barrel (sender/index.js), not one of its files"
               },
               {
                 "group": ["**/session/**", "!**/session/index.js"],
