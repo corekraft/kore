@@ -42,6 +42,10 @@ test("docker, which is a host prerequisite mise does not install, may live only 
   assert.deepEqual(comparePinnedTools({}, { docker: "29.7.2" }), []);
 });
 
+test("herdr, a developer tool the platform catalog does not mirror, may live only in .mise.toml", () => {
+  assert.deepEqual(comparePinnedTools({ herdr: "0.9.5" }, {}), []);
+});
+
 test("an allow-list entry that is pinned in both files is reported as stale", () => {
   assert.deepEqual(
     comparePinnedTools({ docker: "29.7.2" }, { docker: "29.7.2" }),

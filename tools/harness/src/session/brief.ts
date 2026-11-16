@@ -1,3 +1,5 @@
+import { extractPaths, skillsForPaths } from "./skill-lookup.js";
+
 export interface BriefInput {
   task: string;
   name: string;
@@ -30,6 +32,28 @@ const REVIEW_FOLLOW_UP = [
   "- While a live proof is pinned to a head, change no code, because a change invalidates that proof.",
 ].join("\n");
 
+/** The skills section: the skills the task's paths call for, or a statement that none was named. */
+function skillSection(task: string): string {
+  const skills = skillsForPaths(extractPaths(task));
+  if (skills.length === 0) {
+    return [
+      "Skills:",
+      "- No skill was named, because the brief names no path that one covers.",
+      "- `test-driven-development` always applies; load it with the Skill tool.",
+    ].join("\n");
+  }
+  const named = skills.map((skill) => `\`${skill}\``);
+  const list =
+    named.length === 1
+      ? named[0]
+      : `${named.slice(0, -1).join(", ")} and ${named[named.length - 1]}`;
+  return [
+    "Skills for the paths you change:",
+    `- Load ${list} with the Skill tool before you edit.`,
+    "- `test-driven-development` always applies.",
+  ].join("\n");
+}
+
 /** The task, the session name, the review follow-up for pushing roles, and the finish instructions. */
 export function buildBrief({
   task,
@@ -39,7 +63,7 @@ export function buildBrief({
 }: BriefInput): string {
   const followUp =
     role !== undefined && PUSHING_ROLES.has(role)
-      ? [LOCAL_CHECKS, "", REVIEW_FOLLOW_UP, ""]
+      ? [skillSection(task), "", LOCAL_CHECKS, "", REVIEW_FOLLOW_UP, ""]
       : [];
   return [
     task,

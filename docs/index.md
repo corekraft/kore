@@ -293,8 +293,6 @@ decisions; read one only when planning that area, and expect it to change.
   adding a pinned version.
 - [`skills/retro/SKILL.md`](../skills/retro/SKILL.md) — reviewing recent
   sessions and proposing harness changes.
-- [`skills/spawn-session/SKILL.md`](../skills/spawn-session/SKILL.md) — starting
-  a verifier or fixer session in a Herdr pane.
 - [`skills/test-driven-development/SKILL.md`](../skills/test-driven-development/SKILL.md)
   — writing the failing test first for any code or hook change.
 - [`skills/write-adr/SKILL.md`](../skills/write-adr/SKILL.md) — recording an
