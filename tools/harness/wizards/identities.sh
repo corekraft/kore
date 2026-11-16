@@ -424,6 +424,14 @@ app_identity orchestrator kore-orchestrator \
   "Contents → Read-only" \
   "Metadata → Read-only"
 
+# ── 12–14 ─────────────────────────────────────────────────────────────────
+# The judge approves PRs the owner-authored writer opens (ADR 0122), so it is an App,
+# not the machine user above; the owner-writer flag switches spawn over to it.
+app_identity judge kore-judge \
+  "Pull requests → Read and write" \
+  "Contents → Read-only" \
+  "Metadata → Read-only"
+
 say "Identities are in place. Next: \`harness ruleset sync --dry-run\`, then the owner's OK."
 say "Break-glass after the sync removes your bypass is a logged manual ruleset edit."
 
