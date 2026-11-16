@@ -21,6 +21,7 @@ export {
   type Source,
 } from "./schema.js";
 export type { TierOrigin, TierSource } from "./schema-tier.js";
+export type { RetroOrigin } from "./schema-result.js";
 export {
   SEND_BACK_CATEGORIES,
   type SendBackCategory,

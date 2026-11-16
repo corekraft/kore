@@ -123,6 +123,7 @@ describe("scan: which sessions it keeps", () => {
       "skills",
       "subagents",
       "bareCommands",
+      "mainSession",
       "corrections",
       "rules",
     ]);

@@ -28,6 +28,7 @@
       "automatic-approval": false,
       "automatic-revert": false,
       "orchestrator-tick": false,
+      "main-session-figures": false,
       "decision-advisor": true
     },
   "imageInventory": "audit",

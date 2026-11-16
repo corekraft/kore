@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { LedgerEvent } from "../ledger/index.js";
+import { mainSessionFigures } from "./main-session.js";
 import { mergedChangeFigures } from "./merged-figures.js";
 import { mergedChangeLeadTime } from "./merged-lead-time.js";
 import { mergedChangeSendBacks } from "./merged-send-backs.js";
@@ -11,11 +12,23 @@ import { STAGES, type Stage } from "./stages.js";
 import { mergedChangeTokens } from "./merged-tokens.js";
 import { mergedChangeWriterCost } from "./writer-cost.js";
 
+vi.mock("./main-session.js");
 vi.mock("./merged-lead-time.js");
 vi.mock("./merged-send-backs.js");
 vi.mock("./merged-stage-tokens.js");
 vi.mock("./merged-tokens.js");
 vi.mock("./writer-cost.js");
+
+const NO_SCAN = {
+  status: "insufficient",
+  reason: "no retro scan recorded in the window",
+} as const;
+
+const MAIN_SESSION = {
+  foregroundPollMinutesPerMerged: NO_SCAN,
+  paneReadsPerFinishedPane: NO_SCAN,
+  signedSendShare: NO_SCAN,
+} as const;
 
 const INSUFFICIENT = {
   status: "insufficient merged changes",
@@ -59,6 +72,7 @@ beforeEach(() => {
   vi.mocked(tokensByStage).mockReturnValue(BY_STAGE);
   vi.mocked(mergedChangeStageTokens).mockReturnValue(TOKENS);
   vi.mocked(mergedChangeWriterCost).mockReturnValue(WRITER_COST);
+  vi.mocked(mainSessionFigures).mockReturnValue(MAIN_SESSION);
 });
 
 describe("mergedChangeFigures: the figures over one window", () => {
@@ -83,6 +97,11 @@ describe("mergedChangeFigures: the figures over one window", () => {
       window,
       options,
     );
+    expect(mainSessionFigures).toHaveBeenCalledWith(
+      events,
+      window,
+      options.cost,
+    );
     expect(r).toEqual({
       tokensPerMergedChange: TOKENS,
       sendBacksPerMergedChange: SEND_BACKS,
@@ -90,6 +109,7 @@ describe("mergedChangeFigures: the figures over one window", () => {
       tokensByStage: BY_STAGE,
       tokensByStagePerMergedChange: TOKENS,
       writerCost: WRITER_COST,
+      mainSession: MAIN_SESSION,
     });
   });
 });
