@@ -171,6 +171,11 @@ export const isOrchestratorBrief = (text: string): boolean =>
   LEGACY_TAG.test(text) ||
   SESSION_NAME_LINE.test(text);
 
+/** The session name a spawn brief names on its own line, or undefined when the text names none. */
+export function briefSessionName(text: string): string | undefined {
+  return SESSION_NAME_LINE.exec(text)?.[1];
+}
+
 export const readsAsCorrection = (text: string): boolean =>
   CORRECTION_WORD.test(text);
 

@@ -3,8 +3,10 @@
 // SessionAnalysis runs.
 
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { bareSends } from "./retro-bare.js";
 import {
   blocksOf,
+  briefSessionName,
   callSignature,
   humanText,
   isOrchestratorBrief,
@@ -27,6 +29,7 @@ import {
 } from "./retro-session-support.js";
 
 vi.mock("./retro-transcript.js");
+vi.mock("./retro-bare.js");
 
 const { SessionAnalysis } = await import("./retro-session.js");
 
@@ -37,6 +40,8 @@ beforeEach(() => {
   vi.mocked(humanText).mockReturnValue(null);
   vi.mocked(resultText).mockImplementation((block) => String(block.content));
   vi.mocked(summarizeError).mockImplementation((text) => `summary of ${text}`);
+  vi.mocked(bareSends).mockReturnValue([]);
+  vi.mocked(briefSessionName).mockReturnValue(undefined);
 });
 
 describe("session analysis warnings", () => {

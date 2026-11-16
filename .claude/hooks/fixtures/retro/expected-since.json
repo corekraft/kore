@@ -62,6 +62,10 @@
     ]
   },
   "subagents": {},
+  "bareCommands": {
+    "perSession": {},
+    "perRole": {}
+  },
   "corrections": [
     {
       "id": "f556c47a",
