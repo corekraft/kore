@@ -83,6 +83,117 @@ export interface RunResult {
   rounds: number;
 }
 
+/** The escalation a writer has reached: whether its PR was escalated, and the model its relaunch uses. */
+export interface Escalation {
+  escalated: boolean;
+  model: string | undefined;
+}
+
+type QueuedIdea = Extract<QueueItem, { kind: "idea" }>;
+
+/** The pane stage: spawn, wait for its result, then close it, so no pane is left running. */
+export async function runPane(
+  harness: Harness,
+  launch: Launch,
+): Promise<"done" | "blocked"> {
+  await harness.spawn(launch);
+  const outcome = await harness.wait(launch.name);
+  await harness.close(launch.name);
+  return outcome;
+}
+
+/** The writer stage: runs the writer in a worktree; the PR it left, or undefined when it blocked or opened none. */
+export async function writerStage(
+  harness: Harness,
+  idea: string,
+  issue: number,
+  model: string | undefined,
+): Promise<number | undefined> {
+  const outcome = await runPane(harness, {
+    role: "writer",
+    name: `idea-${idea}-writer`,
+    issue,
+    worktree: true,
+    ...(model === undefined ? {} : { model }),
+    brief: `Deliver idea ${idea} (issue #${issue}) as one pull request that says \`Refs #${issue}\`. Do not merge.`,
+  });
+  return outcome === "done" ? (await harness.delivery(issue)).pr : undefined;
+}
+
+/** The review stage: the Reviewer posts its verdict for the PR's head; throws when it posts none. */
+export async function reviewStage(harness: Harness, pr: number): Promise<void> {
+  await harness.review(pr);
+}
+
+/** The precheck stage: read-only; whether the writer must fix the change before any judge pane. */
+export function precheckStage(
+  harness: Harness,
+  pr: number,
+): Promise<PrecheckVerdict> {
+  return harness.precheck(pr);
+}
+
+/** The send-back stage: posts the reason on the PR and records the send-back with its category. */
+export async function sendBackStage(
+  harness: Harness,
+  pr: number,
+  reason: string,
+  category: SendBackCategory,
+): Promise<void> {
+  await harness.sendBack(pr, reason, category);
+}
+
+/** The judge stage: runs the judge pane for the PR; whether the PR has merged. */
+export async function judgeStage(
+  harness: Harness,
+  idea: string,
+  pr: number,
+  issue: number,
+): Promise<boolean> {
+  await runPane(harness, {
+    role: "judge",
+    name: `idea-${idea}-judge`,
+    issue,
+    brief: `Judge PR #${pr} for idea ${idea} (issue #${issue}): run the precheck, then approve and merge it, or send it back with the reason.`,
+  });
+  return (await harness.delivery(issue)).merged;
+}
+
+/** The escalation stage: after a send-back, reads the PR's tier; escalates the PR once and takes the tier's model. */
+export async function escalateStage(
+  harness: Harness,
+  pr: number,
+  state: Escalation,
+): Promise<Escalation> {
+  const tier = await harness.sendBacks(pr);
+  if (!tier.escalate) {
+    return state;
+  }
+  if (!state.escalated) {
+    await harness.escalate(pr);
+  }
+  return { escalated: true, model: tier.model };
+}
+
+/** The queue stage: reads the queue; the idea's queued item, or undefined when it is not queued. */
+export async function queueStage(
+  harness: Harness,
+  idea: string,
+): Promise<QueuedIdea | undefined> {
+  return (await harness.queue()).find(
+    (item): item is QueuedIdea => item.kind === "idea" && item.idea === idea,
+  );
+}
+
+/** The outcome stage: writes the measured outcome, which closes the idea's issue. */
+export async function outcomeStage(
+  harness: Harness,
+  idea: string,
+  outcome: Measured,
+): Promise<void> {
+  await harness.recordOutcome(idea, outcome);
+}
+
 /**
  * Drives one approved idea to an outcome: a writer, then a judge, repeated while
  * the judge sends the change back. A failing precheck sends the change back
@@ -108,59 +219,34 @@ export class IdeaRun {
     idea: string,
     outcome: Measured | undefined,
   ): Promise<RunResult> {
-    const queued = (await this.harness.queue()).find(
-      (item) => item.kind === "idea" && item.idea === idea,
-    );
-    if (queued?.kind !== "idea") {
+    const queued = await queueStage(this.harness, idea);
+    if (queued === undefined) {
       return { status: "not-queued", rounds: 0 };
     }
-    let model: string | undefined;
-    let escalated = false;
+    let escalation: Escalation = { escalated: false, model: undefined };
     for (let round = 1; round <= MAX_ROUNDS; round++) {
-      const pr = await this.write(idea, queued.issue, model);
+      const pr = await writerStage(
+        this.harness,
+        idea,
+        queued.issue,
+        escalation.model,
+      );
       if (pr === undefined) {
         return { status: "blocked", rounds: round };
       }
       if (!(await this.judge(idea, pr, queued.issue))) {
-        const tier = await this.harness.sendBacks(pr);
-        if (tier.escalate) {
-          if (!escalated) {
-            await this.harness.escalate(pr);
-            escalated = true;
-          }
-          model = tier.model;
-        }
+        escalation = await escalateStage(this.harness, pr, escalation);
         // Between pieces of work: no pane is running now.
-        await this.harness.queue();
+        await queueStage(this.harness, idea);
         continue;
       }
       if (outcome === undefined) {
         return { status: "awaiting-outcome", rounds: round };
       }
-      await this.harness.recordOutcome(idea, outcome);
+      await outcomeStage(this.harness, idea, outcome);
       return { status: "outcome-recorded", rounds: round };
     }
     return { status: "gave-up", rounds: MAX_ROUNDS };
-  }
-
-  /** Runs a writer to its result; the PR it left, or undefined when it blocked or opened none. */
-  private async write(
-    idea: string,
-    issue: number,
-    model: string | undefined,
-  ): Promise<number | undefined> {
-    const name = `idea-${idea}-writer`;
-    const outcome = await this.pane({
-      role: "writer",
-      name,
-      issue,
-      worktree: true,
-      ...(model === undefined ? {} : { model }),
-      brief: `Deliver idea ${idea} (issue #${issue}) as one pull request that says \`Refs #${issue}\`. Do not merge.`,
-    });
-    return outcome === "done"
-      ? (await this.harness.delivery(issue)).pr
-      : undefined;
   }
 
   /** Runs the review and the precheck, then the judge on a pass; whether the PR merged. A failing precheck launches no judge. */
@@ -170,25 +256,12 @@ export class IdeaRun {
     issue: number,
   ): Promise<boolean> {
     // The precheck reads the posted verdict, so the head is reviewed first.
-    await this.harness.review(pr);
-    const verdict = await this.harness.precheck(pr);
+    await reviewStage(this.harness, pr);
+    const verdict = await precheckStage(this.harness, pr);
     if (verdict.sendBack) {
-      await this.harness.sendBack(pr, verdict.reason, verdict.category);
+      await sendBackStage(this.harness, pr, verdict.reason, verdict.category);
       return false;
     }
-    await this.pane({
-      role: "judge",
-      name: `idea-${idea}-judge`,
-      issue,
-      brief: `Judge PR #${pr} for idea ${idea} (issue #${issue}): run the precheck, then approve and merge it, or send it back with the reason.`,
-    });
-    return (await this.harness.delivery(issue)).merged;
-  }
-
-  private async pane(launch: Launch): Promise<"done" | "blocked"> {
-    await this.harness.spawn(launch);
-    const outcome = await this.harness.wait(launch.name);
-    await this.harness.close(launch.name);
-    return outcome;
+    return judgeStage(this.harness, idea, pr, issue);
   }
 }
