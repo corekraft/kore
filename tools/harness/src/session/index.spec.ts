@@ -196,3 +196,12 @@ describe("session equalize runs only inside Herdr", () => {
     expect(out.join("")).toBe("");
   });
 });
+
+describe("the session domain's spawn usage", () => {
+  it("describes the owner-writer flag's writer and judge identities", () => {
+    const summary = session.spawn?.summary ?? "";
+    expect(summary).toContain(
+      "with the owner-writer flag also on (off by default), a writer pane gets the owner's own gh login token, read with gh auth token at spawn (a failure refuses and says to run gh auth login), and a judge pane a minted kore-judge installation token instead of the judge PAT",
+    );
+  });
+});

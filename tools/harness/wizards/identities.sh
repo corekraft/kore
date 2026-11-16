@@ -206,7 +206,7 @@ finish() {
 
 run_wizard() {
 
-TOTAL_STAGES=11
+TOTAL_STAGES=14
 ORG="corekraft"
 REPO="corekraft/kore"
 ACCOUNT="kore"
@@ -420,6 +420,14 @@ app_identity reviewer kore-reviewer \
 # The tick, its judgment panes and the advisor (ADR 0121, ADR 0120).
 app_identity orchestrator kore-orchestrator \
   "Issues → Read and write" \
+  "Pull requests → Read and write" \
+  "Contents → Read-only" \
+  "Metadata → Read-only"
+
+# ── 12–14 ─────────────────────────────────────────────────────────────────
+# The judge approves PRs the owner-authored writer opens (ADR 0122), so it is an App,
+# not the machine user above; the owner-writer flag switches spawn over to it.
+app_identity judge kore-judge \
   "Pull requests → Read and write" \
   "Contents → Read-only" \
   "Metadata → Read-only"

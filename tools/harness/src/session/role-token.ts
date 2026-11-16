@@ -18,7 +18,7 @@ const JUDGE_PAT_SERVICE = "kore.judge.pat";
 /** A GitHub App identity: its keychain items, its name, and the grant its installation token asks for. */
 interface AppIdentity {
   /** The identity's name, as the missing-item and wizard messages say it. */
-  readonly label: "writer" | "reviewer" | "orchestrator";
+  readonly label: "writer" | "reviewer" | "orchestrator" | "judge";
   /** The App's name, as the mint error says it. */
   readonly app: string;
   readonly service: {
@@ -33,7 +33,7 @@ interface AppIdentity {
   };
 }
 
-/** The three GitHub Apps. Each one is installed on the repository only, and its grant is its own. */
+/** The GitHub Apps. Each one is installed on the repository only, and its grant is its own. */
 const APPS = {
   writer: {
     label: "writer",
@@ -69,6 +69,23 @@ const APPS = {
       },
     },
   },
+  judge: {
+    label: "judge",
+    app: "kore-judge",
+    service: {
+      appId: "kore.judge.app-id",
+      installationId: "kore.judge.installation-id",
+      privateKey: "kore.judge.private-key",
+    },
+    grant: {
+      repositories: [REPOSITORY],
+      permissions: {
+        pull_requests: "write",
+        contents: "read",
+        metadata: "read",
+      },
+    },
+  },
   orchestrator: {
     label: "orchestrator",
     app: "kore-orchestrator",
@@ -90,14 +107,13 @@ const APPS = {
 } as const satisfies Record<string, AppIdentity>;
 
 /** The identity a role's pane gets: one GitHub App's token, or the judge's PAT. A role not listed gets none. */
-const IDENTITY_OF_ROLE: ReadonlyMap<string, keyof typeof APPS | "judge"> =
-  new Map([
-    ["writer", "writer"],
-    ["judge", "judge"],
-    ["principles-review", "reviewer"],
-    ["orchestrator", "orchestrator"],
-    ["advisor", "orchestrator"],
-  ]);
+const IDENTITY_OF_ROLE: ReadonlyMap<string, keyof typeof APPS> = new Map([
+  ["writer", "writer"],
+  ["judge", "judge"],
+  ["principles-review", "reviewer"],
+  ["orchestrator", "orchestrator"],
+  ["advisor", "orchestrator"],
+]);
 
 export type RoleToken = { token: string } | { error: string };
 
@@ -227,21 +243,42 @@ async function mintApp(deps: CliDeps, app: AppIdentity): Promise<RoleToken> {
 export const ROLE_TOKENS_FLAG = "role-tokens";
 const FLAG_ENVIRONMENT = "local";
 
-/** Whether the local overlay turns role tokens on. No overlay means off; a malformed one throws a FlagError. */
-export async function roleTokensOn(deps: CliDeps): Promise<boolean> {
+/** The feature flag (ADR 0077) that makes writer panes act as the owner and judge panes use the kore-judge App; off unless true. */
+export const OWNER_WRITER_FLAG = "owner-writer";
+
+/** Whether the local overlay turns a flag on. No overlay means off; a malformed one throws a FlagError. */
+async function localFlag(deps: CliDeps, flag: string): Promise<boolean> {
   const root = await deps.root();
   if (!(await environments(deps.fs, root)).includes(FLAG_ENVIRONMENT)) {
     return false;
   }
   const overlay = await readOverlay(deps.fs, root, FLAG_ENVIRONMENT);
-  return overlay.features[ROLE_TOKENS_FLAG] === true;
+  return overlay.features[flag] === true;
+}
+
+/** Whether the local overlay turns role tokens on. No overlay means off; a malformed one throws a FlagError. */
+export const roleTokensOn = (deps: CliDeps): Promise<boolean> =>
+  localFlag(deps, ROLE_TOKENS_FLAG);
+
+/** The owner's own gh login token, read in the main session; an error telling the owner to log in when there is none. */
+async function ownerToken(deps: CliDeps): Promise<RoleToken> {
+  const read = await deps.runner.run("gh", ["auth", "token"]);
+  const value = read.stdout.trim();
+  return read.code === 0 && value !== ""
+    ? { token: value }
+    : {
+        error:
+          "The owner-writer flag is on but `gh auth token` returned no token. Run `gh auth login`, then rerun. No pane was split.",
+      };
 }
 
 /**
  * The GitHub token a role's pane gets: a minted installation token for the
  * writer, the reviewer and the orchestrator Apps (the advisor pane uses the
- * orchestrator's, ADR 0120), the keychain PAT for the judge. Every other role,
- * the main session included, gets none (undefined)
+ * orchestrator's, ADR 0120), the keychain PAT for the judge. With the
+ * owner-writer flag also on, the writer gets the owner's own gh login token
+ * and the judge a minted kore-judge installation token instead. Every other
+ * role, the main session included, gets none (undefined)
  * and the keychain is not read. So does every role while the role-tokens flag
  * is off, so spawn behaves as it did before.
  */
@@ -253,17 +290,22 @@ export async function roleToken(
   if (identity === undefined) {
     return undefined;
   }
+  let ownerWriter = false;
   try {
     if (!(await roleTokensOn(deps))) {
       return undefined;
     }
+    ownerWriter = await localFlag(deps, OWNER_WRITER_FLAG);
   } catch (error) {
     if (error instanceof FlagError) {
       return { error: `${error.message} No pane was split.` };
     }
     throw error;
   }
-  return identity === "judge"
+  if (ownerWriter && identity === "writer") {
+    return await ownerToken(deps);
+  }
+  return identity === "judge" && !ownerWriter
     ? await fromKeychain(deps, JUDGE_PAT_SERVICE, "judge")
     : await mintApp(deps, APPS[identity]);
 }

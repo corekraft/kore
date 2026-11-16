@@ -142,7 +142,7 @@ describe("buildReport per-merged-change figures (#829, #830)", () => {
     );
   });
 
-  it("versions the report to 21, since the qualifier figure joined it (#866)", () => {
-    expect(run([]).version).toBe(21);
+  it("versions the report to 22, since the qualifier figure joined it (#866)", () => {
+    expect(run([]).version).toBe(22);
   });
 });

@@ -486,6 +486,17 @@ ratio is above that average. A review from before `findings` was recorded is
 review gives null, never zero, and the first window's null trailing average is a
 baseline, not a comparison.
 
+`review resample` re-reviews a sample of the passed reviews (#852). It draws
+`--size` (default 5, a placeholder) from the passed reviews of merged PRs whose
+head no re-review has taken yet, passed or failed, one Sonnet reader per head on
+the override tier, which `session spawn` records with its reason. Each re-review
+writes a `review.run` labelled `resample:<head>` with its `findings`, or
+`resample-failed:<head>` when the reader ends blocked or with no verdict. It
+posts nothing to GitHub, and `reviewMisses.resample` counts the re-reviews in the
+range beside the ratio: `count` that read a verdict, `found` with at least one
+violation, and its `share`, null when there are none. A re-review is never in
+the reviews the ratio is taken over.
+
 `finishDetection` counts the finishes the ledger holds (#853). The Stop hook
 records a `session.result` carrying only the outcome word, when the turn's
 assistant text printed a RESULT line. `session wait` records a `pane.finished`

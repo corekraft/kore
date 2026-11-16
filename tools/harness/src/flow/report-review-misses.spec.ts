@@ -33,6 +33,7 @@ const FIGURE = {
     worsened: false,
   },
   foundViolation: { count: 1, share: 0.5, trailingAverage: null },
+  resample: { count: 1, found: 0, share: 0 },
 };
 
 beforeEach(() => {
@@ -58,6 +59,6 @@ describe("buildReport review misses (#851)", () => {
   it("versions the report to 17 when the review figures join it, since a field changed", () => {
     fakeTally();
     const report = buildReport([], { asOf: ASOF, minCompletedIdeas: 1 });
-    expect(report.version).toBe(21);
+    expect(report.version).toBe(22);
   });
 });
