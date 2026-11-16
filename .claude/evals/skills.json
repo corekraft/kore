@@ -28,10 +28,6 @@
     "expect": "retro"
   },
   {
-    "prompt": "Spin up a verifier session in a new herdr pane and have it check the brief after /clear.",
-    "expect": "spawn-session"
-  },
-  {
     "prompt": "Explain what the guard hook blocks and why.",
     "expect": null
   },

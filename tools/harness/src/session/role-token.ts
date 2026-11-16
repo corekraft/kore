@@ -157,7 +157,7 @@ export const ROLE_TOKENS_FLAG = "role-tokens";
 const FLAG_ENVIRONMENT = "local";
 
 /** Whether the local overlay turns role tokens on. No overlay means off; a malformed one throws a FlagError. */
-async function flagOn(deps: CliDeps): Promise<boolean> {
+export async function roleTokensOn(deps: CliDeps): Promise<boolean> {
   const root = await deps.root();
   if (!(await environments(deps.fs, root)).includes(FLAG_ENVIRONMENT)) {
     return false;
@@ -180,7 +180,7 @@ export async function roleToken(
     return undefined;
   }
   try {
-    if (!(await flagOn(deps))) {
+    if (!(await roleTokensOn(deps))) {
       return undefined;
     }
   } catch (error) {

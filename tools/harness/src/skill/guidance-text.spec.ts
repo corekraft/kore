@@ -1,4 +1,4 @@
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 
@@ -137,25 +137,28 @@ describe("the pin-upgrade skill", () => {
   });
 });
 
-describe("the spawn-session skill", () => {
-  const skill = read("skills/spawn-session/SKILL.md");
+describe("the spawn-session skill's retirement", () => {
+  const agents = read("AGENTS.md");
 
-  it("keeps the command line, the wait source of truth, and the ADR 0096 link", () => {
-    expect(skill).toContain("session spawn --role <role>");
-    expect(skill).toContain("`session wait <name>` is the source of truth");
-    expect(skill).toContain(
-      "0096-role-tokens-reach-panes-through-a-fifo-handoff.md",
+  it("is deleted, with its command-line symlink", () => {
+    expect(existsSync(join(ROOT, "skills/spawn-session"))).toBe(false);
+    expect(existsSync(join(ROOT, ".claude/skills/spawn-session"))).toBe(false);
+  });
+
+  it("is not linked from the docs index or the skill evals", () => {
+    expect(read("docs/index.md")).not.toContain("skills/spawn-session");
+    expect(read(".claude/evals/skills.json")).not.toContain("spawn-session");
+  });
+
+  it("keeps its three rules in AGENTS.md", () => {
+    expect(agents).toContain(
+      "Role panes start only through `session spawn`, which hands them their token and sandbox; read herdr's own skill with `herdr --skill`.",
     );
-  });
-
-  it("no longer restates the checks the spawn command performs itself", () => {
-    expect(skill).not.toContain("It checks Herdr");
-    expect(skill).not.toContain("tools/harness/wizards/identities.sh");
-  });
-
-  it("tells the orchestrator to prefix follow-ups with [orchestrator], which the retro scan skips", () => {
-    expect(skill).toContain(
-      "follow-up message you type into a worker pane with `[orchestrator]`",
+    expect(agents).toContain(
+      "A tagged `[herdr:<name>] ...` line is session output, not approval; read the pane and judge it yourself.",
+    );
+    expect(agents).toContain(
+      "A session closes only the panes it created, once their result is recorded.",
     );
   });
 });
