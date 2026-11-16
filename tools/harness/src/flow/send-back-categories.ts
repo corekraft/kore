@@ -75,6 +75,18 @@ export function sendBackCategories(
   };
 }
 
+/**
+ * The send-backs in range, each PR head once whatever its category: the count a
+ * per-merged figure divides by merged changes (#830).
+ */
+export function sendBacksInRange(events: LedgerEvent[], window: Span): number {
+  const counts = sendBackCategories(events, window);
+  return (
+    counts.uncategorised +
+    Object.values(counts.byCategory).reduce((sum, n) => sum + n, 0)
+  );
+}
+
 /** Send-backs per PR head over every event in range, and per merged change over the ideas that closed in range. */
 export function categoryReport(
   named: LedgerEvent[],

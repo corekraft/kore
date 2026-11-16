@@ -41,6 +41,8 @@ const KEYS = [
   "ownerQuestions",
   "reviewMisses",
   "tokensPerMergedChange",
+  "sendBacksPerMergedChange",
+  "leadTimePerMergedChange",
   "tierShares",
   "unstampedSpawns",
   "finishDetection",
