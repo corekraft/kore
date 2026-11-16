@@ -49,6 +49,7 @@ const KEYS = [
   "tierShares",
   "unstampedSpawns",
   "finishDetection",
+  "stalledPanes",
   "skippedLines",
 ];
 

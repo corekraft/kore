@@ -1,7 +1,13 @@
 import type { Clock, FileSystem, Runner } from "../runtime/index.js";
+import { plannedStalls } from "./herdr-stall.js";
 import { acquire } from "./poll-lock.js";
 import type { Ledger } from "./ledger.js";
-import { isName, type EventInput, type Kind } from "./schema.js";
+import {
+  isName,
+  type EventInput,
+  type Kind,
+  type LedgerEvent,
+} from "./schema.js";
 
 export type PollResult =
   | { ok: true; recorded: number; events: EventInput[] }
@@ -89,10 +95,9 @@ async function listAgents(runner: Runner): Promise<Listed> {
 }
 
 /** The last recorded pane kind for each pane: the ledger itself is the state. */
-async function lastRecorded(
-  ledger: Ledger,
-): Promise<Map<string, { kind: Kind; agent?: string }>> {
-  const { events } = await ledger.list({ source: "herdr" });
+function lastRecorded(
+  events: readonly LedgerEvent[],
+): Map<string, { kind: Kind; agent?: string }> {
   const last = new Map<string, { kind: Kind; agent?: string }>();
   for (const event of events) {
     if (event.pane !== undefined && PANE_KINDS.includes(event.kind)) {
@@ -179,12 +184,19 @@ async function poll(deps: {
   runner: Runner;
   clock: Clock;
 }): Promise<PollResult> {
-  const observedAt = deps.clock.now().toISOString();
+  const now = deps.clock.now();
+  const observedAt = now.toISOString();
   const listed = await listAgents(deps.runner);
   if ("message" in listed) {
     return { ok: false, message: listed.message };
   }
-  const planned = plan(listed, await lastRecorded(deps.ledger), observedAt);
+  const herdr = (await deps.ledger.list({ source: "herdr" })).events;
+  // Claude's events carry the background marks the stall check reads (#854); the check ignores every other kind, token usage included.
+  const claude = (await deps.ledger.list({ source: "claude" })).events;
+  const planned = [
+    ...plan(listed, lastRecorded(herdr), observedAt),
+    ...plannedStalls(herdr, claude, now),
+  ];
   for (const input of planned) {
     const result = await deps.ledger.record(input);
     if (!result.ok) {

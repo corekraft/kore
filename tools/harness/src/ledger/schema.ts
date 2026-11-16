@@ -1,6 +1,6 @@
 import { HOST_RULES } from "./schema-host.js";
 import { KINDS, type Kind } from "./schema-kinds.js";
-import { RESULT_RULES } from "./schema-result.js";
+import { BACKGROUND_RULES, RESULT_RULES } from "./schema-result.js";
 import { SENDER_RULES } from "./schema-sender.js";
 import { REVIEW_RULES } from "./schema-review.js";
 import { SEND_BACK_RULES, type SendBackCategory } from "./schema-send-back.js";
@@ -102,6 +102,8 @@ export interface EventInput extends Partial<TierOrigin>, Partial<MergedOrigin> {
   platform?: boolean;
   /** session.result and pane.finished: the outcome word on a RESULT line, and nothing else. */
   result?: "done" | "blocked";
+  /** tool.start: true when the command runs in the background; absent on every foreground call (#854). */
+  background?: true;
 }
 
 export interface LedgerEvent extends EventInput {
@@ -152,11 +154,13 @@ const ALLOWED = new Set<string>([
   ...SENDER_RULES.map((rule) => rule.field),
   ...MERGED_RULES.map((rule) => rule.field),
   ...RESULT_RULES.map((rule) => rule.field),
+  ...BACKGROUND_RULES.map((rule) => rule.field),
   "load",
   "memory",
   "swap",
   "sessions",
   "platform",
+  "background",
 ]);
 
 /** Whether a value passes the ledger's name rule (session, pane, agent and similar fields). */
@@ -255,6 +259,7 @@ const RULES: readonly Rule[] = [
   },
   { field: "tier", check: isText(NAME), hint: NAME_HINT, kinds: LAUNCH_KINDS },
   ...TIER_RULES,
+  ...BACKGROUND_RULES,
   ...SEND_BACK_RULES,
   ...REVIEW_RULES,
   ...SENDER_RULES,
