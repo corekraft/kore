@@ -200,6 +200,7 @@ describe("attribution is measured from when sessions were stamped", () => {
       events: 2,
       withIdea: 1,
       withIdeaAndStage: 1,
+      noRoleShare: 0,
     });
   });
 
@@ -209,7 +210,36 @@ describe("attribution is measured from when sessions were stamped", () => {
       events: 0,
       withIdea: 0,
       withIdeaAndStage: 0,
+      noRoleShare: null,
     });
+  });
+});
+
+describe("attribution counts role sessions only, and reports the no-role share", () => {
+  it("leaves the main session and GitHub out of attribution, and reports the share its events make", () => {
+    const r = report([
+      at(0, "tool.start", { session: "s1", pane: "w3:p4", tool: "Bash" }),
+      at(10, "tool.start", {
+        session: "s2",
+        pane: "w3:p5",
+        agent: "x-writer",
+        idea: "#1",
+        tool: "Bash",
+      }),
+      at(11, "tool.start", { session: "main", tool: "Bash" }),
+      at(12, "pr.opened", { source: "github", number: 1 }),
+    ]);
+    expect(r.attribution).toEqual({
+      since: new Date(T0 + 10_000).toISOString(),
+      events: 1,
+      withIdea: 1,
+      withIdeaAndStage: 1,
+      noRoleShare: 0.5,
+    });
+  });
+
+  it("gives the no-role share in the flow report JSON beside the other attribution figures", () => {
+    expect(report([]).attribution).toHaveProperty("noRoleShare", null);
   });
 });
 

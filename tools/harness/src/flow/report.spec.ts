@@ -49,7 +49,7 @@ describe("buildReport scope and ideas", () => {
     const tally = fakeTally();
     vi.mocked(tally.stages).mockReturnValue([]);
     const r = run([]);
-    expect(r.version).toBe(12);
+    expect(r.version).toBe(13);
     expect(r.asOf).toBe("1970-01-01T00:00:01.000Z");
     expect(r.scope).toBe(SCOPE);
     expect(r.stages).toEqual([]);
@@ -117,7 +117,7 @@ describe("buildReport unmapped events and reports", () => {
       [orphan],
       WINDOW,
       42,
-      expect.any(Function),
+      { hasStage: expect.any(Function), hasRole: expect.any(Function) },
     );
   });
 
@@ -157,13 +157,16 @@ describe("buildReport host pressure", () => {
 });
 
 describe("buildReport attribution", () => {
-  it("tells attribution which events a stage claims, and every merge lookup finds only a pull request merge", () => {
+  it("tells attribution which events a stage claims and which come from a role, and every merge lookup finds only a pull request merge", () => {
     fakeTally();
     coverIdea(ev(1, "issue.opened", { number: 1 }));
     run([]);
-    const claims = vi.mocked(measureAttribution).mock.calls[0]?.[4];
-    expect(claims?.(writer(2, "pane.spawned"), [])).toBe(true);
-    expect(claims?.(ev(3, "tool.start", { source: "github" }), [])).toBe(false);
+    const checks = vi.mocked(measureAttribution).mock.calls[0]?.[4];
+    expect(checks?.hasStage(writer(2, "pane.spawned"), [])).toBe(true);
+    expect(
+      checks?.hasStage(ev(3, "tool.start", { source: "github" }), []),
+    ).toBe(false);
+    expect(checks?.hasRole(writer(2, "pane.spawned"))).toBe(true);
     for (const [, isMerge] of vi.mocked(firstTime).mock.calls) {
       const merged = [isMerge(ev(4, "pr.merged")), isMerge(ev(5, "pr.opened"))];
       expect(merged).toEqual([true, false]);

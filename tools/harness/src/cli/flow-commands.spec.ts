@@ -264,7 +264,7 @@ describe("flow report: a populated report", () => {
       "Sessions per idea: #12 2, average of the 3 ideas before it 2\n",
     );
     expect(text).toContain(
-      "Attribution since 2026-01-01: 8 of 10 events with an idea, 6 with a stage too\n",
+      "Attribution since 2026-01-01: 8 of 10 events with an idea, 6 with a stage too; 25% of session events come from sessions with no role\n",
     );
     expect(text).toContain("Main red: 1 of 2 check runs on main (50%)\n");
     expect(text).toContain("Reverts: 1 of 4 merged changes\n");

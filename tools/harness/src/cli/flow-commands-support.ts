@@ -115,6 +115,7 @@ export function emptyReport(overrides: Partial<Record<string, unknown>> = {}) {
       events: 0,
       withIdea: 0,
       withIdeaAndStage: 0,
+      noRoleShare: null,
     },
     guardBlocks: [],
     outcomes: {
@@ -220,6 +221,7 @@ export function populatedReport() {
       events: 10,
       withIdea: 8,
       withIdeaAndStage: 6,
+      noRoleShare: 0.25,
     },
     outcomes: {
       mainRed: { rate: 0.5, failed: 1, runs: 2 },

@@ -22,6 +22,16 @@ function roleOf(event: LedgerEvent) {
 }
 
 /**
+ * Whether an event's session has a role: it was stamped with a stage at launch,
+ * or its name ends in a role. The main session has none.
+ */
+export function roleResolver(events: LedgerEvent[]) {
+  const stamps = stampedStages(events);
+  return (event: LedgerEvent): boolean =>
+    stageStamp(event, stamps) !== undefined || roleOf(event) !== undefined;
+}
+
+/**
  * The stage of an event, or undefined when none claims it. A GitHub event names
  * its own; a stamped session's events take the stage its launch carried, before
  * any guess from a pane name; the main session orchestrates.
