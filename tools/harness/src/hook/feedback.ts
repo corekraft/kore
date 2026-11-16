@@ -8,6 +8,7 @@
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { CommandError, type CliDeps } from "../runtime/index.js";
+import { resultOf } from "./feedback-result.js";
 import { readTokens, tokenStateFile } from "./feedback-tokens.js";
 import type { HookResult } from "./io.js";
 import { recordEvent } from "./ledger-event.js";
@@ -212,14 +213,21 @@ export async function stop(
   );
 }
 
-/** Records the stop, then the session's tokens so far when they grew since the last stop. */
+/**
+ * Records the stop, then the turn's outcome word when its text printed a RESULT line
+ * (#853), then the session's tokens so far when they grew since the last stop.
+ */
 async function recordStop(deps: CliDeps, call: Call): Promise<void> {
   await recordEvent(deps, "session.stop", call);
-  const { total, grew } = await readTokens(
+  const { total, grew, added } = await readTokens(
     deps.fs,
     call.transcript_path,
     tokenStateFile(call.session_id),
   );
+  const result = resultOf(added);
+  if (result !== undefined) {
+    await recordEvent(deps, "session.result", call, undefined, { result });
+  }
   if (grew && total > 0) {
     await recordEvent(deps, "token.usage", call, undefined, { tokens: total });
   }

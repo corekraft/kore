@@ -44,5 +44,7 @@ export const KINDS = [
   "retro.dropped",
   "owner.asked",
   "spawn.unstamped",
+  "session.result",
+  "pane.finished",
 ] as const;
 export type Kind = (typeof KINDS)[number];

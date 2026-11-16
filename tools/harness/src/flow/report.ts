@@ -25,6 +25,8 @@ import {
   outcomes,
   unstampedSpawns,
   type UnstampedSpawns,
+  finishDetection,
+  type FinishDetection,
   type Attribution,
   type CostMetrics,
   type FrictionMetrics,
@@ -45,7 +47,7 @@ import {
   type ScopeOptions,
 } from "./scope.js";
 
-export const REPORT_VERSION = 14;
+export const REPORT_VERSION = 15;
 
 export type { StageTotals, Toil } from "./tally.js";
 export type { Scope, ScopeOptions } from "./scope.js";
@@ -90,6 +92,8 @@ export interface FlowReport extends FrictionMetrics {
   tierShares: ReturnType<typeof tierShares>;
   /** Spawns in range that named no idea, and how many gave a --no-idea reason; not friction. */
   unstampedSpawns: UnstampedSpawns;
+  /** Results the Stop hook recorded that session wait's pane.finished did not detect in time, and the lag of those it did (#853). */
+  finishDetection: FinishDetection;
 }
 
 export interface ReportOptions extends ScopeOptions {
@@ -328,5 +332,6 @@ export function buildReport(
     tokensPerMergedChange: mergedChangeTokens(named, window, options),
     tierShares: tierShares(named, window),
     unstampedSpawns: unstampedSpawns(named, window),
+    finishDetection: finishDetection(named, window),
   };
 }

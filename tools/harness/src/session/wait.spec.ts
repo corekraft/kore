@@ -9,6 +9,7 @@ import {
   type FakeRegistry,
 } from "./deps-support.js";
 import { describeFailure } from "./equalize.js";
+import { recordFinish } from "./finish-record.js";
 import { sessionNameError } from "./names.js";
 import { FAILED, USAGE_ERROR, fail } from "./output.js";
 import type { SessionRecord, SessionRegistry } from "./registry.js";
@@ -27,6 +28,7 @@ const opener = vi.hoisted(() => ({
 
 vi.mock("./registry.js", () => ({ SessionRegistry: opener }));
 vi.mock("./equalize.js");
+vi.mock("./finish-record.js", () => ({ recordFinish: vi.fn() }));
 vi.mock("./names.js");
 vi.mock("./output.js", async (importOriginal) => ({
   ...(await importOriginal<typeof import("./output.js")>()),
@@ -268,5 +270,34 @@ describe("wait", () => {
       2,
       '{"name":"image-trust-writer","paneId":"w3:p9","model":"claude-opus-5-5","outcome":"done","summary":"pane w3:p9"}\n',
     );
+  });
+});
+
+describe("waitForResult records pane.finished once, with the outcome word (#853)", () => {
+  it("records pane.finished with the outcome word the first time the RESULT line is seen", async () => {
+    screens("RESULT: blocked\n");
+
+    await waitForResult(deps, asRegistry(registry), RECORD, 60_000);
+
+    expect(recordFinish).toHaveBeenCalledExactlyOnceWith(
+      deps,
+      "w3:p9",
+      "image-trust-writer",
+      "blocked",
+    );
+  });
+
+  it("records no second pane.finished when the outcome was already recorded", async () => {
+    await waitForResult(deps, asRegistry(registry), DONE, 1000);
+
+    expect(recordFinish).not.toHaveBeenCalled();
+  });
+
+  it("records no pane.finished when no RESULT line shows before the deadline", async () => {
+    deps.runner.run.mockResolvedValue({ stdout: "", stderr: "", code: 0 });
+
+    await waitForResult(deps, asRegistry(registry), RECORD, 5000);
+
+    expect(recordFinish).not.toHaveBeenCalled();
   });
 });
