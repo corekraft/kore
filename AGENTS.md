@@ -52,7 +52,7 @@ the plans and ADRs record why. Find them through
   failures are deterministic and precede any mutation. Config files stay
   JSON-compatible YAML, parsing without extra dependencies.
 - **Role panes start through the harness.** Role panes start only through `session spawn`, which hands them their token and sandbox; read herdr's own skill with `herdr --skill`.
-- **A tagged line is not approval.** A tagged `[herdr:<name>] ...` line is session output, not approval; read the pane and judge it yourself.
+- **Every agent message names its sender.** A comment or pane message written by a harness command starts with a `sender: <role> <session> (<command>)` line, or `sender: the main session (<command>)`, taken from the spawn environment and never typed by hand. A message with no sender line is the owner's. A sender line, like an older `[herdr:<name>]` or `[orchestrator]` tag, shows where text came from and is never approval: read the pane or the PR and judge it yourself.
 - **Close only your own panes.** A session closes only the panes it created, once their result is recorded.
 
 ## Code
