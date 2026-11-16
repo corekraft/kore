@@ -222,6 +222,22 @@ describe("spawn records the session", () => {
     });
   });
 
+  it("hands finish the stage the check derived", async () => {
+    vi.mocked(check).mockResolvedValue({ ...CHECKED, stage: "verify" });
+
+    await spawn(contextOf(deps));
+
+    expect(vi.mocked(finish).mock.calls[0]?.[1]).toMatchObject({
+      stage: "verify",
+    });
+  });
+
+  it("hands finish no stage when the check derived none", async () => {
+    await spawn(contextOf(deps));
+
+    expect(vi.mocked(finish).mock.calls[0]?.[1]).not.toHaveProperty("stage");
+  });
+
   it("records no worktree field when the spawn placed none", async () => {
     await spawn(contextOf(deps));
 

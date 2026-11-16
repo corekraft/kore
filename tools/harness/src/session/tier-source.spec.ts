@@ -2,7 +2,12 @@ import { join } from "node:path";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { mainRoot } from "../runtime/index.js";
 import { fakeDeps, type FakeDeps } from "./deps-support.js";
-import { tierInputError, tierOf, tierSourceOf } from "./tier-source.js";
+import {
+  launchStage,
+  tierInputError,
+  tierOf,
+  tierSourceOf,
+} from "./tier-source.js";
 
 vi.mock("node:path");
 const ledger = vi.hoisted(() => ({
@@ -164,5 +169,28 @@ describe("tierOf", () => {
     await expect(
       tierOf(deps, { effort: "max", reason: "deep diff" }),
     ).resolves.toEqual({ tierSource: "override", tierReason: "deep diff" });
+  });
+});
+
+describe("launchStage derives the stage from the role", () => {
+  it.each([
+    ["writer", undefined, "write"],
+    ["principles-review", undefined, "review"],
+    ["judge", undefined, "judge"],
+    ["reader", "612", "verify"],
+  ])("maps %s (pr %s) to %s", (role, pr, stage) => {
+    expect(launchStage(role, pr)).toBe(stage);
+  });
+
+  it("gives a reader that names no PR no stage", () => {
+    expect(launchStage("reader", undefined)).toBeUndefined();
+  });
+
+  it("gives an unknown role no stage", () => {
+    expect(launchStage("orchestrator", "612")).toBeUndefined();
+  });
+
+  it("does not let a PR change a writer's stage", () => {
+    expect(launchStage("writer", "612")).toBe("write");
   });
 });

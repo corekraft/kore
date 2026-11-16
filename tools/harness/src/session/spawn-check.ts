@@ -4,7 +4,12 @@ import { hostLeaseRefusal } from "./host-lease.js";
 import { spawnLoadRefusal } from "./spawn-load.js";
 import { sessionNameError } from "./names.js";
 import { FAILED, USAGE_ERROR } from "./output.js";
-import { tierInputError, tierOf, type TierOrigin } from "./tier-source.js";
+import {
+  launchStage,
+  tierInputError,
+  tierOf,
+  type TierOrigin,
+} from "./tier-source.js";
 import { findResult, parseTimeout } from "./wait.js";
 
 const REQUIRED = ["role", "name", "brief"] as const;
@@ -25,6 +30,8 @@ export type Checked =
       idea?: string;
       /** Where the tier came from, for the ledger's launch event. */
       tier: TierOrigin;
+      /** The stage derived from the role, for the ledger's launch event. */
+      stage?: string;
     }
   | { error: string; code: number };
 
@@ -161,11 +168,16 @@ export async function check({
   }
   // inputError has already refused a malformed idea.
   const idea = ideaOf(options.idea) as string | undefined;
+  const stage = launchStage(
+    given.role,
+    typeof options.pr === "string" ? options.pr : undefined,
+  );
   return {
     values: { ...given, ...tier },
     tier: await tierOf(deps, options),
     callerPane,
     timeoutMs,
     ...(idea === undefined ? {} : { idea }),
+    ...(stage === undefined ? {} : { stage }),
   };
 }

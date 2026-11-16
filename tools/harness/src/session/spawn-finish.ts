@@ -18,6 +18,8 @@ interface Finish {
   timeoutMs: number;
   /** Where the tier came from; absent leaves the launch event with no tier source. */
   tier?: TierOrigin;
+  /** The stage derived from the role; absent leaves the launch event unstamped. */
+  stage?: string;
 }
 
 /** Appends a session.launch event for the session. Best effort: a ledger problem never fails the spawn. */
@@ -25,6 +27,7 @@ async function recordLaunch(
   deps: CliDeps,
   record: SessionRecord,
   tier: TierOrigin | undefined,
+  stage: string | undefined,
 ) {
   try {
     const main = await mainRoot(deps);
@@ -44,6 +47,7 @@ async function recordLaunch(
       agent: record.name,
       role: record.role,
       tier: record.model,
+      ...(stage === undefined ? {} : { stage }),
       ...tier,
     });
   } catch {
@@ -54,12 +58,12 @@ async function recordLaunch(
 /** Records the spawned session, then reports it or, without --no-wait, waits for its result. */
 export async function finish(
   { json, deps, options }: CommandContext,
-  { registry, record, modelCheck, timeoutMs, tier }: Finish,
+  { registry, record, modelCheck, timeoutMs, tier, stage }: Finish,
 ): Promise<number> {
   const { name, paneId, callerPane, model, role, effort, worktree } = record;
   const extra = worktree === undefined ? {} : { worktree };
   await registry.create(record);
-  await recordLaunch(deps, record, tier);
+  await recordLaunch(deps, record, tier, stage);
   await recordHostSample(deps, { pane: paneId, name });
   const verdict =
     modelCheck.status === "verified"
