@@ -102,6 +102,38 @@ export async function runPane(
   return outcome;
 }
 
+/** The writer's pane: a worktree and the brief to deliver the idea as one pull request; `name` overrides the default for a relaunch. */
+export function writerLaunch(
+  idea: string,
+  issue: number,
+  model: string | undefined,
+  name: string = `idea-${idea}-writer`,
+): Launch {
+  return {
+    role: "writer",
+    name,
+    issue,
+    worktree: true,
+    ...(model === undefined ? {} : { model }),
+    brief: `Deliver idea ${idea} (issue #${issue}) as one pull request that says \`Refs #${issue}\`. Do not merge.`,
+  };
+}
+
+/** The judge's pane for a pull request; `name` overrides the default so a tick can key it on the head. */
+export function judgeLaunch(
+  idea: string,
+  pr: number,
+  issue: number,
+  name: string = `idea-${idea}-judge`,
+): Launch {
+  return {
+    role: "judge",
+    name,
+    issue,
+    brief: `Judge PR #${pr} for idea ${idea} (issue #${issue}): run the precheck, then approve and merge it, or send it back with the reason.`,
+  };
+}
+
 /** The writer stage: runs the writer in a worktree; the PR it left, or undefined when it blocked or opened none. */
 export async function writerStage(
   harness: Harness,
@@ -109,25 +141,21 @@ export async function writerStage(
   issue: number,
   model: string | undefined,
 ): Promise<number | undefined> {
-  const outcome = await runPane(harness, {
-    role: "writer",
-    name: `idea-${idea}-writer`,
-    issue,
-    worktree: true,
-    ...(model === undefined ? {} : { model }),
-    brief: `Deliver idea ${idea} (issue #${issue}) as one pull request that says \`Refs #${issue}\`. Do not merge.`,
-  });
+  const outcome = await runPane(harness, writerLaunch(idea, issue, model));
   return outcome === "done" ? (await harness.delivery(issue)).pr : undefined;
 }
 
 /** The review stage: the Reviewer posts its verdict for the PR's head; throws when it posts none. */
-export async function reviewStage(harness: Harness, pr: number): Promise<void> {
+export async function reviewStage(
+  harness: Pick<Harness, "review">,
+  pr: number,
+): Promise<void> {
   await harness.review(pr);
 }
 
 /** The precheck stage: read-only; whether the writer must fix the change before any judge pane. */
 export function precheckStage(
-  harness: Harness,
+  harness: Pick<Harness, "precheck">,
   pr: number,
 ): Promise<PrecheckVerdict> {
   return harness.precheck(pr);
@@ -135,7 +163,7 @@ export function precheckStage(
 
 /** The send-back stage: posts the reason on the PR and records the send-back with its category. */
 export async function sendBackStage(
-  harness: Harness,
+  harness: Pick<Harness, "sendBack">,
   pr: number,
   reason: string,
   category: SendBackCategory,
@@ -150,18 +178,13 @@ export async function judgeStage(
   pr: number,
   issue: number,
 ): Promise<boolean> {
-  await runPane(harness, {
-    role: "judge",
-    name: `idea-${idea}-judge`,
-    issue,
-    brief: `Judge PR #${pr} for idea ${idea} (issue #${issue}): run the precheck, then approve and merge it, or send it back with the reason.`,
-  });
+  await runPane(harness, judgeLaunch(idea, pr, issue));
   return (await harness.delivery(issue)).merged;
 }
 
 /** The escalation stage: after a send-back, reads the PR's tier; escalates the PR once and takes the tier's model. */
 export async function escalateStage(
-  harness: Harness,
+  harness: Pick<Harness, "sendBacks" | "escalate">,
   pr: number,
   state: Escalation,
 ): Promise<Escalation> {
@@ -187,7 +210,7 @@ export async function queueStage(
 
 /** The outcome stage: writes the measured outcome, which closes the idea's issue. */
 export async function outcomeStage(
-  harness: Harness,
+  harness: Pick<Harness, "recordOutcome">,
   idea: string,
   outcome: Measured,
 ): Promise<void> {

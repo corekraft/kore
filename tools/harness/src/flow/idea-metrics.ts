@@ -24,6 +24,7 @@ export { unstampedSpawns } from "./unstamped-spawns.js";
 export type { UnstampedSpawns } from "./unstamped-spawns.js";
 export { finishDetection } from "./finish-detection.js";
 export type { FinishDetection } from "./finish-detection.js";
+export { stalledPanes, type StalledPanes } from "./stalled-panes.js";
 import {
   categoryReport,
   type SendBackCategoryReport,

@@ -29,3 +29,12 @@ export {
   type FilingResult,
 } from "./retro-filing.js";
 export { RetroFilingCli } from "./retro-filing-cli.js";
+export { Tick } from "./tick.js";
+export type { IdeaPane, IdeaStep, PaneState, StepName } from "./tick.js";
+export { TickCli } from "./tick-cli.js";
+export { TICK_FLAG, tickFlagOn } from "./tick-flag.js";
+export { FileLeaseStore } from "./tick-lease-store.js";
+export { TICK_LEASE_MAX_AGE_MS, TickLease } from "./tick-lease.js";
+export type { LeaseRecord, LeaseResult } from "./tick-lease.js";
+export { leasedPass, type LeasedResult } from "./tick-leased.js";
+export { MAX_TICK_PASSES, TICK_POLL_MS, runTicks } from "./tick-run.js";

@@ -29,6 +29,8 @@ import {
   type UnstampedSpawns,
   finishDetection,
   type FinishDetection,
+  stalledPanes,
+  type StalledPanes,
   type Attribution,
   type CostMetrics,
   type FrictionMetrics,
@@ -96,6 +98,8 @@ export interface FlowReport extends FrictionMetrics, MergedChangeFigures {
   unstampedSpawns: UnstampedSpawns;
   /** Results the Stop hook recorded that session wait's pane.finished did not detect in time, and the lag of those it did (#853). */
   finishDetection: FinishDetection;
+  /** Stalled panes from the detector's pane.stalled events and from token-usage silence, each apart (#854). */
+  stalledPanes: StalledPanes;
 }
 
 export interface ReportOptions extends ScopeOptions {
@@ -336,5 +340,6 @@ export function buildReport(
     tierShares: tierShares(named, window),
     unstampedSpawns: unstampedSpawns(named, window),
     finishDetection: finishDetection(named, window),
+    stalledPanes: stalledPanes(named, window, asOf.getTime()),
   };
 }

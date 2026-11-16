@@ -509,6 +509,17 @@ null when none did. The 300-second threshold is a placeholder until the owner
 sets it. Results with no pane are not counted. A failed `session notify` leaves
 no ledger event, so the report does not count those.
 
+`stalledPanes` counts stalled panes from two sources that do not read each
+other (#854). `recorded` counts the `pane.stalled` events the herdr poll appends
+when a session-spawned pane has been idle or gone for 300 seconds with no RESULT
+printed since it last started work. `fromTokenUsage` counts sessions whose last
+`token.usage` is more than 900 seconds before the report's measuring point, with
+no RESULT since. `backgroundExcluded` counts silent sessions left out because a
+`tool.start` marked `background` is open on their pane: one that started after
+the pane's last RESULT. The poll and the flow report do not exempt a pane that is
+waiting on an owner question; that is an owner decision still open on #854. The
+300 and 900 second thresholds are placeholders until the owner tunes them.
+
 Known limits until plan 8 Step 3 lands its producers: nothing records
 `issue.closed` or the `idea` link on PR events yet, so real ledgers show no
 completed ideas and the report says "Not enough data". A label other than
@@ -667,6 +678,18 @@ refuses, posting nothing, a question that matches the reserved list in
 `tools/harness/src/decision/reserved.ts` or a category that names a reserved one.
 The patterns there are a backstop for a fail-closed router, not the boundary, and
 changing the list is itself a reserved decision.
+
+`orchestrate tick [--idea <n>]` ([ADR 0121](../decisions/0121-the-orchestrator-is-a-tick-with-judgment-panes.md))
+is one pass over the queue that advances each approved idea by at most one step,
+then exits, and calls no model. It does nothing, and exits 0, while the
+`orchestrator-tick` flag is off in the local overlay. It runs under a
+per-machine lease, one file in the host lock directory, that a tick holds for its
+pass and the next tick recovers once it is 30 minutes old. A pane it starts is
+named for its idea and the PR head it works at (`idea-<idea>-judge-<head>`), so
+a rerun finds the pane and starts nothing twice. With the flag on, `orchestrate
+run --idea <n>` runs ticks scoped to that idea until it ends, instead of its own
+loop. The standing loop, the heartbeat and the judgment panes are later steps; a
+third send-back is reported as `needs-judgment` and nothing is started for it.
 
 Each checklist item of the precheck (`ci`, `scan`, `coverage`,
 `principles-review`, `expand-step`, `pattern-match`, `guardrail-activation`) reads its mode from the
