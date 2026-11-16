@@ -3,12 +3,26 @@ import { DEFAULT_COST, type CostOptions, type Threshold } from "./cost.js";
 /** The harness config, relative to the repository root. */
 export const HARNESS_CONFIG = ".claude/harness.json";
 
+/**
+ * The history the retro scan needs before it proposes removals: enough days of
+ * ledger or enough sessions, whichever comes first. Placeholders set by ADR 0117,
+ * to be re-checked against about two weeks of ledger.
+ */
+export const DEFAULT_RETRO_HISTORY = { minDays: 14, minSessions: 100 };
+
+export interface RetroHistoryConfig {
+  minDays?: number;
+  minSessions?: number;
+}
+
 export interface HarnessConfig {
   cost: CostOptions;
   /** The GitHub login whose actions count as owner time; the repository's owner when absent. */
   ownerLogin?: string;
   /** The GitHub logins whose principles-review verdicts the judge trusts; the owner login when absent. */
   reviewerLogins?: string[];
+  /** The retro scan's history minimums; a minimum the config leaves out keeps its default. */
+  retro?: RetroHistoryConfig;
 }
 
 type Failure = { error: string };
@@ -163,6 +177,69 @@ function loginsOf(
   };
 }
 
+/** The retro minimums that are set; a key the config leaves out is not in the result. */
+function retroOf(
+  file: string,
+  value: unknown,
+): { retro?: RetroHistoryConfig } | Failure {
+  if (value === undefined) {
+    return {};
+  }
+  if (!isObject(value)) {
+    return bad(
+      file,
+      "retro",
+      'must be an object. Use {"minDays": 14, "minSessions": 100}.',
+    );
+  }
+  const extra = unknownKey(file, "retro", value, ["minDays", "minSessions"]);
+  if (extra !== undefined) {
+    return extra;
+  }
+  const retro: RetroHistoryConfig = {};
+  for (const key of ["minDays", "minSessions"] as const) {
+    const minimum = value[key];
+    if (minimum === undefined) {
+      continue;
+    }
+    if (
+      typeof minimum !== "number" ||
+      !Number.isSafeInteger(minimum) ||
+      minimum < 1
+    ) {
+      return bad(
+        file,
+        `retro.${key}`,
+        "must be a whole number of at least 1. Fix the value.",
+      );
+    }
+    retro[key] = minimum;
+  }
+  return { retro };
+}
+
+/** The owner login, reviewer logins and retro minimums, each checked; the first bad one is the error. */
+function settingsOf(
+  file: string,
+  value: Raw,
+):
+  | {
+      ownerLogin?: string;
+      reviewerLogins?: string[];
+      retro?: RetroHistoryConfig;
+    }
+  | Failure {
+  const owner = loginsOf(file, value);
+  if ("error" in owner) {
+    return owner;
+  }
+  const retro = retroOf(file, value["retro"]);
+  if ("error" in retro) {
+    return retro;
+  }
+  return { ...owner, ...retro };
+}
+
 /** Checks the harness config text before any report uses it; a bad key names the file, the key and the fix. */
 export function parseHarnessConfig(
   text: string,
@@ -181,11 +258,12 @@ export function parseHarnessConfig(
     "cost",
     "ownerLogin",
     "reviewerLogins",
+    "retro",
   ]);
   if (top !== undefined) {
     return top;
   }
-  const owner = loginsOf(file, value);
+  const owner = settingsOf(file, value);
   if ("error" in owner) {
     return owner;
   }

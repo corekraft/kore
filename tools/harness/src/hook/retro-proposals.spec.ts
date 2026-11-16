@@ -11,7 +11,8 @@ import {
   proposalsFor,
 } from "./retro-proposals.js";
 
-const enough = { sessions: 100, days: 14 };
+const minimums = { minDays: 14, minSessions: 100 };
+const enough = { sessions: 100, days: 14, ...minimums };
 const none = { skills: [], agents: [], promotable: [] };
 
 describe("the evidence constants", () => {
@@ -74,13 +75,64 @@ describe("proposalsFor: enough history", () => {
   });
 });
 
-describe("proposalsFor: insufficient history", () => {
-  it.each([
-    ["too few sessions", { sessions: 99, days: 30 }],
-    ["too few days", { sessions: 500, days: 13 }],
-  ])("proposes no removal with %s", (_name, history) => {
+describe("proposalsFor: either minimum is enough history", () => {
+  it("proposes removals on days alone, when the sessions are below their minimum", () => {
     const out = proposalsFor({
-      ...history,
+      sessions: 5,
+      days: 14,
+      ...minimums,
+      skills: ["handoff"],
+      agents: [],
+      promotable: [],
+    });
+    expect(out.history.sufficient).toBe(true);
+    expect(out.proposals.map((p) => p.kind)).toEqual(["unused-skill"]);
+  });
+
+  it("proposes removals on sessions alone, when the days are below their minimum", () => {
+    const out = proposalsFor({
+      sessions: 100,
+      days: 2,
+      ...minimums,
+      skills: ["handoff"],
+      agents: [],
+      promotable: [],
+    });
+    expect(out.history.sufficient).toBe(true);
+    expect(out.proposals.map((p) => p.kind)).toEqual(["unused-skill"]);
+  });
+
+  it("reads both minimums from its input rather than the defaults", () => {
+    const configured = { minDays: 3, minSessions: 50 };
+    expect(
+      proposalsFor({ sessions: 3, days: 3, ...configured, ...none }).history,
+    ).toEqual({ ...configured, days: 3, sessions: 3, sufficient: true });
+    expect(
+      proposalsFor({ sessions: 49, days: 2, ...configured, ...none }).history
+        .sufficient,
+    ).toBe(false);
+  });
+
+  it("names the configured days as the measurement window of a removal", () => {
+    const out = proposalsFor({
+      sessions: 0,
+      days: 7,
+      minDays: 7,
+      minSessions: 100,
+      skills: ["handoff"],
+      agents: [],
+      promotable: [],
+    });
+    expect(out.proposals[0]?.command).toMatch(/--window 7d$/);
+  });
+});
+
+describe("proposalsFor: insufficient history", () => {
+  it("proposes no removal with fewer sessions and days than both minimums", () => {
+    const out = proposalsFor({
+      sessions: 99,
+      days: 13,
+      ...minimums,
       skills: ["handoff"],
       agents: ["refiner"],
       promotable: [],
@@ -93,6 +145,7 @@ describe("proposalsFor: insufficient history", () => {
     const out = proposalsFor({
       sessions: 1,
       days: 0,
+      ...minimums,
       skills: [],
       agents: [],
       promotable: ["bare-glob"],

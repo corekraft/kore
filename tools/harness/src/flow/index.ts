@@ -10,7 +10,12 @@ export {
 } from "./report.js";
 export { flowMetricNames } from "./metric-names.js";
 export { DEFAULT_COST } from "./cost.js";
-export { HARNESS_CONFIG, parseHarnessConfig } from "./cost-config.js";
+export {
+  DEFAULT_RETRO_HISTORY,
+  HARNESS_CONFIG,
+  parseHarnessConfig,
+  type HarnessConfig,
+} from "./cost-config.js";
 export {
   GITHUB_STAGES,
   MIN_COMPLETED_IDEAS,

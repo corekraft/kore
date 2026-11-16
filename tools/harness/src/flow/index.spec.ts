@@ -15,6 +15,7 @@ describe("flow barrel", () => {
     expect(Object.keys(flow).sort()).toEqual(
       [
         "DEFAULT_COST",
+        "DEFAULT_RETRO_HISTORY",
         "GITHUB_STAGES",
         "HARNESS_CONFIG",
         "MIN_COMPLETED_IDEAS",

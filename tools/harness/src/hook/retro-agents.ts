@@ -3,6 +3,11 @@
 // Docs: infra/plans/12-self-improving-loop.md (Step 2)
 
 import { join } from "node:path";
+import {
+  DEFAULT_RETRO_HISTORY,
+  HARNESS_CONFIG,
+  parseHarnessConfig,
+} from "../flow/index.js";
 import { DEFAULT_LEDGER, Ledger } from "../ledger/index.js";
 import { mainRoot, type CliDeps, type FileSystem } from "../runtime/index.js";
 import { proposalsFor, unusedAgents } from "./retro-proposals.js";
@@ -12,6 +17,34 @@ const DAY_MS = 86_400_000;
 
 const isMissing = (error: unknown): boolean =>
   (error as NodeJS.ErrnoException).code === "ENOENT";
+
+/**
+ * The retro minimums from the harness config under the root. A missing config,
+ * or a minimum it leaves out, keeps the default; a bad config throws its message,
+ * naming the key and the fix, before any proposal is made.
+ */
+export async function retroMinimums(
+  fs: FileSystem,
+  root: string,
+): Promise<{ minDays: number; minSessions: number }> {
+  let text: string;
+  try {
+    text = await fs.readFile(join(root, HARNESS_CONFIG));
+  } catch (error) {
+    if (isMissing(error)) {
+      return { ...DEFAULT_RETRO_HISTORY };
+    }
+    throw error;
+  }
+  const parsed = parseHarnessConfig(text, HARNESS_CONFIG);
+  if ("error" in parsed) {
+    throw new Error(parsed.error);
+  }
+  return {
+    minDays: parsed.retro?.minDays ?? DEFAULT_RETRO_HISTORY.minDays,
+    minSessions: parsed.retro?.minSessions ?? DEFAULT_RETRO_HISTORY.minSessions,
+  };
+}
 
 /** The folders under skills/ that hold a SKILL.md, or undefined when there is no skills directory. */
 export async function skillNames(
@@ -114,6 +147,7 @@ export async function agentSection(
   found: Found,
 ) {
   const usage = await readAgentUsage(deps, root, windowStart(since));
+  const minimums = await retroMinimums(deps.fs, root);
   const inProcess = Object.fromEntries(
     Object.entries(found.subagents)
       .filter(([name]) => usage.known.includes(name))
@@ -126,6 +160,7 @@ export async function agentSection(
   const { history, proposals } = proposalsFor({
     sessions: found.sessions.count,
     days: usage.ledgerDays,
+    ...minimums,
     skills: found.skills.unused,
     agents: unused,
     promotable: found.rules.promotable,

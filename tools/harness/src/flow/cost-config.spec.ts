@@ -5,6 +5,42 @@ import { DEFAULT_COST, DEFAULT_MIN_MERGED_CHANGES } from "./cost.js";
 const parse = (value: unknown) =>
   parseHarnessConfig(JSON.stringify(value), HARNESS_CONFIG);
 
+describe("harness config retro history minimums", () => {
+  it("reads the days and sessions the retro scan needs, each on its own", () => {
+    expect(parse({ retro: { minDays: 7, minSessions: 50 } })).toEqual({
+      cost: DEFAULT_COST,
+      retro: { minDays: 7, minSessions: 50 },
+    });
+    expect(parse({ retro: { minSessions: 250 } })).toEqual({
+      cost: DEFAULT_COST,
+      retro: { minSessions: 250 },
+    });
+  });
+
+  it("leaves the retro key out when it is not set, so the scan keeps its defaults", () => {
+    expect(parse({ ownerLogin: "junners" })).not.toHaveProperty("retro");
+  });
+
+  it.each([
+    [
+      { retro: { minDays: 0 } },
+      "retro.minDays",
+      "a whole number of at least 1",
+    ],
+    [{ retro: { minSessions: 2.5 } }, "retro.minSessions", "a whole number"],
+    [{ retro: { minDays: "two" } }, "retro.minDays", "a whole number"],
+    [{ retro: { days: 3 } }, "retro.days", "minDays, minSessions"],
+    [{ retro: 14 }, "retro", "must be an object"],
+  ])("rejects %j naming the key and the fix", (config, key, fix) => {
+    expect(parse(config)).toEqual({
+      error: expect.stringContaining(`key "${key}"`),
+    });
+    expect(parse(config)).toEqual({
+      error: expect.stringContaining(fix),
+    });
+  });
+});
+
 describe("harness config", () => {
   it("uses the defaults for an empty config", () => {
     expect(parse({})).toEqual({ cost: DEFAULT_COST });
