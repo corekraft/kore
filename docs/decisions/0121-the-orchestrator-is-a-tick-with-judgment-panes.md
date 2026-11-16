@@ -14,9 +14,9 @@ Refines: [ADR 0117](0117-the-delivery-loop-s-role-set.md).
 ## Status
 
 Proposed. ADR 0117 says `orchestrate run` drives an idea and no agent does; a
-Sonnet judgment pane partly reverses that, so it becomes accepted only when the
-owner confirms that their direction of 2026-11-16 (Sonnet is the main
-orchestrator, Haiku panes read and write, Opus advises) means this.
+Sonnet judgment pane partly reverses that. Its open questions were answered by delegation on 2026-11-16 (the owner, relayed by the answering session: "you can anaswer owner's questions"); the owner may overrule any of them (below). Those answers reach this record through a tagged agent message,
+which is not approval (ADR 0120), so it becomes accepted on the owner's own
+untagged comment on #794.
 
 ## Context
 
@@ -68,7 +68,7 @@ what runs in parallel, and handling a blocked pane.
 - **Running it.** `orchestrate tick --loop` runs in a pane the person starts,
   as a thin supervisor that runs each tick as a child process. `tick.started`
   and `tick.stopped` events give a heartbeat; a gap shows in status and in the
-  owner digest. Nothing restarts the loop automatically.
+  owner digest. Only an opt-in installer the owner runs restarts it (below).
 - **Comments carry the role.** The tick and its panes post only through the
   comment module, whose first line names the role, so their comments are
   never read as the owner's (ADR 0120). They hold the owner's token until the
@@ -78,17 +78,21 @@ what runs in parallel, and handling a blocked pane.
   on #197 before the run, driven from approval to a recorded outcome with no
   person's step, with the flag on for that run only.
 
-## Open for the owner
+## Answered by delegation
 
-- Whether the 2026-11-16 direction means a spawned Sonnet judgment pane under
-  the tick, recorded as this refinement of ADR 0117. This record reads
-  "Sonnet spawns Haiku agents" as "Sonnet decides what the Haiku agents do,
-  and the tick starts them".
-- Whether the tick and its judgment panes get their own GitHub identity
-  before the flag turns on (ADR 0120, closing the shared-account gap).
-- Whether something such as launchd or cron restarts the loop. It would be a
-  standing process on the owner's machine outside the repository; heartbeat
-  gaps counted from the ledger are its evidence.
+- **The judgment pane: yes.** The owner's direction of 2026-11-16 (Sonnet is
+  the main orchestrator, Haiku panes read and write, Opus advises) means a
+  Sonnet judgment pane under the tick, where Sonnet decides and the tick
+  spawns. The evidence against one long-lived orchestrating session is its own
+  record, and idea 0007 as filed calls a model only for a judgment with a
+  small fresh context.
+- **Identity.** The tick and its judgment panes get their own GitHub identity,
+  set up by the owner with the identities wizard, before the flag turns on
+  (ADR 0120).
+- **Restarting the loop.** A restart is built as an opt-in installer behind
+  the `orchestrator-tick` flag. No agent installs it; the owner installs the
+  standing job with their own command, informed by the heartbeat gaps the
+  ledger counts.
 
 ## How this was decided
 

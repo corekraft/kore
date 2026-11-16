@@ -1,6 +1,6 @@
 ---
 status: proposed
-summary: Proposed, refines ADR 0117: a question that carries a recommendation goes to a read-only advisor role that records its decision on the issue, unless it is a reserved decision from a closed, fail-closed list whose entries already belong to the owner; the advisor grants nothing, reserved questions are posted at once and notified in one daily digest, a comment or pane message without a role line is the owner's; the advisor's tier and closing the shared-account gap are open for the owner.
+summary: Proposed, refines ADR 0117: a question that carries a recommendation goes to a read-only advisor role that records its decision on the issue, unless it is a reserved decision from a closed, fail-closed list whose entries already belong to the owner; the advisor grants nothing, reserved questions are posted at once and notified in one daily digest, a comment or pane message without a role line is the owner's; by delegation the advisor runs on Opus as ADR 0117's one exception and unattended sessions get their own identities; it becomes accepted on the owner's untagged comment.
 date: 2026-11-16
 last-verified: 2026-11-16
 ---
@@ -13,8 +13,10 @@ Refines: [ADR 0117](0117-the-delivery-loop-s-role-set.md).
 
 ## Status
 
-Proposed. It becomes accepted when the owner answers the advisor's tier (below).
-The `decision-advisor` flag stays off until then.
+Proposed. Its open questions were answered by delegation on 2026-11-16 (the owner, relayed by the answering session: "you can anaswer owner's questions"); the owner may overrule any of them (below). Those answers reach this record through a tagged agent message,
+which by this record's own rule is not approval, so it becomes accepted on the
+owner's own untagged comment on #794. The `decision-advisor` flag stays off
+until then and until the identities below exist.
 
 ## Context
 
@@ -105,30 +107,28 @@ back to the principle; it adds no gate.
   from their transcripts, and each one goes into the owner digest. `guardrail activate`
   warns, with a ledger event, on an approving comment that carries a role line.
 
-## Open for the owner
+## Answered by delegation
 
-- **The advisor's tier.** The owner's direction of 2026-11-16 makes Opus the
-  advisor of the Sonnet orchestrator. ADR 0117 defines every role on Haiku or
-  Sonnet with a definitions test that fails on any other model, and the stored
-  rule of 2026-11-13 keeps spawned panes on Haiku or Sonnet; that rule once
-  carried an exception for retro on Opus, which ADR 0117 moved to Sonnet. The
-  role is built with its tier as one line of frontmatter, on Sonnet at high
-  effort only because the test allows that today.
-- **Flag activation for harness-only flags** stays reserved; moving it to the
-  advisor is a separate owner question.
-- **Closing the shared-account gap.** Either separate identities for the
-  Reviewer, for the tick with its judgment panes and advisor, and for the main
-  session's agent before `orchestrator-tick` and `decision-advisor` turn on
-  (recommended: an unattended tick means more sessions holding the owner's
-  token for longer with nobody watching; writer and judge identities and the
-  identities wizard already exist, and a main-session identity changes how the
-  owner's own session authenticates), or a guard on bare `gh` comments for
-  role sessions and on bare `herdr` sends, which meets ADR 0091's freeze, or accepting the gap in local
-  for now. Moving `guardrail activate` from warning to refusal on a role-lined
-  approval, and a terminal-only `harness decision answer` for stronger proof,
-  are options within it.
-- **Whether the main session's agent is a role** that tags what it posts, so
-  that only what the owner types by hand is untagged.
+- **The advisor's tier: Opus, for the advisor alone.** The owner's direction
+  of 2026-11-16 names Opus and is later than the stored rule of 2026-11-13 and
+  ADR 0117; that rule once carried an exception for retro on Opus. ADR 0117's
+  definitions test gains one named exception for the advisor definition, and
+  every other spawned pane stays on Haiku or Sonnet. The reversal condition
+  and the small context, with reads handed to Haiku panes, stay.
+- **Flag activation for harness-only flags stays reserved.** Revisit with the
+  advisor's first window of overturn data, and only once the identities below
+  exist.
+- **The shared-account gap: separate identities for unattended sessions.**
+  The Reviewer, and the tick with its judgment panes and the advisor, get
+  their own identities before `orchestrator-tick` and `decision-advisor` turn
+  on, because an unattended tick means more sessions holding the owner's token
+  with nobody watching. The owner runs the identities wizard; no agent handles
+  credentials. The main session keeps the owner's token, since the owner
+  attends it, and tags what it posts. No new guard rule (ADR 0091). Until the
+  identities exist, the transcript counts of bare `gh` and bare `herdr` sends
+  go into the digest.
+- **The main session's agent is a role.** It tags what it posts; only what the
+  owner types by hand is untagged.
 
 ## How this was decided
 
