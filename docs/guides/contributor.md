@@ -704,7 +704,7 @@ removal are requested the same way.
 
 The scan's report also has an `agents` section (the agents with a definition,
 those launched in the window, and those never launched) and a `proposals`
-section: the window and minimums it used (14 days of ledger, 100 sessions) and a
+section: the window and minimums it used (14 days of ledger or 100 sessions, each set under `retro` in `.claude/harness.json`) and a
 ready command for each finding, an `idea new` for an unused skill or agent and a
 prefilled `guardrail request` for a promotable audit rule. Below either minimum
 it reports insufficient history and proposes no removal. The scan runs none of

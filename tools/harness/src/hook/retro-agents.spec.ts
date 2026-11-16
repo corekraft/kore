@@ -26,6 +26,10 @@ vi.mock("./retro-scan.js", () => ({ windowStart: vi.fn() }));
 
 const list = vi.fn<Ledger["list"]>();
 const readdir = vi.fn<FileSystem["readdir"]>();
+const readFile = vi.fn<FileSystem["readFile"]>();
+
+const missing = () =>
+  Promise.reject(Object.assign(new Error("missing"), { code: "ENOENT" }));
 
 const event = (recordedAt: string, role?: string): LedgerEvent => {
   const base = { id: "e", kind: "session.launch", recordedAt };
@@ -34,7 +38,7 @@ const event = (recordedAt: string, role?: string): LedgerEvent => {
 
 function depsOf(): CliDeps {
   const used: Pick<CliDeps, "fs" | "clock" | "ids"> = {
-    fs: { readdir } as unknown as FileSystem,
+    fs: { readdir, readFile } as unknown as FileSystem,
     clock: { now: () => new Date("2026-11-30T00:00:00Z"), sleep: vi.fn() },
     ids: { next: () => "x" },
   };
@@ -47,6 +51,7 @@ beforeEach(() => {
     return { list } as unknown as Ledger;
   });
   readdir.mockResolvedValue(["writer.md", "judge.md", "notes.txt"]);
+  readFile.mockImplementation(missing);
   list.mockResolvedValue({ events: [], skipped: 0 });
 });
 
@@ -180,10 +185,70 @@ describe("agentSection", () => {
     expect(proposalsFor).toHaveBeenCalledWith({
       sessions: 7,
       days: 29,
+      minDays: 14,
+      minSessions: 100,
       skills: ["handoff"],
       agents: ["writer"],
       promotable: ["bare-glob"],
     });
+  });
+});
+
+describe("agentSection retro history minimums", () => {
+  const found = {
+    sessions: { count: 7 },
+    skills: { unused: [] },
+    rules: { promotable: [] },
+    subagents: {},
+  };
+
+  beforeEach(() => {
+    vi.mocked(windowStart).mockReturnValue(0);
+    vi.mocked(unusedAgents).mockReturnValue([]);
+    vi.mocked(proposalsFor).mockReturnValue({
+      history: {
+        minDays: 7,
+        minSessions: 50,
+        days: 0,
+        sessions: 7,
+        sufficient: false,
+      },
+      proposals: [],
+    });
+  });
+
+  it("reads both minimums from the harness config under the repository root", async () => {
+    readFile.mockResolvedValue(
+      JSON.stringify({ retro: { minDays: 7, minSessions: 50 } }),
+    );
+    await agentSection(depsOf(), "/repo", undefined, found);
+    expect(readFile).toHaveBeenCalledWith("/repo/.claude/harness.json");
+    expect(proposalsFor).toHaveBeenCalledWith(
+      expect.objectContaining({ minDays: 7, minSessions: 50 }),
+    );
+  });
+
+  it("keeps the default minimums when the config sets only one of them", async () => {
+    readFile.mockResolvedValue(JSON.stringify({ retro: { minSessions: 50 } }));
+    await agentSection(depsOf(), "/repo", undefined, found);
+    expect(proposalsFor).toHaveBeenCalledWith(
+      expect.objectContaining({ minDays: 14, minSessions: 50 }),
+    );
+  });
+
+  it("keeps the default minimums when there is no harness config", async () => {
+    await agentSection(depsOf(), "/repo", undefined, found);
+    expect(proposalsFor).toHaveBeenCalledWith(
+      expect.objectContaining({ minDays: 14, minSessions: 100 }),
+    );
+  });
+
+  it("refuses a bad config before any proposal, naming the key and the fix", async () => {
+    readFile.mockResolvedValue(JSON.stringify({ retro: { minDays: 0 } }));
+    await expect(
+      agentSection(depsOf(), "/repo", undefined, found),
+    ).rejects.toThrow(/key "retro\.minDays" must be a whole number/);
+    expect(proposalsFor).not.toHaveBeenCalled();
   });
 });
 
