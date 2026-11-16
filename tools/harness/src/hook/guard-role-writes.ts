@@ -2,6 +2,7 @@
 // finding. Owner approval to enforce the plan 11 role guards is recorded on
 // #190 and #191 (2026-11-12).
 import { basename } from "node:path";
+import { commandLookup } from "./guard-role-reads.js";
 import { commandOf } from "./guard-shell.js";
 import { block, type Finding } from "./guard-verdict.js";
 
@@ -148,9 +149,11 @@ export function writes(segment: readonly string[]): boolean {
 export const PREFIXED =
   /^(?:[A-Za-z_][A-Za-z0-9_]*=|(?:sudo|env|time|command|nohup|exec)$)/;
 
-/** A segment that sets a variable for a command that follows, or changes shell state: the refusal the read-only roles share. A lone `NAME=value` is no change to a command, so it passes. */
+/** A segment that sets a variable for a command that follows, or changes shell state: the refusal the read-only roles share. A lone `NAME=value` is no change to a command, and `command -v NAME` runs nothing, so both pass. */
 export const setsEnvironment = (segment: readonly string[]): boolean =>
-  (PREFIXED.test(segment[0] ?? "") && !bareAssignment(segment)) ||
+  (PREFIXED.test(segment[0] ?? "") &&
+    !bareAssignment(segment) &&
+    !commandLookup(segment)) ||
   changesShell(segment);
 
 /** Builtins that change the shell's environment, aliases or options, or load a file into it, so a later segment runs with a variable such as KORE_ROOT that the guard never sees. */
