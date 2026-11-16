@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
   findingsFrom,
   postReview,
@@ -6,6 +6,7 @@ import {
   type ReviewPosted,
 } from "../judge/index.js";
 import type { CommandContext } from "../runtime/index.js";
+import { senderFrom, type Sender } from "../sender/index.js";
 import { failed, prNumber } from "./judge-shared.js";
 import { reviewCommands, reviewPostRun } from "./review-commands.js";
 import { ghReviewIo, type ReviewIo } from "./review-gh.js";
@@ -14,17 +15,39 @@ vi.mock("./review-gh.js", () => ({
   ghReviewIo: vi.fn<(context: CommandContext) => Promise<ReviewIo>>(),
 }));
 
-vi.mock("../judge/index.js", () => ({
+vi.mock("../judge/index.js", async (original) => ({
+  ...(await original<typeof import("../judge/index.js")>()),
   findingsFrom: vi.fn<(stdin: string, none: boolean) => string[]>(),
-  postReview:
+  postReview: vi.fn<
+    (
+      request: {
+        pr: number;
+        findings: readonly string[];
+        dryRun: boolean;
+        sender: Sender;
+      },
+      view: PrView,
+      comment: (body: string) => Promise<string>,
+    ) => Promise<ReviewPosted>
+  >(),
+}));
+vi.mock("../sender/index.js", () => ({
+  senderFrom:
     vi.fn<
       (
-        request: { pr: number; findings: readonly string[]; dryRun: boolean },
-        view: PrView,
-        comment: (body: string) => Promise<string>,
-      ) => Promise<ReviewPosted>
+        env: Readonly<Record<string, string | undefined>>,
+        command: string,
+      ) => Sender | { error: string }
     >(),
 }));
+
+const SENDER: Sender = { command: "review post" };
+const REFUSAL =
+  'KORE_ROLE is "writer" but KORE_AGENT is not set, so the sender line cannot name the session.';
+
+beforeEach(() => {
+  vi.mocked(senderFrom).mockReturnValue(SENDER);
+});
 vi.mock("./judge-shared.js", () => ({
   prNumber: vi.fn<(operand: string | undefined, usage: string) => number>(),
   failed: vi.fn<(context: CommandContext, error: unknown) => number>(),
@@ -73,7 +96,12 @@ function fixture(
     operand: "42",
     options,
     json,
-    deps: { stdin: () => Promise.resolve(stdin), stdout, stderr },
+    deps: {
+      stdin: () => Promise.resolve(stdin),
+      stdout,
+      stderr,
+      env: { KORE_ROLE: "writer", KORE_AGENT: "fix-x" },
+    },
   } as unknown as CommandContext;
   vi.mocked(prNumber).mockReturnValue(42);
   return { context, stdout, stderr, io, load };
@@ -87,13 +115,38 @@ describe("harness review post posts the verdict the domain formats", () => {
     expect(await reviewPostRun(f.context, f.load)).toBe(0);
     expect(f.io.view).toHaveBeenCalledWith(42);
     expect(postReview).toHaveBeenCalledWith(
-      { pr: 42, findings: [], dryRun: false },
+      { pr: 42, findings: [], dryRun: false, sender: SENDER },
       VIEW,
       expect.any(Function),
     );
     expect(f.stdout).toHaveBeenCalledWith(
       `PR #42: posted principles-review: No violations. (head abc1234d) at ${URL}\n`,
     );
+  });
+
+  it("names the sender from the caller's environment as review post", async () => {
+    const f = fixture({ none: true }, "");
+    vi.mocked(findingsFrom).mockReturnValue([]);
+    vi.mocked(postReview).mockResolvedValue(posted());
+    await reviewPostRun(f.context, f.load);
+    expect(senderFrom).toHaveBeenCalledExactlyOnceWith(
+      f.context.deps.env,
+      "review post",
+    );
+  });
+
+  it("refuses a sender the environment cannot name before any gh call", async () => {
+    const f = fixture({ none: true }, "");
+    vi.mocked(findingsFrom).mockReturnValue([]);
+    vi.mocked(senderFrom).mockReturnValue({ error: REFUSAL });
+    vi.mocked(failed).mockReturnValue(1);
+    expect(await reviewPostRun(f.context, f.load)).toBe(1);
+    expect(failed).toHaveBeenCalledWith(
+      f.context,
+      expect.objectContaining({ message: REFUSAL }),
+    );
+    expect(f.load).not.toHaveBeenCalled();
+    expect(postReview).not.toHaveBeenCalled();
   });
 
   it("passes the stdin and --none to findingsFrom", async () => {

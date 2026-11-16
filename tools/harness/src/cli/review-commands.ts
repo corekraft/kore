@@ -1,5 +1,11 @@
-import { findingsFrom, postReview, type ReviewPosted } from "../judge/index.js";
+import {
+  findingsFrom,
+  JudgeError,
+  postReview,
+  type ReviewPosted,
+} from "../judge/index.js";
 import type { Command, CommandContext } from "../runtime/index.js";
+import { senderFrom } from "../sender/index.js";
 import { failed, prNumber } from "./judge-shared.js";
 import { ghReviewIo, type ReviewIo } from "./review-gh.js";
 import { reviewRunRun } from "./review-run-command.js";
@@ -32,9 +38,13 @@ export async function reviewPostRun(
     const none = context.options["none"] === true;
     const dryRun = context.options["dry-run"] === true;
     const findings = findingsFrom(await deps.stdin(), none);
+    const sender = senderFrom(deps.env, "review post");
+    if ("error" in sender) {
+      throw new JudgeError(sender.error);
+    }
     const io = await load();
     const done = await postReview(
-      { pr, findings, dryRun },
+      { pr, findings, dryRun, sender },
       await io.view(pr),
       (body) => io.comment(pr, body),
     );

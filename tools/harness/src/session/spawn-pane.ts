@@ -103,7 +103,7 @@ export async function openPane(
   token: string | undefined,
 ): Promise<Opened | { error: string }> {
   const { deps } = context;
-  const { name } = checked.values;
+  const { name, role } = checked.values;
   const taken =
     (await registry.unavailable(name)) ?? (await nameTakenError(deps, name));
   if (taken !== undefined) {
@@ -117,6 +117,8 @@ export async function openPane(
   }
   const paneId = await splitPane(deps, checked.callerPane, placed.cwd, {
     KORE_AGENT: name,
+    // The sender line names the role from here, so an agent cannot choose it.
+    KORE_ROLE: role,
     ...(checked.idea === undefined ? {} : { KORE_IDEA: checked.idea }),
   });
   if (typeof paneId !== "string") {

@@ -529,6 +529,12 @@ verdict and reviews again (3 reviews at most); a pane that ends blocked or with
 no verdict records a `review.run` failure event and posts nothing.
 `orchestrate run` calls it before each precheck.
 
+Every verdict that `review post` or `review run` posts starts with a sender line,
+`sender: <role> <session> (<command>)`, or `sender: the main session (<command>)`
+from the main session. The harness takes the role and session from the spawn
+environment, so an agent cannot choose them. A comment with no sender line is the
+owner's. Older verdicts with no line still count.
+
 Each checklist item of the precheck (`ci`, `scan`, `coverage`,
 `principles-review`, `expand-step`, `pattern-match`, `guardrail-activation`) reads its mode from the
 guardrail inventory, `.claude/guardrails.yaml`, as the rule `judge-<item>` of kind
