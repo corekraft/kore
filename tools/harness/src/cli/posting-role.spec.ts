@@ -3,6 +3,7 @@
 // (cli.spec.ts), and this pins that no posting command declares one.
 import { describe, expect, it } from "vitest";
 import type { Command } from "../runtime/index.js";
+import { decisionCommands } from "./decision-commands.js";
 import { guardrailLedgerCommands } from "./guardrail-request-commands.js";
 import { approveCommands } from "./judge-approve-command.js";
 import { mergeCommands } from "./judge-merge-commands.js";
@@ -14,6 +15,7 @@ const POSTING: [string, Command | undefined][] = [
   ["judge send-back", mergeCommands["send-back"]],
   ["judge approve", approveCommands["approve"]],
   ["guardrail request", guardrailLedgerCommands["request"]],
+  ["decision make", decisionCommands["make"]],
   ["outcome record", outcomeCommands["record"]],
   ["outcome close", outcomeCommands["close"]],
   ["pr open", prCommands["open"]],

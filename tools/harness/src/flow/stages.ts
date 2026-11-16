@@ -46,6 +46,8 @@ export const GITHUB_STAGES: Readonly<Partial<Record<Kind, Stage>>> = {
   "review.run": "review",
   // The idea-filed event: where an idea is filed is the refine stage.
   "idea.filed": "refine",
+  // An advisor decision answers a pane's question: the loop's orchestration, not a GitHub event.
+  "decision.made": "orchestrate",
 };
 
 /** Default minimum completed ideas before a bottleneck is named. */
