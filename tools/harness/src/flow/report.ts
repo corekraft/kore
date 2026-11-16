@@ -14,8 +14,10 @@ import {
   COST_KINDS,
   frictionMetrics,
   DEFAULT_HOST_DAYS,
+  DEFAULT_QUESTION_DAYS,
   guardBlocks,
   hostPressure,
+  ownerQuestions,
   tierShares,
   ideaMetrics,
   measureAttribution,
@@ -30,6 +32,7 @@ import {
   type Outcomes,
   type CostOptions,
   type LeadTime,
+  type OwnerQuestions,
 } from "./idea-metrics.js";
 import {
   inWindow,
@@ -40,7 +43,7 @@ import {
   type ScopeOptions,
 } from "./scope.js";
 
-export const REPORT_VERSION = 10;
+export const REPORT_VERSION = 11;
 
 export type { StageTotals, Toil } from "./tally.js";
 export type { Scope, ScopeOptions } from "./scope.js";
@@ -77,6 +80,8 @@ export interface FlowReport extends FrictionMetrics {
   outcomes: Outcomes;
   /** Swap and load by live-session count, with a trailing baseline, from host-sample events. */
   hostPressure: HostPressure;
+  /** Owner questions per merged change over the window, with the trailing days before it (#859). */
+  ownerQuestions: OwnerQuestions;
   /** Launches per role by where the tier came from, with launches from before it was recorded as unknown. */
   tierShares: ReturnType<typeof tierShares>;
   /** Spawns in range that named no idea, and how many gave a --no-idea reason; not friction. */
@@ -306,6 +311,10 @@ export function buildReport(
     outcomes: outcomes(named, window),
     hostPressure: hostPressure(named, window, {
       trailingDays: options.hostDays ?? DEFAULT_HOST_DAYS,
+      asOf,
+    }),
+    ownerQuestions: ownerQuestions(named, window, {
+      trailingDays: DEFAULT_QUESTION_DAYS,
       asOf,
     }),
     tierShares: tierShares(named, window),

@@ -9,6 +9,7 @@ import { fileURLToPath } from "node:url";
 import type { CliDeps } from "../runtime/index.js";
 import { hookCommand } from "./io.js";
 import { recordEvent } from "./ledger-event.js";
+import { asksOwner } from "./owner-question.js";
 
 const STARTS = new Set(["startup", "clear", "resume"]);
 
@@ -36,14 +37,39 @@ function pollInBackground(deps: CliDeps): void {
   }
 }
 
+/**
+ * Whether the turn that just ended left its final message asking the owner. The
+ * transcript is read here and its text is not kept; an unreadable transcript
+ * counts as no question.
+ */
+async function endedAskingOwner(
+  deps: CliDeps,
+  transcriptPath: unknown,
+): Promise<boolean> {
+  if (typeof transcriptPath !== "string") {
+    return false;
+  }
+  try {
+    return asksOwner(await deps.fs.readFile(transcriptPath));
+  } catch {
+    // An unreadable transcript is no question: the hook records what it can read.
+    return false;
+  }
+}
+
 export const record = hookCommand(
   "record",
-  "record a ledger event for the session; mode: session-start (SessionStart, no matcher; also starts ledger poll-github in the background)",
+  "record a ledger event for the session; modes: session-start (SessionStart, no matcher; also starts ledger poll-github in the background), turn-end (Stop; records owner.asked when the final message asks the owner), owner-asked (PreToolUse on AskUserQuestion; records owner.asked)",
   async ({ deps, payload, operand }) => {
     if (typeof payload !== "object" || payload === null) {
       return {};
     }
-    const call = payload as { source?: unknown; session_id?: unknown };
+    const call = payload as {
+      source?: unknown;
+      session_id?: unknown;
+      tool_name?: unknown;
+      transcript_path?: unknown;
+    };
     if (
       operand === "session-start" &&
       typeof call.source === "string" &&
@@ -51,6 +77,15 @@ export const record = hookCommand(
     ) {
       await recordEvent(deps, "session.start", call);
       pollInBackground(deps);
+    }
+    if (
+      operand === "turn-end" &&
+      (await endedAskingOwner(deps, call.transcript_path))
+    ) {
+      await recordEvent(deps, "owner.asked", call);
+    }
+    if (operand === "owner-asked" && call.tool_name === "AskUserQuestion") {
+      await recordEvent(deps, "owner.asked", call);
     }
     return {};
   },

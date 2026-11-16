@@ -99,6 +99,14 @@ export function emptyReport(overrides: Partial<Record<string, unknown>> = {}) {
       ownerMinutes: { perMerged: null, minutes: 0, merged: 0 },
     },
     hostPressure: { trailingDays: 7, samples: 0, levels: [] },
+    ownerQuestions: {
+      trailingDays: 7,
+      questions: 0,
+      merged: 0,
+      perMerged: null,
+      trailingAverage: null,
+      worsened: false,
+    },
     ...overrides,
     // The cast stands in for the fields the report prints but these tests never read.
   } as unknown as FlowReport;
@@ -196,6 +204,14 @@ export function populatedReport() {
     },
     guardBlocks: [{ rule: "push", blocks: 2 }],
     hostPressure: POPULATED_HOST,
+    ownerQuestions: {
+      trailingDays: 7,
+      questions: 6,
+      merged: 4,
+      perMerged: 1.5,
+      trailingAverage: 1,
+      worsened: true,
+    },
     stages: [
       {
         stage: "review",
