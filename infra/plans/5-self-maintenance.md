@@ -1,7 +1,7 @@
 ---
 status: done
 summary: Make the harness check and maintain itself, with CI, a deterministic retrospective scan, usage-driven pruning and promotion, eval history, and stale-doc detection.
-last-verified: 2026-11-08
+last-verified: 2026-11-16
 ---
 
 # Self-Maintenance Plan

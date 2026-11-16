@@ -2,7 +2,7 @@
 status: accepted
 summary: Each environment declares one registry.address; the oci-registry Service pin, the image-policy glob, and image references for push, sign, and deploy all derive from it at render and reconcile time, and committed values files may not repeat it.
 date: 2026-11-08
-last-verified: 2026-11-08
+last-verified: 2026-11-16
 ---
 
 # ADR 0031: The registry address is a per-environment platform variable

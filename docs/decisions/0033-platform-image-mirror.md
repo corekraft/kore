@@ -2,7 +2,7 @@
 status: accepted
 summary: The tag-gated release workflow gets a separate mirror job that copies each approved platform image (the digest-pinned seeds plus infra/catalog/approved-images.yaml, every other platform image pinned by digest through chart values) into ghcr.io/corekraft/kore/mirror by digest, verifies recorded upstream provenance, signs the mirrored digest keylessly, verifies it with the exact tag identity, and emits a versioned platform image lock; an opt-in check fails any rendered image that is not approved by digest; admission and workload references are unchanged.
 date: 2026-11-08
-last-verified: 2026-11-08
+last-verified: 2026-11-16
 ---
 
 # ADR 0033: Platform image mirror

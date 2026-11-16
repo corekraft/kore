@@ -3,8 +3,8 @@ status: superseded
 superseded-by: docs/decisions/0076-k3d-replaces-minikube.md
 summary: The local Minikube tunnel is recovered on demand by the commands that need the Gateway endpoint, and reported as degraded with a remedy by status; no supervisor process is added.
 date: 2026-11-08
-last-verified: 2026-11-08
-last-verified: 2026-11-09
+last-verified: 2026-11-16
+last-verified: 2026-11-16
 ---
 
 # ADR 0060: Recover the local tunnel on demand, not with a supervisor
@@ -32,8 +32,8 @@ Recovery is **on demand**; there is no supervisor.
 - **Report.** `kore platform status` adds a read-only `local-tunnel` row and
   `kore app status` adds a `tunnel` field. Either is `degraded` for a `stale` or
   `missing` tunnel, and the detail names the remedy (`kore tunnel start
-  --environment local`). Status never starts a process.
 --environment local`). Status never starts a process.
+  --environment local`). Status never starts a process.
 - **Recover.** `ensureLocalTunnel` is `startLocalTunnel` for a local
   environment: a healthy tunnel is returned untouched, a stale one is stopped and
   replaced, and exactly one new process is started. `kore app up` calls it after

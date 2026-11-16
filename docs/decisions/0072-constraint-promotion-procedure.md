@@ -2,7 +2,7 @@
 status: accepted
 summary: One constraint is promoted from dryrun to deny, or rolled back, by `kore policy record|promote|rollback`, which edit only the repository from recorded audit evidence; the live round trip is an opt-in spec and no committed constraint is promoted yet.
 date: 2026-11-09
-last-verified: 2026-11-09
+last-verified: 2026-11-16
 ---
 
 # ADR 0072: A repeatable constraint promotion and rollback procedure

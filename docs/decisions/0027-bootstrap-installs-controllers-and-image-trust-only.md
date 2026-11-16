@@ -2,7 +2,7 @@
 status: accepted
 summary: kore platform bootstrap installs only controllers and image trust; the shared PostgreSQL API and the OPA authorizer move to the configuration phase.
 date: 2026-11-08
-last-verified: 2026-11-08
+last-verified: 2026-11-16
 ---
 
 # ADR 0027: Bootstrap installs controllers and image trust only

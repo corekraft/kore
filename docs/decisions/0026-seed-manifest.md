@@ -2,7 +2,7 @@
 status: accepted
 summary: infra/catalog/seeds.yaml records every digest-pinned seed artifact with its reason and upstream evidence, and kore validate rejects any seed-component image it does not record.
 date: 2026-11-08
-last-verified: 2026-11-08
+last-verified: 2026-11-16
 ---
 
 # ADR 0026: The seed manifest

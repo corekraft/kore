@@ -2,7 +2,7 @@
 status: accepted
 summary: A read-only inventory classifies every container, init and ephemeral container image running in the catalog-managed platform namespaces and checks their Policy Controller enrollment; the per-environment `imageInventory` mode (`audit` or `enforce`) decides whether findings fail bootstrap and keep the application admission gate closed.
 date: 2026-11-08
-last-verified: 2026-11-08
+last-verified: 2026-11-16
 ---
 
 # ADR 0056: Inventory running platform images before the gate opens

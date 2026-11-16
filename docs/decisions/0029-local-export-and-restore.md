@@ -2,7 +2,7 @@
 status: accepted
 summary: kore data export dumps retained CloudNativePG databases with pg_dump, encrypts the stream with age to the .sops.yaml recipient, and records a digest manifest that cluster destroy trusts; kore data restore loads it into a fresh profile.
 date: 2026-11-08
-last-verified: 2026-11-08
+last-verified: 2026-11-16
 ---
 
 # ADR 0029: Local export and restore of retained data

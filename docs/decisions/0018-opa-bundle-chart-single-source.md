@@ -2,7 +2,7 @@
 status: accepted
 summary: The OPA authorizer chart carries a copy of the tested bundle under bundle/, templates it into a ConfigMap with .Files, and loads it with opa --bundle; a test fails when the copy drifts from bundles/v1.
 date: 2026-11-08
-last-verified: 2026-11-08
+last-verified: 2026-11-16
 ---
 
 # ADR 0018: Deploy the tested OPA bundle from the chart

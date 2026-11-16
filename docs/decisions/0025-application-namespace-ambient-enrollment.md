@@ -2,7 +2,7 @@
 status: accepted
 summary: kore app up is the single owner of application namespaces and labels them istio.io/dataplane-mode ambient; Gatekeeper audits that contract.
 date: 2026-11-08
-last-verified: 2026-11-08
+last-verified: 2026-11-16
 ---
 
 # ADR 0025: Application namespaces are created and enrolled by `kore app up`

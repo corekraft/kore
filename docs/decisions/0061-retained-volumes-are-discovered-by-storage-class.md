@@ -2,7 +2,7 @@
 status: accepted
 summary: Retained-data discovery also lists PersistentVolumes of the kore-retained class, because deleting a retained claim leaves an unlabeled Released volume that claim and PVC queries cannot see.
 date: 2026-11-08
-last-verified: 2026-11-09
+last-verified: 2026-11-16
 ---
 
 # ADR 0061: Discover retained volumes by storage class

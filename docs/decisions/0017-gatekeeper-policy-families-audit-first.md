@@ -2,7 +2,7 @@
 status: accepted
 summary: Gatekeeper ships six constraint template families as two catalog manifests in dryrun mode, tested offline with a pinned gator.
 date: 2026-11-08
-last-verified: 2026-11-08
+last-verified: 2026-11-16
 ---
 
 # ADR 0017: Gatekeeper policy families ship in audit mode, tested with gator

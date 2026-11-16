@@ -2,7 +2,7 @@
 status: accepted
 summary: Catalog readiness entries are mandatory, and the same read-only checks drive both bootstrap waits and platform status, with failures naming the component, resource, condition, and reason.
 date: 2026-11-08
-last-verified: 2026-11-08
+last-verified: 2026-11-16
 ---
 
 # ADR 0016: One set of readiness checks for waits and status

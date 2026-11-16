@@ -2,7 +2,7 @@
 status: accepted
 summary: The reference app authenticates to PostgreSQL with a std-lib SCRAM-SHA-256 client, injects the password by secretKeyRef, proves readiness with an authenticated SELECT 1, and applies schema through a Helm pre-install/pre-upgrade hook Job.
 date: 2026-11-08
-last-verified: 2026-11-08
+last-verified: 2026-11-16
 ---
 
 # ADR 0024: Reference app database access and schema migration
