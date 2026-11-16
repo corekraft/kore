@@ -2,7 +2,7 @@
 status: accepted
 summary: Crossplane composition Functions are their own catalog release between crossplane and kore-postgresql-api, and a function readiness kind waits for each to be Installed and Healthy.
 date: 2026-11-08
-last-verified: 2026-11-08
+last-verified: 2026-11-16
 ---
 
 # ADR 0023: Crossplane Functions are their own release with readiness checks

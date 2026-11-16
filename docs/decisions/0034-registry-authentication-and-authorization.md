@@ -2,7 +2,7 @@
 status: accepted
 summary: The internal registry sits behind an nginx auth proxy sidecar; kore generates a push and a read-only credential, streams them as Secrets, and only its publish path holds the push credential. The NodePort is gone and readiness is a TCP check.
 date: 2026-11-08
-last-verified: 2026-11-08
+last-verified: 2026-11-16
 ---
 
 # ADR 0034: Authenticate and authorize the internal registry with a proxy sidecar

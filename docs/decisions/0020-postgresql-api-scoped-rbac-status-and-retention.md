@@ -2,7 +2,7 @@
 status: accepted
 summary: The PostgreSQL API narrows Crossplane's Secret access, projects CloudNativePG health onto the composite, labels retained PVCs, and makes app down report retained data.
 date: 2026-11-08
-last-verified: 2026-11-08
+last-verified: 2026-11-16
 ---
 
 # ADR 0020: Scope PostgreSQL API permissions, status, and retained-data discovery

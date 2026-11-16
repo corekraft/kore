@@ -2,7 +2,7 @@
 status: accepted
 summary: kore app up deploys only a lock entry signed by release automation (a workflow at a version tag), source builds go through kore local up, and every up first clears failed or canceled Helm releases and verifies it, refusing to uninstall a release whose claim holds retained data.
 date: 2026-11-08
-last-verified: 2026-11-08
+last-verified: 2026-11-16
 ---
 
 # ADR 0063: Release-only `app up` and verified cleanup before resume

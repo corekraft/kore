@@ -2,7 +2,7 @@
 status: accepted
 summary: Two opt-in offline-ish checks catch cluster-facing failures before first live contact. A rollout-feasibility check flags workloads that cannot roll out or drain on the environment's node count; a container smoke runs each kore-owned chart's pinned image under docker and rejects crashes and bind errors.
 date: 2026-11-08
-last-verified: 2026-11-08
+last-verified: 2026-11-16
 ---
 
 # ADR 0036: Rollout feasibility and container smoke before live contact

@@ -2,7 +2,7 @@
 status: accepted
 summary: An explicit, resumable `kore registry rotate-credentials --yes` replaces the registry's push and read passwords and the enrolled namespaces' pull Secrets in an order that keeps admission reading signatures throughout; nginx needs no reload.
 date: 2026-11-08
-last-verified: 2026-11-08
+last-verified: 2026-11-16
 ---
 
 # ADR 0055: Rotate the registry credentials with an ordered, resumable command

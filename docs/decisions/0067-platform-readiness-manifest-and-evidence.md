@@ -2,7 +2,7 @@
 status: accepted
 summary: What opens the application admission gate is a versioned readiness manifest evaluated in one run and recorded as evidence before the gate opens; `platform gate-check` can only close it; a closed gate spares the cluster's own controllers; promotion to deny stays a separate, live-proven change.
 date: 2026-11-08
-last-verified: 2026-11-09
+last-verified: 2026-11-16
 ---
 
 # ADR 0067: Platform readiness manifest, evidence, and the closing gate

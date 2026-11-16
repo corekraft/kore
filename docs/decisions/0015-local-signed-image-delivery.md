@@ -2,7 +2,7 @@
 status: accepted
 summary: Locally, kore signs candidate images with a local Cosign key held as a cluster Secret and no Rekor entry, and deploys them by exact digest imported into the k3d node with imagePullPolicy Never.
 date: 2026-09-30
-last-verified: 2026-11-08
+last-verified: 2026-11-16
 ---
 
 # ADR 0015: Deliver locally signed images by digest into the local cluster

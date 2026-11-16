@@ -2,7 +2,7 @@
 status: accepted
 summary: Mesh identity reaches Prometheus by scraping ztunnel directly, trace and log correlation is a Grafana datasource link on trace_id, and Step 11 proofs split into offline specs plus one opt-in live spec.
 date: 2026-11-08
-last-verified: 2026-11-08
+last-verified: 2026-11-16
 ---
 
 # ADR 0062: Prove telemetry offline where possible, scrape ztunnel for mesh identity

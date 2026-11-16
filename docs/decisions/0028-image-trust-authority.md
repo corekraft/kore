@@ -2,7 +2,7 @@
 status: accepted
 summary: Each environment declares one validated image trust authority (exact GitHub Actions release identity, or the local key) and the kore-image-policy chart renders ClusterImagePolicy from it; no namespace is opted in yet.
 date: 2026-11-08
-last-verified: 2026-11-08
+last-verified: 2026-11-16
 ---
 
 # ADR 0028: The image trust authority

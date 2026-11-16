@@ -2,7 +2,7 @@
 status: accepted
 summary: The telemetry pipeline is split into a gateway Collector and a node agent, rules and dashboards are owned by one local chart, and metric attributes pass an explicit allowlist.
 date: 2026-11-08
-last-verified: 2026-11-08
+last-verified: 2026-11-16
 ---
 
 # ADR 0019: Wire telemetry as separate pipelines with bounded cardinality

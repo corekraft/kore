@@ -2,7 +2,7 @@
 status: accepted
 summary: Retained-data backups are the host-side encrypted export; the schedule is the RPO in recovery.yaml, and an audit-only `backups` row in `kore platform status` reports an export older than the RPO without gating admission or platform up.
 date: 2026-11-09
-last-verified: 2026-11-09
+last-verified: 2026-11-16
 ---
 
 # ADR 0074: Report backup freshness against the recovery point objective

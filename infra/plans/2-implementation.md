@@ -1,7 +1,7 @@
 ---
 status: active
 summary: Implements the platform from repository foundation through release hardening (Steps 6–15).
-last-verified: 2026-11-09
+last-verified: 2026-11-15
 ---
 
 # Local Kubernetes Platform Implementation Plan
@@ -1567,7 +1567,7 @@ unchanged releases; Step 15's documentation exists under `docs/operations` and
 resolves a tag to a digest, so the new `kore-image-digest` constraint (dryrun)
 guards the paths admission does not cover.
 
-### Now footprint baseline (method; numbers owed, #619)
+### Now footprint baseline (method and recorded baseline, #619, #623)
 
 `FootprintMeasurement` (`tools/kore/src/platform/footprint-measurement.ts`)
 measures the settled platform the same way every time, so Next and Then compare
@@ -1584,7 +1584,28 @@ spread (gap between run medians as a percentage of the baseline, as in plan 13).
 Run it several times with `KORE_RUN_LIVE=1 npm --prefix tools/kore run
 test:live:footprint`, then record the date, host, VM size, method values,
 per-metric baseline and spread here, and only the headroom figures in the
-vision's footprint line. The live run is owed; no baseline is recorded yet.
+vision's footprint line.
+
+Recorded 2026-11-15 on #623 (debt #659): a Mac with 12 CPU and 12 GB, Docker VM
+11956 MiB, the existing `kore-local` profile converged with every flag off
+(`kore local up --environment local`, exit 0, first run). Two serial runs on an
+idle host, both clean (no 1-minute load sample reached 10), 12 samples each
+after a 120 s settle. Earlier runs on 2026-11-14 were tainted by host load and
+are not part of the baseline.
+
+| Metric                    | Run 1                | Run 2               | Baseline (mean of medians) | Spread |
+| ------------------------- | -------------------- | ------------------- | -------------------------- | ------ |
+| CPU median / max          | 684 / 2262 mCPU      | 682.5 / 1707 mCPU   | 683.25 mCPU                | 0.2%   |
+| Memory median / max       | 5908.5 / 5931 MiB    | 5881.9 / 5926.9 MiB | 5895.2 MiB                 | 0.5%   |
+| Swap median / max         | 4806.8 / 4902.75 MiB | 4683 / 4957.5 MiB   | 4744.9 MiB                 | 2.6%   |
+| VM headroom median / peak | 50.6% / 50.4%        | 50.8% / 50.4%       | 50.7% at the median        | 0.2 pt |
+
+The baseline is about 5.9 GiB of the 11.9 GiB Docker VM, with half the VM free.
+Baseline and spread are computed from the two recorded run medians. The spec
+reports totals for the k3d server container, not a per-component breakdown, and
+swap sits near 4.8 GiB during the runs. No headroom threshold is set here: that
+is the owner's call (plan 15, Parked Owner Questions). The Next footprint (plan
+15 Step 7) is measured against this baseline.
 
 ## Progress Record
 

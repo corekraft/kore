@@ -2,7 +2,7 @@
 status: accepted
 summary: The internal registry's nginx proxy serves TLS only, with a certificate from a kore-owned cert-manager CA; every client verifies that CA and no plain-HTTP path remains.
 date: 2026-11-08
-last-verified: 2026-11-08
+last-verified: 2026-11-16
 ---
 
 # ADR 0058: Serve the internal registry over TLS and verify it everywhere

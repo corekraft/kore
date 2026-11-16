@@ -2,7 +2,7 @@
 status: accepted
 summary: The application admission gate is one Gatekeeper constraint per environment, closed at the start of every bootstrap run and opened for the current platform generation only when every component is ready in that run; only bootstrap automation may write it, activate namespaces, or read the local signing key, and kore app up refuses until it is open.
 date: 2026-11-08
-last-verified: 2026-11-08
+last-verified: 2026-11-16
 ---
 
 # ADR 0054: The application admission gate, closed at the end of the foundation

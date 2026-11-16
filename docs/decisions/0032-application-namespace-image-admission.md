@@ -2,7 +2,7 @@
 status: accepted
 summary: kore app up enrolls every application namespace in Sigstore admission (mandatory, read back), policies carry a per-environment warn/enforce mode that starts at warn, and Kore-placed upstream images (Istio waypoint, CloudNativePG) get a separate static-pass policy so internal images keep requiring signatures.
 date: 2026-11-08
-last-verified: 2026-11-08
+last-verified: 2026-11-16
 ---
 
 # ADR 0032: Application namespace image admission

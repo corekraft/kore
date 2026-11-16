@@ -2,7 +2,7 @@
 status: accepted
 summary: A dryrun Gatekeeper constraint requires every container and initContainer image outside third-party namespaces to be pinned by @sha256 digest, because Policy Controller resolves tag-only references instead of refusing them; the live reference smoke spec reads its API token from the cluster Secret, not .kore/.
 date: 2026-11-09
-last-verified: 2026-11-09
+last-verified: 2026-11-16
 ---
 
 # ADR 0073: Require digest-pinned images and read the smoke token from the cluster

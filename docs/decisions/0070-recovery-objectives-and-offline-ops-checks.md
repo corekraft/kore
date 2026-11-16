@@ -2,7 +2,7 @@
 status: accepted
 summary: Recovery objectives for every stateful component live in infra/catalog/recovery.yaml and are checked offline, and `kore ops` adds read-only inventory, upgrade, and CRD checks; scheduled backups stay managed-only until a live restore proves them.
 date: 2026-11-08
-last-verified: 2026-11-08
+last-verified: 2026-11-16
 ---
 
 # ADR 0070: Declare recovery objectives and check upgrades offline

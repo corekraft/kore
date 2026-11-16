@@ -2,7 +2,7 @@
 status: accepted
 summary: Portability validation renders application charts with chart-default values only and rejects provider output; rendered platform manifests written to disk have Secret values and sensitive keys redacted with the journal's marker.
 date: 2026-11-08
-last-verified: 2026-11-08
+last-verified: 2026-11-16
 ---
 
 # ADR 0021: Render for portability and redact rendered output
