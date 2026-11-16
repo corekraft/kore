@@ -61,6 +61,7 @@
       "alpha-skill"
     ]
   },
+  "subagents": {},
   "corrections": [
     {
       "id": "f556c47a",
@@ -117,6 +118,7 @@
   "agents": {
     "known": [],
     "launched": [],
+    "inProcess": {},
     "unused": []
   },
   "proposals": {
