@@ -16,6 +16,8 @@ export interface CliDeps {
    */
   root(): Promise<string>;
   ids: IdSource;
+  /** A uniform draw in [0, 1) for sampling a launch; absent in fakes that sample nothing, so nothing is sampled. */
+  random?: () => number;
   /** The host load average; absent in fakes that no load check reads. */
   hostLoad?: HostLoad;
   /**
