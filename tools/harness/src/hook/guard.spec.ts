@@ -12,6 +12,7 @@ import {
 } from "../guardrail/index.js";
 import { asCall, evaluate, type GuardCall } from "./guard-evaluate.js";
 import { guard } from "./guard.js";
+import { launchRoot } from "./guard-launch-root.js";
 import { recordEvent } from "./ledger-event.js";
 import { allow, block, type Verdict } from "./guard-verdict.js";
 
@@ -23,6 +24,7 @@ vi.mock("../guardrail/index.js", async (importOriginal) => ({
   modeOf: vi.fn(),
 }));
 vi.mock("./guard-evaluate.js", () => ({ asCall: vi.fn(), evaluate: vi.fn() }));
+vi.mock("./guard-launch-root.js", () => ({ launchRoot: vi.fn() }));
 vi.mock("./ledger-event.js", () => ({ recordEvent: vi.fn() }));
 
 /** The one assertion: a fake's parts as CliDeps, whose members the unit never reads. */
@@ -65,6 +67,7 @@ beforeEach(() => {
   vi.mocked(modeOf).mockReturnValue("enforce");
   vi.mocked(denyRules).mockReturnValue([]);
   vi.mocked(recordEvent).mockResolvedValue(undefined);
+  vi.mocked(launchRoot).mockResolvedValue("/repo");
   vi.mocked(createHash).mockReturnValue(fakeHash("0123456789abcdef9999"));
 });
 
@@ -82,23 +85,18 @@ describe("guard entry", () => {
     expect(recordEvent).toHaveBeenCalledWith(deps, "tool.start", CALL);
   });
 
-  it("resolves the root from CLAUDE_PROJECT_DIR, then the call's directory, then the deps cwd", async () => {
-    await guard({}, fakeDeps().deps);
+  it("takes the root from the launch root, asked with the call's directory, then the deps cwd", async () => {
+    const { deps } = fakeDeps();
+    vi.mocked(launchRoot).mockResolvedValue("/top");
+    await guard({}, deps);
+    expect(launchRoot).toHaveBeenLastCalledWith(deps, "/cwd");
     expect(findInventory).toHaveBeenLastCalledWith(
       expect.any(Function),
-      "/repo",
-    );
-    await guard({}, fakeDeps({}).deps);
-    expect(findInventory).toHaveBeenLastCalledWith(
-      expect.any(Function),
-      "/cwd",
+      "/top",
     );
     vi.mocked(asCall).mockReturnValue({ ...CALL, cwd: "/work" });
-    await guard({}, fakeDeps({}).deps);
-    expect(findInventory).toHaveBeenLastCalledWith(
-      expect.any(Function),
-      "/work",
-    );
+    await guard({}, deps);
+    expect(launchRoot).toHaveBeenLastCalledWith(deps, "/work");
   });
 });
 
