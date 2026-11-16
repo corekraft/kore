@@ -5,6 +5,7 @@ import {
   metricLine,
   reworkLines,
   sendBackCategoryLines,
+  tokensPerMergedChangeLine,
 } from "./flow-lines.js";
 
 const ZERO = {
@@ -121,6 +122,52 @@ describe("frictionLine", () => {
   it("counts the unknown record kinds it ignored", () => {
     expect(of({ unknownKinds: 2 })).toBe(
       "Friction: none; 2 unknown kind(s) ignored",
+    );
+  });
+});
+
+describe("tokensPerMergedChangeLine (#829)", () => {
+  const TRAILING = { trailingDays: 7, minMergedChanges: 5 };
+  const of = (
+    current: FlowReport["tokensPerMergedChange"]["current"],
+    trailingAverage: FlowReport["tokensPerMergedChange"]["trailingAverage"],
+  ) =>
+    tokensPerMergedChangeLine({
+      ...TRAILING,
+      current,
+      trailingAverage,
+    });
+
+  it("reads the window's tokens per merged change against the trailing average", () => {
+    expect(
+      of(
+        { status: "ok", tokens: 350, merged: 2, perMerged: 175 },
+        { status: "ok", tokens: 600, merged: 5, perMerged: 120 },
+      ),
+    ).toBe(
+      "Tokens per merged change: 175 (350 tokens over 2 merged changes); average 120 over the trailing 7 days",
+    );
+  });
+
+  it("says the window's figure is not read, never a zero, below the minimum", () => {
+    expect(
+      of(
+        { status: "insufficient merged changes", merged: 1, needed: 5 },
+        { status: "ok", tokens: 600, merged: 5, perMerged: 120 },
+      ),
+    ).toBe(
+      "Tokens per merged change: not read, 1 merged change in this range (5 needed); average 120 over the trailing 7 days",
+    );
+  });
+
+  it("says the trailing average has no value when its days had too few merged changes", () => {
+    expect(
+      of(
+        { status: "ok", tokens: 350, merged: 2, perMerged: 175 },
+        { status: "insufficient merged changes", merged: 0, needed: 5 },
+      ),
+    ).toBe(
+      "Tokens per merged change: 175 (350 tokens over 2 merged changes); no average: 0 merged changes in the trailing 7 days (5 needed)",
     );
   });
 });

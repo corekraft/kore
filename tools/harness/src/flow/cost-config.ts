@@ -76,16 +76,23 @@ function threshold(
   return { maxIncrease: max };
 }
 
+const wholeAtLeastOne = (value: unknown): value is number =>
+  typeof value === "number" && Number.isSafeInteger(value) && value >= 1;
+
 function parseCost(file: string, cost: Raw): HarnessConfig | Failure {
   const trailing = cost["trailingIdeas"] ?? DEFAULT_COST.trailingIdeas;
-  if (
-    typeof trailing !== "number" ||
-    !Number.isSafeInteger(trailing) ||
-    trailing < 1
-  ) {
+  if (!wholeAtLeastOne(trailing)) {
     return bad(
       file,
       "cost.trailingIdeas",
+      "must be a whole number of at least 1. Fix the value.",
+    );
+  }
+  const minMerged = cost["minMergedChanges"] ?? DEFAULT_COST.minMergedChanges;
+  if (!wholeAtLeastOne(minMerged)) {
+    return bad(
+      file,
+      "cost.minMergedChanges",
       "must be a whole number of at least 1. Fix the value.",
     );
   }
@@ -110,6 +117,7 @@ function parseCost(file: string, cost: Raw): HarnessConfig | Failure {
   return {
     cost: {
       trailingIdeas: trailing,
+      minMergedChanges: minMerged,
       tokensPerIdea: tokens,
       sessionsPerIdea: sessions,
     },
@@ -268,6 +276,7 @@ export function parseHarnessConfig(
   }
   const inner = unknownKey(file, "cost", cost, [
     "trailingIdeas",
+    "minMergedChanges",
     "tokensPerIdea",
     "sessionsPerIdea",
   ]);

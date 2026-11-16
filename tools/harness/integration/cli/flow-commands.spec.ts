@@ -39,6 +39,7 @@ const KEYS = [
   "outcomes",
   "hostPressure",
   "ownerQuestions",
+  "tokensPerMergedChange",
   "tierShares",
   "unstampedSpawns",
   "skippedLines",

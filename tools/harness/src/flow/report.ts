@@ -18,6 +18,7 @@ import {
   guardBlocks,
   hostPressure,
   ownerQuestions,
+  mergedChangeTokens,
   tierShares,
   ideaMetrics,
   measureAttribution,
@@ -33,6 +34,7 @@ import {
   type CostOptions,
   type LeadTime,
   type OwnerQuestions,
+  type TokensPerMergedChange,
 } from "./idea-metrics.js";
 import {
   inWindow,
@@ -43,7 +45,7 @@ import {
   type ScopeOptions,
 } from "./scope.js";
 
-export const REPORT_VERSION = 13;
+export const REPORT_VERSION = 14;
 
 export type { StageTotals, Toil } from "./tally.js";
 export type { Scope, ScopeOptions } from "./scope.js";
@@ -82,6 +84,8 @@ export interface FlowReport extends FrictionMetrics {
   hostPressure: HostPressure;
   /** Owner questions per merged change over the window, with the trailing days before it (#859). */
   ownerQuestions: OwnerQuestions;
+  /** Tokens per merged change over the window, with the trailing days before it as the average (#829). */
+  tokensPerMergedChange: TokensPerMergedChange;
   /** Launches per role by where the tier came from, with launches from before it was recorded as unknown. */
   tierShares: ReturnType<typeof tierShares>;
   /** Spawns in range that named no idea, and how many gave a --no-idea reason; not friction. */
@@ -321,6 +325,7 @@ export function buildReport(
       trailingDays: DEFAULT_QUESTION_DAYS,
       asOf,
     }),
+    tokensPerMergedChange: mergedChangeTokens(named, window, options),
     tierShares: tierShares(named, window),
     unstampedSpawns: unstampedSpawns(named, window),
   };
