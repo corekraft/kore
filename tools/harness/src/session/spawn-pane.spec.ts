@@ -146,6 +146,8 @@ describe("openPane places the worktree and splits the caller's pane", () => {
       "--env",
       "KORE_AGENT=image-trust-writer",
       "--env",
+      "KORE_ROLE=writer",
+      "--env",
       "KORE_IDEA=#338",
     ]);
   });

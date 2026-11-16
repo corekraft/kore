@@ -1,3 +1,4 @@
+import type { Sender } from "../sender/index.js";
 import type { PrView } from "./checks.js";
 import { JudgeError } from "./errors.js";
 import { postReview } from "./review-post.js";
@@ -65,7 +66,7 @@ export class ReviewRun {
     private readonly maxRuns: number = MAX_REVIEW_RUNS,
   ) {}
 
-  async run(pr: number): Promise<ReviewRunResult> {
+  async run(pr: number, sender: Sender): Promise<ReviewRunResult> {
     for (let runs = 1; runs <= this.maxRuns; runs++) {
       const reviewed = (await this.ports.view(pr)).headSha;
       const findings = await this.review(pr, reviewed);
@@ -75,7 +76,7 @@ export class ReviewRun {
         continue;
       }
       const done = await postReview(
-        { pr, findings, dryRun: false },
+        { pr, findings, dryRun: false, sender },
         now,
         (body) => this.ports.comment(pr, body),
       );

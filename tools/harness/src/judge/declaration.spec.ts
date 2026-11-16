@@ -137,3 +137,21 @@ describe("parseDeclaration reads the expand step of a contract", () => {
     ).toMatchObject({ ok: true, expandStep: 547 });
   });
 });
+
+describe("parseDeclaration reads a sender line as nothing", () => {
+  it("reads the same declaration behind a sender line as it reads without one", () => {
+    const declared = body(
+      "## Safety",
+      "Safety pattern: feature-flagged",
+      "Idea: #193",
+    );
+    const signed = `sender: writer fix-x (review post)\n${declared}`;
+    expect(parseDeclaration(signed)).toEqual(parseDeclaration(declared));
+    expect(parseDeclaration(signed)).toEqual({
+      ok: true,
+      pattern: "feature-flagged",
+      idea: "#193",
+      expandStep: undefined,
+    });
+  });
+});

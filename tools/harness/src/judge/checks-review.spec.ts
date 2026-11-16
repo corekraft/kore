@@ -56,6 +56,43 @@ describe("reviewCheck passes or fails a trusted verdict", () => {
   });
 });
 
+describe("reviewCheck reads the same verdict with a sender line first", () => {
+  const SENDER = "sender: writer fix-x (review post)";
+
+  it("passes a clean verdict behind a sender line, as it passes one without", () => {
+    const comments = [review(`${SENDER}\nprinciples-review: No violations.`)];
+    expect(reviewCheck(view({ comments }), REVIEWERS)).toEqual({
+      result: "pass",
+    });
+  });
+
+  it("fails a verdict behind a sender line with the same detail", () => {
+    const comments = [review(`${SENDER}\nprinciples-review: 2 violations`)];
+    expect(reviewCheck(view({ comments }), REVIEWERS)).toEqual({
+      result: "fail",
+      detail: "2 violations",
+    });
+  });
+
+  it("does not take a sender line for a verdict of its own", () => {
+    const comments = [review(`${SENDER}\nlooks good`)];
+    expect(reviewCheck(view({ comments }), REVIEWERS).result).toBe("missing");
+  });
+
+  it("trusts a verdict behind a sender line that names the current head, as it trusts one without", () => {
+    const comments = [
+      review(
+        `${SENDER}\nprinciples-review: No violations. head ${HEAD.slice(0, 7)}`,
+        "reviewer-bot",
+        "2026-11-14T09:00:00Z",
+      ),
+    ];
+    expect(reviewCheck(view({ comments }), REVIEWERS)).toEqual({
+      result: "pass",
+    });
+  });
+});
+
 describe("reviewCheck refuses a verdict it cannot trust", () => {
   it("does not trust a verdict from an author who is not a listed reviewer", () => {
     const comments = [review("principles-review: No violations.", "someone")];
@@ -97,5 +134,28 @@ describe("reviewCheck refuses a verdict it cannot trust", () => {
     expect(reviewCheck(view({ comments }), REVIEWERS).result).toBe(
       "unverified",
     );
+  });
+});
+
+describe("reviewCheck trusts the Reviewer App's verdict once the config names it", () => {
+  const APP = ["junners", "app/kore-reviewer"];
+
+  it("passes a clean verdict posted by the Reviewer App's login after the head commit", () => {
+    const comments = [
+      review("principles-review: No violations.", "app/kore-reviewer"),
+    ];
+    expect(reviewCheck(view({ comments }), APP)).toEqual({ result: "pass" });
+  });
+
+  it("does not trust the same verdict from an App it does not name, nor from a look-alike login", () => {
+    const comments = [
+      review("principles-review: No violations.", "app/kore-writer"),
+      review("principles-review: No violations.", "kore-reviewer"),
+    ];
+    expect(reviewCheck(view({ comments }), APP)).toEqual({
+      result: "unverified",
+      detail:
+        'no principles-review comment from junners or app/kore-reviewer for the current head (name it as "head <sha>", or post it after the head commit); rerun the review on the current head',
+    });
   });
 });

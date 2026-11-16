@@ -518,7 +518,9 @@ refuses source `github` and these kinds, so only the poller writes them:
 The judge's precheck and merge trust principles-review verdicts only from the
 reviewer logins they name: `reviewerLogins` in `.claude/harness.json` when set,
 else the owner login (`ownerLogin`, else the repository's owner). A verdict from
-any other login is unverified. `--reviewer <login>[,<login>]` overrides both, and
+any other login is unverified. A GitHub App's login is written `app/<slug>`, such
+as `app/kore-reviewer` for the Reviewer App; the owner names it in `reviewerLogins`
+once the App posts (the owner's step). `--reviewer <login>[,<login>]` overrides both, and
 `harness judge precheck` prints the reviewers it used in its text and JSON output.
 
 `harness review run <pr>` posts that verdict itself. It reads the PR head once,
@@ -528,6 +530,12 @@ posts it for that same head. If the head moved during the review it discards the
 verdict and reviews again (3 reviews at most); a pane that ends blocked or with
 no verdict records a `review.run` failure event and posts nothing.
 `orchestrate run` calls it before each precheck.
+
+Every verdict that `review post` or `review run` posts starts with a sender line,
+`sender: <role> <session> (<command>)`, or `sender: the main session (<command>)`
+from the main session. The harness takes the role and session from the spawn
+environment, so an agent cannot choose them. A comment with no sender line is the
+owner's. Older verdicts with no line still count.
 
 Each checklist item of the precheck (`ci`, `scan`, `coverage`,
 `principles-review`, `expand-step`, `pattern-match`, `guardrail-activation`) reads its mode from the

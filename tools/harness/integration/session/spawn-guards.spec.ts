@@ -34,7 +34,7 @@ describe("session spawn guards", () => {
     });
     expect(await run(spawnArgs, h.deps)).toBe(0);
     expect(herdrCalls(h)).toContain(
-      "herdr pane split --current --direction right --cwd /work/tree --no-focus --env KORE_AGENT=image-trust-writer",
+      "herdr pane split --current --direction right --cwd /work/tree --no-focus --env KORE_AGENT=image-trust-writer --env KORE_ROLE=reader",
     );
   });
 
