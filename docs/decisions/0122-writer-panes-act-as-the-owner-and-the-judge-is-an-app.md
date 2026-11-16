@@ -7,7 +7,7 @@ last-verified: 2026-11-16
 
 # ADR 0122: Writer panes act as the owner and the judge is an App
 
-Source: idea 0018 (`docs/ideas/0018-writer-prs-are-authored-by-the-owner-so-main-credits-the-own.md`, corekraft/kore#931)
+Source: [idea 0018](../ideas/0018-writer-prs-are-authored-by-the-owner-so-main-credits-the-own.md), corekraft/kore#931
 
 Refines: [ADR 0096](0096-role-tokens-reach-panes-through-a-fifo-handoff.md)
 
