@@ -13,13 +13,11 @@ beforeEach(() => {
 const NO_SKILL = [
   "Skills:",
   "- No skill was named, because the brief names no path that one covers.",
-  "- `test-driven-development` always applies; load it with the Skill tool.",
 ].join("\n");
 
 const TWO_SKILLS = [
   "Skills for the paths you change:",
   "- Load `add-command` and `pin-upgrade` with the Skill tool before you edit.",
-  "- `test-driven-development` always applies.",
 ].join("\n");
 
 const FINISH = [
@@ -28,17 +26,9 @@ const FINISH = [
   "node skills/bin/harness.mjs session notify w3:p1 --outcome <done|blocked>",
 ].join("\n");
 
-const FOLLOW_UP = [
-  "Review follow-up:",
-  "- After each fix push, print the new head SHA in your summary and wait for CI to pass before the next change.",
-  "- Never merge; only the judge merges.",
-  "- Broadcast only once, when you finish, with harness session notify (the command at the end of this brief).",
+const LIVE_PROOF = [
+  "Live proof:",
   "- While a live proof is pinned to a head, change no code, because a change invalidates that proof.",
-].join("\n");
-
-const LOCAL_CHECKS = [
-  "Local checks:",
-  "- Locally run only the related tests and typecheck; the full suites run in CI `check` (AGENTS.md, Changes).",
 ].join("\n");
 
 const HEAD = [
@@ -48,17 +38,8 @@ const HEAD = [
   "",
 ].join("\n");
 
-/** A pushing role's brief: the local-checks rule, then the follow-up section, sit between the name and the finish instructions. */
-const WRITER_BRIEF = [
-  HEAD,
-  NO_SKILL,
-  "",
-  LOCAL_CHECKS,
-  "",
-  FOLLOW_UP,
-  "",
-  FINISH,
-].join("\n");
+/** A pushing role's brief: the skills section and the pinned-proof rule sit between the name and the finish instructions. */
+const WRITER_BRIEF = [HEAD, NO_SKILL, "", LIVE_PROOF, "", FINISH].join("\n");
 /** A read-only role's brief: the same text without the pushing-role sections. */
 const READER_BRIEF = [HEAD, FINISH].join("\n");
 
@@ -69,29 +50,36 @@ const input = {
 };
 
 describe("buildBrief", () => {
-  it("gives a writer brief the review follow-up section, with the exact text, between the name and the finish instructions", () => {
+  it("gives a writer brief the live-proof rule, with the exact text, between the name and the finish instructions", () => {
     expect(buildBrief({ ...input, role: "writer" })).toBe(WRITER_BRIEF);
   });
 
   it.each(["writer", "fixer"])(
-    "keeps the review follow-up section in a %s brief, the role that pushes code",
+    "keeps the live-proof rule in a %s brief, the role that pushes code",
     (role) => {
       expect(buildBrief({ ...input, role })).toBe(WRITER_BRIEF);
     },
   );
 
   it.each(["reader", "judge"])(
-    "omits the review follow-up section from a %s brief, which never pushes code",
+    "omits the live-proof rule from a %s brief, which never pushes code",
     (role) => {
       expect(buildBrief({ ...input, role })).toBe(READER_BRIEF);
     },
   );
 
-  it("omits the review follow-up section when no role is given", () => {
+  it("omits the live-proof rule when no role is given", () => {
     expect(buildBrief(input)).toBe(READER_BRIEF);
   });
 
-  it("names the one skill that covers the paths found in the task", () => {
+  it("states no standing rule a writer owns: no local-check, CI, merge or test-driven-development line", () => {
+    const brief = buildBrief({ ...input, role: "writer" });
+    expect(brief).not.toMatch(
+      /Local checks|related tests|pr checks|origin\/main|rebase|Never merge|only the judge|Broadcast only once|test-driven-development|head SHA/,
+    );
+  });
+
+  it("names the one skill that covers the paths found in the task, without restating test-driven-development", () => {
     vi.mocked(extractPaths).mockReturnValue(["a/b.ts"]);
     vi.mocked(skillsForPaths).mockReturnValue(["add-policy"]);
     const brief = buildBrief({ ...input, role: "writer" });
@@ -106,9 +94,7 @@ describe("buildBrief", () => {
   it("lists every skill when paths from two areas match", () => {
     vi.mocked(skillsForPaths).mockReturnValue(["add-command", "pin-upgrade"]);
     expect(buildBrief({ ...input, role: "writer" })).toBe(
-      [HEAD, TWO_SKILLS, "", LOCAL_CHECKS, "", FOLLOW_UP, "", FINISH].join(
-        "\n",
-      ),
+      [HEAD, TWO_SKILLS, "", LIVE_PROOF, "", FINISH].join("\n"),
     );
   });
 
