@@ -8,7 +8,7 @@ export {
   type StageTotals,
   type Toil,
 } from "./report.js";
-export { flowMetricNames } from "./metric-names.js";
+export { GUARD_METRICS, flowMetricNames } from "./metric-names.js";
 export { DEFAULT_COST } from "./cost.js";
 export {
   DEFAULT_RETRO_HISTORY,

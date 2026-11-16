@@ -10,6 +10,11 @@ import { followUpMetrics, type FollowUpMetrics } from "./follow-ups.js";
 import { time } from "./github-waits.js";
 import { inWindow, type Span } from "./scope.js";
 
+export {
+  qualifierWarnings,
+  type QualifierWarnings,
+} from "./qualifier-warnings.js";
+
 /** Where a friction event came from: a hook rule, a `kore` command, or a pane. */
 export interface FrictionSource {
   kind: "hook rule" | "command" | "pane";

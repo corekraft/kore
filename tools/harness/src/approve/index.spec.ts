@@ -15,6 +15,7 @@ describe("the approve barrel", () => {
       "Approver",
       "approveFlagOn",
       "qualify",
+      "sharingWarnings",
       "trailingOf",
     ]);
   });

@@ -5,6 +5,20 @@ expected-outcome: A --worktree writer spawn opens a PR authored by junners, harn
 measurement: On one live writer PR: the PR author login, the approving reviewer login and state, mergeStateStatus before merge, and the author email of the resulting main commit.
 safety-pattern: feature-flagged
 date: 2026-11-16
+issue: https://github.com/corekraft/kore/issues/944
+outcome: confirmed
 ---
 
 # Idea 0018: Writer PRs are authored by the owner so main credits the owner
+
+## Outcome
+
+- Result: confirmed
+- Kind: verification
+- Source: live-run
+- Flag: owner-writer
+- Environment: local
+- Evidence: https://github.com/corekraft/kore/pull/934
+- Recorded: 2026-11-16
+
+writer PR 934 authored by junners, approved by kore-judge and counted by the ruleset, squash commit 900d7333 authored by junners
