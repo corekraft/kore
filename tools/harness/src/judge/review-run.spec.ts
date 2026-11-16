@@ -80,7 +80,7 @@ describe("ReviewRun reviews one PR head and posts the verdict for it", () => {
       expect.any(Function),
     );
     expect(done).toEqual({ pr: 42, head: "aaaaaaaa", posted: true, runs: 1 });
-    expect(io.record).toHaveBeenCalledExactlyOnceWith(42, "posted:aaaaaaaa");
+    expect(io.record).toHaveBeenCalledExactlyOnceWith(42, "posted:aaaaaaaa", 0);
   });
 
   it("tells the Reviewer the head to review and the form its verdict takes, and never to post", async () => {
@@ -105,6 +105,17 @@ describe("ReviewRun reviews one PR head and posts the verdict for it", () => {
     ]);
   });
 
+  it("records how many findings the verdict gave, so a clean review and one with findings read apart", async () => {
+    io.view.mockResolvedValue(view(HEAD_A));
+    vi.mocked(readVerdict).mockReturnValue([
+      "a.ts:1 | rule | wrong | fix",
+      "b.ts:2 | rule | wrong | fix",
+    ]);
+    vi.mocked(postReview).mockResolvedValue({ ...posted(HEAD_A), count: 2 });
+    await new ReviewRun(io).run(42, WHO);
+    expect(io.record).toHaveBeenCalledExactlyOnceWith(42, "posted:aaaaaaaa", 2);
+  });
+
   it("writes the comment through the port for this PR", async () => {
     io.view.mockResolvedValue(view(HEAD_A));
     io.comment.mockResolvedValue("URL");
@@ -121,7 +132,7 @@ describe("ReviewRun reviews one PR head and posts the verdict for it", () => {
     vi.mocked(postReview).mockResolvedValue(posted(HEAD_A, false));
     const done = await new ReviewRun(io).run(42, WHO);
     expect(done.posted).toBe(false);
-    expect(io.record).toHaveBeenCalledWith(42, "unchanged:aaaaaaaa");
+    expect(io.record).toHaveBeenCalledWith(42, "unchanged:aaaaaaaa", 0);
   });
 });
 
@@ -142,7 +153,7 @@ describe("ReviewRun never posts a verdict for a head it did not review", () => {
     );
     expect(done).toMatchObject({ head: "bbbbbbbb", runs: 2 });
     expect(io.record).toHaveBeenNthCalledWith(1, 42, "rerun:aaaaaaaa");
-    expect(io.record).toHaveBeenNthCalledWith(2, 42, "posted:bbbbbbbb");
+    expect(io.record).toHaveBeenNthCalledWith(2, 42, "posted:bbbbbbbb", 0);
   });
 
   it("gives up after the head moves on every run, posting nothing", async () => {

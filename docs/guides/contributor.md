@@ -424,6 +424,20 @@ than `cost.minMergedChanges` is `{"status": "insufficient merged changes",
 That minimum defaults to 5, a placeholder until it is re-checked from data
 (#808).
 
+`reviewMisses` measures the Reviewer against the judge (#851). A review is a
+`review.run` event that posted or left unchanged a verdict, counted once per PR
+head by its first verdict; a review with `findings` 0 passed, and one with more
+found a violation. `passedRuleBreak` counts the passed reviews whose PR a
+`rule-break` send-back followed later (and not after `--as-of`), and its `ratio`
+is that count over every review in the range. `foundViolation` counts the
+reviews that found at least one violation, as its `share` of every review. Each
+has a `trailingAverage` over the 7 days before the range (or before `--as-of`
+when the range has no start), and `passedRuleBreak.worsened` is true when its
+ratio is above that average. A review from before `findings` was recorded is
+`unrecorded` and left out of every figure. A range or trailing span with no
+review gives null, never zero, and the first window's null trailing average is a
+baseline, not a comparison.
+
 `finishDetection` counts the finishes the ledger holds (#853). The Stop hook
 records a `session.result` carrying only the outcome word, when the turn's
 assistant text printed a RESULT line. `session wait` records a `pane.finished`
@@ -566,7 +580,8 @@ spawns the principles-review Reviewer (Sonnet, medium, from its definition)
 through `session spawn`, collects its `VERDICT:` block with `session wait`, and
 posts it for that same head. If the head moved during the review it discards the
 verdict and reviews again (3 reviews at most); a pane that ends blocked or with
-no verdict records a `review.run` failure event and posts nothing.
+no verdict records a `review.run` failure event and posts nothing. A posted or
+unchanged verdict's event records its `findings` count, 0 for a clean review.
 `orchestrate run` calls it before each precheck.
 
 Every verdict that `review post` or `review run` posts starts with a sender line,

@@ -3,6 +3,7 @@ import type { FlowReport } from "../flow/index.js";
 import {
   frictionLine,
   metricLine,
+  reviewMissLines,
   reworkLines,
   sendBackCategoryLines,
   tokensPerMergedChangeLine,
@@ -171,6 +172,74 @@ describe("tokensPerMergedChangeLine (#829)", () => {
       ),
     ).toBe(
       "Tokens per merged change: 175 (350 tokens over 2 merged changes); no average: 0 merged changes in the trailing 7 days (5 needed)",
+    );
+  });
+});
+
+describe("reviewMissLines (#851)", () => {
+  const figure = (
+    overrides: Partial<FlowReport["reviewMisses"]> = {},
+  ): FlowReport["reviewMisses"] => ({
+    trailingDays: 7,
+    reviews: 4,
+    unrecorded: 0,
+    passedRuleBreak: {
+      count: 1,
+      ratio: 0.25,
+      trailingAverage: 0.1,
+      worsened: true,
+    },
+    foundViolation: { count: 2, share: 0.5, trailingAverage: 0.2 },
+    ...overrides,
+  });
+
+  it("gives each figure against its trailing average, and marks the miss rate worsened", () => {
+    expect(reviewMissLines(figure())).toEqual([
+      "Passed reviews later sent back for a rule break: 1 of 4 reviews (25%), trailing average 10% over the trailing 7 days (worsened)",
+      "Reviews that found a violation: 2 of 4 (50%), trailing average 20% over the trailing 7 days",
+    ]);
+  });
+
+  it("says the first window has no trailing average, a baseline, rather than printing zero", () => {
+    const lines = reviewMissLines(
+      figure({
+        passedRuleBreak: {
+          count: 0,
+          ratio: 0,
+          trailingAverage: null,
+          worsened: false,
+        },
+        foundViolation: { count: 0, share: 0, trailingAverage: null },
+      }),
+    );
+    expect(lines[0]).toContain("no reviews in the trailing days");
+    expect(lines[0]).not.toContain("(worsened)");
+    expect(lines[1]).toContain("no reviews in the trailing days");
+  });
+
+  it("says there are no reviews in the range rather than printing a rate", () => {
+    const lines = reviewMissLines(
+      figure({
+        reviews: 0,
+        passedRuleBreak: {
+          count: 0,
+          ratio: null,
+          trailingAverage: null,
+          worsened: false,
+        },
+        foundViolation: { count: 0, share: null, trailingAverage: null },
+      }),
+    );
+    expect(lines).toEqual([
+      "Passed reviews later sent back for a rule break: no recorded reviews in this range",
+      "Reviews that found a violation: no recorded reviews in this range",
+    ]);
+  });
+
+  it("counts the reviews from before the verdict was recorded that it left out", () => {
+    const lines = reviewMissLines(figure({ unrecorded: 3 }));
+    expect(lines[0]).toContain(
+      "; 3 from before the verdict was recorded left out",
     );
   });
 });
