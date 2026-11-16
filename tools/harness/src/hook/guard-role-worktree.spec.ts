@@ -122,6 +122,34 @@ describe("leavingWorktree", () => {
     expect(leavingWorktree("node -e re=/elsewhere/i", ROOT, ROOT)).toBeNull();
   });
 
+  it("keeps the whole code word of python3 -c, which has no regex literal to set aside", () => {
+    expect(
+      leavingWorktree("python3 -c open('/elsewhere/a')", ROOT, ROOT),
+    ).toMatchObject({ rule: "role-worktree" });
+    expect(codeStrings).not.toHaveBeenCalled();
+  });
+
+  it("keeps the whole code word of node -e when it holds a substitution the shell runs, since a regex literal could hide it", () => {
+    for (const code of ["/$(/elsewhere/b)/", "/`/elsewhere/b`/"]) {
+      expect(leavingWorktree(`node -e ${code}`, ROOT, ROOT)).toMatchObject({
+        rule: "role-worktree",
+      });
+    }
+    expect(codeStrings).not.toHaveBeenCalled();
+  });
+
+  it("names every allowed heredoc and node -e shape in the finding, so a writer knows what passes", () => {
+    const finding = leavingWorktree("cp a /elsewhere/b", ROOT, ROOT);
+    expect(finding).toMatchObject({
+      message: expect.stringContaining(
+        "a heredoc whose whole command is one cat or tee writing a file inside the worktree",
+      ),
+    });
+    expect(finding).toMatchObject({
+      message: expect.stringContaining("a node -e regex literal"),
+    });
+  });
+
   it("keeps every word of inline code as a candidate when no code word follows a flag", () => {
     expect(leavingWorktree("node /elsewhere/x -e", ROOT, ROOT)).toMatchObject({
       rule: "role-worktree",

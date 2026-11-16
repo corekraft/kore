@@ -4,56 +4,123 @@
 import { describe, expect, it } from "vitest";
 import { codeStrings, withoutHeredocBodies } from "./guard-text.js";
 
-describe("withoutHeredocBodies", () => {
-  it("drops the body and terminator of a heredoc that only feeds a file, keeping the opening line and the commands after it", () => {
-    expect(
-      withoutHeredocBodies(
-        "cat > notes.md <<'EOF'\nSee /elsewhere/kore/a.ts and cd ../..\nEOF\nrm old.md",
-      ),
-    ).toBe("cat > notes.md <<'EOF'\nrm old.md");
+const body = "See /elsewhere/kore/a.ts and rm /elsewhere/b && cd ../..";
+
+describe("withoutHeredocBodies drops a body that is only text", () => {
+  it("drops the body and terminator of a lone cat or tee that only writes a file, keeping the opening line", () => {
+    expect(withoutHeredocBodies(`cat > notes.md <<'EOF'\n${body}\nEOF`)).toBe(
+      "cat > notes.md <<'EOF'",
+    );
+    expect(withoutHeredocBodies(`tee -a n.md <<EOF\n${body}\nEOF`)).toBe(
+      "tee -a n.md <<EOF",
+    );
   });
 
   it("drops a <<- body whose terminator is tab-indented", () => {
     expect(
-      withoutHeredocBodies(
-        "cat <<-EOF > a.md\n\tcp a /elsewhere/b\n\tEOF\nrm b",
-      ),
-    ).toBe("cat <<-EOF > a.md\nrm b");
+      withoutHeredocBodies("cat <<-EOF > a.md\n\tcp a /elsewhere/b\n\tEOF"),
+    ).toBe("cat <<-EOF > a.md");
   });
 
   it("drops the bodies of several heredocs on one line, in the order they open", () => {
-    expect(withoutHeredocBodies("cat <<A <<B\none\nA\ntwo\nB\nrm c")).toBe(
-      "cat <<A <<B\nrm c",
+    expect(withoutHeredocBodies("cat <<A <<B > c.md\none\nA\ntwo\nB")).toBe(
+      "cat <<A <<B > c.md",
     );
   });
 
-  it("keeps the whole command when the body is run by a shell or an interpreter", () => {
-    const shell = "bash <<'EOF'\nrm /elsewhere/b\nEOF";
-    const piped = "cat <<'EOF' | sh\nrm /elsewhere/b\nEOF";
-    const node = "node <<'EOF'\nrequire('fs').rmSync('/elsewhere/b')\nEOF";
-    expect(withoutHeredocBodies(shell)).toBe(shell);
-    expect(withoutHeredocBodies(piped)).toBe(piped);
-    expect(withoutHeredocBodies(node)).toBe(node);
+  it("drops everything after an unterminated heredoc, as the shell does", () => {
+    expect(withoutHeredocBodies("cat <<EOF > a.md\nrm /elsewhere/b")).toBe(
+      "cat <<EOF > a.md",
+    );
   });
 
-  it("keeps the body when the command later runs a path or a file the heredoc wrote", () => {
-    for (const run of [
+  it("drops a body with a substitution when the terminator is quoted, since the shell leaves it as text", () => {
+    expect(
+      withoutHeredocBodies("cat > a.md <<'EOF'\n$(rm /elsewhere/b)\nEOF"),
+    ).toBe("cat > a.md <<'EOF'");
+    expect(
+      withoutHeredocBodies('cat > a.md <<"EOF"\n`rm /elsewhere/b`\nEOF'),
+    ).toBe('cat > a.md <<"EOF"');
+    expect(
+      withoutHeredocBodies("cat > a.md <<\\EOF\n$(rm /elsewhere/b)\nEOF"),
+    ).toBe("cat > a.md <<\\EOF");
+  });
+});
+
+describe("withoutHeredocBodies keeps the command whole when anything else could run", () => {
+  it("keeps the whole command when any other command word follows, whatever it is", () => {
+    for (const after of [
+      "ls",
+      "mv a.md b.md",
+      "sh<a.sh",
+      "bash<a.sh",
+      "node<a.js",
       "./a.sh",
       "/tmp/a.sh",
-      "chmod +x a.sh && a.sh",
-      "env sh a.sh",
+      "source a.sh",
+      ". a.sh",
+      "exec sh a.sh",
+      'eval "$(cat a.sh)"',
+      "xargs sh <a.sh",
+      "cat a.sh | env sh",
     ]) {
-      const command = `cat > a.sh <<'EOF'\nrm /elsewhere/b\nEOF\n${run}`;
+      const command = `cat > a.sh <<'EOF'\n${body}\nEOF\n${after}`;
       expect(withoutHeredocBodies(command)).toBe(command);
     }
   });
 
-  it("strips the body when the command only moves or reads the file the heredoc wrote", () => {
-    expect(
-      withoutHeredocBodies(
-        "cat > docs/a.md <<'EOF'\nrm /elsewhere/b\nEOF\nmv docs/a.md docs/b.md",
-      ),
-    ).toBe("cat > docs/a.md <<'EOF'\nmv docs/a.md docs/b.md");
+  it("keeps the whole command when a command word follows on the opening line", () => {
+    for (const joiner of [";", "&&", "||", "|", "&"]) {
+      const command = `cat <<EOF > a.md ${joiner} sh a.md\n${body}\nEOF`;
+      expect(withoutHeredocBodies(command)).toBe(command);
+    }
+  });
+
+  it("keeps the whole command when a command hides in a substitution on the opening line", () => {
+    for (const opening of [
+      "cat <<EOF > $(sh a.md)",
+      "cat <<EOF > `sh a.md`",
+      "cat <<EOF > >(sh)",
+      "cat <<EOF > a.md $(sh)",
+    ]) {
+      const command = `${opening}\n${body}\nEOF`;
+      expect(withoutHeredocBodies(command)).toBe(command);
+    }
+  });
+});
+
+describe("withoutHeredocBodies keeps the command whole when the opening line or terminator is odd", () => {
+  it("keeps the whole command for a first word that only looks like cat or tee", () => {
+    for (const first of [
+      "bash",
+      "sh",
+      "node",
+      "FOO=1 cat",
+      "env cat",
+      "/bin/cat",
+      "./cat",
+      "tee2",
+    ]) {
+      const command = `${first} > a.md <<'EOF'\n${body}\nEOF`;
+      expect(withoutHeredocBodies(command)).toBe(command);
+    }
+  });
+
+  it("keeps the whole command when an unquoted terminator lets the body run a substitution", () => {
+    for (const run of ["$(rm /elsewhere/b)", "`rm /elsewhere/b`"]) {
+      const command = `cat > a.md <<EOF\n${run}\nEOF`;
+      expect(withoutHeredocBodies(command)).toBe(command);
+    }
+  });
+
+  it("keeps the whole command when the opening line continues onto the next, which would hide a redirect", () => {
+    const command = "cat <<EOF \\\n> /elsewhere/b\nx\nEOF";
+    expect(withoutHeredocBodies(command)).toBe(command);
+  });
+
+  it("keeps the whole command when the terminator is partly quoted, so the terminator read is not the shell's", () => {
+    const command = 'cat > a.md <<E"O"F\nx\nEOF\nrm /elsewhere/b';
+    expect(withoutHeredocBodies(command)).toBe(command);
   });
 
   it("opens no heredoc at a << inside quotes, so the next line stays a command", () => {
@@ -64,12 +131,6 @@ describe("withoutHeredocBodies", () => {
   it("opens no heredoc at a here-string, which is one word", () => {
     const herestring = 'cat <<< "a"\nrm /elsewhere/b';
     expect(withoutHeredocBodies(herestring)).toBe(herestring);
-  });
-
-  it("drops everything after an unterminated heredoc, as the shell does", () => {
-    expect(withoutHeredocBodies("cat <<EOF > a.md\nrm /elsewhere/b")).toBe(
-      "cat <<EOF > a.md",
-    );
   });
 
   it("returns a command with no heredoc unchanged", () => {
@@ -100,8 +161,33 @@ describe("codeStrings", () => {
     expect(codeStrings("return /'/; a = b / c; d('/x')")).toEqual(["/x"]);
   });
 
-  it("skips a line comment, which runs no code", () => {
-    expect(codeStrings("// read('/etc/hosts')\nok('/x')")).toEqual(["/x"]);
+  it("reads the strings in a comment too, since a comment cannot be told from code hiding in it", () => {
+    expect(codeStrings("// read('/etc/hosts')\nok('/x')")).toEqual([
+      "/etc/hosts",
+      "/x",
+    ]);
+    expect(codeStrings("/* read('/etc/hosts') */ ok('/x')")).toEqual([
+      "/etc/hosts",
+      "/x",
+    ]);
+  });
+
+  it("reads a slash after ++ or -- as division, so the code after it is not hidden in a regex", () => {
+    expect(codeStrings("a++ / 2; read('/etc/hosts'); b / 3")).toEqual([
+      "/etc/hosts",
+    ]);
+    expect(codeStrings("a-- / 2; read('/etc/hosts'); b / 3")).toEqual([
+      "/etc/hosts",
+    ]);
+  });
+
+  it("reads a keyword used as a property name as a name, so a slash after it is division", () => {
+    expect(codeStrings("a.of / 2; read('/etc/hosts'); b / 3")).toEqual([
+      "/etc/hosts",
+    ]);
+    expect(codeStrings("a.return / 2; read('/etc/hosts'); b / 3")).toEqual([
+      "/etc/hosts",
+    ]);
   });
 
   it("keeps an escaped quote inside a literal", () => {

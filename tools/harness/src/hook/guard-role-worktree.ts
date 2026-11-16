@@ -12,6 +12,9 @@ export const outsideWorktree = (what: string, root: string): Finding =>
   block(
     "role-worktree",
     `${what} reaches outside this worktree (${root}), and a writer works only in the worktree it was launched in. ` +
+      "Text is read as text, not as paths, in two shapes only: a heredoc whose whole command is one cat or tee writing a file inside the worktree " +
+      "(no second command, shell, interpreter, source, exec, eval, xargs, env, or path run, and no substitution in the body unless the terminator is quoted), " +
+      "and a node -e regex literal (a string literal in node -e or python3 -c stays a path). " +
       "Instead, make the change inside the worktree, or report that it needs another piece of work.",
   );
 
@@ -67,10 +70,14 @@ export function outside(
 
 const INLINE_CODE_FLAGS = new Set(["-e", "--eval", "-p", "-c"]);
 
+/** A shell substitution: inside double quotes the shell runs it before the interpreter sees the code. */
+const SUBSTITUTION = /\$\(|`/;
+
 /**
  * The words of a segment that may name a path. A word with whitespace is text (a commit message, a
- * `--body`), not a path, unless the segment runs inline code. In inline code only the string
- * literals name a path, so a regex literal such as `/restrict|Pattern/` is not read as one.
+ * `--body`), not a path, unless the segment runs inline code. In `node -e` code a regex literal such
+ * as `/restrict|Pattern/` is not a path, and its string literals are. Every other inline word stays
+ * a candidate whole, as does `node -e` code holding a substitution, which a regex literal could hide.
  */
 function pathWords(segment: readonly string[]): string[] {
   if (!runsInline(segment)) {
@@ -80,7 +87,9 @@ function pathWords(segment: readonly string[]): string[] {
   const flag = args.findIndex((arg) => INLINE_CODE_FLAGS.has(arg));
   const code = flag < 0 ? undefined : args[flag + 1];
   // Without a code word to read (a combined flag, say), every word stays a candidate, as before.
-  return code === undefined
+  return code === undefined ||
+    commandOf(segment).name !== "node" ||
+    SUBSTITUTION.test(code)
     ? [...segment]
     : segment.flatMap((word) => (word === code ? codeStrings(word) : [word]));
 }
@@ -132,8 +141,8 @@ function leavesWorktree(
 }
 
 /**
- * The finding for a writer's command that leaves the worktree, or null. Heredoc bodies are text,
- * not commands, unless a shell or interpreter runs them, so they are taken out first.
+ * The finding for a writer's command that leaves the worktree, or null. A heredoc body is text, not
+ * commands, only when the whole command is one cat or tee writing a file, so it is taken out first.
  */
 export function leavingWorktree(
   command: string,

@@ -1,13 +1,19 @@
 // Text the role-worktree path check must not read as paths: heredoc bodies and the string literals
 // of inline code. Both are judged here, as pure functions; the check in guard-role-worktree.ts
-// decides what to do with the result. When in doubt these keep text as code, so a path the shell
-// may run is never hidden from the check.
-import { commandOf, splitSegments } from "./guard-shell.js";
+// decides what to do with the result. These fail closed (ADR 0080): text is hidden from the check
+// only in a shape that is allowed by name, and everything else stays code the check reads.
+import { splitSegments } from "./guard-shell.js";
 
-/** A heredoc that is still open: its terminator word, and whether `<<-` strips the terminator's tabs. */
+/**
+ * A heredoc that is still open: its terminator word, whether `<<-` strips the terminator's tabs,
+ * whether the shell expands its body (an unquoted terminator), and whether the terminator word is
+ * one this scan reads the way the shell does (a word part-way quoted, as in `E"O"F`, is not).
+ */
 interface Open {
   tag: string;
   dash: boolean;
+  expands: boolean;
+  plain: boolean;
 }
 
 /** The quote the scan is inside: `'`, `"`, `$'` (escapes, as in double quotes), or null outside quotes. */
@@ -15,13 +21,9 @@ interface Scan {
   quote: string | null;
 }
 
-// A word that makes a body run as code or as a command: a shell, an interpreter, or a program that
-// reads commands from its input. A body under one of these is not text, so it is not stripped.
-const RUNS_BODY =
-  /(?:^|[\s;&|(])(?:bash|sh|zsh|dash|ksh|node|python\d*|perl|ruby|lua|php|deno|bun|tsx|eval|source|exec|ssh|xargs|env|sudo|su|at|crontab|make)(?=$|[\s;&|)])|(?:^|[\s;&|(])\.(?=\s)/m;
-
-// The operator's optional `-`, then the terminator word: quoted, or a run of word characters.
-const TAG = /^(-?)[ \t]*(?:(["'])([^"'\n]+)\2|\\?([^\s;&|()<>'"\\]+))/;
+// The operator's optional `-`, then the terminator word: quoted, or a run of word characters after
+// an optional backslash (which quotes it too).
+const TAG = /^(-?)[ \t]*(?:(["'])([^"'\n]+)\2|(\\?)([^\s;&|()<>'"\\]+))/;
 
 // Arithmetic (`((`, `let`, `$[`) shifts with <<, which opens no heredoc.
 const ARITHMETIC = /\(\(|\blet\b|\$\[/;
@@ -71,12 +73,19 @@ function heredocAt(
     return undefined;
   }
   const word = TAG.exec(line.slice(i + 2));
-  return word === null
-    ? undefined
-    : {
-        open: { tag: word[3] ?? word[4] ?? "", dash: word[1] === "-" },
-        end: i + 2 + word[0].length,
-      };
+  if (word === null) {
+    return undefined;
+  }
+  const end = i + 2 + word[0].length;
+  return {
+    open: {
+      tag: word[3] ?? word[5] ?? "",
+      dash: word[1] === "-",
+      expands: word[2] === undefined && word[4] === "",
+      plain: end >= line.length || /[\s;&|()<>]/.test(line[end] as string),
+    },
+    end,
+  };
 }
 
 /** Scans one line of command text, skipping quotes and comments, and returns the heredocs it opens. */
@@ -108,50 +117,35 @@ function scanLine(line: string, scan: Scan): Open[] {
   return opened;
 }
 
-/** The last component of a path. */
-const base = (path: string): string => path.split("/").pop() ?? path;
-
-/** The file names a command writes through a redirect or `tee`, as basenames. */
-function writtenFiles(text: string): string[] {
-  const redirects = [
-    ...text.matchAll(/(?:>>?|>\|)\s*["']?([^\s"';&|()<>]+)/g),
-  ].map((m) => base(m[1] as string));
-  const tees = splitSegments(text)
-    .filter((segment) => commandOf(segment).name === "tee")
-    .flatMap((segment) =>
-      commandOf(segment).args.filter((arg) => !arg.startsWith("-")),
-    )
-    .map(base);
-  return [...redirects, ...tees];
-}
+/** A substitution or process substitution, which runs a command, or any parenthesis. */
+const SUBSTITUTION = /\$\(|`|[()]/;
 
 /**
- * Whether the command text runs a path, or a file it may have written: a command word that is a
- * path or the basename of a written file, or the word after an `-exec`. Reads a word as written,
- * not as commandOf names it, since commandOf keeps only the basename.
+ * Whether the command text left after the bodies are taken out is one `cat` or `tee` and nothing
+ * else: a single segment whose first word is exactly `cat` or `tee`, with no `;`, `&&`, `||`, `|`,
+ * `&` or newline joining a second command, no substitution or parenthesis (so no `$(`, backtick,
+ * `<(` or `>(`), and no line that continues onto the next. A redirect target on the line stays in
+ * the text, so the path check still reads it.
  */
-function runsPathOrWritten(text: string): boolean {
-  const written = writtenFiles(text);
-  return splitSegments(text).some((segment) => {
-    const { args } = commandOf(segment);
-    const launched = [
-      segment[segment.length - args.length - 1] ?? "",
-      ...args.filter((_, i) => args[i - 1] === "-exec"),
-    ];
-    return launched.some(
-      (word) =>
-        word.includes("/") ||
-        word.startsWith("~") ||
-        written.includes(base(word)),
-    );
-  });
+function onlyWrites(text: string): boolean {
+  const segments = splitSegments(text);
+  const first = segments[0]?.[0];
+  return (
+    segments.length === 1 &&
+    (first === "cat" || first === "tee") &&
+    !SUBSTITUTION.test(text) &&
+    !/\\$/m.test(text)
+  );
 }
 
 /**
  * The command with each heredoc's body and terminator removed, so the text of a body is never read
- * as a command or a path. The opening line stays, with any redirect or pipe on it. A body is kept,
- * and the command returned whole, when a shell or interpreter in the command text may run it, or
- * when the command runs a path or a file a redirect or tee wrote: the body may be that file's code.
+ * as a command or a path. The opening line stays, with any redirect on it. This fails closed: a body
+ * is removed only when the whole command is one `cat` or `tee` that writes a file (see `onlyWrites`),
+ * every terminator reads as the shell reads it, and no unquoted terminator lets the body run a
+ * substitution. In any other shape the command is returned whole and the body stays code: a
+ * second command, a shell or interpreter, `source`, `exec`, `eval`, `xargs`, a path run as a command,
+ * or a file written and then used may all run what the body says.
  */
 export function withoutHeredocBodies(command: string): string {
   if (!command.includes("<<")) {
@@ -160,20 +154,24 @@ export function withoutHeredocBodies(command: string): string {
   const scan: Scan = { quote: null };
   const kept: string[] = [];
   let pending: Open[] = [];
+  let text = true;
   for (const line of command.split("\n")) {
     const head = pending[0];
     if (head !== undefined) {
       // A body line is skipped; its terminator ends the body, and the next pending heredoc begins.
       if ((head.dash ? line.replace(/^\t+/, "") : line) === head.tag) {
         pending = pending.slice(1);
+      } else if (head.expands && SUBSTITUTION.test(line)) {
+        text = false;
       }
       continue;
     }
     kept.push(line);
     pending = scanLine(line, scan);
+    text &&= pending.every((open) => open.plain);
   }
-  const text = kept.join("\n");
-  return RUNS_BODY.test(text) || runsPathOrWritten(text) ? command : text;
+  const rest = kept.join("\n");
+  return text && onlyWrites(rest) ? rest : command;
 }
 
 /** Keywords after which a `/` starts a regex literal rather than dividing. */
@@ -193,8 +191,12 @@ const REGEX_AFTER = new Set([
   "instanceof",
   "new",
 ]);
-/** Punctuation after which a `/` starts a regex literal rather than dividing. */
-const REGEX_AFTER_PUNCTUATION = /[(,=:[!&|?{};+\-*%<>~^]/;
+/**
+ * Punctuation after which a `/` starts a regex literal rather than dividing. Not `+` or `-`: after
+ * `a++` a slash divides. Not `*`: after it the slash may end a comment. Read as a regex, either
+ * would hide the code up to the next slash.
+ */
+const REGEX_AFTER_PUNCTUATION = /[(,=:[!&|?{};%<>~^]/;
 
 /** One token of inline code: where it ends, the last token read, and the string's contents if it is a string. */
 interface Token {
@@ -242,23 +244,19 @@ function literal(code: string, i: number): Token {
   return { end: j + 1, last: quote, text };
 }
 
-/** The token at `i`, or null when a line comment runs to the end of the code. */
-function tokenAt(code: string, i: number, last: string): Token | null {
+/**
+ * The token at `i`. A comment is not skipped, so code hidden in what looks like one (Python's `//`
+ * divides) is still read; a `//` or `/*` is not a regex, and a word after a `.` is a property name,
+ * not a keyword, so a slash after it divides.
+ */
+function tokenAt(code: string, i: number, last: string): Token {
   const c = code[i] as string;
-  const next = code[i + 1];
-  if (c === "/" && next === "/") {
-    const end = code.indexOf("\n", i);
-    return end < 0 ? null : { end: end + 1, last };
-  }
-  if (c === "/" && next === "*") {
-    const end = code.indexOf("*/", i + 2);
-    return end < 0 ? null : { end: end + 2, last };
-  }
   if (c === "'" || c === '"' || c === "`") {
     return literal(code, i);
   }
   if (
     c === "/" &&
+    !/[/*]/.test(code[i + 1] ?? "") &&
     (last === "" || REGEX_AFTER_PUNCTUATION.test(last) || REGEX_AFTER.has(last))
   ) {
     return { end: regexClose(code, i) + 1, last: "regex" };
@@ -268,15 +266,16 @@ function tokenAt(code: string, i: number, last: string): Token | null {
     while (end < code.length && /[\w$]/.test(code[end] as string)) {
       end++;
     }
-    return { end, last: code.slice(i, end) };
+    return { end, last: code[i - 1] === "." ? "." : code.slice(i, end) };
   }
   return { end: i + 1, last: /\s/.test(c) ? last : c };
 }
 
 /**
- * The string literals in inline code (`node -e`, `python3 -c`), with their contents. A regex literal
- * is skipped, so `/restrict|Pattern/` is code and not a path; a comment is skipped too, since it
- * runs nothing. Only the literals can name a path the code reads or writes.
+ * The string literals in JavaScript inline code (`node -e`), with their contents. Only a regex
+ * literal is skipped, so `/restrict|Pattern/` is code and not a path; every string literal stays a
+ * path candidate, and a comment is read like code. Python has no regex literal, so `python3 -c` is
+ * not read through this at all.
  */
 export function codeStrings(code: string): string[] {
   const found: string[] = [];
@@ -284,9 +283,6 @@ export function codeStrings(code: string): string[] {
   let i = 0;
   while (i < code.length) {
     const token = tokenAt(code, i, last);
-    if (token === null) {
-      break;
-    }
     if (token.text !== undefined) {
       found.push(token.text);
     }

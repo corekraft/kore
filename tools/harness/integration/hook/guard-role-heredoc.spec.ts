@@ -15,9 +15,33 @@ describe("role-worktree: heredoc bodies and node -e regex literals are text, not
     allowed(
       await bash(
         "writer",
-        "cat > notes.md <<-EOF\n\tcd ../../x && rm /elsewhere/b\n\tEOF\nmv notes.md docs.md",
+        "cat > notes.md <<-EOF\n\tcd ../../x && rm /elsewhere/b\n\tEOF",
       ),
     );
+    allowed(
+      await bash(
+        "writer",
+        "tee docs/notes.md <<'EOF'\nrm /elsewhere/b $(rm /elsewhere/c)\nEOF",
+      ),
+    );
+  });
+
+  it("refuses a heredoc followed by any second command, since that command may run what the body wrote", async () => {
+    for (const after of [
+      "mv notes.md docs.md",
+      "sh<notes.md",
+      "./notes.md",
+      ". notes.md",
+      "cat notes.md | env sh",
+    ]) {
+      blocked(
+        await bash(
+          "writer",
+          `cat > notes.md <<'EOF'\nrm /elsewhere/b\nEOF\n${after}`,
+        ),
+        "role-worktree",
+      );
+    }
   });
 
   it("still refuses a heredoc whose redirect, or whose body a shell runs, reaches outside", async () => {
@@ -41,7 +65,9 @@ describe("role-worktree: heredoc bodies and node -e regex literals are text, not
       "role-worktree",
     );
   });
+});
 
+describe("role-worktree: a node -e regex literal is text, a string literal is a path", () => {
   it("allows a node -e regex literal, even one that names an outside path", async () => {
     allowed(
       await bash(
