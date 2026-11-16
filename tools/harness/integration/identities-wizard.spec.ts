@@ -14,7 +14,7 @@ import {
 
 afterEach(removeScratch);
 
-/** Every answer a full run gives, in order: the writer, the judge, the reviewer and the orchestrator. */
+/** Every answer a full run gives, in order: the writer, the judge's PAT, the reviewer, the orchestrator and the judge App. */
 function fullRun(pem: string): string[] {
   return [
     "", // ready to start
@@ -41,6 +41,13 @@ function fullRun(pem: string): string[] {
     "y",
     "9002",
     "y",
+    // the judge App
+    "31337",
+    "y",
+    pem,
+    "y",
+    "679",
+    "y",
   ];
 }
 
@@ -49,10 +56,10 @@ describe("identities wizard", () => {
     const box = sandbox();
     const result = runWizard(box, ["--dry-run"], "");
     expect(result.status).toBe(0);
-    for (const n of [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]) {
-      expect(result.stdout).toContain(`Stage ${n}/11`);
+    for (const n of [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14]) {
+      expect(result.stdout).toContain(`Stage ${n}/14`);
     }
-    expect(result.stdout).not.toContain("Stage 12/");
+    expect(result.stdout).not.toContain("Stage 15/");
     expect(result.stdout).toContain("Setup complete");
     // No outside tool ran: not security, gh, a browser opener or rm.
     expect(existsSync(box.calls)).toBe(false);
@@ -75,6 +82,9 @@ describe("identities wizard", () => {
       "kore.orchestrator.app-id",
       "kore.orchestrator.private-key",
       "kore.orchestrator.installation-id",
+      "kore.judge.app-id",
+      "kore.judge.private-key",
+      "kore.judge.installation-id",
     ]) {
       expect(out).toContain(`would store keychain item ${item}`);
     }
@@ -95,16 +105,19 @@ describe("identities wizard keychain", () => {
 
     const calls = read(box.calls);
     expect(calls).not.toContain("add-generic-password");
-    // Ten stores through stdin: writer 3, judge 1, reviewer 3, orchestrator 3.
+    // Thirteen stores through stdin: writer 3, judge PAT 1, reviewer 3, orchestrator 3, judge App 3.
     expect(
       calls.split("\n").filter((l) => l.startsWith("security -i")),
-    ).toEqual(Array(10).fill("security -i"));
+    ).toEqual(Array(13).fill("security -i"));
     const stdin = read(box.securityStdin);
     const b64 = Buffer.from(PEM).toString("base64");
     expect(stdin).toContain("-s kore.writer.app-id -a kore -w 12345");
     expect(stdin).toContain("-s kore.writer.installation-id -a kore -w 678");
     expect(stdin).toContain(`-s kore.writer.private-key -a kore -w ${b64}`);
     expect(stdin).toContain(`-s kore.judge.pat -a kore -w ${PAT}`);
+    expect(stdin).toContain("-s kore.judge.app-id -a kore -w 31337");
+    expect(stdin).toContain("-s kore.judge.installation-id -a kore -w 679");
+    expect(stdin).toContain(`-s kore.judge.private-key -a kore -w ${b64}`);
     expect(stdin).toContain("-s kore.reviewer.app-id -a kore -w 55555");
     expect(stdin).toContain("-s kore.reviewer.installation-id -a kore -w 9001");
     expect(stdin).toContain(`-s kore.reviewer.private-key -a kore -w ${b64}`);
@@ -171,6 +184,13 @@ describe("identities wizard re-runs", () => {
       box.pem,
       "n",
       "9002",
+      "y",
+      // the judge App is new
+      "31337",
+      "y",
+      box.pem,
+      "n",
+      "679",
       "y",
     ];
     const result = runWizard(box, [], `${input.join("\n")}\n`);
