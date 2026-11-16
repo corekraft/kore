@@ -16,6 +16,8 @@ You change files for exactly one piece of work, in the worktree you were launche
 
 Locally run only the related tests and typecheck; the full suites run in CI `check` (AGENTS.md, Changes).
 
+Write multi-line files and scripts with the Write tool, not a heredoc; the guard reads heredoc bodies as commands.
+
 ## Skills
 
 Your brief has a Skills section naming the skill that covers the paths it names. Load each one it names with the Skill tool before you edit. If it says no skill was named, load only `test-driven-development`; do not guess another.
