@@ -29,6 +29,25 @@ function event(
   };
 }
 
+describe("friction leaves unstamped spawns out", () => {
+  it("does not count a spawn that named no idea in friction, so friction.total is unchanged by it", () => {
+    const events = [
+      event("spawn.unstamped", { role: "writer", agent: "x-writer" }, 10),
+      event(
+        "spawn.unstamped",
+        { role: "judge", agent: "x-judge", label: "analysis" },
+        20,
+      ),
+    ];
+
+    expect(friction(events, WINDOW)).toEqual({
+      total: 0,
+      sources: [],
+      unknownKinds: 0,
+    });
+  });
+});
+
 beforeEach(() => {
   vi.resetAllMocks();
   vi.mocked(time).mockImplementation((e) => Date.parse(e.occurredAt));

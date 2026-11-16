@@ -1,0 +1,106 @@
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import { mainRoot } from "../runtime/index.js";
+import { fakeDeps, type FakeDeps } from "./deps-support.js";
+import { noteUnstamped, unstampedWarning } from "./spawn-record.js";
+
+// The ledger's constructor and record are spies the spec holds, so no prototype is referenced.
+const ledger = vi.hoisted(() => ({
+  record: vi.fn<(event: object) => Promise<unknown>>(),
+}));
+
+vi.mock("../ledger/index.js", () => ({
+  DEFAULT_LEDGER: ".kore/state/ledger.jsonl",
+  Ledger: class {
+    record(event: object) {
+      return ledger.record(event);
+    }
+  },
+}));
+vi.mock("../runtime/index.js", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("../runtime/index.js")>()),
+  mainRoot: vi.fn(),
+}));
+
+const SPAWNED = {
+  name: "image-trust-writer",
+  paneId: "w3:p9",
+  role: "writer",
+  createdAt: "2026-11-15T10:00:00.000Z",
+};
+const WARNING =
+  'Warning: image-trust-writer (writer) names no idea, so its ledger events cannot be counted per idea. Add --idea <issue number> to the next spawn, or --no-idea "<reason>" if it serves no idea. The session has started.\n';
+
+let deps: FakeDeps;
+
+beforeEach(() => {
+  deps = fakeDeps();
+  vi.mocked(mainRoot).mockResolvedValue("/main");
+  ledger.record.mockResolvedValue(undefined);
+});
+
+describe("the warning for a spawn that names no idea", () => {
+  it("names the missing idea, the fix, and that the session started", () => {
+    expect(unstampedWarning("image-trust-writer", "writer")).toBe(
+      'Warning: image-trust-writer (writer) names no idea, so its ledger events cannot be counted per idea. Add --idea <issue number> to the next spawn, or --no-idea "<reason>" if it serves no idea. The session has started.',
+    );
+  });
+});
+
+describe("noteUnstamped warns a required role that gave no reason", () => {
+  it("prints the warning to stderr, so stdout stays as the spawn reports it", async () => {
+    await noteUnstamped(deps, SPAWNED, {});
+
+    expect(deps.stderr).toHaveBeenCalledExactlyOnceWith(WARNING);
+    expect(deps.stdout).not.toHaveBeenCalled();
+  });
+
+  it("prints no warning when the session gave a --no-idea reason", async () => {
+    await noteUnstamped(deps, SPAWNED, { reason: "grilling session" });
+
+    expect(deps.stderr).not.toHaveBeenCalled();
+  });
+});
+
+describe("noteUnstamped records the spawn in the ledger", () => {
+  it("records an unstamped spawn with its role, name, pane and time, and no label without a reason", async () => {
+    await noteUnstamped(deps, SPAWNED, {});
+
+    expect(ledger.record).toHaveBeenCalledExactlyOnceWith({
+      source: "herdr",
+      kind: "spawn.unstamped",
+      occurredAt: SPAWNED.createdAt,
+      pane: "w3:p9",
+      agent: "image-trust-writer",
+      role: "writer",
+    });
+  });
+
+  it("records the --no-idea reason as the label, so a deliberate gap is told from a mistake", async () => {
+    await noteUnstamped(deps, SPAWNED, { reason: "grilling session" });
+
+    expect(ledger.record).toHaveBeenCalledExactlyOnceWith({
+      source: "herdr",
+      kind: "spawn.unstamped",
+      occurredAt: SPAWNED.createdAt,
+      pane: "w3:p9",
+      agent: "image-trust-writer",
+      role: "writer",
+      label: "grilling session",
+    });
+  });
+
+  it("records nothing outside a repository, and still warns", async () => {
+    vi.mocked(mainRoot).mockResolvedValue(undefined);
+
+    await noteUnstamped(deps, SPAWNED, {});
+
+    expect(ledger.record).not.toHaveBeenCalled();
+    expect(deps.stderr).toHaveBeenCalledExactlyOnceWith(WARNING);
+  });
+
+  it("never fails the spawn when the ledger cannot record the event", async () => {
+    ledger.record.mockRejectedValue(new Error("ledger down"));
+
+    await expect(noteUnstamped(deps, SPAWNED, {})).resolves.toBeUndefined();
+  });
+});

@@ -14,6 +14,8 @@ export { guardBlocks, outcomes } from "./outcomes.js";
 export { COST_KINDS, measureAttribution } from "./attribution-measure.js";
 export type { GuardBlocks, Outcomes } from "./outcomes.js";
 export type { Attribution } from "./attribution-measure.js";
+export { unstampedSpawns } from "./unstamped-spawns.js";
+export type { UnstampedSpawns } from "./unstamped-spawns.js";
 import {
   friction,
   reworkMetrics,

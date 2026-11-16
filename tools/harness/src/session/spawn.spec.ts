@@ -238,6 +238,26 @@ describe("spawn records the session", () => {
     expect(vi.mocked(finish).mock.calls[0]?.[1]).not.toHaveProperty("stage");
   });
 
+  it("hands finish the unstamped mark the check set, so the spawn with no idea is noted and still starts", async () => {
+    vi.mocked(check).mockResolvedValue({ ...CHECKED, unstamped: {} });
+
+    await spawn(contextOf(deps));
+
+    expect(finish).toHaveBeenCalledOnce();
+    expect(vi.mocked(finish).mock.calls[0]?.[1]).toHaveProperty(
+      "unstamped",
+      {},
+    );
+  });
+
+  it("hands finish no unstamped mark for a spawn that names an idea", async () => {
+    await spawn(contextOf(deps));
+
+    expect(vi.mocked(finish).mock.calls[0]?.[1]).not.toHaveProperty(
+      "unstamped",
+    );
+  });
+
   it("records no worktree field when the spawn placed none", async () => {
     await spawn(contextOf(deps));
 

@@ -8,6 +8,7 @@ import {
   ideaMetrics,
   measureAttribution,
   outcomes,
+  unstampedSpawns,
 } from "./idea-metrics.js";
 import { groupByIdea, select } from "./select.js";
 import { inWindow, scopeOf, windowOf } from "./scope.js";
@@ -40,6 +41,7 @@ beforeEach(() => {
   vi.mocked(inWindow).mockReturnValue(true);
   vi.mocked(newLife).mockReturnValue(fakeLife());
   cover(new Map());
+  vi.mocked(unstampedSpawns).mockReturnValue({ total: 0, withReason: 0 });
 });
 
 describe("buildReport scope and ideas", () => {
@@ -47,7 +49,7 @@ describe("buildReport scope and ideas", () => {
     const tally = fakeTally();
     vi.mocked(tally.stages).mockReturnValue([]);
     const r = run([]);
-    expect(r.version).toBe(9);
+    expect(r.version).toBe(10);
     expect(r.asOf).toBe("1970-01-01T00:00:01.000Z");
     expect(r.scope).toBe(SCOPE);
     expect(r.stages).toEqual([]);

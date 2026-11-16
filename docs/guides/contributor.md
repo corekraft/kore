@@ -464,6 +464,14 @@ checks that.
 
 ### Attribution and outcome metrics
 
+A writer, judge or principles-review spawn with no `--idea` prints a warning
+and still starts, and records a `spawn.unstamped` event with its role and name.
+`--no-idea <reason>` says why a session serves no idea: it records the reason
+as the event's label, prints no warning, and is refused together with `--idea`.
+A reader's spawn with no idea records nothing unless it passes `--no-idea`. The
+flow report counts these spawns as `unstampedSpawns` (`total`, and `withReason`
+for those given a reason). They are neither friction nor stage time.
+
 `session spawn --idea N` stamps `KORE_IDEA=#N`, and always `KORE_AGENT=<name>`,
 into the new pane's environment (`herdr pane split --env`). Every event a hook
 records in that pane carries them as `idea` and `agent`, so the report maps the

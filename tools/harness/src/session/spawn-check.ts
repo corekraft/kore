@@ -17,6 +17,12 @@ const REQUIRED = ["role", "name", "brief"] as const;
 /** Flags a role's agent definition can supply when the caller omits them. */
 const TIER = ["model", "effort"] as const;
 
+/** The roles whose ledger events must carry an idea; a reader's idea is optional. */
+const IDEA_ROLES: readonly string[] = ["writer", "judge", "principles-review"];
+
+/** A --no-idea reason the ledger keeps: 1 to 100 characters with no control characters. */
+const REASON = /^[^\p{Cc}]{1,100}$/u;
+
 export type Values = Record<
   (typeof REQUIRED)[number] | (typeof TIER)[number],
   string
@@ -32,6 +38,8 @@ export type Checked =
       tier: TierOrigin;
       /** The stage derived from the role, for the ledger's launch event. */
       stage?: string;
+      /** Set when the spawn names no idea: no reason for a required role (which warns), or the --no-idea reason. */
+      unstamped?: { reason?: string };
     }
   | { error: string; code: number };
 
@@ -103,6 +111,20 @@ function ideaOf(
     : `#${n[1]}`;
 }
 
+/** The refusal for a --no-idea that comes with --idea, or whose reason the ledger would drop. */
+function noIdeaError(options: CommandContext["options"]): string | undefined {
+  const reason = options["no-idea"];
+  if (reason === undefined) {
+    return undefined;
+  }
+  if (options.idea !== undefined) {
+    return "Use either --idea or --no-idea, not both.";
+  }
+  return typeof reason === "string" && REASON.test(reason)
+    ? undefined
+    : "Invalid --no-idea. Use 1 to 100 characters with no control characters.";
+}
+
 /** The first refusal among the brief, the worktree flags and the idea, before anything is resolved. */
 function inputError(
   given: { role: string; brief: string },
@@ -113,8 +135,25 @@ function inputError(
     briefError(given.brief) ??
     worktreeError(given.role, options) ??
     (typeof idea === "object" ? idea.error : undefined) ??
+    noIdeaError(options) ??
     tierInputError(options)
   );
+}
+
+/** The unstamped mark for a spawn that names no idea: a required role with no reason warns; a --no-idea reason is recorded for any role. */
+function unstampedOf(
+  role: string,
+  options: CommandContext["options"],
+  idea: string | undefined,
+): { reason?: string } | undefined {
+  if (idea !== undefined) {
+    return undefined;
+  }
+  const reason = options["no-idea"];
+  if (typeof reason === "string") {
+    return { reason };
+  }
+  return IDEA_ROLES.includes(role) ? {} : undefined;
 }
 
 /** The role's model and effort, or the refusal: an undefined role first, then a missing setting. A flag wins over the definition, which is how a writer escalates. */
@@ -172,6 +211,7 @@ export async function check({
     given.role,
     typeof options.pr === "string" ? options.pr : undefined,
   );
+  const unstamped = unstampedOf(given.role, options, idea);
   return {
     values: { ...given, ...tier },
     tier: await tierOf(deps, options),
@@ -179,5 +219,6 @@ export async function check({
     timeoutMs,
     ...(idea === undefined ? {} : { idea }),
     ...(stage === undefined ? {} : { stage }),
+    ...(unstamped === undefined ? {} : { unstamped }),
   };
 }

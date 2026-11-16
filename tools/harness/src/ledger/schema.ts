@@ -175,6 +175,8 @@ interface Rule {
   kinds?: readonly Kind[];
   /** The field may be omitted on its kinds, but is checked when present. */
   optional?: boolean;
+  /** Kinds on which the field is allowed and may be omitted, as a spawn with no reason omits its label. */
+  omittableOn?: readonly Kind[];
 }
 
 const RULES: readonly Rule[] = [
@@ -218,7 +220,9 @@ const RULES: readonly Rule[] = [
       "guardrail.activated",
       "idea.filed",
       "retro.dropped",
+      "spawn.unstamped",
     ],
+    omittableOn: ["spawn.unstamped"],
   },
   {
     field: "number",
@@ -232,7 +236,12 @@ const RULES: readonly Rule[] = [
     hint: "must be a positive integer",
     kinds: TOKEN_KINDS,
   },
-  { field: "role", check: isText(NAME), hint: NAME_HINT, kinds: LAUNCH_KINDS },
+  {
+    field: "role",
+    check: isText(NAME),
+    hint: NAME_HINT,
+    kinds: [...LAUNCH_KINDS, "spawn.unstamped"],
+  },
   { field: "tier", check: isText(NAME), hint: NAME_HINT, kinds: LAUNCH_KINDS },
   ...TIER_RULES,
   ...HOST_RULES,
@@ -285,7 +294,10 @@ function checkRule(rule: Rule, raw: Raw, mode: ParseMode): Failure | undefined {
   const applies = rule.kinds === undefined || rule.kinds.includes(kind);
   if (value === undefined) {
     const needed =
-      (rule.kinds !== undefined && applies && rule.optional !== true) ||
+      (rule.kinds !== undefined &&
+        applies &&
+        rule.optional !== true &&
+        !rule.omittableOn?.includes(kind)) ||
       (rule.field === "id" && mode === "stored");
     return needed
       ? bad(rule.field, `is required on ${kind} events`)

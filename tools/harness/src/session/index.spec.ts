@@ -114,11 +114,18 @@ describe("the session domain's spawn usage and flags", () => {
       worktree: "boolean",
       branch: "string",
       idea: "string",
+      "no-idea": "string",
       pr: "string",
       reason: "string",
       timeout: "string",
     });
     expect(session["spawn"]?.summary).toContain("--no-wait");
+  });
+
+  it("names --no-idea and its warning in spawn's summary, so a spawn with no idea is explained", () => {
+    expect(session["spawn"]?.summary).toContain(
+      "--no-idea <reason> (1 to 100 characters) says why a session serves no idea, and is refused with --idea; a writer, judge or principles-review spawn with neither warns and still starts",
+    );
   });
 
   it.each([
