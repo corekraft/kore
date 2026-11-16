@@ -124,10 +124,9 @@ describe("pollSignals owner actions", () => {
     expect(result.ok ? "" : result.message).toMatch(/Poll more often/);
   });
 
-  it("fails loudly when a first poll hits the page cap, and takes a --since to bound it", async () => {
+  it("bounds a first poll to a day before now, so a long history never hits the page cap", async () => {
     const t = setup({ "issues/events": full("30") });
     const first = await t.poll();
-    expect(first.ok).toBe(false);
-    expect(first.ok ? "" : first.message).toMatch(/--since/);
+    expect(first.ok).toBe(true);
   });
 });
