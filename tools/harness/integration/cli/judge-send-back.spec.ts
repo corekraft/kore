@@ -44,7 +44,6 @@ describe("judge send-back posts the reason on the queue and the ledger", () => {
       },
     ]);
   });
-
 });
 
 describe("judge send-back names its category", () => {

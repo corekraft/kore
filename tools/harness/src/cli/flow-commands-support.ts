@@ -42,7 +42,7 @@ export function ledgerOf(events: unknown[] = [], skipped = 0) {
   vi.mocked(openLedger).mockResolvedValue({ ledger });
 }
 
-/** Send-backs by category with none sent back. */
+/** Send-backs by category with none sent back, for one scope of the report. */
 const emptyCategories = {
   byCategory: {
     declaration: 0,
@@ -58,6 +58,12 @@ const emptyCategories = {
   otherShare: null,
   otherThreshold: 0.1,
   otherOverThreshold: false,
+};
+
+/** Send-backs by category for both scopes of the report, with none sent back. */
+const emptyCategoryReport = {
+  perPrHead: emptyCategories,
+  perMergedChange: emptyCategories,
 };
 
 /** A report with nothing in it, so each human line is the one the report prints. */
@@ -100,10 +106,7 @@ export function emptyReport(overrides: Partial<Record<string, unknown>> = {}) {
       },
     },
     friction: { total: 0, sources: [], unknownKinds: 0 },
-    sendBackCategories: {
-      perPrHead: emptyCategories,
-      perMergedChange: emptyCategories,
-    },
+    sendBackCategories: emptyCategoryReport,
     bottleneck: null,
     bottleneckNote: "No bottleneck yet.",
     unmappedEvents: 0,
@@ -121,6 +124,14 @@ export function emptyReport(overrides: Partial<Record<string, unknown>> = {}) {
       ownerMinutes: { perMerged: null, minutes: 0, merged: 0 },
     },
     hostPressure: { trailingDays: 7, samples: 0, levels: [] },
+    ownerQuestions: {
+      trailingDays: 7,
+      questions: 0,
+      merged: 0,
+      perMerged: null,
+      trailingAverage: null,
+      worsened: false,
+    },
     ...overrides,
     // The cast stands in for the fields the report prints but these tests never read.
   } as unknown as FlowReport;
@@ -218,6 +229,14 @@ export function populatedReport() {
     },
     guardBlocks: [{ rule: "push", blocks: 2 }],
     hostPressure: POPULATED_HOST,
+    ownerQuestions: {
+      trailingDays: 7,
+      questions: 6,
+      merged: 4,
+      perMerged: 1.5,
+      trailingAverage: 1,
+      worsened: true,
+    },
     stages: [
       {
         stage: "review",

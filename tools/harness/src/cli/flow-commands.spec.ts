@@ -220,6 +220,7 @@ describe("flow report: human lines", () => {
         "Owner minutes per merged change: none recorded",
         "Guard blocks: none",
         "Host pressure: no samples in this range",
+        "Owner questions: 0 with no merged change in this range",
         "No bottleneck yet.",
         "",
       ].join("\n"),

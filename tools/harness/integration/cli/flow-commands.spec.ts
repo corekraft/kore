@@ -38,6 +38,7 @@ const KEYS = [
   "guardBlocks",
   "outcomes",
   "hostPressure",
+  "ownerQuestions",
   "tierShares",
   "unstampedSpawns",
   "skippedLines",

@@ -208,6 +208,10 @@ describe("REPOSITORY_KINDS", () => {
     expect(REPOSITORY_KINDS.has("host-sample")).toBe(true);
   });
 
+  it("holds owner questions, which a session writes but which no stage's time, so they are not counted as unmapped work (#859)", () => {
+    expect(REPOSITORY_KINDS.has("owner.asked")).toBe(true);
+  });
+
   it("holds unstamped spawns, which record a session and belong to no idea or stage", () => {
     expect(REPOSITORY_KINDS.has("spawn.unstamped")).toBe(true);
   });
