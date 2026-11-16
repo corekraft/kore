@@ -19,6 +19,9 @@ export const HEREDOC = {
     "bash <<'EOF'\ncp a /elsewhere/b\nEOF",
     "cat <<'EOF' | sh\nrm /elsewhere/b\nEOF",
     "cat <<EOF > a.sh\nrm /elsewhere/b\nEOF\nsh a.sh",
+    "cat > a.sh <<'EOF'\nrm /elsewhere/b\nEOF\n./a.sh",
+    "cat > a.sh <<'EOF'\nrm /elsewhere/b\nEOF\n/tmp/a.sh",
+    "cat > a.sh <<'EOF'\nrm /elsewhere/b\nEOF\nchmod +x a.sh && a.sh",
     "node -e \"require('fs').readFileSync('/elsewhere/kore/a.ts')\"",
     "node -e \"require('fs').readFileSync('../../../secret')\"",
   ].map(writer),
@@ -26,6 +29,7 @@ export const HEREDOC = {
   ordinary: [
     "cat > notes.md <<'EOF'\nSee /elsewhere/kore/a.ts and cp a /elsewhere/b\nEOF",
     "cat > notes.md <<-EOF\n\tcd ../../x\n\tEOF",
+    "cat > docs/notes.md <<'EOF'\nrm /elsewhere/b\nEOF\nmv docs/notes.md docs/old.md",
     "node -e \"const re=/restrict|Pattern/i; console.log(re.test('abc'))\"",
   ].map((input) => ({ role: "writer", tool: "Bash" as const, input })),
 };

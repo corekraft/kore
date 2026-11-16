@@ -36,6 +36,26 @@ describe("withoutHeredocBodies", () => {
     expect(withoutHeredocBodies(node)).toBe(node);
   });
 
+  it("keeps the body when the command later runs a path or a file the heredoc wrote", () => {
+    for (const run of [
+      "./a.sh",
+      "/tmp/a.sh",
+      "chmod +x a.sh && a.sh",
+      "env sh a.sh",
+    ]) {
+      const command = `cat > a.sh <<'EOF'\nrm /elsewhere/b\nEOF\n${run}`;
+      expect(withoutHeredocBodies(command)).toBe(command);
+    }
+  });
+
+  it("strips the body when the command only moves or reads the file the heredoc wrote", () => {
+    expect(
+      withoutHeredocBodies(
+        "cat > docs/a.md <<'EOF'\nrm /elsewhere/b\nEOF\nmv docs/a.md docs/b.md",
+      ),
+    ).toBe("cat > docs/a.md <<'EOF'\nmv docs/a.md docs/b.md");
+  });
+
   it("opens no heredoc at a << inside quotes, so the next line stays a command", () => {
     const quoted = 'echo "<<EOF"\nrm /elsewhere/b\nEOF';
     expect(withoutHeredocBodies(quoted)).toBe(quoted);

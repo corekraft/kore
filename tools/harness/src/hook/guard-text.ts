@@ -1,7 +1,8 @@
 // Text the role-worktree path check must not read as paths: heredoc bodies and the string literals
-// of inline code. Both are judged here, as pure functions; the check in guard-role-delivery.ts
+// of inline code. Both are judged here, as pure functions; the check in guard-role-worktree.ts
 // decides what to do with the result. When in doubt these keep text as code, so a path the shell
 // may run is never hidden from the check.
+import { commandOf, splitSegments } from "./guard-shell.js";
 
 /** A heredoc that is still open: its terminator word, and whether `<<-` strips the terminator's tabs. */
 interface Open {
@@ -107,10 +108,50 @@ function scanLine(line: string, scan: Scan): Open[] {
   return opened;
 }
 
+/** The last component of a path. */
+const base = (path: string): string => path.split("/").pop() ?? path;
+
+/** The file names a command writes through a redirect or `tee`, as basenames. */
+function writtenFiles(text: string): string[] {
+  const redirects = [
+    ...text.matchAll(/(?:>>?|>\|)\s*["']?([^\s"';&|()<>]+)/g),
+  ].map((m) => base(m[1] as string));
+  const tees = splitSegments(text)
+    .filter((segment) => commandOf(segment).name === "tee")
+    .flatMap((segment) =>
+      commandOf(segment).args.filter((arg) => !arg.startsWith("-")),
+    )
+    .map(base);
+  return [...redirects, ...tees];
+}
+
+/**
+ * Whether the command text runs a path, or a file it may have written: a command word that is a
+ * path or the basename of a written file, or the word after an `-exec`. Reads a word as written,
+ * not as commandOf names it, since commandOf keeps only the basename.
+ */
+function runsPathOrWritten(text: string): boolean {
+  const written = writtenFiles(text);
+  return splitSegments(text).some((segment) => {
+    const { args } = commandOf(segment);
+    const launched = [
+      segment[segment.length - args.length - 1] ?? "",
+      ...args.filter((_, i) => args[i - 1] === "-exec"),
+    ];
+    return launched.some(
+      (word) =>
+        word.includes("/") ||
+        word.startsWith("~") ||
+        written.includes(base(word)),
+    );
+  });
+}
+
 /**
  * The command with each heredoc's body and terminator removed, so the text of a body is never read
  * as a command or a path. The opening line stays, with any redirect or pipe on it. A body is kept,
- * and the command returned whole, when a shell or interpreter in the command text may run it.
+ * and the command returned whole, when a shell or interpreter in the command text may run it, or
+ * when the command runs a path or a file a redirect or tee wrote: the body may be that file's code.
  */
 export function withoutHeredocBodies(command: string): string {
   if (!command.includes("<<")) {
@@ -132,7 +173,7 @@ export function withoutHeredocBodies(command: string): string {
     pending = scanLine(line, scan);
   }
   const text = kept.join("\n");
-  return RUNS_BODY.test(text) ? command : text;
+  return RUNS_BODY.test(text) || runsPathOrWritten(text) ? command : text;
 }
 
 /** Keywords after which a `/` starts a regex literal rather than dividing. */
