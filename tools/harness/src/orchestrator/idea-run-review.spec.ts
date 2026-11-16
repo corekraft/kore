@@ -14,7 +14,9 @@ describe("IdeaRun review", () => {
 
   it("reviews the new head again after the writer fixes a send-back", async () => {
     const harness = new ScriptedHarness({
-      prechecks: [{ sendBack: true, reason: "ci: fail" }],
+      prechecks: [
+        { sendBack: true, reason: "ci: fail", category: "failed-check" },
+      ],
       deliveries: [
         { pr: 50, merged: false },
         { pr: 50, merged: true },

@@ -1,3 +1,4 @@
+import type { SendBackCategory } from "../ledger/index.js";
 import type { QueueItem } from "../queue/index.js";
 import type { Runner } from "../runtime/index.js";
 import type { RetroPane, RetroReport } from "./retro-launch.js";
@@ -9,7 +10,7 @@ import type {
   PrecheckVerdict,
   SendBackTier,
 } from "./idea-run.js";
-import { sendBackReason, type PrecheckReport } from "./precheck-reason.js";
+import { sendBackFor, type PrecheckReport } from "./precheck-reason.js";
 
 export class HarnessCliError extends Error {}
 
@@ -112,15 +113,27 @@ export class HarnessCli implements Harness {
         "A harness tool printed unreadable output; rerun the command.",
       );
     }
-    const reason = sendBackReason(report);
-    return reason === undefined
+    const sendBack = sendBackFor(report);
+    return sendBack === undefined
       ? { sendBack: false }
-      : { sendBack: true, reason };
+      : { sendBack: true, ...sendBack };
   }
 
-  /** `judge send-back`: comments the reason on the PR and records the event with the PR head in its label. */
-  async sendBack(pr: number, reason: string): Promise<void> {
-    await this.harness("judge", "send-back", String(pr), "--reason", reason);
+  /** `judge send-back`: comments the reason on the PR and records the event with its category and the PR head in its label. */
+  async sendBack(
+    pr: number,
+    reason: string,
+    category: SendBackCategory,
+  ): Promise<void> {
+    await this.harness(
+      "judge",
+      "send-back",
+      String(pr),
+      "--reason",
+      reason,
+      "--category",
+      category,
+    );
   }
 
   async sendBacks(pr: number): Promise<SendBackTier> {

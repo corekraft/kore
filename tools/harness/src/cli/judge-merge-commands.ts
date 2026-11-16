@@ -6,6 +6,10 @@ import {
   summary,
   type ItemVerdict,
 } from "../judge/index.js";
+import {
+  SEND_BACK_CATEGORIES,
+  type SendBackCategory,
+} from "../ledger/index.js";
 import type { Command, CommandContext } from "../runtime/index.js";
 import {
   FAILED,
@@ -20,8 +24,26 @@ import {
 
 const MERGE_USAGE =
   "Run `harness judge merge <pr> [--json] [--reviewer <login>[,<login>]]`.";
-const SEND_BACK_USAGE = 'Run `harness judge send-back <pr> --reason "<why>"`.';
+const SEND_BACK_USAGE =
+  'Run `harness judge send-back <pr> --reason "<why>" --category <category>`.';
+const CATEGORY_LIST = SEND_BACK_CATEGORIES.join(", ");
 const LABEL_MAX = 100;
+
+/** The category the judge gave, or a refusal that names the whole list. */
+function categoryOf(value: string | boolean | undefined): SendBackCategory {
+  if (value === undefined || value === "" || value === true) {
+    throw new JudgeError(
+      `A send-back needs a --category. Use one of: ${CATEGORY_LIST}. ${SEND_BACK_USAGE}`,
+    );
+  }
+  const found = SEND_BACK_CATEGORIES.find((c) => c === value);
+  if (found === undefined) {
+    throw new JudgeError(
+      `"${value}" is not a send-back category. Use one of: ${CATEGORY_LIST}. ${SEND_BACK_USAGE}`,
+    );
+  }
+  return found;
+}
 
 /** One line per audit gate that failed and so was logged, never a reason to hold the merge. */
 function auditLines(audited: readonly ItemVerdict[]): string {
@@ -59,7 +81,7 @@ async function runMerge(context: CommandContext): Promise<number> {
           : summary(report),
       );
       deps.stderr(
-        `PR #${pr} was not merged: the precheck did not pass. Fix what it reports, or send the change back with \`harness judge send-back ${pr} --reason <why>\`.\n`,
+        `PR #${pr} was not merged: the precheck did not pass. Fix what it reports, or send the change back with \`harness judge send-back ${pr} --reason <why> --category <category>\`.\n`,
       );
       return FAILED;
     }
@@ -109,6 +131,34 @@ function labelFor(reason: string, head: string): string {
   return `${line.length <= room ? line : `${line.slice(0, room - 1)}…`}${tail}`;
 }
 
+/** Records the send-back unless the newest one already carries this label and category, so a rerun records nothing. */
+async function recordSendBack(
+  context: CommandContext,
+  ledger: Awaited<ReturnType<typeof openJudgeLedger>>,
+  pr: number,
+  label: string,
+  category: SendBackCategory,
+): Promise<void> {
+  const logged = await ledger.list({ kind: "send-back" });
+  const newest = logged.events.filter((e) => e.number === pr).at(-1);
+  if (newest?.label === label && newest?.category === category) {
+    return;
+  }
+  const event = await ledger.record({
+    source: "github",
+    kind: "send-back",
+    occurredAt: context.deps.clock.now().toISOString(),
+    number: pr,
+    label,
+    category,
+  });
+  if (!event.ok) {
+    throw new JudgeError(
+      `The reason is on PR #${pr}, but its ledger event was rejected: ${event.message} Fix the ledger, then rerun \`harness judge send-back ${pr}\`; the comment is not posted twice.`,
+    );
+  }
+}
+
 /** Posts the reason on the PR, where the orchestrator reads its queue, then records it. */
 async function runSendBack(context: CommandContext): Promise<number> {
   const { deps } = context;
@@ -118,6 +168,7 @@ async function runSendBack(context: CommandContext): Promise<number> {
     if (reason === "") {
       throw new JudgeError(`A send-back needs a reason. ${SEND_BACK_USAGE}`);
     }
+    const category = categoryOf(context.options["category"]);
     const root = await deps.root();
     const repo = await repoOf(context);
     const ledger = await openJudgeLedger(context);
@@ -142,23 +193,13 @@ async function runSendBack(context: CommandContext): Promise<number> {
         );
       }
     }
-    const label = labelFor(reason, view.headSha);
-    const logged = await ledger.list({ kind: "send-back" });
-    const newest = logged.events.filter((e) => e.number === pr).at(-1);
-    if (newest?.label !== label) {
-      const event = await ledger.record({
-        source: "github",
-        kind: "send-back",
-        occurredAt: deps.clock.now().toISOString(),
-        number: pr,
-        label,
-      });
-      if (!event.ok) {
-        throw new JudgeError(
-          `The reason is on PR #${pr}, but its ledger event was rejected: ${event.message} Fix the ledger, then rerun \`harness judge send-back ${pr}\`; the comment is not posted twice.`,
-        );
-      }
-    }
+    await recordSendBack(
+      context,
+      ledger,
+      pr,
+      labelFor(reason, view.headSha),
+      category,
+    );
     deps.stdout(`PR #${pr}: sent back with the reason on the queue\n`);
     return 0;
   } catch (error) {
@@ -176,9 +217,11 @@ export const mergeCommands: Record<string, Command> = {
   },
   "send-back": {
     summary:
-      "posts the reason as a comment on the PR, the orchestrator's queue, and records a send-back event at the shared ledger (<pr> --reason <why>)",
+      "posts the reason as a comment on the PR, the orchestrator's queue, and records a send-back event at the shared ledger with its category (<pr> --reason <why> --category <category>; one of: " +
+      SEND_BACK_CATEGORIES.join(", ") +
+      ")",
     operand: "pr",
-    options: { reason: "string" },
+    options: { reason: "string", category: "string" },
     run: runSendBack,
   },
 };

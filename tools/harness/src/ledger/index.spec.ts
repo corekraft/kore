@@ -23,6 +23,7 @@ describe("the ledger barrel", () => {
       "Ledger",
       "POLLER_KINDS",
       "REFUSED_MARKER",
+      "SEND_BACK_CATEGORIES",
       "SOURCES",
       "isName",
       "isTimestamp",

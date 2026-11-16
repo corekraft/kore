@@ -5,8 +5,18 @@ import { LEDGER, REPO, scenario, type Harness } from "./judge-support.js";
 
 const HEAD = "abc1234def5678abc1234def5678abc1234def56";
 
+const CATEGORY = ["--category", "failed-check"];
+/** A send-back with a category; a caller that names one of its own keeps it. */
 const sendBack = (h: Harness, ...extra: string[]) =>
-  run(["judge", "send-back", "42", ...extra], h.deps);
+  run(
+    [
+      "judge",
+      "send-back",
+      "42",
+      ...(extra.includes("--category") ? extra : [...extra, ...CATEGORY]),
+    ],
+    h.deps,
+  );
 const ghCalls = (h: Harness) =>
   h.runner.calls.filter((c) => c.command === "gh").map((c) => c.args.join(" "));
 const comments = (h: Harness) =>
@@ -33,6 +43,36 @@ describe("judge send-back posts the reason on the queue and the ledger", () => {
         label: "diff touches a chart @abc1234",
       },
     ]);
+  });
+});
+
+describe("judge send-back names its category", () => {
+  it("records the category it was given with the event", async () => {
+    const h = scenario();
+    expect(
+      await sendBack(
+        h,
+        "--reason",
+        "diff touches a chart",
+        "--category",
+        "conflict",
+      ),
+    ).toBe(0);
+    expect(events(h)).toMatchObject([
+      { kind: "send-back", category: "conflict" },
+    ]);
+  });
+
+  it("refuses a send-back with no category, names the list, and posts nothing", async () => {
+    const h = scenario();
+    expect(
+      await run(["judge", "send-back", "42", "--reason", "no pattern"], h.deps),
+    ).toBe(1);
+    expect(h.err()).toContain(
+      "declaration, pattern-mismatch, failed-check, conflict, missing-proof, rule-break, scope, other",
+    );
+    expect(h.runner.calls).toHaveLength(0);
+    expect(h.files.has(LEDGER)).toBe(false);
   });
 
   it("never merges, and only reads the PR to see what it already carries", async () => {

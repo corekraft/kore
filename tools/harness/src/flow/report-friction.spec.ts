@@ -56,6 +56,19 @@ describe("buildReport friction and rework", () => {
     );
   });
 
+  it("reports the send-backs by category that the friction metrics count", () => {
+    fakeTally();
+    cover(new Map());
+    const categories = { perPrHead: {}, perMergedChange: {} } as Partial<
+      ReturnType<typeof frictionMetrics>
+    >;
+    vi.mocked(frictionMetrics).mockReturnValue({
+      sendBackCategories: categories,
+    } as unknown as ReturnType<typeof frictionMetrics>);
+    const r = run([]);
+    expect(r.sendBackCategories).toBe(categories);
+  });
+
   it("leaves the trailing window to the default when the cost options name none", () => {
     fakeTally();
     cover(new Map());

@@ -19,6 +19,10 @@ export type { Attribution } from "./attribution-measure.js";
 export { unstampedSpawns } from "./unstamped-spawns.js";
 export type { UnstampedSpawns } from "./unstamped-spawns.js";
 import {
+  categoryReport,
+  type SendBackCategoryReport,
+} from "./send-back-categories.js";
+import {
   friction,
   reworkMetrics,
   type Friction,
@@ -81,6 +85,8 @@ export interface FrictionMetrics {
   friction: Friction;
   /** Retro proposals the per-retro cap dropped in range. */
   retroProposalsDropped: number;
+  /** Judge send-backs by category, per PR head and per merged change. */
+  sendBackCategories: SendBackCategoryReport;
 }
 
 export function frictionMetrics(
@@ -93,5 +99,6 @@ export function frictionMetrics(
     rework: reworkMetrics(byIdea, window, trailingIdeas),
     friction: friction(named, window),
     retroProposalsDropped: retroProposalsDropped(named, window),
+    sendBackCategories: categoryReport(named, byIdea, window),
   };
 }
