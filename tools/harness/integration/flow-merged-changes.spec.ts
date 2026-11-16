@@ -204,3 +204,66 @@ describe("flow report tokens by stage (#831)", () => {
     );
   });
 });
+
+// Writer cost (#868): each writer's tokens, weighted by its launch tier's price.
+const WRITER_EVENTS = [
+  at(1100, "session.launch", {
+    agent: "flow-writer",
+    pane: "w1:p1",
+    role: "writer",
+    tier: "claude-haiku-5-5",
+  }),
+  at(1200, "token.usage", { session: "w1", agent: "flow-writer", tokens: 100 }),
+  at(1300, "session.launch", {
+    agent: "flow-sonnet-writer",
+    pane: "w1:p2",
+    role: "writer",
+    tier: "claude-sonnet-5-5",
+  }),
+  at(1310, "token.usage", {
+    session: "w2",
+    agent: "flow-sonnet-writer",
+    tokens: 10,
+  }),
+  at(1400, "pr.merged", { number: 11 }),
+  at(1500, "pr.merged", { number: 12 }),
+  at(1600, "pr.merged", { number: 13 }),
+  at(1700, "pr.merged", { number: 14 }),
+  at(1800, "pr.merged", { number: 15 }),
+];
+
+describe("flow report writer cost per merged change by tier (#868)", () => {
+  it("weights each tier's writer tokens by its price, over the window's merged changes", () => {
+    const r = buildReport(WRITER_EVENTS, {
+      asOf: ASOF,
+      minCompletedIdeas: 1,
+      ...WINDOW,
+    });
+
+    expect(r.writerCost.current).toMatchObject({
+      status: "ok",
+      merged: 5,
+      tiers: {
+        "claude-haiku-5-5": {
+          sessions: 1,
+          weightedTokens: 100,
+          perMergedChange: 20,
+        },
+        "claude-sonnet-5-5": {
+          sessions: 1,
+          weightedTokens: 200,
+          perMergedChange: 40,
+        },
+      },
+    });
+  });
+
+  it("registers the writer cost figures' names in the metric list", () => {
+    expect(flowMetricNames()).toEqual(
+      expect.arrayContaining([
+        "writerCost.current",
+        "writerCost.trailingAverage",
+      ]),
+    );
+  });
+});
