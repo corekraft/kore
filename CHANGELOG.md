@@ -1,5 +1,31 @@
 # Changelog
 
+## [0.8.0](https://github.com/corekraft/kore/compare/v0.7.0...v0.8.0) (2026-11-16)
+
+
+### Features
+
+* **harness:** add session send with the shared follow-up prefix ([#771](https://github.com/corekraft/kore/issues/771)) ([b9cb3f2](https://github.com/corekraft/kore/commit/b9cb3f232577bf408b5f446ce747f220d18adf91))
+* **harness:** file the automatic retro's proposals as ideas behind automatic-retro ([#780](https://github.com/corekraft/kore/issues/780)) ([deca05f](https://github.com/corekraft/kore/commit/deca05fad7a557811feaad6192ec0b6213a1e27c))
+* **harness:** name the writer's skills in its brief from the paths it names ([#778](https://github.com/corekraft/kore/issues/778)) ([aba1d4e](https://github.com/corekraft/kore/commit/aba1d4e1059daa93aba7bf4ae92ed5d363443da9))
+* **harness:** open pull requests through pr open ([#764](https://github.com/corekraft/kore/issues/764)) ([203826c](https://github.com/corekraft/kore/commit/203826c0f715f567c9c247607b93f0f9745f173a)), closes [#746](https://github.com/corekraft/kore/issues/746)
+* **harness:** record where each session launch's tier came from ([#770](https://github.com/corekraft/kore/issues/770)) ([2ff97ee](https://github.com/corekraft/kore/commit/2ff97ee12b70fb94c409a39e4e1bdc6a2e0aaf01))
+* **harness:** report unused agents and print ready proposals in the retro scan ([#772](https://github.com/corekraft/kore/issues/772)) ([1011658](https://github.com/corekraft/kore/commit/1011658c91eee7723a2d4e4334ec80d53de0f10a))
+* **harness:** retire spawn-session for herdr's own skill and add session check ([#779](https://github.com/corekraft/kore/issues/779)) ([5578df2](https://github.com/corekraft/kore/commit/5578df2d37911b6ebdfadc503d195c690815646e))
+* **harness:** review run spawns the Reviewer and posts its verdict ([#775](https://github.com/corekraft/kore/issues/775)) ([93167fe](https://github.com/corekraft/kore/commit/93167fedc5eacef838c5a29675dadc5ff80a89b4))
+* **harness:** session spawn refuses an undefined role and states the naming rules ([#774](https://github.com/corekraft/kore/issues/774)) ([5ce20e7](https://github.com/corekraft/kore/commit/5ce20e779f8ce115d7091ef35afde1feefd0a3f8))
+
+
+### Refactoring
+
+* **harness:** remove the orchestrator and concierge agents ([#773](https://github.com/corekraft/kore/issues/773)) ([ea6e847](https://github.com/corekraft/kore/commit/ea6e847f4175f60e29af1f4b95334277b5f1019b))
+* **harness:** remove the refiner, challenger and challenge machinery ([#776](https://github.com/corekraft/kore/issues/776)) ([13c8970](https://github.com/corekraft/kore/commit/13c8970a48347092983018023d602d139dc3851b))
+
+
+### Documentation
+
+* **harness:** record the delivery loop's role set in an ADR and the glossary ([#768](https://github.com/corekraft/kore/issues/768)) ([9d6d5a7](https://github.com/corekraft/kore/commit/9d6d5a7bf11f7b46109db44469ad6a3eb4df7bec))
+
 ## [0.7.0](https://github.com/corekraft/kore/compare/v0.6.0...v0.7.0) (2026-11-15)
 
 
