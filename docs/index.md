@@ -226,6 +226,9 @@ decisions; read one only when planning that area, and expect it to change.
 - [`docs/ideas/0016-principles-review-in-the-loop.md`](ideas/0016-principles-review-in-the-loop.md) — Run principles-review in the delivery loop or archive it
 - [`docs/ideas/0017-decision-advisor-live-verification.md`](ideas/0017-decision-advisor-live-verification.md) — decision-advisor works live in local
 - [`docs/ideas/0018-writer-prs-are-authored-by-the-owner-so-main-credits-the-own.md`](ideas/0018-writer-prs-are-authored-by-the-owner-so-main-credits-the-own.md) — Writer panes act as the owner and the judge approves through its own kore-judge App, so squash commits on main count toward the owner's contributions
+- [`docs/ideas/0019-keep-the-main-session-s-waits-off-its-own-turn.md`](ideas/0019-keep-the-main-session-s-waits-off-its-own-turn.md) — Keep the main session's waits off its own turn
+- [`docs/ideas/0020-carry-a-pane-s-result-summary-in-its-session-state-file.md`](ideas/0020-carry-a-pane-s-result-summary-in-its-session-state-file.md) — Carry a pane's result summary in its session state file
+- [`docs/ideas/0021-route-the-main-session-s-pane-messages-through-session-send.md`](ideas/0021-route-the-main-session-s-pane-messages-through-session-send.md) — Route the main session's pane messages through session send
 
 ## Operations and Guides
 
