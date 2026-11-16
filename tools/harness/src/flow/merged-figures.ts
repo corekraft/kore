@@ -22,6 +22,7 @@ import {
   mergedChangeTokens,
   type TokensPerMergedChange,
 } from "./merged-tokens.js";
+import { mergedChangeWriterCost, type WriterCost } from "./writer-cost.js";
 import type { Span } from "./scope.js";
 
 export interface MergedChangeFigures {
@@ -35,6 +36,8 @@ export interface MergedChangeFigures {
   tokensByStage: StageTokens;
   /** Tokens per merged change in each stage over the window, with the trailing days before it as the average (#831). */
   tokensByStagePerMergedChange: TokensByStagePerMergedChange;
+  /** Writer tokens per merged change by tier, weighted by the pinned price table, with the trailing days as the average, beside follow-ups and the blocked share (#868). */
+  writerCost: WriterCost;
 }
 
 /** The per-merged-change figures over the window, read against the cost settings. */
@@ -53,5 +56,6 @@ export function mergedChangeFigures(
       window,
       options,
     ),
+    writerCost: mergedChangeWriterCost(events, window, options),
   };
 }

@@ -452,6 +452,26 @@ the same way. It needs `cost.minMergedChanges` merged changes, else it is
 zero. Its names are the figures themselves, `tokensByStagePerMergedChange.current`
 and `.trailingAverage`; a stage's own value sits inside `perMerged`.
 
+`writerCost` prices the writers by tier (#868, parent #825). Each writer launch
+records its model as `tier`; a writer on a model the price table does not know is
+left out of every tier. A writer counts in the range when it launched in it or
+spent tokens in it. Its tokens in the range are weighted by the model's input
+price relative to `claude-haiku-5-5`, from the table in
+`tools/harness/src/flow/writer-prices.ts`, pinned with its `pricesAsOf` date. The
+ledger's token count adds input, output and cache-creation tokens together, so the
+weight is relative rather than dollars; every model in the table has the same
+output-to-input ratio, so the tier ratios hold for any token mix. Each tier gives
+`sessions`, `weightedTokens`, `perMergedChange` over the range's merged changes,
+`followUpsPerSession` (sends to that tier's writer panes over its sessions, null
+with none), and `finished`, `blocked` and `blockedShare`: a writer is finished when
+it has a `session.result`, and blocked when its latest result is `blocked`. The
+`orchestrate` entry weights the main session's tokens at `MAIN_SESSION_MODEL` in
+`tools/harness/src/flow/writer-cost.ts`, because the ledger records no model for
+the main session; re-check that assumption before reading the tiers against it.
+`writerCost.current` and `.trailingAverage` are the names the figure registers;
+each has `status` and needs `cost.minMergedChanges` merged changes, else it is
+`insufficient merged changes`, never zero.
+
 `reviewMisses` measures the Reviewer against the judge (#851). A review is a
 `review.run` event that posted or left unchanged a verdict, counted once per PR
 head by its first verdict; a review with `findings` 0 passed, and one with more

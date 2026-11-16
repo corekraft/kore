@@ -77,6 +77,17 @@ const FIGURES: MergedChangeFigures = {
   leadTimePerMergedChange: LEAD_TIME,
   tokensByStage: BY_STAGE,
   tokensByStagePerMergedChange: TOKENS,
+  writerCost: {
+    pricesAsOf: "2026-11-16",
+    trailingDays: 7,
+    minMergedChanges: 5,
+    current: { status: "insufficient merged changes", merged: 0, needed: 5 },
+    trailingAverage: {
+      status: "insufficient merged changes",
+      merged: 0,
+      needed: 5,
+    },
+  },
 };
 
 beforeEach(() => {
@@ -131,7 +142,7 @@ describe("buildReport per-merged-change figures (#829, #830)", () => {
     );
   });
 
-  it("versions the report to 19, since two fields joined it (#831)", () => {
-    expect(run([]).version).toBe(19);
+  it("versions the report to 20, since the writer cost joined it (#868)", () => {
+    expect(run([]).version).toBe(20);
   });
 });
