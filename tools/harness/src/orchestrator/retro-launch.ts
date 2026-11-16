@@ -1,5 +1,15 @@
-/** The model a retro pane runs on. A retro reads many sessions at once, so it is the one pane that runs on Opus by design. */
-export const RETRO_MODEL = "claude-opus-5-5";
+import {
+  PROPOSALS_BEGIN,
+  PROPOSALS_END,
+  RETRO_CAP,
+} from "./retro-proposals.js";
+
+/** The tier a retro pane runs on: Sonnet at high effort, as spawned panes follow the Haiku-or-Sonnet rule. Reverse it if ideas from Sonnet retros are refuted at a clearly higher rate. */
+export const RETRO_MODEL = "claude-sonnet-5-5";
+export const RETRO_EFFORT = "high";
+
+/** Why the launch overrides the reader definition's tier; `session spawn` writes it into the launch event. */
+export const RETRO_REASON = "retro runs on Sonnet at high effort (ADR 0118)";
 
 /** The role the retro pane takes: read-only, because a retro proposes and never edits. */
 export const RETRO_ROLE = "reader";
@@ -15,6 +25,8 @@ export interface RetroPane {
   role: typeof RETRO_ROLE;
   name: string;
   model: typeof RETRO_MODEL;
+  effort: typeof RETRO_EFFORT;
+  reason: string;
   brief: string;
 }
 
@@ -65,7 +77,9 @@ export class RetroLaunch {
       role: RETRO_ROLE,
       name,
       model: RETRO_MODEL,
-      brief: `Run the /retro skill: review the sessions since the last retrospective and end with ranked proposals. Propose only; change no file and record nothing. The trigger (${reason}) is already recorded.`,
+      effort: RETRO_EFFORT,
+      reason: RETRO_REASON,
+      brief: `Run the /retro skill: review the sessions since the last retrospective and end with ranked proposals. Propose only; change no file and record nothing. The trigger (${reason}) is already recorded. End with your proposals as one JSON array, one object per idea with the string fields title, hypothesis, expectedOutcome, measurement, safetyPattern, metric, direction (up or down) and window (such as 14d), between a line ${PROPOSALS_BEGIN} and a line ${PROPOSALS_END}, then print RESULT: done. A tool files the first ${RETRO_CAP} as ideas and drops the rest, so rank them.`,
     });
     return { status: "launched", reason, name };
   }

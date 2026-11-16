@@ -9,11 +9,14 @@ vi.mock("./harness-cli.js", () => ({
 }));
 
 vi.mock("./retro-launch.js", () => ({
+  RETRO_EFFORT: "e",
   RETRO_FLAG: "f",
   RETRO_MODEL: "m",
   RETRO_ROLE: "r",
   RetroLaunch: vi.fn(),
 }));
+vi.mock("./retro-filing.js", () => ({ RetroFiling: vi.fn() }));
+vi.mock("./retro-filing-cli.js", () => ({ RetroFilingCli: vi.fn() }));
 vi.mock("./retro-flag.js", () => ({ retroFlagOn: vi.fn() }));
 
 describe("the orchestrator barrel", () => {
@@ -23,9 +26,12 @@ describe("the orchestrator barrel", () => {
       "HarnessCliError",
       "IdeaRun",
       "MAX_ROUNDS",
+      "RETRO_EFFORT",
       "RETRO_FLAG",
       "RETRO_MODEL",
       "RETRO_ROLE",
+      "RetroFiling",
+      "RetroFilingCli",
       "RetroLaunch",
       "retroFlagOn",
     ]);

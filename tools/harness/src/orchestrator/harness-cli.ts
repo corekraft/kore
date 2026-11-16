@@ -192,8 +192,26 @@ export class HarnessCli implements Harness {
       pane.brief,
       "--model",
       pane.model,
+      "--effort",
+      pane.effort,
+      "--reason",
+      pane.reason,
       "--no-wait",
     );
+  }
+
+  /** `session wait`, then the pane's unwrapped text, which holds the proposals a retro pane printed. */
+  async collect(name: string): Promise<{ outcome: string; text: string }> {
+    const waited = this.json(
+      await this.harness("session", "wait", name, "--json"),
+    ) as { outcome: string; paneId: string };
+    const done = await this.runner.run(
+      "herdr",
+      ["pane", "read", waited.paneId, "--source", "recent-unwrapped"],
+      { cwd: this.root },
+    );
+    this.check(`herdr pane read ${waited.paneId}`, done);
+    return { outcome: waited.outcome, text: done.stdout };
   }
 
   private async harness(...args: string[]): Promise<string> {
