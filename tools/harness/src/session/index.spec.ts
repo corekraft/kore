@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { CliDeps, CommandContext, Runner } from "../runtime/index.js";
 import { resolveTier } from "./agent-definition.js";
+import { check } from "./check.js";
 import { close } from "./close.js";
 import { equalize, type EqualizeResult } from "./equalize.js";
 import { resolveTier as exported, session } from "./index.js";
@@ -11,6 +12,7 @@ import { tier } from "./tier.js";
 import { wait } from "./wait.js";
 
 vi.mock("./agent-definition.js", () => ({ resolveTier: vi.fn() }));
+vi.mock("./check.js", () => ({ check: vi.fn() }));
 vi.mock("./close.js", () => ({ close: vi.fn() }));
 vi.mock("./equalize.js", () => ({ equalize: vi.fn() }));
 vi.mock("./notify.js", () => ({ notify: vi.fn() }));
@@ -46,8 +48,9 @@ beforeEach(() => {
 });
 
 describe("the session domain's command set", () => {
-  it("exposes spawn, wait, notify, send, close, tier and equalize, and no other command", () => {
+  it("exposes spawn, wait, notify, send, check, close, tier and equalize, and no other command", () => {
     expect(Object.keys(session).sort()).toEqual([
+      "check",
       "close",
       "equalize",
       "notify",
@@ -67,6 +70,7 @@ describe("the session domain's command set", () => {
     ["wait", wait],
     ["notify", notify],
     ["send", send],
+    ["check", check],
     ["close", close],
     ["tier", tier],
   ] as const)("runs %s through its own module", async (name, module) => {
@@ -74,6 +78,15 @@ describe("the session domain's command set", () => {
     vi.mocked(module).mockResolvedValue(7);
     expect(await session[name]?.run(context)).toBe(7);
     expect(module).toHaveBeenCalledWith(context);
+  });
+});
+
+describe("the session domain's check usage", () => {
+  it("says check is read-only and names session spawn as the fix", () => {
+    const summary = session.check?.summary ?? "";
+    expect(summary).toContain("role-tokens");
+    expect(summary).toContain("session spawn");
+    expect(summary).toContain("read-only");
   });
 });
 

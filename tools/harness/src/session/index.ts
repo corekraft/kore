@@ -1,6 +1,8 @@
+// oxlint-disable import/max-dependencies -- the session domain is one command per module, so its barrel imports each of them
 import type { Command } from "../runtime/index.js";
 export { handOff } from "./handoff.js";
 export { FOLLOW_UP_PREFIX } from "./follow-up-prefix.js";
+import { check } from "./check.js";
 import { close } from "./close.js";
 import { equalize } from "./equalize.js";
 import { notify } from "./notify.js";
@@ -53,6 +55,12 @@ const sendCommand: Command = {
   run: send,
 };
 
+const checkCommand: Command = {
+  summary:
+    "with the role-tokens flag on, report each writer or judge pane that session spawn did not start, because it runs without its token and sandbox; start it with session spawn instead (read-only, exits 1 when it finds one)",
+  run: check,
+};
+
 const closeCommand: Command = {
   summary:
     "close a spawned pane once its result is recorded (<name>; only the pane that spawned it); --remove-worktree also removes its worktree and deletes its branch, only when a merged PR has that branch as its head and the worktree is clean, otherwise it keeps both and exits 1",
@@ -96,6 +104,7 @@ export const session: Record<string, Command> = {
   wait: waitCommand,
   notify: notifyCommand,
   send: sendCommand,
+  check: checkCommand,
   close: closeCommand,
   tier: tierCommand,
   equalize: equalizeCommand,
