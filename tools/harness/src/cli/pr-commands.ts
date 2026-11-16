@@ -1,6 +1,7 @@
 import { JudgeError, renderPrBody } from "../judge/index.js";
 import type { Command, CommandContext } from "../runtime/index.js";
 import { failed, repoOf } from "./judge-shared.js";
+import { prChecksRun } from "./pr-checks-command.js";
 
 const USAGE =
   "Run `harness pr open --title <title> --pattern <pattern> [--body <summary>] [--issue <n>] [--closes] [--idea <number or slug>] [--expand-step <pr>] [--base <branch>] [--head <branch>] [--dry-run] [--json]`.";
@@ -97,6 +98,13 @@ export async function prOpenRun(context: CommandContext): Promise<number> {
 }
 
 export const prCommands: Record<string, Command> = {
+  checks: {
+    summary:
+      "read-only; reads the check runs on a pull request through gh and prints them: `pr checks <pr>` reads once, `--wait` polls on a clock until the checks settle or a bound passes, with no sleep of the caller's; exits 0 when every check passes, 1 when one fails (naming the failed checks and their URLs), and 2 while checks are still pending at the bound (the driver then polls with `ledger poll-github`); --json prints the state, the failed and pending names and each check",
+    operand: "pr",
+    options: { wait: "boolean" },
+    run: prChecksRun,
+  },
   open: {
     summary:
       "mutates; opens a pull request whose body ends with the declaration the precheck reads, rendered from the same module that parses it: `Refs #<issue>` (or `Closes` under --closes, which warns and cites ADR 0079 beside --idea, and never refuses), `Idea:`, `Expand step: #<pr>`, then `Safety pattern:` last; refuses an expand-contract PR with no --expand-step, and a pattern or number it would not accept, before gh is reached; --dry-run prints the body and creates nothing; gh runs through the runner in this pane's environment (--title <title> --pattern <pattern> [--body <summary>] [--issue <n>] [--closes] [--idea <number or slug>] [--expand-step <pr>] [--base <branch>] [--head <branch>] [--dry-run])",
