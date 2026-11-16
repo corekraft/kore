@@ -14,11 +14,13 @@ import {
   stop,
   type FeedbackDeps,
 } from "./feedback.js";
+import { resultOf } from "./feedback-result.js";
 import { readTokens, tokenStateFile } from "./feedback-tokens.js";
 import { recordEvent } from "./ledger-event.js";
 
 vi.mock("node:os", () => ({ tmpdir: vi.fn() }));
 vi.mock("node:path", () => ({ join: vi.fn() }));
+vi.mock("./feedback-result.js", () => ({ resultOf: vi.fn() }));
 vi.mock("./feedback-tokens.js", () => ({
   readTokens: vi.fn(),
   tokenStateFile: vi.fn(),
@@ -74,7 +76,8 @@ beforeEach(() => {
   vi.mocked(tmpdir).mockReturnValue("/tmp");
   vi.mocked(join).mockImplementation((...parts) => parts.join("/"));
   vi.mocked(tokenStateFile).mockReturnValue("/state/tokens.json");
-  vi.mocked(readTokens).mockResolvedValue({ total: 0, grew: false });
+  vi.mocked(readTokens).mockResolvedValue({ total: 0, grew: false, added: "" });
+  vi.mocked(resultOf).mockReturnValue(undefined);
 });
 
 describe("feedback source matching and bounds", () => {
@@ -274,7 +277,11 @@ describe("feedback dispatch, ledger events and markers", () => {
   it("records the session stop and the tokens it grew by, in stop mode", async () => {
     const { deps } = fakeCli();
     const payload = { session_id: "s1", transcript_path: "/t.jsonl" };
-    vi.mocked(readTokens).mockResolvedValue({ total: 120, grew: true });
+    vi.mocked(readTokens).mockResolvedValue({
+      total: 120,
+      grew: true,
+      added: "",
+    });
     await feedback("stop", payload, deps);
     expect(vi.mocked(readTokens).mock.calls).toEqual([
       [deps.fs, "/t.jsonl", "/state/tokens.json"],
@@ -287,7 +294,11 @@ describe("feedback dispatch, ledger events and markers", () => {
 
   it("records no token usage when the transcript did not grow, and none on a stop retry", async () => {
     const { deps } = fakeCli();
-    vi.mocked(readTokens).mockResolvedValue({ total: 120, grew: false });
+    vi.mocked(readTokens).mockResolvedValue({
+      total: 120,
+      grew: false,
+      added: "",
+    });
     await feedback("stop", { session_id: "s1" }, deps);
     expect(vi.mocked(recordEvent).mock.calls.map((c) => c[1])).toEqual([
       "session.stop",

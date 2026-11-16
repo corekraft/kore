@@ -1,5 +1,6 @@
 import { HOST_RULES } from "./schema-host.js";
 import { KINDS, type Kind } from "./schema-kinds.js";
+import { RESULT_RULES } from "./schema-result.js";
 import { SENDER_RULES } from "./schema-sender.js";
 import { SEND_BACK_RULES, type SendBackCategory } from "./schema-send-back.js";
 import { TIER_RULES, type TierOrigin } from "./schema-tier.js";
@@ -93,6 +94,8 @@ export interface EventInput extends Partial<TierOrigin> {
   sessions?: number;
   /** host-sample: whether the local platform was up. */
   platform?: boolean;
+  /** session.result and pane.finished: the outcome word on a RESULT line, and nothing else. */
+  result?: "done" | "blocked";
 }
 
 export interface LedgerEvent extends EventInput {
@@ -142,6 +145,7 @@ const ALLOWED = new Set<string>([
   ...TIER_RULES.map((rule) => rule.field),
   ...SEND_BACK_RULES.map((rule) => rule.field),
   ...SENDER_RULES.map((rule) => rule.field),
+  ...RESULT_RULES.map((rule) => rule.field),
   "load",
   "memory",
   "swap",
@@ -258,6 +262,7 @@ const RULES: readonly Rule[] = [
   ...TIER_RULES,
   ...SEND_BACK_RULES,
   ...SENDER_RULES,
+  ...RESULT_RULES,
   ...HOST_RULES,
 ];
 

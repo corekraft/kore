@@ -22,6 +22,43 @@ function stage(r: FlowReport, name: string) {
   return found;
 }
 
+describe("flow report finish detection (#853)", () => {
+  it("counts the results no pane.finished detected in five minutes, and the lag of those it did", () => {
+    const r = report([
+      at(0, "session.result", {
+        session: "claude-1",
+        pane: "w3:p9",
+        agent: "image-trust-writer",
+        result: "done",
+      }),
+      at(20, "pane.finished", {
+        source: "herdr",
+        pane: "w3:p9",
+        agent: "image-trust-writer",
+        result: "done",
+      }),
+      at(1000, "session.result", {
+        session: "claude-2",
+        pane: "w3:p1",
+        agent: "pane-message-sender",
+        result: "blocked",
+      }),
+      at(2000, "session.result", {
+        session: "claude-3",
+        agent: "no-pane",
+        result: "done",
+      }),
+    ]);
+    expect(r.finishDetection).toEqual({
+      windowSeconds: 300,
+      results: 2,
+      detected: 1,
+      undetected: 1,
+      medianLagSeconds: 20,
+    });
+  });
+});
+
 describe("flow report stage mapping", () => {
   it("lists every stage in delivery order, zeroed, for an empty ledger", () => {
     const r = report([]);

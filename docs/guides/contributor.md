@@ -424,6 +424,18 @@ than `cost.minMergedChanges` is `{"status": "insufficient merged changes",
 That minimum defaults to 5, a placeholder until it is re-checked from data
 (#808).
 
+`finishDetection` counts the finishes the ledger holds (#853). The Stop hook
+records a `session.result` carrying only the outcome word, when the turn's
+assistant text printed a RESULT line. `session wait` records a `pane.finished`
+with its pane, session name and outcome word the first time it sees that line.
+A result is detected by a `pane.finished` on the same pane within 300 seconds
+either side of it, and one finish detects one result. `undetected` counts the
+results no finish detected, `detected` those that were, and `medianLagSeconds`
+is the median seconds from a result to its finish: 0 when the finish came first,
+null when none did. The 300-second threshold is a placeholder until the owner
+sets it. Results with no pane are not counted. A failed `session notify` leaves
+no ledger event, so the report does not count those.
+
 Known limits until plan 8 Step 3 lands its producers: nothing records
 `issue.closed` or the `idea` link on PR events yet, so real ledgers show no
 completed ideas and the report says "Not enough data". A label other than

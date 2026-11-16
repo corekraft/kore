@@ -20,6 +20,8 @@ export type { GuardBlocks, Outcomes } from "./outcomes.js";
 export type { Attribution } from "./attribution-measure.js";
 export { unstampedSpawns } from "./unstamped-spawns.js";
 export type { UnstampedSpawns } from "./unstamped-spawns.js";
+export { finishDetection } from "./finish-detection.js";
+export type { FinishDetection } from "./finish-detection.js";
 import {
   categoryReport,
   type SendBackCategoryReport,

@@ -1,5 +1,6 @@
 import type { CliDeps, CommandContext } from "../runtime/index.js";
 import { describeFailure } from "./equalize.js";
+import { recordFinish } from "./finish-record.js";
 import { sessionNameError } from "./names.js";
 import { FAILED, USAGE_ERROR, fail } from "./output.js";
 import { SessionRegistry, type SessionRecord } from "./registry.js";
@@ -83,6 +84,7 @@ export async function waitForResult(
         ...record,
         result: { outcome, at: deps.clock.now().toISOString() },
       });
+      await recordFinish(deps, record.paneId, record.name, outcome);
       return done(outcome);
     }
     if (deps.clock.now().getTime() + POLL_MS > deadline) {

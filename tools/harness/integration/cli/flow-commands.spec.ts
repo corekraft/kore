@@ -42,6 +42,7 @@ const KEYS = [
   "tokensPerMergedChange",
   "tierShares",
   "unstampedSpawns",
+  "finishDetection",
   "skippedLines",
 ];
 
