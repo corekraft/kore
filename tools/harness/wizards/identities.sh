@@ -206,7 +206,7 @@ finish() {
 
 run_wizard() {
 
-TOTAL_STAGES=11
+TOTAL_STAGES=14
 ORG="corekraft"
 REPO="corekraft/kore"
 ACCOUNT="kore"
