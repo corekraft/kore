@@ -15,6 +15,7 @@ import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { cleanGitEnv } from "../../src/testing/index.js";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const bundle = resolve(here, "../../../../skills/bin/harness.mjs");
@@ -59,7 +60,7 @@ function git(...args: string[]): string {
       "user.email=replay@example.invalid",
       ...args,
     ],
-    { cwd: repo, encoding: "utf8" },
+    { cwd: repo, encoding: "utf8", env: cleanGitEnv() },
   ).trim();
 }
 
