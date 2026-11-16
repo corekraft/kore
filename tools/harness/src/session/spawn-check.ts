@@ -1,15 +1,10 @@
 import type { CommandContext } from "../runtime/index.js";
-import { resolveTier, undefinedRoleError } from "./agent-definition.js";
 import { hostLeaseRefusal } from "./host-lease.js";
+import { launchOf } from "./spawn-launch.js";
 import { spawnLoadRefusal } from "./spawn-load.js";
 import { sessionNameError } from "./names.js";
 import { FAILED, USAGE_ERROR } from "./output.js";
-import {
-  launchStage,
-  tierInputError,
-  tierOf,
-  type TierOrigin,
-} from "./tier-source.js";
+import { launchStage, tierInputError, type TierOrigin } from "./tier-source.js";
 import { findResult, parseTimeout } from "./wait.js";
 
 const REQUIRED = ["role", "name", "brief"] as const;
@@ -156,24 +151,6 @@ function unstampedOf(
   return IDEA_ROLES.includes(role) ? {} : undefined;
 }
 
-/** The role's model and effort, or the refusal: an undefined role first, then a missing setting. A flag wins over the definition, which is how a writer escalates. */
-async function launchTier(
-  deps: CommandContext["deps"],
-  role: string,
-  options: CommandContext["options"],
-): Promise<{ model: string; effort: string } | { error: string }> {
-  const undefinedRole = await undefinedRoleError(deps, role);
-  if (undefinedRole !== undefined) {
-    return { error: undefinedRole };
-  }
-  const flag = (name: (typeof TIER)[number]) =>
-    typeof options[name] === "string" ? options[name] : undefined;
-  return resolveTier(deps, role, {
-    model: flag("model"),
-    effort: flag("effort"),
-  });
-}
-
 /** Everything that can be refused is refused here, before any herdr call. */
 export async function check({
   deps,
@@ -201,9 +178,9 @@ export async function check({
   if (typeof callerPane !== "string") {
     return callerPane;
   }
-  const tier = await launchTier(deps, given.role, options);
-  if ("error" in tier) {
-    return usage(tier.error);
+  const launch = await launchOf(deps, given.role, options);
+  if ("error" in launch) {
+    return usage(launch.error);
   }
   // inputError has already refused a malformed idea.
   const idea = ideaOf(options.idea) as string | undefined;
@@ -213,8 +190,8 @@ export async function check({
   );
   const unstamped = unstampedOf(given.role, options, idea);
   return {
-    values: { ...given, ...tier },
-    tier: await tierOf(deps, options),
+    values: { ...given, model: launch.model, effort: launch.effort },
+    tier: launch.origin,
     callerPane,
     timeoutMs,
     ...(idea === undefined ? {} : { idea }),
