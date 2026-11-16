@@ -50,7 +50,7 @@ describe("buildBrief", () => {
     },
   );
 
-  it.each(["reader", "judge", "challenger"])(
+  it.each(["reader", "judge"])(
     "omits the review follow-up section from a %s brief, which never pushes code",
     (role) => {
       expect(buildBrief({ ...input, role })).toBe(READER_BRIEF);

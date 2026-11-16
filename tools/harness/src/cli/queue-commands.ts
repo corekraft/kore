@@ -262,7 +262,7 @@ async function escalateWriter(context: CommandContext): Promise<void> {
   deps.stdout(
     json
       ? `${JSON.stringify({ pr, count, model, escalated: true })}\n`
-      : `PR #${pr}: escalation recorded; launch the writer with \`session spawn --role writer --model ${model}\`\n`,
+      : `PR #${pr}: escalation recorded; launch the writer with \`session spawn --role writer --model ${model} --pr ${pr}\`\n`,
   );
 }
 
@@ -281,7 +281,7 @@ const sendBacksCommand: Command = {
 };
 
 const escalateCommand: Command = {
-  summary: `append an escalation event to the ledger once a PR has ${ESCALATION_THRESHOLD} send-backs, one per PR; then relaunch the writer with \`session spawn --model\` (<pr> [--json] [--ledger])`,
+  summary: `append an escalation event to the ledger once a PR has ${ESCALATION_THRESHOLD} send-backs, one per PR; then relaunch the writer with \`session spawn --model --pr\`, which logs it as an escalation (<pr> [--json] [--ledger])`,
   operand: "pr",
   options: { ledger: "string" },
   run: (context) => guarded(context, () => escalateWriter(context)),

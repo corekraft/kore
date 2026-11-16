@@ -1,46 +1,11 @@
 import { HOST_RULES } from "./schema-host.js";
+import { KINDS, type Kind } from "./schema-kinds.js";
+import { TIER_RULES, type TierOrigin } from "./schema-tier.js";
 
 export const SOURCES = ["claude", "herdr", "github"] as const;
 export type Source = (typeof SOURCES)[number];
 
-export const KINDS = [
-  "session.start",
-  "session.stop",
-  "tool.start",
-  "tool.end",
-  "pane.spawned",
-  "pane.busy",
-  "pane.waiting",
-  "pane.closed",
-  "issue.opened",
-  "issue.labelled",
-  "issue.closed",
-  "pr.opened",
-  "pr.merged",
-  "outcome",
-  "flag.activated",
-  "token.usage",
-  "session.launch",
-  "guard.audit",
-  "guard.block",
-  "challenge.round",
-  "precheck",
-  "send-back",
-  "escalation",
-  "ci.main",
-  "ci.nightly",
-  "main.revert",
-  "owner.action",
-  "host-sample",
-  "kore.retry",
-  "pane.interrupted",
-  "retro-triggered",
-  "auto-approved",
-  "guardrail.requested",
-  "harness-change-reverted",
-  "guardrail.activated",
-] as const;
-export type Kind = (typeof KINDS)[number];
+export { KINDS, type Kind };
 
 export const OUTCOMES = ["success", "failure"] as const;
 export type Outcome = (typeof OUTCOMES)[number];
@@ -56,6 +21,7 @@ const NUMBER_KINDS: readonly Kind[] = [
   "challenge.round",
   "precheck",
   "send-back",
+  "review.run",
   "escalation",
   "owner.action",
   "auto-approved",
@@ -83,8 +49,12 @@ const TOKEN_KINDS: readonly Kind[] = ["token.usage"];
 
 export const SCHEMA_VERSION = 1;
 
-/** The fields a caller supplies. `recordedAt` and `schema` are the ledger's. */
-export interface EventInput {
+/**
+ * The fields a caller supplies. `recordedAt` and `schema` are the ledger's. On
+ * session.launch, `tierSource` and `tierReason` say where the tier came from;
+ * a launch from before they existed has neither and reads as unknown.
+ */
+export interface EventInput extends Partial<TierOrigin> {
   id?: string;
   source: Source;
   kind: Kind;
@@ -160,6 +130,7 @@ const ALLOWED = new Set<string>([
   "tokens",
   "role",
   "tier",
+  ...TIER_RULES.map((rule) => rule.field),
   "load",
   "memory",
   "swap",
@@ -237,6 +208,7 @@ const RULES: readonly Rule[] = [
       "challenge.round",
       "precheck",
       "send-back",
+      "review.run",
       "escalation",
       "kore.retry",
       "retro-triggered",
@@ -259,6 +231,7 @@ const RULES: readonly Rule[] = [
   },
   { field: "role", check: isText(NAME), hint: NAME_HINT, kinds: LAUNCH_KINDS },
   { field: "tier", check: isText(NAME), hint: NAME_HINT, kinds: LAUNCH_KINDS },
+  ...TIER_RULES,
   ...HOST_RULES,
 ];
 

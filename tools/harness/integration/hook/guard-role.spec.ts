@@ -6,8 +6,8 @@ const as = (agent_type: string, tool_name: string, tool_input: object) =>
   decide({ agent_type, tool_name, tool_input });
 const bash = (role: string, command: string) => as(role, "Bash", { command });
 
-describe("role guard: neither the concierge nor the reader can write files", () => {
-  for (const role of ["concierge", "reader"]) {
+describe("role guard: the reader cannot write files", () => {
+  for (const role of ["reader"]) {
     it(`${role}: Write, Edit and NotebookEdit are blocked`, async () => {
       blocked(
         await as(role, "Write", { file_path: "/repo/a.ts", content: "x" }),
@@ -64,8 +64,8 @@ describe("role guard: neither the concierge nor the reader can write files", () 
 });
 
 describe("role guard: commands that are not known read-only", () => {
-  it("are blocked for both roles, whichever rule names them", async () => {
-    for (const role of ["concierge", "reader"]) {
+  it("are blocked for the reader, whichever rule names them", async () => {
+    for (const role of ["reader"]) {
       for (const command of [
         "gh pr create --title x",
         "gh pr comment 1 --body x",
@@ -103,8 +103,8 @@ describe("role guard: harness commands are an explicit allowlist, not a prefix",
     "session close x",
   ];
 
-  it("neither role can run a harness command that writes, spawns or activates", async () => {
-    for (const role of ["concierge", "reader"]) {
+  it("the reader cannot run a harness command that writes, spawns or activates", async () => {
+    for (const role of ["reader"]) {
       for (const words of writing) {
         const result = await bash(role, harness(words));
         assert.equal(result.action, "block", `${role}: ${words}`);
@@ -112,8 +112,8 @@ describe("role guard: harness commands are an explicit allowlist, not a prefix",
     }
   });
 
-  it("both roles can read: plan active, idea list and show, flow report, ledger list", async () => {
-    for (const role of ["concierge", "reader"]) {
+  it("the reader can read: plan active, idea list and show, flow report, ledger list", async () => {
+    for (const role of ["reader"]) {
       for (const words of [
         "plan active",
         "idea list",
@@ -126,16 +126,15 @@ describe("role guard: harness commands are an explicit allowlist, not a prefix",
     }
   });
 
-  it("only the concierge may file and sync an idea", async () => {
+  it("no bounded role may file or sync an idea", async () => {
     for (const words of ["idea new --title x", "idea sync --idea 3"]) {
-      allowed(await bash("concierge", harness(words)));
       const result = await bash("reader", harness(words));
       assert.equal(result.action, "block", `reader: ${words}`);
     }
   });
 
   it("a harness call with no subcommand, or an unknown one, is blocked", async () => {
-    for (const role of ["concierge", "reader"]) {
+    for (const role of ["reader"]) {
       for (const words of [
         "",
         "--json",

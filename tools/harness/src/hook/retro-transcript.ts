@@ -2,6 +2,8 @@
 // error summaries, and the user's own words. Never keeps assistant text.
 // Docs: infra/plans/5-self-maintenance.md#step-2-deterministic-retrospective-scan
 
+import { FOLLOW_UP_PREFIX } from "../session/index.js";
+
 const MAX_ERROR = 120;
 const MIN_CORRECTION_WORDS = 4;
 
@@ -151,14 +153,15 @@ const CORRECTION_WORD =
 // Every spawned brief carries the session-name line the brief builder writes
 // ("You are <name>; your session name is <name>."), so the scan recognises it
 // whoever spawned the session. The tags stay matched so older transcripts count the same.
-const ORCHESTRATOR_TAG =
-  /^\s*(\[orchestrator\]|\(orchestrator\)|orchestrator:|\[herdr:)/i;
+const LEGACY_TAG = /^\s*(\(orchestrator\)|orchestrator:|\[herdr:)/i;
 const SESSION_NAME_LINE =
   /^\s*You are ([^;\n]+); your session name is \1\.\s*$/m;
 
 /** Whether a message is a brief pasted in by the orchestrator, not the person's own words. */
 export const isOrchestratorBrief = (text: string): boolean =>
-  ORCHESTRATOR_TAG.test(text) || SESSION_NAME_LINE.test(text);
+  text.trimStart().toLowerCase().startsWith(FOLLOW_UP_PREFIX) ||
+  LEGACY_TAG.test(text) ||
+  SESSION_NAME_LINE.test(text);
 
 export const readsAsCorrection = (text: string): boolean =>
   CORRECTION_WORD.test(text);

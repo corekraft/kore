@@ -107,7 +107,7 @@ describe("friction", () => {
 });
 
 describe("reworkMetrics", () => {
-  it("hands each metric the per-idea counts of closed ideas to the trailing comparison", () => {
+  it("hands each metric the per-idea counts of closed ideas to the trailing comparison, ignoring a retired challenge.round", () => {
     vi.mocked(closedIdeas).mockReturnValue([
       {
         idea: "#1",
@@ -134,10 +134,6 @@ describe("reworkMetrics", () => {
       { idea: "#2", value: 0 },
     ]);
     expect(values(2)).toEqual([
-      { idea: "#1", value: 1 },
-      { idea: "#2", value: 0 },
-    ]);
-    expect(values(3)).toEqual([
       { idea: "#1", value: 2 },
       { idea: "#2", value: 0 },
     ]);

@@ -78,8 +78,8 @@ beforeEach(() => {
 });
 
 describe("roleToken reads nothing for a role without an identity", () => {
-  it("returns undefined for the orchestrator, without the flag or the keychain", async () => {
-    await expect(roleToken(deps, "orchestrator")).resolves.toBeUndefined();
+  it("returns undefined for the reader, without the flag or the keychain", async () => {
+    await expect(roleToken(deps, "reader")).resolves.toBeUndefined();
 
     expect(environments).not.toHaveBeenCalled();
     expect(deps.runner.run).not.toHaveBeenCalled();

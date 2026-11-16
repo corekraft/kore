@@ -12,10 +12,10 @@ describe("the delivery loop", () => {
   it("lists the stages in the order an idea passes through them", () => {
     expect(STAGES).toEqual([
       "refine",
-      "challenge",
       "await approval",
       "orchestrate",
       "write",
+      "review",
       "judge",
       "merge",
       "verify",
@@ -38,12 +38,22 @@ describe("the pane-role stage table", () => {
     expect(gated).toEqual([["verifier", "pr.merged"]]);
   });
 
+  it("maps a reviewer pane to the review stage", () => {
+    expect(ROLE_STAGES.reviewer).toEqual({ stage: "review" });
+  });
+
   it("maps the verifier to verify and the writer to write", () => {
     expect(ROLE_STAGES.verifier).toEqual({
       stage: "verify",
       after: "pr.merged",
     });
     expect(ROLE_STAGES.writer).toEqual({ stage: "write" });
+  });
+
+  it("names no orchestrator or concierge pane, and leaves the orchestrate stage to the main session", () => {
+    expect(Object.keys(ROLE_STAGES)).not.toContain("orchestrator");
+    expect(Object.keys(ROLE_STAGES)).not.toContain("concierge");
+    expect(MAIN_SESSION_STAGE).toBe("orchestrate");
   });
 });
 
@@ -52,6 +62,10 @@ describe("the GitHub event stage table", () => {
     for (const [, stage] of Object.entries(GITHUB_STAGES)) {
       expect(STAGES).toContain(stage);
     }
+  });
+
+  it("maps a review.run event to the review stage", () => {
+    expect(GITHUB_STAGES["review.run"]).toBe("review");
   });
 
   it("leaves an issue label out, since only the approval label is a stage", () => {

@@ -258,10 +258,9 @@ decisions; read one only when planning that area, and expect it to change.
   deny rules. Read before adding a hook or permission.
 - [`.claude/agents/principles-review.md`](../.claude/agents/principles-review.md)
   — the read-only review of a diff against AGENTS.md. Run before committing.
-- [`.claude/agents/concierge.md`](../.claude/agents/concierge.md) and
-  [`reader.md`](../.claude/agents/reader.md) — the delivery loop's read-only
-  role agents; their tier is the only copy
-  ([ADR 0078](decisions/0078-agent-roles-run-as-herdr-panes.md)). Their bounds
+- [`.claude/agents/reader.md`](../.claude/agents/reader.md) — the delivery
+  loop's read-only reader agent; its tier is the only copy
+  ([ADR 0078](decisions/0078-agent-roles-run-as-herdr-panes.md)). Its bounds
   are the `role-*` guard rules in `tools/harness/src/hook/guard-role.ts`.
 - [`.github/pull_request_template.md`](../.github/pull_request_template.md) —
   the PR body, with the one `Safety pattern:` field and the linked idea that
@@ -279,7 +278,7 @@ decisions; read one only when planning that area, and expect it to change.
 - [`docs/retros/2026-11-14-repo-retro.md`](retros/2026-11-14-repo-retro.md) —
   the repo retro over 436 sessions, unified with the Pocock retro into one
   owner-decided triage; none applied yet. Read before changing the role guards
-  or the writer and orchestrator agent definitions.
+  or the writer agent definition.
 
 ## Skills
 

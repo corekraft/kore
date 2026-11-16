@@ -1,18 +1,20 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { CommandContext } from "../runtime/index.js";
-import { resolveTier } from "./agent-definition.js";
+import { resolveTier, undefinedRoleError } from "./agent-definition.js";
 import { contextOf, fakeDeps, type FakeDeps } from "./deps-support.js";
 import { hostLeaseRefusal } from "./host-lease.js";
 import { sessionNameError } from "./names.js";
 import { FAILED, USAGE_ERROR } from "./output.js";
 import { spawnLoadRefusal } from "./spawn-load.js";
 import { check } from "./spawn-check.js";
+import { tierInputError, tierOf } from "./tier-source.js";
 import { findResult, parseTimeout } from "./wait.js";
 
 vi.mock("./agent-definition.js");
 vi.mock("./host-lease.js");
 vi.mock("./names.js");
 vi.mock("./spawn-load.js");
+vi.mock("./tier-source.js");
 vi.mock("./wait.js");
 
 const BRIEF_MARKER =
@@ -44,6 +46,9 @@ beforeEach(() => {
   vi.mocked(parseTimeout).mockReturnValue(60_000);
   vi.mocked(hostLeaseRefusal).mockResolvedValue(undefined);
   vi.mocked(spawnLoadRefusal).mockReturnValue(undefined);
+  vi.mocked(tierInputError).mockReturnValue(undefined);
+  vi.mocked(tierOf).mockResolvedValue({ tierSource: "definition" });
+  vi.mocked(undefinedRoleError).mockResolvedValue(undefined);
   vi.mocked(resolveTier).mockResolvedValue({
     model: "claude-sonnet-5-5",
     effort: "high",
@@ -179,6 +184,25 @@ describe("check reads the timeout and the caller", () => {
 });
 
 describe("check resolves the tier and returns the checked request", () => {
+  it("refuses an undefined role before resolving a tier, so a flag cannot stand in for a definition", async () => {
+    vi.mocked(undefinedRoleError).mockResolvedValue("Role verifier has none.");
+
+    await expect(
+      check(
+        request({
+          role: "verifier",
+          model: "claude-opus-5-5",
+          effort: "high",
+        }),
+      ),
+    ).resolves.toEqual({
+      error: "Role verifier has none.",
+      code: USAGE_ERROR,
+    });
+    expect(undefinedRoleError).toHaveBeenCalledWith(deps, "verifier");
+    expect(resolveTier).not.toHaveBeenCalled();
+  });
+
   it("refuses with the tier's error when the role has no definition", async () => {
     vi.mocked(resolveTier).mockResolvedValue({
       error: "No agent definition for reader.",
@@ -212,6 +236,7 @@ describe("check resolves the tier and returns the checked request", () => {
       },
       callerPane: "w3:p1",
       timeoutMs: 60_000,
+      tier: { tierSource: "definition" },
     });
   });
 

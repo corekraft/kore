@@ -193,8 +193,8 @@ const guardFile = (what: string): Finding =>
 const gated = (what: string): Finding =>
   block(
     "role-no-merge",
-    `${what} activates a flag, records an outcome or dispatches a workflow, which is the person's or the orchestrator's call, not a writer's. ` +
-      "Instead, report that it is ready, and the orchestrator or the person runs it.",
+    `${what} activates a flag, records an outcome or dispatches a workflow, which is the person's call, not a writer's. ` +
+      "Instead, report that it is ready, and the person runs it.",
   );
 
 /** A word as a path inside the worktree, lower-cased: the disk may ignore case (macOS), so `.claude/HOOKS` is the hooks folder. */

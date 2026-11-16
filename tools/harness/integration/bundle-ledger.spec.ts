@@ -57,7 +57,7 @@ describe("bundled ledger concurrency", () => {
                   "--source",
                   "claude",
                   "--kind",
-                  "challenge.round",
+                  "send-back",
                   "--label",
                   "round",
                   "--occurred-at",

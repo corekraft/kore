@@ -78,7 +78,7 @@ describe("what counts as a person's approval", () => {
       request(label),
       {
         ...person(label),
-        body: `<!-- harness-challenge idea=0224 round=1 -->\n${approvalLine(label)}`,
+        body: `<!-- harness-marker idea=0224 -->\n${approvalLine(label)}`,
       },
     ]);
     expect(result.activated).toBe(false);

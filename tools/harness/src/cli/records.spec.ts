@@ -4,7 +4,6 @@ import { records } from "./records.js";
 
 const {
   ideaCommands,
-  challenge,
   flagCommands,
   rulesetCommands,
   statusCommand,
@@ -19,7 +18,6 @@ const {
   });
   return {
     ideaCommands: { create: command("idea create") },
-    challenge: command("challenge"),
     flagCommands: { flag: command("flag") },
     rulesetCommands: { ruleset: command("ruleset") },
     statusCommand: command("status"),
@@ -31,7 +29,6 @@ const {
 });
 
 vi.mock("../idea/index.js", () => ({ ideaCommands }));
-vi.mock("./challenge-commands.js", () => ({ challenge }));
 vi.mock("./flag-commands.js", () => ({ flagCommands }));
 vi.mock("../ruleset/index.js", () => ({ rulesetCommands }));
 vi.mock("./status-command.js", () => ({ statusCommand }));
@@ -56,8 +53,9 @@ describe("records command map", () => {
     ]);
   });
 
-  it("adds the challenge command to the idea domain beside the idea commands", () => {
-    expect(records.idea).toEqual({ create: ideaCommands.create, challenge });
+  it("maps idea to the idea commands alone, with no challenge command", () => {
+    expect(records.idea).toBe(ideaCommands);
+    expect(Object.keys(records.idea ?? {})).not.toContain("challenge");
   });
 
   it("maps flag, ruleset, outcome, judge, review and pr to their own command maps", () => {

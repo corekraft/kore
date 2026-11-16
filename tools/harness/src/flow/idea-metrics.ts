@@ -9,6 +9,7 @@ import {
 export type { CostMetrics, CostOptions };
 export { DEFAULT_HOST_DAYS, hostPressure } from "./host-pressure.js";
 export type { HostPressure } from "./host-pressure.js";
+export { tierShares } from "./tier-share.js";
 export { guardBlocks, outcomes } from "./outcomes.js";
 export { COST_KINDS, measureAttribution } from "./attribution-measure.js";
 export type { GuardBlocks, Outcomes } from "./outcomes.js";
@@ -69,7 +70,7 @@ export function ideaMetrics(
 
 /** Rework per closed idea, and friction by source, as the report names them. */
 export interface FrictionMetrics {
-  /** Escalations, send-backs, Challenger rounds and friction per closed idea. */
+  /** Escalations, send-backs and friction per closed idea. */
   rework: ReworkMetrics;
   /** Friction events in range by source. */
   friction: Friction;

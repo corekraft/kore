@@ -208,7 +208,6 @@ describe("flow report: human lines", () => {
         "Sessions per idea: insufficient history, 1 of 3 closed ideas",
         "Escalations per idea: insufficient history, 1 of 6 closed ideas",
         "Send-backs per idea: insufficient history, 1 of 6 closed ideas",
-        "Challenger rounds per idea: insufficient history, 1 of 6 closed ideas",
         "Friction events per idea: insufficient history, 1 of 6 closed ideas",
         "Friction: none",
         "Unmapped events: 0",
