@@ -62,6 +62,12 @@ Next: First run the #225 closed-loop live proof, then #325 notify live proof. Th
 
 > **Deferred (2026-11-12).** Same condition as Step 2.
 
+> **Attribution (2026-11-16).** An auto-revert is only as good as the metric
+> it reads. Each harness idea names a primary metric that only it moves, read
+> from events the changed code does not write; metrics several ideas move are
+> guard metrics that must not worsen, and no outcome is read until idea attribution
+> holds ([ADR 0119](../../docs/decisions/0119-each-harness-idea-is-measured-on-a-primary-metric-only-it-moves.md)).
+
 ### Work
 
 - [ ] Approve a harness idea automatically when its change is reversible and
