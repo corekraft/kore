@@ -5,24 +5,15 @@ import {
   clusterUp,
 } from "../cluster/index.js";
 import { enabledComponents, isLocalProvider } from "../config/index.js";
-import {
-  applyChartCredential,
-  ensureLocalSigningPublicKey,
-  ensureRegistryAuth,
-  ensureRegistryTrust,
-} from "../images/index.js";
+import { ensureLocalSigningPublicKey } from "../images/index.js";
 import { closeExistingAdmissionGate } from "./admission-gate.js";
 import {
   bootstrapControllers,
   closeApplicationAdmission,
 } from "./bootstrap.js";
+import { bootstrapComponent } from "./bootstrap-component.js";
 import { assertNoOrphanedReleases } from "./gated-release.js";
-import {
-  ensureKeycloakProviderCredentials,
-  ensurePortalSecrets,
-} from "./portal-secrets.js";
 import * as readinessGate from "./readiness-gate.js";
-import { reconcileIfNeeded } from "./reconcile.js";
 import {
   fakeComponent,
   fakeRepository,
@@ -37,10 +28,9 @@ vi.mock("../cluster/index.js", async (importOriginal) => ({
 vi.mock("../config/index.js");
 vi.mock("../images/index.js");
 vi.mock("./admission-gate.js");
+vi.mock("./bootstrap-component.js");
 vi.mock("./gated-release.js");
-vi.mock("./portal-secrets.js");
 vi.mock("./readiness-gate.js");
-vi.mock("./reconcile.js");
 
 const local = fakeRepository({ provider: "k3d" });
 const managed = fakeRepository({ provider: "managed" });
@@ -61,26 +51,14 @@ beforeEach(() => {
     record("close-gate"),
   );
   vi.mocked(assertNoOrphanedReleases).mockImplementation(record("orphans"));
-  vi.mocked(ensureRegistryAuth).mockImplementation(record("registry-auth"));
-  vi.mocked(ensureRegistryTrust).mockImplementation(record("registry-trust"));
-  vi.mocked(applyChartCredential).mockImplementation(async () => {
-    order.push("chart-credential");
-    return true;
-  });
   vi.mocked(ensureLocalSigningPublicKey).mockImplementation(
     record("signing-key"),
   );
-  vi.mocked(ensurePortalSecrets).mockImplementation(async () => {
-    order.push("portal-secrets");
-    return await Promise.resolve();
-  });
-  vi.mocked(ensureKeycloakProviderCredentials).mockImplementation(async () => {
-    order.push("keycloak-provider-credentials");
-    return true;
-  });
-  vi.mocked(reconcileIfNeeded).mockImplementation(async (_repo, _runner, c) => {
-    order.push(`reconcile:${c.name}`);
-  });
+  vi.mocked(bootstrapComponent).mockImplementation(
+    async (_repo, _runner, c) => {
+      order.push(`reconcile:${c.name}`);
+    },
+  );
   vi.mocked(isLocalProvider).mockImplementation(
     (environment) => environment.provider === "k3d",
   );
@@ -130,23 +108,13 @@ test("a cluster failure that is not unavailability is rethrown, never masked by 
 test("bootstrap closes the admission gate, then checks for orphaned releases, before any component", async () => {
   await bootstrapControllers(local, fakeRunner().runner);
   expect(order.slice(0, 3)).toEqual(["cluster", "close-gate", "orphans"]);
-  expect(order[3]).toBe("registry-auth");
+  expect(order[3]).toBe("reconcile:oci-registry");
 });
 
 test("each bootstrap component is reconciled in order, and configuration and enforcement components are left to up", async () => {
   await bootstrapControllers(local, fakeRunner().runner);
   const reconciled = order.filter((step) => step.startsWith("reconcile:"));
   expect(reconciled).toEqual(["reconcile:oci-registry", "reconcile:gate"]);
-});
-
-test("the registry's credentials are ensured before its release, and its CA is trusted after it", async () => {
-  await bootstrapControllers(local, fakeRunner().runner);
-  expect(order.indexOf("registry-auth")).toBeLessThan(
-    order.indexOf("reconcile:oci-registry"),
-  );
-  expect(order.indexOf("reconcile:oci-registry")).toBeLessThan(
-    order.indexOf("registry-trust"),
-  );
 });
 
 test("the local signing key is written last on a local environment", async () => {
@@ -160,78 +128,11 @@ test("a managed environment never writes the local signing key", async () => {
 });
 
 test("a component that fails to reconcile stops bootstrap before the later steps", async () => {
-  vi.mocked(reconcileIfNeeded).mockRejectedValueOnce(new Error("crd stuck"));
+  vi.mocked(bootstrapComponent).mockRejectedValueOnce(new Error("crd stuck"));
   await expect(
     bootstrapControllers(local, fakeRunner().runner),
   ).rejects.toThrow("crd stuck");
-  expect(ensureRegistryTrust).not.toHaveBeenCalled();
   expect(ensureLocalSigningPublicKey).not.toHaveBeenCalled();
-});
-
-test("the Argo CD registry credential is applied right after Argo CD is installed, and after no other release", async () => {
-  const argocd = fakeComponent({ name: "argocd", phase: "core" });
-  vi.mocked(enabledComponents).mockReturnValue([gate, argocd, registry]);
-  const { runner } = fakeRunner();
-  await bootstrapControllers(local, runner);
-  expect(
-    order.filter(
-      (step) => step.startsWith("reconcile:") || step === "chart-credential",
-    ),
-  ).toEqual([
-    "reconcile:gate",
-    "reconcile:argocd",
-    "chart-credential",
-    "reconcile:oci-registry",
-  ]);
-  expect(applyChartCredential).toHaveBeenCalledTimes(1);
-  expect(applyChartCredential).toHaveBeenCalledWith(local, runner);
-});
-
-test("the portal Secrets (the Keycloak admin and the Backstage sign-in) are streamed right after the operator creates its namespace, and not without the operator", async () => {
-  const operator = fakeComponent({ name: "keycloak-operator", phase: "core" });
-  vi.mocked(enabledComponents).mockReturnValue([gate, operator, registry]);
-  const { runner } = fakeRunner();
-  await bootstrapControllers(local, runner);
-  expect(
-    order.filter(
-      (step) => step.startsWith("reconcile:") || step === "portal-secrets",
-    ),
-  ).toEqual([
-    "reconcile:gate",
-    "reconcile:keycloak-operator",
-    "portal-secrets",
-    "reconcile:oci-registry",
-  ]);
-  expect(ensurePortalSecrets).toHaveBeenCalledWith(local, runner);
-  expect(ensurePortalSecrets).toHaveBeenCalledTimes(1);
-  vi.mocked(ensurePortalSecrets).mockClear();
-  vi.mocked(enabledComponents).mockReturnValue([gate, registry]);
-  await bootstrapControllers(local, runner);
-  expect(ensurePortalSecrets).not.toHaveBeenCalled();
-});
-
-test("the Keycloak provider credential is streamed right after the provider installs, and not without it", async () => {
-  const provider = fakeComponent({ name: "keycloak-provider", phase: "core" });
-  vi.mocked(enabledComponents).mockReturnValue([gate, provider, registry]);
-  const { runner } = fakeRunner();
-  await bootstrapControllers(local, runner);
-  expect(
-    order.filter(
-      (step) =>
-        step.startsWith("reconcile:") ||
-        step === "keycloak-provider-credentials",
-    ),
-  ).toEqual([
-    "reconcile:gate",
-    "reconcile:keycloak-provider",
-    "keycloak-provider-credentials",
-    "reconcile:oci-registry",
-  ]);
-  expect(ensureKeycloakProviderCredentials).toHaveBeenCalledWith(local, runner);
-  vi.mocked(ensureKeycloakProviderCredentials).mockClear();
-  vi.mocked(enabledComponents).mockReturnValue([gate, registry]);
-  await bootstrapControllers(local, runner);
-  expect(ensureKeycloakProviderCredentials).not.toHaveBeenCalled();
 });
 
 test("closing the application admission gate is the existing gate's close, with the same runner", async () => {
@@ -246,4 +147,41 @@ test("bootstrap re-exports the readiness gate's open and degraded-close operatio
     readinessGate.openApplicationAdmission,
   );
   expect(bootstrap.closeGateIfDegraded).toBe(readinessGate.closeGateIfDegraded);
+});
+
+const gatekeeper = fakeComponent({ name: "gatekeeper", phase: "bootstrap" });
+const crds = fakeComponent({ name: "agentgateway-crds", phase: "bootstrap" });
+
+test("components after Gatekeeper are told Gatekeeper is installed, and Gatekeeper and those ahead of it are not", async () => {
+  vi.mocked(enabledComponents).mockReturnValue([registry, gatekeeper, crds]);
+  await bootstrapControllers(local, fakeRunner().runner);
+  expect(
+    vi
+      .mocked(bootstrapComponent)
+      .mock.calls.map(([, , component, afterGatekeeper]) => [
+        component.name,
+        afterGatekeeper,
+      ]),
+  ).toEqual([
+    ["oci-registry", false],
+    ["gatekeeper", false],
+    ["agentgateway-crds", true],
+  ]);
+});
+
+test("a Gatekeeper wait that fails stops bootstrap before the later steps", async () => {
+  vi.mocked(enabledComponents).mockReturnValue([gatekeeper, crds, registry]);
+  vi.mocked(bootstrapComponent).mockImplementation(
+    async (_repo, _runner, component, afterGatekeeper) => {
+      if (afterGatekeeper) {
+        throw new Error("gatekeeper-webhook-service has no ready endpoints");
+      }
+      order.push(`reconcile:${component.name}`);
+    },
+  );
+  await expect(
+    bootstrapControllers(local, fakeRunner().runner),
+  ).rejects.toThrow("gatekeeper-webhook-service has no ready endpoints");
+  expect(order).not.toContain("reconcile:oci-registry");
+  expect(ensureLocalSigningPublicKey).not.toHaveBeenCalled();
 });
