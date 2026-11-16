@@ -40,5 +40,6 @@ export const KINDS = [
   "session.send",
   "idea.filed",
   "retro.dropped",
+  "spawn.unstamped",
 ] as const;
 export type Kind = (typeof KINDS)[number];

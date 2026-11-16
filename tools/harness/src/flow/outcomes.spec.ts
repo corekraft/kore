@@ -207,4 +207,8 @@ describe("REPOSITORY_KINDS", () => {
   it("holds host samples, which belong to no idea, so they are never counted as unmapped work", () => {
     expect(REPOSITORY_KINDS.has("host-sample")).toBe(true);
   });
+
+  it("holds unstamped spawns, which record a session and belong to no idea or stage", () => {
+    expect(REPOSITORY_KINDS.has("spawn.unstamped")).toBe(true);
+  });
 });

@@ -61,6 +61,22 @@ describe("groupByIdea", () => {
     expect(named).toEqual([work, ci]);
   });
 
+  it("leaves an unstamped spawn out of attribution, since it is a session's record and no work", () => {
+    const work = event(1);
+    const spawned = event(2, "spawn.unstamped");
+    vi.mocked(withPaneAgents).mockReturnValue([work, spawned]);
+    vi.mocked(attribute).mockReturnValue(new Map([["1", "#1"]]));
+    const { byIdea, orphans, unattributed, named } = groupByIdea(
+      [work, spawned],
+      [0, 100],
+    );
+    expect(attribute).toHaveBeenCalledWith([work]);
+    expect(byIdea).toEqual(new Map([["#1", [work]]]));
+    expect(orphans).toEqual([]);
+    expect(unattributed).toBe(0);
+    expect(named).toEqual([work, spawned]);
+  });
+
   it("counts an unattributed event inside the window, and keeps it as an orphan", () => {
     const loose = event(7);
     vi.mocked(withPaneAgents).mockReturnValue([loose]);
