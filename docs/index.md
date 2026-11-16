@@ -222,6 +222,7 @@ decisions; read one only when planning that area, and expect it to change.
 - [`docs/ideas/0014-role-pane-context.md`](ideas/0014-role-pane-context.md) — Give role panes only the context their role needs
 - [`docs/ideas/0015-writer-follow-up-rules.md`](ideas/0015-writer-follow-up-rules.md) — Put the writer's standing follow-up rules in writer.md
 - [`docs/ideas/0016-principles-review-in-the-loop.md`](ideas/0016-principles-review-in-the-loop.md) — Run principles-review in the delivery loop or archive it
+- [`docs/ideas/0017-decision-advisor-live-verification.md`](ideas/0017-decision-advisor-live-verification.md) — decision-advisor works live in local
 
 ## Operations and Guides
 
