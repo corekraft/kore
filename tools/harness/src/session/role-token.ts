@@ -96,6 +96,7 @@ const IDENTITY_OF_ROLE: ReadonlyMap<string, keyof typeof APPS | "judge"> =
     ["judge", "judge"],
     ["principles-review", "reviewer"],
     ["orchestrator", "orchestrator"],
+    ["advisor", "orchestrator"],
   ]);
 
 export type RoleToken = { token: string } | { error: string };
@@ -238,8 +239,9 @@ export async function roleTokensOn(deps: CliDeps): Promise<boolean> {
 
 /**
  * The GitHub token a role's pane gets: a minted installation token for the
- * writer, the reviewer and the orchestrator Apps, the keychain PAT for the
- * judge. Every other role, the main session included, gets none (undefined)
+ * writer, the reviewer and the orchestrator Apps (the advisor pane uses the
+ * orchestrator's, ADR 0120), the keychain PAT for the judge. Every other role,
+ * the main session included, gets none (undefined)
  * and the keychain is not read. So does every role while the role-tokens flag
  * is off, so spawn behaves as it did before.
  */
