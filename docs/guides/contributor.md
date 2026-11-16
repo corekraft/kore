@@ -668,6 +668,18 @@ refuses, posting nothing, a question that matches the reserved list in
 The patterns there are a backstop for a fail-closed router, not the boundary, and
 changing the list is itself a reserved decision.
 
+`orchestrate tick [--idea <n>]` ([ADR 0121](../decisions/0121-the-orchestrator-is-a-tick-with-judgment-panes.md))
+is one pass over the queue that advances each approved idea by at most one step,
+then exits, and calls no model. It does nothing, and exits 0, while the
+`orchestrator-tick` flag is off in the local overlay. It runs under a
+per-machine lease, one file in the host lock directory, that a tick holds for its
+pass and the next tick recovers once it is 30 minutes old. A pane it starts is
+named for its idea and the PR head it works at (`idea-<idea>-judge-<head>`), so
+a rerun finds the pane and starts nothing twice. With the flag on, `orchestrate
+run --idea <n>` runs ticks scoped to that idea until it ends, instead of its own
+loop. The standing loop, the heartbeat and the judgment panes are later steps; a
+third send-back is reported as `needs-judgment` and nothing is started for it.
+
 Each checklist item of the precheck (`ci`, `scan`, `coverage`,
 `principles-review`, `expand-step`, `pattern-match`, `guardrail-activation`) reads its mode from the
 guardrail inventory, `.claude/guardrails.yaml`, as the rule `judge-<item>` of kind
