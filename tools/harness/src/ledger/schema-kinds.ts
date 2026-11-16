@@ -48,5 +48,6 @@ export const KINDS = [
   "session.result",
   "pane.finished",
   "pane.stalled",
+  "qualifier.warned",
 ] as const;
 export type Kind = (typeof KINDS)[number];

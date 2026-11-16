@@ -62,6 +62,7 @@ async function approverFor(context: CommandContext): Promise<Approver> {
     ...(await openIssueIo(context)),
     flagOn: () => approveFlagOn(deps.fs, root),
     idea: (ref) => ideas.get(ref),
+    ideas: () => ideas.list(),
     issueOf: issueNumber,
     metrics: async () => {
       const { events } = await opened.ledger.list({});
@@ -78,7 +79,7 @@ async function approverFor(context: CommandContext): Promise<Approver> {
 }
 
 export const approveCommand: Command = {
-  summary: `apply ready-for-agent to a harness idea only when its change is reversible (no-behaviour-change, feature-flagged, dark-launched or branch-by-abstraction, and not moving a guardrail to enforce) and its hypothesis metric is in the flow report with enough history for a trailing average; otherwise leave it for a person and say why; the reason is posted as a comment on the idea's issue and an auto-approved event is recorded in the ledger, each once, so a rerun changes nothing; nothing runs it unprompted, and with the ${APPROVE_FLAG} flag off in the local overlay it writes nothing and only reports the verdict; an agent's label is never a person's approval (--idea <number or slug> [--json: idea, issue, status approved|already-approved|left-for-person|flag-off, reason] [--ledger])`,
+  summary: `apply ready-for-agent to a harness idea only when its change is reversible (no-behaviour-change, feature-flagged, dark-launched or branch-by-abstraction, and not moving a guardrail to enforce) and its hypothesis metric is in the flow report with enough history for a trailing average; otherwise leave it for a person and say why; the reason is posted as a comment on the idea's issue and an auto-approved event is recorded in the ledger, each once, so a rerun changes nothing; it warns, and never refuses, when the idea's primary metric is a guard metric or another open idea's primary (ADR 0119), and records a qualifier.warned event per warning; nothing runs it unprompted, and with the ${APPROVE_FLAG} flag off in the local overlay it writes nothing and only reports the verdict; an agent's label is never a person's approval (--idea <number or slug> [--json: idea, issue, status approved|already-approved|left-for-person|flag-off, reason, warnings] [--ledger])`,
   options: { idea: "string", ledger: "string" },
   async run(context) {
     const ref = context.options["idea"];
@@ -94,7 +95,8 @@ export const approveCommand: Command = {
       context.deps.stdout(
         context.json
           ? `${JSON.stringify(approval)}\n`
-          : SAYS[approval.status](approval),
+          : SAYS[approval.status](approval) +
+              approval.warnings.map((w) => `Warning: ${w}\n`).join(""),
       );
       return 0;
     } catch (error) {

@@ -30,6 +30,7 @@ const KEYS = [
   "rework",
   "friction",
   "retroProposalsDropped",
+  "qualifierWarnings",
   "sendBackCategories",
   "bottleneck",
   "bottleneckNote",

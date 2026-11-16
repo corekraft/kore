@@ -6,6 +6,7 @@ import {
   type Ledger,
 } from "../ledger/index.js";
 import { qualify, type QualifyInput } from "./qualify.js";
+import { sharingWarnings, type Warning } from "./warnings.js";
 
 /** An idea that cannot be judged or written to, with how to fix it. */
 export class ApproveError extends Error {}
@@ -15,6 +16,8 @@ export interface ApprovePorts {
   /** Whether the local overlay turns automatic approval on. */
   flagOn: () => Promise<boolean>;
   idea: (ref: string) => Promise<IdeaRecord>;
+  /** Every idea in the repository, so the qualifier can see the other open ones. */
+  ideas: () => Promise<IdeaRecord[]>;
   /** The issue number an idea links to, or undefined when it has none. */
   issueOf: (record: IdeaRecord) => number | undefined;
   /** The flow report's metric names and trailing metrics. */
@@ -34,6 +37,8 @@ export interface Approval {
   /** flag-off: nothing was written, and `reason` is what the verdict would have been. */
   status: "approved" | "already-approved" | "left-for-person" | "flag-off";
   reason: string;
+  /** What the qualifier warns about the idea's primary; a warning never changes the status. */
+  warnings: string[];
 }
 
 const APPROVED = "ready-for-agent";
@@ -56,10 +61,17 @@ export class Approver {
       );
     }
     const verdict = qualify(record, await ports.metrics());
-    const done = { idea: record.number, issue, reason: verdict.reason };
+    const warnings = sharingWarnings(record, await ports.ideas());
+    const done = {
+      idea: record.number,
+      issue,
+      reason: verdict.reason,
+      warnings: warnings.map((w) => w.message),
+    };
     if (!(await ports.flagOn())) {
       return { ...done, status: "flag-off" };
     }
+    await this.warn(issue, warnings);
     const body = `${verdict.approve ? APPROVED_MARKER : REFUSED_MARKER}\n${verdict.reason}`;
     const comments = await ports.comments(issue);
     if (!verdict.approve) {
@@ -80,6 +92,31 @@ export class Approver {
       ...done,
       status: wrote.includes(true) ? "approved" : "already-approved",
     };
+  }
+
+  /** One qualifier.warned event per warning on the issue, each kind and metric once, so a rerun adds none. */
+  private async warn(issue: number, warnings: Warning[]) {
+    const { ledger, clock } = this.ports;
+    const { events } = await ledger.list({ kind: "qualifier.warned" });
+    for (const warning of warnings) {
+      const label = `${warning.kind}: ${warning.metric}`;
+      if (events.some((e) => e.number === issue && e.label === label)) {
+        continue;
+      }
+      const written = await ledger.record({
+        source: "claude",
+        kind: "qualifier.warned",
+        occurredAt: clock.now().toISOString(),
+        idea: `#${issue}`,
+        number: issue,
+        label,
+      });
+      if (!written.ok) {
+        throw new ApproveError(
+          `The qualifier.warned event was rejected: ${written.message} Fix the ledger, then rerun the approve command.`,
+        );
+      }
+    }
   }
 
   private async post(issue: number, body: string, comments: string[]) {

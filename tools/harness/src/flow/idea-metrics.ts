@@ -31,8 +31,10 @@ import {
 } from "./send-back-categories.js";
 import {
   friction,
+  qualifierWarnings,
   reworkMetrics,
   type Friction,
+  type QualifierWarnings,
   type ReworkMetrics,
 } from "./friction.js";
 import { firstTime, time } from "./github-waits.js";
@@ -92,6 +94,8 @@ export interface FrictionMetrics {
   friction: Friction;
   /** Retro proposals the per-retro cap dropped in range. */
   retroProposalsDropped: number;
+  /** Qualifier warnings over ideas filed in range, so a check that only warns still has a figure (#866). */
+  qualifierWarnings: QualifierWarnings;
   /** Judge send-backs by category, per PR head and per merged change. */
   sendBackCategories: SendBackCategoryReport;
 }
@@ -106,6 +110,7 @@ export function frictionMetrics(
     rework: reworkMetrics(byIdea, window, trailingIdeas),
     friction: friction(named, window),
     retroProposalsDropped: retroProposalsDropped(named, window),
+    qualifierWarnings: qualifierWarnings(named, window),
     sendBackCategories: categoryReport(named, byIdea, window),
   };
 }
