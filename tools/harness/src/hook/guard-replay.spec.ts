@@ -1,41 +1,28 @@
-// The replay core: which recorded calls the old rule refused and the new one allows.
-// Both evaluators, the context and the transcripts are plain values here.
+// The replay core: which recorded calls the old rule refused and the new one allows. The two
+// judges (one per ref) are plain functions here, so the core is tested without a process.
 
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import {
   callsInWindow,
   replayRule,
-  type Evaluate,
+  type Judge,
+  type Judged,
   type WindowCall,
 } from "./guard-replay.js";
 import type { Transcript, TranscriptEvent } from "./retro-transcript.js";
-import type { GuardContext, Verdict } from "./guard-verdict.js";
 
 const ROOT = "/repo";
 const at = (time: string) => `2026-11-15T${time}.000Z`;
 
-const context = (cwd: string): GuardContext =>
-  ({ root: ROOT, cwd }) as unknown as GuardContext;
+const block = (rule: string): Judged => ({ action: "block", rule });
+const warn = (rule: string): Judged => ({ action: "warn", rule });
+const allow: Judged = { action: "allow" };
 
-const block = (rule: string): Verdict => ({
-  action: "block",
-  rule,
-  message: `[guard:${rule}]`,
-});
-const warn = (rule: string): Verdict => ({
-  action: "warn",
-  rule,
-  message: `[guard:${rule}]`,
-});
-const allow: Verdict = { action: "allow" };
-
-/** An evaluator that answers from a table keyed by the command or path of the call. */
-function answering(table: Record<string, Verdict>): Evaluate {
-  return async (payload) => {
-    const input = (payload as { tool_input: Record<string, string> })
-      .tool_input;
-    const key = input["command"] ?? input["file_path"] ?? "";
-    return table[key] ?? allow;
+/** A judge that answers from a table keyed by the command or path of the call. */
+function answering(table: Record<string, Judged>): Judge {
+  return async (recorded) => {
+    const key = recorded.input["command"] ?? recorded.input["file_path"];
+    return table[typeof key === "string" ? key : ""] ?? allow;
   };
 }
 
@@ -70,7 +57,6 @@ describe("replayRule lists the calls that changed from refused to allowed", () =
         "rm -rf dist": block("destructive"),
       }),
       after: answering({ "echo $(x)": block("unquoted-glob") }),
-      contextOf: context,
     });
 
     expect(report).toEqual({
@@ -89,13 +75,12 @@ describe("replayRule lists the calls that changed from refused to allowed", () =
     });
   });
 
-  it("counts a warning under the new rule as allowed", async () => {
+  it("counts a warning under the new ref as allowed", async () => {
     const report = await replayRule({
       rule: "bare-glob",
       calls: [bash("ls *.md", 1)],
       before: answering({ "ls *.md": block("bare-glob") }),
       after: answering({ "ls *.md": warn("bare-glob") }),
-      contextOf: context,
     });
 
     expect(report.changed.map((c) => c.command)).toEqual(["ls *.md"]);
@@ -113,7 +98,6 @@ describe("replayRule lists the calls that changed from refused to allowed", () =
       ],
       before: answering({ "/repo/infra/secret.yaml": block("secret-path") }),
       after: answering({}),
-      contextOf: context,
     });
 
     expect(report.changed).toEqual([
@@ -135,7 +119,6 @@ describe("replayRule reports nothing it should not", () => {
       calls: [bash("ls -la", 1), bash("echo hi", 2)],
       before: answering({}),
       after: answering({}),
-      contextOf: context,
     });
 
     expect(report).toEqual({
@@ -152,7 +135,6 @@ describe("replayRule reports nothing it should not", () => {
       calls: [bash("ls *.ts", 1)],
       before: answering({}),
       after: answering({ "ls *.ts": block("unquoted-glob") }),
-      contextOf: context,
     });
 
     expect(report.empty).toBe(true);
@@ -160,24 +142,22 @@ describe("replayRule reports nothing it should not", () => {
   });
 });
 
-describe("replayRule reads each call where it ran", () => {
-  it("evaluates each call in the directory the call ran in, with both versions", async () => {
-    const seen: string[] = [];
-    const recording =
-      (label: string): Evaluate =>
-      async (_payload, ctx) => {
-        seen.push(`${label}:${ctx.cwd}`);
-        return allow;
-      };
-    await replayRule({
+describe("replayRule judges each distinct call once per ref", () => {
+  it("asks each judge once for identical calls, and still counts every call", async () => {
+    const before = vi.fn(answering({ "ls *.ts": block("unquoted-glob") }));
+    const after = vi.fn(answering({}));
+
+    const report = await replayRule({
       rule: "unquoted-glob",
-      calls: [call({ tool: "Bash", input: { command: "ls" }, cwd: "/repo/a" })],
-      before: recording("before"),
-      after: recording("after"),
-      contextOf: context,
+      calls: [bash("ls *.ts", 1), bash("ls *.ts", 2), bash("ls *.ts", 3)],
+      before,
+      after,
     });
 
-    expect(seen).toEqual(["before:/repo/a", "after:/repo/a"]);
+    expect(before).toHaveBeenCalledTimes(1);
+    expect(after).toHaveBeenCalledTimes(1);
+    expect(report.examined).toBe(3);
+    expect(report.changed.map((c) => c.line)).toEqual([1, 2, 3]);
   });
 });
 

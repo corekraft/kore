@@ -737,11 +737,15 @@ steps.
 `harness guardrail replay --rule <rule> --old <ref> --new <ref> --since <date|UTC
 timestamp> [--until <date|UTC timestamp>]` lists the recorded Bash, Read, Write and
 Edit calls in the window that the rule refused under the old git ref and the new
-ref's guard allows, as JSON. Both guards are read through git and loaded from
-memory; nothing is written, and the ledger is never read. The calls come from the
-session transcripts of this repository and its worktrees, the same ones the retro
-scan reads. An empty `changed` list is stated as empty (`"empty": true`). It is a
-developer tool, not a guard (ADR 0101).
+ref's guard allows, as JSON. Each ref is checked out in a detached worktree under
+`.claude/worktrees`, its harness is built there, and each call is sent to that
+build's `hook guard` as the PreToolUse payload it would have been; the worktrees
+are removed when the replay ends, even after a failure. The payload names no
+session, so the guard writes no ledger event, and the replay never reads the
+ledger or writes the inventory. The calls come from the session transcripts of
+this repository and its worktrees, the same ones the retro scan reads. An empty
+`changed` list is stated as empty (`"empty": true`). It is a developer tool, not a
+guard (ADR 0101).
 
 An idea that changes what a guard blocks is confirmed on this checklist (ADR 0119):
 

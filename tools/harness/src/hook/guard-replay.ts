@@ -1,16 +1,9 @@
-// The guard replay: lists the recorded calls that one rule refused under its old version and
-// allows under its new one. It reads session transcripts and never the ledger, and it writes
-// nothing. The two evaluators, the transcripts and the context are injected, so the core is pure.
-// Checklist and usage: the `replay` entry of the guardrail domain (cli/guardrail-replay-commands.ts).
+// The guard replay core: lists the recorded calls that one rule refused under an old ref and
+// allows under a new one. Each ref's verdict comes from a judge injected here (guard-judge.ts runs
+// the ref's own built guard), so the core is pure: it reads the transcripts it is given and writes
+// nothing.
 
-import type { GuardContext, Verdict } from "./guard-verdict.js";
 import { blocksOf, type Transcript } from "./retro-transcript.js";
-
-/** Decides one tool call, as `evaluate` in guard-evaluate.ts does. */
-export type Evaluate = (
-  payload: unknown,
-  ctx: GuardContext,
-) => Promise<Verdict>;
 
 /** The tools the guard's rules read: a shell command, or a file path. */
 const REPLAYED_TOOLS: ReadonlySet<string> = new Set([
@@ -36,7 +29,16 @@ export interface WindowCall {
   input: Record<string, unknown>;
 }
 
-/** A call the old rule refused and the new one allows. */
+/** A ref's verdict on one call: allowed, warned about, or refused by a named rule. */
+export type Judged =
+  | { action: "allow" }
+  | { action: "warn"; rule: string }
+  | { action: "block"; rule: string };
+
+/** Decides one recorded call under one ref. */
+export type Judge = (call: WindowCall) => Promise<Judged>;
+
+/** A call the old ref refused under the rule and the new ref allows. */
 export interface Changed {
   session: string;
   line: number;
@@ -50,7 +52,7 @@ export interface Changed {
 
 export interface ReplayReport {
   rule: string;
-  /** How many recorded calls were evaluated under both versions. */
+  /** How many recorded calls were judged under both refs. */
   examined: number;
   /** True when no call changed; the report states an empty list as empty. */
   empty: boolean;
@@ -60,9 +62,8 @@ export interface ReplayReport {
 export interface ReplayInput {
   rule: string;
   calls: readonly WindowCall[];
-  before: Evaluate;
-  after: Evaluate;
-  contextOf: (cwd: string) => GuardContext;
+  before: Judge;
+  after: Judge;
 }
 
 /**
@@ -122,32 +123,40 @@ function entryOf(call: WindowCall): Changed {
     : { ...where, path: textOf(call.input["file_path"]) };
 }
 
+/** A judge that asks the wrapped judge once per distinct call: the same call is the same verdict. */
+function onceEach(judge: Judge): Judge {
+  const seen = new Map<string, Promise<Judged>>();
+  return (call) => {
+    const key = JSON.stringify([call.tool, call.cwd, call.input]);
+    let verdict = seen.get(key);
+    if (verdict === undefined) {
+      verdict = judge(call);
+      seen.set(key, verdict);
+    }
+    return verdict;
+  };
+}
+
 /**
- * Evaluates every call under both versions and lists the calls the old version refused under
- * `rule` and the new version does not block. A warning counts as allowed; a refusal by another
- * rule does not count as the rule refusing the call.
+ * Judges every call under both refs and lists the calls the old ref refused under `rule` and
+ * the new ref does not block. A warning counts as allowed; a refusal by another rule does not
+ * count as the rule refusing the call.
  */
 export async function replayRule({
   rule,
   calls,
   before,
   after,
-  contextOf,
 }: ReplayInput): Promise<ReplayReport> {
+  const judgeBefore = onceEach(before);
+  const judgeAfter = onceEach(after);
   const changed: Changed[] = [];
   for (const call of calls) {
-    const payload = {
-      session_id: call.session,
-      tool_name: call.tool,
-      tool_input: call.input,
-      cwd: call.cwd,
-    };
-    const ctx = contextOf(call.cwd);
-    const refused = await before(payload, ctx);
-    const next = await after(payload, ctx);
+    const refused = await judgeBefore(call);
+    const allowed = await judgeAfter(call);
     const wasRefusedByRule =
       refused.action === "block" && refused.rule === rule;
-    if (wasRefusedByRule && next.action !== "block") {
+    if (wasRefusedByRule && allowed.action !== "block") {
       changed.push(entryOf(call));
     }
   }
