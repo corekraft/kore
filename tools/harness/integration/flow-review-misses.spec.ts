@@ -93,7 +93,9 @@ describe("flow report review misses, from the ledger (#851)", () => {
       resample: { count: 0, found: 0, share: null },
     });
   });
+});
 
+describe("flow report review misses: the re-review sample and the human report (#851, #852)", () => {
   it("counts the re-reviews of sampled passed reviews beside the ratio, and keeps them out of the reviews", async () => {
     const h = harness();
     const events = [
