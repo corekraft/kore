@@ -6,9 +6,6 @@
 /** Roles that read and report and never write a file. */
 export const READ_ONLY_ROLES = ["reader", "principles-review"];
 
-/** Roles that answer from plans, ADRs, ideas and issues and never read code. No role is one today; the `role-no-code` rule bounds one when it is named here. */
-export const NO_CODE_ROLES: string[] = [];
-
 /** Roles the harness spawns in a pane for one notice, with no allowlist of its own. */
 export const SPAWNED_ROLES = ["reader", "principles-review"];
 
