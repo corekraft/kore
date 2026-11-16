@@ -38,6 +38,7 @@ export const KINDS = [
   "guardrail.requested",
   "harness-change-reverted",
   "guardrail.activated",
+  "guardrail.approval-warned",
   "session.send",
   "idea.filed",
   "retro.dropped",

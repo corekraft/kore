@@ -10,6 +10,7 @@ import {
   parseInventory,
   settingsWithDeny,
   type ActivatePorts,
+  type ActivateResult,
   type IssueComment,
 } from "../guardrail/index.js";
 import { IdeaError, IdeaRepository } from "../idea/index.js";
@@ -56,6 +57,7 @@ interface View {
     body?: string;
     createdAt?: string;
     author?: { login?: string };
+    url?: string;
   }[];
   labels?: { name?: string }[];
 }
@@ -79,6 +81,7 @@ function ghPorts({ deps }: CommandContext, root: string, repo: string) {
         body: c.body ?? "",
         createdAt: c.createdAt ?? "",
         author: c.author?.login ?? "",
+        ...(c.url === undefined ? {} : { url: c.url }),
       }));
     },
     async labels(issue: string): Promise<string[]> {
@@ -103,7 +106,26 @@ function filePorts(
   { deps }: CommandContext,
   root: string,
   ledger: Ledger,
-): Pick<ActivatePorts, "writeInventory" | "syncDeny" | "recordEvent"> {
+): Pick<
+  ActivatePorts,
+  "writeInventory" | "syncDeny" | "recordEvent" | "recordWarning"
+> {
+  const record = async (
+    kind: "guardrail.activated" | "guardrail.approval-warned",
+    label: string,
+    idea: string,
+  ) => {
+    const written = await ledger.record({
+      source: "claude",
+      kind,
+      occurredAt: deps.clock.now().toISOString(),
+      idea,
+      label,
+    });
+    return written.ok
+      ? { ok: true as const }
+      : { ok: false as const, message: written.message };
+  };
   return {
     writeInventory: (text) =>
       deps.fs.writeFile(`${root}/${INVENTORY_PATH}`, text),
@@ -114,23 +136,14 @@ function filePorts(
         settingsWithDeny(await deps.fs.readFile(path), denyList(inventory)),
       );
     },
-    recordEvent: async (label, idea) => {
-      const written = await ledger.record({
-        source: "claude",
-        kind: "guardrail.activated",
-        occurredAt: deps.clock.now().toISOString(),
-        idea,
-        label,
-      });
-      return written.ok
-        ? { ok: true }
-        : { ok: false, message: written.message };
-    },
+    recordEvent: (label, idea) => record("guardrail.activated", label, idea),
+    recordWarning: (label, idea) =>
+      record("guardrail.approval-warned", label, idea),
   };
 }
 
 async function activateMode(context: CommandContext): Promise<number> {
-  const { deps, json, options, operand } = context;
+  const { deps, options, operand } = context;
   const missing = [
     operand === undefined ? "<rule>" : undefined,
     ...["to", "idea"].map((key) =>
@@ -172,12 +185,20 @@ async function activateMode(context: CommandContext): Promise<number> {
     rule: operand ?? "",
     to: flag(options, "to") ?? "",
   });
+  return report(context, done);
+}
+
+/** Prints the outcome: JSON with --json, the reason when refused, and the sender-line warning on stderr. */
+function report({ deps, json }: CommandContext, done: ActivateResult): number {
   if (json) {
     deps.stdout(`${JSON.stringify(done)}\n`);
   }
   if (!done.activated) {
     deps.stderr(`${done.reason ?? "Refused."} The mode is unchanged.\n`);
     return FAILED;
+  }
+  if (done.warning !== undefined) {
+    deps.stderr(`Warning: ${done.warning}\n`);
   }
   if (!json) {
     deps.stdout(
@@ -189,7 +210,7 @@ async function activateMode(context: CommandContext): Promise<number> {
 
 export const activate: Command = {
   summary:
-    "change a guardrail's mode, or remove it, only when a person has approved that change on the idea's issue: a comment from the owner login (ownerLogin in .claude/harness.json, else the repository's owner) made after the request comment, with the line `approve <rule>:<from>><to>`; an agent-applied label never counts; enforcing, loosening and removing need the same approval, requested first with `guardrail request`; on approval it edits .claude/guardrails.yaml (and regenerates the settings deny list for a deny rule) and records a guardrail.activated ledger event; with no request, no approval or only a label it refuses (exit 1), leaves the mode as it is and posts one refusal comment on the idea's issue (<rule> --to enforce|audit|removed --idea <number> [--json: rule, from, to, idea, issue, activated, reason, refusalPosted, commentUrl] [--ledger])",
+    "change a guardrail's mode, or remove it, only when a person has approved that change on the idea's issue: a comment from the owner login (ownerLogin in .claude/harness.json, else the repository's owner) made after the request comment, with the line `approve <rule>:<from>><to>`; an agent-applied label never counts; enforcing, loosening and removing need the same approval, requested first with `guardrail request`; on approval it edits .claude/guardrails.yaml (and regenerates the settings deny list for a deny rule) and records a guardrail.activated ledger event; an approving comment that carries a sender line (a session wrote it, not the owner) still approves, but the change warns on stderr and in the JSON `warning` field and records a guardrail.approval-warned ledger event; with no request, no approval or only a label it refuses (exit 1), leaves the mode as it is and posts one refusal comment on the idea's issue (<rule> --to enforce|audit|removed --idea <number> [--json: rule, from, to, idea, issue, activated, reason, refusalPosted, commentUrl, warning] [--ledger])",
   operand: "rule",
   options: { to: "string", idea: "string", ledger: "string" },
   async run(context) {
