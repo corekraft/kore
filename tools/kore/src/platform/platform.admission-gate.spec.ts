@@ -27,6 +27,10 @@ vi.mock("../images/index.js", () => ({
   ensureRegistryTrust: async () => undefined,
   registryTrustProblem: async () => undefined,
 }));
+// The Gatekeeper webhook wait is covered in gatekeeper-admission.spec.ts.
+vi.mock("./gatekeeper-admission.js", () => ({
+  waitForGatekeeperAdmission: async () => undefined,
+}));
 vi.mock("./reconcile.js", () => ({
   reconcileIfNeeded: async (_r: unknown, _n: unknown, c: { name: string }) => {
     events.push(`bootstrap:${c.name}`);
