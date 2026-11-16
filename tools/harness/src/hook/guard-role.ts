@@ -1,26 +1,21 @@
 // Role bounds for the delivery loop's read-only agents (ADR 0078). Panes run in
 // bypass mode, so these guard rules, not permission prompts, keep the
-// reader from writing files, and a no-code role (none today) from reading
-// code. The delivery roles are bounded in guard-role-delivery.ts. The host names the role as `agent_type` when a session starts with
+// reader from writing files. The delivery roles are bounded in guard-role-delivery.ts. The host names the role as `agent_type` when a session starts with
 // `claude --agent <role>`; a session without one is not bounded here.
 //
 // These rules enforce from the start, not in audit mode: the owner approved
 // enforcing the plan 11 role guards on 2026-11-12, which ADR 0080 requires a
 // person to do. A new capability for a role needs a guard case first.
-import { isAbsolute, relative, resolve } from "node:path";
-import { ghMayRun, readMayRun } from "./guard-role-allow.js";
+import { readMayRun } from "./guard-role-allow.js";
 import { checkDelivery } from "./guard-role-delivery.js";
 import {
   DELIVERY_ROLES,
-  NO_CODE_ROLES,
   READ_ONLY_ROLES,
   REPORTING_ROLES,
   SPAWNED_ROLES,
 } from "./guard-roles.js";
 import { checkProtected } from "./guard-role-protected.js";
 import {
-  harnessAllowed,
-  harnessStatus,
   notifiesFinish,
   readOnly,
   sendsToPane,
@@ -29,43 +24,11 @@ import {
   writes,
   WRITE_TOOLS,
 } from "./guard-role-writes.js";
-import { commandOf, splitSegments } from "./guard-shell.js";
-import { block, type Finding } from "./guard-verdict.js";
+import { splitSegments } from "./guard-shell.js";
+import { type Finding } from "./guard-verdict.js";
 
 const READ_ONLY_ROLE_SET = new Set<string>(READ_ONLY_ROLES);
-const NO_CODE_ROLE_SET = new Set<string>(NO_CODE_ROLES);
 const SPAWNED_ROLE_SET = new Set<string>(SPAWNED_ROLES);
-const FILE_TOOLS = new Set(["Read", "Grep", "Glob"]);
-
-/** Paths a no-code role may read: plans, ADRs and ideas, never code. */
-const NO_CODE_PATHS = /^(infra\/plans\/|docs\/|GLOSSARY\.md$|README\.md$)/;
-
-/** The path relative to the repository with `..` resolved, or undefined when it leaves the repository. */
-function insideRoot(root: string, path: string): string | undefined {
-  const from = relative(root, resolve(root, path));
-  return from.startsWith("..") || isAbsolute(from) ? undefined : from;
-}
-
-/** Whether a file tool call stays in the folders a no-code role may read; a glob pattern may not climb or be absolute. */
-function readable(root: string, input: Record<string, unknown>): boolean {
-  const path = input["file_path"] ?? input["path"];
-  const pattern = input["pattern"];
-  const glob = input["glob"];
-  const climbs = [pattern, glob].some(
-    (value) =>
-      typeof value === "string" &&
-      (value.split("/").includes("..") || value.startsWith("/")),
-  );
-  const inside = typeof path === "string" ? insideRoot(root, path) : undefined;
-  return !climbs && inside !== undefined && NO_CODE_PATHS.test(inside);
-}
-
-const noCode = (what: string, role: string): Finding =>
-  block(
-    "role-no-code",
-    `${what} reads code, and the ${role} works from plans, ADRs, ideas, issues and the ledger. ` +
-      "Instead, ask a reader to look at the code and summarize it.",
-  );
 
 /** The harness commands the read-only roles may run; each is read-only. */
 const HARNESS_READS = [
@@ -76,50 +39,21 @@ const HARNESS_READS = [
   "ledger list",
 ];
 
-/** The only options a no-code role's `git log` and `git status` take: none prints changed lines. */
-const NO_CODE_GIT_FLAGS: Record<string, RegExp> = {
-  log: /^(--|--oneline|--graph|--decorate|--no-decorate|--all|--no-merges|--merges|--first-parent|--abbrev-commit|--since=.+|--until=.+|--author=.+|--grep=.+|--format=.+|--pretty=.+|--date=.+|--max-count=.+|-n|-\d+)$/,
-  status: /^(-s|--short|-b|--branch|--porcelain|--porcelain=.+|--long)$/,
-};
-
-function noCodeGit(args: readonly string[]): boolean {
-  const [verb = "", ...rest] = args;
-  const flags = NO_CODE_GIT_FLAGS[verb];
-  return (
-    flags !== undefined &&
-    rest.every((arg) => !arg.startsWith("-") || flags.test(arg))
-  );
-}
-
-/** What a no-code role's shell may run: its allowlisted harness commands and status queries, never anything that shows code. */
-function noCodeMayRun(role: string, segment: readonly string[]): boolean {
-  const { name, args } = commandOf(segment);
-  return (
-    harnessAllowed(name, args, HARNESS_READS) ||
-    harnessStatus(name, args) ||
-    (name === "gh" && ghMayRun(args, false)) ||
-    (name === "git" && noCodeGit(args)) ||
-    ["date", "echo", "pwd"].includes(name)
-  );
-}
-
 const finishes = (role: string, segment: readonly string[]): boolean =>
   SPAWNED_ROLE_SET.has(role) && notifiesFinish(segment);
 
 function checkBash(role: string, command: string): Finding {
   // A substitution runs a command the segment check never sees.
   if (/\$\(|`|<\(|>\(/.test(command)) {
-    return NO_CODE_ROLE_SET.has(role)
-      ? noCode("A command substitution", role)
-      : readOnly("A command substitution");
+    return readOnly("A command substitution");
   }
   const segments = splitSegments(command);
   const prefixed = segments.find(setsEnvironment);
   if (prefixed !== undefined) {
     const what = `\`${prefixed.join(" ")}\`, which sets an environment variable or changes shell state,`;
-    return NO_CODE_ROLE_SET.has(role) ? noCode(what, role) : readOnly(what);
+    return readOnly(what);
   }
-  // Only a role a brief asks for the notice is pointed at it; a no-code role gets its usual finding.
+  // Only a role a brief asks for the notice is pointed at it.
   const typing = SPAWNED_ROLE_SET.has(role)
     ? segments.find(sendsToPane)
     : undefined;
@@ -129,12 +63,6 @@ function checkBash(role: string, command: string): Finding {
   const writer = segments.find(writes);
   if (writer !== undefined) {
     return readOnly(`\`${writer.join(" ")}\``);
-  }
-  if (NO_CODE_ROLE_SET.has(role)) {
-    const stray = segments.find(
-      (segment) => !noCodeMayRun(role, segment) && !finishes(role, segment),
-    );
-    return stray === undefined ? null : noCode(`\`${stray.join(" ")}\``, role);
   }
   const unknown = segments.find(
     (segment) =>
@@ -181,9 +109,6 @@ export function checkRole(
   }
   if (tool === "Bash" && typeof input["command"] === "string") {
     return checkBash(agentType, input["command"]);
-  }
-  if (NO_CODE_ROLE_SET.has(agentType) && FILE_TOOLS.has(tool)) {
-    return readable(root, input) ? null : noCode(tool, agentType);
   }
   return null;
 }

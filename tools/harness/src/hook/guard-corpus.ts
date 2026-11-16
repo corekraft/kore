@@ -1,4 +1,4 @@
-// The role lists below (READ_ONLY, REPORTING, NO_CODE, ROLES) are deliberately independent of
+// The role lists below (READ_ONLY, REPORTING, ROLES) are deliberately independent of
 // guard-roles.ts: importing the registry would make the role check unable to fail. The spec checks
 // them against the registry with roleCoverage (guard-corpus.spec.ts), so drift fails in CI.
 //
@@ -22,7 +22,6 @@ export interface CorpusCase {
 
 const READ_ONLY = ["reader"];
 const REPORTING = ["judge"];
-const NO_CODE: string[] = [];
 // The Reviewer is a read-only role too: it gets every case the others get.
 const ROLES = [...READ_ONLY, "principles-review", ...REPORTING];
 
@@ -266,10 +265,7 @@ export const ORDINARY: readonly OrdinaryCase[] = [
       "echo *.md",
     ),
   ),
-  // The no-code roles read plans and docs through the harness and git log, never the tree.
-  ...ROLES.filter((role) => !NO_CODE.includes(role)).flatMap((role) =>
-    ordinary(role, "ls docs", "cat docs/index.md"),
-  ),
+  ...ROLES.flatMap((role) => ordinary(role, "ls docs", "cat docs/index.md")),
   ...ordinary(
     "writer",
     "echo hi > out.txt",
