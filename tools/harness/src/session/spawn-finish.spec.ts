@@ -13,6 +13,7 @@ import {
 import { FAILED, fail } from "./output.js";
 import type { SessionRecord } from "./registry.js";
 import { recordHostSample } from "./spawn-sample.js";
+import { noteUnstamped } from "./spawn-record.js";
 import { finish } from "./spawn-finish.js";
 import { formatWait, waitForResult, type WaitResult } from "./wait.js";
 
@@ -40,6 +41,10 @@ vi.mock("../runtime/index.js", async (importOriginal) => ({
 }));
 vi.mock("./wait.js");
 vi.mock("./spawn-sample.js");
+vi.mock("./spawn-record.js", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("./spawn-record.js")>()),
+  noteUnstamped: vi.fn(),
+}));
 vi.mock("./output.js", async (importOriginal) => ({
   ...(await importOriginal<typeof import("./output.js")>()),
   fail: vi.fn(),
@@ -266,5 +271,37 @@ describe("finish stamps the derived stage on the launch event", () => {
     await run({ "no-wait": true });
 
     expect(ledger.record.mock.calls[0]?.[0]).not.toHaveProperty("stage");
+  });
+});
+
+describe("finish notes a spawn that names no idea", () => {
+  it("notes the unstamped spawn with its session and the mark, before it reports", async () => {
+    await finish(contextOf(deps, { options: { "no-wait": true } }), {
+      registry: asRegistry(registry),
+      record: RECORD,
+      modelCheck: VERIFIED,
+      timeoutMs: 60_000,
+      unstamped: { reason: "grilling session" },
+    });
+
+    expect(noteUnstamped).toHaveBeenCalledExactlyOnceWith(
+      deps,
+      {
+        name: "image-trust-writer",
+        paneId: "w3:p9",
+        role: "writer",
+        createdAt: "2026-01-02T03:04:05.000Z",
+      },
+      { reason: "grilling session" },
+    );
+    expect(deps.stdout).toHaveBeenCalledWith(
+      expect.stringContaining("Spawned image-trust-writer"),
+    );
+  });
+
+  it("notes nothing for a spawn that names an idea", async () => {
+    await run({ "no-wait": true });
+
+    expect(noteUnstamped).not.toHaveBeenCalled();
   });
 });

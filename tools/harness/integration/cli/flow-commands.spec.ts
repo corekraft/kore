@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { run } from "../../src/cli/index.js";
+import { REPORT_VERSION } from "../../src/flow/index.js";
 import {
   LEDGER_FILE as DEFAULT,
   ledgerHarness as harness,
@@ -29,6 +30,7 @@ const KEYS = [
   "rework",
   "friction",
   "retroProposalsDropped",
+  "sendBackCategories",
   "bottleneck",
   "bottleneckNote",
   "unmappedEvents",
@@ -37,6 +39,7 @@ const KEYS = [
   "outcomes",
   "hostPressure",
   "tierShares",
+  "unstampedSpawns",
   "skippedLines",
 ];
 
@@ -48,7 +51,7 @@ describe("flow report", () => {
     expect(Object.keys(report)).toEqual(KEYS);
     expect(report).toMatchObject({ bottleneckNote: null });
     expect(report).toMatchObject({
-      version: 9,
+      version: REPORT_VERSION,
       asOf: "2026-01-02T03:04:05.000Z",
       ideas: { total: 3, completed: 3 },
       minCompletedIdeas: 3,
@@ -273,5 +276,34 @@ describe("flow report scope text and flags", () => {
     expect(await run(["flow", "report", ...flags], h.deps)).toBe(2);
     expect(h.err()).toContain(`Invalid ${name}`);
     expect(h.err()).not.toContain("main checkout root");
+  });
+});
+
+describe("flow report counts unstamped spawns", () => {
+  it("counts a spawn that named no idea, and leaves friction exactly as it was", async () => {
+    const base = seeded(["--json"]);
+    expect(await run(base.argv, base.h.deps)).toBe(0);
+    const before = JSON.parse(base.h.out()) as Record<string, unknown>;
+    const { h, argv } = seeded(["--json"]);
+    const spawned = {
+      schema: 1,
+      id: "spawn-unstamped-1",
+      source: "herdr",
+      kind: "spawn.unstamped",
+      occurredAt: "2026-01-02T03:00:00.000Z",
+      recordedAt: "2026-01-02T03:00:00.000Z",
+      pane: "w3:p9",
+      agent: "image-trust-writer",
+      role: "writer",
+    };
+    h.fs.files.set(
+      DEFAULT,
+      `${h.fs.files.get(DEFAULT) ?? ""}${JSON.stringify(spawned)}\n`,
+    );
+
+    expect(await run(argv, h.deps)).toBe(0);
+    const report = JSON.parse(h.out()) as Record<string, unknown>;
+    expect(report["unstampedSpawns"]).toEqual({ total: 1, withReason: 0 });
+    expect(report["friction"]).toEqual(before["friction"]);
   });
 });

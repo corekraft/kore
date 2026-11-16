@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { buildReport } from "./report.js";
 import { time } from "./github-waits.js";
-import { frictionMetrics } from "./idea-metrics.js";
+import { frictionMetrics, unstampedSpawns } from "./idea-metrics.js";
 import { inWindow, scopeOf, windowOf } from "./scope.js";
 import { newLife } from "./toil.js";
 import {
@@ -77,5 +77,21 @@ describe("buildReport friction and rework", () => {
     );
     run([]);
     expect(vi.mocked(frictionMetrics).mock.calls[0]?.[3]).toBeUndefined();
+  });
+});
+
+describe("buildReport counts unstamped spawns beside friction", () => {
+  it("reports the unstamped spawns among the named events in the window", () => {
+    fakeTally();
+    const named = [
+      ev(1, "spawn.unstamped", { role: "writer", agent: "x-writer" }),
+    ];
+    cover(new Map(), named);
+    vi.mocked(unstampedSpawns).mockReturnValue({ total: 1, withReason: 0 });
+
+    const r = buildReport([], { asOf: ASOF, minCompletedIdeas: 1 });
+
+    expect(unstampedSpawns).toHaveBeenCalledWith(named, WINDOW);
+    expect(r.unstampedSpawns).toEqual({ total: 1, withReason: 0 });
   });
 });

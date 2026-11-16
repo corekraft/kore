@@ -1,13 +1,9 @@
-import { join } from "node:path";
-import { DEFAULT_LEDGER, Ledger, type TierOrigin } from "../ledger/index.js";
-import {
-  mainRoot,
-  type CliDeps,
-  type CommandContext,
-} from "../runtime/index.js";
+import type { TierOrigin } from "../ledger/index.js";
+import type { CommandContext } from "../runtime/index.js";
 import type { ModelCheck } from "./models.js";
 import { FAILED, fail } from "./output.js";
 import type { SessionRecord, SessionRegistry } from "./registry.js";
+import { noteUnstamped, recordLaunch } from "./spawn-record.js";
 import { recordHostSample } from "./spawn-sample.js";
 import { formatWait, waitForResult } from "./wait.js";
 
@@ -20,50 +16,26 @@ interface Finish {
   tier?: TierOrigin;
   /** The stage derived from the role; absent leaves the launch event unstamped. */
   stage?: string;
-}
-
-/** Appends a session.launch event for the session. Best effort: a ledger problem never fails the spawn. */
-async function recordLaunch(
-  deps: CliDeps,
-  record: SessionRecord,
-  tier: TierOrigin | undefined,
-  stage: string | undefined,
-) {
-  try {
-    const main = await mainRoot(deps);
-    if (main === undefined) {
-      return;
-    }
-    await new Ledger(
-      deps.fs,
-      deps.clock,
-      deps.ids,
-      join(main, DEFAULT_LEDGER),
-    ).record({
-      source: "herdr",
-      kind: "session.launch",
-      occurredAt: record.createdAt,
-      pane: record.paneId,
-      agent: record.name,
-      role: record.role,
-      tier: record.model,
-      ...(stage === undefined ? {} : { stage }),
-      ...tier,
-    });
-  } catch {
-    // The ledger is a measurement; it never gates a spawn.
-  }
+  /** Set when the spawn names no idea: warns and records it, and the spawn still starts. */
+  unstamped?: { reason?: string };
 }
 
 /** Records the spawned session, then reports it or, without --no-wait, waits for its result. */
 export async function finish(
   { json, deps, options }: CommandContext,
-  { registry, record, modelCheck, timeoutMs, tier, stage }: Finish,
+  { registry, record, modelCheck, timeoutMs, tier, stage, unstamped }: Finish,
 ): Promise<number> {
   const { name, paneId, callerPane, model, role, effort, worktree } = record;
   const extra = worktree === undefined ? {} : { worktree };
   await registry.create(record);
   await recordLaunch(deps, record, tier, stage);
+  if (unstamped !== undefined) {
+    await noteUnstamped(
+      deps,
+      { name, paneId, role, createdAt: record.createdAt },
+      unstamped,
+    );
+  }
   await recordHostSample(deps, { pane: paneId, name });
   const verdict =
     modelCheck.status === "verified"

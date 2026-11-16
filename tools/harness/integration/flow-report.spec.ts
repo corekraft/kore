@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { STAGES, buildReport, type FlowReport } from "../src/flow/index.js";
+import {
+  REPORT_VERSION,
+  STAGES,
+  buildReport,
+  type FlowReport,
+} from "../src/flow/index.js";
 import { T0, at } from "../src/testing/index.js";
 import type { LedgerEvent } from "../src/ledger/index.js";
 
@@ -20,7 +25,7 @@ function stage(r: FlowReport, name: string) {
 describe("flow report stage mapping", () => {
   it("lists every stage in delivery order, zeroed, for an empty ledger", () => {
     const r = report([]);
-    expect(r.version).toBe(9);
+    expect(r.version).toBe(REPORT_VERSION);
     expect(r.stages.map((s) => s.stage)).toEqual([...STAGES]);
     expect(
       r.stages.every(

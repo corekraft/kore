@@ -8,6 +8,7 @@ import {
   ideaMetrics,
   measureAttribution,
   outcomes,
+  unstampedSpawns,
 } from "./idea-metrics.js";
 import { groupByIdea, select } from "./select.js";
 import { inWindow, scopeOf, windowOf } from "./scope.js";
@@ -40,6 +41,7 @@ beforeEach(() => {
   vi.mocked(inWindow).mockReturnValue(true);
   vi.mocked(newLife).mockReturnValue(fakeLife());
   cover(new Map());
+  vi.mocked(unstampedSpawns).mockReturnValue({ total: 0, withReason: 0 });
 });
 
 describe("buildReport scope and ideas", () => {
