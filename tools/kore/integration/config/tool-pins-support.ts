@@ -9,12 +9,13 @@ const MISE_NAME_TO_CATALOG: Readonly<Record<string, string>> = {
 /** Tools the catalog pins that mise does not manage, with the reason each may stay out of .mise.toml. */
 const CATALOG_ONLY_TOOLS: Readonly<Record<string, string>> = {
   docker: "the host Docker CLI is a prerequisite that mise does not install",
-  herdr:
-    "the host herdr is the pane multiplexer the harness runs sessions in, and mise does not install it",
 };
 
-/** Tools .mise.toml pins that the catalog does not mirror. None are allowed today. */
-const MISE_ONLY_TOOLS: Readonly<Record<string, string>> = {};
+/** Tools .mise.toml pins that the catalog does not mirror. */
+const MISE_ONLY_TOOLS: Readonly<Record<string, string>> = {
+  herdr:
+    "the harness runs its sessions in herdr panes; it is a developer tool, not a platform tool, so the platform tool catalog does not mirror it",
+};
 
 const has = (table: Readonly<Record<string, string>>, name: string): boolean =>
   Object.hasOwn(table, name);

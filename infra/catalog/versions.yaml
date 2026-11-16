@@ -24,8 +24,7 @@
       "zizmor": "1.31.1",
       "hadolint": "2.15.1",
       "gradle": "9.9.1",
-      "docker": "29.7.2",
-      "herdr": "0.9.5"
+      "docker": "29.7.2"
     },
   "providers": { "hashicorp/null": "3.2.4" },
   "kubernetes": "1.37.2",
