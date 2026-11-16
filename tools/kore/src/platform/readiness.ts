@@ -17,17 +17,16 @@ import { WEBHOOK_CONFIGURATION, waitForWebhook } from "./readiness-webhook.js";
 
 const TLS_READY_TEMPLATE =
   '{{if and (eq .type "kubernetes.io/tls") (index .data "tls.crt") (index .data "tls.key")}}ready{{end}}';
-/** Crossplane composition Function packages report Installed, then Healthy. */
-const FUNCTION_PREFIX = "function.pkg.crossplane.io/";
 /**
  * Cluster-scoped kinds proven by conditions, waited for in order: CRDs are
- * Established, Functions Installed then Healthy, and Sigstore Policy
+ * Established, Crossplane Functions and Providers Installed then Healthy, and Sigstore Policy
  * Controller reports a ClusterImagePolicy Ready once its keys are inlined, and
  * an aggregated APIService is Available once its backing Service answers.
  */
 const CONDITION_KINDS: readonly (readonly [string, string[]])[] = [
   ["crd/", ["Established"]],
-  [FUNCTION_PREFIX, ["Installed", "Healthy"]],
+  ["function.pkg.crossplane.io/", ["Installed", "Healthy"]],
+  ["provider.pkg.crossplane.io/", ["Installed", "Healthy"]],
   ["clusterimagepolicy.policy.sigstore.dev/", ["Ready"]],
   ["apiservice.apiregistration.k8s.io/", ["Available"]],
 ];
