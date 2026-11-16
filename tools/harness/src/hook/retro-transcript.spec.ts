@@ -2,6 +2,7 @@
 // with no dependencies to mock. Each guarantee is pinned to its exact output.
 
 import { describe, expect, it } from "vitest";
+import { FOLLOW_UP_PREFIX } from "../session/index.js";
 import {
   blocksOf,
   callSignature,
@@ -38,6 +39,12 @@ describe("orchestrator brief tag", () => {
     ],
   ])("reads a message with %s as a brief", (_name, text) => {
     expect(isOrchestratorBrief(text)).toBe(true);
+  });
+
+  it("reads the prefix `session send` adds as a brief, so a follow-up is never an owner correction", () => {
+    expect(isOrchestratorBrief(`${FOLLOW_UP_PREFIX} Stop and rebase`)).toBe(
+      true,
+    );
   });
 
   it.each([

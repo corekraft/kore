@@ -130,7 +130,7 @@ async function confirmed(
 }
 
 /** Sends the line and confirms it; an error message, or undefined once a new submitted line shows in the pane. */
-async function deliver(
+export async function deliver(
   deps: CliDeps,
   pane: string,
   line: string,
@@ -153,7 +153,7 @@ async function deliver(
     return undefined;
   }
   return result === "missing"
-    ? `Delivery to ${pane} not confirmed: no new submitted finish line showed there in ${CONFIRM_READS} reads. ${NO_RESEND}`
+    ? `Delivery to ${pane} not confirmed: no new submitted line showed there in ${CONFIRM_READS} reads. ${NO_RESEND}`
     : `herdr pane read ${pane} failed: ${result.error}, so delivery to ${pane} is not confirmed. ${NO_RESEND}`;
 }
 

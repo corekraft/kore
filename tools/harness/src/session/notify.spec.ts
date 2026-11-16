@@ -150,7 +150,7 @@ describe("session notify does not count what was not delivered", () => {
     expect(s.calls).toEqual([READ, SEND, ENTER, READ, READ, READ]);
     expect(s.sleep.mock.calls).toEqual([[1000], [1000]]);
     expect(failure()).toBe(
-      "Delivery to w3:p1 not confirmed: no new submitted finish line showed there in 3 reads. Do not send it again: `session wait` records your result from your RESULT line, so end your turn.",
+      "Delivery to w3:p1 not confirmed: no new submitted line showed there in 3 reads. Do not send it again: `session wait` records your result from your RESULT line, so end your turn.",
     );
     expect(s.out).toEqual([]);
   });
@@ -180,7 +180,7 @@ describe("session notify does not count what was not delivered", () => {
   it("reports the missing line when a later read-back succeeds without it", async () => {
     const s = scripted({ reads: [ok(EMPTY), failed, ok(TYPED)] });
     expect(await notify(s.context)).toBe(1);
-    expect(failure()).toContain("no new submitted finish line showed there");
+    expect(failure()).toContain("no new submitted line showed there");
   });
 });
 

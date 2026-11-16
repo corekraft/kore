@@ -319,3 +319,19 @@ describe("ledger event schema auto-approved", () => {
     expect(POLLER_KINDS).not.toContain("auto-approved");
   });
 });
+
+describe("ledger event schema session send", () => {
+  const sent = { ...base, source: "herdr", kind: "session.send" };
+
+  it("accepts a session.send event naming the pane and agent, with no further field required", () => {
+    expect(KINDS).toContain("session.send");
+    expect(
+      parseEvent({ ...sent, pane: "w3:p9", agent: "a-writer" }, "input").ok,
+    ).toBe(true);
+    expect(parseEvent(sent, "input").ok).toBe(true);
+  });
+
+  it("is not a poller kind, so ledger record accepts it", () => {
+    expect(POLLER_KINDS).not.toContain("session.send");
+  });
+});
