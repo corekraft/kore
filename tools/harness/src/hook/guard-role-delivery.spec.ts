@@ -183,14 +183,6 @@ describe("checkDeliveryBash: a reporting role's shell", () => {
     });
   });
 
-  it("refuses a segment the read allowlist does not list, naming it in the finding", () => {
-    vi.mocked(readMayRun).mockReturnValue(false);
-
-    expect(bash("judge", "rm f")).toEqual(
-      hit("role-read-only", "`rm f` changes files"),
-    );
-  });
-
   it("refuses a write, and a harness command the role does not list", () => {
     vi.mocked(writes).mockReturnValue(true);
     expect(bash("judge", "tee out")).toMatchObject({ rule: "role-read-only" });
@@ -237,6 +229,29 @@ describe("checkDeliveryBash: a reporting role's shell", () => {
 
   it("allows a read the allowlist lists, and returns no finding", () => {
     expect(bash("judge", "git log -n 3")).toBeNull();
+  });
+});
+
+describe("checkDeliveryBash: a refused read is not told it changes files", () => {
+  it("refuses a read the allowlist does not list, naming it without saying it changes files", () => {
+    vi.mocked(readMayRun).mockReturnValue(false);
+
+    expect(bash("judge", "git merge-base a b")).toMatchObject({
+      rule: "role-read-only",
+      message: expect.stringContaining("`git merge-base a b` is refused"),
+    });
+    expect(bash("judge", "git merge-base a b")).toMatchObject({
+      message: expect.not.stringContaining("changes files"),
+    });
+  });
+
+  it("still says a write changes files, for a segment the allowlist does not list either", () => {
+    vi.mocked(readMayRun).mockReturnValue(false);
+    vi.mocked(writes).mockReturnValue(true);
+
+    expect(bash("judge", "rm f")).toEqual(
+      hit("role-read-only", "`rm f` changes files"),
+    );
   });
 });
 

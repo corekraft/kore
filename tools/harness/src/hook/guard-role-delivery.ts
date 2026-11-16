@@ -9,6 +9,7 @@ import { isAbsolute, relative, resolve } from "node:path";
 import {
   harnessAllowed,
   notifiesFinish,
+  notRead,
   sendsToPane,
   setsEnvironment,
   useNotify,
@@ -195,7 +196,10 @@ function leavesWorktree(
 /** The finding for a segment a reporting role may not run: raw pane input is pointed at `session notify`. */
 function refused(segment: readonly string[]): Finding {
   const what = `\`${segment.join(" ")}\``;
-  return sendsToPane(segment) ? useNotify(what) : readOnly(what);
+  if (sendsToPane(segment)) {
+    return useNotify(what);
+  }
+  return writes(segment) ? readOnly(what) : notRead(what);
 }
 
 /** `reporting` is the role's kind from the registry: a reporting role reads and never changes a file. */
@@ -227,18 +231,18 @@ export function checkDeliveryBash(
   }
   if (reporting) {
     if (SUBSTITUTION.test(command)) {
-      return readOnly("A command or process substitution");
+      return notRead("A command or process substitution");
     }
     const wrapping = segments.find(wrapsCommands);
     if (wrapping !== undefined) {
-      return readOnly(
+      return notRead(
         `\`${wrapping.join(" ")}\`, which wraps or launches other commands,`,
       );
     }
     // A variable such as KORE_ROOT moves where the harness writes, past its allowlist.
     const prefixed = segments.find(setsEnvironment);
     if (prefixed !== undefined) {
-      return readOnly(
+      return notRead(
         `\`${prefixed.join(" ")}\`, which sets an environment variable or changes shell state,`,
       );
     }

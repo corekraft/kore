@@ -15,6 +15,7 @@ import {
   withoutRedirects,
   writes,
   wrapsCommands,
+  notRead,
   readOnly,
   useNotify,
 } from "./guard-role-writes.js";
@@ -293,6 +294,24 @@ describe("readOnly and useNotify: the findings a refused role receives", () => {
     expect(useNotify("this")).toHaveProperty(
       "message",
       expect.stringContaining("session notify <pane> --outcome done|blocked"),
+    );
+  });
+});
+
+describe("notRead: a refused read is not told it changes files", () => {
+  it("names the reads that work, and never says the refused command changes files", () => {
+    expect(notRead("`git merge-base a b`")).toEqual({
+      action: "block",
+      rule: "role-read-only",
+      message:
+        "[guard:role-read-only] `git merge-base a b` is refused: a read-only role runs only the reads it allows, such as `cat`, `head`, `tail`, `ls`, `grep`, `rg`, `wc`, `sort`, `diff`, `tree`, `jq`, `stat`, `file`, `git log`, `git status`, `git show`, `git diff`, `git blame`, `git ls-files`, `git grep`, `git rev-parse`, `gh pr view`, `gh pr list`, `gh pr checks`, `gh pr diff`, `gh issue view`, `gh issue list`, `gh label list`, `node skills/bin/harness.mjs plan active`, `node skills/bin/harness.mjs idea list`, `node skills/bin/harness.mjs idea show`, `node skills/bin/harness.mjs flow report`, `node skills/bin/harness.mjs ledger list`. If none of them does what you need, report what needs changing: the reader returns it in its summary and the judge sends the change back.",
+    });
+  });
+
+  it("keeps a write saying it changes files, since a write does", () => {
+    expect(readOnly("`tee out`")).toHaveProperty(
+      "message",
+      "[guard:role-read-only] `tee out` changes files, and the reader and judge never write. Instead, report what needs changing: the reader returns it in its summary and the judge sends the change back.",
     );
   });
 });
