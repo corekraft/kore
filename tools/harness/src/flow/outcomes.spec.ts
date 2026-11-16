@@ -207,4 +207,8 @@ describe("REPOSITORY_KINDS", () => {
   it("holds host samples, which belong to no idea, so they are never counted as unmapped work", () => {
     expect(REPOSITORY_KINDS.has("host-sample")).toBe(true);
   });
+
+  it("holds owner questions, which a session writes but which no stage's time, so they are not counted as unmapped work (#859)", () => {
+    expect(REPOSITORY_KINDS.has("owner.asked")).toBe(true);
+  });
 });

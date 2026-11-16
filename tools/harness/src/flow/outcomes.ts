@@ -16,6 +16,7 @@ export const REPOSITORY_KINDS = new Set<string>([
   "main.revert",
   "owner.action",
   "host-sample",
+  "owner.asked",
 ]);
 
 /** Issue numbers that are ideas, and pull requests that close one: the only places owner time counts. */

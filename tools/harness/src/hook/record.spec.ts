@@ -2,10 +2,12 @@ import { describe, expect, it, vi } from "vitest";
 import type { CliDeps } from "../runtime/index.js";
 import { hookCommand } from "./io.js";
 import { recordEvent } from "./ledger-event.js";
+import { asksOwner } from "./owner-question.js";
 import "./record.js";
 
 vi.mock("./io.js");
 vi.mock("./ledger-event.js");
+vi.mock("./owner-question.js");
 
 /** The one assertion: a fake whose members the spec never reads, passed through to the mocked ledger. */
 const asCliDeps = (parts: object) => parts as CliDeps;
@@ -78,6 +80,73 @@ describe("record hook: what it ignores", () => {
 
   it("returns no output, so the host gets nothing back from the hook", async () => {
     expect(await run({ source: "startup" })).toEqual({});
+  });
+});
+
+describe("record hook: questions put to the owner (#859)", () => {
+  const readFile = vi.fn();
+  const WITH_FS = asCliDeps({ tag: "deps-fs", fs: { readFile } });
+  const TRANSCRIPT = "/home/jun/.claude/projects/kore/abc.jsonl";
+
+  /** Runs the mode the way the host does, with the file system the mode reads its transcript through. */
+  const runOwner = (payload: unknown, operand: string) =>
+    handler({ deps: WITH_FS, payload, options: {}, operand });
+
+  it("records owner.asked at a turn end whose final message asks the owner", async () => {
+    const payload = { session_id: "abc", transcript_path: TRANSCRIPT };
+    readFile.mockResolvedValue("the transcript text");
+    vi.mocked(asksOwner).mockReturnValue(true);
+
+    await runOwner(payload, "turn-end");
+
+    expect(readFile).toHaveBeenCalledWith(TRANSCRIPT);
+    expect(asksOwner).toHaveBeenCalledWith("the transcript text");
+    expect(recordEvent).toHaveBeenCalledWith(WITH_FS, "owner.asked", payload);
+  });
+
+  it("records nothing at a turn end whose final message asks nothing", async () => {
+    readFile.mockResolvedValue("the transcript text");
+    vi.mocked(asksOwner).mockReturnValue(false);
+
+    await runOwner(
+      { session_id: "abc", transcript_path: TRANSCRIPT },
+      "turn-end",
+    );
+
+    expect(recordEvent).not.toHaveBeenCalled();
+  });
+
+  it("records nothing and reads nothing at a turn end with no transcript path", async () => {
+    await runOwner({ session_id: "abc" }, "turn-end");
+
+    expect(readFile).not.toHaveBeenCalled();
+    expect(recordEvent).not.toHaveBeenCalled();
+  });
+
+  it("records nothing and prints nothing when the transcript cannot be read", async () => {
+    readFile.mockRejectedValue(new Error("ENOENT"));
+
+    expect(
+      await runOwner(
+        { session_id: "abc", transcript_path: TRANSCRIPT },
+        "turn-end",
+      ),
+    ).toEqual({});
+    expect(recordEvent).not.toHaveBeenCalled();
+  });
+
+  it("records owner.asked when the session calls AskUserQuestion", async () => {
+    const payload = { session_id: "abc", tool_name: "AskUserQuestion" };
+
+    await runOwner(payload, "owner-asked");
+
+    expect(recordEvent).toHaveBeenCalledWith(WITH_FS, "owner.asked", payload);
+  });
+
+  it("records nothing for any other tool under the owner-asked mode", async () => {
+    await runOwner({ session_id: "abc", tool_name: "Bash" }, "owner-asked");
+
+    expect(recordEvent).not.toHaveBeenCalled();
   });
 });
 
