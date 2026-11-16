@@ -135,6 +135,7 @@ describe("a command that cannot be run", () => {
       writeInventory: f.writeInventory,
       syncDeny: f.syncDeny,
       recordEvent: f.recordEvent,
+      recordWarning: f.recordWarning,
     });
     await expect(
       activate.activate({ rule: "bare-glob", to: "enforce" }),

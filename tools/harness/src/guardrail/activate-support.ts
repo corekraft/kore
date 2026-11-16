@@ -82,6 +82,9 @@ export function fake(
   const recordEvent = vi
     .fn<ActivatePorts["recordEvent"]>()
     .mockResolvedValue({ ok: true });
+  const recordWarning = vi
+    .fn<ActivatePorts["recordWarning"]>()
+    .mockResolvedValue({ ok: true });
   const ports: ActivatePorts = {
     inventory,
     inventoryText: "INVENTORY",
@@ -94,6 +97,7 @@ export function fake(
     writeInventory,
     syncDeny,
     recordEvent,
+    recordWarning,
   };
   return {
     activate: new GuardrailActivate(ports),
@@ -101,6 +105,7 @@ export function fake(
     writeInventory,
     syncDeny,
     recordEvent,
+    recordWarning,
     commentOn,
     events,
   };
