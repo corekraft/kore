@@ -208,6 +208,7 @@ decisions; read one only when planning that area, and expect it to change.
 - [`docs/ideas/0003-gateway-class-change-release.md`](ideas/0003-gateway-class-change-release.md) — Release the Istio gateway proxy when the gateway class changes
 - [`docs/ideas/0004-gateway-rollback-order.md`](ideas/0004-gateway-rollback-order.md) — Roll back the gateway in order
 - [`docs/ideas/0005-agentgateway-mesh-enrollment.md`](ideas/0005-agentgateway-mesh-enrollment.md) — Enrol agentgateway in the mesh
+- [`docs/ideas/0006-reuse-the-signed-local-image-on-a-rerun-of-kore-local-up.md`](ideas/0006-reuse-the-signed-local-image-on-a-rerun-of-kore-local-up.md) — Reuse the signed local image on a rerun of kore local up
 
 ## Operations and Guides
 

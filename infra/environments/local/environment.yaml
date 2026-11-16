@@ -18,7 +18,7 @@
       "gateway-rollback-order": true,
       "ingress-agentgateway": true,
       "role-tokens": true,
-      "local-image-reuse": false,
+      "local-image-reuse": true,
       "registry-tag-pruning": false,
       "platform-organization-service-apis": false,
       "platform-argocd-delivery": false,
