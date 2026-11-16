@@ -20,10 +20,11 @@ export interface CorpusCase {
   rule: string;
 }
 
-const READ_ONLY = ["concierge", "reader", "refiner", "challenger"];
-const REPORTING = ["orchestrator", "judge"];
-const NO_CODE = ["concierge", "challenger"];
-const ROLES = [...READ_ONLY, ...REPORTING];
+const READ_ONLY = ["reader"];
+const REPORTING = ["judge"];
+const NO_CODE: string[] = [];
+// The Reviewer is a read-only role too: it gets every case the others get.
+const ROLES = [...READ_ONLY, "principles-review", ...REPORTING];
 
 const bash = (role: string, rule: string, ...commands: string[]) =>
   commands.map((input): CorpusCase => ({ role, tool: "Bash", input, rule }));
@@ -197,7 +198,7 @@ const GUARD_PATH_VARIANTS = bash(
   "echo x > .claude//hooks//guard.sh",
 );
 
-/** The writer may not flip a flag, record an outcome or dispatch a workflow: each is the person's or the orchestrator's call. */
+/** The writer may not flip a flag, record an outcome or dispatch a workflow: each is the person's call. */
 const GATED = bash(
   "writer",
   "role-no-merge",

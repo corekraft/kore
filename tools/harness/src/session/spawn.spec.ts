@@ -42,6 +42,7 @@ const CHECKED: Checked = {
   values: VALUES,
   callerPane: "w3:p1",
   timeoutMs: 60_000,
+  tier: { tierSource: "override", tierReason: "deep diff" },
 };
 const WORKTREE = { path: "/main/.claude/worktrees/x", branch: "feat/x" };
 const CREATED_AT = "2026-01-02T03:04:05.000Z";
@@ -217,6 +218,7 @@ describe("spawn records the session", () => {
         createdAt: CREATED_AT,
       },
       timeoutMs: 60_000,
+      tier: { tierSource: "override", tierReason: "deep diff" },
     });
   });
 
@@ -279,6 +281,7 @@ describe("spawn launches a Sonnet writer in its worktree", () => {
         createdAt: CREATED_AT,
       },
       timeoutMs: 60_000,
+      tier: { tierSource: "override", tierReason: "deep diff" },
     });
   });
 

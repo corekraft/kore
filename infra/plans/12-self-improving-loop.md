@@ -19,7 +19,7 @@ weaken its own guardrails
 ### Work
 
 - [x] Extend the ledger and flow report with tokens and sessions per idea,
-      writer escalations, judge send-backs, Challenger rounds, and friction
+      writer escalations, judge send-backs and friction
       events (failed or retried `kore` commands, hook blocks, interrupted
       panes).
 - [x] Let the concierge answer how the loop is doing from the report.
@@ -47,9 +47,10 @@ Next: First run the #225 closed-loop live proof, then #325 notify live proof. Th
 
 ### Work
 
-- [ ] The orchestrator starts retro on Opus after every five closed ideas, or
-      as soon as a metric worsens past its threshold against its trailing
-      average.
+- [ ] `orchestrate run` starts retro on Sonnet at high effort after every five
+      closed ideas, or as soon as a metric worsens past its threshold against
+      its trailing average. The retro pane proposes, and `orchestrate run` files
+      the proposals as ideas ([ADR 0117](../../docs/decisions/0117-the-delivery-loop-s-role-set.md)).
 - [x] Retro findings become harness ideas, each with a hypothesis tied to a
       metric.
 

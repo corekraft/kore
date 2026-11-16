@@ -9,13 +9,20 @@ import {
 } from "./guard-roles.js";
 
 describe("guard role registry", () => {
-  it("lists the seven guard roles once, in order", () => {
+  it("names neither the orchestrator nor the concierge, which no agent fills", () => {
+    expect(GUARD_ROLES).not.toContain("orchestrator");
+    expect(GUARD_ROLES).not.toContain("concierge");
+  });
+
+  it("names neither the refiner nor the challenger, which are retired", () => {
+    expect(GUARD_ROLES).not.toContain("refiner");
+    expect(GUARD_ROLES).not.toContain("challenger");
+  });
+
+  it("lists the four guard roles once, in order", () => {
     expect(GUARD_ROLES).toEqual([
-      "concierge",
       "reader",
-      "refiner",
-      "challenger",
-      "orchestrator",
+      "principles-review",
       "judge",
       "writer",
     ]);
@@ -34,18 +41,13 @@ describe("guard role registry", () => {
   });
 
   it("names the delivery roles: the reporting roles and the writer", () => {
-    expect([...DELIVERY_ROLES]).toEqual(["orchestrator", "judge", "writer"]);
+    expect([...DELIVERY_ROLES]).toEqual(["judge", "writer"]);
   });
 
   it("names the read-only, no-code, spawned and reporting groups the guard rules bound", () => {
-    expect(READ_ONLY_ROLES).toEqual([
-      "concierge",
-      "reader",
-      "refiner",
-      "challenger",
-    ]);
-    expect(NO_CODE_ROLES).toEqual(["concierge", "challenger"]);
-    expect(SPAWNED_ROLES).toEqual(["reader", "refiner", "challenger"]);
-    expect(REPORTING_ROLES).toEqual(["orchestrator", "judge"]);
+    expect(READ_ONLY_ROLES).toEqual(["reader", "principles-review"]);
+    expect(NO_CODE_ROLES).toEqual([]);
+    expect(SPAWNED_ROLES).toEqual(["reader", "principles-review"]);
+    expect(REPORTING_ROLES).toEqual(["judge"]);
   });
 });

@@ -31,8 +31,6 @@ export interface ReworkMetrics {
   escalationsPerIdea: CostMetric;
   /** Judge send-backs per closed idea. */
   sendBacksPerIdea: CostMetric;
-  /** Challenger rounds per closed idea. */
-  challengeRoundsPerIdea: CostMetric;
   /** Friction events per closed idea. */
   frictionPerIdea: CostMetric;
 }
@@ -105,7 +103,6 @@ export function reworkMetrics(
     trailingIdeas,
     escalationsPerIdea: per((e) => e.kind === "escalation"),
     sendBacksPerIdea: per((e) => e.kind === "send-back"),
-    challengeRoundsPerIdea: per((e) => e.kind === "challenge.round"),
     frictionPerIdea: per((e) => sourceOf(e) !== undefined),
   };
 }

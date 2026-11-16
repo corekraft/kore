@@ -7,8 +7,8 @@ const bash = (role: string, command: string) => as(role, "Bash", { command });
 const write = (role: string, file_path: string) =>
   as(role, "Write", { file_path, content: "x" });
 
-describe("role-read-only: the judge and orchestrator never change files", () => {
-  for (const role of ["judge", "orchestrator"]) {
+describe("role-read-only: the judge never change files", () => {
+  for (const role of ["judge"]) {
     it(`${role}: file tools and writing commands are blocked`, async () => {
       blocked(await write(role, "/repo/a.ts"), "role-read-only");
       blocked(
@@ -52,7 +52,7 @@ describe("role-read-only: the judge and orchestrator never change files", () => 
   }
 
   it("blocks inline scripts in perl and ruby and an in-place awk", async () => {
-    for (const role of ["judge", "orchestrator"]) {
+    for (const role of ["judge"]) {
       for (const command of [
         "perl -pi -e 's/a/b/' a.ts",
         "perl -e 'print 1'",
@@ -95,38 +95,8 @@ describe("role-read-only: the harness is allowlisted per role", () => {
     }
   });
 
-  it("blocks the orchestrator from commands outside its job", async () => {
-    for (const rest of MUTATING.filter((c) => !c.startsWith("session"))) {
-      blocked(
-        await bash("orchestrator", `node skills/bin/harness.mjs ${rest}`),
-        "role-read-only",
-      );
-    }
-  });
-
-  it("lets the orchestrator run the session commands and the outcome and idea commands its job needs", async () => {
-    for (const rest of [
-      "session spawn --role writer --name a --brief b --worktree --no-wait",
-      "session wait a",
-      "session close a",
-      "session tier writer",
-      "session equalize",
-      "idea sync --idea 1",
-      "outcome record --idea 1 --kind verification",
-      "outcome close --idea 1",
-      "idea show --idea 1",
-      "queue next --json",
-      "queue send-backs 50",
-      "queue escalate 50",
-    ]) {
-      allowed(
-        await bash("orchestrator", `node skills/bin/harness.mjs ${rest}`),
-      );
-    }
-  });
-
   it("does not trust another path to a harness bundle or a prefix of an allowed command", async () => {
-    for (const role of ["judge", "orchestrator"]) {
+    for (const role of ["judge"]) {
       blocked(
         await bash(role, "node /tmp/x/skills/bin/harness.mjs plan active"),
         "role-read-only",
@@ -191,19 +161,12 @@ describe("role-worktree: a writer works only in its own worktree", () => {
 });
 
 describe("role-read-only: the judge precheck", () => {
-  it("lets the judge run its precheck, and not the orchestrator", async () => {
+  it("lets the judge run its precheck", async () => {
     allowed(
       await bash(
         "judge",
         "node skills/bin/harness.mjs judge precheck 42 --json",
       ),
-    );
-    blocked(
-      await bash(
-        "orchestrator",
-        "node skills/bin/harness.mjs judge precheck 42",
-      ),
-      "role-read-only",
     );
   });
 
@@ -223,8 +186,8 @@ describe("role-read-only: the judge precheck", () => {
     }
   });
 
-  it("blocks a judge or orchestrator command that sets an environment variable, such as KORE_ROOT", async () => {
-    for (const role of ["judge", "orchestrator"]) {
+  it("blocks a judge command that sets an environment variable, such as KORE_ROOT", async () => {
+    for (const role of ["judge"]) {
       for (const command of [
         "KORE_ROOT=/anywhere node skills/bin/harness.mjs judge precheck 42",
         "KORE_ROOT=/anywhere node skills/bin/harness.mjs ledger list",
@@ -253,7 +216,7 @@ describe("role-read-only: the judge precheck", () => {
   });
 });
 
-describe("role-read-only: the judge and orchestrator run plain commands only", () => {
+describe("role-read-only: the judge run plain commands only", () => {
   const H = "node skills/bin/harness.mjs judge precheck 42";
   const SHELL_FORMS = [
     `( export KORE_ROOT=/x; ${H} )`,
@@ -276,7 +239,7 @@ describe("role-read-only: the judge and orchestrator run plain commands only", (
     `while true; do ${H}; done`,
   ];
 
-  for (const role of ["judge", "orchestrator"]) {
+  for (const role of ["judge"]) {
     it(`${role}: every shell form that could hide an environment change is blocked`, async () => {
       for (const command of SHELL_FORMS) {
         blocked(await bash(role, command), "role-read-only");

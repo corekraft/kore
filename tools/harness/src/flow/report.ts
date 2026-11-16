@@ -22,6 +22,7 @@ import {
   DEFAULT_HOST_DAYS,
   guardBlocks,
   hostPressure,
+  tierShares,
   ideaMetrics,
   measureAttribution,
   outcomes,
@@ -43,7 +44,7 @@ import {
   type ScopeOptions,
 } from "./scope.js";
 
-export const REPORT_VERSION = 8;
+export const REPORT_VERSION = 9;
 
 export type { StageTotals, Toil } from "./tally.js";
 export type { Scope, ScopeOptions } from "./scope.js";
@@ -80,6 +81,8 @@ export interface FlowReport extends FrictionMetrics {
   outcomes: Outcomes;
   /** Swap and load by live-session count, with a trailing baseline, from host-sample events. */
   hostPressure: HostPressure;
+  /** Launches per role by where the tier came from, with launches from before it was recorded as unknown. */
+  tierShares: ReturnType<typeof tierShares>;
 }
 
 export interface ReportOptions extends ScopeOptions {
@@ -183,7 +186,7 @@ function actorTime(
   const lifetimes: Span[] = [];
   for (const items of byActor.values()) {
     items.sort((x, y) => time(x.event) - time(y.event));
-    // The orchestrator lives alongside every other stage, so it never hides their waits.
+    // The main session lives alongside every other stage, so it never hides their waits.
     const spans = chargeActor(tally, items);
     if ((items[0] as (typeof items)[number]).stage !== "orchestrate") {
       lifetimes.push(...spans);
@@ -211,10 +214,6 @@ function stageOf(event: LedgerEvent, mergedAt: number | undefined) {
   return event.agent === undefined && event.source === "claude"
     ? MAIN_SESSION_STAGE
     : undefined;
-}
-
-function roundShare(share: number): number {
-  return Math.round(share * 10_000) / 10_000;
 }
 
 /** Charges one idea's in-range events to the tally; returns how many it could not map. */
@@ -276,7 +275,7 @@ function nameBottleneck(
     bottleneck: {
       stage,
       waitingSeconds: worst.waitingMs / 1000,
-      share: roundShare(worst.waitingMs / totalMs),
+      share: Math.round((worst.waitingMs / totalMs) * 10_000) / 10_000,
     },
     bottleneckNote: null,
   };
@@ -340,5 +339,6 @@ export function buildReport(
       trailingDays: options.hostDays ?? DEFAULT_HOST_DAYS,
       asOf,
     }),
+    tierShares: tierShares(named, window),
   };
 }

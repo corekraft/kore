@@ -51,6 +51,8 @@ export interface Harness {
   close(name: string): Promise<void>;
   /** The idea's pull request and whether the judge has merged it; read-only. */
   delivery(issue: number): Promise<Delivery>;
+  /** `review run`: spawns the Reviewer for the PR's head and posts its verdict; throws when it posts none. */
+  review(pr: number): Promise<void>;
   /** `judge precheck`: read-only; whether the writer must fix the change before any judge pane. */
   precheck(pr: number): Promise<PrecheckVerdict>;
   /** `judge send-back`: posts the reason on the PR and records the send-back event, keyed on the PR head. */
@@ -79,8 +81,7 @@ export interface RunResult {
  * Drives one approved idea to an outcome: a writer, then a judge, repeated while
  * the judge sends the change back. A failing precheck sends the change back
  * itself, before any judge pane. It reads the queue only between pieces of work,
- * escalates the writer after two send-backs, and never merges, edits or messages
- * the concierge: the judge merges, and only a given outcome closes the idea.
+ * escalates the writer after two send-backs, and never merges or edits: the judge merges, and only a given outcome closes the idea.
  */
 export class IdeaRun {
   /** `betweenWork` runs once when a queued idea's run ends, after every pane is closed. */
@@ -156,12 +157,14 @@ export class IdeaRun {
       : undefined;
   }
 
-  /** Runs the precheck, then the judge on a pass; whether the PR merged. A failing precheck launches no judge. */
+  /** Runs the review and the precheck, then the judge on a pass; whether the PR merged. A failing precheck launches no judge. */
   private async judge(
     idea: string,
     pr: number,
     issue: number,
   ): Promise<boolean> {
+    // The precheck reads the posted verdict, so the head is reviewed first.
+    await this.harness.review(pr);
     const verdict = await this.harness.precheck(pr);
     if (verdict.sendBack) {
       await this.harness.sendBack(pr, verdict.reason);

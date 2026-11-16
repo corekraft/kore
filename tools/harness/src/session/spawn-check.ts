@@ -1,9 +1,10 @@
 import type { CommandContext } from "../runtime/index.js";
-import { resolveTier } from "./agent-definition.js";
+import { resolveTier, undefinedRoleError } from "./agent-definition.js";
 import { hostLeaseRefusal } from "./host-lease.js";
 import { spawnLoadRefusal } from "./spawn-load.js";
 import { sessionNameError } from "./names.js";
 import { FAILED, USAGE_ERROR } from "./output.js";
+import { tierInputError, tierOf, type TierOrigin } from "./tier-source.js";
 import { findResult, parseTimeout } from "./wait.js";
 
 const REQUIRED = ["role", "name", "brief"] as const;
@@ -22,6 +23,8 @@ export type Checked =
       timeoutMs: number;
       /** The idea the session works, as the ledger keys it (`#338`). */
       idea?: string;
+      /** Where the tier came from, for the ledger's launch event. */
+      tier: TierOrigin;
     }
   | { error: string; code: number };
 
@@ -102,8 +105,27 @@ function inputError(
   return (
     briefError(given.brief) ??
     worktreeError(given.role, options) ??
-    (typeof idea === "object" ? idea.error : undefined)
+    (typeof idea === "object" ? idea.error : undefined) ??
+    tierInputError(options)
   );
+}
+
+/** The role's model and effort, or the refusal: an undefined role first, then a missing setting. A flag wins over the definition, which is how a writer escalates. */
+async function launchTier(
+  deps: CommandContext["deps"],
+  role: string,
+  options: CommandContext["options"],
+): Promise<{ model: string; effort: string } | { error: string }> {
+  const undefinedRole = await undefinedRoleError(deps, role);
+  if (undefinedRole !== undefined) {
+    return { error: undefinedRole };
+  }
+  const flag = (name: (typeof TIER)[number]) =>
+    typeof options[name] === "string" ? options[name] : undefined;
+  return resolveTier(deps, role, {
+    model: flag("model"),
+    effort: flag("effort"),
+  });
 }
 
 /** Everything that can be refused is refused here, before any herdr call. */
@@ -133,13 +155,7 @@ export async function check({
   if (typeof callerPane !== "string") {
     return callerPane;
   }
-  // A flag wins, which is how a writer escalates; the definition is the default.
-  const flag = (name: (typeof TIER)[number]) =>
-    typeof options[name] === "string" ? options[name] : undefined;
-  const tier = await resolveTier(deps, given.role, {
-    model: flag("model"),
-    effort: flag("effort"),
-  });
+  const tier = await launchTier(deps, given.role, options);
   if ("error" in tier) {
     return usage(tier.error);
   }
@@ -147,6 +163,7 @@ export async function check({
   const idea = ideaOf(options.idea) as string | undefined;
   return {
     values: { ...given, ...tier },
+    tier: await tierOf(deps, options),
     callerPane,
     timeoutMs,
     ...(idea === undefined ? {} : { idea }),

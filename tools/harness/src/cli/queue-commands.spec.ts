@@ -261,7 +261,7 @@ describe("harness queue escalate", () => {
       label: "claude-sonnet-5-5",
     });
     expect(c.out()).toBe(
-      "PR #50: escalation recorded; launch the writer with `session spawn --role writer --model claude-sonnet-5-5`\n",
+      "PR #50: escalation recorded; launch the writer with `session spawn --role writer --model claude-sonnet-5-5 --pr 50`\n",
     );
   });
 

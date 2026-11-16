@@ -75,7 +75,7 @@ describe("session spawn gives each role its own GitHub token", () => {
     expect(h.runner.calls.some((c) => c.command === "curl")).toBe(false);
   });
 
-  it("gives the orchestrator no token and never touches the keychain or a FIFO", async () => {
+  it("gives the reader no token and never touches the keychain or a FIFO", async () => {
     const h = testHarness({
       env: INSIDE,
       files: FLAG_ON,
@@ -86,7 +86,7 @@ describe("session spawn gives each role its own GitHub token", () => {
         ...base,
       ],
     });
-    expect(await run(asRole("orchestrator"), h.deps)).toBe(0);
+    expect(await run(asRole("reader"), h.deps)).toBe(0);
     const commands = h.runner.calls.map((c) => c.command);
     expect(commands).not.toContain("security");
     expect(commands).not.toContain("curl");

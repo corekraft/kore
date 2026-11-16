@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, it } from "vitest";
-import { allowed, blocked, decide } from "../../src/testing/index.js";
+import { allowed, decide } from "../../src/testing/index.js";
 
 const as = (agent_type: string, tool_name: string, tool_input: object) =>
   decide({ agent_type, tool_name, tool_input });
@@ -47,40 +47,9 @@ describe("role guard: the reader's shell refuses options that write or execute",
   });
 });
 
-describe("role guard: the concierge's git cannot show code", () => {
-  it("blocks every form that prints changed lines", async () => {
-    for (const command of [
-      "git log -p",
-      "git log -L1,5:a.ts",
-      "git log -L:main:a.ts",
-      "git log --word-diff",
-      "git log --word-diff=color",
-      "git log --color-words",
-      "git log --patch-with-stat",
-      "git log --stat",
-      "git log --cc",
-      "git log --full-diff",
-      "git status -v",
-    ]) {
-      blocked(await bash("concierge", command), "role-no-code");
-    }
-  });
-
-  it("allows history and status summaries", async () => {
-    for (const command of [
-      "git log --oneline -5",
-      "git log --author=x --since=2026-01-01",
-      "git log -n 3 --format=%H",
-      "git status --short",
-    ]) {
-      allowed(await bash("concierge", command));
-    }
-  });
-});
-
 describe("role guard: what it does not cover", () => {
   it("a command substitution is blocked, since it hides a command from the check", async () => {
-    for (const role of ["concierge", "reader"]) {
+    for (const role of ["reader"]) {
       for (const command of [
         "ls $(touch x)",
         "ls `touch x`",
@@ -105,62 +74,7 @@ describe("role guard: what it does not cover", () => {
   });
 });
 
-describe("role guard: the concierge cannot read code", () => {
-  it("Read, Grep and Glob are blocked outside plans, docs and ideas", async () => {
-    blocked(
-      await as("concierge", "Read", { file_path: "/repo/tools/kore/src/a.ts" }),
-      "role-no-code",
-    );
-    blocked(
-      await as("concierge", "Grep", { pattern: "x", path: "/repo/tools" }),
-      "role-no-code",
-    );
-    blocked(
-      await as("concierge", "Glob", { pattern: "**/*.ts" }),
-      "role-no-code",
-    );
-  });
-
-  it("Read of a plan, an idea or an ADR passes", async () => {
-    allowed(
-      await as("concierge", "Read", {
-        file_path: "/repo/infra/plans/11-agent-delivery-loop.md",
-      }),
-    );
-    allowed(
-      await as("concierge", "Read", {
-        file_path: "/repo/docs/ideas/0001-x.md",
-      }),
-    );
-  });
-
-  it("shell commands that read files or call anything but the status tools are blocked", async () => {
-    for (const command of [
-      "cat tools/kore/src/a.ts",
-      "grep -r foo tools",
-      "git show HEAD:tools/kore/src/a.ts",
-      "git log -p",
-      "gh pr diff 1",
-      "gh api repos/corekraft/kore/contents/tools",
-      "node skills/bin/harness.mjs plan active; cat a.ts",
-    ]) {
-      blocked(await bash("concierge", command), "role-no-code");
-    }
-  });
-
-  it("the harness, issue and status commands pass", async () => {
-    for (const command of [
-      "node skills/bin/harness.mjs plan active",
-      "node skills/bin/harness.mjs idea new --title x",
-      "gh issue list --label ready-for-agent",
-      "gh pr view 12",
-      "git log --oneline -5",
-      "git status",
-    ]) {
-      allowed(await bash("concierge", command));
-    }
-  });
-
+describe("role guard: the reader reads code", () => {
   it("the reader may read code", async () => {
     allowed(
       await as("reader", "Read", { file_path: "/repo/tools/kore/src/a.ts" }),

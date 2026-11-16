@@ -106,7 +106,7 @@ describe("flow report lead time", () => {
 
   it("starts at an idea's earliest event, even one before its issue opened", () => {
     const events = [
-      at(0, "pane.spawned", { pane: "w1-refiner", idea: "#1" }),
+      at(0, "pane.spawned", { pane: "w1-writer", idea: "#1" }),
       ...closed(1, 30, 100),
     ];
     expect(report(events).leadTime.ideas).toEqual([

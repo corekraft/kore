@@ -20,7 +20,7 @@ const MERGES = [
 
 describe("role-no-merge: the merge tool is the only way a role merges", () => {
   it("blocks the orchestrator, writer and judge from merging by any other path", async () => {
-    for (const role of ["orchestrator", "writer", "judge"]) {
+    for (const role of ["writer", "judge"]) {
       for (const command of MERGES) {
         blocked(await bash(role, command), "role-no-merge");
       }
@@ -45,7 +45,7 @@ describe("role-no-merge: the merge tool is the only way a role merges", () => {
         'node skills/bin/harness.mjs judge send-back 12 --reason "no pattern"',
       ),
     );
-    for (const role of ["orchestrator", "writer"]) {
+    for (const role of ["writer"]) {
       blocked(
         await bash(role, "node skills/bin/harness.mjs judge merge 12"),
         "role-no-merge",
@@ -53,7 +53,7 @@ describe("role-no-merge: the merge tool is the only way a role merges", () => {
     }
     blocked(
       await bash(
-        "orchestrator",
+        "writer",
         "node skills/bin/harness.mjs judge send-back 12 --reason x",
       ),
       "role-no-merge",
@@ -82,7 +82,7 @@ describe("role-no-merge: a merge past the merge tool", () => {
 
 describe("role-no-merge: what stays allowed", () => {
   it("still lets them read a pull request and mention merge in text", async () => {
-    for (const role of ["orchestrator", "writer", "judge"]) {
+    for (const role of ["writer", "judge"]) {
       allowed(await bash(role, "gh pr view 12 --json mergeable"));
       allowed(await bash(role, 'echo "gh pr merge 12"'));
     }
@@ -131,7 +131,7 @@ const WRAPPED_MERGES = [
 
 describe("role-no-merge: wrapped and graphql merges", () => {
   it("blocks every role-bound pane from each wrapped or graphql merge form", async () => {
-    for (const role of ["orchestrator", "writer", "judge"]) {
+    for (const role of ["writer", "judge"]) {
       for (const command of WRAPPED_MERGES) {
         blocked(await bash(role, command), "role-no-merge");
       }
@@ -171,7 +171,7 @@ const PUSHES_TO_MAIN = [
 
 describe("role-no-merge: no role-bound pane pushes to main", () => {
   it("blocks every push whose target is main, for every role", async () => {
-    for (const role of ["orchestrator", "writer", "judge"]) {
+    for (const role of ["writer", "judge"]) {
       for (const command of PUSHES_TO_MAIN) {
         blocked(await bash(role, command), "role-no-merge");
       }

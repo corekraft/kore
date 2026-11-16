@@ -13,6 +13,7 @@ describe("IdeaRun", () => {
       "wait idea-0042-writer",
       "close idea-0042-writer",
       "delivery",
+      "review 50",
       "precheck 50",
       "spawn judge",
       "wait idea-0042-judge",
@@ -80,12 +81,10 @@ describe("IdeaRun escalation", () => {
 });
 
 describe("IdeaRun boundaries", () => {
-  it("never merges, edits or messages the concierge itself", async () => {
+  it("never merges or edits itself", async () => {
     const harness = new ScriptedHarness();
     await new IdeaRun(harness).run("0042", OUTCOME);
-    const roles = harness.launches.map((l) => l.role);
-    expect(roles).not.toContain("concierge");
-    expect(harness.calls.join("\n")).not.toMatch(/merge|edit|concierge/);
+    expect(harness.calls.join("\n")).not.toMatch(/merge|edit/);
   });
 
   it("does nothing for an idea that is not queued", async () => {

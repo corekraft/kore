@@ -315,6 +315,11 @@ takes issue numbers (`12` or `#12`) and covers only those ideas; with it,
 unattributed events are not counted as unmapped. Both flags together cover the
 named ideas inside the range.
 
+`tierShares` in `--json` (report version 9) gives, per role, the launches by
+`tierSource`, with launches from before it was recorded as their own `unknown`
+group, and the override share over the launches that know their source, so tier
+tuning can read only definition and escalation launches.
+
 Host pressure comes from the `host-sample` events each session spawn records.
 `hostPressure` in `--json` (and one short section in the human report) gives, per
 live-session count and split by whether the local platform was up, the sample
@@ -326,25 +331,25 @@ deviation). Fewer than three baseline samples give `insufficient history`. A
 reading a host could not give is left out of the figures, and a range with no
 samples says so (`samples` 0, no levels).
 
-The concierge answers "how is the loop doing?" from this report alone
+The person's main session answers "how is the loop doing?" from this report alone
 (`flow report --json`, no code or transcripts read, no file written): it leads
 with every metric whose `worsened` is true, names current against trailing
 average, and reports `insufficient history` or an absent field as such, never a
-figure the report did not print. The boundary eval case `concierge answers loop
-health from the flow report` fails when the run never calls the report
-(`expectCommand` in `.claude/evals/boundary.json`).
+figure the report did not print. A boundary eval case with
+`expectCommand` fails when the run never calls the report
+(`.claude/evals/boundary.json`).
 
 The stage rules are one table, `tools/harness/src/flow/stages.ts`. An event
 joins an idea by issue number at read time: an issue event by its own number, a
 PR event by the `idea` (`#<issue>`) it closes, a pane or session event by the
 `idea` it carries on any event. Stages: an issue is in `await approval` from open
 until the `ready-for-agent` label; a pane or session named `...-<role>` works
-`refine`, `challenge`, `orchestrate`, `write`, `judge` or `verify` (verifier
+`refine`, `orchestrate`, `write`, `judge` or `verify` (verifier
 events count only after the PR merged); a claude session no agent name reaches is the main
 session, `orchestrate`; a PR is in `merge` from open until merged; a closed issue
 is `outcome`. A pane is active from `pane.spawned` or `pane.busy` and waiting from
 `pane.waiting` until its next event. An open issue or PR is waiting, minus any
-time a refine, challenge, write, judge or verify pane was alive, up to `--as-of`
+time a refine, write, review, judge or verify pane was alive, up to `--as-of`
 (default now).
 
 Toil is time an agent spent not advancing work, per stage, in seconds under
@@ -373,7 +378,7 @@ idea, from ledger events only: `token.usage` (recorded by the Stop hook from the
 session transcript, as the session's cumulative input, output and cache-creation
 tokens so far; cache reads are left out and a session counts its latest value
 once) and `session.launch` (recorded by `session spawn` with the `role` and the
-model `tier`). The hook reads the transcript incrementally: it keeps the byte
+model `tier`, and, since the tier source was recorded, `tierSource` (definition, escalation or override) and, for an override given with `--reason`, `tierReason`; older launches have neither and read as unknown). The hook reads the transcript incrementally: it keeps the byte
 offset it reached, with the running total, in a per-session state file in the
 temp directory, reads only what was added since, leaves a half-written last
 line for the next stop, and records a `token.usage` only when the total grew.
@@ -427,7 +432,7 @@ stage.
 | `bottleneckNote`    | Always present: why `bottleneck` is `null` (too few completed ideas, or no waiting recorded), else `null`. |
 | `unmappedEvents`    | Events with no stage or no idea, left out of every stage.                                                  |
 | `attribution`       | `{ events, withIdea, withIdeaAndStage }`: how many events the report can place.                            |
-| `rework`            | Escalations, send-backs, Challenger rounds and friction per closed idea, see below.                        |
+| `rework`            | Escalations, send-backs and friction per closed idea, see below.                                           |
 | `friction`          | `{ total, sources, unknownKinds }`, see below.                                                             |
 | `guardBlocks`       | `[{ rule, blocks }]`, most blocked first, from `guard.block` events.                                       |
 | `outcomes`          | `{ mainRed, reverts, liveRuns, ownerMinutes }`, see below.                                                 |
@@ -435,9 +440,10 @@ stage.
 
 ### Rework and friction metrics
 
-`rework` has `escalationsPerIdea`, `sendBacksPerIdea`, `challengeRoundsPerIdea`
-and `frictionPerIdea`, each counted per closed idea from `escalation`,
-`send-back`, `challenge.round` and friction events. Like the cost metrics, each
+`rework` has `escalationsPerIdea`, `sendBacksPerIdea` and `frictionPerIdea`,
+each counted per closed idea from `escalation`, `send-back` and friction
+events. A ledger written before the challenger was retired may hold
+`challenge.round` events; they still parse and count as unmapped events. Like the cost metrics, each
 gives the latest closed idea (`currentIdea`, `current`), the `trailingAverage`
 of the N ideas before it, `maxIncrease` (0.25) and `worsened`, or
 `{"status": "insufficient history", "closedIdeas", "needed"}`, never zero.
@@ -506,6 +512,14 @@ reviewer logins they name: `reviewerLogins` in `.claude/harness.json` when set,
 else the owner login (`ownerLogin`, else the repository's owner). A verdict from
 any other login is unverified. `--reviewer <login>[,<login>]` overrides both, and
 `harness judge precheck` prints the reviewers it used in its text and JSON output.
+
+`harness review run <pr>` posts that verdict itself. It reads the PR head once,
+spawns the principles-review Reviewer (Sonnet, medium, from its definition)
+through `session spawn`, collects its `VERDICT:` block with `session wait`, and
+posts it for that same head. If the head moved during the review it discards the
+verdict and reviews again (3 reviews at most); a pane that ends blocked or with
+no verdict records a `review.run` failure event and posts nothing.
+`orchestrate run` calls it before each precheck.
 
 Each checklist item of the precheck (`ci`, `scan`, `coverage`,
 `principles-review`, `expand-step`, `pattern-match`, `guardrail-activation`) reads its mode from the
@@ -668,7 +682,7 @@ with the fix and posts nothing. A request never changes `.claude/guardrails.yaml
 `guardrail activate` is the separate step below.
 
 `harness guardrail status --json` adds `pending`: `{ rule, from, to, idea }` for
-each latest request whose rule still has the mode it would change. The concierge
+each latest request whose rule still has the mode it would change. The person's main session
 answers "what is waiting for approval?" from it.
 
 ## Guardrail activation
@@ -704,13 +718,13 @@ steps.
 
 ## Status
 
-`node skills/bin/harness.mjs status --json` is the concierge's one read-only
-status call. It never writes, and prints `{ plans, ideas, ledger }`: `plans`
+`node skills/bin/harness.mjs status --json` is the one read-only status call for the
+person's main session. It never writes, and prints `{ plans, ideas, ledger }`: `plans`
 is the `plan active` list with open items per step; `ideas` is
 `{ byState, items }`, where a state is `open` until an outcome closes the idea
 as `success` or `failure`; `ledger` is `{ recent, skipped }`, the ten latest
 stage events (`{ occurredAt, stage, kind, number?, idea? }`) newest first.
-Of the bounded roles, only the concierge may run it.
+No bounded role may run it.
 
 ## Rules that bite
 

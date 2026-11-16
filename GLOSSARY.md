@@ -42,30 +42,9 @@ _Avoid_: Papercut, nice-to-have
 
 ## Agent roles
 
-**Concierge**:
-The agent a person talks to. It answers status and turns requests into ideas,
-and never reads code or writes files.
-_Avoid_: Assistant, front-end agent
-
-**Refiner**:
-The agent that interviews a person about something they want to do and turns
-it into an idea with a hypothesis and a measurable expected outcome.
-_Avoid_: Analyst, product owner
-
-**Challenger**:
-The agent that attacks an idea, ADR or plan for weak hypotheses, unmeasurable
-outcomes, wrong safety patterns and conflicts with recorded decisions, before a
-person approves it. It never reviews code.
-_Avoid_: Critic, reviewer
-
-**Challenge round**:
-One pass of the Challenger over an idea, recorded as a comment on the idea's
-issue and counted from there. An idea gets at most two; after the second it goes
-to a person with the open objections listed.
-
 **Orchestrator**:
-The agent that breaks an idea into work and drives it to an outcome, without
-being interrupted.
+The role that drives an approved idea to an outcome, filled by a tool rather
+than an agent.
 _Avoid_: Planner, manager, lead
 
 **Reader**:
@@ -78,12 +57,23 @@ _Avoid_: Implementer, coder
 
 **Judge**:
 An agent that decides whether a change is a safe delivery under its declared
-safety pattern, merges it through the merge tool, and sends it back to the
-orchestrator with the reason when it is not.
-_Avoid_: Reviewer, approver
+safety pattern, merges it through the merge tool, and, when it is not, sends it
+back to its writer through the orchestrator with the reason.
+_Avoid_: Approver, Reviewer (a separate role)
+
+**Reviewer**:
+The role that checks a change against the judgement rules in `AGENTS.md`. A
+tool posts its verdict, and the judge reads it.
+_Avoid_: Judge, critic
+
+**Precheck**:
+The deterministic evidence a change is checked against before any judgement. A
+failing precheck sends the change back by itself.
+_Avoid_: Lint, gate
 
 **Tool**:
-A deterministic script an agent calls in place of doing the steps itself.
+A deterministic script that does a step in place of an agent, and may launch
+agents.
 _Avoid_: Helper, utility
 
 ## Self-improvement
@@ -108,6 +98,16 @@ stays active, an audit rule syncs into the `main-candidate` ruleset in GitHub's
 the candidate would have blocked.
 _Avoid_: Check, policy
 
+**Proposal**:
+A retro finding in a fixed form that a tool files as an idea. It is not an idea
+until filed.
+_Avoid_: Suggestion, recommendation
+
+**Tier**:
+The model and effort a role runs at. Its definition declares it, and only an
+escalation or a recorded override changes it.
+_Avoid_: Level, size
+
 **Toil**:
 Time a person or an agent spends not advancing work: waiting, starting up,
 stopping, retrying.
@@ -131,7 +131,7 @@ a machine. It is written only through its tool and never edited by hand.
 _Avoid_: Log, journal, history
 
 **Flow**:
-How ideas move through the delivery loop's stages, from refine to outcome,
+How ideas move through the delivery loop's stages, from idea to outcome,
 measured from the ledger as active time, waiting time, toil and event count
 per stage.
 The flow report maps stage events to stages and names the bottleneck. It can

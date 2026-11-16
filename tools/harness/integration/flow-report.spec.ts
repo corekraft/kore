@@ -20,7 +20,7 @@ function stage(r: FlowReport, name: string) {
 describe("flow report stage mapping", () => {
   it("lists every stage in delivery order, zeroed, for an empty ledger", () => {
     const r = report([]);
-    expect(r.version).toBe(8);
+    expect(r.version).toBe(9);
     expect(r.stages.map((s) => s.stage)).toEqual([...STAGES]);
     expect(
       r.stages.every(
@@ -33,9 +33,6 @@ describe("flow report stage mapping", () => {
   });
 
   it.each([
-    ["refiner", "refine"],
-    ["challenger", "challenge"],
-    ["orchestrator", "orchestrate"],
     ["writer", "write"],
     ["judge", "judge"],
   ])("maps a pane whose name ends in -%s to %s", (role, name) => {
@@ -61,7 +58,7 @@ describe("flow report pane roles and states", () => {
   });
 
   it("splits a pane's time into active while busy and waiting while it waits on a person", () => {
-    const pane = "idea-refiner";
+    const pane = "idea-writer";
     const r = report([
       at(0, "pane.spawned", { pane, idea: "#1" }),
       at(10, "pane.busy", { pane, idea: "#1" }),
@@ -69,8 +66,8 @@ describe("flow report pane roles and states", () => {
       at(100, "pane.busy", { pane, idea: "#1" }),
       at(160, "pane.closed", { pane, idea: "#1" }),
     ]);
-    expect(stage(r, "refine")).toEqual({
-      stage: "refine",
+    expect(stage(r, "write")).toEqual({
+      stage: "write",
       activeSeconds: 100,
       waitingSeconds: 60,
       events: 5,
@@ -135,15 +132,16 @@ describe("flow report GitHub waits", () => {
     expect(r.unmappedEvents).toBe(1);
   });
 
-  it("does not count refine or challenge time twice as await approval", () => {
+  it("still reports a ledger holding retired challenge.round events, counting them as unmapped", () => {
     const r = report([
       at(0, "issue.opened", { number: 1 }),
-      at(100, "pane.spawned", { pane: "s-refiner", idea: "#1" }),
-      at(300, "pane.closed", { pane: "s-refiner", idea: "#1" }),
+      at(100, "challenge.round", { number: 1, label: "round 1" }),
+      at(200, "challenge.round", { number: 1, label: "round 2" }),
       at(1000, "issue.labelled", { number: 1, label: "ready-for-agent" }),
     ]);
-    expect(stage(r, "await approval").waitingSeconds).toBe(800);
-    expect(stage(r, "refine").activeSeconds).toBe(200);
+    expect(r.unmappedEvents).toBe(2);
+    expect(r.stages.map((s) => s.stage)).not.toContain("challenge");
+    expect(stage(r, "await approval").waitingSeconds).toBe(1000);
   });
 
   it("keeps an unapproved issue waiting up to the report time", () => {

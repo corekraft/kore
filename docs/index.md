@@ -183,6 +183,7 @@ repository root; `mise run kb-check` keeps this list complete.
 - [`docs/decisions/0114-give-the-platform-organization-default-dashboards-notify-only-alerts-and-default-retention.md`](decisions/0114-give-the-platform-organization-default-dashboards-notify-only-alerts-and-default-retention.md) — In Next, services get default dashboards and notify-only alerts in the platform Grafana, logs keep 14 days and traces 7, metrics keep one platform retention, and Alertmanager serves platform alerts only.
 - [`docs/decisions/0115-scope-the-organization-and-service-platform-apis-to-the-cluster.md`](decisions/0115-scope-the-organization-and-service-platform-apis-to-the-cluster.md) — Organization and Service are cluster-scoped Crossplane v2 APIs because their namespace composition must create cluster-scoped Namespace objects, which a namespaced composite resource cannot compose.
 - [`docs/decisions/0116-application-runtime-images-are-distroless-builder-stages-can-be-anything.md`](decisions/0116-application-runtime-images-are-distroless-builder-stages-can-be-anything.md) — Every runtime image Kore builds or templates is distroless, with no shell and no package manager; builder stages are free, and upstream images we only pull are exempt but prefer distroless variants.
+- [`docs/decisions/0117-the-delivery-loop-s-role-set.md`](decisions/0117-the-delivery-loop-s-role-set.md) — Refines ADR 0078 and ADR 0091: the delivery loop runs on writer, judge, reader and a spawned Reviewer; the orchestrator, concierge, refiner and challenger definitions are removed (never launched since the ledger began on 12 Nov 2026), the Orchestrator role is filled by orchestrate run, every role is defined on Haiku or Sonnet, the auto-approve qualifier replaces the challenger for harness ideas, and spawn-session is deleted.
 
 ## Proposed Decisions
 
@@ -257,10 +258,9 @@ decisions; read one only when planning that area, and expect it to change.
   deny rules. Read before adding a hook or permission.
 - [`.claude/agents/principles-review.md`](../.claude/agents/principles-review.md)
   — the read-only review of a diff against AGENTS.md. Run before committing.
-- [`.claude/agents/concierge.md`](../.claude/agents/concierge.md) and
-  [`reader.md`](../.claude/agents/reader.md) — the delivery loop's read-only
-  role agents; their tier is the only copy
-  ([ADR 0078](decisions/0078-agent-roles-run-as-herdr-panes.md)). Their bounds
+- [`.claude/agents/reader.md`](../.claude/agents/reader.md) — the delivery
+  loop's read-only reader agent; its tier is the only copy
+  ([ADR 0078](decisions/0078-agent-roles-run-as-herdr-panes.md)). Its bounds
   are the `role-*` guard rules in `tools/harness/src/hook/guard-role.ts`.
 - [`.github/pull_request_template.md`](../.github/pull_request_template.md) —
   the PR body, with the one `Safety pattern:` field and the linked idea that
@@ -278,7 +278,7 @@ decisions; read one only when planning that area, and expect it to change.
 - [`docs/retros/2026-11-14-repo-retro.md`](retros/2026-11-14-repo-retro.md) —
   the repo retro over 436 sessions, unified with the Pocock retro into one
   owner-decided triage; none applied yet. Read before changing the role guards
-  or the writer and orchestrator agent definitions.
+  or the writer agent definition.
 
 ## Skills
 

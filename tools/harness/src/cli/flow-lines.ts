@@ -16,7 +16,6 @@ export function metricLine(
 const REWORK_LABELS = {
   escalationsPerIdea: "Escalations per idea",
   sendBacksPerIdea: "Send-backs per idea",
-  challengeRoundsPerIdea: "Challenger rounds per idea",
   frictionPerIdea: "Friction events per idea",
 } as const;
 

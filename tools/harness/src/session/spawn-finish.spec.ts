@@ -91,6 +91,7 @@ function run(
     record,
     modelCheck,
     timeoutMs: 60_000,
+    tier: { tierSource: "override", tierReason: "deep diff" },
   });
 }
 
@@ -119,7 +120,20 @@ describe("finish records the session before it reports", () => {
       agent: "image-trust-writer",
       role: "writer",
       tier: "claude-opus-5-5",
+      tierSource: "override",
+      tierReason: "deep diff",
     });
+  });
+
+  it("leaves the tier source off a launch that was given none, so it reads as unknown", async () => {
+    await finish(contextOf(deps, { options: { "no-wait": true } }), {
+      registry: asRegistry(registry),
+      record: RECORD,
+      modelCheck: VERIFIED,
+      timeoutMs: 60_000,
+    });
+
+    expect(ledger.record.mock.calls[0]?.[0]).not.toHaveProperty("tierSource");
   });
 
   it("takes one host sample for the spawned session, after the launch event", async () => {

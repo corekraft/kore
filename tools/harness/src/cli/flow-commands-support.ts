@@ -75,11 +75,6 @@ export function emptyReport(overrides: Partial<Record<string, unknown>> = {}) {
         closedIdeas: 1,
         needed: 6,
       },
-      challengeRoundsPerIdea: {
-        status: "insufficient history",
-        closedIdeas: 1,
-        needed: 6,
-      },
       frictionPerIdea: {
         status: "insufficient history",
         closedIdeas: 1,

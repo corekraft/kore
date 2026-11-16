@@ -125,13 +125,13 @@ describe("a judge's PAT and the roles without a token", () => {
     );
   });
 
-  it("gives the orchestrator no token and never reads the keychain", async () => {
+  it("gives the reader no token and never reads the keychain", async () => {
     const h = testHarness({
       env: INSIDE,
       files: FLAG_ON,
       responses: [...keychain(WRITER_ITEMS), ...keychain(JUDGE_ITEMS), ...base],
     });
-    expect(await run(asRole("orchestrator"), h.deps)).toBe(0);
+    expect(await run(asRole("reader"), h.deps)).toBe(0);
     expect(h.runner.calls.map((c) => c.command)).not.toContain("security");
     expect(h.runner.calls.map((c) => c.command)).not.toContain("curl");
   });

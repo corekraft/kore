@@ -64,7 +64,7 @@ async function ideas({ deps }: CommandContext) {
 
 export const statusCommand: Command = {
   summary:
-    "report open plan items, ideas by state and recent ledger stages; read-only, for the concierge",
+    "report open plan items, ideas by state and recent ledger stages; read-only, for the person's main session",
   async run(context) {
     const opened = await openLedger(context);
     if ("error" in opened) {

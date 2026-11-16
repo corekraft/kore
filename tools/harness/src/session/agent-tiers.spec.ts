@@ -50,28 +50,23 @@ const definitions = (): Map<string, string> =>
 describe("agent definitions match the ADR 0078 tier table", () => {
   it("reads the table's roles, so an unreadable table cannot pass the test vacuously", () => {
     expect([...tiers().keys()]).toEqual(
-      expect.arrayContaining(["concierge", "reader", "writer", "judge"]),
+      expect.arrayContaining(["reader", "writer", "judge"]),
     );
   });
 
-  it.each([
-    "concierge",
-    "refiner",
-    "challenger",
-    "reader",
-    "orchestrator",
-    "writer",
-    "judge",
-  ])("%s has a definition whose model and effort are the table's", (role) => {
-    const markdown = definitions().get(role);
-    expect(markdown, `.claude/agents/${role}.md must exist`).toBeDefined();
-    const found = parseDefinition(markdown ?? "");
-    const expected = tiers().get(role);
-    expect(displayName(found.model ?? "")).toMatch(
-      new RegExp(`^${expected?.family ?? "none"} `),
-    );
-    expect(found.effort).toBe(expected?.effort);
-  });
+  it.each(["reader", "writer", "judge"])(
+    "%s has a definition whose model and effort are the table's",
+    (role) => {
+      const markdown = definitions().get(role);
+      expect(markdown, `.claude/agents/${role}.md must exist`).toBeDefined();
+      const found = parseDefinition(markdown ?? "");
+      const expected = tiers().get(role);
+      expect(displayName(found.model ?? "")).toMatch(
+        new RegExp(`^${expected?.family ?? "none"} `),
+      );
+      expect(found.effort).toBe(expected?.effort);
+    },
+  );
 
   it("any other definition that names a role in the table also matches it", () => {
     for (const [role, markdown] of definitions()) {
@@ -92,14 +87,7 @@ describe("agent definitions match the ADR 0078 tier table", () => {
 
 describe("agent definitions bound each role's tools", () => {
   it("only the writer may edit files", () => {
-    for (const role of [
-      "concierge",
-      "refiner",
-      "challenger",
-      "reader",
-      "orchestrator",
-      "judge",
-    ]) {
+    for (const role of ["reader", "judge"]) {
       const tools = parseDefinition(definitions().get(role) ?? "").tools ?? [];
       expect(
         tools.filter((t) => /^(Edit|Write|NotebookEdit)$/.test(t)),
@@ -111,11 +99,7 @@ describe("agent definitions bound each role's tools", () => {
   it("pins each bounded role's tools, so widening one is a reviewed change", () => {
     const tools = (role: string) =>
       parseDefinition(definitions().get(role) ?? "").tools;
-    expect(tools("concierge")).toEqual(["Bash"]);
-    expect(tools("refiner")).toEqual(["Bash", "Glob", "Grep", "Read"]);
-    expect(tools("challenger")).toEqual(["Bash", "Glob", "Grep", "Read"]);
     expect(tools("reader")).toEqual(["Read", "Grep", "Glob", "Bash"]);
-    expect(tools("orchestrator")).toEqual(["Bash", "Glob", "Grep", "Read"]);
     expect(tools("judge")).toEqual(["Bash", "Glob", "Grep", "Read"]);
     expect(tools("writer")).toEqual([
       "Bash",
@@ -129,62 +113,45 @@ describe("agent definitions bound each role's tools", () => {
   });
 });
 
-describe("the refiner and challenger definitions", () => {
-  const body = (role: string) => definitions().get(role) ?? "";
-
-  it("declare their tiers: Sonnet at medium and Opus at high", () => {
-    const refiner = parseDefinition(body("refiner"));
-    const challenger = parseDefinition(body("challenger"));
-    expect(displayName(refiner.model ?? "")).toMatch(/^Sonnet /);
-    expect(refiner.effort).toBe("medium");
-    expect(displayName(challenger.model ?? "")).toMatch(/^Opus /);
-    expect(challenger.effort).toBe("high");
+describe("every agent definition runs on Haiku or Sonnet", () => {
+  it("lists the definitions, so an empty folder cannot pass vacuously", () => {
+    expect([...definitions().keys()].sort()).toEqual([
+      "judge",
+      "principles-review",
+      "reader",
+      "writer",
+    ]);
   });
 
-  it("forbid the challenger from reviewing code and send that to the judge", () => {
-    expect(body("challenger")).toMatch(/never review code/);
-    expect(body("challenger")).toMatch(/judge/);
-  });
+  it.each([...definitions()])(
+    "%s declares a Haiku or Sonnet model",
+    (role, markdown) => {
+      const { model } = parseDefinition(markdown);
+      expect(
+        model,
+        `.claude/agents/${role}.md must declare a model`,
+      ).toBeDefined();
+      expect(displayName(model ?? "")).toMatch(/^(Haiku|Sonnet) /);
+    },
+  );
+});
 
-  it("have the same challenger review ideas, ADRs and plans, with no second definition", () => {
-    expect(body("challenger")).toMatch(/An idea/);
-    expect(body("challenger")).toMatch(/An ADR or a plan/);
-    const challengers = [...definitions().keys()].filter((role) =>
-      /challeng|adr|plan/.test(role),
-    );
-    expect(challengers).toEqual(["challenger"]);
-  });
-
-  it("have the refiner file ideas only through the idea tool, with every field the idea needs", () => {
-    for (const field of [
-      "--hypothesis",
-      "--expected-outcome",
-      "--measurement",
-      "--safety-pattern",
-    ]) {
-      expect(body("refiner")).toContain(field);
-    }
-  });
-
-  it("route a raw request from the concierge to the refiner", () => {
-    expect(body("concierge")).toMatch(/raw request goes to the refiner/);
+describe("no agent fills a role the loop retired", () => {
+  it("has no definition for the refiner or the challenger, which no session launches", () => {
+    expect([...definitions().keys()]).not.toContain("refiner");
+    expect([...definitions().keys()]).not.toContain("challenger");
   });
 });
 
-describe("the judge and orchestrator state which safety patterns merge without the owner", () => {
-  const body = (role: string) => definitions().get(role) ?? "";
-
-  // The judge points to `judge merge` for the pattern list; the orchestrator points to the judge (#495, #742).
-  it("orchestrator points to the judge's rule and does not repeat the pattern list", () => {
-    // Link targets name ADRs by file, which contain pattern words; check the prose only.
-    const merges = (
-      body("orchestrator").split("## Merges without asking the owner")[1] ?? ""
-    ).replace(/\]\([^)]*\)/g, "]");
-    expect(merges).toMatch(/judge's own rule/);
-    expect(merges).not.toMatch(
-      /no-behaviour-change|dark launch|expand-contract|feature flag/,
-    );
+describe("no agent fills the orchestrator or concierge role", () => {
+  it("has no definition for either, since `orchestrate run` and the person's main session do that work", () => {
+    expect([...definitions().keys()]).not.toContain("orchestrator");
+    expect([...definitions().keys()]).not.toContain("concierge");
   });
+});
+
+describe("the judge states which safety patterns merge without the owner", () => {
+  const body = (role: string) => definitions().get(role) ?? "";
 
   it.each(["judge"])(
     "%s keeps a cluster-facing no-behaviour-change behind its live run",
@@ -196,18 +163,38 @@ describe("the judge and orchestrator state which safety patterns merge without t
   it("judge links ADR 0099 instead of copying the rule", () => {
     expect(body("judge")).toMatch(/\(\.\.\/\.\.\/docs\/decisions\/0099-/);
   });
+});
 
-  it("orchestrator links the decisions the rule restates instead of copying them", () => {
-    expect(body("orchestrator")).toMatch(
-      /\(\.\.\/\.\.\/docs\/decisions\/0099-/,
-    );
-    expect(body("orchestrator")).toMatch(
-      /\(\.\.\/\.\.\/docs\/decisions\/0077-/,
-    );
+/** Opus is allowed only until the challenger's own removal ticket deletes its definition. */
+const OPUS_UNTIL_REMOVED = new Set(["challenger"]);
+
+describe("every agent definition", () => {
+  it("runs on Haiku or Sonnet, so no spawned pane picks a free model", () => {
+    const offenders = [...definitions()]
+      .map(([role, body]) => [role, parseDefinition(body).model] as const)
+      .filter(
+        ([role, model]) => model !== undefined && !OPUS_UNTIL_REMOVED.has(role),
+      )
+      .filter(
+        ([, model]) =>
+          !/^(Haiku|Sonnet) /.test(displayName(model as string) ?? ""),
+      )
+      .map(([role]) => role);
+    expect(offenders).toEqual([]);
+  });
+});
+
+describe("the principles-review definition", () => {
+  const found = () =>
+    parseDefinition(definitions().get("principles-review") ?? "");
+
+  it("declares Sonnet at medium, so session spawn accepts the role and it never inherits its caller's model", () => {
+    expect(displayName(found().model ?? "")).toMatch(/^Sonnet /);
+    expect(found().effort).toBe("medium");
   });
 
-  it("never gives the orchestrator merge rights, so it still sends merges to the judge", () => {
-    expect(body("orchestrator")).toMatch(/you do not merge/);
-    expect(body("orchestrator")).not.toMatch(/squash/);
+  it("has no tool that edits a file", () => {
+    expect(found().tools ?? []).not.toEqual(expect.arrayContaining(["Edit"]));
+    expect(found().tools).toEqual(["Read", "Grep", "Glob", "Bash"]);
   });
 });
