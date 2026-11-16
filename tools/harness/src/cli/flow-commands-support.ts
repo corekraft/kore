@@ -1,7 +1,7 @@
 // Fixtures shared by the flow report unit spec. A support file is not a unit,
 // so it needs no spec of its own (ADR 0098).
 import { vi } from "vitest";
-import type { FlowReport } from "../flow/index.js";
+import { STAGES, type FlowReport } from "../flow/index.js";
 import type { Ledger } from "../ledger/index.js";
 import { contextWith } from "./command-support.js";
 import { openLedger } from "./ledger-commands.js";
@@ -179,6 +179,8 @@ export function emptyReport(overrides: Partial<Record<string, unknown>> = {}) {
     tokensPerMergedChange: emptyTokensPerMergedChange,
     sendBacksPerMergedChange: emptySendBacksPerMergedChange,
     leadTimePerMergedChange: emptyLeadTimePerMergedChange,
+    tokensByStage: Object.fromEntries(STAGES.map((stage) => [stage, 0])),
+    tokensByStagePerMergedChange: emptyTokensPerMergedChange,
     reviewMisses: NO_REVIEWS,
     ...overrides,
     // The cast stands in for the fields the report prints but these tests never read.

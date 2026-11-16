@@ -63,3 +63,15 @@ export function stageResolver(events: LedgerEvent[]) {
       : undefined;
   };
 }
+
+/**
+ * The stage a token reading is spent in (#831): the stage its session was stamped
+ * into at launch, else its role's stage, else orchestrate, so a session with no role
+ * counts in orchestrate. Unlike stageResolver, a role's spend is not held until the
+ * PR merged: tokens are what a session cost, not when its work counts.
+ */
+export function tokenStageResolver(events: LedgerEvent[]) {
+  const stamps = stampedStages(events);
+  return (event: LedgerEvent): Stage =>
+    stageStamp(event, stamps) ?? roleOf(event)?.stage ?? MAIN_SESSION_STAGE;
+}

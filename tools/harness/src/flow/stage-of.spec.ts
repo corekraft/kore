@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { time } from "./github-waits.js";
 import { ev } from "./report-support.js";
-import { roleResolver, stageResolver } from "./stage-of.js";
+import { roleResolver, stageResolver, tokenStageResolver } from "./stage-of.js";
 import { stageStamp, stampedStages } from "./stamped-stage.js";
 
 vi.mock("./github-waits.js");
@@ -70,6 +70,36 @@ describe("stageResolver places an event in a stage", () => {
     expect(
       resolve(ev(5, "issue.labelled", { label: "spec" }), undefined),
     ).toBeUndefined();
+  });
+});
+
+describe("tokenStageResolver places a token reading in the stage its session spent in", () => {
+  it("places a stamped session's reading in its stamped stage", () => {
+    vi.mocked(stageStamp).mockReturnValue("review");
+
+    expect(
+      tokenStageResolver([])(ev(5, "token.usage", { agent: "x-reader" })),
+    ).toBe("review");
+  });
+
+  it("places an unstamped role's reading in the role's stage, before the PR merged too", () => {
+    expect(
+      tokenStageResolver([])(ev(5, "token.usage", { pane: "x-verifier" })),
+    ).toBe("verify");
+  });
+
+  it("counts a session with no role in orchestrate, not nowhere (#831)", () => {
+    expect(
+      tokenStageResolver([])(ev(5, "token.usage", { agent: "x-reader" })),
+    ).toBe("orchestrate");
+  });
+
+  it("counts the main session's reading in orchestrate", () => {
+    expect(
+      tokenStageResolver([])(
+        ev(5, "token.usage", { session: "main-1", source: "claude" }),
+      ),
+    ).toBe("orchestrate");
   });
 });
 
