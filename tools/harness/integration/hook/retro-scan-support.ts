@@ -1,5 +1,5 @@
 // Fixtures and builders shared by the retro-scan specs. Fixtures in
-// .claude/hooks/fixtures/retro/ are synthetic.
+// tools/harness/integration/fixtures/retro/ are synthetic.
 
 import { readFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
@@ -9,7 +9,7 @@ export const repo = resolve(
   dirname(fileURLToPath(import.meta.url)),
   "../../../..",
 );
-export const fixtures = `${repo}/.claude/hooks/fixtures/retro/`;
+export const fixtures = `${repo}/tools/harness/integration/fixtures/retro/`;
 
 export const fixture = (name: string) => ({
   id: name,
