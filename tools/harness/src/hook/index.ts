@@ -44,3 +44,15 @@ export const hook: Record<string, Command> = {
   "workflow-permissions": workflowPermissions,
 };
 export { lastRetrospective, markerInstant } from "./retro-scan.js";
+// The guard replay: a guard as it was at a ref, and the calls a rule's change allows.
+export { GuardAtRefError, guardAtRef } from "./guard-at-ref.js";
+export {
+  callsInWindow,
+  replayRule,
+  type Evaluate,
+  type ReplayReport,
+  type Window,
+} from "./guard-replay.js";
+export type { GuardContext } from "./guard-verdict.js";
+export { parseTranscript } from "./retro-transcript.js";
+export { defaultDirs, readTranscripts } from "./retro-transcripts.js";
