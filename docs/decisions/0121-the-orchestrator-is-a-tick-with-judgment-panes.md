@@ -69,6 +69,10 @@ what runs in parallel, and handling a blocked pane.
   as a thin supervisor that runs each tick as a child process. `tick.started`
   and `tick.stopped` events give a heartbeat; a gap shows in status and in the
   owner digest. Nothing restarts the loop automatically.
+- **Comments carry the role.** The tick and its panes post only through the
+  comment module, whose first line names the role, so their comments are
+  never read as the owner's (ADR 0120). They hold the owner's token until the
+  owner decides on separate identities, and ADR 0120 records that gap.
 - **A flag guards it.** The change is behind `orchestrator-tick` (off). Its
   activation proof is one approved harness `no-behaviour-change` idea, named
   on #197 before the run, driven from approval to a recorded outcome with no
@@ -80,6 +84,8 @@ what runs in parallel, and handling a blocked pane.
   the tick, recorded as this refinement of ADR 0117. This record reads
   "Sonnet spawns Haiku agents" as "Sonnet decides what the Haiku agents do,
   and the tick starts them".
+- Whether the tick and its judgment panes get their own GitHub identity
+  before the flag turns on (ADR 0120, closing the shared-account gap).
 - Whether something such as launchd or cron restarts the loop. It would be a
   standing process on the owner's machine outside the repository; heartbeat
   gaps counted from the ledger are its evidence.

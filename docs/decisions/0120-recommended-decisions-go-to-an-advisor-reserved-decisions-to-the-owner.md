@@ -1,6 +1,6 @@
 ---
 status: proposed
-summary: Proposed, refines ADR 0117: a question that carries a recommendation goes to a read-only advisor role that records its decision on the issue, unless it is a reserved decision from a closed, fail-closed list whose entries already belong to the owner; the advisor grants nothing, reserved questions are posted at once and notified in one daily digest, and the advisor's tier is open for the owner.
+summary: Proposed, refines ADR 0117: a question that carries a recommendation goes to a read-only advisor role that records its decision on the issue, unless it is a reserved decision from a closed, fail-closed list whose entries already belong to the owner; the advisor grants nothing, reserved questions are posted at once and notified in one daily digest, a comment or pane message without a role line is the owner's; the advisor's tier and closing the shared-account gap are open for the owner.
 date: 2026-11-16
 last-verified: 2026-11-16
 ---
@@ -76,6 +76,35 @@ back to the principle; it adds no gate.
   recommendation (94 of 101). Stage events carry the route, category and idea
   only; the question and the reasoning stay on the issue.
 
+- **A comment without a role line is the owner's.** All roles share one
+  GitHub account, so authorship comes from the comment, not the login (the
+  owner's rule, 2026-11-16: "every comment made by a role should be
+  identified; if there's no identification, that's me"). Every harness command
+  that posts writes, through one comment module, a first line naming the role,
+  the session name and the command, taken from the spawn environment and never
+  from the agent's text; the same module reads it, and existing parsers are
+  tested against it. A role never posts with a bare `gh` comment. The owner
+  answers a reserved question, or overturns a decision, with their own plain
+  comment. The comment module refuses to write approval syntax; that is
+  validation, not containment.
+- **Pane messages follow the same rule** (the owner, 2026-11-16: "inter-pane
+  and inter-agent communication should have it so that I can be identified").
+  Every harness command that puts text into another pane starts it with the
+  sender's role and session name from the same identity source, replacing the
+  fixed `[orchestrator]` prefix, and records the sender in `session.send`; the
+  retro scan recognises every tagged line through the same module. An
+  untagged line is the owner's, taken as an instruction within the session's
+  brief and bounds. No line in a pane, tagged or not, stands in for a recorded
+  approval of a reserved decision or for a destructive step's consent.
+- **The gap this leaves.** A session holding the shared token that posts with
+  bare `gh` and no role line, or types into a pane with bare `herdr` and no
+  tag, is read as the owner. This exists today, before
+  the advisor: `guardrail activate` already trusts the owner's login. Until the
+  owner chooses how to close it, the retro scan counts bare `gh issue comment`,
+  `gh pr comment`, comment API calls and bare `herdr` sends by role sessions
+  from their transcripts, and each one goes into the owner digest. `guardrail activate`
+  warns, with a ledger event, on an approving comment that carries a role line.
+
 ## Open for the owner
 
 - **The advisor's tier.** The owner's direction of 2026-11-16 makes Opus the
@@ -87,6 +116,19 @@ back to the principle; it adds no gate.
   effort only because the test allows that today.
 - **Flag activation for harness-only flags** stays reserved; moving it to the
   advisor is a separate owner question.
+- **Closing the shared-account gap.** Either separate identities for the
+  Reviewer, for the tick with its judgment panes and advisor, and for the main
+  session's agent before `orchestrator-tick` and `decision-advisor` turn on
+  (recommended: an unattended tick means more sessions holding the owner's
+  token for longer with nobody watching; writer and judge identities and the
+  identities wizard already exist, and a main-session identity changes how the
+  owner's own session authenticates), or a guard on bare `gh` comments for
+  role sessions and on bare `herdr` sends, which meets ADR 0091's freeze, or accepting the gap in local
+  for now. Moving `guardrail activate` from warning to refusal on a role-lined
+  approval, and a terminal-only `harness decision answer` for stronger proof,
+  are options within it.
+- **Whether the main session's agent is a role** that tags what it posts, so
+  that only what the owner types by hand is untagged.
 
 ## How this was decided
 
