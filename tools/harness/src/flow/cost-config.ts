@@ -103,6 +103,8 @@ function parseCost(file: string, cost: Raw): HarnessConfig | Failure {
 }
 
 const LOGIN = /^[A-Za-z0-9][A-Za-z0-9-]{0,38}$/;
+/** A GitHub App's login as gh reports it on the App's comments and PRs: `app/<slug>`. */
+const APP_LOGIN = /^app\/[A-Za-z0-9][A-Za-z0-9-]{0,38}$/;
 
 function reviewerLoginsOf(
   file: string,
@@ -114,12 +116,14 @@ function reviewerLoginsOf(
   if (
     !Array.isArray(value) ||
     value.length === 0 ||
-    !value.every((r) => typeof r === "string" && LOGIN.test(r))
+    !value.every(
+      (r) => typeof r === "string" && (LOGIN.test(r) || APP_LOGIN.test(r)),
+    )
   ) {
     return bad(
       file,
       "reviewerLogins",
-      'must be a non-empty list of GitHub logins of letters, digits and "-". Use ["junners"], or remove the key to trust the owner login.',
+      'must be a non-empty list of GitHub logins of letters, digits and "-", or of a GitHub App as app/<slug>. Use ["junners"] or ["junners", "app/kore-reviewer"], or remove the key to trust the owner login.',
     );
   }
   return { reviewerLogins: value as string[] };

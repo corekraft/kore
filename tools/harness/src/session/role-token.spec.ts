@@ -27,6 +27,12 @@ const KEYCHAIN: Record<string, string | undefined> = {
   "kore.writer.installation-id": "678",
   "kore.writer.private-key": Buffer.from(PEM).toString("base64"),
   "kore.judge.pat": "github_pat_judge",
+  "kore.reviewer.app-id": "55555",
+  "kore.reviewer.installation-id": "9001",
+  "kore.reviewer.private-key": Buffer.from(PEM).toString("base64"),
+  "kore.orchestrator.app-id": "77777",
+  "kore.orchestrator.installation-id": "9002",
+  "kore.orchestrator.private-key": Buffer.from(PEM).toString("base64"),
 };
 const WIZARD = "tools/harness/wizards/identities.sh";
 const MINT = "https://api.github.com/app/installations/678/access_tokens";
@@ -213,5 +219,127 @@ describe("roleToken signs and mints for a writer", () => {
     await expect(roleToken(deps, "writer")).resolves.toEqual({
       error: `Could not mint a kore-writer installation token (the response carried no token). Check the App is installed on corekraft/kore and its key is current: \`bash ${WIZARD}\`. No pane was split.`,
     });
+  });
+});
+
+/** The grant the minting request sent, parsed from curl's --data argument. */
+function grantSent(): unknown {
+  const args = deps.runner.run.mock.calls.at(-1)?.[1] ?? [];
+  return JSON.parse(String(args[args.indexOf("--data") + 1]));
+}
+
+describe("roleToken gives the principles-review pane the Reviewer App's token", () => {
+  const REVIEWER_MINT =
+    "https://api.github.com/app/installations/9001/access_tokens";
+
+  it("mints the Reviewer's token for a principles-review pane, with the Reviewer's grant only", async () => {
+    await expect(roleToken(deps, "principles-review")).resolves.toEqual({
+      token: "ghs_t",
+    });
+
+    const [command, args] = deps.runner.run.mock.calls.at(-1) ?? [];
+    expect(command).toBe("curl");
+    expect(args).toContain(REVIEWER_MINT);
+    expect(grantSent()).toEqual({
+      repositories: ["kore"],
+      permissions: {
+        pull_requests: "write",
+        contents: "read",
+        metadata: "read",
+      },
+    });
+  });
+
+  it("signs the Reviewer's JWT with the reviewer App id, never the writer's", async () => {
+    const jwt = signer(Buffer.from("signed"));
+    crypto.createSign.mockReturnValue(jwt.signer);
+
+    await roleToken(deps, "principles-review");
+
+    expect(jwt.sign).toHaveBeenCalledExactlyOnceWith(PEM);
+    const [unsigned] = jwt.update.mock.calls[0] ?? [""];
+    const payload = JSON.parse(
+      Buffer.from(String(unsigned).split(".")[1] ?? "", "base64url").toString(),
+    ) as Record<string, unknown>;
+    expect(payload["iss"]).toBe("55555");
+  });
+
+  it("reads the Reviewer's three keychain items under the kore account", async () => {
+    await roleToken(deps, "principles-review");
+
+    const services = deps.runner.run.mock.calls
+      .filter(([command]) => command === "security")
+      .map(([, args]) => args[args.indexOf("-s") + 1]);
+    expect(services).toEqual([
+      "kore.reviewer.app-id",
+      "kore.reviewer.installation-id",
+      "kore.reviewer.private-key",
+    ]);
+  });
+
+  it("names the reviewer identity and the wizard when its app-id is missing", async () => {
+    answer({ ...KEYCHAIN, "kore.reviewer.app-id": undefined });
+
+    await expect(roleToken(deps, "principles-review")).resolves.toEqual({
+      error: `The reviewer identity is missing: keychain item kore.reviewer.app-id was not found. Create it with \`bash ${WIZARD}\`, then rerun. No pane was split.`,
+    });
+  });
+
+  it("names GitHub's message, and never the body, when the Reviewer's mint is refused", async () => {
+    answer(KEYCHAIN, {
+      code: 22,
+      stderr: "curl: (22) The requested URL returned error: 403",
+      stdout: '{"message":"Resource not accessible","token":"ghs_leak"}',
+    });
+
+    const result = await roleToken(deps, "principles-review");
+
+    expect(result).toEqual({
+      error: `Could not mint a kore-reviewer installation token (curl: (22) The requested URL returned error: 403: Resource not accessible). Check the App is installed on corekraft/kore and its key is current: \`bash ${WIZARD}\`. No pane was split.`,
+    });
+    expect(JSON.stringify(result)).not.toContain("ghs_leak");
+  });
+});
+
+describe("roleToken gives the orchestrator its own App token, and no other role one", () => {
+  const ORCHESTRATOR_MINT =
+    "https://api.github.com/app/installations/9002/access_tokens";
+
+  it("mints the orchestrator's token with issues, pull requests, contents and metadata", async () => {
+    await expect(roleToken(deps, "orchestrator")).resolves.toEqual({
+      token: "ghs_t",
+    });
+
+    const [, args] = deps.runner.run.mock.calls.at(-1) ?? [];
+    expect(args).toContain(ORCHESTRATOR_MINT);
+    expect(grantSent()).toEqual({
+      repositories: ["kore"],
+      permissions: {
+        issues: "write",
+        pull_requests: "write",
+        contents: "read",
+        metadata: "read",
+      },
+    });
+  });
+
+  it("names the orchestrator identity and the wizard when its key is missing", async () => {
+    answer({ ...KEYCHAIN, "kore.orchestrator.private-key": undefined });
+
+    await expect(roleToken(deps, "orchestrator")).resolves.toEqual({
+      error: `The orchestrator identity is missing: keychain item kore.orchestrator.private-key was not found. Create it with \`bash ${WIZARD}\`, then rerun. No pane was split.`,
+    });
+  });
+
+  it("gives no token to a role that is not in the identity table, and reads no keychain item", async () => {
+    await expect(roleToken(deps, "decision-advisor")).resolves.toBeUndefined();
+    expect(deps.runner.run).not.toHaveBeenCalled();
+  });
+
+  it("leaves the principles-review pane without a token while the flag is off", async () => {
+    flag(false);
+
+    await expect(roleToken(deps, "principles-review")).resolves.toBeUndefined();
+    expect(deps.runner.run).not.toHaveBeenCalled();
   });
 });

@@ -136,3 +136,26 @@ describe("reviewCheck refuses a verdict it cannot trust", () => {
     );
   });
 });
+
+describe("reviewCheck trusts the Reviewer App's verdict once the config names it", () => {
+  const APP = ["junners", "app/kore-reviewer"];
+
+  it("passes a clean verdict posted by the Reviewer App's login after the head commit", () => {
+    const comments = [
+      review("principles-review: No violations.", "app/kore-reviewer"),
+    ];
+    expect(reviewCheck(view({ comments }), APP)).toEqual({ result: "pass" });
+  });
+
+  it("does not trust the same verdict from an App it does not name, nor from a look-alike login", () => {
+    const comments = [
+      review("principles-review: No violations.", "app/kore-writer"),
+      review("principles-review: No violations.", "kore-reviewer"),
+    ];
+    expect(reviewCheck(view({ comments }), APP)).toEqual({
+      result: "unverified",
+      detail:
+        'no principles-review comment from junners or app/kore-reviewer for the current head (name it as "head <sha>", or post it after the head commit); rerun the review on the current head',
+    });
+  });
+});

@@ -192,7 +192,8 @@ finish() {
 }
 
 # ──────────────────────────────────────────────────────────────────────────
-# STAGES: the kore-writer GitHub App and the judge machine user (#336, #355).
+# STAGES: the kore-writer GitHub App, the judge machine user (#336, #355), and the
+# kore-reviewer and kore-orchestrator Apps (#857). A stage keeps any keychain item already stored.
 #
 # Nothing here writes a secret to disk, to .env or to a command line: secrets
 # are read with hidden input and go to the macOS keychain through the stdin of
@@ -205,7 +206,7 @@ finish() {
 
 run_wizard() {
 
-TOTAL_STAGES=5
+TOTAL_STAGES=11
 ORG="corekraft"
 REPO="corekraft/kore"
 ACCOUNT="kore"
@@ -244,13 +245,92 @@ keychain_store() {
   fi
 }
 
-banner "Kore role identities: the kore-writer App and the judge machine user"
+# keychain_has SERVICE is true when the keychain holds SERVICE (account kore). It reads
+# nothing: `security` is asked for the item's existence, never for its value.
+keychain_has() {
+  if (( DRY_RUN )); then
+    return 1
+  fi
+  security find-generic-password -s "$1" -a "$ACCOUNT" >/dev/null 2>&1
+}
+
+# keep_item SERVICE says a re-run kept an item the keychain already holds, unchanged.
+keep_item() {
+  printf '  %s✓ kept%s keychain item %s, already stored; not changed\n' "$GREEN" "$RESET" "$1"
+}
+
+# app_identity LABEL APP PERMISSION... sets up a GitHub App identity (kore.LABEL.* in the
+# keychain) in three stages: the App and its App ID, its private key, and its installation.
+# A re-run keeps each item the keychain already holds and asks only for the missing ones.
+app_identity() {
+  local label="$1" app="$2" perm
+  shift 2
+  local app_id_item="kore.$label.app-id" installation_item="kore.$label.installation-id"
+  local key_item="kore.$label.private-key"
+
+  stage "Create the $app GitHub App"
+  if keychain_has "$app_id_item"; then
+    keep_item "$app_id_item"
+  else
+    open_url "https://github.com/organizations/$ORG/settings/apps/new"
+    step "GitHub App name: $app. Homepage URL: https://github.com/$REPO."
+    step "Webhook: untick Active."
+    for perm in "$@"; do step "Repository permissions: $perm"; done
+    step "Where can this GitHub App be installed: Only on this account."
+    step "Click Create GitHub App."
+    ask APP_ID "Paste the App ID from the top of the App's page:"
+    confirm "The App has exactly those permissions?" || exit 1
+    keychain_store "$app_id_item" "$APP_ID" || exit 1
+  fi
+
+  stage "Store the $app private key in the keychain"
+  if keychain_has "$key_item"; then
+    keep_item "$key_item"
+  else
+    step "On the App's page, under Private keys, click Generate a private key."
+    step "Your browser downloads a .pem file; that is the only time the key touches disk."
+    ask PEM_PATH "Path of the downloaded .pem file:"
+    if (( DRY_RUN )); then
+      keychain_store "$key_item" "$PEM_PATH"
+    else
+      [[ -f "$PEM_PATH" ]] || { warn "no file at $PEM_PATH"; exit 1; }
+      # base64 keeps the multi-line PEM on one line for `security -i`.
+      PEM_B64=$(base64 < "$PEM_PATH" | tr -d '\n')
+      keychain_store "$key_item" "$PEM_B64" || exit 1
+      unset PEM_B64
+    fi
+    if (( DRY_RUN )); then
+      note "[dry run] would delete $PEM_PATH"
+    elif confirm "Delete $PEM_PATH now? (rm -P overwrites it)"; then
+      rm -P "$PEM_PATH" && printf '  %s✓ deleted%s the .pem\n' "$GREEN" "$RESET"
+    else
+      warn "the key is still on disk at $PEM_PATH; delete it yourself"
+    fi
+  fi
+
+  stage "Install the $app App on $REPO only"
+  if keychain_has "$installation_item"; then
+    keep_item "$installation_item"
+  else
+    open_url "https://github.com/organizations/$ORG/settings/apps/$app/installations"
+    step "Click Install next to $ORG."
+    step "Choose Only select repositories, pick kore, and click Install."
+    step "The page you land on ends in /installations/<number>. Copy that number."
+    ask INSTALLATION_ID "Paste the installation number:"
+    confirm "It is installed on kore and no other repository?" || exit 1
+    keychain_store "$installation_item" "$INSTALLATION_ID" || exit 1
+  fi
+}
+
+banner "Kore role identities: the writer, reviewer and orchestrator Apps and the judge"
 
 # ── 1 ─────────────────────────────────────────────────────────────────────
 stage "Check you are ready"
-say "This creates two identities so writers and the judge stop sharing yours."
-note "Writer: GitHub App kore-writer (contents:write, pull_requests:write, metadata:read)."
-note "Judge:  a machine user with a fine-grained PAT."
+say "This creates the identities the roles use, so each role stops sharing yours."
+note "Writer:       GitHub App kore-writer (contents:write, pull_requests:write, metadata:read)."
+note "Reviewer:     GitHub App kore-reviewer (pull_requests:write, contents:read, metadata:read)."
+note "Orchestrator: GitHub App kore-orchestrator (issues:write, pull_requests:write, contents:read, metadata:read)."
+note "Judge:        a machine user with a fine-grained PAT."
 if (( DRY_RUN )); then
   note "Dry run: nothing is opened, read, stored or deleted."
 else
@@ -328,6 +408,21 @@ else
 fi
 keychain_store kore.judge.pat "$JUDGE_PAT" || exit 1
 unset JUDGE_PAT
+
+# ── 6–8 ───────────────────────────────────────────────────────────────────
+# The reviewer runs the principles-review verdict (its PRs and comments only).
+app_identity reviewer kore-reviewer \
+  "Pull requests → Read and write" \
+  "Contents → Read-only" \
+  "Metadata → Read-only"
+
+# ── 9–11 ──────────────────────────────────────────────────────────────────
+# The tick, its judgment panes and the advisor (ADR 0121, ADR 0120).
+app_identity orchestrator kore-orchestrator \
+  "Issues → Read and write" \
+  "Pull requests → Read and write" \
+  "Contents → Read-only" \
+  "Metadata → Read-only"
 
 say "Identities are in place. Next: \`harness ruleset sync --dry-run\`, then the owner's OK."
 say "Break-glass after the sync removes your bypass is a logged manual ruleset edit."

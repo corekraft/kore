@@ -34,6 +34,21 @@ export const WRITER_ITEMS = {
 
 export const JUDGE_ITEMS = { "kore.judge.pat": JUDGE_TOKEN };
 
+export const REVIEWER_TOKEN = "ghs_reviewer_installation_token_1";
+
+/** Everything the reviewer identity needs in the keychain. */
+export const REVIEWER_ITEMS = {
+  "kore.reviewer.app-id": "55555",
+  "kore.reviewer.installation-id": "9001",
+  "kore.reviewer.private-key": APP_KEY.stored,
+};
+
+/** GitHub's answer to the reviewer's installation token request. */
+export const reviewerMintResponse: FakeResponse = {
+  match: (c) => c === "curl",
+  result: { stdout: JSON.stringify({ token: REVIEWER_TOKEN }) },
+};
+
 /** GitHub's answer to the installation token request. */
 export const mintResponse: FakeResponse = {
   match: (c) => c === "curl",

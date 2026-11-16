@@ -1,102 +1,58 @@
-import { spawnSync } from "node:child_process";
-import {
-  chmodSync,
-  existsSync,
-  mkdtempSync,
-  readFileSync,
-  readdirSync,
-  rmSync,
-  writeFileSync,
-} from "node:fs";
-import { tmpdir } from "node:os";
-import { join, resolve } from "node:path";
+import { existsSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
+import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
+import {
+  PAT,
+  PEM,
+  WIZARD,
+  read,
+  removeScratch,
+  runWizard,
+  sandbox,
+  type Sandbox,
+} from "./identities-wizard-support.js";
 
-const WIZARD = resolve(import.meta.dirname, "..", "wizards", "identities.sh");
-const PAT = "github_pat_judge_secret_value";
-const PEM =
-  "-----BEGIN PRIVATE KEY-----\nMIItestkeymaterial\n-----END PRIVATE KEY-----\n";
+afterEach(removeScratch);
 
-const scratch: string[] = [];
-afterEach(() => {
-  for (const dir of scratch.splice(0)) {
-    rmSync(dir, { recursive: true, force: true });
-  }
-});
-
-interface Sandbox {
-  home: string;
-  /** Where the wizard runs and where any stray file would land. */
-  cwd: string;
-  pem: string;
-  /** One line per command the wizard ran: `name args`. */
-  calls: string;
-  /** What each `security` received on stdin. */
-  securityStdin: string;
+/** Every answer a full run gives, in order: the writer, the judge, the reviewer and the orchestrator. */
+function fullRun(pem: string): string[] {
+  return [
+    "", // ready to start
+    "y", // an owner
+    "12345", // App ID
+    "y", // permissions are right
+    pem,
+    "y", // delete the pem
+    "678", // installation id
+    "y", // installed on kore only
+    "kore-judge",
+    PAT,
+    // the reviewer App
+    "55555",
+    "y",
+    pem,
+    "y",
+    "9001",
+    "y",
+    // the orchestrator App
+    "77777",
+    "y",
+    pem,
+    "y",
+    "9002",
+    "y",
+  ];
 }
-
-/** Shims for every outside tool: they log what they were given and touch nothing. */
-function sandbox(): Sandbox & { bin: string } {
-  const root = mkdtempSync(join(tmpdir(), "kore-wizard-"));
-  scratch.push(root);
-  const bin = join(root, "bin");
-  const home = join(root, "home");
-  const cwd = join(root, "cwd");
-  for (const dir of [bin, home, cwd]) {
-    spawnSync("mkdir", ["-p", dir]);
-  }
-  const pem = join(root, "downloaded.pem");
-  writeFileSync(pem, PEM);
-  const calls = join(root, "calls.log");
-  const securityStdin = join(root, "security-stdin.log");
-  const shim = (name: string, body: string) => {
-    const path = join(bin, name);
-    writeFileSync(
-      path,
-      `#!/bin/sh\necho "${name} $*" >> "${calls}"\n${body}\n`,
-    );
-    chmodSync(path, 0o755);
-  };
-  shim("security", `cat >> "${securityStdin}"`);
-  shim(
-    "gh",
-    `case "$*" in "auth status") exit 0;; "api user --jq .login") echo kore-judge;; esac`,
-  );
-  for (const opener of ["open", "xdg-open", "wslview", "explorer.exe"]) {
-    shim(opener, "exit 0");
-  }
-  shim("rm", "exit 0");
-  return { bin, home, cwd, pem, calls, securityStdin };
-}
-
-function runWizard(
-  box: Sandbox & { bin: string },
-  args: string[],
-  input: string,
-) {
-  return spawnSync("bash", [WIZARD, ...args], {
-    cwd: box.cwd,
-    input,
-    encoding: "utf8",
-    env: {
-      PATH: `${box.bin}:/usr/bin:/bin`,
-      HOME: box.home,
-      TERM: "dumb",
-    },
-  });
-}
-
-const read = (path: string) =>
-  existsSync(path) ? readFileSync(path, "utf8") : "";
 
 describe("identities wizard", () => {
   it("runs every stage end to end in dry-run mode and touches nothing", () => {
     const box = sandbox();
     const result = runWizard(box, ["--dry-run"], "");
     expect(result.status).toBe(0);
-    for (const n of [1, 2, 3, 4, 5]) {
-      expect(result.stdout).toContain(`Stage ${n}/5`);
+    for (const n of [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]) {
+      expect(result.stdout).toContain(`Stage ${n}/11`);
     }
+    expect(result.stdout).not.toContain("Stage 12/");
     expect(result.stdout).toContain("Setup complete");
     // No outside tool ran: not security, gh, a browser opener or rm.
     expect(existsSync(box.calls)).toBe(false);
@@ -113,6 +69,12 @@ describe("identities wizard", () => {
       "kore.writer.private-key",
       "kore.writer.installation-id",
       "kore.judge.pat",
+      "kore.reviewer.app-id",
+      "kore.reviewer.private-key",
+      "kore.reviewer.installation-id",
+      "kore.orchestrator.app-id",
+      "kore.orchestrator.private-key",
+      "kore.orchestrator.installation-id",
     ]) {
       expect(out).toContain(`would store keychain item ${item}`);
     }
@@ -128,32 +90,31 @@ describe("identities wizard", () => {
 describe("identities wizard keychain", () => {
   it("stores each secret in the keychain through stdin, never argv, and prints none", () => {
     const box = sandbox();
-    const input = [
-      "", // ready to start
-      "y", // an owner
-      "12345", // App ID
-      "y", // permissions are right
-      box.pem,
-      "y", // delete the pem
-      "678", // installation id
-      "y", // installed on kore only
-      "kore-judge",
-      PAT,
-    ].join("\n");
-    const result = runWizard(box, [], `${input}\n`);
+    const result = runWizard(box, [], `${fullRun(box.pem).join("\n")}\n`);
     expect(result.status).toBe(0);
 
     const calls = read(box.calls);
     expect(calls).not.toContain("add-generic-password");
-    expect(calls.split("\n").filter((l) => l.startsWith("security"))).toEqual(
-      Array(4).fill("security -i"),
-    );
+    // Ten stores through stdin: writer 3, judge 1, reviewer 3, orchestrator 3.
+    expect(
+      calls.split("\n").filter((l) => l.startsWith("security -i")),
+    ).toEqual(Array(10).fill("security -i"));
     const stdin = read(box.securityStdin);
     const b64 = Buffer.from(PEM).toString("base64");
     expect(stdin).toContain("-s kore.writer.app-id -a kore -w 12345");
     expect(stdin).toContain("-s kore.writer.installation-id -a kore -w 678");
     expect(stdin).toContain(`-s kore.writer.private-key -a kore -w ${b64}`);
     expect(stdin).toContain(`-s kore.judge.pat -a kore -w ${PAT}`);
+    expect(stdin).toContain("-s kore.reviewer.app-id -a kore -w 55555");
+    expect(stdin).toContain("-s kore.reviewer.installation-id -a kore -w 9001");
+    expect(stdin).toContain(`-s kore.reviewer.private-key -a kore -w ${b64}`);
+    expect(stdin).toContain("-s kore.orchestrator.app-id -a kore -w 77777");
+    expect(stdin).toContain(
+      "-s kore.orchestrator.installation-id -a kore -w 9002",
+    );
+    expect(stdin).toContain(
+      `-s kore.orchestrator.private-key -a kore -w ${b64}`,
+    );
 
     const shown = `${result.stdout}${result.stderr}${calls}`;
     expect(shown).not.toContain(PAT);
@@ -181,6 +142,63 @@ describe("identities wizard keychain", () => {
   });
 });
 
+describe("identities wizard re-runs", () => {
+  it("keeps the reviewer's items already in the keychain and asks only for the orchestrator's", () => {
+    const box = sandbox();
+    writeFileSync(
+      box.present,
+      [
+        "kore.reviewer.app-id",
+        "kore.reviewer.installation-id",
+        "kore.reviewer.private-key",
+      ].join("\n") + "\n",
+    );
+    const input = [
+      "",
+      "y",
+      "12345",
+      "y",
+      box.pem,
+      "n",
+      "678",
+      "y",
+      "kore-judge",
+      PAT,
+      // the reviewer's three stages find their items and ask nothing
+      // the orchestrator App is new
+      "77777",
+      "y",
+      box.pem,
+      "n",
+      "9002",
+      "y",
+    ];
+    const result = runWizard(box, [], `${input.join("\n")}\n`);
+    expect(result.status).toBe(0);
+
+    // Each reviewer item is found and kept: no store, no prompt, no value read.
+    const stdin = read(box.securityStdin);
+    expect(stdin).not.toContain("-s kore.reviewer.");
+    expect(result.stdout).toContain("kept keychain item kore.reviewer.app-id");
+    expect(result.stdout).toContain(
+      "kept keychain item kore.reviewer.private-key",
+    );
+    expect(result.stdout).toContain(
+      "kept keychain item kore.reviewer.installation-id",
+    );
+    // The orchestrator's items are new, so they are stored.
+    expect(stdin).toContain("-s kore.orchestrator.app-id -a kore -w 77777");
+    expect(stdin).toContain(
+      "-s kore.orchestrator.installation-id -a kore -w 9002",
+    );
+    // Only the lookups read the keychain, and none of them asks for a value.
+    const lookups = read(box.calls)
+      .split("\n")
+      .filter((l) => l.startsWith("security find-generic-password"));
+    expect(lookups.every((l) => !l.includes(" -w"))).toBe(true);
+  });
+});
+
 describe("identities wizard files", () => {
   it("writes no file and removes the .pem only after you confirm", () => {
     const box = sandbox();
@@ -201,7 +219,7 @@ describe("identities wizard files", () => {
     expect(readdirSync(box.cwd)).toEqual([]);
     expect(readdirSync(box.home)).toEqual([]);
 
-    const kept = sandbox();
+    const kept: Sandbox = sandbox();
     const decline = [
       "",
       "y",
