@@ -10,6 +10,7 @@ import {
   ensureKeycloakProviderCredentials,
   ensurePortalSecrets,
 } from "./portal-secrets.js";
+import { assertMetricsServerUnowned } from "./metrics-server-ownership.js";
 import { reconcileIfNeeded } from "./reconcile.js";
 
 /**
@@ -32,6 +33,11 @@ export async function bootstrapComponent(
   // (ADR 0034). Existing credentials are reused, never rotated.
   if (component.name === "oci-registry") {
     await ensureRegistryAuth(repository, runner);
+  }
+  // An existing cluster may still run k3s's bundled metrics-server, which
+  // owns the ClusterRole the release must own; fail before Helm does.
+  if (component.name === "metrics-server") {
+    await assertMetricsServerUnowned(repository, runner);
   }
   await reconcileIfNeeded(repository, runner, component);
   // Argo CD is installed, so it gets the registry's read identity before

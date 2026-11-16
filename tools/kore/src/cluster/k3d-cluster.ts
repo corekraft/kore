@@ -52,8 +52,9 @@ export function k3dContext(clusterName: string): string {
 }
 
 /**
- * The `k3d cluster create` arguments: the pinned image, Traefik and ServiceLB
- * disabled (Kore owns the gateway), the overlay service CIDR, the load
+ * The `k3d cluster create` arguments: the pinned image, Traefik, ServiceLB
+ * and the bundled metrics-server disabled (Kore owns the gateway and the
+ * metrics-server release), the overlay service CIDR, the load
  * balancer port mappings, and kubeconfig flags that add the cluster's context
  * without switching the person's current one. When Kore provides the
  * registry, the host trust directory is mounted into every node with the k3s
@@ -87,6 +88,8 @@ export function k3dCreateArgs(
     "--disable=traefik@server:*",
     "--k3s-arg",
     "--disable=servicelb@server:*",
+    "--k3s-arg",
+    "--disable=metrics-server@server:*",
     "--k3s-arg",
     `--service-cidr=${cluster.serviceCidr}@server:*`,
     ...cluster.ports.flatMap((port) => [

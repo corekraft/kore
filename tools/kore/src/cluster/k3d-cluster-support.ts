@@ -49,6 +49,8 @@ export function createArgs(
     "--k3s-arg",
     "--disable=servicelb@server:*",
     "--k3s-arg",
+    "--disable=metrics-server@server:*",
+    "--k3s-arg",
     "--service-cidr=10.96.0.0/12@server:*",
     "--port",
     "8443:443@loadbalancer",

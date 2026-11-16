@@ -15,10 +15,12 @@ import {
   ensureKeycloakProviderCredentials,
   ensurePortalSecrets,
 } from "./portal-secrets.js";
+import { assertMetricsServerUnowned } from "./metrics-server-ownership.js";
 import { reconcileIfNeeded } from "./reconcile.js";
 
 vi.mock("../images/index.js");
 vi.mock("./gatekeeper-admission.js");
+vi.mock("./metrics-server-ownership.js");
 vi.mock("./portal-secrets.js");
 vi.mock("./reconcile.js");
 
@@ -57,6 +59,9 @@ beforeEach(() => {
     order.push("keycloak-provider-credentials");
     return true;
   });
+  vi.mocked(assertMetricsServerUnowned).mockImplementation(
+    record("assert-metrics-server-unowned"),
+  );
   vi.mocked(reconcileIfNeeded).mockImplementation(async (_r, _n, c) => {
     order.push(`reconcile:${c.name}`);
   });
@@ -110,6 +115,23 @@ test("the Keycloak provider credential is streamed right after the provider inst
     "reconcile:keycloak-provider",
     "keycloak-provider-credentials",
   ]);
+});
+
+test("the metrics-server ClusterRole's owner is checked before its release is applied", async () => {
+  expect(await steps("metrics-server")).toEqual([
+    "assert-metrics-server-unowned",
+    "reconcile:metrics-server",
+  ]);
+});
+
+test("a metrics-server ClusterRole owned by the k3s add-on stops the release before Helm runs", async () => {
+  vi.mocked(assertMetricsServerUnowned).mockRejectedValueOnce(
+    new Error("owned by the k3s add-on"),
+  );
+  await expect(steps("metrics-server")).rejects.toThrow(
+    "owned by the k3s add-on",
+  );
+  expect(reconcileIfNeeded).not.toHaveBeenCalled();
 });
 
 test("an ordinary component is reconciled with no secret or trust step", async () => {
