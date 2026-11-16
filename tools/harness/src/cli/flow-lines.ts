@@ -121,6 +121,60 @@ export function frictionLine({
 const changes = (n: number) => `${n} merged change${n === 1 ? "" : "s"}`;
 
 /**
+ * Send-backs per merged change over the range, with the trailing average (#830). A
+ * figure below the minimum merged changes says it is not read, never a zero.
+ */
+export function sendBacksPerMergedChangeLine(
+  s: FlowReport["sendBacksPerMergedChange"],
+): string {
+  const { current, trailingAverage, trailingDays } = s;
+  const now =
+    current.status === "ok"
+      ? `${current.perMerged} (${current.sendBacks} send-backs over ${changes(current.merged)})`
+      : `not read, ${changes(current.merged)} in this range (${current.needed} needed)`;
+  const before =
+    trailingAverage.status === "ok"
+      ? `average ${trailingAverage.perMerged} over the trailing ${trailingDays} days`
+      : `no average: ${changes(trailingAverage.merged)} in the trailing ${trailingDays} days (${trailingAverage.needed} needed)`;
+  return `Send-backs per merged change: ${now}; ${before}`;
+}
+
+/**
+ * The median lead time per merged change over the range, with the trailing average
+ * (#830), and how many merged changes had a measured opening. Never a zero when unread.
+ */
+export function leadTimePerMergedChangeLine(
+  l: FlowReport["leadTimePerMergedChange"],
+): string {
+  const { current, trailingAverage, trailingDays } = l;
+  const measured = (f: { merged: number; measured: number }) =>
+    `${f.measured} of ${changes(f.merged)} measured`;
+  const now =
+    current.status === "ok"
+      ? `${current.medianSeconds}s median (${measured(current)})`
+      : `not read, ${measured(current)} in this range (${current.needed} needed)`;
+  const before =
+    trailingAverage.status === "ok"
+      ? `average ${trailingAverage.medianSeconds}s over the trailing ${trailingDays} days`
+      : `no average: ${measured(trailingAverage)} in the trailing ${trailingDays} days (${trailingAverage.needed} needed)`;
+  return `Lead time per merged change: ${now}; ${before}`;
+}
+
+/** The tokens, send-backs and lead time per merged change, in the order the report names them. */
+export const perMergedChangeLines = (
+  report: Pick<
+    FlowReport,
+    | "tokensPerMergedChange"
+    | "sendBacksPerMergedChange"
+    | "leadTimePerMergedChange"
+  >,
+): string[] => [
+  tokensPerMergedChangeLine(report.tokensPerMergedChange),
+  sendBacksPerMergedChangeLine(report.sendBacksPerMergedChange),
+  leadTimePerMergedChangeLine(report.leadTimePerMergedChange),
+];
+
+/**
  * Tokens per merged change over the range, with the trailing average (#829). A
  * figure below the minimum merged changes says it is not read, never a zero.
  */

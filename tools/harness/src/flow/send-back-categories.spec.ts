@@ -7,6 +7,7 @@ import {
   categoryReport,
   OTHER_SHARE_THRESHOLD,
   sendBackCategories,
+  sendBacksInRange,
 } from "./send-back-categories.js";
 
 vi.mock("./cost.js");
@@ -170,5 +171,29 @@ describe("categoryReport: per PR head and per merged change", () => {
       ...NONE,
       conflict: 1,
     });
+  });
+});
+
+describe("sendBacksInRange: every send-back in the window, once per PR head (#830)", () => {
+  it("counts a send-back whatever its category, and a rerun at one head once", () => {
+    expect(
+      sendBacksInRange(
+        [
+          sendBack(HEAD_A, "scope", 10),
+          sendBack(HEAD_A, "scope", 20),
+          sendBack(HEAD_B, undefined, 30),
+        ],
+        WINDOW,
+      ),
+    ).toBe(2);
+  });
+
+  it("counts a send-back from before categories existed, and leaves out one at the window's end", () => {
+    expect(
+      sendBacksInRange(
+        [sendBack(HEAD_A, undefined, 10), sendBack(HEAD_B, "conflict", 1000)],
+        WINDOW,
+      ),
+    ).toBe(1);
   });
 });

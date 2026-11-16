@@ -424,6 +424,21 @@ than `cost.minMergedChanges` is `{"status": "insufficient merged changes",
 That minimum defaults to 5, a placeholder until it is re-checked from data
 (#808).
 
+`sendBacksPerMergedChange` is read per window the same way (#830). Its `current`
+and `trailingAverage` give `perMerged` as the send-backs in the range over its
+merged changes, with `sendBacks` the send-backs counted, each PR head once
+whatever its category. `leadTimePerMergedChange` gives the median, in whole
+seconds, of each merged change's time from its pull request's opening to its
+merge, as `medianSeconds`, with `measured` the merged changes that had an
+opening. The opening is the ledger's `pr.opened` event for that PR number; when
+the ledger has none, the `pr.merged` event's own `openedAt` is used, which
+`ledger poll-github` records from GitHub on every merge it appends from #830 on.
+A merge with neither is counted as merged but not measured, and so are merges
+from before either was recorded. Both figures need `cost.minMergedChanges`
+merged changes (measured, for the lead time) to be read, else they are
+`{"status": "insufficient merged changes"}` with `merged`, `measured` where
+they apply, and `needed`, never zero.
+
 `reviewMisses` measures the Reviewer against the judge (#851). A review is a
 `review.run` event that posted or left unchanged a verdict, counted once per PR
 head by its first verdict; a review with `findings` 0 passed, and one with more

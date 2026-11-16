@@ -118,7 +118,12 @@ function fromItems(
       continue;
     }
     const idea = closedIssue(raw);
-    const at = (kind: EventInput["kind"], occurredAt: string, id: string) =>
+    const at = (
+      kind: EventInput["kind"],
+      occurredAt: string,
+      id: string,
+      extra: Partial<EventInput> = {},
+    ) =>
       out.push({
         id,
         source: "github",
@@ -126,12 +131,18 @@ function fromItems(
         occurredAt,
         number,
         ...(idea === undefined ? {} : { idea }),
+        ...extra,
       });
     if (opened !== undefined) {
       at(openedKind, opened, `github:${openedKind}:${number}`);
     }
     if (mergedKind !== undefined && merged !== undefined) {
-      at(mergedKind, merged, `github:${mergedKind}:${number}`);
+      // A merge carries when its pull request opened, for the lead-time fallback (#830).
+      const withOpening =
+        mergedKind === "pr.merged" && opened !== undefined
+          ? { openedAt: opened }
+          : {};
+      at(mergedKind, merged, `github:${mergedKind}:${number}`, withOpening);
     }
   }
   return out;

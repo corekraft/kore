@@ -92,6 +92,25 @@ const emptyTokensPerMergedChange = {
   },
 };
 
+/** Send-backs and lead time per merged change with no merged change in either span, so neither is read. */
+const emptySendBacksPerMergedChange = { ...emptyTokensPerMergedChange };
+const emptyLeadTimePerMergedChange = {
+  trailingDays: 7,
+  minMergedChanges: 5,
+  current: {
+    status: "insufficient merged changes",
+    merged: 0,
+    measured: 0,
+    needed: 5,
+  },
+  trailingAverage: {
+    status: "insufficient merged changes",
+    merged: 0,
+    measured: 0,
+    needed: 5,
+  },
+};
+
 /** A per-idea rework metric with too little history to compare. */
 const INSUFFICIENT_REWORK = {
   status: "insufficient history",
@@ -158,6 +177,8 @@ export function emptyReport(overrides: Partial<Record<string, unknown>> = {}) {
       worsened: false,
     },
     tokensPerMergedChange: emptyTokensPerMergedChange,
+    sendBacksPerMergedChange: emptySendBacksPerMergedChange,
+    leadTimePerMergedChange: emptyLeadTimePerMergedChange,
     reviewMisses: NO_REVIEWS,
     ...overrides,
     // The cast stands in for the fields the report prints but these tests never read.

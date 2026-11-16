@@ -116,6 +116,7 @@ export const PR_CALLS = [
       occurredAt: "2026-01-08T00:00:00Z",
       number: 9,
       idea: "#7",
+      openedAt: "2026-01-06T00:00:00Z",
     },
   ],
 ];
