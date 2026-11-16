@@ -518,7 +518,9 @@ refuses source `github` and these kinds, so only the poller writes them:
 The judge's precheck and merge trust principles-review verdicts only from the
 reviewer logins they name: `reviewerLogins` in `.claude/harness.json` when set,
 else the owner login (`ownerLogin`, else the repository's owner). A verdict from
-any other login is unverified. `--reviewer <login>[,<login>]` overrides both, and
+any other login is unverified. A GitHub App's login is written `app/<slug>`, such
+as `app/kore-reviewer` for the Reviewer App; the owner names it in `reviewerLogins`
+once the App posts (the owner's step). `--reviewer <login>[,<login>]` overrides both, and
 `harness judge precheck` prints the reviewers it used in its text and JSON output.
 
 `harness review run <pr>` posts that verdict itself. It reads the PR head once,

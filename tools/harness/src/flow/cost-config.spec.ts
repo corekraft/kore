@@ -83,11 +83,30 @@ describe("harness config reviewer logins", () => {
     });
   });
 
+  it("trusts a GitHub App's reviewer login, written app/<slug> as gh reports it", () => {
+    expect(parse({ reviewerLogins: ["junners", "app/kore-reviewer"] })).toEqual(
+      {
+        cost: DEFAULT_COST,
+        reviewerLogins: ["junners", "app/kore-reviewer"],
+      },
+    );
+  });
+
+  it("does not let an App form into the owner login, which stays a plain login", () => {
+    expect(parse({ ownerLogin: "app/kore-reviewer" })).toEqual({
+      error: expect.stringContaining('key "ownerLogin"'),
+    });
+  });
+
   it.each([
     [{ reviewerLogins: [] }],
     [{ reviewerLogins: "junners" }],
     [{ reviewerLogins: ["two words"] }],
     [{ reviewerLogins: [7] }],
+    [{ reviewerLogins: ["app/"] }],
+    [{ reviewerLogins: ["app/kore-reviewer/extra"] }],
+    [{ reviewerLogins: ["app/-kore"] }],
+    [{ reviewerLogins: ["apps/kore-reviewer"] }],
   ])("refuses reviewer logins %j, naming the key and the fix", (config) => {
     expect(parse(config)).toEqual({
       error: expect.stringContaining('key "reviewerLogins"'),
