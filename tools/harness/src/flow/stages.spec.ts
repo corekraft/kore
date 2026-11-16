@@ -68,6 +68,10 @@ describe("the GitHub event stage table", () => {
     expect(GITHUB_STAGES["review.run"]).toBe("review");
   });
 
+  it("maps an idea.filed event to the refine stage, where an idea is filed", () => {
+    expect(GITHUB_STAGES["idea.filed"]).toBe("refine");
+  });
+
   it("leaves an issue label out, since only the approval label is a stage", () => {
     expect(Object.hasOwn(GITHUB_STAGES, "issue.labelled")).toBe(false);
   });

@@ -228,13 +228,17 @@ describe("HarnessCli retro tools", () => {
       harness("retro", "record", "--reason", "count", "--json"),
     ]);
   });
+});
 
-  it("spawns the retro pane on the model it is given, without waiting and without a worktree", async () => {
+describe("HarnessCli retro", () => {
+  it("spawns the retro pane on its model and effort with the reason, without waiting and without a worktree", async () => {
     const { cli, calls } = setup();
     await cli.spawnRetro({
       role: "reader",
       name: "retro-20261115-0930",
-      model: "claude-opus-5-5",
+      model: "claude-sonnet-5-5",
+      effort: "high",
+      reason: "why",
       brief: "b",
     });
     expect(calls).toEqual([
@@ -248,9 +252,46 @@ describe("HarnessCli retro tools", () => {
         "--brief",
         "b",
         "--model",
-        "claude-opus-5-5",
+        "claude-sonnet-5-5",
+        "--effort",
+        "high",
+        "--reason",
+        "why",
         "--no-wait",
       ),
     ]);
+  });
+
+  it("collects a pane by waiting for it and reading its unwrapped text", async () => {
+    const { cli, calls } = setup((args) =>
+      args.includes("wait")
+        ? { stdout: JSON.stringify({ outcome: "done", paneId: "w1:p4" }) }
+        : { stdout: "pane text" },
+    );
+
+    expect(await cli.collect("retro-1")).toEqual({
+      outcome: "done",
+      text: "pane text",
+    });
+    expect(calls).toEqual([
+      harness("session", "wait", "retro-1", "--json"),
+      {
+        command: "herdr",
+        args: ["pane", "read", "w1:p4", "--source", "recent-unwrapped"],
+        cwd: "/repo",
+      },
+    ]);
+  });
+
+  it("names the failed read when herdr cannot read the pane", async () => {
+    const { cli } = setup((args) =>
+      args.includes("wait")
+        ? { stdout: JSON.stringify({ outcome: "done", paneId: "w1:p4" }) }
+        : { code: 1, stderr: "no such pane" },
+    );
+
+    await expect(cli.collect("retro-1")).rejects.toThrow(
+      "`herdr pane read w1:p4` failed: no such pane. Fix that, then rerun.",
+    );
   });
 });

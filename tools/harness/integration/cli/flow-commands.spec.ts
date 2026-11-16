@@ -28,6 +28,7 @@ const KEYS = [
   "metrics",
   "rework",
   "friction",
+  "retroProposalsDropped",
   "bottleneck",
   "bottleneckNote",
   "unmappedEvents",

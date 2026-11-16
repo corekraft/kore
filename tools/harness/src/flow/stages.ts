@@ -44,6 +44,8 @@ export const GITHUB_STAGES: Readonly<Partial<Record<Kind, Stage>>> = {
   "pr.opened": "merge",
   "pr.merged": "merge",
   "review.run": "review",
+  // The idea-filed event: where an idea is filed is the refine stage.
+  "idea.filed": "refine",
 };
 
 /** Default minimum completed ideas before a bottleneck is named. */

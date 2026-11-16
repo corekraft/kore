@@ -26,6 +26,7 @@ const NUMBER_KINDS: readonly Kind[] = [
   "owner.action",
   "auto-approved",
   "harness-change-reverted",
+  "retro.dropped",
 ];
 
 /** Workflow runs GitHub concluded: only the conclusion and its time are kept. */
@@ -215,6 +216,8 @@ const RULES: readonly Rule[] = [
       "auto-approved",
       "guardrail.requested",
       "guardrail.activated",
+      "idea.filed",
+      "retro.dropped",
     ],
   },
   {

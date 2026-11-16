@@ -7,6 +7,7 @@ import * as outcomes from "./outcomes.js";
 import { firstTime, time } from "./github-waits.js";
 import * as ideaMetricsModule from "./idea-metrics.js";
 import { frictionMetrics, ideaMetrics } from "./idea-metrics.js";
+import { retroProposalsDropped } from "./retro-dropped.js";
 import { inWindow, type Span } from "./scope.js";
 import { median } from "./wip.js";
 
@@ -37,6 +38,7 @@ vi.mock("./attribution-measure.js");
 vi.mock("./cost.js");
 vi.mock("./friction.js");
 vi.mock("./outcomes.js");
+vi.mock("./retro-dropped.js");
 vi.mock("./github-waits.js");
 vi.mock("./scope.js");
 vi.mock("./wip.js");
@@ -149,10 +151,13 @@ describe("frictionMetrics", () => {
     const found = { total: 1 } as ReturnType<typeof friction>;
     vi.mocked(reworkMetrics).mockReturnValue(rework);
     vi.mocked(friction).mockReturnValue(found);
+    vi.mocked(retroProposalsDropped).mockReturnValue(4);
     expect(frictionMetrics(named, byIdea, WINDOW, 2)).toEqual({
       rework,
       friction: found,
+      retroProposalsDropped: 4,
     });
+    expect(retroProposalsDropped).toHaveBeenCalledWith(named, WINDOW);
     expect(reworkMetrics).toHaveBeenCalledWith(byIdea, WINDOW, 2);
     expect(friction).toHaveBeenCalledWith(named, WINDOW);
   });

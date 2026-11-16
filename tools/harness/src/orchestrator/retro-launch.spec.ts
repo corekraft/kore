@@ -1,7 +1,10 @@
 import { describe, expect, it } from "vitest";
+import { PROPOSALS_BEGIN, PROPOSALS_END } from "./retro-proposals.js";
 import {
+  RETRO_EFFORT,
   RETRO_FLAG,
   RETRO_MODEL,
+  RETRO_REASON,
   RETRO_ROLE,
   RetroLaunch,
   type RetroPane,
@@ -87,22 +90,52 @@ describe("RetroLaunch", () => {
 
     expect(calls).toContain("record metric:tokensPerIdea");
   });
+});
 
-  it("passes the Opus model constant and the retro brief to the pane", async () => {
+describe("RetroLaunch pane", () => {
+  it("runs the retro pane on Sonnet at high effort and says why in the launch event", async () => {
     const { fake, panes } = ports();
 
     await new RetroLaunch(fake).run();
 
-    expect(RETRO_MODEL).toBe("claude-opus-5-5");
+    expect(RETRO_MODEL).toBe("claude-sonnet-5-5");
+    expect(RETRO_EFFORT).toBe("high");
     expect(panes).toEqual([
       {
         role: RETRO_ROLE,
         name: "retro-20261115-0930",
         model: RETRO_MODEL,
-        brief:
-          "Run the /retro skill: review the sessions since the last retrospective and end with ranked proposals. Propose only; change no file and record nothing. The trigger (count) is already recorded.",
+        effort: RETRO_EFFORT,
+        reason: RETRO_REASON,
+        brief: expect.stringContaining(
+          "The trigger (count) is already recorded.",
+        ),
       },
     ]);
+    expect(RETRO_REASON.length).toBeLessThanOrEqual(100);
+  });
+
+  it("briefs the pane to propose only and to end with its proposals as JSON between the markers", async () => {
+    const { fake, panes } = ports();
+
+    await new RetroLaunch(fake).run();
+
+    const brief = panes[0]?.brief ?? "";
+    expect(brief).toContain("Propose only; change no file and record nothing.");
+    expect(brief).toContain(`${PROPOSALS_BEGIN}`);
+    expect(brief).toContain(`${PROPOSALS_END}`);
+    for (const field of [
+      "title",
+      "hypothesis",
+      "expectedOutcome",
+      "measurement",
+      "safetyPattern",
+      "metric",
+      "direction",
+      "window",
+    ]) {
+      expect(brief).toContain(field);
+    }
   });
 
   it("launches no second pane for a trigger the ledger already holds", async () => {

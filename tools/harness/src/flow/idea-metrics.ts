@@ -21,6 +21,7 @@ import {
   type ReworkMetrics,
 } from "./friction.js";
 import { firstTime, time } from "./github-waits.js";
+import { retroProposalsDropped } from "./retro-dropped.js";
 import { inWindow, type Span } from "./scope.js";
 import { median } from "./wip.js";
 
@@ -74,6 +75,8 @@ export interface FrictionMetrics {
   rework: ReworkMetrics;
   /** Friction events in range by source. */
   friction: Friction;
+  /** Retro proposals the per-retro cap dropped in range. */
+  retroProposalsDropped: number;
 }
 
 export function frictionMetrics(
@@ -85,5 +88,6 @@ export function frictionMetrics(
   return {
     rework: reworkMetrics(byIdea, window, trailingIdeas),
     friction: friction(named, window),
+    retroProposalsDropped: retroProposalsDropped(named, window),
   };
 }

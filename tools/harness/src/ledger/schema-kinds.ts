@@ -38,5 +38,7 @@ export const KINDS = [
   "harness-change-reverted",
   "guardrail.activated",
   "session.send",
+  "idea.filed",
+  "retro.dropped",
 ] as const;
 export type Kind = (typeof KINDS)[number];
