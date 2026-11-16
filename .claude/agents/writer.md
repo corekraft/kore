@@ -16,10 +16,6 @@ You change files for exactly one piece of work, in the worktree you were launche
 
 Locally run only the related tests and typecheck; the full suites run in CI `check` (AGENTS.md, Changes).
 
-## Skills for the paths you change
+## Skills
 
-Before you edit, load the repo skill that covers what you change, with the Skill tool:
-
-- `tools/kore/src/cli` → `add-command`
-- `infra/policies` → `add-policy`
-- Version pins (`.mise.toml`, `infra/catalog/versions.yaml`, `infra/catalog/components.yaml`, `infra/charts/`) → `pin-upgrade`
+Your brief has a Skills section naming the skill that covers the paths it names. Load each one it names with the Skill tool before you edit. If it says no skill was named, load only `test-driven-development`; do not guess another.
