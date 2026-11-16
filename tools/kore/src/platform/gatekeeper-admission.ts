@@ -34,7 +34,7 @@ export async function waitForGatekeeperAdmission(
     );
   } catch (error) {
     throw new Error(
-      `Gatekeeper admission is not ready in ${kubeContext}, so the next component's objects would be refused: ${errorMessage(error)}`,
+      `Gatekeeper webhook is not ready in ${kubeContext} after ${gatekeeper.timeout}: ${errorMessage(error)}. Gatekeeper fails closed, so the next component's objects would be refused. Check \`kubectl --context ${kubeContext} --namespace gatekeeper-system get pods\` until the gatekeeper-controller-manager pods are Ready, then rerun the command.`,
     );
   }
 }

@@ -47,6 +47,6 @@ test("a webhook that never gets endpoints fails with the cause, naming Gatekeepe
   await expect(
     waitForGatekeeperAdmission(repository, fakeRunner().runner),
   ).rejects.toThrow(
-    "Gatekeeper admission is not ready in k3d-kore-local, so the next component's objects would be refused: webhook check-ignore-label.gatekeeper.sh needs Service gatekeeper-system/gatekeeper-webhook-service, which has no ready endpoints",
+    "Gatekeeper webhook is not ready in k3d-kore-local after 7m: webhook check-ignore-label.gatekeeper.sh needs Service gatekeeper-system/gatekeeper-webhook-service, which has no ready endpoints. Gatekeeper fails closed, so the next component's objects would be refused. Check `kubectl --context k3d-kore-local --namespace gatekeeper-system get pods` until the gatekeeper-controller-manager pods are Ready, then rerun the command.",
   );
 });
