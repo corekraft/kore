@@ -9,11 +9,13 @@ import {
 } from "./merged-stage-tokens.js";
 import { STAGES, type Stage } from "./stages.js";
 import { mergedChangeTokens } from "./merged-tokens.js";
+import { mergedChangeWriterCost } from "./writer-cost.js";
 
 vi.mock("./merged-lead-time.js");
 vi.mock("./merged-send-backs.js");
 vi.mock("./merged-stage-tokens.js");
 vi.mock("./merged-tokens.js");
+vi.mock("./writer-cost.js");
 
 const INSUFFICIENT = {
   status: "insufficient merged changes",
@@ -42,16 +44,25 @@ const NO_STAGE_TOKENS = Object.fromEntries(
 ) as Record<Stage, number>;
 const BY_STAGE = { ...NO_STAGE_TOKENS, write: 300 };
 
+const WRITER_COST = {
+  pricesAsOf: "2026-11-16",
+  trailingDays: 7,
+  minMergedChanges: 5,
+  current: INSUFFICIENT,
+  trailingAverage: INSUFFICIENT,
+} as const;
+
 beforeEach(() => {
   vi.mocked(mergedChangeTokens).mockReturnValue(TOKENS);
   vi.mocked(mergedChangeSendBacks).mockReturnValue(SEND_BACKS);
   vi.mocked(mergedChangeLeadTime).mockReturnValue(LEAD_TIME);
   vi.mocked(tokensByStage).mockReturnValue(BY_STAGE);
   vi.mocked(mergedChangeStageTokens).mockReturnValue(TOKENS);
+  vi.mocked(mergedChangeWriterCost).mockReturnValue(WRITER_COST);
 });
 
 describe("mergedChangeFigures: the figures over one window", () => {
-  it("gives tokens, send-backs, lead time and tokens by stage over the same events, window and options", () => {
+  it("gives tokens, send-backs, lead time, tokens by stage and writer cost over the same events, window and options", () => {
     const events: LedgerEvent[] = [];
     const window: [number, number] = [0, 10];
     const options = { asOf: new Date(0), cost: { minMergedChanges: 3 } };
@@ -67,12 +78,18 @@ describe("mergedChangeFigures: the figures over one window", () => {
       window,
       options,
     );
+    expect(mergedChangeWriterCost).toHaveBeenCalledWith(
+      events,
+      window,
+      options,
+    );
     expect(r).toEqual({
       tokensPerMergedChange: TOKENS,
       sendBacksPerMergedChange: SEND_BACKS,
       leadTimePerMergedChange: LEAD_TIME,
       tokensByStage: BY_STAGE,
       tokensByStagePerMergedChange: TOKENS,
+      writerCost: WRITER_COST,
     });
   });
 });
