@@ -5,11 +5,17 @@ import {
   harnessAllowed,
   WORKING_READS,
 } from "./guard-role-writes.js";
+import {
+  commandLookup,
+  gitReadMayRun,
+  whichMayRun,
+} from "./guard-role-reads.js";
 import { commandOf } from "./guard-shell.js";
 
 // commandOf, harnessAllowed and bareAssignment are collaborators outside the unit: typed
 // mocks stand in for them. Constants (HARNESS) stay real, as ADR 0098 allows.
 vi.mock("./guard-shell.js");
+vi.mock("./guard-role-reads.js");
 vi.mock("./guard-role-writes.js", async (importOriginal) => ({
   ...(await importOriginal<typeof import("./guard-role-writes.js")>()),
   harnessAllowed: vi.fn(),
@@ -28,6 +34,9 @@ beforeEach(() => {
     (name, args, allowed) =>
       name === "node" && allowed.includes(`${args[1] ?? ""} ${args[2] ?? ""}`),
   );
+  vi.mocked(commandLookup).mockReturnValue(false);
+  vi.mocked(gitReadMayRun).mockReturnValue(false);
+  vi.mocked(whichMayRun).mockReturnValue(false);
   vi.mocked(bareAssignment).mockImplementation(
     (segment) =>
       segment.length === 1 && /^[A-Za-z_]\w*=/.test(segment[0] ?? ""),
@@ -292,10 +301,7 @@ describe("the reads the refusal names are reads the guard allows", () => {
     expect(readMayRun(line.split(" "), HARNESS_READS)).toBe(true);
   });
 
-  it("still refuses the reads the owner has not yet allowed, so the message does not promise them", () => {
-    expect(mayRun(["git", "merge-base", "a", "b"])).toBe(false);
-    expect(mayRun(["git", "cat-file", "-p", "HEAD"])).toBe(false);
-    expect(mayRun(["git", "ls-tree", "HEAD"])).toBe(false);
+  it("still refuses git fetch, which writes refs and objects, so the message does not promise it", () => {
     expect(mayRun(["git", "fetch", "origin"])).toBe(false);
   });
 });

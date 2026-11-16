@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { readMayRun } from "./guard-role-allow.js";
+import { harnessHelp, readMayRun } from "./guard-role-allow.js";
 import {
   mergesPr,
   runsJudgeTool,
@@ -86,6 +86,7 @@ beforeEach(() => {
   vi.mocked(runsJudgeTool).mockReturnValue(false);
   vi.mocked(readMayRun).mockReturnValue(true);
   vi.mocked(harnessAllowed).mockReturnValue(true);
+  vi.mocked(harnessHelp).mockReturnValue(false);
   vi.mocked(notifiesFinish).mockReturnValue(true);
   vi.mocked(sendsToPane).mockReturnValue(false);
   vi.mocked(setsEnvironment).mockReturnValue(false);
@@ -190,6 +191,17 @@ describe("checkDeliveryBash: a reporting role's shell", () => {
     vi.mocked(writes).mockReturnValue(false);
     vi.mocked(harnessAllowed).mockReturnValue(false);
     expect(bash("judge", `node ${HARNESS_PATH} idea new`)).toMatchObject({
+      rule: "role-read-only",
+    });
+  });
+
+  it("passes the harness usage even though no <domain> <command> names it", () => {
+    vi.mocked(harnessAllowed).mockReturnValue(false);
+    vi.mocked(harnessHelp).mockReturnValue(true);
+    expect(bash("judge", `node ${HARNESS_PATH} --help`)).toBeNull();
+
+    vi.mocked(harnessHelp).mockReturnValue(false);
+    expect(bash("judge", `node ${HARNESS_PATH} --version`)).toMatchObject({
       rule: "role-read-only",
     });
   });

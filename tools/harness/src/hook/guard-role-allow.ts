@@ -3,6 +3,11 @@
 // harness commands each role names. Anything not listed here is refused, so a form the
 // blocklist never thought of (`awk system()`, `find -exec`, `git -c alias`) cannot write.
 import {
+  commandLookup,
+  gitReadMayRun,
+  whichMayRun,
+} from "./guard-role-reads.js";
+import {
   bareAssignment,
   HARNESS,
   harnessAllowed,
@@ -159,6 +164,29 @@ const retroScanMayRun = (name: string, args: readonly string[]): boolean =>
   args[2] === "retro-scan" &&
   !args.some((arg) => arg === "--ledger" || arg.startsWith("--ledger="));
 
+/** `harness --help` prints the usage and nothing else: the bundle and that one option. */
+export const harnessHelp = (name: string, args: readonly string[]): boolean =>
+  name === "node" &&
+  args.length === 2 &&
+  HARNESS.test(args[0] ?? "") &&
+  args[1] === "--help";
+
+/** A read-only git verb, or one of the four git reads of the seven, with no option that writes or runs code. */
+const gitMayRun = (args: readonly string[]): boolean =>
+  (READER_GIT.includes(args.find((arg) => !arg.startsWith("-")) ?? "") ||
+    gitReadMayRun(args)) &&
+  !gitWrites(args);
+
+/** The lookups that run nothing: `command -v` (read from the segment, since `command` is a wrapper commandOf skips), `which` and `harness --help`. */
+const lookupMayRun = (
+  segment: readonly string[],
+  name: string,
+  args: readonly string[],
+): boolean =>
+  commandLookup(segment) ||
+  (name === "which" && whichMayRun(args)) ||
+  harnessHelp(name, args);
+
 /** What a read-only role's shell may run (the reader and judge share it): read utilities, queries and allowlisted harness commands; find may not delete, execute or write. */
 export function readMayRun(
   segment: readonly string[],
@@ -185,12 +213,10 @@ export function readMayRun(
     );
   }
   if (name === "git") {
-    return (
-      READER_GIT.includes(args.find((arg) => !arg.startsWith("-")) ?? "") &&
-      !gitWrites(args)
-    );
+    return gitMayRun(args);
   }
   return (
+    lookupMayRun(segment, name, args) ||
     harnessAllowed(name, args, harness) ||
     retroScanMayRun(name, args) ||
     (name === "gh" && ghMayRun(args, true)) ||
