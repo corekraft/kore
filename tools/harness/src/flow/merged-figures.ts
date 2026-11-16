@@ -1,6 +1,6 @@
 // The per-merged-change figures the flow report names together: tokens (#829), and
-// send-backs and lead time (#830). Each is read over the window, with a trailing
-// average over the days before it.
+// send-backs and lead time (#830), and tokens by stage (#831). Each is read over the
+// window; the per-merged ones have a trailing average over the days before it.
 
 import type { LedgerEvent } from "../ledger/index.js";
 import type { CostOptions } from "./cost.js";
@@ -12,6 +12,12 @@ import {
   mergedChangeSendBacks,
   type SendBacksPerMergedChange,
 } from "./merged-send-backs.js";
+import {
+  mergedChangeStageTokens,
+  tokensByStage,
+  type StageTokens,
+  type TokensByStagePerMergedChange,
+} from "./merged-stage-tokens.js";
 import {
   mergedChangeTokens,
   type TokensPerMergedChange,
@@ -25,6 +31,10 @@ export interface MergedChangeFigures {
   sendBacksPerMergedChange: SendBacksPerMergedChange;
   /** Median lead time per merged change over the window, from each PR's opening to its merge, with the trailing days as the average. */
   leadTimePerMergedChange: LeadTimePerMergedChange;
+  /** Tokens spent in each stage over the window (#831). */
+  tokensByStage: StageTokens;
+  /** Tokens per merged change in each stage over the window, with the trailing days before it as the average (#831). */
+  tokensByStagePerMergedChange: TokensByStagePerMergedChange;
 }
 
 /** The per-merged-change figures over the window, read against the cost settings. */
@@ -37,5 +47,11 @@ export function mergedChangeFigures(
     tokensPerMergedChange: mergedChangeTokens(events, window, options),
     sendBacksPerMergedChange: mergedChangeSendBacks(events, window, options),
     leadTimePerMergedChange: mergedChangeLeadTime(events, window, options),
+    tokensByStage: tokensByStage(events, window),
+    tokensByStagePerMergedChange: mergedChangeStageTokens(
+      events,
+      window,
+      options,
+    ),
   };
 }

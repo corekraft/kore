@@ -7,6 +7,7 @@ import {
 import { time } from "./github-waits.js";
 import { buildReport } from "./report.js";
 import { scopeOf, windowOf, inWindow } from "./scope.js";
+import { STAGES, type Stage } from "./stages.js";
 import { newLife } from "./toil.js";
 import {
   ASOF,
@@ -65,10 +66,17 @@ const LEAD_TIME = {
   },
 } as const;
 
+const NO_STAGE_TOKENS = Object.fromEntries(
+  STAGES.map((stage) => [stage, 0]),
+) as Record<Stage, number>;
+const BY_STAGE = { ...NO_STAGE_TOKENS, write: 300 };
+
 const FIGURES: MergedChangeFigures = {
   tokensPerMergedChange: TOKENS,
   sendBacksPerMergedChange: SEND_BACKS,
   leadTimePerMergedChange: LEAD_TIME,
+  tokensByStage: BY_STAGE,
+  tokensByStagePerMergedChange: TOKENS,
 };
 
 beforeEach(() => {
@@ -100,6 +108,8 @@ describe("buildReport per-merged-change figures (#829, #830)", () => {
     expect(r.tokensPerMergedChange).toBe(TOKENS);
     expect(r.sendBacksPerMergedChange).toBe(SEND_BACKS);
     expect(r.leadTimePerMergedChange).toBe(LEAD_TIME);
+    expect(r.tokensByStage).toBe(BY_STAGE);
+    expect(r.tokensByStagePerMergedChange).toBe(TOKENS);
     expect(mergedChangeFigures).toHaveBeenCalledWith(
       named,
       WINDOW,
@@ -121,7 +131,7 @@ describe("buildReport per-merged-change figures (#829, #830)", () => {
     );
   });
 
-  it("versions the report to 18, since two fields joined it (#830)", () => {
-    expect(run([]).version).toBe(18);
+  it("versions the report to 19, since two fields joined it (#831)", () => {
+    expect(run([]).version).toBe(19);
   });
 });
