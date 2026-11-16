@@ -20,6 +20,18 @@ describe("guardrail events", () => {
     expect(POLLER_KINDS).not.toContain("guardrail.requested");
   });
 
+  it("guardrail.approval-warned carries the approved change as its label and nothing else", () => {
+    const event = { ...stamp, kind: "guardrail.approval-warned" };
+    expect(
+      parseEvent({ ...event, label: "bare-glob:audit>enforce" }, "input").ok,
+    ).toBe(true);
+    expect(parseEvent(event, "input").ok).toBe(false);
+    expect(
+      parseEvent({ ...event, label: "r:audit>enforce", number: 3 }, "input").ok,
+    ).toBe(false);
+    expect(POLLER_KINDS).not.toContain("guardrail.approval-warned");
+  });
+
   it("guardrail.activated carries the rule and the approved change as its label and nothing else", () => {
     const event = { ...stamp, kind: "guardrail.activated" };
     expect(

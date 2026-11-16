@@ -734,13 +734,21 @@ counts, however it was applied, and neither does a comment that carries a
 harness marker (`<!--`) or comes from another login. Enforcing, loosening and
 removing need the same approval.
 
+An approving comment whose first line is a sender line (`sender: ...`) was
+posted by a session, not the owner. It still approves, so the gate is unchanged,
+but the activation warns: the result carries a `warning` naming the comment, the
+warning goes to stderr, and a `guardrail.approval-warned` ledger event is
+recorded for the change before anything is written. Refusing such a comment is
+the owner's decision, not this command's. When the owner's own untagged
+approval is also on the issue, that approval counts and no warning is given.
+
 With the approval it edits the rule's line (or drops it), regenerates the
 settings deny list for a deny rule, and appends a `guardrail.activated` ledger
 event labelled `<rule>:<from>><to>`. A ruleset rule still needs `ruleset sync` to
 reach GitHub. Without a recorded request, an approval or with only a label, it
 exits 1, leaves the file untouched, and posts one refusal comment on the idea's
 issue (a rerun with the same refusal posts nothing). `--json` prints
-`{ rule, from, to, idea, issue, activated, reason?, refusalPosted?, commentUrl? }`.
+`{ rule, from, to, idea, issue, activated, reason?, refusalPosted?, commentUrl?, warning? }`.
 
 Two checks hold the line elsewhere. The guard blocks an Edit or Write of the
 inventory that sets a rule to enforce, or adds one already in enforce
