@@ -78,6 +78,15 @@ than the pane never matches, and the main session falls back to raw herdr.
   repeated-correction clusters are guard metrics none of them claims. None of
   these counts goes into the owner digest.
 
+- **The primaries reach the flow report through one event.** The retro scan
+  records one `retro.main-session` ledger event per scan, through the ledger
+  module, carrying the three counts, their denominators and the scanned
+  window, and no command text. The flow report reads it as
+  `mainSession.foregroundPollMinutesPerMerged`,
+  `mainSession.paneReadsPerFinishedPane` and `mainSession.signedSendShare`,
+  counting a rescanned window once. Until it does, each idea names an accepted
+  flow metric as a stand-in that no outcome is read on, and its flag stays off.
+
 - **One flag each, gating the main-session brief.** `main-session-wait`,
   `pane-result-summary` and `signed-main-sends` each gate one line of the
   main session's SessionStart brief naming the tool to use. `harness wait` and

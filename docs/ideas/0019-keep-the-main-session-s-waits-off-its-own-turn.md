@@ -1,8 +1,8 @@
 ---
 summary: Keep the main session's waits off its own turn
-hypothesis: If the guard flags a foreground sleep, until or seq polling loop in the main session and names harness pr checks --wait, a background run or Monitor instead, owner messages and pane results stop queuing behind the orchestrator's waits and the owner re-asks less.
-expected-outcome: Owner minutes per merged change fall by a quarter; in the retro window the main session's foreground poll time (about 490 minutes over 15-16 Nov, 669 calls) falls below 60 minutes, and the p90 queue wait of owner messages (33 minutes) falls below 5.
-measurement: flow report outcomes.ownerMinutes.perMerged over 14 days, read beside a retro-scan count of the main session's foreground poll calls and queue-operation wait times.
+hypothesis: If the main session waits on pull request checks and pane results with one background harness wait instead of foreground sleep, until or seq loops, owner messages and pane results stop queuing behind its waits.
+expected-outcome: The main session's foreground poll minutes per merged change fall by at least three quarters, against about 490 minutes in 669 polls over 15-16 Nov, while owner minutes per merged change and the p90 queue wait of owner messages (33 minutes) do not worsen.
+measurement: mainSession.foregroundPollMinutesPerMerged in harness flow report, from the retro.main-session event retro-scan records from transcripts; until that metric exists the frontmatter names outcomes.ownerMinutes.perMerged as a stand-in and no outcome is read on it.
 safety-pattern: feature-flagged
 date: 2026-11-16
 kind: harness
@@ -12,3 +12,21 @@ hypothesis-window: 14d
 ---
 
 # Idea 0019: Keep the main session's waits off its own turn
+
+Decided in [ADR 0123](../decisions/0123-the-main-session-waits-and-sends-through-harness-tools-not-guards.md).
+
+- **No guard.** The idea as filed had the guard flag foreground polls; ADR
+  0091 freezes new guards, so this ships as a tool and an instruction line.
+- **The tool.** `harness wait` takes any mix of `--pr <n>` and
+  `--session <name>` targets and returns when the first settles or its bound
+  passes, naming the target and its state.
+- **The flag.** `main-session-wait`, off in every overlay, gates one line of
+  the main session's SessionStart brief that names `harness wait`.
+- **The primary.** The real primary is the main session's foreground poll
+  minutes per merged change, down. The frontmatter names
+  `outcomes.ownerMinutes.perMerged`, a shared guard metric, only as a stand-in
+  until `mainSession.foregroundPollMinutesPerMerged` is in the flow report; the
+  ticket that adds it switches the frontmatter. No outcome is read on the
+  stand-in, and the flag stays off until then.
+- **The window** opens only while `orchestrator-tick` is off; a tick turned on
+  mid-window makes it insufficient and restarts it.
