@@ -81,7 +81,8 @@ describe("hook guard", () => {
       undefined,
       git,
     );
-    expect(git).toHaveLength(1);
+    // The worktree root's own top-level lookup is a separate, cheap call.
+    expect(git.filter((args) => args[1] !== "--show-toplevel")).toHaveLength(1);
   });
 
   it("allows silently and records only the tool start", async () => {

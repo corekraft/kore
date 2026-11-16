@@ -185,6 +185,9 @@ repository root; `mise run kb-check` keeps this list complete.
 - [`docs/decisions/0116-application-runtime-images-are-distroless-builder-stages-can-be-anything.md`](decisions/0116-application-runtime-images-are-distroless-builder-stages-can-be-anything.md) — Every runtime image Kore builds or templates is distroless, with no shell and no package manager; builder stages are free, and upstream images we only pull are exempt but prefer distroless variants.
 - [`docs/decisions/0117-the-delivery-loop-s-role-set.md`](decisions/0117-the-delivery-loop-s-role-set.md) — Refines ADR 0078 and ADR 0091: the delivery loop runs on writer, judge, reader and a spawned Reviewer; the orchestrator, concierge, refiner and challenger definitions are removed (never launched since the ledger began on 12 Nov 2026), the Orchestrator role is filled by orchestrate run, every role is defined on Haiku or Sonnet, the auto-approve qualifier replaces the challenger for harness ideas, and spawn-session is deleted.
 - [`docs/decisions/0118-retro-proposals-are-filed-as-ideas-by-a-tool.md`](decisions/0118-retro-proposals-are-filed-as-ideas-by-a-tool.md) — Refines ADR 0080 and plan 12 Step 2: the automatic retro pane ends with its proposals as JSON in a fixed schema, and orchestrate run files them as harness ideas behind the automatic-retro flag, checking the whole batch first, capping one retro at 5 ideas, keying each on the trigger id plus a content hash, and leaving approval to the qualifier.
+- [`docs/decisions/0119-each-harness-idea-is-measured-on-a-primary-metric-only-it-moves.md`](decisions/0119-each-harness-idea-is-measured-on-a-primary-metric-only-it-moves.md) — Refines ADR 0117 and plan 12 Step 3: each harness idea names a primary metric only it moves, read from events the changed code does not write; metrics several ideas move are guard metrics that must not worsen; two ideas with one primary open their windows in sequence; no outcome is read until idea attribution holds among role sessions.
+- [`docs/decisions/0120-recommended-decisions-go-to-an-advisor-reserved-decisions-to-the-owner.md`](decisions/0120-recommended-decisions-go-to-an-advisor-reserved-decisions-to-the-owner.md) — Proposed, refines ADR 0117: a question that carries a recommendation goes to a read-only advisor role that records its decision on the issue, unless it is a reserved decision from a closed, fail-closed list whose entries already belong to the owner; the advisor grants nothing, reserved questions are posted at once and notified in one daily digest, a comment or pane message without a role line is the owner's; by delegation the advisor runs on Opus as ADR 0117's one exception and unattended sessions get their own identities; it becomes accepted on the owner's untagged comment.
+- [`docs/decisions/0121-the-orchestrator-is-a-tick-with-judgment-panes.md`](decisions/0121-the-orchestrator-is-a-tick-with-judgment-panes.md) — Proposed, refines ADR 0117: orchestrate tick advances each in-flight idea by at most one step per pass, calls no model itself, and spawns a short-lived Sonnet judgment pane under a small brief for the steps a tool cannot decide, against ADR 0117's sentence that no agent fills the Orchestrator role.
 
 ## Proposed Decisions
 
@@ -209,6 +212,16 @@ decisions; read one only when planning that area, and expect it to change.
 - [`docs/ideas/0004-gateway-rollback-order.md`](ideas/0004-gateway-rollback-order.md) — Roll back the gateway in order
 - [`docs/ideas/0005-agentgateway-mesh-enrollment.md`](ideas/0005-agentgateway-mesh-enrollment.md) — Enrol agentgateway in the mesh
 - [`docs/ideas/0006-reuse-the-signed-local-image-on-a-rerun-of-kore-local-up.md`](ideas/0006-reuse-the-signed-local-image-on-a-rerun-of-kore-local-up.md) — Reuse the signed local image on a rerun of kore local up
+- [`docs/ideas/0007-orchestrator-tick.md`](ideas/0007-orchestrator-tick.md) — Run the orchestrator as a tick over the ledger and queue
+- [`docs/ideas/0008-decision-advisor.md`](ideas/0008-decision-advisor.md) — Send recommended decisions to an advisor role, not the owner
+- [`docs/ideas/0009-pane-completion-from-ledger.md`](ideas/0009-pane-completion-from-ledger.md) — Take pane completion from session wait and a watchdog timer
+- [`docs/ideas/0010-writer-precheck-before-done.md`](ideas/0010-writer-precheck-before-done.md) — Writers run the judge precheck before they report done
+- [`docs/ideas/0011-guard-blocks-on-legitimate-work.md`](ideas/0011-guard-blocks-on-legitimate-work.md) — Stop guard blocks that hit legitimate work
+- [`docs/ideas/0012-idea-stamping-and-retro-threshold.md`](ideas/0012-idea-stamping-and-retro-threshold.md) — Stamp every loop event with its idea and stage
+- [`docs/ideas/0013-judge-read-only-allowlist.md`](ideas/0013-judge-read-only-allowlist.md) — Let read-only roles run the git and gh reads they need
+- [`docs/ideas/0014-role-pane-context.md`](ideas/0014-role-pane-context.md) — Give role panes only the context their role needs
+- [`docs/ideas/0015-writer-follow-up-rules.md`](ideas/0015-writer-follow-up-rules.md) — Put the writer's standing follow-up rules in writer.md
+- [`docs/ideas/0016-principles-review-in-the-loop.md`](ideas/0016-principles-review-in-the-loop.md) — Run principles-review in the delivery loop or archive it
 
 ## Operations and Guides
 

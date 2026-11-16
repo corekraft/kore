@@ -105,6 +105,44 @@ describe("retro scan failures and skills", () => {
   });
 });
 
+describe("retro scan in-process subagent launches", () => {
+  const agentCall = (id: string, agent: string) =>
+    JSON.stringify({
+      type: "assistant",
+      timestamp: "2026-11-03T00:00:00.000Z",
+      message: {
+        content: [
+          {
+            type: "tool_use",
+            id,
+            name: "Agent",
+            input: { subagent_type: agent },
+          },
+        ],
+      },
+    });
+
+  it("counts Agent calls per agent definition across sessions", () => {
+    const text = [
+      agentCall("a", "principles-review"),
+      agentCall("b", "principles-review"),
+      agentCall("c", "writer"),
+    ].join("\n");
+    const report = scan(
+      [
+        { id: "x", text },
+        { id: "y", text: agentCall("d", "principles-review") },
+      ],
+      options,
+    );
+    expect(report.subagents).toEqual({ "principles-review": 3, writer: 1 });
+  });
+
+  it("reports no subagents when no session called an Agent", () => {
+    expect(scan(all(), options).subagents).toEqual({});
+  });
+});
+
 describe("retro scan corrections and windows", () => {
   it("reports a phrase repeated in two sessions by location, without its text", () => {
     const { corrections } = scan(all(), options);

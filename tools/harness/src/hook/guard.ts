@@ -7,7 +7,7 @@ import { homedir } from "node:os";
 // stderr blocks the call. A warning is returned as additionalContext. Malformed
 // input fails open, because a broken guard must not stop all work.
 //
-// The root is CLAUDE_PROJECT_DIR, else the payload's cwd. The guardrail
+// The root is the git top level of CLAUDE_PROJECT_DIR, else of the payload's cwd. The guardrail
 // inventory (.claude/guardrails.yaml) is found from that root, walking up
 // through its parents when the root is a subdirectory of the repository.
 import { asCall, evaluate } from "./guard-evaluate.js";
@@ -18,6 +18,7 @@ import {
   findInventory,
   type Inventory,
 } from "../guardrail/index.js";
+import { launchRoot } from "./guard-launch-root.js";
 import { recordEvent } from "./ledger-event.js";
 import type { CliDeps } from "../runtime/index.js";
 import type { HookResult } from "./io.js";
@@ -50,9 +51,7 @@ export async function guard(
     return {};
   }
   const call = asCall(payload);
-  const root =
-    deps.env["CLAUDE_PROJECT_DIR"] ||
-    (typeof call.cwd === "string" && call.cwd !== "" ? call.cwd : deps.cwd);
+  const root = await launchRoot(deps, callDirectory(call, deps.cwd));
   // Recording runs beside the rules, so resolving the ledger root never adds to the guard's latency.
   const started = recordEvent(deps, "tool.start", call);
   const readFile = (path: string) => deps.fs.readFile(path);

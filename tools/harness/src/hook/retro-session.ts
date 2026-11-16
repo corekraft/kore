@@ -79,6 +79,8 @@ export class SessionAnalysis {
   readonly failures: { tool: string; error: string }[] = [];
   readonly skills = new Set<string>();
   readonly slashCommands: string[] = [];
+  /** The agent definition each in-process Agent call named, one entry per call. */
+  readonly subagents: string[] = [];
   readonly phrases: { phrase: string; line: number }[] = [];
   readonly warnings: Warning[] = [];
   readonly guardBlocks: GuardBlock[] = [];
@@ -129,6 +131,10 @@ export class SessionAnalysis {
     const skill = block.input?.["skill"];
     if (name === "Skill" && typeof skill === "string" && skill) {
       this.skills.add(skill);
+    }
+    const agent = block.input?.["subagent_type"];
+    if (name === "Agent" && typeof agent === "string" && agent) {
+      this.subagents.push(agent);
     }
   }
 

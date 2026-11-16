@@ -1,11 +1,5 @@
 import type { Kind, LedgerEvent } from "../ledger/index.js";
-import {
-  APPROVAL_LABEL,
-  GITHUB_STAGES,
-  MAIN_SESSION_STAGE,
-  ROLE_STAGES,
-  type Stage,
-} from "./stages.js";
+import { stageResolver, type Stage } from "./stage-of.js";
 import {
   firstTime,
   githubWaits,
@@ -108,16 +102,6 @@ const STATE_AFTER: Partial<Record<Kind, State>> = {
   "session.stop": "closed",
 };
 
-function roleOf(event: LedgerEvent) {
-  for (const name of [event.agent, event.pane, event.session]) {
-    const role = name?.split("-").at(-1);
-    if (role !== undefined && Object.hasOwn(ROLE_STAGES, role)) {
-      return ROLE_STAGES[role];
-    }
-  }
-  return undefined;
-}
-
 /**
  * Charges one actor's time between its events to the state it was in and returns
  * one span per spawn-to-close life. A close holds until the next spawn or session
@@ -195,32 +179,12 @@ function actorTime(
   return lifetimes;
 }
 
-function stageOf(event: LedgerEvent, mergedAt: number | undefined) {
-  const github = GITHUB_STAGES[event.kind];
-  if (github !== undefined) {
-    return github;
-  }
-  if (event.kind === "issue.labelled") {
-    return event.label === APPROVAL_LABEL ? "await approval" : undefined;
-  }
-  const role = roleOf(event);
-  if (role !== undefined) {
-    const gate = role.after === "pr.merged" ? mergedAt : undefined;
-    const open =
-      role.after === undefined || (gate !== undefined && time(event) >= gate);
-    return open ? role.stage : undefined;
-  }
-  // A claude session no agent name reaches, stamped or from its pane, is the main session.
-  return event.agent === undefined && event.source === "claude"
-    ? MAIN_SESSION_STAGE
-    : undefined;
-}
-
 /** Charges one idea's in-range events to the tally; returns how many it could not map. */
 function chargeIdea(
   tally: Tally,
   own: LedgerEvent[],
   waits: GithubWait[],
+  stageOf: ReturnType<typeof stageResolver>,
 ): number {
   tally.beginIdea();
   const mergedAt = firstTime(own, (e) => e.kind === "pr.merged");
@@ -291,6 +255,7 @@ export function buildReport(
   options: ReportOptions,
 ): FlowReport {
   const { asOf, minCompletedIdeas } = options;
+  const stageOf = stageResolver(events);
   const scope = scopeOf(options);
   const window = windowOf(options);
   const { byIdea, unattributed, orphans, named, landed } = groupByIdea(
@@ -304,7 +269,7 @@ export function buildReport(
   let completed = 0;
   for (const [idea, { own, waits }] of covered) {
     ownByIdea.set(idea, own);
-    unmapped += chargeIdea(tally, own, waits);
+    unmapped += chargeIdea(tally, own, waits, stageOf);
     const outcome = firstClosed(own);
     completed += outcome !== undefined && inWindow(window, outcome) ? 1 : 0;
   }

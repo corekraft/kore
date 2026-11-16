@@ -164,9 +164,15 @@ describe("agentSection", () => {
       sessions: { count: 7 },
       skills: { unused: ["handoff"] },
       rules: { promotable: ["bare-glob"] },
+      subagents: {},
     };
     expect(await agentSection(depsOf(), "/repo", "2026-11-10", found)).toEqual({
-      agents: { known: ["judge", "writer"], launched: [], unused: ["writer"] },
+      agents: {
+        known: ["judge", "writer"],
+        launched: [],
+        inProcess: {},
+        unused: ["writer"],
+      },
       proposals: { history, items: [] },
     });
     expect(windowStart).toHaveBeenCalledWith("2026-11-10");
@@ -178,5 +184,63 @@ describe("agentSection", () => {
       agents: ["writer"],
       promotable: ["bare-glob"],
     });
+  });
+});
+
+describe("agentSection in-process launches", () => {
+  const found = (subagents: Record<string, number>) => ({
+    sessions: { count: 7 },
+    skills: { unused: [] },
+    rules: { promotable: [] },
+    subagents,
+  });
+
+  beforeEach(() => {
+    vi.mocked(windowStart).mockReturnValue(0);
+    vi.mocked(unusedAgents).mockReturnValue([]);
+    vi.mocked(proposalsFor).mockReturnValue({
+      history: {
+        minDays: 14,
+        minSessions: 100,
+        days: 0,
+        sessions: 7,
+        sufficient: false,
+      },
+      proposals: [],
+    });
+  });
+
+  it("reports in-process launches of known agents apart from pane launches, and counts both as launched", async () => {
+    list.mockResolvedValue({
+      events: [event("2026-11-01T00:00:00Z", "judge")],
+      skipped: 0,
+    });
+    readdir.mockResolvedValue(["judge.md", "principles-review.md"]);
+    const section = await agentSection(
+      depsOf(),
+      "/repo",
+      undefined,
+      found({ "principles-review": 528, "general-purpose": 3 }),
+    );
+    expect(section.agents).toEqual({
+      known: ["judge", "principles-review"],
+      launched: ["judge"],
+      inProcess: { "principles-review": 528 },
+      unused: [],
+    });
+    expect(unusedAgents).toHaveBeenCalledWith(
+      ["judge", "principles-review"],
+      ["judge", "principles-review"],
+    );
+  });
+
+  it("keeps pane launches counted when no subagent ran", async () => {
+    list.mockResolvedValue({
+      events: [event("2026-11-01T00:00:00Z", "judge")],
+      skipped: 0,
+    });
+    const section = await agentSection(depsOf(), "/repo", undefined, found({}));
+    expect(section.agents.launched).toEqual(["judge"]);
+    expect(section.agents.inProcess).toEqual({});
   });
 });

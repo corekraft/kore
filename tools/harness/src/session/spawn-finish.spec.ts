@@ -248,3 +248,23 @@ describe("finish waits for the result and reports it", () => {
     );
   });
 });
+
+describe("finish stamps the derived stage on the launch event", () => {
+  it("stamps the derived stage on the launch event", async () => {
+    await finish(contextOf(deps, { options: { "no-wait": true } }), {
+      registry: asRegistry(registry),
+      record: RECORD,
+      modelCheck: VERIFIED,
+      timeoutMs: 60_000,
+      stage: "write",
+    });
+
+    expect(ledger.record.mock.calls[0]?.[0]).toMatchObject({ stage: "write" });
+  });
+
+  it("leaves the stage off a launch whose role has none", async () => {
+    await run({ "no-wait": true });
+
+    expect(ledger.record.mock.calls[0]?.[0]).not.toHaveProperty("stage");
+  });
+});
