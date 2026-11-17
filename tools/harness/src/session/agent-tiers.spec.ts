@@ -113,9 +113,6 @@ describe("agent definitions bound each role's tools", () => {
   });
 });
 
-/** The one pane that runs on Opus, by the owner's direction recorded in ADR 0120. */
-const OPUS_ADVISOR = "advisor";
-
 describe("every agent definition runs on Haiku or Sonnet", () => {
   it("lists the definitions, so an empty folder cannot pass vacuously", () => {
     expect([...definitions().keys()].sort()).toEqual([
@@ -127,7 +124,7 @@ describe("every agent definition runs on Haiku or Sonnet", () => {
     ]);
   });
 
-  it.each([...definitions()].filter(([role]) => role !== OPUS_ADVISOR))(
+  it.each([...definitions()])(
     "%s declares a Haiku or Sonnet model",
     (role, markdown) => {
       const { model } = parseDefinition(markdown);
@@ -177,10 +174,7 @@ describe("every agent definition", () => {
     const offenders = [...definitions()]
       .map(([role, body]) => [role, parseDefinition(body).model] as const)
       .filter(
-        ([role, model]) =>
-          model !== undefined &&
-          !OPUS_UNTIL_REMOVED.has(role) &&
-          role !== OPUS_ADVISOR,
+        ([role, model]) => model !== undefined && !OPUS_UNTIL_REMOVED.has(role),
       )
       .filter(
         ([, model]) =>
@@ -207,21 +201,21 @@ describe("the principles-review definition", () => {
 });
 
 describe("the advisor definition", () => {
-  const body = () => definitions().get(OPUS_ADVISOR) ?? "";
+  const body = () => definitions().get("advisor") ?? "";
   const found = () => parseDefinition(body());
 
-  it("declares Opus, the one exception to the Haiku or Sonnet rule (ADR 0120)", () => {
-    expect(displayName(found().model ?? "")).toMatch(/^Opus /);
+  it("declares Sonnet at high, as the owner directed on 2026-11-16 (ADR 0120)", () => {
+    expect(displayName(found().model ?? "")).toMatch(/^Sonnet /);
     expect(found().effort).toBe("high");
   });
 
-  it("is the only definition on Opus", () => {
+  it("no definition runs on Opus, so the advisor is no exception to the Haiku or Sonnet rule", () => {
     const onOpus = [...definitions()]
       .filter(([, markdown]) =>
         displayName(parseDefinition(markdown).model ?? "")?.startsWith("Opus "),
       )
       .map(([role]) => role);
-    expect(onOpus).toEqual([OPUS_ADVISOR]);
+    expect(onOpus).toEqual([]);
   });
 
   it("is read-only: no tool edits a file", () => {

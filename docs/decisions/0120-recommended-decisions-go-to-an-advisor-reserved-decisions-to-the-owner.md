@@ -120,6 +120,8 @@ back to the principle; it adds no gate.
   definitions test gains one named exception for the advisor definition, and
   every other spawned pane stays on Haiku or Sonnet. The reversal condition
   and the small context, with reads handed to Haiku panes, stay.
+  _Note, 2026-11-16: the owner later set the advisor to `claude-sonnet-5-5` at
+  effort high (`.claude/agents/advisor.md`), so the Opus exception above no longer applies._
 - **Flag activation for harness-only flags stays reserved.** Revisit with the
   advisor's first window of overturn data, and only once the identities below
   exist.
