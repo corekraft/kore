@@ -10,59 +10,20 @@ import {
   type Harness,
   type Measured,
 } from "./idea-run.js";
-import {
-  OPEN_GATE,
-  type BoundName,
-  type PassBounds,
-  type PassGate,
-} from "./tick-bounds.js";
+import { OPEN_GATE, type BoundName, type PassGate } from "./tick-bounds.js";
 import {
   TickJudgment,
   type JudgmentOutcome,
+  type JudgmentPorts,
   type JudgmentStep,
 } from "./tick-judgment.js";
+import type { StoredPlan } from "./tick-plan-store.js";
+import { nextPiece, pieceLaunch } from "./tick-piece.js";
+import { Starts } from "./tick-starts.js";
 
 /** A third send-back starts a judgment flow (ADR 0121), which decides once; the tick reports needs-judgment after that. */
 const JUDGMENT_AFTER = 3;
 const HEAD_LENGTH = 7;
-
-/**
- * The pane starts one pass may make. A hold stops them all; saver mode lets one
- * through. Each start the pass holds is recorded as a bound hit before it is skipped.
- */
-class Starts {
-  private started = 0;
-
-  constructor(
-    private readonly bounds: PassBounds,
-    private readonly gate: PassGate,
-  ) {}
-
-  /** The bound that holds a start for this issue now, recorded first; undefined when it may go ahead. */
-  async held(issue: number): Promise<BoundName | undefined> {
-    const bound: BoundName | undefined =
-      this.bounds.hold ??
-      (this.bounds.saver && this.started >= 1 ? "saver" : undefined);
-    if (bound !== undefined) {
-      await this.gate.record(issue, bound);
-    }
-    return bound;
-  }
-
-  /** Counts a start that went ahead, so saver mode lets no second one through. */
-  taken(): void {
-    this.started += 1;
-  }
-
-  /** Admits one start: the bound that holds it, recorded first, or undefined when it goes ahead and is counted. */
-  async admit(issue: number): Promise<BoundName | undefined> {
-    const bound = await this.held(issue);
-    if (bound === undefined) {
-      this.taken();
-    }
-    return bound;
-  }
-}
 
 /** The extra fields a judgment step adds to its idea's step: the pane it started, or the bound that held it. */
 function judgedExtra(
@@ -111,12 +72,17 @@ export type TickPorts = Pick<
   paneText(name: string): Promise<string>;
   /** Labels the issue `needs-info` with the reason, for a judgment flow that stops (ADR 0121). */
   needsInfo(issue: number, reason: string): Promise<void>;
+  /** The idea's persisted work plan, read-only; undefined when the idea has none (ADR 0121). */
+  workPlan(idea: string): Promise<StoredPlan | undefined>;
+  /** Persists a checked work plan for the idea through `orchestrate plan`, once (ADR 0121). */
+  persistPlan: JudgmentPorts["persistPlan"];
 };
 
 export type StepName =
   | "spawn-writer"
   | "relaunch-writer"
   | "spawn-judge"
+  | "spawn-piece"
   | "review"
   | "send-back"
   | "close"
@@ -196,12 +162,9 @@ export class Tick {
     if (panes.some((p) => p.state === "running")) {
       return done("waiting");
     }
-    // A finished judgment or reader pane is read before any close, since closing ends its text.
-    const judged = await this.judgment.consume(idea, issue, panes, () =>
-      starts.admit(issue),
-    );
-    if (judged !== undefined) {
-      return done(judged.step, judgedExtra(judged));
+    const planned = await this.planned(item, panes, done, starts);
+    if (planned !== undefined) {
+      return planned;
     }
     const finished = panes.find((p) => p.state !== "closed");
     if (finished !== undefined) {
@@ -218,10 +181,55 @@ export class Tick {
     }
     const head = (await this.ports.head(pr)).slice(0, HEAD_LENGTH);
     const sentBack = queue.some((q) => q.kind === "send-back" && q.pr === pr);
-    const change = { pr, head };
     return sentBack
-      ? this.relaunch(item, change, panes, done, starts)
-      : this.review(item, change, panes, done, starts);
+      ? this.relaunch(item, { pr, head }, panes, done, starts)
+      : this.review(item, { pr, head }, panes, done, starts);
+  }
+
+  /**
+   * The step a judgment flow or a persisted work plan takes before a finished pane is closed: a
+   * judgment or reader pane is read before any close, since closing ends its text (ADR 0121).
+   */
+  private async planned(
+    item: QueuedIdea,
+    panes: readonly IdeaPane[],
+    done: Done,
+    starts: Starts,
+  ): Promise<IdeaStep | undefined> {
+    const { idea, issue } = item;
+    const judged = await this.judgment.consume(idea, issue, panes, () =>
+      starts.admit(issue),
+    );
+    if (judged !== undefined) {
+      return done(judged.step, judgedExtra(judged));
+    }
+    return this.pieceStep(item, panes, done, starts);
+  }
+
+  /**
+   * The idea's next piece of persisted work, as its one step. Undefined when the flow goes on past
+   * the plan: a finished piece is closed first, and a complete plan hands the idea on (ADR 0121).
+   */
+  private async pieceStep(
+    { idea, issue }: QueuedIdea,
+    panes: readonly IdeaPane[],
+    done: Done,
+    starts: Starts,
+  ): Promise<IdeaStep | undefined> {
+    const plan = await this.ports.workPlan(idea);
+    const next = nextPiece(idea, plan?.work ?? [], panes);
+    if (next.step === "pass") {
+      return undefined;
+    }
+    if (next.step === "blocked") {
+      return done("blocked", { pane: next.name });
+    }
+    const bound = await starts.admit(issue);
+    if (bound !== undefined) {
+      return done("held", { bound });
+    }
+    await this.ports.spawn(pieceLaunch(idea, issue, next.piece, next.name));
+    return done("spawn-piece", { pane: next.name });
   }
 
   private async firstWriter(

@@ -4,15 +4,20 @@ import { HarnessCliError } from "./harness-cli.js";
 import { TickCli } from "./tick-cli.js";
 
 const SESSIONS = "/main/.kore/state/sessions";
+const PLANS = "/main/.kore/state/tick-plans";
 
 function setup(
   answer: (command: string, args: string[]) => Partial<RunResult> = () => ({}),
   files: Record<string, string> = {},
 ) {
-  const calls: { command: string; args: string[] }[] = [];
+  const calls: { command: string; args: string[]; input?: string }[] = [];
   const runner: Runner = {
-    run: (command, args) => {
-      calls.push({ command, args: [...args] });
+    run: (command, args, options) => {
+      calls.push({
+        command,
+        args: [...args],
+        ...(options?.input === undefined ? {} : { input: options.input }),
+      });
       return Promise.resolve({
         stdout: "",
         stderr: "",
@@ -29,9 +34,20 @@ function setup(
           )
         : Promise.reject(Object.assign(new Error("gone"), { code: "ENOENT" })),
     readFile: (path: string) => Promise.resolve(files[path] ?? ""),
+    exists: (path: string) => Promise.resolve(path in files),
   } as unknown as FileSystem;
-  return { cli: new TickCli(runner, "/repo", fs, SESSIONS), calls };
+  return { cli: new TickCli(runner, "/repo", fs, SESSIONS, PLANS), calls };
 }
+
+const WORK = [
+  {
+    role: "writer" as const,
+    name: "docs",
+    brief: "Document it.",
+    files: ["docs/a.md"],
+    after: [],
+  },
+];
 
 const record = (name: string, extra: object = {}) =>
   JSON.stringify({
@@ -227,8 +243,72 @@ describe("TickCli with no session directory", () => {
             Promise.reject(Object.assign(new Error("x"), { code: "ENOENT" })),
         } as unknown as FileSystem,
         SESSIONS,
+        PLANS,
       ).panes("0001"),
     ).toEqual([]);
     expect(cli).toBeDefined();
+  });
+});
+
+describe("TickCli work plan", () => {
+  it("persists the work plan through orchestrate plan, with the plan on stdin and no label write", async () => {
+    const { cli, calls } = setup();
+
+    await cli.persistPlan("0001", 11, WORK);
+
+    expect(calls).toEqual([
+      {
+        command: "node",
+        args: [
+          "skills/bin/harness.mjs",
+          "orchestrate",
+          "plan",
+          "--idea",
+          "0001",
+          "--issue",
+          "11",
+          "--json",
+        ],
+        input: JSON.stringify({ work: WORK }),
+      },
+    ]);
+  });
+
+  it("fails with the command's reason when the plan is refused, so the tick stops and reruns", async () => {
+    const { cli } = setup(() => ({
+      code: 1,
+      stderr: "Idea 0001 is locked",
+    }));
+
+    await expect(cli.persistPlan("0001", 11, WORK)).rejects.toThrow(
+      new HarnessCliError(
+        "`harness orchestrate plan 0001` failed: Idea 0001 is locked. Fix that, then rerun.",
+      ),
+    );
+  });
+
+  it("reads the idea's persisted plan from the plans directory", async () => {
+    const stored = JSON.stringify({
+      schema: 1,
+      idea: "0001",
+      issue: 11,
+      work: WORK,
+    });
+    const { cli } = setup(undefined, {
+      [`${PLANS}/0001.json`]: stored,
+    });
+
+    expect(await cli.workPlan("0001")).toEqual({
+      schema: 1,
+      idea: "0001",
+      issue: 11,
+      work: WORK,
+    });
+  });
+
+  it("reads no plan for an idea that has none persisted", async () => {
+    const { cli } = setup();
+
+    expect(await cli.workPlan("0001")).toBeUndefined();
   });
 });

@@ -48,10 +48,6 @@ export const retryName = (idea: string, ord: number): string =>
 export const readerName = (idea: string, ord: number, q: number): string =>
   `idea-${idea}-read-r${ord}-q${q}`;
 
-/** The writer a judgment re-brief starts, named for the decision that asked; it is not a judgment pane. */
-export const rebriefName = (idea: string, ord: number): string =>
-  `idea-${idea}-rebrief-r${ord}`;
-
 /** Whether a pane has finished and is still open for the tick to consume or close. */
 export const isFinished = (pane: FlowPane): boolean =>
   pane.state === "done" || pane.state === "blocked";

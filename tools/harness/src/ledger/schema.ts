@@ -44,6 +44,7 @@ const NUMBER_KINDS: readonly Kind[] = [
   "qualifier.warned",
   "harness-change-reverted",
   "retro.dropped",
+  "tick.plan",
 ];
 
 /** Workflow runs GitHub concluded: only the conclusion and its time are kept. */

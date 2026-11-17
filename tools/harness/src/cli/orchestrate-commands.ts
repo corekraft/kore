@@ -6,6 +6,7 @@ import {
   type Measured,
 } from "../orchestrator/index.js";
 import { retroHook } from "./orchestrate-retro.js";
+import { planCommand } from "./orchestrate-plan.js";
 import { runOnTicks, tickCommand } from "./orchestrate-tick.js";
 import type { Command, CommandContext } from "../runtime/index.js";
 
@@ -100,4 +101,5 @@ const runCommand: Command = {
 export const orchestrateCommands: Record<string, Command> = {
   run: runCommand,
   tick: tickCommand,
+  plan: planCommand,
 };

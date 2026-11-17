@@ -28,6 +28,7 @@ function ports(over: Partial<TickPorts> = {}): TickPorts {
     head: vi.fn().mockResolvedValue(HEAD),
     reviewPosted: vi.fn().mockResolvedValue(true),
     spawn: vi.fn().mockResolvedValue(undefined),
+    workPlan: vi.fn().mockResolvedValue(undefined),
     close: vi.fn().mockResolvedValue(undefined),
     sendBacks: vi.fn().mockResolvedValue(THIRD),
     ...over,

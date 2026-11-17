@@ -5,7 +5,6 @@ import {
   isOpen,
   judgmentName,
   readerName,
-  rebriefName,
   retryName,
   type FlowPane,
 } from "./judgment-panes.js";
@@ -22,14 +21,9 @@ describe("judgment pane names", () => {
     expect(readerName("0007", 2, 4)).toBe("idea-0007-read-r2-q4");
   });
 
-  it("names the writer a judgment re-brief starts for the decision that asked, apart from the writer's own names", () => {
-    expect(rebriefName("0007", 2)).toBe("idea-0007-rebrief-r2");
-  });
-
-  it("keeps every name within the 32 characters a Herdr session name allows", () => {
+  it("keeps every judgment and reader name within the 32 characters a Herdr session name allows", () => {
     expect(readerName("0007", 99, 99).length).toBeLessThanOrEqual(32);
     expect(retryName("0007", 99).length).toBeLessThanOrEqual(32);
-    expect(rebriefName("0007", 99).length).toBeLessThanOrEqual(32);
   });
 });
 

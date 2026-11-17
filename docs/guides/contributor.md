@@ -752,6 +752,18 @@ a judgment pane (ADR 0121) that decides once: its plan is checked whole, a refus
 plan is retried once, then the idea is labelled `needs-info`. A later third send-back
 is reported as `needs-judgment` and nothing is started for it.
 
+A judgment's work plan is persisted once through `orchestrate plan --idea <n> --issue <n>`,
+which reads the plan as JSON on stdin (`{"work": [...]}`), checks it with the same checker,
+refuses a piece whose pane name `session spawn` would refuse, and writes it to
+`.kore/state/tick-plans/<idea>.json` in the main checkout. It appends one `tick.plan` ledger
+event with the piece count, so a rerun of the same plan writes and records nothing twice; a
+different plan for an idea that already has one is refused for the owner. The ledger holds no
+brief, which is why the plan's text lives in that file. It does nothing, and exits 1, while
+`orchestrator-tick` is off. The tick then starts the plan's pieces one at a time, each after
+the pieces it waits for, in a pane named `idea-<idea>-piece-<name>`: a writer in its own
+worktree, or a reader. A piece that ends blocked stops the plan for the owner, and once every
+piece has a closed pane the idea goes on to its pull request.
+
 Before it starts a pane, the tick reads the host. On battery, or when the power
 source cannot be read, one pane starts per pass (saver mode). Above the load
 ceiling `KORE_SPAWN_MAX_LOAD`, or while a live run holds the host lease, no pane

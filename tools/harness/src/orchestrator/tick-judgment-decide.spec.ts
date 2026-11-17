@@ -30,6 +30,7 @@ vi.mock("./judgment-panes.js", () => ({
   retryName: vi.fn(),
 }));
 vi.mock("./judgment-plan.js", () => ({
+  checkNames: vi.fn(),
   checkPlan: vi.fn(),
   readPlan: vi.fn(),
 }));
@@ -205,23 +206,5 @@ describe("TickJudgment.consume: retry, needs-info and work", () => {
       vi.mocked(p.needsInfo).mock.invocationCallOrder[0] ?? Infinity,
     );
     expect(outcome).toEqual({ step: "needs-info" });
-  });
-
-  it("ends a valid work plan without starting or labelling anything", async () => {
-    const p = ports();
-    vi.mocked(flowOf).mockReturnValue(decidingFlow("done"));
-    vi.mocked(decide).mockReturnValue({ step: "work", work: [] });
-
-    const outcome = await new TickJudgment(p).consume(
-      IDEA,
-      ISSUE,
-      [],
-      admitted(),
-    );
-
-    expect(p.spawn).not.toHaveBeenCalled();
-    expect(p.needsInfo).not.toHaveBeenCalled();
-    expect(p.close).toHaveBeenCalledWith("idea-0007-judgment-r1");
-    expect(outcome).toEqual({ step: "work-planned" });
   });
 });

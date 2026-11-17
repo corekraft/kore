@@ -1,4 +1,4 @@
-import type { ReadRequest } from "./judgment-check.js";
+import type { ReadRequest, WorkPiece } from "./judgment-check.js";
 
 /** One reader's summary, named by the pane that printed it, for a judgment pane's next brief. */
 export interface ReaderSummary {
@@ -78,6 +78,20 @@ export function rebriefBrief(
   ]
     .filter((line) => line !== "")
     .join("\n");
+}
+
+/**
+ * The brief of a work piece the tick starts: a writer is re-briefed on the idea's pull request with the
+ * piece's work, and a reader answers the piece's brief as its question over the piece's files.
+ */
+export function pieceBrief(
+  idea: string,
+  issue: number,
+  piece: WorkPiece,
+): string {
+  return piece.role === "writer"
+    ? rebriefBrief(idea, issue, { brief: piece.brief, files: piece.files })
+    : readerBrief(idea, issue, { question: piece.brief, paths: piece.files });
 }
 
 /** The brief of a reader pane: one question, the only paths it may read, and where its answer goes. */
