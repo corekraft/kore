@@ -47,11 +47,16 @@ function fakeDeps() {
       now: vi.fn(() => new Date("2026-11-17T10:00:00Z")),
       sleep: vi.fn(() => Promise.resolve()),
     },
-    fs: {},
+    fs: { readFile: vi.fn<(path: string) => Promise<string>>() },
+    cwd: "/work",
     stdout: vi.fn<(text: string) => void>(),
     stderr: vi.fn<(text: string) => void>(),
     env: {},
   };
+}
+
+function missing(path: string): NodeJS.ErrnoException {
+  return Object.assign(new Error(`ENOENT: ${path}`), { code: "ENOENT" });
 }
 
 function context(options: Record<string, string | boolean>, json = false) {
@@ -127,6 +132,82 @@ describe("decision ask", () => {
 
     expect(deps.stderr).toHaveBeenCalledWith(
       "The question is the advisor's, so it is not posted.\n",
+    );
+  });
+});
+
+describe("decision ask takes the question and action from files", () => {
+  it("asks the owner with the text the files hold, the same as the inline flags give", async () => {
+    const { ctx, deps } = context({
+      idea: "8",
+      category: "credentials",
+      "question-file": "q.md",
+      "action-file": "a.md",
+    });
+    vi.mocked(deps.fs.readFile).mockImplementation((path) =>
+      Promise.resolve(
+        path === "/work/q.md"
+          ? "  Which token?\n"
+          : "Store it in the overlay.\n",
+      ),
+    );
+
+    expect(await ask?.run(ctx)).toBe(0);
+
+    expect(askOwner).toHaveBeenCalledWith(expect.anything(), {
+      idea: "8",
+      category: "credentials",
+      question: "Which token?",
+      action: "Store it in the overlay.",
+    });
+  });
+
+  it("refuses --question with --question-file, naming both, and asks nobody", async () => {
+    const { ctx, deps } = context({
+      ...FLAGS,
+      "question-file": "q.md",
+    });
+
+    expect(await ask?.run(ctx)).toBe(1);
+
+    expect(askOwner).not.toHaveBeenCalled();
+    expect(deps.fs.readFile).not.toHaveBeenCalled();
+    expect(deps.stderr).toHaveBeenCalledWith(
+      "--question and --question-file together are refused. Pass the text with --question <text> or the path with --question-file <path>, not both.\n",
+    );
+  });
+
+  it("refuses a missing --action-file with its path and the fix, and asks nobody", async () => {
+    const { ctx, deps } = context({
+      idea: "8",
+      category: "credentials",
+      question: "Which token?",
+      "action-file": "a.md",
+    });
+    vi.mocked(deps.fs.readFile).mockRejectedValue(missing("/work/a.md"));
+
+    expect(await ask?.run(ctx)).toBe(1);
+
+    expect(askOwner).not.toHaveBeenCalled();
+    expect(deps.stderr).toHaveBeenCalledWith(
+      "--action-file a.md does not exist. Write the action to that path with the Write tool, then rerun `harness decision ask`.\n",
+    );
+  });
+
+  it("refuses an empty --question-file with its path and the fix, and asks nobody", async () => {
+    const { ctx, deps } = context({
+      idea: "8",
+      category: "credentials",
+      "question-file": "q.md",
+      action: "Store it in the overlay.",
+    });
+    vi.mocked(deps.fs.readFile).mockResolvedValue("  \n");
+
+    expect(await ask?.run(ctx)).toBe(1);
+
+    expect(askOwner).not.toHaveBeenCalled();
+    expect(deps.stderr).toHaveBeenCalledWith(
+      "--question-file q.md is empty. Write the question into it with the Write tool, then rerun `harness decision ask`.\n",
     );
   });
 });
