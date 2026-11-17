@@ -140,7 +140,7 @@ describe("harness judge merge: a PR behind main", () => {
     expect(await mergeCommands.merge?.run(context)).toBe(1);
     const [, error] = vi.mocked(failed).mock.calls[0] ?? [];
     expect((error as Error).message).toBe(
-      "PR #42 was not merged: its branch is behind main. Next step: the writer merges origin/main into its branch (never rebase or force-push), then rerun `harness judge merge 42` once its checks pass. With the behind-main-notice flag on, the orchestrate tick sends the writer that message; with it off, the main session messages the writer.",
+      "PR #42 was not merged: its branch is behind main. Next step: the orchestrator tells the writer to merge origin/main into its branch (never rebase or force-push), or run `gh pr update-branch 42`; then rerun `harness judge merge 42` once its checks pass.",
     );
   });
 

@@ -80,9 +80,9 @@ async function mergeStateOf(
   }
 }
 
-/** The refusal for a PR behind main: it names the PR, the state and the next step, for a person and for the flag on or off. */
+/** The refusal for a PR behind main: it names the PR, the state and the next step that exists today. */
 function behindMessage(pr: number): string {
-  return `PR #${pr} was not merged: its branch is behind main. Next step: the writer merges origin/main into its branch (never rebase or force-push), then rerun \`harness judge merge ${pr}\` once its checks pass. With the behind-main-notice flag on, the orchestrate tick sends the writer that message; with it off, the main session messages the writer.`;
+  return `PR #${pr} was not merged: its branch is behind main. Next step: the orchestrator tells the writer to merge origin/main into its branch (never rebase or force-push), or run \`gh pr update-branch ${pr}\`; then rerun \`harness judge merge ${pr}\` once its checks pass.`;
 }
 
 /**
