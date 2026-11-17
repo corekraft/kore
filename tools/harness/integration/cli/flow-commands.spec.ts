@@ -37,6 +37,7 @@ const KEYS = [
   "unmappedEvents",
   "attribution",
   "guardBlocks",
+  "guardBlocksByRule",
   "outcomes",
   "hostPressure",
   "ownerQuestions",
