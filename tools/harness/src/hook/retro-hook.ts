@@ -15,13 +15,14 @@ import {
   lastRetrospective,
   MarkerError,
   markerInstant,
+  recordScanFigures,
   scan,
 } from "./retro-scan.js";
 import { agentSection, sessionRoles, skillNames } from "./retro-agents.js";
 import { defaultDirs, readTranscripts } from "./retro-transcripts.js";
 
 const USAGE =
-  "Usage: harness hook retro-scan [--dir <transcripts>] [--since YYYY-MM-DD|YYYY-MM-DDTHH:MM:SSZ] [--evidence]\n--since keeps sessions active at or after local midnight of that date, or at or after that UTC instant, like the session-start count.\n--evidence adds guardEvidence (the session, transcript line and excerpt of each guard block) and overriddenEvidence (the same, with the command excerpt and the unquoted glob the guard named, for each overridden audit warning), capped per rule. The default report leaves them out. The report also counts bareCommands: the bare gh comments and bare pane sends (send-text, send-keys) each role session made with Bash, per session and per role, the role read from the ledger's launch of its name. The main session, whose first message is no spawn brief, is left out. The report also lists the agents with no launch in the ledger or in-process Agent call (agents; pane launches under launched, in-process Agent calls counted per agent under inProcess) and a ready command for each finding (proposals): an idea for an unused skill or agent, needing 14 days of ledger or 100 sessions (retro in .claude/harness.json sets each), and a guardrail request for a promotable audit rule. The scan runs none of them.";
+  "Usage: harness hook retro-scan [--dir <transcripts>] [--since YYYY-MM-DD|YYYY-MM-DDTHH:MM:SSZ] [--evidence]\n--since keeps sessions active at or after local midnight of that date, or at or after that UTC instant, like the session-start count.\n--evidence adds guardEvidence (the session, transcript line and excerpt of each guard block) and overriddenEvidence (the same, with the command excerpt and the unquoted glob the guard named, for each overridden audit warning), capped per rule. The default report leaves them out. The report also counts bareCommands: the bare gh comments and bare pane sends (send-text, send-keys) each role session made with Bash, per session and per role, the role read from the ledger's launch of its name. The main session, whose first message is no spawn brief, is left out. The report also has mainSession: the main session's foreground poll minutes, pane-result reads, and signed and raw sends. With the main-session-figures flag on in the local overlay, a scan of the repository's own transcripts (not --dir) records one retro.main-session ledger event. The report also lists the agents with no launch in the ledger or in-process Agent call (agents; pane launches under launched, in-process Agent calls counted per agent under inProcess) and a ready command for each finding (proposals): an idea for an unused skill or agent, needing 14 days of ledger or 100 sessions (retro in .claude/harness.json sets each), and a guardrail request for a promotable audit rule. The scan runs none of them.";
 
 interface Args {
   dir: string | undefined;
@@ -107,6 +108,10 @@ async function report(
     evidence,
     roles: await sessionRoles(deps),
   });
+  // The repository's own transcripts only: a scan of another folder is not the flow's window.
+  if (!dir) {
+    await recordScanFigures(deps, root, effective, result.mainSession);
+  }
   const body = {
     since: effective ?? null,
     ...result,

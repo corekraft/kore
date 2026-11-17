@@ -1,12 +1,16 @@
 import type { CliDeps, CommandContext } from "../runtime/index.js";
+import { plain } from "./ansi.js";
 import { describeFailure } from "./equalize.js";
 import { recordFinish } from "./finish-record.js";
 import { sessionNameError } from "./names.js";
 import { FAILED, USAGE_ERROR, fail } from "./output.js";
+import { PROMPT } from "./prompt.js";
 import { SessionRegistry, type SessionRecord } from "./registry.js";
 
 export const DEFAULT_TIMEOUT_MS = 60 * 60 * 1000;
 const POLL_MS = 2000;
+/** The most characters of a pane result summary kept; the cap is a placeholder (ADR 0123). */
+export const SUMMARY_CAP = 2000;
 
 /** What `session wait` and a waiting `session spawn` return. */
 export interface WaitResult {
@@ -16,6 +20,8 @@ export interface WaitResult {
   outcome: "done" | "blocked";
   /** Where the summary is: the finished session's own pane. */
   summary: string;
+  /** The pane result: its outcome word and the text the pane printed before its RESULT line. */
+  result: { outcome: "done" | "blocked"; summary: string };
 }
 
 /** Only a line that is nothing but the marker (after indent or Claude's bullet) counts; brief text never is. */
@@ -45,8 +51,26 @@ function seconds(ms: number): string {
 }
 
 /**
+ * The text the pane printed between its last prompt line and its last RESULT
+ * line: plain, trimmed and capped with an ellipsis. Empty when the RESULT line
+ * follows the prompt directly, or when the text has no RESULT line.
+ */
+export function resultSummary(text: string): string {
+  const marker = [...text.matchAll(MARKER)].at(-1);
+  if (marker?.index === undefined) {
+    return "";
+  }
+  const lines = text.slice(0, marker.index).split("\n");
+  const prompt = lines.findLastIndex((line) => PROMPT.test(plain(line)));
+  const body = plain(lines.slice(prompt + 1).join("\n")).trim();
+  return body.length > SUMMARY_CAP
+    ? `${body.slice(0, SUMMARY_CAP - 1)}…`
+    : body;
+}
+
+/**
  * Polls the session's own pane, unwrapped, until an anchored marker line shows,
- * then records the outcome. An error message is returned when it never does.
+ * then records the outcome and its summary. An error message is returned when it never does.
  */
 export async function waitForResult(
   deps: CliDeps,
@@ -54,15 +78,16 @@ export async function waitForResult(
   record: SessionRecord,
   timeoutMs: number,
 ): Promise<WaitResult | { error: string }> {
-  const done = (outcome: "done" | "blocked"): WaitResult => ({
+  const done = (outcome: "done" | "blocked", summary: string): WaitResult => ({
     name: record.name,
     paneId: record.paneId,
     model: record.model,
     outcome,
     summary: `pane ${record.paneId}`,
+    result: { outcome, summary },
   });
   if (record.result !== undefined) {
-    return done(record.result.outcome);
+    return done(record.result.outcome, record.result.summary ?? "");
   }
   const deadline = deps.clock.now().getTime() + timeoutMs;
   for (;;) {
@@ -80,12 +105,13 @@ export async function waitForResult(
     }
     const outcome = findResult(read.stdout);
     if (outcome !== undefined) {
+      const summary = resultSummary(read.stdout);
       await registry.write({
         ...record,
-        result: { outcome, at: deps.clock.now().toISOString() },
+        result: { outcome, at: deps.clock.now().toISOString(), summary },
       });
       await recordFinish(deps, record.paneId, record.name, outcome);
-      return done(outcome);
+      return done(outcome, summary);
     }
     if (deps.clock.now().getTime() + POLL_MS > deadline) {
       return {
@@ -96,7 +122,7 @@ export async function waitForResult(
   }
 }
 
-export function formatWait(result: WaitResult): string {
+export function formatWait(result: Omit<WaitResult, "result">): string {
   return `${result.name} (${result.model}) finished: RESULT ${result.outcome}; summary in ${result.summary}.\n`;
 }
 

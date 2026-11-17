@@ -2,6 +2,7 @@ import type { CliDeps, CommandContext } from "../runtime/index.js";
 import { signedMessage } from "../sender/index.js";
 import { garbled, plain, withoutDim } from "./ansi.js";
 import { describeFailure } from "./equalize.js";
+import { PROMPT } from "./prompt.js";
 import { FAILED, USAGE_ERROR, fail } from "./output.js";
 
 const CONFIRM_READS = 3;
@@ -15,9 +16,6 @@ const NO_RESEND =
 export function finishText(outcome: string, ownPane: string): string {
   return `finished: RESULT ${outcome}; summary in pane ${ownPane}`;
 }
-
-/** A line that starts with the agent's prompt mark, after any box border. */
-const PROMPT = /^[\s│|]*[>❯]/;
 
 /**
  * How many times the line shows as submitted. The last prompt line is the
