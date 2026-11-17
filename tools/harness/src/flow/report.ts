@@ -35,6 +35,8 @@ import {
   type CostMetrics,
   type FrictionMetrics,
   type GuardBlocks,
+  type GuardBlocksByRule,
+  guardBlocksByRule,
   type HostPressure,
   type Outcomes,
   type CostOptions,
@@ -50,7 +52,7 @@ import {
   type ScopeOptions,
 } from "./scope.js";
 
-export const REPORT_VERSION = 25;
+export const REPORT_VERSION = 26;
 
 export type { StageTotals, Toil } from "./tally.js";
 export type { Scope, ScopeOptions } from "./scope.js";
@@ -84,6 +86,8 @@ export interface FlowReport
   attribution: Attribution;
   /** Guard blocks per rule, most blocked first. */
   guardBlocks: GuardBlocks[];
+  /** Guard blocks per rule by name, every known rule a key with zero where none (#984). */
+  guardBlocksByRule: GuardBlocksByRule;
   /** Metrics no agent can set: main-red rate, reverts, live-run pass rate and owner minutes. */
   outcomes: Outcomes;
   /** Swap and load by live-session count, with a trailing baseline, from host-sample events. */
@@ -323,6 +327,7 @@ export function buildReport(
       },
     ),
     guardBlocks: guardBlocks(named, window),
+    guardBlocksByRule: guardBlocksByRule(named, window),
     outcomes: outcomes(named, window),
     hostPressure: hostPressure(named, window, {
       trailingDays: options.hostDays ?? DEFAULT_HOST_DAYS,

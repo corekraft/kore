@@ -6,6 +6,7 @@ import {
   ledgerHarness as harness,
 } from "../../src/testing/index.js";
 import { finishedIdea } from "../../src/testing/index.js";
+import { KEYS } from "./flow-report-keys-support.js";
 
 function seeded(extra: string[] = []) {
   const h = harness();
@@ -17,47 +18,6 @@ function seeded(extra: string[] = []) {
   h.fs.files.set(DEFAULT, events.map((e) => `${JSON.stringify(e)}\n`).join(""));
   return { h, argv: ["flow", "report", ...extra] };
 }
-
-const KEYS = [
-  "version",
-  "asOf",
-  "scope",
-  "ideas",
-  "minCompletedIdeas",
-  "stages",
-  "leadTime",
-  "metrics",
-  "rework",
-  "friction",
-  "retroProposalsDropped",
-  "qualifierWarnings",
-  "sendBackCategories",
-  "bottleneck",
-  "bottleneckNote",
-  "unmappedEvents",
-  "attribution",
-  "guardBlocks",
-  "outcomes",
-  "hostPressure",
-  "ownerQuestions",
-  "advisorQuality",
-  "ownerRoutes",
-  "waitingOnPerson",
-  "reviewMisses",
-  "tokensPerMergedChange",
-  "sendBacksPerMergedChange",
-  "leadTimePerMergedChange",
-  "tokensByStage",
-  "tokensByStagePerMergedChange",
-  "writerCost",
-  "mainSession",
-  "judgmentContexts",
-  "tierShares",
-  "unstampedSpawns",
-  "finishDetection",
-  "stalledPanes",
-  "skippedLines",
-];
 
 describe("flow report", () => {
   it("prints the versioned JSON shape with the named bottleneck", async () => {
