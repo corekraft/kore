@@ -7,6 +7,7 @@ export {
   type HostSample,
   type LoadReader,
 } from "./host-load.js";
+export { readPower, type Power } from "./host-power.js";
 export { nodeFileSystem, type FileSystem } from "./filesystem.js";
 export {
   ProcessRunner,

@@ -14,7 +14,8 @@ import { hostLocksDirectory, mainRoot } from "../runtime/index.js";
 import type { CommandContext } from "../runtime/index.js";
 import { runOnTicks, tickCommand } from "./orchestrate-tick.js";
 
-vi.mock("../orchestrator/index.js", () => ({
+vi.mock("../orchestrator/index.js", async () => ({
+  ...(await vi.importActual<object>("../orchestrator/tick-bounds.js")),
   FileLeaseStore: vi.fn(),
   HarnessCliError: class extends Error {},
   TICK_LEASE_MAX_AGE_MS: 1800000,
@@ -209,6 +210,7 @@ describe("runOnTicks", () => {
     expect(Tick).toHaveBeenCalledWith(
       expect.anything(),
       new Map([["0042", OUTCOME]]),
+      expect.anything(),
     );
     const [, idea, wait] = vi.mocked(runTicks).mock.calls[0] ?? [];
     expect(idea).toBe("0042");
@@ -233,6 +235,24 @@ describe("runOnTicks", () => {
     expect(await tick?.pass("0042")).toEqual([
       { idea: "0042", issue: 11, step: "review" },
     ]);
-    expect(Tick).toHaveBeenCalledWith(expect.anything(), new Map());
+    expect(Tick).toHaveBeenCalledWith(
+      expect.anything(),
+      new Map(),
+      expect.anything(),
+    );
+  });
+});
+
+describe("the tick's printed steps", () => {
+  it("says which bound held an idea's start", async () => {
+    vi.mocked(tickFlagOn).mockResolvedValue(true);
+    vi.mocked(leasedPass).mockResolvedValue({
+      status: "ran",
+      steps: [{ idea: "0002", issue: 12, step: "held", bound: "saver" }],
+    });
+    const { context, out } = setup();
+
+    expect(await tickCommand.run(context)).toBe(0);
+    expect(out.join("")).toBe("Idea 0002: held by saver.\n");
   });
 });

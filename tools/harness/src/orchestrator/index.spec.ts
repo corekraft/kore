@@ -36,6 +36,7 @@ vi.mock("./tick-run.js", () => ({
 describe("the orchestrator barrel", () => {
   it("exposes the domain's public names, and no file's internals", () => {
     expect(Object.keys(barrel).sort()).toEqual([
+      "BOUND_LABELS",
       "FileLeaseStore",
       "HarnessCli",
       "HarnessCliError",
@@ -53,6 +54,7 @@ describe("the orchestrator barrel", () => {
       "TICK_LEASE_MAX_AGE_MS",
       "TICK_POLL_MS",
       "Tick",
+      "TickBounds",
       "TickCli",
       "TickLease",
       "leasedPass",

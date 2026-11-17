@@ -29,6 +29,14 @@ export {
   type FilingResult,
 } from "./retro-filing.js";
 export { RetroFilingCli } from "./retro-filing-cli.js";
+export {
+  BOUND_LABELS,
+  TickBounds,
+  type BoundName,
+  type BoundReaders,
+  type PassBounds,
+  type PassGate,
+} from "./tick-bounds.js";
 export { Tick } from "./tick.js";
 export type { IdeaPane, IdeaStep, PaneState, StepName } from "./tick.js";
 export { TickCli } from "./tick-cli.js";

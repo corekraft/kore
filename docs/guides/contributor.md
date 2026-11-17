@@ -696,6 +696,14 @@ run --idea <n>` runs ticks scoped to that idea until it ends, instead of its own
 loop. The standing loop, the heartbeat and the judgment panes are later steps; a
 third send-back is reported as `needs-judgment` and nothing is started for it.
 
+Before it starts a pane, the tick reads the host. On battery, or when the power
+source cannot be read, one pane starts per pass (saver mode). Above the load
+ceiling `KORE_SPAWN_MAX_LOAD`, or while a live run holds the host lease, no pane
+starts. Each start that a bound holds is reported as `held` with the bound's name,
+and is recorded as a `tick.bound` ledger event on the idea's issue. The held idea
+starts on the first pass the bound clears. A close, a send-back and an outcome
+start no pane, so a bound never stops them.
+
 Each checklist item of the precheck (`ci`, `scan`, `coverage`,
 `principles-review`, `expand-step`, `pattern-match`, `guardrail-activation`) reads its mode from the
 guardrail inventory, `.claude/guardrails.yaml`, as the rule `judge-<item>` of kind

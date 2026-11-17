@@ -50,5 +50,6 @@ export const KINDS = [
   "pane.finished",
   "pane.stalled",
   "qualifier.warned",
+  "tick.bound",
 ] as const;
 export type Kind = (typeof KINDS)[number];
