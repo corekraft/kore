@@ -119,6 +119,68 @@ describe("harness judge merge: refusals", () => {
   });
 });
 
+describe("harness judge merge: a PR behind main", () => {
+  it("names the PR, behind main and the next step when gh refuses a branch that is behind main", async () => {
+    const { context, run } = contextOf("42");
+    run
+      .mockResolvedValueOnce({
+        code: 1,
+        stdout: "",
+        stderr: "head branch is out of date\n",
+      })
+      .mockResolvedValueOnce({
+        code: 0,
+        stdout: '{"mergeStateStatus":"BEHIND"}\n',
+        stderr: "",
+      });
+    vi.mocked(prNumber).mockReturnValue(42);
+    vi.mocked(checkedPrecheck).mockResolvedValue(reportOf());
+    vi.mocked(failed).mockReturnValue(1);
+
+    expect(await mergeCommands.merge?.run(context)).toBe(1);
+    const [, error] = vi.mocked(failed).mock.calls[0] ?? [];
+    expect((error as Error).message).toBe(
+      "PR #42 was not merged: its branch is behind main. Next step: the orchestrator tells the writer to merge origin/main into its branch (never rebase or force-push), or run `gh pr update-branch 42`; then rerun `harness judge merge 42` once its checks pass.",
+    );
+  });
+
+  it("keeps the gh refusal unchanged when the PR is not behind main", async () => {
+    const { context, run } = contextOf("42");
+    run
+      .mockResolvedValueOnce({ code: 1, stdout: "", stderr: "head moved\n" })
+      .mockResolvedValueOnce({
+        code: 0,
+        stdout: '{"mergeStateStatus":"CLEAN"}\n',
+        stderr: "",
+      });
+    vi.mocked(prNumber).mockReturnValue(42);
+    vi.mocked(checkedPrecheck).mockResolvedValue(reportOf());
+    vi.mocked(failed).mockReturnValue(1);
+
+    expect(await mergeCommands.merge?.run(context)).toBe(1);
+    const [, error] = vi.mocked(failed).mock.calls[0] ?? [];
+    expect((error as Error).message).toBe(
+      "gh pr merge failed for PR #42: head moved. If the head moved, rerun `harness judge merge 42` to verify the new commit.",
+    );
+  });
+
+  it("keeps the gh refusal unchanged when the merge state cannot be read", async () => {
+    const { context, run } = contextOf("42");
+    run
+      .mockResolvedValueOnce({ code: 1, stdout: "", stderr: "head moved\n" })
+      .mockResolvedValueOnce({ code: 1, stdout: "", stderr: "no network\n" });
+    vi.mocked(prNumber).mockReturnValue(42);
+    vi.mocked(checkedPrecheck).mockResolvedValue(reportOf());
+    vi.mocked(failed).mockReturnValue(1);
+
+    expect(await mergeCommands.merge?.run(context)).toBe(1);
+    const [, error] = vi.mocked(failed).mock.calls[0] ?? [];
+    expect((error as Error).message).toBe(
+      "gh pr merge failed for PR #42: head moved. If the head moved, rerun `harness judge merge 42` to verify the new commit.",
+    );
+  });
+});
+
 describe("harness judge merge: a missing PR number", () => {
   it("hands a missing PR number to the shared failure reporter, and merges nothing", async () => {
     const { context, run } = contextOf(undefined);
