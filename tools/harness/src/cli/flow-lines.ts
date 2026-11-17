@@ -1,5 +1,19 @@
-import { SEND_BACK_CATEGORIES } from "../ledger/index.js";
+import { HANDOVER_REASONS, SEND_BACK_CATEGORIES } from "../ledger/index.js";
 import type { CostMetric, FlowReport } from "../flow/index.js";
+
+/**
+ * The main session's handovers in the range, by reason (#1036): the count with every
+ * reason, or insufficient with why it is not read. Never a zero for a window not read.
+ */
+export function handoverLine(handovers: FlowReport["handovers"]): string {
+  if (handovers.status === "insufficient") {
+    return `Handovers from the main session: insufficient, ${handovers.reason}`;
+  }
+  const byReason = HANDOVER_REASONS.map(
+    (reason) => `${reason} ${handovers.byReason[reason]}`,
+  ).join(", ");
+  return `Handovers from the main session: ${handovers.handovers} (${byReason})`;
+}
 
 /** One human line for a per-idea metric: its latest value against the trailing average, or why it has none. */
 export function metricLine(
@@ -103,6 +117,7 @@ export function advisorFigureLines(report: FlowReport): string[] {
     ...advisorLines(report.advisorQuality),
     ...routeLines(report.ownerRoutes),
     ...waitLines(report.waitingOnPerson),
+    handoverLine(report.handovers),
   ];
 }
 

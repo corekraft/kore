@@ -346,6 +346,19 @@ the harness's approval markers, are never one. A `decision.made` event records t
 issue it was posted on from this change on; one recorded before it has no issue, so
 its overturns are not read and it counts as made only.
 
+The handover count (spec [#1031](https://github.com/corekraft/kore/issues/1031),
+#1036) reads the `session.send` events the main session wrote with a `handover`
+reason: why it passed a case to the stronger session by a pane message. The reasons
+are a fixed list (`reserved-item`, `needs-info-idea`, `third-send-back`,
+`owner-request`, `flag-activation`, `unmapped-message`); a reason outside it is
+refused, so no message text reaches the ledger. Only sends with no sender role
+count. `handovers` in `--json` gives the count over the range, `merged` and
+`byReason`, every reason a key, zero where none. It is a reading, not a guard:
+nothing blocks a send. A range with no send that names a reason, or with fewer
+merged changes than `cost.minMergedChanges`, is `insufficient` with its reason,
+never zero. No `session send` option records a reason yet, so the count stays
+insufficient until one does.
+
 The person's main session answers "how is the loop doing?" from this report alone
 (`flow report --json`, no code or transcripts read, no file written): it leads
 with every metric whose `worsened` is true, names current against trailing
