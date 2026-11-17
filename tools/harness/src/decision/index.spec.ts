@@ -25,13 +25,20 @@ vi.mock("./route.js", () => ({
 describe("the decision barrel", () => {
   it("exposes the domain's public names, and no file's internals", () => {
     expect(Object.keys(barrel).sort()).toEqual([
+      "ASK_LABEL",
       "DECISION_FLAG",
+      "DIGEST_INTERVAL_MS",
       "DecisionError",
       "RESERVED_CATEGORIES",
       "UNCLASSIFIED",
+      "askOwner",
       "classify",
       "decisionFlagOn",
+      "digestDue",
       "makeDecision",
+      "openOwnerQuestions",
+      "pinnedDigestIssue",
+      "postDigest",
       "reservedCategory",
       "routeQuestion",
     ]);

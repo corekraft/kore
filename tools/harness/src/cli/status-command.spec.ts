@@ -197,7 +197,9 @@ describe("harness status --json ledger stages", () => {
     await statusCommand.run(f.context);
     expect(JSON.parse(printed(f.stdout)).ledger.skipped).toBe(2);
   });
+});
 
+describe("harness status --json empty sections", () => {
   it("reports empty sections when there is no plan, idea or ledger event", async () => {
     const f = fixture({ json: true });
     expect(await statusCommand.run(f.context)).toBe(0);
@@ -206,6 +208,7 @@ describe("harness status --json ledger stages", () => {
       ideas: { byState: {}, items: [] },
       ledger: { recent: [], skipped: 0 },
       tick: { state: "none" },
+      ownerQuestions: [],
     });
   });
 

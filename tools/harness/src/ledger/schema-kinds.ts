@@ -44,6 +44,8 @@ export const KINDS = [
   "decision.made",
   "decision.routed",
   "advisor.overturned",
+  "decision.digest",
+  "decision.blocking",
   "retro.dropped",
   "retro.main-session",
   "owner.asked",

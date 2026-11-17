@@ -723,6 +723,21 @@ escalation with `--escalate` writes `owner` and no input moves an owner route to
 advisor. It is refused, with nothing recorded, while the `decision-advisor` flag is
 off, and a pane that gets no route acts as if the question were the owner's.
 
+`decision ask --idea <n> --category <name> --question <text> --action <text>` posts a
+reserved question on the idea's issue, under the sender line, with the `needs-info`
+label, and records `decision.routed` to the owner ([ADR 0120](../decisions/0120-recommended-decisions-go-to-an-advisor-reserved-decisions-to-the-owner.md)).
+It refuses, with nothing posted, a question the advisor decides (use `decision make`),
+and a consent prompt: an action that matches the destruction list stays inline with
+its gate and is never routed. It is refused while the `decision-advisor` flag is off.
+
+`decision digest` posts the owner digest, at most once a day, to the one issue pinned
+on the repository: the open reserved questions, blocking first, and whether the tick
+is not running. It records `decision.digest` with no question in it. It refuses while
+no issue or several are pinned, and posts nothing when no question is open and the
+tick runs. `harness status` lists the open questions after the idea counts. A tick
+writes `decision.blocking` to mark an idea whose question blocks it; the tick does not
+write that mark yet.
+
 `orchestrate tick [--idea <n>]` ([ADR 0121](../decisions/0121-the-orchestrator-is-a-tick-with-judgment-panes.md))
 is one pass over the queue that advances each approved idea by at most one step,
 then exits, and calls no model. It does nothing, and exits 0, while the
