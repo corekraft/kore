@@ -6,7 +6,11 @@ import { hostLeaseRefusal } from "./host-lease.js";
 import { sessionNameError } from "./names.js";
 import { USAGE_ERROR } from "./output.js";
 import { check } from "./spawn-check.js";
-import { EXPERIMENT_START, experimentConfigError } from "./spawn-experiment.js";
+import {
+  EXPERIMENT_SHARE_ENV,
+  EXPERIMENT_START,
+  experimentConfigError,
+} from "./spawn-experiment.js";
 import { spawnLoadRefusal } from "./spawn-load.js";
 import { tierInputError, tierOf } from "./tier-source.js";
 import { findResult, parseTimeout } from "./wait.js";
@@ -130,5 +134,16 @@ describe("check keeps flag-chosen, reader and misconfigured launches on their ow
       code: USAGE_ERROR,
     });
     expect(deps.runner.run).not.toHaveBeenCalled();
+  });
+
+  it("refuses a writer whose share or length the code would not read, before any herdr call", async () => {
+    deps.env = { ...deps.env, [EXPERIMENT_SHARE_ENV]: "1.5" };
+
+    await expect(check(request())).resolves.toEqual({
+      error: `${EXPERIMENT_SHARE_ENV} must be a share above 0 and up to 1, such as 0.1, or unset; got "1.5". No session was started.`,
+      code: USAGE_ERROR,
+    });
+    expect(deps.runner.run).not.toHaveBeenCalled();
+    expect(random).not.toHaveBeenCalled();
   });
 });
