@@ -1,6 +1,7 @@
 import { GITHUB_STAGES } from "../flow/index.js";
 import { IdeaRepository } from "../idea/index.js";
 import type { LedgerEvent } from "../ledger/index.js";
+import { tickHeartbeat } from "../orchestrator/index.js";
 import { readActivePlans } from "../plan/index.js";
 import {
   CommandError,
@@ -75,6 +76,7 @@ export const statusCommand: Command = {
       plans: await readActivePlans(context.deps),
       ideas: await ideas(context),
       ledger: { recent: recentStages(events), skipped },
+      tick: tickHeartbeat(events, context.deps.clock.now()),
     };
     if (context.json) {
       context.deps.stdout(`${JSON.stringify(status)}\n`);
@@ -91,6 +93,11 @@ export const statusCommand: Command = {
           .join(", ") || "none"
       }`,
     );
+    if (status.tick.state === "gap") {
+      lines.push(
+        `the tick is not running: no heartbeat since ${status.tick.lastAt}`,
+      );
+    }
     for (const r of status.ledger.recent) {
       lines.push(`${r.occurredAt} ${r.stage} ${r.kind}`);
     }

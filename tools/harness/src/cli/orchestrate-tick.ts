@@ -27,6 +27,8 @@ import {
   type CommandContext,
 } from "../runtime/index.js";
 import { hostLeaseRefusal, spawnLoadRefusal } from "../session/index.js";
+import { installTickJob } from "./orchestrate-tick-install.js";
+import { runTickLoop } from "./orchestrate-tick-loop.js";
 
 const FAILED = 1;
 const LEASE_FILE = "orchestrate-tick.lock";
@@ -92,46 +94,62 @@ async function build(
 const said = (step: IdeaStep) =>
   `Idea ${step.idea}: ${step.step}${step.pane === undefined ? "" : ` (${step.pane})`}${step.bound === undefined ? "" : ` by ${step.bound}`}.\n`;
 
+/** One pass over the queue: the mode `orchestrate tick` runs when it is given neither --loop nor --install. */
+async function runPass(
+  context: CommandContext,
+  root: string,
+  idea: string | undefined,
+): Promise<number> {
+  const { deps, json } = context;
+  if (!(await tickFlagOn(deps.fs, root))) {
+    deps.stdout(
+      json
+        ? `${JSON.stringify({ flag: "off", steps: [] })}\n`
+        : "The orchestrator-tick flag is off in the local overlay, so no idea was advanced.\n",
+    );
+    return 0;
+  }
+  const { tick, lease } = await build(deps, root, new Map());
+  const pass = await leasedPass(lease, tick, idea);
+  if (pass.status === "held") {
+    const { holder } = pass;
+    deps.stdout(
+      json
+        ? `${JSON.stringify({ held: true, ...(holder === undefined ? {} : { holder }) })}\n`
+        : `Another tick holds the lease${holder === undefined ? "" : ` (pid ${holder.pid} on ${holder.host}, since ${holder.acquiredAt})`}; this pass advanced nothing.\n`,
+    );
+    return 0;
+  }
+  if (json) {
+    deps.stdout(`${JSON.stringify({ steps: pass.steps })}\n`);
+    return 0;
+  }
+  if (pass.recovered !== undefined) {
+    deps.stdout(
+      `Recovered a tick lease held since ${pass.recovered.acquiredAt} by pid ${pass.recovered.pid}.\n`,
+    );
+  }
+  deps.stdout(
+    pass.steps.length === 0
+      ? "No approved idea is in flight.\n"
+      : pass.steps.map(said).join(""),
+  );
+  return 0;
+}
+
 async function runTick(context: CommandContext): Promise<number> {
-  const { deps, json, options } = context;
+  const { deps, options } = context;
   const idea =
     typeof options["idea"] === "string" ? options["idea"] : undefined;
   try {
     const root = await deps.root();
-    if (!(await tickFlagOn(deps.fs, root))) {
-      deps.stdout(
-        json
-          ? `${JSON.stringify({ flag: "off", steps: [] })}\n`
-          : "The orchestrator-tick flag is off in the local overlay, so no idea was advanced.\n",
-      );
-      return 0;
+    if (options["install"] === true) {
+      return await installTickJob(deps, root);
     }
-    const { tick, lease } = await build(deps, root, new Map());
-    const pass = await leasedPass(lease, tick, idea);
-    if (pass.status === "held") {
-      const { holder } = pass;
-      deps.stdout(
-        json
-          ? `${JSON.stringify({ held: true, ...(holder === undefined ? {} : { holder }) })}\n`
-          : `Another tick holds the lease${holder === undefined ? "" : ` (pid ${holder.pid} on ${holder.host}, since ${holder.acquiredAt})`}; this pass advanced nothing.\n`,
-      );
-      return 0;
+    if (options["loop"] === true) {
+      return await runTickLoop(deps, root, idea);
     }
-    if (json) {
-      deps.stdout(`${JSON.stringify({ steps: pass.steps })}\n`);
-      return 0;
-    }
-    if (pass.recovered !== undefined) {
-      deps.stdout(
-        `Recovered a tick lease held since ${pass.recovered.acquiredAt} by pid ${pass.recovered.pid}.\n`,
-      );
-    }
-    deps.stdout(
-      pass.steps.length === 0
-        ? "No approved idea is in flight.\n"
-        : pass.steps.map(said).join(""),
-    );
-    return 0;
+    return await runPass(context, root, idea);
   } catch (error) {
     if (!(error instanceof HarnessCliError)) {
       throw error;
@@ -172,7 +190,7 @@ export async function runOnTicks(
 
 export const tickCommand: Command = {
   summary:
-    "behind the local orchestrator-tick flag (off): one idempotent pass over the queue that advances each approved idea by at most one step, then exits, and calls no model; per idea it starts the writer, closes a finished pane, runs `review run`, runs the precheck and sends a failing change back, starts the judge, relaunches the writer after a send-back on the tier's model, and records the outcome only when the idea's `orchestrate run` was given one; a pane is named for its idea and PR head, so a rerun starts nothing twice; a third send-back is reported as needs-judgment and nothing is started; reads power, the load ceiling (KORE_SPAWN_MAX_LOAD) and a live run's host lease before it starts anything: on battery or unreadable power one pane starts per pass, above the ceiling or under a live run's lease no pane starts, and each start held that way is recorded as a tick.bound ledger event and reported as held; runs under a per-machine lease in the host lock directory that the next tick recovers once it is 30 minutes old, and a held lease skips the pass; with the flag off it does nothing and exits 0 (--idea to scope the pass to one idea)",
-  options: { idea: "string" },
+    "behind the local orchestrator-tick flag (off): one idempotent pass over the queue that advances each approved idea by at most one step, then exits, and calls no model; per idea it starts the writer, closes a finished pane, runs `review run`, runs the precheck and sends a failing change back, starts the judge, relaunches the writer after a send-back on the tier's model, and records the outcome only when the idea's `orchestrate run` was given one; a pane is named for its idea and PR head, so a rerun starts nothing twice; a third send-back is reported as needs-judgment and nothing is started; reads power, the load ceiling (KORE_SPAWN_MAX_LOAD) and a live run's host lease before it starts anything: on battery or unreadable power one pane starts per pass, above the ceiling or under a live run's lease no pane starts, and each start held that way is recorded as a tick.bound ledger event and reported as held; runs under a per-machine lease in the host lock directory that the next tick recovers once it is 30 minutes old, and a held lease skips the pass; with the flag off it does nothing and exits 0 (--idea to scope the pass to one idea); --loop runs passes in a loop, each as a child process so a failing pass ends only itself, writing tick.started before each pass and tick.stopped when it ends, until the flag is turned off (status reports a gap when the heartbeat stops); --install writes the owner's launchd restart job behind the flag and starts nothing, the owner loads it",
+  options: { idea: "string", loop: "boolean", install: "boolean" },
   run: runTick,
 };
