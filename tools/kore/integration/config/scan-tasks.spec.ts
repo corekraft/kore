@@ -180,7 +180,7 @@ test("every tracked npm lockfile is scanned for vulnerabilities", async () => {
 });
 
 test("the OSV scan ignores only GHSA-fc5q-39xc-vjpf, with a reason and an expiry date", async () => {
-  const config = await read("osv-scanner.toml");
+  const config = await read("tools/harness/osv-scanner.toml");
   const ids = [...config.matchAll(/^id = "([^"]+)"$/gm)].map(
     (match) => match[1],
   );
@@ -192,7 +192,10 @@ test("the OSV scan ignores only GHSA-fc5q-39xc-vjpf, with a reason and an expiry
 
 test("the OSV scan task reads the narrow ignore file, since the lockfiles sit in subdirectories", async () => {
   const block = taskBlock(await read(".mise.toml"), "scan-vulns");
-  assert.match(block, /osv-scanner scan source --config osv-scanner\.toml /);
+  assert.match(
+    block,
+    /osv-scanner scan source --config tools\/harness\/osv-scanner\.toml /,
+  );
 });
 
 test("the SAST scan covers the harness source", async () => {

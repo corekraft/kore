@@ -116,7 +116,7 @@ run = [
 
 [tasks.scan-vulns]
 description = "Scan npm lockfiles for known vulnerabilities with OSV-Scanner (queries the OSV API); add each new lockfile here"
-run = "osv-scanner scan source --config osv-scanner.toml -L tools/kore/package-lock.json -L tools/harness/package-lock.json -L images/backstage/package-lock.json"
+run = "osv-scanner scan source --config tools/harness/osv-scanner.toml -L tools/kore/package-lock.json -L tools/harness/package-lock.json -L images/backstage/package-lock.json"
 
 [tasks.scan-sast]
 description = "Run the committed Semgrep rules (infra/policies/semgrep) over source; offline, no telemetry; tests are not scanned"
