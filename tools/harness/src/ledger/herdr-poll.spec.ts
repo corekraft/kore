@@ -256,12 +256,14 @@ describe("pollHerdr: a recorded pane that goes away", () => {
 });
 
 describe("pollHerdr: reading the ledger and the result", () => {
-  it("reads herdr's events, then Claude's for background commands, and asks for nothing else", async () => {
+  it("reads herdr's events, Claude's for background commands, and the reserved questions and replies, and asks for nothing else (never token usage)", async () => {
     const { fake, poll } = setupAgents([]);
     await poll();
     expect(fake.list.mock.calls).toEqual([
       [{ source: "herdr" }],
       [{ source: "claude" }],
+      [{ kind: "decision.routed" }],
+      [{ kind: "owner.replied" }],
     ]);
   });
 

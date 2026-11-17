@@ -187,3 +187,31 @@ describe("decision ask ports", () => {
     );
   });
 });
+
+describe("decision ask ledger", () => {
+  it("records decision.routed as a claude event with the posting pane and the issue number, so the stall check can see it (#854)", async () => {
+    const fake = fakeLedger();
+    vi.mocked(openLedger).mockResolvedValue({ ledger: fake.ledger });
+    const { ctx } = context(FLAGS);
+    await ask?.run(ctx);
+
+    await portsOf().record({
+      idea: "0008",
+      label: "credentials",
+      route: "owner",
+      signal: "reserved-category",
+      number: 878,
+      pane: "w3:p1",
+    });
+
+    expect(fake.write).toHaveBeenCalledWith(
+      expect.objectContaining({
+        source: "claude",
+        kind: "decision.routed",
+        route: "owner",
+        number: 878,
+        pane: "w3:p1",
+      }),
+    );
+  });
+});

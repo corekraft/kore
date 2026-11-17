@@ -72,6 +72,7 @@ describe("askOwner", () => {
       label: "credentials",
       route: "owner",
       signal: "reserved-category",
+      number: 878,
     });
     expect(vi.mocked(p.label).mock.invocationCallOrder[0]).toBeLessThan(
       vi.mocked(p.post).mock.invocationCallOrder[0] as number,
@@ -83,6 +84,29 @@ describe("askOwner", () => {
       commentUrl: COMMENT,
       signal: "reserved-category",
     });
+  });
+
+  it("links the posting pane and the issue number on decision.routed, so the stall check can exempt that pane (#854)", async () => {
+    const p = ports({ env: { ...ENV, HERDR_PANE_ID: "w3:p1" } });
+
+    await askOwner(p, INPUT);
+
+    expect(p.record).toHaveBeenCalledWith({
+      idea: "0008",
+      label: "credentials",
+      route: "owner",
+      signal: "reserved-category",
+      number: 878,
+      pane: "w3:p1",
+    });
+  });
+
+  it("records no pane for a question asked outside a Herdr pane, or from an empty pane id", async () => {
+    const p = ports({ env: { ...ENV, HERDR_PANE_ID: "" } });
+
+    await askOwner(p, INPUT);
+
+    expect(vi.mocked(p.record).mock.calls[0]?.[0]).not.toHaveProperty("pane");
   });
 
   it("does nothing while the decision-advisor flag is off", async () => {

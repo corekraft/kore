@@ -79,6 +79,8 @@ function ports(context: CommandContext, root: string, ledger: Ledger) {
         label: event.label,
         route: event.route,
         signal: event.signal,
+        number: event.number,
+        ...(event.pane === undefined ? {} : { pane: event.pane }),
       });
       return written.ok
         ? { ok: true }
@@ -90,7 +92,7 @@ function ports(context: CommandContext, root: string, ledger: Ledger) {
 
 const ask: Command = {
   summary:
-    "post a reserved question on the idea's issue under the sender line with the needs-info label, and record decision.routed to the owner with the idea, the category, the route and the signal (never the question or the action); refused with nothing posted while the decision-advisor flag is off in the local overlay, for a consent prompt (a destructive action, which stays inline with its gate), and for a question the advisor decides (--idea <number or slug> --category <name> --question <text> --action <text> [--json: idea, category, issue, commentUrl, signal] [--ledger])",
+    "post a reserved question on the idea's issue under the sender line with the needs-info label, and record decision.routed to the owner with the idea, the category, the route, the signal, the issue number and the posting pane, so a pane waiting on the answer is not reported stalled (never the question or the action); refused with nothing posted while the decision-advisor flag is off in the local overlay, for a consent prompt (a destructive action, which stays inline with its gate), and for a question the advisor decides (--idea <number or slug> --category <name> --question <text> --action <text> [--json: idea, category, issue, commentUrl, signal] [--ledger])",
   options: {
     idea: "string",
     category: "string",

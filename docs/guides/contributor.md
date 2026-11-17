@@ -536,9 +536,13 @@ printed since it last started work. `fromTokenUsage` counts sessions whose last
 `token.usage` is more than 900 seconds before the report's measuring point, with
 no RESULT since. `backgroundExcluded` counts silent sessions left out because a
 `tool.start` marked `background` is open on their pane: one that started after
-the pane's last RESULT. The poll and the flow report do not exempt a pane that is
-waiting on an owner question; that is an owner decision still open on #854. The
-300 and 900 second thresholds are placeholders until the owner tunes them.
+the pane's last RESULT. A pane waiting on an open reserved question is exempt from
+both counts (#854, ADR 0120): the `decision ask` that posted the question records
+`decision.routed` with its pane and issue number, and the question stays open until
+an untagged owner reply on that issue (`owner.replied`, from the GitHub poll) comes
+after it. `questionExcluded` counts the silent sessions left out for it. Token usage
+never exempts a pane, and the detector reads no token usage. The 300 and 900 second
+thresholds are placeholders until the owner tunes them.
 
 Known limits until plan 8 Step 3 lands its producers: nothing records
 `issue.closed` or the `idea` link on PR events yet, so real ledgers show no

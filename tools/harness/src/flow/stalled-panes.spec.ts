@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
   hasOpenBackground,
+  hasOpenQuestion,
   type Kind,
   type LedgerEvent,
 } from "../ledger/index.js";
@@ -8,7 +9,10 @@ import { time } from "./github-waits.js";
 import { inWindow } from "./scope.js";
 import { stalledPanes } from "./stalled-panes.js";
 
-vi.mock("../ledger/index.js", () => ({ hasOpenBackground: vi.fn() }));
+vi.mock("../ledger/index.js", () => ({
+  hasOpenBackground: vi.fn(),
+  hasOpenQuestion: vi.fn(),
+}));
 vi.mock("./github-waits.js");
 vi.mock("./scope.js");
 
@@ -49,6 +53,7 @@ beforeEach(() => {
     ([start, end], t) => t >= start && t < end,
   );
   vi.mocked(hasOpenBackground).mockReturnValue(false);
+  vi.mocked(hasOpenQuestion).mockReturnValue(false);
 });
 
 describe("stalled panes: the detector's count", () => {
@@ -66,6 +71,7 @@ describe("stalled panes: the token-usage silence count", () => {
       recorded: 0,
       fromTokenUsage: 1,
       backgroundExcluded: 0,
+      questionExcluded: 0,
     });
   });
 
@@ -135,7 +141,36 @@ describe("stalled panes: what token silence leaves out", () => {
       fromTokenUsage: 0,
     });
   });
+});
 
+describe("stalled panes: an open reserved question (#854)", () => {
+  it("leaves out a session whose pane waits on an open reserved question, and counts that exclusion", () => {
+    vi.mocked(hasOpenQuestion).mockReturnValue(true);
+    expect(stalledPanes([tokens(AT)], WINDOW, AT + 30 * MINUTE)).toEqual({
+      silenceSeconds: 900,
+      recorded: 0,
+      fromTokenUsage: 0,
+      backgroundExcluded: 0,
+      questionExcluded: 1,
+    });
+    expect(hasOpenQuestion).toHaveBeenCalledWith(
+      expect.any(Array),
+      "w3:p9",
+      AT + 30 * MINUTE,
+    );
+  });
+
+  it("counts a silent session with both a background command and an open question as background, once", () => {
+    vi.mocked(hasOpenBackground).mockReturnValue(true);
+    vi.mocked(hasOpenQuestion).mockReturnValue(true);
+    expect(stalledPanes([tokens(AT)], WINDOW, AT + 30 * MINUTE)).toMatchObject({
+      backgroundExcluded: 1,
+      questionExcluded: 0,
+    });
+  });
+});
+
+describe("stalled panes: the events it counts", () => {
   it("ignores every kind other than the events it counts", () => {
     expect(
       stalledPanes(
@@ -148,6 +183,7 @@ describe("stalled panes: what token silence leaves out", () => {
       recorded: 0,
       fromTokenUsage: 0,
       backgroundExcluded: 0,
+      questionExcluded: 0,
     });
   });
 });

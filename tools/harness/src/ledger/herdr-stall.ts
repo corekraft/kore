@@ -1,4 +1,5 @@
 import { hasOpenBackground } from "./background.js";
+import { hasOpenQuestion } from "./open-question.js";
 import type { EventInput, LedgerEvent } from "./schema.js";
 
 /**
@@ -20,15 +21,20 @@ const time = (event: LedgerEvent) => Date.parse(event.occurredAt);
  * The pane.stalled events the poll should append now (#854). A pane qualifies when a
  * session spawned it, its last state is idle or gone for at least STALL_SECONDS, it
  * printed no RESULT since it last started work, it has not been reported for this
- * idle stretch, and no background command is open on it. Token-usage events are never
- * read: silence in them is the flow report's own source.
+ * idle stretch, no background command is open on it, and it does not wait on an open
+ * reserved question (`questions` holds the decision.routed and owner.replied events).
+ * Token-usage events are never read: silence in them is the flow report's own source.
  */
 export function plannedStalls(
   herdr: readonly LedgerEvent[],
   claude: readonly LedgerEvent[],
   now: Date,
+  questions: readonly LedgerEvent[],
 ): EventInput[] {
   const at = now.getTime();
+  // A background command is marked on claude's tool.start; its end is the pane's RESULT,
+  // which herdr records, so both are read. Token usage is left out.
+  const marks = [...herdr, ...claude.filter((e) => e.kind === "tool.start")];
   const spawned = new Set(
     herdr
       .filter((e) => e.kind === "session.launch" && e.pane !== undefined)
@@ -63,7 +69,12 @@ export function plannedStalls(
     const reported = herdr.some(
       (e) => e.pane === pane && e.kind === "pane.stalled" && time(e) >= since,
     );
-    if (printed || reported || hasOpenBackground(claude, pane, at)) {
+    if (
+      printed ||
+      reported ||
+      hasOpenBackground(marks, pane, at) ||
+      hasOpenQuestion(questions, pane, at)
+    ) {
       continue;
     }
     planned.push({
