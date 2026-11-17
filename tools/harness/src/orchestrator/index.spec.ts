@@ -27,6 +27,21 @@ vi.mock("./tick-lease.js", () => ({
   TickLease: vi.fn(),
 }));
 vi.mock("./tick-leased.js", () => ({ leasedPass: vi.fn() }));
+vi.mock("./tick-heartbeat.js", () => ({
+  TICK_HEARTBEAT_GAP_MS: 1,
+  TICK_STARTED: "tick.started",
+  TICK_STOPPED: "tick.stopped",
+  tickHeartbeat: vi.fn(),
+}));
+vi.mock("./tick-loop.js", () => ({
+  TICK_LOOP_INTERVAL_MS: 1,
+  TickLoop: vi.fn(),
+}));
+vi.mock("./tick-restart-job.js", () => ({
+  TICK_JOB_LABEL: "label",
+  restartJobPath: vi.fn(),
+  restartJobPlist: vi.fn(),
+}));
 vi.mock("./tick-run.js", () => ({
   MAX_TICK_PASSES: 1,
   TICK_POLL_MS: 1,
@@ -51,16 +66,25 @@ describe("the orchestrator barrel", () => {
       "RetroFilingCli",
       "RetroLaunch",
       "TICK_FLAG",
+      "TICK_HEARTBEAT_GAP_MS",
+      "TICK_JOB_LABEL",
       "TICK_LEASE_MAX_AGE_MS",
+      "TICK_LOOP_INTERVAL_MS",
       "TICK_POLL_MS",
+      "TICK_STARTED",
+      "TICK_STOPPED",
       "Tick",
       "TickBounds",
       "TickCli",
       "TickLease",
+      "TickLoop",
       "leasedPass",
+      "restartJobPath",
+      "restartJobPlist",
       "retroFlagOn",
       "runTicks",
       "tickFlagOn",
+      "tickHeartbeat",
     ]);
   });
 
