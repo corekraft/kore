@@ -205,6 +205,7 @@ describe("harness status --json ledger stages", () => {
       plans: [],
       ideas: { byState: {}, items: [] },
       ledger: { recent: [], skipped: 0 },
+      tick: { state: "none" },
     });
   });
 
@@ -243,5 +244,59 @@ describe("harness status text", () => {
       new CommandError("no ledger here"),
     );
     expect(f.stdout).not.toHaveBeenCalled();
+  });
+});
+
+describe("harness status and the tick heartbeat", () => {
+  const NOW = new Date("2026-11-16T12:00:00.000Z");
+  const tickEvent = (kind: string, occurredAt: string) => ({
+    source: "claude" as const,
+    kind: kind as Kind,
+    occurredAt,
+  });
+
+  it("says in text that the tick is not running when its heartbeat has gone quiet", async () => {
+    const f = fixture({
+      events: [tickEvent("tick.started", "2026-11-16T11:00:00.000Z")],
+    });
+    f.clock.now.mockReturnValue(NOW);
+    expect(await statusCommand.run(f.context)).toBe(0);
+    expect(printed(f.stdout)).toBe(
+      "Ideas: none\nthe tick is not running: no heartbeat since 2026-11-16T11:00:00.000Z\n",
+    );
+  });
+
+  it("reports the tick as not running in json, with the last heartbeat's time", async () => {
+    const f = fixture({
+      json: true,
+      events: [tickEvent("tick.started", "2026-11-16T11:00:00.000Z")],
+    });
+    f.clock.now.mockReturnValue(NOW);
+    await statusCommand.run(f.context);
+    expect(JSON.parse(printed(f.stdout)).tick).toEqual({
+      state: "gap",
+      lastAt: "2026-11-16T11:00:00.000Z",
+    });
+  });
+
+  it("says nothing about the tick while its heartbeat is recent", async () => {
+    const f = fixture({
+      events: [tickEvent("tick.started", "2026-11-16T11:59:30.000Z")],
+    });
+    f.clock.now.mockReturnValue(NOW);
+    await statusCommand.run(f.context);
+    expect(printed(f.stdout)).toBe("Ideas: none\n");
+  });
+
+  it("says nothing about the tick after it stopped on its own, so a stop is not read as a gap", async () => {
+    const f = fixture({
+      events: [
+        tickEvent("tick.started", "2026-11-16T10:00:00.000Z"),
+        tickEvent("tick.stopped", "2026-11-16T10:30:00.000Z"),
+      ],
+    });
+    f.clock.now.mockReturnValue(NOW);
+    await statusCommand.run(f.context);
+    expect(printed(f.stdout)).toBe("Ideas: none\n");
   });
 });

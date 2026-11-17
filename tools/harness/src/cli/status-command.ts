@@ -1,6 +1,7 @@
 import { GITHUB_STAGES } from "../flow/index.js";
 import { IdeaRepository } from "../idea/index.js";
 import type { LedgerEvent } from "../ledger/index.js";
+import { tickHeartbeat } from "../orchestrator/index.js";
 import { readActivePlans } from "../plan/index.js";
 import {
   CommandError,
@@ -64,7 +65,7 @@ async function ideas({ deps }: CommandContext) {
 
 export const statusCommand: Command = {
   summary:
-    "report open plan items, ideas by state and recent ledger stages; read-only, for the person's main session",
+    "report open plan items, ideas by state, recent ledger stages and the orchestrator tick's heartbeat (tick: none, running, stopped, or gap, which prints 'the tick is not running' when its latest heartbeat is older than the gap with no stop after it); read-only, for the person's main session",
   async run(context) {
     const opened = await openLedger(context);
     if ("error" in opened) {
@@ -75,6 +76,7 @@ export const statusCommand: Command = {
       plans: await readActivePlans(context.deps),
       ideas: await ideas(context),
       ledger: { recent: recentStages(events), skipped },
+      tick: tickHeartbeat(events, context.deps.clock.now()),
     };
     if (context.json) {
       context.deps.stdout(`${JSON.stringify(status)}\n`);
@@ -91,6 +93,11 @@ export const statusCommand: Command = {
           .join(", ") || "none"
       }`,
     );
+    if (status.tick.state === "gap") {
+      lines.push(
+        `the tick is not running: no heartbeat since ${status.tick.lastAt}`,
+      );
+    }
     for (const r of status.ledger.recent) {
       lines.push(`${r.occurredAt} ${r.stage} ${r.kind}`);
     }

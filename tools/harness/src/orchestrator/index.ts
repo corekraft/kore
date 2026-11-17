@@ -41,6 +41,26 @@ export { Tick } from "./tick.js";
 export type { IdeaPane, IdeaStep, PaneState, StepName } from "./tick.js";
 export { TickCli } from "./tick-cli.js";
 export { TICK_FLAG, tickFlagOn } from "./tick-flag.js";
+export {
+  TICK_HEARTBEAT_GAP_MS,
+  TICK_STARTED,
+  TICK_STOPPED,
+  tickHeartbeat,
+  type TickEvent,
+  type TickHeartbeat,
+} from "./tick-heartbeat.js";
+export {
+  TICK_LOOP_INTERVAL_MS,
+  TickLoop,
+  type LoopPorts,
+  type LoopResult,
+} from "./tick-loop.js";
+export {
+  TICK_JOB_LABEL,
+  restartJobPath,
+  restartJobPlist,
+  type RestartJob,
+} from "./tick-restart-job.js";
 export { FileLeaseStore } from "./tick-lease-store.js";
 export { TICK_LEASE_MAX_AGE_MS, TickLease } from "./tick-lease.js";
 export type { LeaseRecord, LeaseResult } from "./tick-lease.js";

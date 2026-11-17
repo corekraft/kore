@@ -111,6 +111,55 @@ describe("evaluateBash weighing", () => {
   });
 });
 
+describe("the zsh rules under a verified bash", () => {
+  const bash: GuardContext = { ...ctx, verifiedBash: true };
+
+  it("does not run the unquoted-glob, bare-glob or equals-word checks", async () => {
+    vi.mocked(unquotedGlob).mockReturnValue(hit("unquoted-glob"));
+    vi.mocked(bareGlob).mockResolvedValue(hit("bare-glob"));
+    vi.mocked(rawWords).mockReturnValue([
+      { text: "=ls", glob: false, equals: true },
+    ]);
+    await evaluateBash("ls =ls", bash);
+    expect(unquotedGlob).not.toHaveBeenCalled();
+    expect(bareGlob).not.toHaveBeenCalled();
+    expect(warn).not.toHaveBeenCalled();
+    expect(vi.mocked(weigh).mock.calls[0]?.[0]).toEqual([null, null]);
+  });
+
+  it("still checks every segment and the glob qualifier that runs code", async () => {
+    const segmentFinding = hit("secret-path");
+    vi.mocked(splitSegments).mockReturnValue([["cat", "x"]]);
+    vi.mocked(checkBashSegment).mockResolvedValue([segmentFinding]);
+    vi.mocked(execGlobQualifier).mockReturnValue("*(e:'id':)");
+    await evaluateBash("cat x *(e:'id':)", bash);
+    expect(block).toHaveBeenCalledWith(
+      "unquoted-glob",
+      expect.stringContaining("is a zsh glob qualifier that runs code"),
+    );
+    expect(checkBashSegment).toHaveBeenCalledWith(["cat", "x"], bash);
+    expect(vi.mocked(weigh).mock.calls[0]?.[0]).toEqual([
+      null,
+      hit("unquoted-glob"),
+      segmentFinding,
+    ]);
+  });
+
+  it.each([
+    ["a context that says nothing", ctx],
+    [
+      "a context that says the shell is not bash",
+      { ...ctx, verifiedBash: false },
+    ],
+  ])("keeps every zsh check for %s", async (_label, context) => {
+    vi.mocked(unquotedGlob).mockReturnValue(hit("unquoted-glob"));
+    vi.mocked(bareGlob).mockResolvedValue(hit("bare-glob"));
+    await evaluateBash("ls", context);
+    expect(unquotedGlob).toHaveBeenCalledWith("ls");
+    expect(bareGlob).toHaveBeenCalledWith("ls", context);
+  });
+});
+
 describe("the zsh glob qualifier", () => {
   it("blocks a qualifier in the command itself, naming it", async () => {
     vi.mocked(execGlobQualifier).mockImplementation((text) =>
