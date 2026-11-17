@@ -38,6 +38,11 @@ export interface CommandContext {
   json: boolean;
   /** Parsed flags, as the command declared them in `options`. */
   options: Record<string, string | boolean>;
+  /**
+   * Repeatable flags, as the command declared them as "list": every value given, in
+   * order. Present only when the command was given at least one such flag.
+   */
+  lists?: Record<string, string[]>;
   /** The one positional argument, for a command that declares an `operand`. */
   operand?: string | undefined;
   deps: CliDeps;
@@ -45,8 +50,11 @@ export interface CommandContext {
 
 export interface Command {
   summary: string;
-  /** Flags beyond the global --json and --help; a "string" flag takes a value. */
-  options?: Record<string, "string" | "boolean">;
+  /**
+   * Flags beyond the global --json and --help. A "string" flag takes a value; a "list"
+   * flag takes a value and may be repeated, and each value is kept in order in `lists`.
+   */
+  options?: Record<string, "string" | "boolean" | "list">;
   /** Names the one positional argument the command takes, such as "name". */
   operand?: string;
   run(context: CommandContext): Promise<number>;

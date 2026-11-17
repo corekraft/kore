@@ -47,6 +47,7 @@
       "main-session-figures": false,
       "pane-result-summary": false,
       "signed-main-sends": false,
+      "main-session-wait": false,
       "decision-advisor": false
     },
   "secrets": { "storeName": "platform-secrets", "sourceNamespace": "external" },

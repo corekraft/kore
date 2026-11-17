@@ -59,6 +59,32 @@ describe("context deps: pane-result-summary flag", () => {
   });
 });
 
+describe("context deps: main-session-wait flag", () => {
+  it("reads the local overlay, and is on when it turns the flag on", async () => {
+    vi.mocked(readOverlay).mockResolvedValue(
+      overlay({ "main-session-wait": true }),
+    );
+
+    expect(await realContextDeps(CLI, ROOT).mainSessionWaitOn()).toBe(true);
+    expect(vi.mocked(readOverlay)).toHaveBeenLastCalledWith(FS, ROOT, "local");
+  });
+
+  it("is off when the local overlay leaves the flag false", async () => {
+    vi.mocked(readOverlay).mockResolvedValue(
+      overlay({ "main-session-wait": false }),
+    );
+
+    expect(await realContextDeps(CLI, ROOT).mainSessionWaitOn()).toBe(false);
+  });
+
+  it("is off when no local overlay exists, and reads none", async () => {
+    vi.mocked(environments).mockResolvedValue([]);
+
+    expect(await realContextDeps(CLI, ROOT).mainSessionWaitOn()).toBe(false);
+    expect(readOverlay).not.toHaveBeenCalled();
+  });
+});
+
 describe("context deps: signed-main-sends flag", () => {
   it("reads the local overlay, and is on when it turns the flag on", async () => {
     vi.mocked(readOverlay).mockResolvedValue(

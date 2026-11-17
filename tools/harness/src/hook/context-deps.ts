@@ -16,6 +16,8 @@ const JOURNAL_DIR = ".kore/state/journal";
 export const PANE_RESULT_SUMMARY_FLAG = "pane-result-summary";
 /** The flag that gives the main session the send line (ADR 0123), read from the local overlay. */
 export const SIGNED_MAIN_SENDS_FLAG = "signed-main-sends";
+/** The flag that gives the main session the harness wait line (ADR 0123), read from the local overlay. */
+export const MAIN_SESSION_WAIT_FLAG = "main-session-wait";
 const FLAG_ENVIRONMENT = "local";
 
 /** Whether the local overlay turns the flag on. No overlay means off; a malformed one throws a FlagError. */
@@ -119,5 +121,6 @@ export function realContextDeps(deps: CliDeps, root: string): ContextDeps {
     paneResultSummaryOn: () =>
       localFlagOn(deps.fs, root, PANE_RESULT_SUMMARY_FLAG),
     signedMainSendsOn: () => localFlagOn(deps.fs, root, SIGNED_MAIN_SENDS_FLAG),
+    mainSessionWaitOn: () => localFlagOn(deps.fs, root, MAIN_SESSION_WAIT_FLAG),
   };
 }
