@@ -15,11 +15,6 @@ Refines: [ADR 0117](0117-the-delivery-loop-s-role-set.md).
 
 Accepted on 2026-11-17 by the owner's own comment on [#794](https://github.com/corekraft/kore/issues/794), with the decision that the tick persists its work plan through a new harness command, not a direct `gh` label write.
 
-Proposed. ADR 0117 says `orchestrate run` drives an idea and no agent does; a
-Sonnet judgment pane partly reverses that. Its open questions were answered by delegation on 2026-11-16 (the owner, relayed by the answering session: "you can anaswer owner's questions"); the owner may overrule any of them (below). Those answers reach this record through a tagged agent message,
-which is not approval (ADR 0120), so it becomes accepted on the owner's own
-untagged comment on #794.
-
 ## Context
 
 The hand-driven orchestrating session ran 7,236 turns at a median context of
