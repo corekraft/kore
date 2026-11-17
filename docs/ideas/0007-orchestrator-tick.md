@@ -13,3 +13,8 @@ issue: https://github.com/corekraft/kore/issues/794
 ---
 
 # Idea 0007: Run the orchestrator as a tick over the ledger and queue
+
+- **Window.** Its 14-day window also records whether `main-session-wait` and
+  `pane-result-summary` were on (ADR 0123), so the reverse confounding is
+  visible: ideas 0019 and 0020 move the main session's waits and reads, and
+  would move this idea's tokens per idea.

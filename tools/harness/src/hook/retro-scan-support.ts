@@ -19,6 +19,7 @@ export type Visible = Pick<
   | "outcome"
   | "sessionName"
   | "bare"
+  | "main"
 >;
 
 /** A typed analysis as the scan reads it: the one cast stands for the fields the scan never reads. */
@@ -35,6 +36,7 @@ export function analysisOf(parts: Partial<Visible> = {}): SessionAnalysis {
     outcome: () => "heeded",
     sessionName: undefined,
     bare: { gh: 0, herdr: 0 },
+    main: { pollMs: 0, reads: 0, signed: 0, raw: 0 },
     ...parts,
   };
   return visible as SessionAnalysis;

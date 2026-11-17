@@ -6,21 +6,20 @@ import { join } from "node:path";
 import { DEFAULT_LEDGER, Ledger, type LedgerEvent } from "../ledger/index.js";
 import { mainRoot, type CliDeps } from "../runtime/index.js";
 
+/** The main checkout's ledger, or undefined when there is no main checkout. */
+export async function mainLedger(deps: CliDeps): Promise<Ledger | undefined> {
+  const main = await mainRoot(deps);
+  return main === undefined
+    ? undefined
+    : new Ledger(deps.fs, deps.clock, deps.ids, join(main, DEFAULT_LEDGER));
+}
+
 /** Every event in the main checkout's ledger, or undefined when there is no main checkout. */
 export async function ledgerEvents(
   deps: CliDeps,
 ): Promise<LedgerEvent[] | undefined> {
-  const main = await mainRoot(deps);
-  if (main === undefined) {
-    return undefined;
-  }
-  const ledger = new Ledger(
-    deps.fs,
-    deps.clock,
-    deps.ids,
-    join(main, DEFAULT_LEDGER),
-  );
-  return (await ledger.list({})).events;
+  const ledger = await mainLedger(deps);
+  return ledger === undefined ? undefined : (await ledger.list({})).events;
 }
 
 /**

@@ -51,7 +51,7 @@ import {
   type ScopeOptions,
 } from "./scope.js";
 
-export const REPORT_VERSION = 22;
+export const REPORT_VERSION = 23;
 
 export type { StageTotals, Toil } from "./tally.js";
 export type { Scope, ScopeOptions } from "./scope.js";

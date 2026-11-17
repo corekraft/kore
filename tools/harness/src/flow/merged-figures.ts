@@ -23,7 +23,11 @@ import {
   type TokensPerMergedChange,
 } from "./merged-tokens.js";
 import { mergedChangeWriterCost, type WriterCost } from "./writer-cost.js";
-import type { Span } from "./scope.js";
+import {
+  mainSessionFigures,
+  type MainSessionFigures,
+  type Span,
+} from "./main-session.js";
 
 export interface MergedChangeFigures {
   /** Tokens per merged change over the window, with the trailing days before it as the average. */
@@ -38,6 +42,8 @@ export interface MergedChangeFigures {
   tokensByStagePerMergedChange: TokensByStagePerMergedChange;
   /** Writer tokens per merged change by tier, weighted by the pinned price table, with the trailing days as the average, beside follow-ups and the blocked share (#868). */
   writerCost: WriterCost;
+  /** The main session's poll minutes, pane-result reads and signed sends, from the retro scans' events (#940); never in the owner digest. */
+  mainSession: MainSessionFigures;
 }
 
 /** The per-merged-change figures over the window, read against the cost settings. */
@@ -57,5 +63,6 @@ export function mergedChangeFigures(
       options,
     ),
     writerCost: mergedChangeWriterCost(events, window, options),
+    mainSession: mainSessionFigures(events, window, options.cost),
   };
 }
