@@ -18,6 +18,7 @@ describe("the ledger barrel", () => {
   it("exposes the domain's public names, and no file's internals", () => {
     expect(Object.keys(barrel).sort()).toEqual([
       "APPROVED_MARKER",
+      "DECISION_ROUTE_SIGNALS",
       "DEFAULT_LEDGER",
       "KINDS",
       "Ledger",

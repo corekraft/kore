@@ -9,6 +9,7 @@ import {
 export type { CostMetrics, CostOptions };
 export { DEFAULT_HOST_DAYS, hostPressure } from "./host-pressure.js";
 export type { HostPressure } from "./host-pressure.js";
+export { questionFigures, type QuestionFigures } from "./question-figures.js";
 export { DEFAULT_QUESTION_DAYS, ownerQuestions } from "./owner-questions.js";
 export type { OwnerQuestions } from "./owner-questions.js";
 export { DEFAULT_REVIEW_DAYS, reviewMisses } from "./review-misses.js";

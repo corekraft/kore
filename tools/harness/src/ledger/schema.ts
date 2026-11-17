@@ -38,6 +38,8 @@ const NUMBER_KINDS: readonly Kind[] = [
   "review.run",
   "escalation",
   "owner.action",
+  "advisor.overturned",
+  "decision.made",
   "auto-approved",
   "qualifier.warned",
   "harness-change-reverted",
@@ -58,6 +60,7 @@ export const POLLER_KINDS: readonly Kind[] = [
   "ci.nightly",
   "main.revert",
   "owner.action",
+  "advisor.overturned",
 ];
 
 const LAUNCH_KINDS: readonly Kind[] = ["session.launch"];
@@ -234,6 +237,8 @@ const RULES: readonly Rule[] = [
     check: (v) => Number.isSafeInteger(v) && (v as number) >= 1,
     hint: "must be a positive integer",
     kinds: NUMBER_KINDS,
+    // A decision recorded before it carried its issue number has none, and still reads.
+    omittableOn: ["decision.made"],
   },
   {
     field: "tokens",

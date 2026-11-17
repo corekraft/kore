@@ -58,13 +58,14 @@ function ports(context: CommandContext, root: string, ledger: Ledger) {
       }
       return done.stdout.trim();
     },
-    async record({ idea, label }) {
+    async record({ idea, label, number }) {
       const written = await ledger.record({
         source: "claude",
         kind: "decision.made",
         occurredAt: deps.clock.now().toISOString(),
         idea,
         label,
+        number,
       });
       return written.ok
         ? { ok: true }

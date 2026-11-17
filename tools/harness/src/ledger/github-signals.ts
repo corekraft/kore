@@ -23,6 +23,7 @@ import {
   when,
 } from "./github-gh.js";
 import { fromActions } from "./github-owner-actions.js";
+import { decisionIssues, fromOverturns } from "./github-overturns.js";
 
 const WORKFLOWS = [
   // Only runs GitHub starts itself: a run an agent dispatches by hand is not counted.
@@ -164,7 +165,13 @@ async function fromReverts(
   return out;
 }
 
-const SIGNAL_KINDS = ["ci.main", "ci.nightly", "main.revert", "owner.action"];
+const SIGNAL_KINDS = [
+  "ci.main",
+  "ci.nightly",
+  "main.revert",
+  "owner.action",
+  "advisor.overturned",
+];
 
 /**
  * Appends ci.main, ci.nightly, main.revert and owner.action events that the
@@ -194,6 +201,8 @@ export async function pollSignals(deps: {
   }
   try {
     const { events: known } = await deps.ledger.list({ source: "github" });
+    // The decisions name the issues to read: a decision may be older than the window below.
+    const decided = await deps.ledger.list({ kind: "decision.made" });
     const latest = known
       .filter((e) => SIGNAL_KINDS.includes(e.kind))
       .map((e) => Date.parse(e.occurredAt))
@@ -217,6 +226,12 @@ export async function pollSignals(deps: {
       }),
       await fromReverts(deps.runner, deps.repo, since),
       await fromActions(deps.runner, deps.repo, deps.owner, since),
+      await fromOverturns(
+        deps.runner,
+        deps.repo,
+        deps.owner,
+        decisionIssues(decided.events),
+      ),
     ];
     const failed = parts.find((p) => typeof p === "string");
     if (typeof failed === "string") {

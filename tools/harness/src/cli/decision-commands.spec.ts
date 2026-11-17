@@ -173,7 +173,7 @@ describe("decision make ports", () => {
 });
 
 describe("decision make ledger port", () => {
-  it("records decision.made from claude with the idea and the category", async () => {
+  it("records decision.made from claude with the idea, its issue number and the category", async () => {
     const ledger = fakeLedger([], {
       ok: true,
       event: {} as LedgerEvent,
@@ -182,7 +182,11 @@ describe("decision make ledger port", () => {
     const { ctx } = context(FLAGS);
 
     await decisionCommands["make"]?.run(ctx);
-    const recorded = await portsOf().record({ idea: "0008", label: "naming" });
+    const recorded = await portsOf().record({
+      idea: "0008",
+      label: "naming",
+      number: 795,
+    });
 
     expect(recorded).toEqual({ ok: true });
     expect(ledger.write).toHaveBeenCalledWith({
@@ -191,6 +195,7 @@ describe("decision make ledger port", () => {
       occurredAt: "2026-11-16T10:00:00.000Z",
       idea: "0008",
       label: "naming",
+      number: 795,
     });
   });
 
@@ -205,7 +210,9 @@ describe("decision make ledger port", () => {
 
     await decisionCommands["make"]?.run(ctx);
 
-    expect(await portsOf().record({ idea: "0008", label: "x" })).toEqual({
+    expect(
+      await portsOf().record({ idea: "0008", label: "x", number: 795 }),
+    ).toEqual({
       ok: false,
       message: "bad label",
     });

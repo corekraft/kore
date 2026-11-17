@@ -9,7 +9,7 @@ describe("the decision.made event", () => {
     expect(POLLER_KINDS).not.toContain("decision.made");
   });
 
-  it("records a decision with the idea and its category", () => {
+  it("records a decision with the idea and its category, as decisions recorded before the issue number did", () => {
     expect(
       parseEvent(
         { ...stamp, kind: "decision.made", idea: "0008", label: "naming" },
@@ -18,6 +18,38 @@ describe("the decision.made event", () => {
     ).toBe(true);
   });
 
+  it("records the issue number a decision was posted on, so its overturns can be read", () => {
+    expect(
+      parseEvent(
+        {
+          ...stamp,
+          kind: "decision.made",
+          idea: "0008",
+          label: "naming",
+          number: 795,
+        },
+        "input",
+      ).ok,
+    ).toBe(true);
+  });
+
+  it("refuses an issue number that is not a positive integer", () => {
+    expect(
+      parseEvent(
+        {
+          ...stamp,
+          kind: "decision.made",
+          idea: "0008",
+          label: "naming",
+          number: 0,
+        },
+        "input",
+      ),
+    ).toMatchObject({ ok: false, field: "number" });
+  });
+});
+
+describe("the decision.made event's label and content", () => {
   it("refuses a decision with no category, since the label is where it is recorded", () => {
     expect(
       parseEvent({ ...stamp, kind: "decision.made", idea: "0008" }, "input"),
@@ -37,5 +69,32 @@ describe("the decision.made event", () => {
         "input",
       ),
     ).toMatchObject({ ok: false, field: "question" });
+  });
+});
+
+describe("the advisor.overturned event", () => {
+  const github = { source: "github", occurredAt: "2026-11-16T11:00:00Z" };
+
+  it("is a kind only the poller writes, read from GitHub's comments", () => {
+    expect(KINDS).toContain("advisor.overturned");
+    expect(POLLER_KINDS).toContain("advisor.overturned");
+  });
+
+  it("records an overturn with the issue number and its idea", () => {
+    expect(
+      parseEvent(
+        { ...github, kind: "advisor.overturned", number: 862, idea: "#862" },
+        "input",
+      ).ok,
+    ).toBe(true);
+  });
+
+  it("refuses an overturn with no issue number, since the figure counts by it", () => {
+    expect(
+      parseEvent(
+        { ...github, kind: "advisor.overturned", idea: "#862" },
+        "input",
+      ),
+    ).toMatchObject({ ok: false, field: "number" });
   });
 });

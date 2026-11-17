@@ -22,9 +22,10 @@ export {
 } from "./schema.js";
 export type { TierOrigin, TierSource } from "./schema-tier.js";
 export type { RetroOrigin } from "./schema-result.js";
-export type {
-  DecisionRoute,
-  DecisionRouteSignal,
+export {
+  DECISION_ROUTE_SIGNALS,
+  type DecisionRoute,
+  type DecisionRouteSignal,
 } from "./schema-decision-route.js";
 export {
   SEND_BACK_CATEGORIES,

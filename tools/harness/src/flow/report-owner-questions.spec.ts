@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { ownerQuestions } from "./idea-metrics.js";
+import { questionFigures } from "./idea-metrics.js";
 import { time } from "./github-waits.js";
 import { inWindow, scopeOf, windowOf } from "./scope.js";
 import { buildReport } from "./report.js";
@@ -22,6 +22,15 @@ vi.mock("./scope.js");
 vi.mock("./tally.js");
 vi.mock("./toil.js");
 
+const NO_QUESTIONS = {
+  trailingDays: 7,
+  questions: 0,
+  merged: 0,
+  perMerged: null,
+  trailingAverage: null,
+  worsened: false,
+};
+
 beforeEach(() => {
   vi.mocked(scopeOf).mockReturnValue(SCOPE);
   vi.mocked(windowOf).mockReturnValue(WINDOW);
@@ -32,7 +41,7 @@ beforeEach(() => {
 });
 
 describe("buildReport owner questions (#859)", () => {
-  it("reports owner questions per merged change over every named event, the window and the default trailing days", () => {
+  it("reports owner questions per merged change over every named event, the window and the as-of time", () => {
     fakeTally();
     const named = [ev(1, "owner.asked")];
     cover(new Map(), named);
@@ -44,25 +53,19 @@ describe("buildReport owner questions (#859)", () => {
       trailingAverage: 1,
       worsened: true,
     };
-    vi.mocked(ownerQuestions).mockReturnValue(figure);
+    vi.mocked(questionFigures).mockReturnValue({
+      ownerQuestions: figure,
+    } as ReturnType<typeof questionFigures>);
 
     expect(run([]).ownerQuestions).toBe(figure);
-    expect(ownerQuestions).toHaveBeenCalledWith(named, WINDOW, {
-      trailingDays: 7,
-      asOf: ASOF,
-    });
+    expect(questionFigures).toHaveBeenCalledWith(named, WINDOW, ASOF);
   });
 
-  it("versions the report to 10 when the question figure joins it, since a field changed", () => {
+  it("versions the report to 25 when the advisor figures join it, since a field changed", () => {
     fakeTally();
-    vi.mocked(ownerQuestions).mockReturnValue({
-      trailingDays: 7,
-      questions: 0,
-      merged: 0,
-      perMerged: null,
-      trailingAverage: null,
-      worsened: false,
-    });
+    vi.mocked(questionFigures).mockReturnValue({
+      ownerQuestions: NO_QUESTIONS,
+    } as ReturnType<typeof questionFigures>);
 
     const report = buildReport([], {
       asOf: ASOF,
@@ -70,6 +73,6 @@ describe("buildReport owner questions (#859)", () => {
     });
 
     expect(report.ownerQuestions.perMerged).toBeNull();
-    expect(report.version).toBe(24);
+    expect(report.version).toBe(25);
   });
 });
