@@ -20,6 +20,10 @@ export { tierShares } from "./tier-share.js";
 export { guardBlocks, outcomes } from "./outcomes.js";
 export { COST_KINDS, measureAttribution } from "./attribution-measure.js";
 export type { GuardBlocks, Outcomes } from "./outcomes.js";
+export {
+  guardBlocksByRule,
+  type GuardBlocksByRule,
+} from "./guard-blocks-by-rule.js";
 export type { Attribution } from "./attribution-measure.js";
 export { unstampedSpawns } from "./unstamped-spawns.js";
 export type { UnstampedSpawns } from "./unstamped-spawns.js";

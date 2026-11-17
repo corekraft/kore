@@ -568,6 +568,7 @@ stage.
 | `rework`            | Escalations, send-backs and friction per closed idea, see below.                                                                                               |
 | `friction`          | `{ total, sources, unknownKinds }`, see below.                                                                                                                 |
 | `guardBlocks`       | `[{ rule, blocks }]`, most blocked first, from `guard.block` events.                                                                                           |
+| `guardBlocksByRule` | `{ [rule]: blocks }`, every known guard rule a key with zero where none, then any other rule the ledger names; the per-rule metric an idea names (#984).       |
 | `outcomes`          | `{ mainRed, reverts, liveRuns, ownerMinutes }`, see below.                                                                                                     |
 | `skippedLines`      | Ledger lines that were not valid events.                                                                                                                       |
 
@@ -633,7 +634,9 @@ stamp that come from sessions with no role, so it shows how much orchestration
 still runs in the main session; it is `null` when no session event is in range.
 
 A blocked tool call records a `guard.block` event whose `label` is the rule
-name, never the command; `guardBlocks` counts them per rule. The event id holds
+name, never the command; `guardBlocks` counts them per rule, and
+`guardBlocksByRule` keys the same counts by rule name with every known rule at
+zero, so a rule can be a flow metric before it blocks anything. The event id holds
 a hash of the session, rule and call, so retrying the same blocked call counts
 once.
 
