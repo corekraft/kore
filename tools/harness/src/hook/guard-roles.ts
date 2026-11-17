@@ -4,10 +4,10 @@
 // case or a corpus case names a role the registry lacks.
 
 /** Roles that read and report and never write a file. */
-export const READ_ONLY_ROLES = ["reader", "principles-review"];
+export const READ_ONLY_ROLES = ["reader", "principles-review", "judgment"];
 
 /** Roles the harness spawns in a pane for one notice, with no allowlist of its own. */
-export const SPAWNED_ROLES = ["reader", "principles-review"];
+export const SPAWNED_ROLES = ["reader", "principles-review", "judgment"];
 
 /** Delivery roles that read and report: they may run the harness and gh/git queries but change no file. */
 export const REPORTING_ROLES = ["judge"];

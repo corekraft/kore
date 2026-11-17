@@ -1,4 +1,4 @@
-// The role lists below (READ_ONLY, REPORTING, ROLES) are deliberately independent of
+// The role lists below (READ_ONLY, ROLES) are deliberately independent of
 // guard-roles.ts: importing the registry would make the role check unable to fail. The spec checks
 // them against the registry with roleCoverage (guard-corpus.spec.ts), so drift fails in CI.
 //
@@ -9,6 +9,7 @@
 // here first, as a failing case, and then closed.
 
 import { READS_ALLOWED, READS_REFUSED } from "./guard-corpus-reads.js";
+import { JUDGMENT_ALLOWED, JUDGMENT_REFUSED } from "./guard-corpus-judgment.js";
 
 export interface CorpusCase {
   /** The role the session runs as, or none for the person's own session. */
@@ -22,10 +23,9 @@ export interface CorpusCase {
   rule: string;
 }
 
-const READ_ONLY = ["reader"];
-const REPORTING = ["judge"];
-// The Reviewer is a read-only role too: it gets every case the others get.
-const ROLES = [...READ_ONLY, "principles-review", ...REPORTING];
+const READ_ONLY = ["reader", "principles-review", "judgment"];
+// The Reviewer and the judgment role are read-only roles too: each gets every case the others get.
+const ROLES = [...READ_ONLY, "judge"];
 
 const bash = (role: string, rule: string, ...commands: string[]) =>
   commands.map((input): CorpusCase => ({ role, tool: "Bash", input, rule }));
@@ -226,6 +226,7 @@ const GATED = bash(
 
 export const CORPUS: readonly CorpusCase[] = [
   ...GLUED_REDIRECTS,
+  ...JUDGMENT_REFUSED,
   ...GLOB_QUALIFIERS,
   ...GLOB_IN_SCRIPT,
   ...SECRETS,
@@ -305,6 +306,7 @@ export const ORDINARY: readonly OrdinaryCase[] = [
     "git commit -m 'fix: skills/bin/harness.mjs is built, not committed'",
     "grep -r token ~/Development",
   ),
+  ...JUDGMENT_ALLOWED,
   ...ordinary(
     "reader",
     "grep -rn '.kube/config' docs",

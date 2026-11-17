@@ -118,6 +118,7 @@ describe("every agent definition runs on Haiku or Sonnet", () => {
     expect([...definitions().keys()].sort()).toEqual([
       "advisor",
       "judge",
+      "judgment",
       "principles-review",
       "reader",
       "writer",
@@ -230,5 +231,40 @@ describe("the advisor definition", () => {
   it("never downgrades a reserved question, and links ADR 0120 instead of copying its list", () => {
     expect(body()).toMatch(/escalate/);
     expect(body()).toMatch(/\(\.\.\/\.\.\/docs\/decisions\/0120-/);
+  });
+});
+
+describe("the judgment definition", () => {
+  const body = () => definitions().get("judgment") ?? "";
+  const found = () => parseDefinition(body());
+
+  it("declares Sonnet at high, as the owner directed on #873 (ADR 0121)", () => {
+    expect(found().model).toBe("claude-sonnet-5-5");
+    expect(found().effort).toBe("high");
+  });
+
+  it("is read-only: its tools are Read, Grep, Glob and Bash, with no tool that edits a file", () => {
+    expect(found().tools).toEqual(["Read", "Grep", "Glob", "Bash"]);
+  });
+
+  it("ends with the fenced plan and links ADR 0121 instead of copying its plan form", () => {
+    expect(body()).toContain("PLAN-JSON");
+    expect(body()).toContain("END-PLAN-JSON");
+    expect(body()).toMatch(/\(\.\.\/\.\.\/docs\/decisions\/0121-/);
+  });
+
+  it("refuses to spawn, edit, merge, label, approve, record an outcome, turn a flag on or answer a reserved decision", () => {
+    for (const word of [
+      "spawning",
+      "editing",
+      "merging",
+      "labelling",
+      "approving",
+      "outcome",
+      "flag",
+      "reserved",
+    ]) {
+      expect(body()).toContain(word);
+    }
   });
 });
