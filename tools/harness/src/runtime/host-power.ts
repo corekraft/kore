@@ -3,8 +3,10 @@ import type { Runner } from "./runner.js";
 /** Where the host draws its power: the mains, its battery, or neither could be read. */
 export type Power = "ac" | "battery" | "unknown";
 
-const AC = /Now drawing from 'AC Power'/;
-const BATTERY = /Now drawing from 'Battery Power'/;
+// The quoted source name alone: pmset prints "Now drawing from '<source>'", and the
+// bundle's import scan would read that whole phrase as an import specifier.
+const AC = /'AC Power'/;
+const BATTERY = /'Battery Power'/;
 
 /**
  * Reads the power source through `pmset -g batt` on macOS. Anything that cannot be
