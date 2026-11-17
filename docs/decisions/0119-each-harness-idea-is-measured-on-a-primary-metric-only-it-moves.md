@@ -2,7 +2,7 @@
 status: accepted
 summary: Refines ADR 0117 and plan 12 Step 3: each harness idea names a primary metric only it moves, read from events the changed code does not write; metrics several ideas move are guard metrics that must not worsen; two ideas with one primary open their windows in sequence; no outcome is read until idea attribution holds among role sessions.
 date: 2026-11-16
-last-verified: 2026-11-16
+last-verified: 2026-11-17
 ---
 
 # ADR 0119: Each harness idea is measured on a primary metric only it moves
@@ -98,3 +98,32 @@ with ADR 0117's other placeholders after about two weeks of ledger.
   guard metric shows which window to look at without blaming one idea.
 - Sequencing costs time only where two ideas really share a primary; it is not
   a reason to hold back an idea whose primary differs.
+
+## Addendum: guards for a cheaper main session
+
+Added 2026-11-17 by [#1035](https://github.com/corekraft/kore/issues/1035), from
+the spec [#1031](https://github.com/corekraft/kore/issues/1031) (parent
+[#1016](https://github.com/corekraft/kore/issues/1016)). It refines no sentence
+above; it adds rules for an experiment that changes the main session's model or
+context length. The words are in `GLOSSARY.md` (Main-session cost, Compaction
+cap, Handover, Weekly token ceiling, Share of one week's ceiling).
+
+- **Window ratio.** Main-session cost is a window ratio: the main session's
+  priced model usage over a window, divided by the merged changes in that
+  window. It is never assigned to a pull request, so a single merge is never
+  read as its cost.
+- **Control window first.** A cheaper main session is judged on guards whose
+  margins are fixed from a control window on today's setup, before an arm
+  opens. The margins are written into the idea record first, and no margin is
+  chosen after a result is seen.
+- **Arms run in sequence.** Arms with one primary run in sequence, one after
+  another, and no arm overlaps the writer-tier window, so the tier effect and
+  the main-session effect are never mixed.
+- **A breach stops an arm early.** When a guard is breached, the arm stops at
+  that point and does not run its full window.
+- **Too little data is insufficient.** A guard with too little data is
+  insufficient and never passes. A thin baseline is not read as a good one.
+
+The addendum adds no guard or deny rule. The compaction cap and the handover
+list are instructions, judged by recorded figures, and opening any window stays
+the owner's.
