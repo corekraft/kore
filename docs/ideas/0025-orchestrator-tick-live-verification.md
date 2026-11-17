@@ -22,4 +22,4 @@ outcome: confirmed
 - Evidence: https://github.com/corekraft/kore/issues/794#issuecomment-6950526438
 - Recorded: 2026-11-17
 
-No live run was performed: the owner waived the live-run proof on #794 and asked for a confirmed outcome so the flag can be activated.
+UNVERIFIED, WAIVED BY THE OWNER: no live run was performed. The owner waived the live-run proof for orchestrator-tick on #794 and in the main session and asked for a confirmed outcome so the flag can be activated. The Source above is live-run only because harness flag activate accepts no other source; this record is a waiver, not a verification.
