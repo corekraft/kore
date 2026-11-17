@@ -1,3 +1,4 @@
+import { openOwnerQuestions, type OwnerQuestion } from "../decision/index.js";
 import { GITHUB_STAGES } from "../flow/index.js";
 import { IdeaRepository } from "../idea/index.js";
 import type { LedgerEvent } from "../ledger/index.js";
@@ -49,6 +50,21 @@ function recentStages(events: readonly LedgerEvent[]): RecentStage[] {
     .slice(0, RECENT);
 }
 
+/** The owner's open reserved questions, blocking first, under one counted line; none when none is open. */
+function ownerQuestionLines(questions: readonly OwnerQuestion[]): string[] {
+  if (questions.length === 0) {
+    return [];
+  }
+  const blocking = questions.filter((question) => question.blocking).length;
+  return [
+    `Owner questions: ${questions.length} open, ${blocking} blocking`,
+    ...questions.map(
+      (question) =>
+        `- idea ${question.idea} (${question.category}), asked ${question.since}${question.blocking ? ", blocking" : ""}`,
+    ),
+  ];
+}
+
 async function ideas({ deps }: CommandContext) {
   const repository = new IdeaRepository(deps.fs, deps.clock, await deps.root());
   const items = (await repository.list()).map((record) => ({
@@ -65,7 +81,7 @@ async function ideas({ deps }: CommandContext) {
 
 export const statusCommand: Command = {
   summary:
-    "report open plan items, ideas by state, recent ledger stages and the orchestrator tick's heartbeat (tick: none, running, stopped, or gap, which prints 'the tick is not running' when its latest heartbeat is older than the gap with no stop after it); read-only, for the person's main session",
+    "report open plan items, ideas by state, the open owner questions (ADR 0120, blocking first), recent ledger stages and the orchestrator tick's heartbeat (tick: none, running, stopped, or gap, which prints 'the tick is not running' when its latest heartbeat is older than the gap with no stop after it); read-only, for the person's main session",
   async run(context) {
     const opened = await openLedger(context);
     if ("error" in opened) {
@@ -77,6 +93,7 @@ export const statusCommand: Command = {
       ideas: await ideas(context),
       ledger: { recent: recentStages(events), skipped },
       tick: tickHeartbeat(events, context.deps.clock.now()),
+      ownerQuestions: openOwnerQuestions(events),
     };
     if (context.json) {
       context.deps.stdout(`${JSON.stringify(status)}\n`);
@@ -93,6 +110,7 @@ export const statusCommand: Command = {
           .join(", ") || "none"
       }`,
     );
+    lines.push(...ownerQuestionLines(status.ownerQuestions));
     if (status.tick.state === "gap") {
       lines.push(
         `the tick is not running: no heartbeat since ${status.tick.lastAt}`,

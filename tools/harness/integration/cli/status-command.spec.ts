@@ -116,6 +116,7 @@ describe("harness status output", () => {
       ideas: { byState: {}, items: [] },
       ledger: { recent: [], skipped: 0 },
       tick: { state: "none" },
+      ownerQuestions: [],
     });
   });
 
