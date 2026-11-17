@@ -232,6 +232,8 @@ decisions; read one only when planning that area, and expect it to change.
 - [`docs/ideas/0021-route-the-main-session-s-pane-messages-through-session-send.md`](ideas/0021-route-the-main-session-s-pane-messages-through-session-send.md) — Route the main session's pane messages through session send
 - [`docs/ideas/0022-guards-read-command-words-not-script-or-body-text.md`](ideas/0022-guards-read-command-words-not-script-or-body-text.md) — Guards read command words, not script or body text
 - [`docs/ideas/0023-bring-a-writer-s-pull-request-up-to-date-with-main-without-a.md`](ideas/0023-bring-a-writer-s-pull-request-up-to-date-with-main-without-a.md) — Bring a writer's pull request up to date with main without a main-session message
+- [`docs/ideas/0024-shell-aware-zsh-rules-live-verification.md`](ideas/0024-shell-aware-zsh-rules-live-verification.md) — shell-aware-zsh-rules works live in local
+- [`docs/ideas/0025-orchestrator-tick-live-verification.md`](ideas/0025-orchestrator-tick-live-verification.md) — orchestrator-tick works live in local
 
 ## Operations and Guides
 
