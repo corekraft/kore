@@ -16,8 +16,13 @@ import {
   type PassBounds,
   type PassGate,
 } from "./tick-bounds.js";
+import {
+  TickJudgment,
+  type JudgmentOutcome,
+  type JudgmentStep,
+} from "./tick-judgment.js";
 
-/** A third send-back goes to a judgment pane (idea 0007), which a later step adds; the tick starts none. */
+/** A third send-back starts a judgment flow (ADR 0121), which decides once; the tick reports needs-judgment after that. */
 const JUDGMENT_AFTER = 3;
 const HEAD_LENGTH = 7;
 
@@ -48,6 +53,25 @@ class Starts {
   taken(): void {
     this.started += 1;
   }
+
+  /** Admits one start: the bound that holds it, recorded first, or undefined when it goes ahead and is counted. */
+  async admit(issue: number): Promise<BoundName | undefined> {
+    const bound = await this.held(issue);
+    if (bound === undefined) {
+      this.taken();
+    }
+    return bound;
+  }
+}
+
+/** The extra fields a judgment step adds to its idea's step: the pane it started, or the bound that held it. */
+function judgedExtra(
+  outcome: JudgmentOutcome,
+): Partial<Pick<IdeaStep, "pane" | "bound">> {
+  return {
+    ...(outcome.pane === undefined ? {} : { pane: outcome.pane }),
+    ...(outcome.bound === undefined ? {} : { bound: outcome.bound }),
+  };
 }
 
 type Done = (
@@ -83,6 +107,10 @@ export type TickPorts = Pick<
   head(pr: number): Promise<string>;
   /** Whether a principles-review verdict is already posted for the head; read-only. */
   reviewPosted(pr: number, head: string): Promise<boolean>;
+  /** A finished pane's text, read before the pane is closed; read-only. */
+  paneText(name: string): Promise<string>;
+  /** Labels the issue `needs-info` with the reason, for a judgment flow that stops (ADR 0121). */
+  needsInfo(issue: number, reason: string): Promise<void>;
 };
 
 export type StepName =
@@ -99,7 +127,8 @@ export type StepName =
   | "awaiting-outcome"
   | "needs-judgment"
   | "not-queued"
-  | "held";
+  | "held"
+  | JudgmentStep;
 
 /** The one step a pass took for an idea. */
 export interface IdeaStep {
@@ -134,6 +163,8 @@ export class Tick {
     private readonly outcomes: ReadonlyMap<string, Measured> = new Map(),
     /** The host bounds this pass reads, and where its bound hits are recorded. */
     private readonly gate: PassGate = OPEN_GATE,
+    /** The judgment flow a third send-back starts and a finished judgment pane feeds (ADR 0121). */
+    private readonly judgment: TickJudgment = new TickJudgment(ports),
   ) {}
 
   /** Advances every queued idea, or only `only` when given. */
@@ -164,6 +195,13 @@ export class Tick {
     const panes = await this.ports.panes(idea);
     if (panes.some((p) => p.state === "running")) {
       return done("waiting");
+    }
+    // A finished judgment or reader pane is read before any close, since closing ends its text.
+    const judged = await this.judgment.consume(idea, issue, panes, () =>
+      starts.admit(issue),
+    );
+    if (judged !== undefined) {
+      return done(judged.step, judgedExtra(judged));
     }
     const finished = panes.find((p) => p.state !== "closed");
     if (finished !== undefined) {
@@ -231,7 +269,18 @@ export class Tick {
     }
     const tier = await this.ports.sendBacks(pr);
     if (tier.count >= JUDGMENT_AFTER) {
-      return done("needs-judgment", { pr });
+      // The flow decides once per idea; after that a person decides, so nothing else is started.
+      if (this.judgment.begun(idea, panes)) {
+        return done("needs-judgment", { pr });
+      }
+      const started = await this.judgment.begin(
+        idea,
+        issue,
+        pr,
+        tier.count,
+        () => starts.admit(issue),
+      );
+      return done(started.step, { pr, ...judgedExtra(started) });
     }
     const bound = await starts.held(issue);
     if (bound !== undefined) {
