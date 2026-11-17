@@ -56,6 +56,35 @@ function auditLines(audited: readonly ItemVerdict[]): string {
     .join("");
 }
 
+/** The merge state GitHub reports for the PR, or undefined when it cannot be read; read only after a refused merge. */
+async function mergeStateOf(
+  context: CommandContext,
+  root: string,
+  repo: string,
+  pr: number,
+): Promise<string | undefined> {
+  const done = await context.deps.runner.run(
+    "gh",
+    ["pr", "view", String(pr), "--repo", repo, "--json", "mergeStateStatus"],
+    { cwd: root },
+  );
+  if (done.code !== 0) {
+    return undefined;
+  }
+  try {
+    const state = (JSON.parse(done.stdout) as { mergeStateStatus?: unknown })
+      .mergeStateStatus;
+    return typeof state === "string" ? state : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+/** The refusal for a PR behind main: it names the PR, the state and the next step, for a person and for the flag on or off. */
+function behindMessage(pr: number): string {
+  return `PR #${pr} was not merged: its branch is behind main. Next step: the writer merges origin/main into its branch (never rebase or force-push), then rerun \`harness judge merge ${pr}\` once its checks pass. With the behind-main-notice flag on, the orchestrate tick sends the writer that message; with it off, the main session messages the writer.`;
+}
+
 /**
  * Re-runs the precheck and squash-merges the commit it verified, only when every
  * result passes. The only merge a role-bound pane may run; it never picks another
@@ -101,6 +130,9 @@ async function runMerge(context: CommandContext): Promise<number> {
       { cwd: root },
     );
     if (done.code !== 0) {
+      if ((await mergeStateOf(context, root, repo, pr)) === "BEHIND") {
+        throw new JudgeError(behindMessage(pr));
+      }
       throw new JudgeError(
         `gh pr merge failed for PR #${pr}: ${done.stderr.trim()}. If the head moved, rerun \`harness judge merge ${pr}\` to verify the new commit.`,
       );
@@ -211,7 +243,7 @@ async function runSendBack(context: CommandContext): Promise<number> {
 export const mergeCommands: Record<string, Command> = {
   merge: {
     summary:
-      "mutates; re-runs the precheck and squash-merges the verified head commit only when it passes; with no declared pattern, a mismatching diff or a failing enforce gate it merges nothing; each gate reads its mode from .claude/guardrails.yaml (rule judge-<item>, kind checklist): a failing audit gate is listed (audited in --json), writes one guard.audit ledger event per item and head, and never blocks the merge; an unreadable inventory or a mode other than audit or enforce is refused (<pr> [--json] [--reviewer <login>[,<login>]])",
+      'mutates; re-runs the precheck and squash-merges the verified head commit only when it passes; with no declared pattern, a mismatching diff or a failing enforce gate it merges nothing; a PR that GitHub refuses because it is behind main is refused naming the PR, "behind main" and the next step; each gate reads its mode from .claude/guardrails.yaml (rule judge-<item>, kind checklist): a failing audit gate is listed (audited in --json), writes one guard.audit ledger event per item and head, and never blocks the merge; an unreadable inventory or a mode other than audit or enforce is refused (<pr> [--json] [--reviewer <login>[,<login>]])',
     operand: "pr",
     options: { reviewer: "string" },
     run: runMerge,
