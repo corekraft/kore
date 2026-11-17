@@ -65,6 +65,11 @@ _Avoid_: Explorer, researcher
 An agent that changes files for one piece of work.
 _Avoid_: Implementer, coder
 
+**Follow-up**:
+A message sent to a writer session after its brief, by the main session or a
+tool, always carrying a sender line.
+_Avoid_: Nudge, ping
+
 **Judge**:
 An agent that decides whether a change is a safe delivery under its declared
 safety pattern, merges it through the merge tool, and, when it is not, sends it
@@ -115,7 +120,8 @@ _Avoid_: Suggestion, recommendation
 
 **Tier**:
 The model and effort a role runs at. Its definition declares it, and only an
-escalation or a recorded override changes it.
+escalation or a recorded override changes it. A launch's tier has one origin:
+the definition, an escalation, or a recorded override.
 _Avoid_: Level, size
 
 **Primary metric**:

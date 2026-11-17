@@ -22,6 +22,7 @@ import {
   reviewersOf,
   checkedPrecheck,
 } from "./judge-shared.js";
+import { readTextOption } from "./text-option.js";
 
 const MERGE_USAGE =
   "Run `harness judge merge <pr> [--json] [--reviewer <login>[,<login>]]`.";
@@ -54,6 +55,35 @@ function auditLines(audited: readonly ItemVerdict[]): string {
         `audit: ${a.item} ${a.result}${a.detail === undefined || a.detail === "" ? "" : ` (${a.detail})`}; logged, did not block the merge\n`,
     )
     .join("");
+}
+
+/** The merge state GitHub reports for the PR, or undefined when it cannot be read; read only after a refused merge. */
+async function mergeStateOf(
+  context: CommandContext,
+  root: string,
+  repo: string,
+  pr: number,
+): Promise<string | undefined> {
+  const done = await context.deps.runner.run(
+    "gh",
+    ["pr", "view", String(pr), "--repo", repo, "--json", "mergeStateStatus"],
+    { cwd: root },
+  );
+  if (done.code !== 0) {
+    return undefined;
+  }
+  try {
+    const state = (JSON.parse(done.stdout) as { mergeStateStatus?: unknown })
+      .mergeStateStatus;
+    return typeof state === "string" ? state : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+/** The refusal for a PR behind main: it names the PR, the state and the next step that exists today. */
+function behindMessage(pr: number): string {
+  return `PR #${pr} was not merged: its branch is behind main. Next step: the orchestrator tells the writer to merge origin/main into its branch (never rebase or force-push), or run \`gh pr update-branch ${pr}\`; then rerun \`harness judge merge ${pr}\` once its checks pass.`;
 }
 
 /**
@@ -101,6 +131,9 @@ async function runMerge(context: CommandContext): Promise<number> {
       { cwd: root },
     );
     if (done.code !== 0) {
+      if ((await mergeStateOf(context, root, repo, pr)) === "BEHIND") {
+        throw new JudgeError(behindMessage(pr));
+      }
       throw new JudgeError(
         `gh pr merge failed for PR #${pr}: ${done.stderr.trim()}. If the head moved, rerun \`harness judge merge ${pr}\` to verify the new commit.`,
       );
@@ -160,15 +193,38 @@ async function recordSendBack(
   }
 }
 
+/** The reason from --reason or from --reason-file, trimmed; refused when it is empty or the two come together. */
+async function reasonOf(context: CommandContext, pr: number): Promise<string> {
+  const { deps } = context;
+  const read = await readTextOption(
+    {
+      name: "reason",
+      value: "<why>",
+      noun: "reason",
+      rerun: `\`harness judge send-back ${pr}\``,
+    },
+    {
+      inline: context.options["reason"],
+      file: context.options["reason-file"],
+    },
+    { fs: deps.fs, cwd: deps.cwd },
+  );
+  if ("error" in read) {
+    throw new JudgeError(read.error);
+  }
+  const reason = read.text.trim();
+  if (reason === "") {
+    throw new JudgeError(`A send-back needs a reason. ${SEND_BACK_USAGE}`);
+  }
+  return reason;
+}
+
 /** Posts the reason on the PR, where the orchestrator reads its queue, then records it. */
 async function runSendBack(context: CommandContext): Promise<number> {
   const { deps } = context;
   try {
     const pr = prNumber(context.operand, SEND_BACK_USAGE);
-    const reason = String(context.options["reason"] ?? "").trim();
-    if (reason === "") {
-      throw new JudgeError(`A send-back needs a reason. ${SEND_BACK_USAGE}`);
-    }
+    const reason = await reasonOf(context, pr);
     const category = categoryOf(context.options["category"]);
     const root = await deps.root();
     const repo = await repoOf(context);
@@ -211,18 +267,18 @@ async function runSendBack(context: CommandContext): Promise<number> {
 export const mergeCommands: Record<string, Command> = {
   merge: {
     summary:
-      "mutates; re-runs the precheck and squash-merges the verified head commit only when it passes; with no declared pattern, a mismatching diff or a failing enforce gate it merges nothing; each gate reads its mode from .claude/guardrails.yaml (rule judge-<item>, kind checklist): a failing audit gate is listed (audited in --json), writes one guard.audit ledger event per item and head, and never blocks the merge; an unreadable inventory or a mode other than audit or enforce is refused (<pr> [--json] [--reviewer <login>[,<login>]])",
+      'mutates; re-runs the precheck and squash-merges the verified head commit only when it passes; with no declared pattern, a mismatching diff or a failing enforce gate it merges nothing; a PR that GitHub refuses because it is behind main is refused naming the PR, "behind main" and the next step; each gate reads its mode from .claude/guardrails.yaml (rule judge-<item>, kind checklist): a failing audit gate is listed (audited in --json), writes one guard.audit ledger event per item and head, and never blocks the merge; an unreadable inventory or a mode other than audit or enforce is refused (<pr> [--json] [--reviewer <login>[,<login>]])',
     operand: "pr",
     options: { reviewer: "string" },
     run: runMerge,
   },
   "send-back": {
     summary:
-      "posts the reason as a comment on the PR, the orchestrator's queue, and records a send-back event at the shared ledger with its category (<pr> --reason <why> --category <category>; one of: " +
+      "posts the reason as a comment on the PR, the orchestrator's queue, and records a send-back event at the shared ledger with its category (<pr> (--reason <why> | --reason-file <path>) --category <category>; a reason given by file is read from that path, and giving both flags is refused; category one of: " +
       SEND_BACK_CATEGORIES.join(", ") +
       ")",
     operand: "pr",
-    options: { reason: "string", category: "string" },
+    options: { reason: "string", "reason-file": "string", category: "string" },
     run: runSendBack,
   },
 };

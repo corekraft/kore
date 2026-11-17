@@ -8,7 +8,7 @@ const read = (path: string) => readFileSync(join(ROOT, path), "utf8");
 const ADR_0097 =
   "0097-an-outcome-issue-closes-on-recorded-proof-not-on-merge.md";
 
-/** The local-check rule the writer definition and the TDD skill both carry, pointing at AGENTS.md (Changes). */
+/** The local-check rule that writer.md alone owns, pointing at AGENTS.md (Changes). */
 const LOCAL_CHECKS_SENTENCE =
   "Locally run only the related tests and typecheck; the full suites run in CI `check` (AGENTS.md, Changes).";
 
@@ -59,6 +59,13 @@ describe("the writer definition", () => {
     expect(writer).toContain("`--closes`");
   });
 
+  it("tells a writer a multi-line PR body goes in a --body-file that the Write tool made", () => {
+    const step =
+      writer.split("\n").find((line) => line.startsWith("3. ")) ?? "";
+    expect(step).toContain("`--body-file <path>`");
+    expect(step).toContain("with the Write tool");
+  });
+
   it("no longer tells a writer to copy the declaration lines into a gh pr create body by hand", () => {
     expect(writer).not.toContain("yourself");
   });
@@ -89,8 +96,13 @@ describe("the writer definition", () => {
 describe("the test-driven-development skill", () => {
   const skill = read("skills/test-driven-development/SKILL.md");
 
-  it("tells a worker to run only the related tests and typecheck locally, pointing at AGENTS.md", () => {
-    expect(skill).toContain(LOCAL_CHECKS_SENTENCE);
+  it("does not restate the local-check rule, which writer.md owns alone", () => {
+    expect(skill).not.toContain(LOCAL_CHECKS_SENTENCE);
+  });
+
+  it("tells a worker to run the related tests after green, not the wider suite", () => {
+    expect(skill).toContain("Then run the related tests.");
+    expect(skill).not.toContain("Then run the wider suite");
   });
 
   it("gives a guard role rule a spec for every role it names", () => {
@@ -160,6 +172,17 @@ describe("the judge definition", () => {
     expect(step1).toContain("product behaviour");
     expect(step1).not.toContain("reviewerLogins");
     expect(step1).not.toContain("ledger");
+  });
+});
+
+describe("the judge's send-back step", () => {
+  const judge = read(".claude/agents/judge.md");
+
+  it("tells the judge a multi-line send-back reason goes in a --reason-file that the Write tool made", () => {
+    const step = judge.split("\n").find((l) => l.startsWith("3. ")) ?? "";
+    expect(step).toContain("`--reason-file <path>`");
+    expect(step).toContain("with the Write tool");
+    expect(step).toContain("never pass both");
   });
 });
 

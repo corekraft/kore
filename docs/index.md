@@ -191,6 +191,7 @@ repository root; `mise run kb-check` keeps this list complete.
 - [`docs/decisions/0122-writer-panes-act-as-the-owner-and-the-judge-is-an-app.md`](decisions/0122-writer-panes-act-as-the-owner-and-the-judge-is-an-app.md) — Refines ADR 0096: behind the owner-writer flag a writer pane gets the owner's login token and the judge a kore-judge App token, so squash commits on main credit the owner.
 - [`docs/decisions/0123-the-main-session-waits-and-sends-through-harness-tools-not-guards.md`](decisions/0123-the-main-session-waits-and-sends-through-harness-tools-not-guards.md) — Proposed, refines ADR 0119 and ADR 0120: ideas 0019 to 0021 add no guard rule; the main session waits with one background harness wait, session wait keeps the pane result summary while notify and the ledger stay outcome-only, a wrapped message is confirmed as delivered, each idea is measured from transcripts on its own flag, and whether the digest counts the main session's bare herdr sends is parked for the owner.
 - [`docs/decisions/0124-the-main-session-figures-are-recorded-behind-a-flag-for-the-repository-s-own-scans.md`](decisions/0124-the-main-session-figures-are-recorded-behind-a-flag-for-the-repository-s-own-scans.md) — Refines ADR 0123: the retro scan records its main-session event behind main-session-figures, off in every overlay, and only for the repository's own transcripts, so an unflagged scan writes no figure and a fixture folder never reaches the flow window.
+- [`docs/decisions/0125-writer-cost-is-read-per-merged-change-by-the-first-launch-s-tier.md`](decisions/0125-writer-cost-is-read-per-merged-change-by-the-first-launch-s-tier.md) — Refines ADR 0119 and the #825 spec: writer cost is read per merged change by the first writer launch's tier, priced per request from a dated table with the 100K step; the randomized window, flag activation and default writer tier stay the owner's.
 
 ## Proposed Decisions
 
@@ -232,6 +233,8 @@ decisions; read one only when planning that area, and expect it to change.
 - [`docs/ideas/0021-route-the-main-session-s-pane-messages-through-session-send.md`](ideas/0021-route-the-main-session-s-pane-messages-through-session-send.md) — Route the main session's pane messages through session send
 - [`docs/ideas/0022-guards-read-command-words-not-script-or-body-text.md`](ideas/0022-guards-read-command-words-not-script-or-body-text.md) — Guards read command words, not script or body text
 - [`docs/ideas/0023-bring-a-writer-s-pull-request-up-to-date-with-main-without-a.md`](ideas/0023-bring-a-writer-s-pull-request-up-to-date-with-main-without-a.md) — Bring a writer's pull request up to date with main without a main-session message
+- [`docs/ideas/0024-shell-aware-zsh-rules-live-verification.md`](ideas/0024-shell-aware-zsh-rules-live-verification.md) — shell-aware-zsh-rules works live in local
+- [`docs/ideas/0025-orchestrator-tick-live-verification.md`](ideas/0025-orchestrator-tick-live-verification.md) — orchestrator-tick works live in local
 
 ## Operations and Guides
 

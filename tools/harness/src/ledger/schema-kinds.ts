@@ -13,6 +13,7 @@ export const KINDS = [
   "issue.closed",
   "pr.opened",
   "pr.merged",
+  "pr.linked",
   "pr.checked",
   "outcome",
   "flag.activated",
@@ -61,6 +62,56 @@ export const KINDS = [
   "tick.plan",
 ] as const;
 export type Kind = (typeof KINDS)[number];
+
+export const NUMBER_KINDS: readonly Kind[] = [
+  "issue.opened",
+  "issue.labelled",
+  "issue.closed",
+  "pr.opened",
+  "pr.merged",
+  "pr.linked",
+  "pr.checked",
+  "outcome",
+  "challenge.round",
+  "precheck",
+  "send-back",
+  "review.run",
+  "escalation",
+  "owner.action",
+  "owner.replied",
+  "advisor.overturned",
+  "decision.made",
+  "decision.routed",
+  "auto-approved",
+  "qualifier.warned",
+  "harness-change-reverted",
+  "retro.dropped",
+  "tick.plan",
+];
+
+/** The kinds that link a pull request to its writer: the writer's session and agent are required on them. */
+export const LINK_KINDS: readonly Kind[] = ["pr.linked"];
+
+/** The format of session and agent is checked by the generic rules; these only require both on LINK_KINDS. */
+export const LINK_RULES: ReadonlyArray<{
+  readonly field: string;
+  readonly check: (value: unknown) => boolean;
+  readonly hint: string;
+  readonly requiredOn: readonly Kind[];
+}> = [
+  {
+    field: "session",
+    check: () => true,
+    hint: "must name the writer's session",
+    requiredOn: LINK_KINDS,
+  },
+  {
+    field: "agent",
+    check: () => true,
+    hint: "must name the writer's agent",
+    requiredOn: LINK_KINDS,
+  },
+];
 
 /** The kinds whose `label` is written: a name, a category, or a reason. */
 export const LABEL_KINDS: readonly Kind[] = [

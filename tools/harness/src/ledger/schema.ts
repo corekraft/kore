@@ -3,6 +3,8 @@ import {
   DECISION_ROUTE_RULES,
   KINDS,
   LABEL_KINDS,
+  LINK_RULES,
+  NUMBER_KINDS,
   type DecisionRouteOrigin,
   type Kind,
 } from "./schema-kinds.js";
@@ -24,30 +26,6 @@ export const OUTCOMES = ["success", "failure"] as const;
 export type Outcome = (typeof OUTCOMES)[number];
 
 const TOOL_KINDS: readonly Kind[] = ["tool.start", "tool.end"];
-const NUMBER_KINDS: readonly Kind[] = [
-  "issue.opened",
-  "issue.labelled",
-  "issue.closed",
-  "pr.opened",
-  "pr.merged",
-  "pr.checked",
-  "outcome",
-  "challenge.round",
-  "precheck",
-  "send-back",
-  "review.run",
-  "escalation",
-  "owner.action",
-  "owner.replied",
-  "advisor.overturned",
-  "decision.made",
-  "decision.routed",
-  "auto-approved",
-  "qualifier.warned",
-  "harness-change-reverted",
-  "retro.dropped",
-  "tick.plan",
-];
 
 /** Workflow runs GitHub concluded: only the conclusion and its time are kept. */
 const RUN_KINDS: readonly Kind[] = ["tool.end", "ci.main", "ci.nightly"];
@@ -208,6 +186,8 @@ interface Rule {
   optional?: boolean;
   /** Kinds on which the field is allowed and may be omitted, as a spawn with no reason omits its label. */
   omittableOn?: readonly Kind[];
+  /** Kinds on which the field must be present; every other kind may omit it. */
+  requiredOn?: readonly Kind[];
 }
 
 const RULES: readonly Rule[] = [
@@ -258,6 +238,7 @@ const RULES: readonly Rule[] = [
     kinds: [...LAUNCH_KINDS, "spawn.unstamped"],
   },
   { field: "tier", check: isText(NAME), hint: NAME_HINT, kinds: LAUNCH_KINDS },
+  ...LINK_RULES,
   ...TIER_RULES,
   ...BACKGROUND_RULES,
   ...SEND_BACK_RULES,
@@ -320,6 +301,7 @@ function checkRule(rule: Rule, raw: Raw, mode: ParseMode): Failure | undefined {
         applies &&
         rule.optional !== true &&
         !rule.omittableOn?.includes(kind)) ||
+      rule.requiredOn?.includes(kind) === true ||
       (rule.field === "id" && mode === "stored");
     return needed
       ? bad(rule.field, `is required on ${kind} events`)
