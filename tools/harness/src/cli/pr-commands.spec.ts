@@ -3,6 +3,7 @@ import { renderPrBody, type PrBody } from "../judge/index.js";
 import type { CommandContext } from "../runtime/index.js";
 import { APPROVAL_REFUSAL } from "../sender/index.js";
 import { failed, repoOf } from "./judge-shared.js";
+import { linkPullRequest } from "./pr-link.js";
 import { prCommands, prOpenRun } from "./pr-commands.js";
 import { fixture, REQUIRED, refusedWith, URL } from "./pr-open-support.js";
 
@@ -14,6 +15,10 @@ vi.mock("./judge-shared.js", () => ({
   failed: vi.fn<(context: CommandContext, error: unknown) => number>(),
   repoOf: vi.fn<(context: CommandContext) => Promise<string>>(),
 }));
+vi.mock("./pr-link.js", () => ({
+  linkPullRequest:
+    vi.fn<(deps: unknown, url: string) => Promise<string | undefined>>(),
+}));
 
 beforeEach(() => {
   vi.mocked(repoOf).mockResolvedValue("corekraft/kore");
@@ -24,6 +29,8 @@ beforeEach(() => {
   });
   vi.mocked(failed).mockReset();
   vi.mocked(failed).mockReturnValue(1);
+  vi.mocked(linkPullRequest).mockReset();
+  vi.mocked(linkPullRequest).mockResolvedValue(undefined);
 });
 
 describe("harness pr open creates the PR through the runner with the rendered body", () => {
@@ -168,6 +175,37 @@ describe("harness pr open warns and previews", () => {
   });
 });
 
+describe("harness pr open links the pull request it opened, and a failed link never blocks it", () => {
+  it("passes the command's deps and the URL gh printed to the link, once gh has created the PR", async () => {
+    const f = fixture(REQUIRED);
+    await prOpenRun(f.context);
+    expect(linkPullRequest).toHaveBeenCalledWith(f.context.deps, URL);
+  });
+
+  it("prints the link's warning on stderr and still prints the URL, exiting 0", async () => {
+    const f = fixture(REQUIRED);
+    vi.mocked(linkPullRequest).mockResolvedValue("the link was not recorded");
+    expect(await prOpenRun(f.context)).toBe(0);
+    expect(f.stderr).toHaveBeenCalledWith(
+      "warning: the link was not recorded\n",
+    );
+    expect(f.stdout).toHaveBeenCalledWith(`${URL}\n`);
+  });
+
+  it("links nothing when gh refuses to create the PR", async () => {
+    const f = fixture(REQUIRED);
+    f.run.mockResolvedValue({ code: 1, stdout: "", stderr: "no branch" });
+    expect(await prOpenRun(f.context)).toBe(1);
+    expect(linkPullRequest).not.toHaveBeenCalled();
+  });
+
+  it("links nothing under --dry-run, which creates no PR", async () => {
+    const f = fixture({ ...REQUIRED, "dry-run": true });
+    await prOpenRun(f.context);
+    expect(linkPullRequest).not.toHaveBeenCalled();
+  });
+});
+
 describe("harness pr open creates nothing a sender line or approval check refuses", () => {
   it("creates no PR when the body carries guardrail approval syntax", async () => {
     const f = fixture(REQUIRED);
@@ -199,6 +237,7 @@ describe("harness pr open is declared as a mutating command", () => {
     const open = prCommands["open"];
     expect(open?.summary).toMatch(/^mutates;/);
     expect(open?.summary).toContain("--body-file <path>");
+    expect(open?.summary).toContain("pr.linked");
     expect(Object.keys(open?.options ?? {}).sort()).toEqual([
       "base",
       "body",

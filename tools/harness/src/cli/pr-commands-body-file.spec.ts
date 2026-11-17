@@ -14,6 +14,10 @@ vi.mock("./judge-shared.js", () => ({
   failed: vi.fn<(context: CommandContext, error: unknown) => number>(),
   repoOf: vi.fn<(context: CommandContext) => Promise<string>>(),
 }));
+// The link has its own unit spec; here the body source is what is under test.
+vi.mock("./pr-link.js", () => ({
+  linkPullRequest: vi.fn<(deps: unknown, url: string) => Promise<undefined>>(),
+}));
 
 const FROM_FILE = {
   title: "feat: add pr open",
