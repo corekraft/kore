@@ -1,7 +1,7 @@
 ---
 name: advisor
 description: "Decides a question that carries a recommendation and records the decision on the idea's issue. Read-only: it never changes a file, the index or a pull request, and it grants no permission."
-model: claude-opus-5-5
+model: claude-sonnet-5-5
 effort: high
 tools: Read, Grep, Glob, Bash
 ---

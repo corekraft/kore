@@ -81,7 +81,7 @@ what runs in parallel, and handling a blocked pane.
 ## Answered by delegation
 
 - **The judgment pane: yes.** The owner's direction of 2026-11-16 (Sonnet is
-  the main orchestrator, Haiku panes read and write, Opus advises) means a
+  the main orchestrator, Haiku panes read and write, Opus advises; _note, 2026-11-16: the advisor later moved to Sonnet at high effort, per ADR 0120_) means a
   Sonnet judgment pane under the tick, where Sonnet decides and the tick
   spawns. The evidence against one long-lived orchestrating session is its own
   record, and idea 0007 as filed calls a model only for a judgment with a
