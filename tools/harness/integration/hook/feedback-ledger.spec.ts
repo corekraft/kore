@@ -226,8 +226,12 @@ describe("hook feedback reads the transcript incrementally", () => {
     const next = turn("m2", 20, 5) + turn("m3", 1, 1);
     s.append(next);
     expect((await s.stop()).map((e) => e["tokens"])).toEqual([150, 177]);
+    // Each stop reads the new bytes twice: once for token.usage, once for the token split (#1001).
+    // Both readers start from their own saved offset, so each read is only what is new.
     expect(s.reads).toEqual([
       { offset: 0, bytes: Buffer.byteLength(first) },
+      { offset: 0, bytes: Buffer.byteLength(first) },
+      { offset: Buffer.byteLength(first), bytes: Buffer.byteLength(next) },
       { offset: Buffer.byteLength(first), bytes: Buffer.byteLength(next) },
     ]);
   });
