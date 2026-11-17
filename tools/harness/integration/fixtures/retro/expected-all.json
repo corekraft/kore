@@ -74,6 +74,13 @@
     "perSession": {},
     "perRole": {}
   },
+  "mainSession": {
+    "sessions": 3,
+    "pollMinutes": 0,
+    "paneReads": 0,
+    "signedSends": 0,
+    "rawSends": 0
+  },
   "corrections": [
     {
       "id": "f556c47a",

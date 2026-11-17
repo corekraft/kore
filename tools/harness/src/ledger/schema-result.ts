@@ -1,6 +1,21 @@
 import type { Kind } from "./schema.js";
+import { isTimestamp } from "./schema-time.js";
 
 const RESULT_KINDS: readonly Kind[] = ["session.result", "pane.finished"];
+const RETRO_KINDS: readonly Kind[] = ["retro.main-session"];
+const TIME_HINT =
+  "must be an ISO 8601 UTC time such as 2026-01-02T03:04:05.000Z";
+const isStamp = (v: unknown) => typeof v === "string" && isTimestamp(v);
+
+/** A retro.main-session event's fields: the scanned window and the figures a scan counted (#940). */
+export interface RetroOrigin {
+  windowStart: string;
+  windowEnd: string;
+  pollMinutes: number;
+  paneReads: number;
+  signedSends: number;
+  rawSends: number;
+}
 const TOOL_START_KINDS: readonly Kind[] = ["tool.start"];
 
 /**
@@ -28,4 +43,30 @@ export const RESULT_RULES = [
     hint: "must be one of done, blocked",
     kinds: RESULT_KINDS,
   },
+  // A retro scan's main-session figures (#940): its window and five numbers, never command text.
+  {
+    field: "windowStart",
+    check: isStamp,
+    hint: TIME_HINT,
+    kinds: RETRO_KINDS,
+  },
+  {
+    field: "windowEnd",
+    check: isStamp,
+    hint: TIME_HINT,
+    kinds: RETRO_KINDS,
+  },
+  {
+    field: "pollMinutes",
+    check: (v: unknown) =>
+      typeof v === "number" && Number.isFinite(v) && v >= 0,
+    hint: "must be a finite non-negative number of minutes",
+    kinds: RETRO_KINDS,
+  },
+  ...["paneReads", "signedSends", "rawSends"].map((field) => ({
+    field,
+    check: (v: unknown) => Number.isSafeInteger(v) && (v as number) >= 0,
+    hint: "must be a non-negative whole number",
+    kinds: RETRO_KINDS,
+  })),
 ] as const;
