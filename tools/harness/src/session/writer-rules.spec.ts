@@ -8,6 +8,21 @@ const WRITER = readFileSync(
   "utf8",
 );
 
+const IDEA_0015 = readFileSync(
+  join(
+    import.meta.dirname,
+    "../../../../docs/ideas/0015-writer-follow-up-rules.md",
+  ),
+  "utf8",
+);
+
+/** The #849 cut on #803, as idea 0015 records it: the counts before and after #553, and the owner. */
+const CUT_LINES: readonly string[] = [
+  "- Before #553: 33 sessions with habit follow-ups, 2 with real breaks; 54 follow-ups counted: 49 habit, 2 real break, 3 dropped.",
+  "- After #553: 4 sessions with habit follow-ups, 1 with real breaks; 19 follow-ups counted: 6 habit, 4 real break, 9 dropped.",
+  '- Owner of "run related tests, not the full suite": writer.md, alone (advisor decision on #803, 2026-11-17).',
+];
+
 /** Each standing writer rule, as the sentence that states it in writer.md. */
 const STANDING_RULES: Record<string, string> = {
   "merge origin/main, never rebase or force-push":
@@ -47,6 +62,15 @@ describe("each standing writer rule has one owner, writer.md", () => {
         role: "writer",
       });
       expect(brief).not.toContain(sentence);
+    },
+  );
+});
+
+describe("idea 0015 records the #849 cut before any rule moved", () => {
+  it.each(CUT_LINES.map((line) => [line]))(
+    "records the cut line %s in the idea record",
+    (line) => {
+      expect(IDEA_0015).toContain(line);
     },
   );
 });
