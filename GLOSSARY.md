@@ -65,6 +65,11 @@ _Avoid_: Explorer, researcher
 An agent that changes files for one piece of work.
 _Avoid_: Implementer, coder
 
+**Follow-up**:
+A message sent to a writer session after its brief, by the main session or a
+tool, always carrying a sender line.
+_Avoid_: Nudge, ping
+
 **Judge**:
 An agent that decides whether a change is a safe delivery under its declared
 safety pattern, merges it through the merge tool, and, when it is not, sends it
