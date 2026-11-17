@@ -65,7 +65,7 @@ async function ideas({ deps }: CommandContext) {
 
 export const statusCommand: Command = {
   summary:
-    "report open plan items, ideas by state and recent ledger stages; read-only, for the person's main session",
+    "report open plan items, ideas by state, recent ledger stages and the orchestrator tick's heartbeat (tick: none, running, stopped, or gap, which prints 'the tick is not running' when its latest heartbeat is older than the gap with no stop after it); read-only, for the person's main session",
   async run(context) {
     const opened = await openLedger(context);
     if ("error" in opened) {
