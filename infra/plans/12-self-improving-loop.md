@@ -35,6 +35,17 @@ weaken its own guardrails
 > send-backs per idea (`rework.sendBacksPerIdea`) include precheck failures from
 > 2026-11-15; ledger events before that date are judge send-backs only. Compare
 > windows that straddle the date with that in mind.
+>
+> **Category shift (#810).** From the change for
+> [#810](https://github.com/corekraft/kore/issues/810), every send-back carries
+> one reason category: a judge send-back names one with `--category`, and a
+> precheck send-back gets the category of its failure. Before that change a
+> send-back has no category and the flow report counts it as uncategorised, so
+> counts by category do not compare across the change: a category can look as if
+> it rose only because older events have none. `rework.sendBacksPerIdea` counts
+> the same events before and after, because the category is an added field on
+> the same event. Read a window that straddles the change by its total, not by
+> category.
 
 ## Step 2: Automatic Retro
 
