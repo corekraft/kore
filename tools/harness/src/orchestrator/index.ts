@@ -48,7 +48,9 @@ export {
 } from "./tick-plan-store.js";
 export { pieceNameProblem } from "./tick-piece.js";
 export type { IdeaPane, IdeaStep, PaneState, StepName } from "./tick.js";
-export { TickCli } from "./tick-cli.js";
+export { TICK_COMMAND, TICK_ENV, TickCli } from "./tick-cli.js";
+export { TickNotifier } from "./tick-notify.js";
+export { NotifyLedger } from "./tick-notify-ports.js";
 export { TICK_FLAG, tickFlagOn } from "./tick-flag.js";
 export {
   TICK_HEARTBEAT_GAP_MS,

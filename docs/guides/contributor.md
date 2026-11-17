@@ -787,6 +787,17 @@ and is recorded as a `tick.bound` ledger event on the idea's issue. The held ide
 starts on the first pass the bound clears. A close, a send-back and an outcome
 start no pane, so a bound never stops them.
 
+When an idea reaches an end that needs a person, the tick sends the attended pane one
+line, once per idea and state: `sender: tick orchestrator-tick (orchestrate tick): Idea <n>
+needs a person: <reason>.`. The ends are `blocked`, `needs-judgment` and `needs-info`, the
+constant `NEEDS_A_PERSON`, a subset of the ends `orchestrate run` stops at: `awaiting-judge`
+is a judge pane's wait, not a person. The attended pane is the pane the idea's latest session
+was spawned from, read from the session registry. The line goes through the signed send path,
+and the send is recorded as a `session.send` event naming the idea and the state, so a restart
+or a later pass sends nothing twice. An idea with no recorded pane gets no line. Reserved
+questions (ADR 0120) are not covered yet: the tick does not read them, so a follow-up ticket
+covers them.
+
 Each checklist item of the precheck (`ci`, `scan`, `coverage`,
 `principles-review`, `expand-step`, `pattern-match`, `guardrail-activation`) reads its mode from the
 guardrail inventory, `.claude/guardrails.yaml`, as the rule `judge-<item>` of kind

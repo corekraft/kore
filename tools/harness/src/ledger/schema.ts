@@ -222,7 +222,8 @@ const RULES: readonly Rule[] = [
     check: isText(LABEL),
     hint: "must be 1-100 characters with no control characters",
     kinds: LABEL_KINDS,
-    omittableOn: ["spawn.unstamped"],
+    // A session.send from before a tick notice carried its state has no label, and still reads.
+    omittableOn: ["spawn.unstamped", "session.send"],
   },
   {
     field: "number",
