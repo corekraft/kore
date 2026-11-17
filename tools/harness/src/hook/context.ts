@@ -7,6 +7,7 @@
 // so the brief, `plan active` and the handoff cannot disagree.
 // Docs: infra/plans/4-knowledge.md#step-4-upward-context
 
+import { FlagError } from "../flag/index.js";
 import {
   activePlans,
   listItems,
@@ -19,6 +20,13 @@ import { GUARD_ROLES } from "./guard-roles.js";
 import { lastRetrospective, MarkerError, PLANS_DIR } from "./retro-scan.js";
 
 const RETRO_AFTER_SESSIONS = 5;
+
+/**
+ * The line the main session gets while pane-result-summary is on: where a
+ * finished pane's summary is read instead of its pane (ADR 0123).
+ */
+export const RESULT_SUMMARY_LINE =
+  "A finished pane's result is in `session wait <name> --json`, as result.summary: read it there, not with `herdr agent read`.";
 
 /**
  * The roles that get no plan session brief: their orchestrator-only steps are
@@ -46,6 +54,8 @@ export interface ContextDeps {
     date: string | null,
     current: string | undefined,
   ): Promise<number>;
+  /** Whether the local overlay turns pane-result-summary on; a malformed overlay throws a FlagError. */
+  paneResultSummaryOn(): Promise<boolean>;
 }
 
 export interface SessionEvent {
@@ -124,6 +134,35 @@ function givesPlanBrief(event: SessionEvent): boolean {
   );
 }
 
+/**
+ * Whether the session has no role. Every role pane is started with `--agent`
+ * (session launch), so the main session is the one that has none.
+ */
+function isMainSession(event: SessionEvent): boolean {
+  return typeof event.agent_type !== "string" || event.agent_type === "";
+}
+
+/**
+ * The result-summary line for the main session while its flag is on. A flag
+ * that cannot be read becomes a warning in its place, so the rest of the brief stays.
+ */
+async function resultSummaryLines(
+  event: SessionEvent,
+  deps: ContextDeps,
+): Promise<string[]> {
+  if (!isMainSession(event)) {
+    return [];
+  }
+  try {
+    return (await deps.paneResultSummaryOn()) ? [RESULT_SUMMARY_LINE] : [];
+  } catch (error) {
+    if (error instanceof FlagError) {
+      return [`Warning: ${error.message}`];
+    }
+    throw error;
+  }
+}
+
 /** Each active plan's open items, Next: line and upcoming steps. */
 function planLines(plans: Readonly<Record<string, string>>): string[] {
   const lines: string[] = [];
@@ -155,6 +194,7 @@ export async function brief(
 ): Promise<string> {
   const plans = await deps.readPlans();
   const lines: string[] = givesPlanBrief(event) ? planLines(plans) : [];
+  lines.push(...(await resultSummaryLines(event, deps)));
   lines.push(...environmentLines(await deps.readJournals()));
   const reminder = await retroLine(event, plans, deps);
   if (reminder !== null) {
