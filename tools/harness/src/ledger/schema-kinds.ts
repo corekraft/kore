@@ -18,6 +18,7 @@ export const KINDS = [
   "outcome",
   "flag.activated",
   "token.usage",
+  "token.split",
   "session.launch",
   "guard.audit",
   "guard.block",
@@ -140,6 +141,8 @@ export const LABEL_KINDS: readonly Kind[] = [
   "retro.dropped",
   "spawn.unstamped",
 ];
+
+export { SPLIT_RULES, type SplitOrigin } from "./schema-split.js";
 
 export {
   DECISION_ROUTE_RULES,

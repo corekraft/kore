@@ -99,7 +99,7 @@ describe("writer cost: tokens priced by launch tier", () => {
     const r = writerCost(PRICED_EVENTS, WINDOW, OPTIONS);
 
     expect(r).toEqual({
-      pricesAsOf: "2026-11-16",
+      pricesAsOf: "2026-11-17",
       trailingDays: 7,
       minMergedChanges: 5,
       current: PRICED_CURRENT,
