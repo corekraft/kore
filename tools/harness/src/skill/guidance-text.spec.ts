@@ -8,7 +8,7 @@ const read = (path: string) => readFileSync(join(ROOT, path), "utf8");
 const ADR_0097 =
   "0097-an-outcome-issue-closes-on-recorded-proof-not-on-merge.md";
 
-/** The local-check rule the writer definition and the TDD skill both carry, pointing at AGENTS.md (Changes). */
+/** The local-check rule that writer.md alone owns, pointing at AGENTS.md (Changes). */
 const LOCAL_CHECKS_SENTENCE =
   "Locally run only the related tests and typecheck; the full suites run in CI `check` (AGENTS.md, Changes).";
 
@@ -89,8 +89,13 @@ describe("the writer definition", () => {
 describe("the test-driven-development skill", () => {
   const skill = read("skills/test-driven-development/SKILL.md");
 
-  it("tells a worker to run only the related tests and typecheck locally, pointing at AGENTS.md", () => {
-    expect(skill).toContain(LOCAL_CHECKS_SENTENCE);
+  it("does not restate the local-check rule, which writer.md owns alone", () => {
+    expect(skill).not.toContain(LOCAL_CHECKS_SENTENCE);
+  });
+
+  it("tells a worker to run the related tests after green, not the wider suite", () => {
+    expect(skill).toContain("Then run the related tests.");
+    expect(skill).not.toContain("Then run the wider suite");
   });
 
   it("gives a guard role rule a spec for every role it names", () => {
