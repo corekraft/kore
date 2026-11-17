@@ -3,6 +3,7 @@ export { APPROVED_MARKER, REFUSED_MARKER } from "./github-owner-actions.js";
 export { pollSignals } from "./github-signals.js";
 export { pollHerdr, type PollResult } from "./herdr-poll.js";
 export { hasOpenBackground } from "./background.js";
+export { hasOpenQuestion } from "./open-question.js";
 export {
   DEFAULT_LEDGER,
   Ledger,

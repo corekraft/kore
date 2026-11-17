@@ -30,6 +30,7 @@ export const KINDS = [
   "ci.nightly",
   "main.revert",
   "owner.action",
+  "owner.replied",
   "host-sample",
   "kore.retry",
   "pane.interrupted",

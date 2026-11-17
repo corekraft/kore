@@ -34,12 +34,17 @@ export interface AskPorts {
   readonly label: (target: DecisionTarget, label: string) => Promise<void>;
   /** Posts the comment and returns its URL. */
   readonly post: (target: DecisionTarget, body: string) => Promise<string>;
-  /** Records decision.routed: the idea, the category, the route and the signal, never the text. */
+  /**
+   * Records decision.routed: the idea, the category, the route, the signal, and the issue number
+   * and posting pane that let the stall check exempt the pane (#854); never the text.
+   */
   readonly record: (event: {
     idea: string;
     label: string;
     route: "owner";
     signal: DecisionRouteSignal;
+    number: number;
+    pane?: string;
   }) => Promise<{ ok: true } | { ok: false; message: string }>;
 }
 
@@ -110,11 +115,15 @@ export async function askOwner(
   const target = await ports.target(input.idea);
   await ports.label(target, ASK_LABEL);
   const commentUrl = await ports.post(target, signed.body);
+  // The pane that posted the question, when it runs in one: the stall check exempts that pane while it waits (#854).
+  const pane = ports.env["HERDR_PANE_ID"];
   const recorded = await ports.record({
     idea: target.idea,
     label: input.category,
     route: "owner",
     signal: routed.signal,
+    number: Number(target.number),
+    ...(pane === undefined || pane === "" ? {} : { pane }),
   });
   if (!recorded.ok) {
     throw new DecisionError(

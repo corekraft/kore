@@ -88,3 +88,95 @@ describe("pollHerdr: a spawned pane gone idle", () => {
     ).toEqual({ ok: true, recorded: 0, events: [] });
   });
 });
+
+/** The reserved question the writer posted from w3:p74 on issue 854, `minutes` from the poll's clock. */
+function posted(minutes: number): LedgerEvent {
+  const occurredAt = new Date(Date.parse(NOW) + minutes * MINUTE).toISOString();
+  return {
+    schema: 1,
+    id: `routed-${minutes}`,
+    recordedAt: occurredAt,
+    source: "claude",
+    kind: "decision.routed",
+    occurredAt,
+    pane: "w3:p74",
+    idea: "0009",
+    label: "naming",
+    route: "owner",
+    signal: "reserved-category",
+    number: 854,
+  } as LedgerEvent;
+}
+
+/** The owner's untagged reply on issue 854, `minutes` from the poll's clock. */
+function ownerReply(minutes: number): LedgerEvent {
+  const occurredAt = new Date(Date.parse(NOW) + minutes * MINUTE).toISOString();
+  return {
+    schema: 1,
+    id: `replied-${minutes}`,
+    recordedAt: occurredAt,
+    source: "github",
+    kind: "owner.replied",
+    occurredAt,
+    number: 854,
+  } as LedgerEvent;
+}
+
+/** One poll over `events` with herdr showing the writer idle, returning the poll and every ledger filter it asked for. */
+async function pollOver(events: LedgerEvent[]) {
+  const runner = fakeRunner();
+  runner.run.mockResolvedValue(ok(listing([writer("idle")])));
+  const fake = fakeLedger();
+  fake.list.mockResolvedValue({ events, skipped: 0 });
+  recordsEverything(fake.record);
+  const result = await pollHerdr({
+    ledger: fake.ledger,
+    runner,
+    clock: fakeClock(),
+    fs: fakeFileSystem(),
+  });
+  return { result, filters: fake.list.mock.calls.map(([filter]) => filter) };
+}
+
+const IDLE_PANE = [
+  spawned(-10, "session.launch"),
+  spawned(-9, "pane.busy"),
+  spawned(-8, "pane.waiting"),
+];
+
+describe("pollHerdr: a waiting pane with a reserved question", () => {
+  it("records nothing while the pane waits on the owner's answer to a question it posted", async () => {
+    expect(await pollOver([...IDLE_PANE, posted(-7)])).toEqual({
+      result: { ok: true, recorded: 0, events: [] },
+      filters: expect.any(Array),
+    });
+  });
+
+  it("records the pane.stalled once the owner has replied on the question's issue", async () => {
+    const { result } = await pollOver([
+      ...IDLE_PANE,
+      posted(-7),
+      ownerReply(-6),
+    ]);
+    expect(result).toMatchObject({ ok: true, recorded: 1 });
+  });
+
+  it("reads the question kinds from the ledger, and never asks for token usage", async () => {
+    const tokens = {
+      schema: 1,
+      id: "token-1",
+      recordedAt: NOW,
+      source: "claude",
+      kind: "token.usage",
+      occurredAt: new Date(Date.parse(NOW) - MINUTE).toISOString(),
+      session: "s1",
+      pane: "w3:p74",
+      tokens: 1000,
+    } as LedgerEvent;
+    const { result, filters } = await pollOver([...IDLE_PANE, tokens]);
+    expect(filters).toContainEqual({ kind: "decision.routed" });
+    expect(filters).toContainEqual({ kind: "owner.replied" });
+    expect(filters).not.toContainEqual({ kind: "token.usage" });
+    expect(result).toMatchObject({ ok: true, recorded: 1 });
+  });
+});

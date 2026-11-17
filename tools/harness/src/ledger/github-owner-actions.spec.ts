@@ -59,15 +59,13 @@ const comment = (login: string, id = 5) => ({
 describe("fromActions: the owner's comments, events and reviews", () => {
   it("turns the owner's comment into an owner.action event with its issue number", async () => {
     listings({ comments: [comment(OWNER)] });
-    expect(await fromActions(fakeRunner(), REPO, OWNER)).toEqual([
-      {
-        id: "github:owner.action:comment:5",
-        source: "github",
-        kind: "owner.action",
-        occurredAt: "2026-01-02T03:00:00Z",
-        number: 7,
-      },
-    ]);
+    expect(await fromActions(fakeRunner(), REPO, OWNER)).toContainEqual({
+      id: "github:owner.action:comment:5",
+      source: "github",
+      kind: "owner.action",
+      occurredAt: "2026-01-02T03:00:00Z",
+      number: 7,
+    });
   });
 
   it("turns the owner's issue event into an owner.action event for its issue", async () => {
@@ -255,7 +253,7 @@ describe("fromActions: an agent's auto-approval is not the owner's action", () =
 
   it("still counts the owner's own comment on the same issue", async () => {
     listings({ comments: [withBody("looks good", 6)] });
-    expect(await fromActions(fakeRunner(), REPO, OWNER)).toHaveLength(1);
+    expect(await fromActions(fakeRunner(), REPO, OWNER)).toHaveLength(2);
   });
 
   it("does not count the approval label the harness applied on an auto-approved issue", async () => {
@@ -281,5 +279,41 @@ describe("fromActions: an agent's auto-approval is not the owner's action", () =
       events: [labelled(9, 7)],
     });
     expect(await fromActions(fakeRunner(), REPO, OWNER)).toHaveLength(1);
+  });
+});
+
+describe("fromActions: the owner's untagged replies, which close a reserved question (#854)", () => {
+  const reply = (login: string, body: string, id = 5) => ({
+    ...comment(login, id),
+    body,
+  });
+
+  it("records an untagged owner comment as an owner.replied on its issue", async () => {
+    listings({ comments: [reply(OWNER, "Use the second option.")] });
+    expect(await fromActions(fakeRunner(), REPO, OWNER)).toContainEqual({
+      id: "github:owner.replied:comment:5",
+      source: "github",
+      kind: "owner.replied",
+      occurredAt: "2026-01-02T03:00:00Z",
+      number: 7,
+    });
+  });
+
+  it("records no owner.replied for a role-tagged comment, another login's, or a harness marker", async () => {
+    listings({
+      comments: [
+        reply(OWNER, "sender: writer stalled-panes (pr open)\n\nbody", 5),
+        reply(OWNER, "sender: the main session (orchestrator)\n\nok", 6),
+        reply("someone-else", "I agree.", 7),
+        reply(OWNER, `${APPROVED_MARKER}\nwhy`, 8),
+      ],
+    });
+    const ids = (await fromActions(fakeRunner(), REPO, OWNER)) as {
+      id: string;
+    }[];
+    expect(ids.map((e) => e.id)).toEqual([
+      "github:owner.action:comment:5",
+      "github:owner.action:comment:6",
+    ]);
   });
 });

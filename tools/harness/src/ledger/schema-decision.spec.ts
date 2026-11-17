@@ -98,3 +98,64 @@ describe("the advisor.overturned event", () => {
     ).toMatchObject({ ok: false, field: "number" });
   });
 });
+
+describe("the owner.replied event", () => {
+  const github = { source: "github", occurredAt: "2026-11-16T12:00:00Z" };
+
+  it("is a kind only the poller writes, read from an untagged owner comment", () => {
+    expect(KINDS).toContain("owner.replied");
+    expect(POLLER_KINDS).toContain("owner.replied");
+  });
+
+  it("records the issue number the owner replied on, and nothing of the reply", () => {
+    expect(
+      parseEvent({ ...github, kind: "owner.replied", number: 854 }, "input").ok,
+    ).toBe(true);
+    expect(
+      parseEvent(
+        {
+          ...github,
+          kind: "owner.replied",
+          number: 854,
+          label: "approve",
+        },
+        "input",
+      ),
+    ).toMatchObject({ ok: false, field: "label" });
+  });
+
+  it("refuses a reply with no issue number, since an open question is closed by it", () => {
+    expect(
+      parseEvent({ ...github, kind: "owner.replied" }, "input"),
+    ).toMatchObject({ ok: false, field: "number" });
+  });
+});
+
+describe("the decision.routed event a posted question records", () => {
+  const claude = { source: "claude", occurredAt: "2026-11-16T12:30:00.000Z" };
+  const posted = {
+    ...claude,
+    kind: "decision.routed",
+    idea: "0009",
+    label: "naming",
+    route: "owner",
+    signal: "reserved-category",
+  };
+
+  it("records the pane that posted the question and the issue it was posted on", () => {
+    expect(
+      parseEvent({ ...posted, pane: "w3:p1", number: 854 }, "input").ok,
+    ).toBe(true);
+  });
+
+  it("still reads a route recorded with neither, as before the question was posted", () => {
+    expect(parseEvent(posted, "input").ok).toBe(true);
+  });
+
+  it("refuses an issue number that is not a positive integer", () => {
+    expect(parseEvent({ ...posted, number: 0 }, "input")).toMatchObject({
+      ok: false,
+      field: "number",
+    });
+  });
+});

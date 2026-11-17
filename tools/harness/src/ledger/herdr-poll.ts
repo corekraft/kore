@@ -193,9 +193,14 @@ async function poll(deps: {
   const herdr = (await deps.ledger.list({ source: "herdr" })).events;
   // Claude's events carry the background marks the stall check reads (#854); the check ignores every other kind, token usage included.
   const claude = (await deps.ledger.list({ source: "claude" })).events;
+  // The reserved questions posted from panes, and the owner's replies to them (#854): the stall check exempts by these.
+  const questions = [
+    ...(await deps.ledger.list({ kind: "decision.routed" })).events,
+    ...(await deps.ledger.list({ kind: "owner.replied" })).events,
+  ];
   const planned = [
     ...plan(listed, lastRecorded(herdr), observedAt),
-    ...plannedStalls(herdr, claude, now),
+    ...plannedStalls(herdr, claude, now, questions),
   ];
   for (const input of planned) {
     const result = await deps.ledger.record(input);

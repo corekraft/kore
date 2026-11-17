@@ -27,6 +27,7 @@ describe("the ledger barrel", () => {
       "SEND_BACK_CATEGORIES",
       "SOURCES",
       "hasOpenBackground",
+      "hasOpenQuestion",
       "isName",
       "isTimestamp",
       "pollGithub",

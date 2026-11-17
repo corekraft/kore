@@ -1,10 +1,15 @@
 // Stalled panes from two independent sources (#854, parent #818). The detector's
 // pane.stalled events are one count. The other is token-usage silence, which the
 // detector never reads: a session whose last token.usage is more than the limit
-// before the measuring point, with no RESULT since, and no background command open on
-// its pane. The limit is a placeholder the owner tunes from this report.
+// before the measuring point, with no RESULT since, no background command open on its
+// pane, and no open reserved question on it (#854). The limit is a placeholder the owner
+// tunes from this report.
 
-import { hasOpenBackground, type LedgerEvent } from "../ledger/index.js";
+import {
+  hasOpenBackground,
+  hasOpenQuestion,
+  type LedgerEvent,
+} from "../ledger/index.js";
 import { time } from "./github-waits.js";
 import { inWindow, type Span } from "./scope.js";
 
@@ -20,6 +25,8 @@ export interface StalledPanes {
   fromTokenUsage: number;
   /** Silent sessions left out because a background command was open on their pane. */
   backgroundExcluded: number;
+  /** Silent sessions left out because their pane waits on an open reserved question (#854). */
+  questionExcluded: number;
 }
 
 /** The latest token.usage of each session in the window, read no later than `silentAt`. */
@@ -82,6 +89,7 @@ export function stalledPanes(
   ).length;
   let fromTokenUsage = 0;
   let backgroundExcluded = 0;
+  let questionExcluded = 0;
   for (const [session, tokens] of lastTokensBySession(
     events,
     window,
@@ -97,6 +105,8 @@ export function stalledPanes(
     }
     if (pane !== undefined && hasOpenBackground(events, pane, silentAt)) {
       backgroundExcluded += 1;
+    } else if (pane !== undefined && hasOpenQuestion(events, pane, silentAt)) {
+      questionExcluded += 1;
     } else {
       fromTokenUsage += 1;
     }
@@ -106,5 +116,6 @@ export function stalledPanes(
     recorded,
     fromTokenUsage,
     backgroundExcluded,
+    questionExcluded,
   };
 }

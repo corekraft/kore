@@ -1,4 +1,5 @@
 import type { Runner } from "../runtime/index.js";
+import { readSender } from "../sender/index.js";
 import {
   LIMIT,
   asRecord,
@@ -96,25 +97,28 @@ function ownerEvents(
     login: unknown,
     at: unknown,
     number: number | undefined,
+    kind: "owner.action" | "owner.replied" = "owner.action",
   ) => {
     const time = when(at);
     if (login === owner && time !== undefined && number !== undefined) {
-      out.push({
-        id,
-        source: "github",
-        kind: "owner.action",
-        occurredAt: time,
-        number,
-      });
+      out.push({ id, source: "github", kind, occurredAt: time, number });
     }
   };
   for (const c of comments.filter((each) => !agentMade(each))) {
-    add(
-      `github:owner.action:comment:${String(c["id"])}`,
-      asRecord(c["user"])["login"],
-      c["created_at"],
-      issueNumber(c["issue_url"]),
-    );
+    const id = String(c["id"]);
+    const login = asRecord(c["user"])["login"];
+    const number = issueNumber(c["issue_url"]);
+    add(`github:owner.action:comment:${id}`, login, c["created_at"], number);
+    // An untagged comment by the owner's login is a reply: it closes a reserved question on its issue (#854).
+    if (readSender(bodyOf(c)) === undefined) {
+      add(
+        `github:owner.replied:comment:${id}`,
+        login,
+        c["created_at"],
+        number,
+        "owner.replied",
+      );
+    }
   }
   for (const e of events.filter((each) => !agentLabel(each))) {
     add(
