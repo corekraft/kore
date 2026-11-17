@@ -4,6 +4,7 @@ import type { CommandContext } from "../runtime/index.js";
 import { APPROVAL_REFUSAL } from "../sender/index.js";
 import { failed, repoOf } from "./judge-shared.js";
 import { prCommands, prOpenRun } from "./pr-commands.js";
+import { fixture, REQUIRED, refusedWith, URL } from "./pr-open-support.js";
 
 vi.mock("../judge/index.js", () => ({
   JudgeError: class JudgeError extends Error {},
@@ -13,43 +14,6 @@ vi.mock("./judge-shared.js", () => ({
   failed: vi.fn<(context: CommandContext, error: unknown) => number>(),
   repoOf: vi.fn<(context: CommandContext) => Promise<string>>(),
 }));
-
-const URL = "https://github.com/corekraft/kore/pull/9";
-const WRITER_ENV = { KORE_ROLE: "writer", KORE_AGENT: "fix-x" };
-
-function fixture(
-  options: Record<string, string | boolean>,
-  json = false,
-  env: Record<string, string | undefined> = WRITER_ENV,
-) {
-  const run = vi.fn();
-  run.mockResolvedValue({ code: 0, stdout: `${URL}\n`, stderr: "" });
-  const stdout = vi.fn<(text: string) => void>();
-  const stderr = vi.fn<(text: string) => void>();
-  const context = {
-    options,
-    json,
-    deps: {
-      runner: { run },
-      root: () => Promise.resolve("/repo"),
-      stdout,
-      stderr,
-      env,
-    },
-  } as unknown as CommandContext;
-  return { context, run, stdout, stderr };
-}
-
-const REQUIRED = {
-  title: "feat: add pr open",
-  body: "Summary.",
-  pattern: "no-behaviour-change",
-};
-
-const refusedWith = (fragment: string) =>
-  expect.objectContaining({
-    message: expect.stringContaining(fragment) as unknown,
-  });
 
 beforeEach(() => {
   vi.mocked(repoOf).mockResolvedValue("corekraft/kore");
@@ -231,12 +195,14 @@ describe("harness pr open creates nothing a sender line or approval check refuse
 });
 
 describe("harness pr open is declared as a mutating command", () => {
-  it("names its options in the usage text", () => {
+  it("names its options and --body-file in the usage text", () => {
     const open = prCommands["open"];
     expect(open?.summary).toMatch(/^mutates;/);
+    expect(open?.summary).toContain("--body-file <path>");
     expect(Object.keys(open?.options ?? {}).sort()).toEqual([
       "base",
       "body",
+      "body-file",
       "closes",
       "dry-run",
       "expand-step",

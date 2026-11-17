@@ -59,6 +59,13 @@ describe("the writer definition", () => {
     expect(writer).toContain("`--closes`");
   });
 
+  it("tells a writer a multi-line PR body goes in a --body-file that the Write tool made", () => {
+    const step =
+      writer.split("\n").find((line) => line.startsWith("3. ")) ?? "";
+    expect(step).toContain("`--body-file <path>`");
+    expect(step).toContain("with the Write tool");
+  });
+
   it("no longer tells a writer to copy the declaration lines into a gh pr create body by hand", () => {
     expect(writer).not.toContain("yourself");
   });
