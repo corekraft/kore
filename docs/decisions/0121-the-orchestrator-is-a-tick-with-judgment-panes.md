@@ -1,8 +1,8 @@
 ---
-status: proposed
-summary: Proposed, refines ADR 0117: orchestrate tick advances each in-flight idea by at most one step per pass, calls no model itself, and spawns a short-lived Sonnet judgment pane under a small brief for the steps a tool cannot decide, against ADR 0117's sentence that no agent fills the Orchestrator role.
+status: accepted
+summary: Accepted, refines ADR 0117: orchestrate tick advances each in-flight idea by at most one step per pass, calls no model itself, and spawns a short-lived Sonnet judgment pane under a small brief for the steps a tool cannot decide, against ADR 0117's sentence that no agent fills the Orchestrator role.
 date: 2026-11-16
-last-verified: 2026-11-16
+last-verified: 2026-11-17
 ---
 
 # ADR 0121: The Orchestrator is a tick with judgment panes
@@ -13,10 +13,7 @@ Refines: [ADR 0117](0117-the-delivery-loop-s-role-set.md).
 
 ## Status
 
-Proposed. ADR 0117 says `orchestrate run` drives an idea and no agent does; a
-Sonnet judgment pane partly reverses that. Its open questions were answered by delegation on 2026-11-16 (the owner, relayed by the answering session: "you can anaswer owner's questions"); the owner may overrule any of them (below). Those answers reach this record through a tagged agent message,
-which is not approval (ADR 0120), so it becomes accepted on the owner's own
-untagged comment on #794.
+Accepted on 2026-11-17 by the owner's own comment on [#794](https://github.com/corekraft/kore/issues/794), with the decision that the tick persists its work plan through a new harness command, not a direct `gh` label write.
 
 ## Context
 
