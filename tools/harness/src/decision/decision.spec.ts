@@ -39,7 +39,7 @@ beforeEach(() => {
 });
 
 describe("makeDecision", () => {
-  it("posts the signed decision on the idea's issue and records decision.made with the idea and category only", async () => {
+  it("posts the signed decision on the idea's issue and records decision.made with the idea, its issue number and category only", async () => {
     const p = ports();
 
     const made = await makeDecision(p, INPUT);
@@ -50,7 +50,11 @@ describe("makeDecision", () => {
       "Decision (naming)\n\nQuestion: Name the column Median or P50?\n\nDecision: Median, as the report already says.",
     );
     expect(p.post).toHaveBeenCalledWith(TARGET, "SIGNED BODY");
-    expect(p.record).toHaveBeenCalledWith({ idea: "0008", label: "naming" });
+    expect(p.record).toHaveBeenCalledWith({
+      idea: "0008",
+      label: "naming",
+      number: 795,
+    });
     expect(made).toEqual({
       idea: "0008",
       category: "naming",

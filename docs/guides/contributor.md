@@ -331,6 +331,21 @@ deviation). Fewer than three baseline samples give `insufficient history`. A
 reading a host could not give is left out of the figures, and a range with no
 samples says so (`samples` 0, no levels).
 
+The advisor's figures ([ADR 0120](../decisions/0120-recommended-decisions-go-to-an-advisor-reserved-decisions-to-the-owner.md),
+#862) read `decision.made`, `decision.routed` and `advisor.overturned` events.
+`advisorQuality` in `--json` gives the decisions made and overturned in the range,
+`perMade` (overturned over made, to four places, `null` when none was made), the
+`refutingShare` (a placeholder, 0.07) and `refuted`. `ownerRoutes` gives the owner
+and advisor route counts and the owner-routed questions per signal, every owner
+signal present. `waitingOnPerson` gives the seconds questions waited on a person,
+apart from every stage's waiting: a question waits from its `owner.asked` until
+the same pane or session next acts, or until the range's end or `--as-of` when it
+never does. `ledger poll-github` records an overturn as the owner login's first
+untagged comment after each advisor decision on that issue; a tagged comment, and
+the harness's approval markers, are never one. A `decision.made` event records the
+issue it was posted on from this change on; one recorded before it has no issue, so
+its overturns are not read and it counts as made only.
+
 The person's main session answers "how is the loop doing?" from this report alone
 (`flow report --json`, no code or transcripts read, no file written): it leads
 with every metric whose `worsened` is true, names current against trailing

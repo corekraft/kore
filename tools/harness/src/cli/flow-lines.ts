@@ -75,6 +75,47 @@ export function questionLines(q: FlowReport["ownerQuestions"]): string[] {
   ];
 }
 
+/** The advisor's overturn figure against the refuting share, or that none was made (ADR 0120, #862). */
+export function advisorLines(a: FlowReport["advisorQuality"]): string[] {
+  if (a.perMade === null) {
+    return [
+      `Advisor decisions overturned: ${a.overturned} of ${a.made} made; none made in this range`,
+    ];
+  }
+  return [
+    `Advisor decisions overturned: ${a.perMade} (${a.overturned} of ${a.made} made), refuting above ${a.refutingShare}${a.refuted ? " (refuted)" : ""}`,
+  ];
+}
+
+/** Owner-routed questions in total, the advisor's own count, and each owner signal's count (ADR 0120, #862). */
+export function routeLines(r: FlowReport["ownerRoutes"]): string[] {
+  const signals = Object.entries(r.bySignal)
+    .map(([signal, count]) => `${signal} ${count}`)
+    .join(", ");
+  return [
+    `Owner-routed questions: ${r.owner} (advisor-routed ${r.advisor}); by signal: ${signals}`,
+  ];
+}
+
+/** The advisor, route and waiting lines of the report, in that order (ADR 0120, #862). */
+export function advisorFigureLines(report: FlowReport): string[] {
+  return [
+    ...advisorLines(report.advisorQuality),
+    ...routeLines(report.ownerRoutes),
+    ...waitLines(report.waitingOnPerson),
+  ];
+}
+
+/** The seconds questions waited on a person, apart from any stage's waiting, or that none was asked (ADR 0120, #862). */
+export function waitLines(w: FlowReport["waitingOnPerson"]): string[] {
+  if (w.questions === 0) {
+    return ["Waiting on a person: no question asked in this range"];
+  }
+  return [
+    `Waiting on a person: ${w.waitingSeconds}s over ${w.questions} question(s), ${w.answered} answered, ${w.unanswered} not; ${w.perQuestionSeconds}s per question`,
+  ];
+}
+
 const ratePercent = (rate: number | null) =>
   rate === null ? "n/a" : `${Math.round(rate * 100)}%`;
 

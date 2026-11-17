@@ -14,10 +14,10 @@ import {
   COST_KINDS,
   frictionMetrics,
   DEFAULT_HOST_DAYS,
-  DEFAULT_QUESTION_DAYS,
   guardBlocks,
   hostPressure,
-  ownerQuestions,
+  questionFigures,
+  type QuestionFigures,
   reviewMisses,
   type ReviewMisses,
   mergedChangeFigures,
@@ -39,7 +39,6 @@ import {
   type Outcomes,
   type CostOptions,
   type LeadTime,
-  type OwnerQuestions,
   type MergedChangeFigures,
 } from "./idea-metrics.js";
 import {
@@ -51,7 +50,7 @@ import {
   type ScopeOptions,
 } from "./scope.js";
 
-export const REPORT_VERSION = 24;
+export const REPORT_VERSION = 25;
 
 export type { StageTotals, Toil } from "./tally.js";
 export type { Scope, ScopeOptions } from "./scope.js";
@@ -64,7 +63,8 @@ export interface Bottleneck {
 }
 
 /** The `flow report --json` shape; `version` changes when a field does. */
-export interface FlowReport extends FrictionMetrics, MergedChangeFigures {
+export interface FlowReport
+  extends FrictionMetrics, MergedChangeFigures, QuestionFigures {
   version: typeof REPORT_VERSION;
   asOf: string;
   /** The range and ideas the report covers. */
@@ -88,8 +88,6 @@ export interface FlowReport extends FrictionMetrics, MergedChangeFigures {
   outcomes: Outcomes;
   /** Swap and load by live-session count, with a trailing baseline, from host-sample events. */
   hostPressure: HostPressure;
-  /** Owner questions per merged change over the window, with the trailing days before it (#859). */
-  ownerQuestions: OwnerQuestions;
   /** Passed reviews later sent back for a rule break, and reviews that found a violation, each with the trailing days before it (#851). */
   reviewMisses: ReviewMisses;
   /** Launches per role by where the tier came from, with launches from before it was recorded as unknown. */
@@ -279,7 +277,6 @@ export function buildReport(
 ): FlowReport {
   const { asOf, minCompletedIdeas } = options;
   const stageOf = stageResolver(events);
-  const hasRole = roleResolver(events);
   const scope = scopeOf(options);
   const window = windowOf(options);
   const { byIdea, unattributed, orphans, named, landed } = groupByIdea(
@@ -322,7 +319,7 @@ export function buildReport(
             event,
             firstTime(own, (e) => e.kind === "pr.merged"),
           ) !== undefined,
-        hasRole,
+        hasRole: roleResolver(events),
       },
     ),
     guardBlocks: guardBlocks(named, window),
@@ -331,10 +328,7 @@ export function buildReport(
       trailingDays: options.hostDays ?? DEFAULT_HOST_DAYS,
       asOf,
     }),
-    ownerQuestions: ownerQuestions(named, window, {
-      trailingDays: DEFAULT_QUESTION_DAYS,
-      asOf,
-    }),
+    ...questionFigures(named, window, asOf),
     reviewMisses: reviewMisses(named, window, { asOf }),
     ...mergedChangeFigures(named, window, options),
     tierShares: tierShares(named, window),

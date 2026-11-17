@@ -31,10 +31,11 @@ export interface DecisionPorts {
   readonly target: (idea: string) => Promise<DecisionTarget>;
   /** Posts the comment and returns its URL. */
   readonly post: (target: DecisionTarget, body: string) => Promise<string>;
-  /** Records decision.made: the idea and the category, never the question or the reasoning. */
+  /** Records decision.made: the idea, the issue it was posted on and the category, never the question or the reasoning. */
   readonly record: (event: {
     idea: string;
     label: string;
+    number: number;
   }) => Promise<{ ok: true } | { ok: false; message: string }>;
 }
 
@@ -107,6 +108,7 @@ export async function makeDecision(
   const recorded = await ports.record({
     idea: target.idea,
     label: input.category,
+    number: Number(target.number),
   });
   if (!recorded.ok) {
     throw new DecisionError(

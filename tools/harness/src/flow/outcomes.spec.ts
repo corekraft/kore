@@ -215,4 +215,8 @@ describe("REPOSITORY_KINDS", () => {
   it("holds unstamped spawns, which record a session and belong to no idea or stage", () => {
     expect(REPOSITORY_KINDS.has("spawn.unstamped")).toBe(true);
   });
+
+  it("holds advisor overturns, which GitHub's comments record and no stage's time, so they are not counted as unmapped work (#862)", () => {
+    expect(REPOSITORY_KINDS.has("advisor.overturned")).toBe(true);
+  });
 });

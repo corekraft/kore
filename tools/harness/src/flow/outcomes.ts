@@ -15,6 +15,7 @@ export const REPOSITORY_KINDS = new Set<string>([
   "ci.nightly",
   "main.revert",
   "owner.action",
+  "advisor.overturned",
   "host-sample",
   "owner.asked",
   "spawn.unstamped",

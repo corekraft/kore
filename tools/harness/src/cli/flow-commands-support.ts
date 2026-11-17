@@ -3,6 +3,7 @@
 import { vi } from "vitest";
 import { STAGES, type FlowReport } from "../flow/index.js";
 import type { Ledger } from "../ledger/index.js";
+import { EMPTY_ADVISOR, POPULATED_ADVISOR } from "./flow-advisor-support.js";
 import { contextWith } from "./command-support.js";
 import { openLedger } from "./ledger-commands.js";
 
@@ -177,6 +178,7 @@ export function emptyReport(overrides: Partial<Record<string, unknown>> = {}) {
       trailingAverage: null,
       worsened: false,
     },
+    ...EMPTY_ADVISOR,
     tokensPerMergedChange: emptyTokensPerMergedChange,
     sendBacksPerMergedChange: emptySendBacksPerMergedChange,
     leadTimePerMergedChange: emptyLeadTimePerMergedChange,
@@ -305,6 +307,7 @@ export function populatedReport() {
       trailingAverage: 1,
       worsened: true,
     },
+    ...POPULATED_ADVISOR,
     stages: [
       {
         stage: "review",
