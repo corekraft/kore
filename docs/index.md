@@ -230,6 +230,8 @@ decisions; read one only when planning that area, and expect it to change.
 - [`docs/ideas/0019-keep-the-main-session-s-waits-off-its-own-turn.md`](ideas/0019-keep-the-main-session-s-waits-off-its-own-turn.md) — Keep the main session's waits off its own turn
 - [`docs/ideas/0020-carry-a-pane-s-result-summary-in-its-session-state-file.md`](ideas/0020-carry-a-pane-s-result-summary-in-its-session-state-file.md) — Carry a pane's result summary in its session state file
 - [`docs/ideas/0021-route-the-main-session-s-pane-messages-through-session-send.md`](ideas/0021-route-the-main-session-s-pane-messages-through-session-send.md) — Route the main session's pane messages through session send
+- [`docs/ideas/0022-guards-read-command-words-not-script-or-body-text.md`](ideas/0022-guards-read-command-words-not-script-or-body-text.md) — Guards read command words, not script or body text
+- [`docs/ideas/0023-bring-a-writer-s-pull-request-up-to-date-with-main-without-a.md`](ideas/0023-bring-a-writer-s-pull-request-up-to-date-with-main-without-a.md) — Bring a writer's pull request up to date with main without a main-session message
 
 ## Operations and Guides
 
