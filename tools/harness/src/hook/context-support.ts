@@ -9,6 +9,7 @@ export function deps(over: Partial<ContextDeps> = {}): ContextDeps {
     sessionsSince: () => Promise.resolve(0),
     paneResultSummaryOn: () => Promise.resolve(false),
     signedMainSendsOn: () => Promise.resolve(false),
+    mainSessionWaitOn: () => Promise.resolve(false),
     ...over,
   };
 }

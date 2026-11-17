@@ -7,7 +7,7 @@ describe("the command types", () => {
   it("a command has a summary, optional flags and operand, and a run that resolves to an exit code", () => {
     expectTypeOf<Command["summary"]>().toEqualTypeOf<string>();
     expectTypeOf<Command["options"]>().toEqualTypeOf<
-      Record<string, "string" | "boolean"> | undefined
+      Record<string, "string" | "boolean" | "list"> | undefined
     >();
     expectTypeOf<Command["operand"]>().toEqualTypeOf<string | undefined>();
     expectTypeOf<Command["run"]>().returns.toEqualTypeOf<Promise<number>>();
@@ -17,6 +17,9 @@ describe("the command types", () => {
     expectTypeOf<CommandContext["json"]>().toEqualTypeOf<boolean>();
     expectTypeOf<CommandContext["options"]>().toEqualTypeOf<
       Record<string, string | boolean>
+    >();
+    expectTypeOf<CommandContext["lists"]>().toEqualTypeOf<
+      Record<string, string[]> | undefined
     >();
     expectTypeOf<CommandContext["operand"]>().toEqualTypeOf<
       string | undefined

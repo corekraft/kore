@@ -2,7 +2,13 @@
 import type { Command } from "../runtime/index.js";
 export { handOff } from "./handoff.js";
 export { FOLLOW_UP_PREFIX } from "./follow-up-prefix.js";
-export { findResult } from "./wait.js";
+export { findResult, parseTimeout } from "./wait.js";
+export {
+  openSessionTarget,
+  settleSessionTarget,
+  type OpenedTarget,
+  type SessionWaitTarget,
+} from "./wait-target.js";
 export { hostLeaseRefusal } from "./host-lease.js";
 export { spawnLoadRefusal } from "./spawn-load.js";
 import { check } from "./check.js";
