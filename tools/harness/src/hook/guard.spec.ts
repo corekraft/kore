@@ -25,7 +25,10 @@ vi.mock("../guardrail/index.js", async (importOriginal) => ({
   modeOf: vi.fn(),
 }));
 vi.mock("./guard-evaluate.js", () => ({ asCall: vi.fn(), evaluate: vi.fn() }));
-vi.mock("./guard-host-shell.js", () => ({ hostFacts: vi.fn() }));
+vi.mock("./guard-host-shell.js", () => ({
+  helpExemptOn: vi.fn(),
+  hostFacts: vi.fn(),
+}));
 vi.mock("./guard-launch-root.js", () => ({ launchRoot: vi.fn() }));
 vi.mock("./ledger-event.js", () => ({ recordEvent: vi.fn() }));
 

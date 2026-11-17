@@ -40,6 +40,8 @@ export interface GuardContext {
   readonly home: string;
   /** True only when the host's Bash tool is verified to run bash; absent means not verified, and the zsh rules keep guarding. */
   readonly verifiedBash?: boolean;
+  /** True only while gated-help-exempt is on in the local overlay, so a writer's help request on a gated command passes; absent means off. */
+  readonly helpExempt?: boolean;
   readFile(path: string): Promise<string>;
   /** Whether any path under a directory (the cwd by default) matches a shell glob; the bare-glob rule reads it. */
   globMatches(pattern: string, directory?: string): Promise<boolean>;
