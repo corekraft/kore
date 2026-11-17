@@ -705,8 +705,10 @@ pass and the next tick recovers once it is 30 minutes old. A pane it starts is
 named for its idea and the PR head it works at (`idea-<idea>-judge-<head>`), so
 a rerun finds the pane and starts nothing twice. With the flag on, `orchestrate
 run --idea <n>` runs ticks scoped to that idea until it ends, instead of its own
-loop. The standing loop, the heartbeat and the judgment panes are later steps; a
-third send-back is reported as `needs-judgment` and nothing is started for it.
+loop. The standing loop and the heartbeat are later steps. A third send-back starts
+a judgment pane (ADR 0121) that decides once: its plan is checked whole, a refused
+plan is retried once, then the idea is labelled `needs-info`. A later third send-back
+is reported as `needs-judgment` and nothing is started for it.
 
 Before it starts a pane, the tick reads the host. On battery, or when the power
 source cannot be read, one pane starts per pass (saver mode). Above the load

@@ -4,9 +4,12 @@ import type { QueueItem } from "../queue/index.js";
 /** Writer and judge rounds one idea may take before the run stops and leaves it to a person. */
 export const MAX_ROUNDS = 6;
 
-/** A pane to start; the writer gets a worktree, and `model` is set only on an escalation relaunch. */
+/**
+ * A pane to start; the writer gets a worktree, and `model` is set only on an escalation relaunch.
+ * A judgment pane (ADR 0121) and the reader panes it asks for are started by the tick, never by a pane.
+ */
 export interface Launch {
-  role: "writer" | "judge";
+  role: "writer" | "judge" | "judgment" | "reader";
   name: string;
   brief: string;
   /** The idea's issue number, which `session spawn --idea` stamps into the pane for the ledger. */

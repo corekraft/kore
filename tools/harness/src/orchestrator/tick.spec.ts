@@ -265,20 +265,6 @@ describe("Tick on a change that was sent back", () => {
     ]);
     expect(p.spawn).not.toHaveBeenCalled();
   });
-
-  it("leaves a third send-back to a judgment pane, which this tick does not start", async () => {
-    const p = ports(sentBack());
-    vi.mocked(p.sendBacks).mockResolvedValue({
-      count: 3,
-      model: "claude-sonnet-5-5",
-      escalate: true,
-    });
-
-    expect(await new Tick(p).pass()).toEqual([
-      { idea: "0001", issue: 11, step: "needs-judgment", pr: 7 },
-    ]);
-    expect(p.spawn).not.toHaveBeenCalled();
-  });
 });
 
 describe("Tick across ideas and passes", () => {

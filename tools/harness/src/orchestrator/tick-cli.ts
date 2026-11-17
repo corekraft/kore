@@ -1,4 +1,5 @@
 import type { FileSystem, Runner } from "../runtime/index.js";
+import { signedBody } from "../sender/index.js";
 import { HarnessCli, HarnessCliError } from "./harness-cli.js";
 import type { IdeaPane, PaneState } from "./tick.js";
 
@@ -7,6 +8,13 @@ const STILL_WORKING = "printed no";
 
 /** The verdict line `review post` writes, with the head it reviewed. */
 const VERDICT = /principles-review:[^\n]*\(head ([0-9a-f]{7,40})\)/gi;
+
+/** The label an idea whose judgment flow stopped carries, for the owner to decide (ADR 0121). */
+const NEEDS_INFO = "needs-info";
+
+/** The tick signs what it posts as itself, so its comment is never read as the owner's (ADR 0121). */
+const TICK_ENV = { KORE_ROLE: "tick", KORE_AGENT: "orchestrator-tick" };
+const TICK_COMMAND = "orchestrate tick";
 
 /** The tick's ports over the real tools: the stage tools of HarnessCli plus three read-only reads. */
 export class TickCli extends HarnessCli {
@@ -38,6 +46,33 @@ export class TickCli extends HarnessCli {
           (match[1].startsWith(head) || head.startsWith(match[1])),
       ),
     );
+  }
+
+  /** A finished judgment or reader pane's text, read through its session result before the pane closes; read-only. */
+  async paneText(name: string): Promise<string> {
+    return (await this.collect(name)).text;
+  }
+
+  /**
+   * Labels the issue `needs-info`, then comments the reason under the tick's sender line. The
+   * reason is refused, before any write, when it carries guardrail approval syntax.
+   */
+  async needsInfo(issue: number, reason: string): Promise<void> {
+    const signed = signedBody(
+      TICK_ENV,
+      TICK_COMMAND,
+      `Judgment on this idea stopped it: ${reason}\n\nNothing was started for it; the owner decides the next step.`,
+    );
+    if ("error" in signed) {
+      throw new HarnessCliError(signed.error);
+    }
+    await this.gh(["issue", "edit", String(issue), "--add-label", NEEDS_INFO]);
+    await this.gh(["issue", "comment", String(issue), "--body", signed.body]);
+  }
+
+  private async gh(args: string[]): Promise<void> {
+    const done = await this.runner.run("gh", args, { cwd: this.repo });
+    this.check(`gh ${args.slice(0, 2).join(" ")}`, done);
   }
 
   /** The idea's panes from the session registry; an open one is asked once for its result. */

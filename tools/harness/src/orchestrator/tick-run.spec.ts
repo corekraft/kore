@@ -14,6 +14,36 @@ function ticks(...passes: StepName[]) {
   return { pass } as unknown as Tick & { pass: typeof pass };
 }
 
+describe("runTicks with judgment steps", () => {
+  it("runs through a judgment's pane starts and waits, and ends blocked once it stops for the owner", async () => {
+    const tick = ticks(
+      "spawn-judgment",
+      "waiting",
+      "spawn-readers",
+      "waiting",
+      "needs-info",
+    );
+    const sleep = vi.fn().mockResolvedValue(undefined);
+
+    expect(await runTicks(tick, "0001", sleep)).toEqual({
+      status: "blocked",
+      rounds: 5,
+    });
+    expect(sleep).toHaveBeenCalledTimes(2);
+  });
+
+  it("ends blocked when a valid work plan is left for the owner, without sleeping", async () => {
+    const tick = ticks("work-planned");
+    const sleep = vi.fn().mockResolvedValue(undefined);
+
+    expect(await runTicks(tick, "0001", sleep)).toEqual({
+      status: "blocked",
+      rounds: 1,
+    });
+    expect(sleep).not.toHaveBeenCalled();
+  });
+});
+
 describe("runTicks", () => {
   it("passes over the one idea until its outcome is recorded, sleeping only while a pane works", async () => {
     const tick = ticks(
