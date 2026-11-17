@@ -94,6 +94,19 @@ describe("tokenStageResolver places a token reading in the stage its session spe
     ).toBe("orchestrate");
   });
 
+  it("counts a judgment or reader pane's reading in orchestrate, since its name carries no role stage (#876)", () => {
+    expect(
+      tokenStageResolver([])(
+        ev(5, "token.usage", { agent: "idea-7-judgment-r1" }),
+      ),
+    ).toBe("orchestrate");
+    expect(
+      tokenStageResolver([])(
+        ev(5, "token.usage", { agent: "idea-7-read-r1-q1" }),
+      ),
+    ).toBe("orchestrate");
+  });
+
   it("counts the main session's reading in orchestrate", () => {
     expect(
       tokenStageResolver([])(
