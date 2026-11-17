@@ -4,9 +4,10 @@ import { signedBody } from "../sender/index.js";
 import { failed, repoOf } from "./judge-shared.js";
 import { prCheckCommand } from "./pr-check-command.js";
 import { prChecksRun } from "./pr-checks-command.js";
+import { readPrBody } from "./pr-open-body.js";
 
 const USAGE =
-  "Run `harness pr open --title <title> --pattern <pattern> [--body <summary>] [--issue <n>] [--closes] [--idea <number or slug>] [--expand-step <pr>] [--base <branch>] [--head <branch>] [--dry-run] [--json]`.";
+  "Run `harness pr open --title <title> --pattern <pattern> [--body <summary> | --body-file <path>] [--issue <n>] [--closes] [--idea <number or slug>] [--expand-step <pr>] [--base <branch>] [--head <branch>] [--dry-run] [--json]`.";
 
 function text(context: CommandContext, name: string): string | undefined {
   const value = context.options[name];
@@ -58,7 +59,10 @@ export async function prOpenRun(context: CommandContext): Promise<number> {
     const expandStep = number(context, "expand-step");
     const idea = text(context, "idea");
     const rendered = renderPrBody({
-      body: text(context, "body") ?? "",
+      body: await readPrBody(
+        { inline: context.options["body"], file: context.options["body-file"] },
+        { fs: deps.fs, cwd: deps.cwd },
+      ),
       pattern,
       ...(issue === undefined ? {} : { issue }),
       ...(idea === undefined ? {} : { idea }),
@@ -120,11 +124,12 @@ export const prCommands: Record<string, Command> = {
   check: prCheckCommand,
   open: {
     summary:
-      "mutates; opens a pull request whose body ends with the declaration the precheck reads, rendered from the same module that parses it: `Refs #<issue>` (or `Closes` under --closes, which warns and cites ADR 0079 beside --idea, and never refuses), `Idea:`, `Expand step: #<pr>`, then `Safety pattern:` last; refuses an expand-contract PR with no --expand-step, and a pattern or number it would not accept, before gh is reached; --dry-run prints the body and creates nothing; gh runs through the runner in this pane's environment (--title <title> --pattern <pattern> [--body <summary>] [--issue <n>] [--closes] [--idea <number or slug>] [--expand-step <pr>] [--base <branch>] [--head <branch>] [--dry-run])",
+      "mutates; opens a pull request whose body ends with the declaration the precheck reads, rendered from the same module that parses it: `Refs #<issue>` (or `Closes` under --closes, which warns and cites ADR 0079 beside --idea, and never refuses), `Idea:`, `Expand step: #<pr>`, then `Safety pattern:` last; refuses an expand-contract PR with no --expand-step, and a pattern or number it would not accept, before gh is reached; --body-file <path> reads the body from that file instead of --body, with the same checks, and the two together are refused; --dry-run prints the body and creates nothing; gh runs through the runner in this pane's environment (--title <title> --pattern <pattern> [--body <summary> | --body-file <path>] [--issue <n>] [--closes] [--idea <number or slug>] [--expand-step <pr>] [--base <branch>] [--head <branch>] [--dry-run])",
     options: {
       title: "string",
       pattern: "string",
       body: "string",
+      "body-file": "string",
       issue: "string",
       closes: "boolean",
       idea: "string",
