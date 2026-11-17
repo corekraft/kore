@@ -11,7 +11,7 @@ import {
   type Flow,
   type FlowPane,
 } from "./judgment-panes.js";
-import { checkPlan, readPlan } from "./judgment-plan.js";
+import { checkNames, checkPlan, readPlan } from "./judgment-plan.js";
 import { readSummary } from "./judgment-summary.js";
 import type { JudgmentPorts } from "./tick-judgment.js";
 
@@ -40,6 +40,7 @@ export function ports(over: Partial<JudgmentPorts> = {}): JudgmentPorts {
     paneText: vi.fn().mockResolvedValue(""),
     delivery: vi.fn().mockResolvedValue({ merged: false, pr: PR }),
     needsInfo: vi.fn().mockResolvedValue(undefined),
+    persistPlan: vi.fn().mockResolvedValue(undefined),
     ...over,
   };
 }
@@ -66,6 +67,7 @@ export function primeMocks(): void {
   vi.mocked(readerBrief).mockReturnValue("READER BRIEF");
   vi.mocked(readSummary).mockImplementation((text) => `S(${text})`);
   vi.mocked(readPlan).mockReturnValue({ ok: true, raw: {} });
+  vi.mocked(checkNames).mockImplementation((_idea, checked) => checked);
   vi.mocked(checkPlan).mockReturnValue({
     ok: true,
     plan: { kind: "stop", reason: "r" },

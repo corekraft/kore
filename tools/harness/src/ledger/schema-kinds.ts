@@ -58,6 +58,7 @@ export const KINDS = [
   "tick.bound",
   "tick.started",
   "tick.stopped",
+  "tick.plan",
 ] as const;
 export type Kind = (typeof KINDS)[number];
 

@@ -4,7 +4,6 @@ import { decide, type Next } from "./judgment-flow.js";
 import {
   judgmentBrief,
   readerBrief,
-  rebriefBrief,
   type ReaderSummary,
 } from "./judgment-briefs.js";
 import {
@@ -13,14 +12,18 @@ import {
   isOpen,
   judgmentName,
   readerName,
-  rebriefName,
   retryName,
   type Decision,
   type Flow,
   type FlowPane,
   type ReadRound,
 } from "./judgment-panes.js";
-import { checkPlan, readPlan, type ReadRequest } from "./judgment-plan.js";
+import {
+  checkNames,
+  checkPlan,
+  readPlan,
+  type ReadRequest,
+} from "./judgment-plan.js";
 import { readSummary } from "./judgment-summary.js";
 import type { BoundName } from "./tick-bounds.js";
 
@@ -29,8 +32,7 @@ export type JudgmentStep =
   | "spawn-judgment"
   | "retry-judgment"
   | "spawn-readers"
-  | "spawn-rebrief"
-  | "work-planned"
+  | "plan-recorded"
   | "needs-info"
   | "held";
 
@@ -53,14 +55,19 @@ export interface JudgmentPorts {
   delivery: (issue: number) => Promise<Delivery>;
   /** Labels the issue `needs-info` with the reason, and says why in a comment. */
   needsInfo: (issue: number, reason: string) => Promise<void>;
+  /** Persists a checked work plan for the idea; a rerun of the same plan persists nothing twice (ADR 0121). */
+  persistPlan: (
+    idea: string,
+    issue: number,
+    work: readonly WorkPiece[],
+  ) => Promise<void>;
 }
 
-/** The idea a step works for, the admission each pane start asks first, and the idea's panes as the registry reads them. */
+/** The idea a step works for, and the admission each pane start asks first. */
 interface Ctx {
   idea: string;
   issue: number;
   admit: Admit;
-  panes: readonly FlowPane[];
 }
 
 /**
@@ -109,7 +116,7 @@ export class TickJudgment {
     if (latest === undefined) {
       return undefined;
     }
-    const ctx: Ctx = { idea, issue, admit, panes };
+    const ctx: Ctx = { idea, issue, admit };
     if (isOpen(latest.pane)) {
       return isFinished(latest.pane) ? this.act(ctx, flow, latest) : undefined;
     }
@@ -127,9 +134,10 @@ export class TickJudgment {
     latest: Decision,
   ): Promise<JudgmentOutcome | undefined> {
     const read = readPlan(await this.ports.paneText(latest.pane.name));
-    const checked: PlanCheck = read.ok
-      ? checkPlan(read.raw)
-      : { ok: false, error: read.error };
+    const checked: PlanCheck = checkNames(
+      ctx.idea,
+      read.ok ? checkPlan(read.raw) : { ok: false, error: read.error },
+    );
     // The round this pane itself made does not count against it when it decides again.
     const priorRounds = flow.rounds.filter((r) => r.ord < latest.ord).length;
     const next: Next = decide(
@@ -157,45 +165,18 @@ export class TickJudgment {
   }
 
   /**
-   * A work plan of one writer piece with no wait is a re-brief: one writer on the pull request, briefed
-   * by the judgment. Any other plan (a split, a reader, a piece that waits) starts nothing and is left
-   * for the owner, as before.
+   * Persists a checked work plan, then closes the decision that made it. The plan is persisted before the
+   * decision closes, so a crash leaves the decision open and a rerun persists the same plan again. The
+   * tick starts the plan's pieces from the persisted plan, on the passes after this one (ADR 0121).
    */
   private async work(
     ctx: Ctx,
     latest: Decision,
     work: readonly WorkPiece[],
   ): Promise<JudgmentOutcome> {
-    const [piece] = work;
-    if (
-      work.length !== 1 ||
-      piece === undefined ||
-      piece.role !== "writer" ||
-      piece.after.length > 0
-    ) {
-      await this.ports.close(latest.pane.name);
-      return { step: "work-planned" };
-    }
-    const name = rebriefName(ctx.idea, latest.ord);
-    // A crash after the writer started leaves the decision open; its pane already there is not started again.
-    if (!ctx.panes.some((p) => p.name === name)) {
-      const bound = await ctx.admit();
-      if (bound !== undefined) {
-        return { step: "held", bound };
-      }
-      await this.ports.spawn({
-        role: "writer",
-        name,
-        issue: ctx.issue,
-        worktree: true,
-        brief: rebriefBrief(ctx.idea, ctx.issue, {
-          brief: piece.brief,
-          files: piece.files,
-        }),
-      });
-    }
+    await this.ports.persistPlan(ctx.idea, ctx.issue, work);
     await this.ports.close(latest.pane.name);
-    return { step: "spawn-rebrief", pane: name };
+    return { step: "plan-recorded" };
   }
 
   /** Starts one reader per question the round does not have yet, then closes the pane that asked. */

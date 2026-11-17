@@ -14,7 +14,6 @@ const ENDS: Partial<Record<StepName, RunStatus>> = {
   blocked: "blocked",
   "needs-judgment": "blocked",
   "needs-info": "blocked",
-  "work-planned": "blocked",
   "awaiting-judge": "blocked",
   "not-queued": "not-queued",
 };

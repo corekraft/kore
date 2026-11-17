@@ -7,10 +7,14 @@ import {
 } from "../orchestrator/index.js";
 import { retroHook } from "./orchestrate-retro.js";
 import { runOnTicks, tickCommand } from "./orchestrate-tick.js";
+import { planCommand } from "./orchestrate-plan.js";
 import type { CommandContext } from "../runtime/index.js";
 import { orchestrateCommands } from "./orchestrate-commands.js";
 
 vi.mock("./orchestrate-retro.js", () => ({ retroHook: vi.fn() }));
+vi.mock("./orchestrate-plan.js", () => ({
+  planCommand: { summary: "plan" },
+}));
 vi.mock("./orchestrate-tick.js", () => ({
   runOnTicks: vi.fn(),
   tickCommand: { summary: "tick" },
@@ -137,6 +141,10 @@ describe("orchestrate run with the orchestrator-tick flag", () => {
 
   it("registers the tick command beside run", () => {
     expect(orchestrateCommands["tick"]).toBe(tickCommand);
+  });
+
+  it("registers the plan command beside tick, so the tick's judgment flow can persist a work plan", () => {
+    expect(orchestrateCommands["plan"]).toBe(planCommand);
   });
 });
 

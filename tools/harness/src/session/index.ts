@@ -10,6 +10,7 @@ export {
   type SessionWaitTarget,
 } from "./wait-target.js";
 export { hostLeaseRefusal } from "./host-lease.js";
+export { sessionNameError } from "./names.js";
 export { spawnLoadRefusal } from "./spawn-load.js";
 import { check } from "./check.js";
 import { close } from "./close.js";

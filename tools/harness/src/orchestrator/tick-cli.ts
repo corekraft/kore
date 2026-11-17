@@ -1,7 +1,11 @@
 import type { FileSystem, Runner } from "../runtime/index.js";
 import { signedBody } from "../sender/index.js";
+import type { WorkPiece } from "./judgment-check.js";
 import { HarnessCli, HarnessCliError } from "./harness-cli.js";
+import { TickPlanStore, type StoredPlan } from "./tick-plan-store.js";
 import type { IdeaPane, PaneState } from "./tick.js";
+
+const HARNESS = "skills/bin/harness.mjs";
 
 /** The line `session wait` ends with when no result marker has shown yet: the pane is still working. */
 const STILL_WORKING = "printed no";
@@ -24,8 +28,38 @@ export class TickCli extends HarnessCli {
     private readonly fs: FileSystem,
     /** The main checkout's session registry, one JSON file per spawned pane. */
     private readonly sessions: string,
+    /** The main checkout's persisted work plans, one JSON file per idea (ADR 0121). */
+    private readonly plans: string,
   ) {
     super(runner, repo);
+  }
+
+  /** The idea's persisted work plan, read through the store's checker; undefined when none is persisted. */
+  workPlan(idea: string): Promise<StoredPlan | undefined> {
+    return new TickPlanStore(this.fs, this.plans).read(idea);
+  }
+
+  /** `orchestrate plan`: the checked plan goes on stdin, so the brief never reaches argv (ADR 0121). */
+  async persistPlan(
+    idea: string,
+    issue: number,
+    work: readonly WorkPiece[],
+  ): Promise<void> {
+    const done = await this.runner.run(
+      "node",
+      [
+        HARNESS,
+        "orchestrate",
+        "plan",
+        "--idea",
+        idea,
+        "--issue",
+        String(issue),
+        "--json",
+      ],
+      { cwd: this.repo, input: JSON.stringify({ work }) },
+    );
+    this.check(`harness orchestrate plan ${idea}`, done);
   }
 
   /** `gh pr view`: the pull request's head commit. */

@@ -28,6 +28,7 @@ vi.mock("./judgment-panes.js", () => ({
   retryName: vi.fn(),
 }));
 vi.mock("./judgment-plan.js", () => ({
+  checkNames: vi.fn(),
   checkPlan: vi.fn(),
   readPlan: vi.fn(),
 }));
