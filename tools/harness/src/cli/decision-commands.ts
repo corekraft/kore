@@ -10,6 +10,7 @@ import { FlagError } from "../flag/index.js";
 import { IdeaError, IdeaRepository, issueTarget } from "../idea/index.js";
 import type { Ledger } from "../ledger/index.js";
 import type { Command, CommandContext } from "../runtime/index.js";
+import { ownerCommands } from "./decision-owner-commands.js";
 import { routeCommands } from "./decision-route-commands.js";
 import { openLedger } from "./ledger-commands.js";
 
@@ -127,4 +128,5 @@ const make: Command = {
 export const decisionCommands: Record<string, Command> = {
   make,
   ...routeCommands,
+  ...ownerCommands,
 };

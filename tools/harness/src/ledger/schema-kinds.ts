@@ -43,6 +43,8 @@ export const KINDS = [
   "idea.filed",
   "decision.made",
   "decision.routed",
+  "decision.digest",
+  "decision.blocking",
   "retro.dropped",
   "retro.main-session",
   "owner.asked",
