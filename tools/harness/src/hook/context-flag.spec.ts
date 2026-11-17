@@ -58,3 +58,22 @@ describe("context deps: pane-result-summary flag", () => {
     expect(readOverlay).not.toHaveBeenCalled();
   });
 });
+
+describe("context deps: signed-main-sends flag", () => {
+  it("reads the local overlay, and is on when it turns the flag on", async () => {
+    vi.mocked(readOverlay).mockResolvedValue(
+      overlay({ "signed-main-sends": true }),
+    );
+
+    expect(await realContextDeps(CLI, ROOT).signedMainSendsOn()).toBe(true);
+    expect(vi.mocked(readOverlay)).toHaveBeenLastCalledWith(FS, ROOT, "local");
+  });
+
+  it("is off when the local overlay leaves the flag false", async () => {
+    vi.mocked(readOverlay).mockResolvedValue(
+      overlay({ "signed-main-sends": false }),
+    );
+
+    expect(await realContextDeps(CLI, ROOT).signedMainSendsOn()).toBe(false);
+  });
+});
