@@ -10,6 +10,7 @@ import { FlagError } from "../flag/index.js";
 import { IdeaError, IdeaRepository, issueTarget } from "../idea/index.js";
 import type { Ledger } from "../ledger/index.js";
 import type { Command, CommandContext } from "../runtime/index.js";
+import { routeCommands } from "./decision-route-commands.js";
 import { openLedger } from "./ledger-commands.js";
 
 const FAILED = 1;
@@ -123,4 +124,7 @@ const make: Command = {
 };
 
 /** The decision tool: the advisor's way to record a decision on an idea's issue. */
-export const decisionCommands: Record<string, Command> = { make };
+export const decisionCommands: Record<string, Command> = {
+  make,
+  ...routeCommands,
+};

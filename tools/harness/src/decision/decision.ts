@@ -45,10 +45,11 @@ export interface Made {
   readonly commentUrl: string;
 }
 
-const CATEGORY = /^[a-z][a-z0-9-]{0,63}$/;
+/** A category name: lowercase letters, digits and "-", starting with a letter, at most 64 characters. */
+export const CATEGORY_NAME = /^[a-z][a-z0-9-]{0,63}$/;
 
 function checked(input: DecisionInput): void {
-  if (!CATEGORY.test(input.category)) {
+  if (!CATEGORY_NAME.test(input.category)) {
     throw new DecisionError(
       `--category "${input.category}" is not a category name: use lowercase letters, digits and "-", starting with a letter, such as "naming".`,
     );
