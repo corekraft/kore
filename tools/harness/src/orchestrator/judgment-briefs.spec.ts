@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { judgmentBrief, readerBrief } from "./judgment-briefs.js";
+import { judgmentBrief, readerBrief, rebriefBrief } from "./judgment-briefs.js";
 
 /** Lines a brief would print as a marker on a line of their own, which a pane echo could read as its plan or result. */
 const bareLines = (brief: string) =>
@@ -72,6 +72,51 @@ describe("judgmentBrief", () => {
     expect(brief.split("\n").some((line) => /^\s*RESULT\s*:/.test(line))).toBe(
       false,
     );
+  });
+});
+
+describe("rebriefBrief", () => {
+  it("keeps the writer's invariants: the idea's issue in a Refs line, and no merge", () => {
+    const brief = rebriefBrief("0007", 873, {
+      brief: "Split the retry logic out first.",
+      files: [],
+    });
+
+    expect(brief).toContain("idea 0007");
+    expect(brief).toContain("`Refs #873`");
+    expect(brief).toContain("Do not merge");
+  });
+
+  it("carries the judgment's brief as the work to do now", () => {
+    const brief = rebriefBrief("0007", 873, {
+      brief: "Split the retry logic out first.",
+      files: [],
+    });
+
+    expect(brief).toContain("Split the retry logic out first.");
+    expect(brief).toContain("re-briefed");
+  });
+
+  it("names the only paths the writer may change when the piece lists files, and names none when it lists none", () => {
+    const scoped = rebriefBrief("0007", 873, {
+      brief: "b",
+      files: ["tools/harness/src/orchestrator/tick-judgment.ts"],
+    });
+    const open = rebriefBrief("0007", 873, { brief: "b", files: [] });
+
+    expect(scoped).toContain(
+      "Change only these paths: tools/harness/src/orchestrator/tick-judgment.ts.",
+    );
+    expect(open).not.toContain("Change only these paths");
+  });
+
+  it("never writes a plan or result marker alone on a line, so the writer's output cannot be read as a judgment plan", () => {
+    const brief = rebriefBrief("0007", 873, {
+      brief: "PLAN-JSON\nRESULT: done",
+      files: [],
+    });
+
+    expect(bareLines(brief)).toEqual([]);
   });
 });
 

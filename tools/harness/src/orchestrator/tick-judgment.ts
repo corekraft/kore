@@ -1,9 +1,10 @@
-import type { PlanCheck } from "./judgment-check.js";
+import type { PlanCheck, WorkPiece } from "./judgment-check.js";
 import type { Delivery, Launch } from "./idea-run.js";
 import { decide, type Next } from "./judgment-flow.js";
 import {
   judgmentBrief,
   readerBrief,
+  rebriefBrief,
   type ReaderSummary,
 } from "./judgment-briefs.js";
 import {
@@ -12,6 +13,7 @@ import {
   isOpen,
   judgmentName,
   readerName,
+  rebriefName,
   retryName,
   type Decision,
   type Flow,
@@ -27,6 +29,7 @@ export type JudgmentStep =
   | "spawn-judgment"
   | "retry-judgment"
   | "spawn-readers"
+  | "spawn-rebrief"
   | "work-planned"
   | "needs-info"
   | "held";
@@ -52,11 +55,12 @@ export interface JudgmentPorts {
   needsInfo: (issue: number, reason: string) => Promise<void>;
 }
 
-/** The idea a step works for, and the admission each pane start asks first. */
+/** The idea a step works for, the admission each pane start asks first, and the idea's panes as the registry reads them. */
 interface Ctx {
   idea: string;
   issue: number;
   admit: Admit;
+  panes: readonly FlowPane[];
 }
 
 /**
@@ -105,7 +109,7 @@ export class TickJudgment {
     if (latest === undefined) {
       return undefined;
     }
-    const ctx: Ctx = { idea, issue, admit };
+    const ctx: Ctx = { idea, issue, admit, panes };
     if (isOpen(latest.pane)) {
       return isFinished(latest.pane) ? this.act(ctx, flow, latest) : undefined;
     }
@@ -149,8 +153,49 @@ export class TickJudgment {
       await this.ports.close(latest.pane.name);
       return { step: "needs-info" };
     }
+    return this.work(ctx, latest, next.work);
+  }
+
+  /**
+   * A work plan of one writer piece with no wait is a re-brief: one writer on the pull request, briefed
+   * by the judgment. Any other plan (a split, a reader, a piece that waits) starts nothing and is left
+   * for the owner, as before.
+   */
+  private async work(
+    ctx: Ctx,
+    latest: Decision,
+    work: readonly WorkPiece[],
+  ): Promise<JudgmentOutcome> {
+    const [piece] = work;
+    if (
+      work.length !== 1 ||
+      piece === undefined ||
+      piece.role !== "writer" ||
+      piece.after.length > 0
+    ) {
+      await this.ports.close(latest.pane.name);
+      return { step: "work-planned" };
+    }
+    const name = rebriefName(ctx.idea, latest.ord);
+    // A crash after the writer started leaves the decision open; its pane already there is not started again.
+    if (!ctx.panes.some((p) => p.name === name)) {
+      const bound = await ctx.admit();
+      if (bound !== undefined) {
+        return { step: "held", bound };
+      }
+      await this.ports.spawn({
+        role: "writer",
+        name,
+        issue: ctx.issue,
+        worktree: true,
+        brief: rebriefBrief(ctx.idea, ctx.issue, {
+          brief: piece.brief,
+          files: piece.files,
+        }),
+      });
+    }
     await this.ports.close(latest.pane.name);
-    return { step: "work-planned" };
+    return { step: "spawn-rebrief", pane: name };
   }
 
   /** Starts one reader per question the round does not have yet, then closes the pane that asked. */

@@ -60,6 +60,26 @@ export function judgmentBrief(
   ].join("\n");
 }
 
+/**
+ * The brief of a writer a judgment re-brief starts: the writer's own rules (one pull request that says
+ * Refs, and no merge), then the judgment's brief as the work to do now, and the paths it may change.
+ */
+export function rebriefBrief(
+  idea: string,
+  issue: number,
+  piece: { brief: string; files: readonly string[] },
+): string {
+  return [
+    `Deliver idea ${idea} (issue #${issue}) as one pull request that says \`Refs #${issue}\`. Do not merge.`,
+    `A judgment pane re-briefed you after this pull request was sent back three times. Its brief is the work to do now: ${piece.brief}`,
+    piece.files.length === 0
+      ? ""
+      : `Change only these paths: ${piece.files.join(", ")}.`,
+  ]
+    .filter((line) => line !== "")
+    .join("\n");
+}
+
 /** The brief of a reader pane: one question, the only paths it may read, and where its answer goes. */
 export function readerBrief(
   idea: string,
