@@ -5,12 +5,29 @@
 
 import { homedir } from "node:os";
 import { join } from "node:path";
+import { environments, readOverlay } from "../flag/index.js";
 import { readPlans } from "../plan/index.js";
 import type { CliDeps, FileSystem } from "../runtime/index.js";
 import type { ContextDeps, JournalEntry } from "./context.js";
 import { windowStart } from "./retro-scan.js";
 
 const JOURNAL_DIR = ".kore/state/journal";
+/** The flag that gives the main session the result-summary line (ADR 0123), read from the local overlay. */
+export const PANE_RESULT_SUMMARY_FLAG = "pane-result-summary";
+const FLAG_ENVIRONMENT = "local";
+
+/** Whether the local overlay turns the flag on. No overlay means off; a malformed one throws a FlagError. */
+async function localFlagOn(
+  fs: FileSystem,
+  root: string,
+  flag: string,
+): Promise<boolean> {
+  if (!(await environments(fs, root)).includes(FLAG_ENVIRONMENT)) {
+    return false;
+  }
+  const overlay = await readOverlay(fs, root, FLAG_ENVIRONMENT);
+  return overlay.features[flag] === true;
+}
 
 const isMissing = (error: unknown): boolean =>
   (error as NodeJS.ErrnoException).code === "ENOENT";
@@ -97,5 +114,7 @@ export function realContextDeps(deps: CliDeps, root: string): ContextDeps {
     readAgents: () => deps.fs.readFile(join(root, "AGENTS.md")),
     readPlans: () => readPlans(deps),
     sessionsSince: (date, current) => sessionsSince(deps, root, date, current),
+    paneResultSummaryOn: () =>
+      localFlagOn(deps.fs, root, PANE_RESULT_SUMMARY_FLAG),
   };
 }

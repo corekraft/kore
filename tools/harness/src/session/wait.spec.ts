@@ -114,6 +114,7 @@ describe("waitForResult", () => {
       model: "claude-opus-5-5",
       outcome: "done",
       summary: "pane w3:p9",
+      result: { outcome: "done", summary: "" },
     });
     expect(deps.runner.run).not.toHaveBeenCalled();
   });
@@ -134,7 +135,11 @@ describe("waitForResult", () => {
     expect(result).toMatchObject({ outcome: "done" });
     expect(registry.write).toHaveBeenCalledExactlyOnceWith({
       ...RECORD,
-      result: { outcome: "done", at: "2026-01-02T03:04:07.000Z" },
+      result: {
+        outcome: "done",
+        at: "2026-01-02T03:04:07.000Z",
+        summary: "",
+      },
     });
   });
 
@@ -268,7 +273,7 @@ describe("wait", () => {
     );
     expect(deps.stdout).toHaveBeenNthCalledWith(
       2,
-      '{"name":"image-trust-writer","paneId":"w3:p9","model":"claude-opus-5-5","outcome":"done","summary":"pane w3:p9"}\n',
+      '{"name":"image-trust-writer","paneId":"w3:p9","model":"claude-opus-5-5","outcome":"done","summary":"pane w3:p9","result":{"outcome":"done","summary":""}}\n',
     );
   });
 });
