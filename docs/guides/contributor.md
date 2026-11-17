@@ -397,6 +397,12 @@ model `tier`, and, since the tier source was recorded, `tierSource` (definition,
 offset it reached, with the running total, in a per-session state file in the
 temp directory, reads only what was added since, leaves a half-written last
 line for the next stop, and records a `token.usage` only when the total grew.
+The same read also records `token.split` (#1001): for each model, the requests and
+their input, cache-write (5 minute and 1 hour), cache-read and output tokens, split
+by the prompt step the request's prompt fell in (at or under 100,000 tokens, or over
+it, cache reads and writes counted in the prompt), and the first request's prompt
+size. It holds numbers and the model name only, and it is written only for a model
+whose counts grew. Prices are in `tools/harness/src/flow/writer-prices.ts`.
 Losing the state file costs one full read, not a wrong count. Only numbers are
 read or stored.
 

@@ -10,6 +10,7 @@ export {
 } from "./report.js";
 export { GUARD_METRICS, flowMetricNames } from "./metric-names.js";
 export { DEFAULT_COST } from "./cost.js";
+export { promptStepOf, type PromptStep } from "./writer-prices.js";
 export {
   DEFAULT_RETRO_HISTORY,
   HARNESS_CONFIG,

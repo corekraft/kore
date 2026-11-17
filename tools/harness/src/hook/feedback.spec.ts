@@ -15,6 +15,7 @@ import {
   type FeedbackDeps,
 } from "./feedback.js";
 import { resultOf } from "./feedback-result.js";
+import { readSplit, splitStateFile } from "./feedback-split.js";
 import { readTokens, tokenStateFile } from "./feedback-tokens.js";
 import { recordEvent } from "./ledger-event.js";
 
@@ -24,6 +25,10 @@ vi.mock("./feedback-result.js", () => ({ resultOf: vi.fn() }));
 vi.mock("./feedback-tokens.js", () => ({
   readTokens: vi.fn(),
   tokenStateFile: vi.fn(),
+}));
+vi.mock("./feedback-split.js", () => ({
+  readSplit: vi.fn(),
+  splitStateFile: vi.fn(),
 }));
 vi.mock("./ledger-event.js", () => ({ recordEvent: vi.fn() }));
 vi.mock("../runtime/index.js", async (importOriginal) => {
@@ -76,6 +81,8 @@ beforeEach(() => {
   vi.mocked(tmpdir).mockReturnValue("/tmp");
   vi.mocked(join).mockImplementation((...parts) => parts.join("/"));
   vi.mocked(tokenStateFile).mockReturnValue("/state/tokens.json");
+  vi.mocked(splitStateFile).mockReturnValue("/state/split.json");
+  vi.mocked(readSplit).mockResolvedValue([]);
   vi.mocked(readTokens).mockResolvedValue({ total: 0, grew: false, added: "" });
   vi.mocked(resultOf).mockReturnValue(undefined);
 });
