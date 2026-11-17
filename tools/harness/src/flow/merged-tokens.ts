@@ -4,6 +4,11 @@
 
 import type { LedgerEvent } from "../ledger/index.js";
 import { DEFAULT_COST, type CostOptions } from "./cost.js";
+// The judgment panes' token figure sits beside the token figures the flow report names (#876).
+export {
+  judgmentContexts,
+  type JudgmentContexts,
+} from "./judgment-contexts.js";
 import { time } from "./github-waits.js";
 import { type Span } from "./scope.js";
 import {
