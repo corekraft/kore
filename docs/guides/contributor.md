@@ -696,6 +696,18 @@ refuses, posting nothing, a question that matches the reserved list in
 The patterns there are a backstop for a fail-closed router, not the boundary, and
 changing the list is itself a reserved decision.
 
+`decision route --idea <n> --category <name> --question <text> --action <text> [--escalate]`
+is how a pane raises a question ([ADR 0120](../decisions/0120-recommended-decisions-go-to-an-advisor-reserved-decisions-to-the-owner.md)).
+It answers `advisor` or `owner` and records `decision.routed` with the idea, the
+category, the route and the signal; the question and the action stay out of the
+ledger. The owner gets any question whose category is reserved, whose question or
+action matches the reserved list or the guard's secret-path pattern, that names the
+advisor's own files, whose category or question is unreadable, or that is escalated.
+The advisor gets one only when the declared category and the matcher both agree. An
+escalation with `--escalate` writes `owner` and no input moves an owner route to the
+advisor. It is refused, with nothing recorded, while the `decision-advisor` flag is
+off, and a pane that gets no route acts as if the question were the owner's.
+
 `orchestrate tick [--idea <n>]` ([ADR 0121](../decisions/0121-the-orchestrator-is-a-tick-with-judgment-panes.md))
 is one pass over the queue that advances each approved idea by at most one step,
 then exits, and calls no model. It does nothing, and exits 0, while the

@@ -1,5 +1,11 @@
 import { HOST_RULES } from "./schema-host.js";
-import { KINDS, type Kind } from "./schema-kinds.js";
+import {
+  DECISION_ROUTE_RULES,
+  KINDS,
+  LABEL_KINDS,
+  type DecisionRouteOrigin,
+  type Kind,
+} from "./schema-kinds.js";
 import { BACKGROUND_RULES, RESULT_RULES } from "./schema-result.js";
 import { SENDER_RULES } from "./schema-sender.js";
 import { REVIEW_RULES } from "./schema-review.js";
@@ -64,7 +70,11 @@ export const SCHEMA_VERSION = 1;
  * session.launch, `tierSource` and `tierReason` say where the tier came from;
  * a launch from before they existed has neither and reads as unknown.
  */
-export interface EventInput extends Partial<TierOrigin>, Partial<MergedOrigin> {
+export interface EventInput
+  extends
+    Partial<TierOrigin>,
+    Partial<MergedOrigin>,
+    Partial<DecisionRouteOrigin> {
   id?: string;
   source: Source;
   kind: Kind;
@@ -156,6 +166,7 @@ const ALLOWED = new Set<string>([
   ...MERGED_RULES.map((rule) => rule.field),
   ...RESULT_RULES.map((rule) => rule.field),
   ...BACKGROUND_RULES.map((rule) => rule.field),
+  ...DECISION_ROUTE_RULES.map((rule) => rule.field),
   "load",
   "memory",
   "swap",
@@ -215,31 +226,7 @@ const RULES: readonly Rule[] = [
     field: "label",
     check: isText(LABEL),
     hint: "must be 1-100 characters with no control characters",
-    kinds: [
-      "issue.labelled",
-      "outcome",
-      "flag.activated",
-      "guard.audit",
-      "guard.block",
-      "challenge.round",
-      "precheck",
-      "pr.checked",
-      "send-back",
-      "review.run",
-      "escalation",
-      "kore.retry",
-      "retro-triggered",
-      "auto-approved",
-      "qualifier.warned",
-      "tick.bound",
-      "guardrail.requested",
-      "guardrail.activated",
-      "guardrail.approval-warned",
-      "idea.filed",
-      "decision.made",
-      "retro.dropped",
-      "spawn.unstamped",
-    ],
+    kinds: LABEL_KINDS,
     omittableOn: ["spawn.unstamped"],
   },
   {
@@ -269,6 +256,7 @@ const RULES: readonly Rule[] = [
   ...MERGED_RULES,
   ...RESULT_RULES,
   ...HOST_RULES,
+  ...DECISION_ROUTE_RULES,
 ];
 
 function checkShape(input: unknown, mode: ParseMode): Failure | undefined {

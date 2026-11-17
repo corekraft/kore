@@ -42,6 +42,7 @@ export const KINDS = [
   "session.send",
   "idea.filed",
   "decision.made",
+  "decision.routed",
   "retro.dropped",
   "retro.main-session",
   "owner.asked",
@@ -55,3 +56,40 @@ export const KINDS = [
   "tick.stopped",
 ] as const;
 export type Kind = (typeof KINDS)[number];
+
+/** The kinds whose `label` is written: a name, a category, or a reason. */
+export const LABEL_KINDS: readonly Kind[] = [
+  "issue.labelled",
+  "outcome",
+  "flag.activated",
+  "guard.audit",
+  "guard.block",
+  "challenge.round",
+  "precheck",
+  "pr.checked",
+  "send-back",
+  "review.run",
+  "escalation",
+  "kore.retry",
+  "retro-triggered",
+  "auto-approved",
+  "qualifier.warned",
+  "tick.bound",
+  "guardrail.requested",
+  "guardrail.activated",
+  "guardrail.approval-warned",
+  "idea.filed",
+  "decision.made",
+  "decision.routed",
+  "retro.dropped",
+  "spawn.unstamped",
+];
+
+export {
+  DECISION_ROUTE_RULES,
+  DECISION_ROUTES,
+  DECISION_ROUTE_SIGNALS,
+  type DecisionRoute,
+  type DecisionRouteOrigin,
+  type DecisionRouteSignal,
+} from "./schema-decision-route.js";
