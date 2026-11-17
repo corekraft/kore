@@ -9,7 +9,11 @@ import {
   tokensByStage,
 } from "./merged-stage-tokens.js";
 import { STAGES, type Stage } from "./stages.js";
-import { mergedChangeTokens } from "./merged-tokens.js";
+import {
+  judgmentContexts,
+  mergedChangeTokens,
+  type JudgmentContexts,
+} from "./merged-tokens.js";
 import { mergedChangeWriterCost } from "./writer-cost.js";
 
 vi.mock("./main-session.js");
@@ -65,7 +69,14 @@ const WRITER_COST = {
   trailingAverage: INSUFFICIENT,
 } as const;
 
+const JUDGMENT_CONTEXTS: JudgmentContexts = {
+  limit: 60_000,
+  panes: 0,
+  over: [],
+};
+
 beforeEach(() => {
+  vi.mocked(judgmentContexts).mockReturnValue(JUDGMENT_CONTEXTS);
   vi.mocked(mergedChangeTokens).mockReturnValue(TOKENS);
   vi.mocked(mergedChangeSendBacks).mockReturnValue(SEND_BACKS);
   vi.mocked(mergedChangeLeadTime).mockReturnValue(LEAD_TIME);
@@ -110,6 +121,17 @@ describe("mergedChangeFigures: the figures over one window", () => {
       tokensByStagePerMergedChange: TOKENS,
       writerCost: WRITER_COST,
       mainSession: MAIN_SESSION,
+      judgmentContexts: JUDGMENT_CONTEXTS,
     });
+  });
+
+  it("names the judgment panes over the context limit from the same events and window (#876)", () => {
+    const events: LedgerEvent[] = [];
+    const window: [number, number] = [0, 10];
+
+    const r = mergedChangeFigures(events, window, { asOf: new Date(0) });
+
+    expect(judgmentContexts).toHaveBeenCalledWith(events, window);
+    expect(r.judgmentContexts).toBe(JUDGMENT_CONTEXTS);
   });
 });

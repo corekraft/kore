@@ -82,6 +82,7 @@ const FIGURES: MergedChangeFigures = {
   leadTimePerMergedChange: LEAD_TIME,
   tokensByStage: BY_STAGE,
   tokensByStagePerMergedChange: TOKENS,
+  judgmentContexts: { limit: 60_000, panes: 0, over: [] },
   writerCost: {
     pricesAsOf: "2026-11-16",
     trailingDays: 7,
@@ -152,7 +153,7 @@ describe("buildReport per-merged-change figures (#829, #830)", () => {
     );
   });
 
-  it("versions the report to 23, since the main-session figures joined it (#940)", () => {
-    expect(run([]).version).toBe(23);
+  it("versions the report to 24, since the judgment panes joined it (#876)", () => {
+    expect(run([]).version).toBe(24);
   });
 });

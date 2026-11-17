@@ -19,7 +19,9 @@ import {
   type TokensByStagePerMergedChange,
 } from "./merged-stage-tokens.js";
 import {
+  judgmentContexts,
   mergedChangeTokens,
+  type JudgmentContexts,
   type TokensPerMergedChange,
 } from "./merged-tokens.js";
 import { mergedChangeWriterCost, type WriterCost } from "./writer-cost.js";
@@ -44,6 +46,8 @@ export interface MergedChangeFigures {
   writerCost: WriterCost;
   /** The main session's poll minutes, pane-result reads and signed sends, from the retro scans' events (#940); never in the owner digest. */
   mainSession: MainSessionFigures;
+  /** Judgment panes in the window, and the ones whose tokens went above the 60k context limit (ADR 0121, #876). */
+  judgmentContexts: JudgmentContexts;
 }
 
 /** The per-merged-change figures over the window, read against the cost settings. */
@@ -64,5 +68,6 @@ export function mergedChangeFigures(
     ),
     writerCost: mergedChangeWriterCost(events, window, options),
     mainSession: mainSessionFigures(events, window, options.cost),
+    judgmentContexts: judgmentContexts(events, window),
   };
 }
