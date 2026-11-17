@@ -73,6 +73,6 @@ describe("buildReport owner questions (#859)", () => {
     });
 
     expect(report.ownerQuestions.perMerged).toBeNull();
-    expect(report.version).toBe(25);
+    expect(report.version).toBe(26);
   });
 });
