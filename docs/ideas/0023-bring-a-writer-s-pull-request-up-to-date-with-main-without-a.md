@@ -16,19 +16,33 @@ issue: https://github.com/corekraft/kore/issues/965
 
 ## Notes
 
-### Cut by cause (#977): not taken
+### Cut by cause (#977): recorded
 
-No counts were produced, so the four classes (conflict, behind-and-ready, main-fixed, other) have no figures, and neither the total nor the per-follow-up state fields exist.
+A read-only reader, follow-up-cut-reader, ran a keyword search of the main session's transcripts since 2026-11-12 and classified each send by the reason its message states.
 
-Why the cut could not be taken:
+| Class            | Sends |
+| ---------------- | ----- |
+| conflict         | 40    |
+| behind-and-ready | 5     |
+| main-fixed       | 13    |
+| other            | 11    |
 
-- The follow-up text exists only in session transcripts. The ledger holds one `session.send` event since 2026-11-12 (`harness ledger list`), against 399 writer launches (`session.launch`, role writer) in the same window.
-- The retro scan (`harness hook retro-scan`) counts without reporting text, by design. Its `mainSession.rawSends` figure (1308) does not split by target or by content, so it cannot give the origin/main count.
-- A shell read of transcripts from this writer worktree is refused by the `role-worktree` guard. The file reader has no search across the 946 sessions in the window.
-- Launching a reader pane to do the cut was outside the job of the session that took this ticket.
+Total: 69 send commands (about 73 pane deliveries, because one command fanned out to five writers), about 63 distinct sessions. The counts are sends, not PRs.
 
-What this confirms: the ledger cannot read `rework.mainFollowUpsPerWriterSession` for this window, as the spec states, because it holds one `session.send` event against 399 writer launches. The "100 follow-ups in 82 sessions" figure and the 0.61 baseline in #816 were not re-derived.
+Method: keyword search of the transcripts, classified by the reason stated in the message text.
 
-### Go or no-go for the tick notice ticket (#980)
+Caveats:
 
-**No-go, until a cut is recorded here.** The rule in #977 is go when conflict plus behind-and-ready is not smaller than main-fixed, and no-go when main-fixed is the largest class. Neither side has a count, so the rule cannot be applied. #980 does not start on this evidence. A reader pane should repeat the cut over the transcripts, with the four counts, the total and the method, and then this line is decided again.
+- Classification rests on message text, not on PR state at send time.
+- Several messages are truncated, so their reasons are inferred.
+- Nine sends were written to a file first, so their pane may overlap a counted pane.
+- Reviewer and judge sends are not counted.
+
+### Go or no-go for the tick notice ticket (#980): go
+
+Rule from #977: go when conflict plus behind-and-ready is not smaller than main-fixed. Here 40 + 5 = 45 is not smaller than 13, and main-fixed is not the largest class. Result: **go for #980**.
+
+Two gates stay on #980 (owner answers on #965):
+
+- the window opens after idea 0015's window closes;
+- orchestrator-tick must be on, since the tick sends the notice.
