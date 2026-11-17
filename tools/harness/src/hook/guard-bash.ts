@@ -65,11 +65,19 @@ export async function evaluateBash(
   command: string,
   ctx: GuardContext,
 ): Promise<Verdict> {
-  const found: Finding[] = [unquotedGlob(command), globQualifier(command)];
+  // The unquoted-glob, bare-glob and equals-word rules guard against a zsh failure, so they skip
+  // only when the host's shell is verified bash. The code-running glob qualifier never skips.
+  const zsh = ctx.verifiedBash !== true;
+  const found: Finding[] = [
+    zsh ? unquotedGlob(command) : null,
+    globQualifier(command),
+  ];
   for (const segment of splitSegments(command)) {
     found.push(...(await checkBashSegment(segment, ctx)));
   }
-  found.push(await bareGlob(command, ctx), equalsWord(command));
+  if (zsh) {
+    found.push(await bareGlob(command, ctx), equalsWord(command));
+  }
   // Each finding takes its own rule's mode first; any block wins, else every warning is joined.
   return weigh(found.map((finding) => applyMode(finding, ctx)));
 }
