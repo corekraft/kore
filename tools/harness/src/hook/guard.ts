@@ -86,7 +86,7 @@ export async function guard(
     root,
     cwd: callDirectory(call, root),
     // The home a leading ~ expands to, and whether the hook's own environment names bash (the zsh rules skip only then).
-    ...hostFacts(deps.env),
+    ...(await hostFacts(deps.env, deps.fs, root)),
     readFile,
     // Globs resolve from the directory the command runs in, as the shell runs them; the call's when none is given.
     globMatches: (pattern, directory) =>

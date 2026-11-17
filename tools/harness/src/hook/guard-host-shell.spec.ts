@@ -1,10 +1,17 @@
 // The host shell check: a pure function of the hook's environment. It has no dependencies to mock.
 
 import { homedir } from "node:os";
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import { environments, FlagError, readOverlay } from "../flag/index.js";
+import type { FileSystem } from "../runtime/index.js";
 import { hostFacts, verifiedBash } from "./guard-host-shell.js";
 
 vi.mock("node:os", () => ({ homedir: vi.fn(() => "/os/home") }));
+vi.mock("../flag/index.js", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("../flag/index.js")>()),
+  environments: vi.fn(),
+  readOverlay: vi.fn(),
+}));
 
 describe("verifiedBash", () => {
   it.each([
@@ -42,9 +49,28 @@ describe("verifiedBash", () => {
   });
 });
 
+const BASH = { HOME: "/home/test", CLAUDE_CODE_SHELL: "/bin/bash" };
+
+/** Typed stand-ins for the file system and overlay, whose members the unit never reads itself. */
+const fs = {} as FileSystem;
+type Overlay = Awaited<ReturnType<typeof readOverlay>>;
+const overlay = (features: Record<string, boolean>): Overlay => ({
+  environment: "local",
+  path: "infra/environments/local/environment.yaml",
+  text: "",
+  features,
+});
+
+beforeEach(() => {
+  vi.mocked(environments).mockResolvedValue(["local"]);
+  vi.mocked(readOverlay).mockResolvedValue(
+    overlay({ "shell-aware-zsh-rules": true }),
+  );
+});
+
 describe("hostFacts", () => {
-  it("takes the home from the environment's HOME, as the shell reads it", () => {
-    expect(hostFacts({ HOME: "/home/test" })).toEqual({
+  it("takes the home from the environment's HOME, as the shell reads it", async () => {
+    expect(await hostFacts({ HOME: "/home/test" }, fs, "/repo")).toEqual({
       home: "/home/test",
       verifiedBash: false,
     });
@@ -55,15 +81,55 @@ describe("hostFacts", () => {
     ["empty", { HOME: "" }],
   ])(
     "falls back to the operating system's home when HOME is %s",
-    (_label, env) => {
-      expect(hostFacts(env).home).toBe("/os/home");
+    async (_label, env) => {
+      expect((await hostFacts(env, fs, "/repo")).home).toBe("/os/home");
       expect(homedir).toHaveBeenCalled();
     },
   );
 
-  it("carries the verified shell beside the home", () => {
-    expect(
-      hostFacts({ HOME: "/home/test", CLAUDE_CODE_SHELL: "/bin/bash" }),
-    ).toEqual({ home: "/home/test", verifiedBash: true });
+  it("verifies bash when the shell names bash and the local overlay turns shell-aware-zsh-rules on", async () => {
+    expect(await hostFacts(BASH, fs, "/repo")).toEqual({
+      home: "/home/test",
+      verifiedBash: true,
+    });
+    expect(readOverlay).toHaveBeenCalledWith(fs, "/repo", "local");
   });
+
+  it("does not verify bash while the flag is off, so verdicts stay as today", async () => {
+    vi.mocked(readOverlay).mockResolvedValue(
+      overlay({ "shell-aware-zsh-rules": false }),
+    );
+    expect((await hostFacts(BASH, fs, "/repo")).verifiedBash).toBe(false);
+  });
+
+  it("does not verify bash when the overlay does not name the flag", async () => {
+    vi.mocked(readOverlay).mockResolvedValue(overlay({}));
+    expect((await hostFacts(BASH, fs, "/repo")).verifiedBash).toBe(false);
+  });
+
+  it("does not verify bash when there is no local overlay", async () => {
+    vi.mocked(environments).mockResolvedValue([]);
+    expect((await hostFacts(BASH, fs, "/repo")).verifiedBash).toBe(false);
+    expect(readOverlay).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ["a malformed overlay", new FlagError("bad overlay")],
+    ["an unreadable one", new Error("EACCES")],
+  ])("fails closed, not crashing the guard, on %s", async (_label, error) => {
+    vi.mocked(readOverlay).mockRejectedValue(error);
+    expect((await hostFacts(BASH, fs, "/repo")).verifiedBash).toBe(false);
+  });
+
+  it.each([
+    ["zsh", { HOME: "/home/test", CLAUDE_CODE_SHELL: "/bin/zsh" }],
+    ["no shell", { HOME: "/home/test" }],
+  ])(
+    "reads no overlay when the shell is %s, which needs no flag",
+    async (_label, env) => {
+      expect((await hostFacts(env, fs, "/repo")).verifiedBash).toBe(false);
+      expect(environments).not.toHaveBeenCalled();
+      expect(readOverlay).not.toHaveBeenCalled();
+    },
+  );
 });

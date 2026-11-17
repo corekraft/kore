@@ -6,8 +6,17 @@ import { committedInventoryText } from "../testing/index.js";
 
 // The three zsh rules (unquoted-glob, equals-word, bare-glob) as the host runs the hook: they
 // skip only when the hook's own environment names bash, and keep guarding under zsh, an unknown
-// shell or none. CLAUDE_CODE_SHELL is read first, then SHELL; nothing an agent can write is read.
-async function guard(command: string, shell: Record<string, string>) {
+// shell or none, and only while the shell-aware-zsh-rules flag is on in the local overlay.
+// CLAUDE_CODE_SHELL is read first, then SHELL; nothing an agent can write is read.
+const OVERLAY = "/repo/infra/environments/local/environment.yaml";
+const overlayWith = (flag: boolean) =>
+  JSON.stringify({ features: { "shell-aware-zsh-rules": flag } });
+
+async function guard(
+  command: string,
+  shell: Record<string, string>,
+  overlay: string | null = overlayWith(true),
+) {
   const h = testHarness({
     env: {
       CLAUDE_PROJECT_DIR: "/repo",
@@ -15,7 +24,10 @@ async function guard(command: string, shell: Record<string, string>) {
       HOME: "/home/test",
       ...shell,
     },
-    files: { [`/repo/${INVENTORY_PATH}`]: committedInventoryText },
+    files: {
+      [`/repo/${INVENTORY_PATH}`]: committedInventoryText,
+      ...(overlay === null ? {} : { [OVERLAY]: overlay }),
+    },
   });
   h.deps.stdin = () =>
     Promise.resolve(
@@ -112,6 +124,24 @@ describe("the zsh rules skip under a verified bash", () => {
       });
     });
   }
+
+  it.each([
+    ["off in the local overlay", overlayWith(false)],
+    ["not written in the local overlay", JSON.stringify({ features: {} })],
+    ["in a malformed overlay", "not json"],
+    ["without any overlay", null],
+  ])(
+    "keeps blocking and warning under bash when the flag is %s",
+    async (_label, overlay) => {
+      const bash = { CLAUDE_CODE_SHELL: "/bin/bash" };
+      expect((await guard(UNQUOTED, bash, overlay)).code).toBe(2);
+      expect((await guard(EQUALS, bash, overlay)).code).toBe(2);
+      expect(
+        JSON.parse((await guard(BARE, bash, overlay)).out).hookSpecificOutput
+          .additionalContext,
+      ).toMatch(/^\[guard:bare-glob\]/);
+    },
+  );
 
   it("still blocks a zsh glob qualifier that runs code, which no shell setting excuses", async () => {
     const result = await guard("ls *(e:'id':)", {

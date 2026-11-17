@@ -70,7 +70,7 @@ beforeEach(() => {
   vi.mocked(denyRules).mockReturnValue([]);
   vi.mocked(recordEvent).mockResolvedValue(undefined);
   vi.mocked(launchRoot).mockResolvedValue("/repo");
-  vi.mocked(hostFacts).mockReturnValue({
+  vi.mocked(hostFacts).mockResolvedValue({
     home: "/home/test",
     verifiedBash: false,
   });
@@ -273,12 +273,13 @@ describe("guard inventory", () => {
   it("gives the rules the home directory and the verified shell that the host check answers for the hook's environment", async () => {
     vi.mocked(findInventory).mockResolvedValue(EMPTY);
     const env = { CLAUDE_PROJECT_DIR: "/repo", HOME: "/home/test" };
-    vi.mocked(hostFacts).mockReturnValue({
+    vi.mocked(hostFacts).mockResolvedValue({
       home: "/answered",
       verifiedBash: true,
     });
-    await guard({}, fakeDeps(env).deps);
-    expect(hostFacts).toHaveBeenCalledWith(env);
+    const { deps } = fakeDeps(env);
+    await guard({}, deps);
+    expect(hostFacts).toHaveBeenCalledWith(env, deps.fs, "/repo");
     const ctx = vi.mocked(evaluate).mock.calls[0]?.[1];
     expect(ctx?.home).toBe("/answered");
     expect(ctx?.verifiedBash).toBe(true);
