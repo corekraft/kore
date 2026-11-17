@@ -705,21 +705,8 @@ pass and the next tick recovers once it is 30 minutes old. A pane it starts is
 named for its idea and the PR head it works at (`idea-<idea>-judge-<head>`), so
 a rerun finds the pane and starts nothing twice. With the flag on, `orchestrate
 run --idea <n>` runs ticks scoped to that idea until it ends, instead of its own
-loop. A third send-back is reported as `needs-judgment` and nothing is started for
-it; the judgment panes are a later step.
-
-`orchestrate tick --loop [--idea <n>]` runs passes in a loop in a pane the person
-starts (idea 0007, #875). Each pass is this checkout's `orchestrate tick` in a child
-process, so a pass that throws ends only itself and the loop goes on. The loop writes
-a `tick.started` ledger event before each pass, which is its heartbeat, and a
-`tick.stopped` event when it ends, which it does when the flag is turned off. `harness
-status` reports `the tick is not running` when the latest heartbeat is older than
-the gap with no stop after it. A loop that the person stops with Ctrl-C writes no
-stop event, so status reads that as a gap. The flag is off, so the loop exits at once.
-
-`orchestrate tick --install` writes the owner's opt-in launchd restart job, behind
-the flag. It writes the file under `~/Library/LaunchAgents` and starts nothing; the
-owner loads it with the `launchctl bootstrap` line it prints. No agent runs it.
+loop. The standing loop, the heartbeat and the judgment panes are later steps; a
+third send-back is reported as `needs-judgment` and nothing is started for it.
 
 Before it starts a pane, the tick reads the host. On battery, or when the power
 source cannot be read, one pane starts per pass (saver mode). Above the load
