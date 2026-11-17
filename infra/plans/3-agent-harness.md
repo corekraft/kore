@@ -592,3 +592,7 @@ merged) and `idea-issue-close` (2 of 5 overridden).
   agent's direct tool use.
 - Harness-specific features without an equivalent for other agents, unless the
   rule they enforce is also stated in AGENTS.md.
+
+## Retrospective marker
+
+Last retrospective: 2026-11-17T12:52:40Z
