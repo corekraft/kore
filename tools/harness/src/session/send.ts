@@ -9,6 +9,7 @@ import { signedMessage, type Sender } from "../sender/index.js";
 import { deliver } from "./notify.js";
 import { FAILED, USAGE_ERROR, fail } from "./output.js";
 import { SessionRegistry } from "./registry.js";
+import { signedMainSendsOn } from "./signed-sends.js";
 
 const USAGE = "session send <name> --message <text>";
 
@@ -98,7 +99,9 @@ export async function send(context: CommandContext): Promise<number> {
       `Session ${name} is closed (pane ${record.paneId}); nothing was sent.`,
     );
   }
-  const error = await deliver(deps, record.paneId, signed.body);
+  const error = await deliver(deps, record.paneId, signed.body, {
+    rejoinWrapped: await signedMainSendsOn(deps),
+  });
   if (error !== undefined) {
     return fail(deps, json, FAILED, error);
   }

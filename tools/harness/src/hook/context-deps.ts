@@ -14,6 +14,8 @@ import { windowStart } from "./retro-scan.js";
 const JOURNAL_DIR = ".kore/state/journal";
 /** The flag that gives the main session the result-summary line (ADR 0123), read from the local overlay. */
 export const PANE_RESULT_SUMMARY_FLAG = "pane-result-summary";
+/** The flag that gives the main session the send line (ADR 0123), read from the local overlay. */
+export const SIGNED_MAIN_SENDS_FLAG = "signed-main-sends";
 const FLAG_ENVIRONMENT = "local";
 
 /** Whether the local overlay turns the flag on. No overlay means off; a malformed one throws a FlagError. */
@@ -116,5 +118,6 @@ export function realContextDeps(deps: CliDeps, root: string): ContextDeps {
     sessionsSince: (date, current) => sessionsSince(deps, root, date, current),
     paneResultSummaryOn: () =>
       localFlagOn(deps.fs, root, PANE_RESULT_SUMMARY_FLAG),
+    signedMainSendsOn: () => localFlagOn(deps.fs, root, SIGNED_MAIN_SENDS_FLAG),
   };
 }

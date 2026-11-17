@@ -29,6 +29,13 @@ export const RESULT_SUMMARY_LINE =
   "A finished pane's result is in `session wait <name> --json`, as result.summary: read it there, not with `herdr agent read`.";
 
 /**
+ * The line the main session gets while signed-main-sends is on: `session send`
+ * in place of raw `herdr agent prompt` (ADR 0123).
+ */
+export const SIGNED_SEND_LINE =
+  "Message a pane with `session send <name> --message <text>`, not `herdr agent prompt`: it signs the message and confirms delivery.";
+
+/**
  * The roles that get no plan session brief: their orchestrator-only steps are
  * not theirs (idea 0014). Every other agent type, and a missing one, gets it.
  */
@@ -56,6 +63,8 @@ export interface ContextDeps {
   ): Promise<number>;
   /** Whether the local overlay turns pane-result-summary on; a malformed overlay throws a FlagError. */
   paneResultSummaryOn(): Promise<boolean>;
+  /** Whether the local overlay turns signed-main-sends on; a malformed overlay throws a FlagError. */
+  signedMainSendsOn(): Promise<boolean>;
 }
 
 export interface SessionEvent {
@@ -143,18 +152,19 @@ function isMainSession(event: SessionEvent): boolean {
 }
 
 /**
- * The result-summary line for the main session while its flag is on. A flag
- * that cannot be read becomes a warning in its place, so the rest of the brief stays.
+ * The line for the main session while its flag is on. A flag that cannot be
+ * read becomes a warning in its place, so the rest of the brief stays.
  */
-async function resultSummaryLines(
+async function mainSessionLines(
   event: SessionEvent,
-  deps: ContextDeps,
+  flagOn: () => Promise<boolean>,
+  line: string,
 ): Promise<string[]> {
   if (!isMainSession(event)) {
     return [];
   }
   try {
-    return (await deps.paneResultSummaryOn()) ? [RESULT_SUMMARY_LINE] : [];
+    return (await flagOn()) ? [line] : [];
   } catch (error) {
     if (error instanceof FlagError) {
       return [`Warning: ${error.message}`];
@@ -194,7 +204,20 @@ export async function brief(
 ): Promise<string> {
   const plans = await deps.readPlans();
   const lines: string[] = givesPlanBrief(event) ? planLines(plans) : [];
-  lines.push(...(await resultSummaryLines(event, deps)));
+  lines.push(
+    ...(await mainSessionLines(
+      event,
+      () => deps.paneResultSummaryOn(),
+      RESULT_SUMMARY_LINE,
+    )),
+  );
+  lines.push(
+    ...(await mainSessionLines(
+      event,
+      () => deps.signedMainSendsOn(),
+      SIGNED_SEND_LINE,
+    )),
+  );
   lines.push(...environmentLines(await deps.readJournals()));
   const reminder = await retroLine(event, plans, deps);
   if (reminder !== null) {

@@ -3,6 +3,7 @@ import type { CliDeps, CommandContext } from "../runtime/index.js";
 import { garbled, plain, withoutDim } from "./ansi.js";
 import { notify } from "./notify.js";
 import { fail } from "./output.js";
+import { signedMainSendsOn } from "./signed-sends.js";
 
 // The real escapes are ansi.spec.ts's business; here "<dim>" marks faint text up to the line's end.
 vi.mock("./ansi.js", () => ({
@@ -17,6 +18,9 @@ vi.mock("./output.js", async (original) => ({
   ...(await original<typeof import("./output.js")>()),
   fail: vi.fn(),
 }));
+
+// The flag reader is its own unit (ADR 0098); each test turns the flag on or off here.
+vi.mock("./signed-sends.js", () => ({ signedMainSendsOn: vi.fn() }));
 
 type Result = { code: number; stdout: string; stderr: string };
 const ok = (stdout = ""): Result => ({ code: 0, stdout, stderr: "" });
@@ -102,6 +106,7 @@ const failure = () => vi.mocked(fail).mock.calls[0]?.[3];
 beforeEach(() => {
   vi.mocked(fail).mockReset();
   vi.mocked(fail).mockImplementation((_deps, _json, code) => code);
+  vi.mocked(signedMainSendsOn).mockResolvedValue(false);
 });
 
 describe("session notify delivers the finish line", () => {
