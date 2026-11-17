@@ -1,0 +1,4 @@
+[[IgnoredVulns]]
+id = "GHSA-fc5q-39xc-vjpf"
+ignoreUntil = 2027-01-16
+reason = "picomatch advisory GHSA-fc5q-39xc-vjpf has no fixed version; the owner accepted the risk on #806 until 2027-01-16, and it is revisited before then"
