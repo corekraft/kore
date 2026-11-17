@@ -48,6 +48,7 @@ const KEYS = [
   "tokensByStagePerMergedChange",
   "writerCost",
   "mainSession",
+  "judgmentContexts",
   "tierShares",
   "unstampedSpawns",
   "finishDetection",
