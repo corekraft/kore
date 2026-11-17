@@ -175,6 +175,17 @@ describe("the judge definition", () => {
   });
 });
 
+describe("the judge's send-back step", () => {
+  const judge = read(".claude/agents/judge.md");
+
+  it("tells the judge a multi-line send-back reason goes in a --reason-file that the Write tool made", () => {
+    const step = judge.split("\n").find((l) => l.startsWith("3. ")) ?? "";
+    expect(step).toContain("`--reason-file <path>`");
+    expect(step).toContain("with the Write tool");
+    expect(step).toContain("never pass both");
+  });
+});
+
 describe("the add-policy skill", () => {
   const skill = read("skills/add-policy/SKILL.md");
 

@@ -12,17 +12,34 @@ import { IdeaError, IdeaRepository, issueTarget } from "../idea/index.js";
 import type { Ledger } from "../ledger/index.js";
 import type { Command, CommandContext } from "../runtime/index.js";
 import { openLedger } from "./ledger-commands.js";
+import { readTextOption } from "./text-option.js";
 
 const FAILED = 1;
 const USAGE = 2;
 
 /** The `harness decision ask` form, quoted in the usage error. */
 const FORM =
-  "harness decision ask --idea <number or slug> --category <name> --question <text> --action <text> [--ledger]";
+  "harness decision ask --idea <number or slug> --category <name> (--question <text> | --question-file <path>) (--action <text> | --action-file <path>) [--ledger]";
 
 function text(options: CommandContext["options"], key: string): string {
   const value = options[key];
   return typeof value === "string" ? value.trim() : "";
+}
+
+/**
+ * The question or the action, from its inline flag or from its file, trimmed as inline text is.
+ * A refusal names the flag and the fix; nothing is asked when one comes back.
+ */
+async function askedText(
+  { options, deps }: CommandContext,
+  name: "question" | "action",
+): Promise<{ text: string } | { error: string }> {
+  const read = await readTextOption(
+    { name, value: "<text>", noun: name, rerun: "`harness decision ask`" },
+    { inline: options[name], file: options[`${name}-file`] },
+    { fs: deps.fs, cwd: deps.cwd },
+  );
+  return "error" in read ? read : { text: read.text.trim() };
 }
 
 /** Prints an expected failure as the command's message, plus a JSON object first under --json. */
@@ -92,12 +109,14 @@ function ports(context: CommandContext, root: string, ledger: Ledger) {
 
 const ask: Command = {
   summary:
-    "post a reserved question on the idea's issue under the sender line with the needs-info label, and record decision.routed to the owner with the idea, the category, the route, the signal, the issue number and the posting pane, so a pane waiting on the answer is not reported stalled (never the question or the action); refused with nothing posted while the decision-advisor flag is off in the local overlay, for a consent prompt (a destructive action, which stays inline with its gate), and for a question the advisor decides (--idea <number or slug> --category <name> --question <text> --action <text> [--json: idea, category, issue, commentUrl, signal] [--ledger])",
+    "post a reserved question on the idea's issue under the sender line with the needs-info label, and record decision.routed to the owner with the idea, the category, the route, the signal, the issue number and the posting pane, so a pane waiting on the answer is not reported stalled (never the question or the action); refused with nothing posted while the decision-advisor flag is off in the local overlay, for a consent prompt (a destructive action, which stays inline with its gate), and for a question the advisor decides (--idea <number or slug> --category <name> (--question <text> | --question-file <path>) (--action <text> | --action-file <path>) [--json: idea, category, issue, commentUrl, signal] [--ledger]); a question or action given by file is read from that path, and giving a flag and its file together is refused",
   options: {
     idea: "string",
     category: "string",
     question: "string",
+    "question-file": "string",
     action: "string",
+    "action-file": "string",
     ledger: "string",
   },
   async run(context) {
@@ -106,6 +125,14 @@ const ask: Command = {
       return fail(context, `Missing --idea; run \`${FORM}\`.`, USAGE);
     }
     try {
+      const question = await askedText(context, "question");
+      if ("error" in question) {
+        return fail(context, question.error, FAILED);
+      }
+      const action = await askedText(context, "action");
+      if ("error" in action) {
+        return fail(context, action.error, FAILED);
+      }
       // The ledger opens first, so a missing ledger fails before anything is posted.
       const opened = await openLedger(context);
       if ("error" in opened) {
@@ -116,8 +143,8 @@ const ask: Command = {
         {
           idea: text(options, "idea"),
           category: text(options, "category"),
-          question: text(options, "question"),
-          action: text(options, "action"),
+          question: question.text,
+          action: action.text,
         },
       );
       deps.stdout(
