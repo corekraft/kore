@@ -120,7 +120,8 @@ _Avoid_: Suggestion, recommendation
 
 **Tier**:
 The model and effort a role runs at. Its definition declares it, and only an
-escalation or a recorded override changes it.
+escalation or a recorded override changes it. A launch's tier has one origin:
+the definition, an escalation, or a recorded override.
 _Avoid_: Level, size
 
 **Primary metric**:
