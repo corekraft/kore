@@ -235,6 +235,7 @@ decisions; read one only when planning that area, and expect it to change.
 - [`docs/ideas/0023-bring-a-writer-s-pull-request-up-to-date-with-main-without-a.md`](ideas/0023-bring-a-writer-s-pull-request-up-to-date-with-main-without-a.md) — Bring a writer's pull request up to date with main without a main-session message
 - [`docs/ideas/0024-shell-aware-zsh-rules-live-verification.md`](ideas/0024-shell-aware-zsh-rules-live-verification.md) — shell-aware-zsh-rules works live in local
 - [`docs/ideas/0025-orchestrator-tick-live-verification.md`](ideas/0025-orchestrator-tick-live-verification.md) — orchestrator-tick works live in local
+- [`docs/ideas/0026-mechanical-review-checks-audit.md`](ideas/0026-mechanical-review-checks-audit.md) — pr check and the judge precheck report three mechanical review findings to the writer in audit mode, measured by send-backs per merged change
 
 ## Operations and Guides
 
