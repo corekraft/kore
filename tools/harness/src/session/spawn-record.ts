@@ -28,6 +28,7 @@ export async function recordLaunch(
       agent: record.name,
       role: record.role,
       tier: record.model,
+      ...(record.effort === undefined ? {} : { effort: record.effort }),
       ...(stage === undefined ? {} : { stage }),
       ...tier,
     });

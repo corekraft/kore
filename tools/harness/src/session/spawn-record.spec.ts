@@ -1,7 +1,12 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { mainRoot } from "../runtime/index.js";
 import { fakeDeps, type FakeDeps } from "./deps-support.js";
-import { noteUnstamped, unstampedWarning } from "./spawn-record.js";
+import type { SessionRecord } from "./registry.js";
+import {
+  noteUnstamped,
+  recordLaunch,
+  unstampedWarning,
+} from "./spawn-record.js";
 
 // The ledger's constructor and record are spies the spec holds, so no prototype is referenced.
 const ledger = vi.hoisted(() => ({
@@ -102,5 +107,62 @@ describe("noteUnstamped records the spawn in the ledger", () => {
     ledger.record.mockRejectedValue(new Error("ledger down"));
 
     await expect(noteUnstamped(deps, SPAWNED, {})).resolves.toBeUndefined();
+  });
+});
+
+const LAUNCHED: SessionRecord = {
+  name: "image-trust-writer",
+  paneId: "w3:p9",
+  callerPane: "w3:p1",
+  model: "claude-sonnet-5-5",
+  role: "writer",
+  effort: "medium",
+  createdAt: "2026-11-15T10:00:00.000Z",
+};
+
+describe("recordLaunch writes the effort the session ran at", () => {
+  it("records the effort beside the role, model, stage and tier source of the launch", async () => {
+    await recordLaunch(deps, LAUNCHED, { tierSource: "definition" }, "write");
+
+    expect(ledger.record).toHaveBeenCalledExactlyOnceWith({
+      source: "herdr",
+      kind: "session.launch",
+      occurredAt: "2026-11-15T10:00:00.000Z",
+      pane: "w3:p9",
+      agent: "image-trust-writer",
+      role: "writer",
+      tier: "claude-sonnet-5-5",
+      effort: "medium",
+      stage: "write",
+      tierSource: "definition",
+    });
+  });
+
+  it("records the launch with no effort key when the session's record carries none, so it reads as unknown", async () => {
+    await recordLaunch(
+      deps,
+      { ...LAUNCHED, effort: undefined as unknown as string },
+      undefined,
+      undefined,
+    );
+
+    expect(ledger.record).toHaveBeenCalledExactlyOnceWith({
+      source: "herdr",
+      kind: "session.launch",
+      occurredAt: "2026-11-15T10:00:00.000Z",
+      pane: "w3:p9",
+      agent: "image-trust-writer",
+      role: "writer",
+      tier: "claude-sonnet-5-5",
+    });
+    expect(ledger.record.mock.calls[0]?.[0]).not.toHaveProperty("effort");
+  });
+
+  it("records nothing outside a repository", async () => {
+    vi.mocked(mainRoot).mockResolvedValue(undefined);
+
+    await recordLaunch(deps, LAUNCHED, undefined, undefined);
+
+    expect(ledger.record).not.toHaveBeenCalled();
   });
 });

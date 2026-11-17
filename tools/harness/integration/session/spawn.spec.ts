@@ -142,6 +142,7 @@ describe("session spawn ledger", () => {
       agent: "image-trust-writer",
       role: "reader",
       tier: "claude-sonnet-5-5",
+      effort: "high",
     });
   });
 
