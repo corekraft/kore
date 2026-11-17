@@ -3,6 +3,8 @@ import type { Command } from "../runtime/index.js";
 export { handOff } from "./handoff.js";
 export { FOLLOW_UP_PREFIX } from "./follow-up-prefix.js";
 export { findResult } from "./wait.js";
+export { hostLeaseRefusal } from "./host-lease.js";
+export { spawnLoadRefusal } from "./spawn-load.js";
 import { check } from "./check.js";
 import { close } from "./close.js";
 import { equalize } from "./equalize.js";
@@ -35,7 +37,7 @@ const spawnCommand: Command = {
 
 const waitCommand: Command = {
   summary:
-    "wait for a spawned session's RESULT line and print its outcome (<name> --timeout ms)",
+    "wait for a spawned session's RESULT line and print its outcome; --json adds result.summary, the text the pane printed before that line (<name> --timeout ms)",
   operand: "name",
   options: { timeout: "string" },
   run: wait,

@@ -10,8 +10,10 @@ import { deliver } from "./notify.js";
 import { fail } from "./output.js";
 import { SessionRegistry, type SessionRecord } from "./registry.js";
 import { send } from "./send.js";
+import { signedMainSendsOn } from "./signed-sends.js";
 
 vi.mock("./notify.js", () => ({ deliver: vi.fn() }));
+vi.mock("./signed-sends.js", () => ({ signedMainSendsOn: vi.fn() }));
 const open = vi.hoisted(() => vi.fn());
 vi.mock("./registry.js", () => ({ SessionRegistry: { open } }));
 vi.mock("./output.js", async (original) => ({
@@ -75,6 +77,7 @@ beforeEach(() => {
   vi.mocked(fail).mockImplementation((_d, _j, code) => code);
   vi.mocked(mainRoot).mockResolvedValue("/repo");
   vi.mocked(deliver).mockResolvedValue(undefined);
+  vi.mocked(signedMainSendsOn).mockResolvedValue(false);
   vi.mocked(signedMessage).mockReturnValue({
     body: WRITER_LINE,
     sender: WRITER_SENDER,
@@ -96,7 +99,14 @@ describe("session send", () => {
       "session send",
       "Rebase",
     );
-    expect(deliver).toHaveBeenCalledExactlyOnceWith(deps, "w3:p9", WRITER_LINE);
+    expect(deliver).toHaveBeenCalledExactlyOnceWith(
+      deps,
+      "w3:p9",
+      WRITER_LINE,
+      {
+        rejoinWrapped: false,
+      },
+    );
     expect(out).toEqual(["Sent to image-trust-writer (w3:p9).\n"]);
   });
 
@@ -151,6 +161,29 @@ describe("session send", () => {
     expect(await send(ctx("image-trust-writer", "Rebase"))).toBe(1);
     expect(failure()).toBe("not confirmed");
     expect(append).not.toHaveBeenCalled();
+  });
+});
+
+describe("session send confirms a wrapped line only behind signed-main-sends", () => {
+  it("passes the wrapped-line rule to delivery while the flag is on", async () => {
+    vi.mocked(signedMainSendsOn).mockResolvedValue(true);
+    expect(await send(ctx("image-trust-writer", "Rebase"))).toBe(0);
+    expect(deliver).toHaveBeenCalledExactlyOnceWith(
+      deps,
+      "w3:p9",
+      WRITER_LINE,
+      { rejoinWrapped: true },
+    );
+  });
+
+  it("passes the line-by-line rule to delivery while the flag is off", async () => {
+    expect(await send(ctx("image-trust-writer", "Rebase"))).toBe(0);
+    expect(deliver).toHaveBeenCalledExactlyOnceWith(
+      deps,
+      "w3:p9",
+      WRITER_LINE,
+      { rejoinWrapped: false },
+    );
   });
 });
 

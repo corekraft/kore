@@ -43,10 +43,13 @@ export const KINDS = [
   "idea.filed",
   "decision.made",
   "retro.dropped",
+  "retro.main-session",
   "owner.asked",
   "spawn.unstamped",
   "session.result",
   "pane.finished",
   "pane.stalled",
+  "qualifier.warned",
+  "tick.bound",
 ] as const;
 export type Kind = (typeof KINDS)[number];

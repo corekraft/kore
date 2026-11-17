@@ -42,6 +42,7 @@ describe("session wait", () => {
       model: "claude-sonnet-5-5",
       outcome: "blocked",
       summary: "pane w3:p9",
+      result: { outcome: "blocked", summary: "All green." },
     });
   });
 

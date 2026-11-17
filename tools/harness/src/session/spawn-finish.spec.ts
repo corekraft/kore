@@ -68,6 +68,7 @@ const WAITED: WaitResult = {
   model: "claude-opus-5-5",
   outcome: "done",
   summary: "pane w3:p9",
+  result: { outcome: "done", summary: "" },
 };
 
 let deps: FakeDeps;
@@ -249,7 +250,7 @@ describe("finish waits for the result and reports it", () => {
     await run({}, true);
 
     expect(deps.stdout).toHaveBeenCalledExactlyOnceWith(
-      '{"name":"image-trust-writer","paneId":"w3:p9","model":"claude-opus-5-5","outcome":"done","summary":"pane w3:p9","role":"writer","effort":"high","modelCheck":{"status":"verified"}}\n',
+      '{"name":"image-trust-writer","paneId":"w3:p9","model":"claude-opus-5-5","outcome":"done","summary":"pane w3:p9","result":{"outcome":"done","summary":""},"role":"writer","effort":"high","modelCheck":{"status":"verified"}}\n',
     );
   });
 });

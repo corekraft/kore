@@ -71,6 +71,11 @@ const NO_STAGE_TOKENS = Object.fromEntries(
 ) as Record<Stage, number>;
 const BY_STAGE = { ...NO_STAGE_TOKENS, write: 300 };
 
+const NO_SCAN = {
+  status: "insufficient" as const,
+  reason: "no retro scan recorded in the window",
+};
+
 const FIGURES: MergedChangeFigures = {
   tokensPerMergedChange: TOKENS,
   sendBacksPerMergedChange: SEND_BACKS,
@@ -87,6 +92,11 @@ const FIGURES: MergedChangeFigures = {
       merged: 0,
       needed: 5,
     },
+  },
+  mainSession: {
+    foregroundPollMinutesPerMerged: NO_SCAN,
+    paneReadsPerFinishedPane: NO_SCAN,
+    signedSendShare: NO_SCAN,
   },
 };
 
@@ -142,7 +152,7 @@ describe("buildReport per-merged-change figures (#829, #830)", () => {
     );
   });
 
-  it("versions the report to 20, since the writer cost joined it (#868)", () => {
-    expect(run([]).version).toBe(21);
+  it("versions the report to 23, since the main-session figures joined it (#940)", () => {
+    expect(run([]).version).toBe(23);
   });
 });

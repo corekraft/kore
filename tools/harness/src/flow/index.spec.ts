@@ -17,6 +17,7 @@ describe("flow barrel", () => {
         "DEFAULT_COST",
         "DEFAULT_RETRO_HISTORY",
         "GITHUB_STAGES",
+        "GUARD_METRICS",
         "HARNESS_CONFIG",
         "MIN_COMPLETED_IDEAS",
         "REPORT_VERSION",

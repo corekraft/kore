@@ -33,6 +33,7 @@ it("exposes exactly the runtime entry points", () => {
     "localDate",
     "mainRoot",
     "nodeFileSystem",
+    "readPower",
     "readStdin",
     "resolveRoot",
     "systemClock",

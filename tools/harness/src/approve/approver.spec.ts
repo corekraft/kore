@@ -2,8 +2,10 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { IdeaRecord } from "../idea/index.js";
 import { Approver, ApproveError, type ApprovePorts } from "./approver.js";
 import { qualify } from "./qualify.js";
+import { sharingWarnings, type Warning } from "./warnings.js";
 
 vi.mock("./qualify.js");
+vi.mock("./warnings.js");
 
 const APPROVED = "<!-- harness:auto-approved -->";
 const REFUSED = "<!-- harness:left-for-person -->";
@@ -20,6 +22,7 @@ function ports(over: Partial<ApprovePorts> = {}): ApprovePorts {
     idea: vi.fn().mockResolvedValue(idea),
     issueOf: vi.fn().mockReturnValue(215),
     metrics: vi.fn().mockResolvedValue(input),
+    ideas: vi.fn().mockResolvedValue([idea]),
     labels: vi.fn().mockResolvedValue([]),
     comments: vi.fn().mockResolvedValue([]),
     comment: vi.fn().mockResolvedValue(undefined),
@@ -35,10 +38,21 @@ function ports(over: Partial<ApprovePorts> = {}): ApprovePorts {
 
 const qualifies = { approve: true, reason: "Auto-approved: because." };
 const refused = { approve: false, reason: "Left for a person: because." };
+const guard: Warning = {
+  kind: "guard-metric",
+  metric: "friction.total",
+  message: "friction.total is a guard metric.",
+};
+const shared: Warning = {
+  kind: "shared-primary",
+  metric: "metrics.tokensPerIdea",
+  message: "metrics.tokensPerIdea is also the primary of open idea 0008.",
+};
 
 beforeEach(() => {
   vi.resetAllMocks();
   vi.mocked(qualify).mockReturnValue(qualifies);
+  vi.mocked(sharingWarnings).mockReturnValue([]);
 });
 
 describe("Approver", () => {
@@ -51,6 +65,7 @@ describe("Approver", () => {
       issue: 215,
       status: "approved",
       reason: "Auto-approved: because.",
+      warnings: [],
     });
     expect(p.comment).toHaveBeenCalledWith(
       215,
@@ -98,6 +113,7 @@ describe("Approver", () => {
       issue: 215,
       status: "flag-off",
       reason: "Auto-approved: because.",
+      warnings: [],
     });
     expect(p.label).not.toHaveBeenCalled();
     expect(p.comment).not.toHaveBeenCalled();
@@ -165,6 +181,110 @@ describe("Approver reruns", () => {
 
     expect(p.comment).not.toHaveBeenCalled();
     expect(p.label).not.toHaveBeenCalled();
+  });
+});
+
+describe("Approver warnings", () => {
+  it("warns on a shared primary yet still approves: a warning never refuses", async () => {
+    vi.mocked(sharingWarnings).mockReturnValue([shared]);
+    const p = ports();
+
+    const result = await new Approver(p).run("7");
+
+    expect(result).toMatchObject({
+      status: "approved",
+      warnings: [shared.message],
+    });
+    expect(p.label).toHaveBeenCalledWith(215);
+  });
+
+  it("records one qualifier.warned event per warning on the idea's issue", async () => {
+    vi.mocked(sharingWarnings).mockReturnValue([guard, shared]);
+    const p = ports();
+
+    await new Approver(p).run("7");
+
+    expect(p.ledger.record).toHaveBeenCalledWith({
+      source: "claude",
+      kind: "qualifier.warned",
+      occurredAt: "2026-11-15T01:02:03.456Z",
+      idea: "#215",
+      number: 215,
+      label: "guard-metric: friction.total",
+    });
+    expect(p.ledger.record).toHaveBeenCalledWith({
+      source: "claude",
+      kind: "qualifier.warned",
+      occurredAt: "2026-11-15T01:02:03.456Z",
+      idea: "#215",
+      number: 215,
+      label: "shared-primary: metrics.tokensPerIdea",
+    });
+  });
+});
+
+describe("Approver warnings, kept on rerun and flag", () => {
+  it("does not record a warning its issue already holds on a rerun", async () => {
+    vi.mocked(sharingWarnings).mockReturnValue([guard]);
+    const p = ports({
+      ledger: {
+        list: vi.fn().mockResolvedValue({
+          events: [
+            {
+              number: 215,
+              label: "guard-metric: friction.total",
+            },
+          ],
+        }),
+        record: vi.fn().mockResolvedValue({ ok: true }),
+      },
+    });
+
+    await new Approver(p).run("7");
+
+    expect(p.ledger.record).not.toHaveBeenCalledWith(
+      expect.objectContaining({ kind: "qualifier.warned" }),
+    );
+  });
+});
+
+describe("Approver warnings, reported", () => {
+  it("reports the warnings but writes no event with the flag off", async () => {
+    vi.mocked(sharingWarnings).mockReturnValue([guard]);
+    const p = ports({ flagOn: vi.fn().mockResolvedValue(false) });
+
+    const result = await new Approver(p).run("7");
+
+    expect(result).toMatchObject({
+      status: "flag-off",
+      warnings: [guard.message],
+    });
+    expect(p.ledger.record).not.toHaveBeenCalled();
+  });
+
+  it("still records the warnings on an idea left for a person", async () => {
+    vi.mocked(qualify).mockReturnValue(refused);
+    vi.mocked(sharingWarnings).mockReturnValue([guard]);
+    const p = ports();
+
+    const result = await new Approver(p).run("7");
+
+    expect(result.status).toBe("left-for-person");
+    expect(p.ledger.record).toHaveBeenCalledWith(
+      expect.objectContaining({
+        kind: "qualifier.warned",
+        label: "guard-metric: friction.total",
+      }),
+    );
+  });
+
+  it("checks the idea against every other idea in the repository", async () => {
+    const others = [idea, { number: "0008" } as unknown as IdeaRecord];
+    const p = ports({ ideas: vi.fn().mockResolvedValue(others) });
+
+    await new Approver(p).run("7");
+
+    expect(sharingWarnings).toHaveBeenCalledWith(idea, others);
   });
 });
 

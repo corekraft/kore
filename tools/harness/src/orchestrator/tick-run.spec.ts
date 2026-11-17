@@ -59,6 +59,18 @@ describe("runTicks", () => {
     },
   );
 
+  it("waits through a held pass, as it waits on a working pane, and does not end the run", async () => {
+    const tick = ticks("held", "held", "record-outcome");
+    const sleep = vi.fn().mockResolvedValue(undefined);
+
+    expect(await runTicks(tick, "0001", sleep)).toEqual({
+      status: "outcome-recorded",
+      rounds: 3,
+    });
+    expect(sleep).toHaveBeenCalledTimes(2);
+    expect(sleep).toHaveBeenCalledWith(TICK_POLL_MS);
+  });
+
   it("gives up after the pass limit rather than polling forever", async () => {
     const pass = vi.fn().mockResolvedValue(step("waiting"));
     const sleep = vi.fn().mockResolvedValue(undefined);

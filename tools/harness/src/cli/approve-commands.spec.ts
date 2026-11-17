@@ -47,6 +47,7 @@ const approved = {
   issue: 215,
   status: "approved",
   reason: "Auto-approved: because.",
+  warnings: [],
 };
 
 describe("harness approve", () => {
@@ -118,6 +119,40 @@ describe("harness approve", () => {
     const { context } = fakeContext({ options: { idea: "7" } });
 
     await expect(approveCommand.run(context)).rejects.toThrow("bug");
+  });
+});
+
+describe("harness approve, the qualifier's warnings", () => {
+  it("prints each warning on its own line after the verdict, and still exits 0", async () => {
+    run.mockResolvedValue({
+      ...approved,
+      warnings: ["friction.total is a guard metric.", "Second warning."],
+    });
+    const { context, out, err } = fakeContext({ options: { idea: "7" } });
+
+    expect(await approveCommand.run(context)).toBe(0);
+    expect(out()).toBe(
+      "Approved idea 0007: ready-for-agent applied to issue #215. Auto-approved: because.\nWarning: friction.total is a guard metric.\nWarning: Second warning.\n",
+    );
+    expect(err()).toBe("");
+  });
+
+  it("gives the approver every idea in the repository, so it can see the other open ones", async () => {
+    const every = [{ number: "0008" }];
+    vi.mocked(IdeaRepository).mockImplementation(function () {
+      return {
+        list: vi.fn().mockResolvedValue(every),
+      } as unknown as IdeaRepository;
+    });
+    run.mockResolvedValue(approved);
+    const { context } = fakeContext({ options: { idea: "7" } });
+
+    await approveCommand.run(context);
+
+    const ports = vi.mocked(Approver).mock.calls[0]?.[0] as unknown as {
+      ideas: () => Promise<unknown[]>;
+    };
+    expect(await ports.ideas()).toEqual(every);
   });
 });
 

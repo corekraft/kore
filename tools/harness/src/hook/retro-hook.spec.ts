@@ -22,6 +22,7 @@ import {
   lastRetrospective,
   markerInstant,
   MarkerError,
+  recordScanFigures,
   scan,
 } from "./retro-scan.js";
 import { agentSection, sessionRoles, skillNames } from "./retro-agents.js";
@@ -48,6 +49,7 @@ vi.mock("./retro-scan.js", async (importOriginal) => ({
   ...(await importOriginal<typeof import("./retro-scan.js")>()),
   lastRetrospective: vi.fn(),
   markerInstant: vi.fn(),
+  recordScanFigures: vi.fn(),
   scan: vi.fn(),
 }));
 
@@ -65,7 +67,7 @@ function registeredHandler(): Handler {
 const handler = registeredHandler();
 
 const USAGE =
-  "Usage: harness hook retro-scan [--dir <transcripts>] [--since YYYY-MM-DD|YYYY-MM-DDTHH:MM:SSZ] [--evidence]\n--since keeps sessions active at or after local midnight of that date, or at or after that UTC instant, like the session-start count.\n--evidence adds guardEvidence (the session, transcript line and excerpt of each guard block) and overriddenEvidence (the same, with the command excerpt and the unquoted glob the guard named, for each overridden audit warning), capped per rule. The default report leaves them out. The report also counts bareCommands: the bare gh comments and bare pane sends (send-text, send-keys) each role session made with Bash, per session and per role, the role read from the ledger's launch of its name. The main session, whose first message is no spawn brief, is left out. The report also lists the agents with no launch in the ledger or in-process Agent call (agents; pane launches under launched, in-process Agent calls counted per agent under inProcess) and a ready command for each finding (proposals): an idea for an unused skill or agent, needing 14 days of ledger or 100 sessions (retro in .claude/harness.json sets each), and a guardrail request for a promotable audit rule. The scan runs none of them.";
+  "Usage: harness hook retro-scan [--dir <transcripts>] [--since YYYY-MM-DD|YYYY-MM-DDTHH:MM:SSZ] [--evidence]\n--since keeps sessions active at or after local midnight of that date, or at or after that UTC instant, like the session-start count.\n--evidence adds guardEvidence (the session, transcript line and excerpt of each guard block) and overriddenEvidence (the same, with the command excerpt and the unquoted glob the guard named, for each overridden audit warning), capped per rule. The default report leaves them out. The report also counts bareCommands: the bare gh comments and bare pane sends (send-text, send-keys) each role session made with Bash, per session and per role, the role read from the ledger's launch of its name. The main session, whose first message is no spawn brief, is left out. The report also has mainSession: the main session's foreground poll minutes, pane-result reads, and signed and raw sends. With the main-session-figures flag on in the local overlay, a scan of the repository's own transcripts (not --dir) records one retro.main-session ledger event. The report also lists the agents with no launch in the ledger or in-process Agent call (agents; pane launches under launched, in-process Agent calls counted per agent under inProcess) and a ready command for each finding (proposals): an idea for an unused skill or agent, needing 14 days of ledger or 100 sessions (retro in .claude/harness.json sets each), and a guardrail request for a promotable audit rule. The scan runs none of them.";
 const NO_SKILLS = "No skills/ directory found; skills.unused will be empty.\n";
 
 /** A scan report as the scan returns it, with nothing in it. */
@@ -77,6 +79,13 @@ const SCANNED: ReturnType<typeof scan> = {
   skills: { perSession: {}, unused: [] },
   subagents: {},
   bareCommands: { perSession: {}, perRole: {} },
+  mainSession: {
+    sessions: 0,
+    pollMinutes: 0,
+    paneReads: 0,
+    signedSends: 0,
+    rawSends: 0,
+  },
   corrections: [],
   rules: { promotable: [], audit: [] },
 };
@@ -155,6 +164,32 @@ beforeEach(() => {
   vi.mocked(skillNames).mockResolvedValue(undefined);
   vi.mocked(agentSection).mockResolvedValue(EXTRA);
   vi.mocked(sessionRoles).mockResolvedValue({});
+  vi.mocked(recordScanFigures).mockResolvedValue(false);
+});
+
+describe("retro-scan command: the main session's figures (#940)", () => {
+  it("records the repository's own scan, with its since and the figures it counted", async () => {
+    await run();
+    expect(vi.mocked(recordScanFigures)).toHaveBeenCalledWith(
+      expect.anything(),
+      "/repo",
+      "2026-11-12",
+      SCANNED.mainSession,
+    );
+  });
+
+  it("does not record a scan of a --dir folder, which is not the repository's window", async () => {
+    await run({ dir: "/t" });
+    expect(vi.mocked(recordScanFigures)).not.toHaveBeenCalled();
+  });
+
+  it("keeps the figures in the report whether or not the ledger recorded them", async () => {
+    vi.mocked(recordScanFigures).mockResolvedValue(false);
+    const result = await run();
+    expect(JSON.parse(result?.stdout ?? "{}").mainSession).toEqual(
+      SCANNED.mainSession,
+    );
+  });
 });
 
 describe("retro-scan command: registration and input", () => {

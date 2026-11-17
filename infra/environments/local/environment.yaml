@@ -18,7 +18,7 @@
       "gateway-rollback-order": true,
       "ingress-agentgateway": true,
       "role-tokens": true,
-      "owner-writer": false,
+      "owner-writer": true,
       "local-image-reuse": true,
       "registry-tag-pruning": false,
       "platform-organization-service-apis": false,
@@ -28,6 +28,9 @@
       "automatic-approval": false,
       "automatic-revert": false,
       "orchestrator-tick": false,
+      "main-session-figures": false,
+      "pane-result-summary": false,
+      "signed-main-sends": false,
       "decision-advisor": true
     },
   "imageInventory": "audit",
