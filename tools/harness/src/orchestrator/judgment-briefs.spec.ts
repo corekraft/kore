@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { judgmentBrief, readerBrief, rebriefBrief } from "./judgment-briefs.js";
+import {
+  judgmentBrief,
+  pieceBrief,
+  readerBrief,
+  rebriefBrief,
+} from "./judgment-briefs.js";
 
 /** Lines a brief would print as a marker on a line of their own, which a pane echo could read as its plan or result. */
 const bareLines = (brief: string) =>
@@ -141,5 +146,41 @@ describe("readerBrief", () => {
 
     expect(brief).toContain("change no file");
     expect(bareLines(brief)).toEqual([]);
+  });
+});
+
+describe("pieceBrief", () => {
+  it("briefs a writer piece exactly as a re-brief of the idea's pull request", () => {
+    expect(
+      pieceBrief("0007", 873, {
+        role: "writer",
+        name: "docs",
+        brief: "Document the piece.",
+        files: ["docs/a.md"],
+        after: [],
+      }),
+    ).toBe(
+      rebriefBrief("0007", 873, {
+        brief: "Document the piece.",
+        files: ["docs/a.md"],
+      }),
+    );
+  });
+
+  it("briefs a reader piece exactly as a reader of its files, asking its brief as the question", () => {
+    expect(
+      pieceBrief("0007", 873, {
+        role: "reader",
+        name: "tests",
+        brief: "Which tests cover it?",
+        files: ["tools/x.ts"],
+        after: [],
+      }),
+    ).toBe(
+      readerBrief("0007", 873, {
+        question: "Which tests cover it?",
+        paths: ["tools/x.ts"],
+      }),
+    );
   });
 });

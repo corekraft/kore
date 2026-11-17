@@ -11,6 +11,7 @@ import {
   type Refusal,
 } from "./judgment-check.js";
 import { checkWork } from "./judgment-work.js";
+import { pieceNameProblem } from "./tick-piece.js";
 
 export { BRIEF_MAX, TEXT_MAX } from "./judgment-check.js";
 export type {
@@ -94,6 +95,18 @@ export function checkPlan(raw: unknown): PlanCheck {
     return checkWork(raw["work"]);
   }
   return checkStop(raw["stop"]);
+}
+
+/**
+ * A work plan whose piece pane name `session spawn` would refuse is refused whole, as any bad plan is, so
+ * the judgment gets its one retry before the idea is labelled. Other plans and refusals pass unchanged.
+ */
+export function checkNames(idea: string, checked: PlanCheck): PlanCheck {
+  if (!checked.ok || checked.plan.kind !== "work") {
+    return checked;
+  }
+  const problem = pieceNameProblem(idea, checked.plan.work);
+  return problem === undefined ? checked : refuse(problem);
 }
 
 function checkReads(value: unknown): PlanCheck {

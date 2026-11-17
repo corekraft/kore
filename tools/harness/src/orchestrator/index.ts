@@ -38,6 +38,15 @@ export {
   type PassGate,
 } from "./tick-bounds.js";
 export { Tick } from "./tick.js";
+export { checkPlan } from "./judgment-plan.js";
+export type { WorkPiece } from "./judgment-check.js";
+export {
+  PLANS_DIRECTORY,
+  TickPlanStore,
+  type PersistStatus,
+  type StoredPlan,
+} from "./tick-plan-store.js";
+export { pieceNameProblem } from "./tick-piece.js";
 export type { IdeaPane, IdeaStep, PaneState, StepName } from "./tick.js";
 export { TickCli } from "./tick-cli.js";
 export { TICK_FLAG, tickFlagOn } from "./tick-flag.js";

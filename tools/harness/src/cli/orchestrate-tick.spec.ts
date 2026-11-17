@@ -23,6 +23,7 @@ vi.mock("../orchestrator/index.js", async () => ({
   ...(await vi.importActual<object>("../orchestrator/tick-bounds.js")),
   FileLeaseStore: vi.fn(),
   HarnessCliError: class extends Error {},
+  PLANS_DIRECTORY: ".kore/state/tick-plans",
   TICK_LEASE_MAX_AGE_MS: 1800000,
   Tick: vi.fn(),
   TickCli: vi.fn(),
@@ -108,6 +109,7 @@ describe("orchestrate tick with the flag on", () => {
       "/repo",
       context.deps.fs,
       "/main/.kore/state/sessions",
+      "/main/.kore/state/tick-plans",
     );
     expect(TickLease).toHaveBeenCalledWith(
       expect.anything(),

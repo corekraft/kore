@@ -47,6 +47,7 @@ function ports(over: Partial<TickPorts> = {}): TickPorts {
     sendBacks: vi
       .fn()
       .mockResolvedValue({ count: 1, model: "haiku", escalate: false }),
+    workPlan: vi.fn().mockResolvedValue(undefined),
     ...over,
   } as unknown as TickPorts;
 }

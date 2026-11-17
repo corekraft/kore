@@ -32,15 +32,26 @@ describe("runTicks with judgment steps", () => {
     expect(sleep).toHaveBeenCalledTimes(2);
   });
 
-  it("ends blocked when a valid work plan is left for the owner, without sleeping", async () => {
-    const tick = ticks("work-planned");
+  it("goes on past a recorded work plan, so its pieces start in the same run", async () => {
+    const tick = ticks("plan-recorded", "record-outcome");
     const sleep = vi.fn().mockResolvedValue(undefined);
 
     expect(await runTicks(tick, "0001", sleep)).toEqual({
-      status: "blocked",
-      rounds: 1,
+      status: "outcome-recorded",
+      rounds: 2,
     });
     expect(sleep).not.toHaveBeenCalled();
+  });
+
+  it("goes on past a piece it has just started, and sleeps while that piece works", async () => {
+    const tick = ticks("spawn-piece", "waiting", "record-outcome");
+    const sleep = vi.fn().mockResolvedValue(undefined);
+
+    expect(await runTicks(tick, "0001", sleep)).toEqual({
+      status: "outcome-recorded",
+      rounds: 3,
+    });
+    expect(sleep).toHaveBeenCalledTimes(1);
   });
 });
 
