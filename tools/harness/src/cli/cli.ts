@@ -75,13 +75,35 @@ function resolve(domain: string, name: string | undefined): Resolved {
 }
 
 type Parsed =
-  | { options: Record<string, string | boolean>; operand?: string }
+  | {
+      options: Record<string, string | boolean>;
+      lists?: Record<string, string[]>;
+      operand?: string;
+    }
   | { error: string };
+
+/**
+ * Keeps a value-taking flag's value: a "list" flag adds to every value given, in order;
+ * any other keeps the last one given.
+ */
+function keep(
+  kind: "string" | "list",
+  name: string,
+  value: string,
+  options: Record<string, string | boolean>,
+  lists: Record<string, string[]>,
+): void {
+  if (kind === "list") {
+    lists[name] = [...(lists[name] ?? []), value];
+  } else {
+    options[name] = value;
+  }
+}
 
 /** Parses the tokens left after domain and command against the command's declared flags. */
 function parseOptions(command: Command, tokens: readonly string[]): Parsed {
-  const spec = command.options ?? {};
   const options: Record<string, string | boolean> = {};
+  const lists: Record<string, string[]> = {};
   let operand: string | undefined;
   for (let i = 0; i < tokens.length; i++) {
     const token = tokens[i] ?? "";
@@ -93,7 +115,7 @@ function parseOptions(command: Command, tokens: readonly string[]): Parsed {
       continue;
     }
     const [name = "", inline] = token.slice(2).split(/=(.*)/s, 2);
-    const kind = own(spec, name);
+    const kind = own(command.options ?? {}, name);
     if (kind === undefined) {
       return { error: `Unknown flag "${token}".` };
     }
@@ -108,9 +130,13 @@ function parseOptions(command: Command, tokens: readonly string[]): Parsed {
     if (value === undefined) {
       return { error: `Flag "--${name}" needs a value.` };
     }
-    options[name] = value;
+    keep(kind, name, value, options, lists);
   }
-  return operand === undefined ? { options } : { options, operand };
+  return {
+    options,
+    ...(Object.keys(lists).length > 0 ? { lists } : {}),
+    ...(operand === undefined ? {} : { operand }),
+  };
 }
 
 async function execute(
@@ -181,6 +207,7 @@ export async function run(
   return await execute(resolved.command, {
     json,
     options: parsed.options,
+    ...("lists" in parsed ? { lists: parsed.lists } : {}),
     operand: parsed.operand,
     deps,
   });

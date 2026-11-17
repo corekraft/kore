@@ -28,9 +28,11 @@
       "automatic-approval": false,
       "automatic-revert": false,
       "orchestrator-tick": false,
+      "shell-aware-zsh-rules": false,
       "main-session-figures": false,
       "pane-result-summary": false,
       "signed-main-sends": false,
+      "main-session-wait": false,
       "decision-advisor": true
     },
   "imageInventory": "audit",

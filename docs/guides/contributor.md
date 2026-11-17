@@ -659,6 +659,18 @@ no verdict records a `review.run` failure event and posts nothing. A posted or
 unchanged verdict's event records its `findings` count, 0 for a clean review.
 `orchestrate run` calls it before each precheck.
 
+`harness wait` is the main session's one background wait (ADR 0123). Its
+`--pr <n>` and `--session <name>` flags repeat, and it checks each target once,
+then returns on the first to settle: CI green or red for a pull request (as
+`pr checks` reads it), or a RESULT line for a spawned session (recorded as
+`session wait` records it). Settled exits 0 and names the target, its kind and
+state, with the targets left to restart with. `--json` gives the same as one
+object. The bound (`--timeout` in milliseconds, one hour by default) exits 3 and
+names what is still pending and the next step, never just a timeout. The
+`main-session-wait` flag, off in every overlay, adds one line to the main
+session's SessionStart brief that names it, in place of sleep, until and seq
+loops.
+
 Every verdict that `review post` or `review run` posts starts with a sender line,
 `sender: <role> <session> (<command>)`, or `sender: the main session (<command>)`
 from the main session. The harness takes the role and session from the spawn

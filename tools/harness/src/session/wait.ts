@@ -68,6 +68,61 @@ export function resultSummary(text: string): string {
     : body;
 }
 
+/** The wait's answer for a session that has settled, with its recorded or read outcome and summary. */
+function settled(
+  record: SessionRecord,
+  outcome: "done" | "blocked",
+  summary: string,
+): WaitResult {
+  return {
+    name: record.name,
+    paneId: record.paneId,
+    model: record.model,
+    outcome,
+    summary: `pane ${record.paneId}`,
+    result: { outcome, summary },
+  };
+}
+
+/**
+ * Reads the session's own pane once, unwrapped. It settles on an anchored marker line, records
+ * the outcome, its summary and pane.finished, and returns the result; undefined means no marker
+ * yet, and nothing is recorded. A recorded result settles at once, without reading the pane.
+ * An error message is returned when the pane cannot be read (ADR 0123).
+ */
+export async function readResult(
+  deps: CliDeps,
+  registry: SessionRegistry,
+  record: SessionRecord,
+): Promise<WaitResult | { error: string } | undefined> {
+  if (record.result !== undefined) {
+    return settled(record, record.result.outcome, record.result.summary ?? "");
+  }
+  const read = await deps.runner.run("herdr", [
+    "pane",
+    "read",
+    record.paneId,
+    "--source",
+    "recent-unwrapped",
+  ]);
+  if (read.code !== 0) {
+    return {
+      error: `herdr pane read ${record.paneId} failed: ${describeFailure(read)}`,
+    };
+  }
+  const outcome = findResult(read.stdout);
+  if (outcome === undefined) {
+    return undefined;
+  }
+  const summary = resultSummary(read.stdout);
+  await registry.write({
+    ...record,
+    result: { outcome, at: deps.clock.now().toISOString(), summary },
+  });
+  await recordFinish(deps, record.paneId, record.name, outcome);
+  return settled(record, outcome, summary);
+}
+
 /**
  * Polls the session's own pane, unwrapped, until an anchored marker line shows,
  * then records the outcome and its summary. An error message is returned when it never does.
@@ -78,40 +133,11 @@ export async function waitForResult(
   record: SessionRecord,
   timeoutMs: number,
 ): Promise<WaitResult | { error: string }> {
-  const done = (outcome: "done" | "blocked", summary: string): WaitResult => ({
-    name: record.name,
-    paneId: record.paneId,
-    model: record.model,
-    outcome,
-    summary: `pane ${record.paneId}`,
-    result: { outcome, summary },
-  });
-  if (record.result !== undefined) {
-    return done(record.result.outcome, record.result.summary ?? "");
-  }
   const deadline = deps.clock.now().getTime() + timeoutMs;
   for (;;) {
-    const read = await deps.runner.run("herdr", [
-      "pane",
-      "read",
-      record.paneId,
-      "--source",
-      "recent-unwrapped",
-    ]);
-    if (read.code !== 0) {
-      return {
-        error: `herdr pane read ${record.paneId} failed: ${describeFailure(read)}`,
-      };
-    }
-    const outcome = findResult(read.stdout);
-    if (outcome !== undefined) {
-      const summary = resultSummary(read.stdout);
-      await registry.write({
-        ...record,
-        result: { outcome, at: deps.clock.now().toISOString(), summary },
-      });
-      await recordFinish(deps, record.paneId, record.name, outcome);
-      return done(outcome, summary);
+    const result = await readResult(deps, registry, record);
+    if (result !== undefined) {
+      return result;
     }
     if (deps.clock.now().getTime() + POLL_MS > deadline) {
       return {

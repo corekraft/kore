@@ -29,6 +29,14 @@ export const RESULT_SUMMARY_LINE =
   "A finished pane's result is in `session wait <name> --json`, as result.summary: read it there, not with `herdr agent read`.";
 
 /**
+ * The line the main session gets while main-session-wait is on: one background
+ * `harness wait` over pull requests and panes, in place of sleep, until and seq
+ * loops (ADR 0123).
+ */
+export const MAIN_SESSION_WAIT_LINE =
+  "Wait for CI or a pane's RESULT with `harness wait --pr <n> --session <name>`, run in the background, not with sleep, until or seq loops: it returns when the first settles.";
+
+/**
  * The line the main session gets while signed-main-sends is on: `session send`
  * in place of raw `herdr agent prompt` (ADR 0123).
  */
@@ -65,6 +73,8 @@ export interface ContextDeps {
   paneResultSummaryOn(): Promise<boolean>;
   /** Whether the local overlay turns signed-main-sends on; a malformed overlay throws a FlagError. */
   signedMainSendsOn(): Promise<boolean>;
+  /** Whether the local overlay turns main-session-wait on; a malformed overlay throws a FlagError. */
+  mainSessionWaitOn(): Promise<boolean>;
 }
 
 export interface SessionEvent {
@@ -216,6 +226,13 @@ export async function brief(
       event,
       () => deps.signedMainSendsOn(),
       SIGNED_SEND_LINE,
+    )),
+  );
+  lines.push(
+    ...(await mainSessionLines(
+      event,
+      () => deps.mainSessionWaitOn(),
+      MAIN_SESSION_WAIT_LINE,
     )),
   );
   lines.push(...environmentLines(await deps.readJournals()));

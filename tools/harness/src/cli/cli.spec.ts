@@ -18,7 +18,12 @@ const table = vi.hoisted(() => {
       }),
     },
     hook: { guard: command("guard a tool call") },
-    lone: { "": command("the domain's only command") },
+    lone: {
+      "": command("the domain's only command"),
+      join: command("join targets", {
+        options: { pr: "list", session: "list", timeout: "string" },
+      }),
+    },
   };
 });
 
@@ -167,6 +172,49 @@ describe("harness dispatch: flags and operands", () => {
     expect(outputOf().err).toContain(
       'Put "--note" after the command: harness <domain> <command> [flags].',
     );
+  });
+});
+
+describe("harness dispatch: repeatable flags", () => {
+  it("collects a repeatable flag into lists, in the order given, and keeps it out of options", async () => {
+    const deps = depsOf();
+    await run(
+      [
+        "lone",
+        "join",
+        "--pr",
+        "5",
+        "--session",
+        "a",
+        "--pr=7",
+        "--timeout",
+        "9",
+      ],
+      deps,
+    );
+    expect(table.lone.join.run.mock.calls.at(-1)?.[0]).toEqual({
+      json: false,
+      options: { timeout: "9" },
+      lists: { pr: ["5", "7"], session: ["a"] },
+      operand: undefined,
+      deps,
+    });
+  });
+
+  it("omits lists from the context when no repeatable flag is given", async () => {
+    const deps = depsOf();
+    await run(["lone", "join", "--timeout", "9"], deps);
+    expect(table.lone.join.run.mock.calls.at(-1)?.[0]).not.toHaveProperty(
+      "lists",
+    );
+  });
+
+  it("refuses a repeatable flag with no value, and runs nothing", async () => {
+    const deps = depsOf();
+    const before = table.lone.join.run.mock.calls.length;
+    expect(await run(["lone", "join", "--pr"], deps)).toBe(2);
+    expect(outputOf().err).toContain('Flag "--pr" needs a value.');
+    expect(table.lone.join.run.mock.calls.length).toBe(before);
   });
 });
 
