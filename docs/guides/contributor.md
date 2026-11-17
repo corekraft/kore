@@ -730,9 +730,11 @@ escalation with `--escalate` writes `owner` and no input moves an owner route to
 advisor. It is refused, with nothing recorded, while the `decision-advisor` flag is
 off, and a pane that gets no route acts as if the question were the owner's.
 
-`decision ask --idea <n> --category <name> --question <text> --action <text>` posts a
+`decision ask --idea <n> --category <name> (--question <text> | --question-file <path>) (--action <text> | --action-file <path>)` posts a
 reserved question on the idea's issue, under the sender line, with the `needs-info`
 label, and records `decision.routed` to the owner ([ADR 0120](../decisions/0120-recommended-decisions-go-to-an-advisor-reserved-decisions-to-the-owner.md)).
+A question or action of more than a line is written to a file with the Write tool and
+given by its `-file` flag; giving a flag and its file together is refused, naming both.
 It refuses, with nothing posted, a question the advisor decides (use `decision make`),
 and a consent prompt: an action that matches the destruction list stays inline with
 its gate and is never routed. It is refused while the `decision-advisor` flag is off.

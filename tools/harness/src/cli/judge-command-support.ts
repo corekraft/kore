@@ -18,11 +18,15 @@ export const OK = { code: 0, stdout: "", stderr: "" };
 /** The spawn environment of the judge pane that runs a judge command, so its sender line names it. */
 export const JUDGE_ENV = { KORE_ROLE: "judge", KORE_AGENT: "judge-test" };
 
-/** A context for a judge command, with its output and its runner captured. */
+/**
+ * A context for a judge command, with its output and its runner captured. `extra` adds or replaces
+ * dependencies, such as a file system for a command that reads a --<flag>-file.
+ */
 export function contextOf(
   operand: string | undefined,
   options: Record<string, string | boolean> = {},
   json = false,
+  extra: Record<string, unknown> = {},
 ) {
   const stdout = vi.fn();
   const stderr = vi.fn();
@@ -35,6 +39,7 @@ export function contextOf(
       stdout,
       stderr,
       env: JUDGE_ENV,
+      ...extra,
     },
     options,
     json,

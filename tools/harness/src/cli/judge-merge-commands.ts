@@ -22,6 +22,7 @@ import {
   reviewersOf,
   checkedPrecheck,
 } from "./judge-shared.js";
+import { readTextOption } from "./text-option.js";
 
 const MERGE_USAGE =
   "Run `harness judge merge <pr> [--json] [--reviewer <login>[,<login>]]`.";
@@ -192,15 +193,38 @@ async function recordSendBack(
   }
 }
 
+/** The reason from --reason or from --reason-file, trimmed; refused when it is empty or the two come together. */
+async function reasonOf(context: CommandContext, pr: number): Promise<string> {
+  const { deps } = context;
+  const read = await readTextOption(
+    {
+      name: "reason",
+      value: "<why>",
+      noun: "reason",
+      rerun: `\`harness judge send-back ${pr}\``,
+    },
+    {
+      inline: context.options["reason"],
+      file: context.options["reason-file"],
+    },
+    { fs: deps.fs, cwd: deps.cwd },
+  );
+  if ("error" in read) {
+    throw new JudgeError(read.error);
+  }
+  const reason = read.text.trim();
+  if (reason === "") {
+    throw new JudgeError(`A send-back needs a reason. ${SEND_BACK_USAGE}`);
+  }
+  return reason;
+}
+
 /** Posts the reason on the PR, where the orchestrator reads its queue, then records it. */
 async function runSendBack(context: CommandContext): Promise<number> {
   const { deps } = context;
   try {
     const pr = prNumber(context.operand, SEND_BACK_USAGE);
-    const reason = String(context.options["reason"] ?? "").trim();
-    if (reason === "") {
-      throw new JudgeError(`A send-back needs a reason. ${SEND_BACK_USAGE}`);
-    }
+    const reason = await reasonOf(context, pr);
     const category = categoryOf(context.options["category"]);
     const root = await deps.root();
     const repo = await repoOf(context);
@@ -250,11 +274,11 @@ export const mergeCommands: Record<string, Command> = {
   },
   "send-back": {
     summary:
-      "posts the reason as a comment on the PR, the orchestrator's queue, and records a send-back event at the shared ledger with its category (<pr> --reason <why> --category <category>; one of: " +
+      "posts the reason as a comment on the PR, the orchestrator's queue, and records a send-back event at the shared ledger with its category (<pr> (--reason <why> | --reason-file <path>) --category <category>; a reason given by file is read from that path, and giving both flags is refused; category one of: " +
       SEND_BACK_CATEGORIES.join(", ") +
       ")",
     operand: "pr",
-    options: { reason: "string", category: "string" },
+    options: { reason: "string", "reason-file": "string", category: "string" },
     run: runSendBack,
   },
 };
