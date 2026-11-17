@@ -4,6 +4,7 @@ import { garbled, plain, withoutDim } from "./ansi.js";
 import { describeFailure } from "./equalize.js";
 import { PROMPT } from "./prompt.js";
 import { FAILED, USAGE_ERROR, fail } from "./output.js";
+import { signedMainSendsOn } from "./signed-sends.js";
 
 const CONFIRM_READS = 3;
 const CONFIRM_PAUSE_MS = 1_000;
@@ -25,6 +26,29 @@ export function submitted(text: string, line: string): number {
   const lines = text.split("\n");
   const inputBox = lines.map((l) => PROMPT.test(l)).lastIndexOf(true);
   return lines.filter((l, i) => i !== inputBox && l.includes(line)).length;
+}
+
+/** Whitespace dropped, so a line broken at a space, or indented beneath its first row, still matches. */
+const squeezed = (text: string): string => text.replace(/\s+/g, "");
+
+/**
+ * How many times the line shows as submitted once wrapped rows are rejoined (ADR 0123). The rows above the
+ * input box are joined and counted; the input box, its last prompt line and every row beneath it, never counts.
+ */
+export function submittedRejoined(text: string, line: string): number {
+  const lines = text.split("\n");
+  const inputBox = lines.map((l) => PROMPT.test(l)).lastIndexOf(true);
+  const shown = inputBox === -1 ? lines : lines.slice(0, inputBox);
+  return squeezed(shown.join("\n")).split(squeezed(line)).length - 1;
+}
+
+/** The submitted count under the delivery rule in force: rejoined when signed-main-sends is on, line by line otherwise. */
+function submittedIn(
+  text: string,
+  line: string,
+  rejoinWrapped: boolean,
+): number {
+  return rejoinWrapped ? submittedRejoined(text, line) : submitted(text, line);
 }
 
 /**
@@ -67,9 +91,12 @@ async function count(
   deps: CliDeps,
   pane: string,
   line: string,
+  rejoinWrapped: boolean,
 ): Promise<number | { error: string }> {
   const text = await readPane(deps, pane);
-  return typeof text === "string" ? submitted(plain(text), line) : text;
+  return typeof text === "string"
+    ? submittedIn(plain(text), line, rejoinWrapped)
+    : text;
 }
 
 /** Types the line into the pane and submits it; an error message, or undefined when both steps succeed. */
@@ -107,11 +134,12 @@ async function confirmed(
   pane: string,
   line: string,
   before: number,
+  rejoinWrapped: boolean,
 ): Promise<"confirmed" | "missing" | { error: string }> {
   let outcome: "missing" | { error: string } = "missing";
   let anyRead = false;
   for (let read = 1; read <= CONFIRM_READS; read++) {
-    const now = await count(deps, pane, line);
+    const now = await count(deps, pane, line, rejoinWrapped);
     if (typeof now === "number" && now > before) {
       return "confirmed";
     }
@@ -124,12 +152,17 @@ async function confirmed(
   return outcome;
 }
 
-/** Sends the line and confirms it; an error message, or undefined once a new submitted line shows in the pane. */
+/**
+ * Sends the line and confirms it; an error message, or undefined once a new submitted line shows in the pane.
+ * `rejoinWrapped` is signed-main-sends: it confirms a line that wrapped in the pane (ADR 0123).
+ */
 export async function deliver(
   deps: CliDeps,
   pane: string,
   line: string,
+  options: { rejoinWrapped: boolean },
 ): Promise<string | undefined> {
+  const { rejoinWrapped } = options;
   // Read first, so an identical older line is not taken for this one.
   const text = await readPane(deps, pane);
   if (typeof text !== "string") {
@@ -138,12 +171,12 @@ export async function deliver(
   if (unsent(text)) {
     return `Nothing was sent to ${pane}: its input box already holds unsent text. Retry later; \`session wait\` records your result from your RESULT line meanwhile.`;
   }
-  const before = submitted(plain(text), line);
+  const before = submittedIn(plain(text), line, rejoinWrapped);
   const sendError = await sendLine(deps, pane, line);
   if (sendError !== undefined) {
     return sendError;
   }
-  const result = await confirmed(deps, pane, line, before);
+  const result = await confirmed(deps, pane, line, before, rejoinWrapped);
   if (result === "confirmed") {
     return undefined;
   }
@@ -194,7 +227,9 @@ export async function notify(context: CommandContext): Promise<number> {
   if ("error" in signed) {
     return fail(deps, json, FAILED, signed.error);
   }
-  const error = await deliver(deps, pane, signed.body);
+  const error = await deliver(deps, pane, signed.body, {
+    rejoinWrapped: await signedMainSendsOn(deps),
+  });
   if (error !== undefined) {
     return fail(deps, json, FAILED, error);
   }

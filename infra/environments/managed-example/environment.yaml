@@ -45,6 +45,7 @@
       "automatic-revert": false,
       "orchestrator-tick": false,
       "pane-result-summary": false,
+      "signed-main-sends": false,
       "decision-advisor": false
     },
   "secrets": { "storeName": "platform-secrets", "sourceNamespace": "external" },

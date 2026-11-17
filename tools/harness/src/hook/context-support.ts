@@ -8,6 +8,7 @@ export function deps(over: Partial<ContextDeps> = {}): ContextDeps {
     readJournals: () => Promise.resolve({}),
     sessionsSince: () => Promise.resolve(0),
     paneResultSummaryOn: () => Promise.resolve(false),
+    signedMainSendsOn: () => Promise.resolve(false),
     ...over,
   };
 }
