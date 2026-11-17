@@ -31,3 +31,22 @@ export interface TierOrigin {
   tierSource: TierSource;
   tierReason?: string;
 }
+
+/**
+ * The effort levels the claude CLI's `--effort` flag accepts, which is every
+ * level a spawn can set (from `session spawn --effort` or an agent
+ * definition's `effort:`).
+ */
+export const EFFORTS = ["low", "medium", "high", "xhigh", "max"] as const;
+export type Effort = (typeof EFFORTS)[number];
+
+/** Optional: a launch from before the field existed reads as an unknown effort. */
+export const EFFORT_RULES = [
+  {
+    field: "effort",
+    check: (v: unknown) => EFFORTS.includes(v as Effort),
+    hint: `must be one of ${EFFORTS.join(", ")}`,
+    kinds: LAUNCH_KINDS,
+    optional: true,
+  },
+] as const;

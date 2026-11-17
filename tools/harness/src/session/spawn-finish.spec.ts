@@ -126,6 +126,7 @@ describe("finish records the session before it reports", () => {
       agent: "image-trust-writer",
       role: "writer",
       tier: "claude-opus-5-5",
+      effort: "high",
       tierSource: "override",
       tierReason: "deep diff",
     });

@@ -14,7 +14,7 @@ import { BACKGROUND_RULES, RESULT_RULES } from "./schema-result.js";
 import { SENDER_RULES } from "./schema-sender.js";
 import { REVIEW_RULES } from "./schema-review.js";
 import { SEND_BACK_RULES, type SendBackCategory } from "./schema-send-back.js";
-import { TIER_RULES, type TierOrigin } from "./schema-tier.js";
+import { EFFORT_RULES, TIER_RULES, type TierOrigin } from "./schema-tier.js";
 import { MERGED_RULES, isTimestamp, type MergedOrigin } from "./schema-time.js";
 
 export { isTimestamp };
@@ -54,8 +54,9 @@ export const SCHEMA_VERSION = 1;
 
 /**
  * The fields a caller supplies. `recordedAt` and `schema` are the ledger's. On
- * session.launch, `tierSource` and `tierReason` say where the tier came from;
- * a launch from before they existed has neither and reads as unknown.
+ * session.launch, `tierSource` and `tierReason` say where the tier came from,
+ * and `effort` the level it ran at; a launch from before they existed has none
+ * of them and reads as unknown.
  */
 export interface EventInput
   extends
@@ -86,6 +87,8 @@ export interface EventInput
   role?: string;
   /** session.launch: the model tier the session was launched on. */
   tier?: string;
+  /** session.launch: the effort level the session ran at; absent on a launch from before it was recorded. */
+  effort?: string;
   /** session.send: the sender's role and session name; absent for a send from the main session. */
   senderRole?: string;
   senderName?: string;
@@ -149,6 +152,7 @@ const ALLOWED = new Set<string>([
   "role",
   "tier",
   ...TIER_RULES.map((rule) => rule.field),
+  ...EFFORT_RULES.map((rule) => rule.field),
   ...[...SEND_BACK_RULES, ...REVIEW_RULES].map((rule) => rule.field),
   ...SENDER_RULES.map((rule) => rule.field),
   ...MERGED_RULES.map((rule) => rule.field),
@@ -244,6 +248,7 @@ const RULES: readonly Rule[] = [
   { field: "tier", check: isText(NAME), hint: NAME_HINT, kinds: LAUNCH_KINDS },
   ...LINK_RULES,
   ...TIER_RULES,
+  ...EFFORT_RULES,
   ...BACKGROUND_RULES,
   ...SEND_BACK_RULES,
   ...REVIEW_RULES,
