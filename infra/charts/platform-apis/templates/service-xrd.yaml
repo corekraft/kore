@@ -1,4 +1,15 @@
 # Cluster scope: ADR 0115 (the namespace composition creates cluster-scoped Namespaces).
+# metadata.name is the base of every name derived from a Service. The longest
+# derived label is the Argo Application golden-path-<service>, 12 characters
+# longer: Argo CD's default label tracking copies the Application's name into
+# the app.kubernetes.io/instance label, and a label value is at most 63
+# characters. So the name is at most 51 characters (63 - 12) and starts with a
+# letter (a Kubernetes Service name is a DNS-1035 label). The other derived
+# names are the workload <service>-frontend (9 characters longer, 60 at the
+# cap), the workload <service>-bff, the certificate secret <service>-tls, the
+# Gateway routes named <service>, the namespace <service>--<environment> (at
+# most 63, checked per environment below), and the host label <service> in
+# <service>.<organization>.<platform domain>.
 apiVersion: apiextensions.crossplane.io/v2
 kind: CompositeResourceDefinition
 metadata:
@@ -22,6 +33,10 @@ spec:
           x-kubernetes-validations:
             - rule: "self.metadata.name.matches('^[a-z0-9]([-a-z0-9]{0,61}[a-z0-9])?$')"
               message: "metadata.name must be a single DNS label (lowercase letters, digits and hyphens, at most 63 characters, no dots): the default host is <service>.<organization>.<platform domain>"
+            - rule: "self.metadata.name.matches('^[a-z]')"
+              message: "metadata.name must start with a lowercase letter (a Kubernetes Service name cannot start with a digit); rename it to start with a letter"
+            - rule: "self.metadata.name.size() <= 51"
+              message: "metadata.name must be at most 51 characters, because the longest derived label, the Argo Application golden-path-<service>, adds 12 characters to fit 63; shorten it"
             - rule: "!self.metadata.name.contains('--')"
               message: "metadata.name must not contain a double hyphen: the namespace is <service>--<environment>"
             - rule: "self.spec.environments.all(e, !e.contains('--'))"
