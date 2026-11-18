@@ -4,6 +4,8 @@
 
 import type { LedgerEvent } from "../ledger/index.js";
 import { time } from "./github-waits.js";
+import { finishLag, type FinishLag } from "./finish-lag.js";
+import { splitUndetected } from "./finish-late.js";
 import { inWindow, type Span } from "./scope.js";
 
 /** Placeholder threshold: the seconds either side of a result in which its pane.finished must fall. */
@@ -16,10 +18,16 @@ export interface FinishDetection {
   results: number;
   /** Results with a pane.finished on their pane within the threshold, each finish detecting one result. */
   detected: number;
-  /** Results with no such pane.finished: the detector missed them. */
+  /** Results with no such pane.finished: the detector missed them. Equals neverNoticed plus late. */
   undetected: number;
+  /** Undetected results whose pane never had a pane.finished recorded by session wait. */
+  neverNoticed: number;
+  /** Undetected results whose pane had a pane.finished outside the threshold, or one already used by an earlier result. */
+  late: number;
   /** The median seconds from a result to the finish that detected it, 0 when the finish came first; null when none did. */
   medianLagSeconds: number | null;
+  /** The median and p90 lag in minutes over the detected and late finishes that have one. */
+  lagMinutes: FinishLag;
 }
 
 interface Finish {
@@ -78,19 +86,26 @@ export function finishDetection(
     )
     .sort((a, b) => time(a) - time(b));
   const lags: number[] = [];
+  const undetected: { pane: string; at: number }[] = [];
   for (const result of results) {
     const at = time(result);
     const match = nearest(finishes, result.pane, at);
     if (match !== undefined) {
       match.used = true;
       lags.push(Math.max(0, match.at - at) / 1000);
+    } else {
+      undetected.push({ pane: result.pane, at });
     }
   }
+  const split = splitUndetected(undetected, finishes);
   return {
     windowSeconds: DETECTION_WINDOW_SECONDS,
     results: results.length,
     detected: lags.length,
-    undetected: results.length - lags.length,
+    undetected: undetected.length,
+    neverNoticed: split.neverNoticed,
+    late: split.late,
     medianLagSeconds: median(lags),
+    lagMinutes: finishLag([...lags, ...split.lagSeconds]),
   };
 }

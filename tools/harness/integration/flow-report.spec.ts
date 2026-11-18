@@ -54,7 +54,10 @@ describe("flow report finish detection (#853)", () => {
       results: 2,
       detected: 1,
       undetected: 1,
+      neverNoticed: 1,
+      late: 0,
       medianLagSeconds: 20,
+      lagMinutes: { samples: 1, median: 0.33, p90: 0.33 },
     });
   });
 });

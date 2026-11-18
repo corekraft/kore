@@ -49,7 +49,7 @@ describe("buildReport scope and ideas", () => {
     const tally = fakeTally();
     vi.mocked(tally.stages).mockReturnValue([]);
     const r = run([]);
-    expect(r.version).toBe(35);
+    expect(r.version).toBe(36);
     expect(r.asOf).toBe("1970-01-01T00:00:01.000Z");
     expect(r.scope).toBe(SCOPE);
     expect(r.stages).toEqual([]);
