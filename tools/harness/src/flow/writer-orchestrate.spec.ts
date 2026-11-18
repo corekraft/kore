@@ -63,6 +63,7 @@ const NONE = {
   assumed: 0,
   recordedModels: [],
   assumedTokens: 0,
+  assumedSessions: 0,
   unpriced: [],
   basis: "none",
 };
@@ -91,6 +92,7 @@ describe("orchestrate dollars: the main session priced by its recorded model", (
       assumed: 0,
       recordedModels: [HAIKU, OPUS],
       assumedTokens: 0,
+      assumedSessions: 0,
       unpriced: [],
       basis: "recorded",
     });
@@ -138,6 +140,7 @@ describe("orchestrate dollars: which readings count", () => {
       assumed: 0,
       recordedModels: [OPUS],
       assumedTokens: 0,
+      assumedSessions: 0,
       unpriced: [],
       basis: "recorded",
     });
@@ -160,6 +163,7 @@ describe("orchestrate dollars: an unpriced recorded model", () => {
       assumed: 0,
       recordedModels: [FABLE, OPUS],
       assumedTokens: 0,
+      assumedSessions: 0,
       unpriced: [FABLE],
       basis: "recorded",
     });
@@ -183,6 +187,7 @@ describe("orchestrate dollars: a span with no reading is priced at the assumed m
       assumed: 4,
       recordedModels: [],
       assumedTokens: 2 * MILLION,
+      assumedSessions: 1,
       unpriced: [],
       basis: "assumed model",
     });
@@ -204,6 +209,7 @@ describe("orchestrate dollars: a span with no reading is priced at the assumed m
       assumed: 0,
       recordedModels: [HAIKU],
       assumedTokens: 0,
+      assumedSessions: 0,
       unpriced: [],
       basis: "recorded",
     });
@@ -221,6 +227,7 @@ describe("orchestrate dollars: a span with no reading is priced at the assumed m
       assumed: 0,
       recordedModels: [],
       assumedTokens: 2 * MILLION,
+      assumedSessions: 1,
       unpriced: [OPUS],
       basis: "assumed model",
     });
@@ -249,5 +256,25 @@ describe("orchestrate basis: what the figure is priced from, stated beside it", 
     expect(basisOf({ recordedModels: [HAIKU], assumedTokens: 5 })).toBe(
       "recorded and assumed model",
     );
+  });
+});
+
+describe("the main session's sessions priced at the assumed model", () => {
+  it("counts each session whose token totals are priced at the assumed model once, and not one whose totals did not grow", () => {
+    const r = orchestrateDollarsIn(
+      [
+        mainUsage(900, "main-a", MILLION),
+        mainUsage(1500, "main-a", 2 * MILLION),
+        mainUsage(900, "main-b", MILLION),
+        mainUsage(1500, "main-b", 3 * MILLION),
+        mainUsage(900, "main-flat", 5 * MILLION),
+        mainUsage(1500, "main-flat", 5 * MILLION),
+      ],
+      WINDOW,
+      PRICES,
+    );
+
+    expect(r.assumedTokens).toBe(3 * MILLION);
+    expect(r.assumedSessions).toBe(2);
   });
 });

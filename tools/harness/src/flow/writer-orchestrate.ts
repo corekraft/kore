@@ -36,6 +36,8 @@ export interface OrchestrateDollars {
   recordedModels: string[];
   /** The token totals in the span with no reading, priced at the assumed model. */
   assumedTokens: number;
+  /** The sessions those token totals belong to, each counted once. */
+  assumedSessions: number;
   /** The models the price table does not price, sorted, each once; their dollars are not counted. */
   unpriced: string[];
   /** What the dollars are read from: see basisOf. */
@@ -146,29 +148,43 @@ function assumedPart(
   span: Span,
   prices: PriceTable,
   read: Readers,
-): { assumed: number; assumedTokens: number; unpriced: string[] } {
+): {
+  assumed: number;
+  assumedTokens: number;
+  assumedSessions: number;
+  unpriced: string[];
+} {
   const stages = usageStages(events, tokenStageResolver(events));
   const from = countsBefore(events, span[0]);
   const to = countsBefore(events, span[1]);
   let assumedTokens = 0;
+  let assumedSessions = 0;
   for (const [key, tokens] of to) {
     if (read.has(key) || stages.get(key) !== "orchestrate") {
       continue;
     }
-    assumedTokens += Math.max(0, tokens - (from.get(key) ?? 0));
+    const grown = Math.max(0, tokens - (from.get(key) ?? 0));
+    assumedTokens += grown;
+    assumedSessions += grown > 0 ? 1 : 0;
   }
   if (assumedTokens === 0) {
-    return { assumed: 0, assumedTokens, unpriced: [] };
+    return { assumed: 0, assumedTokens, assumedSessions, unpriced: [] };
   }
   const price = Object.hasOwn(prices, MAIN_SESSION_MODEL)
     ? prices[MAIN_SESSION_MODEL]
     : undefined;
   if (price === undefined) {
-    return { assumed: 0, assumedTokens, unpriced: [MAIN_SESSION_MODEL] };
+    return {
+      assumed: 0,
+      assumedTokens,
+      assumedSessions,
+      unpriced: [MAIN_SESSION_MODEL],
+    };
   }
   return {
     assumed: (assumedTokens * price.inputPerMTok) / MILLION,
     assumedTokens,
+    assumedSessions,
     unpriced: [],
   };
 }
@@ -185,6 +201,7 @@ export function orchestrateDollarsIn(
   const part = {
     recordedModels: recorded.models,
     assumedTokens: assumed.assumedTokens,
+    assumedSessions: assumed.assumedSessions,
   };
   return {
     recorded: recorded.recorded,

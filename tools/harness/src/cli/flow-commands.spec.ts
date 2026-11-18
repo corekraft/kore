@@ -197,6 +197,10 @@ const EMPTY_WRITING_LINES = [
   "  Writing in no idea (unattributed writer tokens): 0 session(s), 0 tokens, $0",
   "  Writing in no pull request (unattributed writer tokens): 0 session(s), 0 tokens, $0",
   "  Pull requests opened with no link to a writer (unjoinable): 0",
+  "  Shares of the weekly token ceiling (plan-weighted tokens; ceiling not set):",
+  "    Per agent, a rate over the trailing 7 days, of the weekly ceiling: not read, 0 role(s), 1 needed",
+  "    Per merged change, a size, of one week's ceiling: not read, 0 change(s), 5 needed",
+  "    Per idea, a size, of one week's ceiling: not read, 0 idea(s), 5 needed",
 ];
 
 /** The human report of an empty range, in order (#1090 adds the finish lines after friction). */

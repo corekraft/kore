@@ -141,9 +141,19 @@ The limit, in plan-weighted tokens, on one week's token use. The owner sets its
 value; it is not read from the plan.
 _Avoid_: Token budget, plan limit
 
+**Share of the weekly ceiling**:
+A role's plan-weighted tokens in the trailing 7 days as a fraction of the weekly
+token ceiling: a rate, read per agent. The flow report labels it "of the weekly
+ceiling"; the rows of a level sum, and the sum may pass 100% because agents
+overlap in time.
+_Avoid_: Plan percentage, usage percentage
+
 **Share of one week's ceiling**:
-A window's plan-weighted token use as a fraction of one week's weekly token
-ceiling, read per merged change in that window.
+A merged change's or an idea's total plan-weighted tokens as a fraction of one
+week's weekly token ceiling: a size, never a rate, printed with its span. The
+flow report labels it "of one week's ceiling" and never puts it in a column with
+a **Share of the weekly ceiling**. With no ceiling set it reads "not set", never
+zero.
 _Avoid_: Plan percentage, usage percentage
 
 **Rework**:

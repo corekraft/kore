@@ -33,6 +33,31 @@ export const EMPTY_REPORT_FIELDS = {
   },
   costWaiting: {
     agents: {},
+    ceilingShares: {
+      ceiling: "not set",
+      agents: {
+        label: "of the weekly ceiling",
+        units: 0,
+        needed: 1,
+        status: "insufficient",
+        days: 7,
+        rows: {},
+      },
+      mergedChanges: {
+        label: "of one week's ceiling",
+        units: 0,
+        needed: 5,
+        status: "insufficient",
+        rows: [],
+      },
+      ideas: {
+        label: "of one week's ceiling",
+        units: 0,
+        needed: 5,
+        status: "insufficient",
+        rows: [],
+      },
+    },
     ideas: [],
     mergedChanges: {
       changes: [],

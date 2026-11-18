@@ -7,7 +7,7 @@ import {
   costWaitingFor,
   type CostWaiting,
   type CostWaitingFor,
-} from "./cost-waiting.js";
+} from "./cost-waiting-for.js";
 import {
   mergedChangeLeadTime,
   type LeadTimePerMergedChange,

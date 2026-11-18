@@ -120,3 +120,29 @@ export const SEND_BACK_COUNT_KEYS = [
   "otherReading",
   "otherOverThreshold",
 ];
+
+/** The keys of `costWaiting`, in report order (#1048 adds ceilingShares last). */
+export const COST_WAITING_KEYS = [
+  "agents",
+  "ideas",
+  "writing",
+  "mergedChanges",
+  "ceilingShares",
+];
+
+/** The keys of `costWaiting.ceilingShares`, in report order (#1048). */
+export const CEILING_SHARES_KEYS = [
+  "ceiling",
+  "agents",
+  "mergedChanges",
+  "ideas",
+];
+
+/** The keys of a level of `costWaiting.ceilingShares` that is not read, below the minimum count, in report order (#1048). */
+export const SHARE_LEVEL_KEYS = ["label", "units", "needed", "status"];
+
+/** The keys of the agent level, which adds the days of its rate and its rows (#1048). */
+export const AGENT_SHARE_LEVEL_KEYS = [...SHARE_LEVEL_KEYS, "days", "rows"];
+
+/** The keys of a merged-change or idea level, which adds its rows (#1048). */
+export const UNIT_SHARE_LEVEL_KEYS = [...SHARE_LEVEL_KEYS, "rows"];

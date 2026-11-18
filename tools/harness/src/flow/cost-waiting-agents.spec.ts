@@ -9,8 +9,6 @@ import { secondsBySession } from "./cost-waiting-time.js";
 
 vi.mock("./cost-waiting-support.js", () => ({
   sessionsInWindow: vi.fn(),
-  shareOf: (plan: number, ceiling: number | undefined) =>
-    ceiling === undefined ? "not set" : plan / ceiling,
   summaryOf: (values: number[]) => ({
     total: values.reduce((sum, v) => sum + v, 0),
     median: null,
@@ -20,7 +18,7 @@ vi.mock("./cost-waiting-support.js", () => ({
 vi.mock("./cost-waiting-time.js", () => ({ secondsBySession: vi.fn() }));
 
 const WINDOW: [number, number] = [0, 1];
-const OPTIONS = { prices: {}, minimum: 2, weeklyTokenCeiling: 100 };
+const OPTIONS = { prices: {}, minimum: 2 };
 
 const session = (
   key: string,
@@ -58,7 +56,7 @@ describe("agent rows: each role's measured figures over the window", () => {
     );
   });
 
-  it("measures a role with enough sessions: dollars, tokens, seconds and the share of the ceiling", () => {
+  it("measures a role with enough sessions: dollars, tokens and seconds", () => {
     vi.mocked(sessionsInWindow).mockReturnValue([
       session("idea-1-writer", { dollars: 1, tokens: 10, plan: 10 }),
       session("idea-2-writer", { dollars: 3, tokens: 30, plan: 30 }),
@@ -73,7 +71,6 @@ describe("agent rows: each role's measured figures over the window", () => {
       tokens: { total: 40, median: null, p90: null },
       activeSeconds: { total: 800, median: null, p90: null },
       waitingSeconds: { total: 60, median: null, p90: null },
-      ceilingShare: 0.4,
     });
   });
 
