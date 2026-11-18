@@ -1,6 +1,7 @@
 // The setup label of each main-session stretch (#1046, spec #1027): derived when the report
 // reads, from the recorded model, the largest prompt and the compaction cap. Everything outside
-// the unit is mocked (ADR 0098): the role check, the event time and the window test.
+// the unit is mocked (ADR 0098): the role check, the session name, the event time and the
+// window test. Only the main-session model constant is real.
 
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { Kind, LedgerEvent } from "../ledger/index.js";
@@ -10,6 +11,9 @@ import { mainSessionSetups } from "./main-session-setups.js";
 const hasRole = vi.fn<(event: LedgerEvent) => boolean>();
 
 vi.mock("./stage-of.js", () => ({ roleResolver: () => hasRole }));
+vi.mock("./merged-tokens.js", () => ({
+  tokenSession: (event: LedgerEvent) => event.session ?? event.id,
+}));
 vi.mock("./github-waits.js", () => ({
   time: (event: LedgerEvent) => Date.parse(event.occurredAt),
 }));
