@@ -41,7 +41,8 @@ The join from a pull request to its writer session already works: `pr open` writ
 
 ## Consequences
 
-- **Flow readers see the link's idea.** The flow report reads an event's `idea` (`tools/harness/src/flow/attribution.ts`), so a link event with an idea attributes that writer session's events with no idea of their own to the idea. That is the join this record is for, but it lands before the report's two named buckets (writing with no idea above it, and writing in sessions that opened no pull request), so the per-idea figures move until those buckets are reported.
+- **Flow readers see a real link's idea.** The flow report reads an event's `idea` (`tools/harness/src/flow/attribution.ts`), so a link event with a real idea attributes that writer session's events with no idea of their own to the idea. That is the join this record is for, but it lands before the report's two named buckets (writing with no idea above it, and writing in sessions that opened no pull request), so the per-idea figures move until those buckets are reported.
+- **`none` is never an idea in the flow.** `attribute()` (`tools/harness/src/flow/attribution.ts`) treats a `pr.linked` idea of `none` as no idea: the link itself and the writer's events with no idea of their own stay unattributed, so no idea named `none` appears in the per-idea groups, the selection or the report's totals. The owner-time idea numbers (`tools/harness/src/flow/outcomes.ts`) read the same rule, so a pull request whose link names `none` does not put its number among the idea numbers. A real idea on a link is read as before.
 - **Pull requests opened before this change have no idea on their link.** They are never back-filled, and a reader must not read them as having no writing.
 - **`none` is explicit.** A link with `none` is a pull request that serves no idea, not one whose idea was never recorded.
 

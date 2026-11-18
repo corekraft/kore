@@ -101,6 +101,22 @@ describe("owner minutes count only work on ideas", () => {
     expect(r.ownerMinutes.minutes).toBe(2);
   });
 
+  it("does not count actions on a pull request whose link names none, since none is no idea", () => {
+    const r = outcomes(
+      [
+        event(0, "pr.linked", {
+          number: 9,
+          session: "s1",
+          agent: "s1",
+          idea: "none",
+        }),
+        event(MINUTE, "owner.action", { number: 9 }),
+      ],
+      WINDOW,
+    );
+    expect(r.ownerMinutes.minutes).toBe(0);
+  });
+
   it("does not count actions on an issue or pull request that is no idea's", () => {
     const r = outcomes(
       [

@@ -65,6 +65,16 @@ describe("ledger event schema, pr.linked", () => {
         'Invalid event: field "title" is not a ledger field and is never stored.',
     });
   });
+
+  it("does not require a session or agent on a kind that does not link a pull request", () => {
+    const merged = {
+      source: "github",
+      kind: "pr.merged",
+      occurredAt: "2026-11-17T10:00:00.000Z",
+      number: 9,
+    };
+    expect(parseEvent(merged, "input")).toEqual({ ok: true, event: merged });
+  });
 });
 
 describe("ledger event schema, pr.linked records the idea the pull request serves", () => {
@@ -96,15 +106,5 @@ describe("ledger event schema, pr.linked records the idea the pull request serve
       ...linked,
     };
     expect(parseEvent(stored, "stored")).toEqual({ ok: true, event: stored });
-  });
-
-  it("does not require a session or agent on a kind that does not link a pull request", () => {
-    const merged = {
-      source: "github",
-      kind: "pr.merged",
-      occurredAt: "2026-11-17T10:00:00.000Z",
-      number: 9,
-    };
-    expect(parseEvent(merged, "input")).toEqual({ ok: true, event: merged });
   });
 });

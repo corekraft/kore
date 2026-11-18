@@ -271,14 +271,6 @@ describe("harness pr open is declared as a mutating command", () => {
     expect(open?.summary).toMatch(/^mutates;/);
     expect(open?.summary).toContain("--body-file <path>");
     expect(open?.summary).toContain("pr.linked");
-  });
-
-  it("says in the usage text that --idea none writes no Idea line and records none", () => {
-    const open = prCommands["open"];
-    expect(open?.summary).toContain("--idea <number or slug, or none>");
-    expect(open?.summary).toContain(
-      "`--idea none` (or no --idea) writes no `Idea:` line and records `none` on the link",
-    );
     expect(Object.keys(open?.options ?? {}).sort()).toEqual([
       "base",
       "body",
@@ -292,5 +284,13 @@ describe("harness pr open is declared as a mutating command", () => {
       "pattern",
       "title",
     ]);
+  });
+
+  it("says in the usage text that --idea none writes no Idea line and records none", () => {
+    const open = prCommands["open"];
+    expect(open?.summary).toContain("--idea <number or slug, or none>");
+    expect(open?.summary).toContain(
+      "`--idea none` (or no --idea) writes no `Idea:` line and records `none` on the link",
+    );
   });
 });
