@@ -8,22 +8,21 @@ import type { Span } from "./scope.js";
 import { writerArmsIn, type WriterArms } from "./writer-arms.js";
 import { mergedChangeWriterCost, type WriterCost } from "./writer-cost.js";
 import { MODEL_PRICES } from "./writer-prices.js";
-import { sendBackTiersIn, type SendBackTiers } from "./send-back-tiers.js";
 import {
-  sendBackTiersSplitIn,
-  type SendBackTiersSplit,
-} from "./send-back-tiers-split.js";
+  sendBackAndReviewFiguresIn,
+  type SendBackAndReviewFigures,
+} from "./send-back-review-figures.js";
 
-export interface WriterFigures extends SendBackTiersSplit {
+export interface WriterFigures extends SendBackAndReviewFigures {
   writerCost: WriterCost;
   writerArms: WriterArms;
-  sendBackTiers: SendBackTiers;
 }
 
 /**
- * The writer cost, the arms and the send-backs per writer tier over the window, the first two read
- * against the cost settings' minimum merged changes (#1012, #1045); and, given a split date, the
- * same send-backs read on each side of it (#1047).
+ * The writer cost, the arms, the send-backs per writer tier and the review rounds per writer tier
+ * over the window, the first two read against the cost settings' minimum merged changes (#1012,
+ * #1045, #1050); and, given a split date, the send-backs and the review rounds each read on each
+ * side of it (#1047, #1050).
  */
 export function writerFiguresIn(
   events: LedgerEvent[],
@@ -32,7 +31,7 @@ export function writerFiguresIn(
     asOf: Date;
     cost?: Partial<CostOptions>;
     windowEffort?: string;
-    /** Splits the send-backs per writer tier at this date (#1047). */
+    /** Splits the send-backs and the review rounds per writer tier at this date (#1047, #1050). */
     splitAt?: Date;
   },
 ): WriterFigures {
@@ -45,13 +44,7 @@ export function writerFiguresIn(
         ? {}
         : { windowEffort: options.windowEffort }),
     }),
-    sendBackTiers: sendBackTiersIn(
-      events,
-      window,
-      Object.keys(MODEL_PRICES),
-      minCategorisedSendBacks,
-    ),
-    ...sendBackTiersSplitIn(
+    ...sendBackAndReviewFiguresIn(
       events,
       window,
       options.splitAt,

@@ -70,6 +70,10 @@ export interface MergedChangeFigures {
   sendBackTiers: WriterFigures["sendBackTiers"];
   /** The same send-backs per writer tier read before and from the split date; present only when the report is given one (#1047). */
   sendBackTiersSplit?: WriterFigures["sendBackTiersSplit"];
+  /** Failed review rounds beside rework, and review coverage, per writer tier, with an unlinked row (#1050). */
+  reviewRounds: WriterFigures["reviewRounds"];
+  /** The same review rounds per writer tier read before and from the split date; present only when the report is given one (#1050). */
+  reviewRoundsSplit?: WriterFigures["reviewRoundsSplit"];
   /** The main session's poll minutes, pane-result reads and signed sends, from the retro scans' events (#940); never in the owner digest. */
   mainSession: MainSessionFigures;
   /** The main session's handovers by reason over the window, or why they are not read: no reason recorded, or too few merged changes (#1036). */

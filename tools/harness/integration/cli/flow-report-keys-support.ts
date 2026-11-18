@@ -35,6 +35,7 @@ export const KEYS = [
   "writerCost",
   "writerArms",
   "sendBackTiers",
+  "reviewRounds",
   "mainSession",
   "handovers",
   "compactions",
@@ -49,14 +50,40 @@ export const KEYS = [
 
 /**
  * The keys of `flow report --json --split-at TIME`, in report order: KEYS with `sendBackTiersSplit`
- * after `sendBackTiers`. A report without --split-at carries KEYS exactly (#1047).
+ * after `sendBackTiers` and `reviewRoundsSplit` after `reviewRounds`. A report without --split-at
+ * carries KEYS exactly (#1047, #1050).
  */
-export const SPLIT_KEYS = KEYS.flatMap((key) =>
-  key === "sendBackTiers" ? [key, "sendBackTiersSplit"] : [key],
-);
+export const SPLIT_KEYS = KEYS.flatMap((key) => {
+  if (key === "sendBackTiers") {
+    return [key, "sendBackTiersSplit"];
+  }
+  return key === "reviewRounds" ? [key, "reviewRoundsSplit"] : [key];
+});
 
-/** The keys of `sendBackTiersSplit`: the split date, then the tier figures of each side (#1047). */
+/** The keys of `sendBackTiersSplit` and of `reviewRoundsSplit`: the split date, then the figures of each side (#1047, #1050). */
 export const SPLIT_SIDE_KEYS = ["at", "before", "after"];
+
+/** The keys of `reviewRounds` (and of each side of `reviewRoundsSplit`): the tier rows, then the unlinked row (#1050). */
+export const REVIEW_ROUNDS_KEYS = ["tiers", "unlinked"];
+
+/** The keys of one tier's row in `reviewRounds`, in report order: failed review rounds beside rework, then coverage (#1050). */
+export const REVIEW_ROUNDS_TIER_KEYS = [
+  "mergedChanges",
+  "failedReviewRounds",
+  "failedReviewRoundsPerMergedChange",
+  "rework",
+  "reworkPerMergedChange",
+  "reviewedChanges",
+  "reviewCoverage",
+];
+
+/** The keys of the unlinked row in `reviewRounds`: no rework, since a send to a pane with no writer tier is not read (#1050). */
+export const REVIEW_ROUNDS_UNLINKED_KEYS = [
+  "mergedChanges",
+  "failedReviewRounds",
+  "reviewedChanges",
+  "reviewCoverage",
+];
 
 /** The keys of `writerCost.current.orchestrate` once the span has enough merged changes, in report order (#1041). */
 export const ORCHESTRATE_KEYS = [

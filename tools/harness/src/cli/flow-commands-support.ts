@@ -3,6 +3,7 @@
 import { vi } from "vitest";
 import {
   emptyLeadTimePerMergedChange,
+  emptyReviewRounds,
   emptyWriterArms,
 } from "./flow-commands-merged-support.js";
 import {
@@ -180,6 +181,7 @@ export function emptyReport(overrides: Partial<Record<string, unknown>> = {}) {
     writerCost: { pricesAsOf: "2026-11-17", ...emptyTokensPerMergedChange },
     writerArms: emptyWriterArms,
     sendBackTiers: EMPTY_SEND_BACK_TIERS,
+    reviewRounds: emptyReviewRounds,
     tokensByStage: Object.fromEntries(STAGES.map((stage) => [stage, 0])),
     tokensByStagePerMergedChange: emptyTokensPerMergedChange,
     reviewMisses: NO_REVIEWS,

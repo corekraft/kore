@@ -7,6 +7,9 @@ import {
 import { finishedIdea } from "../../src/testing/index.js";
 import {
   KEYS,
+  REVIEW_ROUNDS_KEYS,
+  REVIEW_ROUNDS_TIER_KEYS,
+  REVIEW_ROUNDS_UNLINKED_KEYS,
   SPLIT_KEYS,
   SPLIT_SIDE_KEYS,
 } from "./flow-report-keys-support.js";
@@ -38,6 +41,31 @@ describe("flow report --split-at (#1047)", () => {
     const tierKeys = Object.keys(report["sendBackTiers"] as object);
     expect(Object.keys(split["before"] as object)).toEqual(tierKeys);
     expect(Object.keys(split["after"] as object)).toEqual(tierKeys);
+  });
+
+  it("adds reviewRoundsSplit with the date and the review rounds of both sides, each with the keys of reviewRounds (#1050)", async () => {
+    const { h, argv } = seeded(["--json", "--split-at", SPLIT]);
+
+    expect(await run(argv, h.deps)).toBe(0);
+    const report = JSON.parse(h.out()) as Record<string, unknown>;
+    const rounds = report["reviewRounds"] as Record<string, unknown>;
+    expect(Object.keys(rounds)).toEqual(REVIEW_ROUNDS_KEYS);
+    expect(Object.keys(rounds["unlinked"] as object)).toEqual(
+      REVIEW_ROUNDS_UNLINKED_KEYS,
+    );
+    const tiers = rounds["tiers"] as Record<string, object>;
+    for (const row of Object.values(tiers)) {
+      expect(Object.keys(row)).toEqual(REVIEW_ROUNDS_TIER_KEYS);
+    }
+    const split = report["reviewRoundsSplit"] as Record<string, unknown>;
+    expect(Object.keys(split)).toEqual(SPLIT_SIDE_KEYS);
+    expect(split["at"]).toBe("2026-01-02T00:00:15.000Z");
+    for (const side of [split["before"], split["after"]]) {
+      expect(Object.keys(side as object)).toEqual(REVIEW_ROUNDS_KEYS);
+      expect(Object.keys((side as { tiers: object }).tiers)).toEqual(
+        Object.keys(tiers),
+      );
+    }
   });
 
   it("keeps exactly the keys it had without the flag", async () => {

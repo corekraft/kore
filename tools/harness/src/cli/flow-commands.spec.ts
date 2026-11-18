@@ -216,6 +216,7 @@ const EMPTY_HUMAN_TEXT = [
   "Send-backs by category, per PR head: declaration 0, pattern-mismatch 0, failed-check 0, conflict 0, missing-proof 0, rule-break 0, scope 0, wrong-statement 0, other 0; legacy 0 (recorded before 2026-11-16, when a category became required); uncategorised 0; categorised 0; no categorised send-backs",
   "Send-backs by category, per merged change: declaration 0, pattern-mismatch 0, failed-check 0, conflict 0, missing-proof 0, rule-break 0, scope 0, wrong-statement 0, other 0; legacy 0 (recorded before 2026-11-16, when a category became required); uncategorised 0; categorised 0; no categorised send-backs",
   "Send-backs by category, unlinked row (0 merged changes with no writer tier): declaration 0, pattern-mismatch 0, failed-check 0, conflict 0, missing-proof 0, rule-break 0, scope 0, wrong-statement 0, other 0; legacy 0 (recorded before 2026-11-16, when a category became required); uncategorised 0; categorised 0; no categorised send-backs; rework not read, no writer tier",
+  "Failed review rounds and review coverage, unlinked row (0 merged changes with no writer tier): failed review rounds 0; rework not read, no writer tier; review coverage 0 of 0 merged changes, not read",
   "Passed reviews later sent back for a rule break: no recorded reviews in this range",
   "Reviews that found a violation: no recorded reviews in this range",
   "Re-reviews of sampled passed reviews: no re-reviews in this range",

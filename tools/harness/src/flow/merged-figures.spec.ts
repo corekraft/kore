@@ -12,6 +12,7 @@ import {
   mergedChangeStageTokens,
   tokensByStage,
 } from "./merged-stage-tokens.js";
+import { NO_REVIEW_ROUNDS } from "./review-rounds.js";
 import { NO_SEND_BACK_TIERS } from "./send-back-tiers.js";
 import { STAGES, type Stage } from "./stages.js";
 import {
@@ -123,6 +124,7 @@ beforeEach(() => {
     writerCost: WRITER_COST,
     writerArms: WRITER_ARMS,
     sendBackTiers: NO_SEND_BACK_TIERS,
+    reviewRounds: NO_REVIEW_ROUNDS,
   });
   vi.mocked(mainSessionFigures).mockReturnValue(MAIN_SESSION);
 });
@@ -159,6 +161,7 @@ describe("mergedChangeFigures: the figures over one window", () => {
       writerCost: WRITER_COST,
       writerArms: WRITER_ARMS,
       sendBackTiers: NO_SEND_BACK_TIERS,
+      reviewRounds: NO_REVIEW_ROUNDS,
       mainSession: MAIN_SESSION,
       judgmentContexts: JUDGMENT_CONTEXTS,
       // The cost beside waiting figures are pinned in cost-waiting.spec.ts; here only their presence.
