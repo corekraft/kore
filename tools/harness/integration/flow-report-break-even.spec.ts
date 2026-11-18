@@ -61,20 +61,17 @@ const EVENTS: LedgerEvent[] = [
   launch("s1-writer", "w1:p5", SONNET),
   launch("s2-writer", "w1:p6", SONNET),
   launch("s3-writer", "w1:p7", SONNET),
-  ...[
-    [11, "h1-writer"],
-    [12, "h2-writer"],
-    [13, "h3-writer"],
-    [14, "h4-writer"],
-    [21, "s1-writer"],
-    [22, "s2-writer"],
-    [23, "s3-writer"],
-  ].map(([number, agent]) =>
-    atStart(1, "pr.linked", {
-      number: number as number,
-      agent: agent as string,
-    }),
-  ),
+  ...(
+    [
+      [11, "h1-writer"],
+      [12, "h2-writer"],
+      [13, "h3-writer"],
+      [14, "h4-writer"],
+      [21, "s1-writer"],
+      [22, "s2-writer"],
+      [23, "s3-writer"],
+    ] satisfies [number, string][]
+  ).map(([number, agent]) => atStart(1, "pr.linked", { number, agent })),
   spend(1100, "h1-writer", HAIKU, MILLION),
   spend(1100, "h2-writer", HAIKU, MILLION),
   spend(1100, "h3-writer", HAIKU, MILLION),

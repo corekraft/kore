@@ -98,7 +98,7 @@ describe("flow report: human lines", () => {
     );
 
     await run(context);
-    const text = vi.mocked(stdout).mock.calls[0]?.[0] as string;
+    const text = String(vi.mocked(stdout).mock.calls[0]?.[0]);
     expect(text).toContain("Guard blocks: push 2\n");
     expect(text).toContain("Bottleneck: review (50% of waiting)\n");
     expect(text.endsWith("skipped 2 malformed ledger line(s)\n")).toBe(true);

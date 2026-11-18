@@ -33,16 +33,24 @@ const change = (
 });
 
 /** The dollars of a span: the given changes and a shared part of `shared` dollars over all of them. */
-const dollars = (changes: MergedChangeDollars[], shared = 0): WriterDollars =>
-  ({
-    changes,
-    shared: {
-      judge: shared,
-      orchestrate: 0,
-      judgeUnpriced: [],
-      orchestrateUnpriced: [],
+const dollars = (
+  changes: MergedChangeDollars[],
+  shared = 0,
+): WriterDollars => ({
+  changes,
+  shared: {
+    judge: shared,
+    orchestrate: 0,
+    judgeUnpriced: [],
+    orchestrateUnpriced: [],
+    orchestrateBasis: {
+      basis: "none",
+      recordedModels: [],
+      assumedTokens: 0,
     },
-  }) as unknown as WriterDollars;
+  },
+  unmergedWriterSessions: 0,
+});
 
 const tierDollars = (middle: number): TierDollars => ({
   writer: 0,
@@ -56,9 +64,7 @@ const tierDollars = (middle: number): TierDollars => ({
 /** The median of numbers, as the wip module reads it, mocked here as a plain middle value. */
 const plainMedian = (values: number[]) => {
   const sorted = [...values].sort((a, b) => a - b);
-  return sorted.length === 0
-    ? null
-    : (sorted[Math.floor(sorted.length / 2)] as number);
+  return sorted[Math.floor(sorted.length / 2)] ?? null;
 };
 
 function read(
