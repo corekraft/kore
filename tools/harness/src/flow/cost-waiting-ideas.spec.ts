@@ -7,6 +7,26 @@ vi.mock("./cost-waiting-support.js", () => ({
   cumulativeOf: vi.fn(),
   round: (value: number) => Math.round(value * 10_000) / 10_000,
 }));
+vi.mock("./attribution.js", () => ({
+  namedIdea: (event: LedgerEvent) =>
+    event.kind === "pr.linked" && event.idea === "none"
+      ? undefined
+      : event.idea,
+}));
+vi.mock("./writer-link-ideas.js", () => ({
+  ideaKey: (idea: string) => (/^[1-9]\d*$/.test(idea) ? `#${idea}` : idea),
+}));
+vi.mock("./writing-spend.js", () => ({
+  NO_SPEND: { tokens: 0, dollars: 0, unpriced: [] },
+  addSpend: (
+    a: { tokens: number; dollars: number; unpriced: string[] },
+    b: { tokens: number; dollars: number; unpriced: string[] },
+  ) => ({
+    tokens: a.tokens + b.tokens,
+    dollars: a.dollars + b.dollars,
+    unpriced: [...new Set([...a.unpriced, ...b.unpriced])].sort(),
+  }),
+}));
 vi.mock("./github-waits.js", () => ({
   time: (event: LedgerEvent) => Date.parse(event.occurredAt),
   firstTime: (events: LedgerEvent[], match: (e: LedgerEvent) => boolean) =>
@@ -120,6 +140,125 @@ describe("idea rows: an unpriced model", () => {
         leadTimeSeconds: null,
         outcome: null,
       },
+    ]);
+  });
+});
+
+/** The writing join's spend by idea, as ideaRowsIn is given it. */
+const writing = (
+  entries: Record<
+    string,
+    { tokens: number; dollars: number; unpriced?: string[] }
+  >,
+) =>
+  new Map(
+    Object.entries(entries).map(([idea, spend]) => [
+      idea,
+      { unpriced: [], ...spend },
+    ]),
+  );
+
+describe("idea rows: writing charged through the pull request's link (#1093)", () => {
+  beforeEach(() => {
+    vi.mocked(cumulativeOf).mockImplementation((own) => ({
+      tokens: own.length * 1000,
+      dollars: 2.5,
+      unpriced: [],
+    }));
+  });
+
+  it("adds a linked writer's tokens and dollars to the idea's stamped figure", () => {
+    const rows = ideaRowsIn(
+      [event("#7", "session.launch", 0)],
+      [BASE, BASE + 30 * MINUTE],
+      OPTIONS,
+      writing({ "#7": { tokens: 200, dollars: 1 } }),
+    );
+
+    expect(rows).toEqual([
+      expect.objectContaining({ idea: "#7", tokens: 1200, dollars: 3.5 }),
+    ]);
+  });
+
+  it("gives an idea only a writer reaches a row of its own, with no outcome and no lead time", () => {
+    const rows = ideaRowsIn(
+      [],
+      [BASE, BASE + 30 * MINUTE],
+      OPTIONS,
+      writing({ "#9": { tokens: 200, dollars: 1 } }),
+    );
+
+    expect(rows).toEqual([
+      {
+        idea: "#9",
+        dollars: 1,
+        tokens: 200,
+        leadTimeSeconds: null,
+        outcome: null,
+      },
+    ]);
+    expect(cumulativeOf).not.toHaveBeenCalled();
+  });
+
+  it("joins a writer's #n idea to a stamp that names the same issue by its number, keeping the stamp's form", () => {
+    const rows = ideaRowsIn(
+      [event("7", "session.launch", 0)],
+      [BASE, BASE + 30 * MINUTE],
+      OPTIONS,
+      writing({ "#7": { tokens: 200, dollars: 1 } }),
+    );
+
+    expect(rows.map((row) => row.idea)).toEqual(["7"]);
+    expect(rows[0]?.tokens).toBe(1200);
+  });
+});
+
+describe("idea rows: what writing does not make an idea (#1093)", () => {
+  beforeEach(() => {
+    vi.mocked(cumulativeOf).mockImplementation((own) => ({
+      tokens: own.length * 1000,
+      dollars: 2.5,
+      unpriced: [],
+    }));
+  });
+
+  it("makes no idea of none: a link that names none gets no row", () => {
+    const link = {
+      kind: "pr.linked",
+      idea: "none",
+      occurredAt: at(0),
+    } as LedgerEvent;
+
+    expect(ideaRowsIn([link], [BASE, BASE + MINUTE], OPTIONS)).toEqual([]);
+  });
+
+  it("reads an idea with an unpriced model in its writing as null dollars naming it, keeping the tokens", () => {
+    const rows = ideaRowsIn(
+      [],
+      [BASE, BASE + MINUTE],
+      OPTIONS,
+      writing({ "#9": { tokens: 200, dollars: 1, unpriced: ["zeta"] } }),
+    );
+
+    expect(rows).toEqual([
+      expect.objectContaining({
+        idea: "#9",
+        dollars: null,
+        unpricedModels: ["zeta"],
+        tokens: 200,
+      }),
+    ]);
+  });
+
+  it("leaves the stamped figure as it was when no writing is passed", () => {
+    const rows = ideaRowsIn(
+      [event("#7", "session.launch", 0)],
+      [BASE, BASE + MINUTE],
+      OPTIONS,
+    );
+
+    expect(rows).toEqual([
+      expect.objectContaining({ idea: "#7", tokens: 1000, dollars: 2.5 }),
     ]);
   });
 });

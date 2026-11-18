@@ -23,6 +23,13 @@ const EMPTY: Cost = {
     joined: 0,
     needed: 5,
   },
+  writing: {
+    attributed: { sessions: 0, tokens: 0, dollars: 0 },
+    noIdea: { sessions: 0, tokens: 0, dollars: 0 },
+    noPullRequest: { sessions: 0, tokens: 0, dollars: 0 },
+    unjoinable: 0,
+    share: { status: "insufficient", sessions: 0, needed: 5 },
+  },
 };
 
 describe("cost beside waiting lines: the headline and its rows", () => {
@@ -75,7 +82,7 @@ describe("cost beside waiting lines: the headline and its rows", () => {
   });
 
   it("prints the merged-change level as not read until its joined count reaches the minimum", () => {
-    expect(costWaitingLines(EMPTY)).toEqual([
+    expect(costWaitingLines(EMPTY).slice(0, 2)).toEqual([
       "Token cost beside waiting time (#1019):",
       "  Merged changes: not read, 0 joined (5 needed)",
     ]);
@@ -114,7 +121,7 @@ describe("cost beside waiting lines: an unpriced model", () => {
       },
     };
 
-    expect(costWaitingLines(cost)).toEqual([
+    expect(costWaitingLines(cost).slice(0, 2)).toEqual([
       "Token cost beside waiting time (#1019):",
       "  Merged changes: insufficient prices (a, b)",
     ]);
@@ -138,5 +145,30 @@ describe("cost beside waiting lines: an unpriced model", () => {
     expect(costWaitingLines(cost).at(-1)).toBe(
       "  Idea 7: insufficient prices (zeta), 900 tokens, open",
     );
+  });
+});
+
+describe("cost beside waiting lines: the writing lines (#1093)", () => {
+  it("prints the writing lines after the merged changes and before the ideas", () => {
+    const cost: Cost = {
+      ...EMPTY,
+      ideas: [
+        {
+          idea: "7",
+          dollars: 8,
+          tokens: 4000000,
+          leadTimeSeconds: null,
+          outcome: null,
+        },
+      ],
+    };
+
+    expect(costWaitingLines(cost).slice(2)).toEqual([
+      "  Writing attributed to an idea: not read, 0 session(s), 5 needed",
+      "  Writing in no idea (unattributed writer tokens): 0 session(s), 0 tokens, $0",
+      "  Writing in no pull request (unattributed writer tokens): 0 session(s), 0 tokens, $0",
+      "  Pull requests opened with no link to a writer (unjoinable): 0",
+      "  Idea 7: $8, 4000000 tokens, open",
+    ]);
   });
 });
