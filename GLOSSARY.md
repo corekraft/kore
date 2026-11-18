@@ -70,6 +70,12 @@ A message sent to a writer session after its brief, by the main session or a
 tool, always carrying a sender line.
 _Avoid_: Nudge, ping
 
+**Branch update notice**:
+The one signed follow-up the tick sends a writer when its PR conflicts with main
+or is ready but for being behind: it tells the writer to merge origin/main and
+never pushes the branch itself.
+_Avoid_: Rebase request, branch update
+
 **Judge**:
 An agent that decides whether a change is a safe delivery under its declared
 safety pattern, merges it through the merge tool, and, when it is not, sends it

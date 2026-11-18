@@ -20,6 +20,16 @@ const NEEDS_INFO = "needs-info";
 export const TICK_ENV = { KORE_ROLE: "tick", KORE_AGENT: "orchestrator-tick" };
 export const TICK_COMMAND = "orchestrate tick";
 
+/** The state `harness pr checks --json` printed (green, red or pending), or undefined when its output carries none. */
+function checksState(stdout: string): string | undefined {
+  try {
+    const state = (JSON.parse(stdout) as { state?: unknown }).state;
+    return typeof state === "string" ? state : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
 /** The tick's ports over the real tools: the stage tools of HarnessCli plus three read-only reads. */
 export class TickCli extends HarnessCli {
   constructor(
@@ -32,6 +42,75 @@ export class TickCli extends HarnessCli {
     private readonly plans: string,
   ) {
     super(runner, repo);
+  }
+
+  /** The PR's merge state as GitHub reports it (DIRTY, BEHIND, CLEAN, ...); throws when it cannot be read (#980). */
+  async mergeState(pr: number): Promise<string> {
+    const read = (await this.view(pr, "mergeStateStatus")) as {
+      mergeStateStatus: string;
+    };
+    return read.mergeStateStatus;
+  }
+
+  /**
+   * Whether every check on the PR is green, read through `harness pr checks --json`, which is read-only.
+   * It exits 1 on red and 2 on pending, and prints the state either way, so the state is read whatever
+   * the code; throws when no state is printed (#980).
+   */
+  async ciGreen(pr: number): Promise<boolean> {
+    const done = await this.runner.run(
+      "node",
+      [HARNESS, "pr", "checks", String(pr), "--json"],
+      { cwd: this.repo },
+    );
+    const state = checksState(done.stdout);
+    if (state === undefined) {
+      this.check(`harness pr checks ${pr}`, { ...done, code: done.code || 1 });
+      throw new HarnessCliError(
+        `harness pr checks ${pr} printed no state. Check \`gh auth status\`, then rerun orchestrate tick.`,
+      );
+    }
+    return state === "green";
+  }
+
+  /** origin/main's head commit through the GitHub API; throws when it cannot be read (#980). */
+  async mainHead(): Promise<string> {
+    const done = await this.runner.run(
+      "gh",
+      ["api", "repos/{owner}/{repo}/commits/main", "--jq", ".sha"],
+      { cwd: this.repo },
+    );
+    this.check("gh api repos/{owner}/{repo}/commits/main", done);
+    const sha = done.stdout.trim();
+    if (sha === "") {
+      throw new HarnessCliError(
+        "gh api printed no head for origin/main. Check `gh auth status`, then rerun orchestrate tick.",
+      );
+    }
+    return sha;
+  }
+
+  /**
+   * `session send <writer>`: the notice goes through the session tool, signed with the tick's sender
+   * variables laid over `base` (the environment the child needs). Undefined once sent; otherwise the
+   * refusal, which the pass reports and records nothing for.
+   */
+  async sendToWriter(
+    writer: string,
+    message: string,
+    base: Readonly<Record<string, string>> = {},
+  ): Promise<string | undefined> {
+    const done = await this.runner.run(
+      "node",
+      [HARNESS, "session", "send", writer, "--message", message],
+      { cwd: this.repo, env: { ...base, ...TICK_ENV } },
+    );
+    if (done.code === 0) {
+      return undefined;
+    }
+    const reason =
+      done.stderr.trim() || done.stdout.trim() || `exit ${done.code}`;
+    return `Could not send to ${writer}: ${reason}. Nothing was recorded, so the next pass tries again.`;
   }
 
   /** The idea's persisted work plan, read through the store's checker; undefined when none is persisted. */
