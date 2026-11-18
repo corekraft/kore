@@ -18,6 +18,12 @@ cites the closed #825: the qualifier needed the arm comparison in the flow
 report first (#1012, merged). No GitHub issue is linked yet; `harness idea sync`
 creates one. Filing this record opens no window.
 
+Ticket #1070 of spec #1065 (which specifies issue #1064 and amends spec #998)
+adds the window effort, the scoped hypothesis, the exclusion rule, the spend
+re-estimate, one open item and the gate list below. It changes no metric,
+direction or window, sets no margin, opens no window and changes no tier or
+flag.
+
 ## Primary, direction and window
 
 - **Primary:** all-in cost per merged change by first-launch tier, read from
@@ -66,7 +72,126 @@ Each of these stays the owner's. None is set here.
 - the length
 - the stratifier (the issue's labels, or acceptance-criteria count)
 - opening the window, recorded on #994 as the owner's decision
-- the extra spend estimate, made and recorded before opening
+- the extra spend estimate: re-made at the window effort and recorded in
+  [Spend at the window effort](#spend-at-the-window-effort); the owner confirms
+  it
+- the window effort itself, recommended high and confirmed when opening (see
+  [Window effort](#window-effort))
+
+## Window effort
+
+The effort both arms run at. The recommendation is **high**: it is what the main
+session already runs and Haiku's best case (spec #1065, "Decided by the
+grilling comment's recommendation"). The owner confirms it when opening the
+window, by setting `KORE_WRITER_EXPERIMENT_EFFORT` (one of low, medium, high,
+xhigh or max; required while `KORE_WRITER_EXPERIMENT_START` is a UTC date). The
+owner accepted every recommendation on #1064
+([comment](https://github.com/corekraft/kore/issues/1064#issuecomment-6966709345):
+"I accept all the recommended"). The writer definition
+(`.claude/agents/writer.md`, effort medium) and the default writer tier do not
+change.
+
+## Hypothesis scoped to the window effort
+
+The hypothesis of this record reads as **Haiku at the window effort against
+Sonnet at the window effort**, never as Haiku against Sonnet in general.
+
+- A result at high says nothing about medium.
+- A medium default needs its own window; nothing here supports reverting the
+  effort for cost on the strength of this result.
+- The effort is held equal by the draw, so tier is not confounded with effort.
+  Effort is never a stratum.
+
+## Exclusion rule
+
+The primary figure, `writerArms.overall` and its per-stratum rows, covers only
+**randomized launches at the window effort**: the window's drawn Sonnet and its
+control Haiku, recorded at the window effort. The flow report counts every other
+merged change whose first launch is left out, by reason, in `writerArms.excluded`
+(#1069):
+
+- `differentEffort`: a randomized launch at another effort.
+- `missingEffort`: no recorded effort, including every launch from before effort
+  was recorded.
+- `notRandomized`: hand-picked, escalated or overridden.
+
+The report takes the window effort from `--window-effort`, else the most common
+effort among randomized launches, and prints which. It prints no verdict.
+
+## Spend at the window effort
+
+Re-estimated at the window effort, as the owner asked on #1064 (story 23 of
+spec #1065). The earlier rough upper bound of near $100 on #998
+([#998](https://github.com/corekraft/kore/issues/998), "Still the owner's"
+decisions) did not assume Sonnet at high. The earlier Sonnet cost per merged
+change at medium is not carried in as a baseline (story 24 of #1065).
+
+Inputs, each from the issue named:
+
+- **Volume.** #998's power check counts about 28 Sonnet PRs against about 250
+  Haiku at a 10 percent share over 14 days, so about 280 writer PRs in 14 days.
+  At the 50 percent share the grilling recommended, about 140 land on Sonnet.
+- **Haiku at high.** Mean $1.17 per merged PR since 2026-11-16 (#1064).
+- **Sonnet at medium.** Mean $0.90 per merged PR over 21 PRs since 2026-11-16
+  (#1064). There is no Sonnet-at-high cost: only 7 Sonnet PRs ran at high
+  (#1021, [rerun for #1040](https://github.com/corekraft/kore/issues/1021#issuecomment-6963906608)).
+
+Assumption, not a measurement: Sonnet at high costs between 1 and 2 times its
+medium mean, so $0.90 to $1.80 per merged PR.
+
+Extra spend is the Sonnet arm's cost minus what the same PRs would have cost on
+Haiku at high, over about 140 PRs:
+
+| Sonnet at high per PR | Gap to Haiku at high ($1.17) | Extra spend over 14 days |
+| --------------------- | ---------------------------- | ------------------------ |
+| $0.90 (1 times)       | -$0.27                       | about -$38 (a saving)    |
+| $1.80 (2 times)       | +$0.63                       | about +$88               |
+
+The extra spend is therefore **at most about $90** over the 14 days, inside the
+earlier near-$100 bound, and could be nil or negative. The figure is a bound from
+assumed inputs: the window's own Sonnet-at-high arm replaces it as it reads. The
+owner confirms or replaces it.
+
+The owner's note on #998
+([comment](https://github.com/corekraft/kore/issues/998#issuecomment-6966159317))
+states the window was opened on the owner's instruction on 2026-11-18 (UTC) on the
+earlier near-$100 bound, with no fresh estimate recorded before opening. This
+estimate is recorded now.
+
+## Open item: effort or the same-day rules
+
+Whether Haiku's drop in PRs with a failed review round, from 54 percent to 4
+percent, came from effort or from the writer rules (#920) and the writer
+`pr check` (#893) that shipped the same day (2026-11-16) is **open**.
+
+- The comparison is Haiku PRs opened before 2026-11-16 (54 percent, 44 to 63)
+  against those opened on or after (4 percent, 1 to 13), from the rerun for #1040
+  on #1021
+  ([comment](https://github.com/corekraft/kore/issues/1021#issuecomment-6963906608)).
+- Every effort-high Haiku PR was opened on or after that day, so effort and
+  period coincide.
+- No Haiku-at-medium PR exists after that day, and Sonnet at medium also improved
+  that day. The old table is therefore not proof that Haiku at medium loses.
+- Nothing in this window separates the two, because both arms run at one effort.
+
+## Gate list
+
+The window opens only after each of these has merged. Opening it is the owner's
+act, not a ticket. Dates are the merge time in UTC from GitHub; each lands in
+the list as it merges.
+
+| Ticket | What                                                                                | Merged by | Merged (UTC) |
+| ------ | ----------------------------------------------------------------------------------- | --------- | ------------ |
+| #1052  | audit file length in `pr check` and the precheck                                    | #1061     | 2026-11-18   |
+| #1053  | audit type casts in added lines                                                     | #1072     | 2026-11-18   |
+| #1054  | audit closing keywords in the PR body                                               | #1075     | 2026-11-18   |
+| #1066  | the draw: writers launched with only an effort flag, both arms at the window effort | #1074     | 2026-11-18   |
+| #1068  | the writer-spawn rule: the main session names no model while the window is open     | #1076     | 2026-11-18   |
+| #1069  | the report: only randomized launches at the window effort, the rest counted         | #1169     | 2026-11-18   |
+
+#1069 merged at 2026-11-18T04:38Z, after the owner's note on #998 that the window
+opened (2026-11-18T01:25Z); the comparison reads only randomized launches at the
+window effort, so it covers any earlier launch the same way.
 
 ## Default writer tier
 
