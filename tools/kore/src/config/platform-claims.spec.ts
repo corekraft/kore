@@ -139,3 +139,32 @@ test("a Service name with a dot is not a single DNS label, and the fix keeps the
     'claims[0].metadata.name: must be a single DNS label (lowercase letters, digits and hyphens, at most 63 characters, no dots): the default host is <service>.<organization>.<platform domain>; rename it, for example "shop-eu"',
   ]);
 });
+
+test("a Service name at the 51-character cap passes, and its longest derived label, the Argo Application, fits 63 characters", () => {
+  const name = `s${"a".repeat(50)}`;
+  expect(name.length).toBe(51);
+  expect(`golden-path-${name}`.length).toBe(63);
+  expect(`${name}-frontend`.length).toBeLessThanOrEqual(63);
+  expect(platformClaimErrors([{ ...service, metadata: { name } }])).toEqual([]);
+});
+
+test("a Service name one over the cap is rejected, naming the rule and the 51-character limit", () => {
+  const name = `s${"a".repeat(51)}`;
+  const oneEnvironment = {
+    ...service,
+    spec: { ...service.spec, environments: ["local"] },
+  };
+  expect(
+    platformClaimErrors([{ ...oneEnvironment, metadata: { name } }]),
+  ).toEqual([
+    `claims[0].metadata.name: must be at most 51 characters, because the longest derived label, the Argo Application golden-path-<service>, adds 12 characters to fit 63; shorten it, for example "${name.slice(0, 51)}"`,
+  ]);
+});
+
+test("a Service name that starts with a digit is rejected, naming the leading-letter rule", () => {
+  expect(
+    platformClaimErrors([{ ...service, metadata: { name: "1shop" } }]),
+  ).toEqual([
+    'claims[0].metadata.name: must start with a lowercase letter (a Kubernetes Service name cannot start with a digit); rename it, for example "s1shop"',
+  ]);
+});

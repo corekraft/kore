@@ -65,22 +65,27 @@ and is not part of Next.
   `KORE_ALERT_SMTP_*`), the SMTP login streams through `kore secrets smtp`, and
   with `platform-portal` on and an address set, `kore platform up` provisions
   one email contact point and a root policy. No address is written in the
-  repository. What remains is the wiring that carries fired alerts to the
-  contact point, and a live delivery proof.
-- **Footprint breach (blocks Step 1, only if it happens).** If the check shows
-  Next's added components exceed the headroom, the owner decides which of
-  [ADR 0111](../../docs/decisions/0111-run-a-backstage-and-an-argo-cd-for-the-platform-organization-s-operators.md),
-  [ADR 0113](../../docs/decisions/0113-run-a-keycloak-for-the-platform-organization-s-operators.md)
-  or [ADR 0043](../../docs/decisions/0043-platform-configuration-through-argo-cd.md)
-  is revisited.
-  State 2026-11-14: no breach is decided. The headroom threshold is the
-  owner's call. Two tainted local runs on 2026-11-14 are on #623 (neither is a
-  baseline).
-  Decided 2026-11-14: the owner approved this as proposed. The plan names no
-  breach rule, so the headroom threshold is set from the clean baseline
-  recorded in [plan 2](2-implementation.md) (2026-11-15, #623; see
-  [Step 1](#step-1-accept-the-next-adrs), "Headroom is already thin"). Until a
-  breach is measured, ADRs 0111, 0113 and 0043 are not revisited.
+  repository. The wiring that carries fired alerts to the contact point is
+  built behind `platform-portal` ([ADR 0128](../../docs/decisions/0128-forward-fired-service-alerts-from-the-metrics-store-to-grafana-s-alert-manager.md),
+  #1117); what remains is the live delivery proof.
+- **Footprint breach (blocks Step 1, only if it happens).** Decided 2026-11-17
+  (owner, [#1107](https://github.com/corekraft/kore/issues/1107)): a footprint
+  run breaches when Docker VM memory in use goes above 85 percent at any sample
+  (under 15 percent free at the peak), or when any pod's last state was
+  OOMKilled during the run. Swap is not part of the rule: the clean baseline
+  already sat at about 4.7 GiB of host swap. The verdict is in the measurement's
+  JSON beside the figures.
+  The breach ladder, in order, for every proof gated on the footprint:
+  1. A breached run is recorded inconclusive, and its flag stays off.
+  2. Retry once with agent panes paused, recording the pause and any limit
+     change on the ticket.
+  3. Only after that second breach, open the revisit of
+     [ADR 0111](../../docs/decisions/0111-run-a-backstage-and-an-argo-cd-for-the-platform-organization-s-operators.md),
+     [ADR 0113](../../docs/decisions/0113-run-a-keycloak-for-the-platform-organization-s-operators.md) and
+     [ADR 0043](../../docs/decisions/0043-platform-configuration-through-argo-cd.md),
+     which stay `proposed` meanwhile. A cloud runner is a separate decision.
+     This replaces the 2026-11-14 threshold, which was set from the plan 2
+     baseline; the revisit list is the three Next ADRs above.
 - **Live proofs blocked on the release locks (2026-11-15).** The
   `platform-argocd-delivery` and `platform-portal` live proofs are blocked on
   the release locks: the `platform-charts` lock, `template-images.lock.json`
@@ -286,9 +291,9 @@ ready.
       alerts in Grafana
       ([ADR 0051](../../docs/decisions/0051-telemetry-retention-and-alerting.md)),
       with the platform alert destination. The destination is settled and
-      supplied at run time (#709, Parked Owner Questions); the wiring that
-      carries fired alerts to the contact point and the live delivery proof
-      remain.
+      supplied at run time (#709, Parked Owner Questions) and the wiring that
+      carries fired alerts to it is built (ADR 0128, #1117); the live delivery
+      proof remains.
 
 ### Exit Criteria
 
@@ -350,11 +355,11 @@ flag), _not provable_ (no project command exists), _not delivered_ (code still o
 | Backstage shows them                                                                | merged, live proof owed | #694, #695, #698, #701 (install, image, catalog, Argo CD view) | A `platform-portal` live run that shows the delivered services with their Argo CD Application and workload (Step 6 item 3 stays open until then); the install itself is also unproven live. The route exists in the `platform-backstage` chart.         |
 | People are signed in through the platform Keycloak                                  | merged, live proof owed | #688, #690, #691, #693, #694, #698                             | The Keycloak provider pod privileges run on a `platform-portal` live run. The in-app OIDC sign-in and the refused no-sign-in request are not provable, no project command exists (owner decision 2026-11-15).                                           |
 | Each service shows its default dashboard and alerts with no setup                   | merged, live proof owed | #692                                                           | A live run that shows both for a delivered service.                                                                                                                                                                                                     |
-| Alerts notify-only until thresholds are measured                                    | merged, live proof owed | #692, #709                                                     | The contact point mechanism exists and the destination is supplied at run time (Parked Owner Questions). Owed: the wiring that carries fired alerts to it and a live delivery proof; Step 6 item 4 stays open until then.                               |
+| Alerts notify-only until thresholds are measured                                    | merged, live proof owed | #692, #709                                                     | The contact point mechanism exists, the destination is supplied at run time (Parked Owner Questions) and the wiring that carries fired alerts to it is built (ADR 0128, #1117). Owed: a live delivery proof; Step 6 item 4 stays open until then.       |
 | Delivery time recorded per stage over several runs, cold and redeploy apart         | not provable            |                                                                | Not provable, no project command exists (owner decision 2026-11-15); Step 7 item 1.                                                                                                                                                                     |
 | The golden-path frontend's p95 at the Gateway, recorded with plan 13's load harness | not delivered           |                                                                | Step 7 item 2: the harness already computes p95; record the golden-path frontend's p95 with it.                                                                                                                                                         |
 | The end-user token test (clause names token and cookie settings)                    | not provable            | #672 (the unit-level cookie assertion)                         | Not provable, no project command exists (owner decision 2026-11-15): the browser run (Step 7 item 3).                                                                                                                                                   |
-| Next's footprint against the Now baseline                                           | not delivered           |                                                                | At least two clean runs on an idle host (#623) against the Now baseline recorded in plan 2, and the headroom threshold is the owner's call.                                                                                                             |
+| Next's footprint against the Now baseline                                           | not delivered           |                                                                | At least two clean runs on an idle host (#623) against the Now baseline recorded in plan 2; the breach rule is decided (2026-11-17, #1107).                                                                                                             |
 
 Not covered by a clause but still owed: Step 6 item 1 stays open until the
 Keycloak provider pod privileges are verified live (#693).

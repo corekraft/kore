@@ -5,6 +5,7 @@ import {
   type Measurement,
   type MeasurementDeps,
 } from "./ingress-measurement.js";
+import type { HostReader, HostSnapshot } from "./ingress-host.js";
 import { PacedRunner } from "./ingress-paced-runner.js";
 import { cpuPerRequest, matchRate, pacingPlan } from "./ingress-pacing.js";
 import {
@@ -128,5 +129,112 @@ test("an invalid target is rejected by the plan before anything runs", async () 
       deps,
     ).measure(),
   ).rejects.toThrow("KORE_INGRESS_TARGET_RPS");
+  expect(measure).not.toHaveBeenCalled();
+});
+
+const snapshot = (oneMinute: number, count: number | null): HostSnapshot => ({
+  load: { oneMinute, fiveMinute: 2, fifteenMinute: 3 },
+  swapUsedMiB: 100,
+  vmFreeMiB: 5000,
+  agentPanes:
+    count === null
+      ? { count, source: "herdr agent list", missing: "spawn herdr ENOENT" }
+      : { count, source: "herdr agent list" },
+});
+
+function hostReading(
+  order: string[],
+  before: HostSnapshot,
+  after: HostSnapshot,
+) {
+  const read = vi
+    .fn<HostReader["read"]>()
+    .mockImplementationOnce(async () => {
+      order.push("before");
+      return before;
+    })
+    .mockImplementationOnce(async () => {
+      order.push("after");
+      return after;
+    });
+  measure.mockImplementation(async () => {
+    order.push("measure");
+    return BASE;
+  });
+  return { read } satisfies HostReader;
+}
+
+test.each([
+  ["closed loop", undefined],
+  ["paced", 40],
+])(
+  "a %s result records the host before the run and after it",
+  async (_name, target) => {
+    const order: string[] = [];
+    const before = snapshot(1, 4);
+    const after = snapshot(6, 9);
+    const host = hostReading(order, before, after);
+
+    const result = await new RatedMeasurement(
+      metrics,
+      load,
+      target === undefined
+        ? options
+        : { ...options, targetRequestsPerSecond: target },
+      deps,
+      host,
+    ).measure();
+
+    expect(result.host).toEqual({ before, after });
+    expect(order).toEqual(["before", "measure", "after"]);
+  },
+);
+
+test("a missing agent pane source stays named in the recorded host, not zero", async () => {
+  const missing = snapshot(1, null);
+  const host = hostReading([], missing, missing);
+
+  const result = await new RatedMeasurement(
+    metrics,
+    load,
+    options,
+    deps,
+    host,
+  ).measure();
+
+  expect(result.host?.before.agentPanes).toEqual({
+    count: null,
+    source: "herdr agent list",
+    missing: "spawn herdr ENOENT",
+  });
+});
+
+test("carries no host field when no host reader is given", async () => {
+  expect(
+    await new RatedMeasurement(metrics, load, options, deps).measure(),
+  ).not.toHaveProperty("host");
+});
+
+test("a refused or failed measurement is not followed by a second host read", async () => {
+  const order: string[] = [];
+  const host = hostReading(order, snapshot(1, 4), snapshot(6, 9));
+  measure.mockRejectedValue(
+    new Error("host 1-minute load average 12 is not below 10"),
+  );
+
+  await expect(
+    new RatedMeasurement(metrics, load, options, deps, host).measure(),
+  ).rejects.toThrow("host 1-minute load average 12 is not below 10");
+  expect(order).toEqual(["before"]);
+});
+
+test("an unreadable host stops the run before any load is sent", async () => {
+  const read = vi
+    .fn<HostReader["read"]>()
+    .mockRejectedValue(new Error("reading the macOS swap usage failed: boom"));
+
+  await expect(
+    new RatedMeasurement(metrics, load, options, deps, { read }).measure(),
+  ).rejects.toThrow("reading the macOS swap usage failed: boom");
   expect(measure).not.toHaveBeenCalled();
 });

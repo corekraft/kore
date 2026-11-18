@@ -1,6 +1,7 @@
 import {
   absolute,
   alertEmailHelmArgs,
+  alertForwardingHelmArgs,
   dashboardSidecarHelmArgs,
   componentValues,
   componentVersion,
@@ -95,13 +96,14 @@ function trailingArgs(repository: Repository, component: Component): string[] {
   ];
 }
 
-/** The alert email and registered Service arguments a component takes last. */
+/** The alert email, alert forwarding and registered Service arguments a component takes last. */
 function alertAndServiceArgs(
   repository: Repository,
   component: Component,
 ): string[] {
   return [
     ...alertEmailHelmArgs(repository.environment, component.name),
+    ...alertForwardingHelmArgs(repository.environment, component.name),
     ...registeredServiceHelmArgs(
       repository.environment,
       component.name,

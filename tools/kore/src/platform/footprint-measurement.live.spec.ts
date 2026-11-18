@@ -10,10 +10,10 @@ import {
 
 // Docs: infra/plans/2-implementation.md#step-7-bootstrap-registry-image-trust-controllers-and-crd-ownership
 // Live: needs a converged local k3d platform with nothing else driving load.
-// Read-only: `docker stats`, `docker info` and `sysctl`; it changes no
-// resource. Prints one run as JSON; the person recording the Now baseline
-// repeats it and takes the mean of the run medians (footprintBaseline).
-// Run with KORE_RUN_LIVE=1 (`npm run test:live:footprint`).
+// Read-only: `docker stats`, `docker info`, `sysctl` and `kubectl get pods`; it
+// changes no resource. Prints one run as JSON, verdict included; the person
+// recording the Now baseline repeats it and takes the mean of the run medians
+// (footprintBaseline). Run with KORE_RUN_LIVE=1 (`npm run test:live:footprint`).
 
 const live = {
   concurrency: false,
@@ -34,12 +34,14 @@ test(
       {
         ...footprintMeasurementDefaults,
         serverContainer: `${repository.environment.kubeContext}-server-0`,
+        kubeContext: repository.environment.kubeContext,
       },
       {
         sleep: (seconds) =>
           new Promise((resolve) => setTimeout(resolve, seconds * 1000)),
         loadAverage: () => loadavg()[0] ?? Number.POSITIVE_INFINITY,
         now: () => performance.now(),
+        epochMilliseconds: () => Date.now(),
       },
     );
     const result = await measurement.measure();

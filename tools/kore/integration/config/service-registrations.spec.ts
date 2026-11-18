@@ -34,6 +34,11 @@ test("every Service registration is a platform Service the XRD admits", async ()
     assert.equal(service["apiVersion"], "platform.kore.dev/v1alpha1");
     assert.equal(service["kind"], "Service");
     assert.match(metadata.name, /^[a-z0-9]([-a-z0-9]{0,61}[a-z0-9])?$/);
+    assert.match(metadata.name, /^[a-z]/, "the name starts with a letter");
+    assert.ok(
+      metadata.name.length <= 51,
+      "the name is at most 51 characters, so the Argo Application golden-path-<service> label fits 63",
+    );
     assert.ok(!metadata.name.includes("--"));
     assert.ok(!/^(kube|kore)-/.test(metadata.name));
     assert.equal(spec.organization, "platform");
