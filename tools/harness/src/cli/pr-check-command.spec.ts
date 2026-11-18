@@ -125,6 +125,30 @@ describe("harness pr check prints each file-length audit with its file, count an
     );
   });
 
+  it("prints a type-cast audit with its file and line, and exits 0: a cast never fails the check", async () => {
+    const f = arrange({
+      view: {
+        pr: 12,
+        ok: true,
+        failures: [],
+        pending: [],
+        audits: [
+          {
+            item: "type-cast",
+            file: "tools/harness/src/a.spec.ts",
+            line: 7,
+            detail: "as never",
+            fix: "replace the cast with a type guard or a corrected declared type",
+          },
+        ],
+      },
+    });
+    expect(await prCheckRun(f.context)).toBe(0);
+    expect(f.stdout).toHaveBeenCalledWith(
+      "PR #12: ready for the judge\naudit: type-cast tools/harness/src/a.spec.ts:7: as never; fix: replace the cast with a type guard or a corrected declared type; reported, not sent back\n",
+    );
+  });
+
   it("prints the audit beside a failure the writer owns, and still names the failure", async () => {
     const f = arrange({
       view: { ...FAILING(), audits: [AUDIT] },

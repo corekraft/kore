@@ -12,6 +12,8 @@ export const LENGTH_LIMIT = 300;
 export interface AuditFinding {
   item: string;
   file: string;
+  /** The line of the file the finding is on, when the item places one (a type cast does; a file length does not). */
+  line?: number;
   detail: string;
   fix: string;
 }
