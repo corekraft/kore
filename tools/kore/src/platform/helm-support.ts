@@ -4,8 +4,10 @@ import { vi } from "vitest";
 import {
   absolute,
   alertEmailHelmArgs,
+  alertForwardingHelmArgs,
   componentValues,
   componentVersion,
+  dashboardSidecarHelmArgs,
   expandVersions,
   featureHelmArgs,
   gatewayClassName,
@@ -19,8 +21,10 @@ export function configAnswers(): void {
     (repo, path) => `${repo.root}/${path}`,
   );
   vi.mocked(alertEmailHelmArgs).mockReturnValue([]);
+  vi.mocked(alertForwardingHelmArgs).mockReturnValue([]);
   vi.mocked(componentValues).mockReturnValue([]);
   vi.mocked(componentVersion).mockReturnValue("1.2.3");
+  vi.mocked(dashboardSidecarHelmArgs).mockReturnValue([]);
   vi.mocked(expandVersions).mockImplementation((_repo, value) => value);
   vi.mocked(featureHelmArgs).mockReturnValue([]);
   vi.mocked(gatewayClassName).mockReturnValue("kore-gateway");

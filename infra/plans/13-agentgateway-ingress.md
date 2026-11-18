@@ -194,6 +194,11 @@ comparison, so change it only with a new baseline.
   is converged (the code does not check), and nothing else drives the Gateway.
   The load average is recorded at every sample, and any rise above 10 during a
   run is reported with the results.
+- **Host conditions.** The result's `host` holds, before the settle and after
+  the load, the 1, 5 and 15 minute load average, swap used, the Docker VM's
+  free memory (`MemAvailable` read in the k3d server container) and the agent
+  pane count, read from `herdr agent list`. A herdr that cannot be read is
+  recorded by name with a null count, never as zero panes.
 - **Baseline.** The mean of the two baseline runs' medians, per metric. The
   spread of a metric is the difference between the two runs' medians as a
   percentage of the baseline.

@@ -1,9 +1,12 @@
 {{- /*
-Default alerts for every registered Service, as one Prometheus rule file. They
-are notify-only (ADR 0114): the thresholds are not measured yet, so each rule
-carries notify: "false" and shows in Grafana only. The platform alert
-destination is a parked owner question; set, it is carried as a contact_point
-label and nothing routes on it yet.
+Default alerts for every registered Service, as one Prometheus rule file. This
+chart is the only owner of these rules (ADR 0128). They are notify-only (ADR
+0114): the thresholds are not measured yet, so each rule carries
+enforcement: notify-only, which means the alert only tells an operator and never
+blocks, rolls back or scales anything. The label does not decide delivery: the
+metrics store forwards every fired alert to Grafana, and Grafana's root policy
+emails it to the platform contact point when an address is set at run time.
+Set, the contact point name is carried as a contact_point label for the reader.
 */}}
 apiVersion: v1
 kind: ConfigMap
@@ -26,7 +29,7 @@ data:
             labels:
               severity: critical
               service: {{ . }}
-              notify: "false"
+              enforcement: notify-only
               {{- with $.Values.alerts }}{{ with .destination }}
               contact_point: {{ . }}
               {{- end }}{{ end }}
@@ -38,7 +41,7 @@ data:
             labels:
               severity: warning
               service: {{ . }}
-              notify: "false"
+              enforcement: notify-only
               {{- with $.Values.alerts }}{{ with .destination }}
               contact_point: {{ . }}
               {{- end }}{{ end }}
@@ -50,7 +53,7 @@ data:
             labels:
               severity: warning
               service: {{ . }}
-              notify: "false"
+              enforcement: notify-only
               {{- with $.Values.alerts }}{{ with .destination }}
               contact_point: {{ . }}
               {{- end }}{{ end }}

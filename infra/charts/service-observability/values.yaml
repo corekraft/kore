@@ -6,9 +6,9 @@ environment: local
 # manifest each). One dashboard and one alert group are rendered for each.
 services: []
 
-# alerts.destination is the platform alert destination, a parked owner question
-# (plan 15). It is unset on purpose: the rules are notify-only and show only in
-# Grafana. Set, it is carried as a contact_point label for the routing the answer
-# defines; this chart routes nothing.
+# alerts.destination is the name of the platform contact point, set by kore only
+# when platform-portal is on and an alert address is supplied at run time. It is
+# carried as a contact_point label; this chart routes nothing, and the address
+# itself is never a chart value. Unset, the rules show only in Grafana.
 # alerts:
 #   destination: <contact point name>

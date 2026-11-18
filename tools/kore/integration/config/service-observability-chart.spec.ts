@@ -106,7 +106,8 @@ test("each registered Service gets default alerts that pass promtool and carry n
   assert.match(rules, /alert: ServiceHighErrorRatio/);
   assert.match(rules, /alert: ServiceRestartLoop/);
   assert.match(rules, /service: shop/);
-  assert.match(rules, /notify: "false"/);
+  assert.match(rules, /enforcement: notify-only/);
+  assert.equal(rules.includes("notify:"), false);
   assert.equal(rules.includes("contact_point"), false);
   const dir = await mkdtemp(join(tmpdir(), "service-rules-"));
   const file = join(dir, "services.yaml");
@@ -115,7 +116,7 @@ test("each registered Service gets default alerts that pass promtool and carry n
   assert.match(stdout, /3 rules found/);
 });
 
-test("a configured alert destination is carried as a label and nothing else, since routing is parked", async () => {
+test("a configured alert destination is carried as a label, since Grafana's one policy routes every alert to the contact point", async () => {
   const rules = rulesOf(
     await render('services=["shop"]', 'alerts={"destination":"ops-team"}'),
   );

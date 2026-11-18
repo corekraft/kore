@@ -194,7 +194,8 @@ repository root; `mise run kb-check` keeps this list complete.
 - [`docs/decisions/0125-writer-cost-is-read-per-merged-change-by-the-first-launch-s-tier.md`](decisions/0125-writer-cost-is-read-per-merged-change-by-the-first-launch-s-tier.md) — Refines ADR 0119 and the #825 spec: writer cost is read per merged change by the first writer launch's tier, priced per request from a dated table with the 100K step; the randomized window, flag activation and default writer tier stay the owner's.
 - [`docs/decisions/0126-a-writer-s-idea-is-read-from-its-pull-request-and-recorded-on-pr-linked.md`](decisions/0126-a-writer-s-idea-is-read-from-its-pull-request-and-recorded-on-pr-linked.md) — Proposed, builds on ADR 0125: `pr open` records the idea its pull request serves on `pr.linked` under the existing `idea` field, with `none` as the explicit value; no spawn-time stamp and no read-time ticket walk is added.
 - [`docs/decisions/0127-an-owner-waiver-recorded-in-an-outcome-counts-as-proof-for-a-flag.md`](decisions/0127-an-owner-waiver-recorded-in-an-outcome-counts-as-proof-for-a-flag.md) — Refines ADR 0077: an outcome may carry source owner-waiver, backed by a GitHub comment URL, as the proof for a flag; the audit names a waiver apart from a live run, and no-behaviour-change still needs a live run.
-
+- [`docs/decisions/0128-forward-fired-service-alerts-from-the-metrics-store-to-grafana-s-alert-manager.md`](decisions/0128-forward-fired-service-alerts-from-the-metrics-store-to-grafana-s-alert-manager.md) — Under platform-portal with an address set, the metrics store loads the Service rule file and forwards fired alerts to Grafana's own alert manager, which keeps the one contact point; the notify-only label is renamed enforcement: notify-only because it never gated delivery.
+- [`docs/decisions/0129-the-judge-precheck-treats-the-opt-in-footprint-and-ingress-measurement-helpers-as-developer-tooling.md`](decisions/0129-the-judge-precheck-treats-the-opt-in-footprint-and-ingress-measurement-helpers-as-developer-tooling.md) — Six named measurement helpers under tools/kore/src/platform, imported only by specs or by each other, count as developer tooling in the precheck; the judge still reads the diff.
 ## Proposed Decisions
 
 None of these is implemented. They are direction for the vision, not binding
@@ -270,6 +271,7 @@ decisions; read one only when planning that area, and expect it to change.
 - [`docs/operations/policy-changes.md`](operations/policy-changes.md) — policy review, audit-to-enforce promotion, rollback, and emergency exemptions. Read when changing or promoting a policy.
 - [`docs/operations/resource-budgets.md`](operations/resource-budgets.md) — profile sizing and the `capacity` status warning. Read when the platform runs short of CPU or memory.
 - [`docs/operations/backups.md`](operations/backups.md) — the export backup target, the RPO objective, and the audit-only `backups` status row. Read when exporting, restoring, or when `backups` is degraded.
+- [`docs/operations/agentgateway-listener-probe.md`](operations/agentgateway-listener-probe.md) — the opt-in probe for a passthrough and an HTTPS listener on one port, and listener sets, and how to read its result. Read before running it or deciding the registry and database routes.
 
 ## Reference
 
