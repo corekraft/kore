@@ -108,6 +108,9 @@ function cluster(initial?: Gate) {
           code: 0,
         };
       }
+      if (args.includes("clusterrole")) {
+        return { stdout: "", stderr: "", code: 0 };
+      }
       const stdout = box.gate
         ? JSON.stringify({ spec: { parameters: box.gate } })
         : "";
