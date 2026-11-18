@@ -15,6 +15,10 @@ const file = (
   previousPath,
   deleted: false,
   added: Array.from({ length: added }, () => "x"),
+  addedLines: Array.from({ length: added }, (_, i) => ({
+    line: i + 1,
+    text: "x",
+  })),
   removed,
   netRemoved: 0,
   after: [],

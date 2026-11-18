@@ -128,6 +128,8 @@ export interface ChangedFile {
   previousPath: string;
   deleted: boolean;
   added: string[];
+  /** Each added line with its line number in the new file, in diff order. */
+  addedLines: { line: number; text: string }[];
   removed: number;
   /** Lines removed with no line added in their place, summed over the hunks. */
   netRemoved: number;
@@ -142,19 +144,33 @@ export interface ChangedFile {
   sides?: { before: string | undefined; after: string | undefined };
 }
 
+/** The new-file line a hunk header (`@@ -a,b +c,d @@`) starts at; a header without one fails the parse. */
+function hunkStart(header: string): number {
+  const start = /^@@ -\d+(?:,\d+)? \+(\d+)(?:,\d+)? @@/.exec(header)?.[1];
+  if (start === undefined) {
+    throw unreadable(header);
+  }
+  return Number(start);
+}
+
 /** Counts one hunk's added and removed lines and records each in the file's trail; ending it books the lines removed with no replacement. */
 class Hunk {
   private added = 0;
   private removed = 0;
   private starting = false;
+  /** The new-file line number the next added or context line takes. */
+  private line = 0;
 
-  begin(): void {
+  begin(newStart: number): void {
     this.starting = true;
+    this.line = newStart;
   }
 
   plus(file: ChangedFile, text: string): void {
     this.added += 1;
     file.added.push(text);
+    file.addedLines.push({ line: this.line, text });
+    this.line += 1;
     file.after.push({ added: true, text });
     this.record(file, "added", text);
   }
@@ -166,6 +182,7 @@ class Hunk {
   }
 
   context(file: ChangedFile, text: string): void {
+    this.line += 1;
     file.after.push({ added: false, text });
     this.record(file, "context", text);
   }
@@ -200,6 +217,7 @@ export function parseDiff(text: string): ChangedFile[] {
         previousPath,
         deleted: false,
         added: [],
+        addedLines: [],
         removed: 0,
         netRemoved: 0,
         after: [],
@@ -212,7 +230,7 @@ export function parseDiff(text: string): ChangedFile[] {
     } else if (line.startsWith("@@")) {
       hunk.end(current);
       inHunk = true;
-      hunk.begin();
+      hunk.begin(hunkStart(line));
     } else if (!inHunk && line.startsWith("deleted file mode")) {
       current.deleted = true;
     } else if (inHunk && line.startsWith("+")) {

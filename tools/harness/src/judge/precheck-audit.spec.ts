@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import type { CommandContext, Runner } from "../runtime/index.js";
 import {
+  castAudit,
   gatherChecks,
   lengthAudit,
   parsePrView,
@@ -57,6 +58,13 @@ const FINDING: AuditFinding = {
   detail: "301 non-blank, non-comment lines; the limit is 300",
   fix: "split it into smaller modules",
 };
+const CAST: AuditFinding = {
+  item: "type-cast",
+  file: "tools/harness/src/a.spec.ts",
+  line: 12,
+  detail: "as never",
+  fix: "replace the cast with a type guard or a corrected declared type",
+};
 
 const runner = { run: vi.fn<Runner["run"]>() };
 const context = (): CommandContext => ({
@@ -76,6 +84,7 @@ function ready(): void {
   vi.mocked(hintsFor).mockReturnValue(HINTS);
   vi.mocked(gatherChecks).mockResolvedValue(PASSING);
   vi.mocked(lengthAudit).mockResolvedValue([]);
+  vi.mocked(castAudit).mockReturnValue([]);
   vi.mocked(assess).mockReturnValue({
     patternMatches: true,
     clusterFacing: false,
@@ -88,6 +97,25 @@ describe("precheck carries the audit findings the changed files make", () => {
     ready();
     vi.mocked(lengthAudit).mockResolvedValue([FINDING]);
     expect(await run()).toMatchObject({ ok: true, audits: [FINDING] });
+  });
+
+  it("adds a type-cast finding to the audits, and the PR stays ready: a cast never fails the check", async () => {
+    ready();
+    vi.mocked(castAudit).mockReturnValue([CAST]);
+    expect(await run()).toMatchObject({ ok: true, audits: [CAST] });
+  });
+
+  it("lists the file-length findings before the type-cast findings, each as its item made them", async () => {
+    ready();
+    vi.mocked(lengthAudit).mockResolvedValue([FINDING]);
+    vi.mocked(castAudit).mockReturnValue([CAST]);
+    expect(await run()).toMatchObject({ audits: [FINDING, CAST] });
+  });
+
+  it("reads the casts of the PR's own changed files, from the diff alone", async () => {
+    ready();
+    await run();
+    expect(castAudit).toHaveBeenCalledWith(FILES);
   });
 
   it("reads the lengths of the PR's own files at its head commit, through the repository's gh api", async () => {

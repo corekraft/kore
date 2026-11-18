@@ -10,6 +10,7 @@ const changed = (path: string, previousPath = path): ChangedFile => ({
   previousPath,
   deleted: false,
   added: [],
+  addedLines: [],
   removed: 0,
   netRemoved: 0,
   after: [],
