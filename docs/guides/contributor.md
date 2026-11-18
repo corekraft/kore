@@ -856,14 +856,18 @@ start no pane, so a bound never stops them.
 
 When an idea reaches an end that needs a person, the tick sends the attended pane one
 line, once per idea and state: `sender: tick orchestrator-tick (orchestrate tick): Idea <n>
-needs a person: <reason>.`. The ends are `blocked`, `needs-judgment` and `needs-info`, the
-constant `NEEDS_A_PERSON`, a subset of the ends `orchestrate run` stops at: `awaiting-judge`
-is a judge pane's wait, not a person. The attended pane is the pane the idea's latest session
+needs a person: <reason>.`. The step ends are `blocked`, `needs-judgment` and `needs-info`, a
+subset of the ends `orchestrate run` stops at: `awaiting-judge` is a judge pane's wait, not a
+person. They and `reserved` (below) are the states of the constant `NEEDS_A_PERSON`. The attended pane is the pane the idea's latest session
 was spawned from, read from the session registry. The line goes through the signed send path,
 and the send is recorded as a `session.send` event naming the idea and the state, so a restart
-or a later pass sends nothing twice. An idea with no recorded pane gets no line. Reserved
-questions (ADR 0120) are not covered yet: the tick does not read them, so a follow-up ticket
-covers them.
+or a later pass sends nothing twice. An idea with no recorded pane gets no line.
+
+A reserved question (ADR 0120, #1058) is the fourth state, `reserved`, and it is read from the
+ledger, never from the issue's labels. The tick checks it on every step of a queued idea: an
+owner-routed `decision.routed` event on the idea that no `owner.replied` on its issue has
+answered, and that no `reserved` `session.send` has come after, gets one such line on that pass.
+The `needs-info` label is not read, since a judgment-flow stop writes no `decision.routed`.
 
 Each checklist item of the precheck (`ci`, `scan`, `coverage`,
 `principles-review`, `expand-step`, `pattern-match`, `guardrail-activation`) reads its mode from the
