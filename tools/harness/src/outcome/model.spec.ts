@@ -28,6 +28,7 @@ describe("the outcome vocabulary", () => {
       "journal",
       "eval-history",
       "comparison",
+      "owner-waiver",
     ]);
     expect(RESULTS).toEqual(["confirmed", "refuted", "inconclusive"]);
   });
@@ -97,7 +98,7 @@ describe("parseOutcome refusals of kind, source and result", () => {
   it("rejects an unknown source with the allowed values", () => {
     expect(() => parseOutcome({ ...valid, source: "vibes" })).toThrow(
       new IdeaError(
-        '--source "vibes" is not recognised; use one of live-run, journal, eval-history, comparison.',
+        '--source "vibes" is not recognised; use one of live-run, journal, eval-history, comparison, owner-waiver.',
       ),
     );
   });
@@ -204,15 +205,56 @@ describe("parseOutcome refusals of flag proof", () => {
   it("rejects flag proof that is not a live-run verification, naming the kind and source it has", () => {
     expect(() => parseOutcome({ ...live, kind: "experiment" })).toThrow(
       new IdeaError(
-        "--flag proves a flag only on --kind verification with --source live-run (got experiment from live-run); a different outcome cannot activate it.",
+        "--flag proves a flag only on --kind verification with --source live-run or owner-waiver (got experiment from live-run); a different outcome cannot activate it.",
       ),
     );
     expect(() => parseOutcome({ ...live, source: "journal" })).toThrow(
       new IdeaError(
-        "--flag proves a flag only on --kind verification with --source live-run (got verification from journal); a different outcome cannot activate it.",
+        "--flag proves a flag only on --kind verification with --source live-run or owner-waiver (got verification from journal); a different outcome cannot activate it.",
       ),
     );
   });
+});
+
+describe("parseOutcome owner waiver", () => {
+  const COMMENT =
+    "https://github.com/corekraft/kore/issues/225#issuecomment-6984120814";
+  const waiver = {
+    ...valid,
+    kind: "verification",
+    source: "owner-waiver",
+    evidence: COMMENT,
+  };
+
+  it("accepts a verification waiver whose evidence is a GitHub comment, and carries the flag", () => {
+    const flag = "automatic-revert";
+    const found = parseOutcome({ ...waiver, flag, environment: "local" });
+    expect(found.flag).toEqual({ name: flag, environment: "local" });
+    expect(found.evidence).toBe(COMMENT);
+  });
+
+  it("refuses a waiver on an experiment, naming the kind it has", () => {
+    expect(() => parseOutcome({ ...waiver, kind: "experiment" })).toThrow(
+      new IdeaError(
+        "--source owner-waiver waives a live verification only; use --kind verification (got experiment).",
+      ),
+    );
+  });
+
+  it.each([
+    "kore local up run 2026-01-01",
+    "https://github.com/corekraft/kore/issues/225",
+    `see ${COMMENT}`,
+  ])(
+    "refuses waiver evidence that is not a GitHub comment URL: %s",
+    (evidence) => {
+      expect(() => parseOutcome({ ...waiver, evidence })).toThrow(
+        new IdeaError(
+          `--evidence "${evidence}" must be the GitHub comment URL where the owner waived the live run (https://github.com/<owner>/<repo>/issues/<n>#issuecomment-<id>).`,
+        ),
+      );
+    },
+  );
 });
 
 describe("renderSection", () => {
