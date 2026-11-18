@@ -3,5 +3,15 @@
     {
       "tag": "12.3.1",
       "sha": "2175aaa91c96733d86d31cf270d5310b278654b03f5718c59de12a865380a31f"
+    },
+  "sidecar":
+    {
+      "image":
+        {
+          "registry": "quay.io",
+          "repository": "kiwigrid/k8s-sidecar",
+          "tag": "2.5.0",
+          "sha": "a6b3f707f883108376514489a94d6629109a327b2978e1d826cd104c4ca436df"
+        }
     }
 }
