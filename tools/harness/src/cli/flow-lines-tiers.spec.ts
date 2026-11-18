@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import type { FlowReport } from "../flow/index.js";
+import { emptyReport } from "./flow-commands-support.js";
 import { reviewRoundReportLines } from "./flow-lines-review-rounds.js";
 import { sendBackTierReportLines } from "./flow-lines-send-back-split.js";
 import { writerTierReportLines } from "./flow-lines-tiers.js";
@@ -7,7 +7,7 @@ import { writerTierReportLines } from "./flow-lines-tiers.js";
 vi.mock("./flow-lines-review-rounds.js");
 vi.mock("./flow-lines-send-back-split.js");
 
-const REPORT = {} as FlowReport;
+const REPORT = emptyReport();
 
 beforeEach(() => {
   vi.resetAllMocks();

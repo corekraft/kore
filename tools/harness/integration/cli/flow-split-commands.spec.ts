@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { run } from "../../src/cli/index.js";
+import type { FlowReport } from "../../src/flow/index.js";
 import {
   LEDGER_FILE as DEFAULT,
   ledgerHarness as harness,
@@ -47,24 +48,19 @@ describe("flow report --split-at (#1047)", () => {
     const { h, argv } = seeded(["--json", "--split-at", SPLIT]);
 
     expect(await run(argv, h.deps)).toBe(0);
-    const report = JSON.parse(h.out()) as Record<string, unknown>;
-    const rounds = report["reviewRounds"] as Record<string, unknown>;
+    const report: FlowReport = JSON.parse(h.out());
+    const rounds = report.reviewRounds;
     expect(Object.keys(rounds)).toEqual(REVIEW_ROUNDS_KEYS);
-    expect(Object.keys(rounds["unlinked"] as object)).toEqual(
-      REVIEW_ROUNDS_UNLINKED_KEYS,
-    );
-    const tiers = rounds["tiers"] as Record<string, object>;
-    for (const row of Object.values(tiers)) {
+    expect(Object.keys(rounds.unlinked)).toEqual(REVIEW_ROUNDS_UNLINKED_KEYS);
+    for (const row of Object.values(rounds.tiers)) {
       expect(Object.keys(row)).toEqual(REVIEW_ROUNDS_TIER_KEYS);
     }
-    const split = report["reviewRoundsSplit"] as Record<string, unknown>;
-    expect(Object.keys(split)).toEqual(SPLIT_SIDE_KEYS);
-    expect(split["at"]).toBe("2026-01-02T00:00:15.000Z");
-    for (const side of [split["before"], split["after"]]) {
-      expect(Object.keys(side as object)).toEqual(REVIEW_ROUNDS_KEYS);
-      expect(Object.keys((side as { tiers: object }).tiers)).toEqual(
-        Object.keys(tiers),
-      );
+    const split = report.reviewRoundsSplit;
+    expect(Object.keys(split ?? {})).toEqual(SPLIT_SIDE_KEYS);
+    expect(split?.at).toBe("2026-01-02T00:00:15.000Z");
+    for (const side of [split?.before, split?.after]) {
+      expect(Object.keys(side ?? {})).toEqual(REVIEW_ROUNDS_KEYS);
+      expect(Object.keys(side?.tiers ?? {})).toEqual(Object.keys(rounds.tiers));
     }
   });
 
