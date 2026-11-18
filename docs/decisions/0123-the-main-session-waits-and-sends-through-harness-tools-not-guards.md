@@ -1,8 +1,8 @@
 ---
-status: proposed
-summary: Proposed, refines ADR 0119 and ADR 0120: ideas 0019 to 0021 add no guard rule; the main session waits with one background harness wait, session wait keeps the pane result summary while notify and the ledger stay outcome-only, a wrapped message is confirmed as delivered, each idea is measured from transcripts on its own flag, and whether the digest counts the main session's bare herdr sends is parked for the owner.
+status: accepted
+summary: Refines ADR 0119 and ADR 0120: ideas 0019 to 0021 add no guard rule; the main session waits with one background harness wait, session wait keeps the pane result summary while notify and the ledger stay outcome-only, a wrapped message is confirmed as delivered, each idea is measured from transcripts on its own flag, and whether the digest counts the main session's bare herdr sends is parked for the owner.
 date: 2026-11-16
-last-verified: 2026-11-16
+last-verified: 2026-11-18
 ---
 
 # ADR 0123: The main session waits and sends through harness tools, not guards
@@ -13,10 +13,10 @@ Refines: [ADR 0119](0119-each-harness-idea-is-measured-on-a-primary-metric-only-
 
 ## Status
 
-Proposed. Its questions were answered by delegation on 2026-11-16, by an
+Accepted on 2026-11-18 by the owner's own untagged message in the main session ("Approving any ADRs that you need"). Its questions were answered by delegation on 2026-11-16, by an
 answering session on the owner's behalf; that reaches this record through a
-tagged agent message, which is not approval (ADR 0120), so it becomes
-accepted on the owner's own untagged comment. It contradicts no accepted
+tagged agent message, which is not approval (ADR 0120), so its acceptance needed the owner's own untagged
+comment, which came on 2026-11-18. It contradicts no accepted
 sentence of ADR 0091, 0101, 0119, 0120 or 0121.
 
 ## Context
