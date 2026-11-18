@@ -35,9 +35,9 @@ The checks must merge before the writer-tier window (#998) opens. Each check's
 merge date is written here when it merges, so a change in the rate can be read
 around it (#998 story 22).
 
-- File length by the reviewer's count: not merged yet.
-- Type casts in added lines: not merged yet.
-- Closing keyword where Refs is required: not merged yet.
+- File length by the reviewer's count: merged 2026-11-18 (#1061, 00:00Z).
+- Type casts in added lines: merged 2026-11-18 (#1072, 00:24Z).
+- Closing keyword where Refs is required: merged 2026-11-18 (#1075, 00:40Z).
 
 ## Baseline
 
