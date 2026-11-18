@@ -78,3 +78,32 @@ describe("attribute", () => {
     expect([...attribute(events).keys()]).toEqual(events.map((e) => e.id));
   });
 });
+
+describe("attribute reads the idea a pull request's link names", () => {
+  it("gives a pull request's link that names none no idea, so the writer's events stay unattributed and none is never an idea", () => {
+    const link = at(0, "pr.linked", {
+      number: 9,
+      session: "s1",
+      agent: "s1",
+      idea: "none",
+    });
+    const writing = at(5, "token.usage", { session: "s1", tokens: 1 });
+    const ideas = attribute([link, writing]);
+    expect(ideas.get(link.id)).toBeUndefined();
+    expect(ideas.get(writing.id)).toBeUndefined();
+    expect([...ideas.values()]).not.toContain("none");
+  });
+
+  it("gives the writer's events the idea its pull request's link names, when that idea is real", () => {
+    const link = at(0, "pr.linked", {
+      number: 9,
+      session: "s1",
+      agent: "s1",
+      idea: "0030",
+    });
+    const writing = at(5, "token.usage", { session: "s1", tokens: 1 });
+    const ideas = attribute([link, writing]);
+    expect(ideas.get(link.id)).toBe("0030");
+    expect(ideas.get(writing.id)).toBe("0030");
+  });
+});

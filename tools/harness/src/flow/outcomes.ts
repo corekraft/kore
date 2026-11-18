@@ -1,4 +1,5 @@
 import type { LedgerEvent } from "../ledger/index.js";
+import { namedIdea } from "./attribution.js";
 import { time } from "./github-waits.js";
 import { inWindow, type Span } from "./scope.js";
 
@@ -28,7 +29,7 @@ function ideaNumbers(events: LedgerEvent[]): Set<number> {
     if (
       e.number !== undefined &&
       (e.kind === "issue.opened" ||
-        (e.kind.startsWith("pr.") && e.idea !== undefined))
+        (e.kind.startsWith("pr.") && namedIdea(e) !== undefined))
     ) {
       numbers.add(e.number);
     }
