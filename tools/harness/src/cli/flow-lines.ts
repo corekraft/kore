@@ -70,6 +70,7 @@ export const reworkLines = (rework: FlowReport["rework"]) =>
   );
 
 export { sendBackCategoryLines } from "./flow-lines-send-back.js";
+export { costWaitingLines } from "./flow-lines-cost-waiting.js";
 
 /**
  * The owner questions per merged change, with the trailing average (#859). With

@@ -154,6 +154,8 @@ describe("mergedChangeFigures: the figures over one window", () => {
       sendBackTiers: NO_SEND_BACK_TIERS,
       mainSession: MAIN_SESSION,
       judgmentContexts: JUDGMENT_CONTEXTS,
+      // The cost beside waiting figures are pinned in cost-waiting.spec.ts; here only their presence.
+      costWaiting: expect.any(Object),
     });
   });
 

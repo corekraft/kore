@@ -3,7 +3,11 @@
 // window; the per-merged ones have a trailing average over the days before it.
 
 import type { LedgerEvent } from "../ledger/index.js";
-import type { CostOptions } from "./cost.js";
+import {
+  costWaitingFor,
+  type CostWaiting,
+  type CostWaitingFor,
+} from "./cost-waiting.js";
 import {
   mergedChangeLeadTime,
   type LeadTimePerMergedChange,
@@ -60,19 +64,18 @@ export interface MergedChangeFigures {
   compactions: CompactionCount;
   /** Judgment panes in the window, and the ones whose tokens went above the 60k context limit (ADR 0121, #876). */
   judgmentContexts: JudgmentContexts;
+  /** Token cost beside waiting time per agent role, per merged pull request and per idea (#1019). */
+  costWaiting: CostWaiting;
 }
 
 /** The per-merged-change figures over the window, read against the cost settings. */
 export function mergedChangeFigures(
   events: LedgerEvent[],
   window: Span,
-  options: {
-    asOf: Date;
-    cost?: Partial<CostOptions>;
-    windowEffort?: string;
-  },
+  options: { asOf: Date; windowEffort?: string } & CostWaitingFor,
 ): MergedChangeFigures {
   return {
+    costWaiting: costWaitingFor(events, window, options),
     tokensPerMergedChange: mergedChangeTokens(events, window, options),
     sendBacksPerMergedChange: mergedChangeSendBacks(events, window, options),
     leadTimePerMergedChange: mergedChangeLeadTime(events, window, options),

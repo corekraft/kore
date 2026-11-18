@@ -535,6 +535,20 @@ the main session; re-check that assumption before reading the tiers against it.
 each has `status` and needs `cost.minMergedChanges` merged changes, else it is
 `insufficient merged changes`, never zero.
 
+The headline token cost beside waiting time (#1019) is `costWaiting`, read at the
+published prices against the cost settings and the weekly token ceiling in
+`.claude/harness.json` (`weeklyTokenCeiling`, read `not set` when the config names
+none; the owner sets its value). It has three levels, each insufficient, never zero,
+below `cost.minMergedChanges`: `agents` (per role: writer, reviewer, judge, verifier,
+reader, judgment, advisor, the main session as `orchestrate`, and any other named
+session as `other`, each with its sessions' dollars, tokens, active and waiting seconds
+as median and p90, and the plan-weighted share of the ceiling); `mergedChanges` (per
+merged pull request: all-in dollars and tokens by the same attribution, seconds from
+the first writer launch to merge, and seconds from opening to merge); and `ideas` (the
+dollars and tokens of the sessions stamped with each idea to the window's end, its lead
+time and outcome). Writing that carries no idea is not in `ideas`; #1093 adds it. The
+report names no winner and no verdict. Code: `tools/harness/src/flow/cost-waiting*.ts`.
+
 The all-in dollars per merged change (#1008) are `perMergedChangeDollars` on each
 tier, priced per request from `token.split` readings (`tools/harness/src/flow/writer-dollars.ts`):
 each model's counts at the low step and the high step (over 100K, the whole request
