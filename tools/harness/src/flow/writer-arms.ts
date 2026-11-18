@@ -6,12 +6,23 @@
 //   Haiku minus Sonnet, with a seeded percentile bootstrap interval (bootstrap-interval.ts);
 // - each arm's guards: blocked share, send-backs and owner minutes (writer-arm-guards.ts);
 // - each arm's effort mix, from the launch each change joins to.
+// Only randomized launches (the window's drawn Sonnet and control Haiku) at the window effort are
+// in the arms (#1069, spec #1065). Every other merged change whose first launch is left out is
+// counted by a fixed reason (randomized-launches.ts), never entering a figure. Effort is never a
+// stratum. The window effort is the explicit setting, else the most common randomized effort.
 // A row below the minimum merged changes in either arm is insufficient, never zero. The code prints
 // no winner, margin or verdict: the deciding rule is the owner's, recorded on the idea.
 // ADR 0126: a pr.linked idea of none is not an idea, so this join reads the launch's idea only.
 
 import type { LedgerEvent } from "../ledger/index.js";
 import { bootstrapDifferenceInterval } from "./bootstrap-interval.js";
+import {
+  exclusionOf,
+  windowEffortOf,
+  type Exclusion,
+  type LaunchRecord,
+  type WindowEffort,
+} from "./randomized-launches.js";
 import type { Span } from "./scope.js";
 import { armGuards, type ArmGuards } from "./writer-arm-guards.js";
 import { launchOfLinked, linkedAgents, pricedLaunches } from "./writer-join.js";
@@ -83,6 +94,10 @@ export interface WriterArms {
   confidence: number;
   /** The fewest merged changes each arm needs in a row before it is read. */
   minMergedChanges: number;
+  /** The effort both arms are read at, and whether it was set or defaulted (#1069). */
+  windowEffort: WindowEffort;
+  /** Merged changes whose first launch is left out of the arms, by fixed reason (#1069). */
+  excluded: Record<Exclusion, number>;
   /** Arm merged changes whose writer carried no label at launch: in the overall figure only. */
   unlabelled: number;
   overall: ArmRow;
@@ -95,6 +110,8 @@ export interface WriterArmsOptions {
   seed?: number;
   resamples?: number;
   confidence?: number;
+  /** The explicit window effort; the most common randomized effort when absent. */
+  windowEffort?: string;
 }
 
 /** A merged change on one of the arms, with what the figures are read from. */
@@ -107,13 +124,15 @@ interface ArmChange {
   unpriced: string[];
   effort: string;
   labels: string[];
+  /** Whether the launch it joins to was randomized, and at what effort it recorded (#1069). */
+  launch: LaunchRecord;
 }
 
 /** What every row is read against: the events, the span, the price table and the settings. */
 interface Context {
   events: LedgerEvent[];
   span: Span;
-  settings: Required<WriterArmsOptions>;
+  settings: Required<Omit<WriterArmsOptions, "windowEffort">>;
 }
 
 const round = (value: number) => Math.round(value * 10_000) / 10_000;
@@ -139,7 +158,7 @@ function labelsBySession(events: LedgerEvent[]): Map<string, string[]> {
   return labels;
 }
 
-/** The merged changes on either arm, with their totals, efforts and labels. */
+/** The merged changes that join to a launch, on any tier, with their totals, efforts, labels and launch record. */
 function armChangesIn(
   events: LedgerEvent[],
   span: Span,
@@ -160,10 +179,7 @@ function armChangesIn(
   const labels = labelsBySession(events);
   return dollars.changes.flatMap((c: MergedChangeDollars): ArmChange[] => {
     const agent = linked.get(c.number);
-    if (
-      agent === undefined ||
-      (c.tier !== ARM_TIERS.haiku && c.tier !== ARM_TIERS.sonnet)
-    ) {
+    if (agent === undefined || c.tier === undefined) {
       return [];
     }
     const launch = launchOfLinked(launches, agent);
@@ -179,6 +195,7 @@ function armChangesIn(
         unpriced: unique([...c.unpriced, ...sharedUnpriced]),
         effort: launch.effort ?? UNKNOWN_EFFORT,
         labels: unique(labels.get(agent) ?? []),
+        launch,
       },
     ];
   });
@@ -260,8 +277,9 @@ function rowOf(
 
 /**
  * The Haiku and Sonnet arms over the span: the overall figure, and one row per label an arm's
- * merged change carried at launch. A change on another tier is in neither arm; a change with no
- * label counts in the overall figure only, and is counted in `unlabelled`.
+ * merged change carried at launch. Only randomized launches at the window effort are read; any
+ * other launch, on any tier, is counted in `excluded` by its reason and enters no figure. A change
+ * with no label counts in the overall figure only, and is counted in `unlabelled`.
  */
 export function writerArmsIn(
   events: LedgerEvent[],
@@ -269,14 +287,34 @@ export function writerArmsIn(
   prices: PriceTable,
   options: WriterArmsOptions,
 ): WriterArms {
-  const settings: Required<WriterArmsOptions> = {
+  const { windowEffort: given, ...rest } = options;
+  const settings = {
     seed: ARM_SEED,
     resamples: ARM_RESAMPLES,
     confidence: ARM_CONFIDENCE,
-    ...options,
+    ...rest,
   };
   const context: Context = { events, span, settings };
-  const changes = armChangesIn(events, span, prices);
+  const joined = armChangesIn(events, span, prices);
+  const windowEffort = windowEffortOf(
+    joined.map((c) => c.launch),
+    given,
+  );
+  const excluded: Record<Exclusion, number> = {
+    differentEffort: 0,
+    missingEffort: 0,
+    notRandomized: 0,
+  };
+  const changes = joined.filter((c) => {
+    const why = exclusionOf(c.launch, windowEffort.effort);
+    if (why !== undefined) {
+      excluded[why] += 1;
+    }
+    return (
+      why === undefined &&
+      (c.tier === ARM_TIERS.haiku || c.tier === ARM_TIERS.sonnet)
+    );
+  });
   const onArm = (tier: string) => changes.filter((c) => c.tier === tier);
   const haiku = onArm(ARM_TIERS.haiku);
   const sonnet = onArm(ARM_TIERS.sonnet);
@@ -286,6 +324,8 @@ export function writerArmsIn(
     resamples: settings.resamples,
     confidence: settings.confidence,
     minMergedChanges: settings.minMergedChanges,
+    windowEffort,
+    excluded,
     unlabelled: changes.filter((c) => c.labels.length === 0).length,
     overall: rowOf(null, { haiku, sonnet }, context),
     strata: labels.map((label) =>

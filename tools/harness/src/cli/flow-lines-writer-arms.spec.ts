@@ -25,6 +25,8 @@ const READ: WriterArms = {
   confidence: 0.95,
   minMergedChanges: 2,
   unlabelled: 1,
+  windowEffort: { effort: "high", from: "setting" },
+  excluded: { differentEffort: 0, missingEffort: 0, notRandomized: 0 },
   overall: {
     label: null,
     status: "ok",
@@ -41,7 +43,7 @@ const READ: WriterArms = {
     sonnet: side(SONNET, {
       mergedChanges: 3,
       allInPerMergedChange: 2.6667,
-      effort: { medium: 2, unknown: 1 },
+      effort: { high: 3 },
       blockedShare: 0.3333,
       sendBacksPerMergedChange: 0.3333,
       ownerMinutesPerMergedChange: 1,
@@ -70,7 +72,7 @@ describe("writer arms lines: the overall figure", () => {
     const [overall] = writerArmLines(READ);
 
     expect(overall).toBe(
-      "Writer arms, all merged changes: Haiku minus Sonnet -$2.4667 all-in per merged change, 95% interval -$3 to -$1 (seed 20261117). Haiku: 2 merged changes, mean all-in $0.2, effort high 2, blocked share 0.5, send-backs per merged change 0.5, owner minutes per merged change 0.5. Sonnet: 3 merged changes, mean all-in $2.6667, effort medium 2, unknown 1, blocked share 0.3333, send-backs per merged change 0.3333, owner minutes per merged change 1.",
+      "Writer arms, all merged changes: Haiku at high minus Sonnet at high -$2.4667 all-in per merged change, 95% interval -$3 to -$1 (seed 20261117). Haiku: 2 merged changes, mean all-in $0.2, effort high 2, blocked share 0.5, send-backs per merged change 0.5, owner minutes per merged change 0.5. Sonnet: 3 merged changes, mean all-in $2.6667, effort high 3, blocked share 0.3333, send-backs per merged change 0.3333, owner minutes per merged change 1.",
     );
   });
 
@@ -117,7 +119,7 @@ describe("writer arms lines: the strata", () => {
   it("prints one line per stratum after the overall figure, and a final line for the unlabelled changes", () => {
     const lines = writerArmLines(READ);
 
-    expect(lines).toHaveLength(4);
+    expect(lines).toHaveLength(5);
     expect(lines[3]).toBe(
       "Writer arms: 1 merged change on an arm with no label recorded, in the overall figure only. The report gives no verdict; the deciding rule is the owner's, recorded on the idea.",
     );
@@ -140,6 +142,58 @@ describe("writer arms lines: an overall figure below the minimum", () => {
 
     expect(writerArmLines(thin)[0]).toBe(
       "Writer arms, all merged changes: insufficient merged changes, Haiku 0 and Sonnet 3 (2 needed in each arm); not read.",
+    );
+  });
+});
+
+describe("writer arms lines: the window effort and what is left out", () => {
+  it("states the window effort as set, and counts each left-out reason beside the figure", () => {
+    const lines = writerArmLines({
+      ...READ,
+      excluded: { differentEffort: 1, missingEffort: 2, notRandomized: 3 },
+    });
+
+    expect(lines[4]).toBe(
+      "Writer arms: window effort high, set with --window-effort. Left out of the arms and counted: 1 randomized launch at a different effort, 2 launches with no recorded effort, 3 launches not randomized.",
+    );
+  });
+
+  it("says when the window effort was not set and defaulted to the most common among randomized launches", () => {
+    const lines = writerArmLines({
+      ...READ,
+      windowEffort: { effort: "medium", from: "most common" },
+    });
+
+    expect(lines[4]).toBe(
+      "Writer arms: window effort medium, not set, so the most common among randomized launches. Left out of the arms and counted: 0 randomized launches at a different effort, 0 launches with no recorded effort, 0 launches not randomized.",
+    );
+  });
+
+  it("says there is no window effort when no randomized launch recorded one", () => {
+    const lines = writerArmLines({
+      ...READ,
+      windowEffort: { effort: null, from: "none" },
+    });
+
+    expect(lines[4]).toContain(
+      "Writer arms: no window effort, not set and no randomized launch recorded an effort.",
+    );
+  });
+
+  it("reads the one launch of a reason in the singular", () => {
+    const lines = writerArmLines({
+      ...READ,
+      excluded: { differentEffort: 1, missingEffort: 1, notRandomized: 1 },
+    });
+
+    expect(lines[4]).toContain(
+      "1 randomized launch at a different effort, 1 launch with no recorded effort, 1 launch not randomized.",
+    );
+  });
+
+  it("still prints no verdict", () => {
+    expect(writerArmLines(READ).join("\n")).not.toMatch(
+      /winner|verdict is|margin|cheaper|wins|better/i,
     );
   });
 });

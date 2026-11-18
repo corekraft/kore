@@ -50,6 +50,7 @@ const writer = (
   tier,
   idea: undefined,
   effort: undefined,
+  tierReason: undefined,
   at: launchedAt,
 });
 
