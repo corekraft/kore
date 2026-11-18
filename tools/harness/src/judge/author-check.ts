@@ -3,7 +3,7 @@
 // is CI or a review the judge waits on; an audit item is reported by the judge and is never
 // either here.
 import type { SendBackCategory } from "../ledger/index.js";
-import type { ItemVerdict } from "./checks.js";
+import type { AuditFinding, ItemVerdict } from "./checks.js";
 import type { Report } from "./precheck.js";
 
 /** The send-back categories a writer can be faulted with; the ledger counts them by these names. */
@@ -29,6 +29,8 @@ export interface AuthorCheck {
   failures: AuthorFailure[];
   /** The enforce items still running or unposted, which the judge waits on. */
   pending: string[];
+  /** Present only when a changed file is over a limit: shown to the writer, never counted as a failure. */
+  audits?: AuditFinding[];
 }
 
 const CATEGORY: Partial<Record<string, AuthorCategory>> = {
@@ -48,7 +50,7 @@ const PENDING = new Set<ItemVerdict["result"]>([
 
 /** Classifies a judge report as the writer must read it: failures it owns, and items still pending. */
 export function authorCheck(
-  report: Pick<Report, "pr" | "declaration" | "checklist">,
+  report: Pick<Report, "pr" | "declaration" | "checklist" | "audits">,
 ): AuthorCheck {
   if (!report.declaration.ok) {
     const detail = report.declaration.reason;
@@ -78,5 +80,6 @@ export function authorCheck(
     ok: failures.length === 0,
     failures,
     pending: enforced.filter((i) => PENDING.has(i.result)).map((i) => i.item),
+    ...(report.audits === undefined ? {} : { audits: report.audits }),
   };
 }
