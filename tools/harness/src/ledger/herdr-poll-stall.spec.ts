@@ -144,6 +144,33 @@ const IDLE_PANE = [
   spawned(-8, "pane.waiting"),
 ];
 
+describe("pollHerdr: the scheduled poll only reads herdr", () => {
+  it("records the stall, and runs `herdr agent list` alone: no pane is closed, restarted or messaged", async () => {
+    const runner = fakeRunner();
+    runner.run.mockResolvedValue(ok(listing([writer("idle")])));
+    const fake = fakeLedger();
+    fake.list.mockResolvedValue({
+      events: [
+        spawned(-10, "session.launch"),
+        spawned(-9, "pane.busy"),
+        spawned(-8, "pane.waiting"),
+      ],
+      skipped: 0,
+    });
+    recordsEverything(fake.record);
+
+    const result = await pollHerdr({
+      ledger: fake.ledger,
+      runner,
+      clock: fakeClock(),
+      fs: fakeFileSystem(),
+    });
+
+    expect(result).toMatchObject({ ok: true, recorded: 1 });
+    expect(runner.run.mock.calls).toEqual([["herdr", ["agent", "list"]]]);
+  });
+});
+
 describe("pollHerdr: a waiting pane with a reserved question", () => {
   it("records nothing while the pane waits on the owner's answer to a question it posted", async () => {
     expect(await pollOver([...IDLE_PANE, posted(-7)])).toEqual({

@@ -150,23 +150,63 @@ describe("record hook: questions put to the owner (#859)", () => {
   });
 });
 
-describe("record hook: the background ledger poll", () => {
-  const POLL = [
-    "node",
-    ["/repo/skills/bin/harness.mjs", "ledger", "poll-github"],
-    { detached: true },
-  ];
+const GITHUB_POLL = [
+  "node",
+  ["/repo/skills/bin/harness.mjs", "ledger", "poll-github"],
+  { detached: true },
+];
+const HERDR_POLL = [
+  "node",
+  ["/repo/skills/bin/harness.mjs", "ledger", "poll-herdr"],
+  { detached: true },
+];
 
+describe("record hook: the background ledger polls", () => {
   it.each(["startup", "clear", "resume"])(
-    "starts `ledger poll-github` detached through the runner for a %s start",
+    "starts `ledger poll-github` then `ledger poll-herdr`, each detached through the runner, for a %s start",
     async (source) => {
       runnerRun.mockResolvedValue({ stdout: "", stderr: "", code: 0 });
 
       await run({ source, session_id: "abc" });
 
-      expect(runnerRun.mock.calls).toEqual([POLL]);
+      expect(runnerRun.mock.calls).toEqual([GITHUB_POLL, HERDR_POLL]);
     },
   );
+
+  it("never issues a herdr command itself: the hook only starts the ledger poll", async () => {
+    runnerRun.mockReset();
+    runnerRun.mockResolvedValue({ stdout: "", stderr: "", code: 0 });
+
+    await run({ source: "startup", session_id: "abc" });
+
+    const commands = runnerRun.mock.calls.map(([command]) => command);
+    expect(commands).not.toContain("herdr");
+  });
+});
+
+describe("record hook: background polls that fail or do not run", () => {
+  it("still starts the herdr poll when the GitHub poll cannot start", async () => {
+    runnerRun.mockReset();
+    runnerRun.mockImplementationOnce(() => {
+      throw new Error("spawn failed");
+    });
+    runnerRun.mockResolvedValue({ stdout: "", stderr: "", code: 0 });
+
+    expect(await run({ source: "startup", session_id: "abc" })).toEqual({});
+    expect(runnerRun.mock.calls).toEqual([GITHUB_POLL, HERDR_POLL]);
+  });
+
+  it("starts the herdr poll after a GitHub poll that rejects, so one failure does not stop the other", async () => {
+    runnerRun.mockReset();
+    runnerRun.mockImplementation((_command: string, args: string[]) =>
+      args.includes("poll-github")
+        ? Promise.reject(new Error("rate limited"))
+        : Promise.resolve({ stdout: "", stderr: "", code: 0 }),
+    );
+
+    expect(await run({ source: "startup", session_id: "abc" })).toEqual({});
+    expect(runnerRun.mock.calls).toEqual([GITHUB_POLL, HERDR_POLL]);
+  });
 
   it("prints nothing into the session context when the poll reports output or fails", async () => {
     runnerRun.mockResolvedValue({ stdout: "polled", stderr: "rate", code: 1 });
