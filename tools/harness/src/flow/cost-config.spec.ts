@@ -5,6 +5,85 @@ import { DEFAULT_COST, DEFAULT_MIN_MERGED_CHANGES } from "./cost.js";
 const parse = (value: unknown) =>
   parseHarnessConfig(JSON.stringify(value), HARNESS_CONFIG);
 
+describe("harness config compaction cap", () => {
+  it("reads the cap as a whole number of at least 1, beside the other settings", () => {
+    expect(parse({ compactionCap: 80000 })).toEqual({
+      cost: DEFAULT_COST,
+      compactionCap: 80000,
+    });
+    expect(parse({ compactionCap: 1 })).toEqual({
+      cost: DEFAULT_COST,
+      compactionCap: 1,
+    });
+  });
+
+  it("leaves the cap out when it is not set, so no request is measured against one", () => {
+    expect(parse({ ownerLogin: "junners" })).not.toHaveProperty(
+      "compactionCap",
+    );
+  });
+
+  it.each([0, -5, 80000.5, "80000", null])(
+    "refuses a cap of %j with the key, what is wrong and the fix",
+    (cap) => {
+      expect(parse({ compactionCap: cap })).toEqual({
+        error: `Invalid ${HARNESS_CONFIG}: key "compactionCap" must be a whole number of at least 1. Fix the value.`,
+      });
+    },
+  );
+
+  it("still refuses other unknown keys, and names the cap among the known ones", () => {
+    expect(parse({ compactionLimit: 3 })).toEqual({
+      error: expect.stringContaining(
+        'key "compactionLimit" is not a harness config key',
+      ),
+    });
+    expect(parse({ compactionLimit: 3 })).toEqual({
+      error: expect.stringContaining("compactionCap"),
+    });
+  });
+});
+
+describe("harness config weekly token ceiling", () => {
+  it("reads the ceiling as a whole number of plan-weighted tokens of at least 1, beside the other settings", () => {
+    expect(parse({ weeklyTokenCeiling: 5000000 })).toEqual({
+      cost: DEFAULT_COST,
+      weeklyTokenCeiling: 5000000,
+    });
+    expect(parse({ weeklyTokenCeiling: 1 })).toEqual({
+      cost: DEFAULT_COST,
+      weeklyTokenCeiling: 1,
+    });
+  });
+
+  it("leaves the ceiling out when it is not set, so a report reads it as not set and never as zero", () => {
+    expect(parse({ ownerLogin: "junners" })).not.toHaveProperty(
+      "weeklyTokenCeiling",
+    );
+    expect(parse({})).not.toHaveProperty("weeklyTokenCeiling");
+  });
+
+  it.each([0, -5, 5000000.5, "5000000", null])(
+    "refuses a ceiling of %j with the key, what is wrong and the fix",
+    (ceiling) => {
+      expect(parse({ weeklyTokenCeiling: ceiling })).toEqual({
+        error: `Invalid ${HARNESS_CONFIG}: key "weeklyTokenCeiling" must be a whole number of plan-weighted tokens of at least 1, or left out to read "not set". Fix the value.`,
+      });
+    },
+  );
+
+  it("still refuses a misspelt key, and names the ceiling among the known ones", () => {
+    expect(parse({ weeklyTokenCeilin: 5000000 })).toEqual({
+      error: expect.stringContaining(
+        'key "weeklyTokenCeilin" is not a harness config key',
+      ),
+    });
+    expect(parse({ weeklyTokenCeilin: 5000000 })).toEqual({
+      error: expect.stringContaining("weeklyTokenCeiling"),
+    });
+  });
+});
+
 describe("harness config retro history minimums", () => {
   it("reads the days and sessions the retro scan needs, each on its own", () => {
     expect(parse({ retro: { minDays: 7, minSessions: 50 } })).toEqual({

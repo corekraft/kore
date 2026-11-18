@@ -13,7 +13,7 @@ import {
 import { FAILED, fail } from "./output.js";
 import type { SessionRecord } from "./registry.js";
 import { recordHostSample } from "./spawn-sample.js";
-import { noteUnstamped } from "./spawn-record.js";
+import { noteUnstamped, recordIdeaLabels } from "./spawn-record.js";
 import { finish } from "./spawn-finish.js";
 import { formatWait, waitForResult, type WaitResult } from "./wait.js";
 
@@ -44,6 +44,7 @@ vi.mock("./spawn-sample.js");
 vi.mock("./spawn-record.js", async (importOriginal) => ({
   ...(await importOriginal<typeof import("./spawn-record.js")>()),
   noteUnstamped: vi.fn(),
+  recordIdeaLabels: vi.fn(),
 }));
 vi.mock("./output.js", async (importOriginal) => ({
   ...(await importOriginal<typeof import("./output.js")>()),
@@ -91,6 +92,7 @@ function run(
   record: SessionRecord = RECORD,
   modelCheck:
     typeof VERIFIED | { status: "unverified"; reason: string } = VERIFIED,
+  idea?: string,
 ): Promise<number> {
   return finish(contextOf(deps, { json, options }), {
     registry: asRegistry(registry),
@@ -98,6 +100,7 @@ function run(
     modelCheck,
     timeoutMs: 60_000,
     tier: { tierSource: "override", tierReason: "deep diff" },
+    ...(idea === undefined ? {} : { idea }),
   });
 }
 
@@ -126,6 +129,7 @@ describe("finish records the session before it reports", () => {
       agent: "image-trust-writer",
       role: "writer",
       tier: "claude-opus-5-5",
+      effort: "high",
       tierSource: "override",
       tierReason: "deep diff",
     });
@@ -304,5 +308,35 @@ describe("finish notes a spawn that names no idea", () => {
     await run({ "no-wait": true });
 
     expect(noteUnstamped).not.toHaveBeenCalled();
+  });
+});
+
+describe("finish records the labels of a writer's idea at launch", () => {
+  it("records the idea's labels for a writer launched with an idea, keyed to the launched session", async () => {
+    await run({ "no-wait": true }, false, RECORD, VERIFIED, "#1004");
+
+    expect(recordIdeaLabels).toHaveBeenCalledExactlyOnceWith(
+      deps,
+      { name: "image-trust-writer", createdAt: RECORD.createdAt },
+      "#1004",
+    );
+  });
+
+  it("records no labels for a launch that names no idea", async () => {
+    await run({ "no-wait": true });
+
+    expect(recordIdeaLabels).not.toHaveBeenCalled();
+  });
+
+  it("records no labels for a launch that is not a writer, though it names an idea", async () => {
+    await run(
+      { "no-wait": true },
+      false,
+      { ...RECORD, role: "judge" },
+      VERIFIED,
+      "#1004",
+    );
+
+    expect(recordIdeaLabels).not.toHaveBeenCalled();
   });
 });

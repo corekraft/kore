@@ -17,8 +17,8 @@ const VERDICT = /principles-review:[^\n]*\(head ([0-9a-f]{7,40})\)/gi;
 const NEEDS_INFO = "needs-info";
 
 /** The tick signs what it posts as itself, so its comment is never read as the owner's (ADR 0121). */
-const TICK_ENV = { KORE_ROLE: "tick", KORE_AGENT: "orchestrator-tick" };
-const TICK_COMMAND = "orchestrate tick";
+export const TICK_ENV = { KORE_ROLE: "tick", KORE_AGENT: "orchestrator-tick" };
+export const TICK_COMMAND = "orchestrate tick";
 
 /** The tick's ports over the real tools: the stage tools of HarnessCli plus three read-only reads. */
 export class TickCli extends HarnessCli {
@@ -107,6 +107,34 @@ export class TickCli extends HarnessCli {
   private async gh(args: string[]): Promise<void> {
     const done = await this.runner.run("gh", args, { cwd: this.repo });
     this.check(`gh ${args.slice(0, 2).join(" ")}`, done);
+  }
+
+  /**
+   * The pane the idea's latest session was spawned from, read from the session registry; undefined
+   * when no session was spawned for the idea. This is the pane a notice to the person goes to (ADR 0121).
+   */
+  async attendedPane(idea: string): Promise<string | undefined> {
+    const prefix = `idea-${idea}-`;
+    const files = await this.fs
+      .readdir(this.sessions)
+      .catch((error: unknown) => {
+        if ((error as NodeJS.ErrnoException).code === "ENOENT") {
+          return [];
+        }
+        throw error;
+      });
+    let latest: { createdAt: string; callerPane: string } | undefined;
+    for (const file of files.filter(
+      (f) => f.startsWith(prefix) && f.endsWith(".json"),
+    )) {
+      const record = JSON.parse(
+        await this.fs.readFile(`${this.sessions}/${file}`),
+      ) as { createdAt: string; callerPane: string };
+      if (latest === undefined || record.createdAt > latest.createdAt) {
+        latest = record;
+      }
+    }
+    return latest?.callerPane;
   }
 
   /** The idea's panes from the session registry; an open one is asked once for its result. */

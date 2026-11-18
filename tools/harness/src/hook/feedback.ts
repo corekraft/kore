@@ -9,7 +9,11 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { CommandError, type CliDeps } from "../runtime/index.js";
 import { resultOf } from "./feedback-result.js";
-import { readSplit, splitStateFile } from "./feedback-split.js";
+import {
+  compactionCapOf,
+  readSplit,
+  splitStateFile,
+} from "./feedback-split.js";
 import { readTokens, tokenStateFile } from "./feedback-tokens.js";
 import type { HookResult } from "./io.js";
 import { recordEvent } from "./ledger-event.js";
@@ -217,9 +221,14 @@ export async function stop(
 /**
  * Records the stop, then the turn's outcome word when its text printed a RESULT line
  * (#853), then the session's tokens so far when they grew since the last stop, then the
- * priced token split (#1001), one reading per model whose count grew.
+ * priced token split (#1001), one reading per model whose count grew, measured against the
+ * compaction cap the harness config sets under the root (#1032).
  */
-async function recordStop(deps: CliDeps, call: Call): Promise<void> {
+async function recordStop(
+  deps: CliDeps,
+  call: Call,
+  root: string,
+): Promise<void> {
   await recordEvent(deps, "session.stop", call);
   const { total, grew, added } = await readTokens(
     deps.fs,
@@ -233,10 +242,12 @@ async function recordStop(deps: CliDeps, call: Call): Promise<void> {
   if (grew && total > 0) {
     await recordEvent(deps, "token.usage", call, undefined, { tokens: total });
   }
+  const cap = await compactionCapOf(deps.fs, root);
   const readings = await readSplit(
     deps.fs,
     call.transcript_path,
     splitStateFile(call.session_id),
+    cap,
   );
   for (const reading of readings) {
     await recordEvent(deps, "token.split", call, undefined, reading);
@@ -296,7 +307,7 @@ export async function feedback(
   if (mode === "post-edit") {
     recorded = recordEvent(deps, "tool.end", call, "success");
   } else if (!call.stop_hook_active) {
-    recorded = recordStop(deps, call);
+    recorded = recordStop(deps, call, root);
   }
   const checks = feedbackDeps(deps, root, call);
   try {

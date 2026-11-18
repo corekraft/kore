@@ -33,6 +33,7 @@ export const KEYS = [
   "tokensByStagePerMergedChange",
   "writerCost",
   "mainSession",
+  "handovers",
   "judgmentContexts",
   "tierShares",
   "unstampedSpawns",

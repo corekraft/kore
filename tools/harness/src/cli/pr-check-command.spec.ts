@@ -107,6 +107,61 @@ describe("harness pr check exits 0 when only pending items remain, and lists the
   });
 });
 
+describe("harness pr check prints each file-length audit with its file, count and fix, and never fails on it", () => {
+  const AUDIT = {
+    item: "file-length",
+    file: "tools/harness/src/a.spec.ts",
+    detail: "301 non-blank, non-comment lines; the limit is 300",
+    fix: "split it into smaller modules",
+  };
+
+  it("prints the audit beside ready for the judge, and exits 0", async () => {
+    const f = arrange({
+      view: { pr: 12, ok: true, failures: [], pending: [], audits: [AUDIT] },
+    });
+    expect(await prCheckRun(f.context)).toBe(0);
+    expect(f.stdout).toHaveBeenCalledWith(
+      "PR #12: ready for the judge\naudit: file-length tools/harness/src/a.spec.ts: 301 non-blank, non-comment lines; the limit is 300; fix: split it into smaller modules; reported, not sent back\n",
+    );
+  });
+
+  it("prints a type-cast audit with its file and line, and exits 0: a cast never fails the check", async () => {
+    const f = arrange({
+      view: {
+        pr: 12,
+        ok: true,
+        failures: [],
+        pending: [],
+        audits: [
+          {
+            item: "type-cast",
+            file: "tools/harness/src/a.spec.ts",
+            line: 7,
+            detail: "as never",
+            fix: "replace the cast with a type guard or a corrected declared type",
+          },
+        ],
+      },
+    });
+    expect(await prCheckRun(f.context)).toBe(0);
+    expect(f.stdout).toHaveBeenCalledWith(
+      "PR #12: ready for the judge\naudit: type-cast tools/harness/src/a.spec.ts:7: as never; fix: replace the cast with a type guard or a corrected declared type; reported, not sent back\n",
+    );
+  });
+
+  it("prints the audit beside a failure the writer owns, and still names the failure", async () => {
+    const f = arrange({
+      view: { ...FAILING(), audits: [AUDIT] },
+    });
+    expect(await prCheckRun(f.context)).toBe(1);
+    expect(f.stdout).toHaveBeenCalledWith(
+      expect.stringContaining(
+        "  failed-check: scan (scan: failure)\naudit: file-length tools/harness/src/a.spec.ts: 301 non-blank, non-comment lines; the limit is 300; fix: split it into smaller modules; reported, not sent back\n",
+      ),
+    );
+  });
+});
+
 describe("harness pr check exits 1 on a failure the writer owns, and names each one", () => {
   it("names each failure with its category and detail, and says to fix, push and rerun once", async () => {
     const f = arrange({ view: FAILING() });

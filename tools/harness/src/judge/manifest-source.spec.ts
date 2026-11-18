@@ -23,6 +23,7 @@ const changed = (path: string, deleted = false): ChangedFile => ({
   previousPath: path,
   deleted,
   added: [],
+  addedLines: [],
   removed: 0,
   netRemoved: 0,
   after: [],

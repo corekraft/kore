@@ -65,6 +65,7 @@ describe("feedback split advance: what is counted", () => {
     expect(reading).toEqual({
       model: HAIKU,
       firstPrompt: 100,
+      largestPrompt: 100,
       lowRequests: 1,
       lowInput: 10,
       lowCacheWrite5m: 0,

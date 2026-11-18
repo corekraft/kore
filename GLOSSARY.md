@@ -91,6 +91,34 @@ A deterministic script that does a step in place of an agent, and may launch
 agents.
 _Avoid_: Helper, utility
 
+## Cost
+
+**Main-session cost**:
+The priced model usage of the main session over a window, divided by the merged
+changes that merged in that window. It is a window ratio and is never assigned
+to a pull request.
+_Avoid_: Orchestrator cost, per-PR cost
+
+**Compaction cap**:
+The context size, in tokens, past which the main session's history is
+compacted.
+_Avoid_: Context limit, compaction threshold
+
+**Handover**:
+A message from a cheap session to the stronger one that passes on a case and
+names the reason for it. It is counted as a reading and never enforced.
+_Avoid_: Escalation, transfer
+
+**Weekly token ceiling**:
+The limit, in plan-weighted tokens, on one week's token use. The owner sets its
+value; it is not read from the plan.
+_Avoid_: Token budget, plan limit
+
+**Share of one week's ceiling**:
+A window's plan-weighted token use as a fraction of one week's weekly token
+ceiling, read per merged change in that window.
+_Avoid_: Plan percentage, usage percentage
+
 ## Self-improvement
 
 **Harness**:
@@ -123,6 +151,18 @@ The model and effort a role runs at. Its definition declares it, and only an
 escalation or a recorded override changes it. A launch's tier has one origin:
 the definition, an escalation, or a recorded override.
 _Avoid_: Level, size
+
+**Window effort**:
+The one effort, part of a Tier, at which both arms of the writer-tier window
+launch. The owner sets it when opening the window.
+
+**Randomized launch**:
+A writer launch that the window's draw assigned to an arm: the drawn Sonnet or
+the control Haiku. A writer launch chosen by hand is not randomized.
+
+**Arm**:
+One of the groups of writers a window compares, defined by the Tier of each
+writer's first launch.
 
 **Primary metric**:
 The one flow-report metric a harness idea claims to move, which no other idea

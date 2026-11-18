@@ -1,9 +1,13 @@
 import type { CommandContext } from "../runtime/index.js";
 import {
+  castAudit,
+  closingAudit,
   gatherChecks,
   gatherExpandStep,
   gatherGuardrailChanges,
+  lengthAudit,
   parsePrView,
+  type AuditFinding,
   type Checks,
   type ItemVerdict,
   type PrView,
@@ -37,6 +41,8 @@ export interface Report {
   unverified?: string[];
   /** Present only when the diff touches the guardrail inventory: each `rule:from>to` change that needs an activation. */
   guardrailChanges?: string[];
+  /** Present only when a changed file is over a limit: the audit items, shown here and never a reason the check fails. */
+  audits?: AuditFinding[];
 }
 
 const FIX =
@@ -94,13 +100,17 @@ export async function readPr(
   return view;
 }
 
-/** The guardrail inventory changes the diff makes, as a report field; nothing when it leaves the inventory alone. */
-async function inventoryChanges(
+/**
+ * The changes the diff makes, as report fields: the guardrail inventory changes (nothing when it is
+ * left alone) and the audit items of the changed files (nothing when no file is over a limit).
+ */
+async function diffChanges(
   api: Api,
   repo: string,
   files: ChangedFile[],
   view: PrView,
-): Promise<{ guardrailChanges?: string[] }> {
+  idea: string | undefined,
+): Promise<{ guardrailChanges?: string[]; audits?: AuditFinding[] }> {
   const guardrailChanges = await gatherGuardrailChanges(
     files,
     api,
@@ -108,7 +118,15 @@ async function inventoryChanges(
     view.baseSha,
     view.headSha,
   );
-  return guardrailChanges === undefined ? {} : { guardrailChanges };
+  const audits = [
+    ...(await lengthAudit(api, repo, view.headSha, files)),
+    ...castAudit(files),
+    ...closingAudit(view.body, idea),
+  ];
+  return {
+    ...(guardrailChanges === undefined ? {} : { guardrailChanges }),
+    ...(audits.length === 0 ? {} : { audits }),
+  };
 }
 
 /**
@@ -183,7 +201,7 @@ export async function precheck(
     checks,
     hints,
     ...verdict,
-    ...(await inventoryChanges(api, repo, files, view)),
+    ...(await diffChanges(api, repo, files, view, declaration.idea)),
   };
 }
 
@@ -207,6 +225,10 @@ export function summary(report: Report): string {
     (a) =>
       `audit: ${a.item} ${a.result}${a.detail === undefined || a.detail === "" ? "" : ` (${a.detail})`}; reported, not sent back`,
   );
+  const found = (report.audits ?? []).map(
+    (a) =>
+      `audit: ${a.item} ${a.file}${a.line === undefined ? "" : `:${a.line}`}: ${a.detail}; fix: ${a.fix}; reported, not sent back`,
+  );
   const unverified = (report.unverified ?? []).map((u) => `unverified: ${u}`);
   return [
     head,
@@ -214,6 +236,7 @@ export function summary(report: Report): string {
     `reviewers: ${report.reviewers.join(", ")}`,
     ...checks,
     ...audited,
+    ...found,
     ...hints.map((h) => `hint ${h}`),
     ...mismatch,
     `cluster-facing: ${report.clusterFacing === true}`,

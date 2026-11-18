@@ -162,8 +162,17 @@ see [The harness bundle](#the-harness-bundle).
     Fakes shared by a domain's specs go in one domain-level `<domain>-support.ts`
     (not a unit, so no spec of its own), with `fakeRepository()` for the
     repository. Fixtures only one spec uses go in `<name>-support.ts` beside it.
-    Each spec and each support file stays under 300 lines (`max-lines`), and
-    each test function under 70 (`max-lines-per-function`). Assert the whole
+    Each spec and each support file stays at 300 code lines or fewer
+    (`max-lines`): blank lines and comment-only lines do not count, so a file of
+    315 raw lines with 300 code lines is at the limit. `harness pr check` reports
+    a file over it as an audit item. It also reports each type cast (`as never`,
+    `as unknown as`, any other `as T`) on a line the PR adds to a TypeScript file,
+    tests included, with its file, line and fix; `as const` and an import or export
+    alias are not casts. It reports each GitHub closing keyword (`Close`, `Fix`,
+    `Resolve` and their forms) with an issue reference in the PR body, beside an
+    `Idea:` line, with the fix `Refs`. All of these are audit items, never a
+    failure. Each test function stays under 70 lines
+    (`max-lines-per-function`). Assert the whole
     `run.mock.calls` list, so a missing or extra command fails.
   - Errors from a real error class (`CommandError`) stay real; construct them
     and reject with them.
@@ -345,6 +354,19 @@ untagged comment after each advisor decision on that issue; a tagged comment, an
 the harness's approval markers, are never one. A `decision.made` event records the
 issue it was posted on from this change on; one recorded before it has no issue, so
 its overturns are not read and it counts as made only.
+
+The handover count (spec [#1031](https://github.com/corekraft/kore/issues/1031),
+#1036) reads the `session.send` events the main session wrote with a `handover`
+reason: why it passed a case to the stronger session by a pane message. The reasons
+are a fixed list (`reserved-item`, `needs-info-idea`, `third-send-back`,
+`owner-request`, `flag-activation`, `unmapped-message`); a reason outside it is
+refused, so no message text reaches the ledger. Only sends with no sender role
+count. `handovers` in `--json` gives the count over the range, `merged` and
+`byReason`, every reason a key, zero where none. It is a reading, not a guard:
+nothing blocks a send. A range with no send that names a reason, or with fewer
+merged changes than `cost.minMergedChanges`, is `insufficient` with its reason,
+never zero. No `session send` option records a reason yet, so the count stays
+insufficient until one does.
 
 The person's main session answers "how is the loop doing?" from this report alone
 (`flow report --json`, no code or transcripts read, no file written): it leads
@@ -787,6 +809,17 @@ and is recorded as a `tick.bound` ledger event on the idea's issue. The held ide
 starts on the first pass the bound clears. A close, a send-back and an outcome
 start no pane, so a bound never stops them.
 
+When an idea reaches an end that needs a person, the tick sends the attended pane one
+line, once per idea and state: `sender: tick orchestrator-tick (orchestrate tick): Idea <n>
+needs a person: <reason>.`. The ends are `blocked`, `needs-judgment` and `needs-info`, the
+constant `NEEDS_A_PERSON`, a subset of the ends `orchestrate run` stops at: `awaiting-judge`
+is a judge pane's wait, not a person. The attended pane is the pane the idea's latest session
+was spawned from, read from the session registry. The line goes through the signed send path,
+and the send is recorded as a `session.send` event naming the idea and the state, so a restart
+or a later pass sends nothing twice. An idea with no recorded pane gets no line. Reserved
+questions (ADR 0120) are not covered yet: the tick does not read them, so a follow-up ticket
+covers them.
+
 Each checklist item of the precheck (`ci`, `scan`, `coverage`,
 `principles-review`, `expand-step`, `pattern-match`, `guardrail-activation`) reads its mode from the
 guardrail inventory, `.claude/guardrails.yaml`, as the rule `judge-<item>` of kind
@@ -1047,6 +1080,25 @@ is the `plan active` list with open items per step; `ideas` is
 as `success` or `failure`; `ledger` is `{ recent, skipped }`, the ten latest
 stage events (`{ occurredAt, stage, kind, number?, idea? }`) newest first.
 No bounded role may run it.
+
+## Prompt size
+
+`node skills/bin/harness.mjs session prompt-size [<session-id>] [--json]` prints a
+session's latest request prompt (input plus cache writes plus cache reads) against the
+`compactionCap` in `.claude/harness.json`. It is read-only and never writes. With no
+name it reads the newest transcript of this checkout's own Claude project directory and
+prints that session's id. With a Claude session id it reads that session only when its
+transcript is in this repository's own transcript directories (the main checkout and
+its worktrees); any other session is refused. A name must be a plain id, letters,
+digits, `-` and `_`.
+
+The text line is `session <id>: prompt <n>, cap <n>, over` or `..., cap <n>, not over`;
+a prompt equal to the cap is not over. With no cap set it prints `cap not set` and exits
+0, never under the cap. `--json` prints `{"session","prompt","cap","over"}`, with `cap` and
+`over` null when no cap is set. A malformed config, a missing transcript, and a transcript
+with no request yet each exit 1 with the reason, never a size of zero. The command is in
+the hook domain (`hook/prompt-size-command.ts`) and the host composes it into the session
+table (`cli/host.ts`), so the session barrel does not import it.
 
 ## Rules that bite
 

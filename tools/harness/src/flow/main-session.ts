@@ -11,6 +11,8 @@ import { inWindow, type Span } from "./scope.js";
 
 /** The window the figures are read over: the same span the per-merged figures use. */
 export type { Span };
+/** The main session's handover count (#1036), read beside its three figures. */
+export { handoverCount, type HandoverCount } from "./handover-count.js";
 
 /** The fewest finished panes a window needs before its pane figures are read; a placeholder, like the merged minimum. */
 export const MIN_FINISHED_PANES = 10;

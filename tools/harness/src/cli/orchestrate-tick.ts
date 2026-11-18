@@ -5,12 +5,16 @@ import {
   BOUND_LABELS,
   FileLeaseStore,
   HarnessCliError,
+  NotifyLedger,
   PLANS_DIRECTORY,
+  TICK_COMMAND,
+  TICK_ENV,
   TICK_LEASE_MAX_AGE_MS,
   Tick,
   TickBounds,
   TickCli,
   TickLease,
+  TickNotifier,
   leasedPass,
   runTicks,
   tickFlagOn,
@@ -27,7 +31,12 @@ import {
   type Command,
   type CommandContext,
 } from "../runtime/index.js";
-import { hostLeaseRefusal, spawnLoadRefusal } from "../session/index.js";
+import {
+  deliver,
+  hostLeaseRefusal,
+  signedMainSendsOn,
+  spawnLoadRefusal,
+} from "../session/index.js";
 import { installTickJob } from "./orchestrate-tick-install.js";
 import { runTickLoop } from "./orchestrate-tick-loop.js";
 
@@ -91,8 +100,25 @@ async function build(
     { pid: process.pid, host: hostname() },
     TICK_LEASE_MAX_AGE_MS,
   );
+  const notices = new NotifyLedger(
+    new Ledger(deps.fs, deps.clock, deps.ids, resolve(main, DEFAULT_LEDGER)),
+    () => deps.clock.now().toISOString(),
+  );
+  const notifier = new TickNotifier(
+    {
+      attendedPane: (idea) => cli.attendedPane(idea),
+      sent: (idea, state) => notices.sent(idea, state),
+      send: async (pane, body) =>
+        deliver(deps, pane, body, {
+          rejoinWrapped: await signedMainSendsOn(deps),
+        }),
+      record: (event) => notices.record(event),
+    },
+    TICK_ENV,
+    TICK_COMMAND,
+  );
   return {
-    tick: new Tick(cli, outcomes, boundGate(deps, main)),
+    tick: new Tick(cli, outcomes, boundGate(deps, main), undefined, notifier),
     lease,
     cli,
   };
@@ -197,7 +223,7 @@ export async function runOnTicks(
 
 export const tickCommand: Command = {
   summary:
-    "behind the local orchestrator-tick flag (off): one idempotent pass over the queue that advances each approved idea by at most one step, then exits, and calls no model; per idea it starts the writer, closes a finished pane, runs `review run`, runs the precheck and sends a failing change back, starts the judge, relaunches the writer after a send-back on the tier's model, and records the outcome only when the idea's `orchestrate run` was given one; a pane is named for its idea and PR head, so a rerun starts nothing twice; a third send-back starts a judgment pane (ADR 0121) that decides once; a work plan is persisted once through `orchestrate plan` (ADR 0121), then its pieces start one at a time from the persisted plan, each after the pieces it waits for, in a pane named for the piece, a writer in its own worktree, and a piece that ends blocked stops the plan for the owner; a refused plan, or one whose piece pane name spawn would refuse, is retried once and then the idea is labelled needs-info, and a later third send-back is reported as needs-judgment with nothing started; reads power, the load ceiling (KORE_SPAWN_MAX_LOAD) and a live run's host lease before it starts anything: on battery or unreadable power one pane starts per pass, above the ceiling or under a live run's lease no pane starts, and each start held that way is recorded as a tick.bound ledger event and reported as held; runs under a per-machine lease in the host lock directory that the next tick recovers once it is 30 minutes old, and a held lease skips the pass; with the flag off it does nothing and exits 0 (--idea to scope the pass to one idea); --loop runs passes in a loop, each as a child process so a failing pass ends only itself, writing tick.started before each pass and tick.stopped when it ends, until the flag is turned off (status reports a gap when the heartbeat stops); --install writes the owner's launchd restart job behind the flag and starts nothing, the owner loads it",
+    "behind the local orchestrator-tick flag (off): one idempotent pass over the queue that advances each approved idea by at most one step, then exits, and calls no model; per idea it starts the writer, closes a finished pane, runs `review run`, runs the precheck and sends a failing change back, starts the judge, relaunches the writer after a send-back on the tier's model, and records the outcome only when the idea's `orchestrate run` was given one; a pane is named for its idea and PR head, so a rerun starts nothing twice; a third send-back starts a judgment pane (ADR 0121) that decides once; a work plan is persisted once through `orchestrate plan` (ADR 0121), then its pieces start one at a time from the persisted plan, each after the pieces it waits for, in a pane named for the piece, a writer in its own worktree, and a piece that ends blocked stops the plan for the owner; a refused plan, or one whose piece pane name spawn would refuse, is retried once and then the idea is labelled needs-info, and a later third send-back is reported as needs-judgment with nothing started; once an idea reaches blocked, needs-judgment or needs-info, the attended pane (the one its sessions were spawned from) gets one signed line naming the idea and the reason, recorded as a session.send event so it is sent once per idea and state; reads power, the load ceiling (KORE_SPAWN_MAX_LOAD) and a live run's host lease before it starts anything: on battery or unreadable power one pane starts per pass, above the ceiling or under a live run's lease no pane starts, and each start held that way is recorded as a tick.bound ledger event and reported as held; runs under a per-machine lease in the host lock directory that the next tick recovers once it is 30 minutes old, and a held lease skips the pass; with the flag off it does nothing and exits 0 (--idea to scope the pass to one idea); --loop runs passes in a loop, each as a child process so a failing pass ends only itself, writing tick.started before each pass and tick.stopped when it ends, until the flag is turned off (status reports a gap when the heartbeat stops); --install writes the owner's launchd restart job behind the flag and starts nothing, the owner loads it",
   options: { idea: "string", loop: "boolean", install: "boolean" },
   run: runTick,
 };

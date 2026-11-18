@@ -8,12 +8,15 @@ const isName = (v: unknown) => typeof v === "string" && NAME.test(v);
 const isCount = (v: unknown) => Number.isSafeInteger(v) && (v as number) >= 0;
 
 /**
- * The token.split reading's numbers: each prompt step's requests and tokens by kind, and the
- * first request's prompt size. A reading holds these and the model name, never text.
+ * The token.split reading's numbers: each prompt step's requests and tokens by kind, the
+ * first request's prompt size, the largest prompt, and the requests over the compaction cap
+ * (absent when no cap was set, never zero). A reading holds these and the model name, never text.
  */
 export interface SplitOrigin {
   model: string;
   firstPrompt: number;
+  largestPrompt: number;
+  overCap?: number;
   lowRequests: number;
   lowInput: number;
   lowCacheWrite5m: number;
@@ -28,21 +31,23 @@ export interface SplitOrigin {
   highOutput: number;
 }
 
-const COUNT_FIELDS: readonly (keyof Omit<SplitOrigin, "model">)[] = [
-  "firstPrompt",
-  "lowRequests",
-  "lowInput",
-  "lowCacheWrite5m",
-  "lowCacheWrite1h",
-  "lowCacheRead",
-  "lowOutput",
-  "highRequests",
-  "highInput",
-  "highCacheWrite5m",
-  "highCacheWrite1h",
-  "highCacheRead",
-  "highOutput",
-];
+const COUNT_FIELDS: readonly (keyof Omit<SplitOrigin, "model" | "overCap">)[] =
+  [
+    "firstPrompt",
+    "largestPrompt",
+    "lowRequests",
+    "lowInput",
+    "lowCacheWrite5m",
+    "lowCacheWrite1h",
+    "lowCacheRead",
+    "lowOutput",
+    "highRequests",
+    "highInput",
+    "highCacheWrite5m",
+    "highCacheWrite1h",
+    "highCacheRead",
+    "highOutput",
+  ];
 
 /** Every field of a token.split reading is required on that kind, and no other kind takes one. */
 export const SPLIT_RULES = [
@@ -58,4 +63,11 @@ export const SPLIT_RULES = [
     hint: "must be a whole number, 0 or more",
     kinds: SPLIT_KINDS,
   })),
+  {
+    field: "overCap",
+    check: isCount,
+    hint: "must be a whole number, 0 or more",
+    kinds: SPLIT_KINDS,
+    optional: true,
+  },
 ] as const;

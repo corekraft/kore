@@ -27,6 +27,7 @@ vi.mock("./feedback-tokens.js", () => ({
   tokenStateFile: vi.fn(),
 }));
 vi.mock("./feedback-split.js", () => ({
+  compactionCapOf: vi.fn(),
   readSplit: vi.fn(),
   splitStateFile: vi.fn(),
 }));

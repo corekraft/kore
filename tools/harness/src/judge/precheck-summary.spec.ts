@@ -129,3 +129,59 @@ describe("summary of a report with an audit item that failed", () => {
     expect(summary(report).startsWith("PR #7: ready for the judge")).toBe(true);
   });
 });
+
+describe("summary of a report with a file over the length limit", () => {
+  it("names each file, its count and its fix as reported and not sent back, and the PR stays ready", () => {
+    const report: Report = {
+      pr: 7,
+      ok: true,
+      reviewers: [],
+      pattern: undefined,
+      idea: undefined,
+      declaration: { ok: true },
+      checks: CHECKS,
+      audits: [
+        {
+          item: "file-length",
+          file: "tools/harness/src/a.spec.ts",
+          detail: "301 non-blank, non-comment lines; the limit is 300",
+          fix: "split it into smaller modules",
+        },
+      ],
+      hints: {},
+      clusterFacing: false,
+      unverified: [],
+    };
+    expect(summary(report)).toContain(
+      "audit: file-length tools/harness/src/a.spec.ts: 301 non-blank, non-comment lines; the limit is 300; fix: split it into smaller modules; reported, not sent back\n",
+    );
+    expect(summary(report).startsWith("PR #7: ready for the judge")).toBe(true);
+  });
+
+  it("names the line of a type-cast audit, and reads it as reported, never sent back", () => {
+    const report: Report = {
+      pr: 7,
+      ok: true,
+      reviewers: [],
+      pattern: undefined,
+      idea: undefined,
+      declaration: { ok: true },
+      checks: CHECKS,
+      audits: [
+        {
+          item: "type-cast",
+          file: "tools/harness/src/a.ts",
+          line: 7,
+          detail: "as never",
+          fix: "replace the cast with a type guard or a corrected declared type",
+        },
+      ],
+      hints: {},
+      clusterFacing: false,
+      unverified: [],
+    };
+    expect(summary(report)).toContain(
+      "audit: type-cast tools/harness/src/a.ts:7: as never; fix: replace the cast with a type guard or a corrected declared type; reported, not sent back\n",
+    );
+  });
+});
