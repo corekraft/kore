@@ -8,7 +8,10 @@ import { linkPullRequest } from "./pr-link.js";
 import { readPrBody } from "./pr-open-body.js";
 
 const USAGE =
-  "Run `harness pr open --title <title> --pattern <pattern> [--body <summary> | --body-file <path>] [--issue <n>] [--closes] [--idea <number or slug>] [--expand-step <pr>] [--base <branch>] [--head <branch>] [--dry-run] [--json]`.";
+  "Run `harness pr open --title <title> --pattern <pattern> [--body <summary> | --body-file <path>] [--issue <n>] [--closes] [--idea <number or slug, or none>] [--expand-step <pr>] [--base <branch>] [--head <branch>] [--dry-run] [--json]`.";
+
+/** The idea a pull request serves none of: no `Idea:` line, and `none` on its pr.linked event (ADR 0126). */
+const NONE = "none";
 
 function text(context: CommandContext, name: string): string | undefined {
   const value = context.options[name];
@@ -46,16 +49,18 @@ function signedPrBody(context: CommandContext, body: string): string {
 }
 
 /**
- * Links the pull request gh just opened to its writer, then prints its URL. A link problem is a
- * warning on stderr: it never fails the open, because the pull request already exists.
+ * Links the pull request gh just opened to its writer and the idea it serves, then prints its
+ * URL. A link problem is a warning on stderr: it never fails the open, because the pull request
+ * already exists.
  */
 async function reportOpened(
   deps: CliDeps,
   json: boolean,
   url: string,
   warnings: readonly string[],
+  idea: string,
 ): Promise<void> {
-  const linkWarning = await linkPullRequest(deps, url);
+  const linkWarning = await linkPullRequest(deps, url, idea);
   if (linkWarning !== undefined) {
     deps.stderr(`warning: ${linkWarning}\n`);
   }
@@ -75,7 +80,7 @@ export async function prOpenRun(context: CommandContext): Promise<number> {
     const pattern = required(context, "pattern");
     const issue = number(context, "issue");
     const expandStep = number(context, "expand-step");
-    const idea = text(context, "idea");
+    const idea = text(context, "idea") ?? NONE;
     const rendered = renderPrBody({
       body: await readPrBody(
         { inline: context.options["body"], file: context.options["body-file"] },
@@ -83,7 +88,7 @@ export async function prOpenRun(context: CommandContext): Promise<number> {
       ),
       pattern,
       ...(issue === undefined ? {} : { issue }),
-      ...(idea === undefined ? {} : { idea }),
+      ...(idea === NONE ? {} : { idea }),
       ...(expandStep === undefined ? {} : { expandStep }),
       ...(context.options["closes"] === true ? { closes: true } : {}),
     });
@@ -119,7 +124,7 @@ export async function prOpenRun(context: CommandContext): Promise<number> {
         `gh pr create failed: ${done.stderr.trim()}. Check \`gh auth status\`, that the branch is pushed, and that no PR is open for it, then rerun \`harness pr open\`.`,
       );
     }
-    await reportOpened(deps, json, done.stdout.trim(), rendered.warnings);
+    await reportOpened(deps, json, done.stdout.trim(), rendered.warnings, idea);
     return 0;
   } catch (error) {
     return failed(context, error);
@@ -137,7 +142,7 @@ export const prCommands: Record<string, Command> = {
   check: prCheckCommand,
   open: {
     summary:
-      "mutates; opens a pull request whose body ends with the declaration the precheck reads, rendered from the same module that parses it: `Refs #<issue>` (or `Closes` under --closes, which warns and cites ADR 0079 beside --idea, and never refuses), `Idea:`, `Expand step: #<pr>`, then `Safety pattern:` last; refuses an expand-contract PR with no --expand-step, and a pattern or number it would not accept, before gh is reached; --body-file <path> reads the body from that file instead of --body, with the same checks, and the two together are refused; --dry-run prints the body and creates nothing; once gh opens the PR, a writer's spawn links it to that writer as a pr.linked ledger event (the PR number and the session name, no text), and a failed link is a warning on stderr; gh runs through the runner in this pane's environment (--title <title> --pattern <pattern> [--body <summary> | --body-file <path>] [--issue <n>] [--closes] [--idea <number or slug>] [--expand-step <pr>] [--base <branch>] [--head <branch>] [--dry-run])",
+      "mutates; opens a pull request whose body ends with the declaration the precheck reads, rendered from the same module that parses it: `Refs #<issue>` (or `Closes` under --closes, which warns and cites ADR 0079 beside --idea, and never refuses), `Idea:`, `Expand step: #<pr>`, then `Safety pattern:` last; `--idea none` (or no --idea) writes no `Idea:` line and records `none` on the link; refuses an expand-contract PR with no --expand-step, and a pattern or number it would not accept, before gh is reached; --body-file <path> reads the body from that file instead of --body, with the same checks, and the two together are refused; --dry-run prints the body and creates nothing; once gh opens the PR, a writer's spawn links it to that writer as a pr.linked ledger event (the PR number, the session name and the idea, no text), and a failed link is a warning on stderr; gh runs through the runner in this pane's environment (--title <title> --pattern <pattern> [--body <summary> | --body-file <path>] [--issue <n>] [--closes] [--idea <number or slug, or none>] [--expand-step <pr>] [--base <branch>] [--head <branch>] [--dry-run])",
     options: {
       title: "string",
       pattern: "string",

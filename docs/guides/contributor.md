@@ -772,6 +772,12 @@ The module also refuses a body with a line of guardrail approval syntax,
 `approve <rule>:...`. That is validation of the harness's own posts, not
 containment: a bare `gh` comment never passes through it.
 
+`harness pr open --idea <number or slug>` writes the `Idea:` line and records the
+same idea on the `pr.linked` event that links the pull request to its writer, as
+the writer named it (ADR 0126). `--idea none`, or no `--idea`, writes no `Idea:`
+line and records `none`, so a bug fix or a docs change needs no idea. The tool
+renders the `Idea:` line, never the writer by hand.
+
 `decision make --idea <n> --category <name> --question <text> --decision <text>`
 is the advisor's tool ([ADR 0120](../decisions/0120-recommended-decisions-go-to-an-advisor-reserved-decisions-to-the-owner.md)).
 It posts the decision on the idea's issue and records `decision.made` with the

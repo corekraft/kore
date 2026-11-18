@@ -17,7 +17,9 @@ vi.mock("./judge-shared.js", () => ({
 }));
 vi.mock("./pr-link.js", () => ({
   linkPullRequest:
-    vi.fn<(deps: unknown, url: string) => Promise<string | undefined>>(),
+    vi.fn<
+      (deps: unknown, url: string, idea: string) => Promise<string | undefined>
+    >(),
 }));
 
 beforeEach(() => {
@@ -176,10 +178,41 @@ describe("harness pr open warns and previews", () => {
 });
 
 describe("harness pr open links the pull request it opened, and a failed link never blocks it", () => {
-  it("passes the command's deps and the URL gh printed to the link, once gh has created the PR", async () => {
+  it("passes the command's deps, the URL gh printed and the idea, once gh has created the PR", async () => {
     const f = fixture(REQUIRED);
     await prOpenRun(f.context);
-    expect(linkPullRequest).toHaveBeenCalledWith(f.context.deps, URL);
+    expect(linkPullRequest).toHaveBeenCalledWith(f.context.deps, URL, "none");
+  });
+
+  it("links the pull request to the idea it was given, and writes that idea into the body", async () => {
+    const f = fixture({ ...REQUIRED, idea: "0030" });
+    await prOpenRun(f.context);
+    expect(linkPullRequest).toHaveBeenCalledWith(f.context.deps, URL, "0030");
+    expect(renderPrBody).toHaveBeenCalledWith(
+      expect.objectContaining({ idea: "0030" }),
+    );
+  });
+
+  it("links an explicit none and renders no Idea line for it, the same body as a PR with no idea", async () => {
+    const withNone = fixture({ ...REQUIRED, idea: "none" });
+    await prOpenRun(withNone.context);
+    const withNoFlag = fixture(REQUIRED);
+    await prOpenRun(withNoFlag.context);
+    expect(linkPullRequest).toHaveBeenNthCalledWith(
+      1,
+      withNone.context.deps,
+      URL,
+      "none",
+    );
+    expect(linkPullRequest).toHaveBeenNthCalledWith(
+      2,
+      withNoFlag.context.deps,
+      URL,
+      "none",
+    );
+    const [noneInput] = vi.mocked(renderPrBody).mock.calls[0] ?? [];
+    expect(noneInput).not.toHaveProperty("idea");
+    expect(vi.mocked(renderPrBody).mock.calls[1]?.[0]).toEqual(noneInput);
   });
 
   it("prints the link's warning on stderr and still prints the URL, exiting 0", async () => {
@@ -238,6 +271,14 @@ describe("harness pr open is declared as a mutating command", () => {
     expect(open?.summary).toMatch(/^mutates;/);
     expect(open?.summary).toContain("--body-file <path>");
     expect(open?.summary).toContain("pr.linked");
+  });
+
+  it("says in the usage text that --idea none writes no Idea line and records none", () => {
+    const open = prCommands["open"];
+    expect(open?.summary).toContain("--idea <number or slug, or none>");
+    expect(open?.summary).toContain(
+      "`--idea none` (or no --idea) writes no `Idea:` line and records `none` on the link",
+    );
     expect(Object.keys(open?.options ?? {}).sort()).toEqual([
       "base",
       "body",
