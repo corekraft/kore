@@ -18,6 +18,7 @@ vi.mock("./review-gh.js", () => ({
 vi.mock("../judge/index.js", async (original) => ({
   ...(await original<typeof import("../judge/index.js")>()),
   findingsFrom: vi.fn<(stdin: string, none: boolean) => string[]>(),
+  ruleLabels: vi.fn<(findings: readonly string[]) => string[]>(),
   postReview: vi.fn<
     (
       request: {
@@ -88,6 +89,7 @@ function fixture(
   const io = {
     view: vi.fn<(pr: number) => Promise<PrView>>(),
     comment: vi.fn<(pr: number, body: string) => Promise<string>>(),
+    record: vi.fn<() => Promise<void>>(),
   };
   const load = vi.fn<() => Promise<ReviewIo>>();
   load.mockResolvedValue(io as unknown as ReviewIo);

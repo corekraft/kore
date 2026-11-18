@@ -15,6 +15,7 @@ export {
 } from "./author-check.js";
 export { findingsFrom } from "./review-findings.js";
 export { postReview, type ReviewPosted } from "./review-post.js";
+export { ruleLabels } from "./review-rules.js";
 export { reviewBody } from "./review-verdict.js";
 export {
   ReviewRun,

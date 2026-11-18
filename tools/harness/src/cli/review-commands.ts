@@ -2,6 +2,7 @@ import {
   findingsFrom,
   JudgeError,
   postReview,
+  ruleLabels,
   type ReviewPosted,
 } from "../judge/index.js";
 import type { Command, CommandContext } from "../runtime/index.js";
@@ -50,6 +51,9 @@ export async function reviewPostRun(
       await io.view(pr),
       (body) => io.comment(pr, body),
     );
+    if (done.posted) {
+      await io.record(done.pr, done.head, done.count, ruleLabels(findings));
+    }
     deps.stdout(json ? `${JSON.stringify(done)}\n` : summaryOf(done, dryRun));
     return 0;
   } catch (error) {
