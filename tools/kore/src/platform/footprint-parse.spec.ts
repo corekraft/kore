@@ -46,6 +46,8 @@ test("reads container memory in MiB from the usage half of docker's MemUsage", (
 
 test.each([
   ["not json", "docker stats output is not valid JSON"],
+  ["null", "docker stats output is not valid JSON"],
+  ["3", "docker stats output is not valid JSON"],
   [stats("", "1MiB / 2GiB"), "unreadable CPUPerc"],
   [stats("1%", "lots"), "unreadable MemUsage"],
   [stats("1%", "5 parsecs / 2GiB"), "unreadable MemUsage"],

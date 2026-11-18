@@ -18,19 +18,23 @@ const memoryUnits: Record<string, number> = {
 
 /** CPU (millicores; docker prints 100% for one core) and memory (MiB) of one container. */
 export function parseContainerStats(stdout: string): ContainerUsage {
-  let stats: { CPUPerc?: string; MemUsage?: string };
+  let parsed: unknown;
   try {
-    stats = JSON.parse(stdout) as typeof stats;
+    parsed = JSON.parse(stdout);
   } catch {
     throw new Error("docker stats output is not valid JSON");
   }
-  const cpu = /^(\d+(?:\.\d+)?)%$/.exec(stats.CPUPerc ?? "");
+  if (!isRecord(parsed)) {
+    throw new Error("docker stats output is not valid JSON");
+  }
+  const cpuPerc = stringField(parsed["CPUPerc"]);
+  const cpu = /^(\d+(?:\.\d+)?)%$/.exec(cpuPerc ?? "");
   if (!cpu) {
-    throw new Error(`unreadable CPUPerc ${JSON.stringify(stats.CPUPerc)}`);
+    throw new Error(`unreadable CPUPerc ${JSON.stringify(cpuPerc)}`);
   }
   return {
     cpuMillicores: Math.round(Number(cpu[1]) * 10),
-    memoryMiB: memoryInUseMiB(stats.MemUsage),
+    memoryMiB: memoryInUseMiB(stringField(parsed["MemUsage"])),
   };
 }
 
