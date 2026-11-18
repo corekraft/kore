@@ -252,6 +252,8 @@ decisions; read one only when planning that area, and expect it to change.
 - [`docs/ideas/0039-gated-help-exempt-live-verification.md`](ideas/0039-gated-help-exempt-live-verification.md) — gated-help-exempt works live in local
 - [`docs/ideas/0040-writer-tier-window.md`](ideas/0040-writer-tier-window.md) — A randomized window compares Haiku and Sonnet writers on all-in cost per merged change by first-launch tier, guarded by blocked share, send-backs and owner minutes
 - [`docs/ideas/0041-automatic-retro-live-verification.md`](ideas/0041-automatic-retro-live-verification.md) — automatic-retro works live in local
+- [`docs/ideas/0042-proof-225-bad-change.md`](ideas/0042-proof-225-bad-change.md) — proof for issue 225: a deliberately wrong claim, expected refuted and reverted
+- [`docs/ideas/0043-automatic-approval-live-verification.md`](ideas/0043-automatic-approval-live-verification.md) — automatic-approval works live in local
 
 ## Operations and Guides
 
