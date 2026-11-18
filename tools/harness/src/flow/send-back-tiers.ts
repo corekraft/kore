@@ -13,6 +13,7 @@ import {
   sendBackCategories,
   type CategoryCounts,
 } from "./send-back-categories.js";
+import { DEFAULT_MIN_CATEGORISED_SEND_BACKS } from "./cost.js";
 import type { Span } from "./scope.js";
 import {
   linkedAgents,
@@ -57,9 +58,13 @@ const NO_SEND_BACK_COUNTS: CategoryCounts = {
   byCategory: Object.fromEntries(
     SEND_BACK_CATEGORIES.map((c) => [c, 0]),
   ) as Record<SendBackCategory, number>,
+  legacy: 0,
   uncategorised: 0,
-  otherShare: null,
   otherThreshold: OTHER_SHARE_THRESHOLD,
+  categorised: 0,
+  otherShare: null,
+  minCategorised: DEFAULT_MIN_CATEGORISED_SEND_BACKS,
+  otherReading: "insufficient",
   otherOverThreshold: false,
 };
 
@@ -78,6 +83,7 @@ export function sendBackTiersIn(
   events: LedgerEvent[],
   span: Span,
   tiers: string[],
+  minCategorised: number,
 ): SendBackTiers {
   const launches = pricedLaunches(events);
   const agents = linkedAgents(events);
@@ -99,6 +105,7 @@ export function sendBackTiersIn(
           sendBacks: sendBackCategories(
             sendBacks.filter((e) => tierOfNumber(e.number) === tier),
             span,
+            minCategorised,
           ),
           rework: reworked,
           reworkPerMergedChange:
@@ -114,6 +121,7 @@ export function sendBackTiersIn(
       sendBacks: sendBackCategories(
         sendBacks.filter((e) => tierOfNumber(e.number) === undefined),
         span,
+        minCategorised,
       ),
     },
   };

@@ -26,6 +26,7 @@ const SPAN: [number, number] = [0, 1000];
 const HAIKU = "claude-haiku-5-5";
 const SONNET = "claude-sonnet-5-5";
 const TIERS = [HAIKU, SONNET];
+const MINIMUM = 7;
 const WRITER_TIER: Record<string, string> = {
   "h-writer": HAIKU,
   "s-writer": SONNET,
@@ -48,9 +49,13 @@ function countsOf(events: LedgerEvent[]): CategoryCounts {
   }
   return {
     byCategory,
+    legacy: 0,
     uncategorised,
-    otherShare: null,
     otherThreshold: 0.1,
+    categorised: 0,
+    otherShare: null,
+    minCategorised: MINIMUM,
+    otherReading: "insufficient",
     otherOverThreshold: false,
   };
 }
@@ -108,6 +113,7 @@ describe("send-backs by writer tier: a send-back counts on the tier its pull req
       [sendBack(100, "scope"), sendBack(200, "failed-check")],
       SPAN,
       TIERS,
+      MINIMUM,
     ).tiers;
 
     expect(tiers[HAIKU]?.sendBacks.byCategory).toEqual({ ...NONE, scope: 1 });
@@ -117,10 +123,25 @@ describe("send-backs by writer tier: a send-back counts on the tier its pull req
     });
   });
 
+  it("reads every tier row and the unlinked row against the categorised send-back minimum it is given (#1094)", () => {
+    linkWriters([[100, "h-writer"]]);
+
+    sendBackTiersIn([sendBack(100), sendBack(300)], SPAN, TIERS, MINIMUM);
+
+    // Two tier rows and the unlinked row: three reads, each against the minimum.
+    expect(vi.mocked(sendBackCategories).mock.calls.map((c) => c[2])).toEqual([
+      MINIMUM,
+      MINIMUM,
+      MINIMUM,
+    ]);
+  });
+
   it("counts a send-back with no category as uncategorised in its tier's row, never as another category", () => {
     linkWriters([[100, "h-writer"]]);
 
-    const haiku = sendBackTiersIn([sendBack(100)], SPAN, TIERS).tiers[HAIKU];
+    const haiku = sendBackTiersIn([sendBack(100)], SPAN, TIERS, MINIMUM).tiers[
+      HAIKU
+    ];
 
     expect(haiku?.sendBacks).toEqual({ ...EMPTY, uncategorised: 1 });
   });
@@ -134,7 +155,12 @@ describe("unlinked row: a change with no writer link is in the unlinked row and 
       unjoinable: 1,
     });
 
-    const result = sendBackTiersIn([sendBack(300, "rule-break")], SPAN, TIERS);
+    const result = sendBackTiersIn(
+      [sendBack(300, "rule-break")],
+      SPAN,
+      TIERS,
+      MINIMUM,
+    );
 
     expect(result.unlinked.sendBacks.byCategory).toEqual({
       ...NONE,
@@ -145,7 +171,12 @@ describe("unlinked row: a change with no writer link is in the unlinked row and 
   });
 
   it("keeps a send-back with no pull request number in the unlinked row, never dropped", () => {
-    const result = sendBackTiersIn([sendBack(undefined, "other")], SPAN, TIERS);
+    const result = sendBackTiersIn(
+      [sendBack(undefined, "other")],
+      SPAN,
+      TIERS,
+      MINIMUM,
+    );
 
     expect(result.unlinked.sendBacks.byCategory).toEqual({
       ...NONE,
@@ -160,14 +191,14 @@ describe("unlinked row: a change with no writer link is in the unlinked row and 
       unjoinable: 2,
     });
 
-    const result = sendBackTiersIn([], SPAN, TIERS);
+    const result = sendBackTiersIn([], SPAN, TIERS, MINIMUM);
 
     expect(result.unlinked.mergedChanges).toBe(2);
     expect(result.tiers[HAIKU]?.mergedChanges).toBe(0);
   });
 
   it("gives the unlinked row no rework figure, since a send to a pane with no tier is not read", () => {
-    const result = sendBackTiersIn([], SPAN, TIERS);
+    const result = sendBackTiersIn([], SPAN, TIERS, MINIMUM);
 
     expect(result.unlinked).not.toHaveProperty("rework");
   });
@@ -182,7 +213,7 @@ describe("merged changes and rework of a tier: each figure with the count it is 
     });
     vi.mocked(reworkSendsIn).mockReturnValue(new Map([[HAIKU, 3]]));
 
-    expect(sendBackTiersIn([], SPAN, TIERS).tiers[HAIKU]).toEqual({
+    expect(sendBackTiersIn([], SPAN, TIERS, MINIMUM).tiers[HAIKU]).toEqual({
       mergedChanges: 2,
       sendBacks: EMPTY,
       rework: 3,
@@ -193,7 +224,7 @@ describe("merged changes and rework of a tier: each figure with the count it is 
   it("reads a tier's rework per merged change as not read, never zero, while its rework count stays", () => {
     vi.mocked(reworkSendsIn).mockReturnValue(new Map([[SONNET, 1]]));
 
-    expect(sendBackTiersIn([], SPAN, TIERS).tiers[SONNET]).toEqual({
+    expect(sendBackTiersIn([], SPAN, TIERS, MINIMUM).tiers[SONNET]).toEqual({
       mergedChanges: 0,
       sendBacks: EMPTY,
       rework: 1,
@@ -202,7 +233,7 @@ describe("merged changes and rework of a tier: each figure with the count it is 
   });
 
   it("gives a tier with nothing in the span a row of zero counts, with its rate not read", () => {
-    expect(sendBackTiersIn([], SPAN, TIERS).tiers[HAIKU]).toEqual({
+    expect(sendBackTiersIn([], SPAN, TIERS, MINIMUM).tiers[HAIKU]).toEqual({
       mergedChanges: 0,
       sendBacks: EMPTY,
       rework: 0,

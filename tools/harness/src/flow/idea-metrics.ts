@@ -109,13 +109,18 @@ export function frictionMetrics(
   named: LedgerEvent[],
   byIdea: Map<string, LedgerEvent[]>,
   window: Span,
-  trailingIdeas?: number,
+  cost: Partial<CostOptions> = {},
 ): FrictionMetrics {
   return {
-    rework: reworkMetrics(byIdea, window, trailingIdeas),
+    rework: reworkMetrics(byIdea, window, cost.trailingIdeas),
     friction: friction(named, window),
     retroProposalsDropped: retroProposalsDropped(named, window),
     qualifierWarnings: qualifierWarnings(named, window),
-    sendBackCategories: categoryReport(named, byIdea, window),
+    sendBackCategories: categoryReport(
+      named,
+      byIdea,
+      window,
+      { ...DEFAULT_COST, ...cost }.minCategorisedSendBacks,
+    ),
   };
 }

@@ -52,8 +52,24 @@ describe("buildReport friction and rework", () => {
       named,
       new Map([["#1", own]]),
       WINDOW,
-      3,
+      { trailingIdeas: 3 },
     );
+  });
+
+  it("gives the friction metrics the cost settings, with the configured minimum of categorised send-backs", () => {
+    fakeTally();
+    cover(new Map());
+    vi.mocked(frictionMetrics).mockReturnValue(
+      {} as ReturnType<typeof frictionMetrics>,
+    );
+    buildReport([], {
+      asOf: ASOF,
+      minCompletedIdeas: 1,
+      cost: { minCategorisedSendBacks: 9 },
+    });
+    expect(vi.mocked(frictionMetrics).mock.calls[0]?.[3]).toEqual({
+      minCategorisedSendBacks: 9,
+    });
   });
 
   it("reports the send-backs by category that the friction metrics count", () => {

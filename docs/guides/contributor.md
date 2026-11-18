@@ -463,6 +463,7 @@ narrow scope shortens the history. N is `--trailing N`, else
 `cost.trailingIdeas` in `.claude/harness.json`, else 5. The file is committed
 with the defaults, optional if removed, and checked before any report; its keys
 are `cost.trailingIdeas`, `cost.minMergedChanges` (a placeholder, default 5),
+`cost.minCategorisedSendBacks` (a proposal, default 20; see `sendBackCategories` below),
 `cost.tokensPerIdea.maxIncrease` and `cost.sessionsPerIdea.maxIncrease` (default
 0.25 each), and a bad one fails with
 the file, the key and the fix. The human report prints the same numbers.
@@ -648,11 +649,29 @@ window effort ("Haiku at high minus Sonnet at high"), so a result reads at that 
 the overall figure only. `writerFiguresIn` (`writer-figures.ts`) reads the cost and the arms
 against the same minimum.
 
+`sendBackCategories` (#830, #1094, spec #1088) counts the judge's send-backs by category, once per PR
+head, as `perPrHead` (every send-back in range) and `perMergedChange` (those of ideas that closed in
+range). Each has `byCategory` (every category of the list a key, zero where none), and three counts that
+are never added together into the share: `legacy`, the send-backs recorded before 2026-11-16, when the
+send-back command began to require a category (#884), whatever they carry (neither `uncategorised` nor
+`other`); `uncategorised`, the send-backs from 2026-11-16 on with no category (none is expected); and
+`categorised`, the sum of `byCategory`. The cut is `CATEGORY_REQUIRED_FROM` in `send-back-share.ts`, and
+a window is split at it with `splitSpanAt` (`date-split.ts`). Old send-backs are left out, not
+back-filled. `otherShare` is `other` over `categorised` (null with none), and `otherReading` is
+`insufficient` below `minCategorised` categorised send-backs (`cost.minCategorisedSendBacks`, default 20,
+a proposal; its own setting, since `cost.minMergedChanges` counts merged changes), else `over` when
+the share is above `otherThreshold` (a placeholder, 0.1) and `within` when it is not.
+`otherOverThreshold` is true only for `over`, so a thin window is never over. A stored send-back line
+whose category this build does not know is not read: the ledger counts it in `skippedLines`. The
+per-merged-change figure `sendBacksPerMergedChange` still counts every send-back, legacy ones included.
+The same counts, minimum and reading are on each `sendBackTiers` row. The text prints each scope on one
+line with the legacy, uncategorised and categorised counts and the share.
+
 `sendBackTiers` (#1045, spec #1024), from `tools/harness/src/flow/send-back-tiers.ts`, reads the
 judge's send-backs per writer tier. A send-back joins to the tier its pull request's writer joins
 to (the same join as the cost above), and each tier gives its merged changes, its send-backs by
-category (each category once per PR head, `uncategorised` for those recorded before categories
-existed), and its rework (#1009) with the merged changes it is read over. `rework` is always a
+category (each category once per PR head, with `legacy` and `uncategorised` as in
+`sendBackCategories` above), and its rework (#1009) with the merged changes it is read over. `rework` is always a
 count; `reworkPerMergedChange` is null with no merged change, never zero. The `unlinked`
 row holds the merged changes and send-backs that join to no tier, including a send-back with no
 pull request number; it has no rework, since a send to a pane with no writer tier is not read. No

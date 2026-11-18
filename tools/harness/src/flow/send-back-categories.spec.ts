@@ -9,12 +9,29 @@ import {
   sendBackCategories,
   sendBacksInRange,
 } from "./send-back-categories.js";
+import {
+  legacySpan,
+  otherShareOf,
+  type OtherShare,
+} from "./send-back-share.js";
 
 vi.mock("./cost.js");
 vi.mock("./github-waits.js");
 vi.mock("./scope.js");
+vi.mock("./send-back-share.js");
 
 const WINDOW: Span = [0, 1000];
+/** The legacy part of the window: send-backs before 5 ms were recorded before the requirement. */
+const LEGACY_END = 5;
+const MINIMUM = 7;
+/** A share the mocked helper returns, told from any real reading by its values. */
+const SHARE: OtherShare = {
+  categorised: 41,
+  otherShare: 0.5,
+  minCategorised: MINIMUM,
+  otherReading: "over",
+  otherOverThreshold: true,
+};
 const HEAD_A = "abcdef1234567890abcdef1234567890abcdef12";
 const HEAD_B = "1234567abcdef1234567abcdef1234567abcdef1";
 
@@ -56,17 +73,24 @@ beforeEach(() => {
   vi.mocked(time).mockImplementation((e) => Date.parse(e.occurredAt));
   vi.mocked(inWindow).mockImplementation((w, t) => t >= w[0] && t < w[1]);
   vi.mocked(closedIdeas).mockReturnValue([]);
+  vi.mocked(legacySpan).mockImplementation((w) => [w[0], LEGACY_END]);
+  vi.mocked(otherShareOf).mockReturnValue(SHARE);
 });
 
 describe("sendBackCategories: counting", () => {
-  it("names every category at zero, and no share, for a ledger with no send-backs", () => {
-    expect(sendBackCategories([], WINDOW)).toEqual({
+  it("names every category at zero, with nothing legacy or uncategorised, for a ledger with no send-backs", () => {
+    expect(sendBackCategories([], WINDOW, MINIMUM)).toEqual({
       byCategory: NONE,
+      legacy: 0,
       uncategorised: 0,
-      otherShare: null,
       otherThreshold: OTHER_SHARE_THRESHOLD,
-      otherOverThreshold: false,
+      ...SHARE,
     });
+    expect(otherShareOf).toHaveBeenCalledWith(
+      NONE,
+      MINIMUM,
+      OTHER_SHARE_THRESHOLD,
+    );
   });
 
   it("counts a category once per PR head, so a rerun at one head counts once", () => {
@@ -74,7 +98,7 @@ describe("sendBackCategories: counting", () => {
       sendBack(HEAD_A, "failed-check", 10),
       sendBack(HEAD_A, "failed-check", 20),
     ];
-    expect(sendBackCategories(events, WINDOW).byCategory).toEqual({
+    expect(sendBackCategories(events, WINDOW, MINIMUM).byCategory).toEqual({
       ...NONE,
       "failed-check": 1,
     });
@@ -86,7 +110,7 @@ describe("sendBackCategories: counting", () => {
       sendBack(HEAD_A, "conflict", 20),
       sendBack(HEAD_B, "failed-check", 30),
     ];
-    expect(sendBackCategories(events, WINDOW).byCategory).toEqual({
+    expect(sendBackCategories(events, WINDOW, MINIMUM).byCategory).toEqual({
       ...NONE,
       "failed-check": 2,
       conflict: 1,
@@ -97,53 +121,89 @@ describe("sendBackCategories: counting", () => {
     const counts = sendBackCategories(
       [sendBack(HEAD_A, "wrong-statement", 10)],
       WINDOW,
+      MINIMUM,
     );
     expect(counts.byCategory).toEqual({ ...NONE, "wrong-statement": 1 });
-    expect(counts.otherShare).toBe(0);
   });
 });
 
-describe("sendBackCategories: uncategorised and the share of other", () => {
-  it("counts a send-back recorded before categories existed as uncategorised, never as other", () => {
-    const counts = sendBackCategories([sendBack(HEAD_A, undefined)], WINDOW);
-    expect(counts.uncategorised).toBe(1);
-    expect(counts.byCategory.other).toBe(0);
-    expect(counts.otherShare).toBeNull();
+describe("sendBackCategories: legacy, uncategorised and the share of other", () => {
+  it("counts a send-back recorded before the category requirement as legacy, never as uncategorised or other", () => {
+    const counts = sendBackCategories(
+      [sendBack(HEAD_A, undefined, 2)],
+      WINDOW,
+      MINIMUM,
+    );
+    expect(counts.legacy).toBe(1);
+    expect(counts.uncategorised).toBe(0);
+    expect(counts.byCategory).toEqual(NONE);
+    expect(otherShareOf).toHaveBeenCalledWith(
+      NONE,
+      MINIMUM,
+      OTHER_SHARE_THRESHOLD,
+    );
   });
 
-  it("gives the share of other over the categorised send-backs, and flags it past the threshold", () => {
-    const events = [
-      sendBack(HEAD_A, "other", 10),
-      sendBack(HEAD_B, "failed-check", 20),
-      sendBack(HEAD_A, "failed-check", 30),
-      sendBack("9999999aaaa", undefined, 40),
-    ];
-    const counts = sendBackCategories(events, WINDOW);
-    // Three categorised send-backs, one of them other: uncategorised is not in the share.
-    expect(counts.otherShare).toBeCloseTo(1 / 3);
+  it("counts a send-back with no category from after the requirement as uncategorised, never as legacy or other", () => {
+    const counts = sendBackCategories(
+      [sendBack(HEAD_A, undefined, 10)],
+      WINDOW,
+      MINIMUM,
+    );
     expect(counts.uncategorised).toBe(1);
-    expect(counts.otherOverThreshold).toBe(true);
+    expect(counts.legacy).toBe(0);
+    expect(counts.byCategory).toEqual(NONE);
   });
 
-  it("does not flag other when its share is at or under the threshold", () => {
+  it("counts two legacy and three categorised send-backs exactly, the share read from the three alone", () => {
     const events = [
-      sendBack(HEAD_A, "other", 10),
-      ...[
-        HEAD_B,
-        "9999999aaaa",
-        "1111111bbbb",
-        "2222222cccc",
-        "3333333dddd",
-        "4444444eeee",
-        "5555555ffff",
-        "6666666aaaa",
-        "7777777bbbb",
-        "8888888cccc",
-      ].map((head, i) => sendBack(head, "failed-check", 20 + i)),
+      sendBack("1111111aaaa", undefined, 1),
+      sendBack("2222222bbbb", undefined, 3),
+      sendBack("3333333cccc", "other", 10),
+      sendBack("4444444dddd", "failed-check", 20),
+      sendBack("5555555eeee", "failed-check", 30),
     ];
-    const counts = sendBackCategories(events, WINDOW);
-    expect(counts.otherShare).toBeCloseTo(1 / 11);
-    expect(counts.otherOverThreshold).toBe(false);
+    const counts = sendBackCategories(events, WINDOW, MINIMUM);
+    expect(counts).toEqual({
+      byCategory: { ...NONE, other: 1, "failed-check": 2 },
+      legacy: 2,
+      uncategorised: 0,
+      otherThreshold: OTHER_SHARE_THRESHOLD,
+      ...SHARE,
+    });
+    // The legacy pair is not in the byCategory counts the share is read from.
+    expect(otherShareOf).toHaveBeenCalledWith(
+      { ...NONE, other: 1, "failed-check": 2 },
+      MINIMUM,
+      OTHER_SHARE_THRESHOLD,
+    );
+  });
+});
+
+describe("sendBackCategories: legacy send-backs and the share helper", () => {
+  it("counts a legacy send-back once per PR head, like any other", () => {
+    const counts = sendBackCategories(
+      [sendBack(HEAD_A, undefined, 1), sendBack(HEAD_A, undefined, 2)],
+      WINDOW,
+      MINIMUM,
+    );
+    expect(counts.legacy).toBe(1);
+  });
+
+  it("takes the share, its reading and the minimum from the share helper, with the threshold beside them", () => {
+    const counts = sendBackCategories(
+      [sendBack(HEAD_A, "other", 10)],
+      WINDOW,
+      MINIMUM,
+    );
+    expect(counts).toMatchObject({
+      categorised: 41,
+      otherShare: 0.5,
+      minCategorised: MINIMUM,
+      otherReading: "over",
+      otherOverThreshold: true,
+      otherThreshold: OTHER_SHARE_THRESHOLD,
+    });
   });
 
   it("counts only send-backs inside the window, and no other kind of event", () => {
@@ -156,7 +216,7 @@ describe("sendBackCategories: uncategorised and the share of other", () => {
         label: "relaunched",
       },
     ];
-    expect(sendBackCategories(events, WINDOW).byCategory).toEqual({
+    expect(sendBackCategories(events, WINDOW, MINIMUM).byCategory).toEqual({
       ...NONE,
       conflict: 1,
     });
@@ -171,7 +231,12 @@ describe("categoryReport: per PR head and per merged change", () => {
       { idea: "0042", at: 500, own: [merged] },
     ]);
 
-    const report = categoryReport([merged, abandoned], new Map(), WINDOW);
+    const report = categoryReport(
+      [merged, abandoned],
+      new Map(),
+      WINDOW,
+      MINIMUM,
+    );
     expect(report.perPrHead.byCategory).toEqual({
       ...NONE,
       conflict: 1,
@@ -181,6 +246,9 @@ describe("categoryReport: per PR head and per merged change", () => {
       ...NONE,
       conflict: 1,
     });
+    // Both are read against the minimum the report was given.
+    expect(report.perPrHead.minCategorised).toBe(MINIMUM);
+    expect(otherShareOf).toHaveBeenCalledTimes(2);
   });
 });
 
@@ -198,12 +266,17 @@ describe("sendBacksInRange: every send-back in the window, once per PR head (#83
     ).toBe(2);
   });
 
-  it("counts a send-back from before categories existed, and leaves out one at the window's end", () => {
+  it("counts a legacy send-back with the rest, so a per-merged figure keeps what it was, and leaves out one at the window's end", () => {
     expect(
       sendBacksInRange(
-        [sendBack(HEAD_A, undefined, 10), sendBack(HEAD_B, "conflict", 1000)],
+        [
+          sendBack(HEAD_A, undefined, 2),
+          sendBack(HEAD_B, undefined, 10),
+          sendBack("9999999aaaa", "conflict", 20),
+          sendBack("8888888bbbb", "conflict", 1000),
+        ],
         WINDOW,
       ),
-    ).toBe(1);
+    ).toBe(3);
   });
 });

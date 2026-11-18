@@ -36,6 +36,7 @@ export function writerFiguresIn(
     splitAt?: Date;
   },
 ): WriterFigures {
+  const { minCategorisedSendBacks } = { ...DEFAULT_COST, ...options.cost };
   return {
     writerCost: mergedChangeWriterCost(events, window, options),
     writerArms: writerArmsIn(events, window, MODEL_PRICES, {
@@ -44,7 +45,17 @@ export function writerFiguresIn(
         ? {}
         : { windowEffort: options.windowEffort }),
     }),
-    sendBackTiers: sendBackTiersIn(events, window, Object.keys(MODEL_PRICES)),
-    ...sendBackTiersSplitIn(events, window, options.splitAt),
+    sendBackTiers: sendBackTiersIn(
+      events,
+      window,
+      Object.keys(MODEL_PRICES),
+      minCategorisedSendBacks,
+    ),
+    ...sendBackTiersSplitIn(
+      events,
+      window,
+      options.splitAt,
+      minCategorisedSendBacks,
+    ),
   };
 }

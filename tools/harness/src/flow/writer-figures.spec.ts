@@ -20,6 +20,17 @@ describe("writer figures: the cost and the arms read against one minimum", () =>
     expect(figures.writerArms.minMergedChanges).toBe(5);
   });
 
+  it("reads the send-backs per writer tier against the categorised send-back minimum the cost settings give, 20 when they leave it out (#1094)", () => {
+    const set = writerFiguresIn([], WINDOW, {
+      asOf: ASOF,
+      cost: { minCategorisedSendBacks: 4 },
+    });
+    const unset = writerFiguresIn([], WINDOW, { asOf: ASOF });
+
+    expect(set.sendBackTiers.unlinked.sendBacks.minCategorised).toBe(4);
+    expect(unset.sendBackTiers.unlinked.sendBacks.minCategorised).toBe(20);
+  });
+
   it("reads no arm with no merged change, as not read and never as a zero", () => {
     const figures = writerFiguresIn([], WINDOW, { asOf: ASOF });
 

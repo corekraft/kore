@@ -3,17 +3,20 @@ import * as flow from "./index.js";
 import * as cost from "./cost.js";
 import * as costConfig from "./cost-config.js";
 import * as report from "./report.js";
+import * as sendBackShare from "./send-back-share.js";
 import * as stages from "./stages.js";
 
 vi.mock("./cost.js");
 vi.mock("./cost-config.js");
 vi.mock("./report.js");
+vi.mock("./send-back-share.js");
 vi.mock("./stages.js");
 
 describe("flow barrel", () => {
   it("exposes exactly the runtime names the domain publishes", () => {
     expect(Object.keys(flow).sort()).toEqual(
       [
+        "CATEGORY_REQUIRED_FROM",
         "DEFAULT_COST",
         "DEFAULT_RETRO_HISTORY",
         "GITHUB_STAGES",
@@ -33,6 +36,12 @@ describe("flow barrel", () => {
   it("re-exports the report's names unchanged", () => {
     expect(flow.REPORT_VERSION).toBe(report.REPORT_VERSION);
     expect(flow.buildReport).toBe(report.buildReport);
+  });
+
+  it("re-exports the date the send-back category became required unchanged", () => {
+    expect(flow.CATEGORY_REQUIRED_FROM).toBe(
+      sendBackShare.CATEGORY_REQUIRED_FROM,
+    );
   });
 
   it("re-exports the cost defaults unchanged", () => {

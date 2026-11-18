@@ -5,7 +5,12 @@ import {
   emptyLeadTimePerMergedChange,
   emptyWriterArms,
 } from "./flow-commands-merged-support.js";
-import { STAGES, type FlowReport, type SendBackTiers } from "../flow/index.js";
+import {
+  STAGES,
+  type CategoryCounts,
+  type FlowReport,
+  type SendBackTiers,
+} from "../flow/index.js";
 import type { Ledger } from "../ledger/index.js";
 import { EMPTY_ADVISOR, POPULATED_ADVISOR } from "./flow-advisor-support.js";
 import { contextWith } from "./command-support.js";
@@ -49,7 +54,7 @@ export function ledgerOf(events: unknown[] = [], skipped = 0) {
 }
 
 /** Send-backs by category with none sent back, for one scope of the report. */
-const emptyCategories = {
+const emptyCategories: CategoryCounts = {
   byCategory: {
     declaration: 0,
     "pattern-mismatch": 0,
@@ -61,9 +66,13 @@ const emptyCategories = {
     "wrong-statement": 0,
     other: 0,
   },
+  legacy: 0,
   uncategorised: 0,
-  otherShare: null,
   otherThreshold: 0.1,
+  categorised: 0,
+  otherShare: null,
+  minCategorised: 20,
+  otherReading: "insufficient",
   otherOverThreshold: false,
 };
 

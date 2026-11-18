@@ -159,7 +159,12 @@ describe("frictionMetrics", () => {
     vi.mocked(friction).mockReturnValue(found);
     vi.mocked(retroProposalsDropped).mockReturnValue(4);
     vi.mocked(categoryReport).mockReturnValue(categories);
-    expect(frictionMetrics(named, byIdea, WINDOW, 2)).toEqual({
+    expect(
+      frictionMetrics(named, byIdea, WINDOW, {
+        trailingIdeas: 2,
+        minCategorisedSendBacks: 9,
+      }),
+    ).toEqual({
       rework,
       friction: found,
       retroProposalsDropped: 4,
@@ -168,7 +173,21 @@ describe("frictionMetrics", () => {
     expect(retroProposalsDropped).toHaveBeenCalledWith(named, WINDOW);
     expect(reworkMetrics).toHaveBeenCalledWith(byIdea, WINDOW, 2);
     expect(friction).toHaveBeenCalledWith(named, WINDOW);
-    expect(categoryReport).toHaveBeenCalledWith(named, byIdea, WINDOW);
+    expect(categoryReport).toHaveBeenCalledWith(named, byIdea, WINDOW, 9);
+  });
+});
+
+describe("frictionMetrics: cost settings left out", () => {
+  it("reads the trailing window and the categorised send-back minimum from the defaults", () => {
+    frictionMetrics([], new Map(), WINDOW);
+
+    expect(reworkMetrics).toHaveBeenCalledWith(new Map(), WINDOW, undefined);
+    expect(categoryReport).toHaveBeenCalledWith(
+      [],
+      new Map(),
+      WINDOW,
+      DEFAULT_COST.minCategorisedSendBacks,
+    );
   });
 });
 

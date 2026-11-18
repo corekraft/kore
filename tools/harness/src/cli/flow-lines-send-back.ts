@@ -3,27 +3,39 @@
 // to keep that file under its line limit; flow-lines.ts re-exports sendBackCategoryLines.
 
 import { SEND_BACK_CATEGORIES } from "../ledger/index.js";
-import type {
-  CategoryCounts,
-  FlowReport,
-  SendBackTiers,
+import {
+  CATEGORY_REQUIRED_FROM,
+  type CategoryCounts,
+  type FlowReport,
+  type SendBackTiers,
 } from "../flow/index.js";
 import { changes } from "./flow-lines-writer-cost.js";
 
-/** One line per scope: every category's count, the uncategorised count, and the share of other. */
+/** How the share of other reads: no share, the share alone, or the share with why it is not read or what it flags. */
+function shareText(counts: CategoryCounts): string {
+  if (counts.otherShare === null) {
+    return "no categorised send-backs";
+  }
+  const share = `other ${Math.round(counts.otherShare * 100)}% of categorised`;
+  if (counts.otherReading === "insufficient") {
+    return `${share}, insufficient: ${counts.categorised} of ${counts.minCategorised} categorised send-backs needed`;
+  }
+  return counts.otherReading === "over"
+    ? `${share}, over ${Math.round(counts.otherThreshold * 100)}%: the list may need an entry`
+    : share;
+}
+
+/**
+ * One line per scope: every category's count, the legacy count (recorded before the category
+ * requirement, so neither uncategorised nor other), the uncategorised and categorised counts, and
+ * the share of other among the categorised ones.
+ */
 function categoryLine(scope: string, counts: CategoryCounts): string {
   const byCategory = SEND_BACK_CATEGORIES.map(
     (c) => `${c} ${counts.byCategory[c]}`,
   ).join(", ");
-  const share =
-    counts.otherShare === null
-      ? "no categorised send-backs"
-      : `other ${Math.round(counts.otherShare * 100)}% of categorised${
-          counts.otherOverThreshold
-            ? `, over ${Math.round(counts.otherThreshold * 100)}%: the list may need an entry`
-            : ""
-        }`;
-  return `Send-backs by category, ${scope}: ${byCategory}; uncategorised ${counts.uncategorised}; ${share}`;
+  const cut = CATEGORY_REQUIRED_FROM.toISOString().slice(0, 10);
+  return `Send-backs by category, ${scope}: ${byCategory}; legacy ${counts.legacy} (recorded before ${cut}, when a category became required); uncategorised ${counts.uncategorised}; categorised ${counts.categorised}; ${shareText(counts)}`;
 }
 
 /** The send-backs by category, per PR head and per merged change. */

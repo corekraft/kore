@@ -88,6 +88,13 @@ send-back is recorded. A send-back with no category, or one outside the list, is
 refused before anything is posted or recorded.
 _Avoid_: Reason code, send-back type
 
+**Legacy send-back**:
+A judge send-back recorded before 2026-11-16, when the send-back command began
+to require a category. The flow report counts it apart as `legacy`, never as
+uncategorised or `other`, and leaves it out of the share of `other`; it is not
+back-filled.
+_Avoid_: Uncategorised send-back (that is one from after the requirement with no category)
+
 **Reviewer**:
 The role that checks a change against the judgement rules in `AGENTS.md`. A
 tool posts its verdict, and the judge reads it.
