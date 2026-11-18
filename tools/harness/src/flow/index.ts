@@ -33,3 +33,4 @@ export type {
 export type { LeadTime } from "./idea-metrics.js";
 export type { ReviewMisses } from "./review-misses.js";
 export type { Wip } from "./wip.js";
+export type { ArmRow, ArmSide, WriterArms } from "./writer-arms.js";

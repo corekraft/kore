@@ -235,6 +235,8 @@ describe("flow report: human lines", () => {
         "All-in cost per merged change: not read, 0 merged changes in this range (5 needed)",
         "All-in cost per merged change, trailing average: no average: 0 merged changes in the trailing 7 days (5 needed)",
         "Writer tiers beyond cost: not read, 0 merged changes in this range (5 needed)",
+        "Writer arms, all merged changes: insufficient merged changes, Haiku 0 and Sonnet 0 (5 needed in each arm); not read.",
+        "Writer arms: 0 merged changes on an arm with no label recorded, in the overall figure only. The report gives no verdict; the deciding rule is the owner's, recorded on the idea.",
         "No bottleneck yet.",
         "",
       ].join("\n"),

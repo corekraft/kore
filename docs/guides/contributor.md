@@ -566,6 +566,24 @@ and whose first request is in it; a session launched before the span, or whose f
 request falls outside it, is left out. A per-change figure is null with no
 joined change, never zero, and the text reads it as not read.
 
+`writerArms` compares the Haiku and Sonnet arms (#1012, spec #998), from
+`tools/harness/src/flow/writer-arms.ts`. An arm is the merged changes joined to one tier
+(`claude-haiku-5-5` or `claude-sonnet-5-5`) by the join above. For the overall figure and for
+each label a change's writer carried at launch (`session.labelled`, one row per label, so a
+change with two labels counts in both), it gives the difference in all-in dollars per merged
+change, Haiku minus Sonnet, with a 95 percent percentile interval from a seeded bootstrap
+(`tools/harness/src/flow/bootstrap-interval.ts`, over the generator in `seeded-random.ts`; the
+seed, resamples and level are fixed in `writer-arms.ts` and printed with the figure). Each arm
+also gives its merged changes, mean all-in dollars, effort mix (the effort of the launch the
+change joins to, `unknown` where the launch predates effort), and the guards from
+`writer-arm-guards.ts`: blocked share, send-backs and owner minutes per merged change. A row
+with fewer than `cost.minMergedChanges` merged changes in either arm is `insufficient merged
+changes`, and an unpriced model is `insufficient prices`; neither is ever a zero. The report
+names no winner, margin or verdict: the deciding rule is the owner's, recorded on the idea
+before the window opens. `writerArms.unlabelled` counts arm changes with no label, which are in
+the overall figure only. `writerFiguresIn` (`writer-figures.ts`) reads the cost and the arms
+against the same minimum.
+
 `reviewMisses` measures the Reviewer against the judge (#851). A review is a
 `review.run` event that posted or left unchanged a verdict, counted once per PR
 head by its first verdict; a review with `findings` 0 passed, and one with more
