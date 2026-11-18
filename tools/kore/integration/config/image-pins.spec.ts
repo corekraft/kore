@@ -165,12 +165,16 @@ test("every base image a Kore-built Dockerfile pulls is pinned by digest", async
     const stages = new Set<string>();
     for (const line of text.split("\n")) {
       const from = /^FROM\s+(?:--\S+\s+)?(\S+)(?:\s+AS\s+(\S+))?/i.exec(line);
-      if (!from) continue;
+      if (!from) {
+        continue;
+      }
       const [, image, stage] = from;
       if (image !== "scratch" && !stages.has(image!) && !DIGEST.test(image!)) {
         unpinned.push(`${file}: ${image}`);
       }
-      if (stage) stages.add(stage);
+      if (stage) {
+        stages.add(stage);
+      }
     }
   }
   assert.deepEqual(unpinned, []);
