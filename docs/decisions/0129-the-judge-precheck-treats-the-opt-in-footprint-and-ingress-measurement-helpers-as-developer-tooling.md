@@ -1,5 +1,5 @@
 ---
-status: proposed
+status: accepted
 summary: Six named measurement helpers under tools/kore/src/platform, imported only by specs or by each other, count as developer tooling in the precheck; the judge still reads the diff.
 date: 2026-11-18
 last-verified: 2026-11-18
@@ -76,4 +76,4 @@ as the backstop. No other precheck rule changes.
 - If production code later imports one of these files, it is no longer tooling.
   The precheck does not read imports; the judge's reading of the diff and a
   review of this list are the backstop.
-- The status is `proposed` until the owner accepts it.
+- The owner approved this decision on 2026-11-18.
