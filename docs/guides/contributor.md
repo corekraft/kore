@@ -388,9 +388,11 @@ no flag or option can type it. A stretch is one main-session session on one reco
 model, with the largest prompt in its readings before the range ends. Its label is
 `control` (the main-session model, `claude-opus-5-5`, with a largest prompt above
 the cap), `early compaction` (the same model, at or under the cap) or `Haiku` (a
-Haiku model). With no cap set, every stretch reads `not set`, Haiku included. A
-model that is neither, or a session with token totals and no reading (whose `model`
-and `largestPrompt` are `null`), reads `insufficient` with a `reason`. `mainSessionSetups`
+Haiku model). With no cap set, a stretch that has a reading reads `not set`,
+whatever its model, Haiku included. With a cap, a model that is neither reads
+`insufficient` with a `reason`. A session with token totals and no reading (whose
+`model` and `largestPrompt` are `null`) reads `insufficient` with a `reason`
+whatever the cap. `mainSessionSetups`
 in `--json` gives `status`, `compactionCap` (`null` when not set) and `stretches`;
 a range with no main-session reading is `insufficient` with its `reason`. The text
 prints a `Main-session setups` line with the cap, then one line per stretch. The

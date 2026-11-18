@@ -128,8 +128,9 @@ function bareSessions(
 
 /**
  * The setup of each main-session stretch in the window, against the compaction cap. A session
- * with a role is never read here. With no cap every stretch reads "not set", and a session
- * with token totals and no reading reads "insufficient"; neither is ever one of the three.
+ * with a role is never read here. With no cap a stretch with a reading reads "not set",
+ * whatever its model; a session with token totals and no reading reads "insufficient", whatever
+ * the cap; neither is ever one of the three.
  */
 export function mainSessionSetups(
   events: LedgerEvent[],

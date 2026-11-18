@@ -127,7 +127,8 @@ _Avoid_: Context limit, compaction threshold
 The label a stretch of main-session work gets from recorded facts when the flow
 report reads: control (today's main-session model, largest prompt above the
 compaction cap), early compaction (the same model, at or under the cap) or Haiku.
-With no cap set it reads "not set". It is never written or typed.
+With no cap set a stretch with a reading reads "not set", whatever its model. It
+is never written or typed.
 _Avoid_: Experiment arm, variant
 
 **Handover**:

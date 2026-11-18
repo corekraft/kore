@@ -135,6 +135,37 @@ describe("mainSessionSetups leaves a stretch it cannot label insufficient and sk
     });
   });
 
+  it("labels a session with token totals and no split reading insufficient even when no cap is set", () => {
+    const events = [ledgerEvent(1500, "token.usage", "bare", { tokens: 5000 })];
+
+    const out = mainSessionSetups(events, WINDOW, undefined);
+
+    expect(out.status === "ok" && out.stretches).toEqual([
+      {
+        session: "bare",
+        model: null,
+        largestPrompt: null,
+        label: "insufficient",
+        reason: "no token.split reading recorded for the session",
+      },
+    ]);
+  });
+
+  it("labels a model that is neither Haiku nor the main-session model not set when no cap is set", () => {
+    const events = [split(1500, "odd", "claude-fable-5-2", 10)];
+
+    const out = mainSessionSetups(events, WINDOW, undefined);
+
+    expect(out.status === "ok" && out.stretches).toEqual([
+      {
+        session: "odd",
+        model: "claude-fable-5-2",
+        largestPrompt: 10,
+        label: "not set",
+      },
+    ]);
+  });
+
   it("labels a model that is neither Haiku nor the main-session model insufficient", () => {
     const events = [split(1500, "odd", "claude-fable-5-2", 10)];
 
