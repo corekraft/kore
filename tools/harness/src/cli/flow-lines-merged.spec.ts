@@ -1,5 +1,30 @@
 import { describe, expect, it } from "vitest";
 import type { FlowReport } from "../flow/index.js";
+
+const EMPTY_ARM = {
+  tier: "claude-haiku-5-5",
+  mergedChanges: 0,
+  allInPerMergedChange: null,
+  effort: {},
+  blockedShare: null,
+  sendBacksPerMergedChange: null,
+  ownerMinutesPerMergedChange: null,
+};
+const writerArms: FlowReport["writerArms"] = {
+  seed: 20261117,
+  resamples: 2000,
+  confidence: 0.95,
+  minMergedChanges: 5,
+  unlabelled: 0,
+  overall: {
+    label: null,
+    status: "insufficient merged changes",
+    needed: 5,
+    haiku: EMPTY_ARM,
+    sonnet: { ...EMPTY_ARM, tier: "claude-sonnet-5-5" },
+  },
+  strata: [],
+};
 import {
   leadTimePerMergedChangeLine,
   perMergedChangeLines,
@@ -55,6 +80,7 @@ describe("perMergedChangeLines: the per-merged-change lines in report order (#82
         sendBacksPerMergedChange: sendBacks,
         leadTimePerMergedChange: leadTime,
         writerCost,
+        writerArms,
       }),
     ).toEqual([
       "Tokens per merged change: 175 (350 tokens over 2 merged changes); average 120 over the trailing 7 days",
@@ -63,6 +89,8 @@ describe("perMergedChangeLines: the per-merged-change lines in report order (#82
       "All-in cost per merged change: not read, 2 merged changes in this range (5 needed)",
       "All-in cost per merged change, trailing average: no average: 0 merged changes in the trailing 7 days (5 needed)",
       "Writer tiers beyond cost: not read, 2 merged changes in this range (5 needed)",
+      "Writer arms, all merged changes: insufficient merged changes, Haiku 0 and Sonnet 0 (5 needed in each arm); not read.",
+      "Writer arms: 0 merged changes on an arm with no label recorded, in the overall figure only. The report gives no verdict; the deciding rule is the owner's, recorded on the idea.",
     ]);
   });
 });

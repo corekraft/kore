@@ -8,12 +8,16 @@ import { time } from "./github-waits.js";
 import { inWindow, type Span } from "./scope.js";
 import { priceWeight } from "./writer-prices.js";
 
-/** A writer launch on a priced tier: its session name, pane, tier, idea (if stamped) and launch time. */
+/**
+ * A writer launch on a priced tier: its session name, pane, tier, idea (if stamped), effort (if
+ * recorded, #1055) and launch time.
+ */
 export interface PricedLaunch {
   agent: string | undefined;
   pane: string | undefined;
   tier: string;
   idea: string | undefined;
+  effort: string | undefined;
   at: number;
 }
 
@@ -31,6 +35,7 @@ export function pricedLaunches(events: LedgerEvent[]): PricedLaunch[] {
       pane: e.pane,
       tier: e.tier as string,
       idea: e.idea,
+      effort: e.effort,
       at: time(e),
     }));
 }
@@ -61,6 +66,25 @@ export function linkedAgents(events: LedgerEvent[]): Map<number, string> {
 }
 
 /**
+ * The launch a linked session's merged change joins to: the session's own first priced launch when
+ * it carries no idea, else the earliest priced launch with that idea. Undefined when the session has
+ * no priced launch. Its tier is the tier the change joins to, and its effort the effort it ran at.
+ */
+export function launchOfLinked(
+  launches: PricedLaunch[],
+  agent: string,
+): PricedLaunch | undefined {
+  const own = earliest(launches.filter((l) => l.agent === agent));
+  if (own === undefined) {
+    return undefined;
+  }
+  if (own.idea === undefined) {
+    return own;
+  }
+  return earliest(launches.filter((l) => l.idea === own.idea));
+}
+
+/**
  * The tier a linked session's merged change joins to: the tier of the earliest priced launch
  * with the idea that session's own first launch carries, or that launch's tier when it carries
  * no idea. Undefined when the session has no priced launch.
@@ -69,14 +93,7 @@ export function tierOfLinked(
   launches: PricedLaunch[],
   agent: string,
 ): string | undefined {
-  const own = earliest(launches.filter((l) => l.agent === agent));
-  if (own === undefined) {
-    return undefined;
-  }
-  if (own.idea === undefined) {
-    return own.tier;
-  }
-  return earliest(launches.filter((l) => l.idea === own.idea))?.tier;
+  return launchOfLinked(launches, agent)?.tier;
 }
 
 /**
