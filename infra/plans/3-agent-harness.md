@@ -595,4 +595,4 @@ merged) and `idea-issue-close` (2 of 5 overridden).
 
 ## Retrospective marker
 
-Last retrospective: 2026-11-17T12:52:40Z
+Last retrospective: 2026-11-18T02:13:52Z
