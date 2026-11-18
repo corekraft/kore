@@ -1,6 +1,6 @@
 ---
 summary: automatic-retro works live in local
-hypothesis: With automatic-retro on in local, a retro starts on its own once five ideas have closed since the last one, on Sonnet, with no person starting it; no other behaviour changes.
+hypothesis: With automatic-retro on in local, a retro starts on its own once five ideas have closed since the last one, on Sonnet, with no person starting it. The same flag also files up to five retro proposals as ideas, and a worsened metric on a closed idea can make a retro due too; nothing else changes.
 expected-outcome: The orchestrator launches the retro pane when retro due reports a count of five closed ideas, and the retro-triggered event is in the ledger.
 measurement: Proof for issue 225. The owner approved a temporary activation of automatic-retro for the proof in their own comment on issue 225 on 2026-11-16 and told the main session on 2026-11-18 to activate it. The proof itself (a retro starting on its own at five closed ideas) is still owed and is reported on issue 225.
 safety-pattern: dark-launched
