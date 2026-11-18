@@ -248,6 +248,23 @@ on a person included, and so the one that limits how fast ideas reach
 outcomes.
 _Avoid_: Slow step
 
+**Finish detection**:
+The share of a flow report's pane results that a `pane.finished` on the same
+pane noticed within the detection window, a placeholder of 300 seconds. A result
+is noticed only when `session wait` recorded that finish: a pane read or a
+message to the pane records nothing, so it counts as not noticed. The undetected
+results split into never noticed (no `pane.finished` was ever recorded on the
+pane) and late (one was recorded outside the window, or already used). Lag is how
+late a finish was recorded, never a merge delay.
+_Avoid_: Stop detection, finish rate
+
+**Silent session**:
+A session whose last `token.usage` is more than 900 seconds before the report's
+measuring point, with no RESULT since, and with no background command or open
+reserved question on its pane. The flow report counts silent sessions beside the
+recorded `pane.stalled` count. It is a token-usage reading, not a stalled pane.
+_Avoid_: Stalled pane, stall count
+
 **Stage event**:
 A timestamped fact about one idea's journey through the delivery loop, such as
 a session starting, a pane going idle, or a pull request merging. It records

@@ -69,7 +69,7 @@ describe("stalled panes: the token-usage silence count", () => {
     expect(stalledPanes([tokens(AT)], WINDOW, AT + 16 * MINUTE)).toEqual({
       silenceSeconds: 900,
       recorded: 0,
-      fromTokenUsage: 1,
+      silentSessions: 1,
       backgroundExcluded: 0,
       questionExcluded: 0,
     });
@@ -77,7 +77,7 @@ describe("stalled panes: the token-usage silence count", () => {
 
   it("leaves out a session silent for exactly fifteen minutes, since the limit is above it", () => {
     expect(stalledPanes([tokens(AT)], WINDOW, AT + 15 * MINUTE)).toMatchObject({
-      fromTokenUsage: 0,
+      silentSessions: 0,
     });
   });
 });
@@ -97,7 +97,7 @@ describe("stalled panes: what token silence leaves out", () => {
         WINDOW,
         AT + 30 * MINUTE,
       ),
-    ).toMatchObject({ fromTokenUsage: 0 });
+    ).toMatchObject({ silentSessions: 0 });
   });
 
   it("leaves out a session whose pane finished after its last tokens", () => {
@@ -114,13 +114,13 @@ describe("stalled panes: what token silence leaves out", () => {
         WINDOW,
         AT + 30 * MINUTE,
       ),
-    ).toMatchObject({ fromTokenUsage: 0 });
+    ).toMatchObject({ silentSessions: 0 });
   });
 
   it("leaves out a session whose pane has a background command open, and counts that exclusion", () => {
     vi.mocked(hasOpenBackground).mockReturnValue(true);
     expect(stalledPanes([tokens(AT)], WINDOW, AT + 30 * MINUTE)).toMatchObject({
-      fromTokenUsage: 0,
+      silentSessions: 0,
       backgroundExcluded: 1,
     });
     expect(hasOpenBackground).toHaveBeenCalledWith(
@@ -133,12 +133,12 @@ describe("stalled panes: what token silence leaves out", () => {
   it("measures silence to the window's end when the as-of time is later", () => {
     expect(
       stalledPanes([tokens(AT)], [AT, AT + 60 * MINUTE], AT + 5 * DAY),
-    ).toMatchObject({ fromTokenUsage: 1 });
+    ).toMatchObject({ silentSessions: 1 });
   });
 
   it("measures silence to the as-of time when that is before the window's end", () => {
     expect(stalledPanes([tokens(AT)], WINDOW, AT + 10 * MINUTE)).toMatchObject({
-      fromTokenUsage: 0,
+      silentSessions: 0,
     });
   });
 });
@@ -149,7 +149,7 @@ describe("stalled panes: an open reserved question (#854)", () => {
     expect(stalledPanes([tokens(AT)], WINDOW, AT + 30 * MINUTE)).toEqual({
       silenceSeconds: 900,
       recorded: 0,
-      fromTokenUsage: 0,
+      silentSessions: 0,
       backgroundExcluded: 0,
       questionExcluded: 1,
     });
@@ -181,7 +181,7 @@ describe("stalled panes: the events it counts", () => {
     ).toEqual({
       silenceSeconds: 900,
       recorded: 0,
-      fromTokenUsage: 0,
+      silentSessions: 0,
       backgroundExcluded: 0,
       questionExcluded: 0,
     });

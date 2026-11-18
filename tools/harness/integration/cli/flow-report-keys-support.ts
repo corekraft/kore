@@ -57,6 +57,30 @@ export const ORCHESTRATE_KEYS = [
   "dollarsPerMergedChange",
 ];
 
+/** The keys of `finishDetection`, in report order (#1090). */
+export const FINISH_DETECTION_KEYS = [
+  "windowSeconds",
+  "results",
+  "detected",
+  "undetected",
+  "neverNoticed",
+  "late",
+  "medianLagSeconds",
+  "lagMinutes",
+];
+
+/** The keys of `finishDetection.lagMinutes`, in report order (#1090). */
+export const LAG_MINUTES_KEYS = ["samples", "median", "p90"];
+
+/** The keys of `stalledPanes`, in report order (#1090). */
+export const STALLED_PANES_KEYS = [
+  "silenceSeconds",
+  "recorded",
+  "silentSessions",
+  "backgroundExcluded",
+  "questionExcluded",
+];
+
 /** The keys of `costWaiting.writing`, in report order (#1093). */
 export const WRITING_KEYS = [
   "attributed",

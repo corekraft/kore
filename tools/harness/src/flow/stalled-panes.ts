@@ -21,8 +21,8 @@ export interface StalledPanes {
   silenceSeconds: number;
   /** pane.stalled events the poll recorded in the window. */
   recorded: number;
-  /** Sessions silent past the limit at the measuring point, with no RESULT since their last tokens. */
-  fromTokenUsage: number;
+  /** Silent sessions: the last token.usage is more than the limit before the measuring point, with no RESULT since (#1090). */
+  silentSessions: number;
   /** Silent sessions left out because a background command was open on their pane. */
   backgroundExcluded: number;
   /** Silent sessions left out because their pane waits on an open reserved question (#854). */
@@ -87,7 +87,7 @@ export function stalledPanes(
   const recorded = events.filter(
     (e) => e.kind === "pane.stalled" && inWindow(window, time(e)),
   ).length;
-  let fromTokenUsage = 0;
+  let silentSessions = 0;
   let backgroundExcluded = 0;
   let questionExcluded = 0;
   for (const [session, tokens] of lastTokensBySession(
@@ -108,13 +108,13 @@ export function stalledPanes(
     } else if (pane !== undefined && hasOpenQuestion(events, pane, silentAt)) {
       questionExcluded += 1;
     } else {
-      fromTokenUsage += 1;
+      silentSessions += 1;
     }
   }
   return {
     silenceSeconds: SILENCE_SECONDS,
     recorded,
-    fromTokenUsage,
+    silentSessions,
     backgroundExcluded,
     questionExcluded,
   };

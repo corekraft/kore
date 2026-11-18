@@ -688,13 +688,21 @@ the reviews the ratio is taken over.
 records a `session.result` carrying only the outcome word, when the turn's
 assistant text printed a RESULT line. `session wait` records a `pane.finished`
 with its pane, session name and outcome word the first time it sees that line.
-A result is detected by a `pane.finished` on the same pane within 300 seconds
-either side of it, and one finish detects one result. `undetected` counts the
-results no finish detected, `detected` those that were, and `medianLagSeconds`
-is the median seconds from a result to its finish: 0 when the finish came first,
-null when none did. The 300-second threshold is a placeholder until the owner
-sets it. Results with no pane are not counted. A failed `session notify` leaves
-no ledger event, so the report does not count those.
+A result is noticed when such a `pane.finished` falls on its pane within 300
+seconds either side of it, and one finish detects one result. `undetected` counts
+the results no finish detected, `detected` those that were, and `medianLagSeconds`
+is the median seconds from a result to its finish among the detected: 0 when the
+finish came first, null when none did. The 300-second threshold is a placeholder
+until the owner sets it; the text report labels it so. The undetected results
+split into `neverNoticed`, whose pane never had a `pane.finished` recorded, and
+`late`, whose pane had one outside the window or used by an earlier result; the
+two sum to `undetected`. A late result takes the nearest unused finish on its pane
+at any distance, one finish to one result, so its lag is read; a late result with
+no unused finish has no lag. `lagMinutes` gives `samples`, the `median` and the
+nearest-rank `p90` in minutes over the detected and late results that have a lag,
+each null with none. The lag is a reported reading of how late a finish was
+recorded, not a merge delay. Results with no pane are not counted. A failed
+`session notify` leaves no ledger event, so the report does not count those.
 
 `qualifierWarnings` counts the qualifier's warnings (`qualifier.warned` events)
 over the ideas filed in the range (`idea.filed` events), as `warnings`, `filed`
@@ -707,9 +715,9 @@ when a session-spawned pane has been idle or gone for 300 seconds with no RESULT
 printed since it last started work. The session hook starts `ledger poll-herdr`
 in the background at each session start, beside `ledger poll-github` (#1091); the
 poll reads herdr and writes ledger events only, and never closes, restarts or
-messages a pane. `fromTokenUsage` counts sessions whose last
+messages a pane. `silentSessions` counts silent sessions: the last
 `token.usage` is more than 900 seconds before the report's measuring point, with
-no RESULT since. `backgroundExcluded` counts silent sessions left out because a
+no RESULT since. The text report prints `recorded` beside it. `backgroundExcluded` counts silent sessions left out because a
 `tool.start` marked `background` is open on their pane: one that started after
 the pane's last RESULT. A pane waiting on an open reserved question is exempt from
 both counts (#854, ADR 0120): the `decision ask` that posted the question records

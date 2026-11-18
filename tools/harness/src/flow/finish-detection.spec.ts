@@ -54,11 +54,14 @@ describe("finish detection: a result is detected by a finish on its pane", () =>
       results: 1,
       detected: 1,
       undetected: 0,
+      neverNoticed: 0,
+      late: 0,
       medianLagSeconds: 30,
+      lagMinutes: { samples: 1, median: 0.5, p90: 0.5 },
     });
   });
 
-  it("counts a result with no pane.finished within five minutes as undetected", () => {
+  it("counts a result with a pane.finished only outside five minutes as undetected and late", () => {
     expect(
       finishDetection([result(AT), finished(AT + 5 * MINUTE + 1)], WINDOW),
     ).toEqual({
@@ -66,7 +69,49 @@ describe("finish detection: a result is detected by a finish on its pane", () =>
       results: 1,
       detected: 0,
       undetected: 1,
+      neverNoticed: 0,
+      late: 1,
       medianLagSeconds: null,
+      lagMinutes: { samples: 1, median: 5, p90: 5 },
+    });
+  });
+});
+
+describe("finish detection: never noticed and late", () => {
+  it("counts a result with no pane.finished on its pane as undetected and never noticed", () => {
+    expect(finishDetection([result(AT)], WINDOW)).toEqual({
+      windowSeconds: 300,
+      results: 1,
+      detected: 0,
+      undetected: 1,
+      neverNoticed: 1,
+      late: 0,
+      medianLagSeconds: null,
+      lagMinutes: { samples: 0, median: null, p90: null },
+    });
+  });
+
+  it("splits a fixture of one noticed, one late and one never noticed result, and the split sums to undetected", () => {
+    expect(
+      finishDetection(
+        [
+          result(AT),
+          finished(AT + 30_000),
+          result(AT + MINUTE, "w3:p2"),
+          finished(AT + 21 * MINUTE, "w3:p2"),
+          result(AT + 2 * MINUTE, "w3:p3"),
+        ],
+        WINDOW,
+      ),
+    ).toEqual({
+      windowSeconds: 300,
+      results: 3,
+      detected: 1,
+      undetected: 2,
+      neverNoticed: 1,
+      late: 1,
+      medianLagSeconds: 30,
+      lagMinutes: { samples: 2, median: 10.25, p90: 20 },
     });
   });
 
