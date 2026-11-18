@@ -2316,9 +2316,9 @@
               <a
                 href="https://github.com/corekraft/kore/blob/main/infra/plans/13-agentgateway-ingress.md"
                 >plan 13</a
-              >'s load harness, which reports CPU, memory, and requests per
-              second today, so a p95 measurement is still to be added to it.
-              Both are baselines, not targets. Planned in
+              >'s load harness, which already reports CPU, memory, requests per
+              second, and p95 latency. Both are baselines, not targets. Planned
+              in
               <a
                 href="https://github.com/corekraft/kore/blob/main/infra/plans/15-next-horizon.md"
                 >plan 15</a
@@ -2401,18 +2401,19 @@
                 free at the median (50.4% at peak); no threshold is set (<a
                   href="https://github.com/corekraft/kore/blob/main/infra/plans/2-implementation.md"
                   >plan 2</a
-                >). If a horizon exceeds it, the per-tenant component ADRs (<a
-                  href="https://github.com/corekraft/kore/blob/main/docs/decisions/0040-keycloak-human-identity.md"
-                  >0040</a
+                >). If a horizon exceeds it, the platform organization's
+                component ADRs (<a
+                  href="https://github.com/corekraft/kore/blob/main/docs/decisions/0111-run-a-backstage-and-an-argo-cd-for-the-platform-organization-s-operators.md"
+                  >0111</a
                 >,
                 <a
-                  href="https://github.com/corekraft/kore/blob/main/docs/decisions/0041-backstage-and-argo-cd-per-tenant.md"
-                  >0041</a
+                  href="https://github.com/corekraft/kore/blob/main/docs/decisions/0113-run-a-keycloak-for-the-platform-organization-s-operators.md"
+                  >0113</a
                 >,
                 <a
-                  href="https://github.com/corekraft/kore/blob/main/docs/decisions/0050-tenant-telemetry-isolation.md"
-                  >0050</a
-                >) are revisited while still proposed.
+                  href="https://github.com/corekraft/kore/blob/main/docs/decisions/0043-platform-configuration-through-argo-cd.md"
+                  >0043</a
+                >) are revisited.
               </li>
               <li>
                 On the golden-path service, a browser test finds no access or
