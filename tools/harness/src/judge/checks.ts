@@ -6,6 +6,8 @@ import { NAMED_HEAD, TRAILING_HEAD, VERDICT_LINE } from "./review-verdict.js";
 export { gatherExpandStep } from "./expand-gather.js";
 // So does the guardrail inventory gather.
 export { gatherGuardrailChanges } from "./guardrail-changes.js";
+// So does the file-length audit item.
+export { lengthAudit, type AuditFinding } from "./file-length.js";
 
 export const RESULTS = [
   "pass",
