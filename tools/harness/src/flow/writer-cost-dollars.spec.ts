@@ -151,17 +151,17 @@ describe("writer cost dollars: all-in cost per merged change by first-launch tie
     // 11 at the 1300 reading, not 12 with the 1450 reading that comes after PR 100 merged.
     expect(
       r.current.status === "ok" &&
-        r.current.tiers["claude-haiku-5-5"]?.perMergedChangeDollars?.writer,
-    ).toBe(5);
+        r.current.tiers["claude-haiku-5-5"]?.perMergedChangeDollars,
+    ).toMatchObject({ writer: 5 });
   });
 
   it("leaves a merged change with no joinable writer out of every tier, though it still divides the shared spend", () => {
     const r = writerCost(TIERS_EVENTS, WINDOW, DOLLARS);
 
     // The shared 6 (judge 4, orchestrate 2) is divided by all five merged changes, 1.2 each, not by the four joined.
-    expect(
-      r.current.status === "ok" && r.current.judge.dollarsPerMergedChange,
-    ).toBe(0.8);
+    expect(r.current.status === "ok" && r.current.judge).toMatchObject({
+      dollarsPerMergedChange: 0.8,
+    });
     expect(r.current.status === "ok" && r.current.unjoinable).toBe(1);
   });
 });

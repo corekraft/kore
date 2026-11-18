@@ -274,7 +274,11 @@ type TierDollarLine = NonNullable<
 
 const money = (value: number) => `$${value}`;
 
-/** The tiers whose merged changes carry dollars, each with its name, its changes and its dollars. */
+/** A tier that a model the price table does not price ran in: named, not read, never a zero. */
+const notReadForPrice = (name: string, models: string[]) =>
+  `${name} not read: no price for ${models.join(", ")}`;
+
+/** The tiers whose merged changes carry dollars or an unpriced model, each with its name, its changes and its figure. */
 function pricedTiers(
   figure: OkWriterCost,
 ): { name: string; merged: number; dollars: TierDollarLine }[] {
@@ -292,9 +296,10 @@ function tierDollarsText(figure: OkWriterCost): string {
     return "no tier joined to a merged change, not read";
   }
   return tiers
-    .map(
-      ({ name, merged, dollars: d }) =>
-        `${name} ${money(d.allIn)} mean over ${changes(merged)}, median ${money(d.median)} (writer ${money(d.writer)}, reviewer ${money(d.reviewer)}, judge ${money(d.judge)}, orchestrate ${money(d.orchestrate)})`,
+    .map(({ name, merged, dollars: d }) =>
+      "status" in d
+        ? notReadForPrice(name, d.models)
+        : `${name} ${money(d.allIn)} mean over ${changes(merged)}, median ${money(d.median)} (writer ${money(d.writer)}, reviewer ${money(d.reviewer)}, judge ${money(d.judge)}, orchestrate ${money(d.orchestrate)})`,
     )
     .join("; ");
 }
@@ -309,7 +314,11 @@ function trailingDollarsLine(
     return `${label}: no average: ${changes(trailing.merged)} in the trailing ${trailingDays} days (${trailing.needed} needed)`;
   }
   const means = pricedTiers(trailing)
-    .map(({ name, dollars: d }) => `${name} ${money(d.allIn)} mean`)
+    .map(({ name, dollars: d }) =>
+      "status" in d
+        ? notReadForPrice(name, d.models)
+        : `${name} ${money(d.allIn)} mean`,
+    )
     .join("; ");
   return `${label} over the ${trailingDays} days before: ${means || "no tier joined to a merged change, not read"}`;
 }

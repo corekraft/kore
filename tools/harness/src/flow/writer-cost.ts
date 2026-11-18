@@ -31,10 +31,16 @@ import {
   type ModelPrice,
 } from "./writer-prices.js";
 import {
+  sharedFigure,
   tierDollarsIn,
   writerDollarsIn,
+  type InsufficientPrices,
   type TierDollars,
 } from "./writer-attribution.js";
+
+/** A shared part of the figure: its dollars and its dollars per merged change, or the unpriced models it cannot read. */
+export type SharedDollars =
+  { dollars: number; dollarsPerMergedChange: number } | InsufficientPrices;
 
 /**
  * The relaunch limit the report states beside each figure: the join reads a relaunch on a new
@@ -67,9 +73,10 @@ export interface WriterTierFigure {
   blockedShare: number | null;
   /**
    * All-in dollars per merged change joined to this tier (#1008): the writer, reviewer and shared
-   * parts as means, their sum, and the median of the per-change totals; null with none joined.
+   * parts as means, their sum, and the median of the per-change totals; null with none joined;
+   * insufficient prices when a model the price table does not price ran in its changes or the span.
    */
-  perMergedChangeDollars: TierDollars | null;
+  perMergedChangeDollars: TierDollars | InsufficientPrices | null;
 }
 
 export type WriterCostFigure =
@@ -86,14 +93,12 @@ export type WriterCostFigure =
         perMergedChange: number;
         /** The main-session model the orchestrating dollars are priced at: an assumption, not a recorded model. */
         model: string;
-        dollars: number;
-        dollarsPerMergedChange: number;
-      };
+      } & SharedDollars;
       /**
        * The idea-wide judge sessions' dollars in the span, shared equally per merged change. Reviewers
        * are not here: each is charged to its own change (#1008).
        */
-      judge: { dollars: number; dollarsPerMergedChange: number };
+      judge: SharedDollars;
       /** Writer sessions with spend before the span's end and no merged change linked to them: a stated limit, in no tier. */
       unmergedWriterSessions: number;
       /** Every priced model, so a tier with no session is shown as zero. */
@@ -142,7 +147,7 @@ function tierFigure(
   launches: PricedLaunch[],
   results: Map<string, { at: number; result: string | undefined }>,
   inputs: TierInputs,
-  dollars: TierDollars | null,
+  dollars: TierDollars | InsufficientPrices | null,
 ): WriterTierFigure {
   const { weighted, sends, merged, mergedChanges } = inputs;
   const finished = launches.filter(
@@ -218,13 +223,17 @@ function figureIn(
       weightedTokens: round(orchestrate),
       perMergedChange: round(orchestrate / merged),
       model: MAIN_SESSION_MODEL,
-      dollars: round(dollars.shared.orchestrate),
-      dollarsPerMergedChange: round(dollars.shared.orchestrate / merged),
+      ...sharedFigure(
+        dollars.shared.orchestrate,
+        dollars.shared.orchestrateUnpriced,
+        merged,
+      ),
     },
-    judge: {
-      dollars: round(dollars.shared.judge),
-      dollarsPerMergedChange: round(dollars.shared.judge / merged),
-    },
+    judge: sharedFigure(
+      dollars.shared.judge,
+      dollars.shared.judgeUnpriced,
+      merged,
+    ),
     unmergedWriterSessions: dollars.unmergedWriterSessions,
     tiers,
   };

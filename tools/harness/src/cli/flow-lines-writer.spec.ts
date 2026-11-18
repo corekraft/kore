@@ -124,4 +124,22 @@ describe("writerDollarsLines: all-in cost per merged change by first-launch tier
       "All-in cost per merged change by first-launch tier (prices read 2026-11-17): no tier joined to a merged change, not read; 1 unjoinable; 1 writer session with no merged change, left out",
     );
   });
+
+  it("names the unpriced model a tier is not read for, rather than printing a dollar figure or a zero", () => {
+    const unpriced: WriterCost["current"] = {
+      ...OK_CURRENT,
+      tiers: {
+        "claude-haiku-5-5": tier({
+          mergedChanges: 3,
+          perMergedChangeDollars: {
+            status: "insufficient prices",
+            models: ["claude-sonnet-5-5"],
+          },
+        }),
+      },
+    };
+    expect(writerDollarsLines(report(unpriced, OK_TRAILING))[0]).toBe(
+      "All-in cost per merged change by first-launch tier (prices read 2026-11-17): claude-haiku-5-5 not read: no price for claude-sonnet-5-5; 1 unjoinable; 1 writer session with no merged change, left out",
+    );
+  });
 });

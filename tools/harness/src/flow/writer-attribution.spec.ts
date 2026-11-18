@@ -1,24 +1,41 @@
 import { describe, expect, it } from "vitest";
 import { tierDollarsIn, type WriterDollars } from "./writer-attribution.js";
 
+const HAIKU = "claude-haiku-5-5";
+const SONNET = "claude-sonnet-5-5";
+
 /** A span's dollars: the changes as they were attributed, and the shared judge and orchestrating spend. */
 const dollars = (
   changes: WriterDollars["changes"],
-  shared = { judge: 0, orchestrate: 0 },
-): WriterDollars => ({ changes, shared, unmergedWriterSessions: 0 });
-
-const HAIKU = "claude-haiku-5-5";
+  shared: Partial<WriterDollars["shared"]> = {},
+): WriterDollars => ({
+  changes,
+  shared: {
+    judge: 0,
+    orchestrate: 0,
+    judgeUnpriced: [],
+    orchestrateUnpriced: [],
+    ...shared,
+  },
+  unmergedWriterSessions: 0,
+});
 
 describe("tier dollars: a tier's all-in cost per merged change", () => {
   it("divides the shared spend by every merged change, joined or not, and reads the median of the per-change totals", () => {
     const r = tierDollarsIn(
       dollars(
         [
-          { number: 100, tier: HAIKU, writer: 11, reviewer: 4 },
-          { number: 102, tier: HAIKU, writer: 1, reviewer: 0 },
-          { number: 103, tier: HAIKU, writer: 3, reviewer: 0 },
+          { number: 100, tier: HAIKU, writer: 11, reviewer: 4, unpriced: [] },
+          { number: 102, tier: HAIKU, writer: 1, reviewer: 0, unpriced: [] },
+          { number: 103, tier: HAIKU, writer: 3, reviewer: 0, unpriced: [] },
           // Unjoinable: it takes its share of the shared spend but no tier's writer or reviewer.
-          { number: 104, tier: undefined, writer: undefined, reviewer: 0 },
+          {
+            number: 104,
+            tier: undefined,
+            writer: undefined,
+            reviewer: 0,
+            unpriced: [],
+          },
         ],
         { judge: 4, orchestrate: 2 },
       ),
@@ -41,10 +58,65 @@ describe("tier dollars: a tier's all-in cost per merged change", () => {
     expect(
       tierDollarsIn(
         dollars([
-          { number: 104, tier: undefined, writer: undefined, reviewer: 0 },
+          {
+            number: 104,
+            tier: undefined,
+            writer: undefined,
+            reviewer: 0,
+            unpriced: [],
+          },
         ]),
         HAIKU,
       ),
     ).toBeNull();
+  });
+});
+
+describe("tier dollars: a model the price table does not price", () => {
+  it("reads a tier whose writer or reviewer ran on an unpriced model as insufficient prices, never as a zero", () => {
+    const r = tierDollarsIn(
+      dollars([
+        {
+          number: 100,
+          tier: SONNET,
+          writer: 4,
+          reviewer: 0,
+          unpriced: [SONNET],
+        },
+      ]),
+      SONNET,
+    );
+
+    expect(r).toEqual({ status: "insufficient prices", models: [SONNET] });
+  });
+
+  it("reads every tier as insufficient prices when the shared judge or orchestrating spend ran on an unpriced model", () => {
+    const r = dollars(
+      [{ number: 100, tier: HAIKU, writer: 1, reviewer: 0, unpriced: [] }],
+      { judgeUnpriced: [SONNET] },
+    );
+
+    expect(tierDollarsIn(r, HAIKU)).toEqual({
+      status: "insufficient prices",
+      models: [SONNET],
+    });
+  });
+
+  it("leaves a tier whose changes priced every model as it is, though another tier ran on an unpriced model", () => {
+    const r = tierDollarsIn(
+      dollars([
+        { number: 100, tier: HAIKU, writer: 1, reviewer: 0, unpriced: [] },
+        {
+          number: 101,
+          tier: SONNET,
+          writer: 4,
+          reviewer: 0,
+          unpriced: [SONNET],
+        },
+      ]),
+      HAIKU,
+    );
+
+    expect(r).toMatchObject({ writer: 1, allIn: 1, median: 1 });
   });
 });

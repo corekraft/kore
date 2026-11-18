@@ -536,7 +536,9 @@ mean of each part, the sum (`allIn`) and the median of the per-change totals, wh
 the parts do not sum to. The orchestrating part is priced at the assumed
 `MAIN_SESSION_MODEL` and says so as `orchestrate.model`. `judge` and `orchestrate`
 give the shared dollars, and `unmergedWriterSessions` counts the writers with spend
-and no merged change, left out of every tier.
+and no merged change, left out of every tier. A model the price table does not
+price, in a tier's changes or in the shared spend, makes that figure
+`insufficient prices` and names the model; it is never read as zero.
 
 `reviewMisses` measures the Reviewer against the judge (#851). A review is a
 `review.run` event that posted or left unchanged a verdict, counted once per PR
