@@ -1,5 +1,5 @@
 ---
-status: proposed
+status: accepted
 summary: Under platform-portal with an address set, the metrics store loads the Service rule file and forwards fired alerts to Grafana's own alert manager, which keeps the one contact point; the notify-only label is renamed enforcement: notify-only because it never gated delivery.
 date: 2026-11-18
 last-verified: 2026-11-18
