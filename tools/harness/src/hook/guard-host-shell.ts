@@ -9,14 +9,16 @@
 // off until the owner activates it, so with the flag off every verdict is as before. Anything that
 // is not a clear yes is not verified, so the rules keep guarding (fail closed).
 import { homedir } from "node:os";
-import { environments, readOverlay } from "../flag/index.js";
+import { localFlagOn } from "./guard-local-flag.js";
 import type { FileSystem } from "../runtime/index.js";
+
+// The help exemption (#973) is read from the same local overlay, so the guard's flag reads sit in one place.
+export { helpExemptOn } from "./guard-help.js";
 
 type Env = Readonly<Record<string, string | undefined>>;
 
 /** The flag that lets the three zsh rules skip under a verified bash; off in every overlay. */
 export const SHELL_AWARE_FLAG = "shell-aware-zsh-rules";
-const FLAG_ENVIRONMENT = "local";
 const BASH_NAME = /(^|\/)bash$/;
 
 /** True only when the first non-empty of CLAUDE_CODE_SHELL and SHELL names the bash executable. */
@@ -25,21 +27,9 @@ export function verifiedBash(env: Env): boolean {
   return shell !== undefined && BASH_NAME.test(shell);
 }
 
-/**
- * Whether the local overlay turns the flag on. A missing, malformed or unreadable overlay is off:
- * the guard must keep every rule rather than fail on a flag it could not read.
- */
-async function flagOn(fs: FileSystem, root: string): Promise<boolean> {
-  try {
-    if (!(await environments(fs, root)).includes(FLAG_ENVIRONMENT)) {
-      return false;
-    }
-    const overlay = await readOverlay(fs, root, FLAG_ENVIRONMENT);
-    return overlay.features[SHELL_AWARE_FLAG] === true;
-  } catch {
-    return false;
-  }
-}
+/** Whether the local overlay turns the shell-aware flag on; off on any failure, as localFlagOn reads it. */
+const flagOn = (fs: FileSystem, root: string): Promise<boolean> =>
+  localFlagOn(fs, root, SHELL_AWARE_FLAG);
 
 /** The home directory and the verified shell, as the guard's rules read them. */
 export async function hostFacts(
