@@ -19,7 +19,10 @@ import {
 } from "./writer-attribution.js";
 
 /** A merged change's all-in parts: its writer, its reviewer and its share of the shared spend. */
-function allInOf(change: MergedChangeDollars, all: WriterDollars): number {
+export function allInOf(
+  change: MergedChangeDollars,
+  all: WriterDollars,
+): number {
   const shared =
     (all.shared.judge + all.shared.orchestrate) / all.changes.length;
   return (change.writer ?? 0) + change.reviewer + shared;

@@ -1,6 +1,10 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import type { FlowReport } from "../flow/index.js";
 import { costWaitingLines } from "./flow-lines-cost-waiting.js";
+import { shareLines } from "./flow-lines-shares.js";
+
+// The shares of the ceiling have their own lines and spec; here they are one fake line.
+vi.mock("./flow-lines-shares.js", () => ({ shareLines: vi.fn(() => []) }));
 
 type Cost = FlowReport["costWaiting"];
 
@@ -11,11 +15,11 @@ const measuredWriter = {
   tokens: { total: 3000000, median: 3000000, p90: 3000000 },
   activeSeconds: { total: 1200, median: 1200, p90: 1200 },
   waitingSeconds: { total: 600, median: 600, p90: 600 },
-  ceilingShare: 0.1,
 };
 
 const EMPTY: Cost = {
   agents: {} as Cost["agents"],
+  ceilingShares: {} as Cost["ceilingShares"],
   ideas: [],
   mergedChanges: {
     changes: [],
@@ -33,14 +37,14 @@ const EMPTY: Cost = {
 };
 
 describe("cost beside waiting lines: the headline and its rows", () => {
-  it("prints a measured role with its dollars, tokens, seconds and share of the ceiling", () => {
+  it("prints a measured role with its dollars, tokens and seconds, and no share of its own", () => {
     const cost = {
       ...EMPTY,
       agents: { writer: measuredWriter } as unknown as Cost["agents"],
     };
 
     expect(costWaitingLines(cost)[1]).toBe(
-      "  writer: 1 session(s); dollars $7 (median $7, p90 $7); tokens 3000000 (median 3000000, p90 3000000); active median 1200s, p90 1200s; waiting median 600s, p90 600s; 10% of the weekly ceiling",
+      "  writer: 1 session(s); dollars $7 (median $7, p90 $7); tokens 3000000 (median 3000000, p90 3000000); active median 1200s, p90 1200s; waiting median 600s, p90 600s",
     );
   });
 
@@ -70,15 +74,14 @@ describe("cost beside waiting lines: the headline and its rows", () => {
     );
   });
 
-  it("says the ceiling is not set when the config names none", () => {
-    const cost = {
-      ...EMPTY,
-      agents: {
-        writer: { ...measuredWriter, ceilingShare: "not set" },
-      } as unknown as Cost["agents"],
-    };
+  it("prints the shares of the weekly ceiling last, after the ideas", () => {
+    vi.mocked(shareLines).mockReturnValueOnce(["Shares line", "  a row"]);
 
-    expect(costWaitingLines(cost)[1]).toContain("ceiling not set");
+    expect(costWaitingLines(EMPTY).slice(-2)).toEqual([
+      "  Shares line",
+      "    a row",
+    ]);
+    expect(shareLines).toHaveBeenLastCalledWith(EMPTY.ceilingShares);
   });
 
   it("prints the merged-change level as not read until its joined count reaches the minimum", () => {

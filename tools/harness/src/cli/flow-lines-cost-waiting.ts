@@ -1,9 +1,11 @@
 // The token cost beside waiting time lines of the flow report (#1019): each agent role's dollars and
-// tokens with their median and 90th percentile, the share of the weekly ceiling, then the merged pull
-// requests, the writing buckets (#1093) and the ideas. A figure below the minimum count reads not read, and a model the price table
-// does not price is named; the lines name no winner and no verdict.
+// tokens with their median and 90th percentile, then the merged pull requests, the writing buckets
+// (#1093), the ideas and the shares of the weekly ceiling (#1048). A figure below the minimum count
+// reads not read, and a model the price table does not price is named; the lines name no winner and
+// no verdict.
 
 import type { FlowReport } from "../flow/index.js";
+import { shareLines } from "./flow-lines-shares.js";
 import { writingLines } from "./flow-lines-writing.js";
 
 type Cost = FlowReport["costWaiting"];
@@ -30,17 +32,12 @@ function agentLine(name: string, figure: Agent): string {
   if (figure.status === "insufficient") {
     return `${name} not read: ${figure.sessions} session(s), ${figure.needed} needed`;
   }
-  const share =
-    figure.ceilingShare === "not set"
-      ? "ceiling not set"
-      : `${Math.round(figure.ceilingShare * 10_000) / 100}% of the weekly ceiling`;
   return [
     `${name}: ${figure.sessions} session(s)`,
     `dollars ${money(figure.dollars.total)} (${spread(figure.dollars.median, figure.dollars.p90, money)})`,
     `tokens ${figure.tokens.total} (${spread(figure.tokens.median, figure.tokens.p90, String)})`,
     `active ${spread(figure.activeSeconds.median, figure.activeSeconds.p90, seconds)}`,
     `waiting ${spread(figure.waitingSeconds.median, figure.waitingSeconds.p90, seconds)}`,
-    share,
   ].join("; ");
 }
 
@@ -79,5 +76,6 @@ export function costWaitingLines(cost: Cost): string[] {
     `  ${mergedLine(cost)}`,
     ...writingLines(cost.writing).map((line) => `  ${line}`),
     ...ideaLines(cost).map((line) => `  ${line}`),
+    ...shareLines(cost.ceilingShares).map((line) => `  ${line}`),
   ];
 }

@@ -41,14 +41,30 @@ describe("flow report: token cost beside waiting time", () => {
       weeklyTokenCeiling: 30 * MILLION,
     });
 
-    expect(report.version).toBe(37);
-    expect(REPORT_VERSION).toBe(37);
+    expect(report.version).toBe(38);
+    expect(REPORT_VERSION).toBe(38);
     expect(report.costWaiting.agents.writer).toMatchObject({
       status: "measured",
       sessions: 1,
       tokens: { total: 3 * MILLION },
-      ceilingShare: 0.1,
     });
+    expect(report.costWaiting.ceilingShares.ceiling).toBe(30 * MILLION);
+    expect(report.costWaiting.ceilingShares.agents.rows.writer).toEqual({
+      label: "of the weekly ceiling",
+      status: "measured",
+      share: 0.1,
+    });
+    expect(report.costWaiting.ceilingShares.ideas.rows).toEqual([
+      {
+        idea: "7",
+        share: {
+          label: "of one week's ceiling",
+          status: "measured",
+          share: 0.1,
+          spanSeconds: 60,
+        },
+      },
+    ]);
     expect(report.costWaiting.ideas).toEqual([
       expect.objectContaining({ idea: "7", tokens: 3 * MILLION }),
     ]);

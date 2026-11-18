@@ -2,6 +2,7 @@
 // text and in --json. Each figure is over the window; a level below the minimum count reads
 // insufficient, and a model the price table does not price reads insufficient prices, naming it.
 
+import type { CeilingShares } from "./cost-waiting-shares-types.js";
 import type { PriceTable } from "./writer-dollars.js";
 
 /** The roles a session's name can carry, as one of its dash-separated words. */
@@ -25,9 +26,6 @@ export interface Summary {
   p90: number | null;
 }
 
-/** A share of the weekly ceiling, or "not set" when the harness config names no ceiling. */
-export type CeilingShare = number | "not set";
-
 /** A figure the price table cannot read: a model in its span is not priced, so it is never a zero. */
 export interface UnpricedFigure {
   status: "insufficient prices";
@@ -44,7 +42,6 @@ export type AgentFigure =
       /** Seconds the role's sessions were active and waiting in the window, per session (cost-waiting-time.ts). */
       activeSeconds: Summary;
       waitingSeconds: Summary;
-      ceilingShare: CeilingShare;
     }
   | { status: "insufficient"; sessions: number; needed: number }
   | UnpricedFigure;
@@ -124,10 +121,14 @@ export interface CostWaitingOptions {
   minimum: number;
   /** The weekly token ceiling in plan-weighted tokens; absent when the config names none. */
   weeklyTokenCeiling?: number | undefined;
+  /** Where the 7 days of the per-agent shares end when the window has no end (#1048). */
+  asOf?: Date | undefined;
 }
 
 export interface CostWaiting {
   agents: Record<AgentRow, AgentFigure>;
+  /** The ceiling and the plan-weighted shares of it per agent (a rate), per merged change and per idea (sizes) (#1048). */
+  ceilingShares: CeilingShares;
   ideas: IdeaFigure[];
   mergedChanges: MergedChanges;
   writing: Writing;

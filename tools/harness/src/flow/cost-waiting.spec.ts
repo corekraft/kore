@@ -63,7 +63,6 @@ describe("cost and waiting per agent: dollars and tokens by role", () => {
       tokens: { total: 3 * MILLION, median: 3 * MILLION, p90: 3 * MILLION },
       activeSeconds: { total: 0, median: 0, p90: 0 },
       waitingSeconds: { total: 0, median: 0, p90: 0 },
-      ceilingShare: "not set",
     });
     expect(figures.agents.judge).toEqual({
       status: "measured",
@@ -72,7 +71,6 @@ describe("cost and waiting per agent: dollars and tokens by role", () => {
       tokens: { total: MILLION, median: MILLION, p90: MILLION },
       activeSeconds: { total: 0, median: 0, p90: 0 },
       waitingSeconds: { total: 0, median: 0, p90: 0 },
-      ceilingShare: "not set",
     });
   });
 });
@@ -132,27 +130,14 @@ describe("cost and waiting per agent: time, ceiling and minimum", () => {
     });
   });
 
-  it("reads a window's tokens as a share of the weekly ceiling in plan-weighted tokens, and says not set without one", () => {
-    // Haiku is the baseline, so its low step weighs 1 per token: 3M tokens are 3M plan-weighted tokens.
-    const events = [split("idea-7-writer", 0, { lowInput: 3 * MILLION })];
+  it("leaves the share of the weekly ceiling to the ceiling shares, so an agent row holds no share of its own", () => {
+    const figures = costWaitingIn(
+      [split("idea-7-writer", 0, { lowInput: 3 * MILLION })],
+      WINDOW,
+      { ...OPTIONS, weeklyTokenCeiling: 30 * MILLION },
+    );
 
-    const set = costWaitingIn(events, WINDOW, {
-      ...OPTIONS,
-      weeklyTokenCeiling: 30 * MILLION,
-    });
-    const unset = costWaitingIn(events, WINDOW, OPTIONS);
-
-    expect(set.agents.writer).toMatchObject({
-      status: "measured",
-      tokens: { total: 3 * MILLION },
-      ceilingShare: 0.1,
-    });
-    expect(unset.agents.writer).toMatchObject({
-      status: "measured",
-      activeSeconds: { total: 0, median: 0, p90: 0 },
-      waitingSeconds: { total: 0, median: 0, p90: 0 },
-      ceilingShare: "not set",
-    });
+    expect(figures.agents.writer).not.toHaveProperty("ceilingShare");
   });
 });
 

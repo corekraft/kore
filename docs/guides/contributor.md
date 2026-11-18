@@ -563,15 +563,39 @@ joined changes, and each `agents` role reads insufficient below that many sessio
 row per idea named by an event or carried by a linked writer's pull request, with no insufficient status; the `writing` share reads insufficient below the same count, of writer sessions. An unpriced model is named, never read as zero: `agents` and `mergedChanges` read `insufficient prices` with the models (checked before the minimum, and for `mergedChanges` over the joined changes and the shared judge and orchestrating spend), and an idea with one has null dollars and `unpricedModels`, its tokens still counted; the text prints `<role> not read: no price for <models>` for an agent row and `insufficient prices (models)` for the merged-change line and an idea row. `agents` (per role: writer, reviewer, judge, verifier,
 reader, judgment, advisor, the main session as `orchestrate`, and any other named
 session as `other`, each with its sessions' dollars, tokens, active and waiting seconds
-as median and p90, and the plan-weighted share of the ceiling); `mergedChanges` (the text
+as median and p90); `mergedChanges` (the text
 prints one summary line of the joined count with the median and p90 of all-in dollars
 and tokens; `--json` adds one row per merged pull request, with its all-in dollars and
 tokens by the same attribution, its seconds from the first writer launch to merge, and
 its seconds from opening to merge); `ideas` (the
 dollars and tokens of the sessions stamped with each idea to the window's end, plus the
 writers whose pull request carries the idea, its lead time and outcome); and `writing`
-(#1093, spec #1086, ADR 0126), below.
+(#1093, spec #1086, ADR 0126), below; and `ceilingShares` (#1048, spec #1030), below.
 The report names no winner and no verdict. Code: `tools/harness/src/flow/cost-waiting*.ts`.
+
+`ceilingShares` reads each level's plan-weighted tokens against the weekly ceiling, with a
+fixed meaning per level. Plan-weighted tokens are each model's tokens times its price weight
+(`plan-tokens.ts`, one weight per prompt step, Haiku's high step included); a model with no weight is
+named as `insufficient weights`, never read as zero, and the weights approximate the plan's own,
+which the harness cannot read. `ceiling` is `weeklyTokenCeiling` or `not set`; with none, every share, sum,
+median and p90 reads `not set`, never zero. The owner sets the value; no build sets it.
+
+- `agents` is a rate, labelled `of the weekly ceiling`: a role's plan-weighted tokens in the 7
+  days ending where the window ends (as-of when the window has no end, the latest event when neither is
+  given) over the ceiling. A role with fewer than `cost.minMergedChanges` sessions in those 7 days is
+  `insufficient` (units and needed), not a zero share. The main session, `orchestrate`, also counts the token totals of
+  sessions with no recorded model, priced at the assumed model's input weight, a floor, and carries `basis`:
+  `assumed model` (or `recorded and assumed model`) until its model is recorded.
+- `mergedChanges` and `ideas` are sizes, labelled `of one week's ceiling`: a change's all-in plan-weighted
+  tokens (the #1008 attribution read at the plan weights) or an idea's total over one week's ceiling,
+  with `spanSeconds` beside the share (a change: first writer launch to merge; an idea: first to last
+  event stamped with it). A change no writer launch joins has a null share.
+
+The two kinds are never in one column. A level's `total` is its rows' shares summed and may be above
+100%, because agents overlap in time; `median` and `p90` are over the rows' shares. A level below its
+minimum count (`agents`: one role read; the others `cost.minMergedChanges` units) is `insufficient`,
+never zero. The text prints a `Shares of the weekly token ceiling` block after the idea lines. Code:
+`cost-waiting-ceiling-shares.ts` and the `cost-waiting-shares-*.ts` files beside it.
 
 `writing` reads writer tokens by where they land. A writer session is one with a
 `session.launch` as a writer and a `token.split` reading in the window; its tokens and

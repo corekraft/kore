@@ -1,11 +1,10 @@
 // The agent rows of the token cost figures (#1019): each role's sessions in the window, with the
-// median and 90th percentile of their dollars and tokens, and the share of the weekly ceiling.
+// median and 90th percentile of their dollars and tokens and of their active and waiting seconds.
 
 import type { LedgerEvent } from "../ledger/index.js";
 import type { Span } from "./scope.js";
 import {
   sessionsInWindow,
-  shareOf,
   summaryOf,
   type SessionWindow,
 } from "./cost-waiting-support.js";
@@ -34,7 +33,6 @@ interface Bucket {
   tokens: number[];
   active: number[];
   waiting: number[];
-  plan: number;
   unpriced: Set<string>;
 }
 
@@ -51,7 +49,6 @@ function bucketsOf(
       tokens: [],
       active: [],
       waiting: [],
-      plan: 0,
       unpriced: new Set<string>(),
     };
     const time = seconds.get(session.key) ?? { active: 0, waiting: 0 };
@@ -59,7 +56,6 @@ function bucketsOf(
     bucket.tokens.push(session.tokens);
     bucket.active.push(time.active);
     bucket.waiting.push(time.waiting);
-    bucket.plan += session.plan;
     for (const model of session.unpriced) {
       bucket.unpriced.add(model);
     }
@@ -93,7 +89,6 @@ function figureOf(
     tokens: summaryOf(bucket.tokens),
     activeSeconds: summaryOf(bucket.active),
     waitingSeconds: summaryOf(bucket.waiting),
-    ceilingShare: shareOf(bucket.plan, options.weeklyTokenCeiling),
   };
 }
 
