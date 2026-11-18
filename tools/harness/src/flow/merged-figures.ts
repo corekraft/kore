@@ -50,6 +50,8 @@ export interface MergedChangeFigures {
   writerCost: WriterFigures["writerCost"];
   /** The Haiku and Sonnet arms over the window: all-in dollars per merged change, Haiku minus Sonnet, by label, with an interval (#1012). */
   writerArms: WriterFigures["writerArms"];
+  /** Send-backs by category per writer tier, with the unlinked row, and each tier's rework (#1045). */
+  sendBackTiers: WriterFigures["sendBackTiers"];
   /** The main session's poll minutes, pane-result reads and signed sends, from the retro scans' events (#940); never in the owner digest. */
   mainSession: MainSessionFigures;
   /** The main session's handovers by reason over the window, or why they are not read: no reason recorded, or too few merged changes (#1036). */

@@ -5,7 +5,7 @@ import {
   emptyLeadTimePerMergedChange,
   emptyWriterArms,
 } from "./flow-commands-merged-support.js";
-import { STAGES, type FlowReport } from "../flow/index.js";
+import { STAGES, type FlowReport, type SendBackTiers } from "../flow/index.js";
 import type { Ledger } from "../ledger/index.js";
 import { EMPTY_ADVISOR, POPULATED_ADVISOR } from "./flow-advisor-support.js";
 import { contextWith } from "./command-support.js";
@@ -70,6 +70,12 @@ const emptyCategories = {
 const emptyCategoryReport = {
   perPrHead: emptyCategories,
   perMergedChange: emptyCategories,
+};
+
+/** The send-backs per writer tier with no tier and no merged change in the range. */
+const EMPTY_SEND_BACK_TIERS: SendBackTiers = {
+  tiers: {},
+  unlinked: { mergedChanges: 0, sendBacks: emptyCategories },
 };
 
 /** Review misses with no review in the range, so neither figure is read. */
@@ -170,6 +176,7 @@ export function emptyReport(overrides: Partial<Record<string, unknown>> = {}) {
     leadTimePerMergedChange: emptyLeadTimePerMergedChange,
     writerCost: { pricesAsOf: "2026-11-17", ...emptyTokensPerMergedChange },
     writerArms: emptyWriterArms,
+    sendBackTiers: EMPTY_SEND_BACK_TIERS,
     tokensByStage: Object.fromEntries(STAGES.map((stage) => [stage, 0])),
     tokensByStagePerMergedChange: emptyTokensPerMergedChange,
     reviewMisses: NO_REVIEWS,

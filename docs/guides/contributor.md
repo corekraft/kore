@@ -595,6 +595,17 @@ window effort ("Haiku at high minus Sonnet at high"), so a result reads at that 
 the overall figure only. `writerFiguresIn` (`writer-figures.ts`) reads the cost and the arms
 against the same minimum.
 
+`sendBackTiers` (#1045, spec #1024), from `tools/harness/src/flow/send-back-tiers.ts`, reads the
+judge's send-backs per writer tier. A send-back joins to the tier its pull request's writer joins
+to (the same join as the cost above), and each tier gives its merged changes, its send-backs by
+category (each category once per PR head, `uncategorised` for those recorded before categories
+existed), and its rework (#1009) with the merged changes it is read over. `rework` and
+`reworkPerMergedChange` are null for the rate with no merged change, never zero. The `unlinked`
+row holds the merged changes and send-backs that join to no tier, including a send-back with no
+pull request number; it has no rework, since a send to a pane with no writer tier is not read. No
+change is given a tier by inference. The text (`flow-lines-send-back.ts`) prints the same figures
+the JSON carries.
+
 `reviewMisses` measures the Reviewer against the judge (#851). A review is a
 `review.run` event that posted or left unchanged a verdict, counted once per PR
 head by its first verdict; a review with `findings` 0 passed, and one with more

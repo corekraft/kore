@@ -1,4 +1,4 @@
-import { HANDOVER_REASONS, SEND_BACK_CATEGORIES } from "../ledger/index.js";
+import { HANDOVER_REASONS } from "../ledger/index.js";
 import { writerArmLines } from "./flow-lines-writer-arms.js";
 import {
   changes,
@@ -69,31 +69,7 @@ export const reworkLines = (rework: FlowReport["rework"]) =>
     ),
   );
 
-type CategoryCounts = FlowReport["sendBackCategories"]["perPrHead"];
-
-/** One line per scope: every category's count, the uncategorised count, and the share of other. */
-function categoryLine(scope: string, counts: CategoryCounts): string {
-  const byCategory = SEND_BACK_CATEGORIES.map(
-    (c) => `${c} ${counts.byCategory[c]}`,
-  ).join(", ");
-  const share =
-    counts.otherShare === null
-      ? "no categorised send-backs"
-      : `other ${Math.round(counts.otherShare * 100)}% of categorised${
-          counts.otherOverThreshold
-            ? `, over ${Math.round(counts.otherThreshold * 100)}%: the list may need an entry`
-            : ""
-        }`;
-  return `Send-backs by category, ${scope}: ${byCategory}; uncategorised ${counts.uncategorised}; ${share}`;
-}
-
-/** The send-backs by category, per PR head and per merged change. */
-export const sendBackCategoryLines = (
-  categories: FlowReport["sendBackCategories"],
-) => [
-  categoryLine("per PR head", categories.perPrHead),
-  categoryLine("per merged change", categories.perMergedChange),
-];
+export { sendBackCategoryLines } from "./flow-lines-send-back.js";
 
 /**
  * The owner questions per merged change, with the trailing average (#859). With

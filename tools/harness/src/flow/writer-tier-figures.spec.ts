@@ -88,6 +88,16 @@ describe("rework: a send to a writer pane after a send-back for its pull request
     const withoutSendBacks = EVENTS.filter((e) => e.kind !== "send-back");
     expect(reworkSendsIn(withoutSendBacks, WIDE)).toEqual(new Map());
   });
+
+  it("does not count a send-back that no later send to its writer follows", () => {
+    const sendBackOnly = [
+      launch(100, "h-writer", "w1:p1", HAIKU),
+      linked(200, 100, "h-writer"),
+      send(150, "h-writer", "w1:p1"), // before the send-back: not rework
+      sendBack(300, 100), // no send to the writer after it
+    ];
+    expect(reworkSendsIn(sendBackOnly, WIDE)).toEqual(new Map());
+  });
 });
 
 describe("owner minutes of a tier: owner actions on its joined pull requests", () => {
