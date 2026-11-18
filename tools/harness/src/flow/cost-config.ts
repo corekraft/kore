@@ -25,6 +25,8 @@ export interface HarnessConfig {
   retro?: RetroHistoryConfig;
   /** The compaction cap in tokens, which the stop hook measures requests against; absent when not set. */
   compactionCap?: number;
+  /** The weekly token ceiling in plan-weighted tokens; absent when not set, which a report reads as "not set", never zero. */
+  weeklyTokenCeiling?: number;
 }
 
 type Failure = { error: string };
@@ -220,25 +222,25 @@ function retroOf(
   return { retro };
 }
 
-/** The compaction cap when it is set, a whole number of at least 1; a key the config leaves out is not in the result. */
-function compactionCapOf(
+/** A whole number of at least 1 under a key the config may leave out; a key left out is not in the result, and a bad value gives the key's fix. */
+function wholeKeyOf<K extends string>(
   file: string,
+  key: K,
   value: unknown,
-): { compactionCap?: number } | Failure {
+  fix: string,
+): { [P in K]?: number } | Failure {
   if (value === undefined) {
     return {};
   }
   if (!wholeAtLeastOne(value)) {
-    return bad(
-      file,
-      "compactionCap",
-      "must be a whole number of at least 1. Fix the value.",
-    );
+    return bad(file, key, fix);
   }
-  return { compactionCap: value };
+  const set: Partial<Record<K, number>> = {};
+  set[key] = value;
+  return set;
 }
 
-/** The owner login, reviewer logins, retro minimums and compaction cap, each checked; the first bad one is the error. */
+/** The owner login, reviewer logins, retro minimums, compaction cap and weekly token ceiling, each checked; the first bad one is the error. */
 function settingsOf(
   file: string,
   value: Raw,
@@ -248,6 +250,7 @@ function settingsOf(
       reviewerLogins?: string[];
       retro?: RetroHistoryConfig;
       compactionCap?: number;
+      weeklyTokenCeiling?: number;
     }
   | Failure {
   const owner = loginsOf(file, value);
@@ -258,11 +261,25 @@ function settingsOf(
   if ("error" in retro) {
     return retro;
   }
-  const cap = compactionCapOf(file, value["compactionCap"]);
+  const cap = wholeKeyOf(
+    file,
+    "compactionCap",
+    value["compactionCap"],
+    "must be a whole number of at least 1. Fix the value.",
+  );
   if ("error" in cap) {
     return cap;
   }
-  return { ...owner, ...retro, ...cap };
+  const ceiling = wholeKeyOf(
+    file,
+    "weeklyTokenCeiling",
+    value["weeklyTokenCeiling"],
+    'must be a whole number of plan-weighted tokens of at least 1, or left out to read "not set". Fix the value.',
+  );
+  if ("error" in ceiling) {
+    return ceiling;
+  }
+  return { ...owner, ...retro, ...cap, ...ceiling };
 }
 
 /** Checks the harness config text before any report uses it; a bad key names the file, the key and the fix. */
@@ -285,6 +302,7 @@ export function parseHarnessConfig(
     "reviewerLogins",
     "retro",
     "compactionCap",
+    "weeklyTokenCeiling",
   ]);
   if (top !== undefined) {
     return top;
