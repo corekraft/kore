@@ -46,7 +46,13 @@ const RELAUNCH =
 
 type OkCurrent = Extract<WriterCost["current"], { status: "ok" }>;
 
-const OK_CURRENT: WriterCost["current"] = {
+/** The ok figure with its orchestrate part replaced: the basis tests change only that part. */
+const withOrchestrate = (orchestrate: OkCurrent["orchestrate"]): OkCurrent => ({
+  ...OK_CURRENT,
+  orchestrate,
+});
+
+const OK_CURRENT: OkCurrent = {
   status: "ok",
   merged: 5,
   unjoinable: 1,
@@ -120,15 +126,12 @@ describe("writerDollarsLines: all-in cost per merged change by first-launch tier
 
 describe("writerDollarsLines: the orchestrating dollars' basis (#1041)", () => {
   it("names the recorded models the orchestrating dollars are priced at, and no assumed model, when every token has a reading", () => {
-    const current = {
-      ...OK_CURRENT,
-      orchestrate: {
-        ...(OK_CURRENT as OkCurrent).orchestrate,
-        basis: "recorded",
-        recordedModels: ["claude-haiku-5-5", "claude-opus-5-5"],
-        assumedTokens: 0,
-      },
-    } as WriterCost["current"];
+    const current = withOrchestrate({
+      ...OK_CURRENT.orchestrate,
+      basis: "recorded",
+      recordedModels: ["claude-haiku-5-5", "claude-opus-5-5"],
+      assumedTokens: 0,
+    });
 
     expect(writerDollarsLines(report(current, OK_TRAILING))[1]).toBe(
       "Orchestrating dollars are priced at the recorded models claude-haiku-5-5, claude-opus-5-5, from token.split readings. The parts are means and do not sum to the median.",
@@ -136,15 +139,12 @@ describe("writerDollarsLines: the orchestrating dollars' basis (#1041)", () => {
   });
 
   it("says both where some tokens are read and the rest are priced at the assumed model", () => {
-    const current = {
-      ...OK_CURRENT,
-      orchestrate: {
-        ...(OK_CURRENT as OkCurrent).orchestrate,
-        basis: "recorded and assumed model",
-        recordedModels: ["claude-haiku-5-5"],
-        assumedTokens: 1000,
-      },
-    } as WriterCost["current"];
+    const current = withOrchestrate({
+      ...OK_CURRENT.orchestrate,
+      basis: "recorded and assumed model",
+      recordedModels: ["claude-haiku-5-5"],
+      assumedTokens: 1000,
+    });
 
     expect(writerDollarsLines(report(current, OK_TRAILING))[1]).toBe(
       "Orchestrating dollars are priced at the recorded model claude-haiku-5-5, from token.split readings, and the token totals with no reading at claude-opus-5-5 (assumed model), at its input rate, a floor. The parts are means and do not sum to the median.",
@@ -152,19 +152,13 @@ describe("writerDollarsLines: the orchestrating dollars' basis (#1041)", () => {
   });
 
   it("says no main-session tokens when the span holds none, and names the models when a price is missing, never zero", () => {
-    const none = {
-      ...OK_CURRENT,
-      orchestrate: { ...(OK_CURRENT as OkCurrent).orchestrate, basis: "none" },
-    } as WriterCost["current"];
-    const unpriced = {
-      ...OK_CURRENT,
-      orchestrate: {
-        ...(OK_CURRENT as OkCurrent).orchestrate,
-        basis: "recorded",
-        status: "insufficient prices",
-        models: ["claude-fable-5-2"],
-      },
-    } as WriterCost["current"];
+    const none = withOrchestrate({ ...OK_CURRENT.orchestrate, basis: "none" });
+    const unpriced = withOrchestrate({
+      ...OK_CURRENT.orchestrate,
+      basis: "recorded",
+      status: "insufficient prices",
+      models: ["claude-fable-5-2"],
+    });
 
     expect(writerDollarsLines(report(none, OK_TRAILING))[1]).toBe(
       "Orchestrating dollars: no main-session tokens in this range. The parts are means and do not sum to the median.",

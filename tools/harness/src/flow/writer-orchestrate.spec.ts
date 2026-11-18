@@ -9,28 +9,30 @@ const MILLION = 1_000_000;
 
 // A fixture price table, so the dollars below do not move with the published table. Haiku has a
 // step: a request over 100K pays its over-step rates, cache reads included.
+const HAIKU_PRICE: ModelPrice = {
+  inputPerMTok: 1,
+  cacheWrite5mPerMTok: 2,
+  cacheWrite1hPerMTok: 3,
+  cacheReadPerMTok: 0.5,
+  outputPerMTok: 5,
+  overStep: {
+    inputPerMTok: 10,
+    cacheWrite5mPerMTok: 20,
+    cacheWrite1hPerMTok: 30,
+    cacheReadPerMTok: 5,
+    outputPerMTok: 50,
+  },
+};
+const OPUS_PRICE: ModelPrice = {
+  inputPerMTok: 2,
+  cacheWrite5mPerMTok: 3,
+  cacheWrite1hPerMTok: 4,
+  cacheReadPerMTok: 0.2,
+  outputPerMTok: 10,
+};
 const PRICES: Readonly<Record<string, ModelPrice>> = {
-  [HAIKU]: {
-    inputPerMTok: 1,
-    cacheWrite5mPerMTok: 2,
-    cacheWrite1hPerMTok: 3,
-    cacheReadPerMTok: 0.5,
-    outputPerMTok: 5,
-    overStep: {
-      inputPerMTok: 10,
-      cacheWrite5mPerMTok: 20,
-      cacheWrite1hPerMTok: 30,
-      cacheReadPerMTok: 5,
-      outputPerMTok: 50,
-    },
-  },
-  [OPUS]: {
-    inputPerMTok: 2,
-    cacheWrite5mPerMTok: 3,
-    cacheWrite1hPerMTok: 4,
-    cacheReadPerMTok: 0.2,
-    outputPerMTok: 10,
-  },
+  [HAIKU]: HAIKU_PRICE,
+  [OPUS]: OPUS_PRICE,
 };
 
 type Kind = "input" | "output";
@@ -211,7 +213,7 @@ describe("orchestrate dollars: a span with no reading is priced at the assumed m
     const r = orchestrateDollarsIn(
       [mainUsage(900, "main-t", 0), mainUsage(1500, "main-t", 2 * MILLION)],
       WINDOW,
-      { [HAIKU]: PRICES[HAIKU] as ModelPrice },
+      { [HAIKU]: HAIKU_PRICE },
     );
 
     expect(r).toEqual({
