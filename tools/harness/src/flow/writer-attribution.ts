@@ -218,9 +218,11 @@ export function writerDollarsIn(
   const stageOf = tokenStageResolver(events);
   const linked = linkedAgents(events);
   const launches = pricedLaunches(events);
-  const merges: Merge[] = events
-    .filter((e) => e.kind === "pr.merged" && e.number !== undefined)
-    .map((e) => ({ number: e.number as number, at: time(e) }));
+  const merges: Merge[] = events.flatMap((e) =>
+    e.kind === "pr.merged" && e.number !== undefined
+      ? [{ number: e.number, at: time(e) }]
+      : [],
+  );
   const spendAt = spendReader(events, stageOf);
   const start = spendBefore(events, span[0], stageOf);
   const end = spendBefore(events, span[1], stageOf);
