@@ -152,6 +152,18 @@ escalation or a recorded override changes it. A launch's tier has one origin:
 the definition, an escalation, or a recorded override.
 _Avoid_: Level, size
 
+**Window effort**:
+The one effort, part of a Tier, at which both arms of the writer-tier window
+launch. The owner sets it when opening the window.
+
+**Randomized launch**:
+A writer launch that the window's draw assigned to an arm: the drawn Sonnet or
+the control Haiku. A writer launch chosen by hand is not randomized.
+
+**Arm**:
+One of the groups of writers a window compares, defined by the Tier of each
+writer's first launch.
+
 **Primary metric**:
 The one flow-report metric a harness idea claims to move, which no other idea
 open in the same window claims, read from events the changed code does not
