@@ -240,6 +240,13 @@ decisions; read one only when planning that area, and expect it to change.
 - [`docs/ideas/0028-main-session-wait-live-verification.md`](ideas/0028-main-session-wait-live-verification.md) — main-session-wait works live in local
 - [`docs/ideas/0029-pane-result-summary-live-verification.md`](ideas/0029-pane-result-summary-live-verification.md) — pane-result-summary works live in local
 - [`docs/ideas/0030-signed-main-sends-live-verification.md`](ideas/0030-signed-main-sends-live-verification.md) — signed-main-sends works live in local
+- [`docs/ideas/0031-cut-role-read-only-blocks-on-read-only-reader-panes.md`](ideas/0031-cut-role-read-only-blocks-on-read-only-reader-panes.md) — Cut role-read-only blocks on read-only reader panes
+- [`docs/ideas/0032-stop-unquoted-glob-and-equals-word-zsh-blocks-before-they-re.md`](ideas/0032-stop-unquoted-glob-and-equals-word-zsh-blocks-before-they-re.md) — Stop unquoted-glob and equals-word zsh blocks before they reach the guard
+- [`docs/ideas/0033-review-role-worktree-blocks-for-false-positives-on-cd-and-no.md`](ideas/0033-review-role-worktree-blocks-for-false-positives-on-cd-and-no.md) — Review role-worktree blocks for false positives on cd and node -e
+- [`docs/ideas/0034-narrow-bare-glob-and-idea-issue-close-warnings-that-agents-o.md`](ideas/0034-narrow-bare-glob-and-idea-issue-close-warnings-that-agents-o.md) — Narrow bare-glob and idea-issue-close warnings that agents override
+- [`docs/ideas/0035-cut-main-session-pane-polling-and-raw-sends.md`](ideas/0035-cut-main-session-pane-polling-and-raw-sends.md) — Cut main-session pane polling and raw sends
+- [`docs/ideas/0036-add-a-bare-gh-and-rule-promotion-follow-up-promote-idea-issu.md`](ideas/0036-add-a-bare-gh-and-rule-promotion-follow-up-promote-idea-issu.md) — Add a bare gh and rule-promotion follow-up: promote idea-issue-body to enforce
+- [`docs/ideas/0037-remove-unused-skills-add-command-add-policy-pin-upgrade-and.md`](ideas/0037-remove-unused-skills-add-command-add-policy-pin-upgrade-and.md) — Remove unused skills add-command, add-policy, pin-upgrade and unused agent judgment
 
 ## Operations and Guides
 
