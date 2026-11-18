@@ -1,5 +1,5 @@
 ---
-status: proposed
+status: accepted
 summary: A recorded outcome may carry source owner-waiver, backed by a GitHub comment URL, as the proof for a flag in an environment; findProof names which source it found, flag audit names a waiver apart from a live run, and a waiver never counts for a cluster-facing no-behaviour-change.
 date: 2026-11-18
 last-verified: 2026-11-18
