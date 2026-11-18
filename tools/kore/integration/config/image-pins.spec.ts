@@ -150,3 +150,28 @@ test("every approved image is used: its digest appears in a chart, values file, 
     .map(({ name }) => name);
   assert.deepEqual(unused, []);
 });
+
+const KORE_BUILT_DOCKERFILES = [
+  "apps/reference/Dockerfile",
+  "images/backstage/Dockerfile",
+  "templates/static-frontend/Dockerfile",
+];
+
+test("every base image a Kore-built Dockerfile pulls is pinned by digest", async () => {
+  const root = await findRoot();
+  const unpinned: string[] = [];
+  for (const file of KORE_BUILT_DOCKERFILES) {
+    const text = await readFile(join(root, file), "utf8");
+    const stages = new Set<string>();
+    for (const line of text.split("\n")) {
+      const from = /^FROM\s+(?:--\S+\s+)?(\S+)(?:\s+AS\s+(\S+))?/i.exec(line);
+      if (!from) continue;
+      const [, image, stage] = from;
+      if (image !== "scratch" && !stages.has(image!) && !DIGEST.test(image!)) {
+        unpinned.push(`${file}: ${image}`);
+      }
+      if (stage) stages.add(stage);
+    }
+  }
+  assert.deepEqual(unpinned, []);
+});

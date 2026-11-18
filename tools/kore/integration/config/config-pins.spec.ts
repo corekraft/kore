@@ -92,7 +92,10 @@ test("chart image defaults and the reference base image match the catalog pins",
     opaAuthorizer.includes(opaEnvoy!.image.split("@")[1]!),
     "the chart pins the approved opa-envoy digest",
   );
-  assert.match(dockerfile, /^FROM node:26\.13\.0-alpine3\.24$/m);
+  assert.match(
+    dockerfile,
+    /^FROM node:26\.13\.0-alpine3\.24@sha256:[0-9a-f]{64}$/m,
+  );
 });
 
 test("the catalog declares Sigstore Policy Controller as a bootstrap component with readiness and CRD ownership, enforcing nothing", async () => {
