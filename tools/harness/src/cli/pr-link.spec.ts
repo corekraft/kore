@@ -44,8 +44,10 @@ beforeEach(() => {
 });
 
 describe("harness pr open links the pull request to its writer through the ledger", () => {
-  it("records one pr.linked event with the pull request number and the writer's session name as session and agent", async () => {
-    expect(await linkPullRequest(deps(WRITER_ENV), URL)).toBeUndefined();
+  it("records one pr.linked event with the pull request number, the writer's session name as session and agent, and the idea, and no other text", async () => {
+    expect(
+      await linkPullRequest(deps(WRITER_ENV), URL, "none"),
+    ).toBeUndefined();
     expect(record).toHaveBeenCalledTimes(1);
     expect(record).toHaveBeenCalledWith({
       source: "herdr",
@@ -54,12 +56,20 @@ describe("harness pr open links the pull request to its writer through the ledge
       number: 9,
       session: "fix-x",
       agent: "fix-x",
+      idea: "none",
     });
+  });
+
+  it("records the idea the pull request serves on the link event, as the writer named it", async () => {
+    await linkPullRequest(deps(WRITER_ENV), URL, "0030");
+    expect(record).toHaveBeenCalledWith(
+      expect.objectContaining({ kind: "pr.linked", idea: "0030" }),
+    );
   });
 
   it("writes into the checkout's ledger, through the Ledger the command owns", async () => {
     const d = deps(WRITER_ENV);
-    await linkPullRequest(d, URL);
+    await linkPullRequest(d, URL, "none");
     expect(ledgerConstructor).toHaveBeenCalledWith(
       d.fs,
       d.clock,
@@ -71,13 +81,13 @@ describe("harness pr open links the pull request to its writer through the ledge
 
 describe("harness pr open writes no link where there is no writer to link", () => {
   it("writes no link and no warning outside a spawn environment, so the pull request is simply opened", async () => {
-    expect(await linkPullRequest(deps({}), URL)).toBeUndefined();
+    expect(await linkPullRequest(deps({}), URL, "none")).toBeUndefined();
     expect(record).not.toHaveBeenCalled();
   });
 
   it("writes no link for a session spawned under another role", async () => {
     const judge = { KORE_ROLE: "judge", KORE_AGENT: "judge-test" };
-    expect(await linkPullRequest(deps(judge), URL)).toBeUndefined();
+    expect(await linkPullRequest(deps(judge), URL, "none")).toBeUndefined();
     expect(record).not.toHaveBeenCalled();
   });
 });
@@ -89,7 +99,7 @@ describe("harness pr open never blocks the pull request on a link that fails", (
       field: "number",
       message: 'Invalid event: field "number" must be a positive integer.',
     });
-    expect(await linkPullRequest(deps(WRITER_ENV), URL)).toBe(
+    expect(await linkPullRequest(deps(WRITER_ENV), URL, "none")).toBe(
       `${WARNED}: Invalid event: field "number" must be a positive integer.`,
     );
   });
@@ -98,21 +108,21 @@ describe("harness pr open never blocks the pull request on a link that fails", (
     record.mockRejectedValue(
       Object.assign(new Error("EACCES: permission denied"), { code: "EACCES" }),
     );
-    expect(await linkPullRequest(deps(WRITER_ENV), URL)).toBe(
+    expect(await linkPullRequest(deps(WRITER_ENV), URL, "none")).toBe(
       `${WARNED}: EACCES: permission denied`,
     );
   });
 
   it("rethrows an error that is not a file error, because it is a bug and not an expected failure", async () => {
     record.mockRejectedValue(new TypeError("record is not a function"));
-    await expect(linkPullRequest(deps(WRITER_ENV), URL)).rejects.toThrow(
-      "record is not a function",
-    );
+    await expect(
+      linkPullRequest(deps(WRITER_ENV), URL, "none"),
+    ).rejects.toThrow("record is not a function");
   });
 
   it("warns and writes nothing when the main checkout cannot be found", async () => {
     vi.mocked(mainRoot).mockResolvedValue(undefined);
-    expect(await linkPullRequest(deps(WRITER_ENV), URL)).toBe(
+    expect(await linkPullRequest(deps(WRITER_ENV), URL, "none")).toBe(
       `${WARNED}: cannot find the main checkout to keep the ledger in.`,
     );
     expect(record).not.toHaveBeenCalled();
@@ -120,7 +130,7 @@ describe("harness pr open never blocks the pull request on a link that fails", (
 
   it("warns and writes nothing when gh's output names no pull request number", async () => {
     const issue = "https://github.com/corekraft/kore/issues/9";
-    expect(await linkPullRequest(deps(WRITER_ENV), issue)).toBe(
+    expect(await linkPullRequest(deps(WRITER_ENV), issue, "none")).toBe(
       `${WARNED}: no pull request number in "${issue}".`,
     );
     expect(record).not.toHaveBeenCalled();

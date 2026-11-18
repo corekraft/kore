@@ -76,3 +76,35 @@ describe("ledger event schema, pr.linked", () => {
     expect(parseEvent(merged, "input")).toEqual({ ok: true, event: merged });
   });
 });
+
+describe("ledger event schema, pr.linked records the idea the pull request serves", () => {
+  it("accepts the idea the pull request serves, or an explicit none, beside the writer's session and agent", () => {
+    expect(parseEvent({ ...linked, idea: "0030" }, "input")).toEqual({
+      ok: true,
+      event: { ...linked, idea: "0030" },
+    });
+    expect(parseEvent({ ...linked, idea: "none" }, "input")).toEqual({
+      ok: true,
+      event: { ...linked, idea: "none" },
+    });
+  });
+
+  it("refuses an idea that is not a name, such as one with a space in it", () => {
+    expect(parseEvent({ ...linked, idea: "fix the thing" }, "input")).toEqual({
+      ok: false,
+      field: "idea",
+      message:
+        'Invalid event: field "idea" must be 1-128 letters, digits or . _ : / # @ -.',
+    });
+  });
+
+  it("still reads a stored link event from before the idea was recorded, with no idea", () => {
+    const stored = {
+      schema: 1,
+      id: "id-1",
+      recordedAt: "2026-11-17T10:00:00.000Z",
+      ...linked,
+    };
+    expect(parseEvent(stored, "stored")).toEqual({ ok: true, event: stored });
+  });
+});

@@ -1,5 +1,19 @@
 import type { LedgerEvent } from "../ledger/index.js";
 
+/** The value a pull request's link writes when the pull request serves no idea (ADR 0126). */
+const NO_IDEA = "none";
+
+/**
+ * The idea an event names, or undefined. A pull request's link that names `none` names no idea:
+ * `none` is never an idea in the flow, so its writing stays unattributed (ADR 0126).
+ */
+export function namedIdea(event: LedgerEvent): string | undefined {
+  if (event.kind === "pr.linked" && event.idea === NO_IDEA) {
+    return undefined;
+  }
+  return event.idea;
+}
+
 /** Idea keys: an issue's own number, else what the event, its pane or its session names. */
 export function attribute(
   events: LedgerEvent[],
@@ -10,9 +24,10 @@ export function attribute(
       (a): a is string => typeof a === "string",
     );
   for (const event of events) {
-    if (event.idea !== undefined) {
+    const idea = namedIdea(event);
+    if (idea !== undefined) {
       for (const actor of actors(event)) {
-        byActor.set(actor, event.idea);
+        byActor.set(actor, idea);
       }
     }
   }
@@ -24,7 +39,7 @@ export function attribute(
     const inherited = actors(event)
       .map((a) => byActor.get(a))
       .find((i) => i !== undefined);
-    result.set(event.id, event.idea ?? own ?? inherited);
+    result.set(event.id, namedIdea(event) ?? own ?? inherited);
   }
   return result;
 }
