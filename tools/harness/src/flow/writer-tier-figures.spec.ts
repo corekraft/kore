@@ -10,6 +10,7 @@ import {
 } from "./writer-cost-support.js";
 import {
   firstPromptOf,
+  tierJoinsIn,
   ownerMinutesIn,
   reworkSendsIn,
   requestSplitIn,
@@ -131,5 +132,39 @@ describe("first-request prompt size: the earliest reading's first prompt", () =>
     ];
     expect(firstPromptOf(events, "a-writer")).toBe(90_000);
     expect(firstPromptOf(events, "unknown-writer")).toBeUndefined();
+  });
+});
+
+describe("prompt figures of a tier: only the span's own writer sessions", () => {
+  it("leaves out a writer launched before the span and a writer whose first reading is outside it", () => {
+    const events = [
+      // Launched before the span: its first request is not the span's.
+      launch(500, "early-writer", "w0:p1", HAIKU),
+      split(1500, "early-writer", HAIKU, {
+        lowRequests: 1,
+        firstPrompt: 90_000,
+      }),
+      // Launched in the span, but its earliest reading is before it: that first request is not the span's.
+      launch(1100, "late-first-writer", "w0:p2", HAIKU),
+      split(500, "late-first-writer", HAIKU, {
+        lowRequests: 1,
+        firstPrompt: 70_000,
+      }),
+      split(1500, "late-first-writer", HAIKU, {
+        lowRequests: 2,
+        firstPrompt: 120_000,
+      }),
+      // Launched and first read in the span: the only session the prompt figures read.
+      launch(1200, "in-span-writer", "w0:p3", HAIKU),
+      split(1600, "in-span-writer", HAIKU, {
+        lowRequests: 1,
+        firstPrompt: 100_000,
+      }),
+    ];
+    const figures = tierJoinsIn(events, WINDOW, [HAIKU]).figures.get(HAIKU);
+    expect(figures).toMatchObject({
+      firstPromptP50: 100_000,
+      firstPromptP90: 100_000,
+    });
   });
 });

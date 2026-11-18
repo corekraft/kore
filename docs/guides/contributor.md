@@ -549,7 +549,9 @@ send with no send-back before it, is not rework), and `reworkPerMergedChange` ov
 `over100kShare`, the share of its requests over the 100K prompt step from the
 `token.split` request counts (zero when none is over the step, null with no request);
 and `firstPromptP50` and `firstPromptP90`, the median and the 90th percentile (nearest
-rank) of its sessions' first-request prompt sizes. A per-change figure is null with no
+rank) of the first-request prompt sizes of its writer sessions that launched in the span
+and whose first request is in it; a session launched before the span, or whose first
+request falls outside it, is left out. A per-change figure is null with no
 joined change, never zero, and the text reads it as not read.
 
 `reviewMisses` measures the Reviewer against the judge (#851). A review is a

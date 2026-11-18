@@ -40,9 +40,12 @@ export interface TierFigureFields {
   requests: number;
   /** The share of the tier's requests over the 100K prompt step; null with no request in the span. */
   over100kShare: number | null;
-  /** The median first-request prompt size of the tier's writer sessions; null with none that has a reading. */
+  /**
+   * The median first-request prompt size of the tier's writer sessions launched in the span whose first
+   * request is in it; null with none.
+   */
   firstPromptP50: number | null;
-  /** The 90th percentile (nearest rank) of the tier's first-request prompt sizes; null with none. */
+  /** The 90th percentile (nearest rank) of the same sessions' first-request prompt sizes; null with none. */
   firstPromptP90: number | null;
 }
 
@@ -202,10 +205,13 @@ export function requestSplitIn(
   return split;
 }
 
-/** Each writer session's first request's prompt size: the firstPrompt of its earliest reading. */
-export function firstPromptsByAgent(
+/**
+ * Each writer session's first request: the firstPrompt of its earliest reading in the whole ledger,
+ * with that reading's time. Whether that request falls in a span is the caller's to read.
+ */
+export function firstRequestsByAgent(
   events: LedgerEvent[],
-): Map<string, number> {
+): Map<string, { at: number; prompt: number }> {
   const earliest = new Map<string, { at: number; prompt: number }>();
   for (const e of events) {
     if (
@@ -221,7 +227,7 @@ export function firstPromptsByAgent(
       earliest.set(e.agent, { at, prompt: e.firstPrompt });
     }
   }
-  return new Map([...earliest].map(([agent, v]) => [agent, v.prompt]));
+  return earliest;
 }
 
 /** The first request's prompt size of one writer session, or undefined when it has no reading. */
@@ -229,7 +235,7 @@ export function firstPromptOf(
   events: LedgerEvent[],
   agent: string,
 ): number | undefined {
-  return firstPromptsByAgent(events).get(agent);
+  return firstRequestsByAgent(events).get(agent)?.prompt;
 }
 
 /** The 90th percentile of the prompt sizes by nearest rank: the size one prompt in ten reaches or passes. */
@@ -244,7 +250,8 @@ export function promptSizeP90(prompts: number[]): number | null {
 /**
  * Every tier's figures beside its cost over the span, with the merged-change join they divide by:
  * `joined` counts each tier's merged changes, `unjoinable` those that join to no tier, and
- * `launches` are every priced writer launch of the ledger, for the caller to span-filter.
+ * `launches` are every priced writer launch of the ledger, for the caller to span-filter; the prompt
+ * figures read only the span's own launches, whatever the caller passes.
  */
 export function tierJoinsIn(
   events: LedgerEvent[],
@@ -262,9 +269,11 @@ export function tierJoinsIn(
 }
 
 /**
- * Every tier's figures over the span. `launches` are the span's writer launches, and `numbers` each
+ * Every tier's figures over the span. `launches` are the priced writer launches, and `numbers` each
  * tier's joined merged-change pull requests; a tier's per-change figures divide by its joined count,
- * and read null when it has none.
+ * and read null when it has none. A prompt figure reads a writer only when it launched in the span
+ * and its first request (its earliest reading) is in the span too: a writer launched before the span,
+ * or whose first request is outside it, is left out.
  */
 function tierFiguresIn(
   events: LedgerEvent[],
@@ -275,7 +284,7 @@ function tierFiguresIn(
 ): Map<string, TierFigureFields> {
   const reworked = reworkSendsIn(events, span);
   const splits = requestSplitIn(events, span);
-  const firstPrompts = firstPromptsByAgent(events);
+  const firstRequests = firstRequestsByAgent(events);
   return new Map(
     tiers.map((tier): [string, TierFigureFields] => {
       const joined = numbers.get(tier) ?? [];
@@ -283,12 +292,17 @@ function tierFiguresIn(
       const rework = reworked.get(tier) ?? 0;
       const minutes = ownerMinutesIn(events, span, joined);
       const split = splits.get(tier) ?? { requests: 0, over100k: 0 };
+      // The prompt figures read only the writer sessions launched in the span whose first request is in it.
       const prompts = launches.flatMap((l) => {
-        const prompt =
+        const first =
           l.tier === tier && l.agent !== undefined
-            ? firstPrompts.get(l.agent)
+            ? firstRequests.get(l.agent)
             : undefined;
-        return prompt === undefined ? [] : [prompt];
+        return first !== undefined &&
+          inWindow(span, l.at) &&
+          inWindow(span, first.at)
+          ? [first.prompt]
+          : [];
       });
       return [
         tier,
