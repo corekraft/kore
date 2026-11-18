@@ -13,8 +13,12 @@ const dnsLabel = /^[a-z0-9]([-a-z0-9]{0,61}[a-z0-9])?$/;
 const platformOrganization = "platform";
 const reservedPrefixes = ["kube-", "kore-"];
 const namespaceLimit = 63;
-/** The longest derived name is the workload <service>-frontend, 9 characters over the service name. */
-const serviceNameLimit = namespaceLimit - "-frontend".length;
+/**
+ * The longest derived label is the Argo Application golden-path-<service>: Argo CD's
+ * default label tracking copies its name into a 63-character label value.
+ */
+const applicationPrefix = "golden-path-";
+const serviceNameLimit = namespaceLimit - applicationPrefix.length;
 
 type Claim = Record<string, unknown>;
 
@@ -78,7 +82,7 @@ function serviceNameErrors(name: string, path: string): string[] {
   }
   if (name.length > serviceNameLimit) {
     errors.push(
-      `${path}.metadata.name: must be at most ${serviceNameLimit} characters, because the longest derived name, the workload <service>-frontend, adds 9 characters to fit ${namespaceLimit}; shorten it, for example "${name.slice(0, serviceNameLimit)}"`,
+      `${path}.metadata.name: must be at most ${serviceNameLimit} characters, because the longest derived label, the Argo Application golden-path-<service>, adds ${applicationPrefix.length} characters to fit ${namespaceLimit}; shorten it, for example "${name.slice(0, serviceNameLimit)}"`,
     );
   }
   return errors;
