@@ -35,6 +35,36 @@ export function at(
   };
 }
 
+/**
+ * A token.split reading of a roleless main session on one model, `seconds` after T0: its input
+ * tokens at the low prompt step, every other count zero.
+ */
+export function mainSplit(
+  seconds: number,
+  session: string,
+  model: string,
+  lowInput: number,
+): LedgerEvent {
+  return at(seconds, "token.split", {
+    session,
+    model,
+    firstPrompt: 1000,
+    largestPrompt: 1000,
+    lowRequests: 1,
+    lowInput,
+    lowCacheWrite5m: 0,
+    lowCacheWrite1h: 0,
+    lowCacheRead: 0,
+    lowOutput: 0,
+    highRequests: 0,
+    highInput: 0,
+    highCacheWrite5m: 0,
+    highCacheWrite1h: 0,
+    highCacheRead: 0,
+    highOutput: 0,
+  });
+}
+
 /** One idea that finished: opened, approved, written, merged, closed. */
 export function finishedIdea(
   n: number,

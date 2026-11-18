@@ -31,6 +31,7 @@ import {
   writerDollarsIn,
   type InsufficientPrices,
   type TierDollars,
+  type WriterDollars,
 } from "./writer-attribution.js";
 import {
   NO_TIER_FIELDS,
@@ -88,12 +89,22 @@ export type WriterCostFigure =
       unjoinable: number;
       /** The limit of the join, stated beside the figure (see RELAUNCH_LIMIT). */
       relaunchLimit: string;
-      /** The orchestrating session's tokens, weighted at the main-session model; its dollars at that model too (#1008). */
+      /**
+       * The orchestrating session's tokens, weighted at the main-session model (token.usage holds no
+       * model). Its dollars are priced per recorded model from token.split readings, and at the assumed
+       * model for tokens with no reading (#1008, #1041).
+       */
       orchestrate: {
         weightedTokens: number;
         perMergedChange: number;
-        /** The main-session model the orchestrating dollars are priced at: an assumption, not a recorded model. */
+        /** The assumed main-session model: the weights, and what tokens with no reading are priced at. */
         model: string;
+        /** What the dollars are priced from: recorded, assumed model, both, or none with no main-session tokens. */
+        basis: WriterDollars["shared"]["orchestrateBasis"]["basis"];
+        /** The models the span's token.split readings ran on, sorted, each once. */
+        recordedModels: string[];
+        /** The span's token totals with no reading, priced at the assumed model. */
+        assumedTokens: number;
       } & SharedDollars;
       /**
        * The idea-wide judge sessions' dollars in the span, shared equally per merged change. Reviewers
@@ -228,6 +239,9 @@ function figureIn(
       weightedTokens: round(orchestrate),
       perMergedChange: round(orchestrate / merged),
       model: MAIN_SESSION_MODEL,
+      basis: dollars.shared.orchestrateBasis.basis,
+      recordedModels: dollars.shared.orchestrateBasis.recordedModels,
+      assumedTokens: dollars.shared.orchestrateBasis.assumedTokens,
       ...sharedFigure(
         dollars.shared.orchestrate,
         dollars.shared.orchestrateUnpriced,

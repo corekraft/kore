@@ -68,10 +68,32 @@ function trailingDollarsLine(
 
 type WriterCostTrailing = FlowReport["writerCost"]["trailingAverage"];
 
+type OkOrchestrate = OkWriterCost["orchestrate"];
+
+/**
+ * The orchestrating dollars' sentence (#1041): what they are priced from, stated beside the figure.
+ * A span with token.split readings is priced at its recorded models; token totals with no reading
+ * are priced at the assumed model, a floor; a figure no price reads names the models, never zero.
+ */
+function orchestrateBasisText(o: OkOrchestrate): string {
+  if ("status" in o) {
+    return `Orchestrating dollars not read: no price for ${o.models.join(", ")}.`;
+  }
+  const recorded = `the recorded ${o.recordedModels.length === 1 ? "model" : "models"} ${o.recordedModels.join(", ")}, from token.split readings`;
+  const assumed = `${o.model} (assumed model)`;
+  const sentences: Record<OkOrchestrate["basis"], string> = {
+    none: "Orchestrating dollars: no main-session tokens in this range.",
+    recorded: `Orchestrating dollars are priced at ${recorded}.`,
+    "assumed model": `Orchestrating dollars are priced at ${assumed}: this range has no token.split reading for its main session, so its token totals are priced at that model's input rate, a floor.`,
+    "recorded and assumed model": `Orchestrating dollars are priced at ${recorded}, and the token totals with no reading at ${assumed}, at its input rate, a floor.`,
+  };
+  return sentences[o.basis];
+}
+
 /**
  * All-in cost per merged change by first-launch tier (#1008): each tier's mean with its parts and
- * its median, the orchestrating model it assumes, and the trailing average. A figure that is not
- * read says so: a window below the minimum, or no tier joined to a change, is never a zero.
+ * its median, the orchestrating dollars' basis (#1041), and the trailing average. A figure that is
+ * not read says so: a window below the minimum, or no tier joined to a change, is never a zero.
  */
 export function writerDollarsLines(w: FlowReport["writerCost"]): string[] {
   const { current, trailingAverage, trailingDays, pricesAsOf } = w;
@@ -84,7 +106,7 @@ export function writerDollarsLines(w: FlowReport["writerCost"]): string[] {
   const writers = current.unmergedWriterSessions;
   return [
     `All-in cost per merged change by first-launch tier (prices read ${pricesAsOf}): ${tierDollarsText(current)}; ${current.unjoinable} unjoinable; ${writers} writer session${writers === 1 ? "" : "s"} with no merged change, left out`,
-    `Orchestrating dollars are priced at ${current.orchestrate.model}, an assumed main-session model, not a recorded one; the parts are means and do not sum to the median.`,
+    `${orchestrateBasisText(current.orchestrate)} The parts are means and do not sum to the median.`,
     trailingDollarsLine(trailingAverage, trailingDays),
   ];
 }

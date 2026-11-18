@@ -92,6 +92,9 @@ export const NO_ORCHESTRATE = {
   weightedTokens: 0,
   perMergedChange: 0,
   model: "claude-opus-5-5",
+  basis: "none",
+  recordedModels: [],
+  assumedTokens: 0,
   dollars: 0,
   dollarsPerMergedChange: 0,
 };

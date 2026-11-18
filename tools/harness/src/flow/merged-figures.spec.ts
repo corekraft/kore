@@ -11,6 +11,7 @@ import {
 import { NO_SEND_BACK_TIERS } from "./send-back-tiers.js";
 import { STAGES, type Stage } from "./stages.js";
 import {
+  countsBefore,
   judgmentContexts,
   mergedChangeTokens,
   type JudgmentContexts,
@@ -107,6 +108,8 @@ const JUDGMENT_CONTEXTS: JudgmentContexts = {
 
 beforeEach(() => {
   vi.mocked(judgmentContexts).mockReturnValue(JUDGMENT_CONTEXTS);
+  // The writer dollars read the main session's token totals through countsBefore (#1041): none in these events.
+  vi.mocked(countsBefore).mockReturnValue(new Map());
   vi.mocked(mergedChangeTokens).mockReturnValue(TOKENS);
   vi.mocked(mergedChangeSendBacks).mockReturnValue(SEND_BACKS);
   vi.mocked(mergedChangeLeadTime).mockReturnValue(LEAD_TIME);

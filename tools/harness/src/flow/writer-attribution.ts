@@ -6,8 +6,9 @@
 // - the reviewer: the whole-life dollars of the session named for the change's PR (pr<N>-reviewer),
 //   to its merge;
 // - the shared part: the judge's and orchestrating session's spend in the span, not the reviewers',
-//   divided equally over every merged change in the span. The orchestrating part is priced at the
-//   assumed main-session model (writer-usage.ts), since the ledger's reading is the main session's.
+//   divided equally over every merged change in the span. The orchestrating part is the main session's
+//   spend, priced per recorded model from its token.split readings, or at the assumed model where a
+//   span has no reading (writer-orchestrate.ts, #1041).
 // A model the price table does not price is never read as a zero: the figure that spans it is
 // insufficient, and names the model.
 
@@ -17,7 +18,6 @@ import { inWindow, type Span } from "./scope.js";
 import { tokenStageResolver, type Stage } from "./stage-of.js";
 import { median } from "./wip.js";
 import {
-  addCounts,
   NO_COUNTS,
   priceCounts,
   spendBefore,
@@ -33,7 +33,10 @@ import {
   writerGroup,
   type PricedLaunch,
 } from "./writer-join.js";
-import { MAIN_SESSION_MODEL } from "./writer-usage.js";
+import {
+  orchestrateDollarsIn,
+  type OrchestrateDollars,
+} from "./writer-orchestrate.js";
 
 /** A dollar figure the price table cannot read: a model in its span is not priced, so it is never a zero. */
 export interface InsufficientPrices {
@@ -64,8 +67,13 @@ export interface WriterDollars {
     orchestrate: number;
     /** The models the judge sessions ran on that the price table does not price. */
     judgeUnpriced: string[];
-    /** The main-session model the orchestrating spend is priced at, when the table does not price it. */
+    /** The models the orchestrating spend is priced at that the table does not price, each named (#1041). */
     orchestrateUnpriced: string[];
+    /** What the orchestrating spend is read from: its basis, its recorded models and its tokens with no reading (#1041). */
+    orchestrateBasis: Pick<
+      OrchestrateDollars,
+      "basis" | "recordedModels" | "assumedTokens"
+    >;
   };
   /** Writer sessions with spend before the span's end and no merged change linked to them: left out. */
   unmergedWriterSessions: number;
@@ -211,20 +219,16 @@ function changesIn(
     });
 }
 
-/** The judge's and orchestrating session's spend in the span: each one's growth, priced at its model. */
-function sharedIn(
+/** The judge sessions' spend in the span: each one's growth, priced at its model. */
+function judgeIn(
   start: Map<string, SessionSpend>,
   end: Map<string, SessionSpend>,
   prices: PriceTable,
-): WriterDollars["shared"] {
-  const shared: WriterDollars["shared"] = {
-    judge: 0,
-    orchestrate: 0,
-    judgeUnpriced: [],
-    orchestrateUnpriced: [],
-  };
+): { judge: number; judgeUnpriced: string[] } {
+  let judge = 0;
+  const judgeUnpriced: string[] = [];
   for (const [session, spend] of end) {
-    if (spend.stage !== "judge" && spend.stage !== "orchestrate") {
+    if (spend.stage !== "judge") {
       continue;
     }
     const before = start.get(session)?.byModel ?? new Map<string, Counts>();
@@ -232,28 +236,11 @@ function sharedIn(
       ([model, counts]) =>
         [model, subCounts(counts, before.get(model) ?? NO_COUNTS)] as const,
     );
-    if (spend.stage === "orchestrate") {
-      const summed = grown.reduce(
-        (sum, [, counts]) => addCounts(sum, counts),
-        NO_COUNTS,
-      );
-      const priced = priceCounts(summed, MAIN_SESSION_MODEL, prices);
-      if (priced === undefined) {
-        shared.orchestrateUnpriced.push(MAIN_SESSION_MODEL);
-      } else {
-        shared.orchestrate += priced;
-      }
-    } else {
-      const judged = priceModels(grown, prices);
-      shared.judge += judged.dollars;
-      shared.judgeUnpriced.push(...judged.unpriced);
-    }
+    const judged = priceModels(grown, prices);
+    judge += judged.dollars;
+    judgeUnpriced.push(...judged.unpriced);
   }
-  return {
-    ...shared,
-    judgeUnpriced: unique(shared.judgeUnpriced),
-    orchestrateUnpriced: unique(shared.orchestrateUnpriced),
-  };
+  return { judge, judgeUnpriced: unique(judgeUnpriced) };
 }
 
 /**
@@ -283,6 +270,8 @@ export function writerDollarsIn(
       .map((l) => l.agent)
       .filter((name): name is string => name !== undefined),
   );
+  const judge = judgeIn(start, end, prices);
+  const orchestrate = orchestrateDollarsIn(events, span, prices);
   return {
     changes: changesIn(merges, span, {
       linked,
@@ -292,7 +281,17 @@ export function writerDollarsIn(
       count,
       last,
     }),
-    shared: sharedIn(start, end, prices),
+    shared: {
+      judge: judge.judge,
+      judgeUnpriced: judge.judgeUnpriced,
+      orchestrate: orchestrate.recorded + orchestrate.assumed,
+      orchestrateUnpriced: orchestrate.unpriced,
+      orchestrateBasis: {
+        basis: orchestrate.basis,
+        recordedModels: orchestrate.recordedModels,
+        assumedTokens: orchestrate.assumedTokens,
+      },
+    },
     unmergedWriterSessions: [...writers].filter(
       (session) => end.has(session) && !count.has(session),
     ).length,

@@ -5,8 +5,8 @@ import {
   LEDGER_FILE as DEFAULT,
   ledgerHarness as harness,
 } from "../../src/testing/index.js";
-import { finishedIdea } from "../../src/testing/index.js";
-import { KEYS } from "./flow-report-keys-support.js";
+import { at, finishedIdea, mainSplit } from "../../src/testing/index.js";
+import { KEYS, ORCHESTRATE_KEYS } from "./flow-report-keys-support.js";
 
 function seeded(extra: string[] = []) {
   const h = harness();
@@ -35,7 +35,45 @@ describe("flow report", () => {
       skippedLines: 0,
     });
   });
+});
 
+describe("flow report: the writer cost basis (#1041)", () => {
+  it("pins the orchestrate basis, recorded models and assumed tokens in the writer cost JSON (#1041)", async () => {
+    const h = harness();
+    const events = [
+      ...finishedIdea(1, { approval: 3000 }),
+      ...finishedIdea(2, { approval: 1000 }, 10_000),
+      ...finishedIdea(3, { approval: 2000 }, 20_000),
+      ...finishedIdea(4, { approval: 1000 }, 30_000),
+      ...finishedIdea(5, { approval: 2000 }, 40_000),
+      // A roleless main session's recorded Haiku reading, and its token totals with no reading.
+      mainSplit(5_000, "main-h", "claude-haiku-5-5", 1_000_000),
+      at(6_000, "token.usage", { session: "main-t", tokens: 1_000_000 }),
+    ];
+    h.fs.files.set(
+      DEFAULT,
+      events.map((e) => `${JSON.stringify(e)}\n`).join(""),
+    );
+
+    expect(await run(["flow", "report", "--json"], h.deps)).toBe(0);
+    const report = JSON.parse(h.out()) as {
+      writerCost: { current: { status: string; orchestrate: object } };
+    };
+    expect(report.writerCost.current).toMatchObject({
+      status: "ok",
+      orchestrate: {
+        basis: "recorded and assumed model",
+        recordedModels: ["claude-haiku-5-5"],
+        assumedTokens: 1_000_000,
+      },
+    });
+    expect(Object.keys(report.writerCost.current.orchestrate)).toEqual(
+      ORCHESTRATE_KEYS,
+    );
+  });
+});
+
+describe("flow report", () => {
   it("prints a table and the bottleneck in plain text", async () => {
     const { h, argv } = seeded();
     expect(await run(argv, h.deps)).toBe(0);

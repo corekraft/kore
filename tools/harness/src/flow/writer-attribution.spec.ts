@@ -15,6 +15,7 @@ const dollars = (
     orchestrate: 0,
     judgeUnpriced: [],
     orchestrateUnpriced: [],
+    orchestrateBasis: { basis: "none", recordedModels: [], assumedTokens: 0 },
     ...shared,
   },
   unmergedWriterSessions: 0,
