@@ -17,6 +17,7 @@ import {
   type JudgmentPorts,
   type JudgmentStep,
 } from "./tick-judgment.js";
+import type { TickNotifier } from "./tick-notify.js";
 import type { StoredPlan } from "./tick-plan-store.js";
 import { nextPiece, pieceLaunch } from "./tick-piece.js";
 import { Starts } from "./tick-starts.js";
@@ -131,6 +132,10 @@ export class Tick {
     private readonly gate: PassGate = OPEN_GATE,
     /** The judgment flow a third send-back starts and a finished judgment pane feeds (ADR 0121). */
     private readonly judgment: TickJudgment = new TickJudgment(ports),
+    /** Told each step of a pass, so an idea that needs a person can reach the attended pane. */
+    private readonly notifier: Pick<TickNotifier, "notify"> = {
+      notify: async () => undefined,
+    },
   ) {}
 
   /** Advances every queued idea, or only `only` when given. */
@@ -143,7 +148,9 @@ export class Tick {
     const starts = new Starts(await this.gate.read(), this.gate);
     const steps: IdeaStep[] = [];
     for (const item of ideas) {
-      steps.push(await this.advance(item, queue, starts));
+      const step = await this.advance(item, queue, starts);
+      await this.notifier.notify(step);
+      steps.push(step);
     }
     if (only !== undefined && ideas.length === 0) {
       steps.push({ idea: only, step: "not-queued" });

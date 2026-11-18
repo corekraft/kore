@@ -13,8 +13,12 @@ vi.mock("../orchestrator/index.js", async () => ({
   PLANS_DIRECTORY: ".kore/state/tick-plans",
   TICK_LEASE_MAX_AGE_MS: 1800000,
   Tick: vi.fn(),
+  NotifyLedger: vi.fn(),
+  TICK_COMMAND: "orchestrate tick",
+  TICK_ENV: { KORE_ROLE: "tick", KORE_AGENT: "orchestrator-tick" },
   TickCli: vi.fn(),
   TickLease: vi.fn(),
+  TickNotifier: vi.fn(),
   leasedPass: vi.fn(),
   runTicks: vi.fn(),
   tickFlagOn: vi.fn(),
@@ -29,7 +33,9 @@ vi.mock("../ledger/index.js", () => ({
   Ledger: vi.fn(),
 }));
 vi.mock("../session/index.js", () => ({
+  deliver: vi.fn(),
   hostLeaseRefusal: vi.fn(),
+  signedMainSendsOn: vi.fn(),
   spawnLoadRefusal: vi.fn(),
 }));
 

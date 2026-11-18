@@ -10,6 +10,8 @@ export {
   type SessionWaitTarget,
 } from "./wait-target.js";
 export { hostLeaseRefusal } from "./host-lease.js";
+export { deliver } from "./notify.js";
+export { signedMainSendsOn } from "./signed-sends.js";
 export { sessionNameError } from "./names.js";
 export { spawnLoadRefusal } from "./spawn-load.js";
 import { check } from "./check.js";

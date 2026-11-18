@@ -134,6 +134,7 @@ export const LABEL_KINDS: readonly Kind[] = [
   "auto-approved",
   "qualifier.warned",
   "tick.bound",
+  "session.send",
   "guardrail.requested",
   "guardrail.activated",
   "guardrail.approval-warned",

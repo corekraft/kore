@@ -26,8 +26,12 @@ vi.mock("../orchestrator/index.js", async () => ({
   PLANS_DIRECTORY: ".kore/state/tick-plans",
   TICK_LEASE_MAX_AGE_MS: 1800000,
   Tick: vi.fn(),
+  NotifyLedger: vi.fn(),
+  TICK_COMMAND: "orchestrate tick",
+  TICK_ENV: { KORE_ROLE: "tick", KORE_AGENT: "orchestrator-tick" },
   TickCli: vi.fn(),
   TickLease: vi.fn(),
+  TickNotifier: vi.fn(),
   leasedPass: vi.fn(),
   runTicks: vi.fn(),
   tickFlagOn: vi.fn(),
@@ -218,6 +222,8 @@ describe("runOnTicks", () => {
       expect.anything(),
       new Map([["0042", OUTCOME]]),
       expect.anything(),
+      undefined,
+      expect.anything(),
     );
     const [, idea, wait] = vi.mocked(runTicks).mock.calls[0] ?? [];
     expect(idea).toBe("0042");
@@ -245,6 +251,8 @@ describe("runOnTicks", () => {
     expect(Tick).toHaveBeenCalledWith(
       expect.anything(),
       new Map(),
+      expect.anything(),
+      undefined,
       expect.anything(),
     );
   });
