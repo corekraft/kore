@@ -2,7 +2,7 @@
 status: accepted
 summary: Recovery objectives for every stateful component live in infra/catalog/recovery.yaml and are checked offline, and `kore ops` adds read-only inventory, upgrade, and CRD checks; scheduled backups stay managed-only until a live restore proves them.
 date: 2026-11-08
-last-verified: 2026-11-16
+last-verified: 2026-11-18
 ---
 
 # ADR 0070: Declare recovery objectives and check upgrades offline
@@ -45,6 +45,8 @@ cluster, which AGENTS.md forbids merging unproven.
   versions, unsafe storage moves, rollback that cannot read the new version).
 - **Live proofs are opt-in.** `npm run test:integration:ops` runs the restore
   spec; `npm run test:upstream-charts` includes the CRD comparison.
+
+> Refined 2026-11-18 by [ADR 0098](0098-unit-tests-mock-everything-outside-the-unit-and-integration-tests-gate-only-a-release.md): the restore test is a `*.live.spec.ts`, because cluster suites are renamed live tests. `infra/catalog/recovery.yaml` names `tools/kore/src/ops/data-restore.live.spec.ts`, and validation rejects any other suffix.
 
 ## Consequences
 
