@@ -139,3 +139,31 @@ test("a Service name with a dot is not a single DNS label, and the fix keeps the
     'claims[0].metadata.name: must be a single DNS label (lowercase letters, digits and hyphens, at most 63 characters, no dots): the default host is <service>.<organization>.<platform domain>; rename it, for example "shop-eu"',
   ]);
 });
+
+test("a Service name at the 54-character cap passes, and its longest derived name fits 63 characters", () => {
+  const name = `s${"a".repeat(53)}`;
+  expect(name.length).toBe(54);
+  expect(`${name}-frontend`.length).toBe(63);
+  expect(platformClaimErrors([{ ...service, metadata: { name } }])).toEqual([]);
+});
+
+test("a Service name one over the cap is rejected, naming the rule and the 54-character limit", () => {
+  const name = `s${"a".repeat(54)}`;
+  const oneEnvironment = {
+    ...service,
+    spec: { ...service.spec, environments: ["local"] },
+  };
+  expect(
+    platformClaimErrors([{ ...oneEnvironment, metadata: { name } }]),
+  ).toEqual([
+    `claims[0].metadata.name: must be at most 54 characters, because the longest derived name, the workload <service>-frontend, adds 9 characters to fit 63; shorten it, for example "${name.slice(0, 54)}"`,
+  ]);
+});
+
+test("a Service name that starts with a digit is rejected, naming the leading-letter rule", () => {
+  expect(
+    platformClaimErrors([{ ...service, metadata: { name: "1shop" } }]),
+  ).toEqual([
+    'claims[0].metadata.name: must start with a lowercase letter (a Kubernetes Service name cannot start with a digit); rename it, for example "s1shop"',
+  ]);
+});
