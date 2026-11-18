@@ -10,6 +10,7 @@ import {
   parseContainerStats,
   parseOomKilledPods,
   parseSwapUsedMiB,
+  parseVmMemoryInUseMiB,
   parseVmMemoryMiB,
 } from "./footprint-parse.js";
 import { judgeFootprint } from "./footprint-verdict.js";
@@ -21,6 +22,7 @@ vi.mock("./footprint-parse.js", () => ({
   parseContainerStats: vi.fn(),
   parseOomKilledPods: vi.fn(),
   parseSwapUsedMiB: vi.fn(),
+  parseVmMemoryInUseMiB: vi.fn(),
   parseVmMemoryMiB: vi.fn(),
 }));
 vi.mock("./footprint-summary.js", () => ({ summarizeFootprint: vi.fn() }));
@@ -47,6 +49,8 @@ const options: FootprintOptions = {
   maxLoadAverage: 10,
 };
 
+// One reply per kind of read: the server container's stats are the only
+// `docker stats` call that names a container; the VM read names none.
 function reply(command: string, args: readonly string[]): string {
   if (command === "kubectl") {
     return "PODS";
@@ -54,7 +58,10 @@ function reply(command: string, args: readonly string[]): string {
   if (command === "sysctl") {
     return "SWAP";
   }
-  return args[0] === "info" ? "VM" : "STATS";
+  if (args[0] === "info") {
+    return "VM";
+  }
+  return args.length === 4 ? "ALL" : "STATS";
 }
 
 function measurementWith(load = 1) {
@@ -79,6 +86,7 @@ beforeEach(function stubParsers() {
     cpuMillicores: 300,
     memoryMiB: 3000,
   });
+  vi.mocked(parseVmMemoryInUseMiB).mockReturnValue(4000);
   vi.mocked(parseOomKilledPods).mockReturnValue([]);
   vi.mocked(summarizeFootprint).mockReturnValue(SUMMARY);
   vi.mocked(judgeFootprint).mockReturnValue(CLEAN);
@@ -104,7 +112,7 @@ test("settles, then waits one interval before each sample", async () => {
   ]);
 });
 
-test("reads the VM once, then stats and swap per sample, then the pods, with read-only calls", async () => {
+test("reads the VM once, then the server's stats, the VM's in-use stats and swap per sample, then the pods, with read-only calls", async () => {
   const { measurement, run } = measurementWith();
 
   await measurement.measure();
@@ -119,6 +127,7 @@ test("reads the VM once, then stats and swap per sample, then the pods, with rea
       "{{json .}}",
       "k3d-kore-local-server-0",
     ],
+    ["docker", "stats", "--no-stream", "--format", "{{json .}}"],
     ["sysctl", "vm.swapusage"],
     [
       "docker",
@@ -128,6 +137,7 @@ test("reads the VM once, then stats and swap per sample, then the pods, with rea
       "{{json .}}",
       "k3d-kore-local-server-0",
     ],
+    ["docker", "stats", "--no-stream", "--format", "{{json .}}"],
     ["sysctl", "vm.swapusage"],
     [
       "kubectl",
@@ -157,6 +167,7 @@ test("a clean run returns every sample with the summary and headroom for the VM 
   expect(summarizeFootprint).toHaveBeenCalledWith([sample, sample], 10000);
   expect(result).toMatchObject({
     vmMemoryMiB: 10000,
+    vmMemoryInUseMiB: [4000, 4000],
     summary: SUMMARY.summary,
     headroomPercent: SUMMARY.headroomPercent,
     loadAverage: { start: 1, max: 1 },
@@ -164,8 +175,11 @@ test("a clean run returns every sample with the summary and headroom for the VM 
   });
 });
 
-test("judges the peak memory, the VM size and the OOMKilled pods, and reports the verdict beside the figures", async () => {
+test("judges the peak of the VM's memory in use, the VM size and the OOMKilled pods, and reports the verdict beside the figures", async () => {
   const { measurement } = measurementWith();
+  vi.mocked(parseVmMemoryInUseMiB)
+    .mockReturnValueOnce(3000)
+    .mockReturnValueOnce(3500);
   vi.mocked(parseOomKilledPods).mockReturnValue(["platform/keycloak-0"]);
   const breach = {
     breached: true,
@@ -176,7 +190,7 @@ test("judges the peak memory, the VM size and the OOMKilled pods, and reports th
   const result = await measurement.measure();
 
   expect(judgeFootprint).toHaveBeenCalledWith({
-    peakMemoryMiB: 3500,
+    peakInUseMiB: 3500,
     vmMemoryMiB: 10000,
     oomKilledPods: ["platform/keycloak-0"],
   });
@@ -185,6 +199,26 @@ test("judges the peak memory, the VM size and the OOMKilled pods, and reports th
     summary: SUMMARY.summary,
     headroomPercent: SUMMARY.headroomPercent,
   });
+});
+
+test("a small server container does not hide a swamped VM: the verdict is judged on the VM's in-use peak, not the server's memory", async () => {
+  const { measurement } = measurementWith();
+  vi.mocked(parseContainerStats).mockReturnValue({
+    cpuMillicores: 300,
+    memoryMiB: 500,
+  });
+  vi.mocked(parseVmMemoryInUseMiB).mockReturnValue(9000);
+
+  await measurement.measure();
+
+  expect(judgeFootprint).toHaveBeenCalledWith({
+    peakInUseMiB: 9000,
+    vmMemoryMiB: 10000,
+    oomKilledPods: [],
+  });
+  expect(judgeFootprint).not.toHaveBeenCalledWith(
+    expect.objectContaining({ peakInUseMiB: 500 }),
+  );
 });
 
 test("reads the OOMKilled pods since the run began on the wall clock, not the monotonic one", async () => {
@@ -244,13 +278,28 @@ test("fails with the cause named when a read fails", async () => {
   );
 });
 
+test("fails with the cause named when the VM's memory in use cannot be read, and reports no verdict", async () => {
+  const { measurement, run } = measurementWith();
+  run.mockImplementation(async (command: string, args: readonly string[]) => {
+    if (command === "docker" && args.length === 4) {
+      throw new Error("Cannot connect to the Docker daemon");
+    }
+    return { stdout: reply(command, args), stderr: "", code: 0 };
+  });
+
+  await expect(measurement.measure()).rejects.toThrow(
+    "reading the Docker VM memory in use failed: Cannot connect to the Docker daemon; check that Docker is running",
+  );
+  expect(judgeFootprint).not.toHaveBeenCalled();
+});
+
 test("fails with the cause named when the pod list cannot be read, and reports no verdict", async () => {
   const { measurement, run } = measurementWith();
-  run.mockImplementation(async (command: string) => {
+  run.mockImplementation(async (command: string, args: readonly string[]) => {
     if (command === "kubectl") {
       throw new Error("connection refused");
     }
-    return { stdout: "STATS", stderr: "", code: 0 };
+    return { stdout: reply(command, args), stderr: "", code: 0 };
   });
 
   await expect(measurement.measure()).rejects.toThrow(

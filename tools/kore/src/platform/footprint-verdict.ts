@@ -30,8 +30,8 @@ export interface FootprintVerdict {
 }
 
 export interface FootprintVerdictInput {
-  /** The peak memory in use across the samples, in MiB. */
-  peakMemoryMiB: number;
+  /** The peak of the Docker VM's memory in use across the samples, in MiB. */
+  peakInUseMiB: number;
   /** The Docker VM's total memory, in MiB. */
   vmMemoryMiB: number;
   /** Pods whose last state was OOMKilled during the run, as `namespace/name`. */
@@ -43,13 +43,13 @@ export function judgeFootprint(input: FootprintVerdictInput): FootprintVerdict {
   const breaches: FootprintBreach[] = [];
   // Compared in integers so that exactly 85 percent is never a breach.
   if (
-    input.peakMemoryMiB * 100 >
+    input.peakInUseMiB * 100 >
     footprintBreachCeilingPercent * input.vmMemoryMiB
   ) {
     breaches.push({
       rule: "memory",
       usedPercentAtPeak:
-        Math.round((input.peakMemoryMiB / input.vmMemoryMiB) * 1000) / 10,
+        Math.round((input.peakInUseMiB / input.vmMemoryMiB) * 1000) / 10,
       ceilingPercent: footprintBreachCeilingPercent,
     });
   }

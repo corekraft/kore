@@ -28,15 +28,45 @@ export function parseContainerStats(stdout: string): ContainerUsage {
   if (!cpu) {
     throw new Error(`unreadable CPUPerc ${JSON.stringify(stats.CPUPerc)}`);
   }
-  const memory = /^(\d+(?:\.\d+)?)([A-Za-z]+) \//.exec(stats.MemUsage ?? "");
-  const factor = memory ? memoryUnits[memory[2] ?? ""] : undefined;
-  if (!memory || factor === undefined) {
-    throw new Error(`unreadable MemUsage ${JSON.stringify(stats.MemUsage)}`);
-  }
   return {
     cpuMillicores: Math.round(Number(cpu[1]) * 10),
-    memoryMiB: Math.round(Number(memory[1]) * factor * 10) / 10,
+    memoryMiB: memoryInUseMiB(stats.MemUsage),
   };
+}
+
+/** The memory in use (MiB) from the usage half of docker's MemUsage, for example `1.5GiB / 11.68GiB`. */
+function memoryInUseMiB(memUsage: string | undefined): number {
+  const memory = /^(\d+(?:\.\d+)?)([A-Za-z]+) \//.exec(memUsage ?? "");
+  const factor = memory ? memoryUnits[memory[2] ?? ""] : undefined;
+  if (!memory || factor === undefined) {
+    throw new Error(`unreadable MemUsage ${JSON.stringify(memUsage)}`);
+  }
+  return Math.round(Number(memory[1]) * factor * 10) / 10;
+}
+
+/**
+ * The Docker VM's memory in use (MiB): the sum of every running container's
+ * memory from `docker stats --no-stream --format {{json .}}` with no container
+ * named. Daemon and VM overhead outside any container is not counted, so the
+ * figure is a floor. An empty listing fails, since a running cluster always
+ * lists at least its server container.
+ */
+export function parseVmMemoryInUseMiB(stdout: string): number {
+  const rows = stdout.split("\n").filter((row) => row.trim() !== "");
+  if (rows.length === 0) {
+    throw new Error(
+      "unreadable Docker VM memory in use: docker stats listed no containers",
+    );
+  }
+  return rows.reduce((total, row) => {
+    let stats: { MemUsage?: string };
+    try {
+      stats = JSON.parse(row) as typeof stats;
+    } catch {
+      throw new Error("docker stats output is not valid JSON");
+    }
+    return total + memoryInUseMiB(stats.MemUsage);
+  }, 0);
 }
 
 /** Swap in use (MiB) from `sysctl vm.swapusage`. */

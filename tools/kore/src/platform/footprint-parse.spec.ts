@@ -3,6 +3,7 @@ import {
   parseContainerStats,
   parseOomKilledPods,
   parseSwapUsedMiB,
+  parseVmMemoryInUseMiB,
   parseVmMemoryMiB,
 } from "./footprint-parse.js";
 
@@ -72,6 +73,23 @@ test("reads the Docker VM's total memory from bytes into MiB", () => {
 test("fails with the cause when the VM memory is not a positive byte count", () => {
   expect(() => parseVmMemoryMiB("0")).toThrow("unreadable Docker VM memory");
   expect(() => parseVmMemoryMiB("")).toThrow("unreadable Docker VM memory");
+});
+
+test("sums the memory in use across every running container, for the Docker VM's in-use figure", () => {
+  const listing = [
+    stats("1%", "1.5GiB / 11.68GiB"),
+    stats("2%", "512MiB / 11.68GiB"),
+  ].join("\n");
+  expect(parseVmMemoryInUseMiB(listing)).toBe(2048);
+});
+
+test("fails with the cause when the container listing names no container, or a memory that cannot be read", () => {
+  expect(() => parseVmMemoryInUseMiB("\n")).toThrow(
+    "docker stats listed no containers",
+  );
+  expect(() => parseVmMemoryInUseMiB(stats("1%", "lots"))).toThrow(
+    "unreadable MemUsage",
+  );
 });
 
 test("names each pod whose last state was OOMKilled since the run began, as namespace/name", () => {

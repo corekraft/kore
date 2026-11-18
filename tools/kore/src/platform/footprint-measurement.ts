@@ -3,6 +3,7 @@ import {
   parseContainerStats,
   parseOomKilledPods,
   parseSwapUsedMiB,
+  parseVmMemoryInUseMiB,
   parseVmMemoryMiB,
 } from "./footprint-parse.js";
 import { summarizeFootprint } from "./footprint-summary.js";
@@ -57,6 +58,8 @@ export interface FootprintRun extends FootprintSummary {
   /** The loads at or above the ceiling during the run; empty for an untainted run. */
   overCeiling: number[];
   samples: FootprintSample[];
+  /** The Docker VM's memory in use at each sample (MiB), the figure the breach rule judges. */
+  vmMemoryInUseMiB: number[];
   /** The breach verdict under the owner's rule (#1107). */
   verdict: FootprintVerdict;
 }
@@ -88,9 +91,12 @@ export class FootprintMeasurement {
     await this.deps.sleep(this.options.settleSeconds);
     const began = this.deps.now();
     const samples: FootprintSample[] = [];
+    const vmMemoryInUseMiB: number[] = [];
     for (let index = 0; index < sampleCount; index++) {
       await this.deps.sleep(this.options.sampleIntervalSeconds);
-      samples.push(await this.sample());
+      const taken = await this.sample();
+      samples.push(taken.sample);
+      vmMemoryInUseMiB.push(taken.vmMemoryInUseMiB);
     }
     const oomKilledPods = await this.oomKilledPods(runStarted);
     const summarized = summarizeFootprint(samples, vmMemoryMiB);
@@ -102,9 +108,10 @@ export class FootprintMeasurement {
       loadAverage: { start, max: Math.max(start, ...loads) },
       overCeiling: loads.filter((load) => load >= maxLoadAverage),
       samples,
+      vmMemoryInUseMiB,
       ...summarized,
       verdict: judgeFootprint({
-        peakMemoryMiB: summarized.summary.memoryMiB.max,
+        peakInUseMiB: Math.max(...vmMemoryInUseMiB),
         vmMemoryMiB,
         oomKilledPods,
       }),
@@ -130,7 +137,10 @@ export class FootprintMeasurement {
     );
   }
 
-  private async sample(): Promise<FootprintSample> {
+  private async sample(): Promise<{
+    sample: FootprintSample;
+    vmMemoryInUseMiB: number;
+  }> {
     const loadAverage = this.deps.loadAverage();
     const usage = await this.read(
       `the ${this.options.serverContainer} container stats`,
@@ -145,6 +155,13 @@ export class FootprintMeasurement {
       ],
       parseContainerStats,
     );
+    const vmMemoryInUseMiB = await this.read(
+      "the Docker VM memory in use",
+      "check that Docker is running",
+      "docker",
+      ["stats", "--no-stream", "--format", "{{json .}}"],
+      parseVmMemoryInUseMiB,
+    );
     const swapMiB = await this.read(
       "the macOS swap usage",
       "this measurement needs macOS",
@@ -152,7 +169,10 @@ export class FootprintMeasurement {
       ["vm.swapusage"],
       parseSwapUsedMiB,
     );
-    return { ...usage, swapMiB, loadAverage };
+    return {
+      sample: { ...usage, swapMiB, loadAverage },
+      vmMemoryInUseMiB,
+    };
   }
 
   /** Runs one read; any failure names what was being read and how to fix it. */
