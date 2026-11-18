@@ -24,7 +24,7 @@ function render(view: AuthorCheck): string {
   const audits = (view.audits ?? [])
     .map(
       (a) =>
-        `audit: ${a.item} ${a.file}: ${a.detail}; fix: ${a.fix}; reported, not sent back\n`,
+        `audit: ${a.item} ${a.file}${a.line === undefined ? "" : `:${a.line}`}: ${a.detail}; fix: ${a.fix}; reported, not sent back\n`,
     )
     .join("");
   if (view.failures.length === 0) {
