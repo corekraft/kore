@@ -126,6 +126,26 @@ test("a Crossplane Function is proven Installed and then Healthy, in that order"
   ]);
 });
 
+test("a Crossplane Provider is proven Installed and then Healthy, never by rollout status", async () => {
+  const { run, wait } = waitOn([
+    "provider.pkg.crossplane.io/provider-keycloak",
+  ]);
+
+  await wait();
+  expect(tails(run)).toEqual([
+    [
+      "--for=condition=Installed",
+      "provider.pkg.crossplane.io/provider-keycloak",
+      "--timeout=10m",
+    ],
+    [
+      "--for=condition=Healthy",
+      "provider.pkg.crossplane.io/provider-keycloak",
+      "--timeout=10m",
+    ],
+  ]);
+});
+
 test("a ClusterImagePolicy is proven Ready", async () => {
   const { run, wait } = waitOn([
     "clusterimagepolicy.policy.sigstore.dev/signed",
