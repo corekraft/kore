@@ -5,6 +5,7 @@ import type {
   MeasurementDeps,
   MeasurementOptions,
 } from "./ingress-measurement.js";
+import type { HostReader, HostSnapshot } from "./ingress-host.js";
 import { PacedRunner } from "./ingress-paced-runner.js";
 import { cpuPerRequest, matchRate, pacingPlan } from "./ingress-pacing.js";
 import type { RateCheck } from "./ingress-pacing.js";
@@ -29,6 +30,11 @@ export interface RatedMeasurementResult extends Omit<Measurement, "method"> {
   rate?: RateCheck;
   /** Median millicores per request per second at the achieved rate. */
   cpuPerRequest: { ingress?: number; ztunnel?: number };
+  /**
+   * The host's load, swap, free VM memory and agent panes before the run and
+   * after it; absent when no host reader was given.
+   */
+  host?: { before: HostSnapshot; after: HostSnapshot };
 }
 
 /**
@@ -43,9 +49,20 @@ export class RatedMeasurement {
     private readonly loadRunner: Runner,
     private readonly options: RatedOptions,
     private readonly deps: MeasurementDeps,
+    private readonly host?: HostReader,
   ) {}
 
+  /** Reads the host before and after the run, so the result says what machine it ran on. */
   async measure(): Promise<RatedMeasurementResult> {
+    const before = await this.host?.read();
+    const result = await this.run();
+    const after = await this.host?.read();
+    return before === undefined || after === undefined
+      ? result
+      : { ...result, host: { before, after } };
+  }
+
+  private async run(): Promise<RatedMeasurementResult> {
     const target = this.options.targetRequestsPerSecond;
     if (target === undefined) {
       const result = await new IngressMeasurement(

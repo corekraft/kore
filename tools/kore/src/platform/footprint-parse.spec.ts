@@ -1,12 +1,34 @@
 import { expect, test } from "vitest";
 import {
   parseContainerStats,
+  parseOomKilledPods,
   parseSwapUsedMiB,
+  parseVmMemoryInUseMiB,
   parseVmMemoryMiB,
 } from "./footprint-parse.js";
 
 const stats = (cpu: string, memory: string): string =>
   JSON.stringify({ CPUPerc: cpu, MemUsage: memory });
+
+const RUN_STARTED = Date.parse("2026-11-18T10:00:00Z");
+
+const terminated = (reason: string, finishedAt: string) => ({
+  lastState: { terminated: { reason, finishedAt } },
+});
+
+const pod = (
+  namespace: string,
+  name: string,
+  containers: Record<string, unknown>[] = [{}],
+  init: Record<string, unknown>[] = [],
+) =>
+  JSON.stringify({
+    metadata: { namespace, name },
+    status: { containerStatuses: containers, initContainerStatuses: init },
+  });
+
+const podList = (...pods: string[]): string =>
+  JSON.stringify({ items: pods.map((text) => JSON.parse(text)) });
 
 test("reads container CPU as millicores, where 100% is one core", () => {
   expect(
@@ -24,6 +46,8 @@ test("reads container memory in MiB from the usage half of docker's MemUsage", (
 
 test.each([
   ["not json", "docker stats output is not valid JSON"],
+  ["null", "docker stats output is not valid JSON"],
+  ["3", "docker stats output is not valid JSON"],
   [stats("", "1MiB / 2GiB"), "unreadable CPUPerc"],
   [stats("1%", "lots"), "unreadable MemUsage"],
   [stats("1%", "5 parsecs / 2GiB"), "unreadable MemUsage"],
@@ -51,4 +75,109 @@ test("reads the Docker VM's total memory from bytes into MiB", () => {
 test("fails with the cause when the VM memory is not a positive byte count", () => {
   expect(() => parseVmMemoryMiB("0")).toThrow("unreadable Docker VM memory");
   expect(() => parseVmMemoryMiB("")).toThrow("unreadable Docker VM memory");
+});
+
+test("sums the memory in use across every running container, for the Docker VM's in-use figure", () => {
+  const listing = [
+    stats("1%", "1.5GiB / 11.68GiB"),
+    stats("2%", "512MiB / 11.68GiB"),
+  ].join("\n");
+  expect(parseVmMemoryInUseMiB(listing)).toBe(2048);
+});
+
+test("fails with the cause when the container listing names no container, or a memory that cannot be read", () => {
+  expect(() => parseVmMemoryInUseMiB("\n")).toThrow(
+    "docker stats listed no containers",
+  );
+  expect(() => parseVmMemoryInUseMiB(stats("1%", "lots"))).toThrow(
+    "unreadable MemUsage",
+  );
+});
+
+test.each([
+  ["null", "null"],
+  ["a number", "3"],
+  ["an array", "[]"],
+])(
+  "fails with the cause when a docker stats row is %s, not an object",
+  (_label, row) => {
+    expect(() => parseVmMemoryInUseMiB(row)).toThrow(
+      "docker stats output is not valid JSON",
+    );
+  },
+);
+
+test("names each pod whose last state was OOMKilled since the run began, as namespace/name", () => {
+  const text = podList(
+    pod("platform", "keycloak-0", [
+      terminated("OOMKilled", "2026-11-18T10:05:00Z"),
+    ]),
+    pod("argocd", "server-0", [terminated("Error", "2026-11-18T10:06:00Z")]),
+    pod("kube-system", "coredns", [{}]),
+  );
+  expect(parseOomKilledPods(text, RUN_STARTED)).toEqual([
+    "platform/keycloak-0",
+  ]);
+});
+
+test("ignores an OOMKilled last state that ended before the run began", () => {
+  const text = podList(
+    pod("platform", "keycloak-0", [
+      terminated("OOMKilled", "2026-11-18T09:59:59Z"),
+    ]),
+  );
+  expect(parseOomKilledPods(text, RUN_STARTED)).toEqual([]);
+});
+
+test("lists a pod once however many of its containers were OOMKilled, and reads init containers too", () => {
+  const text = podList(
+    pod(
+      "platform",
+      "backstage-0",
+      [terminated("OOMKilled", "2026-11-18T10:01:00Z")],
+      [terminated("OOMKilled", "2026-11-18T10:02:00Z")],
+    ),
+  );
+  expect(parseOomKilledPods(text, RUN_STARTED)).toEqual([
+    "platform/backstage-0",
+  ]);
+});
+
+test("returns no pods for a pod list with none OOMKilled, and for an empty list", () => {
+  expect(parseOomKilledPods(podList(), RUN_STARTED)).toEqual([]);
+  expect(
+    parseOomKilledPods(
+      podList(pod("platform", "keycloak-0", [{}])),
+      RUN_STARTED,
+    ),
+  ).toEqual([]);
+});
+
+test("fails with the cause when the pod list is not JSON", () => {
+  expect(() =>
+    parseOomKilledPods("kubectl: connection refused", RUN_STARTED),
+  ).toThrow("kubectl pod list output is not valid JSON");
+});
+
+test.each([
+  ["null", "null"],
+  ["a list", "[]"],
+  ["items that are not a list", '{"items":"many"}'],
+  ["an item that is not an object", '{"items":[null]}'],
+])(
+  "fails with the cause when the pod list is %s, not a pod list",
+  (_label, text) => {
+    expect(() => parseOomKilledPods(text, RUN_STARTED)).toThrow(
+      "kubectl pod list output is not a pod list",
+    );
+  },
+);
+
+test("fails naming the pod when its OOMKilled termination has no readable finish time", () => {
+  const text = podList(
+    pod("platform", "keycloak-0", [terminated("OOMKilled", "")]),
+  );
+  expect(() => parseOomKilledPods(text, RUN_STARTED)).toThrow(
+    "unreadable finishedAt for platform/keycloak-0",
+  );
 });
