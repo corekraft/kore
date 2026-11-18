@@ -53,3 +53,53 @@ describe("the findings count on a review.run event", () => {
     });
   });
 });
+
+describe("the cited rule labels on a review.run event", () => {
+  it("is accepted as comma-separated short labels", () => {
+    const rules = "tests-describe-behavior,errors-are-actionable";
+    expect(parseEvent({ ...review, findings: 2, rules }, "input")).toEqual({
+      ok: true,
+      event: { ...review, findings: 2, rules },
+    });
+  });
+
+  it("is optional, so a review.run recorded without labels still parses", () => {
+    expect(parseEvent({ ...review, findings: 0 }, "input").ok).toBe(true);
+  });
+
+  it("refuses a label longer than the fixed length, so verdict text cannot ride in it", () => {
+    const rules = "a".repeat(33);
+    expect(parseEvent({ ...review, findings: 1, rules }, "input")).toEqual({
+      ok: false,
+      field: "rules",
+      message:
+        'Invalid event: field "rules" must be 1 to 10 comma-separated labels of at most 32 lowercase letters, digits or -.',
+    });
+  });
+
+  it("refuses spaces, uppercase, an empty label and more than ten labels", () => {
+    const eleven = Array.from({ length: 11 }, (_, i) => `r${i}`).join(",");
+    for (const rules of ["two words", "Upper", "a,,b", "", eleven]) {
+      expect(
+        parseEvent({ ...review, findings: 1, rules }, "input"),
+      ).toMatchObject({ ok: false, field: "rules" });
+    }
+  });
+
+  it("is refused on any other kind of event", () => {
+    const send = {
+      source: "github",
+      kind: "send-back",
+      occurredAt: "2026-01-02T03:04:05.000Z",
+      number: 42,
+      label: "too slow @abcdef1",
+      rules: "scope",
+    };
+    expect(parseEvent(send, "input")).toEqual({
+      ok: false,
+      field: "rules",
+      message:
+        'Invalid event: field "rules" is only allowed on review.run events.',
+    });
+  });
+});

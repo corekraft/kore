@@ -1,11 +1,20 @@
 import { JudgeError, readPr, type PrView } from "../judge/index.js";
 import type { CommandContext } from "../runtime/index.js";
-import { repoOf } from "./judge-shared.js";
+import { openJudgeLedger, repoOf } from "./judge-shared.js";
 
-/** The GitHub calls `harness review post` makes: one read of the PR, one comment. */
+/**
+ * What `harness review post` does: one read of the PR, one comment, and the ledger event for
+ * the verdict it posted: the PR, the head, the count and the cited rule labels, never the text.
+ */
 export interface ReviewIo {
   view(pr: number): Promise<PrView>;
   comment(pr: number, body: string): Promise<string>;
+  record(
+    pr: number,
+    head: string,
+    count: number,
+    rules: readonly string[],
+  ): Promise<void>;
 }
 
 /**
@@ -29,6 +38,24 @@ export async function ghReviewIo(context: CommandContext): Promise<ReviewIo> {
         );
       }
       return done.stdout.trim();
+    },
+    record: async (pr, head, count, rules) => {
+      const ledger = await openJudgeLedger(context);
+      const event = await ledger.record({
+        source: "claude",
+        kind: "review.run",
+        occurredAt: context.deps.clock.now().toISOString(),
+        number: pr,
+        label: `posted:${head}`,
+        stage: "review",
+        findings: count,
+        ...(rules.length === 0 ? {} : { rules: rules.join(",") }),
+      });
+      if (!event.ok) {
+        throw new JudgeError(
+          `The verdict on PR #${pr} is posted, but its review.run event was rejected: ${event.message} Fix the ledger and record the event by hand with \`harness ledger record\`; rerunning \`review post\` posts nothing and records nothing.`,
+        );
+      }
     },
   };
 }
