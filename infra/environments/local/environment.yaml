@@ -31,7 +31,7 @@
       "shell-aware-zsh-rules": true,
       "gated-help-exempt": false,
       "main-session-figures": true,
-      "pane-result-summary": false,
+      "pane-result-summary": true,
       "signed-main-sends": false,
       "main-session-wait": true,
       "decision-advisor": true
