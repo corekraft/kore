@@ -34,6 +34,9 @@ export function parseContainerStats(stdout: string): ContainerUsage {
   };
 }
 
+const stringField = (value: unknown): string | undefined =>
+  typeof value === "string" ? value : undefined;
+
 /** The memory in use (MiB) from the usage half of docker's MemUsage, for example `1.5GiB / 11.68GiB`. */
 function memoryInUseMiB(memUsage: string | undefined): number {
   const memory = /^(\d+(?:\.\d+)?)([A-Za-z]+) \//.exec(memUsage ?? "");
@@ -59,13 +62,16 @@ export function parseVmMemoryInUseMiB(stdout: string): number {
     );
   }
   return rows.reduce((total, row) => {
-    let stats: { MemUsage?: string };
+    let stats: unknown;
     try {
-      stats = JSON.parse(row) as typeof stats;
+      stats = JSON.parse(row);
     } catch {
       throw new Error("docker stats output is not valid JSON");
     }
-    return total + memoryInUseMiB(stats.MemUsage);
+    if (!isRecord(stats)) {
+      throw new Error("docker stats output is not valid JSON");
+    }
+    return total + memoryInUseMiB(stringField(stats["MemUsage"]));
   }, 0);
 }
 

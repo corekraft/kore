@@ -92,6 +92,19 @@ test("fails with the cause when the container listing names no container, or a m
   );
 });
 
+test.each([
+  ["null", "null"],
+  ["a number", "3"],
+  ["an array", "[]"],
+])(
+  "fails with the cause when a docker stats row is %s, not an object",
+  (_label, row) => {
+    expect(() => parseVmMemoryInUseMiB(row)).toThrow(
+      "docker stats output is not valid JSON",
+    );
+  },
+);
+
 test("names each pod whose last state was OOMKilled since the run began, as namespace/name", () => {
   const text = podList(
     pod("platform", "keycloak-0", [
