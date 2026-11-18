@@ -83,7 +83,7 @@ describe("harness wait refuses a call it cannot run, before it reads anything", 
 
     expect(await harnessWait.run(f.context)).toBe(2);
     expect(f.stderr).toHaveBeenCalledExactlyOnceWith(
-      "Missing a target: name one or more with --pr <n> or --session <name>, such as harness wait --pr 942.\n",
+      "Missing a target: name one or more with --pr <n>, --session <name>, --idea <name> or --any-idea, such as harness wait --pr 942.\n",
     );
     expect(readChecks).not.toHaveBeenCalled();
   });

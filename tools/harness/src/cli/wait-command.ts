@@ -1,8 +1,9 @@
-// `harness wait` (ADR 0123): one background wait over pull request checks and pane results.
-// It takes repeatable --pr <n> and --session <name> targets, checks each once, and returns on
-// the first to settle, or when the bound passes. It reuses `pr checks` (readChecks) and
-// `session wait` (settleSessionTarget), so a session's RESULT is recorded exactly as session
-// wait records it. Docs: docs/guides/contributor.md
+// `harness wait` (ADR 0123): one background wait over pull request checks, pane results and idea
+// states (#1033). It takes repeatable --pr <n>, --session <name> and --idea <name> targets, and
+// --any-idea, checks each once, and returns on the first to settle, or when the bound passes. It
+// reuses `pr checks` (readChecks), `session wait` (settleSessionTarget), and the ledger's idea
+// states (readIdeaTarget), so each target reads exactly what its own command reads.
+// Docs: docs/guides/contributor.md
 
 import type { CliDeps, Command, CommandContext } from "../runtime/index.js";
 import {
@@ -13,22 +14,28 @@ import {
 } from "../session/index.js";
 import { failed, repoOf } from "./judge-shared.js";
 import { CHECKS_POLL_MS, readChecks } from "./pr-checks.js";
+import {
+  ideaWaits,
+  readIdeaTarget,
+  type IdeaWaitTarget,
+} from "./wait-idea-target.js";
 
 const USAGE_ERROR = 2;
 const FAILED = 1;
 /** The exit code when the bound passes before any target settles: neither a result nor a failure. */
 const BOUND_EXIT = 3;
 const MISSING =
-  "Missing a target: name one or more with --pr <n> or --session <name>, such as harness wait --pr 942.";
+  "Missing a target: name one or more with --pr <n>, --session <name>, --idea <name> or --any-idea, such as harness wait --pr 942.";
 
 type Target =
   | { kind: "pr"; target: string; pr: number }
-  | { kind: "session"; target: string; session: SessionWaitTarget };
+  | { kind: "session"; target: string; session: SessionWaitTarget }
+  | { kind: "idea"; target: string; wait: IdeaWaitTarget };
 
-/** One target's read: still pending, settled with its state, or a failure to read it. */
+/** One target's read: still pending, settled with its state (and, for an idea, the idea that changed), or a failure to read it. */
 type Read =
   | { kind: "pending" }
-  | { kind: "settled"; state: string }
+  | { kind: "settled"; state: string; idea?: string }
   | { kind: "error"; message: string };
 
 /** A refusal before any waiting: its exit code and the message to print. */
@@ -93,13 +100,31 @@ async function sessionTargets(
   return targets;
 }
 
-/** The text a target is named by in output: PR #5, or session x. */
-const labelOf = (target: Target): string =>
-  target.kind === "pr" ? `PR #${target.target}` : `session ${target.target}`;
+/** The text a target is named by in output: PR #5, session x, idea 0007, or any idea. */
+const labelOf = (target: Target): string => {
+  if (target.kind === "pr") {
+    return `PR #${target.target}`;
+  }
+  if (target.kind === "session") {
+    return `session ${target.target}`;
+  }
+  return target.wait.idea === undefined
+    ? "any idea"
+    : `idea ${target.wait.idea}`;
+};
 
 /** The flags that name a target again, as the main session restarts the wait with them. */
-const flagOf = (target: Target): string =>
-  target.kind === "pr" ? `--pr ${target.target}` : `--session ${target.target}`;
+const flagOf = (target: Target): string => {
+  if (target.kind === "pr") {
+    return `--pr ${target.target}`;
+  }
+  if (target.kind === "session") {
+    return `--session ${target.target}`;
+  }
+  return target.wait.idea === undefined
+    ? "--any-idea"
+    : `--idea ${target.wait.idea}`;
+};
 
 /** The flag form of every target in a list, space separated. */
 const flagsOf = (targets: readonly Target[]): string =>
@@ -112,17 +137,31 @@ const refOf = (target: Target) => ({
 });
 
 /** The read-only command that shows where a pending target stands, with its exact next step. */
-const stepOf = (target: Target): string =>
-  target.kind === "pr"
-    ? `read PR #${target.target} with \`harness pr checks ${target.target}\``
-    : `read session ${target.target} with \`session wait ${target.target}\``;
+const stepOf = (target: Target): string => {
+  if (target.kind === "pr") {
+    return `read PR #${target.target} with \`harness pr checks ${target.target}\``;
+  }
+  if (target.kind === "session") {
+    return `read session ${target.target} with \`session wait ${target.target}\``;
+  }
+  const idea =
+    target.wait.idea === undefined ? "" : ` --idea ${target.wait.idea}`;
+  return `read the ledger with \`harness ledger list${idea}\``;
+};
 
-/** Reads one target once: a PR's checks, or a session's pane. */
+/** Reads one target once: a PR's checks, a session's pane, or an idea's state changes since the wait began. */
 async function readTarget(
   deps: CliDeps,
   target: Target,
   scope: Scope,
+  since: string,
 ): Promise<Read> {
+  if (target.kind === "idea") {
+    const read = await readIdeaTarget(deps, target.wait, since);
+    return read.kind === "pending"
+      ? PENDING
+      : { kind: "settled", state: read.state, idea: read.idea };
+  }
   if (target.kind === "pr") {
     const report = await readChecks(
       deps.runner,
@@ -144,30 +183,43 @@ async function readTarget(
   return { kind: "settled", state: read.outcome };
 }
 
-/** Prints the settled target and its state, and the targets left to restart with; exits 0. */
+/** The first line a settled target prints: the PR's state, the session's RESULT, or the idea that moved. */
+function headOf(
+  target: Target,
+  settled: { state: string; idea?: string },
+): string {
+  if (target.kind === "pr") {
+    return `settled: PR #${target.target} is ${settled.state}.`;
+  }
+  if (target.kind === "session") {
+    return `settled: session ${target.target} finished: RESULT ${settled.state}.`;
+  }
+  return `settled: idea ${settled.idea ?? target.target} is now ${settled.state}.`;
+}
+
+/** Prints the settled target and its state (an idea's, with the idea that moved), and the targets left to restart with; exits 0. */
 function settle(
   context: CommandContext,
   target: Target,
-  state: string,
+  settled: { state: string; idea?: string },
   rest: readonly Target[],
 ): number {
   const { deps, json } = context;
+  const { state, idea } = settled;
   if (json) {
     deps.stdout(
       `${JSON.stringify({
         outcome: "settled",
         kind: target.kind,
         target: target.target,
+        ...(idea === undefined ? {} : { idea }),
         state,
         pending: rest.map(refOf),
       })}\n`,
     );
     return 0;
   }
-  const head =
-    target.kind === "pr"
-      ? `settled: PR #${target.target} is ${state}.`
-      : `settled: session ${target.target} finished: RESULT ${state}.`;
+  const head = headOf(target, settled);
   const restart =
     rest.length === 0
       ? ""
@@ -210,15 +262,16 @@ async function poll(
 ): Promise<number> {
   const { deps } = context;
   const start = deps.clock.now().getTime();
+  const since = new Date(start).toISOString();
   for (;;) {
     for (const target of targets) {
-      const read = await readTarget(deps, target, scope);
+      const read = await readTarget(deps, target, scope, since);
       if (read.kind === "error") {
         return refuse(context, FAILED, read.message);
       }
       if (read.kind === "settled") {
         const rest = targets.filter((other) => other !== target);
-        return settle(context, target, read.state, rest);
+        return settle(context, target, read, rest);
       }
     }
     if (deps.clock.now().getTime() - start + CHECKS_POLL_MS > boundMs) {
@@ -232,7 +285,14 @@ async function waitRun(context: CommandContext): Promise<number> {
   const { deps, options, lists } = context;
   const prs = lists?.["pr"] ?? [];
   const names = lists?.["session"] ?? [];
-  if (prs.length === 0 && names.length === 0) {
+  const ideas = lists?.["idea"] ?? [];
+  const anyIdea = options["any-idea"] === true;
+  if (
+    prs.length === 0 &&
+    names.length === 0 &&
+    ideas.length === 0 &&
+    !anyIdea
+  ) {
     return refuse(context, USAGE_ERROR, MISSING);
   }
   const timeout = parseTimeout(options["timeout"]);
@@ -243,13 +303,27 @@ async function waitRun(context: CommandContext): Promise<number> {
   if (!Array.isArray(pulls)) {
     return refuse(context, pulls.code, pulls.message);
   }
+  const waits = ideaWaits(ideas, anyIdea);
+  if ("usage" in waits) {
+    return refuse(context, USAGE_ERROR, waits.usage);
+  }
+  const ideaTargets: Target[] = waits.waits.map((wait) => ({
+    kind: "idea",
+    target: wait.idea ?? "any",
+    wait,
+  }));
   try {
     const sessions = await sessionTargets(deps, names);
     if (!Array.isArray(sessions)) {
       return refuse(context, sessions.code, sessions.message);
     }
     const scope = { root: await deps.root(), repo: await repoOf(context) };
-    return await poll(context, [...pulls, ...sessions], scope, timeout);
+    return await poll(
+      context,
+      [...pulls, ...sessions, ...ideaTargets],
+      scope,
+      timeout,
+    );
   } catch (error) {
     return failed(context, error);
   }
@@ -257,7 +331,13 @@ async function waitRun(context: CommandContext): Promise<number> {
 
 export const harnessWait: Command = {
   summary:
-    "wait in the background for the first of pull request checks (--pr <n>) or spawned panes' RESULT lines (--session <name>) to settle, repeating either flag: settled exits 0 and names the target and its state, with the rest to restart with; the bound (--timeout ms, default one hour) exits 3 and names what is still pending and the next step; --json gives the same as one object",
-  options: { timeout: "string", pr: "list", session: "list" },
+    "wait in the background for the first of pull request checks (--pr <n>), spawned panes' RESULT lines (--session <name>) or an idea's state change in the ledger (--idea <name>, or --any-idea for any idea) to settle, repeating a flag: settled exits 0 and names the target and its state, with the rest to restart with; the bound (--timeout ms, default one hour) exits 3 and names what is still pending and the next step; --json gives the same as one object",
+  options: {
+    timeout: "string",
+    pr: "list",
+    session: "list",
+    idea: "list",
+    "any-idea": "boolean",
+  },
   run: waitRun,
 };

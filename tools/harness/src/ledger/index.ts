@@ -5,6 +5,11 @@ export { pollHerdr, type PollResult } from "./herdr-poll.js";
 export { hasOpenBackground } from "./background.js";
 export { hasOpenQuestion } from "./open-question.js";
 export {
+  firstIdeaStateChange,
+  ideaStates,
+  type IdeaState,
+} from "./idea-state.js";
+export {
   DEFAULT_LEDGER,
   Ledger,
   type ListFilter,

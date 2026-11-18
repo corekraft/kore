@@ -713,10 +713,38 @@ unchanged verdict's event records its `findings` count, 0 for a clean review.
 `--pr <n>` and `--session <name>` flags repeat, and it checks each target once,
 then returns on the first to settle: CI green or red for a pull request (as
 `pr checks` reads it), or a RESULT line for a spawned session (recorded as
-`session wait` records it). Settled exits 0 and names the target, its kind and
-state, with the targets left to restart with. `--json` gives the same as one
-object. The bound (`--timeout` in milliseconds, one hour by default) exits 3 and
-names what is still pending and the next step, never just a timeout. The
+`session wait` records it). `--idea <name>` (repeatable) waits on one idea's
+state, and `--any-idea` on any idea; both give the ledger's idea states, and
+`--idea` and `--any-idea` do not combine. Settled exits 0 and names the target,
+its kind and state (for an idea, the idea that moved), with the targets left to
+restart with. `--json` gives the same as one object. The bound (`--timeout` in
+milliseconds, one hour by default) exits 3 and names what is still pending and
+the next step, never just a timeout. The
+`main-session-wait` flag, off in every overlay, adds one line to the main
+session's SessionStart brief that names it, in place of sleep, until and seq
+loops.
+
+An idea's state is derived from the ledger, not recorded by the tick (#1033):
+the tick prints each idea's step and writes nothing new for it. A state is set
+by the last event of these kinds, and an event that sets the same state as the
+idea is already in is not a change:
+
+| Event                               | Keyed to                | State                                          |
+| ----------------------------------- | ----------------------- | ---------------------------------------------- |
+| `idea.filed`                        | its `idea`              | `filed`                                        |
+| `issue.labelled`, `ready-for-agent` | `#<issue>`              | `approved`                                     |
+| `issue.labelled`, `needs-info`      | `#<issue>`              | `needs-info`                                   |
+| `decision.routed`                   | its `idea`              | `reserved`                                     |
+| `pr.opened`                         | its `idea`              | `pr-open`                                      |
+| `pr.linked`                         | the PR's idea           | `pr-open`                                      |
+| `send-back`                         | the PR's idea           | `sent-back`                                    |
+| `pr.merged`                         | its `idea`, or the PR's | `merged`                                       |
+| `outcome`                           | its `idea`              | the outcome label, such as `outcome:confirmed` |
+
+The PR's idea is the `idea` its `pr.opened` event names. `session.result` sets
+no state: a session event names no idea. An idea is keyed as the ledger records
+it, so `--idea 0007` and `--idea #7` are different waits. The mapping is
+`tools/harness/src/ledger/idea-state.ts`, the one place the rule is written.
 `main-session-wait` flag, off in every overlay, adds one line to the main
 session's SessionStart brief that names it, in place of sleep, until and seq
 loops.
