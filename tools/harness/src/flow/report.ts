@@ -112,6 +112,8 @@ export interface ReportOptions extends ScopeOptions {
   cost?: Partial<CostOptions>;
   /** Days before the window the host-pressure baseline covers; defaults to several. */
   hostDays?: number;
+  /** The effort the Haiku and Sonnet arms are read at; the most common randomized effort when absent (#1069). */
+  windowEffort?: string;
 }
 
 type State = "active" | "waiting" | "closed";

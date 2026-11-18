@@ -16,6 +16,8 @@ const writerArms: FlowReport["writerArms"] = {
   confidence: 0.95,
   minMergedChanges: 5,
   unlabelled: 0,
+  windowEffort: { effort: "high", from: "setting" },
+  excluded: { differentEffort: 0, missingEffort: 0, notRandomized: 0 },
   overall: {
     label: null,
     status: "insufficient merged changes",
@@ -91,6 +93,7 @@ describe("perMergedChangeLines: the per-merged-change lines in report order (#82
       "Writer tiers beyond cost: not read, 2 merged changes in this range (5 needed)",
       "Writer arms, all merged changes: insufficient merged changes, Haiku 0 and Sonnet 0 (5 needed in each arm); not read.",
       "Writer arms: 0 merged changes on an arm with no label recorded, in the overall figure only. The report gives no verdict; the deciding rule is the owner's, recorded on the idea.",
+      "Writer arms: window effort high, set with --window-effort. Left out of the arms and counted: 0 randomized launches at a different effort, 0 launches with no recorded effort, 0 launches not randomized.",
     ]);
   });
 });

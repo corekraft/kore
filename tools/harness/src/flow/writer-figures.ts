@@ -18,12 +18,19 @@ export interface WriterFigures {
 export function writerFiguresIn(
   events: LedgerEvent[],
   window: Span,
-  options: { asOf: Date; cost?: Partial<CostOptions> },
+  options: {
+    asOf: Date;
+    cost?: Partial<CostOptions>;
+    windowEffort?: string;
+  },
 ): WriterFigures {
   return {
     writerCost: mergedChangeWriterCost(events, window, options),
     writerArms: writerArmsIn(events, window, MODEL_PRICES, {
       minMergedChanges: { ...DEFAULT_COST, ...options.cost }.minMergedChanges,
+      ...(options.windowEffort === undefined
+        ? {}
+        : { windowEffort: options.windowEffort }),
     }),
   };
 }

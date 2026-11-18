@@ -29,4 +29,25 @@ describe("writer figures: the cost and the arms read against one minimum", () =>
       sonnet: { mergedChanges: 0, allInPerMergedChange: null },
     });
   });
+
+  it("gives the arms the window effort it is handed, as the setting", () => {
+    const figures = writerFiguresIn([], WINDOW, {
+      asOf: ASOF,
+      windowEffort: "medium",
+    });
+
+    expect(figures.writerArms.windowEffort).toEqual({
+      effort: "medium",
+      from: "setting",
+    });
+  });
+
+  it("leaves the window effort to the arms' default when none is handed, and reads none from an empty ledger", () => {
+    const figures = writerFiguresIn([], WINDOW, { asOf: ASOF });
+
+    expect(figures.writerArms.windowEffort).toEqual({
+      effort: null,
+      from: "none",
+    });
+  });
 });

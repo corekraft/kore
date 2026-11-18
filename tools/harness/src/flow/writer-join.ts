@@ -10,7 +10,7 @@ import { priceWeight } from "./writer-prices.js";
 
 /**
  * A writer launch on a priced tier: its session name, pane, tier, idea (if stamped), effort (if
- * recorded, #1055) and launch time.
+ * recorded, #1055), tier reason (if recorded) and launch time.
  */
 export interface PricedLaunch {
   agent: string | undefined;
@@ -18,6 +18,8 @@ export interface PricedLaunch {
   tier: string;
   idea: string | undefined;
   effort: string | undefined;
+  /** The reason the launch's tier was recorded with: the window's experiment or control marks a randomized launch (#1069). */
+  tierReason: string | undefined;
   at: number;
 }
 
@@ -36,6 +38,7 @@ export function pricedLaunches(events: LedgerEvent[]): PricedLaunch[] {
       tier: e.tier as string,
       idea: e.idea,
       effort: e.effort,
+      tierReason: e.tierReason,
       at: time(e),
     }));
 }
