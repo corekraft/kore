@@ -1,6 +1,10 @@
 // Fixtures shared by the flow report unit spec. A support file is not a unit,
 // so it needs no spec of its own (ADR 0098).
 import { vi } from "vitest";
+import {
+  emptyLeadTimePerMergedChange,
+  emptyWriterArms,
+} from "./flow-commands-merged-support.js";
 import { STAGES, type FlowReport } from "../flow/index.js";
 import type { Ledger } from "../ledger/index.js";
 import { EMPTY_ADVISOR, POPULATED_ADVISOR } from "./flow-advisor-support.js";
@@ -95,23 +99,6 @@ const emptyTokensPerMergedChange = {
   },
 };
 
-const emptyLeadTimePerMergedChange = {
-  trailingDays: 7,
-  minMergedChanges: 5,
-  current: {
-    status: "insufficient merged changes",
-    merged: 0,
-    measured: 0,
-    needed: 5,
-  },
-  trailingAverage: {
-    status: "insufficient merged changes",
-    merged: 0,
-    measured: 0,
-    needed: 5,
-  },
-};
-
 /** A per-idea rework metric with too little history to compare. */
 const INSUFFICIENT_REWORK = {
   status: "insufficient history",
@@ -182,6 +169,7 @@ export function emptyReport(overrides: Partial<Record<string, unknown>> = {}) {
     sendBacksPerMergedChange: emptyTokensPerMergedChange,
     leadTimePerMergedChange: emptyLeadTimePerMergedChange,
     writerCost: { pricesAsOf: "2026-11-17", ...emptyTokensPerMergedChange },
+    writerArms: emptyWriterArms,
     tokensByStage: Object.fromEntries(STAGES.map((stage) => [stage, 0])),
     tokensByStagePerMergedChange: emptyTokensPerMergedChange,
     reviewMisses: NO_REVIEWS,

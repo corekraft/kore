@@ -1,4 +1,5 @@
 import { HANDOVER_REASONS, SEND_BACK_CATEGORIES } from "../ledger/index.js";
+import { writerArmLines } from "./flow-lines-writer-arms.js";
 import type { CostMetric, FlowReport } from "../flow/index.js";
 
 /**
@@ -237,6 +238,7 @@ export const perMergedChangeLines = (
     | "sendBacksPerMergedChange"
     | "leadTimePerMergedChange"
     | "writerCost"
+    | "writerArms"
   >,
 ): string[] => [
   tokensPerMergedChangeLine(report.tokensPerMergedChange),
@@ -244,6 +246,7 @@ export const perMergedChangeLines = (
   leadTimePerMergedChangeLine(report.leadTimePerMergedChange),
   ...writerDollarsLines(report.writerCost),
   ...writerTierLines(report.writerCost),
+  ...writerArmLines(report.writerArms),
 ];
 
 /**

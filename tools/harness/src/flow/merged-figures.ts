@@ -24,7 +24,7 @@ import {
   type JudgmentContexts,
   type TokensPerMergedChange,
 } from "./merged-tokens.js";
-import { mergedChangeWriterCost, type WriterCost } from "./writer-cost.js";
+import { writerFiguresIn, type WriterFigures } from "./writer-figures.js";
 import {
   handoverCount,
   mainSessionFigures,
@@ -45,7 +45,9 @@ export interface MergedChangeFigures {
   /** Tokens per merged change in each stage over the window, with the trailing days before it as the average (#831). */
   tokensByStagePerMergedChange: TokensByStagePerMergedChange;
   /** Writer tokens per merged change by tier, weighted by the pinned price table, with the trailing days as the average, beside follow-ups and the blocked share (#868). */
-  writerCost: WriterCost;
+  writerCost: WriterFigures["writerCost"];
+  /** The Haiku and Sonnet arms over the window: all-in dollars per merged change, Haiku minus Sonnet, by label, with an interval (#1012). */
+  writerArms: WriterFigures["writerArms"];
   /** The main session's poll minutes, pane-result reads and signed sends, from the retro scans' events (#940); never in the owner digest. */
   mainSession: MainSessionFigures;
   /** The main session's handovers by reason over the window, or why they are not read: no reason recorded, or too few merged changes (#1036). */
@@ -70,7 +72,7 @@ export function mergedChangeFigures(
       window,
       options,
     ),
-    writerCost: mergedChangeWriterCost(events, window, options),
+    ...writerFiguresIn(events, window, options),
     mainSession: mainSessionFigures(events, window, options.cost),
     handovers: handoverCount(events, window, options.cost),
     judgmentContexts: judgmentContexts(events, window),

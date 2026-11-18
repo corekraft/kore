@@ -44,7 +44,14 @@ const writer = (
   pane: string,
   tier: string,
   launchedAt: number,
-): PricedLaunch => ({ agent, pane, tier, idea: undefined, at: launchedAt });
+): PricedLaunch => ({
+  agent,
+  pane,
+  tier,
+  idea: undefined,
+  effort: undefined,
+  at: launchedAt,
+});
 
 /** The cumulative token count per session, at the span's start or end. */
 function counts(end: Map<string, number>, start: Map<string, number>) {
