@@ -484,7 +484,7 @@ are `cost.trailingIdeas`, `cost.minMergedChanges` (a placeholder, default 5),
 `cost.minCategorisedSendBacks` (a proposal, default 20; see `sendBackCategories` below),
 `cost.tokensPerIdea.maxIncrease` and `cost.sessionsPerIdea.maxIncrease` (default
 0.25 each), and a bad one fails with
-the file, the key and the fix. The human report prints the same numbers.
+the file, the key and the fix. The human report prints the same numbers. Read `sessionsPerIdea` beside the closed-idea count behind it, because it sets the latest closed idea's sessions against the average of the closed ideas before it, and with too few closed ideas the report gives `closedIdeas` and `needed` in place of a figure.
 
 `tokensPerMergedChange` is read per window, not per closed idea (#829).
 `current` is the tokens spent inside the range and the merged changes (its
