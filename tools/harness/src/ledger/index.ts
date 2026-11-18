@@ -26,6 +26,7 @@ export {
   type LedgerEvent,
   type Source,
 } from "./schema.js";
+export { MAX_RULE_LABELS, RULE_LABEL_LENGTH } from "./schema-review.js";
 export type { TierOrigin, TierSource } from "./schema-tier.js";
 export { EFFORTS, type Effort } from "./schema-tier.js";
 export type { SplitOrigin } from "./schema-kinds.js";

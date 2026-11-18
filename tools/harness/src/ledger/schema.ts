@@ -83,6 +83,8 @@ export interface EventInput
   category?: SendBackCategory;
   /** review.run: the findings the verdict gave, 0 for a clean review; absent on a review from before the verdict was recorded. */
   findings?: number;
+  /** review.run: the rules the findings cite, as comma-separated short labels and never verdict text; absent when none were recorded. */
+  rules?: string;
   /** session.launch: the role the session was launched as. */
   role?: string;
   /** session.launch: the model tier the session was launched on. */

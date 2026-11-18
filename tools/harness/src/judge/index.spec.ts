@@ -13,6 +13,7 @@ import * as prBody from "./pr-body.js";
 import * as reviewFindings from "./review-findings.js";
 import * as reviewPost from "./review-post.js";
 import * as reviewRun from "./review-run.js";
+import * as reviewRules from "./review-rules.js";
 import * as reviewVerdict from "./review-verdict.js";
 import * as reviewers from "./reviewers.js";
 import * as sendBack from "./send-back.js";
@@ -61,6 +62,7 @@ it("the judge barrel exposes exactly the names its callers import", () => {
     "reviewBody",
     "reviewCheck",
     "reviewersFor",
+    "ruleLabels",
     "selectDiff",
     "sendBackBody",
     "summary",
@@ -85,6 +87,7 @@ it("each export is the unit's own export, not a copy or a wrapper", () => {
   expect(judge.postReview).toBe(reviewPost.postReview);
   expect(judge.ReviewRun).toBe(reviewRun.ReviewRun);
   expect(judge.reviewBody).toBe(reviewVerdict.reviewBody);
+  expect(judge.ruleLabels).toBe(reviewRules.ruleLabels);
   expect(judge.hasSentBack).toBe(sendBack.hasSentBack);
   expect(judge.sendBackBody).toBe(sendBack.sendBackBody);
   expect(judge.reviewersFor).toBe(reviewers.reviewersFor);
