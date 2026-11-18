@@ -192,7 +192,7 @@ describe("buildReport per-merged-change figures (#829, #830)", () => {
     );
   });
 
-  it("versions the report to 33, since the token cost beside waiting time joined it (#1019)", () => {
-    expect(run([]).version).toBe(33);
+  it("versions the report to 34, since the superseded perMergedChange left it (#1011)", () => {
+    expect(run([]).version).toBe(34);
   });
 });

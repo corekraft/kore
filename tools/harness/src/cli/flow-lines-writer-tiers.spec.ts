@@ -9,7 +9,6 @@ type Tier = Extract<WriterCost["current"], { status: "ok" }>["tiers"][string];
 const tier = (over: Partial<Tier>): Tier => ({
   sessions: 0,
   weightedTokens: 0,
-  perMergedChange: 0,
   mergedChanges: 0,
   perMergedChangeByTier: null,
   followUpsPerSession: null,
@@ -50,7 +49,6 @@ const ok = (tiers: Record<string, Tier>): WriterCost["current"] => ({
   relaunchLimit: "relaunch",
   orchestrate: {
     weightedTokens: 0,
-    perMergedChange: 0,
     model: "claude-opus-5-5",
     basis: "none",
     recordedModels: [],

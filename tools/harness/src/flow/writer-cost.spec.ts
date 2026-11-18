@@ -45,7 +45,6 @@ const PRICED_CURRENT = {
   orchestrate: {
     ...NO_ORCHESTRATE,
     weightedTokens: 1000,
-    perMergedChange: 200,
     basis: "assumed model",
     assumedTokens: 25,
     dollars: 0.0001,
@@ -59,14 +58,12 @@ const PRICED_CURRENT = {
       ...ZERO_TIER,
       sessions: 2,
       weightedTokens: 130,
-      perMergedChange: 26,
       followUpsPerSession: 0,
     },
     "claude-sonnet-5-5": {
       ...ZERO_TIER,
       sessions: 1,
       weightedTokens: 200,
-      perMergedChange: 40,
       followUpsPerSession: 0,
     },
   },
@@ -86,6 +83,25 @@ describe("writer cost: tokens priced by launch tier", () => {
         merged: 0,
         needed: 5,
       },
+    });
+  });
+});
+
+describe("writer cost: the superseded perMergedChange is gone (#1011)", () => {
+  it("leaves perMergedChange out of each tier and the orchestrate figure, and keeps the per-tier figures", () => {
+    const current = writerCost(PRICED_EVENTS, WINDOW, OPTIONS).current;
+
+    expect(current).toMatchObject({ status: "ok" });
+    if (current.status !== "ok") {
+      throw new Error("expected an ok writer cost figure");
+    }
+    expect(current.orchestrate).not.toHaveProperty("perMergedChange");
+    const haiku = current.tiers["claude-haiku-5-5"];
+    expect(haiku).toBeDefined();
+    expect(haiku).not.toHaveProperty("perMergedChange");
+    expect(haiku).toMatchObject({
+      perMergedChangeByTier: null,
+      mergedChanges: 0,
     });
   });
 });

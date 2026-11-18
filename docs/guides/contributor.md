@@ -514,12 +514,12 @@ spent tokens in it. Its tokens in the range are weighted by the model's input
 price relative to `claude-haiku-5-5`, from the table in
 `tools/harness/src/flow/writer-prices.ts`, pinned with its `pricesAsOf` date. The
 ledger's token count adds input, output and cache-creation tokens together, so the
-weight is relative rather than dollars; every model in the table has the same
-output-to-input ratio, so the tier ratios hold for any token mix. Each tier gives
-`sessions`, `weightedTokens`, `perMergedChange` over the range's merged changes
-(SUPERSEDED: kept unchanged, read `perMergedChangeDollars` instead), `mergedChanges`
-(the merged changes joined to that tier) and `perMergedChangeByTier` (its weighted
-tokens over its own `mergedChanges`, null with none). A merged change joins to a
+weight is relative rather than dollars. Output is five times input for every model in
+the table, but cache reads and writes are not, so a tier's dollar cost depends on its
+token mix; the dollars below price each part. Each tier gives `sessions`,
+`weightedTokens`, `mergedChanges` (the merged changes joined to that tier) and
+`perMergedChangeByTier` (its weighted tokens over its own `mergedChanges`, null with
+none); its all-in dollars per merged change are in the paragraph below. A merged change joins to a
 tier through its pull request's `pr.linked` event: the writer's first priced
 launch's tier, or, when that launch carries an idea, the tier of the earliest
 priced launch with that idea. A merged change with no link, or whose linked

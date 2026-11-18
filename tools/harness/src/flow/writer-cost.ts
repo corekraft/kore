@@ -56,11 +56,6 @@ export interface WriterTierFigure extends TierFigureFields {
   sessions: number;
   /** The tier's tokens in the span, each weighted by the tier's price. */
   weightedTokens: number;
-  /**
-   * SUPERSEDED: the tier's weighted tokens over all the span's merged changes, kept unchanged
-   * until readers move to perMergedChangeByTier. Do not read it as a per-tier figure.
-   */
-  perMergedChange: number;
   /** The merged changes in the span joined to this tier by their pull request's link event. */
   mergedChanges: number;
   /** The tier's weighted tokens over its own merged changes; null with none joined to the tier. */
@@ -96,7 +91,6 @@ export type WriterCostFigure =
        */
       orchestrate: {
         weightedTokens: number;
-        perMergedChange: number;
         /** The assumed main-session model: the weights, and what tokens with no reading are priced at. */
         model: string;
         /** What the dollars are priced from: recorded, assumed model, both, or none with no main-session tokens. */
@@ -146,11 +140,10 @@ export interface WriterCostOptions {
 
 const round = (value: number) => Math.round(value * 10_000) / 10_000;
 
-/** What one tier's figure is read from: its tokens, follow-ups and joined merged changes, against the span's merged changes. */
+/** What one tier's figure is read from: its tokens, follow-ups and the merged changes joined to it. */
 interface TierInputs {
   weighted: number;
   sends: number;
-  merged: number;
   mergedChanges: number;
 }
 
@@ -162,7 +155,7 @@ function tierFigure(
   dollars: TierDollars | InsufficientPrices | null,
   fields: TierFigureFields,
 ): WriterTierFigure {
-  const { weighted, sends, merged, mergedChanges } = inputs;
+  const { weighted, sends, mergedChanges } = inputs;
   const finished = launches.filter(
     (l) => l.agent !== undefined && results.has(l.agent),
   );
@@ -172,7 +165,6 @@ function tierFigure(
   return {
     sessions: launches.length,
     weightedTokens: round(weighted),
-    perMergedChange: round(weighted / merged),
     mergedChanges,
     perMergedChangeByTier:
       mergedChanges === 0 ? null : round(weighted / mergedChanges),
@@ -222,7 +214,6 @@ function figureIn(
         {
           weighted: byTier.get(tier) ?? 0,
           sends: sends.get(tier) ?? 0,
-          merged,
           mergedChanges: joins.joined.get(tier) ?? 0,
         },
         tierDollarsIn(dollars, tier),
@@ -237,7 +228,6 @@ function figureIn(
     relaunchLimit: RELAUNCH_LIMIT,
     orchestrate: {
       weightedTokens: round(orchestrate),
-      perMergedChange: round(orchestrate / merged),
       model: MAIN_SESSION_MODEL,
       basis: dollars.shared.orchestrateBasis.basis,
       recordedModels: dollars.shared.orchestrateBasis.recordedModels,

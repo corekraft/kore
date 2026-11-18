@@ -62,7 +62,6 @@ export const mergedAt = (...times: number[]) =>
 export const ZERO_TIER = {
   sessions: 0,
   weightedTokens: 0,
-  perMergedChange: 0,
   perMergedChangeByTier: null,
   mergedChanges: 0,
   followUpsPerSession: null,
@@ -90,7 +89,6 @@ export const ZERO_TIERS = {
 /** The orchestrating part of a span with no spend: its tokens, and its dollars at the assumed main-session model. */
 export const NO_ORCHESTRATE = {
   weightedTokens: 0,
-  perMergedChange: 0,
   model: "claude-opus-5-5",
   basis: "none",
   recordedModels: [],
