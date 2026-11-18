@@ -22,7 +22,6 @@ const DOLLARS = {
 const tier = (over: Partial<Tier>): Tier => ({
   sessions: 0,
   weightedTokens: 0,
-  perMergedChange: 0,
   mergedChanges: 0,
   perMergedChangeByTier: null,
   followUpsPerSession: null,
@@ -59,7 +58,6 @@ const OK_CURRENT: OkCurrent = {
   relaunchLimit: RELAUNCH,
   orchestrate: {
     weightedTokens: 0,
-    perMergedChange: 0,
     model: "claude-opus-5-5",
     basis: "assumed model",
     recordedModels: [],
@@ -85,7 +83,6 @@ const OK_TRAILING: WriterCost["trailingAverage"] = {
   relaunchLimit: RELAUNCH,
   orchestrate: {
     weightedTokens: 0,
-    perMergedChange: 0,
     model: "claude-opus-5-5",
     basis: "none",
     recordedModels: [],

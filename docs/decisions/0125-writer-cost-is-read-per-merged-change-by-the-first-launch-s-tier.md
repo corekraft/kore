@@ -52,7 +52,7 @@ By recommendation in a grilling session on #994, answered on the owner's behalf 
 
 ## Consequences
 
-- The per-tier figure replaces the per-tier division. `perMergedChange` stays, marked superseded, until the new field is read; a later change removes it (expand and contract, spec #997).
+- The per-tier figure replaces the per-tier division. `perMergedChange` stayed, marked superseded, until the new field was read; #1011 removed it, with the report version bumped to 34 (expand and contract, spec #997).
 - No tier figure can be read until the link event exists. Pull requests opened before it stay unjoinable and are counted.
 - A tier figure below the minimum number of merged changes is reported as insufficient, never as zero.
 - The tier figure is only as good as the join. Its unjoinable count is reported beside it, and a reader must not compare it with the issue's figure as if both measured the same thing.

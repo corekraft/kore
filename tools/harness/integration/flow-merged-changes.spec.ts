@@ -247,12 +247,10 @@ describe("flow report writer cost per merged change by tier (#868)", () => {
         "claude-haiku-5-5": {
           sessions: 1,
           weightedTokens: 100,
-          perMergedChange: 20,
         },
         "claude-sonnet-5-5": {
           sessions: 1,
           weightedTokens: 200,
-          perMergedChange: 40,
         },
       },
     });
