@@ -8,13 +8,18 @@ import type { Span } from "./scope.js";
 import { writerArmsIn, type WriterArms } from "./writer-arms.js";
 import { mergedChangeWriterCost, type WriterCost } from "./writer-cost.js";
 import { MODEL_PRICES } from "./writer-prices.js";
+import { sendBackTiersIn, type SendBackTiers } from "./send-back-tiers.js";
 
 export interface WriterFigures {
   writerCost: WriterCost;
   writerArms: WriterArms;
+  sendBackTiers: SendBackTiers;
 }
 
-/** The writer cost and the arms over the window, each read against the cost settings' minimum merged changes. */
+/**
+ * The writer cost, the arms and the send-backs per writer tier over the window, the first two read
+ * against the cost settings' minimum merged changes (#1012, #1045).
+ */
 export function writerFiguresIn(
   events: LedgerEvent[],
   window: Span,
@@ -32,5 +37,6 @@ export function writerFiguresIn(
         ? {}
         : { windowEffort: options.windowEffort }),
     }),
+    sendBackTiers: sendBackTiersIn(events, window, Object.keys(MODEL_PRICES)),
   };
 }

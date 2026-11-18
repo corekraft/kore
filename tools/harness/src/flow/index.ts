@@ -32,5 +32,11 @@ export type {
 } from "./host-pressure.js";
 export type { LeadTime } from "./idea-metrics.js";
 export type { ReviewMisses } from "./review-misses.js";
+export type { CategoryCounts } from "./send-back-categories.js";
+export type {
+  SendBackTiers,
+  TierSendBacks,
+  UnlinkedSendBacks,
+} from "./send-back-tiers.js";
 export type { Wip } from "./wip.js";
 export type { ArmRow, ArmSide, WriterArms } from "./writer-arms.js";

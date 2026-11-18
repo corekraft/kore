@@ -5,6 +5,7 @@ import {
   type MergedChangeFigures,
 } from "./idea-metrics.js";
 import { time } from "./github-waits.js";
+import { NO_SEND_BACK_TIERS } from "./send-back-tiers.js";
 import { buildReport } from "./report.js";
 import { scopeOf, windowOf, inWindow } from "./scope.js";
 import { STAGES, type Stage } from "./stages.js";
@@ -87,6 +88,7 @@ const ARM_EMPTY = {
 };
 
 const FIGURES: MergedChangeFigures = {
+  sendBackTiers: NO_SEND_BACK_TIERS,
   tokensPerMergedChange: TOKENS,
   sendBacksPerMergedChange: SEND_BACKS,
   leadTimePerMergedChange: LEAD_TIME,
@@ -188,7 +190,7 @@ describe("buildReport per-merged-change figures (#829, #830)", () => {
     );
   });
 
-  it("versions the report to 31, since the writer arms joined it (#1012)", () => {
-    expect(run([]).version).toBe(31);
+  it("versions the report to 32, since the send-backs per writer tier joined it (#1045)", () => {
+    expect(run([]).version).toBe(32);
   });
 });

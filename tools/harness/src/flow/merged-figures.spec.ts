@@ -8,6 +8,7 @@ import {
   mergedChangeStageTokens,
   tokensByStage,
 } from "./merged-stage-tokens.js";
+import { NO_SEND_BACK_TIERS } from "./send-back-tiers.js";
 import { STAGES, type Stage } from "./stages.js";
 import {
   judgmentContexts,
@@ -114,6 +115,7 @@ beforeEach(() => {
   vi.mocked(writerFiguresIn).mockReturnValue({
     writerCost: WRITER_COST,
     writerArms: WRITER_ARMS,
+    sendBackTiers: NO_SEND_BACK_TIERS,
   });
   vi.mocked(mainSessionFigures).mockReturnValue(MAIN_SESSION);
 });
@@ -149,6 +151,7 @@ describe("mergedChangeFigures: the figures over one window", () => {
       tokensByStagePerMergedChange: TOKENS,
       writerCost: WRITER_COST,
       writerArms: WRITER_ARMS,
+      sendBackTiers: NO_SEND_BACK_TIERS,
       mainSession: MAIN_SESSION,
       judgmentContexts: JUDGMENT_CONTEXTS,
     });
