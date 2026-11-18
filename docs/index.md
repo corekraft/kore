@@ -254,6 +254,7 @@ decisions; read one only when planning that area, and expect it to change.
 - [`docs/ideas/0041-automatic-retro-live-verification.md`](ideas/0041-automatic-retro-live-verification.md) — automatic-retro works live in local
 - [`docs/ideas/0042-proof-225-bad-change.md`](ideas/0042-proof-225-bad-change.md) — proof for issue 225: a deliberately wrong claim, expected refuted and reverted
 - [`docs/ideas/0043-automatic-approval-live-verification.md`](ideas/0043-automatic-approval-live-verification.md) — automatic-approval works live in local
+- [`docs/ideas/0044-automatic-revert-live-verification.md`](ideas/0044-automatic-revert-live-verification.md) — automatic-revert works live in local
 
 ## Operations and Guides
 
