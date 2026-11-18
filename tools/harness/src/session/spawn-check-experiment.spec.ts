@@ -7,6 +7,7 @@ import { sessionNameError } from "./names.js";
 import { USAGE_ERROR } from "./output.js";
 import { check } from "./spawn-check.js";
 import {
+  EXPERIMENT_EFFORT_ENV,
   EXPERIMENT_SHARE_ENV,
   EXPERIMENT_START,
   experimentConfigError,
@@ -45,6 +46,7 @@ beforeEach(() => {
     HERDR_ENV: "1",
     HERDR_PANE_ID: "w3:p1",
     [EXPERIMENT_START]: "2026-12-01",
+    [EXPERIMENT_EFFORT_ENV]: "high",
   };
   deps.clock.now.mockReturnValue(new Date("2026-12-02T00:00:00.000Z"));
   random = vi.fn<() => number>(() => 0.05);
@@ -64,20 +66,40 @@ beforeEach(() => {
 });
 
 describe("check samples a default-tier writer into the experiment window", () => {
-  it("runs a sampled writer on Sonnet, keeping the definition's effort, and records the experiment override", async () => {
+  it("runs a sampled writer on Sonnet at the window effort, and records the experiment override", async () => {
     await expect(check(request())).resolves.toMatchObject({
-      values: { model: "claude-sonnet-5-5", effort: "medium" },
+      values: { model: "claude-sonnet-5-5", effort: "high" },
       tier: { tierSource: "override", tierReason: "experiment" },
     });
   });
 
-  it("keeps the definition's model and origin when the draw misses the share", async () => {
+  it("runs the control on the definition's model at the window effort, with the control marker", async () => {
     random.mockReturnValue(0.1);
 
     await expect(check(request())).resolves.toMatchObject({
-      values: { model: "claude-haiku-5-5" },
-      tier: { tierSource: "definition" },
+      values: { model: "claude-haiku-5-5", effort: "high" },
+      tier: { tierSource: "definition", tierReason: "experiment-control" },
     });
+  });
+
+  it("draws a writer launched with only an effort flag, and runs it at the window effort", async () => {
+    vi.mocked(tierOf).mockResolvedValue({ tierSource: "override" });
+
+    await expect(check(request({ effort: "low" }))).resolves.toMatchObject({
+      values: { model: "claude-sonnet-5-5", effort: "high" },
+      tier: { tierSource: "override", tierReason: "experiment" },
+    });
+  });
+
+  it("refuses a writer when the window is open and the window effort is unset, before any herdr call", async () => {
+    delete deps.env[EXPERIMENT_EFFORT_ENV];
+
+    await expect(check(request())).resolves.toEqual({
+      error: experimentConfigError(deps.env),
+      code: USAGE_ERROR,
+    });
+    expect(deps.runner.run).not.toHaveBeenCalled();
+    expect(random).not.toHaveBeenCalled();
   });
 
   it("keeps the definition, and draws nothing, before the window opens", async () => {

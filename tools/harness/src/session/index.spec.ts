@@ -204,4 +204,11 @@ describe("the session domain's spawn usage", () => {
       "with the owner-writer flag also on (off by default), a writer pane gets the owner's own gh login token, read with gh auth token at spawn (a failure refuses and says to run gh auth login), and a judge pane a minted kore-judge installation token instead of the judge PAT",
     );
   });
+
+  it("names the window effort variable and the eligibility rule for a writer that names no model", () => {
+    const summary = session.spawn?.summary ?? "";
+    expect(summary).toContain(
+      "a writer that names no --model is eligible: the window samples a share of them onto Sonnet, recorded as an override with the reason experiment, and keeps the rest on their definition's model as the control, recorded with the reason experiment-control; every eligible writer runs at the window effort whatever --effort it names; a writer that names a --model is never sampled; KORE_WRITER_EXPERIMENT_EFFORT sets the window effort, one of low, medium, high, xhigh or max, required while KORE_WRITER_EXPERIMENT_START is a UTC date and ignored while it is unset",
+    );
+  });
 });
