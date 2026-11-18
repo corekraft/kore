@@ -1,11 +1,17 @@
 import { readdir, readFile } from "node:fs/promises";
 import { beforeEach, expect, test, vi } from "vitest";
+import { featureEnabled } from "./features.js";
 import {
   loadServiceRegistrations,
   registeredServiceHelmArgs,
 } from "./service-registrations.js";
 
 vi.mock("node:fs/promises");
+// featureEnabled is a helper of this domain, so it is mocked; the flag constant stays real.
+vi.mock("./features.js", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("./features.js")>()),
+  featureEnabled: vi.fn(),
+}));
 
 /** The text of each registration file, keyed by its path under the repository root. */
 let files: Record<string, string> = {};
@@ -21,6 +27,7 @@ function registration(name: string, kind = "Service"): string {
 
 beforeEach(() => {
   files = {};
+  vi.mocked(featureEnabled).mockClear();
   vi.mocked(readdir).mockImplementation(async () => {
     const error = Object.assign(new Error("ENOENT"), { code: "ENOENT" });
     if (Object.keys(files).length === 0) {
@@ -90,27 +97,39 @@ test("a registration that is not JSON-compatible YAML fails, naming the file", a
   );
 });
 
-test("the service observability arguments hand the names over only while platform-portal is on", () => {
-  const on = { features: { "platform-portal": true } };
+test("with platform-portal on, the observability chart is handed the names, asking the flag of the environment", () => {
+  vi.mocked(featureEnabled).mockReturnValue(true);
+  const environment = { features: { "platform-portal": true } };
   expect(
-    registeredServiceHelmArgs(on, "kore-service-observability", [
+    registeredServiceHelmArgs(environment, "kore-service-observability", [
       "blog",
       "shop",
     ]),
   ).toEqual(["--set-json", 'services=["blog","shop"]']);
   expect(
-    registeredServiceHelmArgs(on, "kore-service-observability", []),
+    registeredServiceHelmArgs(environment, "kore-service-observability", []),
   ).toEqual(["--set-json", "services=[]"]);
+  expect(vi.mocked(featureEnabled).mock.calls).toEqual([
+    [environment, "platform-portal"],
+    [environment, "platform-portal"],
+  ]);
 });
 
-test("with platform-portal off, or for any other component, no service names are passed", () => {
-  const off = { features: { "platform-portal": false } };
+test("with platform-portal off, the observability chart is handed no names", () => {
+  vi.mocked(featureEnabled).mockReturnValue(false);
+  const environment = { features: { "platform-portal": false } };
   expect(
-    registeredServiceHelmArgs(off, "kore-service-observability", ["shop"]),
+    registeredServiceHelmArgs(environment, "kore-service-observability", [
+      "shop",
+    ]),
   ).toEqual([]);
-  expect(
-    registeredServiceHelmArgs({}, "kore-service-observability", ["shop"]),
-  ).toEqual([]);
+  expect(vi.mocked(featureEnabled).mock.calls).toEqual([
+    [environment, "platform-portal"],
+  ]);
+});
+
+test("any other component gets no names, and the flag is never consulted for it", () => {
+  vi.mocked(featureEnabled).mockReturnValue(true);
   expect(
     registeredServiceHelmArgs(
       { features: { "platform-portal": true } },
@@ -118,4 +137,5 @@ test("with platform-portal off, or for any other component, no service names are
       ["shop"],
     ),
   ).toEqual([]);
+  expect(vi.mocked(featureEnabled)).not.toHaveBeenCalled();
 });
