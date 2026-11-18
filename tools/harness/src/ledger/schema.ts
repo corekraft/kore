@@ -11,7 +11,7 @@ import {
   type SplitOrigin,
 } from "./schema-kinds.js";
 import { BACKGROUND_RULES, RESULT_RULES } from "./schema-result.js";
-import { SENDER_RULES } from "./schema-sender.js";
+import { SENDER_RULES, type HandoverReason } from "./schema-sender.js";
 import { REVIEW_RULES } from "./schema-review.js";
 import { SEND_BACK_RULES, type SendBackCategory } from "./schema-send-back.js";
 import { EFFORT_RULES, TIER_RULES, type TierOrigin } from "./schema-tier.js";
@@ -92,6 +92,8 @@ export interface EventInput
   /** session.send: the sender's role and session name; absent for a send from the main session. */
   senderRole?: string;
   senderName?: string;
+  /** session.send: why the main session passed the case to the stronger session; absent on an ordinary send. */
+  handover?: HandoverReason;
   /** host-sample: the host's 1-minute load average; absent when the host reported none. */
   load?: number;
   /** host-sample: free memory as a share of total, 0 to 1; absent when unreadable. */
