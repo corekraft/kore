@@ -13,6 +13,12 @@ const dnsLabel = /^[a-z0-9]([-a-z0-9]{0,61}[a-z0-9])?$/;
 const platformOrganization = "platform";
 const reservedPrefixes = ["kube-", "kore-"];
 const namespaceLimit = 63;
+/**
+ * The longest derived label is the Argo Application golden-path-<service>: Argo CD's
+ * default label tracking copies its name into a 63-character label value.
+ */
+const applicationPrefix = "golden-path-";
+const serviceNameLimit = namespaceLimit - applicationPrefix.length;
 
 type Claim = Record<string, unknown>;
 
@@ -67,6 +73,16 @@ function serviceNameErrors(name: string, path: string): string[] {
   if (prefix !== undefined) {
     errors.push(
       `${path}.metadata.name: must not start with kube- or kore-, the reserved prefixes; rename it, for example "${name.slice(prefix.length)}"`,
+    );
+  }
+  if (!/^[a-z]/.test(name)) {
+    errors.push(
+      `${path}.metadata.name: must start with a lowercase letter (a Kubernetes Service name cannot start with a digit); rename it, for example "s${name}"`,
+    );
+  }
+  if (name.length > serviceNameLimit) {
+    errors.push(
+      `${path}.metadata.name: must be at most ${serviceNameLimit} characters, because the longest derived label, the Argo Application golden-path-<service>, adds ${applicationPrefix.length} characters to fit ${namespaceLimit}; shorten it, for example "${name.slice(0, serviceNameLimit)}"`,
     );
   }
   return errors;
