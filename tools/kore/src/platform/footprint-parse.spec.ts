@@ -126,6 +126,20 @@ test("fails with the cause when the pod list is not JSON", () => {
   ).toThrow("kubectl pod list output is not valid JSON");
 });
 
+test.each([
+  ["null", "null"],
+  ["a list", "[]"],
+  ["items that are not a list", '{"items":"many"}'],
+  ["an item that is not an object", '{"items":[null]}'],
+])(
+  "fails with the cause when the pod list is %s, not a pod list",
+  (_label, text) => {
+    expect(() => parseOomKilledPods(text, RUN_STARTED)).toThrow(
+      "kubectl pod list output is not a pod list",
+    );
+  },
+);
+
 test("fails naming the pod when its OOMKilled termination has no readable finish time", () => {
   const text = podList(
     pod("platform", "keycloak-0", [terminated("OOMKilled", "")]),

@@ -64,6 +64,21 @@ interface PodListing {
   }[];
 }
 
+const isRecord = (value: unknown): value is Record<string, unknown> =>
+  typeof value === "object" && value !== null && !Array.isArray(value);
+
+/** A pod list: an object whose `items`, when present, is a list of objects. */
+function isPodListing(value: unknown): value is PodListing {
+  if (!isRecord(value)) {
+    return false;
+  }
+  const items = value["items"];
+  if (items === undefined) {
+    return true;
+  }
+  return Array.isArray(items) && items.every(isRecord);
+}
+
 /**
  * The pods, as `namespace/name`, whose last state was OOMKilled at or after
  * `sinceMs` (epoch milliseconds), from `kubectl get pods -A -o json`. A pod
@@ -71,12 +86,16 @@ interface PodListing {
  * be read fails the read rather than letting the pod pass unjudged.
  */
 export function parseOomKilledPods(stdout: string, sinceMs: number): string[] {
-  let listing: PodListing;
+  let parsed: unknown;
   try {
-    listing = JSON.parse(stdout) as PodListing;
+    parsed = JSON.parse(stdout);
   } catch {
     throw new Error("kubectl pod list output is not valid JSON");
   }
+  if (!isPodListing(parsed)) {
+    throw new Error("kubectl pod list output is not a pod list");
+  }
+  const listing = parsed;
   const pods = new Set<string>();
   for (const item of listing.items ?? []) {
     const name = `${item.metadata?.namespace ?? ""}/${item.metadata?.name ?? ""}`;

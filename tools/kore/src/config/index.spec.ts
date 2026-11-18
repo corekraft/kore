@@ -22,6 +22,9 @@ vi.mock("./alert-email.js", () => ({
   smtpSecretName: "grafana-smtp",
   smtpSecretNamespace: "observability",
 }));
+vi.mock("./dashboard-sidecar.js", () => ({
+  dashboardSidecarHelmArgs: vi.fn(),
+}));
 vi.mock("./approved.js", () => ({ approvedImageList: vi.fn() }));
 vi.mock("./chart-delivery.js", () => ({
   chartDeliveryValues: vi.fn(),
@@ -114,6 +117,7 @@ test("the config barrel exposes exactly the entry points other domains use", () 
     "crdGroupErrors",
     "crdNameFormatErrors",
     "crdOwners",
+    "dashboardSidecarHelmArgs",
     "enabledComponents",
     "evaluateAudit",
     "exemptionCheckMode",
