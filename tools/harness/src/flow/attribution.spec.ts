@@ -69,6 +69,14 @@ describe("attribute", () => {
     const stranger = at(5, "tool.end", { pane: "p2", session: "s2" });
     expect(attribute([named, stranger]).get(stranger.id)).toBeUndefined();
   });
+
+  it("gives every event an entry, keyed by its id", () => {
+    const events = [
+      at(0, "issue.opened", { number: 1 }),
+      at(1, "token.usage", { session: "s1", tokens: 1 }),
+    ];
+    expect([...attribute(events).keys()]).toEqual(events.map((e) => e.id));
+  });
 });
 
 describe("attribute reads the idea a pull request's link names", () => {
@@ -97,13 +105,5 @@ describe("attribute reads the idea a pull request's link names", () => {
     const ideas = attribute([link, writing]);
     expect(ideas.get(link.id)).toBe("0030");
     expect(ideas.get(writing.id)).toBe("0030");
-  });
-
-  it("gives every event an entry, keyed by its id", () => {
-    const events = [
-      at(0, "issue.opened", { number: 1 }),
-      at(1, "token.usage", { session: "s1", tokens: 1 }),
-    ];
-    expect([...attribute(events).keys()]).toEqual(events.map((e) => e.id));
   });
 });
