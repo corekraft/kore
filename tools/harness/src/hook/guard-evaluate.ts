@@ -24,7 +24,10 @@ export async function evaluate(
 
   const bounded =
     typeof tool === "string"
-      ? checkRole(call.agent_type, tool, input, ctx.root, ctx.cwd)
+      ? checkRole(call.agent_type, tool, input, ctx.root, {
+          cwd: ctx.cwd,
+          helpExempt: ctx.helpExempt === true,
+        })
       : null;
   if (bounded !== null) {
     return bounded;

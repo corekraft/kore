@@ -9,6 +9,7 @@ import * as links from "./guard-role-links.js";
 import { expand, withSubstitutions } from "./guard-role-merge.js";
 import { isHookTest, stagesHookTest, UNRESOLVED } from "./guard-role-stage.js";
 import {
+  bundleHelpRequest,
   redirectTargets,
   removal,
   withoutRedirects,
@@ -294,14 +295,15 @@ function harnessWords(line: readonly string[]): readonly string[] | undefined {
   return /^harness(?:\.mjs|\.sh)?$/.test(name) ? args : undefined;
 }
 
-/** A line that activates a flag, records an outcome or dispatches a workflow. */
-function runsGated(line: readonly string[]): boolean {
+/** A line that activates a flag, records an outcome or dispatches a workflow; with the help exemption on (#973), the bundle's help request for one of them is not. */
+function runsGated(line: readonly string[], helpExempt: boolean): boolean {
   const { name, args } = commandOf(line);
   const harness = harnessWords(line);
   return (
     (name === "gh" && dispatchesWorkflow(args)) ||
     (harness !== undefined &&
-      GATED_HARNESS.includes(`${harness[0] ?? ""} ${harness[1] ?? ""}`))
+      GATED_HARNESS.includes(`${harness[0] ?? ""} ${harness[1] ?? ""}`) &&
+      !(helpExempt && bundleHelpRequest(line)))
   );
 }
 
@@ -311,6 +313,7 @@ export function checkProtected(
   tool: string,
   input: Record<string, unknown>,
   root: string,
+  helpExempt = false,
 ): Finding {
   if (
     pathsNamed(tool, input).some(namesHostSecret) ||
@@ -341,6 +344,6 @@ export function checkProtected(
   if (file !== undefined) {
     return guardFile(`\`${file.join(" ")}\``);
   }
-  const gate = lines.find(runsGated);
+  const gate = lines.find((line) => runsGated(line, helpExempt));
   return gate === undefined ? null : gated(`\`${gate.join(" ")}\``);
 }

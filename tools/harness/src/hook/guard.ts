@@ -17,7 +17,7 @@ import {
   findInventory,
   type Inventory,
 } from "../guardrail/index.js";
-import { hostFacts } from "./guard-host-shell.js";
+import { helpExemptOn, hostFacts } from "./guard-host-shell.js";
 import { launchRoot } from "./guard-launch-root.js";
 import { recordEvent } from "./ledger-event.js";
 import type { CliDeps } from "../runtime/index.js";
@@ -87,6 +87,8 @@ export async function guard(
     cwd: callDirectory(call, root),
     // The home a leading ~ expands to, and whether the hook's own environment names bash (the zsh rules skip only then).
     ...(await hostFacts(deps.env, deps.fs, root)),
+    // Whether the local overlay turns gated-help-exempt on; read only for a Bash call that asks for help (#973).
+    helpExempt: await helpExemptOn(deps.fs, root, call),
     readFile,
     // Globs resolve from the directory the command runs in, as the shell runs them; the call's when none is given.
     globMatches: (pattern, directory) =>

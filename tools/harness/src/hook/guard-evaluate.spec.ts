@@ -43,6 +43,27 @@ describe("asCall", () => {
   });
 });
 
+describe("evaluate: the help exemption reaches the role bounds", () => {
+  it("hands gated-help-exempt to the role bounds, so a writer's help request is judged with the flag", async () => {
+    vi.mocked(checkRole).mockReturnValue(null);
+    const payload = {
+      tool_name: "Bash",
+      agent_type: "writer",
+      tool_input: {
+        command: "node skills/bin/harness.mjs flag activate --help",
+      },
+    };
+    await evaluate(payload, { ...ctx, helpExempt: true });
+    expect(checkRole).toHaveBeenCalledWith(
+      "writer",
+      "Bash",
+      { command: "node skills/bin/harness.mjs flag activate --help" },
+      ROOT,
+      { cwd: ROOT, helpExempt: true },
+    );
+  });
+});
+
 describe("evaluate", () => {
   it("returns a role's verdict before any rule runs", async () => {
     vi.mocked(checkRole).mockReturnValue(BLOCK);
@@ -58,7 +79,7 @@ describe("evaluate", () => {
       "Bash",
       { command: "ls" },
       ROOT,
-      `${ROOT}/tools/harness`,
+      { cwd: `${ROOT}/tools/harness`, helpExempt: false },
     );
     expect(evaluateBash).not.toHaveBeenCalled();
   });

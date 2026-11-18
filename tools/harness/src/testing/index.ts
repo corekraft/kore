@@ -71,6 +71,12 @@ export {
   type CorpusCase,
   type OrdinaryCase,
 } from "../hook/guard-corpus.js";
+// The help-request corpus (#973): refused while gated-help-exempt is off, allowed or still refused with it on.
+export {
+  HELP_ALLOWED,
+  HELP_REFUSED_FLAG_OFF,
+  HELP_STILL_REFUSED,
+} from "../hook/guard-corpus-help.js";
 export { cleanGitEnv } from "./git-env.js";
 export {
   committedInventory,
