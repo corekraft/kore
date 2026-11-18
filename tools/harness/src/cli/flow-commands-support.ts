@@ -94,8 +94,6 @@ const emptyTokensPerMergedChange = {
   },
 };
 
-/** Send-backs and lead time per merged change with no merged change in either span, so neither is read. */
-const emptySendBacksPerMergedChange = { ...emptyTokensPerMergedChange };
 const emptyLeadTimePerMergedChange = {
   trailingDays: 7,
   minMergedChanges: 5,
@@ -180,7 +178,7 @@ export function emptyReport(overrides: Partial<Record<string, unknown>> = {}) {
     },
     ...EMPTY_ADVISOR,
     tokensPerMergedChange: emptyTokensPerMergedChange,
-    sendBacksPerMergedChange: emptySendBacksPerMergedChange,
+    sendBacksPerMergedChange: emptyTokensPerMergedChange,
     leadTimePerMergedChange: emptyLeadTimePerMergedChange,
     writerCost: { pricesAsOf: "2026-11-17", ...emptyTokensPerMergedChange },
     tokensByStage: Object.fromEntries(STAGES.map((stage) => [stage, 0])),
