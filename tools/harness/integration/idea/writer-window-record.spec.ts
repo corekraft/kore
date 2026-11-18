@@ -57,7 +57,9 @@ describe("the writer-tier window idea record", () => {
       expect(body).toContain(phrase);
     }
   });
+});
 
+describe("the writer-tier window idea record's body", () => {
   it("lists the three guards", () => {
     for (const guard of [
       "blocked share",
