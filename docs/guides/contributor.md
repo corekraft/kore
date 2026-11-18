@@ -599,8 +599,8 @@ against the same minimum.
 judge's send-backs per writer tier. A send-back joins to the tier its pull request's writer joins
 to (the same join as the cost above), and each tier gives its merged changes, its send-backs by
 category (each category once per PR head, `uncategorised` for those recorded before categories
-existed), and its rework (#1009) with the merged changes it is read over. `rework` and
-`reworkPerMergedChange` are null for the rate with no merged change, never zero. The `unlinked`
+existed), and its rework (#1009) with the merged changes it is read over. `rework` is always a
+count; `reworkPerMergedChange` is null with no merged change, never zero. The `unlinked`
 row holds the merged changes and send-backs that join to no tier, including a send-back with no
 pull request number; it has no rework, since a send to a pane with no writer tier is not read. No
 change is given a tier by inference. The text (`flow-lines-send-back.ts`) prints the same figures
