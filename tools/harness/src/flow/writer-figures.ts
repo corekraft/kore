@@ -9,8 +9,12 @@ import { writerArmsIn, type WriterArms } from "./writer-arms.js";
 import { mergedChangeWriterCost, type WriterCost } from "./writer-cost.js";
 import { MODEL_PRICES } from "./writer-prices.js";
 import { sendBackTiersIn, type SendBackTiers } from "./send-back-tiers.js";
+import {
+  sendBackTiersSplitIn,
+  type SendBackTiersSplit,
+} from "./send-back-tiers-split.js";
 
-export interface WriterFigures {
+export interface WriterFigures extends SendBackTiersSplit {
   writerCost: WriterCost;
   writerArms: WriterArms;
   sendBackTiers: SendBackTiers;
@@ -18,7 +22,8 @@ export interface WriterFigures {
 
 /**
  * The writer cost, the arms and the send-backs per writer tier over the window, the first two read
- * against the cost settings' minimum merged changes (#1012, #1045).
+ * against the cost settings' minimum merged changes (#1012, #1045); and, given a split date, the
+ * same send-backs read on each side of it (#1047).
  */
 export function writerFiguresIn(
   events: LedgerEvent[],
@@ -27,6 +32,8 @@ export function writerFiguresIn(
     asOf: Date;
     cost?: Partial<CostOptions>;
     windowEffort?: string;
+    /** Splits the send-backs per writer tier at this date (#1047). */
+    splitAt?: Date;
   },
 ): WriterFigures {
   return {
@@ -38,5 +45,6 @@ export function writerFiguresIn(
         : { windowEffort: options.windowEffort }),
     }),
     sendBackTiers: sendBackTiersIn(events, window, Object.keys(MODEL_PRICES)),
+    ...sendBackTiersSplitIn(events, window, options.splitAt),
   };
 }

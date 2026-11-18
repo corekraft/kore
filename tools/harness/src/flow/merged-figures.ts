@@ -56,6 +56,8 @@ export interface MergedChangeFigures {
   writerArms: WriterFigures["writerArms"];
   /** Send-backs by category per writer tier, with the unlinked row, and each tier's rework (#1045). */
   sendBackTiers: WriterFigures["sendBackTiers"];
+  /** The same send-backs per writer tier read before and from the split date; present only when the report is given one (#1047). */
+  sendBackTiersSplit?: WriterFigures["sendBackTiersSplit"];
   /** The main session's poll minutes, pane-result reads and signed sends, from the retro scans' events (#940); never in the owner digest. */
   mainSession: MainSessionFigures;
   /** The main session's handovers by reason over the window, or why they are not read: no reason recorded, or too few merged changes (#1036). */
@@ -72,7 +74,11 @@ export interface MergedChangeFigures {
 export function mergedChangeFigures(
   events: LedgerEvent[],
   window: Span,
-  options: { asOf: Date; windowEffort?: string } & CostWaitingFor,
+  options: {
+    asOf: Date;
+    windowEffort?: string;
+    splitAt?: Date;
+  } & CostWaitingFor,
 ): MergedChangeFigures {
   return {
     costWaiting: costWaitingFor(events, window, options),

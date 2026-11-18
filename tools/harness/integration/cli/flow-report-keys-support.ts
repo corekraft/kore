@@ -46,6 +46,17 @@ export const KEYS = [
   "skippedLines",
 ];
 
+/**
+ * The keys of `flow report --json --split-at TIME`, in report order: KEYS with `sendBackTiersSplit`
+ * after `sendBackTiers`. A report without --split-at carries KEYS exactly (#1047).
+ */
+export const SPLIT_KEYS = KEYS.flatMap((key) =>
+  key === "sendBackTiers" ? [key, "sendBackTiersSplit"] : [key],
+);
+
+/** The keys of `sendBackTiersSplit`: the split date, then the tier figures of each side (#1047). */
+export const SPLIT_SIDE_KEYS = ["at", "before", "after"];
+
 /** The keys of `writerCost.current.orchestrate` once the span has enough merged changes, in report order (#1041). */
 export const ORCHESTRATE_KEYS = [
   "weightedTokens",

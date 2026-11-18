@@ -34,12 +34,30 @@ export function parseIdeas(
   return ideas.map((n) => `#${Number(n)}`);
 }
 
-type Times = { asOf?: Date; since?: Date; until?: Date } | { error: string };
+type Times =
+  | { asOf?: Date; since?: Date; until?: Date; splitAt?: Date }
+  | { error: string };
+
+/** Why a split date is outside the range, or undefined when it is inside it (a bound itself is inside). */
+function splitOutsideRange(
+  splitAt: Date,
+  since: Date | undefined,
+  until: Date | undefined,
+): string | undefined {
+  if (since !== undefined && splitAt < since) {
+    return `Invalid --split-at ${splitAt.toISOString()}: it is before --since ${since.toISOString()}. Use a date inside the range, or move --since earlier.`;
+  }
+  if (until !== undefined && splitAt > until) {
+    return `Invalid --split-at ${splitAt.toISOString()}: it is after --until ${until.toISOString()}. Use a date inside the range, or move --until later.`;
+  }
+  return undefined;
+}
 
 function parseTimes(options: CommandContext["options"]): Times {
   const asOf = parseTime(options, "as-of");
   const since = parseTime(options, "since");
   const until = parseTime(options, "until");
+  const splitAt = parseTime(options, "split-at");
   if (asOf !== undefined && "error" in asOf) {
     return asOf;
   }
@@ -49,15 +67,26 @@ function parseTimes(options: CommandContext["options"]): Times {
   if (until !== undefined && "error" in until) {
     return until;
   }
+  if (splitAt !== undefined && "error" in splitAt) {
+    return splitAt;
+  }
   if (since !== undefined && until !== undefined && since > until) {
     return {
       error: `Invalid --since ${since.toISOString()}: it is after --until ${until.toISOString()}. Swap them.`,
     };
   }
+  const outside =
+    splitAt === undefined
+      ? undefined
+      : splitOutsideRange(splitAt, since, until);
+  if (outside !== undefined) {
+    return { error: outside };
+  }
   return {
     ...(asOf === undefined ? {} : { asOf }),
     ...(since === undefined ? {} : { since }),
     ...(until === undefined ? {} : { until }),
+    ...(splitAt === undefined ? {} : { splitAt }),
   };
 }
 
@@ -70,7 +99,7 @@ type WindowFlags =
     })
   | { error: string };
 
-/** The report's time range and its window effort: --as-of, --since, --until and --window-effort. */
+/** The report's time range, split date and window effort: --as-of, --since, --until, --split-at and --window-effort. */
 export function parseWindowFlags(
   options: CommandContext["options"],
 ): WindowFlags {
