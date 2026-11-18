@@ -5,6 +5,7 @@ import {
   type Measurement,
   type MeasurementDeps,
 } from "./ingress-measurement.js";
+import type { HostReader } from "./ingress-host.js";
 import { PacedRunner } from "./ingress-paced-runner.js";
 import { cpuPerRequest, matchRate, pacingPlan } from "./ingress-pacing.js";
 import {
@@ -63,12 +64,30 @@ test("without a target the measurement is built exactly as given: same options, 
     load,
     options,
     deps,
+    undefined,
   );
   expect(PacedRunner).not.toHaveBeenCalled();
   expect(pacingPlan).not.toHaveBeenCalled();
   expect(matchRate).not.toHaveBeenCalled();
   expect(result.rate).toBeUndefined();
   expect(result.method).toBe(BASE.method);
+});
+
+test("the host reader reaches the measurement, paced or not, so the result records the host", async () => {
+  const host = { read: vi.fn() } satisfies HostReader;
+
+  await new RatedMeasurement(metrics, load, options, deps, host).measure();
+  await new RatedMeasurement(
+    metrics,
+    load,
+    { ...options, targetRequestsPerSecond: 40 },
+    deps,
+    host,
+  ).measure();
+
+  const [plain, pacedCall] = vi.mocked(IngressMeasurement).mock.calls;
+  expect(plain?.[4]).toBe(host);
+  expect(pacedCall?.[4]).toBe(host);
 });
 
 test("with a target the load runs in paced batches: batch-sized options and a paced load runner", async () => {

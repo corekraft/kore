@@ -6,6 +6,7 @@ import {
   type MeasurementDeps,
   type MeasurementOptions,
 } from "./ingress-measurement.js";
+import type { HostReader, HostSnapshot } from "./ingress-host.js";
 import { parsePodMetrics, summarizeSamples } from "./ingress-metrics.js";
 
 // The metrics parser and summary are same-domain units, so they are typed
@@ -67,7 +68,20 @@ const loadReply =
     return `${overrides[path] ?? statusFor[path] ?? 0}\n`.repeat(count);
   };
 
-function measurementWith(loadReplyFn = loadReply()) {
+const BEFORE: HostSnapshot = {
+  load: { oneMinute: 1, fiveMinute: 2, fifteenMinute: 3 },
+  swapUsedMiB: 100,
+  vmFreeMiB: 5000,
+  agentPanes: { count: 4, source: "herdr agent list" },
+};
+const AFTER: HostSnapshot = {
+  load: { oneMinute: 6, fiveMinute: 4, fifteenMinute: 3.5 },
+  swapUsedMiB: 300,
+  vmFreeMiB: 4000,
+  agentPanes: { count: 9, source: "herdr agent list" },
+};
+
+function measurementWith(loadReplyFn = loadReply(), host?: HostReader) {
   const metrics = fakeRunner(metricsReply);
   const load = fakeRunner(loadReplyFn);
   const deps: MeasurementDeps = {
@@ -80,6 +94,7 @@ function measurementWith(loadReplyFn = loadReply()) {
     load.runner,
     options,
     deps,
+    host,
   );
   return { measurement, metrics, load, deps };
 }
@@ -262,4 +277,76 @@ test("the result states the fixed method so it can be repeated exactly", async (
     sampleCount: 2,
     sampleIntervalSeconds: 20,
   });
+});
+
+function hostReader(...snapshots: HostSnapshot[]) {
+  const read = vi
+    .fn<HostReader["read"]>()
+    .mockResolvedValueOnce(snapshots[0] as HostSnapshot)
+    .mockResolvedValueOnce(snapshots[1] as HostSnapshot);
+  return { read } satisfies HostReader;
+}
+
+test("records the host's load, swap, free VM memory and agent panes before the settle and after the load", async () => {
+  const order: string[] = [];
+  const host = hostReader(BEFORE, AFTER);
+  host.read
+    .mockReset()
+    .mockImplementationOnce(async () => {
+      order.push("before");
+      return BEFORE;
+    })
+    .mockImplementationOnce(async () => {
+      order.push("after");
+      return AFTER;
+    });
+  const { measurement, deps } = measurementWith(loadReply(), host);
+  vi.mocked(deps.sleep).mockImplementation(async () => {
+    order.push("sleep");
+  });
+
+  const result = await measurement.measure();
+
+  expect(result.host).toEqual({ before: BEFORE, after: AFTER });
+  expect(order).toEqual(["before", "sleep", "sleep", "sleep", "after"]);
+});
+
+test("records a missing agent pane source by name and not as zero panes", async () => {
+  const missing: HostSnapshot = {
+    ...BEFORE,
+    agentPanes: {
+      count: null,
+      source: "herdr agent list",
+      missing: "spawn herdr ENOENT",
+    },
+  };
+  const { measurement } = measurementWith(
+    loadReply(),
+    hostReader(missing, missing),
+  );
+
+  const result = await measurement.measure();
+
+  expect(result.host?.before.agentPanes).toEqual({
+    count: null,
+    source: "herdr agent list",
+    missing: "spawn herdr ENOENT",
+  });
+});
+
+test("names the host load as the reason for a refusal and reads no host conditions", async () => {
+  const host = hostReader(BEFORE, AFTER);
+  const { measurement, deps } = measurementWith(loadReply(), host);
+  vi.mocked(deps.loadAverage).mockReturnValue(12.5);
+
+  await expect(measurement.measure()).rejects.toThrow(
+    "host 1-minute load average 12.5 is not below 10; wait for the host to quiet down and rerun",
+  );
+  expect(host.read).not.toHaveBeenCalled();
+});
+
+test("carries no host field when no host reader is given", async () => {
+  const { measurement } = measurementWith();
+
+  expect(await measurement.measure()).not.toHaveProperty("host");
 });

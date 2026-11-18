@@ -5,6 +5,7 @@ import type {
   MeasurementDeps,
   MeasurementOptions,
 } from "./ingress-measurement.js";
+import type { HostReader } from "./ingress-host.js";
 import { PacedRunner } from "./ingress-paced-runner.js";
 import { cpuPerRequest, matchRate, pacingPlan } from "./ingress-pacing.js";
 import type { RateCheck } from "./ingress-pacing.js";
@@ -43,6 +44,7 @@ export class RatedMeasurement {
     private readonly loadRunner: Runner,
     private readonly options: RatedOptions,
     private readonly deps: MeasurementDeps,
+    private readonly host?: HostReader,
   ) {}
 
   async measure(): Promise<RatedMeasurementResult> {
@@ -53,6 +55,7 @@ export class RatedMeasurement {
         this.loadRunner,
         this.options,
         this.deps,
+        this.host,
       ).measure();
       return { ...result, cpuPerRequest: this.perRequest(result) };
     }
@@ -62,6 +65,7 @@ export class RatedMeasurement {
       new PacedRunner(this.loadRunner, plan.batchSeconds, this.deps),
       { ...this.options, requestsPerRoute: plan.batchSize },
       this.deps,
+      this.host,
     ).measure();
     return {
       ...result,
