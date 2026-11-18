@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import type { CommandContext, Runner } from "../runtime/index.js";
 import {
   castAudit,
+  closingAudit,
   gatherChecks,
   lengthAudit,
   parsePrView,
@@ -65,6 +66,12 @@ const CAST: AuditFinding = {
   detail: "as never",
   fix: "replace the cast with a type guard or a corrected declared type",
 };
+const CLOSING: AuditFinding = {
+  item: "closing-keyword",
+  file: "PR body",
+  detail: "Closes #54",
+  fix: "replace it with Refs #54 (ADR 0097)",
+};
 
 const runner = { run: vi.fn<Runner["run"]>() };
 const context = (): CommandContext => ({
@@ -85,6 +92,7 @@ function ready(): void {
   vi.mocked(gatherChecks).mockResolvedValue(PASSING);
   vi.mocked(lengthAudit).mockResolvedValue([]);
   vi.mocked(castAudit).mockReturnValue([]);
+  vi.mocked(closingAudit).mockReturnValue([]);
   vi.mocked(assess).mockReturnValue({
     patternMatches: true,
     clusterFacing: false,
@@ -110,6 +118,26 @@ describe("precheck carries the audit findings the changed files make", () => {
     vi.mocked(lengthAudit).mockResolvedValue([FINDING]);
     vi.mocked(castAudit).mockReturnValue([CAST]);
     expect(await run()).toMatchObject({ audits: [FINDING, CAST] });
+  });
+
+  it("adds a closing-keyword finding to the audits, and the PR stays ready: a keyword never fails the check", async () => {
+    ready();
+    vi.mocked(closingAudit).mockReturnValue([CLOSING]);
+    expect(await run()).toMatchObject({ ok: true, audits: [CLOSING] });
+  });
+
+  it("lists the closing-keyword findings after the type-cast findings, each as its item made them", async () => {
+    ready();
+    vi.mocked(lengthAudit).mockResolvedValue([FINDING]);
+    vi.mocked(castAudit).mockReturnValue([CAST]);
+    vi.mocked(closingAudit).mockReturnValue([CLOSING]);
+    expect(await run()).toMatchObject({ audits: [FINDING, CAST, CLOSING] });
+  });
+
+  it("reads the closing keywords of the PR body with the idea the declaration names", async () => {
+    ready();
+    await run();
+    expect(closingAudit).toHaveBeenCalledWith(PR_VIEW.body, DECLARED.idea);
   });
 
   it("reads the casts of the PR's own changed files, from the diff alone", async () => {

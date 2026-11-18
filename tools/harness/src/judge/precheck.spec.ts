@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import type { CommandContext, Runner } from "../runtime/index.js";
 import {
   castAudit,
+  closingAudit,
   gatherChecks,
   gatherExpandStep,
   gatherGuardrailChanges,
@@ -86,6 +87,7 @@ function ready(): void {
   vi.mocked(gatherChecks).mockResolvedValue(PASSING);
   vi.mocked(lengthAudit).mockResolvedValue([]);
   vi.mocked(castAudit).mockReturnValue([]);
+  vi.mocked(closingAudit).mockReturnValue([]);
   vi.mocked(assess).mockReturnValue({
     patternMatches: true,
     clusterFacing: false,

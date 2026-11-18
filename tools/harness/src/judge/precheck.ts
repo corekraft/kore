@@ -1,6 +1,7 @@
 import type { CommandContext } from "../runtime/index.js";
 import {
   castAudit,
+  closingAudit,
   gatherChecks,
   gatherExpandStep,
   gatherGuardrailChanges,
@@ -108,6 +109,7 @@ async function diffChanges(
   repo: string,
   files: ChangedFile[],
   view: PrView,
+  idea: string | undefined,
 ): Promise<{ guardrailChanges?: string[]; audits?: AuditFinding[] }> {
   const guardrailChanges = await gatherGuardrailChanges(
     files,
@@ -119,6 +121,7 @@ async function diffChanges(
   const audits = [
     ...(await lengthAudit(api, repo, view.headSha, files)),
     ...castAudit(files),
+    ...closingAudit(view.body, idea),
   ];
   return {
     ...(guardrailChanges === undefined ? {} : { guardrailChanges }),
@@ -198,7 +201,7 @@ export async function precheck(
     checks,
     hints,
     ...verdict,
-    ...(await diffChanges(api, repo, files, view)),
+    ...(await diffChanges(api, repo, files, view, declaration.idea)),
   };
 }
 
