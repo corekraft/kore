@@ -15,8 +15,8 @@ Refines: [ADR 0119](0119-each-harness-idea-is-measured-on-a-primary-metric-only-
 
 Accepted on 2026-11-18 by the owner's own untagged message in the main session ("Approving any ADRs that you need"). Its questions were answered by delegation on 2026-11-16, by an
 answering session on the owner's behalf; that reaches this record through a
-tagged agent message, which is not approval (ADR 0120), so it becomes
-accepted on the owner's own untagged comment. It contradicts no accepted
+tagged agent message, which is not approval (ADR 0120), so its acceptance needed the owner's own untagged
+comment, which came on 2026-11-18. It contradicts no accepted
 sentence of ADR 0091, 0101, 0119, 0120 or 0121.
 
 ## Context
