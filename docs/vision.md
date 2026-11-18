@@ -107,19 +107,19 @@ reconciles it itself.
 Organizations bring their own domains by delegating a zone to the platform's
 DNS, and services are subdomains inside those zones
 ([ADR 0042](decisions/0042-organization-domains-by-delegation.md)). With
-`apps.corekraft.ca` delegated and chosen as the service base, a service named
-`auth` is served at `auth.apps.corekraft.ca`.
+`apps.example.com` delegated and chosen as the service base, a service named
+`auth` is served at `auth.apps.example.com`.
 
 | Host                               | Owner                  | Comes from                                   |
 | ---------------------------------- | ---------------------- | -------------------------------------------- |
-| `apps.corekraft.ca`                | Organization Corekraft | A zone delegated to the platform's DNS       |
-| `auth.apps.corekraft.ca`           | Service `auth`         | Default host: service name, then base        |
-| `login.apps.corekraft.ca`          | Service `auth`         | An extra host inside the organization's zone |
+| `apps.example.com`                 | Organization Corekraft | A zone delegated to the platform's DNS       |
+| `auth.apps.example.com`            | Service `auth`         | Default host: service name, then base        |
+| `login.apps.example.com`           | Service `auth`         | An extra host inside the organization's zone |
 | `auth.corekraft.<platform domain>` | Service `auth`         | The organization's default zone              |
 | `tracking.apps.acme-freight.eu`    | Service `tracking`     | A sub-organization's own zone, another TLD   |
 
 - **Domains come by delegation.** An organization delegates a whole domain,
-  such as `corekraft.ca`, or a subdomain, such as `apps.corekraft.ca`, to the
+  such as `example.com`, or a subdomain, such as `apps.example.com`, to the
   platform's DNS with NS records. A working delegation is the proof of
   control, and the platform then writes every record itself.
 - **Any organization, any TLD.** Companies under one umbrella often use
@@ -142,8 +142,8 @@ DNS, and services are subdomains inside those zones
 - **A lapsed delegation has a grace period.** No new routes are admitted, the
   organization is alerted, existing hosts keep serving for seven days, and then
   their routes are removed.
-- **Host-only cookies.** Every service under `corekraft.ca` shares one site. A
-  BFF sets host-only cookies and never `Domain=corekraft.ca`, which would send
+- **Host-only cookies.** Every service under `example.com` shares one site. A
+  BFF sets host-only cookies and never `Domain=example.com`, which would send
   its session to every other service under the domain.
 
 Upstream controllers deliver it, and Kore coordinates them:
@@ -159,7 +159,7 @@ Upstream controllers deliver it, and Kore coordinates them:
 - **Certificates.** cert-manager issues certificates for each zone, including
   DNS-01 wildcards, and locally from the local issuer
   ([ADR 0013](decisions/0013-local-tls-before-gateway.md)). A wildcard such as
-  `*.apps.corekraft.ca` covers one label only, so `api.auth.apps.corekraft.ca`
+  `*.apps.example.com` covers one label only, so `api.auth.apps.example.com`
   needs its own certificate.
 - **Ownership policy.** A Gatekeeper constraint checks every hostname against
   the organization's zones, starting in audit mode
@@ -189,9 +189,9 @@ graph LR
   hatch whose files sit outside signature admission
   ([ADR 0045](decisions/0045-static-frontends-as-signed-images.md)).
 - **Same site as its BFF.** The browser should reach the frontend and its BFF
-  on one site, for example `auth.apps.corekraft.ca` and
-  `auth.apps.corekraft.ca/api` through the Gateway, or
-  `api.auth.apps.corekraft.ca` when the frontend is hosted elsewhere, such as
+  on one site, for example `auth.apps.example.com` and
+  `auth.apps.example.com/api` through the Gateway, or
+  `api.auth.apps.example.com` when the frontend is hosted elsewhere, such as
   GitHub Pages pointed at the service host by a CNAME record. The BFF can then
   hold the session in an `HttpOnly`, `SameSite` cookie and keep tokens out of
   the browser. Splitting across unrelated sites, such as `*.github.io` and a
@@ -459,7 +459,7 @@ Principles for the portal:
   change it makes becomes a reviewed change to desired state that Argo CD or
   `kore` then applies, never a direct edit to the cluster.
 - **Run like any other service.** Each tenant's Backstage and Argo CD get hosts
-  under the tenant's service base, such as `backstage.apps.corekraft.ca`, a
+  under the tenant's service base, such as `backstage.apps.example.com`, a
   PostgreSQL claim, quotas, identity, policy, and telemetry like every other
   service.
 - **Same model as the CLI.** `kore` and Backstage read and propose the same

@@ -1207,14 +1207,14 @@
             platform's DNS, and services are subdomains inside those zones (<a
               href="https://github.com/corekraft/kore/blob/main/docs/decisions/0042-organization-domains-by-delegation.md"
               >ADR 0042</a
-            >). With <code>apps.corekraft.ca</code> delegated and chosen as the
+            >). With <code>apps.example.com</code> delegated and chosen as the
             service base, a service named <code>auth</code> is served at
-            <code>auth.apps.corekraft.ca</code>.
+            <code>auth.apps.example.com</code>.
           </p>
         </div>
         <div
           class="hostname"
-          aria-label="auth.apps.corekraft.ca broken into its parts"
+          aria-label="auth.apps.example.com broken into its parts"
         >
           <span class="label-part svc"><b>auth</b><small>Service</small></span
           ><span class="dot">.</span
@@ -1222,8 +1222,7 @@
             ><b>apps</b><small>Service base</small></span
           ><span class="dot">.</span
           ><span class="label-part dom"
-            ><b>corekraft.ca</b
-            ><small>Organization domain, any TLD</small></span
+            ><b>example.com</b><small>Organization domain, any TLD</small></span
           >
         </div>
         <div class="table-scroll">
@@ -1237,17 +1236,17 @@
             </thead>
             <tbody>
               <tr>
-                <td><code>apps.corekraft.ca</code></td>
+                <td><code>apps.example.com</code></td>
                 <td>Organization Corekraft</td>
                 <td>A zone delegated to the platform's DNS</td>
               </tr>
               <tr>
-                <td><code>auth.apps.corekraft.ca</code></td>
+                <td><code>auth.apps.example.com</code></td>
                 <td>Service <code>auth</code></td>
                 <td>Default host: service name, then base</td>
               </tr>
               <tr>
-                <td><code>login.apps.corekraft.ca</code></td>
+                <td><code>login.apps.example.com</code></td>
                 <td>Service <code>auth</code></td>
                 <td>An extra host inside the organization's zone</td>
               </tr>
@@ -1270,8 +1269,8 @@
               <strong>Domains come by delegation.</strong
               ><span
                 >An organization delegates a whole domain, such as
-                <code>corekraft.ca</code>, or a subdomain, such as
-                <code>apps.corekraft.ca</code>, to the platform's DNS with NS
+                <code>example.com</code>, or a subdomain, such as
+                <code>apps.example.com</code>, to the platform's DNS with NS
                 records. A working delegation is the proof of control, and the
                 platform writes every record itself.</span
               >
@@ -1325,10 +1324,10 @@
             <li>
               <strong>Host-only cookies.</strong
               ><span
-                >Every service under <code>corekraft.ca</code> shares one site.
-                A BFF sets host-only cookies and never
-                <code>Domain=corekraft.ca</code>, which would send its session
-                to every other service under the domain.</span
+                >Every service under <code>example.com</code> shares one site. A
+                BFF sets host-only cookies and never
+                <code>Domain=example.com</code>, which would send its session to
+                every other service under the domain.</span
               >
             </li>
           </ul>
@@ -1363,7 +1362,7 @@
               local issuer (<a
                 href="https://github.com/corekraft/kore/blob/main/docs/decisions/0013-local-tls-before-gateway.md"
                 >ADR 0013</a
-              >). A wildcard such as <code>*.apps.corekraft.ca</code> covers one
+              >). A wildcard such as <code>*.apps.example.com</code> covers one
               label only.
             </li>
             <li>
@@ -1444,9 +1443,9 @@
               </li>
               <li>
                 <strong>Same site as its BFF.</strong> Serve
-                <code>auth.apps.corekraft.ca</code> and
-                <code>auth.apps.corekraft.ca/api</code> through the Gateway, or
-                <code>api.auth.apps.corekraft.ca</code> when the frontend is
+                <code>auth.apps.example.com</code> and
+                <code>auth.apps.example.com/api</code> through the Gateway, or
+                <code>api.auth.apps.example.com</code> when the frontend is
                 hosted elsewhere, such as GitHub Pages pointed at the service
                 host by a CNAME record. The BFF then keeps the session in an
                 <code>HttpOnly</code>, <code>SameSite</code> cookie and tokens

@@ -48,7 +48,7 @@ GitOps.
   system with shared credentials is enabled only once it is scoped to the
   tenant.
 - **They run like any other service.** Each instance gets hosts under the
-  tenant's service base, such as `backstage.apps.corekraft.ca`, claims its
+  tenant's service base, such as `backstage.apps.example.com`, claims its
   database through the PostgreSQL API, and counts toward the tenant's quotas.
 
 ## Consequences

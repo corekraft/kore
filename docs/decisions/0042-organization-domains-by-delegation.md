@@ -15,7 +15,7 @@ gains a per-environment platform domain and DNS provider.
 ## Context
 
 Services are subdomains of their organization's domain, such as
-`auth.apps.corekraft.ca`. Companies under one umbrella often use unrelated
+`auth.apps.example.com`. Companies under one umbrella often use unrelated
 domains, so a sub-organization cannot be limited to its parent's domain. The
 options were proving ownership with TXT records and leaving DNS to each
 organization, or having organizations delegate a zone to the platform's DNS so
@@ -25,11 +25,11 @@ still need working hosts.
 ## Decision
 
 - **Domains come by delegation.** An organization delegates a zone, either a
-  whole domain such as `corekraft.ca` or a subdomain such as
-  `apps.corekraft.ca`, to the platform's DNS with NS records. A working
+  whole domain such as `example.com` or a subdomain such as
+  `apps.example.com`, to the platform's DNS with NS records. A working
   delegation is the proof of control; there is no TXT path.
 - **Any organization, any TLD.** An organization at any level may delegate
-  zones under any TLD, such as `corekraft.ca` for one company and
+  zones under any TLD, such as `example.com` for one company and
   `acme-freight.eu` for another. A parent may restrict which domains its
   subtree may use; it does not require them to sit under its own.
 - **Services are subdomains of a delegated zone.** Each organization names a

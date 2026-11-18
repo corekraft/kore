@@ -51,9 +51,9 @@ test("a session cookie with no SameSite, or SameSite none, is reported", () => {
 test("a Domain on the session cookie is reported, as a property or as a Domain attribute", () => {
   const property = compliant.replace(
     "        same-site: lax\n",
-    "        same-site: lax\n        domain: corekraft.ca\n",
+    "        same-site: lax\n        domain: example.com\n",
   );
-  const attribute = `${compliant}# Set-Cookie: SESSION=x; Domain=corekraft.ca\n`;
+  const attribute = `${compliant}# Set-Cookie: SESSION=x; Domain=example.com\n`;
   for (const text of [property, attribute]) {
     assert.deepEqual(sessionCookieViolations(text), [
       "a Domain is set; the cookie must be host-only",

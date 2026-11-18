@@ -25,7 +25,7 @@ or on a static host are not.
   image built from a pinned, minimal static-server base with the build inside
   it, signed and deployed by digest like any other workload.
 - **Same host as its BFF.** The Gateway serves the frontend at `/` and the BFF
-  at `/api` on the service's host, such as `auth.apps.corekraft.ca`, so both
+  at `/api` on the service's host, such as `auth.apps.example.com`, so both
   share an origin, certificate, and telemetry.
 - **Escape hatch per service.** A service may host its frontend on GitHub Pages
   or object storage instead, with its BFF at `api.<service host>`. The service
