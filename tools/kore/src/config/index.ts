@@ -4,6 +4,7 @@ export {
   smtpSecretName,
   smtpSecretNamespace,
 } from "./alert-email.js";
+export { alertForwardingHelmArgs } from "./alert-forwarding.js";
 export { dashboardSidecarHelmArgs } from "./dashboard-sidecar.js";
 export { isLocalProvider } from "./provider.js";
 export {

@@ -65,8 +65,9 @@ and is not part of Next.
   `KORE_ALERT_SMTP_*`), the SMTP login streams through `kore secrets smtp`, and
   with `platform-portal` on and an address set, `kore platform up` provisions
   one email contact point and a root policy. No address is written in the
-  repository. What remains is the wiring that carries fired alerts to the
-  contact point, and a live delivery proof.
+  repository. The wiring that carries fired alerts to the contact point is
+  built behind `platform-portal` ([ADR 0128](../../docs/decisions/0128-forward-fired-service-alerts-from-the-metrics-store-to-grafana-s-alert-manager.md),
+  #1117); what remains is the live delivery proof.
 - **Footprint breach (blocks Step 1, only if it happens).** Decided 2026-11-17
   (owner, [#1107](https://github.com/corekraft/kore/issues/1107)): a footprint
   run breaches when Docker VM memory in use goes above 85 percent at any sample
@@ -290,9 +291,9 @@ ready.
       alerts in Grafana
       ([ADR 0051](../../docs/decisions/0051-telemetry-retention-and-alerting.md)),
       with the platform alert destination. The destination is settled and
-      supplied at run time (#709, Parked Owner Questions); the wiring that
-      carries fired alerts to the contact point and the live delivery proof
-      remain.
+      supplied at run time (#709, Parked Owner Questions) and the wiring that
+      carries fired alerts to it is built (ADR 0128, #1117); the live delivery
+      proof remains.
 
 ### Exit Criteria
 
@@ -354,7 +355,7 @@ flag), _not provable_ (no project command exists), _not delivered_ (code still o
 | Backstage shows them                                                                | merged, live proof owed | #694, #695, #698, #701 (install, image, catalog, Argo CD view) | A `platform-portal` live run that shows the delivered services with their Argo CD Application and workload (Step 6 item 3 stays open until then); the install itself is also unproven live. The route exists in the `platform-backstage` chart.         |
 | People are signed in through the platform Keycloak                                  | merged, live proof owed | #688, #690, #691, #693, #694, #698                             | The Keycloak provider pod privileges run on a `platform-portal` live run. The in-app OIDC sign-in and the refused no-sign-in request are not provable, no project command exists (owner decision 2026-11-15).                                           |
 | Each service shows its default dashboard and alerts with no setup                   | merged, live proof owed | #692                                                           | A live run that shows both for a delivered service.                                                                                                                                                                                                     |
-| Alerts notify-only until thresholds are measured                                    | merged, live proof owed | #692, #709                                                     | The contact point mechanism exists and the destination is supplied at run time (Parked Owner Questions). Owed: the wiring that carries fired alerts to it and a live delivery proof; Step 6 item 4 stays open until then.                               |
+| Alerts notify-only until thresholds are measured                                    | merged, live proof owed | #692, #709                                                     | The contact point mechanism exists, the destination is supplied at run time (Parked Owner Questions) and the wiring that carries fired alerts to it is built (ADR 0128, #1117). Owed: a live delivery proof; Step 6 item 4 stays open until then.       |
 | Delivery time recorded per stage over several runs, cold and redeploy apart         | not provable            |                                                                | Not provable, no project command exists (owner decision 2026-11-15); Step 7 item 1.                                                                                                                                                                     |
 | The golden-path frontend's p95 at the Gateway, recorded with plan 13's load harness | not delivered           |                                                                | Step 7 item 2: the harness already computes p95; record the golden-path frontend's p95 with it.                                                                                                                                                         |
 | The end-user token test (clause names token and cookie settings)                    | not provable            | #672 (the unit-level cookie assertion)                         | Not provable, no project command exists (owner decision 2026-11-15): the browser run (Step 7 item 3).                                                                                                                                                   |
