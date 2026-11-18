@@ -129,8 +129,10 @@ change at medium is not carried in as a baseline (story 24 of #1065).
 Inputs, each from the issue named:
 
 - **Volume.** #998's power check counts about 28 Sonnet PRs against about 250
-  Haiku at a 10 percent share over 14 days, so about 280 writer PRs in 14 days.
-  At the 50 percent share the grilling recommended, about 140 land on Sonnet.
+  Haiku over 14 days, so about 280 writer PRs in 14 days at the draw #998
+  assumed. If the owner draws half of default-tier launches onto Sonnet, about
+  140 land on Sonnet. That half is an input to this estimate, not a value this
+  record sets.
 - **Haiku at high.** Mean $1.17 per merged PR since 2026-11-16 (#1064).
 - **Sonnet at medium.** Mean $0.90 per merged PR over 21 PRs since 2026-11-16
   (#1064). There is no Sonnet-at-high cost: only 7 Sonnet PRs ran at high
