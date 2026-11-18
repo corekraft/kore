@@ -233,6 +233,7 @@ describe("flow report: human lines", () => {
         "Lead time per merged change: not read, 0 of 0 merged changes measured in this range (5 needed); no average: 0 of 0 merged changes measured in the trailing 7 days (5 needed)",
         "All-in cost per merged change: not read, 0 merged changes in this range (5 needed)",
         "All-in cost per merged change, trailing average: no average: 0 merged changes in the trailing 7 days (5 needed)",
+        "Writer tiers beyond cost: not read, 0 merged changes in this range (5 needed)",
         "No bottleneck yet.",
         "",
       ].join("\n"),

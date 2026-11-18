@@ -540,6 +540,20 @@ and no merged change, left out of every tier. A model the price table does not
 price, in a tier's changes or in the shared spend, makes that figure
 `insufficient prices` and names the model; it is never read as zero.
 
+Each tier also reads the figures beside its cost (#1009), from
+`tools/harness/src/flow/writer-tier-figures.ts`: `rework`, the sends to its writer
+panes after a judge send-back for the change its writer started (an interrupt, or a
+send with no send-back before it, is not rework), and `reworkPerMergedChange` over its
+`mergedChanges`; `ownerMinutes` on the tier's joined pull requests, counted as
+`outcomes.ts` counts owner minutes, and `ownerMinutesPerMergedChange`; `requests` and
+`over100kShare`, the share of its requests over the 100K prompt step from the
+`token.split` request counts (zero when none is over the step, null with no request);
+and `firstPromptP50` and `firstPromptP90`, the median and the 90th percentile (nearest
+rank) of the first-request prompt sizes of its writer sessions that launched in the span
+and whose first request is in it; a session launched before the span, or whose first
+request falls outside it, is left out. A per-change figure is null with no
+joined change, never zero, and the text reads it as not read.
+
 `reviewMisses` measures the Reviewer against the judge (#851). A review is a
 `review.run` event that posted or left unchanged a verdict, counted once per PR
 head by its first verdict; a review with `findings` 0 passed, and one with more

@@ -59,6 +59,6 @@ describe("buildReport review misses (#851)", () => {
   it("versions the report to 17 when the review figures join it, since a field changed", () => {
     fakeTally();
     const report = buildReport([], { asOf: ASOF, minCompletedIdeas: 1 });
-    expect(report.version).toBe(28);
+    expect(report.version).toBe(29);
   });
 });

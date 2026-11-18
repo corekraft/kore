@@ -70,6 +70,14 @@ export const ZERO_TIER = {
   blocked: 0,
   blockedShare: null,
   perMergedChangeDollars: null,
+  rework: 0,
+  reworkPerMergedChange: null,
+  ownerMinutes: 0,
+  ownerMinutesPerMergedChange: null,
+  requests: 0,
+  over100kShare: null,
+  firstPromptP50: null,
+  firstPromptP90: null,
 };
 
 export const ZERO_TIERS = {

@@ -15,11 +15,6 @@ import {
 } from "./merged-span.js";
 import { inWindow, type Span } from "./scope.js";
 import {
-  mergedTierJoins,
-  pricedLaunches,
-  type PricedLaunch,
-} from "./writer-join.js";
-import {
   latestResults,
   MAIN_SESSION_MODEL,
   sendsIn,
@@ -37,6 +32,12 @@ import {
   type InsufficientPrices,
   type TierDollars,
 } from "./writer-attribution.js";
+import {
+  NO_TIER_FIELDS,
+  tierJoinsIn,
+  type PricedLaunch,
+  type TierFigureFields,
+} from "./writer-tier-figures.js";
 
 /** A shared part of the figure: its dollars and its dollars per merged change, or the unpriced models it cannot read. */
 export type SharedDollars =
@@ -49,7 +50,7 @@ export type SharedDollars =
 export const RELAUNCH_LIMIT =
   "A relaunch on a new session with no idea stamp cannot be joined to the first launch: its merged change takes the relaunch's tier, not the first launch's.";
 
-export interface WriterTierFigure {
+export interface WriterTierFigure extends TierFigureFields {
   /** Writer sessions launched in the span on this tier. */
   sessions: number;
   /** The tier's tokens in the span, each weighted by the tier's price. */
@@ -148,6 +149,7 @@ function tierFigure(
   results: Map<string, { at: number; result: string | undefined }>,
   inputs: TierInputs,
   dollars: TierDollars | InsufficientPrices | null,
+  fields: TierFigureFields,
 ): WriterTierFigure {
   const { weighted, sends, merged, mergedChanges } = inputs;
   const finished = launches.filter(
@@ -170,6 +172,7 @@ function tierFigure(
     blockedShare:
       finished.length === 0 ? null : round(blocked.length / finished.length),
     perMergedChangeDollars: dollars,
+    ...fields,
   };
 }
 
@@ -191,15 +194,16 @@ function figureIn(
   const { byTier, orchestrate, spent } = weightedTokensIn(events, span);
   const sends = sendsIn(events, span);
   const results = latestResults(events, span[1]);
-  const joins = mergedTierJoins(events, span);
+  const tiersKeys = Object.keys(MODEL_PRICES);
+  const joins = tierJoinsIn(events, span, tiersKeys);
   const dollars = writerDollarsIn(events, span, prices);
   // A writer is in the span when it launched in it or spent tokens in it, so its tokens and its count agree.
-  const launches = pricedLaunches(events).filter(
+  const launches = joins.launches.filter(
     (l) =>
       inWindow(span, l.at) || (l.agent !== undefined && spent.has(l.agent)),
   );
   const tiers = Object.fromEntries(
-    Object.keys(MODEL_PRICES).map((tier) => [
+    tiersKeys.map((tier) => [
       tier,
       tierFigure(
         launches.filter((l) => l.tier === tier),
@@ -211,6 +215,7 @@ function figureIn(
           mergedChanges: joins.joined.get(tier) ?? 0,
         },
         tierDollarsIn(dollars, tier),
+        joins.figures.get(tier) ?? NO_TIER_FIELDS,
       ),
     ]),
   );
