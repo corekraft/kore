@@ -150,6 +150,24 @@ describe("flow report violations by rule per writer tier (#1051)", () => {
 });
 
 describe("flow report Haiku-Sonnet break-even (#1051)", () => {
+  it("carries the keys the JSON pins for a read break-even, its Haiku side and each cited rule", () => {
+    const r = report();
+
+    expect(Object.keys(r.breakEven)).toEqual([
+      "status",
+      "needed",
+      "haiku",
+      "sonnet",
+      "costPerReworkRound",
+      "reworkRoundsPerMergedChange",
+    ]);
+    expect(
+      r.breakEven.status === "ok" && Object.keys(r.breakEven.haiku),
+    ).toEqual(["tier", "mergedChanges", "noRework", "oneRound"]);
+    const rule = r.violationsByRule.tiers[HAIKU]?.rules[0];
+    expect(Object.keys(rule ?? {})).toEqual(["rule", "count", "share"]);
+  });
+
   it("reads the rework rounds per merged change at which Haiku's median reaches Sonnet's, with the medians it uses", () => {
     expect(report().breakEven).toEqual({
       status: "ok",

@@ -104,27 +104,6 @@ export const VIOLATIONS_ROW_KEYS = [
   "rules",
 ];
 
-/** The keys of each entry of a violations row's `rules`, in report order (#1051). */
-export const VIOLATIONS_RULE_KEYS = ["rule", "count", "share"];
-
-/** The keys of `breakEven` once it is read, in report order (#1051). */
-export const BREAK_EVEN_OK_KEYS = [
-  "status",
-  "needed",
-  "haiku",
-  "sonnet",
-  "costPerReworkRound",
-  "reworkRoundsPerMergedChange",
-];
-
-/** The keys of `breakEven.haiku` once the break-even is read: the tier's changes and the two medians it uses (#1051). */
-export const BREAK_EVEN_HAIKU_KEYS = [
-  "tier",
-  "mergedChanges",
-  "noRework",
-  "oneRound",
-];
-
 /** The keys of `breakEven` when a tier has too few merged changes: no medians and no break-even (#1051). */
 export const BREAK_EVEN_INSUFFICIENT_KEYS = [
   "status",

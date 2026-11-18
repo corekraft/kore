@@ -1,4 +1,4 @@
-// Shared by the review-rounds specs (#1050): ledger events and the default readings of the modules
+// Shared by the review-rounds and violations-by-rule specs (#1050, #1051): ledger events and the default readings of the modules
 // the unit mocks. The spec mocks the modules; this file only sets their readings.
 
 import { vi } from "vitest";

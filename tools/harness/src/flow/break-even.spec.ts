@@ -190,6 +190,23 @@ describe("breakEvenIn: which changes are read", () => {
     });
   });
 
+  it("reads a break-even of zero when Sonnet's median equals Haiku's no-rework median, rather than not reading it", () => {
+    const haikus = [
+      change(11, HAIKU, 1),
+      change(12, HAIKU, 1),
+      change(13, HAIKU, 1),
+      change(14, HAIKU, 2),
+    ];
+
+    const figure = read([...haikus, ...SONNETS], [[14, 1]], 1);
+
+    expect(figure).toMatchObject({
+      status: "ok",
+      costPerReworkRound: 1,
+      reworkRoundsPerMergedChange: 0,
+    });
+  });
+
   it("rounds the break-even to four places", () => {
     const haikus = [
       change(11, HAIKU, 0.2),

@@ -773,7 +773,8 @@ merged changes than `cost.minMergedChanges` (or none), and no medians and no bre
 `insufficient prices`, with the `models`; and `not read`, with a `reason` (no Haiku change without
 rework, no Haiku change with one rework round, a rework round does not add to Haiku's median cost,
 or Haiku's median without rework is above Sonnet's median) and the figures that were read. A
-break-even is never a zero or a negative number, and the figure names no winner. The text
+break-even is never negative: it is 0 when Sonnet's median equals Haiku's median without rework, and
+it is `not read` when Sonnet's median is below it. The figure names no winner. The text
 (`flow-lines-break-even.ts`) prints one `Haiku-Sonnet break-even` line after the review round and
 violation lines, with Haiku's `rework` per merged change from `reviewRounds` beside it and the three
 medians with their counts. The report moved to `version` 40 when the two joined it.
