@@ -12,4 +12,4 @@ hypothesis-window: 1d
 issue: https://github.com/corekraft/kore/issues/1258
 ---
 
-# Idea 0042: Proof for 225: a deliberately wrong claim about tokens per merged change
+# Idea 0042: Proof for 225: a deliberately wrong claim about sessions per idea
