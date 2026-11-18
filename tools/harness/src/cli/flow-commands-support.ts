@@ -182,6 +182,7 @@ export function emptyReport(overrides: Partial<Record<string, unknown>> = {}) {
     tokensPerMergedChange: emptyTokensPerMergedChange,
     sendBacksPerMergedChange: emptySendBacksPerMergedChange,
     leadTimePerMergedChange: emptyLeadTimePerMergedChange,
+    writerCost: { pricesAsOf: "2026-11-17", ...emptyTokensPerMergedChange },
     tokensByStage: Object.fromEntries(STAGES.map((stage) => [stage, 0])),
     tokensByStagePerMergedChange: emptyTokensPerMergedChange,
     reviewMisses: NO_REVIEWS,

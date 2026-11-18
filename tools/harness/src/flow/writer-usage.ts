@@ -81,6 +81,25 @@ export function weightedTokensIn(events: LedgerEvent[], span: Span) {
   return { byTier, orchestrate, spent };
 }
 
+/** Each session's latest result before the span's end, by session name: the outcome word it last wrote. */
+export function latestResults(
+  events: LedgerEvent[],
+  end: number,
+): Map<string, { at: number; result: string | undefined }> {
+  const latest = new Map<string, { at: number; result: string | undefined }>();
+  for (const e of events) {
+    if (e.kind !== "session.result" || e.agent === undefined) {
+      continue;
+    }
+    const at = time(e);
+    const seen = latest.get(e.agent);
+    if (at < end && (seen === undefined || at >= seen.at)) {
+      latest.set(e.agent, { at, result: e.result });
+    }
+  }
+  return latest;
+}
+
 /** Follow-ups sent in the span to each tier's writer panes. */
 export function sendsIn(
   events: LedgerEvent[],

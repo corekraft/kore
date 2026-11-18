@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   HAIKU,
+  NO_JUDGE,
   NO_ORCHESTRATE,
   OPTIONS,
   RELAUNCH_LIMIT,
@@ -39,7 +40,13 @@ const PRICED_CURRENT = {
   merged: 5,
   unjoinable: 5,
   relaunchLimit: RELAUNCH_LIMIT,
-  orchestrate: { weightedTokens: 1000, perMergedChange: 200 },
+  orchestrate: {
+    ...NO_ORCHESTRATE,
+    weightedTokens: 1000,
+    perMergedChange: 200,
+  },
+  judge: NO_JUDGE,
+  unmergedWriterSessions: 0,
   tiers: {
     ...ZERO_TIERS,
     "claude-haiku-5-5": {
@@ -102,6 +109,8 @@ describe("writer cost: follow-ups and blocked share beside price", () => {
       unjoinable: 5,
       relaunchLimit: RELAUNCH_LIMIT,
       orchestrate: NO_ORCHESTRATE,
+      judge: NO_JUDGE,
+      unmergedWriterSessions: 0,
       tiers: {
         ...ZERO_TIERS,
         "claude-haiku-5-5": {
@@ -143,6 +152,8 @@ describe("writer cost: what is left out", () => {
       unjoinable: 5,
       relaunchLimit: RELAUNCH_LIMIT,
       orchestrate: NO_ORCHESTRATE,
+      judge: NO_JUDGE,
+      unmergedWriterSessions: 0,
       tiers: ZERO_TIERS,
     });
   });

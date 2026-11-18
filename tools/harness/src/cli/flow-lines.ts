@@ -226,18 +226,23 @@ export function leadTimePerMergedChangeLine(
   return `Lead time per merged change: ${now}; ${before}`;
 }
 
-/** The tokens, send-backs and lead time per merged change, in the order the report names them. */
+/**
+ * The tokens, send-backs and lead time per merged change, then the writer dollars per merged change
+ * by tier (#1008), in the order the report names them.
+ */
 export const perMergedChangeLines = (
   report: Pick<
     FlowReport,
     | "tokensPerMergedChange"
     | "sendBacksPerMergedChange"
     | "leadTimePerMergedChange"
+    | "writerCost"
   >,
 ): string[] => [
   tokensPerMergedChangeLine(report.tokensPerMergedChange),
   sendBacksPerMergedChangeLine(report.sendBacksPerMergedChange),
   leadTimePerMergedChangeLine(report.leadTimePerMergedChange),
+  ...writerDollarsLines(report.writerCost),
 ];
 
 /**
@@ -257,4 +262,77 @@ export function tokensPerMergedChangeLine(
       ? `average ${trailingAverage.perMerged} over the trailing ${trailingDays} days`
       : `no average: ${changes(trailingAverage.merged)} in the trailing ${trailingDays} days (${trailingAverage.needed} needed)`;
   return `Tokens per merged change: ${now}; ${before}`;
+}
+
+type OkWriterCost = Extract<
+  FlowReport["writerCost"]["current"],
+  { status: "ok" }
+>;
+type TierDollarLine = NonNullable<
+  OkWriterCost["tiers"][string]["perMergedChangeDollars"]
+>;
+
+const money = (value: number) => `$${value}`;
+
+/** The tiers whose merged changes carry dollars, each with its name, its changes and its dollars. */
+function pricedTiers(
+  figure: OkWriterCost,
+): { name: string; merged: number; dollars: TierDollarLine }[] {
+  return Object.entries(figure.tiers).flatMap(([name, t]) =>
+    t.perMergedChangeDollars === null
+      ? []
+      : [{ name, merged: t.mergedChanges, dollars: t.perMergedChangeDollars }],
+  );
+}
+
+/** A figure's tiers as one line: each tier's mean with its parts and median, or the note that none is read. */
+function tierDollarsText(figure: OkWriterCost): string {
+  const tiers = pricedTiers(figure);
+  if (tiers.length === 0) {
+    return "no tier joined to a merged change, not read";
+  }
+  return tiers
+    .map(
+      ({ name, merged, dollars: d }) =>
+        `${name} ${money(d.allIn)} mean over ${changes(merged)}, median ${money(d.median)} (writer ${money(d.writer)}, reviewer ${money(d.reviewer)}, judge ${money(d.judge)}, orchestrate ${money(d.orchestrate)})`,
+    )
+    .join("; ");
+}
+
+/** The trailing average's line: each tier's mean, or that the trailing days are not read. */
+function trailingDollarsLine(
+  trailing: WriterCostTrailing,
+  trailingDays: number,
+): string {
+  const label = "All-in cost per merged change, trailing average";
+  if (trailing.status !== "ok") {
+    return `${label}: no average: ${changes(trailing.merged)} in the trailing ${trailingDays} days (${trailing.needed} needed)`;
+  }
+  const means = pricedTiers(trailing)
+    .map(({ name, dollars: d }) => `${name} ${money(d.allIn)} mean`)
+    .join("; ");
+  return `${label} over the ${trailingDays} days before: ${means || "no tier joined to a merged change, not read"}`;
+}
+
+type WriterCostTrailing = FlowReport["writerCost"]["trailingAverage"];
+
+/**
+ * All-in cost per merged change by first-launch tier (#1008): each tier's mean with its parts and
+ * its median, the orchestrating model it assumes, and the trailing average. A figure that is not
+ * read says so: a window below the minimum, or no tier joined to a change, is never a zero.
+ */
+export function writerDollarsLines(w: FlowReport["writerCost"]): string[] {
+  const { current, trailingAverage, trailingDays, pricesAsOf } = w;
+  if (current.status !== "ok") {
+    return [
+      `All-in cost per merged change: not read, ${changes(current.merged)} in this range (${current.needed} needed)`,
+      trailingDollarsLine(trailingAverage, trailingDays),
+    ];
+  }
+  const writers = current.unmergedWriterSessions;
+  return [
+    `All-in cost per merged change by first-launch tier (prices read ${pricesAsOf}): ${tierDollarsText(current)}; ${current.unjoinable} unjoinable; ${writers} writer session${writers === 1 ? "" : "s"} with no merged change, left out`,
+    `Orchestrating dollars are priced at ${current.orchestrate.model}, an assumed main-session model, not a recorded one; the parts are means and do not sum to the median.`,
+    trailingDollarsLine(trailingAverage, trailingDays),
+  ];
 }

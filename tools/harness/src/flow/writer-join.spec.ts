@@ -1,12 +1,14 @@
 import { describe, expect, it } from "vitest";
 import {
   HAIKU,
+  NO_JUDGE,
   NO_ORCHESTRATE,
   OPTIONS,
   RELAUNCH_LIMIT,
   SONNET,
   WINDOW,
   ZERO_TIER,
+  ZERO_DOLLARS,
   ZERO_TIERS,
   ideaLaunch,
   launch,
@@ -41,6 +43,8 @@ describe("writer cost: each tier's figure over its own merged changes", () => {
       unjoinable: 0,
       relaunchLimit: RELAUNCH_LIMIT,
       orchestrate: NO_ORCHESTRATE,
+      judge: NO_JUDGE,
+      unmergedWriterSessions: 0,
       tiers: {
         ...ZERO_TIERS,
         "claude-haiku-5-5": {
@@ -51,6 +55,7 @@ describe("writer cost: each tier's figure over its own merged changes", () => {
           perMergedChangeByTier: 100,
           mergedChanges: 3,
           followUpsPerSession: 0,
+          perMergedChangeDollars: ZERO_DOLLARS,
         },
         "claude-sonnet-5-5": {
           ...ZERO_TIER,
@@ -60,6 +65,7 @@ describe("writer cost: each tier's figure over its own merged changes", () => {
           perMergedChangeByTier: 200,
           mergedChanges: 2,
           followUpsPerSession: 0,
+          perMergedChangeDollars: ZERO_DOLLARS,
         },
       },
     });
@@ -137,6 +143,8 @@ describe("writer cost: a pull request opened before the link event", () => {
       unjoinable: 5,
       relaunchLimit: RELAUNCH_LIMIT,
       orchestrate: NO_ORCHESTRATE,
+      judge: NO_JUDGE,
+      unmergedWriterSessions: 0,
       tiers: {
         ...ZERO_TIERS,
         "claude-haiku-5-5": {
@@ -168,6 +176,8 @@ describe("writer cost: a respawn under one idea", () => {
       unjoinable: 4,
       relaunchLimit: RELAUNCH_LIMIT,
       orchestrate: NO_ORCHESTRATE,
+      judge: NO_JUDGE,
+      unmergedWriterSessions: 0,
       tiers: {
         ...ZERO_TIERS,
         "claude-haiku-5-5": {
@@ -175,6 +185,7 @@ describe("writer cost: a respawn under one idea", () => {
           sessions: 1,
           mergedChanges: 1,
           perMergedChangeByTier: 0,
+          perMergedChangeDollars: ZERO_DOLLARS,
           followUpsPerSession: 0,
         },
         "claude-sonnet-5-5": {
