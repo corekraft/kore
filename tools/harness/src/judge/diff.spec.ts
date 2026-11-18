@@ -45,6 +45,25 @@ describe("parseDiff: renames and hunks", () => {
     ]);
   });
 
+  it("gives each added line its line number in the new file, counting context and not removed lines", () => {
+    const [file] = parseDiff(
+      [
+        "diff --git a/a.ts b/a.ts",
+        "@@ -1,3 +1,3 @@",
+        " keep",
+        "-old",
+        "+new",
+        "@@ -9,1 +10,2 @@",
+        "+later",
+        " tail",
+      ].join("\n"),
+    );
+    expect(file?.addedLines).toEqual([
+      { line: 2, text: "new" },
+      { line: 10, text: "later" },
+    ]);
+  });
+
   it("marks a hunk that only removes lines", () => {
     const [file] = parseDiff(
       "diff --git a/a.ts b/a.ts\n@@ -1,2 +1 @@\n-gone\n keep",
@@ -72,6 +91,7 @@ describe("diff header reading", () => {
         previousPath: "apps/web/café.yaml",
         deleted: false,
         added: ["name: cafe"],
+        addedLines: [{ line: 1, text: "name: cafe" }],
         removed: 0,
         netRemoved: 0,
         after: [{ added: true, text: "name: cafe" }],
