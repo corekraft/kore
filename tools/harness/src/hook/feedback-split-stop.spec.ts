@@ -6,7 +6,11 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { SplitOrigin } from "../ledger/index.js";
 import type { CliDeps } from "../runtime/index.js";
 import { feedback } from "./feedback.js";
-import { readSplit, splitStateFile } from "./feedback-split.js";
+import {
+  compactionCapOf,
+  readSplit,
+  splitStateFile,
+} from "./feedback-split.js";
 import { readTokens, tokenStateFile } from "./feedback-tokens.js";
 import { recordEvent } from "./ledger-event.js";
 
@@ -15,6 +19,7 @@ vi.mock("./feedback-tokens.js", () => ({
   tokenStateFile: vi.fn(),
 }));
 vi.mock("./feedback-split.js", () => ({
+  compactionCapOf: vi.fn(),
   readSplit: vi.fn(),
   splitStateFile: vi.fn(),
 }));
@@ -35,6 +40,7 @@ beforeEach(() => {
   vi.mocked(splitStateFile).mockReturnValue("/state/split.json");
   vi.mocked(readTokens).mockResolvedValue({ total: 0, grew: false, added: "" });
   vi.mocked(readSplit).mockResolvedValue([]);
+  vi.mocked(compactionCapOf).mockResolvedValue(80000);
   vi.mocked(recordEvent).mockReset();
 });
 
@@ -45,6 +51,8 @@ describe("feedback stop records the token split", () => {
     const reading: SplitOrigin = {
       model: "claude-haiku-5-5",
       firstPrompt: 100,
+      largestPrompt: 150,
+      overCap: 1,
       lowRequests: 2,
       lowInput: 10,
       lowCacheWrite5m: 0,
@@ -65,8 +73,9 @@ describe("feedback stop records the token split", () => {
     });
     vi.mocked(readSplit).mockResolvedValue([reading]);
     await feedback("stop", payload, deps);
+    expect(vi.mocked(compactionCapOf).mock.calls).toEqual([[deps.fs, "/repo"]]);
     expect(vi.mocked(readSplit).mock.calls).toEqual([
-      [deps.fs, "/t.jsonl", "/state/split.json"],
+      [deps.fs, "/t.jsonl", "/state/split.json", 80000],
     ]);
     expect(vi.mocked(recordEvent).mock.calls).toEqual([
       [deps, "session.stop", payload],

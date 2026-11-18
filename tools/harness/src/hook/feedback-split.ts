@@ -1,14 +1,19 @@
 // The stop hook's priced token split (#1001, spec #997): per model and prompt step, the
 // requests and their input, cache-write (5 minute and 1 hour), cache-read and output
-// tokens, and the first request's prompt size. The ledger holds these numbers and the
-// model name only; the prices are applied where the reading is read (flow/writer-prices.ts).
-// token.usage is counted beside it by feedback-tokens.ts and is not changed by this file.
+// tokens, and the first request's prompt size. Since #1032 it also holds the largest prompt
+// and, when a compaction cap is set, the count of requests over it. The ledger holds these
+// numbers and the model name only; the prices are applied where the reading is read
+// (flow/writer-prices.ts). token.usage is counted beside it by feedback-tokens.ts and is
+// not changed by this file.
 
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { promptStepOf, type PromptStep } from "../flow/index.js";
 import { isName, type SplitOrigin } from "../ledger/index.js";
 import type { FileSystem } from "../runtime/index.js";
+
+/** The compaction cap the stop hook reads with the split; see compaction-cap.ts (#1032). */
+export { compactionCapOf } from "./compaction-cap.js";
 
 /** Where a session keeps its split position between stops. */
 export const splitStateFile = (session: unknown): string =>
@@ -45,22 +50,30 @@ export interface StepTotals {
   output: number;
 }
 
-/** One model's totals: its first request's prompt size, and each prompt step's totals. */
+/**
+ * One model's totals: its first request's prompt size, and each prompt step's totals. The
+ * largest prompt and the over-cap count cover its requests before the last one counted
+ * (`SplitState.last`), so that request can be replaced exactly when it streams in again.
+ */
 export interface ModelSplit {
   model: string;
   firstPrompt: number;
+  priorLargest: number;
+  priorOver: number;
   low: StepTotals;
   high: StepTotals;
 }
 
 /**
  * The split so far, and the complete lines it has read (`offset`). `last` is the last
- * request counted, so a copy of it that streams in later replaces its count.
+ * request counted, so a copy of it that streams in later replaces its count; `lastOver`
+ * is whether it was over the compaction cap when it was read.
  */
 export interface SplitState {
   offset: number;
   models: ModelSplit[];
   last?: Request;
+  lastOver?: boolean;
 }
 
 export const EMPTY_SPLIT: SplitState = { offset: 0, models: [] };
@@ -140,6 +153,8 @@ function applied(models: ModelSplit[], r: Request, sign: 1 | -1): ModelSplit[] {
   const base: ModelSplit = found ?? {
     model: r.model,
     firstPrompt: r.prompt,
+    priorLargest: 0,
+    priorOver: 0,
     low: zero(),
     high: zero(),
   };
@@ -154,15 +169,37 @@ function applied(models: ModelSplit[], r: Request, sign: 1 | -1): ModelSplit[] {
 }
 
 /**
- * Adds the complete lines of `text` (the transcript from `state.offset`) to the split.
- * A half-written last line is left for the next stop. A copy of the last message that
- * streams in again replaces its earlier count, as token.usage does. Only numbers and
- * model names are kept; no text leaves this function.
+ * Folds the last counted request into its model's largest prompt and over-cap count, because
+ * a newer request now follows it and it can no longer stream in again.
  */
-export function advanceSplit(state: SplitState, text: string): SplitState {
+function folded(models: ModelSplit[], r: Request, over: boolean): ModelSplit[] {
+  return models.map((m) =>
+    m.model === r.model
+      ? {
+          ...m,
+          priorLargest: Math.max(m.priorLargest, r.prompt),
+          priorOver: m.priorOver + (over ? 1 : 0),
+        }
+      : m,
+  );
+}
+
+/**
+ * Adds the complete lines of `text` (the transcript from `state.offset`) to the split. A
+ * request whose prompt is over `cap` counts toward the over-cap count; a prompt equal to the
+ * cap is not over it. A half-written last line is left for the next stop. A copy of the last
+ * message that streams in again replaces its earlier count, as token.usage does. Only numbers
+ * and model names are kept; no text leaves this function.
+ */
+export function advanceSplit(
+  state: SplitState,
+  text: string,
+  cap?: number,
+): SplitState {
   const end = text.lastIndexOf("\n") + 1;
   let models = state.models;
   let last = state.last;
+  let lastOver = state.lastOver === true;
   for (const raw of text.slice(0, end).split("\n")) {
     const r = requestOf(raw);
     if (r === undefined) {
@@ -175,48 +212,88 @@ export function advanceSplit(state: SplitState, text: string): SplitState {
       r.model === last.model
     ) {
       models = applied(models, last, -1);
+    } else if (last !== undefined) {
+      models = folded(models, last, lastOver);
     }
     models = applied(models, r, 1);
     last = r;
+    lastOver = cap !== undefined && r.prompt > cap;
   }
   return {
     offset: state.offset + Buffer.byteLength(text.slice(0, end)),
     models,
-    ...(last === undefined ? {} : { last }),
+    ...(last === undefined ? {} : { last, lastOver }),
   };
 }
 
-const flat = (m: ModelSplit): SplitOrigin => ({
-  model: m.model,
-  firstPrompt: m.firstPrompt,
-  lowRequests: m.low.requests,
-  lowInput: m.low.input,
-  lowCacheWrite5m: m.low.cacheWrite5m,
-  lowCacheWrite1h: m.low.cacheWrite1h,
-  lowCacheRead: m.low.cacheRead,
-  lowOutput: m.low.output,
-  highRequests: m.high.requests,
-  highInput: m.high.input,
-  highCacheWrite5m: m.high.cacheWrite5m,
-  highCacheWrite1h: m.high.cacheWrite1h,
-  highCacheRead: m.high.cacheRead,
-  highOutput: m.high.output,
-});
-
-/** The ledger reading of each model in the split: its cumulative numbers, no text. */
-export function readingsOf(state: SplitState): SplitOrigin[] {
-  return state.models.map(flat);
+/**
+ * A model's largest prompt and over-cap count, with the last request counted included when
+ * it is this model's.
+ */
+function figuresOf(
+  m: ModelSplit,
+  state: SplitState,
+): { largest: number; over: number } {
+  const last = state.last?.model === m.model ? state.last : undefined;
+  return {
+    largest:
+      last === undefined
+        ? m.priorLargest
+        : Math.max(m.priorLargest, last.prompt),
+    over: m.priorOver + (last !== undefined && state.lastOver === true ? 1 : 0),
+  };
 }
+
+const flat = (m: ModelSplit, state: SplitState, cap?: number): SplitOrigin => {
+  const { largest, over } = figuresOf(m, state);
+  return {
+    model: m.model,
+    firstPrompt: m.firstPrompt,
+    largestPrompt: largest,
+    ...(cap === undefined ? {} : { overCap: over }),
+    lowRequests: m.low.requests,
+    lowInput: m.low.input,
+    lowCacheWrite5m: m.low.cacheWrite5m,
+    lowCacheWrite1h: m.low.cacheWrite1h,
+    lowCacheRead: m.low.cacheRead,
+    lowOutput: m.low.output,
+    highRequests: m.high.requests,
+    highInput: m.high.input,
+    highCacheWrite5m: m.high.cacheWrite5m,
+    highCacheWrite1h: m.high.cacheWrite1h,
+    highCacheRead: m.high.cacheRead,
+    highOutput: m.high.output,
+  };
+};
+
+/**
+ * The ledger reading of each model in the split: its cumulative numbers, no text. The
+ * over-cap count is left out when no cap is given, so a session with no cap never reads zero.
+ */
+export function readingsOf(state: SplitState, cap?: number): SplitOrigin[] {
+  return state.models.map((m) => flat(m, state, cap));
+}
+
+/** A model's figures in a saved state; a state saved before #1032 has none, so it is read again. */
+const isCounted = (m: unknown): boolean => {
+  const { priorLargest, priorOver } = (m ?? {}) as Partial<ModelSplit>;
+  return Number.isSafeInteger(priorLargest) && Number.isSafeInteger(priorOver);
+};
 
 function parseSplit(text: string): SplitState {
   try {
     const value = JSON.parse(text) as Partial<SplitState>;
-    const { offset, models, last } = value;
+    const { offset, models, last, lastOver } = value;
     return typeof offset === "number" &&
       Number.isSafeInteger(offset) &&
       offset >= 0 &&
-      Array.isArray(models)
-      ? { offset, models, ...(last === undefined ? {} : { last }) }
+      Array.isArray(models) &&
+      models.every(isCounted)
+      ? {
+          offset,
+          models,
+          ...(last === undefined ? {} : { last, lastOver: lastOver === true }),
+        }
       : EMPTY_SPLIT;
   } catch {
     return EMPTY_SPLIT;
@@ -226,12 +303,14 @@ function parseSplit(text: string): SplitState {
 /**
  * The readings of the models whose numbers grew since the last stop, each cumulative,
  * and the state saved for the next stop. Only the transcript from the saved offset is
- * read. Best effort: an unreadable transcript reports nothing rather than failing the stop.
+ * read, against the compaction cap when one is set. Best effort: an unreadable transcript
+ * reports nothing rather than failing the stop.
  */
 export async function readSplit(
   fs: FileSystem,
   path: unknown,
   stateFile: string,
+  cap?: number,
 ): Promise<SplitOrigin[]> {
   try {
     if (typeof path !== "string" || path === "") {
@@ -241,14 +320,14 @@ export async function readSplit(
       .readFile(stateFile)
       .then(parseSplit, () => EMPTY_SPLIT);
     const chunk = await fs.readFrom(path, before.offset);
-    const after = advanceSplit(before, chunk);
+    const after = advanceSplit(before, chunk, cap);
     if (after.offset !== before.offset) {
       await fs.writeFile(stateFile, JSON.stringify(after));
     }
     const earlier = new Map(
-      readingsOf(before).map((r) => [r.model, JSON.stringify(r)]),
+      readingsOf(before, cap).map((r) => [r.model, JSON.stringify(r)]),
     );
-    return readingsOf(after).filter(
+    return readingsOf(after, cap).filter(
       (r) => earlier.get(r.model) !== JSON.stringify(r),
     );
   } catch {
