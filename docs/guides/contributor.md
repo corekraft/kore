@@ -505,7 +505,7 @@ ledger's token count adds input, output and cache-creation tokens together, so t
 weight is relative rather than dollars; every model in the table has the same
 output-to-input ratio, so the tier ratios hold for any token mix. Each tier gives
 `sessions`, `weightedTokens`, `perMergedChange` over the range's merged changes
-(SUPERSEDED: kept unchanged, read `perMergedChangeByTier` instead), `mergedChanges`
+(SUPERSEDED: kept unchanged, read `perMergedChangeDollars` instead), `mergedChanges`
 (the merged changes joined to that tier) and `perMergedChangeByTier` (its weighted
 tokens over its own `mergedChanges`, null with none). A merged change joins to a
 tier through its pull request's `pr.linked` event: the writer's first priced
@@ -522,6 +522,23 @@ the main session; re-check that assumption before reading the tiers against it.
 `writerCost.current` and `.trailingAverage` are the names the figure registers;
 each has `status` and needs `cost.minMergedChanges` merged changes, else it is
 `insufficient merged changes`, never zero.
+
+The all-in dollars per merged change (#1008) are `perMergedChangeDollars` on each
+tier, priced per request from `token.split` readings (`tools/harness/src/flow/writer-dollars.ts`):
+each model's counts at the low step and the high step (over 100K, the whole request
+at the high step, cache reads included) at its rates from the table, with the price
+table passed in as a parameter. A change's writer part is its writer sessions'
+whole-life dollars to the last of their merges, split equally across the merged
+changes each session is linked to; its reviewer part is the session named
+`pr<N>-reviewer`, to its merge; the judge's and orchestrating sessions' spend in the
+span, the reviewers excluded, is shared equally per merged change. The tier reads the
+mean of each part, the sum (`allIn`) and the median of the per-change totals, which
+the parts do not sum to. The orchestrating part is priced at the assumed
+`MAIN_SESSION_MODEL` and says so as `orchestrate.model`. `judge` and `orchestrate`
+give the shared dollars, and `unmergedWriterSessions` counts the writers with spend
+and no merged change, left out of every tier. A model the price table does not
+price, in a tier's changes or in the shared spend, makes that figure
+`insufficient prices` and names the model; it is never read as zero.
 
 `reviewMisses` measures the Reviewer against the judge (#851). A review is a
 `review.run` event that posted or left unchanged a verdict, counted once per PR

@@ -41,7 +41,7 @@ function earliest(launches: PricedLaunch[]): PricedLaunch | undefined {
 }
 
 /** Each pull request's linked session name, from its earliest pr.linked event. */
-function linkedAgents(events: LedgerEvent[]): Map<number, string> {
+export function linkedAgents(events: LedgerEvent[]): Map<number, string> {
   const first = new Map<number, { at: number; agent: string }>();
   for (const e of events) {
     if (
@@ -65,7 +65,7 @@ function linkedAgents(events: LedgerEvent[]): Map<number, string> {
  * with the idea that session's own first launch carries, or that launch's tier when it carries
  * no idea. Undefined when the session has no priced launch.
  */
-function tierOfLinked(
+export function tierOfLinked(
   launches: PricedLaunch[],
   agent: string,
 ): string | undefined {
@@ -77,6 +77,29 @@ function tierOfLinked(
     return own.tier;
   }
   return earliest(launches.filter((l) => l.idea === own.idea))?.tier;
+}
+
+/**
+ * The writer sessions a linked session's merged change is charged for: the session, and every
+ * launch that shares its first launch's idea (a relaunch of the same work). Undefined when the
+ * session has no priced launch, the same case that joins no tier.
+ */
+export function writerGroup(
+  launches: PricedLaunch[],
+  agent: string,
+): string[] | undefined {
+  const own = earliest(launches.filter((l) => l.agent === agent));
+  if (own === undefined) {
+    return undefined;
+  }
+  if (own.idea === undefined) {
+    return [agent];
+  }
+  const sharing = launches
+    .filter((l) => l.idea === own.idea)
+    .map((l) => l.agent)
+    .filter((name): name is string => name !== undefined);
+  return [...new Set([agent, ...sharing])];
 }
 
 /** The merged changes in the span by the tier each joins to, and the count that joins to none. */

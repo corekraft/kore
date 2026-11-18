@@ -69,6 +69,7 @@ export const ZERO_TIER = {
   finished: 0,
   blocked: 0,
   blockedShare: null,
+  perMergedChangeDollars: null,
 };
 
 export const ZERO_TIERS = {
@@ -78,4 +79,24 @@ export const ZERO_TIERS = {
   "claude-haiku-5-5": ZERO_TIER,
 };
 
-export const NO_ORCHESTRATE = { weightedTokens: 0, perMergedChange: 0 };
+/** The orchestrating part of a span with no spend: its tokens, and its dollars at the assumed main-session model. */
+export const NO_ORCHESTRATE = {
+  weightedTokens: 0,
+  perMergedChange: 0,
+  model: "claude-opus-5-5",
+  dollars: 0,
+  dollarsPerMergedChange: 0,
+};
+
+/** A joined tier whose changes carry no spend: every part a dollar zero, not an unread null. */
+export const ZERO_DOLLARS = {
+  writer: 0,
+  reviewer: 0,
+  judge: 0,
+  orchestrate: 0,
+  allIn: 0,
+  median: 0,
+};
+
+/** The judge's shared part of a span with no spend. */
+export const NO_JUDGE = { dollars: 0, dollarsPerMergedChange: 0 };
