@@ -1,7 +1,11 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { LedgerEvent } from "../ledger/index.js";
 import { splitFiguresAt } from "./date-split.js";
-import { sendBackTiersIn, type SendBackTiers } from "./send-back-tiers.js";
+import {
+  NO_SEND_BACK_TIERS,
+  sendBackTiersIn,
+  type SendBackTiers,
+} from "./send-back-tiers.js";
 import { sendBackTiersSplitIn } from "./send-back-tiers-split.js";
 import type { Span } from "./scope.js";
 import { MODEL_PRICES } from "./writer-prices.js";
@@ -15,10 +19,7 @@ const EVENTS: LedgerEvent[] = [];
 
 const figures = (mergedChanges: number): SendBackTiers => ({
   tiers: {},
-  unlinked: {
-    mergedChanges,
-    sendBacks: {} as SendBackTiers["unlinked"]["sendBacks"],
-  },
+  unlinked: { ...NO_SEND_BACK_TIERS.unlinked, mergedChanges },
 });
 
 beforeEach(() => {

@@ -6,8 +6,32 @@ import { sendBackTierReportLines } from "./flow-lines-send-back-split.js";
 vi.mock("./flow-lines-send-back.js");
 
 const AT = "2026-11-16T00:00:00.000Z";
-const BEFORE = { tiers: {} } as unknown as SendBackTiers;
-const AFTER = { unlinked: {} } as unknown as SendBackTiers;
+// Two distinct values of the real type: the lines are told apart by identity, never by content.
+const BASE: SendBackTiers = {
+  tiers: {},
+  unlinked: {
+    mergedChanges: 0,
+    sendBacks: {
+      byCategory: {
+        declaration: 0,
+        "pattern-mismatch": 0,
+        "failed-check": 0,
+        conflict: 0,
+        "missing-proof": 0,
+        "rule-break": 0,
+        scope: 0,
+        "wrong-statement": 0,
+        other: 0,
+      },
+      uncategorised: 0,
+      otherShare: null,
+      otherThreshold: 0.1,
+      otherOverThreshold: false,
+    },
+  },
+};
+const BEFORE: SendBackTiers = { ...BASE };
+const AFTER: SendBackTiers = { ...BASE };
 
 beforeEach(() => {
   vi.resetAllMocks();
