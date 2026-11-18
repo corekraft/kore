@@ -49,7 +49,7 @@ export type AgentFigure =
   | { status: "insufficient"; sessions: number; needed: number }
   | UnpricedFigure;
 
-/** One idea: the dollars and tokens of the sessions stamped with it, its lead time and its outcome. */
+/** One idea: the dollars and tokens of the sessions stamped with it and of the writers whose pull request carries it, its lead time and its outcome. */
 export interface IdeaFigure {
   idea: string;
   /** Null, with unpricedModels, when a session ran on a model the price table does not price. */
@@ -86,6 +86,37 @@ export interface MergedChanges {
   tokens?: Summary;
 }
 
+/** One bucket of writer sessions: their cumulative tokens and dollars, never added to an idea. */
+export interface WritingBucket {
+  sessions: number;
+  /** Raw tokens, counted for every model. */
+  tokens: number;
+  /** Null, with unpricedModels, when a session ran on a model the price table does not price. */
+  dollars: number | null;
+  unpricedModels?: string[];
+}
+
+/** The share of writer tokens attributed to an idea, or insufficient below the minimum writer sessions. */
+export type AttributedShare =
+  | { status: "measured"; share: number; sessions: number }
+  | { status: "insufficient"; sessions: number; needed: number };
+
+/**
+ * Writer tokens by where they land (#1093, spec #1086): attributed to an idea (a stamped session,
+ * or one whose pull request carries an idea), or one of the two unattributed buckets, which are
+ * never added to an idea. Tokens and dollars are each session's cumulative to the window's end.
+ */
+export interface Writing {
+  attributed: WritingBucket;
+  /** Sessions whose linked pull request carries no idea. */
+  noIdea: WritingBucket;
+  /** Sessions with no pr.linked event. */
+  noPullRequest: WritingBucket;
+  /** Pull requests opened in the window with no pr.linked event: counted, never read as zero writing. */
+  unjoinable: number;
+  share: AttributedShare;
+}
+
 export interface CostWaitingOptions {
   /** The price table the dollars are read at. */
   prices: PriceTable;
@@ -99,4 +130,5 @@ export interface CostWaiting {
   agents: Record<AgentRow, AgentFigure>;
   ideas: IdeaFigure[];
   mergedChanges: MergedChanges;
+  writing: Writing;
 }

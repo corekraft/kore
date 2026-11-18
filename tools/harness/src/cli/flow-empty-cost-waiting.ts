@@ -22,5 +22,12 @@ export const EMPTY_REPORT_FIELDS = {
       joined: 0,
       needed: 5,
     },
+    writing: {
+      attributed: { sessions: 0, tokens: 0, dollars: 0 },
+      noIdea: { sessions: 0, tokens: 0, dollars: 0 },
+      noPullRequest: { sessions: 0, tokens: 0, dollars: 0 },
+      unjoinable: 0,
+      share: { status: "insufficient", sessions: 0, needed: 5 },
+    },
   } as unknown as FlowReport["costWaiting"],
 };

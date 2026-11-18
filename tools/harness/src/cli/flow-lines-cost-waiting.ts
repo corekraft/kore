@@ -1,9 +1,10 @@
 // The token cost beside waiting time lines of the flow report (#1019): each agent role's dollars and
 // tokens with their median and 90th percentile, the share of the weekly ceiling, then the merged pull
-// requests and the ideas. A figure below the minimum count reads not read, and a model the price table
+// requests, the writing buckets (#1093) and the ideas. A figure below the minimum count reads not read, and a model the price table
 // does not price is named; the lines name no winner and no verdict.
 
 import type { FlowReport } from "../flow/index.js";
+import { writingLines } from "./flow-lines-writing.js";
 
 type Cost = FlowReport["costWaiting"];
 type Agent = Cost["agents"][keyof Cost["agents"]];
@@ -70,12 +71,13 @@ function ideaLines(cost: Cost): string[] {
   );
 }
 
-/** The token cost beside waiting time lines: the headline, the agent rows, the merged changes and the ideas. */
+/** The token cost beside waiting time lines: the headline, the agent rows, the merged changes, the writing buckets and the ideas. */
 export function costWaitingLines(cost: Cost): string[] {
   return [
     "Token cost beside waiting time (#1019):",
     ...agentLines(cost).map((line) => `  ${line}`),
     `  ${mergedLine(cost)}`,
+    ...writingLines(cost.writing).map((line) => `  ${line}`),
     ...ideaLines(cost).map((line) => `  ${line}`),
   ];
 }

@@ -94,7 +94,18 @@ describe("attribute reads the idea a pull request's link names", () => {
     expect([...ideas.values()]).not.toContain("none");
   });
 
-  it("gives the writer's events the idea its pull request's link names, when that idea is real", () => {
+  it("gives the link itself the idea it names, when that idea is real", () => {
+    const link = at(0, "pr.linked", {
+      number: 9,
+      session: "s1",
+      agent: "s1",
+      idea: "0030",
+    });
+
+    expect(attribute([link]).get(link.id)).toBe("0030");
+  });
+
+  it("does not spread a link's idea to the writer's other events, so idea 0012's reading moves by the link alone (#1093)", () => {
     const link = at(0, "pr.linked", {
       number: 9,
       session: "s1",
@@ -102,8 +113,20 @@ describe("attribute reads the idea a pull request's link names", () => {
       idea: "0030",
     });
     const writing = at(5, "token.usage", { session: "s1", tokens: 1 });
-    const ideas = attribute([link, writing]);
-    expect(ideas.get(link.id)).toBe("0030");
-    expect(ideas.get(writing.id)).toBe("0030");
+
+    expect(attribute([link, writing]).get(writing.id)).toBeUndefined();
+  });
+
+  it("still gives the writer's events the idea its own stamped event names, beside a link that names another", () => {
+    const stamped = at(0, "session.launch", { session: "s1", idea: "#4" });
+    const link = at(1, "pr.linked", {
+      number: 9,
+      session: "s1",
+      agent: "s1",
+      idea: "0030",
+    });
+    const writing = at(5, "token.usage", { session: "s1", tokens: 1 });
+
+    expect(attribute([stamped, link, writing]).get(writing.id)).toBe("#4");
   });
 });

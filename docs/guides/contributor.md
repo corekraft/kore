@@ -541,17 +541,42 @@ published prices against the cost settings and the weekly token ceiling in
 `.claude/harness.json` (`weeklyTokenCeiling`, a top-level key beside `cost`, read `not set` when it is
 absent; the owner sets its value). It has three levels. `mergedChanges` reads insufficient, never zero, below `cost.minMergedChanges`
 joined changes, and each `agents` role reads insufficient below that many sessions; `ideas` is a plain list, one
-row per idea named by an event, with no insufficient status. An unpriced model is named, never read as zero: `agents` and `mergedChanges` read `insufficient prices` with the models (checked before the minimum, and for `mergedChanges` over the joined changes and the shared judge and orchestrating spend), and an idea with one has null dollars and `unpricedModels`, its tokens still counted; the text prints `<role> not read: no price for <models>` for an agent row and `insufficient prices (models)` for the merged-change line and an idea row. `agents` (per role: writer, reviewer, judge, verifier,
+row per idea named by an event or carried by a linked writer's pull request, with no insufficient status; the `writing` share reads insufficient below the same count, of writer sessions. An unpriced model is named, never read as zero: `agents` and `mergedChanges` read `insufficient prices` with the models (checked before the minimum, and for `mergedChanges` over the joined changes and the shared judge and orchestrating spend), and an idea with one has null dollars and `unpricedModels`, its tokens still counted; the text prints `<role> not read: no price for <models>` for an agent row and `insufficient prices (models)` for the merged-change line and an idea row. `agents` (per role: writer, reviewer, judge, verifier,
 reader, judgment, advisor, the main session as `orchestrate`, and any other named
 session as `other`, each with its sessions' dollars, tokens, active and waiting seconds
 as median and p90, and the plan-weighted share of the ceiling); `mergedChanges` (the text
 prints one summary line of the joined count with the median and p90 of all-in dollars
 and tokens; `--json` adds one row per merged pull request, with its all-in dollars and
 tokens by the same attribution, its seconds from the first writer launch to merge, and
-its seconds from opening to merge); and `ideas` (the
-dollars and tokens of the sessions stamped with each idea to the window's end, its lead
-time and outcome). Writing that carries no idea is not in `ideas`; #1093 adds it. The
-report names no winner and no verdict. Code: `tools/harness/src/flow/cost-waiting*.ts`.
+its seconds from opening to merge); `ideas` (the
+dollars and tokens of the sessions stamped with each idea to the window's end, plus the
+writers whose pull request carries the idea, its lead time and outcome); and `writing`
+(#1093, spec #1086, ADR 0126), below.
+The report names no winner and no verdict. Code: `tools/harness/src/flow/cost-waiting*.ts`.
+
+`writing` reads writer tokens by where they land. A writer session is one with a
+`session.launch` as a writer and a `token.split` reading in the window; its tokens and
+dollars are its cumulative readings to the window's end. A session whose readings carry an
+idea (other than `none`) is already in that idea's figure, so it is counted as `attributed`
+and never added again. Any other session is charged whole to the idea on its earliest
+`pr.linked` event: a link that names an idea carries it (a bare issue number is read as
+`#n`, the form stamps and the poll use); a link that names `none` carries none; a link with
+no idea recorded (from before the field) takes the idea the GitHub poll set on the pull
+request from its closing references, if any. A session charged to an idea is added to that
+idea's row in `ideas` and counted in `attributed`. The other two buckets are never added to
+an idea: `noIdea` (linked to a pull request that carries none) and `noPullRequest` (no
+`pr.linked` event). Each bucket has `sessions`, `tokens` and `dollars`, with null dollars
+and `unpricedModels` when a model is not in the price table, tokens still counted.
+`unjoinable` counts the pull requests opened in the window with no `pr.linked` event, so
+history before the link event reads as a count, not as no writing. `share` is the
+attributed tokens over all writer tokens in the window, or `insufficient` with `sessions`
+and `needed` below `cost.minMergedChanges` writer sessions (or with no tokens), never zero.
+The text prints four lines after the merged-change line: the share, the two buckets and
+the unjoinable count; an unpriced bucket prints `insufficient prices (models)`. The share is
+a reported reading, not an idea's primary metric (ADR 0119). A link's idea names the link
+event itself only: `flow/attribution.ts` does not spread it to the writer's other events,
+so idea 0012's attribution reading moves by one event per pull request (pinned in
+`tools/harness/integration/flow-writer-ideas.spec.ts`).
 
 The all-in dollars per merged change (#1008) are `perMergedChangeDollars` on each
 tier, priced per request from `token.split` readings (`tools/harness/src/flow/writer-dollars.ts`):

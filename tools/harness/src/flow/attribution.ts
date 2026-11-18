@@ -24,7 +24,10 @@ export function attribute(
       (a): a is string => typeof a === "string",
     );
   for (const event of events) {
-    const idea = namedIdea(event);
+    // A link names the idea of its own pull request only: it seeds no pane or session, so the
+    // writer's other events keep the reading they had and idea 0012's measure moves by the
+    // link alone (#1093). The writing join reads the link directly (cost-waiting-writing.ts).
+    const idea = event.kind === "pr.linked" ? undefined : namedIdea(event);
     if (idea !== undefined) {
       for (const actor of actors(event)) {
         byActor.set(actor, idea);

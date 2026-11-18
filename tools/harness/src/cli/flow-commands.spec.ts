@@ -192,6 +192,13 @@ describe("flow report: output", () => {
   });
 });
 
+const EMPTY_WRITING_LINES = [
+  "  Writing attributed to an idea: not read, 0 session(s), 5 needed",
+  "  Writing in no idea (unattributed writer tokens): 0 session(s), 0 tokens, $0",
+  "  Writing in no pull request (unattributed writer tokens): 0 session(s), 0 tokens, $0",
+  "  Pull requests opened with no link to a writer (unjoinable): 0",
+];
+
 describe("flow report: human lines", () => {
   it("prints the human report with its lines in order, and no bottleneck when there is none", async () => {
     const { context, stdout } = contextOf();
@@ -241,6 +248,7 @@ describe("flow report: human lines", () => {
         "Writer arms: window effort high, set with --window-effort. Left out of the arms and counted: 0 randomized launches at a different effort, 0 launches with no recorded effort, 0 launches not randomized.",
         "Token cost beside waiting time (#1019):",
         "  Merged changes: not read, 0 joined (5 needed)",
+        ...EMPTY_WRITING_LINES,
         "No bottleneck yet.",
         "",
       ].join("\n"),
