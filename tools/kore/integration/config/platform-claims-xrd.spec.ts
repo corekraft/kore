@@ -24,6 +24,8 @@ const mirroredRules = [
   "must not use a reserved prefix",
   "only the platform organization is supported",
   "enum: [platform]",
+  "metadata.name must start with a lowercase letter",
+  "metadata.name must be at most 51 characters",
 ];
 
 async function xrd(file: string): Promise<string> {
@@ -35,6 +37,12 @@ test("the chart's Organization and Service XRDs enforce the DNS label pattern th
   const service = await xrd("service-xrd.yaml");
   expect(organization).toContain(`pattern: "${dnsLabelPattern}"`);
   expect(service).toContain(`pattern: "${dnsLabelPattern}"`);
+});
+
+test("the Service XRD requires a leading letter and caps the name at 51 characters", async () => {
+  const service = await xrd("service-xrd.yaml");
+  expect(service).toContain(`rule: "self.metadata.name.matches('^[a-z]')"`);
+  expect(service).toContain(`rule: "self.metadata.name.size() <= 51"`);
 });
 
 test("every XRD rule the claim check mirrors is still in the chart", async () => {
