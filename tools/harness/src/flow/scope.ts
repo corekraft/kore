@@ -16,6 +16,8 @@ export interface ScopeOptions {
   since?: Date;
   until?: Date;
   ideas?: string[];
+  /** Reads the send-backs per writer tier on each side of this date as well (#1047); the report has no split without it. */
+  splitAt?: Date;
 }
 
 const byNumber = (a: string, b: string) =>

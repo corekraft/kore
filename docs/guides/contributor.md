@@ -310,7 +310,7 @@ recorded, `revert` (`status` and, when a PR exists, `number` and `url`).
 the delivery loop, active seconds, waiting seconds (waiting on a person counts),
 event count, toil, work in progress and lead time, then names the bottleneck: the stage with the largest share of
 all waiting. Flags: `--min-ideas N` (default 3), `--as-of TIME`, `--since TIME`,
-`--until TIME`, `--idea N[,N...]`, `--ledger PATH`.
+`--until TIME`, `--split-at TIME`, `--idea N[,N...]`, `--ledger PATH`.
 
 Scope narrows a report so two periods or two sets of ideas compare field by
 field; the shape is the same and `scope` states what was covered (`since`,
@@ -658,6 +658,20 @@ row holds the merged changes and send-backs that join to no tier, including a se
 pull request number; it has no rework, since a send to a pane with no writer tier is not read. No
 change is given a tier by inference. The text (`flow-lines-send-back.ts`) prints the same figures
 the JSON carries.
+
+`--split-at TIME` (#1047, spec #1024) reads the `sendBackTiers` figures a second time, once over
+the time before TIME and once over the time from TIME on, so a reader compares the changes before
+and after a fix. It adds one key, `sendBackTiersSplit`, with `at` (TIME as an ISO time), `before` and
+`after`, each the same shape as `sendBackTiers`, and the text prints each side's tier lines under
+`Send-backs by writer tier, before TIME:` and `Send-backs by writer tier, on or after TIME:`.
+Merged changes are placed by their merge time, so a change merged exactly at TIME is on the after
+side; send-backs and rework are placed by the time each was recorded, as in the unsplit figures.
+TIME must lie inside `--since` and `--until` when they are given (equal to a bound is allowed and
+leaves one side empty); the bounds still clip both sides, so a change merged before `--since` is on
+neither. Without `--split-at` the report has no `sendBackTiersSplit` key and prints no such lines,
+so its JSON and text are what they were and `version` does not move. The cut itself is
+`splitSpanAt` and `splitFiguresAt` in `tools/harness/src/flow/date-split.ts`: a figure that reads a
+span can be read on either side of a date by passing it to `splitFiguresAt`.
 
 `reviewMisses` measures the Reviewer against the judge (#851). A review is a
 `review.run` event that posted or left unchanged a verdict, counted once per PR

@@ -72,6 +72,85 @@ describe("parseWindowFlags: the time range", () => {
   });
 });
 
+describe("parseWindowFlags: the split date (#1047)", () => {
+  it("reads --split-at as a date beside the other bounds", () => {
+    vi.mocked(isTimestamp).mockReturnValue(true);
+
+    expect(
+      parseWindowFlags({
+        since: "2026-11-01T00:00:00Z",
+        until: "2026-11-30T00:00:00Z",
+        "split-at": "2026-11-16T00:00:00Z",
+      }),
+    ).toEqual({
+      since: new Date("2026-11-01T00:00:00Z"),
+      until: new Date("2026-11-30T00:00:00Z"),
+      splitAt: new Date("2026-11-16T00:00:00Z"),
+    });
+  });
+
+  it("leaves the split out when the flag is absent, so nothing else about the range changes", () => {
+    vi.mocked(isTimestamp).mockReturnValue(true);
+
+    expect(parseWindowFlags({ since: "2026-11-01T00:00:00Z" })).toEqual({
+      since: new Date("2026-11-01T00:00:00Z"),
+    });
+  });
+
+  it("accepts a split date on either bound, which leaves one side empty", () => {
+    vi.mocked(isTimestamp).mockReturnValue(true);
+
+    expect(
+      parseWindowFlags({
+        since: "2026-11-16T00:00:00Z",
+        until: "2026-11-16T00:00:00Z",
+        "split-at": "2026-11-16T00:00:00Z",
+      }),
+    ).toEqual({
+      since: new Date("2026-11-16T00:00:00Z"),
+      until: new Date("2026-11-16T00:00:00Z"),
+      splitAt: new Date("2026-11-16T00:00:00Z"),
+    });
+  });
+
+  it("refuses a split date that is not an ISO 8601 time, naming the flag", () => {
+    vi.mocked(isTimestamp).mockReturnValue(false);
+
+    expect(parseWindowFlags({ "split-at": "last friday" })).toEqual({
+      error:
+        'Invalid --split-at "last friday". Use an ISO 8601 UTC time such as 2026-01-02T03:04:05Z.',
+    });
+  });
+
+  it("refuses a split date before --since, because the before side would be silently empty", () => {
+    vi.mocked(isTimestamp).mockReturnValue(true);
+
+    expect(
+      parseWindowFlags({
+        since: "2026-11-10T00:00:00Z",
+        "split-at": "2026-11-01T00:00:00Z",
+      }),
+    ).toEqual({
+      error:
+        "Invalid --split-at 2026-11-01T00:00:00.000Z: it is before --since 2026-11-10T00:00:00.000Z. Use a date inside the range, or move --since earlier.",
+    });
+  });
+
+  it("refuses a split date after --until, because the after side would be silently empty", () => {
+    vi.mocked(isTimestamp).mockReturnValue(true);
+
+    expect(
+      parseWindowFlags({
+        until: "2026-11-10T00:00:00Z",
+        "split-at": "2026-11-20T00:00:00Z",
+      }),
+    ).toEqual({
+      error:
+        "Invalid --split-at 2026-11-20T00:00:00.000Z: it is after --until 2026-11-10T00:00:00.000Z. Use a date inside the range, or move --until later.",
+    });
+  });
+});
+
 describe("parseIdeas", () => {
   it("reads issue numbers with or without a hash", () => {
     expect(parseIdeas("#12,13")).toEqual(["#12", "#13"]);
