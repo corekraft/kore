@@ -1,12 +1,14 @@
-import type { TierOrigin } from "../ledger/index.js";
+import { EFFORTS, type Effort, type TierOrigin } from "../ledger/index.js";
 
 /** The environment variable naming the first UTC day of the writer experiment's window. Unset means the window is closed. */
 export const EXPERIMENT_START = "KORE_WRITER_EXPERIMENT_START";
-/** The environment variable setting the share of default-tier writer launches the window samples: a number above 0 and up to 1. Unset or empty keeps the default. */
+/** The environment variable setting the share of writer launches the window samples: a number above 0 and up to 1. Unset or empty keeps the default. */
 export const EXPERIMENT_SHARE_ENV = "KORE_WRITER_EXPERIMENT_SHARE";
 /** The environment variable setting the window's length in whole days. Unset or empty keeps the default. */
 export const EXPERIMENT_DAYS_ENV = "KORE_WRITER_EXPERIMENT_DAYS";
-/** The default share of default-tier writer launches the window samples onto Sonnet. */
+/** The environment variable setting the window effort, the one effort every eligible writer launch runs at. Required while the start is set; ignored while it is unset. */
+export const EXPERIMENT_EFFORT_ENV = "KORE_WRITER_EXPERIMENT_EFFORT";
+/** The default share of writer launches the window samples onto Sonnet. */
 export const EXPERIMENT_SHARE = 0.1;
 /** The default window length in days, counted from its first instant. */
 export const EXPERIMENT_DAYS = 14;
@@ -14,6 +16,8 @@ export const EXPERIMENT_DAYS = 14;
 export const EXPERIMENT_MODEL = "claude-sonnet-5-5";
 /** The reason a sampled launch's override records in the ledger. */
 export const EXPERIMENT_REASON = "experiment";
+/** The reason an undrawn eligible launch records, marking it as the window's control. */
+export const EXPERIMENT_CONTROL_REASON = "experiment-control";
 
 const DAY_MS = 86_400_000;
 const DATE = /^\d{4}-\d{2}-\d{2}$/;
@@ -73,17 +77,31 @@ function daysOf(value: string | undefined): Parsed<number> {
       };
 }
 
-/** The window as the environment sets it: its first instant (undefined while closed), its share and its length in days. */
-export interface WindowSettings {
-  start: number | undefined;
-  share: number;
-  days: number;
+/** The window effort: one of the efforts the launch event accepts. An unset or empty value is refused, as no effort was chosen. */
+function effortOf(value: string | undefined): Parsed<Effort> {
+  const effort = EFFORTS.find((level) => level === value);
+  if (effort !== undefined) {
+    return { value: effort };
+  }
+  const shown = value === undefined || value === "" ? "unset" : `"${value}"`;
+  return {
+    error: `${EXPERIMENT_EFFORT_ENV} must be one of ${EFFORTS.join(", ")}, such as high, while ${EXPERIMENT_START} is set; got ${shown}. No session was started.`,
+  };
 }
+
+/**
+ * The window as the environment sets it. Closed (no start), the share and the
+ * length are read but the effort is ignored; open, all four are set.
+ */
+export type WindowSettings =
+  | { start: undefined; share: number; days: number; effort: undefined }
+  | { start: number; share: number; days: number; effort: Effort };
 
 /**
  * The window's settings, or the refusal for the first setting the code would
  * not read. Checked before any spawn, so a typo never silently changes the
- * experiment; a share or length that is unset or empty keeps its default.
+ * experiment; a share or length that is unset or empty keeps its default, and
+ * the window effort is required, and read, only while the start is set.
  */
 export function windowSettings(env: Env): WindowSettings | { error: string } {
   const start = startOf(env[EXPERIMENT_START]);
@@ -98,7 +116,24 @@ export function windowSettings(env: Env): WindowSettings | { error: string } {
   if ("error" in days) {
     return days;
   }
-  return { start: start.value, share: share.value, days: days.value };
+  if (start.value === undefined) {
+    return {
+      start: undefined,
+      share: share.value,
+      days: days.value,
+      effort: undefined,
+    };
+  }
+  const effort = effortOf(env[EXPERIMENT_EFFORT_ENV]);
+  if ("error" in effort) {
+    return effort;
+  }
+  return {
+    start: start.value,
+    share: share.value,
+    days: days.value,
+    effort: effort.value,
+  };
 }
 
 /**
@@ -111,22 +146,29 @@ export function experimentConfigError(env: Env): string | undefined {
   return "error" in settings ? settings.error : undefined;
 }
 
-/** What a sampled launch runs on and records: the model, and the override with its reason. */
+/**
+ * What a sampled or control launch runs on: its model (undefined keeps the
+ * definition's model, for the control), the window effort, and the origin with
+ * its reason.
+ */
 export interface Experiment {
-  model: string;
+  model: string | undefined;
+  effort: Effort;
   tier: TierOrigin;
 }
 
 /**
- * The Sonnet launch the experiment samples a default-tier writer onto, the
+ * The window's sample for a writer launch: the Sonnet draw, the control, the
  * refusal for a misconfigured window (for any writer), or undefined when the
- * launch keeps its definition. Only a writer on its definition's tier, inside
- * the window, is drawn for; the draw is read only there, so nothing outside the
- * window consumes randomness. The window is [start, start + days): the first
- * instant is in, the end is out; days and share default to 14 and 0.1.
+ * launch keeps its own tier. Only a writer that names no model, inside the
+ * window, is eligible; the draw is read only for an eligible launch, so nothing
+ * outside the window or with a model flag consumes randomness. An eligible
+ * launch runs at the window effort whether it is drawn or not. The window is
+ * [start, start + days): the first instant is in, the end is out.
  */
 export function writerExperiment(input: {
   role: string;
+  model: string | undefined;
   origin: TierOrigin;
   env: Env;
   now: Date;
@@ -139,9 +181,6 @@ export function writerExperiment(input: {
   if ("error" in settings) {
     return { error: settings.error };
   }
-  if (input.origin.tierSource !== "definition") {
-    return undefined;
-  }
   if (settings.start === undefined) {
     return undefined;
   }
@@ -149,11 +188,19 @@ export function writerExperiment(input: {
   if (at < settings.start || at >= settings.start + settings.days * DAY_MS) {
     return undefined;
   }
-  if (input.random === undefined || input.random() >= settings.share) {
+  if (input.model !== undefined) {
     return undefined;
   }
-  return {
-    model: EXPERIMENT_MODEL,
-    tier: { tierSource: "override", tierReason: EXPERIMENT_REASON },
-  };
+  const drawn = input.random !== undefined && input.random() < settings.share;
+  return drawn
+    ? {
+        model: EXPERIMENT_MODEL,
+        effort: settings.effort,
+        tier: { tierSource: "override", tierReason: EXPERIMENT_REASON },
+      }
+    : {
+        model: undefined,
+        effort: settings.effort,
+        tier: { ...input.origin, tierReason: EXPERIMENT_CONTROL_REASON },
+      };
 }
