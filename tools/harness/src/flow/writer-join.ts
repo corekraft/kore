@@ -102,14 +102,22 @@ export function writerGroup(
   return [...new Set([agent, ...sharing])];
 }
 
-/** The merged changes in the span by the tier each joins to, and the count that joins to none. */
+/**
+ * The merged changes in the span by the tier each joins to, and the count that joins to none. The
+ * numbers are each tier's joined pull requests, so a tier's owner time can be read on them.
+ */
 export function mergedTierJoins(
   events: LedgerEvent[],
   span: Span,
-): { joined: Map<string, number>; unjoinable: number } {
+): {
+  joined: Map<string, number>;
+  numbers: Map<string, number[]>;
+  unjoinable: number;
+} {
   const launches = pricedLaunches(events);
   const agents = linkedAgents(events);
   const joined = new Map<string, number>();
+  const numbers = new Map<string, number[]>();
   let unjoinable = 0;
   for (const e of events) {
     if (e.kind !== "pr.merged" || !inWindow(span, time(e))) {
@@ -118,11 +126,12 @@ export function mergedTierJoins(
     const agent = e.number === undefined ? undefined : agents.get(e.number);
     const tier =
       agent === undefined ? undefined : tierOfLinked(launches, agent);
-    if (tier === undefined) {
+    if (tier === undefined || e.number === undefined) {
       unjoinable += 1;
     } else {
       joined.set(tier, (joined.get(tier) ?? 0) + 1);
+      numbers.set(tier, [...(numbers.get(tier) ?? []), e.number]);
     }
   }
-  return { joined, unjoinable };
+  return { joined, numbers, unjoinable };
 }

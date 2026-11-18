@@ -56,6 +56,8 @@ describe("writer cost: each tier's figure over its own merged changes", () => {
           mergedChanges: 3,
           followUpsPerSession: 0,
           perMergedChangeDollars: ZERO_DOLLARS,
+          reworkPerMergedChange: 0,
+          ownerMinutesPerMergedChange: 0,
         },
         "claude-sonnet-5-5": {
           ...ZERO_TIER,
@@ -66,6 +68,8 @@ describe("writer cost: each tier's figure over its own merged changes", () => {
           mergedChanges: 2,
           followUpsPerSession: 0,
           perMergedChangeDollars: ZERO_DOLLARS,
+          reworkPerMergedChange: 0,
+          ownerMinutesPerMergedChange: 0,
         },
       },
     });
@@ -187,6 +191,8 @@ describe("writer cost: a respawn under one idea", () => {
           perMergedChangeByTier: 0,
           perMergedChangeDollars: ZERO_DOLLARS,
           followUpsPerSession: 0,
+          reworkPerMergedChange: 0,
+          ownerMinutesPerMergedChange: 0,
         },
         "claude-sonnet-5-5": {
           ...ZERO_TIER,

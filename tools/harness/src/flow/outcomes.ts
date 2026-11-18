@@ -73,7 +73,7 @@ const ratio = (part: number, whole: number) =>
   whole === 0 ? null : round(part / whole);
 
 /** Minutes of owner time: each burst from its first to its last action, at least a minute. */
-function ownerMinutes(times: number[]): number {
+export function ownerMinutes(times: number[]): number {
   const sorted = [...times].sort((a, b) => a - b);
   let minutes = 0;
   let start = sorted[0];
