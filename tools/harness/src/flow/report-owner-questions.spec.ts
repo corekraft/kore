@@ -61,7 +61,7 @@ describe("buildReport owner questions (#859)", () => {
     expect(questionFigures).toHaveBeenCalledWith(named, WINDOW, ASOF);
   });
 
-  it("versions the report to 25 when the advisor figures join it, since a field changed", () => {
+  it("versions the report to 39, the current version, with the advisor figures in it", () => {
     fakeTally();
     vi.mocked(questionFigures).mockReturnValue({
       ownerQuestions: NO_QUESTIONS,

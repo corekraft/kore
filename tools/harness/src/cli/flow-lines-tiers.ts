@@ -6,8 +6,14 @@ import type { FlowReport } from "../flow/index.js";
 import { reviewRoundReportLines } from "./flow-lines-review-rounds.js";
 import { sendBackTierReportLines } from "./flow-lines-send-back-split.js";
 
+/** The tier figures the lines are read from: the send-backs and the review rounds, each with its optional split. */
+export type TierReport = Pick<
+  FlowReport,
+  "sendBackTiers" | "sendBackTiersSplit" | "reviewRounds" | "reviewRoundsSplit"
+>;
+
 /** The send-back tier lines, then the review round lines. */
-export function writerTierReportLines(report: FlowReport): string[] {
+export function writerTierReportLines(report: TierReport): string[] {
   return [
     ...sendBackTierReportLines(report),
     ...reviewRoundReportLines(report),

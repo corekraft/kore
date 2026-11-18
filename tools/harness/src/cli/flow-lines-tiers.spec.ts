@@ -1,13 +1,45 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { emptyReport } from "./flow-commands-support.js";
+import {
+  SEND_BACK_CATEGORIES,
+  type SendBackCategory,
+} from "../ledger/index.js";
 import { reviewRoundReportLines } from "./flow-lines-review-rounds.js";
 import { sendBackTierReportLines } from "./flow-lines-send-back-split.js";
-import { writerTierReportLines } from "./flow-lines-tiers.js";
+import { writerTierReportLines, type TierReport } from "./flow-lines-tiers.js";
 
 vi.mock("./flow-lines-review-rounds.js");
 vi.mock("./flow-lines-send-back-split.js");
 
-const REPORT = emptyReport();
+const NO_SEND_BACKS = {
+  byCategory: Object.fromEntries(
+    SEND_BACK_CATEGORIES.map((c) => [c, 0]),
+  ) as Record<SendBackCategory, number>,
+  legacy: 0,
+  uncategorised: 0,
+  otherThreshold: 0.1,
+  categorised: 0,
+  otherShare: null,
+  minCategorised: 20,
+  otherReading: "insufficient" as const,
+  otherOverThreshold: false,
+};
+
+/** A report literal with only the tier figures the lines read; the line modules are mocked, so no value matters. */
+const REPORT: TierReport = {
+  sendBackTiers: {
+    tiers: {},
+    unlinked: { mergedChanges: 0, sendBacks: NO_SEND_BACKS },
+  },
+  reviewRounds: {
+    tiers: {},
+    unlinked: {
+      mergedChanges: 0,
+      failedReviewRounds: 0,
+      reviewedChanges: 0,
+      reviewCoverage: null,
+    },
+  },
+};
 
 beforeEach(() => {
   vi.resetAllMocks();
