@@ -4,6 +4,7 @@ import {
   gatherChecks,
   gatherExpandStep,
   gatherGuardrailChanges,
+  lengthAudit,
   parsePrView,
   type Checks,
   type PrView,
@@ -82,6 +83,7 @@ function ready(): void {
   vi.mocked(withManifestSides).mockResolvedValue(FILES);
   vi.mocked(hintsFor).mockReturnValue(HINTS);
   vi.mocked(gatherChecks).mockResolvedValue(PASSING);
+  vi.mocked(lengthAudit).mockResolvedValue([]);
   vi.mocked(assess).mockReturnValue({
     patternMatches: true,
     clusterFacing: false,
