@@ -1,15 +1,15 @@
 ---
-status: proposed
+status: accepted
 summary: A writer's idea is read from its pull request when pr open links it, and recorded on the pr.linked event under the existing idea field, with none as the explicit value; no spawn-time stamp and no read-time ticket walk are added.
 date: 2026-11-17
-last-verified: 2026-11-17
+last-verified: 2026-11-18
 ---
 
 # ADR 0126: A writer's idea is read from its pull request and recorded on pr.linked
 
 Source: spec [#1086](https://github.com/corekraft/kore/issues/1086), which specifies [#1083](https://github.com/corekraft/kore/issues/1083) (gap 1: writer cost cannot be read per idea), and ticket [#1089](https://github.com/corekraft/kore/issues/1089).
 
-Builds on: [ADR 0125](0125-writer-cost-is-read-per-merged-change-by-the-first-launch-s-tier.md), which reads writer cost through the `pr.linked` join. Amends spec [#997](https://github.com/corekraft/kore/issues/997) and its ticket #1019, through spec #1086. The proposed ADR text in #1086 is this record.
+Builds on: [ADR 0125](0125-writer-cost-is-read-per-merged-change-by-the-first-launch-s-tier.md), which reads writer cost through the `pr.linked` join. Amends spec [#997](https://github.com/corekraft/kore/issues/997) and its ticket #1019, through spec #1086. The ADR text proposed in #1086 is this record, accepted on 2026-11-18 by the owner's own untagged message in the main session ("Approving any ADRs that you need").
 
 ## Context
 
