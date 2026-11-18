@@ -1,5 +1,7 @@
 // The Haiku and Sonnet arms as flow report lines (#1012, spec #998): the overall figure, then one line
 // per stratum, each with the difference and its interval, both arms' counts, mean, effort and guards.
+// The figure reads Haiku at the window effort against Sonnet at the window effort, and a last line
+// states the window effort and counts every launch left out by reason (#1069, spec #1065).
 // A figure that cannot be read says so and is never a zero. The lines name no winner, margin or
 // verdict: the deciding rule is the owner's, recorded on the idea.
 
@@ -11,6 +13,9 @@ const money = (value: number) => `$${value}`;
 
 /** A signed dollar figure: a negative difference reads as -$2.4667, not $-2.4667. */
 const signed = (value: number) => (value < 0 ? `-$${-value}` : money(value));
+
+const launches = (n: number, what: string) =>
+  `${n} ${what.replace("launch", n === 1 ? "launch" : "launches")}`;
 
 const readOrNot = (value: number | null) =>
   value === null ? "not read" : String(value);
@@ -40,9 +45,33 @@ function rowLine(arms: WriterArms, row: ArmRow): string {
   if (row.status === "insufficient prices") {
     return `${prefix} not read, no price for ${row.models.join(", ")}.`;
   }
+  const at = arms.windowEffort.effort;
   const pct = Math.round(arms.confidence * 100);
   const interval = `${pct}% interval ${signed(row.interval.low)} to ${signed(row.interval.high)} (seed ${arms.seed})`;
-  return `${prefix} Haiku minus Sonnet ${signed(row.difference)} all-in per merged change, ${interval}. ${sideText("Haiku", row.haiku)}. ${sideText("Sonnet", row.sonnet)}.`;
+  return `${prefix} Haiku at ${at} minus Sonnet at ${at} ${signed(row.difference)} all-in per merged change, ${interval}. ${sideText("Haiku", row.haiku)}. ${sideText("Sonnet", row.sonnet)}.`;
+}
+
+const SOURCE = {
+  setting: "set with --window-effort",
+  "most common": "not set, so the most common among randomized launches",
+} as const;
+
+/** The window effort, where it came from, and the launches left out of the arms by reason. */
+function effortLine({ windowEffort, excluded }: WriterArms): string {
+  const { effort, from } = windowEffort;
+  const stated =
+    effort === null || from === "none"
+      ? "no window effort, not set and no randomized launch recorded an effort"
+      : `window effort ${effort}, ${SOURCE[from]}`;
+  const counts = [
+    launches(
+      excluded.differentEffort,
+      "randomized launch at a different effort",
+    ),
+    launches(excluded.missingEffort, "launch with no recorded effort"),
+    launches(excluded.notRandomized, "launch not randomized"),
+  ];
+  return `Writer arms: ${stated}. Left out of the arms and counted: ${counts.join(", ")}.`;
 }
 
 /**
@@ -54,5 +83,6 @@ export function writerArmLines(arms: WriterArms): string[] {
     rowLine(arms, arms.overall),
     ...arms.strata.map((row) => rowLine(arms, row)),
     `Writer arms: ${changes(arms.unlabelled)} on an arm with no label recorded, in the overall figure only. The report gives no verdict; the deciding rule is the owner's, recorded on the idea.`,
+    effortLine(arms),
   ];
 }

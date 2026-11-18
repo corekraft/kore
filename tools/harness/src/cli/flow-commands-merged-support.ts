@@ -16,6 +16,8 @@ export const emptyWriterArms = {
   confidence: 0.95,
   minMergedChanges: 5,
   unlabelled: 0,
+  windowEffort: { effort: "high", from: "setting" },
+  excluded: { differentEffort: 0, missingEffort: 0, notRandomized: 0 },
   overall: {
     label: null,
     status: "insufficient merged changes",
