@@ -40,18 +40,6 @@ test(
     const { gateway, kubeContext } = repository.environment;
     const target = parseTargetRate(process.env[targetRateVariable]);
     const runner = new ProcessRunner();
-    const deps = {
-      sleep: (seconds: number) =>
-        new Promise<void>((resolve) => setTimeout(resolve, seconds * 1000)),
-      loadAverage: () => loadavg()[0] ?? Number.POSITIVE_INFINITY,
-      now: () => performance.now(),
-    };
-    const host = new HostConditions(runner, `${kubeContext}-server-0`, {
-      loadAverages: () => {
-        const [one = 0, five = 0, fifteen = 0] = loadavg();
-        return [one, five, fifteen];
-      },
-    });
     const measurement = new RatedMeasurement(
       runner,
       runner,
@@ -64,8 +52,18 @@ test(
         port: gateway.port,
         caRoot: await mkcertRoot(runner),
       },
-      deps,
-      host,
+      {
+        sleep: (seconds) =>
+          new Promise((resolve) => setTimeout(resolve, seconds * 1000)),
+        loadAverage: () => loadavg()[0] ?? Number.POSITIVE_INFINITY,
+        now: () => performance.now(),
+      },
+      new HostConditions(runner, `${kubeContext}-server-0`, {
+        loadAverages: () => {
+          const [one = 0, five = 0, fifteen = 0] = loadavg();
+          return [one, five, fifteen];
+        },
+      }),
     );
     const result = await measurement.measure();
     assert.ok(result.pods.ingress.length > 0);
