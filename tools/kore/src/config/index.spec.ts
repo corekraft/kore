@@ -154,6 +154,7 @@ test("the config barrel exposes exactly the entry points other domains use", () 
     "providerCrdGroupErrors",
     "providerOwnsCrd",
     "recordPromotionEvidence",
+    "registeredServiceHelmArgs",
     "registryConsumers",
     "registryHelmArgs",
     "registryPlan",

@@ -36,6 +36,7 @@ vi.mock("../config/index.js", () => ({
   gatewayClassName: vi.fn(),
   noMatchPolicy: vi.fn(),
   registryConsumers: ["oci-registry", "kore-image-policy"],
+  registeredServiceHelmArgs: vi.fn(),
   registryHelmArgs: vi.fn(),
 }));
 vi.mock("./patches.js");

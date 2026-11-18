@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { readdir, readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { test } from "vitest";
-import { findRoot } from "../../src/config/index.js";
+import { findRoot, loadRepository } from "../../src/config/index.js";
 
 // Docs: docs/decisions/0043-platform-configuration-through-argo-cd.md
 // The golden-path ApplicationSet reads infra/services/*.yaml; each file is a
@@ -44,4 +44,12 @@ test("every Service registration is a platform Service the XRD admits", async ()
     assert.equal(spec.organization, "platform");
     assert.ok(spec.environments.length > 0);
   }
+});
+
+test("loading the repository carries exactly the Service names the registration files declare, sorted", async () => {
+  const declared = (await registrations())
+    .map((service) => (service["metadata"] as { name: string }).name)
+    .sort();
+  const repository = await loadRepository("local");
+  assert.deepEqual([...(repository.registeredServices ?? [])], declared);
 });

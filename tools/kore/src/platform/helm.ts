@@ -9,6 +9,7 @@ import {
   featureHelmArgs,
   gatewayClassName,
   noMatchPolicy,
+  registeredServiceHelmArgs,
   registryConsumers,
   registryHelmArgs,
   type Component,
@@ -86,6 +87,31 @@ const gatewayClassKeys: Record<string, string | undefined> = {
   "kore-platform-backstage": "gatewayClassName",
 };
 
+/** The arguments a component takes last: its golden-path values, then its alert email and registered Services. */
+function trailingArgs(repository: Repository, component: Component): string[] {
+  return [
+    ...goldenPathArgs(repository, component),
+    ...alertAndServiceArgs(repository, component),
+    ...dashboardSidecarHelmArgs(repository.environment, component.name),
+  ];
+}
+
+/** The alert email, alert forwarding and registered Service arguments a component takes last. */
+function alertAndServiceArgs(
+  repository: Repository,
+  component: Component,
+): string[] {
+  return [
+    ...alertEmailHelmArgs(repository.environment, component.name),
+    ...alertForwardingHelmArgs(repository.environment, component.name),
+    ...registeredServiceHelmArgs(
+      repository.environment,
+      component.name,
+      repository.registeredServices ?? [],
+    ),
+  ];
+}
+
 function chartSelectionArgs(
   repository: Repository,
   component: Component,
@@ -143,12 +169,7 @@ function chartSelectionArgs(
       `gatewayClassName=${delivery.gatewayClassName}`,
     );
   }
-  args.push(
-    ...goldenPathArgs(repository, component),
-    ...alertEmailHelmArgs(repository.environment, component.name),
-    ...alertForwardingHelmArgs(repository.environment, component.name),
-    ...dashboardSidecarHelmArgs(repository.environment, component.name),
-  );
+  args.push(...trailingArgs(repository, component));
   return args;
 }
 
