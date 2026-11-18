@@ -1,11 +1,8 @@
 import type { Runner } from "../runtime/index.js";
 import { parsePodMetrics, summarizeSamples } from "./ingress-metrics.js";
-import type { PodUsage } from "./ingress-metrics.js";
+import type { MeasurementSummary, PodUsage } from "./ingress-metrics.js";
 import { summarizeLatency } from "./ingress-metrics.js";
-import type { HostReader } from "./ingress-host.js";
-import type { Measurement, Sample } from "./ingress-metrics.js";
-
-export type { Measurement, Sample } from "./ingress-metrics.js";
+import type { LatencySummary } from "./ingress-metrics.js";
 
 // Docs: infra/plans/13-agentgateway-ingress.md#measurement-method
 //
@@ -68,6 +65,33 @@ export const ingressMeasurementDefaults = {
   latencyProbesPerRoute: 20,
 } as const;
 
+export interface Sample {
+  /** The host 1-minute load average when the sample was taken. */
+  loadAverage: number;
+  ingress: PodUsage[];
+  ztunnel: PodUsage[];
+}
+
+export interface Measurement {
+  method: {
+    gateway: string;
+    routes: string[];
+    requestsPerRoute: number;
+    concurrency: number;
+    settleSeconds: number;
+    sampleCount: number;
+    sampleIntervalSeconds: number;
+  };
+  /** The requests that completed with their expected status, and how fast. */
+  load: { requests: number; elapsedSeconds: number; requestsPerSecond: number };
+  loadAverage: { start: number; max: number };
+  pods: { ingress: string[]; ztunnel: string[] };
+  samples: Sample[];
+  summary: { ingress: MeasurementSummary; ztunnel: MeasurementSummary };
+  /** Request times at the Gateway under the load; absent when not probed. */
+  latency?: LatencySummary;
+}
+
 export interface MeasurementDeps {
   sleep: (seconds: number) => Promise<void>;
   loadAverage: () => number;
@@ -86,7 +110,6 @@ export class IngressMeasurement {
     private readonly loadRunner: Runner,
     private readonly options: MeasurementOptions,
     private readonly deps: MeasurementDeps,
-    private readonly host?: HostReader,
   ) {}
 
   /** Settles, then samples the pods while the fixed load runs. */
@@ -97,7 +120,6 @@ export class IngressMeasurement {
         `host 1-minute load average ${start} is not below ${this.options.maxLoadAverage}; wait for the host to quiet down and rerun`,
       );
     }
-    const hostBefore = await this.host?.read();
     await this.deps.sleep(this.options.settleSeconds);
     const began = this.deps.now();
     let running = true;
@@ -121,7 +143,6 @@ export class IngressMeasurement {
     if (loadError !== undefined) {
       throw this.loadFailure(loadError);
     }
-    const hostAfter = await this.host?.read();
     const names = (pick: (sample: Sample) => PodUsage[]) =>
       [...new Set(samples.flatMap(pick).map((pod) => pod.name))].sort();
     return {
@@ -146,9 +167,6 @@ export class IngressMeasurement {
       },
       ...(probeMilliseconds.length > 0
         ? { latency: summarizeLatency(probeMilliseconds) }
-        : {}),
-      ...(hostBefore !== undefined && hostAfter !== undefined
-        ? { host: { before: hostBefore, after: hostAfter } }
         : {}),
     };
   }
