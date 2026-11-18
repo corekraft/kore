@@ -10,6 +10,8 @@ export { gatherGuardrailChanges } from "./guardrail-changes.js";
 export { lengthAudit, type AuditFinding } from "./file-length.js";
 // So does the type-cast audit item.
 export { castAudit } from "./cast-audit.js";
+// So does the closing-keyword audit item.
+export { closingAudit } from "./closing-audit.js";
 
 export const RESULTS = [
   "pass",

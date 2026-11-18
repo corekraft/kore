@@ -168,7 +168,10 @@ see [The harness bundle](#the-harness-bundle).
     a file over it as an audit item. It also reports each type cast (`as never`,
     `as unknown as`, any other `as T`) on a line the PR adds to a TypeScript file,
     tests included, with its file, line and fix; `as const` and an import or export
-    alias are not casts. Both are audit items, never a failure. Each test function stays under 70 lines
+    alias are not casts. It reports each GitHub closing keyword (`Close`, `Fix`,
+    `Resolve` and their forms) with an issue reference in the PR body, beside an
+    `Idea:` line, with the fix `Refs`. All of these are audit items, never a
+    failure. Each test function stays under 70 lines
     (`max-lines-per-function`). Assert the whole
     `run.mock.calls` list, so a missing or extra command fails.
   - Errors from a real error class (`CommandError`) stay real; construct them
