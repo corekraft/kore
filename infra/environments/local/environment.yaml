@@ -33,7 +33,7 @@
       "main-session-figures": true,
       "pane-result-summary": false,
       "signed-main-sends": false,
-      "main-session-wait": false,
+      "main-session-wait": true,
       "decision-advisor": true
     },
   "imageInventory": "audit",
