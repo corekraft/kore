@@ -123,6 +123,13 @@ The context size, in tokens, past which the main session's history is
 compacted.
 _Avoid_: Context limit, compaction threshold
 
+**Main-session setup**:
+The label a stretch of main-session work gets from recorded facts when the flow
+report reads: control (today's main-session model, largest prompt above the
+compaction cap), early compaction (the same model, at or under the cap) or Haiku.
+With no cap set it reads "not set". It is never written or typed.
+_Avoid_: Experiment arm, variant
+
 **Handover**:
 A message from a cheap session to the stronger one that passes on a case and
 names the reason for it. It is counted as a reading and never enforced.

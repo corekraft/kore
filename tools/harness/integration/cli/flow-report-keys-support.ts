@@ -38,6 +38,7 @@ export const KEYS = [
   "mainSession",
   "handovers",
   "compactions",
+  "mainSessionSetups",
   "judgmentContexts",
   "tierShares",
   "unstampedSpawns",

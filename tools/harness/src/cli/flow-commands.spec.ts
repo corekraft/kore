@@ -233,6 +233,7 @@ const EMPTY_HUMAN_TEXT = [
   "Waiting on a person: no question asked in this range",
   "Handovers from the main session: insufficient, no handover source",
   "Compactions: insufficient, no compaction source",
+  "Main-session setups: insufficient, no setup source",
   "Tokens per merged change: not read, 0 merged changes in this range (5 needed); no average: 0 merged changes in the trailing 7 days (5 needed)",
   "Send-backs per merged change: not read, 0 merged changes in this range (5 needed); no average: 0 merged changes in the trailing 7 days (5 needed)",
   "Lead time per merged change: not read, 0 of 0 merged changes measured in this range (5 needed); no average: 0 of 0 merged changes measured in the trailing 7 days (5 needed)",

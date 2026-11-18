@@ -105,6 +105,10 @@ const FIGURES: MergedChangeFigures = {
     status: "insufficient",
     reason: "no session recorded in the window",
   },
+  mainSessionSetups: {
+    status: "insufficient",
+    reason: "no main-session reading recorded in the window",
+  },
   writerCost: {
     pricesAsOf: "2026-11-16",
     trailingDays: 7,
@@ -193,6 +197,6 @@ describe("buildReport per-merged-change figures (#829, #830)", () => {
   });
 
   it("versions the report to 35, since the writing cost by idea joined costWaiting (#1093)", () => {
-    expect(run([]).version).toBe(36);
+    expect(run([]).version).toBe(37);
   });
 });
