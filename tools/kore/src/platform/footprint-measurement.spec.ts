@@ -8,19 +8,23 @@ import {
 } from "./footprint-measurement.js";
 import {
   parseContainerStats,
+  parseOomKilledPods,
   parseSwapUsedMiB,
   parseVmMemoryMiB,
 } from "./footprint-parse.js";
+import { judgeFootprint } from "./footprint-verdict.js";
 import { summarizeFootprint } from "./footprint-summary.js";
 
-// The parsers and the arithmetic are same-domain units, so they are stubs here.
-// Their own specs prove what they read and compute.
+// The parsers, the arithmetic and the verdict are same-domain units, so they are
+// stubs here. Their own specs prove what they read, compute and judge.
 vi.mock("./footprint-parse.js", () => ({
   parseContainerStats: vi.fn(),
+  parseOomKilledPods: vi.fn(),
   parseSwapUsedMiB: vi.fn(),
   parseVmMemoryMiB: vi.fn(),
 }));
 vi.mock("./footprint-summary.js", () => ({ summarizeFootprint: vi.fn() }));
+vi.mock("./footprint-verdict.js", () => ({ judgeFootprint: vi.fn() }));
 
 const SUMMARY = {
   summary: {
@@ -32,16 +36,26 @@ const SUMMARY = {
   headroomPercent: { atMedian: 70, atPeak: 65 },
 };
 
+const CLEAN = { breached: false, breaches: [] };
+
 const options: FootprintOptions = {
   serverContainer: "k3d-kore-local-server-0",
+  kubeContext: "k3d-kore-local",
   settleSeconds: 120,
   sampleCount: 2,
   sampleIntervalSeconds: 20,
   maxLoadAverage: 10,
 };
 
-const reply = (command: string, args: readonly string[]): string =>
-  command === "sysctl" ? "SWAP" : args[0] === "info" ? "VM" : "STATS";
+function reply(command: string, args: readonly string[]): string {
+  if (command === "kubectl") {
+    return "PODS";
+  }
+  if (command === "sysctl") {
+    return "SWAP";
+  }
+  return args[0] === "info" ? "VM" : "STATS";
+}
 
 function measurementWith(load = 1) {
   const { runner, run } = fakeRunner(reply);
@@ -49,6 +63,7 @@ function measurementWith(load = 1) {
     sleep: vi.fn<(seconds: number) => Promise<void>>(async () => undefined),
     loadAverage: vi.fn(() => load),
     now: vi.fn(() => 0),
+    epochMilliseconds: vi.fn(() => 5000),
   };
   return {
     run,
@@ -64,7 +79,9 @@ beforeEach(function stubParsers() {
     cpuMillicores: 300,
     memoryMiB: 3000,
   });
+  vi.mocked(parseOomKilledPods).mockReturnValue([]);
   vi.mocked(summarizeFootprint).mockReturnValue(SUMMARY);
+  vi.mocked(judgeFootprint).mockReturnValue(CLEAN);
 });
 
 test("refuses to start at or above the load ceiling, naming both numbers, and reads nothing", async () => {
@@ -87,7 +104,7 @@ test("settles, then waits one interval before each sample", async () => {
   ]);
 });
 
-test("reads the VM once, then stats and swap per sample, with read-only calls", async () => {
+test("reads the VM once, then stats and swap per sample, then the pods, with read-only calls", async () => {
   const { measurement, run } = measurementWith();
 
   await measurement.measure();
@@ -112,6 +129,16 @@ test("reads the VM once, then stats and swap per sample, with read-only calls", 
       "k3d-kore-local-server-0",
     ],
     ["sysctl", "vm.swapusage"],
+    [
+      "kubectl",
+      "--context",
+      "k3d-kore-local",
+      "get",
+      "pods",
+      "--all-namespaces",
+      "-o",
+      "json",
+    ],
   ]);
 });
 
@@ -137,6 +164,47 @@ test("a clean run returns every sample with the summary and headroom for the VM 
   });
 });
 
+test("judges the peak memory, the VM size and the OOMKilled pods, and reports the verdict beside the figures", async () => {
+  const { measurement } = measurementWith();
+  vi.mocked(parseOomKilledPods).mockReturnValue(["platform/keycloak-0"]);
+  const breach = {
+    breached: true,
+    breaches: [{ rule: "oomkilled" as const, pods: ["platform/keycloak-0"] }],
+  };
+  vi.mocked(judgeFootprint).mockReturnValue(breach);
+
+  const result = await measurement.measure();
+
+  expect(judgeFootprint).toHaveBeenCalledWith({
+    peakMemoryMiB: 3500,
+    vmMemoryMiB: 10000,
+    oomKilledPods: ["platform/keycloak-0"],
+  });
+  expect(result).toMatchObject({
+    verdict: breach,
+    summary: SUMMARY.summary,
+    headroomPercent: SUMMARY.headroomPercent,
+  });
+});
+
+test("reads the OOMKilled pods since the run began on the wall clock, not the monotonic one", async () => {
+  const { measurement, deps } = measurementWith();
+  vi.mocked(deps.epochMilliseconds).mockReturnValue(5000);
+  vi.mocked(deps.now).mockReturnValue(999_999);
+
+  await measurement.measure();
+
+  expect(parseOomKilledPods).toHaveBeenCalledWith("PODS", 5000);
+});
+
+test("a clean run reports a verdict with no breach and no breaches", async () => {
+  const { measurement } = measurementWith();
+
+  const result = await measurement.measure();
+
+  expect(result.verdict).toEqual({ breached: false, breaches: [] });
+});
+
 test("reports a mid-run load rise beside the results instead of hiding it", async () => {
   const { measurement, deps } = measurementWith();
   vi.mocked(deps.loadAverage)
@@ -158,6 +226,7 @@ test("records the method values and the elapsed seconds on the monotonic clock",
 
   expect(result.method).toEqual({
     serverContainer: "k3d-kore-local-server-0",
+    kubeContext: "k3d-kore-local",
     settleSeconds: 120,
     sampleCount: 2,
     sampleIntervalSeconds: 20,
@@ -173,6 +242,21 @@ test("fails with the cause named when a read fails", async () => {
   await expect(measurement.measure()).rejects.toThrow(
     "reading the Docker VM memory failed: Cannot connect to the Docker daemon; check that Docker is running",
   );
+});
+
+test("fails with the cause named when the pod list cannot be read, and reports no verdict", async () => {
+  const { measurement, run } = measurementWith();
+  run.mockImplementation(async (command: string) => {
+    if (command === "kubectl") {
+      throw new Error("connection refused");
+    }
+    return { stdout: "STATS", stderr: "", code: 0 };
+  });
+
+  await expect(measurement.measure()).rejects.toThrow(
+    "reading the pods' OOMKilled state failed: connection refused; check that kubectl can reach the k3d-kore-local context",
+  );
+  expect(judgeFootprint).not.toHaveBeenCalled();
 });
 
 test("fails with the cause named when a read is unparseable", async () => {

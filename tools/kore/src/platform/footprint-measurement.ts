@@ -1,23 +1,29 @@
 import type { Runner } from "../runtime/index.js";
 import {
   parseContainerStats,
+  parseOomKilledPods,
   parseSwapUsedMiB,
   parseVmMemoryMiB,
 } from "./footprint-parse.js";
 import { summarizeFootprint } from "./footprint-summary.js";
 import type { FootprintSample, FootprintSummary } from "./footprint-summary.js";
+import { judgeFootprint, type FootprintVerdict } from "./footprint-verdict.js";
 
 // Docs: infra/plans/2-implementation.md#step-7-bootstrap-registry-image-trust-controllers-and-crd-ownership
 //
 // The platform footprint measurement (#614): CPU and memory of the k3d server
 // container, the Docker VM's total memory, and the host's swap and load, sampled
 // on a clock once the settled platform has idled. It is read-only: `docker
-// stats`, `docker info` and `sysctl`. The method is the same for Now, Next and
-// Then, so everything that could vary is a stated option.
+// stats`, `docker info`, `sysctl` and `kubectl get pods`. The method is the same
+// for Now, Next and Then, so everything that could vary is a stated option. A
+// run also carries its breach verdict (#1107), so an overloaded run reads as
+// inconclusive rather than as a pass.
 
 export interface FootprintOptions {
   /** The k3d server container, for example `k3d-kore-local-server-0`. */
   serverContainer: string;
+  /** The kubectl context the OOMKilled read names, for example `k3d-kore-local`. */
+  kubeContext: string;
   /** Idle wait before the first sample. */
   settleSeconds: number;
   sampleCount: number;
@@ -39,6 +45,8 @@ export interface FootprintDeps {
   loadAverage: () => number;
   /** Milliseconds on a monotonic clock. */
   now: () => number;
+  /** Milliseconds since the epoch, to compare with pod termination times. */
+  epochMilliseconds: () => number;
 }
 
 export interface FootprintRun extends FootprintSummary {
@@ -49,6 +57,8 @@ export interface FootprintRun extends FootprintSummary {
   /** The loads at or above the ceiling during the run; empty for an untainted run. */
   overCeiling: number[];
   samples: FootprintSample[];
+  /** The breach verdict under the owner's rule (#1107). */
+  verdict: FootprintVerdict;
 }
 
 export class FootprintMeasurement {
@@ -67,6 +77,7 @@ export class FootprintMeasurement {
         `host 1-minute load average ${start} is not below ${maxLoadAverage}; wait for the host to quiet down and rerun`,
       );
     }
+    const runStarted = this.deps.epochMilliseconds();
     const vmMemoryMiB = await this.read(
       "the Docker VM memory",
       "check that Docker is running",
@@ -81,6 +92,8 @@ export class FootprintMeasurement {
       await this.deps.sleep(this.options.sampleIntervalSeconds);
       samples.push(await this.sample());
     }
+    const oomKilledPods = await this.oomKilledPods(runStarted);
+    const summarized = summarizeFootprint(samples, vmMemoryMiB);
     const loads = samples.map((sample) => sample.loadAverage);
     return {
       method: this.options,
@@ -89,8 +102,32 @@ export class FootprintMeasurement {
       loadAverage: { start, max: Math.max(start, ...loads) },
       overCeiling: loads.filter((load) => load >= maxLoadAverage),
       samples,
-      ...summarizeFootprint(samples, vmMemoryMiB),
+      ...summarized,
+      verdict: judgeFootprint({
+        peakMemoryMiB: summarized.summary.memoryMiB.max,
+        vmMemoryMiB,
+        oomKilledPods,
+      }),
     };
+  }
+
+  /** The pods, in every namespace, whose last state was OOMKilled since the run began. */
+  private oomKilledPods(runStarted: number): Promise<string[]> {
+    return this.read(
+      "the pods' OOMKilled state",
+      `check that kubectl can reach the ${this.options.kubeContext} context`,
+      "kubectl",
+      [
+        "--context",
+        this.options.kubeContext,
+        "get",
+        "pods",
+        "--all-namespaces",
+        "-o",
+        "json",
+      ],
+      (stdout) => parseOomKilledPods(stdout, runStarted),
+    );
   }
 
   private async sample(): Promise<FootprintSample> {
