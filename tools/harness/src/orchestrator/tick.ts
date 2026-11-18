@@ -106,6 +106,8 @@ export interface IdeaStep {
   pane?: string;
   /** On a held step: the bound that stopped the pane start this pass. */
   bound?: BoundName;
+  /** What the branch update notice did for this idea this pass, when it has something to say (#980). */
+  notice?: string;
 }
 
 type QueuedIdea = Extract<QueueItem, { kind: "idea" }>;

@@ -935,6 +935,17 @@ was spawned from, read from the session registry. The line goes through the sign
 and the send is recorded as a `session.send` event naming the idea and the state, so a restart
 or a later pass sends nothing twice. An idea with no recorded pane gets no line.
 
+With the `behind-main-notice` flag on too (off in every overlay; detection runs only when both
+flags are on), a pass checks each idea's open pull request. A PR that conflicts with main
+(`DIRTY`), or is ready to merge but behind main (`BEHIND`, CI green, no judge precheck failure),
+gets one branch update notice, the **Branch update notice** in the glossary: a `session send` to
+the idea's live writer pane that says to merge origin/main, never rebase or force-push, and to reply
+with exactly `pinned: no change` as its RESULT line when a live proof is pinned to its head. It is
+recorded as a `session.send` event keyed by the PR head and main's head, so a restart sends nothing
+twice and a changed main head sends again. A PR whose writer pane is not live is reported, not
+messaged, since the tick closes a finished writer before it looks at the PR. The tick never pushes,
+updates or merges a branch.
+
 A reserved question (ADR 0120, #1058) is the fourth state, `reserved`, and it is read from the
 ledger, never from the issue's labels. The tick checks it on every step of a queued idea: an
 owner-routed `decision.routed` event on the idea that no `owner.replied` on its issue has
