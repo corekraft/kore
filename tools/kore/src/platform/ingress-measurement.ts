@@ -3,9 +3,9 @@ import { parsePodMetrics, summarizeSamples } from "./ingress-metrics.js";
 import type { PodUsage } from "./ingress-metrics.js";
 import { summarizeLatency } from "./ingress-metrics.js";
 import type { HostReader } from "./ingress-host.js";
-import type { Measurement, Sample } from "./ingress-measurement-types.js";
+import type { Measurement, Sample } from "./ingress-metrics.js";
 
-export type { Measurement, Sample } from "./ingress-measurement-types.js";
+export type { Measurement, Sample } from "./ingress-metrics.js";
 
 // Docs: infra/plans/13-agentgateway-ingress.md#measurement-method
 //

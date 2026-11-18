@@ -279,11 +279,11 @@ test("the result states the fixed method so it can be repeated exactly", async (
   });
 });
 
-function hostReader(...snapshots: HostSnapshot[]) {
+function hostReader(before: HostSnapshot, after: HostSnapshot) {
   const read = vi
     .fn<HostReader["read"]>()
-    .mockResolvedValueOnce(snapshots[0] as HostSnapshot)
-    .mockResolvedValueOnce(snapshots[1] as HostSnapshot);
+    .mockResolvedValueOnce(before)
+    .mockResolvedValueOnce(after);
   return { read } satisfies HostReader;
 }
 

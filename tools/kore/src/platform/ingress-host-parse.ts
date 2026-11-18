@@ -15,6 +15,9 @@ export function parseMemAvailableMiB(stdout: string): number {
   return Math.round(Number(available[1]) / 1024);
 }
 
+const isRecord = (value: unknown): value is Record<string, unknown> =>
+  typeof value === "object" && value !== null;
+
 /** The number of agents `herdr agent list` prints; zero is an answer, not a missing source. */
 export function parseAgentPaneCount(stdout: string): number {
   let parsed: unknown;
@@ -25,8 +28,10 @@ export function parseAgentPaneCount(stdout: string): number {
       "herdr agent list did not print JSON; run `herdr agent list` by hand and check the herdr version",
     );
   }
-  const agents = (parsed as { result?: { agents?: unknown } } | null)?.result
-    ?.agents;
+  const agents =
+    isRecord(parsed) && isRecord(parsed["result"])
+      ? parsed["result"]["agents"]
+      : undefined;
   if (!Array.isArray(agents)) {
     throw new Error(
       "herdr agent list printed no agent list (.result.agents); the herdr version may have changed its output",
