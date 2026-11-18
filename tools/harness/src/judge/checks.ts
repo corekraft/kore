@@ -8,6 +8,8 @@ export { gatherExpandStep } from "./expand-gather.js";
 export { gatherGuardrailChanges } from "./guardrail-changes.js";
 // So does the file-length audit item.
 export { lengthAudit, type AuditFinding } from "./file-length.js";
+// So does the type-cast audit item.
+export { castAudit } from "./cast-audit.js";
 
 export const RESULTS = [
   "pass",

@@ -23,12 +23,25 @@ export const file = (
     hunk.map(([kind, text], i) => ({ kind, text, start: i === 0 })),
   );
   const added = trail.filter((l) => l.kind === "added");
+  // Each hunk numbers its new-side lines from 1: a fixture reads no real header.
+  const addedLines = hunks.flatMap((hunk) => {
+    let line = 1;
+    return hunk.flatMap(([kind, text]) => {
+      if (kind === "removed") {
+        return [];
+      }
+      const at = line;
+      line += 1;
+      return kind === "added" ? [{ line: at, text }] : [];
+    });
+  });
   const removed = trail.filter((l) => l.kind === "removed").length;
   return {
     path,
     previousPath,
     deleted: false,
     added: added.map((l) => l.text),
+    addedLines,
     removed,
     netRemoved: Math.max(0, removed - added.length),
     after: trail

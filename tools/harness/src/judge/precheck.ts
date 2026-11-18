@@ -1,5 +1,6 @@
 import type { CommandContext } from "../runtime/index.js";
 import {
+  castAudit,
   gatherChecks,
   gatherExpandStep,
   gatherGuardrailChanges,
@@ -115,7 +116,10 @@ async function diffChanges(
     view.baseSha,
     view.headSha,
   );
-  const audits = await lengthAudit(api, repo, view.headSha, files);
+  const audits = [
+    ...(await lengthAudit(api, repo, view.headSha, files)),
+    ...castAudit(files),
+  ];
   return {
     ...(guardrailChanges === undefined ? {} : { guardrailChanges }),
     ...(audits.length === 0 ? {} : { audits }),
@@ -220,7 +224,7 @@ export function summary(report: Report): string {
   );
   const found = (report.audits ?? []).map(
     (a) =>
-      `audit: ${a.item} ${a.file}: ${a.detail}; fix: ${a.fix}; reported, not sent back`,
+      `audit: ${a.item} ${a.file}${a.line === undefined ? "" : `:${a.line}`}: ${a.detail}; fix: ${a.fix}; reported, not sent back`,
   );
   const unverified = (report.unverified ?? []).map((u) => `unverified: ${u}`);
   return [

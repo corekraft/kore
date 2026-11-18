@@ -165,7 +165,10 @@ see [The harness bundle](#the-harness-bundle).
     Each spec and each support file stays at 300 code lines or fewer
     (`max-lines`): blank lines and comment-only lines do not count, so a file of
     315 raw lines with 300 code lines is at the limit. `harness pr check` reports
-    a file over it as an audit item. Each test function stays under 70 lines
+    a file over it as an audit item. It also reports each type cast (`as never`,
+    `as unknown as`, any other `as T`) on a line the PR adds to a TypeScript file,
+    tests included, with its file, line and fix; `as const` and an import or export
+    alias are not casts. Both are audit items, never a failure. Each test function stays under 70 lines
     (`max-lines-per-function`). Assert the whole
     `run.mock.calls` list, so a missing or extra command fails.
   - Errors from a real error class (`CommandError`) stay real; construct them
