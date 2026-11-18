@@ -238,7 +238,7 @@ const list: Command = {
 
 const pollHerdrCommand: Command = {
   summary:
-    "read herdr's agent panes once and append only the changes (pane.spawned, pane.busy, pane.waiting, pane.closed) to the ledger; pane.closed means the pane no longer hosts an agent; safe to repeat from a wait loop, and one poll runs at a time",
+    "read herdr's agent panes once and append only the changes (pane.spawned, pane.busy, pane.waiting, pane.closed, and pane.stalled for a spawned pane idle or gone past 300 seconds with no result) to the ledger; pane.closed means the pane no longer hosts an agent; each session start runs it in the background; it only reads herdr and never closes, restarts or messages a pane; safe to repeat from a wait loop, and one poll runs at a time",
   options: STRING_FLAGS(["ledger"]),
   async run(context) {
     const opened = await openLedger(context);
