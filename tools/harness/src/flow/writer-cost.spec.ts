@@ -40,10 +40,16 @@ const PRICED_CURRENT = {
   merged: 5,
   unjoinable: 5,
   relaunchLimit: RELAUNCH_LIMIT,
+  // The main session's 25 tokens have no token.split reading, so they are priced at the assumed model's
+  // input rate: 25 at 4 per million is 0.0001 dollars, and 0 per merged change at four decimals.
   orchestrate: {
     ...NO_ORCHESTRATE,
     weightedTokens: 1000,
     perMergedChange: 200,
+    basis: "assumed model",
+    assumedTokens: 25,
+    dollars: 0.0001,
+    dollarsPerMergedChange: 0,
   },
   judge: NO_JUDGE,
   unmergedWriterSessions: 0,

@@ -44,6 +44,8 @@ const tier = (over: Partial<Tier>): Tier => ({
 const RELAUNCH =
   "A relaunch on a new session with no idea stamp cannot be joined to the first launch: its merged change takes the relaunch's tier, not the first launch's.";
 
+type OkCurrent = Extract<WriterCost["current"], { status: "ok" }>;
+
 const OK_CURRENT: WriterCost["current"] = {
   status: "ok",
   merged: 5,
@@ -53,6 +55,9 @@ const OK_CURRENT: WriterCost["current"] = {
     weightedTokens: 0,
     perMergedChange: 0,
     model: "claude-opus-5-5",
+    basis: "assumed model",
+    recordedModels: [],
+    assumedTokens: 500_000,
     dollars: 2,
     dollarsPerMergedChange: 0.4,
   },
@@ -76,6 +81,9 @@ const OK_TRAILING: WriterCost["trailingAverage"] = {
     weightedTokens: 0,
     perMergedChange: 0,
     model: "claude-opus-5-5",
+    basis: "none",
+    recordedModels: [],
+    assumedTokens: 0,
     dollars: 0,
     dollarsPerMergedChange: 0,
   },
@@ -104,11 +112,70 @@ describe("writerDollarsLines: all-in cost per merged change by first-launch tier
   it("prints each tier's mean with its parts and its median, and names the assumed orchestrating model", () => {
     expect(writerDollarsLines(report(OK_CURRENT, OK_TRAILING))).toEqual([
       "All-in cost per merged change by first-launch tier (prices read 2026-11-17): claude-haiku-5-5 $7.5333 mean over 3 merged changes, median $4.2 (writer $5, reviewer $1.3333, judge $0.8, orchestrate $0.4); 1 unjoinable; 1 writer session with no merged change, left out",
-      "Orchestrating dollars are priced at claude-opus-5-5, an assumed main-session model, not a recorded one; the parts are means and do not sum to the median.",
+      "Orchestrating dollars are priced at claude-opus-5-5 (assumed model): this range has no token.split reading for its main session, so its token totals are priced at that model's input rate, a floor. The parts are means and do not sum to the median.",
       "All-in cost per merged change, trailing average over the 7 days before: claude-haiku-5-5 $6.1 mean",
     ]);
   });
+});
 
+describe("writerDollarsLines: the orchestrating dollars' basis (#1041)", () => {
+  it("names the recorded models the orchestrating dollars are priced at, and no assumed model, when every token has a reading", () => {
+    const current = {
+      ...OK_CURRENT,
+      orchestrate: {
+        ...(OK_CURRENT as OkCurrent).orchestrate,
+        basis: "recorded",
+        recordedModels: ["claude-haiku-5-5", "claude-opus-5-5"],
+        assumedTokens: 0,
+      },
+    } as WriterCost["current"];
+
+    expect(writerDollarsLines(report(current, OK_TRAILING))[1]).toBe(
+      "Orchestrating dollars are priced at the recorded models claude-haiku-5-5, claude-opus-5-5, from token.split readings. The parts are means and do not sum to the median.",
+    );
+  });
+
+  it("says both where some tokens are read and the rest are priced at the assumed model", () => {
+    const current = {
+      ...OK_CURRENT,
+      orchestrate: {
+        ...(OK_CURRENT as OkCurrent).orchestrate,
+        basis: "recorded and assumed model",
+        recordedModels: ["claude-haiku-5-5"],
+        assumedTokens: 1000,
+      },
+    } as WriterCost["current"];
+
+    expect(writerDollarsLines(report(current, OK_TRAILING))[1]).toBe(
+      "Orchestrating dollars are priced at the recorded model claude-haiku-5-5, from token.split readings, and the token totals with no reading at claude-opus-5-5 (assumed model), at its input rate, a floor. The parts are means and do not sum to the median.",
+    );
+  });
+
+  it("says no main-session tokens when the span holds none, and names the models when a price is missing, never zero", () => {
+    const none = {
+      ...OK_CURRENT,
+      orchestrate: { ...(OK_CURRENT as OkCurrent).orchestrate, basis: "none" },
+    } as WriterCost["current"];
+    const unpriced = {
+      ...OK_CURRENT,
+      orchestrate: {
+        ...(OK_CURRENT as OkCurrent).orchestrate,
+        basis: "recorded",
+        status: "insufficient prices",
+        models: ["claude-fable-5-2"],
+      },
+    } as WriterCost["current"];
+
+    expect(writerDollarsLines(report(none, OK_TRAILING))[1]).toBe(
+      "Orchestrating dollars: no main-session tokens in this range. The parts are means and do not sum to the median.",
+    );
+    expect(writerDollarsLines(report(unpriced, OK_TRAILING))[1]).toBe(
+      "Orchestrating dollars not read: no price for claude-fable-5-2. The parts are means and do not sum to the median.",
+    );
+  });
+});
+
+describe("writerDollarsLines: a figure not read (#1008)", () => {
   it("reads the window as not read below the minimum merged changes, never as zero", () => {
     expect(
       writerDollarsLines(

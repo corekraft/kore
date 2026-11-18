@@ -11,8 +11,9 @@ import { pricedLaunches } from "./writer-join.js";
 import { priceWeight } from "./writer-prices.js";
 
 /**
- * The model the orchestrating session runs on. The ledger records no model for the
- * main session, so its tokens are weighted at this one; an assumption to re-check.
+ * The model the orchestrating session runs on. Its token.usage holds no model, so its
+ * tokens are weighted at this one, and its dollars use it only where a span has no
+ * token.split reading (writer-orchestrate.ts, #1041); an assumption to re-check.
  */
 export const MAIN_SESSION_MODEL = "claude-opus-5-5";
 

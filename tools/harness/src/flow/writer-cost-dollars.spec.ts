@@ -1,4 +1,6 @@
 import { describe, expect, it } from "vitest";
+import type { LedgerEvent } from "../ledger/index.js";
+import { writerDollarsIn } from "./writer-attribution.js";
 import type { ModelPrice } from "./writer-prices.js";
 import {
   event,
@@ -207,5 +209,66 @@ describe("writer cost dollars: a window with no joined change", () => {
       r.current.status === "ok" &&
         r.current.tiers["claude-sonnet-5-5"]?.perMergedChangeDollars,
     ).toBeNull();
+  });
+});
+
+const isMainSplit = (e: LedgerEvent) =>
+  e.kind === "token.split" && e.agent === "main-s";
+
+describe("writer cost dollars: the main session's basis beside its figure (#1041)", () => {
+  it("reads the main session as recorded, at its Opus reading, beside the orchestrate figure", () => {
+    const r = writerCost(TIERS_EVENTS, WINDOW, DOLLARS);
+
+    expect(r.current).toMatchObject({
+      status: "ok",
+      orchestrate: {
+        basis: "recorded",
+        recordedModels: [OPUS],
+        assumedTokens: 0,
+        dollars: 2,
+      },
+    });
+  });
+
+  it("prices a main session with token totals and no reading at the assumed model, and says so", () => {
+    const events = [
+      ...TIERS_EVENTS.filter((e) => !isMainSplit(e)),
+      event(1200, "token.usage", {
+        session: "main-s",
+        tokens: 0,
+        source: "claude",
+      }),
+      event(1500, "token.usage", {
+        session: "main-s",
+        tokens: MILLION,
+        source: "claude",
+      }),
+    ];
+    const r = writerCost(events, WINDOW, DOLLARS);
+
+    // 1M tokens of growth at Opus's input rate of 2, the assumed model.
+    expect(r.current).toMatchObject({
+      status: "ok",
+      orchestrate: {
+        basis: "assumed model",
+        recordedModels: [],
+        assumedTokens: MILLION,
+        model: OPUS,
+        dollars: 2,
+      },
+    });
+  });
+
+  it("never assigns the main session's dollars to a merged change: each change's writer and reviewer parts are the same with or without it", () => {
+    const without = writerDollarsIn(
+      TIERS_EVENTS.filter((e) => !isMainSplit(e)),
+      WINDOW,
+      PRICES,
+    );
+    const withMain = writerDollarsIn(TIERS_EVENTS, WINDOW, PRICES);
+
+    expect(withMain.changes).toEqual(without.changes);
+    expect(withMain.shared.orchestrate).toBe(2);
+    expect(without.shared.orchestrate).toBe(0);
   });
 });

@@ -47,6 +47,7 @@ const attributed = (writer: number, reviewer: number): WriterDollars => ({
     orchestrate: 0,
     judgeUnpriced: [],
     orchestrateUnpriced: [],
+    orchestrateBasis: { basis: "none", recordedModels: [], assumedTokens: 0 },
   },
   unmergedWriterSessions: 0,
 });

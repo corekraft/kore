@@ -529,8 +529,9 @@ session has no priced launch, is `unjoinable` and in no tier; the figure states
 with none), and `finished`, `blocked` and `blockedShare`: a writer is finished when
 it has a `session.result`, and blocked when its latest result is `blocked`. The
 `orchestrate` entry weights the main session's tokens at `MAIN_SESSION_MODEL` in
-`tools/harness/src/flow/writer-cost.ts`, because the ledger records no model for
-the main session; re-check that assumption before reading the tiers against it.
+`tools/harness/src/flow/writer-usage.ts`, because its `token.usage` records no model;
+re-check that assumption before reading the tiers against it. Its dollars are read
+in the all-in paragraph below (#1041).
 `writerCost.current` and `.trailingAverage` are the names the figure registers;
 each has `status` and needs `cost.minMergedChanges` merged changes, else it is
 `insufficient merged changes`, never zero.
@@ -562,8 +563,18 @@ changes each session is linked to; its reviewer part is the session named
 `pr<N>-reviewer`, to its merge; the judge's and orchestrating sessions' spend in the
 span, the reviewers excluded, is shared equally per merged change. The tier reads the
 mean of each part, the sum (`allIn`) and the median of the per-change totals, which
-the parts do not sum to. The orchestrating part is priced at the assumed
-`MAIN_SESSION_MODEL` and says so as `orchestrate.model`. `judge` and `orchestrate`
+the parts do not sum to. The orchestrating part is the main session's spend (#1041,
+`tools/harness/src/flow/writer-orchestrate.ts`): each model with a `token.split` reading
+in the span is priced from that reading's growth at its own rates and prompt steps, so a
+Haiku reading and an Opus reading in one span are each priced as their own model. A
+main-session session with `token.usage` totals and no reading in the span has no recorded
+model, so its totals (input, output and cache creation) are priced at the assumed
+`MAIN_SESSION_MODEL`'s input rate, a floor, and the figure says so. `orchestrate.model`
+is that assumed model, `orchestrate.assumedTokens` the tokens priced at it,
+`orchestrate.recordedModels` the models read, and `orchestrate.basis` one of `recorded`,
+`assumed model`, `recorded and assumed model`, or `none` (no main-session tokens); an
+unpriced model reads `insufficient prices`, naming it. A session with a role is never read
+as the main session, and no main-session dollars are assigned to a pull request. `judge` and `orchestrate`
 give the shared dollars, and `unmergedWriterSessions` counts the writers with spend
 and no merged change, left out of every tier. A model the price table does not
 price, in a tier's changes or in the shared spend, makes that figure
