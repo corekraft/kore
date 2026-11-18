@@ -504,7 +504,15 @@ price relative to `claude-haiku-5-5`, from the table in
 ledger's token count adds input, output and cache-creation tokens together, so the
 weight is relative rather than dollars; every model in the table has the same
 output-to-input ratio, so the tier ratios hold for any token mix. Each tier gives
-`sessions`, `weightedTokens`, `perMergedChange` over the range's merged changes,
+`sessions`, `weightedTokens`, `perMergedChange` over the range's merged changes
+(SUPERSEDED: kept unchanged, read `perMergedChangeByTier` instead), `mergedChanges`
+(the merged changes joined to that tier) and `perMergedChangeByTier` (its weighted
+tokens over its own `mergedChanges`, null with none). A merged change joins to a
+tier through its pull request's `pr.linked` event: the writer's first priced
+launch's tier, or, when that launch carries an idea, the tier of the earliest
+priced launch with that idea. A merged change with no link, or whose linked
+session has no priced launch, is `unjoinable` and in no tier; the figure states
+`relaunchLimit`, the limit of the join (`tools/harness/src/flow/writer-join.ts`).
 `followUpsPerSession` (sends to that tier's writer panes over its sessions, null
 with none), and `finished`, `blocked` and `blockedShare`: a writer is finished when
 it has a `session.result`, and blocked when its latest result is `blocked`. The

@@ -1,66 +1,28 @@
 import { describe, expect, it } from "vitest";
-import type { Kind, LedgerEvent } from "../ledger/index.js";
+import {
+  HAIKU,
+  NO_ORCHESTRATE,
+  OPTIONS,
+  RELAUNCH_LIMIT,
+  SONNET,
+  WINDOW,
+  ZERO_TIER,
+  ZERO_TIERS,
+  event,
+  launch,
+  mergedAt,
+  writerUsage,
+} from "./writer-cost-support.js";
 import { writerCost } from "./writer-cost.js";
-
-const WINDOW: [number, number] = [1000, 2000];
-const ASOF = new Date(10_000);
-const OPTIONS = { trailingDays: 7, minMergedChanges: 5, asOf: ASOF };
-
-/** An event at a time in milliseconds, with its occurredAt set to that time. */
-function event(
-  ms: number,
-  kind: Kind,
-  extra: Partial<LedgerEvent> = {},
-): LedgerEvent {
-  return {
-    schema: 1,
-    id: String(ms),
-    source: "herdr",
-    kind,
-    occurredAt: new Date(ms).toISOString(),
-    recordedAt: new Date(ms).toISOString(),
-    ...extra,
-  } satisfies LedgerEvent;
-}
-
-/** A writer launched into a pane on a model tier. */
-const launch = (ms: number, agent: string, pane: string, tier: string) =>
-  event(ms, "session.launch", { agent, pane, role: "writer", tier });
-
-/** A cumulative token reading for a writer session in its pane. */
-const writerUsage = (ms: number, agent: string, pane: string, tokens: number) =>
-  event(ms, "token.usage", { agent, pane, tokens, source: "claude" });
-
-const mergedAt = (...times: number[]) =>
-  times.map((ms, i) => event(ms, "pr.merged", { number: 100 + i }));
-
-const ZERO_TIER = {
-  sessions: 0,
-  weightedTokens: 0,
-  perMergedChange: 0,
-  followUpsPerSession: null,
-  finished: 0,
-  blocked: 0,
-  blockedShare: null,
-};
-
-const ZERO_TIERS = {
-  "claude-fable-5-2": ZERO_TIER,
-  "claude-opus-5-5": ZERO_TIER,
-  "claude-sonnet-5-5": ZERO_TIER,
-  "claude-haiku-5-5": ZERO_TIER,
-};
-
-const NO_ORCHESTRATE = { weightedTokens: 0, perMergedChange: 0 };
 
 // Two haiku writers (one a respawn) and one sonnet writer, plus the main session.
 const PRICED_EVENTS = [
-  launch(100, "a-writer", "w1:p1", "claude-haiku-5-5"),
+  launch(100, "a-writer", "w1:p1", HAIKU),
   writerUsage(1100, "a-writer", "w1:p1", 40),
   writerUsage(1500, "a-writer", "w1:p1", 100),
-  launch(150, "b-writer", "w1:p2", "claude-sonnet-5-5"),
+  launch(150, "b-writer", "w1:p2", SONNET),
   writerUsage(1200, "b-writer", "w1:p2", 10),
-  launch(1450, "a2-writer", "w1:p3", "claude-haiku-5-5"),
+  launch(1450, "a2-writer", "w1:p3", HAIKU),
   writerUsage(1460, "a2-writer", "w1:p3", 30),
   // The main session has no agent: it orchestrates, and is priced at the main-session model.
   event(1300, "token.usage", {
@@ -71,9 +33,12 @@ const PRICED_EVENTS = [
   ...mergedAt(1400, 1500, 1600, 1700, 1800),
 ];
 
+// None of the five merged changes links to a writer, so all five are unjoinable and no tier has one.
 const PRICED_CURRENT = {
   status: "ok",
   merged: 5,
+  unjoinable: 5,
+  relaunchLimit: RELAUNCH_LIMIT,
   orchestrate: { weightedTokens: 1000, perMergedChange: 200 },
   tiers: {
     ...ZERO_TIERS,
@@ -114,8 +79,8 @@ describe("writer cost: tokens priced by launch tier", () => {
 
 // Follow-ups to writer panes count; a send outside the window, or to a pane no writer launched, does not.
 const FOLLOW_UP_EVENTS = [
-  launch(1100, "a-writer", "w1:p1", "claude-haiku-5-5"),
-  launch(1150, "b-writer", "w1:p2", "claude-sonnet-5-5"),
+  launch(1100, "a-writer", "w1:p1", HAIKU),
+  launch(1150, "b-writer", "w1:p2", SONNET),
   event(1250, "session.send", { pane: "w1:p1", senderRole: "judge" }),
   event(1260, "session.send", { pane: "w1:p1" }),
   event(1270, "session.send", { pane: "w1:p2" }),
@@ -134,6 +99,8 @@ describe("writer cost: follow-ups and blocked share beside price", () => {
     expect(r.current).toEqual({
       status: "ok",
       merged: 5,
+      unjoinable: 5,
+      relaunchLimit: RELAUNCH_LIMIT,
       orchestrate: NO_ORCHESTRATE,
       tiers: {
         ...ZERO_TIERS,
@@ -173,6 +140,8 @@ describe("writer cost: what is left out", () => {
     expect(r.current).toEqual({
       status: "ok",
       merged: 5,
+      unjoinable: 5,
+      relaunchLimit: RELAUNCH_LIMIT,
       orchestrate: NO_ORCHESTRATE,
       tiers: ZERO_TIERS,
     });
@@ -183,7 +152,7 @@ describe("writer cost: a thin window", () => {
   it("reads no tier figure below the minimum merged changes, so a thin window is never read", () => {
     const r = writerCost(
       [
-        launch(100, "a-writer", "w1:p1", "claude-haiku-5-5"),
+        launch(100, "a-writer", "w1:p1", HAIKU),
         writerUsage(1100, "a-writer", "w1:p1", 40),
         ...mergedAt(1400, 1500, 1600, 1700),
       ],
