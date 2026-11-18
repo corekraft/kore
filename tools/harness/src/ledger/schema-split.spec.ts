@@ -13,6 +13,8 @@ const reading = {
   ...base,
   model: "claude-haiku-5-5",
   firstPrompt: 20498,
+  largestPrompt: 250040,
+  overCap: 3,
   lowRequests: 40,
   lowInput: 1000,
   lowCacheWrite5m: 0,
@@ -39,6 +41,21 @@ describe("ledger event schema token split", () => {
   it("accepts a token split reading of numbers and a model name", () => {
     expect(parseEvent(reading, "input").ok).toBe(true);
     expect(KINDS).toContain("token.split");
+  });
+
+  it("accepts a reading with no over-cap count, which is how a session with no cap is recorded", () => {
+    const { overCap: _overCap, ...withoutCap } = reading;
+    expect(parseEvent(withoutCap, "input").ok).toBe(true);
+  });
+
+  it("requires the largest prompt, and checks the over-cap count when present", () => {
+    const { largestPrompt: _largest, ...withoutLargest } = reading;
+    expect(rejected(withoutLargest).field).toBe("largestPrompt");
+    expect(rejected({ ...reading, overCap: -1 }).field).toBe("overCap");
+    expect(rejected({ ...reading, overCap: 0.5 }).field).toBe("overCap");
+    expect(rejected({ ...reading, largestPrompt: "250040" }).field).toBe(
+      "largestPrompt",
+    );
   });
 
   it("requires the model name", () => {

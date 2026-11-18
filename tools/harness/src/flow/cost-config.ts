@@ -23,6 +23,8 @@ export interface HarnessConfig {
   reviewerLogins?: string[];
   /** The retro scan's history minimums; a minimum the config leaves out keeps its default. */
   retro?: RetroHistoryConfig;
+  /** The compaction cap in tokens, which the stop hook measures requests against; absent when not set. */
+  compactionCap?: number;
 }
 
 type Failure = { error: string };
@@ -218,7 +220,25 @@ function retroOf(
   return { retro };
 }
 
-/** The owner login, reviewer logins and retro minimums, each checked; the first bad one is the error. */
+/** The compaction cap when it is set, a whole number of at least 1; a key the config leaves out is not in the result. */
+function compactionCapOf(
+  file: string,
+  value: unknown,
+): { compactionCap?: number } | Failure {
+  if (value === undefined) {
+    return {};
+  }
+  if (!wholeAtLeastOne(value)) {
+    return bad(
+      file,
+      "compactionCap",
+      "must be a whole number of at least 1. Fix the value.",
+    );
+  }
+  return { compactionCap: value };
+}
+
+/** The owner login, reviewer logins, retro minimums and compaction cap, each checked; the first bad one is the error. */
 function settingsOf(
   file: string,
   value: Raw,
@@ -227,6 +247,7 @@ function settingsOf(
       ownerLogin?: string;
       reviewerLogins?: string[];
       retro?: RetroHistoryConfig;
+      compactionCap?: number;
     }
   | Failure {
   const owner = loginsOf(file, value);
@@ -237,7 +258,11 @@ function settingsOf(
   if ("error" in retro) {
     return retro;
   }
-  return { ...owner, ...retro };
+  const cap = compactionCapOf(file, value["compactionCap"]);
+  if ("error" in cap) {
+    return cap;
+  }
+  return { ...owner, ...retro, ...cap };
 }
 
 /** Checks the harness config text before any report uses it; a bad key names the file, the key and the fix. */
@@ -259,6 +284,7 @@ export function parseHarnessConfig(
     "ownerLogin",
     "reviewerLogins",
     "retro",
+    "compactionCap",
   ]);
   if (top !== undefined) {
     return top;
