@@ -236,6 +236,10 @@ decisions; read one only when planning that area, and expect it to change.
 - [`docs/ideas/0024-shell-aware-zsh-rules-live-verification.md`](ideas/0024-shell-aware-zsh-rules-live-verification.md) — shell-aware-zsh-rules works live in local
 - [`docs/ideas/0025-orchestrator-tick-live-verification.md`](ideas/0025-orchestrator-tick-live-verification.md) — orchestrator-tick works live in local
 - [`docs/ideas/0026-mechanical-review-checks-audit.md`](ideas/0026-mechanical-review-checks-audit.md) — pr check and the judge precheck report three mechanical review findings to the writer in audit mode, measured by send-backs per merged change
+- [`docs/ideas/0027-main-session-figures-live-verification.md`](ideas/0027-main-session-figures-live-verification.md) — main-session-figures works live in local
+- [`docs/ideas/0028-main-session-wait-live-verification.md`](ideas/0028-main-session-wait-live-verification.md) — main-session-wait works live in local
+- [`docs/ideas/0029-pane-result-summary-live-verification.md`](ideas/0029-pane-result-summary-live-verification.md) — pane-result-summary works live in local
+- [`docs/ideas/0030-signed-main-sends-live-verification.md`](ideas/0030-signed-main-sends-live-verification.md) — signed-main-sends works live in local
 
 ## Operations and Guides
 
