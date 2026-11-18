@@ -1,6 +1,7 @@
 import {
   absolute,
   alertEmailHelmArgs,
+  alertForwardingHelmArgs,
   dashboardSidecarHelmArgs,
   componentValues,
   componentVersion,
@@ -145,6 +146,7 @@ function chartSelectionArgs(
   args.push(
     ...goldenPathArgs(repository, component),
     ...alertEmailHelmArgs(repository.environment, component.name),
+    ...alertForwardingHelmArgs(repository.environment, component.name),
     ...dashboardSidecarHelmArgs(repository.environment, component.name),
   );
   return args;

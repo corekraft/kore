@@ -1,6 +1,7 @@
 import { beforeEach, expect, test, vi } from "vitest";
 import {
   alertEmailHelmArgs,
+  alertForwardingHelmArgs,
   dashboardSidecarHelmArgs,
 } from "../config/index.js";
 import {
@@ -14,6 +15,7 @@ import { fakeComponent, fakeRepository } from "./platform-support.js";
 vi.mock("../config/index.js", () => ({
   absolute: vi.fn(),
   alertEmailHelmArgs: vi.fn(),
+  alertForwardingHelmArgs: vi.fn(),
   componentValues: vi.fn(),
   componentVersion: vi.fn(),
   dashboardSidecarHelmArgs: vi.fn(),
@@ -183,5 +185,21 @@ test("Grafana's dashboard sidecar arguments come from the config domain with the
   expect(dashboardSidecarHelmArgs).toHaveBeenCalledWith(
     repository.environment,
     "grafana",
+  );
+});
+
+test("the metrics store's alert forwarding arguments come from the config domain with the component's name, after the other values", () => {
+  vi.mocked(alertForwardingHelmArgs).mockReturnValue([
+    "--set-json",
+    "server.alertmanagers=[]",
+  ]);
+  const args = helmUpgradeArgs(
+    repository,
+    fakeComponent({ name: "prometheus" }),
+  );
+  expect(args.slice(-2)).toEqual(["--set-json", "server.alertmanagers=[]"]);
+  expect(alertForwardingHelmArgs).toHaveBeenCalledWith(
+    repository.environment,
+    "prometheus",
   );
 });

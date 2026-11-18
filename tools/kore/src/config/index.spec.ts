@@ -22,6 +22,9 @@ vi.mock("./alert-email.js", () => ({
   smtpSecretName: "grafana-smtp",
   smtpSecretNamespace: "observability",
 }));
+vi.mock("./alert-forwarding.js", () => ({
+  alertForwardingHelmArgs: vi.fn(),
+}));
 vi.mock("./dashboard-sidecar.js", () => ({
   dashboardSidecarHelmArgs: vi.fn(),
 }));
@@ -104,6 +107,7 @@ test("the config barrel exposes exactly the entry points other domains use", () 
     "absolute",
     "agentgatewayMeshEnrollmentFlag",
     "alertEmailHelmArgs",
+    "alertForwardingHelmArgs",
     "approvedImageList",
     "auditEvidence",
     "autoscalingFlag",
