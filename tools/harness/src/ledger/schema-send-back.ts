@@ -15,6 +15,7 @@ export const SEND_BACK_CATEGORIES = [
   "missing-proof",
   "rule-break",
   "scope",
+  "wrong-statement",
   "other",
 ] as const;
 export type SendBackCategory = (typeof SEND_BACK_CATEGORIES)[number];
