@@ -14,14 +14,15 @@ import {
   mergedChangeTokens,
   type JudgmentContexts,
 } from "./merged-tokens.js";
-import { mergedChangeWriterCost } from "./writer-cost.js";
+import type { WriterArms } from "./writer-arms.js";
+import { writerFiguresIn } from "./writer-figures.js";
 
 vi.mock("./main-session.js");
 vi.mock("./merged-lead-time.js");
 vi.mock("./merged-send-backs.js");
 vi.mock("./merged-stage-tokens.js");
 vi.mock("./merged-tokens.js");
-vi.mock("./writer-cost.js");
+vi.mock("./writer-figures.js");
 
 const NO_SCAN = {
   status: "insufficient",
@@ -69,6 +70,32 @@ const WRITER_COST = {
   trailingAverage: INSUFFICIENT,
 } as const;
 
+const ARM_SIDE = {
+  tier: "claude-haiku-5-5",
+  mergedChanges: 0,
+  allInPerMergedChange: null,
+  effort: {},
+  blockedShare: null,
+  sendBacksPerMergedChange: null,
+  ownerMinutesPerMergedChange: null,
+} as const;
+
+const WRITER_ARMS: WriterArms = {
+  seed: 20261117,
+  resamples: 2000,
+  confidence: 0.95,
+  minMergedChanges: 5,
+  unlabelled: 0,
+  overall: {
+    label: null,
+    status: "insufficient merged changes",
+    needed: 5,
+    haiku: ARM_SIDE,
+    sonnet: { ...ARM_SIDE, tier: "claude-sonnet-5-5" },
+  },
+  strata: [],
+};
+
 const JUDGMENT_CONTEXTS: JudgmentContexts = {
   limit: 60_000,
   panes: 0,
@@ -82,7 +109,10 @@ beforeEach(() => {
   vi.mocked(mergedChangeLeadTime).mockReturnValue(LEAD_TIME);
   vi.mocked(tokensByStage).mockReturnValue(BY_STAGE);
   vi.mocked(mergedChangeStageTokens).mockReturnValue(TOKENS);
-  vi.mocked(mergedChangeWriterCost).mockReturnValue(WRITER_COST);
+  vi.mocked(writerFiguresIn).mockReturnValue({
+    writerCost: WRITER_COST,
+    writerArms: WRITER_ARMS,
+  });
   vi.mocked(mainSessionFigures).mockReturnValue(MAIN_SESSION);
 });
 
@@ -103,11 +133,7 @@ describe("mergedChangeFigures: the figures over one window", () => {
       window,
       options,
     );
-    expect(mergedChangeWriterCost).toHaveBeenCalledWith(
-      events,
-      window,
-      options,
-    );
+    expect(writerFiguresIn).toHaveBeenCalledWith(events, window, options);
     expect(mainSessionFigures).toHaveBeenCalledWith(
       events,
       window,
@@ -120,6 +146,7 @@ describe("mergedChangeFigures: the figures over one window", () => {
       tokensByStage: BY_STAGE,
       tokensByStagePerMergedChange: TOKENS,
       writerCost: WRITER_COST,
+      writerArms: WRITER_ARMS,
       mainSession: MAIN_SESSION,
       judgmentContexts: JUDGMENT_CONTEXTS,
     });

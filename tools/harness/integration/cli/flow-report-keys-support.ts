@@ -32,6 +32,7 @@ export const KEYS = [
   "tokensByStage",
   "tokensByStagePerMergedChange",
   "writerCost",
+  "writerArms",
   "mainSession",
   "handovers",
   "compactions",

@@ -76,6 +76,16 @@ const NO_SCAN = {
   reason: "no retro scan recorded in the window",
 };
 
+const ARM_EMPTY = {
+  tier: "claude-haiku-5-5",
+  mergedChanges: 0,
+  allInPerMergedChange: null,
+  effort: {},
+  blockedShare: null,
+  sendBacksPerMergedChange: null,
+  ownerMinutesPerMergedChange: null,
+};
+
 const FIGURES: MergedChangeFigures = {
   tokensPerMergedChange: TOKENS,
   sendBacksPerMergedChange: SEND_BACKS,
@@ -101,6 +111,21 @@ const FIGURES: MergedChangeFigures = {
       merged: 0,
       needed: 5,
     },
+  },
+  writerArms: {
+    seed: 20261117,
+    resamples: 2000,
+    confidence: 0.95,
+    minMergedChanges: 5,
+    unlabelled: 0,
+    overall: {
+      label: null,
+      status: "insufficient merged changes",
+      needed: 5,
+      haiku: ARM_EMPTY,
+      sonnet: { ...ARM_EMPTY, tier: "claude-sonnet-5-5" },
+    },
+    strata: [],
   },
   mainSession: {
     foregroundPollMinutesPerMerged: NO_SCAN,
@@ -161,7 +186,7 @@ describe("buildReport per-merged-change figures (#829, #830)", () => {
     );
   });
 
-  it("versions the report to 30, since the compaction count joined it (#1037)", () => {
-    expect(run([]).version).toBe(30);
+  it("versions the report to 31, since the writer arms joined it (#1012)", () => {
+    expect(run([]).version).toBe(31);
   });
 });
