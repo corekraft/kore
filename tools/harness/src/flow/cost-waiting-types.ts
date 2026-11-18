@@ -62,7 +62,7 @@ export interface IdeaFigure {
 /** One merged pull request in the window: all-in dollars and tokens, its launch-to-merge and its open-to-merge seconds. */
 export interface MergedChangeFigure {
   number: number;
-  /** False when no writer launch joins the pull request; its figures are then null, never zero. */
+  /** False when no writer launch joins the pull request; its dollars, tokens and launch-to-merge seconds are then null, never zero; waitSeconds does not depend on the join. */
   joined: boolean;
   dollars: number | null;
   tokens: number | null;
