@@ -11,7 +11,8 @@ const NOT_RECORDED =
 /**
  * Records the pull request a writer opened as one pr.linked event, through the ledger's own
  * writer. Only a writer's spawn has a writer to link, so any other pane writes nothing. The
- * event carries the number and the session name from the spawn environment, and no text.
+ * event carries the number and the session name from the spawn environment, and the idea the
+ * pull request serves (`none` when it serves none), and no other text (ADR 0126).
  * Returns the warning to print, or undefined when the link is written or none is due. A
  * ledger problem never blocks the pull request, which gh has already opened; an error that is
  * not a file error is a bug, and is rethrown.
@@ -19,6 +20,7 @@ const NOT_RECORDED =
 export async function linkPullRequest(
   deps: CliDeps,
   url: string,
+  idea: string,
 ): Promise<string | undefined> {
   if (deps.env[ROLE_VARIABLE] !== WRITER) {
     return undefined;
@@ -45,6 +47,7 @@ export async function linkPullRequest(
       number: Number(match[1]),
       session: name,
       agent: name,
+      idea,
     });
     return written.ok ? undefined : `${NOT_RECORDED}: ${written.message}`;
   } catch (error) {
