@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { parseEvent } from "./schema.js";
+import { parseEvent, SCHEMA_VERSION } from "./schema.js";
 import { SEND_BACK_CATEGORIES } from "./schema-send-back.js";
 
 const sendBack = {
@@ -10,8 +10,26 @@ const sendBack = {
   label: "too slow @abcdef1",
 };
 
+describe("a stored send-back line with a category this build does not know", () => {
+  it("is refused naming the field, so the report counts the line as skipped", () => {
+    const stored = {
+      ...sendBack,
+      schema: SCHEMA_VERSION,
+      id: "e1",
+      recordedAt: "2026-01-02T03:04:05.000Z",
+      category: "wrong-claim",
+    };
+    expect(parseEvent(stored, "stored")).toEqual({
+      ok: false,
+      field: "category",
+      message:
+        'Invalid event: field "category" must be one of declaration, pattern-mismatch, failed-check, conflict, missing-proof, rule-break, scope, wrong-statement, other.',
+    });
+  });
+});
+
 describe("the send-back category on a ledger event", () => {
-  it("lists the eight categories, in the order the judge is told them", () => {
+  it("lists the nine categories, in the order the judge is told them", () => {
     expect(SEND_BACK_CATEGORIES).toEqual([
       "declaration",
       "pattern-mismatch",
@@ -20,8 +38,18 @@ describe("the send-back category on a ledger event", () => {
       "missing-proof",
       "rule-break",
       "scope",
+      "wrong-statement",
       "other",
     ]);
+  });
+
+  it("accepts wrong-statement on a send-back event and keeps it as recorded", () => {
+    expect(
+      parseEvent({ ...sendBack, category: "wrong-statement" }, "input"),
+    ).toEqual({
+      ok: true,
+      event: { ...sendBack, category: "wrong-statement" },
+    });
   });
 
   it("is accepted on a send-back event when it names a listed category", () => {
@@ -44,7 +72,7 @@ describe("the send-back category on a ledger event", () => {
       ok: false,
       field: "category",
       message:
-        'Invalid event: field "category" must be one of declaration, pattern-mismatch, failed-check, conflict, missing-proof, rule-break, scope, other.',
+        'Invalid event: field "category" must be one of declaration, pattern-mismatch, failed-check, conflict, missing-proof, rule-break, scope, wrong-statement, other.',
     });
   });
 

@@ -1,6 +1,7 @@
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
+import { SEND_BACK_CATEGORIES } from "../ledger/index.js";
 
 const ROOT = join(import.meta.dirname, "../../../..");
 const read = (path: string) => readFileSync(join(ROOT, path), "utf8");
@@ -183,6 +184,22 @@ describe("the judge's send-back step", () => {
     expect(step).toContain("`--reason-file <path>`");
     expect(step).toContain("with the Write tool");
     expect(step).toContain("never pass both");
+  });
+
+  it("lists exactly the categories the command accepts, in the constant's order, each with a meaning", () => {
+    const start = judge.indexOf("must be one of:");
+    const end = judge.indexOf("A send-back refused");
+    expect(start).toBeGreaterThan(-1);
+    expect(end).toBeGreaterThan(start);
+    const sentence = judge.slice(start, end);
+    const named = [...sentence.matchAll(/`([a-z-]+)` \(/g)].map((m) => m[1]);
+    expect(named).toEqual([...SEND_BACK_CATEGORIES]);
+  });
+
+  it("gives wrong-statement its one-line meaning in the brief", () => {
+    expect(judge).toContain(
+      "`wrong-statement` (the change's own text contradicts itself or names something absent from the change)",
+    );
   });
 });
 

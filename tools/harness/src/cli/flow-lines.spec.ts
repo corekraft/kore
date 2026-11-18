@@ -17,6 +17,7 @@ const ZERO = {
   "missing-proof": 0,
   "rule-break": 0,
   scope: 0,
+  "wrong-statement": 0,
   other: 0,
 } as const;
 
@@ -35,8 +36,8 @@ describe("sendBackCategoryLines", () => {
         perMergedChange: { ...counts, uncategorised: 0 },
       }),
     ).toEqual([
-      "Send-backs by category, per PR head: declaration 0, pattern-mismatch 0, failed-check 2, conflict 0, missing-proof 0, rule-break 0, scope 0, other 1; uncategorised 3; other 33% of categorised, over 10%: the list may need an entry",
-      "Send-backs by category, per merged change: declaration 0, pattern-mismatch 0, failed-check 2, conflict 0, missing-proof 0, rule-break 0, scope 0, other 1; uncategorised 0; other 33% of categorised, over 10%: the list may need an entry",
+      "Send-backs by category, per PR head: declaration 0, pattern-mismatch 0, failed-check 2, conflict 0, missing-proof 0, rule-break 0, scope 0, wrong-statement 0, other 1; uncategorised 3; other 33% of categorised, over 10%: the list may need an entry",
+      "Send-backs by category, per merged change: declaration 0, pattern-mismatch 0, failed-check 2, conflict 0, missing-proof 0, rule-break 0, scope 0, wrong-statement 0, other 1; uncategorised 0; other 33% of categorised, over 10%: the list may need an entry",
     ]);
   });
 

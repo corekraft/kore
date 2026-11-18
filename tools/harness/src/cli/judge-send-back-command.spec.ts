@@ -22,7 +22,7 @@ vi.mock("./judge-shared.js", async (importOriginal) => ({
 }));
 
 const CATEGORIES =
-  "declaration, pattern-mismatch, failed-check, conflict, missing-proof, rule-break, scope, other";
+  "declaration, pattern-mismatch, failed-check, conflict, missing-proof, rule-break, scope, wrong-statement, other";
 const USAGE =
   'Run `harness judge send-back <pr> --reason "<why>" --category <category>`.';
 
@@ -112,6 +112,30 @@ describe("harness judge send-back", () => {
     expect(await mergeCommands["send-back"]?.run(context)).toBe(0);
     expect(run).not.toHaveBeenCalled();
     expect(write).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("harness judge send-back: wrong-statement", () => {
+  it("records a wrong-statement send-back with that category, named by its head", async () => {
+    const { context, write } = prepare({
+      reason: "ADR status contradicts itself",
+      category: "wrong-statement",
+    });
+    vi.mocked(hasSentBack).mockReturnValue(false);
+
+    expect(await mergeCommands["send-back"]?.run(context)).toBe(0);
+    expect(write.mock.calls).toEqual([
+      [
+        {
+          source: "github",
+          kind: "send-back",
+          occurredAt: "2026-01-02T03:04:05.000Z",
+          number: 42,
+          label: "ADR status contradicts itself @abcdef1",
+          category: "wrong-statement",
+        },
+      ],
+    ]);
   });
 });
 

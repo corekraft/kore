@@ -15,6 +15,7 @@ function ports(over: Partial<NotifyPorts> = {}): NotifyPorts {
   return {
     attendedPane: vi.fn().mockResolvedValue(PANE),
     sent: vi.fn().mockResolvedValue(false),
+    openQuestions: vi.fn().mockResolvedValue([]),
     send: vi.fn().mockResolvedValue(undefined),
     record: vi.fn().mockResolvedValue(undefined),
     ...over,
@@ -28,11 +29,12 @@ const step = (name: IdeaStep["step"]): IdeaStep => ({
 });
 
 describe("NEEDS_A_PERSON", () => {
-  it("holds exactly the ends that need a person: blocked, needs-judgment and needs-info", () => {
+  it("holds exactly the ends that need a person: blocked, needs-judgment, needs-info and reserved", () => {
     expect([...NEEDS_A_PERSON]).toEqual([
       "blocked",
       "needs-judgment",
       "needs-info",
+      "reserved",
     ]);
   });
 
@@ -124,5 +126,79 @@ describe("TickNotifier.notify", () => {
     ).rejects.toThrow("herdr pane send-text failed");
 
     expect(p.record).not.toHaveBeenCalled();
+  });
+});
+
+describe("TickNotifier.notify for a reserved question (#1058)", () => {
+  const OPEN = [{ occurredAt: "2026-11-17T09:00:00.000Z" }];
+  const REASON =
+    "a reserved question waits on the owner's reply on the idea's issue; the owner decides";
+
+  it("tells the attended pane once when a reserved question is open, on a step that needs no person", async () => {
+    const p = ports({ openQuestions: vi.fn().mockResolvedValue(OPEN) });
+    await new TickNotifier(p, TICK_ENV, COMMAND).notify(step("waiting"));
+
+    expect(p.openQuestions).toHaveBeenCalledWith("0034");
+    expect(p.send).toHaveBeenCalledTimes(1);
+    expect(p.send).toHaveBeenCalledWith(
+      PANE,
+      `sender: tick orchestrator-tick (orchestrate tick): Idea 0034 needs a person: ${REASON}.`,
+    );
+    expect(p.record).toHaveBeenCalledWith({
+      idea: "0034",
+      state: "reserved",
+      pane: PANE,
+      sender: {
+        command: COMMAND,
+        session: { role: "tick", name: "orchestrator-tick" },
+      },
+    });
+  });
+
+  it("checks for an open question on every step, and sends nothing when none is open", async () => {
+    const p = ports();
+    await new TickNotifier(p, TICK_ENV, COMMAND).notify(step("awaiting-judge"));
+
+    expect(p.openQuestions).toHaveBeenCalledWith("0034");
+    expect(p.attendedPane).not.toHaveBeenCalled();
+    expect(p.send).not.toHaveBeenCalled();
+    expect(p.record).not.toHaveBeenCalled();
+  });
+
+  it("sends nothing for a question when the idea has no attended pane recorded", async () => {
+    const p = ports({
+      openQuestions: vi.fn().mockResolvedValue(OPEN),
+      attendedPane: vi.fn().mockResolvedValue(undefined),
+    });
+    await new TickNotifier(p, TICK_ENV, COMMAND).notify(step("waiting"));
+
+    expect(p.send).not.toHaveBeenCalled();
+    expect(p.record).not.toHaveBeenCalled();
+  });
+
+  it("records nothing when delivering the reserved line fails, so the next pass tries again", async () => {
+    const p = ports({
+      openQuestions: vi.fn().mockResolvedValue(OPEN),
+      send: vi.fn().mockResolvedValue("herdr pane send-text failed"),
+    });
+    await expect(
+      new TickNotifier(p, TICK_ENV, COMMAND).notify(step("waiting")),
+    ).rejects.toThrow("herdr pane send-text failed");
+
+    expect(p.record).not.toHaveBeenCalled();
+  });
+
+  it("sends a blocked idea's line and its reserved line separately, each recorded once", async () => {
+    const p = ports({ openQuestions: vi.fn().mockResolvedValue(OPEN) });
+    await new TickNotifier(p, TICK_ENV, COMMAND).notify(step("blocked"));
+
+    expect(p.send).toHaveBeenCalledTimes(2);
+    expect(p.record).toHaveBeenCalledTimes(2);
+    expect(p.record).toHaveBeenCalledWith(
+      expect.objectContaining({ state: "blocked" }),
+    );
+    expect(p.record).toHaveBeenCalledWith(
+      expect.objectContaining({ state: "reserved" }),
+    );
   });
 });

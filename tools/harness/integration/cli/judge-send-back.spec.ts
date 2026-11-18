@@ -69,7 +69,7 @@ describe("judge send-back names its category", () => {
       await run(["judge", "send-back", "42", "--reason", "no pattern"], h.deps),
     ).toBe(1);
     expect(h.err()).toContain(
-      "declaration, pattern-mismatch, failed-check, conflict, missing-proof, rule-break, scope, other",
+      "declaration, pattern-mismatch, failed-check, conflict, missing-proof, rule-break, scope, wrong-statement, other",
     );
     expect(h.runner.calls).toHaveLength(0);
     expect(h.files.has(LEDGER)).toBe(false);

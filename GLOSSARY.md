@@ -76,6 +76,12 @@ safety pattern, merges it through the merge tool, and, when it is not, sends it
 back to its writer through the orchestrator with the reason.
 _Avoid_: Approver, Reviewer (a separate role)
 
+**Send-back category**:
+The required reason class on a judge send-back, from a fixed list, set when the
+send-back is recorded. A send-back with no category, or one outside the list, is
+refused before anything is posted or recorded.
+_Avoid_: Reason code, send-back type
+
 **Reviewer**:
 The role that checks a change against the judgement rules in `AGENTS.md`. A
 tool posts its verdict, and the judge reads it.
