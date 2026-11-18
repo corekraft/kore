@@ -49,7 +49,7 @@ const call = (
   tool: string,
   input: Record<string, unknown>,
   cwd?: string,
-) => checkRole(role, tool, input, ROOT, cwd);
+) => checkRole(role, tool, input, ROOT, { cwd: cwd ?? ROOT });
 const bash = (role: string, command: string) => call(role, "Bash", { command });
 
 beforeEach(() => {

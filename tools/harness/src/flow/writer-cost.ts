@@ -2,7 +2,8 @@
 // in the window, weighted by its price, over the merged changes, with the follow-ups
 // per session and the blocked share beside it. The same figure over the trailing
 // days is the average. Orchestrating tokens are reported beside the tiers, weighted at
-// the main-session model.
+// the main-session model. Each tier also reads its own figure over the merged changes
+// joined to it (#1007, writer-join.ts).
 
 import type { LedgerEvent } from "../ledger/index.js";
 import { DEFAULT_COST, type CostOptions } from "./cost.js";
@@ -12,24 +13,36 @@ import {
   mergedIn,
   trailingBefore,
 } from "./merged-span.js";
-import { countsBefore, tokenSession } from "./merged-tokens.js";
 import { inWindow, type Span } from "./scope.js";
-import { tokenStageResolver } from "./stage-of.js";
-import { MODEL_PRICES, PRICES_AS_OF, priceWeight } from "./writer-prices.js";
+import {
+  mergedTierJoins,
+  pricedLaunches,
+  type PricedLaunch,
+} from "./writer-join.js";
+import { sendsIn, weightedTokensIn } from "./writer-usage.js";
+import { MODEL_PRICES, PRICES_AS_OF } from "./writer-prices.js";
 
 /**
- * The model the orchestrating session runs on. The ledger records no model for the
- * main session, so its tokens are weighted at this one; an assumption to re-check.
+ * The relaunch limit the report states beside each figure: the join reads a relaunch on a new
+ * session with no idea stamp as that relaunch's tier, never the first launch's.
  */
-export const MAIN_SESSION_MODEL = "claude-opus-5-5";
+export const RELAUNCH_LIMIT =
+  "A relaunch on a new session with no idea stamp cannot be joined to the first launch: its merged change takes the relaunch's tier, not the first launch's.";
 
 export interface WriterTierFigure {
   /** Writer sessions launched in the span on this tier. */
   sessions: number;
   /** The tier's tokens in the span, each weighted by the tier's price. */
   weightedTokens: number;
-  /** The tier's weighted tokens over the span's merged changes. */
+  /**
+   * SUPERSEDED: the tier's weighted tokens over all the span's merged changes, kept unchanged
+   * until readers move to perMergedChangeByTier. Do not read it as a per-tier figure.
+   */
   perMergedChange: number;
+  /** The merged changes in the span joined to this tier by their pull request's link event. */
+  mergedChanges: number;
+  /** The tier's weighted tokens over its own merged changes; null with none joined to the tier. */
+  perMergedChangeByTier: number | null;
   /** Follow-ups sent to the tier's writer panes over its sessions; null with no session. */
   followUpsPerSession: number | null;
   /** Tier sessions whose latest result the span has. */
@@ -44,6 +57,10 @@ export type WriterCostFigure =
   | {
       status: "ok";
       merged: number;
+      /** Merged changes in the span that join to no priced tier, counted and in no tier. */
+      unjoinable: number;
+      /** The limit of the join, stated beside the figure (see RELAUNCH_LIMIT). */
+      relaunchLimit: string;
       /** The orchestrating session's tokens, weighted at the main-session model. */
       orchestrate: { weightedTokens: number; perMergedChange: number };
       /** Every priced model, so a tier with no session is shown as zero. */
@@ -77,59 +94,6 @@ export interface WriterCostOptions {
 
 const round = (value: number) => Math.round(value * 10_000) / 10_000;
 
-/** A writer launch on a priced tier: its session name, pane, tier and launch time. */
-interface PricedLaunch {
-  agent: string | undefined;
-  pane: string | undefined;
-  tier: string;
-  at: number;
-}
-
-function pricedLaunches(events: LedgerEvent[]): PricedLaunch[] {
-  return events
-    .filter(
-      (e) =>
-        e.kind === "session.launch" &&
-        e.role === "writer" &&
-        e.tier !== undefined &&
-        priceWeight(e.tier) !== undefined,
-    )
-    .map((e) => ({
-      agent: e.agent,
-      pane: e.pane,
-      tier: e.tier as string,
-      at: time(e),
-    }));
-}
-
-/** The latest token reading's event for each session, which names its agent and stage. */
-function latestReadings(events: LedgerEvent[]): Map<string, LedgerEvent> {
-  const latest = new Map<string, { at: number; event: LedgerEvent }>();
-  for (const event of events) {
-    if (event.kind !== "token.usage" || event.tokens === undefined) {
-      continue;
-    }
-    const key = tokenSession(event);
-    const at = time(event);
-    const seen = latest.get(key);
-    if (seen === undefined || at >= seen.at) {
-      latest.set(key, { at, event });
-    }
-  }
-  return new Map([...latest].map(([key, v]) => [key, v.event]));
-}
-
-/** Each priced writer's tier, by session name. */
-function tierByAgent(events: LedgerEvent[]): Map<string, string> {
-  const tierOf = new Map<string, string>();
-  for (const l of pricedLaunches(events)) {
-    if (l.agent !== undefined) {
-      tierOf.set(l.agent, l.tier);
-    }
-  }
-  return tierOf;
-}
-
 /** Each session's latest result before the span's end, by session name. */
 function latestResults(events: LedgerEvent[], end: number) {
   const latest = new Map<string, { at: number; result: string | undefined }>();
@@ -146,72 +110,21 @@ function latestResults(events: LedgerEvent[], end: number) {
   return latest;
 }
 
-/** Each tier's weighted tokens in the span, and the orchestrating session's, weighted at the main-session model. */
-function weightedTokensIn(events: LedgerEvent[], span: Span) {
-  const tierOf = tierByAgent(events);
-  const stageOf = tokenStageResolver(events);
-  const owners = latestReadings(events);
-  const end = countsBefore(events, span[1]);
-  const start = countsBefore(events, span[0]);
-  const byTier = new Map<string, number>();
-  const spent = new Set<string>();
-  let orchestrate = 0;
-  for (const [key, tokens] of end) {
-    const owner = owners.get(key);
-    if (owner === undefined) {
-      continue;
-    }
-    const delta = tokens - (start.get(key) ?? 0);
-    const stage = stageOf(owner);
-    if (stage === "orchestrate") {
-      orchestrate += delta * (priceWeight(MAIN_SESSION_MODEL) ?? 0);
-    }
-    const tier =
-      stage === "write" && owner.agent !== undefined
-        ? tierOf.get(owner.agent)
-        : undefined;
-    if (tier !== undefined && owner.agent !== undefined) {
-      byTier.set(
-        tier,
-        (byTier.get(tier) ?? 0) + delta * (priceWeight(tier) ?? 0),
-      );
-      if (delta > 0) {
-        spent.add(owner.agent);
-      }
-    }
-  }
-  return { byTier, orchestrate, spent };
+/** What one tier's figure is read from: its tokens, follow-ups and joined merged changes, against the span's merged changes. */
+interface TierInputs {
+  weighted: number;
+  sends: number;
+  merged: number;
+  mergedChanges: number;
 }
 
-/** Follow-ups sent in the span to each tier's writer panes. */
-function sendsIn(events: LedgerEvent[], span: Span): Map<string, number> {
-  const paneTier = new Map<string, string>();
-  for (const l of pricedLaunches(events)) {
-    if (l.pane !== undefined) {
-      paneTier.set(l.pane, l.tier);
-    }
-  }
-  const sends = new Map<string, number>();
-  for (const e of events) {
-    const tier =
-      e.kind === "session.send" && e.pane !== undefined
-        ? paneTier.get(e.pane)
-        : undefined;
-    if (tier !== undefined && inWindow(span, time(e))) {
-      sends.set(tier, (sends.get(tier) ?? 0) + 1);
-    }
-  }
-  return sends;
-}
-
-/** One tier's figure: its sessions, price, follow-ups and blocked share in the span. */
+/** One tier's figure: its sessions, price, follow-ups, joined merged changes and blocked share in the span. */
 function tierFigure(
   launches: PricedLaunch[],
   results: Map<string, { at: number; result: string | undefined }>,
-  weighted: number,
-  sends: number,
-  merged: number,
+  inputs: TierInputs,
 ): WriterTierFigure {
+  const { weighted, sends, merged, mergedChanges } = inputs;
   const finished = launches.filter(
     (l) => l.agent !== undefined && results.has(l.agent),
   );
@@ -222,6 +135,9 @@ function tierFigure(
     sessions: launches.length,
     weightedTokens: round(weighted),
     perMergedChange: round(weighted / merged),
+    mergedChanges,
+    perMergedChangeByTier:
+      mergedChanges === 0 ? null : round(weighted / mergedChanges),
     followUpsPerSession:
       launches.length === 0 ? null : round(sends / launches.length),
     finished: finished.length,
@@ -248,6 +164,7 @@ function figureIn(
   const { byTier, orchestrate, spent } = weightedTokensIn(events, span);
   const sends = sendsIn(events, span);
   const results = latestResults(events, span[1]);
+  const joins = mergedTierJoins(events, span);
   // A writer is in the span when it launched in it or spent tokens in it, so its tokens and its count agree.
   const launches = pricedLaunches(events).filter(
     (l) =>
@@ -259,15 +176,20 @@ function figureIn(
       tierFigure(
         launches.filter((l) => l.tier === tier),
         results,
-        byTier.get(tier) ?? 0,
-        sends.get(tier) ?? 0,
-        merged,
+        {
+          weighted: byTier.get(tier) ?? 0,
+          sends: sends.get(tier) ?? 0,
+          merged,
+          mergedChanges: joins.joined.get(tier) ?? 0,
+        },
       ),
     ]),
   );
   return {
     status: "ok",
     merged,
+    unjoinable: joins.unjoinable,
+    relaunchLimit: RELAUNCH_LIMIT,
     orchestrate: {
       weightedTokens: round(orchestrate),
       perMergedChange: round(orchestrate / merged),

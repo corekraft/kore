@@ -244,6 +244,28 @@ export const wrapsCommands = (segment: readonly string[]): boolean => {
 };
 
 export const HARNESS = /^(\.\/)?skills\/bin\/harness\.mjs$/;
+const INTERPRETER = /^(?:node|bash|sh|zsh|dash|ksh)$/;
+const HELP_FLAGS = new Set(["--help", "-h"]);
+
+/**
+ * Whether a command line runs the bundle (skills/bin/harness.mjs), by an interpreter or by its own path, with exactly three words
+ * after the script: a gated pair and one help flag (#973). The caller checks the pair. A program named harness, or another
+ * harness.mjs, is not the bundle.
+ */
+export function bundleHelpRequest(line: readonly string[]): boolean {
+  const { name, args } = commandOf(line);
+  const interpreted = INTERPRETER.test(name);
+  // commandOf keeps only the basename, so the first word as written is read from the line itself.
+  const invoked = interpreted
+    ? (args[0] ?? "")
+    : (line[line.length - args.length - 1] ?? "");
+  const words = interpreted ? args.slice(1) : args;
+  return (
+    HARNESS.test(invoked) &&
+    words.length === 3 &&
+    HELP_FLAGS.has(words[2] ?? "")
+  );
+}
 /** `--ledger <path>` makes a harness command append to any file, so a bounded role never passes it. */
 const namesLedger = (args: readonly string[]): boolean =>
   args.some((arg) => arg === "--ledger" || arg.startsWith("--ledger="));

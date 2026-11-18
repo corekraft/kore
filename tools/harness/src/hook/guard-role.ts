@@ -76,19 +76,25 @@ function checkBash(role: string, command: string): Finding {
       );
 }
 
-/** The role bounds for one tool call; null when the session has no bounded role or the call is within it. */
+/**
+ * The role bounds for one tool call; null when the session has no bounded role or the call is within it.
+ * `cwd` is the directory the call runs in (the root by default); `helpExempt` is gated-help-exempt (#973).
+ */
 export function checkRole(
   agentType: unknown,
   tool: string,
   input: Record<string, unknown>,
   root: string,
-  cwd: string = root,
+  {
+    cwd = root,
+    helpExempt = false,
+  }: { cwd?: string; helpExempt?: boolean } = {},
 ): Finding {
   const bound =
     typeof agentType === "string" &&
     (DELIVERY_ROLES.has(agentType) || READ_ONLY_ROLE_SET.has(agentType));
   const protectedFinding = bound
-    ? checkProtected(agentType, tool, input, root)
+    ? checkProtected(agentType, tool, input, root, helpExempt)
     : null;
   if (protectedFinding !== null) {
     return protectedFinding;
