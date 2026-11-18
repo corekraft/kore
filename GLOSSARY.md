@@ -128,7 +128,31 @@ _Avoid_: Plan percentage, usage percentage
 **Rework**:
 A follow-up sent to a writer after a judge send-back of the pull request that
 writer started. Any other follow-up is not rework.
+Rework is a subset of **Follow-up**.
 _Avoid_: Retry, resend
+
+**Review round**:
+One pass by the **Judge** or by a principles review over one head of a pull
+request, clean or failed. The judge's pass and the reviewer's pass are separate
+rounds by separate roles; a round names neither role's verdict.
+_Avoid_: Review cycle, iteration
+
+**Failed review round**:
+A review round that found fault: a "Sent back by the judge" comment, or a
+principles-review verdict with one or more violations. It differs from
+**Rework**: a failure the writer fixes without a send is a failed review round
+but not rework.
+_Avoid_: Rejection, failed review
+
+**Review coverage**:
+The share of **Merged changes** with a principles-review verdict for their
+head. A verdict on an older head does not count for a later one.
+_Avoid_: Review rate, reviewed share
+
+**Send-back**:
+The judge's return of a pull request to its writer, with the reason. The list
+of categories a send-back can take lives in code, not here.
+_Avoid_: Rejection, bounce
 
 **Merged-change cost**:
 The all-in dollars of one **Merged change**: its writer's, its reviewer's, and
