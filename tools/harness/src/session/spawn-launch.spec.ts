@@ -62,29 +62,79 @@ describe("launchOf runs a launch on its definition or its flags", () => {
 });
 
 describe("launchOf applies the experiment window's sample to the launch", () => {
-  it("runs a sampled writer on the experiment's model, keeping the definition's effort, with the experiment's origin", async () => {
+  it("runs a drawn writer on the experiment's model at the window effort, with the experiment's origin", async () => {
     vi.mocked(writerExperiment).mockReturnValue({
       model: "claude-sonnet-5-5",
+      effort: "high",
       tier: { tierSource: "override", tierReason: "experiment" },
     });
 
     await expect(launchOf(deps, "writer", {})).resolves.toEqual({
       model: "claude-sonnet-5-5",
-      effort: "medium",
+      effort: "high",
       origin: { tierSource: "override", tierReason: "experiment" },
     });
   });
 
-  it("hands the window the role, the origin, the environment, the clock and the random source", async () => {
+  it("launches an undrawn eligible writer on its definition's model at the window effort, whatever effort flag it carried", async () => {
+    vi.mocked(writerExperiment).mockReturnValue({
+      model: undefined,
+      effort: "high",
+      tier: { tierSource: "override", tierReason: "experiment-control" },
+    });
+    vi.mocked(resolveTier).mockResolvedValue({
+      model: "claude-haiku-5-5",
+      effort: "high",
+    });
+
+    await expect(launchOf(deps, "writer", { effort: "low" })).resolves.toEqual({
+      model: "claude-haiku-5-5",
+      effort: "high",
+      origin: { tierSource: "override", tierReason: "experiment-control" },
+    });
+    expect(resolveTier).toHaveBeenCalledWith(deps, "writer", {
+      model: undefined,
+      effort: "high",
+    });
+  });
+
+  it("launches a drawn writer at the window effort even when its effort flag names another", async () => {
+    vi.mocked(writerExperiment).mockReturnValue({
+      model: "claude-sonnet-5-5",
+      effort: "high",
+      tier: { tierSource: "override", tierReason: "experiment" },
+    });
+
+    await expect(
+      launchOf(deps, "writer", { effort: "medium" }),
+    ).resolves.toEqual({
+      model: "claude-sonnet-5-5",
+      effort: "high",
+      origin: { tierSource: "override", tierReason: "experiment" },
+    });
+  });
+});
+
+describe("launchOf hands the experiment window what the launch carried", () => {
+  it("hands the window the role, the model flag, the origin, the environment, the clock and the random source", async () => {
     await launchOf(deps, "writer", {});
 
     expect(writerExperiment).toHaveBeenCalledWith({
       role: "writer",
+      model: undefined,
       origin: { tierSource: "definition" },
       env: deps.env,
       now: deps.clock.now.mock.results[0]?.value,
       random: deps.random,
     });
+  });
+
+  it("hands the window the model flag a launch names, so a model-flagged writer is not drawn", async () => {
+    await launchOf(deps, "writer", { model: "claude-opus-5-5" });
+
+    expect(writerExperiment).toHaveBeenCalledWith(
+      expect.objectContaining({ model: "claude-opus-5-5" }),
+    );
   });
 
   it("refuses a writer whose window is misconfigured, with the window's error", async () => {
