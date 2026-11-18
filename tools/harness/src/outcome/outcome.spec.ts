@@ -195,7 +195,7 @@ describe("closeOutcome refusals", () => {
     const { ctx } = setUp();
     await expect(closeOutcome(ctx, "1")).rejects.toThrow(
       new IdeaError(
-        `${PATH} has no recorded outcome, so its issue stays open. Run \`harness outcome record --idea 0001 --kind <experiment|usage|verification> --source <live-run|journal|eval-history|comparison> --evidence <reference> --result <confirmed|refuted|inconclusive> --summary <text>\`.`,
+        `${PATH} has no recorded outcome, so its issue stays open. Run \`harness outcome record --idea 0001 --kind <experiment|usage|verification> --source <live-run|journal|eval-history|comparison|owner-waiver> --evidence <reference> --result <confirmed|refuted|inconclusive> --summary <text>\`.`,
       ),
     );
     expect(issueTarget).not.toHaveBeenCalled();

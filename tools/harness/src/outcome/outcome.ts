@@ -99,7 +99,7 @@ export async function closeOutcome(
   const recorded = record.outcome;
   if (recorded === undefined) {
     throw new IdeaError(
-      `${record.path} has no recorded outcome, so its issue stays open. Run \`harness outcome record --idea ${record.number} --kind <experiment|usage|verification> --source <live-run|journal|eval-history|comparison> --evidence <reference> --result <confirmed|refuted|inconclusive> --summary <text>\`.`,
+      `${record.path} has no recorded outcome, so its issue stays open. Run \`harness outcome record --idea ${record.number} --kind <experiment|usage|verification> --source <live-run|journal|eval-history|comparison|owner-waiver> --evidence <reference> --result <confirmed|refuted|inconclusive> --summary <text>\`.`,
     );
   }
   const result = RESULTS.find((r) => r === recorded);

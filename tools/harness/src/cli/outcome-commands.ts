@@ -125,7 +125,7 @@ async function conclusion(context: CommandContext, verb: "record" | "close") {
 }
 
 const record: Command = {
-  summary: `record an idea's measured outcome in its markdown, post it to the issue with one outcome:* label, close the issue, and open a follow-up idea when refuted or inconclusive (--idea --kind ${OUTCOME_KINDS.join("|")} --source ${OUTCOME_SOURCES.join("|")} --evidence <reference> --result ${RESULTS.join("|")} --summary <text> [--flag <name> --environment <env>, only on a live-run verification] [--ledger])`,
+  summary: `record an idea's measured outcome in its markdown, post it to the issue with one outcome:* label, close the issue, and open a follow-up idea when refuted or inconclusive (--idea --kind ${OUTCOME_KINDS.join("|")} --source ${OUTCOME_SOURCES.join("|")} --evidence <reference> --result ${RESULTS.join("|")} --summary <text> [--flag <name> --environment <env>, only on a live-run or owner-waiver verification; owner-waiver needs --kind verification and --evidence a GitHub comment URL] [--ledger])`,
   options: {
     idea: "string",
     kind: "string",

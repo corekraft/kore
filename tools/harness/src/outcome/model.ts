@@ -6,6 +6,7 @@ export const OUTCOME_SOURCES = [
   "journal",
   "eval-history",
   "comparison",
+  "owner-waiver",
 ] as const;
 export const RESULTS = ["confirmed", "refuted", "inconclusive"] as const;
 export type Result = (typeof RESULTS)[number];
@@ -91,13 +92,33 @@ export function parseOutcome(options: {
       "--summary must not start a line with #; it would open a new section in the idea, so reword it.",
     );
   }
+  if (source === "owner-waiver") {
+    requireWaiver(kind, evidence);
+  }
   const flag = parseFlag(kind, source, options.flag, options.environment);
   return { kind, source, result, evidence, summary, ...flag };
 }
 
+const COMMENT_URL =
+  /^https:\/\/github\.com\/[\w.-]+\/[\w.-]+\/(?:issues|pull)\/\d+#issuecomment-\d+$/;
+
+/** An owner waiver stands in for a live verification, and names the comment where the owner gave it. */
+function requireWaiver(kind: Outcome["kind"], evidence: string): void {
+  if (kind !== "verification") {
+    throw new IdeaError(
+      `--source owner-waiver waives a live verification only; use --kind verification (got ${kind}).`,
+    );
+  }
+  if (!COMMENT_URL.test(evidence)) {
+    throw new IdeaError(
+      `--evidence "${evidence}" must be the GitHub comment URL where the owner waived the live run (https://github.com/<owner>/<repo>/issues/<n>#issuecomment-<id>).`,
+    );
+  }
+}
+
 const FLAG_NAME = /^[a-z][a-z0-9-]*$/;
 
-/** The flag an outcome proves: both --flag and --environment, and only on a live-run verification. */
+/** The flag an outcome proves: both --flag and --environment, and only on a live-run or owner-waiver verification. */
 function parseFlag(
   kind: Outcome["kind"],
   source: Outcome["source"],
@@ -124,9 +145,12 @@ function parseFlag(
       );
     }
   }
-  if (kind !== "verification" || source !== "live-run") {
+  if (
+    kind !== "verification" ||
+    (source !== "live-run" && source !== "owner-waiver")
+  ) {
     throw new IdeaError(
-      `--flag proves a flag only on --kind verification with --source live-run (got ${kind} from ${source}); a different outcome cannot activate it.`,
+      `--flag proves a flag only on --kind verification with --source live-run or owner-waiver (got ${kind} from ${source}); a different outcome cannot activate it.`,
     );
   }
   return { flag: { name: given[0] ?? "", environment: given[1] ?? "" } };

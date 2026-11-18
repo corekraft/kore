@@ -6,8 +6,9 @@ import {
   FlagError,
   findProof,
   readOverlay,
-  unprovenFlags,
+  proofAudit,
   unprovenLine,
+  waivedLine,
   withFlagOn,
 } from "../flag/index.js";
 
@@ -96,7 +97,7 @@ async function activateFlag(context: CommandContext): Promise<number> {
   );
   if (proof === undefined) {
     throw new FlagError(
-      `No verification outcome records a live run of ${flag} in ${environment}, so ${overlay.path} is unchanged. Prove it live, then run \`harness outcome record --idea <number> --kind verification --source live-run --result confirmed --flag ${flag} --environment ${environment} --evidence <run> --summary <text>\`.`,
+      `No verification outcome records a live run or an owner waiver of ${flag} in ${environment}, so ${overlay.path} is unchanged. Prove it live, then run \`harness outcome record --idea <number> --kind verification --source live-run --result confirmed --flag ${flag} --environment ${environment} --evidence <run> --summary <text>\`. Or, when the owner has waived the live run in a GitHub comment, use \`--source owner-waiver --evidence <comment url>\`.`,
     );
   }
   // The ledger opens before the write, so a missing ledger fails with the flag still off.
@@ -126,8 +127,8 @@ async function activateFlag(context: CommandContext): Promise<number> {
   }
   deps.stdout(
     json
-      ? `${JSON.stringify({ flag, environment, idea: proof.idea, proof: proof.path })}\n`
-      : `Flag ${flag} is on in ${environment}; proof: ${proof.path}\n`,
+      ? `${JSON.stringify({ flag, environment, idea: proof.idea, proof: proof.path, source: proof.source })}\n`
+      : `Flag ${flag} is on in ${environment}${proof.source === "owner-waiver" ? " under an owner waiver, not a live run" : ""}; proof: ${proof.path}\n`,
   );
   return 0;
 }
@@ -135,25 +136,27 @@ async function activateFlag(context: CommandContext): Promise<number> {
 async function auditFlags(context: CommandContext): Promise<number> {
   const { deps, json } = context;
   const base = await root(context);
-  const unproven = await unprovenFlags(deps.fs, deps.clock, base);
+  const { unproven, waived } = await proofAudit(deps.fs, deps.clock, base);
   if (unproven.length === 0) {
     deps.stdout(
       json
-        ? `${JSON.stringify({ unproven })}\n`
-        : "Flag audit passed: no flag is on without proof.\n",
+        ? `${JSON.stringify({ unproven, waived })}\n`
+        : `Flag audit passed: no flag is on without proof.\n${waived.map((w) => `${waivedLine(w)}\n`).join("")}`,
     );
     return 0;
   }
   const lines = unproven.map(unprovenLine);
   deps.stderr(
-    json ? `${JSON.stringify({ unproven })}\n` : `${lines.join("\n")}\n`,
+    json
+      ? `${JSON.stringify({ unproven, waived })}\n`
+      : `${lines.join("\n")}\n`,
   );
   return FAILED;
 }
 
 const activate: Command = {
   summary:
-    "turn a flag on in an environment overlay, only when a confirmed live-run verification outcome names that flag and environment; records a flag.activated ledger event (<flag> --environment <env> [--ledger])",
+    "turn a flag on in an environment overlay, only when a confirmed verification outcome from a live run or an owner waiver names that flag and environment; records a flag.activated ledger event (<flag> --environment <env> [--ledger])",
   operand: "flag",
   options: { environment: "string", ledger: "string" },
   run: (context) => guarded(context, () => activateFlag(context)),
@@ -161,7 +164,7 @@ const activate: Command = {
 
 const audit: Command = {
   summary:
-    "fail when any flag in any environment overlay is on without a confirmed live-run verification outcome; kb-check reports it as a warning (audit mode, ADR 0080)",
+    "fail when any flag in any environment overlay is on without a confirmed verification outcome from a live run or an owner waiver, and names each flag that rests on a waiver; kb-check reports it as a warning (audit mode, ADR 0080)",
   run: (context) => guarded(context, () => auditFlags(context)),
 };
 
