@@ -52,6 +52,10 @@ describe("the orchestrator barrel", () => {
   it("exposes the domain's public names, and no file's internals", () => {
     expect(Object.keys(barrel).sort()).toEqual([
       "BOUND_LABELS",
+      "BRANCH_NOTICE_FLAG",
+      "BranchLedger",
+      "BranchNotice",
+      "BranchStepNotifier",
       "FileLeaseStore",
       "HarnessCli",
       "HarnessCliError",
@@ -84,6 +88,7 @@ describe("the orchestrator barrel", () => {
       "TickLoop",
       "TickNotifier",
       "TickPlanStore",
+      "branchNoticeFlagOn",
       "checkPlan",
       "leasedPass",
       "pieceNameProblem",
