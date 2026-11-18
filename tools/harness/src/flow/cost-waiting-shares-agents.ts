@@ -22,6 +22,8 @@ import {
   type CostWaitingOptions,
 } from "./cost-waiting-types.js";
 
+const ALL_ROWS: AgentRow[] = [...AGENT_ROLES, "orchestrate", "other"];
+
 interface RowSpend {
   sessions: number;
   plan: number;
@@ -115,12 +117,12 @@ export function agentSharesIn(
 ): AgentShares {
   const spend = spendByRow(events, week, options);
   withAssumedPart(spend, events, week);
-  const names: AgentRow[] = [...AGENT_ROLES, "orchestrate", "other"];
-  const read = names.map((name) => ({
-    name,
-    ...rowReading(spend.get(name), options),
-  }));
-  const units = read.flatMap((row) =>
+  const read = new Map<AgentRow, ReturnType<typeof rowReading>>(
+    ALL_ROWS.map((name) => [name, rowReading(spend.get(name), options)]),
+  );
+  const reading = (name: AgentRow): ShareReading =>
+    read.get(name)?.reading ?? rowReading(undefined, options).reading;
+  const units = [...read.values()].flatMap((row) =>
     row.unit === undefined ? [] : [row.unit],
   );
   return {
@@ -129,8 +131,16 @@ export function agentSharesIn(
       minimum: 1,
     }),
     days: RATE_DAYS,
-    rows: Object.fromEntries(
-      read.map((row) => [row.name, row.reading]),
-    ) as Record<AgentRow, ShareReading>,
+    rows: {
+      writer: reading("writer"),
+      reviewer: reading("reviewer"),
+      judge: reading("judge"),
+      verifier: reading("verifier"),
+      reader: reading("reader"),
+      judgment: reading("judgment"),
+      advisor: reading("advisor"),
+      orchestrate: reading("orchestrate"),
+      other: reading("other"),
+    },
   };
 }

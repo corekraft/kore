@@ -577,12 +577,12 @@ The report names no winner and no verdict. Code: `tools/harness/src/flow/cost-wa
 fixed meaning per level. Plan-weighted tokens are each model's tokens times its price weight
 (`plan-tokens.ts`, one weight per prompt step, Haiku's high step included); a model with no weight is
 named as `insufficient weights`, never read as zero, and the weights approximate the plan's own,
-which the harness cannot read. `ceiling` is `weeklyTokenCeiling` or `not set`; with none, every share, sum,
-median and p90 reads `not set`, never zero. The owner sets the value; no build sets it.
+which the harness cannot read. `ceiling` is `weeklyTokenCeiling` or `not set`; with none, every measured
+share, total, median and p90 reads `not set`, never zero, while a row or level that is not read still
+says why (`insufficient` with its units and needed, or `insufficient weights`). The owner sets the value; no build sets it.
 
 - `agents` is a rate, labelled `of the weekly ceiling`: a role's plan-weighted tokens in the 7
-  days ending where the window ends (as-of when the window has no end, the latest event when neither is
-  given) over the ceiling. A role with fewer than `cost.minMergedChanges` sessions in those 7 days is
+  days ending where the window ends (as-of when the window has no end) over the ceiling. A role with fewer than `cost.minMergedChanges` sessions in those 7 days is
   `insufficient` (units and needed), not a zero share. The main session, `orchestrate`, also counts the token totals of
   sessions with no recorded model, priced at the assumed model's input weight, a floor, and carries `basis`:
   `assumed model` (or `recorded and assumed model`) until its model is recorded.
