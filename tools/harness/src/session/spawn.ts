@@ -55,5 +55,6 @@ export async function spawn(context: CommandContext): Promise<number> {
     ...(checked.unstamped === undefined
       ? {}
       : { unstamped: checked.unstamped }),
+    ...(checked.idea === undefined ? {} : { idea: checked.idea }),
   });
 }
