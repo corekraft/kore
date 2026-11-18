@@ -250,6 +250,7 @@ decisions; read one only when planning that area, and expect it to change.
 - [`docs/ideas/0037-remove-unused-skills-add-command-add-policy-pin-upgrade-and.md`](ideas/0037-remove-unused-skills-add-command-add-policy-pin-upgrade-and.md) — Remove unused skills add-command, add-policy, pin-upgrade and unused agent judgment
 - [`docs/ideas/0038-e3-no-polling-session.md`](ideas/0038-e3-no-polling-session.md) — Main-session cost per merged change falls when no session polls: the wait and notify tools replace it
 - [`docs/ideas/0039-gated-help-exempt-live-verification.md`](ideas/0039-gated-help-exempt-live-verification.md) — gated-help-exempt works live in local
+- [`docs/ideas/0040-writer-tier-window.md`](ideas/0040-writer-tier-window.md) — A randomized window compares Haiku and Sonnet writers on all-in cost per merged change by first-launch tier, guarded by blocked share, send-backs and owner minutes
 
 ## Operations and Guides
 
