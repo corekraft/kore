@@ -3,11 +3,11 @@
 // per session and the blocked share beside it. The same figure over the trailing
 // days is the average. Orchestrating tokens are reported beside the tiers, weighted at
 // the main-session model. Each tier also reads its own figure over the merged changes
-// joined to it (#1007, writer-join.ts).
+// joined to it (#1007, writer-join.ts), and its all-in dollars per merged change (#1008,
+// writer-attribution.ts).
 
 import type { LedgerEvent } from "../ledger/index.js";
 import { DEFAULT_COST, type CostOptions } from "./cost.js";
-import { time } from "./github-waits.js";
 import {
   DEFAULT_MERGED_TRAILING_DAYS,
   mergedIn,
@@ -19,8 +19,28 @@ import {
   pricedLaunches,
   type PricedLaunch,
 } from "./writer-join.js";
-import { sendsIn, weightedTokensIn } from "./writer-usage.js";
-import { MODEL_PRICES, PRICES_AS_OF } from "./writer-prices.js";
+import {
+  latestResults,
+  MAIN_SESSION_MODEL,
+  sendsIn,
+  weightedTokensIn,
+} from "./writer-usage.js";
+import {
+  MODEL_PRICES,
+  PRICES_AS_OF,
+  type ModelPrice,
+} from "./writer-prices.js";
+import {
+  sharedFigure,
+  tierDollarsIn,
+  writerDollarsIn,
+  type InsufficientPrices,
+  type TierDollars,
+} from "./writer-attribution.js";
+
+/** A shared part of the figure: its dollars and its dollars per merged change, or the unpriced models it cannot read. */
+export type SharedDollars =
+  { dollars: number; dollarsPerMergedChange: number } | InsufficientPrices;
 
 /**
  * The relaunch limit the report states beside each figure: the join reads a relaunch on a new
@@ -51,6 +71,12 @@ export interface WriterTierFigure {
   blocked: number;
   /** blocked over finished; null with none finished. */
   blockedShare: number | null;
+  /**
+   * All-in dollars per merged change joined to this tier (#1008): the writer, reviewer and shared
+   * parts as means, their sum, and the median of the per-change totals; null with none joined;
+   * insufficient prices when a model the price table does not price ran in its changes or the span.
+   */
+  perMergedChangeDollars: TierDollars | InsufficientPrices | null;
 }
 
 export type WriterCostFigure =
@@ -61,8 +87,20 @@ export type WriterCostFigure =
       unjoinable: number;
       /** The limit of the join, stated beside the figure (see RELAUNCH_LIMIT). */
       relaunchLimit: string;
-      /** The orchestrating session's tokens, weighted at the main-session model. */
-      orchestrate: { weightedTokens: number; perMergedChange: number };
+      /** The orchestrating session's tokens, weighted at the main-session model; its dollars at that model too (#1008). */
+      orchestrate: {
+        weightedTokens: number;
+        perMergedChange: number;
+        /** The main-session model the orchestrating dollars are priced at: an assumption, not a recorded model. */
+        model: string;
+      } & SharedDollars;
+      /**
+       * The idea-wide judge sessions' dollars in the span, shared equally per merged change. Reviewers
+       * are not here: each is charged to its own change (#1008).
+       */
+      judge: SharedDollars;
+      /** Writer sessions with spend before the span's end and no merged change linked to them: a stated limit, in no tier. */
+      unmergedWriterSessions: number;
       /** Every priced model, so a tier with no session is shown as zero. */
       tiers: Record<string, WriterTierFigure>;
     }
@@ -90,25 +128,11 @@ export interface WriterCostOptions {
   minMergedChanges: number;
   /** Where the trailing days end when the window has no start. */
   asOf: Date;
+  /** The price table the dollars are priced from; the published table when left out (#1008). */
+  prices?: Readonly<Record<string, ModelPrice>>;
 }
 
 const round = (value: number) => Math.round(value * 10_000) / 10_000;
-
-/** Each session's latest result before the span's end, by session name. */
-function latestResults(events: LedgerEvent[], end: number) {
-  const latest = new Map<string, { at: number; result: string | undefined }>();
-  for (const e of events) {
-    if (e.kind !== "session.result" || e.agent === undefined) {
-      continue;
-    }
-    const at = time(e);
-    const seen = latest.get(e.agent);
-    if (at < end && (seen === undefined || at >= seen.at)) {
-      latest.set(e.agent, { at, result: e.result });
-    }
-  }
-  return latest;
-}
 
 /** What one tier's figure is read from: its tokens, follow-ups and joined merged changes, against the span's merged changes. */
 interface TierInputs {
@@ -123,6 +147,7 @@ function tierFigure(
   launches: PricedLaunch[],
   results: Map<string, { at: number; result: string | undefined }>,
   inputs: TierInputs,
+  dollars: TierDollars | InsufficientPrices | null,
 ): WriterTierFigure {
   const { weighted, sends, merged, mergedChanges } = inputs;
   const finished = launches.filter(
@@ -144,6 +169,7 @@ function tierFigure(
     blocked: blocked.length,
     blockedShare:
       finished.length === 0 ? null : round(blocked.length / finished.length),
+    perMergedChangeDollars: dollars,
   };
 }
 
@@ -152,6 +178,7 @@ function figureIn(
   events: LedgerEvent[],
   span: Span,
   minMergedChanges: number,
+  prices: Readonly<Record<string, ModelPrice>>,
 ): WriterCostFigure {
   const merged = mergedIn(events, span);
   if (merged < minMergedChanges) {
@@ -165,6 +192,7 @@ function figureIn(
   const sends = sendsIn(events, span);
   const results = latestResults(events, span[1]);
   const joins = mergedTierJoins(events, span);
+  const dollars = writerDollarsIn(events, span, prices);
   // A writer is in the span when it launched in it or spent tokens in it, so its tokens and its count agree.
   const launches = pricedLaunches(events).filter(
     (l) =>
@@ -182,6 +210,7 @@ function figureIn(
           merged,
           mergedChanges: joins.joined.get(tier) ?? 0,
         },
+        tierDollarsIn(dollars, tier),
       ),
     ]),
   );
@@ -193,7 +222,19 @@ function figureIn(
     orchestrate: {
       weightedTokens: round(orchestrate),
       perMergedChange: round(orchestrate / merged),
+      model: MAIN_SESSION_MODEL,
+      ...sharedFigure(
+        dollars.shared.orchestrate,
+        dollars.shared.orchestrateUnpriced,
+        merged,
+      ),
     },
+    judge: sharedFigure(
+      dollars.shared.judge,
+      dollars.shared.judgeUnpriced,
+      merged,
+    ),
+    unmergedWriterSessions: dollars.unmergedWriterSessions,
     tiers,
   };
 }
@@ -202,17 +243,23 @@ function figureIn(
 export function writerCost(
   events: LedgerEvent[],
   window: Span,
-  { trailingDays, minMergedChanges, asOf }: WriterCostOptions,
+  {
+    trailingDays,
+    minMergedChanges,
+    asOf,
+    prices = MODEL_PRICES,
+  }: WriterCostOptions,
 ): WriterCost {
   return {
     pricesAsOf: PRICES_AS_OF,
     trailingDays,
     minMergedChanges,
-    current: figureIn(events, window, minMergedChanges),
+    current: figureIn(events, window, minMergedChanges, prices),
     trailingAverage: figureIn(
       events,
       trailingBefore(window, trailingDays, asOf),
       minMergedChanges,
+      prices,
     ),
   };
 }

@@ -6,8 +6,8 @@ import {
   sendBacksPerMergedChangeLine,
 } from "./flow-lines.js";
 
-describe("perMergedChangeLines: the three per-merged-change lines in report order (#829, #830)", () => {
-  it("prints tokens, then send-backs, then lead time, each per merged change", () => {
+describe("perMergedChangeLines: the per-merged-change lines in report order (#829, #830, #1008)", () => {
+  it("prints tokens, then send-backs, then lead time, then the writer dollars, each per merged change", () => {
     const tokens: FlowReport["tokensPerMergedChange"] = {
       trailingDays: 7,
       minMergedChanges: 5,
@@ -37,16 +37,31 @@ describe("perMergedChangeLines: the three per-merged-change lines in report orde
       },
     };
 
+    const writerCost: FlowReport["writerCost"] = {
+      pricesAsOf: "2026-11-17",
+      trailingDays: 7,
+      minMergedChanges: 5,
+      current: { status: "insufficient merged changes", merged: 2, needed: 5 },
+      trailingAverage: {
+        status: "insufficient merged changes",
+        merged: 0,
+        needed: 5,
+      },
+    };
+
     expect(
       perMergedChangeLines({
         tokensPerMergedChange: tokens,
         sendBacksPerMergedChange: sendBacks,
         leadTimePerMergedChange: leadTime,
+        writerCost,
       }),
     ).toEqual([
       "Tokens per merged change: 175 (350 tokens over 2 merged changes); average 120 over the trailing 7 days",
       "Send-backs per merged change: 1 (2 send-backs over 2 merged changes); average 0.8 over the trailing 7 days",
       "Lead time per merged change: 1200s median (3 of 3 merged changes measured); average 900s over the trailing 7 days",
+      "All-in cost per merged change: not read, 2 merged changes in this range (5 needed)",
+      "All-in cost per merged change, trailing average: no average: 0 merged changes in the trailing 7 days (5 needed)",
     ]);
   });
 });

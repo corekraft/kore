@@ -29,7 +29,7 @@
       "automatic-revert": false,
       "orchestrator-tick": true,
       "shell-aware-zsh-rules": true,
-      "gated-help-exempt": false,
+      "gated-help-exempt": true,
       "main-session-figures": true,
       "pane-result-summary": true,
       "signed-main-sends": true,

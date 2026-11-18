@@ -249,6 +249,7 @@ decisions; read one only when planning that area, and expect it to change.
 - [`docs/ideas/0036-add-a-bare-gh-and-rule-promotion-follow-up-promote-idea-issu.md`](ideas/0036-add-a-bare-gh-and-rule-promotion-follow-up-promote-idea-issu.md) — Add a bare gh and rule-promotion follow-up: promote idea-issue-body to enforce
 - [`docs/ideas/0037-remove-unused-skills-add-command-add-policy-pin-upgrade-and.md`](ideas/0037-remove-unused-skills-add-command-add-policy-pin-upgrade-and.md) — Remove unused skills add-command, add-policy, pin-upgrade and unused agent judgment
 - [`docs/ideas/0038-e3-no-polling-session.md`](ideas/0038-e3-no-polling-session.md) — Main-session cost per merged change falls when no session polls: the wait and notify tools replace it
+- [`docs/ideas/0039-gated-help-exempt-live-verification.md`](ideas/0039-gated-help-exempt-live-verification.md) — gated-help-exempt works live in local
 
 ## Operations and Guides
 
