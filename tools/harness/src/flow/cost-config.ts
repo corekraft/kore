@@ -232,9 +232,12 @@ function wholeKeyOf<K extends string>(
   if (value === undefined) {
     return {};
   }
-  return wholeAtLeastOne(value)
-    ? ({ [key]: value } as { [P in K]?: number })
-    : bad(file, key, fix);
+  if (!wholeAtLeastOne(value)) {
+    return bad(file, key, fix);
+  }
+  const set: Partial<Record<K, number>> = {};
+  set[key] = value;
+  return set;
 }
 
 /** The owner login, reviewer logins, retro minimums, compaction cap and weekly token ceiling, each checked; the first bad one is the error. */
