@@ -32,7 +32,7 @@
       "gated-help-exempt": false,
       "main-session-figures": true,
       "pane-result-summary": true,
-      "signed-main-sends": false,
+      "signed-main-sends": true,
       "main-session-wait": true,
       "decision-advisor": true
     },
