@@ -158,6 +158,6 @@ describe("buildReport per-merged-change figures (#829, #830)", () => {
   });
 
   it("versions the report to 24, since the judgment panes joined it (#876)", () => {
-    expect(run([]).version).toBe(27);
+    expect(run([]).version).toBe(28);
   });
 });
