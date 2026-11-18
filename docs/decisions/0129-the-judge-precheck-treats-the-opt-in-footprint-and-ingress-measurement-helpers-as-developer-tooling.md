@@ -5,7 +5,7 @@ date: 2026-11-18
 last-verified: 2026-11-18
 ---
 
-# ADR 0128: The judge precheck treats the opt-in footprint and ingress measurement helpers as developer tooling
+# ADR 0129: The judge precheck treats the opt-in footprint and ingress measurement helpers as developer tooling
 
 Source: [`infra/plans/11-agent-delivery-loop.md` § Step 5](../../infra/plans/11-agent-delivery-loop.md#step-5-judge-and-merge)
 
@@ -38,7 +38,9 @@ The precheck counts these six files as developer tooling, by exact path:
 
 Every one is imported only by a live spec (`*.live.spec.ts`), by its own spec,
 or by another file on this list. The check, run on the heads of PRs #1271 and
-#1272 (the files are not yet on `main`): list each PR's changed files with
+#1272 (`footprint-measurement.ts`, `footprint-parse.ts` and
+`ingress-rated-measurement.ts` are already on `main`; `footprint-verdict.ts`,
+`ingress-host.ts` and `ingress-host-parse.ts` are new in those PRs): list each PR's changed files with
 `gh pr diff --name-only`, then `git grep` the tree for every import of each
 non-spec file, by its `./<name>.js` specifier. The results:
 
