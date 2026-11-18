@@ -35,8 +35,10 @@ function chargeSession(items: LedgerEvent[], window: Span): SessionSeconds {
   let closed = false;
   items.forEach((event, i) => {
     if (closed) {
-      closed = !LIFE_STARTS.has(event.kind);
-      return;
+      if (!LIFE_STARTS.has(event.kind)) {
+        return;
+      }
+      closed = false;
     }
     const state = STATE_AFTER[event.kind];
     const next = items[i + 1];
