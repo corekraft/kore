@@ -53,6 +53,7 @@ const emptyCategories = {
     "missing-proof": 0,
     "rule-break": 0,
     scope: 0,
+    "wrong-statement": 0,
     other: 0,
   },
   uncategorised: 0,
