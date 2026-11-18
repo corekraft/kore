@@ -44,6 +44,7 @@
       "automatic-approval": false,
       "automatic-revert": false,
       "orchestrator-tick": false,
+      "behind-main-notice": false,
       "shell-aware-zsh-rules": false,
       "gated-help-exempt": false,
       "main-session-figures": false,

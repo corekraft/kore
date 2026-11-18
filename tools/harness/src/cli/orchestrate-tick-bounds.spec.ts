@@ -19,6 +19,7 @@ vi.mock("../orchestrator/index.js", async () => ({
   TickCli: vi.fn(),
   TickLease: vi.fn(),
   TickNotifier: vi.fn(),
+  branchNoticeFlagOn: vi.fn(),
   leasedPass: vi.fn(),
   runTicks: vi.fn(),
   tickFlagOn: vi.fn(),
