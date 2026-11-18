@@ -138,6 +138,11 @@ them.
 Proposed: run `ledger poll-github` from a SessionStart or Stop hook (one poll at
 a time is already enforced) or on a timer.
 
+Update 2026-11-17 (#1091): the statement above was true when the retro was
+written. The session hook now starts `ledger poll-github` and `ledger poll-herdr`
+in the background at each session start, so `pane.stalled` is recorded, not zero
+by construction.
+
 ## 9. Pre-commit is still off with nothing left to justify it (guardrail missing; needs the owner)
 
 Evidence as reported by the retro: the `core.hooksPath` value, the keeper loop pid 60557 and its 20-second interval, and plan 14, no file:line given.
