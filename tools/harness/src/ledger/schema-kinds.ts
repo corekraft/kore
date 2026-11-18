@@ -20,6 +20,7 @@ export const KINDS = [
   "token.usage",
   "token.split",
   "session.launch",
+  "session.labelled",
   "guard.audit",
   "guard.block",
   // Retired: no code records it, but a ledger written earlier holds it and must still parse.
@@ -117,6 +118,7 @@ export const LINK_RULES: ReadonlyArray<{
 /** The kinds whose `label` is written: a name, a category, or a reason. */
 export const LABEL_KINDS: readonly Kind[] = [
   "issue.labelled",
+  "session.labelled",
   "outcome",
   "flag.activated",
   "guard.audit",

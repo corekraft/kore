@@ -185,6 +185,7 @@ export function emptyReport(overrides: Partial<Record<string, unknown>> = {}) {
     tokensByStage: Object.fromEntries(STAGES.map((stage) => [stage, 0])),
     tokensByStagePerMergedChange: emptyTokensPerMergedChange,
     reviewMisses: NO_REVIEWS,
+    handovers: { status: "insufficient", reason: "no handover source" },
     ...overrides,
     // The cast stands in for the fields the report prints but these tests never read.
   } as unknown as FlowReport;

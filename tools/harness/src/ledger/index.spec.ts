@@ -20,6 +20,7 @@ describe("the ledger barrel", () => {
       "APPROVED_MARKER",
       "DECISION_ROUTE_SIGNALS",
       "DEFAULT_LEDGER",
+      "HANDOVER_REASONS",
       "KINDS",
       "Ledger",
       "POLLER_KINDS",

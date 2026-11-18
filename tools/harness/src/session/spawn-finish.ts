@@ -3,7 +3,11 @@ import type { CommandContext } from "../runtime/index.js";
 import type { ModelCheck } from "./models.js";
 import { FAILED, fail } from "./output.js";
 import type { SessionRecord, SessionRegistry } from "./registry.js";
-import { noteUnstamped, recordLaunch } from "./spawn-record.js";
+import {
+  noteUnstamped,
+  recordIdeaLabels,
+  recordLaunch,
+} from "./spawn-record.js";
 import { recordHostSample } from "./spawn-sample.js";
 import { formatWait, waitForResult } from "./wait.js";
 
@@ -18,17 +22,31 @@ interface Finish {
   stage?: string;
   /** Set when the spawn names no idea: warns and records it, and the spawn still starts. */
   unstamped?: { reason?: string };
+  /** The idea the spawn names, as `#n`; a writer's launch with one records its issue's labels. */
+  idea?: string;
 }
 
 /** Records the spawned session, then reports it or, without --no-wait, waits for its result. */
 export async function finish(
   { json, deps, options }: CommandContext,
-  { registry, record, modelCheck, timeoutMs, tier, stage, unstamped }: Finish,
+  {
+    registry,
+    record,
+    modelCheck,
+    timeoutMs,
+    tier,
+    stage,
+    unstamped,
+    idea,
+  }: Finish,
 ): Promise<number> {
   const { name, paneId, callerPane, model, role, effort, worktree } = record;
   const extra = worktree === undefined ? {} : { worktree };
   await registry.create(record);
   await recordLaunch(deps, record, tier, stage);
+  if (idea !== undefined && role === "writer") {
+    await recordIdeaLabels(deps, { name, createdAt: record.createdAt }, idea);
+  }
   if (unstamped !== undefined) {
     await noteUnstamped(
       deps,

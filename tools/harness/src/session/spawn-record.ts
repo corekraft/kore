@@ -2,6 +2,7 @@ import { join } from "node:path";
 import { DEFAULT_LEDGER, Ledger, type TierOrigin } from "../ledger/index.js";
 import { mainRoot, type CliDeps } from "../runtime/index.js";
 import type { SessionRecord } from "./registry.js";
+import { issueLabels } from "./spawn-labels.js";
 
 /** Appends a session.launch event for the session. Best effort: a ledger problem never fails the spawn. */
 export async function recordLaunch(
@@ -34,6 +35,48 @@ export async function recordLaunch(
     });
   } catch {
     // The ledger is a measurement; it never gates a spawn.
+  }
+}
+
+/**
+ * Records one session.labelled event per label the idea's issue carries when the
+ * session launches, keyed to the session by name, so a label changed later does not
+ * move the launch between strata. A failed lookup records none. Best effort: a file
+ * error never fails the spawn; any other error is a bug, and is rethrown.
+ */
+export async function recordIdeaLabels(
+  deps: CliDeps,
+  launched: { name: string; createdAt: string },
+  idea: string,
+): Promise<void> {
+  try {
+    const main = await mainRoot(deps);
+    if (main === undefined) {
+      return;
+    }
+    const names = await issueLabels(deps.runner, main, idea);
+    if (names === undefined) {
+      return;
+    }
+    const ledger = new Ledger(
+      deps.fs,
+      deps.clock,
+      deps.ids,
+      join(main, DEFAULT_LEDGER),
+    );
+    for (const label of names) {
+      await ledger.record({
+        source: "herdr",
+        kind: "session.labelled",
+        occurredAt: launched.createdAt,
+        session: launched.name,
+        label,
+      });
+    }
+  } catch (error) {
+    if (typeof (error as NodeJS.ErrnoException).code !== "string") {
+      throw error;
+    }
   }
 }
 

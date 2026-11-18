@@ -26,7 +26,9 @@ import {
 } from "./merged-tokens.js";
 import { mergedChangeWriterCost, type WriterCost } from "./writer-cost.js";
 import {
+  handoverCount,
   mainSessionFigures,
+  type HandoverCount,
   type MainSessionFigures,
   type Span,
 } from "./main-session.js";
@@ -46,6 +48,8 @@ export interface MergedChangeFigures {
   writerCost: WriterCost;
   /** The main session's poll minutes, pane-result reads and signed sends, from the retro scans' events (#940); never in the owner digest. */
   mainSession: MainSessionFigures;
+  /** The main session's handovers by reason over the window, or why they are not read: no reason recorded, or too few merged changes (#1036). */
+  handovers: HandoverCount;
   /** Judgment panes in the window, and the ones whose tokens went above the 60k context limit (ADR 0121, #876). */
   judgmentContexts: JudgmentContexts;
 }
@@ -68,6 +72,7 @@ export function mergedChangeFigures(
     ),
     writerCost: mergedChangeWriterCost(events, window, options),
     mainSession: mainSessionFigures(events, window, options.cost),
+    handovers: handoverCount(events, window, options.cost),
     judgmentContexts: judgmentContexts(events, window),
   };
 }
