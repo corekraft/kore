@@ -180,6 +180,12 @@ The share of **Merged changes** with a principles-review verdict for their
 head. A verdict on an older head does not count for a later one.
 _Avoid_: Review rate, reviewed share
 
+**Break-even**:
+The **Rework** rounds per **Merged change** at which Haiku's median
+**Merged-change cost** reaches Sonnet's. The cost of one round is read from
+Haiku's own changes, and a tier with too few merged changes has none.
+_Avoid_: Savings point, parity
+
 **Send-back**:
 The judge's return of a pull request to its writer, with the reason. The list
 of categories a send-back can take lives in code, not here.

@@ -9,11 +9,16 @@ import { writerArmsIn, type WriterArms } from "./writer-arms.js";
 import { mergedChangeWriterCost, type WriterCost } from "./writer-cost.js";
 import { MODEL_PRICES } from "./writer-prices.js";
 import {
+  reviewViolationFiguresIn,
+  type ReviewViolationFigures,
+} from "./review-violation-figures.js";
+import {
   sendBackAndReviewFiguresIn,
   type SendBackAndReviewFigures,
 } from "./send-back-review-figures.js";
 
-export interface WriterFigures extends SendBackAndReviewFigures {
+export interface WriterFigures
+  extends SendBackAndReviewFigures, ReviewViolationFigures {
   writerCost: WriterCost;
   writerArms: WriterArms;
 }
@@ -35,11 +40,14 @@ export function writerFiguresIn(
     splitAt?: Date;
   },
 ): WriterFigures {
-  const { minCategorisedSendBacks } = { ...DEFAULT_COST, ...options.cost };
+  const { minCategorisedSendBacks, minMergedChanges } = {
+    ...DEFAULT_COST,
+    ...options.cost,
+  };
   return {
     writerCost: mergedChangeWriterCost(events, window, options),
     writerArms: writerArmsIn(events, window, MODEL_PRICES, {
-      minMergedChanges: { ...DEFAULT_COST, ...options.cost }.minMergedChanges,
+      minMergedChanges,
       ...(options.windowEffort === undefined
         ? {}
         : { windowEffort: options.windowEffort }),
@@ -49,6 +57,12 @@ export function writerFiguresIn(
       window,
       options.splitAt,
       minCategorisedSendBacks,
+    ),
+    ...reviewViolationFiguresIn(
+      events,
+      window,
+      options.splitAt,
+      minMergedChanges,
     ),
   };
 }

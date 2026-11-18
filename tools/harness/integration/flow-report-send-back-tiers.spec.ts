@@ -177,6 +177,8 @@ describe("flow report send-backs by writer tier, split at a date (#1047)", () =>
     const {
       sendBackTiersSplit: _split,
       reviewRoundsSplit: _reviewSplit,
+      violationsByRuleSplit: _violationsSplit,
+      breakEvenSplit: _breakEvenSplit,
       ...withSplit
     } = splitReport();
     const without = buildReport(SPLIT_EVENTS, {
@@ -187,6 +189,8 @@ describe("flow report send-backs by writer tier, split at a date (#1047)", () =>
 
     expect(without).not.toHaveProperty("sendBackTiersSplit");
     expect(without).not.toHaveProperty("reviewRoundsSplit");
+    expect(without).not.toHaveProperty("violationsByRuleSplit");
+    expect(without).not.toHaveProperty("breakEvenSplit");
     expect(withSplit).toEqual(without);
   });
 

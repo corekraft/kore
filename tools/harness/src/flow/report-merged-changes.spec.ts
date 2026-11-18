@@ -1,3 +1,5 @@
+import { NO_BREAK_EVEN } from "./break-even.js";
+import { NO_VIOLATIONS } from "./violation-rules.js";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
   mergedChangeFigures,
@@ -93,6 +95,8 @@ const FIGURES: MergedChangeFigures = {
   costWaiting: costWaitingIn([], [0, 1], { prices: {}, minimum: 1 }),
   sendBackTiers: NO_SEND_BACK_TIERS,
   reviewRounds: NO_REVIEW_ROUNDS,
+  violationsByRule: NO_VIOLATIONS,
+  breakEven: NO_BREAK_EVEN,
   tokensPerMergedChange: TOKENS,
   sendBacksPerMergedChange: SEND_BACKS,
   leadTimePerMergedChange: LEAD_TIME,
@@ -198,7 +202,7 @@ describe("buildReport per-merged-change figures (#829, #830)", () => {
     );
   });
 
-  it("versions the report to 39, since the review rounds per writer tier joined the writer figures (#1050)", () => {
-    expect(run([]).version).toBe(39);
+  it("versions the report to 40, since the violations by rule and the break-even joined the writer figures (#1051)", () => {
+    expect(run([]).version).toBe(40);
   });
 });

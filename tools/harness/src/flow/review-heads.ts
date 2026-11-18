@@ -21,6 +21,8 @@ export interface Verdict {
   at: number;
   /** Undefined for a verdict recorded before the count was. */
   findings: number | undefined;
+  /** The short rule labels the findings cite, as `review post` recorded them; empty when none were. */
+  rules: string[];
 }
 
 /** An event that names a head of a pull request, a verdict or a send-back. */
@@ -47,6 +49,7 @@ export function verdictsOf(events: LedgerEvent[]): Verdict[] {
         head: head.slice(0, HEAD_LENGTH),
         at: time(e),
         findings: e.findings,
+        rules: e.rules === undefined ? [] : e.rules.split(","),
       },
     ];
   });

@@ -46,5 +46,11 @@ export type {
   TierReviewRounds,
   UnlinkedReviewRounds,
 } from "./review-rounds.js";
+export type { BreakEven, BreakEvenFigures, CostGroup } from "./break-even.js";
+export type {
+  RuleCount,
+  TierViolations,
+  ViolationsByRule,
+} from "./violation-rules.js";
 export type { Wip } from "./wip.js";
 export type { ArmRow, ArmSide, WriterArms } from "./writer-arms.js";

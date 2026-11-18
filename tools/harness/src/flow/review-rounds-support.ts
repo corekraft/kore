@@ -1,4 +1,4 @@
-// Shared by the review-rounds specs (#1050): ledger events and the default readings of the modules
+// Shared by the review-rounds and violations-by-rule specs (#1050, #1051): ledger events and the default readings of the modules
 // the unit mocks. The spec mocks the modules; this file only sets their readings.
 
 import { vi } from "vitest";
@@ -56,7 +56,7 @@ export const verdict = (
   head: string,
   findings: number | undefined,
   at = 100,
-): Verdict => ({ number, head, at, findings });
+): Verdict => ({ number, head, at, findings, rules: [] });
 
 /** Gives every mocked module the reading the unit starts from: no link, no verdict, no rework. */
 export function resetReadings() {
