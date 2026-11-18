@@ -71,3 +71,24 @@ export const SPLIT_RULES = [
     optional: true,
   },
 ] as const;
+
+const COMPACTION_KINDS: readonly Kind[] = ["session.compacted"];
+
+/**
+ * The session.compacted reading (#1037, spec #1027): which compaction of its session this
+ * was, as a count from 1. With the session name it is the whole reading, so no text can
+ * reach the ledger through it.
+ */
+export interface CompactionOrigin {
+  compaction: number;
+}
+
+/** The compaction number is required on session.compacted, and no other kind takes one. */
+export const COMPACTION_RULES = [
+  {
+    field: "compaction",
+    check: (v: unknown) => Number.isSafeInteger(v) && (v as number) >= 1,
+    hint: "must be a positive integer",
+    kinds: COMPACTION_KINDS,
+  },
+] as const;

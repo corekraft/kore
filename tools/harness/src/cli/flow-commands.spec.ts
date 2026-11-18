@@ -228,6 +228,7 @@ describe("flow report: human lines", () => {
         "Owner-routed questions: 0 (advisor-routed 0); by signal: reserved-category 0, matched 0, advisor-files 0, escalated 0, unclassifiable 0",
         "Waiting on a person: no question asked in this range",
         "Handovers from the main session: insufficient, no handover source",
+        "Compactions: insufficient, no compaction source",
         "Tokens per merged change: not read, 0 merged changes in this range (5 needed); no average: 0 merged changes in the trailing 7 days (5 needed)",
         "Send-backs per merged change: not read, 0 merged changes in this range (5 needed); no average: 0 merged changes in the trailing 7 days (5 needed)",
         "Lead time per merged change: not read, 0 of 0 merged changes measured in this range (5 needed); no average: 0 of 0 merged changes measured in the trailing 7 days (5 needed)",

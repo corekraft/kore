@@ -35,6 +35,7 @@ export const KEYS = [
   "writerArms",
   "mainSession",
   "handovers",
+  "compactions",
   "judgmentContexts",
   "tierShares",
   "unstampedSpawns",

@@ -2,6 +2,7 @@
 export const KINDS = [
   "session.start",
   "session.stop",
+  "session.compacted",
   "tool.start",
   "tool.end",
   "pane.spawned",
@@ -145,7 +146,12 @@ export const LABEL_KINDS: readonly Kind[] = [
   "spawn.unstamped",
 ];
 
-export { SPLIT_RULES, type SplitOrigin } from "./schema-split.js";
+export {
+  COMPACTION_RULES,
+  SPLIT_RULES,
+  type CompactionOrigin,
+  type SplitOrigin,
+} from "./schema-split.js";
 
 export {
   DECISION_ROUTE_RULES,

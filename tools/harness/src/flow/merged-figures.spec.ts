@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { LedgerEvent } from "../ledger/index.js";
-import { mainSessionFigures } from "./main-session.js";
+import { compactionCount, mainSessionFigures } from "./main-session.js";
 import { mergedChangeFigures } from "./merged-figures.js";
 import { mergedChangeLeadTime } from "./merged-lead-time.js";
 import { mergedChangeSendBacks } from "./merged-send-backs.js";
@@ -160,5 +160,22 @@ describe("mergedChangeFigures: the figures over one window", () => {
 
     expect(judgmentContexts).toHaveBeenCalledWith(events, window);
     expect(r.judgmentContexts).toBe(JUDGMENT_CONTEXTS);
+  });
+});
+
+describe("mergedChangeFigures: the compaction count (#1037)", () => {
+  it("reads the compactions from the same events and window", () => {
+    const events: LedgerEvent[] = [];
+    const window: [number, number] = [0, 10];
+    const counted = {
+      status: "insufficient",
+      reason: "no session recorded in the window",
+    } as const;
+    vi.mocked(compactionCount).mockReturnValue(counted);
+
+    const r = mergedChangeFigures(events, window, { asOf: new Date(0) });
+
+    expect(compactionCount).toHaveBeenCalledWith(events, window);
+    expect(r.compactions).toBe(counted);
   });
 });
