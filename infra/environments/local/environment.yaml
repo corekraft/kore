@@ -13,7 +13,7 @@
   "features":
     {
       "agentgateway-mesh-enrollment": true,
-      "autoscaling-defaults": false,
+      "autoscaling-defaults": true,
       "gateway-class-change-release": true,
       "gateway-rollback-order": true,
       "ingress-agentgateway": true,
