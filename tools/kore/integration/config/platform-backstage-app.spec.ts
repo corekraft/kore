@@ -138,3 +138,18 @@ test("the Argo CD view is read by the signed-in operators group only, never by B
   assert.match(binding, /kind: Group\n\s+name: platform-operators/);
   assert.equal(/kind: ServiceAccount/.test(binding), false);
 });
+
+test("every Backstage dependency is an exact version and the lockfile resolves each to it", async () => {
+  const manifest = JSON.parse(await source("package.json"));
+  const lock = JSON.parse(await source("package-lock.json"));
+  const resolved = Object.fromEntries(
+    Object.keys(manifest.dependencies).map((name) => [
+      name,
+      lock.packages[`node_modules/${name}`]?.version,
+    ]),
+  );
+  assert.deepEqual(resolved, manifest.dependencies);
+  for (const version of Object.values<string>(manifest.dependencies)) {
+    assert.match(version, /^\d+\.\d+\.\d+$/);
+  }
+});
