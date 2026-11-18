@@ -1,4 +1,5 @@
 import type { SendBackCategory } from "../ledger/index.js";
+import type { OUTCOME_SOURCES } from "../outcome/index.js";
 import type { QueueItem } from "../queue/index.js";
 
 /** Writer and judge rounds one idea may take before the run stops and leaves it to a person. */
@@ -27,7 +28,7 @@ export interface Delivery {
 /** The measured outcome the run records once the change has merged. */
 export interface Measured {
   kind: "experiment" | "usage" | "verification";
-  source: "live-run" | "journal" | "eval-history" | "comparison";
+  source: (typeof OUTCOME_SOURCES)[number];
   result: "confirmed" | "refuted" | "inconclusive";
   evidence: string;
   summary: string;

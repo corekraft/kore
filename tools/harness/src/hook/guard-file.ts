@@ -165,7 +165,7 @@ async function checkFlagOn(
   return warn(
     "flag-activation",
     `${relative} turns on flag ${added[0]} by hand. A flag turns on only with a recorded live proof. ` +
-      "Instead, record a confirmed live-run verification outcome (`harness outcome record --kind verification --source live-run --flag <name> --environment <env> ...`), then run `harness flag activate <flag> --environment <env>`.",
+      "Instead, record a confirmed live-run verification outcome (`harness outcome record --kind verification --source live-run --flag <name> --environment <env> ...`, or `--source owner-waiver --evidence <comment url>` when the owner waived the live run), then run `harness flag activate <flag> --environment <env>`.",
   );
 }
 

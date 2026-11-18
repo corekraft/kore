@@ -202,6 +202,14 @@ describe("evaluateFile: feature flags", () => {
     warned("flag-activation", "judge-merge");
   });
 
+  it("offers an owner waiver beside a live run as the proof to record", async () => {
+    await scan("Write", { content: FLAG_ON }, OVERLAY);
+    warned(
+      "flag-activation",
+      "or `--source owner-waiver --evidence <comment url>` when the owner waived the live run",
+    );
+  });
+
   it("stays silent when the flag was already on, or the overlay has no features map", async () => {
     await scan("Write", { content: FLAG_ON }, OVERLAY, { [OVERLAY]: FLAG_ON });
     await scan("Write", { content: "name: local" }, OVERLAY);
