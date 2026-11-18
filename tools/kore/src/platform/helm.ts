@@ -1,6 +1,7 @@
 import {
   absolute,
   alertEmailHelmArgs,
+  dashboardSidecarHelmArgs,
   componentValues,
   componentVersion,
   expandVersions,
@@ -141,8 +142,11 @@ function chartSelectionArgs(
       `gatewayClassName=${delivery.gatewayClassName}`,
     );
   }
-  args.push(...goldenPathArgs(repository, component));
-  args.push(...alertEmailHelmArgs(repository.environment, component.name));
+  args.push(
+    ...goldenPathArgs(repository, component),
+    ...alertEmailHelmArgs(repository.environment, component.name),
+    ...dashboardSidecarHelmArgs(repository.environment, component.name),
+  );
   return args;
 }
 

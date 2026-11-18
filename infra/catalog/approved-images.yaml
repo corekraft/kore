@@ -198,6 +198,18 @@
           }
       },
       {
+        "image": "quay.io/kiwigrid/k8s-sidecar:2.5.0@sha256:a6b3f707f883108376514489a94d6629109a327b2978e1d826cd104c4ca436df",
+        "name": "grafana-sidecar",
+        "component": "grafana",
+        "evidence":
+          {
+            "method": "registry-digest",
+            "source": "crane digest quay.io/kiwigrid/k8s-sidecar:2.5.0 resolves to this index digest, the same digest as docker.io/kiwigrid/k8s-sidecar:2.5.0 (loki-sidecar). No cosign signature published (cosign verify: no signatures found). Grafana's dashboard sidecar, run only under platform-portal.",
+            "checked": "2026-11-18",
+            "provenance": { "signed": false }
+          }
+      },
+      {
         "image": "cr.agentgateway.dev/controller:v1.7.0@sha256:87c1363bf0cbc7fdb375866e592294114c8763097d2d0c9fc45fcb1fe00a4ab8",
         "name": "agentgateway-controller",
         "component": "agentgateway",
