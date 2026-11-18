@@ -543,9 +543,11 @@ insufficient, never zero, below `cost.minMergedChanges`; `ideas` is a plain list
 row per idea named by an event, with no insufficient status. `agents` (per role: writer, reviewer, judge, verifier,
 reader, judgment, advisor, the main session as `orchestrate`, and any other named
 session as `other`, each with its sessions' dollars, tokens, active and waiting seconds
-as median and p90, and the plan-weighted share of the ceiling); `mergedChanges` (per
-merged pull request: all-in dollars and tokens by the same attribution, seconds from
-the first writer launch to merge, and seconds from opening to merge); and `ideas` (the
+as median and p90, and the plan-weighted share of the ceiling); `mergedChanges` (the text
+prints one summary line of the joined count with the median and p90 of all-in dollars
+and tokens; `--json` adds one row per merged pull request, with its all-in dollars and
+tokens by the same attribution, its seconds from the first writer launch to merge, and
+its seconds from opening to merge); and `ideas` (the
 dollars and tokens of the sessions stamped with each idea to the window's end, its lead
 time and outcome). Writing that carries no idea is not in `ideas`; #1093 adds it. The
 report names no winner and no verdict. Code: `tools/harness/src/flow/cost-waiting*.ts`.
