@@ -29,6 +29,7 @@ vi.mock("../config/index.js", () => ({
   alertEmailHelmArgs: vi.fn(),
   componentValues: vi.fn(),
   componentVersion: vi.fn(),
+  dashboardSidecarHelmArgs: vi.fn(),
   expandVersions: vi.fn(),
   featureHelmArgs: vi.fn(),
   gatewayClassName: vi.fn(),

@@ -1,6 +1,7 @@
 import {
   absolute,
   alertEmailHelmArgs,
+  dashboardSidecarHelmArgs,
   componentValues,
   componentVersion,
   expandVersions,
@@ -90,6 +91,7 @@ function trailingArgs(repository: Repository, component: Component): string[] {
   return [
     ...goldenPathArgs(repository, component),
     ...alertAndServiceArgs(repository, component),
+    ...dashboardSidecarHelmArgs(repository.environment, component.name),
   ];
 }
 
