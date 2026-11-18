@@ -36,6 +36,8 @@ export const KEYS = [
   "writerArms",
   "sendBackTiers",
   "reviewRounds",
+  "violationsByRule",
+  "breakEven",
   "mainSession",
   "handovers",
   "compactions",
@@ -48,16 +50,22 @@ export const KEYS = [
   "skippedLines",
 ];
 
+/** The key each figure's split reading follows, for `flow report --json --split-at TIME` (#1047, #1050, #1051). */
+const SPLIT_AFTER: Record<string, string> = {
+  sendBackTiers: "sendBackTiersSplit",
+  reviewRounds: "reviewRoundsSplit",
+  violationsByRule: "violationsByRuleSplit",
+  breakEven: "breakEvenSplit",
+};
+
 /**
- * The keys of `flow report --json --split-at TIME`, in report order: KEYS with `sendBackTiersSplit`
- * after `sendBackTiers` and `reviewRoundsSplit` after `reviewRounds`. A report without --split-at
- * carries KEYS exactly (#1047, #1050).
+ * The keys of `flow report --json --split-at TIME`, in report order: KEYS with each figure's Split
+ * key right after it (`sendBackTiersSplit`, `reviewRoundsSplit`, `violationsByRuleSplit` and
+ * `breakEvenSplit`). A report without --split-at carries KEYS exactly (#1047, #1050, #1051).
  */
 export const SPLIT_KEYS = KEYS.flatMap((key) => {
-  if (key === "sendBackTiers") {
-    return [key, "sendBackTiersSplit"];
-  }
-  return key === "reviewRounds" ? [key, "reviewRoundsSplit"] : [key];
+  const split = SPLIT_AFTER[key];
+  return split === undefined ? [key] : [key, split];
 });
 
 /** The keys of `sendBackTiersSplit` and of `reviewRoundsSplit`: the split date, then the figures of each side (#1047, #1050). */
@@ -83,6 +91,46 @@ export const REVIEW_ROUNDS_UNLINKED_KEYS = [
   "failedReviewRounds",
   "reviewedChanges",
   "reviewCoverage",
+];
+
+/** The keys of `violationsByRule` (and of each side of `violationsByRuleSplit`): the tier rows, then the unlinked row (#1051). */
+export const VIOLATIONS_KEYS = ["tiers", "unlinked"];
+
+/** The keys of one row of `violationsByRule`, tier or unlinked, in report order (#1051). */
+export const VIOLATIONS_ROW_KEYS = [
+  "failedVerdicts",
+  "unlabelled",
+  "citations",
+  "rules",
+];
+
+/** The keys of each entry of a violations row's `rules`, in report order (#1051). */
+export const VIOLATIONS_RULE_KEYS = ["rule", "count", "share"];
+
+/** The keys of `breakEven` once it is read, in report order (#1051). */
+export const BREAK_EVEN_OK_KEYS = [
+  "status",
+  "needed",
+  "haiku",
+  "sonnet",
+  "costPerReworkRound",
+  "reworkRoundsPerMergedChange",
+];
+
+/** The keys of `breakEven.haiku` once the break-even is read: the tier's changes and the two medians it uses (#1051). */
+export const BREAK_EVEN_HAIKU_KEYS = [
+  "tier",
+  "mergedChanges",
+  "noRework",
+  "oneRound",
+];
+
+/** The keys of `breakEven` when a tier has too few merged changes: no medians and no break-even (#1051). */
+export const BREAK_EVEN_INSUFFICIENT_KEYS = [
+  "status",
+  "needed",
+  "haiku",
+  "sonnet",
 ];
 
 /** The keys of `writerCost.current.orchestrate` once the span has enough merged changes, in report order (#1041). */

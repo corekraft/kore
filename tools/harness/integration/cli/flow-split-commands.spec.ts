@@ -7,12 +7,15 @@ import {
 } from "../../src/testing/index.js";
 import { finishedIdea } from "../../src/testing/index.js";
 import {
+  BREAK_EVEN_INSUFFICIENT_KEYS,
   KEYS,
   REVIEW_ROUNDS_KEYS,
   REVIEW_ROUNDS_TIER_KEYS,
   REVIEW_ROUNDS_UNLINKED_KEYS,
   SPLIT_KEYS,
   SPLIT_SIDE_KEYS,
+  VIOLATIONS_KEYS,
+  VIOLATIONS_ROW_KEYS,
 } from "./flow-report-keys-support.js";
 
 // finishedIdea events sit a few seconds after 2026-01-02T00:00:00Z.
@@ -63,7 +66,35 @@ describe("flow report --split-at (#1047)", () => {
       expect(Object.keys(side?.tiers ?? {})).toEqual(Object.keys(rounds.tiers));
     }
   });
+});
 
+describe("flow report --split-at, the violations by rule and the break-even (#1051)", () => {
+  it("adds violationsByRuleSplit and breakEvenSplit with the date and both sides, each with the keys of its unsplit figure (#1051)", async () => {
+    const { h, argv } = seeded(["--json", "--split-at", SPLIT]);
+
+    expect(await run(argv, h.deps)).toBe(0);
+    const report: FlowReport = JSON.parse(h.out());
+    expect(Object.keys(report.violationsByRule)).toEqual(VIOLATIONS_KEYS);
+    expect(Object.keys(report.violationsByRule.unlinked)).toEqual(
+      VIOLATIONS_ROW_KEYS,
+    );
+    expect(Object.keys(report.breakEven)).toEqual(BREAK_EVEN_INSUFFICIENT_KEYS);
+    const violations = report.violationsByRuleSplit;
+    expect(Object.keys(violations ?? {})).toEqual(SPLIT_SIDE_KEYS);
+    expect(violations?.at).toBe("2026-01-02T00:00:15.000Z");
+    const breakEven = report.breakEvenSplit;
+    expect(Object.keys(breakEven ?? {})).toEqual(SPLIT_SIDE_KEYS);
+    expect(breakEven?.at).toBe("2026-01-02T00:00:15.000Z");
+    for (const side of [violations?.before, violations?.after]) {
+      expect(Object.keys(side ?? {})).toEqual(VIOLATIONS_KEYS);
+    }
+    for (const side of [breakEven?.before, breakEven?.after]) {
+      expect(Object.keys(side ?? {})).toEqual(BREAK_EVEN_INSUFFICIENT_KEYS);
+    }
+  });
+});
+
+describe("flow report --split-at, the whole report", () => {
   it("keeps exactly the keys it had without the flag", async () => {
     const { h, argv } = seeded(["--json"]);
 
@@ -84,6 +115,16 @@ describe("flow report --split-at (#1047)", () => {
       "Send-backs by writer tier, on or after 2026-01-02T00:00:15.000Z:\n",
     );
     expect(plain.h.out()).not.toContain("Send-backs by writer tier");
+    expect(split.h.out()).toContain(
+      "Haiku-Sonnet break-even by writer tier, before 2026-01-02T00:00:15.000Z:\n",
+    );
+    expect(split.h.out()).toContain(
+      "Review violations by rule by writer tier, on or after 2026-01-02T00:00:15.000Z:\n",
+    );
+    expect(plain.h.out()).toContain(
+      "Haiku-Sonnet break-even not read: insufficient merged changes, claude-haiku-5-5 0 merged changes, claude-sonnet-5-5 0 merged changes, 5 needed in each tier; claude-haiku-5-5 rework per merged change not read\n",
+    );
+    expect(plain.h.out()).not.toContain("break-even by writer tier");
   });
 
   it("refuses a split date outside --since before reading the ledger", async () => {

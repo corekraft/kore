@@ -743,20 +743,58 @@ label, is read into the figures. The text (`flow-lines-review-rounds.ts`) prints
 figures the JSON carries. Rounds are placed by the time each was recorded and merged changes by
 their merge time, so the rate divides two counts from different events.
 
-`--split-at TIME` (#1047, #1050, spec #1024) reads the `sendBackTiers` and `reviewRounds` figures a
+`violationsByRule` (#1051, spec #1024), from `tools/harness/src/flow/violation-rules.ts`, reads the
+cited rule labels of failing principles-review verdicts per writer tier. A failing verdict is a
+`review.run` event labelled `posted:<head>` or `unchanged:<head>` with `findings` of one or more,
+recorded in the range; each PR head counts once and its latest such verdict stands. Each row has
+`failedVerdicts`; `citations`, the rule labels those verdicts cite, a label counted once per
+verdict; `rules`, each cited label with its `count` (the failing verdicts that cite it) and its
+`share` (the count over the row's `citations`, to four places), most cited first and by label where
+counts tie; and `unlabelled`, the failing verdicts that recorded no label. The labels are the
+`rules` field `review post` records, short labels and never verdict text
+(`tools/harness/src/ledger/schema-review.ts`); no comment text is read. A verdict joins to the tier
+of its pull request's linked writer, and the `unlinked` row holds those that join to none, so no
+verdict is given a tier by inference. The text (`flow-lines-violations.ts`) prints one
+`Review violations by rule` line per tier and one for the unlinked row, each rule as
+`<rule> <count> of <citations> (<share>%)`.
+
+`breakEven` (#1051, spec #1024), from `tools/harness/src/flow/break-even.ts`, reads the rework
+rounds per merged change at which Haiku's median all-in cost per merged change reaches Sonnet's. The
+all-in dollars of a merged change are the ones `writerCost` reads (#1008), joined to a tier by the
+first launch of its writer. The cost of one rework round is read from Haiku's own changes: the median
+of those with exactly one rework send less the median of those with none (`noRework` and `oneRound`,
+each with its `changes` and `median`). The break-even is Sonnet's median less the `noRework` median,
+over that cost of one round (`costPerReworkRound`), as `reworkRoundsPerMergedChange`. Rework is the
+#1009 definition, counted per pull request over the whole ledger
+(`tools/harness/src/flow/change-rework.ts`); a send to a writer pane credits each of its writer's
+pull requests that was sent back before it. The figure has four statuses: `ok`;
+`insufficient merged changes`, with `needed` and each tier's `mergedChanges`, when a tier has fewer
+merged changes than `cost.minMergedChanges` (or none), and no medians and no break-even;
+`insufficient prices`, with the `models`; and `not read`, with a `reason` (no Haiku change without
+rework, no Haiku change with one rework round, a rework round does not add to Haiku's median cost,
+or Haiku's median without rework is above Sonnet's median) and the figures that were read. A
+break-even is never a zero or a negative number, and the figure names no winner. The text
+(`flow-lines-break-even.ts`) prints one `Haiku-Sonnet break-even` line after the review round and
+violation lines, with Haiku's `rework` per merged change from `reviewRounds` beside it and the three
+medians with their counts. The report moved to `version` 40 when the two joined it.
+
+`--split-at TIME` (#1047, #1050, spec #1024) reads the `sendBackTiers`, `reviewRounds`, `violationsByRule` and `breakEven` figures a
 second time, once over the time before TIME and once over the time from TIME on, so a reader
-compares the changes before and after a fix. It adds two keys, `sendBackTiersSplit` and
-`reviewRoundsSplit`, each with `at` (TIME as an ISO time), `before` and `after`, each side the same
+compares the changes before and after a fix. It adds four keys, `sendBackTiersSplit`,
+`reviewRoundsSplit`, `violationsByRuleSplit` and `breakEvenSplit`, each with `at` (TIME as an ISO time), `before` and `after`, each side the same
 shape as the figure it splits, and the text prints each side's tier lines under
 `Send-backs by writer tier, before TIME:` and `Send-backs by writer tier, on or after TIME:`, and
 under `Failed review rounds and review coverage by writer tier, before TIME:` and
-`Failed review rounds and review coverage by writer tier, on or after TIME:`.
+`Failed review rounds and review coverage by writer tier, on or after TIME:`, and likewise under
+`Review violations by rule by writer tier, before TIME:` and `on or after TIME:`, and
+`Haiku-Sonnet break-even by writer tier, before TIME:` and `on or after TIME:`.
 Merged changes are placed by their merge time, so a change merged exactly at TIME is on the after
-side; send-backs, failed review rounds and rework are placed by the time each was recorded, as in
-the unsplit figures. TIME must lie inside `--since` and `--until` when they are given (equal to a
+side; send-backs, failed review rounds, rework and violations are placed by the time each was
+recorded, as in the unsplit figures. TIME must lie inside `--since` and `--until` when they are given (equal to a
 bound is allowed and leaves one side empty); the bounds still clip both sides, so a change merged
 before `--since` is on neither. Without `--split-at` the report has neither key and prints no such
-lines. `version` moved to 39 when `reviewRounds` joined the report; the split keys do not move it.
+lines. `version` moved to 39 when `reviewRounds` joined the report and to 40 when `violationsByRule` and
+`breakEven` did; the split keys do not move it.
 The cut itself is `splitSpanAt` and `splitFiguresAt` in `tools/harness/src/flow/date-split.ts`: a
 figure that reads a span can be read on either side of a date by passing it to `splitFiguresAt`.
 

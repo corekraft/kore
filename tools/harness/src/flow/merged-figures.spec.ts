@@ -1,3 +1,5 @@
+import { NO_BREAK_EVEN } from "./break-even.js";
+import { NO_VIOLATIONS } from "./violation-rules.js";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { LedgerEvent } from "../ledger/index.js";
 import {
@@ -125,6 +127,8 @@ beforeEach(() => {
     writerArms: WRITER_ARMS,
     sendBackTiers: NO_SEND_BACK_TIERS,
     reviewRounds: NO_REVIEW_ROUNDS,
+    violationsByRule: NO_VIOLATIONS,
+    breakEven: NO_BREAK_EVEN,
   });
   vi.mocked(mainSessionFigures).mockReturnValue(MAIN_SESSION);
 });
@@ -162,6 +166,8 @@ describe("mergedChangeFigures: the figures over one window", () => {
       writerArms: WRITER_ARMS,
       sendBackTiers: NO_SEND_BACK_TIERS,
       reviewRounds: NO_REVIEW_ROUNDS,
+      violationsByRule: NO_VIOLATIONS,
+      breakEven: NO_BREAK_EVEN,
       mainSession: MAIN_SESSION,
       judgmentContexts: JUDGMENT_CONTEXTS,
       // The cost beside waiting figures are pinned in cost-waiting.spec.ts; here only their presence.

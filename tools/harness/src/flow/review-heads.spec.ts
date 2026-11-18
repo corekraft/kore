@@ -41,7 +41,29 @@ beforeEach(() => {
 describe("verdictsOf: the principles-review verdicts the ledger holds", () => {
   it("reads the PR, the head cut to seven characters, the time and the violation count of a posted verdict", () => {
     expect(verdictsOf([verdict(7, "posted:0123456789abcdef", 100, 2)])).toEqual(
-      [{ number: 7, head: "0123456", at: 100, findings: 2 }],
+      [{ number: 7, head: "0123456", at: 100, findings: 2, rules: [] }],
+    );
+  });
+
+  it("reads the short rule labels a verdict cites, in the order recorded, and none when no label was recorded", () => {
+    const cited = event("review.run", 60, {
+      number: 7,
+      label: "posted:0123456",
+      findings: 2,
+      rules: "max-lines,pin-everything",
+    });
+
+    expect(verdictsOf([cited])).toEqual([
+      {
+        number: 7,
+        head: "0123456",
+        at: 60,
+        findings: 2,
+        rules: ["max-lines", "pin-everything"],
+      },
+    ]);
+    expect(verdictsOf([verdict(7, "posted:0123456", 61, 1)])[0]?.rules).toEqual(
+      [],
     );
   });
 
@@ -52,7 +74,7 @@ describe("verdictsOf: the principles-review verdicts the ledger holds", () => {
     });
 
     expect(verdictsOf([old])).toEqual([
-      { number: 7, head: "abcdef1", at: 50, findings: undefined },
+      { number: 7, head: "abcdef1", at: 50, findings: undefined, rules: [] },
     ]);
   });
 
@@ -60,7 +82,10 @@ describe("verdictsOf: the principles-review verdicts the ledger holds", () => {
     const events = [
       verdict(7, "resample:abcdef1", 10),
       verdict(7, "resample-failed:abcdef1", 11),
-      event("review.run", 12, { label: "posted:abcdef1", findings: 1 }),
+      event("review.run", 12, {
+        label: "posted:abcdef1",
+        findings: 1,
+      }),
       event("send-back", 13, { number: 7, label: "posted:abcdef1" }),
     ];
 
@@ -108,14 +133,18 @@ describe("isReviewedAtHead: a verdict counts only for the head it names", () => 
   const MERGED = 1000;
 
   it("is reviewed when the newest head the ledger names for the PR has a verdict", () => {
-    const verdicts = [{ number: 7, head: "aaaaaaa", at: 100, findings: 0 }];
+    const verdicts = [
+      { number: 7, head: "aaaaaaa", at: 100, findings: 0, rules: [] },
+    ];
     const namings = [{ number: 7, head: "aaaaaaa", at: 100 }];
 
     expect(isReviewedAtHead(7, MERGED, verdicts, namings)).toBe(true);
   });
 
   it("is not reviewed when a later head is named and the only verdict is on the older head", () => {
-    const verdicts = [{ number: 7, head: "aaaaaaa", at: 100, findings: 0 }];
+    const verdicts = [
+      { number: 7, head: "aaaaaaa", at: 100, findings: 0, rules: [] },
+    ];
     const namings = [
       { number: 7, head: "aaaaaaa", at: 100 },
       { number: 7, head: "bbbbbbb", at: 200 },
@@ -126,9 +155,9 @@ describe("isReviewedAtHead: a verdict counts only for the head it names", () => 
 
   it("is reviewed once the later head has its own verdict, however many verdicts the PR has", () => {
     const verdicts = [
-      { number: 7, head: "aaaaaaa", at: 100, findings: 1 },
-      { number: 7, head: "bbbbbbb", at: 300, findings: 0 },
-      { number: 7, head: "bbbbbbb", at: 310, findings: undefined },
+      { number: 7, head: "aaaaaaa", at: 100, findings: 1, rules: [] },
+      { number: 7, head: "bbbbbbb", at: 300, findings: 0, rules: [] },
+      { number: 7, head: "bbbbbbb", at: 310, findings: undefined, rules: [] },
     ];
     const namings = [
       { number: 7, head: "aaaaaaa", at: 100 },
@@ -146,8 +175,8 @@ describe("isReviewedAtHead: a verdict counts only for the head it names", () => 
       { number: 8, head: "aaaaaaa", at: 100 },
     ];
     const verdicts = [
-      { number: 7, head: "aaaaaaa", at: 1500, findings: 0 },
-      { number: 8, head: "aaaaaaa", at: 100, findings: 0 },
+      { number: 7, head: "aaaaaaa", at: 1500, findings: 0, rules: [] },
+      { number: 8, head: "aaaaaaa", at: 100, findings: 0, rules: [] },
     ];
 
     expect(isReviewedAtHead(7, MERGED, verdicts, namings)).toBe(false);

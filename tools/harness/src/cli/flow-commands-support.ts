@@ -4,6 +4,7 @@ import { vi } from "vitest";
 import {
   emptyLeadTimePerMergedChange,
   emptyReviewRounds,
+  emptyViolationFigures,
   emptyWriterArms,
 } from "./flow-commands-merged-support.js";
 import {
@@ -182,6 +183,7 @@ export function emptyReport(overrides: Partial<Record<string, unknown>> = {}) {
     writerArms: emptyWriterArms,
     sendBackTiers: EMPTY_SEND_BACK_TIERS,
     reviewRounds: emptyReviewRounds,
+    ...emptyViolationFigures,
     tokensByStage: Object.fromEntries(STAGES.map((stage) => [stage, 0])),
     tokensByStagePerMergedChange: emptyTokensPerMergedChange,
     reviewMisses: NO_REVIEWS,

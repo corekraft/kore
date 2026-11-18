@@ -56,7 +56,7 @@ export const verdict = (
   head: string,
   findings: number | undefined,
   at = 100,
-): Verdict => ({ number, head, at, findings });
+): Verdict => ({ number, head, at, findings, rules: [] });
 
 /** Gives every mocked module the reading the unit starts from: no link, no verdict, no rework. */
 export function resetReadings() {
