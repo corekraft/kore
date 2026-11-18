@@ -1,5 +1,8 @@
 import { beforeEach, expect, test, vi } from "vitest";
-import { alertEmailHelmArgs } from "../config/index.js";
+import {
+  alertEmailHelmArgs,
+  registeredServiceHelmArgs,
+} from "../config/index.js";
 import {
   assertChartDelivery,
   assertGoldenPathDelivery,
@@ -17,6 +20,7 @@ vi.mock("../config/index.js", () => ({
   featureHelmArgs: vi.fn(),
   gatewayClassName: vi.fn(),
   noMatchPolicy: vi.fn(),
+  registeredServiceHelmArgs: vi.fn(),
   registryConsumers: ["oci-registry", "kore-image-policy"],
   registryHelmArgs: vi.fn(),
 }));
@@ -148,6 +152,32 @@ test("kore-golden-path-delivery without composed values is refused with the flag
   expect(() =>
     assertGoldenPathDelivery(repository, fakeComponent()),
   ).not.toThrow();
+});
+
+test("a component's registered Service names come from the config domain, given the repository's derived list", () => {
+  vi.mocked(registeredServiceHelmArgs).mockReturnValue([
+    "--set-json",
+    'services=["shop"]',
+  ]);
+  const args = helmUpgradeArgs(
+    { ...repository, registeredServices: ["shop"] },
+    fakeComponent({ name: "kore-service-observability" }),
+  );
+  expect(args.slice(-2)).toEqual(["--set-json", 'services=["shop"]']);
+  expect(registeredServiceHelmArgs).toHaveBeenCalledWith(
+    repository.environment,
+    "kore-service-observability",
+    ["shop"],
+  );
+});
+
+test("a repository without a derived list hands the config domain an empty list, never an undefined one", () => {
+  helmUpgradeArgs(repository, fakeComponent({ name: "grafana" }));
+  expect(registeredServiceHelmArgs).toHaveBeenCalledWith(
+    repository.environment,
+    "grafana",
+    [],
+  );
 });
 
 test("a component's alert email arguments come from the config domain with the component's name, after the other values", () => {

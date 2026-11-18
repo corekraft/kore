@@ -296,6 +296,12 @@ export interface Repository {
    * touches the cluster (ADR 0043).
    */
   goldenPathDelivery?: GoldenPathDeliveryValues | undefined;
+  /**
+   * The Service names the registrations in git declare, sorted; set by
+   * `loadRepository` whatever the flags are. Every consumer reads the registered
+   * Services from here (plan 15, #1235).
+   */
+  registeredServices?: readonly string[] | undefined;
   /** Findings that warn without failing validation; set by `loadRepository`. */
   warnings?: string[] | undefined;
 }

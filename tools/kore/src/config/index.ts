@@ -4,6 +4,7 @@ export {
   smtpSecretName,
   smtpSecretNamespace,
 } from "./alert-email.js";
+export { registeredServiceHelmArgs } from "./service-registrations.js";
 export { isLocalProvider } from "./provider.js";
 export {
   absolute,

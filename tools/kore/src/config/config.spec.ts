@@ -14,6 +14,7 @@ import {
 } from "./config.js";
 import { exists } from "./files.js";
 import { orderedComponents } from "./order.js";
+import { loadServiceRegistrations } from "./service-registrations.js";
 import { FileExemptionSource } from "./exemption-source.js";
 import { validateRepository } from "./validate.js";
 import {
@@ -27,6 +28,9 @@ vi.mock("node:fs/promises");
 vi.mock("node:path");
 // Factories, not automocks: the collaborators' real modules never load here.
 vi.mock("./files.js", () => ({ exists: vi.fn() }));
+vi.mock("./service-registrations.js", () => ({
+  loadServiceRegistrations: vi.fn(),
+}));
 vi.mock("./order.js", () => ({ orderedComponents: vi.fn() }));
 vi.mock("./validate.js", () => ({ validateRepository: vi.fn() }));
 vi.mock("./exemption-check.js", () => ({
@@ -223,6 +227,14 @@ test("the image policy overlay is loaded when the environment names an existing 
   );
   const loaded = await loadRepository("local", "/repo");
   expect(loaded.imageTrustValues).toEqual({ trust: { type: "key" } });
+});
+
+test("loading carries the derived Service names on the repository, read from its root whatever the flags are", async () => {
+  filesPresent("/repo/infra/catalog/components.yaml");
+  vi.mocked(loadServiceRegistrations).mockResolvedValue(["blog", "shop"]);
+  const loaded = await loadRepository("local", "/repo");
+  expect(loaded.registeredServices).toEqual(["blog", "shop"]);
+  expect(vi.mocked(loadServiceRegistrations).mock.calls).toEqual([["/repo"]]);
 });
 
 test("a registry consumer's overlays that exist are merged in order, later files winning", async () => {

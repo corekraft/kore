@@ -1,7 +1,11 @@
-import { readFile } from "node:fs/promises";
 import { dirname, isAbsolute, join, resolve } from "node:path";
 import { exists } from "./files.js";
-import { registryConsumers } from "./registry-address.js";
+import {
+  loadImageTrustValues,
+  loadJSON,
+  loadRegistryComponentValues,
+} from "./overlay-files.js";
+import { loadServiceRegistrations } from "./service-registrations.js";
 import { validateRepository } from "./validate.js";
 import { ExemptionCheck } from "./exemption-check.js";
 import { FileExemptionSource } from "./exemption-source.js";
@@ -57,47 +61,6 @@ export async function findRoot(start = process.cwd()): Promise<string> {
   }
 }
 
-async function loadJSON<T>(path: string): Promise<T> {
-  try {
-    return JSON.parse(await readFile(path, "utf8")) as T;
-  } catch (error) {
-    throw new Error(
-      `validate ${path}: files must use JSON-compatible YAML: ${String(error)}`,
-    );
-  }
-}
-
-// The environment overlay of the image policy owns the trust authority. A
-// missing file is reported by validation, not here.
-async function loadImageTrustValues(
-  root: string,
-  environment: Environment,
-): Promise<Record<string, unknown> | undefined> {
-  const path = environment.componentValues?.["kore-image-policy"]?.[0];
-  if (!path || !(await exists(join(root, path)))) {
-    return undefined;
-  }
-  return loadJSON<Record<string, unknown>>(join(root, path));
-}
-
-async function loadRegistryComponentValues(
-  root: string,
-  environment: Environment,
-): Promise<Record<string, Record<string, unknown>>> {
-  const loaded: Record<string, Record<string, unknown>> = {};
-  for (const component of registryConsumers) {
-    for (const path of environment.componentValues?.[component] ?? []) {
-      if (await exists(join(root, path))) {
-        loaded[component] = {
-          ...loaded[component],
-          ...(await loadJSON<Record<string, unknown>>(join(root, path))),
-        };
-      }
-    }
-  }
-  return loaded;
-}
-
 export async function loadRepository(
   environmentName = "local",
   start?: string,
@@ -130,6 +93,7 @@ export async function loadRepository(
       root,
       environment,
     ),
+    registeredServices: await loadServiceRegistrations(root),
   };
   const exemptions = new ExemptionCheck(new FileExemptionSource(root));
   const warnings = await validateRepository(repository, [], (repo) =>
