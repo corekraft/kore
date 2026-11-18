@@ -64,7 +64,7 @@ export async function reviewPostRun(
 export const reviewCommands: Record<string, Command> = {
   post: {
     summary:
-      "mutates; formats the principles-review verdict for the PR's head in the format the precheck reads and posts it as a comment, unless the identical verdict is already on that head (<pr> [--none] [--dry-run] [--json]; findings one per line on stdin)",
+      "mutates; formats the principles-review verdict for the PR's head in the format the precheck reads and posts it as a comment, unless the identical verdict is already on that head, and records a review.run event for a verdict it posted, with the PR, the head, the violation count and the cited rule labels and no verdict text, so a repost writes no second event (<pr> [--none] [--dry-run] [--json]; findings one per line on stdin)",
     operand: "pr",
     options: { none: "boolean", "dry-run": "boolean" },
     run: (context) => reviewPostRun(context, () => ghReviewIo(context)),
