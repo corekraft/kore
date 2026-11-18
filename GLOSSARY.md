@@ -164,8 +164,9 @@ _Avoid_: Rejection, bounce
 The all-in dollars of one **Merged change**: its writer's, its reviewer's, and
 its share of the judge's and the main session's spend. It is attributed to the
 tier of the writer that started the change. The flow report's headline shows it
-beside each role's waiting time, per agent, per merged pull request and per idea
-(#1019); it names no winner.
+per merged pull request (#1019), beside that change's time from its first writer
+launch to merge. Each role's and each idea's figures are session totals and idea
+spend, not this term; the headline names no winner.
 _Avoid_: Cost per PR, per-PR cost
 
 ## Self-improvement

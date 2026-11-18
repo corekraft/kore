@@ -538,8 +538,9 @@ each has `status` and needs `cost.minMergedChanges` merged changes, else it is
 The headline token cost beside waiting time (#1019) is `costWaiting`, read at the
 published prices against the cost settings and the weekly token ceiling in
 `.claude/harness.json` (`weeklyTokenCeiling`, read `not set` when the config names
-none; the owner sets its value). It has three levels, each insufficient, never zero,
-below `cost.minMergedChanges`: `agents` (per role: writer, reviewer, judge, verifier,
+none; the owner sets its value). It has three levels. `agents` and `mergedChanges` read
+insufficient, never zero, below `cost.minMergedChanges`; `ideas` is a plain list, one
+row per idea named by an event, with no insufficient status. `agents` (per role: writer, reviewer, judge, verifier,
 reader, judgment, advisor, the main session as `orchestrate`, and any other named
 session as `other`, each with its sessions' dollars, tokens, active and waiting seconds
 as median and p90, and the plan-weighted share of the ceiling); `mergedChanges` (per
