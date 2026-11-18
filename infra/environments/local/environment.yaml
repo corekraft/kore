@@ -28,6 +28,7 @@
       "automatic-approval": false,
       "automatic-revert": false,
       "orchestrator-tick": true,
+      "behind-main-notice": false,
       "shell-aware-zsh-rules": true,
       "gated-help-exempt": true,
       "main-session-figures": true,
