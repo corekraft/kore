@@ -270,6 +270,7 @@ decisions; read one only when planning that area, and expect it to change.
 - [`docs/operations/policy-changes.md`](operations/policy-changes.md) — policy review, audit-to-enforce promotion, rollback, and emergency exemptions. Read when changing or promoting a policy.
 - [`docs/operations/resource-budgets.md`](operations/resource-budgets.md) — profile sizing and the `capacity` status warning. Read when the platform runs short of CPU or memory.
 - [`docs/operations/backups.md`](operations/backups.md) — the export backup target, the RPO objective, and the audit-only `backups` status row. Read when exporting, restoring, or when `backups` is degraded.
+- [`docs/operations/agentgateway-listener-probe.md`](operations/agentgateway-listener-probe.md) — the opt-in probe for a passthrough and an HTTPS listener on one port, and listener sets, and how to read its result. Read before running it or deciding the registry and database routes.
 
 ## Reference
 

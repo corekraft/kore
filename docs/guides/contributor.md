@@ -232,6 +232,11 @@ importOriginal()), fn: vi.fn() }))`.
   the reference route and expects 200 (phase 4 expects the first rollback
   `kore local up` to fail with the gated-off refusal after converging),
   kept out of git and removed on exit, so the flag stays off in the repository.
+- Whether the Gateway serves a TLS passthrough and an HTTPS listener on one port,
+  and a listener set, is probed by
+  `KORE_RUN_AGENTGATEWAY_PROBE=1 tools/kore/scripts/agentgateway-listener-probe.sh`
+  on a throwaway cluster with only the controller and the Gateway API
+  definitions ([the probe](../operations/agentgateway-listener-probe.md)).
 
 ## The harness bundle
 
