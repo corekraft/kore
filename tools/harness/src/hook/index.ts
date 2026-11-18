@@ -64,3 +64,6 @@ export {
 } from "./guard-worktree.js";
 export { parseTranscript } from "./retro-transcript.js";
 export { defaultDirs, readTranscripts } from "./retro-transcripts.js";
+// The read-only `session prompt-size` command (#1038): the split reader's latest prompt, read here
+// because the transcript readers live in this domain; the host composes it into the session table.
+export { promptSizeCommand } from "./prompt-size-command.js";
