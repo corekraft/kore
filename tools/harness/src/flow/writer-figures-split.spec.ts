@@ -37,7 +37,12 @@ describe("writerFiguresIn: the split date reaches the tier figures (#1047)", () 
 
     expect(figures.sendBackTiersSplit).toBe(sendBackTiersSplit);
     expect(figures.sendBackTiers.unlinked.mergedChanges).toBe(0);
-    expect(sendBackTiersSplitIn).toHaveBeenCalledWith(EVENTS, WINDOW, SPLIT_AT);
+    expect(sendBackTiersSplitIn).toHaveBeenCalledWith(
+      EVENTS,
+      WINDOW,
+      SPLIT_AT,
+      20,
+    );
   });
 
   it("has no sendBackTiersSplit key when the split module gives none, so the figures keep the keys they had", () => {
@@ -53,6 +58,7 @@ describe("writerFiguresIn: the split date reaches the tier figures (#1047)", () 
       EVENTS,
       WINDOW,
       undefined,
+      20,
     );
     expect(mergedChangeWriterCost).toHaveBeenCalledTimes(1);
     expect(writerArmsIn).toHaveBeenCalledTimes(1);

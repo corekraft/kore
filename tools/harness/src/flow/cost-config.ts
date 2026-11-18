@@ -1,4 +1,12 @@
 import { DEFAULT_COST, type CostOptions, type Threshold } from "./cost.js";
+import { loginsOf } from "./cost-config-logins.js";
+import { minCategorisedSendBacksOf } from "./cost-config-send-backs.js";
+import {
+  bad,
+  isObject,
+  type Failure,
+  type Raw,
+} from "./cost-config-support.js";
 
 /** The harness config, relative to the repository root. */
 export const HARNESS_CONFIG = ".claude/harness.json";
@@ -27,16 +35,6 @@ export interface HarnessConfig {
   compactionCap?: number;
   /** The weekly token ceiling in plan-weighted tokens; absent when not set, which a report reads as "not set", never zero. */
   weeklyTokenCeiling?: number;
-}
-
-type Failure = { error: string };
-type Raw = Record<string, unknown>;
-
-const isObject = (value: unknown): value is Raw =>
-  typeof value === "object" && value !== null && !Array.isArray(value);
-
-function bad(file: string, key: string, fix: string): Failure {
-  return { error: `Invalid ${file}: key "${key}" ${fix}` };
 }
 
 function unknownKey(file: string, path: string, raw: Raw, known: string[]) {
@@ -100,6 +98,13 @@ function parseCost(file: string, cost: Raw): HarnessConfig | Failure {
       "must be a whole number of at least 1. Fix the value.",
     );
   }
+  const minCategorised = minCategorisedSendBacksOf(
+    file,
+    cost["minCategorisedSendBacks"],
+  );
+  if (typeof minCategorised !== "number") {
+    return minCategorised;
+  }
   const tokens = threshold(
     file,
     "cost.tokensPerIdea",
@@ -122,62 +127,10 @@ function parseCost(file: string, cost: Raw): HarnessConfig | Failure {
     cost: {
       trailingIdeas: trailing,
       minMergedChanges: minMerged,
+      minCategorisedSendBacks: minCategorised,
       tokensPerIdea: tokens,
       sessionsPerIdea: sessions,
     },
-  };
-}
-
-const LOGIN = /^[A-Za-z0-9][A-Za-z0-9-]{0,38}$/;
-/** A GitHub App's login as gh reports it on the App's comments and PRs: `app/<slug>`. */
-const APP_LOGIN = /^app\/[A-Za-z0-9][A-Za-z0-9-]{0,38}$/;
-
-function reviewerLoginsOf(
-  file: string,
-  value: unknown,
-): { reviewerLogins?: string[] } | Failure {
-  if (value === undefined) {
-    return {};
-  }
-  if (
-    !Array.isArray(value) ||
-    value.length === 0 ||
-    !value.every(
-      (r) => typeof r === "string" && (LOGIN.test(r) || APP_LOGIN.test(r)),
-    )
-  ) {
-    return bad(
-      file,
-      "reviewerLogins",
-      'must be a non-empty list of GitHub logins of letters, digits and "-", or of a GitHub App as app/<slug>. Use ["junners"] or ["junners", "app/kore-reviewer"], or remove the key to trust the owner login.',
-    );
-  }
-  return { reviewerLogins: value as string[] };
-}
-
-/** The owner login and the reviewer logins, each checked; a bad one names its key and the fix. */
-function loginsOf(
-  file: string,
-  value: Raw,
-): { ownerLogin?: string; reviewerLogins?: string[] } | Failure {
-  const login = value["ownerLogin"];
-  if (
-    login !== undefined &&
-    (typeof login !== "string" || !LOGIN.test(login))
-  ) {
-    return bad(
-      file,
-      "ownerLogin",
-      'must be a GitHub login of letters, digits and "-". Use "junners".',
-    );
-  }
-  const reviewers = reviewerLoginsOf(file, value["reviewerLogins"]);
-  if ("error" in reviewers) {
-    return reviewers;
-  }
-  return {
-    ...(login === undefined ? {} : { ownerLogin: login as string }),
-    ...reviewers,
   };
 }
 
@@ -321,6 +274,7 @@ export function parseHarnessConfig(
   const inner = unknownKey(file, "cost", cost, [
     "trailingIdeas",
     "minMergedChanges",
+    "minCategorisedSendBacks",
     "tokensPerIdea",
     "sessionsPerIdea",
   ]);

@@ -34,6 +34,7 @@ export type { LeadTime } from "./idea-metrics.js";
 export type { ReviewMisses } from "./review-misses.js";
 export type { SplitFigures, SplitSpan } from "./date-split.js";
 export type { CategoryCounts } from "./send-back-categories.js";
+export { CATEGORY_REQUIRED_FROM } from "./send-back-share.js";
 export type {
   SendBackTiers,
   TierSendBacks,

@@ -106,3 +106,16 @@ export const WRITING_BUCKET_KEYS = ["sessions", "tokens", "dollars"];
 
 /** The keys of a measured `costWaiting.writing.share` (#1093). */
 export const WRITING_SHARE_KEYS = ["status", "share", "sessions"];
+
+/** The keys of each `sendBackCategories` scope (perPrHead, perMergedChange) and each `sendBackTiers` row's `sendBacks`, in report order (#1094). */
+export const SEND_BACK_COUNT_KEYS = [
+  "byCategory",
+  "legacy",
+  "uncategorised",
+  "otherThreshold",
+  "categorised",
+  "otherShare",
+  "minCategorised",
+  "otherReading",
+  "otherOverThreshold",
+];

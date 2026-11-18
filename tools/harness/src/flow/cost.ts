@@ -9,6 +9,12 @@ export const DEFAULT_MAX_INCREASE = 0.25;
  * A placeholder until the owner re-checks it from data (#808, #829).
  */
 export const DEFAULT_MIN_MERGED_CHANGES = 5;
+/**
+ * The fewest categorised send-backs a window needs before the share of `other` is read over or
+ * within its threshold. Its own setting, since the merged-change minimum counts something else
+ * (#1094). A proposal until the owner sets it.
+ */
+export const DEFAULT_MIN_CATEGORISED_SEND_BACKS = 20;
 
 /** How much a metric may rise above its trailing average before it counts as worse. */
 export interface Threshold {
@@ -21,6 +27,8 @@ export interface CostOptions {
   trailingIdeas: number;
   /** The fewest merged changes a window needs before its per-merged figure is read. */
   minMergedChanges: number;
+  /** The fewest categorised send-backs a window needs before the share of `other` is read over or within. */
+  minCategorisedSendBacks: number;
   tokensPerIdea: Threshold;
   sessionsPerIdea: Threshold;
 }
@@ -28,6 +36,7 @@ export interface CostOptions {
 export const DEFAULT_COST: CostOptions = {
   trailingIdeas: DEFAULT_TRAILING_IDEAS,
   minMergedChanges: DEFAULT_MIN_MERGED_CHANGES,
+  minCategorisedSendBacks: DEFAULT_MIN_CATEGORISED_SEND_BACKS,
   tokensPerIdea: { maxIncrease: DEFAULT_MAX_INCREASE },
   sessionsPerIdea: { maxIncrease: DEFAULT_MAX_INCREASE },
 };

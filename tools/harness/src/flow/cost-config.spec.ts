@@ -152,6 +152,7 @@ describe("harness config", () => {
       cost: {
         trailingIdeas: 8,
         minMergedChanges: DEFAULT_COST.minMergedChanges,
+        minCategorisedSendBacks: DEFAULT_COST.minCategorisedSendBacks,
         tokensPerIdea: { maxIncrease: 0.5 },
         sessionsPerIdea: { maxIncrease: 0 },
       },
@@ -250,6 +251,38 @@ describe("harness config: the merged-change minimum", () => {
   ])("rejects %j, naming the key and the fix", (config) => {
     expect(parse(config)).toEqual({
       error: expect.stringContaining('key "cost.minMergedChanges"'),
+    });
+  });
+});
+
+describe("harness config: the categorised send-back minimum (#1094)", () => {
+  it("reads the fewest categorised send-backs a window needs before the share of other is read over or within", () => {
+    expect(parse({ cost: { minCategorisedSendBacks: 30 } })).toEqual({
+      cost: { ...DEFAULT_COST, minCategorisedSendBacks: 30 },
+    });
+  });
+
+  it("uses the proposed minimum of 20 when the config leaves it out, since the merged-change minimum counts something else", () => {
+    expect(parse({ cost: { trailingIdeas: 8 } })).toMatchObject({
+      cost: { minCategorisedSendBacks: 20 },
+    });
+    expect(parse({})).toMatchObject({
+      cost: { minCategorisedSendBacks: 20, minMergedChanges: 5 },
+    });
+  });
+
+  it.each([0, -1, 2.5, "many", null, true])(
+    "refuses a minimum of %j, naming the file, the key, what is wrong and the fix",
+    (minimum) => {
+      expect(parse({ cost: { minCategorisedSendBacks: minimum } })).toEqual({
+        error: `Invalid ${HARNESS_CONFIG}: key "cost.minCategorisedSendBacks" must be a whole number of at least 1 (20 is proposed). Fix the value, or remove the key to use 20.`,
+      });
+    },
+  );
+
+  it("names the minimum among the known cost keys when a misspelt one is refused", () => {
+    expect(parse({ cost: { minCategorisedSendBack: 20 } })).toEqual({
+      error: expect.stringContaining("minCategorisedSendBacks"),
     });
   });
 });

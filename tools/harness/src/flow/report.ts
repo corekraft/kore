@@ -313,7 +313,7 @@ export function buildReport(
     minCompletedIdeas,
     stages: tally.stages(),
     ...ideaMetrics(ownByIdea, window, options.cost),
-    ...frictionMetrics(named, ownByIdea, window, options.cost?.trailingIdeas),
+    ...frictionMetrics(named, ownByIdea, window, options.cost),
     ...nameBottleneck(tally, completed, minCompletedIdeas),
     unmappedEvents: unmapped,
     attribution: measureAttribution(

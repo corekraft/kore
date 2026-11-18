@@ -28,7 +28,7 @@ beforeEach(() => {
 
 describe("sendBackTiersSplitIn: the send-backs per writer tier on each side of a date (#1047)", () => {
   it("adds nothing without a split date, so the report is exactly what it was", () => {
-    expect(sendBackTiersSplitIn(EVENTS, SPAN, undefined)).toEqual({});
+    expect(sendBackTiersSplitIn(EVENTS, SPAN, undefined, 7)).toEqual({});
     expect(splitFiguresAt).not.toHaveBeenCalled();
     expect(sendBackTiersIn).not.toHaveBeenCalled();
   });
@@ -45,7 +45,7 @@ describe("sendBackTiersSplitIn: the send-backs per writer tier on each side of a
       figures(side === before ? 1 : 2),
     );
 
-    expect(sendBackTiersSplitIn(EVENTS, SPAN, CUT)).toEqual({
+    expect(sendBackTiersSplitIn(EVENTS, SPAN, CUT, 7)).toEqual({
       sendBackTiersSplit: {
         at: "2026-11-16T00:00:00.000Z",
         before: figures(1),
@@ -61,11 +61,13 @@ describe("sendBackTiersSplitIn: the send-backs per writer tier on each side of a
       EVENTS,
       before,
       Object.keys(MODEL_PRICES),
+      7,
     );
     expect(sendBackTiersIn).toHaveBeenCalledWith(
       EVENTS,
       after,
       Object.keys(MODEL_PRICES),
+      7,
     );
   });
 });

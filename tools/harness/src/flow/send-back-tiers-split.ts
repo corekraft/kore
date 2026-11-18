@@ -22,13 +22,14 @@ export function sendBackTiersSplitIn(
   events: LedgerEvent[],
   span: Span,
   splitAt: Date | undefined,
+  minCategorised: number,
 ): SendBackTiersSplit {
   if (splitAt === undefined) {
     return {};
   }
   return {
     sendBackTiersSplit: splitFiguresAt(span, splitAt, (side) =>
-      sendBackTiersIn(events, side, Object.keys(MODEL_PRICES)),
+      sendBackTiersIn(events, side, Object.keys(MODEL_PRICES), minCategorised),
     ),
   };
 }

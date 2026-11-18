@@ -19,9 +19,13 @@ const NONE = Object.fromEntries(
 
 const EMPTY: CategoryCounts = {
   byCategory: NONE,
+  legacy: 0,
   uncategorised: 0,
-  otherShare: null,
   otherThreshold: 0.1,
+  categorised: 0,
+  otherShare: null,
+  minCategorised: 20,
+  otherReading: "insufficient",
   otherOverThreshold: false,
 };
 
@@ -33,9 +37,13 @@ describe("sendBackTierLines: send-backs by category per writer tier, with the un
           mergedChanges: 3,
           sendBacks: {
             byCategory: { ...NONE, scope: 1, other: 1 },
+            legacy: 0,
             uncategorised: 0,
-            otherShare: 0.5,
             otherThreshold: 0.1,
+            categorised: 2,
+            otherShare: 0.5,
+            minCategorised: 2,
+            otherReading: "over",
             otherOverThreshold: true,
           },
           rework: 1,
@@ -52,8 +60,8 @@ describe("sendBackTierLines: send-backs by category per writer tier, with the un
     };
 
     expect(sendBackTierLines(report).slice(0, 2)).toEqual([
-      "Send-backs by category, writer tier claude-haiku-5-5, 3 merged changes: declaration 0, pattern-mismatch 0, failed-check 0, conflict 0, missing-proof 0, rule-break 0, scope 1, wrong-statement 0, other 1; uncategorised 0; other 50% of categorised, over 10%: the list may need an entry; rework 1 over 3 merged changes, 0.3333 per merged change",
-      "Send-backs by category, writer tier claude-sonnet-5-5, 0 merged changes: declaration 0, pattern-mismatch 0, failed-check 0, conflict 0, missing-proof 0, rule-break 0, scope 0, wrong-statement 0, other 0; uncategorised 0; no categorised send-backs; rework 0 over 0 merged changes, per merged change not read",
+      "Send-backs by category, writer tier claude-haiku-5-5, 3 merged changes: declaration 0, pattern-mismatch 0, failed-check 0, conflict 0, missing-proof 0, rule-break 0, scope 1, wrong-statement 0, other 1; legacy 0 (recorded before 2026-11-16, when a category became required); uncategorised 0; categorised 2; other 50% of categorised, over 10%: the list may need an entry; rework 1 over 3 merged changes, 0.3333 per merged change",
+      "Send-backs by category, writer tier claude-sonnet-5-5, 0 merged changes: declaration 0, pattern-mismatch 0, failed-check 0, conflict 0, missing-proof 0, rule-break 0, scope 0, wrong-statement 0, other 0; legacy 0 (recorded before 2026-11-16, when a category became required); uncategorised 0; categorised 0; no categorised send-backs; rework 0 over 0 merged changes, per merged change not read",
     ]);
   });
 
@@ -64,19 +72,25 @@ describe("sendBackTierLines: send-backs by category per writer tier, with the un
         mergedChanges: 1,
         sendBacks: {
           byCategory: { ...NONE, other: 1 },
+          legacy: 0,
           uncategorised: 0,
-          otherShare: 1,
           otherThreshold: 0.1,
+          categorised: 1,
+          otherShare: 1,
+          minCategorised: 1,
+          otherReading: "over",
           otherOverThreshold: true,
         },
       },
     };
 
     expect(sendBackTierLines(report)).toEqual([
-      "Send-backs by category, unlinked row (1 merged change with no writer tier): declaration 0, pattern-mismatch 0, failed-check 0, conflict 0, missing-proof 0, rule-break 0, scope 0, wrong-statement 0, other 1; uncategorised 0; other 100% of categorised, over 10%: the list may need an entry; rework not read, no writer tier",
+      "Send-backs by category, unlinked row (1 merged change with no writer tier): declaration 0, pattern-mismatch 0, failed-check 0, conflict 0, missing-proof 0, rule-break 0, scope 0, wrong-statement 0, other 1; legacy 0 (recorded before 2026-11-16, when a category became required); uncategorised 0; categorised 1; other 100% of categorised, over 10%: the list may need an entry; rework not read, no writer tier",
     ]);
   });
+});
 
+describe("sendBackTierLines: send-backs counted apart in a row (#1045, #1094)", () => {
   it("names an uncategorised send-back in the row it is in, never as another category", () => {
     const report: SendBackTiers = {
       tiers: {
@@ -91,7 +105,7 @@ describe("sendBackTierLines: send-backs by category per writer tier, with the un
     };
 
     expect(sendBackTierLines(report)[0]).toBe(
-      "Send-backs by category, writer tier claude-haiku-5-5, 1 merged change: declaration 0, pattern-mismatch 0, failed-check 0, conflict 0, missing-proof 0, rule-break 0, scope 0, wrong-statement 0, other 0; uncategorised 2; no categorised send-backs; rework 0 over 1 merged change, 0 per merged change",
+      "Send-backs by category, writer tier claude-haiku-5-5, 1 merged change: declaration 0, pattern-mismatch 0, failed-check 0, conflict 0, missing-proof 0, rule-break 0, scope 0, wrong-statement 0, other 0; legacy 0 (recorded before 2026-11-16, when a category became required); uncategorised 2; categorised 0; no categorised send-backs; rework 0 over 1 merged change, 0 per merged change",
     );
   });
 });
