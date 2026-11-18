@@ -19,7 +19,17 @@ function latestPrompt(prompt: number) {
   vi.mocked(advanceSplit).mockReturnValue({
     offset: 0,
     models: [],
-    last: { model: "claude-opus-5-5", prompt, usage: {} as never },
+    last: {
+      model: "claude-opus-5-5",
+      prompt,
+      usage: {
+        input: prompt,
+        cacheWrite5m: 0,
+        cacheWrite1h: 0,
+        cacheRead: 0,
+        output: 0,
+      },
+    },
     lastOver: false,
   });
 }

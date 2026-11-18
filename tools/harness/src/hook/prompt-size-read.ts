@@ -24,7 +24,10 @@ const NAMED_MISSING = (session: string) =>
   `Session ${session} is not a session of this repository: no ${session}.jsonl in its Claude session directories (the main checkout and its worktrees). Name a session by its Claude session id, or run the command with no name for this checkout's newest session.`;
 
 const isMissing = (error: unknown): boolean =>
-  (error as NodeJS.ErrnoException).code === "ENOENT";
+  typeof error === "object" &&
+  error !== null &&
+  "code" in error &&
+  error.code === "ENOENT";
 
 /** This checkout's own Claude project directory: the one the context hook counts sessions in. */
 function projectDirOf(deps: LocateDeps, root: string): string {

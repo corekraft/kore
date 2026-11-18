@@ -3,7 +3,7 @@
 // the config parser are mocks (ADR 0098); the failures are asserted on stderr and the exit code.
 
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { parseHarnessConfig } from "../flow/index.js";
+import { DEFAULT_COST, parseHarnessConfig } from "../flow/index.js";
 import { contextOf, fakeDeps, type FakeDeps } from "./prompt-size-support.js";
 import { promptSizeCommand } from "./prompt-size-command.js";
 import { promptJsonOf, promptLineOf, promptSizeOf } from "./prompt-size.js";
@@ -48,7 +48,7 @@ function withCap(deps: FakeDeps, text: string, cap: number): FakeDeps {
   deps.fs.exists.mockResolvedValue(true);
   deps.fs.readFile.mockResolvedValue(text);
   vi.mocked(parseHarnessConfig).mockReturnValue({
-    cost: {} as never,
+    cost: DEFAULT_COST,
     compactionCap: cap,
   });
   return deps;
@@ -117,7 +117,7 @@ describe("promptSizeCommand: operand and cap", () => {
     const deps = fakeDeps();
     deps.fs.exists.mockResolvedValue(true);
     deps.fs.readFile.mockResolvedValue("{}");
-    vi.mocked(parseHarnessConfig).mockReturnValue({ cost: {} as never });
+    vi.mocked(parseHarnessConfig).mockReturnValue({ cost: DEFAULT_COST });
 
     const code = await promptSizeCommand.run(contextOf(deps));
 
