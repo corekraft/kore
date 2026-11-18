@@ -33,11 +33,23 @@ import {
   compactionCount,
   handoverCount,
   mainSessionFigures,
+  mainSessionSetups,
   type CompactionCount,
   type HandoverCount,
   type MainSessionFigures,
+  type MainSessionSetups,
   type Span,
 } from "./main-session.js";
+
+/**
+ * What the report reads its figures against from the harness config: the cost settings (trailing
+ * window and thresholds; defaults apply to what is left out), the weekly
+ * token ceiling (#1019) and the compaction cap in tokens (#1046). Each is absent when the config
+ * sets none, which reads "not set" and never zero.
+ */
+export interface ReportSettings extends CostWaitingFor {
+  compactionCap?: number | undefined;
+}
 
 export interface MergedChangeFigures {
   /** Tokens per merged change over the window, with the trailing days before it as the average. */
@@ -64,6 +76,8 @@ export interface MergedChangeFigures {
   handovers: HandoverCount;
   /** Compactions of sessions in the window, totalled and per session, or why they are not read: no session recorded (#1037). */
   compactions: CompactionCount;
+  /** The setup of each main-session stretch (control, early compaction, Haiku), derived when the report reads, or not set / insufficient (#1046). */
+  mainSessionSetups: MainSessionSetups;
   /** Judgment panes in the window, and the ones whose tokens went above the 60k context limit (ADR 0121, #876). */
   judgmentContexts: JudgmentContexts;
   /** Token cost beside waiting time per agent role, per merged pull request and per idea (#1019). */
@@ -78,7 +92,7 @@ export function mergedChangeFigures(
     asOf: Date;
     windowEffort?: string;
     splitAt?: Date;
-  } & CostWaitingFor,
+  } & ReportSettings,
 ): MergedChangeFigures {
   return {
     costWaiting: costWaitingFor(events, window, options),
@@ -95,6 +109,7 @@ export function mergedChangeFigures(
     mainSession: mainSessionFigures(events, window, options.cost),
     handovers: handoverCount(events, window, options.cost),
     compactions: compactionCount(events, window),
+    mainSessionSetups: mainSessionSetups(events, window, options.compactionCap),
     judgmentContexts: judgmentContexts(events, window),
   };
 }

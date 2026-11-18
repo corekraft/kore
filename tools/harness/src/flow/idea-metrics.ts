@@ -14,7 +14,7 @@ export { DEFAULT_QUESTION_DAYS, ownerQuestions } from "./owner-questions.js";
 export type { OwnerQuestions } from "./owner-questions.js";
 export { DEFAULT_REVIEW_DAYS, reviewMisses } from "./review-misses.js";
 export type { ReviewMisses } from "./review-misses.js";
-export { mergedChangeFigures } from "./merged-figures.js";
+export { mergedChangeFigures, type ReportSettings } from "./merged-figures.js";
 export type { MergedChangeFigures } from "./merged-figures.js";
 export { tierShares } from "./tier-share.js";
 export { guardBlocks, outcomes } from "./outcomes.js";

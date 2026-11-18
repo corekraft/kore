@@ -380,6 +380,24 @@ whose transcript cannot be read, or holds no compact summary yet, writes nothing
 and `perSession`, every session seen a key, zero where it never compacted. A range
 with no session is `insufficient`, never zero.
 
+The main-session setup label (spec [#1027](https://github.com/corekraft/kore/issues/1027),
+#1046) says which setup a stretch of main-session work ran under. It is computed
+when the report reads, from the `token.split` readings of sessions with no role and
+the `compactionCap` of `.claude/harness.json`; nothing writes it to the ledger and
+no flag or option can type it. A stretch is one main-session session on one recorded
+model, with the largest prompt in its readings before the range ends. Its label is
+`control` (the main-session model, `claude-opus-5-5`, with a largest prompt above
+the cap), `early compaction` (the same model, at or under the cap) or `Haiku` (a
+Haiku model). With no cap set, a stretch that has a reading reads `not set`,
+whatever its model, Haiku included. With a cap, a model that is neither reads
+`insufficient` with a `reason`. A session with token totals and no reading (whose
+`model` and `largestPrompt` are `null`) reads `insufficient` with a `reason`
+whatever the cap. `mainSessionSetups`
+in `--json` gives `status`, `compactionCap` (`null` when not set) and `stretches`;
+a range with no main-session reading is `insufficient` with its `reason`. The text
+prints a `Main-session setups` line with the cap, then one line per stretch. The
+cap's value is the owner's to set; the report never guesses one.
+
 The person's main session answers "how is the loop doing?" from this report alone
 (`flow report --json`, no code or transcripts read, no file written): it leads
 with every metric whose `worsened` is true, names current against trailing

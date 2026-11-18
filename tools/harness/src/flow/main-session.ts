@@ -15,6 +15,11 @@ export type { Span };
 export { handoverCount, type HandoverCount } from "./handover-count.js";
 /** The compaction count (#1037), read beside them. */
 export { compactionCount, type CompactionCount } from "./compaction-count.js";
+/** The setup label of each main-session stretch (#1046), read beside them. */
+export {
+  mainSessionSetups,
+  type MainSessionSetups,
+} from "./main-session-setups.js";
 
 /** The fewest finished panes a window needs before its pane figures are read; a placeholder, like the merged minimum. */
 export const MIN_FINISHED_PANES = 10;

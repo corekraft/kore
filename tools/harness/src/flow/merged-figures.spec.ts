@@ -1,6 +1,10 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { LedgerEvent } from "../ledger/index.js";
-import { compactionCount, mainSessionFigures } from "./main-session.js";
+import {
+  compactionCount,
+  mainSessionFigures,
+  mainSessionSetups,
+} from "./main-session.js";
 import { mergedChangeFigures } from "./merged-figures.js";
 import { mergedChangeLeadTime } from "./merged-lead-time.js";
 import { mergedChangeSendBacks } from "./merged-send-backs.js";
@@ -187,5 +191,33 @@ describe("mergedChangeFigures: the compaction count (#1037)", () => {
 
     expect(compactionCount).toHaveBeenCalledWith(events, window);
     expect(r.compactions).toBe(counted);
+  });
+});
+
+describe("mergedChangeFigures: the main-session setup labels (#1046)", () => {
+  it("reads the setups from the same events and window against the config's compaction cap", () => {
+    const events: LedgerEvent[] = [];
+    const window: [number, number] = [0, 10];
+    const setups = {
+      status: "insufficient",
+      reason: "no main-session reading recorded in the window",
+    } as const;
+    vi.mocked(mainSessionSetups).mockReturnValue(setups);
+
+    const r = mergedChangeFigures(events, window, {
+      asOf: new Date(0),
+      compactionCap: 80_000,
+    });
+
+    expect(mainSessionSetups).toHaveBeenCalledWith(events, window, 80_000);
+    expect(r.mainSessionSetups).toBe(setups);
+  });
+
+  it("passes no cap when the config sets none, never a zero", () => {
+    const events: LedgerEvent[] = [];
+
+    mergedChangeFigures(events, [0, 10], { asOf: new Date(0) });
+
+    expect(mainSessionSetups).toHaveBeenCalledWith(events, [0, 10], undefined);
   });
 });

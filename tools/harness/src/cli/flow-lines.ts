@@ -1,4 +1,5 @@
 import { HANDOVER_REASONS } from "../ledger/index.js";
+import { setupLines } from "./flow-lines-setups.js";
 import { writerArmLines } from "./flow-lines-writer-arms.js";
 import {
   changes,
@@ -122,6 +123,7 @@ export function advisorFigureLines(report: FlowReport): string[] {
     ...waitLines(report.waitingOnPerson),
     handoverLine(report.handovers),
     compactionLine(report.compactions),
+    ...setupLines(report.mainSessionSetups),
   ];
 }
 

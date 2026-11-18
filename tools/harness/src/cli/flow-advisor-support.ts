@@ -9,12 +9,13 @@ type AdvisorFields = Pick<
 
 /**
  * An empty range: no decision, no route and no question, and the figures read from a source
- * the range has none of (handovers, compactions), each insufficient and never zero.
+ * the range has none of (handovers, compactions, main-session setups), each insufficient and never zero.
  */
 export const EMPTY_ADVISOR: AdvisorFields &
-  Pick<FlowReport, "handovers" | "compactions"> = {
+  Pick<FlowReport, "handovers" | "compactions" | "mainSessionSetups"> = {
   handovers: { status: "insufficient", reason: "no handover source" },
   compactions: { status: "insufficient", reason: "no compaction source" },
+  mainSessionSetups: { status: "insufficient", reason: "no setup source" },
   advisorQuality: {
     made: 0,
     overturned: 0,

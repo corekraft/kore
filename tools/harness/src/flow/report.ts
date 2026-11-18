@@ -21,6 +21,7 @@ import {
   reviewMisses,
   type ReviewMisses,
   mergedChangeFigures,
+  type ReportSettings,
   tierShares,
   ideaMetrics,
   measureAttribution,
@@ -39,7 +40,6 @@ import {
   guardBlocksByRule,
   type HostPressure,
   type Outcomes,
-  type CostOptions,
   type LeadTime,
   type MergedChangeFigures,
 } from "./idea-metrics.js";
@@ -52,7 +52,7 @@ import {
   type ScopeOptions,
 } from "./scope.js";
 
-export const REPORT_VERSION = 36;
+export const REPORT_VERSION = 37;
 
 export type { StageTotals, Toil } from "./tally.js";
 export type { Scope, ScopeOptions } from "./scope.js";
@@ -104,18 +104,14 @@ export interface FlowReport
   stalledPanes: StalledPanes;
 }
 
-export interface ReportOptions extends ScopeOptions {
+export interface ReportOptions extends ScopeOptions, ReportSettings {
   /** Open GitHub states (an unapproved issue, an unmerged PR) are measured to here. */
   asOf: Date;
   minCompletedIdeas: number;
-  /** Trailing window and thresholds for the cost metrics; defaults apply to what is left out. */
-  cost?: Partial<CostOptions>;
   /** Days before the window the host-pressure baseline covers; defaults to several. */
   hostDays?: number;
   /** The effort the Haiku and Sonnet arms are read at; the most common randomized effort when absent (#1069). */
   windowEffort?: string;
-  /** The weekly token ceiling in plan-weighted tokens; absent when the config names none, which reads "not set" (#1019). */
-  weeklyTokenCeiling?: number | undefined;
 }
 
 type State = "active" | "waiting" | "closed";
