@@ -45,12 +45,12 @@ const ratesAt = (weight: number): Rates => ({
  * (whose tokens with no reading are priced at it). Dollars priced with it are weighted tokens.
  */
 export function planPricesOf(events: LedgerEvent[]): PriceTable {
-  const models = new Set([
-    MAIN_SESSION_MODEL,
-    ...events
-      .filter((e) => e.kind === "token.split" && e.model !== undefined)
-      .map((e) => e.model as string),
-  ]);
+  const models = new Set([MAIN_SESSION_MODEL]);
+  for (const event of events) {
+    if (event.kind === "token.split" && event.model !== undefined) {
+      models.add(event.model);
+    }
+  }
   const table: Record<string, ModelPrice> = {};
   for (const model of models) {
     const low = stepWeight(model, "low");
