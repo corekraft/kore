@@ -62,6 +62,7 @@ describe("perMergedChangeLines: the per-merged-change lines in report order (#82
       "Lead time per merged change: 1200s median (3 of 3 merged changes measured); average 900s over the trailing 7 days",
       "All-in cost per merged change: not read, 2 merged changes in this range (5 needed)",
       "All-in cost per merged change, trailing average: no average: 0 merged changes in the trailing 7 days (5 needed)",
+      "Writer tiers beyond cost: not read, 2 merged changes in this range (5 needed)",
     ]);
   });
 });

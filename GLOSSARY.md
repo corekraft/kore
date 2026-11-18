@@ -125,6 +125,17 @@ A window's plan-weighted token use as a fraction of one week's weekly token
 ceiling, read per merged change in that window.
 _Avoid_: Plan percentage, usage percentage
 
+**Rework**:
+A follow-up sent to a writer after a judge send-back of the pull request that
+writer started. Any other follow-up is not rework.
+_Avoid_: Retry, resend
+
+**Merged-change cost**:
+The all-in dollars of one **Merged change**: its writer's, its reviewer's, and
+its share of the judge's and the main session's spend. It is attributed to the
+tier of the writer that started the change.
+_Avoid_: Cost per PR, per-PR cost
+
 ## Self-improvement
 
 **Harness**:

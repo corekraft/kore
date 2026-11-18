@@ -243,6 +243,7 @@ export const perMergedChangeLines = (
   sendBacksPerMergedChangeLine(report.sendBacksPerMergedChange),
   leadTimePerMergedChangeLine(report.leadTimePerMergedChange),
   ...writerDollarsLines(report.writerCost),
+  ...writerTierLines(report.writerCost),
 ];
 
 /**
@@ -344,4 +345,29 @@ export function writerDollarsLines(w: FlowReport["writerCost"]): string[] {
     `Orchestrating dollars are priced at ${current.orchestrate.model}, an assumed main-session model, not a recorded one; the parts are means and do not sum to the median.`,
     trailingDollarsLine(trailingAverage, trailingDays),
   ];
+}
+
+/** A tier figure as text: its value, or not read when it is null, never a zero. */
+const readOrNot = (value: number | null): string =>
+  value === null ? "not read" : String(value);
+
+/**
+ * Each writer tier's rework, owner time, request share and first-request prompt size beside its cost
+ * (#1009), one line per tier. A figure that is null says it is not read; a window below the minimum
+ * merged changes says so once, and names the changes it has.
+ */
+export function writerTierLines(
+  w: Pick<FlowReport["writerCost"], "current">,
+): string[] {
+  const { current } = w;
+  if (current.status !== "ok") {
+    return [
+      `Writer tiers beyond cost: not read, ${changes(current.merged)} in this range (${current.needed} needed)`,
+    ];
+  }
+  return Object.entries(current.tiers).map(([name, t]) =>
+    t.sessions === 0
+      ? `Writer tier ${name}: no writer session`
+      : `Writer tier ${name}: ${t.sessions} writer session${t.sessions === 1 ? "" : "s"}; blocked share ${readOrNot(t.blockedShare)}; follow-ups per session ${readOrNot(t.followUpsPerSession)}; rework per merged change ${readOrNot(t.reworkPerMergedChange)}; owner minutes per merged change ${readOrNot(t.ownerMinutesPerMergedChange)}; over-100K share ${readOrNot(t.over100kShare)} of ${t.requests} requests; first-request prompt median ${readOrNot(t.firstPromptP50)} and p90 ${readOrNot(t.firstPromptP90)}`,
+  );
 }
