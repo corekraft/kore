@@ -64,7 +64,11 @@ export interface MergedChangeFigures {
 export function mergedChangeFigures(
   events: LedgerEvent[],
   window: Span,
-  options: { asOf: Date; cost?: Partial<CostOptions> },
+  options: {
+    asOf: Date;
+    cost?: Partial<CostOptions>;
+    windowEffort?: string;
+  },
 ): MergedChangeFigures {
   return {
     tokensPerMergedChange: mergedChangeTokens(events, window, options),

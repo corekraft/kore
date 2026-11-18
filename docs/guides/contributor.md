@@ -575,12 +575,23 @@ change, Haiku minus Sonnet, with a 95 percent percentile interval from a seeded 
 (`tools/harness/src/flow/bootstrap-interval.ts`, over the generator in `seeded-random.ts`; the
 seed, resamples and level are fixed in `writer-arms.ts` and printed with the figure). Each arm
 also gives its merged changes, mean all-in dollars, effort mix (the effort of the launch the
-change joins to, `unknown` where the launch predates effort), and the guards from
+change joins to), and the guards from
 `writer-arm-guards.ts`: blocked share, send-backs and owner minutes per merged change. A row
 with fewer than `cost.minMergedChanges` merged changes in either arm is `insufficient merged
 changes`, and an unpriced model is `insufficient prices`; neither is ever a zero. The report
 names no winner, margin or verdict: the deciding rule is the owner's, recorded on the idea
-before the window opens. `writerArms.unlabelled` counts arm changes with no label, which are in
+before the window opens. Only randomized launches at the window effort are in an arm (#1069,
+spec #1065): a launch whose tier reason is `experiment` (the drawn Sonnet) or `experiment-control`
+(the Haiku control), recorded at the window effort, read by `randomized-launches.ts`. The window
+effort is `--window-effort` (one of `low`, `medium`, `high`, `xhigh`, `max`); without it, the most
+common effort among randomized launches, and `writerArms.windowEffort` says which (`from` is
+`setting`, `most common` or `none`). `writerArms.excluded` counts the merged changes whose first
+launch is left out, each once, by a fixed name: `missingEffort` (no recorded effort, including
+every launch from before effort was recorded), then `notRandomized` (hand-picked, escalated or
+overridden, on any tier), then `differentEffort` (randomized at another effort). Effort is never a
+stratum, and `cost.minMergedChanges` applies to the restricted counts. The arms' wording states the
+window effort ("Haiku at high minus Sonnet at high"), so a result reads at that effort only.
+`writerArms.unlabelled` counts arm changes with no label, which are in
 the overall figure only. `writerFiguresIn` (`writer-figures.ts`) reads the cost and the arms
 against the same minimum.
 
