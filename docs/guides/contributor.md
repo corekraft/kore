@@ -368,6 +368,18 @@ merged changes than `cost.minMergedChanges`, is `insufficient` with its reason,
 never zero. No `session send` option records a reason yet, so the count stays
 insufficient until one does.
 
+The compaction count (spec [#1027](https://github.com/corekraft/kore/issues/1027),
+#1037) reads the `session.compacted` events. `hook record session-start` writes one
+when a session starts with the `compact` source, holding the session's name and the
+compaction's number (the `compaction` field, a whole number from 1) and no text; a
+startup, clear or resume start writes none. The number is the count of compact
+summary lines the session's transcript holds, and the event's id names session and
+number, so replaying the same start record writes nothing a second time. A start
+whose transcript cannot be read, or holds no compact summary yet, writes nothing.
+`compactions` in `--json` gives `compactions` over the range, `sessions` seen in it
+and `perSession`, every session seen a key, zero where it never compacted. A range
+with no session is `insufficient`, never zero.
+
 The person's main session answers "how is the loop doing?" from this report alone
 (`flow report --json`, no code or transcripts read, no file written): it leads
 with every metric whose `worsened` is true, names current against trailing

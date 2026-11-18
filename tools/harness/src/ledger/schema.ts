@@ -5,7 +5,9 @@ import {
   LABEL_KINDS,
   LINK_RULES,
   NUMBER_KINDS,
+  COMPACTION_RULES,
   SPLIT_RULES,
+  type CompactionOrigin,
   type DecisionRouteOrigin,
   type Kind,
   type SplitOrigin,
@@ -63,7 +65,8 @@ export interface EventInput
     Partial<TierOrigin>,
     Partial<MergedOrigin>,
     Partial<DecisionRouteOrigin>,
-    Partial<SplitOrigin> {
+    Partial<SplitOrigin>,
+    Partial<CompactionOrigin> {
   id?: string;
   source: Source;
   kind: Kind;
@@ -164,6 +167,7 @@ const ALLOWED = new Set<string>([
   ...BACKGROUND_RULES.map((rule) => rule.field),
   ...DECISION_ROUTE_RULES.map((rule) => rule.field),
   ...SPLIT_RULES.map((rule) => rule.field),
+  ...COMPACTION_RULES.map((rule) => rule.field),
   "load",
   "memory",
   "swap",
@@ -263,6 +267,7 @@ const RULES: readonly Rule[] = [
   ...HOST_RULES,
   ...DECISION_ROUTE_RULES,
   ...SPLIT_RULES,
+  ...COMPACTION_RULES,
 ];
 
 function checkShape(input: unknown, mode: ParseMode): Failure | undefined {

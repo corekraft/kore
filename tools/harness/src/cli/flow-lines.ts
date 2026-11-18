@@ -15,6 +15,20 @@ export function handoverLine(handovers: FlowReport["handovers"]): string {
   return `Handovers from the main session: ${handovers.handovers} (${byReason})`;
 }
 
+/**
+ * The compactions in the range (#1037): the total over the sessions seen and each session's
+ * count, or insufficient with why it is not read. Never a zero for a window with no session.
+ */
+export function compactionLine(compactions: FlowReport["compactions"]): string {
+  if (compactions.status === "insufficient") {
+    return `Compactions: insufficient, ${compactions.reason}`;
+  }
+  const perSession = Object.entries(compactions.perSession)
+    .map(([session, count]) => `${session} ${count}`)
+    .join(", ");
+  return `Compactions: ${compactions.compactions} over ${compactions.sessions} session(s) (${perSession})`;
+}
+
 /** One human line for a per-idea metric: its latest value against the trailing average, or why it has none. */
 export function metricLine(
   label: string,
@@ -118,6 +132,7 @@ export function advisorFigureLines(report: FlowReport): string[] {
     ...routeLines(report.ownerRoutes),
     ...waitLines(report.waitingOnPerson),
     handoverLine(report.handovers),
+    compactionLine(report.compactions),
   ];
 }
 

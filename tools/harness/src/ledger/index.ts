@@ -30,6 +30,7 @@ export { MAX_RULE_LABELS, RULE_LABEL_LENGTH } from "./schema-review.js";
 export type { TierOrigin, TierSource } from "./schema-tier.js";
 export { EFFORTS, type Effort } from "./schema-tier.js";
 export type { SplitOrigin } from "./schema-kinds.js";
+export type { CompactionOrigin } from "./schema-kinds.js";
 export type { RetroOrigin } from "./schema-result.js";
 export {
   DECISION_ROUTE_SIGNALS,

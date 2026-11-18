@@ -70,7 +70,7 @@ describe("routeLines: owner-routed questions per signal (ADR 0120, #862)", () =>
 });
 
 describe("advisorFigureLines: the figures, in the report's order (ADR 0120, #862, #1036)", () => {
-  it("prints the overturn line, the route line, the waiting line, then the handover line", () => {
+  it("prints the overturn line, the route line, the waiting line, the handover line, then the compaction line", () => {
     const report = {
       advisorQuality: QUALITY,
       ownerRoutes: { advisor: 4, owner: 0, bySignal: NONE_BY_SIGNAL },
@@ -85,6 +85,10 @@ describe("advisorFigureLines: the figures, in the report's order (ADR 0120, #862
         status: "insufficient",
         reason: "no handover reason recorded in the window",
       },
+      compactions: {
+        status: "insufficient",
+        reason: "no session recorded in the window",
+      },
     } as FlowReport;
 
     const lines = advisorFigureLines(report);
@@ -94,6 +98,7 @@ describe("advisorFigureLines: the figures, in the report's order (ADR 0120, #862
       "Owner-routed questions",
       "Waiting on a person",
       "Handovers from the main session",
+      "Compactions",
     ]);
   });
 });
