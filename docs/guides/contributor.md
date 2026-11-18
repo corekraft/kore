@@ -263,10 +263,16 @@ Dark launch means on only in `local`.
 1. Merge the change with its flag `false`.
 2. Prove it live, then record the proof:
    `node skills/bin/harness.mjs outcome record --idea <n> --kind verification --source live-run --result confirmed --flag <name> --environment <env> --evidence <run> --summary <text>`.
+   When the owner has waived the live run in a GitHub comment, record that
+   instead, with `--source owner-waiver --evidence <comment url>` (verification
+   only, [ADR 0127](../decisions/0127-an-owner-waiver-recorded-in-an-outcome-counts-as-proof-for-a-flag.md));
+   a waiver never stands in for the live run a cluster-facing
+   `no-behaviour-change` needs before merge.
 3. `node skills/bin/harness.mjs flag activate <name> --environment <env>` edits
    the overlay only when that confirmed outcome exists, and records a
    `flag.activated` ledger event. Without proof it refuses and changes nothing.
-4. `flag audit` exits 1 when any flag is on without proof. `kb-check` runs it
+4. `flag audit` exits 1 when any flag is on without proof, and lists each flag
+   that rests on an owner waiver rather than a live run. `kb-check` runs it
    and reports a warning, which never fails `--strict` (ADR 0080: audit before
    enforce); the `flag-activation` guard also warns on a hand edit.
 5. Removing the flag, its overlay entries and its gated code is the contract step of

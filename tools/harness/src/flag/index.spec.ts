@@ -15,9 +15,11 @@ test("the flag barrel exposes exactly the overlay, proof and audit entry points"
       "FlagError",
       "environments",
       "findProof",
+      "proofAudit",
       "readOverlay",
       "unprovenFlags",
       "unprovenLine",
+      "waivedLine",
       "withFlagOn",
     ].sort(),
   );

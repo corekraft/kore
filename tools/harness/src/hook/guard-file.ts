@@ -202,7 +202,7 @@ const ideaOutcomeWarn = (path: string): Finding =>
   warn(
     "idea-outcome",
     `${path} is an idea record: its outcome is written by the outcome tool, never by hand. ` +
-      "Instead, run `harness outcome record --idea <number or slug> --kind <experiment|usage|verification> --source <live-run|journal|eval-history|comparison> --evidence <reference> --result <confirmed|refuted|inconclusive> --summary <text>`.",
+      "Instead, run `harness outcome record --idea <number or slug> --kind <experiment|usage|verification> --source <live-run|journal|eval-history|comparison|owner-waiver> --evidence <reference> --result <confirmed|refuted|inconclusive> --summary <text>`.",
   );
 
 async function checkCoverageThreshold(

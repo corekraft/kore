@@ -40,15 +40,52 @@ beforeEach(() => {
   );
 });
 
-describe("findProof matching", () => {
+describe("findProof sources", () => {
   it("returns the idea whose confirmed live-run verification matches", async () => {
     const repo = fakeRepository([idea("0001", section(proven))]);
     expect(await findProof(repo, FLAG, ENVIRONMENT)).toEqual({
       idea: "0001",
       path: "docs/ideas/0001-proof.md",
+      source: "live-run",
     });
   });
 
+  it("counts a confirmed owner-waiver verification as proof and reports the waiver as its source", async () => {
+    const repo = fakeRepository([
+      idea("0001", section({ ...proven, Source: "owner-waiver" })),
+    ]);
+    expect(await findProof(repo, FLAG, ENVIRONMENT)).toEqual({
+      idea: "0001",
+      path: "docs/ideas/0001-proof.md",
+      source: "owner-waiver",
+    });
+  });
+
+  it("prefers a live run over an earlier owner waiver for the same flag and environment", async () => {
+    const repo = fakeRepository([
+      idea("0001", section({ ...proven, Source: "owner-waiver" })),
+      idea("0002", section(proven)),
+    ]);
+    expect(await findProof(repo, FLAG, ENVIRONMENT)).toMatchObject({
+      idea: "0002",
+      source: "live-run",
+    });
+  });
+
+  it.each([
+    ["a refuted result", { Result: "refuted" }],
+    ["an experiment kind", { Kind: "experiment" }],
+    ["another flag", { Flag: "other-flag" }],
+    ["another environment", { Environment: "managed-example" }],
+  ])("refuses an owner waiver that is %s", async (_, change) => {
+    const repo = fakeRepository([
+      idea("0001", section({ ...proven, Source: "owner-waiver", ...change })),
+    ]);
+    expect(await findProof(repo, FLAG, ENVIRONMENT)).toBeUndefined();
+  });
+});
+
+describe("findProof matching", () => {
   it("skips an idea with no outcome section and keeps looking", async () => {
     const repo = fakeRepository([
       idea("0001", ""),

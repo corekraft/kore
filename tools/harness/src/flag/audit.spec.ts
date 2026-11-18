@@ -9,7 +9,12 @@ import {
   type Overlay,
 } from "./overlay.js";
 import { findProof } from "./proof.js";
-import { unprovenFlags, unprovenLine } from "./audit.js";
+import {
+  proofAudit,
+  unprovenFlags,
+  unprovenLine,
+  waivedLine,
+} from "./audit.js";
 import { fakeFileSystem } from "./flag-support.js";
 
 vi.mock("../idea/index.js");
@@ -66,6 +71,7 @@ describe("unprovenFlags", () => {
     vi.mocked(findProof).mockResolvedValue({
       idea: "0001",
       path: "docs/ideas/0001.md",
+      source: "live-run",
     });
     expect(await unprovenFlags(fs, clock, BASE)).toEqual([]);
   });
@@ -128,6 +134,69 @@ describe("unprovenLine", () => {
       }),
     ).toBe(
       "Flag ingress-agentgateway is on in local (infra/environments/local/environment.yaml) with no verification outcome. Set it back to false, then turn it on with `harness flag activate ingress-agentgateway --environment local` once a live run is recorded.",
+    );
+  });
+});
+
+describe("proofAudit", () => {
+  it("lists a flag proven by an owner waiver apart from the unproven ones, naming the idea", async () => {
+    overlays({
+      local: overlayFor("local", { waived: true, bare: true, live: true }),
+    });
+    vi.mocked(findProof).mockImplementation((_repo, flag) =>
+      Promise.resolve(
+        flag === "bare"
+          ? undefined
+          : {
+              idea: "0027",
+              path: "docs/ideas/0027-proof.md",
+              source: flag === "waived" ? "owner-waiver" : "live-run",
+            },
+      ),
+    );
+    expect(await proofAudit(fs, clock, BASE)).toEqual({
+      unproven: [
+        {
+          flag: "bare",
+          environment: "local",
+          path: "infra/environments/local/environment.yaml",
+        },
+      ],
+      waived: [
+        {
+          flag: "waived",
+          environment: "local",
+          path: "infra/environments/local/environment.yaml",
+          idea: "0027",
+          proof: "docs/ideas/0027-proof.md",
+        },
+      ],
+    });
+  });
+
+  it("reports no waiver when every flag that is on has a live run", async () => {
+    overlays({ local: overlayFor("local", { a: true }) });
+    vi.mocked(findProof).mockResolvedValue({
+      idea: "0001",
+      path: "docs/ideas/0001.md",
+      source: "live-run",
+    });
+    expect((await proofAudit(fs, clock, BASE)).waived).toEqual([]);
+  });
+});
+
+describe("waivedLine", () => {
+  it("says the flag rests on an owner waiver and not on a live run", () => {
+    expect(
+      waivedLine({
+        flag: "automatic-revert",
+        environment: "local",
+        path: "infra/environments/local/environment.yaml",
+        idea: "0044",
+        proof: "docs/ideas/0044-proof.md",
+      }),
+    ).toBe(
+      "Flag automatic-revert is on in local (infra/environments/local/environment.yaml) under an owner waiver, not a live run: docs/ideas/0044-proof.md.",
     );
   });
 });
