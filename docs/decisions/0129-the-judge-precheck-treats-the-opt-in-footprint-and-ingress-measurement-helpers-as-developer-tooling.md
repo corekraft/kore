@@ -1,6 +1,6 @@
 ---
 status: proposed
-summary: Six named measurement helpers under tools/kore/src/platform, imported only by live or own specs, count as developer tooling in the precheck; the judge still reads the diff.
+summary: Six named measurement helpers under tools/kore/src/platform, imported only by specs or by each other, count as developer tooling in the precheck; the judge still reads the diff.
 date: 2026-11-18
 last-verified: 2026-11-18
 ---
@@ -36,8 +36,8 @@ The precheck counts these six files as developer tooling, by exact path:
 - `tools/kore/src/platform/ingress-host.ts`
 - `tools/kore/src/platform/ingress-rated-measurement.ts`
 
-Every one is imported only by a live spec (`*.live.spec.ts`), by its own spec,
-or by another file on this list. The check, run on the heads of PRs #1271 and
+Every one is imported only by a spec (a live spec, `*.live.spec.ts`, or a unit
+spec) or by another file on this list; no production file imports one. The check, run on the heads of PRs #1271 and
 #1272 (`footprint-measurement.ts`, `footprint-parse.ts` and
 `ingress-rated-measurement.ts` are already on `main`; `footprint-verdict.ts`,
 `ingress-host.ts` and `ingress-host-parse.ts` are new in those PRs): list each PR's changed files with
@@ -46,8 +46,9 @@ non-spec file, by its `./<name>.js` specifier. The results:
 
 - `footprint-measurement.ts`: `footprint-measurement.live.spec.ts` and
   `footprint-measurement.spec.ts`.
-- `footprint-parse.ts`: `footprint-parse.spec.ts`, `footprint-measurement.spec.ts`
-  and `footprint-measurement.ts`.
+- `footprint-parse.ts`: `footprint-parse.spec.ts`, `footprint-measurement.spec.ts`,
+  `footprint-measurement.ts`, `ingress-host.spec.ts` and `ingress-host.ts`
+  (the last two are new in #1272).
 - `footprint-verdict.ts`: `footprint-verdict.spec.ts`,
   `footprint-measurement.spec.ts` and `footprint-measurement.ts`.
 - `ingress-host-parse.ts`: `ingress-host-parse.spec.ts`, `ingress-host.spec.ts`

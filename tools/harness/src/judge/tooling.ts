@@ -11,7 +11,7 @@ const TEST_SUPPORT =
 
 /**
  * The opt-in footprint and ingress measurement helpers, by exact name. Each is imported only by a live spec,
- * its own spec or another file on this list; no generic suffix matches. ADR 0129.
+ * a unit spec or another file on this list; no generic suffix matches. ADR 0129.
  */
 const MEASUREMENT_HELPER =
   /^tools\/kore\/src\/platform\/(footprint-measurement|footprint-parse|footprint-verdict|ingress-host-parse|ingress-host|ingress-rated-measurement)\.ts$/;
