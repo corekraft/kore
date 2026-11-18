@@ -9,6 +9,13 @@ const TOOLING_PATH =
 const TEST_SUPPORT =
   /^tools\/kore\/src\/(testing\/|.*(\.fixtures\.ts|-fixtures\.ts|-support\.ts|\.live\.ts)$)/;
 
+/**
+ * The opt-in footprint and ingress measurement helpers, by exact name. Each is imported only by a live spec,
+ * its own spec or another file on this list; no generic suffix matches. ADR 0128.
+ */
+const MEASUREMENT_HELPER =
+  /^tools\/kore\/src\/platform\/(footprint-measurement|footprint-parse|footprint-verdict|ingress-host-parse|ingress-host|ingress-rated-measurement)\.ts$/;
+
 /** A list of unconverted sources, which every conversion edits (ADR 0098 and plan 14). */
 const UNCONVERTED = /(^|\/)unconverted\.txt$/;
 export const MANIFEST = "tools/kore/package.json";
@@ -156,7 +163,10 @@ function lockfileIsTooling(trail: readonly TrailLine[]): boolean {
 }
 
 const pathIsTooling = (path: string) =>
-  TOOLING_PATH.test(path) || TEST_SUPPORT.test(path) || UNCONVERTED.test(path);
+  TOOLING_PATH.test(path) ||
+  TEST_SUPPORT.test(path) ||
+  MEASUREMENT_HELPER.test(path) ||
+  UNCONVERTED.test(path);
 
 /** Whether a changed file is developer tooling rather than product behaviour; anything unclear is product, and a rename counts only when both paths are tooling. */
 export function isTooling(file: ChangedFile): boolean {

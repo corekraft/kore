@@ -123,6 +123,34 @@ describe("isTooling: live helpers", () => {
   });
 });
 
+describe("isTooling: measurement helpers", () => {
+  it.each([
+    "tools/kore/src/platform/footprint-measurement.ts",
+    "tools/kore/src/platform/footprint-parse.ts",
+    "tools/kore/src/platform/footprint-verdict.ts",
+    "tools/kore/src/platform/ingress-host-parse.ts",
+    "tools/kore/src/platform/ingress-host.ts",
+    "tools/kore/src/platform/ingress-rated-measurement.ts",
+  ])("%s is tooling", (path) => {
+    expect(isTooling(file(path))).toBe(true);
+  });
+
+  it.each([
+    "tools/kore/src/platform/footprint-summary.ts",
+    "tools/kore/src/platform/footprint-measurement.ts.bak",
+    "tools/kore/src/platform/footprint-other-parse.ts",
+    "tools/kore/src/platform/ingress-measurement.ts",
+    "tools/kore/src/platform/ingress-metrics.ts",
+    "tools/kore/src/platform/ingress-pacing.ts",
+    "tools/kore/src/platform/gateway-parse.ts",
+    "tools/kore/src/platform/other-measurement.ts",
+    "tools/kore/src/platform/nested/footprint-parse.ts",
+    "tools/kore/src/cli/footprint-parse.ts",
+  ])("%s is product", (path) => {
+    expect(isTooling(file(path))).toBe(false);
+  });
+});
+
 describe("isTooling: rulesets", () => {
   it("is tooling for a ruleset JSON file directly under .github/rulesets", () => {
     expect(isTooling(file(".github/rulesets/main.json"))).toBe(true);
