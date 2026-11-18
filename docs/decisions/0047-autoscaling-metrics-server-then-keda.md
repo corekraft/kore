@@ -2,7 +2,7 @@
 status: accepted
 summary: metrics-server is installed first as a catalog Helm release and services get CPU-based HorizontalPodAutoscaler defaults from their chart values, without a replica count, with at least two replicas and a disruption budget; KEDA follows later for request-rate scaling.
 date: 2026-11-09
-last-verified: 2026-11-14
+last-verified: 2026-11-18
 ---
 
 # ADR 0047: Autoscale on metrics-server first, then KEDA
@@ -38,3 +38,5 @@ autoscaler, not Helm or Argo CD.
 - metrics-server also makes `kubectl top` work for operators.
 - Local Minikube uses the catalog release, not the Minikube addon.
 - Adding KEDA is a new catalog release with its own ADR and readiness checks.
+
+> Refined 2026-11-18 by [ADR 0076](0076-k3d-replaces-minikube.md): the local environment runs on k3d, not Minikube. Read the Minikube line above as k3d.
