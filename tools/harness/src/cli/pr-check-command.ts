@@ -20,10 +20,17 @@ function render(view: AuthorCheck): string {
     view.pending.length === 0
       ? ""
       : `pending, the judge waits on these: ${view.pending.join(", ")}\n`;
+  // An audit item is shown with its file, its count and its fix, and is never a failure.
+  const audits = (view.audits ?? [])
+    .map(
+      (a) =>
+        `audit: ${a.item} ${a.file}: ${a.detail}; fix: ${a.fix}; reported, not sent back\n`,
+    )
+    .join("");
   if (view.failures.length === 0) {
     return view.pending.length === 0
-      ? `PR #${view.pr}: ready for the judge\n`
-      : `PR #${view.pr}: nothing for you to fix\n${pending}`;
+      ? `PR #${view.pr}: ready for the judge\n${audits}`
+      : `PR #${view.pr}: nothing for you to fix\n${pending}${audits}`;
   }
   const lines = view.failures
     .map(
@@ -31,7 +38,7 @@ function render(view: AuthorCheck): string {
         `  ${f.category}: ${f.item}${f.detail === undefined ? "" : ` (${f.detail})`}\n`,
     )
     .join("");
-  return `PR #${view.pr}: fix these, push, then run harness pr check once more\n${lines}${pending}`;
+  return `PR #${view.pr}: fix these, push, then run harness pr check once more\n${lines}${pending}${audits}`;
 }
 
 /**

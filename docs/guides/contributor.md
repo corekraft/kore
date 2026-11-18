@@ -162,8 +162,11 @@ see [The harness bundle](#the-harness-bundle).
     Fakes shared by a domain's specs go in one domain-level `<domain>-support.ts`
     (not a unit, so no spec of its own), with `fakeRepository()` for the
     repository. Fixtures only one spec uses go in `<name>-support.ts` beside it.
-    Each spec and each support file stays under 300 lines (`max-lines`), and
-    each test function under 70 (`max-lines-per-function`). Assert the whole
+    Each spec and each support file stays at 300 code lines or fewer
+    (`max-lines`): blank lines and comment-only lines do not count, so a file of
+    315 raw lines with 300 code lines is at the limit. `harness pr check` reports
+    a file over it as an audit item. Each test function stays under 70 lines
+    (`max-lines-per-function`). Assert the whole
     `run.mock.calls` list, so a missing or extra command fails.
   - Errors from a real error class (`CommandError`) stay real; construct them
     and reject with them.

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { authorCheck } from "./author-check.js";
-import type { ItemVerdict } from "./checks.js";
+import type { AuditFinding, ItemVerdict } from "./checks.js";
 import type { Report } from "./precheck.js";
 
 const item = (
@@ -183,6 +183,31 @@ describe("authorCheck reads an invalid declaration alone, and keeps a failure be
       ],
       pending: ["ci"],
     });
+  });
+});
+
+describe("authorCheck carries the file-length audit findings, and never counts them as a failure", () => {
+  const FINDING: AuditFinding = {
+    item: "file-length",
+    file: "tools/harness/src/a.ts",
+    detail: "301 non-blank, non-comment lines; the limit is 300",
+    fix: "split it into smaller modules",
+  };
+
+  it("passes the findings through beside a clean verdict, which stays ready", () => {
+    expect(
+      authorCheck({ ...report(PASSING), audits: [FINDING] }),
+    ).toStrictEqual({
+      pr: 12,
+      ok: true,
+      failures: [],
+      pending: [],
+      audits: [FINDING],
+    });
+  });
+
+  it("adds no audits field when the report carries none", () => {
+    expect(authorCheck(report(PASSING))).not.toHaveProperty("audits");
   });
 });
 
