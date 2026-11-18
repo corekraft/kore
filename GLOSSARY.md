@@ -175,7 +175,7 @@ _Avoid_: Cost per PR, per-PR cost
 **Unattributed writer tokens**:
 The tokens (and dollars) of writer sessions that no idea's figure holds: a session
 whose linked pull request carries no idea (`none`, or none from the poll), or that
-opened no pull request. The flow report's `costWaiting.writing` names them as the
+has no `pr.linked` event. The flow report's `costWaiting.writing` names them as the
 `noIdea` and `noPullRequest` buckets beside the per-idea figures and never adds them
 to an idea. Its share, the attributed tokens over all writer tokens in the window, is
 a reported reading, not an idea's metric.

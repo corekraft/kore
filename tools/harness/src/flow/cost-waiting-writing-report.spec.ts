@@ -73,7 +73,7 @@ const EVENTS: LedgerEvent[] = [
   // $1 over 1M tokens, linked to a pull request that serves no idea.
   split("w-none", 1, { lowInput: MILLION }),
   linked("w-none", 10, "none"),
-  // $6 over 2M tokens, a writer that opened no pull request.
+  // $6 over 2M tokens, a writer with no pr.linked event.
   split("w-lone", 1, { lowInput: MILLION, lowOutput: MILLION }),
   opened(9),
   opened(10),

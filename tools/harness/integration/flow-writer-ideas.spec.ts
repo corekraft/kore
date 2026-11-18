@@ -44,7 +44,7 @@ function report(events: LedgerEvent[]): FlowReport {
 
 describe("flow report: writing read per idea through the pull request's link (#1093)", () => {
   // Three writers: one linked to a pull request with idea #7 ($2 per M tokens at Sonnet input),
-  // one linked to a pull request that serves no idea, and one that opened no pull request.
+  // one linked to a pull request that serves no idea, and one with no pr.linked event.
   const events: LedgerEvent[] = [
     ...["a-writer", "b-writer", "c-writer"].map((agent, i) =>
       at(i, "session.launch", {

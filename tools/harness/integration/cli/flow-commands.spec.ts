@@ -7,6 +7,7 @@ import {
 } from "../../src/testing/index.js";
 import { at, finishedIdea, mainSplit } from "../../src/testing/index.js";
 import { KEYS, ORCHESTRATE_KEYS } from "./flow-report-keys-support.js";
+import { expectWritingKeys } from "./flow-writing-keys-support.js";
 
 function seeded(extra: string[] = []) {
   const h = harness();
@@ -25,6 +26,7 @@ describe("flow report", () => {
     expect(await run(argv, h.deps)).toBe(0);
     const report = JSON.parse(h.out()) as Record<string, unknown>;
     expect(Object.keys(report)).toEqual(KEYS);
+    expectWritingKeys(report);
     expect(report).toMatchObject({ bottleneckNote: null });
     expect(report).toMatchObject({
       version: REPORT_VERSION,

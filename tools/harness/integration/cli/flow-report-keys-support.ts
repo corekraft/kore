@@ -56,3 +56,18 @@ export const ORCHESTRATE_KEYS = [
   "dollars",
   "dollarsPerMergedChange",
 ];
+
+/** The keys of `costWaiting.writing`, in report order (#1093). */
+export const WRITING_KEYS = [
+  "attributed",
+  "noIdea",
+  "noPullRequest",
+  "unjoinable",
+  "share",
+];
+
+/** The keys of each `costWaiting.writing` bucket with priced models, in report order (#1093). */
+export const WRITING_BUCKET_KEYS = ["sessions", "tokens", "dollars"];
+
+/** The keys of a measured `costWaiting.writing.share` (#1093). */
+export const WRITING_SHARE_KEYS = ["status", "share", "sessions"];
