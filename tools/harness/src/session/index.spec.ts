@@ -211,4 +211,11 @@ describe("the session domain's spawn usage", () => {
       "a writer that names no --model is eligible: the window samples a share of them onto Sonnet, recorded as an override with the reason experiment, and keeps the rest on their definition's model as the control, recorded with the reason experiment-control; every eligible writer runs at the window effort whatever --effort it names; a writer that names a --model is never sampled; KORE_WRITER_EXPERIMENT_EFFORT sets the window effort, one of low, medium, high, xhigh or max, required while KORE_WRITER_EXPERIMENT_START is a UTC date and ignored while it is unset",
     );
   });
+
+  it("tells the main session to name no --model for a writer while the window is open, since an explicit model overrides the sampling", () => {
+    const summary = session.spawn?.summary ?? "";
+    expect(summary).toContain(
+      "while KORE_WRITER_EXPERIMENT_START is a UTC date, the main session names no --model for a writer, because an explicit --model overrides the sampling, and names no --effort or the window effort",
+    );
+  });
 });
