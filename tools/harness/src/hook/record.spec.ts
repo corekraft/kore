@@ -1,11 +1,13 @@
 import { describe, expect, it, vi } from "vitest";
 import type { CliDeps } from "../runtime/index.js";
 import { hookCommand } from "./io.js";
+import { recordCompaction } from "./compaction.js";
 import { recordEvent } from "./ledger-event.js";
 import { asksOwner } from "./owner-question.js";
 import "./record.js";
 
 vi.mock("./io.js");
+vi.mock("./compaction.js");
 vi.mock("./ledger-event.js");
 vi.mock("./owner-question.js");
 
@@ -49,10 +51,32 @@ describe("record hook: which session starts it records", () => {
     },
   );
 
-  it("records nothing for a compaction, which continues the same session", async () => {
+  it("records no session.start for a compaction, which continues the same session", async () => {
     await run({ source: "compact", session_id: "abc" });
 
     expect(recordEvent).not.toHaveBeenCalled();
+  });
+
+  it("counts a compact start as one compaction of the session, and a start with any other source as none", async () => {
+    const payload = { source: "compact", session_id: "abc" };
+
+    await run(payload);
+
+    expect(recordCompaction).toHaveBeenCalledTimes(1);
+    expect(recordCompaction).toHaveBeenCalledWith(DEPS, payload);
+    vi.mocked(recordCompaction).mockClear();
+    for (const source of ["startup", "clear", "resume", undefined, 3]) {
+      await run({ source, session_id: "abc" });
+    }
+    expect(recordCompaction).not.toHaveBeenCalled();
+  });
+
+  it("starts no ledger poll for a compact start", async () => {
+    runnerRun.mockReset();
+
+    await run({ source: "compact", session_id: "abc" });
+
+    expect(runnerRun).not.toHaveBeenCalled();
   });
 
   it("records nothing when the source is missing or not a string", async () => {

@@ -13,6 +13,8 @@ import { inWindow, type Span } from "./scope.js";
 export type { Span };
 /** The main session's handover count (#1036), read beside its three figures. */
 export { handoverCount, type HandoverCount } from "./handover-count.js";
+/** The compaction count (#1037), read beside them. */
+export { compactionCount, type CompactionCount } from "./compaction-count.js";
 
 /** The fewest finished panes a window needs before its pane figures are read; a placeholder, like the merged minimum. */
 export const MIN_FINISHED_PANES = 10;

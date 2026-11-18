@@ -87,6 +87,10 @@ const FIGURES: MergedChangeFigures = {
     status: "insufficient",
     reason: "no handover reason recorded in the window",
   },
+  compactions: {
+    status: "insufficient",
+    reason: "no session recorded in the window",
+  },
   writerCost: {
     pricesAsOf: "2026-11-16",
     trailingDays: 7,
@@ -157,7 +161,7 @@ describe("buildReport per-merged-change figures (#829, #830)", () => {
     );
   });
 
-  it("versions the report to 24, since the judgment panes joined it (#876)", () => {
-    expect(run([]).version).toBe(29);
+  it("versions the report to 30, since the compaction count joined it (#1037)", () => {
+    expect(run([]).version).toBe(30);
   });
 });

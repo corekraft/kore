@@ -1,12 +1,14 @@
 // `harness hook record session-start`: records a session start in the stage
 // ledger and prints nothing. A session starts on startup, clear or resume; a
 // compaction continues the same session, so it is not a start. Each start also
-// polls GitHub and herdr into the ledger in the background (best effort). The context
+// polls GitHub and herdr into the ledger in the background (best effort). A compact start
+// records a session.compacted reading instead, once per compaction (#1037). The context
 // hook keeps its own matcher and output and does not record.
 // Plan: infra/plans/8-harness-measurement.md#step-3-stage-event-ledger
 
 import { fileURLToPath } from "node:url";
 import type { CliDeps } from "../runtime/index.js";
+import { recordCompaction } from "./compaction.js";
 import { hookCommand } from "./io.js";
 import { recordEvent } from "./ledger-event.js";
 import { asksOwner } from "./owner-question.js";
@@ -70,7 +72,7 @@ async function endedAskingOwner(
 
 export const record = hookCommand(
   "record",
-  "record a ledger event for the session; modes: session-start (SessionStart, no matcher; also starts ledger poll-github and ledger poll-herdr in the background), turn-end (Stop; records owner.asked when the final message asks the owner), owner-asked (PreToolUse on AskUserQuestion; records owner.asked)",
+  "record a ledger event for the session; modes: session-start (SessionStart, no matcher; a startup, clear or resume start records session.start and starts ledger poll-github and ledger poll-herdr in the background; a compact start records one session.compacted reading, the compaction's number, once per compaction), turn-end (Stop; records owner.asked when the final message asks the owner), owner-asked (PreToolUse on AskUserQuestion; records owner.asked)",
   async ({ deps, payload, operand }) => {
     if (typeof payload !== "object" || payload === null) {
       return {};
@@ -88,6 +90,9 @@ export const record = hookCommand(
     ) {
       await recordEvent(deps, "session.start", call);
       pollInBackground(deps);
+    }
+    if (operand === "session-start" && call.source === "compact") {
+      await recordCompaction(deps, call);
     }
     if (
       operand === "turn-end" &&
