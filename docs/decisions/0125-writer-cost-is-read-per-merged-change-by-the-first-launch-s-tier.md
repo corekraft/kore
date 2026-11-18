@@ -1,8 +1,8 @@
 ---
-status: proposed
+status: accepted
 summary: Refines ADR 0119 and the #825 spec: writer cost is read per merged change by the first writer launch's tier, priced per request from a dated table with the 100K step; the randomized window, flag activation and default writer tier stay the owner's.
 date: 2026-11-17
-last-verified: 2026-11-17
+last-verified: 2026-11-18
 ---
 
 # ADR 0125: Writer cost is read per merged change by the first launch's tier

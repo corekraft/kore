@@ -1,8 +1,8 @@
 ---
-status: proposed
+status: accepted
 summary: Refines ADR 0123: the retro scan records its main-session event behind main-session-figures, off in every overlay, and only for the repository's own transcripts, so an unflagged scan writes no figure and a fixture folder never reaches the flow window.
 date: 2026-11-16
-last-verified: 2026-11-16
+last-verified: 2026-11-18
 ---
 
 # ADR 0124: The main-session figures are recorded behind a flag, for the repository's own scans
