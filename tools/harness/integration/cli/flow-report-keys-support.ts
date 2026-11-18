@@ -45,3 +45,15 @@ export const KEYS = [
   "stalledPanes",
   "skippedLines",
 ];
+
+/** The keys of `writerCost.current.orchestrate` once the span has enough merged changes, in report order (#1041). */
+export const ORCHESTRATE_KEYS = [
+  "weightedTokens",
+  "perMergedChange",
+  "model",
+  "basis",
+  "recordedModels",
+  "assumedTokens",
+  "dollars",
+  "dollarsPerMergedChange",
+];

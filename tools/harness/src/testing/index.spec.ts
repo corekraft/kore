@@ -21,7 +21,9 @@ vi.mock("./filesystem-support.js", () => stubs("MemoryFileSystem"));
 vi.mock("./flag-support.js", () =>
   stubs("OVERLAY", "activate", "overlay", "provenIdea", "repository"),
 );
-vi.mock("./flow-support.js", () => stubs("T0", "at", "finishedIdea"));
+vi.mock("./flow-support.js", () =>
+  stubs("T0", "at", "finishedIdea", "mainSplit"),
+);
 vi.mock("./git-env.js", () => stubs("cleanGitEnv"));
 vi.mock("./guard-support.js", () =>
   stubs(
@@ -173,6 +175,7 @@ const EXPORTS = [
   "linked",
   "liveCandidate",
   "liveMain",
+  "mainSplit",
   "messages",
   "mutations",
   "newArgs",

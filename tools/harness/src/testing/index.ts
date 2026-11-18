@@ -32,7 +32,7 @@ export {
   provenIdea,
   repository,
 } from "./flag-support.js";
-export { T0, at, finishedIdea } from "./flow-support.js";
+export { T0, at, finishedIdea, mainSplit } from "./flow-support.js";
 export { entry, fakeDeps as fakeDeltaDeps, planText } from "./delta-support.js";
 export {
   allowed,
