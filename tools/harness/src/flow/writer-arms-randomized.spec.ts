@@ -25,27 +25,23 @@ const expectedBounds = { minMergedChanges: 1 };
 //   PR 112: Sonnet hand-picked at high                    -> notRandomized
 //   PR 113: Haiku hand-picked, no effort recorded         -> missingEffort
 //   PR 114: Haiku escalated-looking override at medium    -> notRandomized
+const LEFT_OUT_PRS: [number, string, string][] = [
+  [110, "d-writer", HAIKU],
+  [111, "m-writer", HAIKU],
+  [112, "p-writer", SONNET],
+  [113, "q-writer", HAIKU],
+  [114, "r-writer", HAIKU],
+];
 const LEFT_OUT: LedgerEvent[] = [
   writer(1 * MINUTE, "d-writer", SONNET, "medium"),
   writer(1 * MINUTE, "m-writer", HAIKU),
   writer(1 * MINUTE, "p-writer", SONNET, "high", null),
   writer(1 * MINUTE, "q-writer", HAIKU, undefined, null),
   writer(1 * MINUTE, "r-writer", HAIKU, "medium", "escalated"),
-  ...[
-    [110, "d-writer"],
-    [111, "m-writer"],
-    [112, "p-writer"],
-    [113, "q-writer"],
-    [114, "r-writer"],
-  ].flatMap(([number, agent]) => [
-    input(
-      50 * MINUTE,
-      agent as string,
-      number === 112 ? SONNET : HAIKU,
-      1_000_000,
-    ),
-    linked(55 * MINUTE, number as number, agent as string),
-    event(60 * MINUTE, "pr.merged", { number: number as number }),
+  ...LEFT_OUT_PRS.flatMap(([number, agent, tier]) => [
+    input(50 * MINUTE, agent, tier, 1_000_000),
+    linked(55 * MINUTE, number, agent),
+    event(60 * MINUTE, "pr.merged", { number }),
   ]),
 ];
 const WITH_LEFT_OUT = [...SCENARIO, ...LEFT_OUT];
@@ -73,7 +69,7 @@ describe("writer arms: only randomized launches at the window effort", () => {
       difference: -2.4667,
     });
     const [haiku, sonnet] = vi.mocked(bootstrapDifferenceInterval).mock
-      .calls[0] as [number[], number[], unknown];
+      .calls[0] ?? [[], []];
     expect(haiku).toHaveLength(2);
     expect(sonnet).toHaveLength(3);
   });
