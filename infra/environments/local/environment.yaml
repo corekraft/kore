@@ -24,7 +24,7 @@
       "platform-organization-service-apis": false,
       "platform-argocd-delivery": false,
       "platform-portal": false,
-      "automatic-retro": false,
+      "automatic-retro": true,
       "automatic-approval": false,
       "automatic-revert": false,
       "orchestrator-tick": true,
