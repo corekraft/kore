@@ -9,6 +9,7 @@ import { STAGES, type FlowReport, type SendBackTiers } from "../flow/index.js";
 import type { Ledger } from "../ledger/index.js";
 import { EMPTY_ADVISOR, POPULATED_ADVISOR } from "./flow-advisor-support.js";
 import { contextWith } from "./command-support.js";
+import { EMPTY_REPORT_FIELDS } from "./flow-empty-cost-waiting.js";
 import { openLedger } from "./ledger-commands.js";
 
 export const NOW = new Date("2026-01-02T03:04:05Z");
@@ -112,7 +113,7 @@ const INSUFFICIENT_REWORK = {
   needed: 6,
 };
 
-/** A report with nothing in it, so each human line is the one the report prints. */
+/** A report with nothing in it, so each human line is the one the report prints; the cast stands in for the fields these tests never read. */
 export function emptyReport(overrides: Partial<Record<string, unknown>> = {}) {
   return {
     asOf: "2026-01-02T03:04:05Z",
@@ -162,14 +163,7 @@ export function emptyReport(overrides: Partial<Record<string, unknown>> = {}) {
       ownerMinutes: { perMerged: null, minutes: 0, merged: 0 },
     },
     hostPressure: { trailingDays: 7, samples: 0, levels: [] },
-    ownerQuestions: {
-      trailingDays: 7,
-      questions: 0,
-      merged: 0,
-      perMerged: null,
-      trailingAverage: null,
-      worsened: false,
-    },
+    ...EMPTY_REPORT_FIELDS,
     ...EMPTY_ADVISOR,
     tokensPerMergedChange: emptyTokensPerMergedChange,
     sendBacksPerMergedChange: emptyTokensPerMergedChange,
@@ -181,7 +175,6 @@ export function emptyReport(overrides: Partial<Record<string, unknown>> = {}) {
     tokensByStagePerMergedChange: emptyTokensPerMergedChange,
     reviewMisses: NO_REVIEWS,
     ...overrides,
-    // The cast stands in for the fields the report prints but these tests never read.
   } as unknown as FlowReport;
 }
 

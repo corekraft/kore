@@ -52,7 +52,7 @@ import {
   type ScopeOptions,
 } from "./scope.js";
 
-export const REPORT_VERSION = 32;
+export const REPORT_VERSION = 33;
 
 export type { StageTotals, Toil } from "./tally.js";
 export type { Scope, ScopeOptions } from "./scope.js";
@@ -114,6 +114,8 @@ export interface ReportOptions extends ScopeOptions {
   hostDays?: number;
   /** The effort the Haiku and Sonnet arms are read at; the most common randomized effort when absent (#1069). */
   windowEffort?: string;
+  /** The weekly token ceiling in plan-weighted tokens; absent when the config names none, which reads "not set" (#1019). */
+  weeklyTokenCeiling?: number | undefined;
 }
 
 type State = "active" | "waiting" | "closed";

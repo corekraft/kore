@@ -26,6 +26,7 @@ export const KEYS = [
   "ownerRoutes",
   "waitingOnPerson",
   "reviewMisses",
+  "costWaiting",
   "tokensPerMergedChange",
   "sendBacksPerMergedChange",
   "leadTimePerMergedChange",
