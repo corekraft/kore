@@ -194,4 +194,25 @@ describe("ceiling share lines: a missing ceiling and an unweighted model are nev
       "  Per idea, a size, of one week's ceiling: not read, no plan weight for mystery",
     );
   });
+
+  it("counts the agent level in roles, since its units are role rows, and the merged-change and idea levels in their own nouns", () => {
+    const lines = shareLines(
+      shares({
+        agents: {
+          label: RATE,
+          units: 0,
+          needed: 1,
+          status: "insufficient",
+          days: 7,
+          rows: {},
+        },
+      } as unknown as Partial<Shares>),
+    );
+
+    expect(lines.slice(1)).toEqual([
+      "  Per agent, a rate over the trailing 7 days, of the weekly ceiling: not read, 0 role(s), 1 needed",
+      "  Per merged change, a size, of one week's ceiling: not read, 0 change(s), 5 needed",
+      "  Per idea, a size, of one week's ceiling: not read, 0 idea(s), 5 needed",
+    ]);
+  });
 });

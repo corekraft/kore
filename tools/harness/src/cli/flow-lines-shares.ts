@@ -65,7 +65,7 @@ export function shareLines(shares: Shares): string[] {
     levelLine(
       `Per agent, a rate over the trailing ${shares.agents.days} days`,
       shares.agents,
-      "session",
+      "role",
     ),
     ...Object.entries(shares.agents.rows).map(([name, reading]) =>
       rowLine(name, reading, "session"),

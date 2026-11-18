@@ -1,6 +1,7 @@
 // The shares of the weekly token ceiling at each level (#1048, spec #1030): the public surface of
 // the three share files. A per-agent share is a rate over the 7 days ending where the report's
-// window ends (as-of when it has no end, the latest event when neither is given); a merged-change
+// window ends (as-of when it has no end; the flow report always passes an as-of, and a direct caller
+// that passes none gets the latest event); a merged-change
 // and an idea share are sizes over one week's ceiling. The shapes are in cost-waiting-shares-types.ts.
 
 import type { LedgerEvent } from "../ledger/index.js";
@@ -17,7 +18,7 @@ import type {
 
 const DAY_MS = 86_400_000;
 
-/** The 7 days a per-agent rate is read over, ending at the window's end, else as-of, else the latest event. */
+/** The 7 days a per-agent rate is read over, ending at the window's end, else as-of, else (a direct caller with none) the latest event. */
 function trailingWeek(
   events: LedgerEvent[],
   window: Span,
