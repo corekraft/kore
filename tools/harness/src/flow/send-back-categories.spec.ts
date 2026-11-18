@@ -47,6 +47,7 @@ const NONE = {
   "missing-proof": 0,
   "rule-break": 0,
   scope: 0,
+  "wrong-statement": 0,
   other: 0,
 };
 
@@ -90,6 +91,15 @@ describe("sendBackCategories: counting", () => {
       "failed-check": 2,
       conflict: 1,
     });
+  });
+
+  it("counts a wrong-statement send-back in its own category, never in other", () => {
+    const counts = sendBackCategories(
+      [sendBack(HEAD_A, "wrong-statement", 10)],
+      WINDOW,
+    );
+    expect(counts.byCategory).toEqual({ ...NONE, "wrong-statement": 1 });
+    expect(counts.otherShare).toBe(0);
   });
 });
 
