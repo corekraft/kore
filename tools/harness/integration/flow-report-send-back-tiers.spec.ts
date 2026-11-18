@@ -174,7 +174,11 @@ describe("flow report send-backs by writer tier, split at a date (#1047)", () =>
   });
 
   it("leaves the unsplit figures and every other key of the report exactly as they are without a split", () => {
-    const { sendBackTiersSplit: _split, ...withSplit } = splitReport();
+    const {
+      sendBackTiersSplit: _split,
+      reviewRoundsSplit: _reviewSplit,
+      ...withSplit
+    } = splitReport();
     const without = buildReport(SPLIT_EVENTS, {
       asOf: ASOF,
       minCompletedIdeas: 1,
@@ -182,6 +186,7 @@ describe("flow report send-backs by writer tier, split at a date (#1047)", () =>
     });
 
     expect(without).not.toHaveProperty("sendBackTiersSplit");
+    expect(without).not.toHaveProperty("reviewRoundsSplit");
     expect(withSplit).toEqual(without);
   });
 

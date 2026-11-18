@@ -720,19 +720,45 @@ pull request number; it has no rework, since a send to a pane with no writer tie
 change is given a tier by inference. The text (`flow-lines-send-back.ts`) prints the same figures
 the JSON carries.
 
-`--split-at TIME` (#1047, spec #1024) reads the `sendBackTiers` figures a second time, once over
-the time before TIME and once over the time from TIME on, so a reader compares the changes before
-and after a fix. It adds one key, `sendBackTiersSplit`, with `at` (TIME as an ISO time), `before` and
-`after`, each the same shape as `sendBackTiers`, and the text prints each side's tier lines under
-`Send-backs by writer tier, before TIME:` and `Send-backs by writer tier, on or after TIME:`.
+`reviewRounds` (#1050, spec #1024), from `tools/harness/src/flow/review-rounds.ts`, reads the
+failed review rounds and the review coverage per writer tier. A failed review round is a judge
+send-back, or a principles-review verdict (a `review.run` event labelled `posted:<head>` or
+`unchanged:<head>`, which `review post` and `review run` record) with `findings` of one or more, for
+a head. Each PR head counts once, so a send-back and a failing verdict on the same head are one
+round; a send-back that names no pull request or no head counts on its own, and a verdict whose
+`findings` was never recorded is not a failed round. Failed review rounds are reported under that
+name beside `rework` and are never rework: a failing verdict the writer fixes without a send is a
+failed review round and not rework. `rework` is the same count `sendBackTiers` carries.
+`reviewCoverage` is `reviewedChanges`, the merged changes with a principles-review verdict for
+their head, over `mergedChanges`, and a change counts once however many verdicts it has. The ledger
+records no merge head, so a merged change's head is the newest head a verdict or a send-back names
+for it at or before its merge, and a verdict counts only for the head it names: a verdict on an
+older head does not count for a later one. A change merged on a head that no verdict or send-back
+names is read on the newest head one does name, which is a limit of what the ledger records. Every rate is null, never zero, with no merged change, and the counts it is read
+over are beside it. A round and a change join to the tier of the pull request's linked writer; the
+`unlinked` row holds those that join to none (it has no rework and no rate of failed rounds), and
+no change is given a tier by inference. Only counts and rates are read: no verdict text, and no
+label, is read into the figures. The text (`flow-lines-review-rounds.ts`) prints one
+`Failed review rounds and review coverage` line per tier and one for the unlinked row, with the same
+figures the JSON carries. Rounds are placed by the time each was recorded and merged changes by
+their merge time, so the rate divides two counts from different events.
+
+`--split-at TIME` (#1047, #1050, spec #1024) reads the `sendBackTiers` and `reviewRounds` figures a
+second time, once over the time before TIME and once over the time from TIME on, so a reader
+compares the changes before and after a fix. It adds two keys, `sendBackTiersSplit` and
+`reviewRoundsSplit`, each with `at` (TIME as an ISO time), `before` and `after`, each side the same
+shape as the figure it splits, and the text prints each side's tier lines under
+`Send-backs by writer tier, before TIME:` and `Send-backs by writer tier, on or after TIME:`, and
+under `Failed review rounds and review coverage by writer tier, before TIME:` and
+`Failed review rounds and review coverage by writer tier, on or after TIME:`.
 Merged changes are placed by their merge time, so a change merged exactly at TIME is on the after
-side; send-backs and rework are placed by the time each was recorded, as in the unsplit figures.
-TIME must lie inside `--since` and `--until` when they are given (equal to a bound is allowed and
-leaves one side empty); the bounds still clip both sides, so a change merged before `--since` is on
-neither. Without `--split-at` the report has no `sendBackTiersSplit` key and prints no such lines,
-so its JSON and text are what they were and `version` does not move. The cut itself is
-`splitSpanAt` and `splitFiguresAt` in `tools/harness/src/flow/date-split.ts`: a figure that reads a
-span can be read on either side of a date by passing it to `splitFiguresAt`.
+side; send-backs, failed review rounds and rework are placed by the time each was recorded, as in
+the unsplit figures. TIME must lie inside `--since` and `--until` when they are given (equal to a
+bound is allowed and leaves one side empty); the bounds still clip both sides, so a change merged
+before `--since` is on neither. Without `--split-at` the report has neither key and prints no such
+lines. `version` moved to 39 when `reviewRounds` joined the report; the split keys do not move it.
+The cut itself is `splitSpanAt` and `splitFiguresAt` in `tools/harness/src/flow/date-split.ts`: a
+figure that reads a span can be read on either side of a date by passing it to `splitFiguresAt`.
 
 `reviewMisses` measures the Reviewer against the judge (#851). A review is a
 `review.run` event that posted or left unchanged a verdict, counted once per PR

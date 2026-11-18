@@ -6,6 +6,7 @@ import {
 } from "./idea-metrics.js";
 import { costWaitingIn } from "./cost-waiting.js";
 import { time } from "./github-waits.js";
+import { NO_REVIEW_ROUNDS } from "./review-rounds.js";
 import { NO_SEND_BACK_TIERS } from "./send-back-tiers.js";
 import { buildReport } from "./report.js";
 import { scopeOf, windowOf, inWindow } from "./scope.js";
@@ -91,6 +92,7 @@ const ARM_EMPTY = {
 const FIGURES: MergedChangeFigures = {
   costWaiting: costWaitingIn([], [0, 1], { prices: {}, minimum: 1 }),
   sendBackTiers: NO_SEND_BACK_TIERS,
+  reviewRounds: NO_REVIEW_ROUNDS,
   tokensPerMergedChange: TOKENS,
   sendBacksPerMergedChange: SEND_BACKS,
   leadTimePerMergedChange: LEAD_TIME,
@@ -196,7 +198,7 @@ describe("buildReport per-merged-change figures (#829, #830)", () => {
     );
   });
 
-  it("versions the report to 35, since the writing cost by idea joined costWaiting (#1093)", () => {
-    expect(run([]).version).toBe(38);
+  it("versions the report to 39, since the review rounds per writer tier joined the writer figures (#1050)", () => {
+    expect(run([]).version).toBe(39);
   });
 });

@@ -53,6 +53,7 @@ describe("writerFiguresIn: the split date reaches the tier figures (#1047)", () 
       "writerCost",
       "writerArms",
       "sendBackTiers",
+      "reviewRounds",
     ]);
     expect(sendBackTiersSplitIn).toHaveBeenCalledWith(
       EVENTS,

@@ -41,5 +41,10 @@ export type {
   TierSendBacks,
   UnlinkedSendBacks,
 } from "./send-back-tiers.js";
+export type {
+  ReviewRounds,
+  TierReviewRounds,
+  UnlinkedReviewRounds,
+} from "./review-rounds.js";
 export type { Wip } from "./wip.js";
 export type { ArmRow, ArmSide, WriterArms } from "./writer-arms.js";
