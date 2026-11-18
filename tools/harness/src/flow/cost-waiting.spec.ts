@@ -287,3 +287,25 @@ describe("cost and waiting per merged pull request", () => {
     });
   });
 });
+
+describe("cost and waiting: an unpriced model at the idea level", () => {
+  it("reads the idea's dollars as null naming the model, keeping its raw tokens", () => {
+    const events: LedgerEvent[] = [
+      {
+        ...split("idea-7-writer", 0, { lowInput: MILLION }, "7"),
+        model: "claude-opus-5-5",
+      } as LedgerEvent,
+    ];
+
+    expect(costWaitingIn(events, WINDOW, OPTIONS).ideas).toEqual([
+      {
+        idea: "7",
+        dollars: null,
+        unpricedModels: ["claude-opus-5-5"],
+        tokens: MILLION,
+        leadTimeSeconds: null,
+        outcome: null,
+      },
+    ]);
+  });
+});

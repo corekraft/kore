@@ -104,3 +104,80 @@ describe("merged change rows: all-in figures and their times", () => {
     expect(merged.joined).toBe(1);
   });
 });
+
+describe("an unpriced model is named, never read as zero", () => {
+  beforeEach(() => {
+    vi.mocked(linkedAgents).mockReturnValue(new Map([[100, "idea-7-writer"]]));
+  });
+
+  const withUnpriced = (
+    change: string[],
+    judge: string[],
+    orchestrate: string[],
+  ): WriterDollars => {
+    const base = attributed(7, 1);
+    return {
+      ...base,
+      changes: base.changes.map((c) =>
+        c.number === 100 ? { ...c, unpriced: change } : c,
+      ),
+      shared: {
+        ...base.shared,
+        judgeUnpriced: judge,
+        orchestrateUnpriced: orchestrate,
+      },
+    };
+  };
+  const reading = (dollars: WriterDollars) => {
+    vi.mocked(writerDollarsIn)
+      .mockReset()
+      .mockReturnValueOnce(dollars)
+      .mockReturnValueOnce(attributed(3_000_000, 1_000_000));
+    return mergedChangesIn(EVENTS, WINDOW, OPTIONS);
+  };
+
+  it("reads insufficient prices naming a joined change's model, with no summary and its dollars null", () => {
+    const merged = reading(withUnpriced(["zeta"], [], []));
+
+    expect(merged).toMatchObject({
+      status: "insufficient prices",
+      models: ["zeta"],
+      joined: 1,
+    });
+    expect(merged).not.toHaveProperty("dollars");
+    expect(merged).not.toHaveProperty("tokens");
+    expect(merged.changes[0]?.dollars).toBeNull();
+    expect(merged.changes[0]?.tokens).toBe(4_000_000);
+  });
+
+  it("names the shared judge and orchestrating models too, sorted and each once", () => {
+    const merged = reading(withUnpriced(["b"], ["b", "a"], ["c"]));
+
+    expect(merged).toMatchObject({
+      status: "insufficient prices",
+      models: ["a", "b", "c"],
+    });
+  });
+
+  it("nulls every joined change's dollars when only the shared spend is unpriced", () => {
+    const merged = reading(withUnpriced([], ["a"], []));
+
+    expect(merged.status).toBe("insufficient prices");
+    expect(merged.changes[0]?.dollars).toBeNull();
+  });
+
+  it("checks prices before the minimum, so too few joined changes still name the model", () => {
+    vi.mocked(writerDollarsIn)
+      .mockReset()
+      .mockReturnValueOnce(withUnpriced(["zeta"], [], []))
+      .mockReturnValueOnce(attributed(1, 1));
+
+    const merged = mergedChangesIn(EVENTS, WINDOW, {
+      prices: {},
+      minimum: 5,
+    });
+
+    expect(merged.status).toBe("insufficient prices");
+    expect(merged.models).toEqual(["zeta"]);
+  });
+});

@@ -166,7 +166,7 @@ its share of the judge's and the main session's spend. It is attributed to the
 tier of the writer that started the change. The flow report's text prints, for the
 merged changes, one summary line in the window (joined count, median and
 p90 of all-in dollars and tokens, or "not read" with the joined count below the
-minimum). Per-change rows, and their seconds from first
+minimum, or "insufficient prices" naming the models when one is not in the price table). Per-change rows, and their seconds from first
 writer launch to merge, appear only in `--json` (`costWaiting.mergedChanges.changes`). Each
 role's and each idea's figures are session totals and idea spend, not this term.
 The headline names no winner.

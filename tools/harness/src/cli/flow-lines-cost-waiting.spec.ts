@@ -100,3 +100,43 @@ describe("cost beside waiting lines: the headline and its rows", () => {
     );
   });
 });
+
+describe("cost beside waiting lines: an unpriced model", () => {
+  it("prints the merged-change level as insufficient prices naming the models", () => {
+    const cost: Cost = {
+      ...EMPTY,
+      mergedChanges: {
+        changes: [],
+        status: "insufficient prices",
+        joined: 3,
+        needed: 5,
+        models: ["a", "b"],
+      },
+    };
+
+    expect(costWaitingLines(cost)).toEqual([
+      "Token cost beside waiting time (#1019):",
+      "  Merged changes: insufficient prices (a, b)",
+    ]);
+  });
+
+  it("prints an idea with unpriced dollars as insufficient prices naming the models, with its tokens", () => {
+    const cost: Cost = {
+      ...EMPTY,
+      ideas: [
+        {
+          idea: "7",
+          dollars: null,
+          unpricedModels: ["zeta"],
+          tokens: 900,
+          leadTimeSeconds: null,
+          outcome: null,
+        },
+      ],
+    };
+
+    expect(costWaitingLines(cost).at(-1)).toBe(
+      "  Idea 7: insufficient prices (zeta), 900 tokens, open",
+    );
+  });
+});

@@ -141,9 +141,10 @@ export function cumulativeOf(
   events: LedgerEvent[],
   at: number,
   prices: PriceTable,
-): { tokens: number; dollars: number } {
+): { tokens: number; dollars: number; unpriced: string[] } {
   let tokens = 0;
   let dollars = 0;
+  const unpriced = new Set<string>();
   for (const spend of spendBefore(
     events,
     at,
@@ -151,10 +152,15 @@ export function cumulativeOf(
   ).values()) {
     for (const [model, counts] of spend.byModel) {
       tokens += tokensOf(counts);
-      dollars += priceCounts(counts, model, prices) ?? 0;
+      const priced = priceCounts(counts, model, prices);
+      if (priced === undefined) {
+        unpriced.add(model);
+      } else {
+        dollars += priced;
+      }
     }
   }
-  return { tokens, dollars };
+  return { tokens, dollars, unpriced: [...unpriced].sort() };
 }
 
 /** The token price table: one dollar per token, so a figure priced with it reads tokens. */

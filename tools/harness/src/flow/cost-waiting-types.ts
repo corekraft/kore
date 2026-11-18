@@ -52,7 +52,10 @@ export type AgentFigure =
 /** One idea: the dollars and tokens of the sessions stamped with it, its lead time and its outcome. */
 export interface IdeaFigure {
   idea: string;
-  dollars: number;
+  /** Null, with unpricedModels, when a session ran on a model the price table does not price. */
+  dollars: number | null;
+  unpricedModels?: string[];
+  /** Raw tokens, counted for every model. */
   tokens: number;
   /** Seconds from the idea's first event to its issue.closed, or null before its outcome. */
   leadTimeSeconds: number | null;
@@ -64,6 +67,7 @@ export interface MergedChangeFigure {
   number: number;
   /** False when no writer launch joins the pull request; its dollars, tokens and launch-to-merge seconds are then null, never zero; waitSeconds does not depend on the join. */
   joined: boolean;
+  /** Also null when the change or the shared spend ran on an unpriced model. */
   dollars: number | null;
   tokens: number | null;
   launchToMergeSeconds: number | null;
@@ -73,9 +77,11 @@ export interface MergedChangeFigure {
 /** The merged changes in the window: every change, the joined count, and the summaries once the joined count reaches the minimum. */
 export interface MergedChanges {
   changes: MergedChangeFigure[];
-  status: "measured" | "insufficient";
+  status: "measured" | "insufficient" | "insufficient prices";
   joined: number;
   needed: number;
+  /** The unpriced models, sorted, when the status is insufficient prices. */
+  models?: string[];
   dollars?: Summary;
   tokens?: Summary;
 }

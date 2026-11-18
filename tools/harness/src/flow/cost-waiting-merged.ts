@@ -31,8 +31,9 @@ function changeRow(
   change: MergedChangeDollars,
   dollars: WriterDollars,
   tokens: WriterDollars,
-  agent: string | undefined,
+  link: { agent: string | undefined; sharedUnpriced: boolean },
 ): MergedChangeFigure {
+  const { agent, sharedUnpriced } = link;
   const number = change.number;
   const joined = change.writer !== undefined;
   const tokenChange = tokens.changes.find((c) => c.number === number);
@@ -54,7 +55,10 @@ function changeRow(
   return {
     number,
     joined,
-    dollars: joined ? round(allInOf(change, dollars)) : null,
+    dollars:
+      joined && change.unpriced.length === 0 && !sharedUnpriced
+        ? round(allInOf(change, dollars))
+        : null,
     tokens:
       joined && tokenChange !== undefined
         ? round(allInOf(tokenChange, tokens))
@@ -79,10 +83,34 @@ export function mergedChangesIn(
   const dollars = writerDollarsIn(events, window, options.prices);
   const tokens = writerDollarsIn(events, window, tokenPricesOf(events));
   const linked = linkedAgents(events);
+  const sharedModels = [
+    ...dollars.shared.judgeUnpriced,
+    ...dollars.shared.orchestrateUnpriced,
+  ];
   const changes = dollars.changes.map((change) =>
-    changeRow(events, change, dollars, tokens, linked.get(change.number)),
+    changeRow(events, change, dollars, tokens, {
+      agent: linked.get(change.number),
+      sharedUnpriced: sharedModels.length > 0,
+    }),
   );
   const joined = changes.filter((c) => c.joined);
+  const models = [
+    ...new Set([
+      ...dollars.changes
+        .filter((c) => c.writer !== undefined)
+        .flatMap((c) => c.unpriced),
+      ...sharedModels,
+    ]),
+  ].sort();
+  if (models.length > 0) {
+    return {
+      changes,
+      status: "insufficient prices",
+      joined: joined.length,
+      needed: options.minimum,
+      models,
+    };
+  }
   const measured = joined.length >= options.minimum;
   return {
     changes,

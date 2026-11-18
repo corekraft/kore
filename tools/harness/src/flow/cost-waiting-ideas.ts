@@ -37,7 +37,8 @@ function ideaRow(
     closed !== undefined && inWindow(window, closed) ? "closed" : null;
   return {
     idea,
-    dollars: round(spend.dollars),
+    dollars: spend.unpriced.length > 0 ? null : round(spend.dollars),
+    ...(spend.unpriced.length > 0 ? { unpricedModels: spend.unpriced } : {}),
     tokens: spend.tokens,
     leadTimeSeconds:
       outcome === null || closed === undefined ? null : (closed - first) / 1000,

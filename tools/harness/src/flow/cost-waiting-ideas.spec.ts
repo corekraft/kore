@@ -30,6 +30,7 @@ describe("idea rows: each idea's cost to the window's end and its outcome", () =
     vi.mocked(cumulativeOf).mockImplementation((own) => ({
       tokens: own.length * 1000,
       dollars: 2.5,
+      unpriced: [],
     }));
   });
 
@@ -93,5 +94,32 @@ describe("idea rows: each idea's cost to the window's end and its outcome", () =
       BASE + 30 * MINUTE,
       PRICES,
     );
+  });
+});
+
+describe("idea rows: an unpriced model", () => {
+  it("reads an idea with an unpriced model as null dollars naming the models, keeping its raw tokens", () => {
+    vi.mocked(cumulativeOf).mockReturnValue({
+      tokens: 900,
+      dollars: 1.5,
+      unpriced: ["zeta"],
+    });
+
+    expect(
+      ideaRowsIn(
+        [event("7", "session.launch", 0)],
+        [BASE, BASE + MINUTE],
+        OPTIONS,
+      ),
+    ).toEqual([
+      {
+        idea: "7",
+        dollars: null,
+        unpricedModels: ["zeta"],
+        tokens: 900,
+        leadTimeSeconds: null,
+        outcome: null,
+      },
+    ]);
   });
 });

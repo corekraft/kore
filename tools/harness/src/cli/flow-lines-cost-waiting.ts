@@ -53,6 +53,9 @@ function agentLines(cost: Cost): string[] {
 /** The merged-change line: its all-in summaries, or the count joined and the minimum needed. */
 function mergedLine(cost: Cost): string {
   const merged = cost.mergedChanges;
+  if (merged.status === "insufficient prices") {
+    return `Merged changes: insufficient prices (${(merged.models ?? []).join(", ")})`;
+  }
   if (merged.status === "insufficient") {
     return `Merged changes: not read, ${merged.joined} joined (${merged.needed} needed)`;
   }
@@ -63,7 +66,7 @@ function mergedLine(cost: Cost): string {
 function ideaLines(cost: Cost): string[] {
   return cost.ideas.map(
     (idea) =>
-      `Idea ${idea.idea}: ${money(idea.dollars)}, ${idea.tokens} tokens, ${idea.outcome ?? "open"}${idea.leadTimeSeconds === null ? "" : `, lead ${Math.round(idea.leadTimeSeconds)}s`}`,
+      `Idea ${idea.idea}: ${idea.dollars === null ? `insufficient prices (${(idea.unpricedModels ?? []).join(", ")})` : money(idea.dollars)}, ${idea.tokens} tokens, ${idea.outcome ?? "open"}${idea.leadTimeSeconds === null ? "" : `, lead ${Math.round(idea.leadTimeSeconds)}s`}`,
   );
 }
 

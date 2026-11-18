@@ -540,7 +540,7 @@ published prices against the cost settings and the weekly token ceiling in
 `.claude/harness.json` (`weeklyTokenCeiling`, a top-level key beside `cost`, read `not set` when it is
 absent; the owner sets its value). It has three levels. `mergedChanges` reads insufficient, never zero, below `cost.minMergedChanges`
 joined changes, and each `agents` role reads insufficient below that many sessions; `ideas` is a plain list, one
-row per idea named by an event, with no insufficient status. `agents` (per role: writer, reviewer, judge, verifier,
+row per idea named by an event, with no insufficient status. An unpriced model is named, never read as zero: `agents` and `mergedChanges` read `insufficient prices` with the models (checked before the minimum, and for `mergedChanges` over the joined changes and the shared judge and orchestrating spend), and an idea with one has null dollars and `unpricedModels`, its tokens still counted; the text prints `insufficient prices (models)`. `agents` (per role: writer, reviewer, judge, verifier,
 reader, judgment, advisor, the main session as `orchestrate`, and any other named
 session as `other`, each with its sessions' dollars, tokens, active and waiting seconds
 as median and p90, and the plan-weighted share of the ceiling); `mergedChanges` (the text
