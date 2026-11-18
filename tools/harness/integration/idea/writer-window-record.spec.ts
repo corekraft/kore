@@ -88,6 +88,14 @@ describe("the writer-tier window idea record's body", () => {
     expect(body).toContain("No prompt-size mechanism merges inside the window");
   });
 
+  it("states the prompt-size rule as the spec's own, never as ADR 0119's", () => {
+    expect(body).toContain(
+      "No prompt-size mechanism merges inside the window (the rule of spec #998, story 22)",
+    );
+    expect(body).not.toContain("ADR 0119)");
+    expect(body).not.toMatch(/prompt-size[^.]*ADR 0119/);
+  });
+
   it("lists the owner's open items", () => {
     for (const item of [
       "the margin",

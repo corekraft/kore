@@ -53,8 +53,8 @@ before the window opens.
 
 - The Reviewer measurement (#817) is read split by writer tier, so its ratio
   and the window do not move each other.
-- No prompt-size mechanism merges inside the window (ADR 0119), so Haiku's cost
-  does not shift partway through the comparison.
+- No prompt-size mechanism merges inside the window (the rule of spec #998,
+  story 22), so Haiku's cost does not shift partway through the comparison.
 - The by-size table in #994 stays a hypothesis, never a finding.
 
 ## Owner's open items
