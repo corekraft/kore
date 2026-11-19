@@ -1,5 +1,5 @@
 ---
-status: accepted
+status: proposed
 summary: Every host port the k3d load balancer publishes binds a loopback IPv4 address the overlay declares, and the drift check compares the host address as well as the host port, so a cluster published on every interface is refused with the recreate instruction.
 date: 2026-11-19
 last-verified: 2026-11-19
