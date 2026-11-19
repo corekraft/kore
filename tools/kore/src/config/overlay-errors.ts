@@ -2,6 +2,7 @@ import { join } from "node:path";
 import { alertEmailErrors, alertEmailWarnings } from "./alert-email.js";
 import { componentGatedOff } from "./features.js";
 import { exists } from "./files.js";
+import { flagDependencyErrors } from "./flag-dependencies.js";
 import type { Component, Environment, Repository } from "./types.js";
 
 const flagName = /^[a-z][a-z0-9-]*$/;
@@ -145,6 +146,7 @@ export async function overlayErrors(repository: Repository): Promise<string[]> {
   return [
     ...featureErrors(environment),
     ...alertEmailErrors(environment),
+    ...flagDependencyErrors(environment),
     ...featureFlagErrors(environment, components),
     ...gatedDependencyErrors(environment, components),
     ...unknownOverlayErrors(environment, names),

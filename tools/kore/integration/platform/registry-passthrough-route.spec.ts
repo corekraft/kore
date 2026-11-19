@@ -2,7 +2,11 @@
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
 import { test } from "vitest";
-import { loadRepository, type Repository } from "../../src/config/index.js";
+import {
+  loadRepository,
+  validateRepository,
+  type Repository,
+} from "../../src/config/index.js";
 import { helmTemplateArgs } from "../../src/platform/index.js";
 import { withAbsoluteChart } from "../../src/testing/index.js";
 
@@ -175,5 +179,20 @@ test("the registry chart's route attaches to the listener the platform chart dec
     new RegExp(
       `kind: Gateway\\s+metadata:\\s+name: ${repository.environment.gateway.name}\\s+namespace: ${repository.environment.gateway.namespace}`,
     ),
+  );
+});
+
+test("registry-by-name on with platform-shared-gateway off is refused by validation before any chart renders, and accepted with both on", async () => {
+  await assert.rejects(
+    validateRepository(
+      await repositoryWith({
+        "platform-shared-gateway": false,
+        "registry-by-name": true,
+      }),
+    ),
+    /turns on registry-by-name, which needs platform-shared-gateway/,
+  );
+  await validateRepository(
+    await repositoryWith({ ...sharedGatewayOn, "registry-by-name": true }),
   );
 });

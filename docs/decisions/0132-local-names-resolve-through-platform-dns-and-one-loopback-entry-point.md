@@ -120,6 +120,11 @@ digest lookup, cosign verification and pruning dial
   `sharedGatewayRouteFlag`. The Gateway chart derives the registry's name from
   the platform wildcard it already takes, so the Helm path and the Argo CD
   Application agree.
+  The flag needs `platform-shared-gateway`: overlay validation refuses it on
+  without the shared Gateway, naming both flags. The hostname-ownership
+  constraint (ADR 0042, `platform-hostname-ownership`) does not cover TLSRoute
+  hostnames, so the registry's name is owned by this chart alone, not checked
+  by that constraint.
 - **Clear failures.** With the flag on, a name that does not resolve, a Gateway
   that refuses port 443, a certificate the registry's CA did not issue (no
   route), a dropped connection, and a certificate without the name each fail
