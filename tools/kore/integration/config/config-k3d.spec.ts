@@ -12,7 +12,13 @@ const platform = await localPlatform();
 const k3d = {
   clusterName: "kore-local",
   serviceCidr: "10.96.0.0/12",
-  ports: [{ hostPort: platform.hostPort, loadBalancerPort: 443 }],
+  ports: [
+    {
+      hostAddress: "127.0.0.1",
+      hostPort: platform.hostPort,
+      loadBalancerPort: 443,
+    },
+  ],
 } as const;
 
 async function validationError(repository: Repository): Promise<string> {
@@ -98,9 +104,17 @@ test("a k3d overlay rejects a malformed cluster name, CIDR, ports and counts", a
       clusterName: "Bad_Name",
       serviceCidr: "not-a-cidr",
       ports: [
-        { hostPort: 0, loadBalancerPort: 443 },
-        { hostPort: platform.hostPort, loadBalancerPort: "https" },
-        { hostPort: platform.hostPort, loadBalancerPort: 80 },
+        { hostAddress: "127.0.0.1", hostPort: 0, loadBalancerPort: 443 },
+        {
+          hostAddress: "127.0.0.1",
+          hostPort: platform.hostPort,
+          loadBalancerPort: "https",
+        },
+        {
+          hostAddress: "127.0.0.1",
+          hostPort: platform.hostPort,
+          loadBalancerPort: 80,
+        },
       ],
       servers: 0,
       agents: -1,

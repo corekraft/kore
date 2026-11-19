@@ -18,7 +18,9 @@ export async function k3dRepository(): Promise<Repository> {
       k3d: {
         clusterName: "kore-local",
         serviceCidr: "10.96.0.0/12",
-        ports: [{ hostPort: 8443, loadBalancerPort: 443 }],
+        ports: [
+          { hostAddress: "127.0.0.1", hostPort: 8443, loadBalancerPort: 443 },
+        ],
       },
     },
   };

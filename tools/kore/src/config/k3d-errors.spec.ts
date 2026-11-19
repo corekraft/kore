@@ -13,7 +13,9 @@ const versions = fakeVersions({}, { k3s: digest });
 const validK3d = {
   clusterName: "kore-local",
   serviceCidr: "10.96.0.0/12",
-  ports: [{ hostPort: 8080, loadBalancerPort: 30080 }],
+  ports: [
+    { hostAddress: "127.0.0.1", hostPort: 8080, loadBalancerPort: 30080 },
+  ],
 };
 
 /** A k3d overlay that passes every check, with the given fields replaced. */
@@ -122,11 +124,13 @@ test("servers must be at least 1 and agents at least 0 when they are declared", 
 
 test("ports must be a non-empty list, and each must name a host and a load balancer port from 1 to 65535", () => {
   expect(k3dErrors(withK3d("ports", []), versions)).toEqual([
-    "environment.k3d.ports must be a non-empty list of { hostPort, loadBalancerPort }",
+    "environment.k3d.ports must be a non-empty list of { hostAddress, hostPort, loadBalancerPort }",
   ]);
   expect(
     k3dErrors(
-      withK3d("ports", [{ hostPort: 0, loadBalancerPort: 70000 }]),
+      withK3d("ports", [
+        { hostAddress: "127.0.0.1", hostPort: 0, loadBalancerPort: 70000 },
+      ]),
       versions,
     ),
   ).toEqual([
@@ -135,12 +139,43 @@ test("ports must be a non-empty list, and each must name a host and a load balan
   ]);
 });
 
+test("each port binds a loopback IPv4 host address: a missing, malformed, or non-loopback address is refused, and any 127.x address is accepted", () => {
+  const onAddress = (hostAddress: unknown) =>
+    k3dErrors(
+      withK3d("ports", [
+        { hostAddress, hostPort: 8080, loadBalancerPort: 30080 },
+      ]),
+      versions,
+    );
+  const refused = [
+    "environment.k3d.ports[0].hostAddress must be a loopback IPv4 address such as 127.0.0.1",
+  ];
+  expect(
+    k3dErrors(
+      withK3d("ports", [{ hostPort: 8080, loadBalancerPort: 30080 }]),
+      versions,
+    ),
+  ).toEqual(refused);
+  for (const bad of [
+    "0.0.0.0",
+    "localhost",
+    "127.0.0.300",
+    "192.168.1.5",
+    "",
+    127,
+  ]) {
+    expect(onAddress(bad)).toEqual(refused);
+  }
+  expect(onAddress("127.0.0.1")).toEqual([]);
+  expect(onAddress("127.0.0.2")).toEqual([]);
+});
+
 test("a host port mapped twice is reported once, and a bad one is not reported as a duplicate", () => {
   const ports = [
-    { hostPort: 8080, loadBalancerPort: 30080 },
-    { hostPort: 8080, loadBalancerPort: 30081 },
-    { hostPort: 0, loadBalancerPort: 30082 },
-    { hostPort: 0, loadBalancerPort: 30083 },
+    { hostAddress: "127.0.0.1", hostPort: 8080, loadBalancerPort: 30080 },
+    { hostAddress: "127.0.0.1", hostPort: 8080, loadBalancerPort: 30081 },
+    { hostAddress: "127.0.0.1", hostPort: 0, loadBalancerPort: 30082 },
+    { hostAddress: "127.0.0.1", hostPort: 0, loadBalancerPort: 30083 },
   ];
   expect(k3dErrors(withK3d("ports", ports), versions)).toEqual([
     "environment.k3d.ports[2].hostPort must be an integer from 1 to 65535",

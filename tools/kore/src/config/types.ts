@@ -104,6 +104,8 @@ export interface K3dCluster {
 }
 
 export interface K3dPort {
+  /** The loopback IPv4 address the host port binds (ADR 0131). */
+  hostAddress: string;
   hostPort: number;
   loadBalancerPort: number;
 }

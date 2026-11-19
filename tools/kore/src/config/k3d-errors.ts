@@ -63,10 +63,14 @@ function fieldErrors(k3d: Record<string, unknown>): string[] {
   ];
 }
 
+/** A dotted IPv4 literal in 127.0.0.0/8, with no leading zeros in any octet. */
+const loopbackIPv4 =
+  /^127\.(?:(?:25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)\.){2}(?:25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)$/;
+
 function portErrors(ports: unknown): string[] {
   if (!Array.isArray(ports) || ports.length === 0) {
     return [
-      "environment.k3d.ports must be a non-empty list of { hostPort, loadBalancerPort }",
+      "environment.k3d.ports must be a non-empty list of { hostAddress, hostPort, loadBalancerPort }",
     ];
   }
   const seen = new Set<unknown>();
@@ -77,12 +81,22 @@ function portErrors(ports: unknown): string[] {
       duplicates.add(port["hostPort"]);
     }
     seen.add(port["hostPort"]);
-    return (["hostPort", "loadBalancerPort"] as const)
-      .filter((key) => !isPort(port[key]))
-      .map(
-        (key) =>
-          `environment.k3d.ports[${index}].${key} must be an integer from 1 to 65535`,
-      );
+    const address =
+      typeof port["hostAddress"] === "string" &&
+      loopbackIPv4.test(port["hostAddress"])
+        ? []
+        : [
+            `environment.k3d.ports[${index}].hostAddress must be a loopback IPv4 address such as 127.0.0.1`,
+          ];
+    return [
+      ...address,
+      ...(["hostPort", "loadBalancerPort"] as const)
+        .filter((key) => !isPort(port[key]))
+        .map(
+          (key) =>
+            `environment.k3d.ports[${index}].${key} must be an integer from 1 to 65535`,
+        ),
+    ];
   });
   return [
     ...errors,

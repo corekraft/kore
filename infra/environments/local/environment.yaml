@@ -7,7 +7,14 @@
     {
       "clusterName": "kore-local",
       "serviceCidr": "10.96.0.0/12",
-      "ports": [{ "hostPort": 8443, "loadBalancerPort": 30443 }]
+      "ports":
+        [
+          {
+            "hostAddress": "127.0.0.1",
+            "hostPort": 8443,
+            "loadBalancerPort": 30443
+          }
+        ]
     },
   "registry": { "address": "10.96.0.50:5000" },
   "features":
