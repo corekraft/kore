@@ -4,17 +4,26 @@
   the host, cert-manager issues its Secret into the same namespace, and the
   route sends the BFF path to the BFF and the rest to the frontend. The
   platform owns the Gateway in kore-system, its listeners and its certificate
-  (ADR 0133); this chart's own Gateway stays until its routes move onto the
-  platform Gateway (ADR 0132). Nothing renders without ingress.host, which only
-  the ApplicationSet sets.
+  (ADR 0133). Nothing renders without ingress.host, which only the
+  ApplicationSet sets.
 
   With platform-shared-gateway on, the ApplicationSet also sets
-  ingress.sharedGateway, and a host under its domain gets a second route that
-  attaches to the shared Gateway, beside this chart's own Gateway. The route owns
-  no listener or certificate (ADR 0133); a host outside the domain gets none.
+  ingress.sharedGateway, and a host under its domain gets a route that attaches
+  to the shared Gateway (ADR 0133). That route replaces this chart's own
+  Gateway, certificate and route for the host: the chart renders none of them.
+  A host outside the domain, which the shared listener does not serve, keeps
+  its own Gateway, certificate and route. Off, the chart renders what it
+  rendered before.
 */ -}}
 {{- with .Values.ingress }}
 {{- $ingress := . }}
+{{- $sharedRoute := false }}
+{{- with .sharedGateway }}
+{{- if hasSuffix (printf ".%s" .domain) $ingress.host }}
+{{- $sharedRoute = true }}
+{{- end }}
+{{- end }}
+{{- if not $sharedRoute }}
 ---
 apiVersion: gateway.networking.k8s.io/v1
 kind: Gateway
@@ -69,6 +78,7 @@ spec:
         - {name: {{ $.Values.service }}-bff, port: 80}
     - backendRefs:
         - {name: {{ $.Values.service }}-frontend, port: 80}
+{{- end }}
 {{- with .sharedGateway }}
 {{- if hasSuffix (printf ".%s" .domain) $ingress.host }}
 ---
