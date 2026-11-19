@@ -97,7 +97,8 @@ releases or deleting data. Add `--prune` to explicitly destroy the cluster; it
 refuses while retained data exists. Add `--purge-data` as well to purge that
 retained data. `platform up` remains available when you want only platform
 reconciliation. The local Gateway needs no tunnel: the k3d load balancer
-maps host port 8443 to it.
+maps host port 8443 to it, bound to the loopback address `127.0.0.1` only, so
+nothing on the network reaches it ([ADR 0131](docs/decisions/0131-k3d-publishes-host-ports-on-the-loopback-address.md)).
 Status, validate, and render are read-only. Mutations require an explicit
 environment and use the configured kube context, never the current kubectl
 context. Direct destruction requires `--yes`; retained claims additionally
@@ -135,7 +136,9 @@ with an empty list when nothing is retained.
 
 ### Local Gateway
 
-The local Gateway answers on `https://kore.local:8443/` (or your route path).
+The local Gateway answers on `https://kore.local:8443/` (or your route path)
+from this machine only: the host port binds `127.0.0.1`, and a cluster created
+before that binding is refused until it is recreated (ADR 0131).
 The k3d load balancer maps host port `8443` to the Gateway Service's node port
 (30443), so no tunnel process is needed ([ADR 0085](docs/decisions/0085-k3d-gateway-answers-through-a-node-port.md)).
 `platform up` waits for the Gateway Service to publish the configured node

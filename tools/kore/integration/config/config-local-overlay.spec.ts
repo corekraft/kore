@@ -29,7 +29,13 @@ test("the load balancer maps the Gateway host port to the node port the overlay 
   const nodePort = Number(/^\s+nodePort:\s*(\d+)/m.exec(values)?.[1]);
   assert.deepEqual(
     k3d?.ports.filter((port) => port.hostPort === gateway.port),
-    [{ hostPort: gateway.port, loadBalancerPort: nodePort }],
+    [
+      {
+        hostAddress: "127.0.0.1",
+        hostPort: gateway.port,
+        loadBalancerPort: nodePort,
+      },
+    ],
   );
 });
 

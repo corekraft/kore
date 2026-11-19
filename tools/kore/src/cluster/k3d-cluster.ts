@@ -8,6 +8,7 @@ import {
 } from "../images/index.js";
 import { CommandError, type Runner } from "../runtime/index.js";
 import { ClusterUnavailableError } from "./cluster-unavailable.js";
+import { drift } from "./k3d-drift.js";
 import { type ReadinessOptions, waitForClusterReady } from "./readiness.js";
 
 /** The state of a k3d cluster as `k3d cluster list` reports it. */
@@ -94,7 +95,7 @@ export function k3dCreateArgs(
     `--service-cidr=${cluster.serviceCidr}@server:*`,
     ...cluster.ports.flatMap((port) => [
       "--port",
-      `${port.hostPort}:${port.loadBalancerPort}@loadbalancer`,
+      `${port.hostAddress}:${port.hostPort}:${port.loadBalancerPort}@loadbalancer`,
     ]),
     ...(koreManagesRegistryAuth(repository)
       ? k3dTrustVolumeArgs(trustDirectory)
@@ -159,57 +160,6 @@ export async function runK3d(
     }
     throw error;
   }
-}
-
-/** Host ports the load balancer publishes, by container port; undefined when not reported. */
-function publishedPorts(
-  entry: Record<string, unknown>,
-): Map<string, string[]> | undefined {
-  const nodes = (entry["nodes"] ?? []) as Record<string, unknown>[];
-  const mappings = nodes.find((node) => node["role"] === "loadbalancer")?.[
-    "portMappings"
-  ] as Record<string, { HostPort?: string }[] | null> | undefined;
-  if (mappings === undefined) {
-    return undefined;
-  }
-  return new Map(
-    Object.entries(mappings).map(([container, bindings]) => [
-      container.replace(/\/\w+$/, ""),
-      (bindings ?? []).map((binding) => String(binding.HostPort)),
-    ]),
-  );
-}
-
-/**
- * How an existing cluster differs from the overlay. Counts always compare;
- * each declared port must be published on its host port when k3d's entry
- * reports mappings. Extra mappings (k3d publishes the API port on a random
- * host port) are ignored. The service CIDR is not compared: k3d's list does
- * not report it in a form confirmed live (gap for the live proof, #149).
- */
-function drift(entry: Record<string, unknown>, cluster: K3dCluster): string[] {
-  const differences: string[] = [];
-  const compare = (name: string, actual: unknown, wanted: unknown): void => {
-    if (String(actual) !== String(wanted)) {
-      differences.push(`${name}: ${String(actual)} != ${String(wanted)}`);
-    }
-  };
-  compare("servers", entry["serversCount"], cluster.servers ?? 1);
-  compare("agents", entry["agentsCount"], cluster.agents ?? 0);
-  const published = publishedPorts(entry);
-  if (published !== undefined) {
-    for (const port of cluster.ports) {
-      const hosts = published.get(String(port.loadBalancerPort)) ?? [];
-      if (!hosts.includes(String(port.hostPort))) {
-        compare(
-          `port ${port.loadBalancerPort}`,
-          hosts.length ? hosts.join(",") : "unmapped",
-          port.hostPort,
-        );
-      }
-    }
-  }
-  return differences;
 }
 
 export function contextRemedy(clusterName: string): string {

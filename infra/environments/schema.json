@@ -53,9 +53,14 @@
           "minItems": 1,
           "items": {
             "type": "object",
-            "required": ["hostPort", "loadBalancerPort"],
+            "required": ["hostAddress", "hostPort", "loadBalancerPort"],
             "additionalProperties": false,
             "properties": {
+              "hostAddress": {
+                "type": "string",
+                "description": "The loopback IPv4 address the host port binds (ADR 0131).",
+                "pattern": "^127\\.(?:(?:25[0-5]|2[0-4]\\d|1\\d\\d|[1-9]?\\d)\\.){2}(?:25[0-5]|2[0-4]\\d|1\\d\\d|[1-9]?\\d)$"
+              },
               "hostPort": { "type": "integer", "minimum": 1, "maximum": 65535 },
               "loadBalancerPort": {
                 "type": "integer",

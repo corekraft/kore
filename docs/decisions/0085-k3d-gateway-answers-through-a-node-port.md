@@ -12,6 +12,8 @@ Source: [`infra/plans/9-k3d-local-cluster.md` § Step 4](../../infra/plans/9-k3d
 Refines: [ADR 0016](0016-release-readiness-checks-drive-wait-and-status.md),
 [ADR 0076](0076-k3d-replaces-minikube.md).
 
+> Refined by [ADR 0131](0131-k3d-publishes-host-ports-on-the-loopback-address.md): the host port binds the loopback address, not every interface, and drift compares the host address.
+
 ## Context
 
 ADR 0076 replaces `minikube tunnel` with the k3d load balancer. k3s ServiceLB is

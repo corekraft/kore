@@ -274,8 +274,8 @@ test("an extra load-balancer mapping such as the random API port is not drift", 
       {
         role: "loadbalancer",
         portMappings: {
-          "443/tcp": [{ HostPort: "8443" }],
-          "6443/tcp": [{ HostPort: "51234" }],
+          "443/tcp": [{ HostIp: "127.0.0.1", HostPort: "8443" }],
+          "6443/tcp": [{ HostIp: "0.0.0.0", HostPort: "51234" }],
         },
       },
     ],

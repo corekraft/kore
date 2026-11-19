@@ -19,7 +19,11 @@ export const repository = {
   environment: {
     kubeContext: "k3d-kore-local",
     gateway: { port: 8443 },
-    k3d: { ports: [{ hostPort: 8443, loadBalancerPort: 30443 }] },
+    k3d: {
+      ports: [
+        { hostAddress: "127.0.0.1", hostPort: 8443, loadBalancerPort: 30443 },
+      ],
+    },
   },
 } as unknown as Repository;
 
