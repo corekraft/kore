@@ -4,7 +4,7 @@ import {
   rotateRegistryCredentials,
   swapLocalSigningKey,
 } from "../images/index.js";
-import { localDown, localUp } from "../local/index.js";
+import { localDown, localUp, withHostResolver } from "../local/index.js";
 import {
   applySmtpCredentials,
   installLocalTrust,
@@ -61,6 +61,9 @@ function setFlags(...names: string[]): void {
 beforeEach(() => {
   setFlags();
   vi.mocked(mutateAction).mockResolvedValue(0);
+  vi.mocked(withHostResolver).mockImplementation(
+    async (_repository, _runner, work) => await work(),
+  );
   vi.mocked(syncLocalSecrets).mockResolvedValue(2);
 });
 
@@ -89,6 +92,11 @@ test("local up and down run as mutations, with down's prune, purge and force opt
     "templates.json",
   );
   await actionsOf().down!(context, runner);
+  expect(withHostResolver).toHaveBeenCalledWith(
+    delivered,
+    runner,
+    expect.any(Function),
+  );
   expect(localUp).toHaveBeenCalledWith(delivered, runner);
   expect(localDown).toHaveBeenCalledWith(repository, runner, {
     prune: true,
@@ -220,4 +228,33 @@ test("secrets smtp reads the login from stdin and applies it as a mutation, with
     { status: "applied", secret: "grafana-smtp" },
     true,
   );
+});
+
+test("local up ensures the host resolver only after both locks are composed, and local down never does", async () => {
+  const context = fakeContext({
+    command: "local",
+    action: "up",
+    repository,
+    parsed: parsedArgs(),
+  });
+  const order: string[] = [];
+  vi.mocked(composeGoldenPathDelivery).mockImplementation(async () => {
+    order.push("locks");
+    return chartsComposed;
+  });
+  vi.mocked(withHostResolver).mockImplementation(
+    async (_repository, _runner, work) => {
+      order.push("resolver");
+      return await work();
+    },
+  );
+  vi.mocked(localUp).mockImplementation(async () => {
+    order.push("up");
+  });
+  await localCommand(context);
+  await actionsOf().up!(context, runner);
+  expect(order).toEqual(["locks", "resolver", "up"]);
+
+  await actionsOf().down!(context, runner);
+  expect(withHostResolver).toHaveBeenCalledTimes(1);
 });

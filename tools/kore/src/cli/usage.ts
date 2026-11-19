@@ -95,6 +95,14 @@ marker. It is unchanged when already current, and a file without the marker is
 never overwritten. "dns uninstall" runs "sudo rm -f" on that file only when it
 carries the marker, after the same confirmation. Undo either with the other.
 
+With the platform-dns flag on, "local up" runs the same install first when the
+file is missing or out of date, asking on the terminal before any "sudo" and
+failing fast, naming the cause, when you decline. A correct file is left alone
+and asks nothing. Without a terminal it asks nothing, finishes the cluster, and
+prints the next step ("kore dns install") last; "kore doctor" also reports the
+file. A file without the marker is reported and never rewritten. With the flag
+off "local up" does not look at the file.
+
 "ops" is read-only and offline. "inventory" lists every pinned tool, component,
 image, npm package, and GitHub Action, and fails on a range, a missing digest or
 integrity hash, or a tag-pinned Action. "recovery" checks

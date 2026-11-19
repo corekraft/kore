@@ -145,6 +145,8 @@ export const localModule = () => ({
       void dispatch.push(`localDown:${options.prune}:${options.purgeData}`),
   ),
   localUp: vi.fn(async () => void dispatch.push("localUp")),
+  // The platform-dns flag is off in the fixture, so the wrapper only runs the work.
+  withHostResolver: vi.fn(async (_repo, _runner, work) => await work()),
 });
 
 export const imagesModule = async () => ({
