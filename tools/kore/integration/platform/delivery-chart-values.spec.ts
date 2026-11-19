@@ -131,12 +131,10 @@ test("kore-config-delivery composed from the local overlay renders the platform-
   const application = stdout
     .split("\n---\n")
     .find((doc) => /^ {2}name: kore-platform-config$/m.test(doc))!;
-  const values = JSON.parse(
-    /^ {6}valuesObject: (.+)$/m.exec(application)![1]!,
-  ) as {
+  const values: {
     gateway: { port: number; service: { type: string; nodePort: number } };
     features: Record<string, boolean>;
-  };
+  } = JSON.parse(/^ {6}valuesObject: (.+)$/m.exec(application)![1]!);
   assert.equal(values.gateway.service.type, "NodePort");
   assert.equal(values.gateway.service.nodePort, 30443);
   assert.equal(values.gateway.port, 8443);
