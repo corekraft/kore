@@ -27,6 +27,7 @@ function admin(answers: Record<string, RegistryResponse>) {
     request,
     registry: createRegistryAdmin({
       request,
+      address: "127.0.0.1:30500",
       authorization: "Basic abc",
       ca: "ca-pem",
     }),
@@ -119,6 +120,29 @@ describe("registry admin refusals", () => {
     });
     await expect(registry.repositories()).rejects.toThrow(
       "registry answered 403 for GET",
+    );
+  });
+});
+
+describe("registry admin by name", () => {
+  it("sends every request to the address it is given, with no port-forward in the URL", async () => {
+    const request = vi.fn(async (): Promise<RegistryResponse> =>
+      reply(200, { repositories: ["a/b"] }),
+    );
+    const registry = createRegistryAdmin({
+      request,
+      address: "registry.platform.kore.internal",
+      authorization: "Basic abc",
+      ca: "ca-pem",
+    });
+
+    await registry.repositories();
+
+    expect(request).toHaveBeenCalledWith(
+      "GET",
+      "https://registry.platform.kore.internal/v2/_catalog",
+      expect.anything(),
+      "ca-pem",
     );
   });
 });

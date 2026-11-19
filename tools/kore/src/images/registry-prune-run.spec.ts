@@ -57,7 +57,10 @@ beforeEach(() => {
       await action(
         asFake<PublishSession>({
           ca: "ca-pem",
-          client: { authorization: "Basic abc" },
+          client: {
+            address: "registry.platform.kore.internal",
+            authorization: "Basic abc",
+          },
         }),
       ),
   );
@@ -75,7 +78,11 @@ it("prunes through the forwarded registry with the push identity, a seven day ke
   await pruneRegistryTagsInCluster(repository, runner);
   expect(ensureRegistryForward).toHaveBeenCalledWith(repository, runner);
   expect(createRegistryAdmin).toHaveBeenCalledWith(
-    expect.objectContaining({ authorization: "Basic abc", ca: "ca-pem" }),
+    expect.objectContaining({
+      address: "registry.platform.kore.internal",
+      authorization: "Basic abc",
+      ca: "ca-pem",
+    }),
   );
   const dependencies = handed();
   expect(dependencies.admin).toBe(admin);

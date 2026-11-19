@@ -4,7 +4,6 @@ import { registryRequest, type RegistryResponse } from "./registry-https.js";
 
 // Docs: docs/decisions/0094-worktrees-sharing-a-cluster-share-its-locks-tags-and-forward.md
 
-const base = "https://127.0.0.1:30500/v2";
 const accept =
   "application/vnd.oci.image.manifest.v1+json, application/vnd.docker.distribution.manifest.v2+json";
 
@@ -16,6 +15,8 @@ export interface RegistryAdminTransport {
     headers: Record<string, string>,
     ca: string,
   ) => Promise<RegistryResponse>;
+  /** The host[:port] the registry answers at: the port-forward, or its name. */
+  address: string;
   authorization: string;
   ca: string;
 }
@@ -25,6 +26,7 @@ const path = (repository: string): string =>
 
 /** When the tag's image was built; Infinity (so never old) when it cannot be read. */
 async function buildTime(
+  base: string,
   json: (url: string) => Promise<Record<string, unknown>>,
   repositoryPath: string,
   tag: string,
@@ -47,6 +49,7 @@ async function buildTime(
 export function createRegistryAdmin(
   transport: RegistryAdminTransport,
 ): RegistryAdmin {
+  const base = `https://${transport.address}/v2`;
   const send = async (
     method: string,
     url: string,
@@ -89,7 +92,7 @@ export function createRegistryAdmin(
       return digest;
     },
     created: async (repository, tag) =>
-      await buildTime(json, `${path(repository)}`, tag),
+      await buildTime(base, json, `${path(repository)}`, tag),
     remove: async (repository, digest) => {
       const response = await (transport.request ?? registryRequest)(
         "DELETE",

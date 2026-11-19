@@ -61,3 +61,18 @@ spec:
       allowedRoutes:
         namespaces: {{ include "platform-config.routeNamespaces" . }}
 {{- end }}
+{{- if include "platform-config.registryByName" . }}
+    # The registry keeps its own certificate, authentication and end-to-end
+    # verification (ADR 0058): the Gateway never terminates its TLS. Routing is by
+    # the SNI name, on the same port as the HTTPS listeners (agentgateway serves
+    # both on one port, issue 1218).
+    - name: {{ include "platform-config.registryListenerName" . }}
+      hostname: {{ include "platform-config.registryHostname" . | quote }}
+      port: {{ .Values.gateway.port }}
+      protocol: TLS
+      tls:
+        mode: Passthrough
+      allowedRoutes:
+        kinds: [{kind: TLSRoute}]
+        namespaces: {{ include "platform-config.routeNamespaces" . }}
+{{- end }}

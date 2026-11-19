@@ -39,6 +39,7 @@
       "database-routes": false,
       "platform-dns": false,
       "platform-shared-gateway": false,
+      "registry-by-name": false,
       "platform-hostname-ownership": false,
       "platform-portal": false,
       "automatic-retro": false,

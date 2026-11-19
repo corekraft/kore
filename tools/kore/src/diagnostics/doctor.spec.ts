@@ -18,6 +18,7 @@ vi.mock("node:os");
 // Factories name only what doctor reads, so the real barrels never load.
 vi.mock("../cluster/index.js", () => ({ k3dClusterInfo: vi.fn() }));
 vi.mock("../config/index.js", () => ({ managedCluster: vi.fn() }));
+vi.mock("./registry-name-check.js", () => ({ registryNameCheck: () => [] }));
 vi.mock("../resolver/index.js", () => ({
   resolverChecks: vi.fn(),
   systemResolverHost: vi.fn(),

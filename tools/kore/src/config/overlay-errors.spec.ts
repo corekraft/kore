@@ -11,12 +11,14 @@ import {
 import { alertEmailErrors, alertEmailWarnings } from "./alert-email.js";
 import { componentGatedOff } from "./features.js";
 import { exists } from "./files.js";
+import { flagDependencyErrors } from "./flag-dependencies.js";
 import { overlayErrors, overlayWarnings } from "./overlay-errors.js";
 
 vi.mock("node:path");
 vi.mock("./alert-email.js");
 vi.mock("./features.js");
 vi.mock("./files.js");
+vi.mock("./flag-dependencies.js");
 
 /** Paths in this set do not exist; every other path does. */
 let absent = new Set<string>();
@@ -28,6 +30,7 @@ beforeEach(() => {
   vi.mocked(componentGatedOff).mockReturnValue(false);
   vi.mocked(alertEmailErrors).mockReturnValue([]);
   vi.mocked(alertEmailWarnings).mockReturnValue([]);
+  vi.mocked(flagDependencyErrors).mockReturnValue([]);
 });
 
 const repository = (
@@ -196,4 +199,16 @@ test("the overlay's warnings are the alert email warnings", () => {
   const repo = repository([]);
   expect(overlayWarnings(repo)).toEqual(["alerts have no contact point"]);
   expect(alertEmailWarnings).toHaveBeenCalledWith(repo);
+});
+
+test("a flag turned on without the flag it needs is an overlay error, read from the environment", async () => {
+  vi.mocked(flagDependencyErrors).mockReturnValue([
+    "environment local turns on registry-by-name, which needs platform-shared-gateway",
+  ]);
+  const environment = fakeEnvironment();
+
+  expect(await overlayErrors(repository([], environment))).toEqual([
+    "environment local turns on registry-by-name, which needs platform-shared-gateway",
+  ]);
+  expect(flagDependencyErrors).toHaveBeenCalledWith(environment);
 });

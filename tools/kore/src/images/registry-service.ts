@@ -2,6 +2,7 @@ import { registryPlan, type Repository } from "../config/index.js";
 import type { Runner } from "../runtime/index.js";
 
 export { ensureRegistryForward } from "./registry.js";
+export { hostRegistryAddress } from "./registry-name.js";
 
 /**
  * Returns the environment's registry.address after proving the in-cluster

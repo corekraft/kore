@@ -10,7 +10,10 @@ import {
   withSecretsRedacted,
 } from "./registry-auth.js";
 import { withRegistryClient } from "./registry-client.js";
-import { verifiedRegistryAddress } from "./registry-service.js";
+import {
+  hostRegistryAddress,
+  verifiedRegistryAddress,
+} from "./registry-service.js";
 import { loadRegistryCa } from "./registry-tls.js";
 import {
   publishedDigest,
@@ -41,6 +44,7 @@ const entry = {
 } as ImageLockEntry;
 
 const client = {
+  address: "127.0.0.1:30500",
   authorization: "Basic xyz",
   head: vi.fn(async () => ({ status: 200, digest })),
 } as unknown as RegistryClient;
@@ -53,6 +57,7 @@ beforeEach(() => {
   vi.mocked(loadRegistryCa).mockResolvedValue("CA");
   vi.mocked(verifiedRegistryAddress).mockResolvedValue("10.96.0.50:5000");
   vi.mocked(k3dImagePublishArgs).mockReturnValue(["publish"]);
+  vi.mocked(hostRegistryAddress).mockReturnValue("127.0.0.1:30500");
   vi.mocked(withRegistryClient).mockImplementation(
     async (_credential, _ca, action) => action(client),
   );
@@ -113,6 +118,24 @@ test("a publish session loads the push credential and the registry CA, then hand
     credential,
     "CA",
     expect.any(Function),
+    "127.0.0.1:30500",
+  );
+});
+
+test("a publish session hands its client the address the host dials, which is the registry's name while registry-by-name is on", async () => {
+  vi.mocked(hostRegistryAddress).mockReturnValue(
+    "registry.platform.kore.internal",
+  );
+  const repository = fakeRepository();
+
+  await withPublishSession(repository, typedRunner().runner, async () => 1);
+
+  expect(hostRegistryAddress).toHaveBeenCalledWith(repository.environment);
+  expect(withRegistryClient).toHaveBeenCalledWith(
+    credential,
+    "CA",
+    expect.any(Function),
+    "registry.platform.kore.internal",
   );
 });
 
@@ -221,5 +244,20 @@ test("the digest is read back from the tag this run pushed, through the registry
   expect(imageDigestFromRegistryHead).toHaveBeenCalledWith(
     200,
     `docker-content-digest: ${digest}`,
+  );
+});
+
+test("the digest is read from the address the client dials, so the registry's name replaces the forward", async () => {
+  vi.mocked(imageDigestFromRegistryHead).mockReturnValue(digest);
+  const named = {
+    ...client,
+    address: "registry.platform.kore.internal",
+  } as unknown as RegistryClient;
+
+  await publishedDigest("team/reference", named, "run");
+
+  expect(named.head).toHaveBeenCalledWith(
+    "https://registry.platform.kore.internal/v2/team/reference/manifests/run",
+    expect.anything(),
   );
 });

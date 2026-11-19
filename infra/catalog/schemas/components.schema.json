@@ -76,6 +76,11 @@
             "type": "boolean",
             "description": "The component attaches a route to the shared Gateway; while platform-shared-gateway is on the platform labels its namespace platform.kore.dev/shared-gateway: \"true\" (ADR 0134)."
           },
+          "sharedGatewayRouteFlag": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9-]*$",
+            "description": "With sharedGatewayRoutes, the flag under which the route renders at all; the namespace is labelled only while this flag is on as well (ADR 0132)."
+          },
           "ownsCRDGroups": {
             "type": "array",
             "items": { "type": "string", "minLength": 1 }

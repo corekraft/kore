@@ -285,3 +285,58 @@ test("a shared Gateway label kore applied is released once the flag is off again
     "--field-manager=kore-shared-gateway-enrollment",
   );
 });
+
+// Docs: docs/decisions/0132-local-names-resolve-through-platform-dns-and-one-loopback-entry-point.md
+// A component whose route renders only under its own flag (the registry's
+// passthrough route, registry-by-name) is labelled only while that flag is on
+// as well, so the flag off changes no namespace.
+
+const registryRoute = fakeComponent({
+  namespace: "kore-registry",
+  sharedGatewayRoutes: true,
+  sharedGatewayRouteFlag: "registry-by-name",
+});
+
+function withFlags(registryByName: boolean) {
+  return fakeRepository({
+    imageInventory: "audit",
+    features: {
+      "platform-shared-gateway": true,
+      "registry-by-name": registryByName,
+    },
+  });
+}
+
+test("with registry-by-name and platform-shared-gateway on, the registry's namespace is labelled for the shared Gateway", async () => {
+  vi.mocked(managedNamespaces).mockResolvedValue([]);
+  vi.mocked(enabledComponents).mockReturnValue([registryRoute]);
+  const { runner, run } = cluster([{ name: "kore-registry" }]);
+  await enrollPlatformNamespaces(withFlags(true), runner);
+  const [applied, ...rest] = applies(run);
+  expect(rest).toEqual([]);
+  expect(appliedName({ input: applied!.input })).toBe("kore-registry");
+  expect(applied!.input).toContain(`${sharedGateway}: "true"`);
+});
+
+test("with registry-by-name off, the registry's namespace is not labelled even while platform-shared-gateway is on", async () => {
+  vi.mocked(managedNamespaces).mockResolvedValue([]);
+  vi.mocked(enabledComponents).mockReturnValue([registryRoute]);
+  const { runner, run } = cluster([{ name: "kore-registry" }]);
+  await enrollPlatformNamespaces(withFlags(false), runner);
+  expect(applies(run)).toEqual([]);
+});
+
+test("a label kore applied to the registry's namespace is released once registry-by-name is off again", async () => {
+  vi.mocked(managedNamespaces).mockResolvedValue([]);
+  vi.mocked(enabledComponents).mockReturnValue([registryRoute]);
+  const { runner, run } = cluster([
+    {
+      name: "kore-registry",
+      labels: { [sharedGateway]: "true" },
+      manager: "kore-shared-gateway-enrollment",
+    },
+  ]);
+  await enrollPlatformNamespaces(withFlags(false), runner);
+  const [released] = applies(run);
+  expect(released!.input).not.toContain(sharedGateway);
+});

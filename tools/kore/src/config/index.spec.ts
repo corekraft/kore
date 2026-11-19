@@ -101,6 +101,10 @@ vi.mock("./registry-address.js", () => ({
   registryHelmArgs: vi.fn(),
   registryPlan: vi.fn(),
 }));
+vi.mock("./registry-name.js", () => ({
+  registryByName: vi.fn(),
+  registryHostname: vi.fn(),
+}));
 vi.mock("./validate.js", () => ({ validateRepository: vi.fn() }));
 
 const entryPoints = [
@@ -159,8 +163,10 @@ const entryPoints = [
   "providerOwnsCrd",
   "recordPromotionEvidence",
   "registeredServiceHelmArgs",
+  "registryByName",
   "registryConsumers",
   "registryHelmArgs",
+  "registryHostname",
   "registryPlan",
   "registryPruneFlag",
   "releaseOwner",

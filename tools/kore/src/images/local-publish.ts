@@ -12,7 +12,10 @@ import {
 } from "./registry-auth.js";
 import { loadRegistryCa } from "./registry-tls.js";
 import { withRegistryClient, type RegistryClient } from "./registry-client.js";
-import { verifiedRegistryAddress } from "./registry-service.js";
+import {
+  hostRegistryAddress,
+  verifiedRegistryAddress,
+} from "./registry-service.js";
 
 // Docs: docs/decisions/0034-registry-authentication-and-authorization.md
 
@@ -56,8 +59,11 @@ export async function withPublishSession<T>(
   requireK3d(repository); // fail fast, before any command runs
   const credential = await loadRegistryCredential(repository, runner, "push");
   const ca = await loadRegistryCa(repository, runner);
-  return await withRegistryClient(credential, ca, (client) =>
-    action({ credential, ca, client }),
+  return await withRegistryClient(
+    credential,
+    ca,
+    (client) => action({ credential, ca, client }),
+    hostRegistryAddress(repository.environment),
   );
 }
 
@@ -139,7 +145,7 @@ export async function publishToLocalRegistry(
 
 async function headManifest(
   repositoryPath: string,
-  client: Pick<RegistryClient, "authorization" | "head">,
+  client: Pick<RegistryClient, "address" | "authorization" | "head">,
   tag: string,
 ): ReturnType<RegistryClient["head"]> {
   const manifestPath = repositoryPath
@@ -147,7 +153,7 @@ async function headManifest(
     .map(encodeURIComponent)
     .join("/");
   return await client.head(
-    `https://127.0.0.1:30500/v2/${manifestPath}/manifests/${tag}`,
+    `https://${client.address}/v2/${manifestPath}/manifests/${tag}`,
     { Accept: manifestAccept, Authorization: client.authorization },
   );
 }
@@ -155,7 +161,7 @@ async function headManifest(
 /** The digest `tag` names in the registry, or undefined when nothing holds the tag. */
 export async function digestIfPublished(
   repositoryPath: string,
-  client: Pick<RegistryClient, "authorization" | "head">,
+  client: Pick<RegistryClient, "address" | "authorization" | "head">,
   tag: string,
 ): Promise<string | undefined> {
   const manifest = await headManifest(repositoryPath, client, tag);
@@ -169,7 +175,7 @@ export async function digestIfPublished(
 
 export async function publishedDigest(
   repositoryPath: string,
-  client: Pick<RegistryClient, "authorization" | "head">,
+  client: Pick<RegistryClient, "address" | "authorization" | "head">,
   tag = "kore-local",
 ): Promise<string> {
   const manifest = await headManifest(repositoryPath, client, tag);

@@ -76,6 +76,9 @@ export const platformDnsFlag = "platform-dns";
 /** The flag that installs the hostname-ownership constraint and the zone field it reads from the Organization API (ADR 0042, issue 1331). */
 export const platformHostnameOwnershipFlag = "platform-hostname-ownership";
 
+/** The flag that makes host-side digest lookup, cosign and pruning reach the registry by name through a passthrough route, not the port-forward (ADR 0132, issue 1219). */
+export const registryByNameFlag = "registry-by-name";
+
 /** The flag that gates the platform organization's portal: its Keycloak and, later, its Backstage (ADR 0113, plan 15 step 6). */
 export const platformPortalFlag = "platform-portal";
 

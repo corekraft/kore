@@ -24,7 +24,18 @@ tls:
   # its certificate at start, so renewal needs a pod restart; ten years keeps
   # rotation a deliberate, documented act rather than a surprise outage.
   duration: 87600h
+registryRoute:
+  # Kore passes these while registry-by-name is on (ADR 0132); never set them in an
+  # environment overlay. The name and the shared Gateway the route attaches to
+  # come from the environment's platform field and gateway.
+  hostname: ""
+  gateway:
+    name: ""
+    namespace: ""
+  # The platform-config chart's passthrough listener for the registry's name.
+  sectionName: tls-registry
 features:
   # Kore passes the environment's flags here (ADR 0077). Off renders the registry
-  # exactly as before: it refuses manifest deletes.
+  # exactly as before: it refuses manifest deletes, and no route or name is added.
   registry-tag-pruning: false
+  registry-by-name: false

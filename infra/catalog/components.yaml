@@ -31,6 +31,8 @@
         "kind": "local-chart",
         "chart": "infra/charts/oci-registry",
         "version": "local",
+        "sharedGatewayRoutes": true,
+        "sharedGatewayRouteFlag": "registry-by-name",
         "ownsCRDs": [],
         "dependencies": ["kore-gateway-api", "cert-manager"],
         "timeout": "10m",

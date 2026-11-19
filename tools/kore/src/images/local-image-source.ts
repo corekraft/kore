@@ -82,7 +82,7 @@ export async function lookUpSource(
   const source = await sourceTag(repository, runner, application);
   let digest: string | undefined;
   if (source !== undefined) {
-    // The lookup dials 127.0.0.1:30500, which only the port-forward serves.
+    // The lookup dials the client's address: the port-forward, or the registry's name.
     await ensureRegistryForward(repository, runner);
     digest = await digestIfPublished(repositoryPath, client, source);
   }
