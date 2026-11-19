@@ -22,6 +22,18 @@ export const enrollmentFieldManager = "kore-enrollment";
 export const meshFieldManager = "kore-mesh-enrollment";
 const ambientLabel = "istio.io/dataplane-mode";
 
+/**
+ * The label the shared Gateway's listeners select on (ADR 0134), on the
+ * namespaces of the components that attach a route to it, owned as
+ * `kore-shared-gateway-enrollment`. It applies only while
+ * platform-shared-gateway is on and releases when the flag goes off.
+ */
+export const sharedGatewayFieldManager = "kore-shared-gateway-enrollment";
+
+function sharedGatewayOn(repository: Repository): boolean {
+  return repository.environment.features?.["platform-shared-gateway"] === true;
+}
+
 interface NamespaceList {
   items?: {
     metadata: {
@@ -39,6 +51,11 @@ interface LabelOwner {
   manager: string;
 }
 
+const sharedGatewayOwner: LabelOwner = {
+  label: "platform.kore.dev/shared-gateway",
+  value: "true",
+  manager: sharedGatewayFieldManager,
+};
 const imageOwner: LabelOwner = {
   label: enrollmentLabel,
   value: "true",
@@ -138,46 +155,59 @@ export async function enrollPlatformNamespaces(
       await apply(repository, runner, namespace, false);
     }
   }
-  await enrollAmbient(repository, runner, existing);
+  await enrollOwned(runner, repository, existing, {
+    owner: meshOwner,
+    purpose: "in the mesh",
+    namespaces: enabledComponents(repository)
+      .filter(({ meshEnrolled }) => meshEnrolled)
+      .map(({ namespace }) => namespace),
+  });
+  await enrollOwned(runner, repository, existing, {
+    owner: sharedGatewayOwner,
+    purpose: "for the shared Gateway",
+    namespaces: sharedGatewayOn(repository)
+      ? enabledComponents(repository)
+          .filter(({ sharedGatewayRoutes }) => sharedGatewayRoutes)
+          .map(({ namespace }) => namespace)
+      : [],
+  });
 }
 
-async function enrollAmbient(
-  repository: Repository,
+type Existing = Map<
+  string,
+  { labels?: Record<string, string>; managedFields?: { manager?: string }[] }
+>;
+
+/**
+ * Keeps one label on exactly the namespaces wanted, under its own manager. A
+ * label only this manager applied is released; another owner's is never touched.
+ */
+async function enrollOwned(
   runner: Runner,
-  existing: Map<
-    string,
-    { labels?: Record<string, string>; managedFields?: { manager?: string }[] }
-  >,
+  repository: Repository,
+  existing: Existing,
+  target: { owner: LabelOwner; purpose: string; namespaces: string[] },
 ): Promise<void> {
-  const desired = [
-    ...new Set(
-      enabledComponents(repository)
-        .filter(({ meshEnrolled }) => meshEnrolled)
-        .map(({ namespace }) => namespace),
-    ),
-  ].sort();
+  const { owner, purpose } = target;
+  const desired = [...new Set(target.namespaces)].sort();
   const missing = desired.filter((namespace) => !existing.has(namespace));
   if (missing.length) {
     throw new Error(
-      `cannot enroll platform namespace ${missing.join(", ")} in the mesh: namespace ${missing.join(", ")} does not exist. Its release did not create it; fix that release and rerun kore platform up`,
+      `cannot enroll platform namespace ${missing.join(", ")} ${purpose}: namespace ${missing.join(", ")} does not exist. Its release did not create it; fix that release and rerun kore platform up`,
     );
   }
-  const applyMesh = (namespace: string, labelled: boolean) =>
-    apply(repository, runner, namespace, labelled, meshOwner);
   for (const namespace of desired) {
-    if (existing.get(namespace)?.labels?.[ambientLabel] !== "ambient") {
-      await applyMesh(namespace, true);
+    if (existing.get(namespace)?.labels?.[owner.label] !== owner.value) {
+      await apply(repository, runner, namespace, true, owner);
     }
   }
   const wanted = new Set(desired);
   for (const [namespace, metadata] of existing) {
     if (
       !wanted.has(namespace) &&
-      metadata.managedFields?.some(
-        ({ manager }) => manager === meshFieldManager,
-      )
+      metadata.managedFields?.some(({ manager }) => manager === owner.manager)
     ) {
-      await applyMesh(namespace, false);
+      await apply(repository, runner, namespace, false, owner);
     }
   }
 }

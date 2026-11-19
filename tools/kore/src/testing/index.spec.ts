@@ -131,6 +131,7 @@ const FORWARDS: Record<string, readonly string[]> = {
   ],
   "../platform/bootstrap.js": ["bootstrapControllers"],
   "../platform/enrollment.js": ["enrollPlatformNamespaces"],
+  "../app/install.js": ["applicationNamespaceManifest"],
   "../platform/gated-release.js": ["managedNamespaces"],
   "../platform/fingerprint.js": ["desiredFingerprint"],
   "../platform/status.js": ["platformStatus"],

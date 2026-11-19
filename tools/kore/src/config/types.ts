@@ -42,6 +42,13 @@ export interface Component {
    * creates the namespace unlabelled; kore owns only the label.
    */
   meshEnrolled?: boolean;
+  /**
+   * Whether the component attaches a route to the shared Gateway. While
+   * `platform-shared-gateway` is on, the platform labels its namespace
+   * `platform.kore.dev/shared-gateway: "true"` so the Gateway admits the route
+   * (ADR 0134). Helm creates the namespace unlabelled; kore owns only the label.
+   */
+  sharedGatewayRoutes?: boolean;
   dependencies: string[];
   timeout: string;
   values?: string[];

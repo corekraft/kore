@@ -82,6 +82,28 @@ test("enrollment applies the namespace with the ambient mesh and the Sigstore ad
   ]);
 });
 
+test("with platform-shared-gateway on, enrollment also labels the namespace so the shared Gateway admits its route", async () => {
+  const { run, runner } = fakeRunner(() => "true");
+  await enrollNamespace(
+    fakeRepository({ features: { "platform-shared-gateway": true } }),
+    runner,
+    name,
+  );
+  expect(run.mock.calls[0]?.[2]?.input).toBe(
+    `apiVersion: v1\nkind: Namespace\nmetadata:\n  name: reference\n  labels:\n    istio.io/dataplane-mode: ambient\n    ${label}: "true"\n    platform.kore.dev/shared-gateway: "true"\n`,
+  );
+});
+
+test("with platform-shared-gateway off, enrollment never adds the shared Gateway label", async () => {
+  const { run, runner } = fakeRunner(() => "true");
+  await enrollNamespace(
+    fakeRepository({ features: { "platform-shared-gateway": false } }),
+    runner,
+    name,
+  );
+  expect(run.mock.calls[0]?.[2]?.input).not.toContain("shared-gateway");
+});
+
 test("enrollment reads the admission label back before returning, so an unlabelled namespace is never reported as enrolled", async () => {
   const { run, runner } = fakeRunner(() => "true");
   await enrollNamespace(repository, runner, name);

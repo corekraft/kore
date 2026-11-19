@@ -45,6 +45,27 @@ export async function resolveCharts(
 }
 
 const admissionLabel = "policy.sigstore.dev/include";
+const sharedGatewayLabel = "platform.kore.dev/shared-gateway";
+
+/**
+ * The shared Gateway admits routes only from namespaces carrying this label
+ * (ADR 0134), so an app namespace holding a route needs it while
+ * platform-shared-gateway is on. Off, nothing is added and the namespace is
+ * applied exactly as before.
+ */
+function sharedGatewayLabelLines(repository: Repository): string {
+  return repository.environment.features?.["platform-shared-gateway"] === true
+    ? `    ${sharedGatewayLabel}: "true"\n`
+    : "";
+}
+
+/** The Namespace `kore app up` applies for an application, labels included. */
+export function applicationNamespaceManifest(
+  repository: Repository,
+  name: string,
+): string {
+  return `apiVersion: v1\nkind: Namespace\nmetadata:\n  name: ${name}\n  labels:\n    istio.io/dataplane-mode: ambient\n    ${admissionLabel}: "true"\n${sharedGatewayLabelLines(repository)}`;
+}
 
 /**
  * `kore app up` is the single owner of an application namespace, its mesh
@@ -71,7 +92,7 @@ export async function enrollNamespace(
     ],
     {
       capture: true,
-      input: `apiVersion: v1\nkind: Namespace\nmetadata:\n  name: ${name}\n  labels:\n    istio.io/dataplane-mode: ambient\n    ${admissionLabel}: "true"\n`,
+      input: applicationNamespaceManifest(repository, name),
     },
   );
   const { stdout } = await runner.run(

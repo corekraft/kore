@@ -122,6 +122,7 @@ export {
 export type { FakeEvent } from "../platform/fail-fast.fixtures.js";
 export { bootstrapControllers } from "../platform/bootstrap.js";
 export { enrollPlatformNamespaces } from "../platform/enrollment.js";
+export { applicationNamespaceManifest } from "../app/install.js";
 export { managedNamespaces } from "../platform/gated-release.js";
 export { currentGateParameters } from "../platform/admission-gate-support.js";
 // Platform units that the integration specs of Helm, reconcile and patches run

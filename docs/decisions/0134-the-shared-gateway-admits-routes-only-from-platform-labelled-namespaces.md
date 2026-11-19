@@ -39,6 +39,27 @@ namespaces the platform owns.
   cannot set labels (ADR 0025), so who applies the label to each of them is an
   open question for the step that first attaches such a route.
 
+## Proposed change: who labels the reference namespace and the portal
+
+Found by the sixth #1210 run (#1350): the `reference` namespace was unlabelled,
+so its route (host `kore.local`, parent `kore-gateway`) was refused with
+`NoMatchingListenerHostname`. The proposal, for the owner to accept or change:
+
+- **Application namespaces** (`reference`, any `kore app up` application):
+  `kore app up` already applies each namespace to set the mesh and admission
+  labels (ADR 0025, ADR 0032), so it adds the shared-gateway label to the same
+  manifest while `platform-shared-gateway` is on. No chart value is passed, the
+  workload chart renders the same, and the flag off applies the namespace
+  exactly as before.
+- **Catalog components with a route** (the portal's `backstage` namespace): a
+  catalog component sets `sharedGatewayRoutes`, and platform enrollment labels
+  its namespace under the field manager `kore-shared-gateway-enrollment` while
+  the flag is on, and releases the label when it goes off. This follows
+  `meshEnrolled` (ADR 0056), since Helm's `--create-namespace` cannot label.
+  The other platform namespaces stay open until one of them attaches a route.
+- **A test** renders every route-bearing chart with the flag on and fails when a
+  route on the shared Gateway sits in a namespace no owner labels.
+
 ## Consequences
 
 - A route from a namespace without the label is not admitted by the shared
