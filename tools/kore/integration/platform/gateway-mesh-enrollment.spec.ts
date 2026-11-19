@@ -14,6 +14,11 @@ import { localPlatform } from "../local-platform-support.js";
 
 const platform = await localPlatform();
 
+// The shared Gateway adds a standard-port entry to the Service and a second
+// listener, so every render here states the flag instead of reading the local
+// overlay's default; the cases below name the state they depend on.
+const sharedGatewayFlag = "platform-shared-gateway";
+
 async function overlay(
   name: string,
   features: Record<string, boolean>,
@@ -23,7 +28,11 @@ async function overlay(
     ...base,
     environment: {
       ...base.environment,
-      features: { ...base.environment.features, ...features },
+      features: {
+        ...base.environment.features,
+        [sharedGatewayFlag]: false,
+        ...features,
+      },
     },
   };
 }
@@ -152,4 +161,62 @@ test("the Istio class never carries the pod label or the extra PeerAuthenticatio
     }),
   );
   assert.doesNotMatch(output, /dataplane-mode|PERMISSIVE/);
+});
+
+const sharedOn = { [sharedGatewayFlag]: true };
+
+test("with the shared Gateway on, agentgateway still labels the pod and publishes the Service on the standard port, forwarding to the listener port", async () => {
+  const output = render(await overlay("local", { ...enrolled, ...sharedOn }));
+  assert.match(output, /gatewayClassName: agentgateway/);
+  assert.match(
+    output,
+    /infrastructure:\s+(?:#.*\s+)*labels: \{istio\.io\/dataplane-mode: ambient\}\s+parametersRef: \{group: agentgateway\.dev, kind: AgentgatewayParameters, name: kore-gateway-service\}/,
+  );
+  assert.match(
+    output,
+    new RegExp(
+      `port: 443\\s+name: https-standard\\s+targetPort: ${platform.gatewayPort}\\s+nodePort: 30443`,
+    ),
+  );
+  assert.doesNotMatch(
+    output,
+    new RegExp(`port: ${platform.gatewayPort}\\s+nodePort`),
+  );
+});
+
+test("with the shared Gateway on, the gateway PeerAuthentication is still permissive on the listener port only", async () => {
+  const output = render(await overlay("local", { ...enrolled, ...sharedOn }));
+  const docs = output
+    .split(/^---$/m)
+    .filter((doc) => doc.includes("kind: PeerAuthentication"));
+  assert.equal(docs.length, 2);
+  const gateway = docs.find((doc) => doc.includes("kore-gateway"))!;
+  assert.match(
+    gateway,
+    new RegExp(
+      `portLevelMtls:\\s+"${platform.gatewayPort}": \\{mode: PERMISSIVE\\}`,
+    ),
+  );
+  assert.equal(gateway.match(/PERMISSIVE/g)?.length, 1);
+  assert.doesNotMatch(gateway, /mode: DISABLE/);
+});
+
+test("with the shared Gateway on, the flag alone still does nothing under the istio class beyond what the shared Gateway itself renders", async () => {
+  const withEnrollment = render(
+    await overlay("local", {
+      [ingressFlag]: false,
+      [agentgatewayMeshEnrollmentFlag]: true,
+      ...sharedOn,
+    }),
+  );
+  const without = render(
+    await overlay("local", {
+      [ingressFlag]: false,
+      [agentgatewayMeshEnrollmentFlag]: false,
+      ...sharedOn,
+    }),
+  );
+  assert.equal(withEnrollment, without);
+  assert.match(withEnrollment, /gatewayClassName: istio/);
+  assert.doesNotMatch(withEnrollment, /dataplane-mode|PERMISSIVE/);
 });
