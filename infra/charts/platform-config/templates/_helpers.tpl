@@ -37,3 +37,16 @@ reaches the listener through targetPort; otherwise the listener's own port.
 {{- define "platform-config.servicePort" -}}
 {{- if include "platform-config.sharedGateway" . -}}{{ .Values.gateway.sharedServicePort }}{{- else -}}{{ .Values.gateway.port }}{{- end -}}
 {{- end -}}
+
+{{/*
+The name of the standard-port entry the overlay adds to the Gateway Service with
+the shared Gateway on. The controller generates the listener port (8443) under
+its own name (agentgateway: listener-<port>; Istio: the first listener's name,
+`https`, beside status-port), and the overlay's port is a different number, so
+the merge appends it as a new entry. Kubernetes requires every port to be named
+once a Service has more than one, and the name must differ from the generated
+ones.
+*/}}
+{{- define "platform-config.servicePortName" -}}
+https-standard
+{{- end -}}
