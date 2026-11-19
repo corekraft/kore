@@ -1,12 +1,15 @@
 import { expect, test } from "vitest";
 import { loadRepository } from "../../src/config/index.js";
 import { stopRegistryForward } from "../../src/images/index.js";
+import { localPlatform } from "../local-platform-support.js";
+
+const platform = await localPlatform();
 
 test("stops the kore registry port-forward for this context only, idempotently", async () => {
   const repository = await loadRepository("local");
   const ctx = repository.environment.kubeContext;
   const forward = (context: string) =>
-    `kubectl --context ${context} --namespace kore-registry port-forward service/oci-registry 30500:5000`;
+    `kubectl --context ${context} --namespace kore-registry port-forward service/oci-registry ${platform.registryPort}:5000`;
   const signalled: number[] = [];
   const lines: string[] = [];
   const dependencies = {

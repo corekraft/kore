@@ -5,11 +5,14 @@ import { loadRepository, validateRepository } from "../../src/config/index.js";
 import { loadManagedLocal } from "../../src/testing/index.js";
 import { managedCluster } from "../../src/config/index.js";
 import type { Environment, Repository } from "../../src/config/index.js";
+import { localPlatform } from "../local-platform-support.js";
+
+const platform = await localPlatform();
 
 const k3d = {
   clusterName: "kore-local",
   serviceCidr: "10.96.0.0/12",
-  ports: [{ hostPort: 8443, loadBalancerPort: 443 }],
+  ports: [{ hostPort: platform.hostPort, loadBalancerPort: 443 }],
 } as const;
 
 async function validationError(repository: Repository): Promise<string> {
@@ -96,8 +99,8 @@ test("a k3d overlay rejects a malformed cluster name, CIDR, ports and counts", a
       serviceCidr: "not-a-cidr",
       ports: [
         { hostPort: 0, loadBalancerPort: 443 },
-        { hostPort: 8443, loadBalancerPort: "https" },
-        { hostPort: 8443, loadBalancerPort: 80 },
+        { hostPort: platform.hostPort, loadBalancerPort: "https" },
+        { hostPort: platform.hostPort, loadBalancerPort: 80 },
       ],
       servers: 0,
       agents: -1,
@@ -113,7 +116,12 @@ test("a k3d overlay rejects a malformed cluster name, CIDR, ports and counts", a
     message,
     /environment\.k3d\.ports\[1\]\.loadBalancerPort must be an integer from 1 to 65535/,
   );
-  assert.match(message, /environment\.k3d\.ports maps host port 8443 twice/);
+  assert.match(
+    message,
+    new RegExp(
+      `environment\\.k3d\\.ports maps host port ${platform.hostPort} twice`,
+    ),
+  );
   assert.match(
     message,
     /environment\.k3d\.servers must be an integer of at least 1/,

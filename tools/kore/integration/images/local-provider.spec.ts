@@ -9,6 +9,9 @@ import {
   buildAndSignLocalImage,
   publishImageCopy,
 } from "../../src/images/index.js";
+import { localPlatform } from "../local-platform-support.js";
+
+const platform = await localPlatform();
 
 // Docs: docs/decisions/0083-k3d-publishes-through-the-node-containerd-client.md
 
@@ -40,7 +43,7 @@ test("image build fails before any command when the provider is not k3d", async 
   const { runner, calls } = fakeRunner();
   await expect(
     buildAndSignLocalImage(await managedOverlay(), runner, "reference", {
-      image: "registry.kore.local:30500/reference",
+      image: `${platform.registry}/reference`,
       digest: "sha256:" + "a".repeat(64),
       signer: "s",
     }),

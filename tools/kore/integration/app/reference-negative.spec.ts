@@ -6,6 +6,9 @@ import { join } from "node:path";
 import { promisify } from "node:util";
 import { test } from "vitest";
 import { findRoot } from "../../src/config/index.js";
+import { localPlatform } from "../local-platform-support.js";
+
+const platform = await localPlatform();
 
 // Docs: docs/decisions/0017-gatekeeper-policy-families-audit-first.md
 // Offline negative tests for the reference application: the rendered
@@ -33,7 +36,7 @@ async function renderedWorkloads(): Promise<string> {
     "reference-workload",
     join(root, "apps/reference/charts/workload"),
     "--set",
-    "platform.gateway.hostname=kore.local",
+    `platform.gateway.hostname=${platform.domain}`,
     // `app up` always deploys by digest (ADR 0073), so render the way it does.
     "--set-string",
     `image.digest=sha256:${"a".repeat(64)}`,

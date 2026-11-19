@@ -4,6 +4,9 @@ import { test } from "vitest";
 import { loadRepository } from "../../src/config/index.js";
 import type { Runner } from "../../src/runtime/index.js";
 import { reconcileComponent } from "../../src/testing/index.js";
+import { localPlatform } from "../local-platform-support.js";
+
+const platform = await localPlatform();
 
 interface Call {
   command: string;
@@ -35,7 +38,10 @@ function route(conditions: object[] | undefined): string {
 const nodePortService = JSON.stringify({
   items: [
     {
-      spec: { type: "NodePort", ports: [{ port: 8443, nodePort: 30443 }] },
+      spec: {
+        type: "NodePort",
+        ports: [{ port: platform.gatewayPort, nodePort: 30443 }],
+      },
       status: { loadBalancer: {} },
     },
   ],
@@ -158,7 +164,9 @@ test("a NodePort Service without an assigned node port is not published", async 
     route([]),
     true,
     JSON.stringify({
-      items: [{ spec: { type: "NodePort", ports: [{ port: 8443 }] } }],
+      items: [
+        { spec: { type: "NodePort", ports: [{ port: platform.gatewayPort }] } },
+      ],
     }),
   );
 
@@ -176,7 +184,10 @@ test("a NodePort Service on a different node port than configured is not publish
     JSON.stringify({
       items: [
         {
-          spec: { type: "NodePort", ports: [{ port: 8443, nodePort: 31111 }] },
+          spec: {
+            type: "NodePort",
+            ports: [{ port: platform.gatewayPort, nodePort: 31111 }],
+          },
         },
       ],
     }),

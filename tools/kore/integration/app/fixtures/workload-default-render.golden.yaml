@@ -191,7 +191,7 @@ metadata: {name: reference}
 spec:
   parentRefs:
     - {name: kore-gateway, namespace: kore-system }
-  hostnames: ["kore.local"]
+  hostnames: ["@PLATFORM_DOMAIN@"]
   rules:
     - matches: [{path: {type: PathPrefix, value: /}}]
       backendRefs: [{name: reference-frontend, port: 8080}]

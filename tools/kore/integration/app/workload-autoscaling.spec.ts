@@ -4,11 +4,14 @@ import { join } from "node:path";
 import { promisify } from "node:util";
 import { expect, test } from "vitest";
 import { findRoot } from "../../src/config/index.js";
+import { localPlatform } from "../local-platform-support.js";
+
+const platform = await localPlatform();
 
 const run = promisify(execFile);
 const goldenPath =
   "tools/kore/integration/app/fixtures/workload-default-render.golden.yaml";
-const regenerate = `helm template reference apps/reference/charts/workload --set platform.gateway.hostname=kore.local > ${goldenPath}`;
+const regenerate = `helm template reference apps/reference/charts/workload --set platform.gateway.hostname=${platform.domain} | sed 's/${platform.domain}/@PLATFORM_DOMAIN@/g' > ${goldenPath}`;
 
 async function render(...set: string[]): Promise<string> {
   const chart = join(await findRoot(), "apps/reference/charts/workload");
@@ -18,7 +21,7 @@ async function render(...set: string[]): Promise<string> {
       "reference",
       chart,
       "--set",
-      "platform.gateway.hostname=kore.local",
+      `platform.gateway.hostname=${platform.domain}`,
       ...set,
     ])
   ).stdout;
@@ -126,10 +129,10 @@ test("autoscaling without a cpu request is refused naming the value", async () =
 });
 
 test("the default render is byte-identical to the golden render taken before autoscaling existed", async () => {
-  const golden = await readFile(
-    join(await findRoot(), goldenPath),
-    "utf8",
-  ).catch(() => "");
+  // The golden holds the platform domain as a placeholder so it follows the overlay.
+  const golden = (
+    await readFile(join(await findRoot(), goldenPath), "utf8").catch(() => "")
+  ).replaceAll("@PLATFORM_DOMAIN@", platform.domain);
   expect(
     await render(),
     `the default workload render changed; if intended, regenerate with: ${regenerate}`,

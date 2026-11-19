@@ -11,6 +11,9 @@ import {
 import { loadRepository, validateRepository } from "../../src/config/index.js";
 import { helmTemplateArgs } from "../../src/platform/index.js";
 import { withAbsoluteChart } from "../../src/testing/index.js";
+import { localPlatform } from "../local-platform-support.js";
+
+const platform = await localPlatform();
 
 async function localWith(features: unknown): Promise<Repository> {
   const base = await loadRepository("local");
@@ -78,7 +81,10 @@ test("with the flag on the Gateway class changes and its Service is published th
   );
   assert.match(on, /kind: AgentgatewayParameters/);
   assert.match(on, /type: NodePort/);
-  assert.match(on, /port: 8443\s+nodePort: 30443/);
+  assert.match(
+    on,
+    new RegExp(`port: ${platform.gatewayPort}\\s+nodePort: 30443`),
+  );
 });
 
 test("with the flag on, an overlay that sets no Gateway service renders no parameters resource", async () => {

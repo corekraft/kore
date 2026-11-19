@@ -10,6 +10,9 @@ import {
   orderedComponents,
   validateRepository,
 } from "../../src/config/index.js";
+import { localPlatform } from "../local-platform-support.js";
+
+const platform = await localPlatform();
 
 // Docs: docs/decisions/0043-platform-configuration-through-argo-cd.md
 
@@ -196,7 +199,7 @@ test("the delivery chart is a gated catalog release installed after Argo CD and 
 
 const ingressSet = [
   "--set",
-  "ingress.host=auth.acme.kore.local",
+  `ingress.host=auth.acme.${platform.domain}`,
   "--set",
   "ingress.gatewayClassName=agentgateway",
   "--set",
@@ -218,7 +221,7 @@ test("a service host gets a Gateway listener, a Certificate and an HTTPRoute, al
   ]);
   const gateway = docs.find((d) => kindOf(d) === "Gateway")!;
   assert.match(gateway, /gatewayClassName: "agentgateway"/);
-  assert.match(gateway, /hostname: "auth.acme.kore.local"/);
+  assert.ok(gateway.includes(`hostname: "auth.acme.${platform.domain}"`));
   assert.match(gateway, /protocol: HTTPS/);
   assert.match(gateway, /mode: Terminate/);
   assert.match(gateway, /name: auth-tls/);
@@ -229,7 +232,7 @@ test("the certificate covers exactly the service host and is issued by the platf
   const docs = await workload(...ingressSet);
   const cert = docs.find((d) => kindOf(d) === "Certificate")!;
   assert.match(cert, /secretName: auth-tls/);
-  assert.match(cert, /- "auth.acme.kore.local"/);
+  assert.ok(cert.includes(`- "auth.acme.${platform.domain}"`));
   assert.match(cert, /kind: ClusterIssuer/);
   assert.match(cert, /name: kore-local-ca/);
 });
@@ -237,7 +240,7 @@ test("the certificate covers exactly the service host and is issued by the platf
 test("the route sends the BFF path to the BFF and everything else to the frontend, through the service's own gateway", async () => {
   const docs = await workload(...ingressSet);
   const route = docs.find((d) => kindOf(d) === "HTTPRoute")!;
-  assert.match(route, /- "auth.acme.kore.local"/);
+  assert.ok(route.includes(`- "auth.acme.${platform.domain}"`));
   assert.match(route, /kind: Gateway\n\s+name: auth\n/);
   assert.match(route, /value: \/api/);
   assert.match(route, /name: auth-bff/);
@@ -253,7 +256,7 @@ test("the workload chart renders no ingress resource unless a host is given, so 
 
 test("a host without a gateway class is refused so no listener is rendered for a class that does not exist", async () => {
   const message = await failure(
-    workload("--set", "ingress.host=auth.acme.kore.local"),
+    workload("--set", `ingress.host=auth.acme.${platform.domain}`),
   );
   assert.match(message, /gatewayClassName/);
 });
@@ -261,7 +264,7 @@ test("a host without a gateway class is refused so no listener is rendered for a
 test("the ApplicationSet derives each host from the registration's organization and the platform domain, as the Service composition does", async () => {
   const docs = await delivery(
     "--set",
-    "ingress.platformDomain=kore.local",
+    `ingress.platformDomain=${platform.domain}`,
     "--set",
     "ingress.gatewayClassName=agentgateway",
   );
@@ -269,7 +272,7 @@ test("the ApplicationSet derives each host from the registration's organization 
   assert.match(set, /name: ingress.host/);
   assert.ok(
     set.includes(
-      "value: '{{ .metadata.name }}.{{ .spec.organization }}.kore.local'",
+      `value: '{{ .metadata.name }}.{{ .spec.organization }}.${platform.domain}'`,
     ),
   );
   assert.match(set, /name: ingress.gatewayClassName/);
@@ -285,7 +288,7 @@ test("the ApplicationSet passes no ingress parameter unless the platform domain 
 
 test("an ingress without a gateway class is refused by the delivery chart", async () => {
   const message = await failure(
-    delivery("--set", "ingress.platformDomain=kore.local"),
+    delivery("--set", `ingress.platformDomain=${platform.domain}`),
   );
   assert.match(message, /gatewayClassName/);
 });

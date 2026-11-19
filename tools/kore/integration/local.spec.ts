@@ -22,19 +22,22 @@ import {
   localDockerBuildArgs,
 } from "../src/images/index.js";
 import { loadManagedLocal } from "../src/testing/index.js";
+import { localPlatform } from "./local-platform-support.js";
+
+const platform = await localPlatform();
 
 test("local image build uses the application Dockerfile and context", () => {
   expect(
     localDockerBuildArgs(
       "/repo/apps/reference",
-      "127.0.0.1:30500/reference:kore-local",
+      `${platform.registryForward}/reference:kore-local`,
     ),
   ).toEqual([
     "build",
     "--file",
     "/repo/apps/reference/Dockerfile",
     "--tag",
-    "127.0.0.1:30500/reference:kore-local",
+    `${platform.registryForward}/reference:kore-local`,
     "/repo/apps/reference",
   ]);
 });
@@ -182,7 +185,7 @@ test("local up discards a local lock left by a vanished signing key before re-si
         ).catch(() => undefined);
         return {
           image: {
-            reference: `registry.kore.local:30500/reference@sha256:${"a".repeat(64)}`,
+            reference: `${platform.registry}/reference@sha256:${"a".repeat(64)}`,
             digest: `sha256:${"a".repeat(64)}`,
             signer: "local-kore-key",
           },

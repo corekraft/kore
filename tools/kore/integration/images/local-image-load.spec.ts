@@ -6,6 +6,9 @@ import {
   k3dImageImportArgs,
   loadLocalImage,
 } from "../../src/testing/index.js";
+import { localPlatform } from "../local-platform-support.js";
+
+const platform = await localPlatform();
 
 const tag = "kore-local/reference:kore-local";
 
@@ -22,7 +25,7 @@ async function k3dRepository(): Promise<Repository> {
       k3d: {
         clusterName: "kore-local",
         serviceCidr: "10.96.0.0/12",
-        ports: [{ hostPort: 8443, loadBalancerPort: 443 }],
+        ports: [{ hostPort: platform.hostPort, loadBalancerPort: 443 }],
       },
     },
   };

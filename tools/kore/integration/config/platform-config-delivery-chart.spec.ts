@@ -23,6 +23,9 @@ import {
   renderedKinds,
   digestOf,
 } from "./platform-config-delivery-chart-support.js";
+import { escapeRegExp, localPlatform } from "../local-platform-support.js";
+
+const platform = await localPlatform();
 
 // Docs: docs/decisions/0043-platform-configuration-through-argo-cd.md
 
@@ -80,7 +83,9 @@ test("only kore-platform-config and kore-local-tls are passed the platform domai
   for (const doc of await applications()) {
     const name = /^ {2}name: (.+)$/m.exec(doc)![1]!;
     assert.equal(
-      /- name: "gateway\.hostname"\n\s+value: "kore\.local"/.test(doc),
+      new RegExp(
+        `- name: "gateway\\.hostname"\\n\\s+value: "${escapeRegExp(platform.domain)}"`,
+      ).test(doc),
       name === "kore-platform-config" || name === "kore-local-tls",
     );
   }
@@ -98,7 +103,7 @@ test("a render without the gateway class fails rather than leaving kore-platform
       "--set-json",
       `namespaces=${JSON.stringify(await namespaces())}`,
       "--set-string",
-      "platformDomain=kore.local",
+      `platformDomain=${platform.domain}`,
     ]),
   );
   assert.match(message, /gatewayClassName/);

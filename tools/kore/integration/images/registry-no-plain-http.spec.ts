@@ -5,12 +5,15 @@ import { verifyLockedImageArgs } from "../../src/app/index.js";
 import { loadRepository } from "../../src/config/index.js";
 import type { Runner } from "../../src/runtime/index.js";
 import { localSignArgs, publishImageCopy } from "../../src/images/index.js";
+import { localPlatform } from "../local-platform-support.js";
+
+const platform = await localPlatform();
 
 // Docs: docs/decisions/0058-registry-transport-tls.md
 
 const ca = "/tmp/kore-registry-x/ca.crt";
 const image = {
-  reference: "127.0.0.1:30500/app@sha256:" + "a".repeat(64),
+  reference: `${platform.registryForward}/app@sha256:` + "a".repeat(64),
   digest: "sha256:" + "a".repeat(64),
   signer: "local-kore-key",
 };

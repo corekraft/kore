@@ -15,6 +15,9 @@ import {
   helmTemplateArgs,
   withAbsoluteChart,
 } from "../../src/platform/index.js";
+import { localPlatform } from "../local-platform-support.js";
+
+const platform = await localPlatform();
 
 // The composed values the delivery releases take when the flag is on. Their
 // charts' schemas are closed, so any key kore passes that the schema does not
@@ -40,7 +43,7 @@ const chartDelivery = {
   ),
   namespaces: Object.fromEntries(handedOver.map((name) => [name, name])),
   gatewayClassName: "istio",
-  platformDomain: "kore.local",
+  platformDomain: platform.domain,
 };
 
 const goldenPathDelivery = {
@@ -57,7 +60,7 @@ const goldenPathDelivery = {
       digest: digest("2"),
     },
   },
-  ingress: { platformDomain: "kore.local", gatewayClassName: "istio" },
+  ingress: { platformDomain: platform.domain, gatewayClassName: "istio" },
 };
 
 async function localWithFlagOn(): Promise<Repository> {
@@ -138,7 +141,7 @@ test("kore-config-delivery composed from the local overlay renders the platform-
   } = JSON.parse(/^ {6}valuesObject: (.+)$/m.exec(application)![1]!);
   assert.equal(values.gateway.service.type, "NodePort");
   assert.equal(values.gateway.service.nodePort, 30443);
-  assert.equal(values.gateway.port, 8443);
+  assert.equal(values.gateway.port, platform.gatewayPort);
   assert.equal(
     values.features["platform-argocd-delivery"],
     true,
