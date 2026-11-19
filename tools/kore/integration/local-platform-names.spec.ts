@@ -3,6 +3,7 @@ import { dirname, join, relative } from "node:path";
 import { fileURLToPath } from "node:url";
 import { expect, test } from "vitest";
 import { loadRepository } from "../src/config/index.js";
+import { defaultPlatformDomain } from "../src/platform-domain.fixtures.js";
 import {
   escapeRegExp,
   localPlatform,
@@ -59,6 +60,11 @@ test("the local overlay's own values are what the specs read", async () => {
   expect(local.domain).toBe(environment.platform?.domain);
   expect(local.gatewayPort).toBe(environment.gateway.port);
   expect(local.hostPort).toBe(environment.k3d?.ports[0]?.hostPort);
+});
+
+test("the unit fixtures' default platform domain is the local overlay's platform.domain", async () => {
+  const { environment } = await loadRepository("local");
+  expect(defaultPlatformDomain).toBe(environment.platform?.domain);
 });
 
 test("a platform name is escaped to match literally inside a regular expression", () => {
