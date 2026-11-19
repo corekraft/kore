@@ -18,7 +18,7 @@ const delivery = {
   namespaces: {},
   gatewayClassName: "istio",
   platformDomain: "kore.local",
-  platformHostname: "*.platform.kore.local",
+  platformHostname: "*.platform.kore.internal",
 };
 const repository = {
   ...fakeRepository(),

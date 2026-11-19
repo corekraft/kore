@@ -50,7 +50,7 @@ beforeEach(() => {
   vi.mocked(enabledComponents).mockImplementation((r) => r.catalog.components);
   vi.mocked(gatewayClassName).mockReturnValue("istio");
   vi.mocked(platformPlan).mockReturnValue({
-    domain: "kore.local",
+    domain: "kore.internal",
     organizationId: "platform",
   });
 });
@@ -69,14 +69,14 @@ test("the values are the lock's chart and digest and the catalog's namespace for
     },
     namespaces: { "kore-local-tls": "cert", "opa-authorizer": "opa" },
     gatewayClassName: "istio",
-    platformDomain: "kore.local",
-    platformHostname: "*.platform.kore.local",
+    platformDomain: "kore.internal",
+    platformHostname: "*.platform.kore.internal",
   });
 });
 
 test("the platform wildcard is the value kore-platform-config takes as gateway.platformHostname, derived from the same organization and domain as the Helm path", () => {
   expect(chartDeliveryValues(repository, lock()).platformHostname).toBe(
-    "*.platform.kore.local",
+    "*.platform.kore.internal",
   );
 });
 
