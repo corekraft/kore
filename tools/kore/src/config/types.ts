@@ -115,6 +115,12 @@ export interface K3dPort {
   optional?: boolean;
   /** The transport the mapping publishes; TCP when unset. */
   protocol?: "tcp" | "udp";
+  /**
+   * The feature flag that makes this mapping real. While the flag is off the
+   * mapping is not created, not compared by the drift check and not probed, so
+   * a cluster created without it stays valid. Unset means always published.
+   */
+  featureFlag?: string;
 }
 
 export interface Environment {

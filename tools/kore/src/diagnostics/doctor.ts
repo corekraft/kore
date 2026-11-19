@@ -4,6 +4,7 @@ import type { Repository } from "../config/index.js";
 import { managedCluster } from "../config/index.js";
 import { k3dClusterInfo } from "../cluster/index.js";
 import type { Runner } from "../runtime/index.js";
+import { resolverChecks, systemResolverHost } from "../resolver/index.js";
 
 export type CheckStatus = "pass" | "warn" | "fail";
 export interface Check {
@@ -222,9 +223,10 @@ async function k3dClusterCheck(
 }
 
 /**
- * Read-only: every probe is a version or list call, run before anything
- * mutates. A k3d overlay checks k3d, docker and the cluster; the host sizing
- * checks apply only to a managed environment, which declares its sizing.
+ * Read-only: every probe is a version, list, file read or DNS query, run before
+ * anything mutates. A k3d overlay checks k3d, docker, the cluster and the host
+ * resolver file (ADR 0132); the host sizing checks apply only to a managed
+ * environment, which declares its sizing.
  */
 export async function doctor(
   repository: Repository,
@@ -243,6 +245,11 @@ export async function doctor(
         ]),
     credentialsCheck(repository),
     ...(k3d ? [await k3dClusterCheck(repository, runner)] : []),
+    ...(await resolverChecks(
+      repository.environment,
+      runner,
+      systemResolverHost(),
+    )),
   ];
 }
 

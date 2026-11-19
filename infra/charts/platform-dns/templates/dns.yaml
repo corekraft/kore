@@ -74,10 +74,22 @@ metadata:
   namespace: {{ .Release.Namespace }}
   labels: {app.kubernetes.io/name: platform-dns, app.kubernetes.io/managed-by: Helm}
 spec:
-  # Cluster-internal only; the host reaches it through whatever the local
-  # environment publishes.
-  type: ClusterIP
+  # Cluster-internal unless the environment sets a node port, which the local
+  # overlay does so its load balancer can forward the host port to it.
+  type: {{ if .Values.service.nodePort }}NodePort{{ else }}ClusterIP{{ end }}
   selector: {app.kubernetes.io/name: platform-dns}
   ports:
-    - {name: dns-udp, port: 53, targetPort: dns-udp, protocol: UDP}
-    - {name: dns-tcp, port: 53, targetPort: dns-tcp, protocol: TCP}
+    - name: dns-udp
+      port: 53
+      targetPort: dns-udp
+      protocol: UDP
+      {{- with .Values.service.nodePort }}
+      nodePort: {{ . }}
+      {{- end }}
+    - name: dns-tcp
+      port: 53
+      targetPort: dns-tcp
+      protocol: TCP
+      {{- with .Values.service.nodePort }}
+      nodePort: {{ . }}
+      {{- end }}
