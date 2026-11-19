@@ -1,22 +1,26 @@
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
 import { existsSync, readFileSync } from "node:fs";
+import { mkdtemp, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { test } from "vitest";
 import {
   componentValues,
+  enabledComponents,
   loadRepository,
+  platformArgocdDeliveryFlag,
   platformHelmArgs,
   platformPlan,
   validateRepository,
   type Repository,
 } from "../../src/config/index.js";
-import { helmTemplateArgs, routeHostErrors } from "../../src/platform/index.js";
-import { withAbsoluteChart } from "../../src/testing/index.js";
 import {
-  composed,
-  withFlags,
-} from "../config/platform-config-delivery-project-support.js";
+  composeChartDelivery,
+  helmTemplateArgs,
+  routeHostErrors,
+} from "../../src/platform/index.js";
+import { withAbsoluteChart } from "../../src/testing/index.js";
 import { escapeRegExp, localPlatform } from "../local-platform-support.js";
 
 const platform = await localPlatform();
@@ -214,7 +218,50 @@ test("a route host the platform Gateway has no listener for fails the check, nam
 // The charts, namespaces and platform wildcard kore composes for the six
 // releases the flags-off handover hands over, from the same lock and catalog
 // the release renders with, so the render takes what production composes.
-const delivered = await composed(await withFlags(false));
+// The flags-off handover: argocd delivery on, every other catalog flag off, so
+// six releases are handed over. Production composes the values from a lock
+// that covers each of them.
+async function composedDelivery() {
+  const repository = await loadRepository("local");
+  const flags = new Set([
+    ...Object.keys(repository.environment.features ?? {}),
+    ...repository.catalog.components.flatMap((c) =>
+      c.featureFlag === undefined ? [] : [c.featureFlag],
+    ),
+  ]);
+  const flagged: Repository = {
+    ...repository,
+    environment: {
+      ...repository.environment,
+      features: Object.fromEntries(
+        [...flags].map((flag) => [flag, flag === platformArgocdDeliveryFlag]),
+      ),
+    },
+  };
+  const names = enabledComponents(flagged)
+    .filter((c) => c.owner === "argocd")
+    .map((c) => c.name);
+  const dir = await mkdtemp(join(tmpdir(), "delivery-render-"));
+  const lockPath = join(dir, "platform-charts.lock.json");
+  await writeFile(
+    lockPath,
+    JSON.stringify({
+      version: 1,
+      entries: Object.fromEntries(
+        names.map((name) => [
+          name,
+          {
+            chart: `registry.example.com/charts/${name}`,
+            digest: `sha256:${"a".repeat(64)}`,
+          },
+        ]),
+      ),
+    }),
+  );
+  return composeChartDelivery(flagged, lockPath);
+}
+
+const delivered = await composedDelivery();
 assert.ok(delivered.chartDelivery);
 const { charts, namespaces, platformHostname } = delivered.chartDelivery;
 
