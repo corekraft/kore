@@ -108,6 +108,8 @@ export interface K3dPort {
   hostAddress: string;
   hostPort: number;
   loadBalancerPort: number;
+  /** The transport the mapping publishes; TCP when unset. */
+  protocol?: "tcp" | "udp";
 }
 
 export interface Environment {

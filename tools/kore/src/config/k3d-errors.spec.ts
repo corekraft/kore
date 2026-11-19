@@ -201,3 +201,50 @@ test("the k3s image must be digest-pinned, and an unpinned or missing one is ref
     "versions.images.k3s must be a digest-pinned image for provider k3d",
   ]);
 });
+
+test("the same host port on TCP and UDP is two mappings, and the same host port twice on one protocol is reported with that protocol", () => {
+  const dns = [
+    { hostAddress: "127.0.0.1", hostPort: 1053, loadBalancerPort: 1053 },
+    {
+      hostAddress: "127.0.0.1",
+      hostPort: 1053,
+      loadBalancerPort: 1053,
+      protocol: "udp",
+    },
+    {
+      hostAddress: "127.0.0.1",
+      hostPort: 8443,
+      loadBalancerPort: 443,
+      protocol: "tcp",
+    },
+  ];
+  expect(k3dErrors(withK3d("ports", dns), versions)).toEqual([]);
+  const twice = [
+    ...dns,
+    { hostAddress: "127.0.0.1", hostPort: 8443, loadBalancerPort: 444 },
+    {
+      hostAddress: "127.0.0.1",
+      hostPort: 1053,
+      loadBalancerPort: 1054,
+      protocol: "udp",
+    },
+  ];
+  expect(k3dErrors(withK3d("ports", twice), versions)).toEqual([
+    "environment.k3d.ports maps host port 8443 twice",
+    "environment.k3d.ports maps host port 1053/udp twice",
+  ]);
+});
+
+test("a protocol other than tcp or udp is refused", () => {
+  const ports = [
+    {
+      hostAddress: "127.0.0.1",
+      hostPort: 1053,
+      loadBalancerPort: 1053,
+      protocol: "sctp",
+    },
+  ];
+  expect(k3dErrors(withK3d("ports", ports), versions)).toEqual([
+    "environment.k3d.ports[0].protocol must be tcp or udp",
+  ]);
+});

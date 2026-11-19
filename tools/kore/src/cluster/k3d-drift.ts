@@ -21,16 +21,31 @@ function listedMappings(
   ] as PortMappings | undefined;
 }
 
+/** A mapping's transport: TCP unless it says otherwise. */
+function protocolOf(port: K3dPort): string {
+  return port.protocol ?? "tcp";
+}
+
+/** How a declared port is named in a difference: UDP ports carry their protocol. */
+function labelOf(port: K3dPort): string {
+  return port.protocol === "udp"
+    ? `port ${port.loadBalancerPort}/udp`
+    : `port ${port.loadBalancerPort}`;
+}
+
 /** Every binding under a declared port's container port, whatever its host port. */
 function bindingsUnder(
   mappings: PortMappings | undefined,
   port: K3dPort,
 ): Binding[] {
   return Object.entries(mappings ?? {})
-    .filter(
-      ([container]) =>
-        container.replace(/\/\w+$/, "") === String(port.loadBalancerPort),
-    )
+    .filter(([container]) => {
+      const [number, protocol = "tcp"] = container.split("/");
+      return (
+        number === String(port.loadBalancerPort) &&
+        protocol === protocolOf(port)
+      );
+    })
     .flatMap(([, bindings]) => bindings ?? []);
 }
 
@@ -103,7 +118,7 @@ export function drift(
       const onPort = bindingsOn(listed, port);
       if (onPort.length === 0) {
         compare(
-          `port ${port.loadBalancerPort}`,
+          labelOf(port),
           under.length
             ? under.map((binding) => String(binding.HostPort)).join(",")
             : "unmapped",
@@ -115,7 +130,7 @@ export function drift(
         );
         if (!addresses.includes(port.hostAddress)) {
           compare(
-            `port ${port.loadBalancerPort} address`,
+            `${labelOf(port)} address`,
             addresses.join(","),
             port.hostAddress,
           );
@@ -136,6 +151,6 @@ export function unreadableMessage(
   container: string,
   ports: readonly K3dPort[],
 ): string {
-  const names = ports.map((port) => `port ${port.loadBalancerPort}`).join(", ");
+  const names = ports.map(labelOf).join(", ");
   return `k3d cluster ${clusterName} does not report the host address of ${names} in \`k3d cluster list --output json\` or \`docker inspect ${container}\`; it cannot be checked against the overlay, and recreating the cluster does not change that. Check that k3d and Docker report the load balancer's port bindings.`;
 }

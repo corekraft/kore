@@ -96,7 +96,7 @@ export function k3dCreateArgs(
     `--service-cidr=${cluster.serviceCidr}@server:*`,
     ...cluster.ports.flatMap((port) => [
       "--port",
-      `${port.hostAddress}:${port.hostPort}:${port.loadBalancerPort}@loadbalancer`,
+      `${port.hostAddress}:${port.hostPort}:${port.loadBalancerPort}${port.protocol === "udp" ? "/udp" : ""}@loadbalancer`,
     ]),
     ...(koreManagesRegistryAuth(repository)
       ? k3dTrustVolumeArgs(trustDirectory)
