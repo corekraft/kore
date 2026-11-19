@@ -50,14 +50,19 @@ test("the load verifies the local CA, never disables certificate checks, and is 
 });
 
 test("every load and latency curl resolves the host to the published address and its port, never 127.0.0.1", async () => {
-  const { load, measurement } = fixture(sampleResponses(2), {
-    hostname: "golden-path-example.platform.kore.local",
-    port: 443,
-    address: "10.0.0.5",
-    latencyProbesPerRoute: 2,
-  });
+  const load = new FakeLoad();
+  const { measurement } = fixture(
+    sampleResponses(2),
+    {
+      hostname: "golden-path-example.platform.kore.local",
+      port: 443,
+      address: "10.0.0.5",
+      latencyProbesPerRoute: 2,
+    },
+    load,
+  );
   await measurement.measure();
-  const curls = (load as FakeLoad).calls;
+  const curls = load.calls;
   assert.ok(curls.length > 0);
   for (const { args } of curls) {
     assert.ok(

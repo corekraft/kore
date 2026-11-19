@@ -4,7 +4,7 @@ import test from "node:test";
 import { loadRepository, platformPlan } from "../config/index.js";
 import { ProcessRunner, liveEnvironment } from "../runtime/index.js";
 import { mkcertRoot } from "./gateway-cluster.live.js";
-import { goldenPathReach } from "./golden-path-reach.js";
+import { goldenPathReach } from "./golden-path-reach.live.js";
 import { goldenPathRouteSet } from "./golden-path-routes.js";
 import {
   GoldenPathScaleCheck,

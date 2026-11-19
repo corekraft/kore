@@ -1,6 +1,6 @@
 import { beforeEach, expect, test, vi } from "vitest";
 import type { Runner, RunResult } from "../runtime/index.js";
-import { goldenPathReach } from "./golden-path-reach.js";
+import { goldenPathReach } from "./golden-path-reach.live.js";
 
 const run = vi.fn<Runner["run"]>();
 const runner = { run } satisfies Runner;
