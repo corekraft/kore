@@ -9,6 +9,9 @@ import {
   loadRepository,
   platformHelmArgs,
 } from "../../src/config/index.js";
+import { localPlatform } from "../local-platform-support.js";
+
+const platform = await localPlatform();
 
 // Docs: docs/decisions/0013-local-tls-before-gateway.md
 // The platform-secrets store contract: the store the environment names is the
@@ -51,7 +54,7 @@ test("the workload reads the token from the Secret the ExternalSecret produces",
   const docs = await render(
     "apps/reference/charts/workload",
     "--set",
-    "platform.gateway.hostname=kore.local",
+    `platform.gateway.hostname=${platform.domain}`,
   );
   const workloads = docs.filter((doc) => /^kind: Deployment$/m.test(doc));
   assert.ok(workloads.length > 0);

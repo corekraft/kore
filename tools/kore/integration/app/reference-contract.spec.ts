@@ -5,6 +5,9 @@ import { join } from "node:path";
 import { promisify } from "node:util";
 import { test } from "vitest";
 import { findRoot } from "../../src/config/index.js";
+import { escapeRegExp, localPlatform } from "../local-platform-support.js";
+
+const platform = await localPlatform();
 
 // Docs: docs/decisions/0012-environment-overlays-hold-provider-specifics.md
 // Offline contract of the reference application charts: what the Step 12
@@ -12,7 +15,7 @@ import { findRoot } from "../../src/config/index.js";
 
 const run = promisify(execFile);
 const digest = "sha256:" + "a".repeat(64);
-const registry = "registry.kore.local:30500";
+const registry = platform.registry;
 
 async function chartPath(name: "workload" | "resources"): Promise<string> {
   return join(await findRoot(), "apps/reference/charts", name);
@@ -56,20 +59,22 @@ function documents(text: string, kind: string): string[] {
 
 test("the charts render identically in every environment except the gateway hostname", async () => {
   for (const name of ["workload", "resources"] as const) {
-    const local = (await render(name, "kore.local")).text;
+    const local = (await render(name, platform.domain)).text;
     const elsewhere = (await render(name, "app.example.com")).text;
 
     assert.equal(
       elsewhere,
-      local.replaceAll("kore.local", "app.example.com"),
+      local.replaceAll(platform.domain, "app.example.com"),
       `${name} must differ between environments only by hostname`,
     );
   }
 });
 
 test("chart sources hold no provider-specific templates, values, or hostnames", async () => {
-  const provider =
-    /k3d|nodeport|loadbalancer|hostpath|storageclassname|ingressclass|\.amazonaws\.|\.azure\.|gke\.|hcloud|digitalocean|kore\.local|127\.0\.0\.1/i;
+  const provider = new RegExp(
+    `k3d|nodeport|loadbalancer|hostpath|storageclassname|ingressclass|\\.amazonaws\\.|\\.azure\\.|gke\\.|hcloud|digitalocean|${escapeRegExp(platform.domain)}|127\\.0\\.0\\.1`,
+    "i",
+  );
   for (const name of ["workload", "resources"] as const) {
     for (const file of await files(await chartPath(name))) {
       assert.doesNotMatch(
@@ -82,7 +87,7 @@ test("chart sources hold no provider-specific templates, values, or hostnames", 
 });
 
 test("each workload runs as its own ServiceAccount, never the namespace default", async () => {
-  const { text } = await render("workload", "kore.local");
+  const { text } = await render("workload", platform.domain);
   const accounts = documents(text, "ServiceAccount").map(
     (doc) => /^ {2}name: (.+)$/m.exec(doc)![1]!,
   );
@@ -107,8 +112,8 @@ test("each workload runs as its own ServiceAccount, never the namespace default"
 });
 
 test("no chart holds a Secret value: credentials arrive only through ExternalSecret and secretKeyRef", async () => {
-  const workload = (await render("workload", "kore.local")).text;
-  const resources = (await render("resources", "kore.local")).text;
+  const workload = (await render("workload", platform.domain)).text;
+  const resources = (await render("resources", platform.domain)).text;
 
   assert.equal(documents(workload + resources, "Secret").length, 0);
   assert.equal(documents(resources, "ExternalSecret").length, 1);
@@ -123,7 +128,7 @@ test("no chart holds a Secret value: credentials arrive only through ExternalSec
 test("a digest-qualified image is deployed by digest and never by tag", async () => {
   const { text } = await render(
     "workload",
-    "kore.local",
+    platform.domain,
     "--set",
     `image.repository=${registry}/reference`,
     "--set",
@@ -138,7 +143,7 @@ test("a digest-qualified image is deployed by digest and never by tag", async ()
 });
 
 test("the rendered policy matches what the smoke tests exercise: mTLS, deny-by-default, native and OPA authorization", async () => {
-  const { text } = await render("workload", "kore.local");
+  const { text } = await render("workload", platform.domain);
 
   assert.match(text, /kind: HTTPRoute/);
   assert.match(text, /mtls: \{mode: STRICT\}/);

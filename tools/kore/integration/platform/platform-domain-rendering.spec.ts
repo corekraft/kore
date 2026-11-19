@@ -13,6 +13,9 @@ import {
 } from "../../src/config/index.js";
 import { helmTemplateArgs, routeHostErrors } from "../../src/platform/index.js";
 import { withAbsoluteChart } from "../../src/testing/index.js";
+import { escapeRegExp, localPlatform } from "../local-platform-support.js";
+
+const platform = await localPlatform();
 
 // Docs: docs/decisions/0042-organization-domains-by-delegation.md
 // The platform domain is written once, in the environment's platform field.
@@ -87,10 +90,10 @@ function renderReferenceRoute(repository: Repository, host: string): string {
   );
 }
 
-test("the defaults are kore.local and platform, so rendering is unchanged", async () => {
+test("the local overlay declares the platform organization, so rendering is unchanged", async () => {
   const repository = await loadRepository("local");
   assert.deepEqual(platformPlan(repository.environment), {
-    domain: "kore.local",
+    domain: platform.domain,
     organizationId: "platform",
   });
 });
@@ -120,26 +123,29 @@ test("every chart that names the platform domain renders the environment's field
     const rendered = render(moved, component);
     assert.doesNotMatch(
       rendered,
-      /kore\.local/,
+      new RegExp(escapeRegExp(platform.domain)),
       `${component} keeps no copy of the local domain`,
     );
     assert.ok(rendered.includes("moved.example"));
   }
-  assert.doesNotMatch(renderBackstage(moved), /kore\.local/);
+  assert.doesNotMatch(
+    renderBackstage(moved),
+    new RegExp(escapeRegExp(platform.domain)),
+  );
   assert.ok(renderBackstage(moved).includes("backstage.moved.example"));
 }, 30_000);
 
 test("a malformed platform field is refused by validation before any chart renders", async () => {
   const local = await loadRepository("local");
-  for (const platform of [
+  for (const field of [
     { domain: "Kore.Local", organizationId: "platform" },
     { domain: "kore", organizationId: "platform" },
-    { domain: "kore.local", organizationId: "Platform" },
+    { domain: platform.domain, organizationId: "Platform" },
   ]) {
     await assert.rejects(
       validateRepository({
         ...local,
-        environment: { ...local.environment, platform },
+        environment: { ...local.environment, platform: field },
       }),
       /platform\.(domain|organizationId) must be/,
     );
@@ -189,13 +195,15 @@ test("a route host the platform Gateway has no listener for fails the check, nam
   const repository = await loadRepository("local");
   const rendered = [
     render(repository, "kore-platform-config"),
-    renderReferenceRoute(repository, "moved.kore.internal"),
+    renderReferenceRoute(repository, "moved.example.test"),
   ].join("\n---\n");
   const errors = routeHostErrors(rendered, repository.environment.gateway);
   assert.equal(errors.length, 1);
   assert.match(
     errors[0]!,
-    /^HTTPRoute reference host moved\.kore\.internal matches no listener hostname of Gateway kore-system\/kore-gateway \(listeners: kore\.local\)/,
+    new RegExp(
+      `^HTTPRoute reference host moved\\.example\\.test matches no listener hostname of Gateway kore-system/kore-gateway \\(listeners: ${escapeRegExp(platform.domain)}\\)`,
+    ),
   );
 });
 
@@ -239,7 +247,7 @@ function renderDelivery(...set: string[]): string {
 test("the delivered Gateway releases are passed the platform domain as gateway.hostname, and no other release is, because their charts hold no default", () => {
   const applications = renderDelivery(
     "--set-string",
-    "platformDomain=kore.local",
+    `platformDomain=${platform.domain}`,
   )
     .split("\n---\n")
     .filter((doc) => /^kind: Application$/m.test(doc));
@@ -247,7 +255,9 @@ test("the delivered Gateway releases are passed the platform domain as gateway.h
   for (const doc of applications) {
     const name = /^ {2}name: (.+)$/m.exec(doc)![1];
     assert.equal(
-      /- name: "gateway\.hostname"\n\s+value: "kore\.local"/.test(doc),
+      new RegExp(
+        `- name: "gateway\\.hostname"\\n\\s+value: "${escapeRegExp(platform.domain)}"`,
+      ).test(doc),
       name === "kore-platform-config" || name === "kore-local-tls",
       `${name} gateway.hostname parameter`,
     );

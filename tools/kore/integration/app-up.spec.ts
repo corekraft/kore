@@ -22,6 +22,9 @@ import {
   writeReleaseLock,
   type Call,
 } from "../src/testing/index.js";
+import { localPlatform } from "./local-platform-support.js";
+
+const platform = await localPlatform();
 
 const localRegistryReferenceMock = vi.hoisted(() => vi.fn());
 vi.mock("../src/images/index.js", async (importOriginal) => ({
@@ -286,7 +289,7 @@ test("a changed gateway hostname upgrades both app releases on the next app up",
       ...repository.environment,
       platform: {
         ...repository.environment.platform,
-        domain: "moved.kore.local",
+        domain: `moved.${platform.domain}`,
       },
     },
   };

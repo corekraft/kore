@@ -4,6 +4,9 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { expect, test } from "vitest";
 import { loadImageLock, imageForApplication } from "../../src/images/index.js";
+import { localPlatform } from "../local-platform-support.js";
+
+const platform = await localPlatform();
 
 test("loads an application image only when its lock entry is immutable and signed", async () => {
   const root = await mkdtemp(join(tmpdir(), "kore-image-lock-"));
@@ -15,7 +18,7 @@ test("loads an application image only when its lock entry is immutable and signe
       authorizedSigners: ["release@kore.dev"],
       entries: {
         reference: {
-          image: "registry.kore.local/reference",
+          image: `${platform.registryHost}/reference`,
           digest: "sha256:" + "a".repeat(64),
           signer: "release@kore.dev",
         },
@@ -25,7 +28,7 @@ test("loads an application image only when its lock entry is immutable and signe
 
   const lock = await loadImageLock(root);
   expect(imageForApplication(lock, "reference")).toEqual({
-    reference: "registry.kore.local/reference@sha256:" + "a".repeat(64),
+    reference: `${platform.registryHost}/reference@sha256:` + "a".repeat(64),
     digest: "sha256:" + "a".repeat(64),
     signer: "release@kore.dev",
   });
@@ -40,7 +43,7 @@ test("allows an immutable image from a registry exposed on an explicit port", as
       authorizedSigners: ["release@kore.dev"],
       entries: {
         reference: {
-          image: "registry.kore.local:30500/reference",
+          image: `${platform.registry}/reference`,
           digest: "sha256:" + "a".repeat(64),
           signer: "release@kore.dev",
         },
@@ -61,7 +64,7 @@ test.each([
   [
     "tag-only",
     {
-      image: "registry.kore.local/reference:latest",
+      image: `${platform.registryHost}/reference:latest`,
       digest: "",
       signer: "release@kore.dev",
     },
@@ -69,7 +72,7 @@ test.each([
   [
     "missing signer",
     {
-      image: "registry.kore.local/reference",
+      image: `${platform.registryHost}/reference`,
       digest: "sha256:" + "b".repeat(64),
       signer: "",
     },
@@ -77,7 +80,7 @@ test.each([
   [
     "invalid digest",
     {
-      image: "registry.kore.local/reference",
+      image: `${platform.registryHost}/reference`,
       digest: "sha256:bad",
       signer: "release@kore.dev",
     },
@@ -115,7 +118,7 @@ test("rejects a locked image signed by an unauthorized identity", async () => {
       authorizedSigners: ["release@kore.dev"],
       entries: {
         reference: {
-          image: "registry.kore.local/reference",
+          image: `${platform.registryHost}/reference`,
           digest: "sha256:" + "a".repeat(64),
           signer: "developer@kore.dev",
         },

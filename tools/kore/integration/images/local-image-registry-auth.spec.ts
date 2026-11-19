@@ -12,6 +12,9 @@ import {
   stubRegistry,
 } from "../../src/testing/index.js";
 import { buildAndSignLocalImage } from "../../src/images/index.js";
+import { localPlatform } from "../local-platform-support.js";
+
+const platform = await localPlatform();
 
 const registryReference = vi.hoisted(() => vi.fn());
 vi.mock("../../src/images/registry.js", () => ({
@@ -97,7 +100,7 @@ test("the digest lookup authenticates and a rejected credential is reported acti
     Record<string, string>,
     string,
   ];
-  expect(url).toMatch(/^https:\/\/127\.0\.0\.1:30500\//);
+  expect(url.startsWith(`https://${platform.registryForward}/`)).toBe(true);
   expect(ca).toContain("BEGIN CERTIFICATE");
   expect(headers["Authorization"]).toBe(
     `Basic ${encodeBase64(`kore-push:${pushPassword}`)}`,

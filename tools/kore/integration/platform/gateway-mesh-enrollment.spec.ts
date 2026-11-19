@@ -10,6 +10,9 @@ import {
 } from "../../src/config/index.js";
 import { helmTemplateArgs } from "../../src/platform/index.js";
 import { withAbsoluteChart } from "../../src/testing/index.js";
+import { localPlatform } from "../local-platform-support.js";
+
+const platform = await localPlatform();
 
 async function overlay(
   name: string,
@@ -54,7 +57,10 @@ test("agentgateway with the flag on labels the data-plane pod through the Gatewa
     output,
     /infrastructure:\s+(?:#.*\s+)*labels: \{istio\.io\/dataplane-mode: ambient\}\s+parametersRef: \{group: agentgateway\.dev, kind: AgentgatewayParameters, name: kore-gateway-service\}/,
   );
-  assert.match(output, /port: 8443\s+nodePort: 30443/);
+  assert.match(
+    output,
+    new RegExp(`port: ${platform.gatewayPort}\\s+nodePort: 30443`),
+  );
 });
 
 test("agentgateway with the flag on adds one PeerAuthentication that is permissive on the gateway's listener port only", async () => {
@@ -71,7 +77,12 @@ test("agentgateway with the flag on adds one PeerAuthentication that is permissi
     /selector:\s+matchLabels:\s+gateway\.networking\.k8s\.io\/gateway-name: kore-gateway/,
   );
   assert.match(gateway, /mtls: \{mode: STRICT\}/);
-  assert.match(gateway, /portLevelMtls:\s+"8443": \{mode: PERMISSIVE\}/);
+  assert.match(
+    gateway,
+    new RegExp(
+      `portLevelMtls:\\s+"${platform.gatewayPort}": \\{mode: PERMISSIVE\\}`,
+    ),
+  );
   assert.doesNotMatch(gateway, /mode: DISABLE/);
   assert.equal(gateway.match(/PERMISSIVE/g)?.length, 1);
 });

@@ -4,6 +4,9 @@ import { readdir, readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { promisify } from "node:util";
 import { findRoot, loadRepository } from "../../src/config/index.js";
+import { localPlatform } from "../local-platform-support.js";
+
+const platform = await localPlatform();
 
 const run = promisify(execFile);
 
@@ -47,7 +50,7 @@ export async function renderedKinds(name: string): Promise<string[]> {
       name,
       join(root, component.chart),
       "--set",
-      "gateway.className=kore,gateway.hostname=kore.local",
+      `gateway.className=kore,gateway.hostname=${platform.domain}`,
     ]);
     return topLevelKinds(stdout);
   }
@@ -109,7 +112,7 @@ export async function render(...set: string[]): Promise<string[]> {
     "--set-string",
     "gatewayClassName=agentgateway",
     "--set-string",
-    "platformDomain=kore.local",
+    `platformDomain=${platform.domain}`,
     ...set,
   ]);
   return stdout.split("\n---\n").filter((doc) => /^kind:/m.test(doc));

@@ -24,6 +24,9 @@ import {
   type Call,
 } from "../src/testing/index.js";
 import type { Runner } from "../src/runtime/index.js";
+import { localPlatform } from "./local-platform-support.js";
+
+const platform = await localPlatform();
 
 afterEach(removeReleaseLocks);
 
@@ -134,7 +137,7 @@ test("the workload chart restarts pods when the secret version changes, without 
         "reference",
         chart,
         "--set",
-        "platform.gateway.hostname=kore.local",
+        `platform.gateway.hostname=${platform.domain}`,
         ...set,
       ])
     ).stdout;

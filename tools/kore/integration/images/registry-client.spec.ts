@@ -3,6 +3,9 @@ import { readdir, readFile, stat } from "node:fs/promises";
 import { join } from "node:path";
 import { expect, test } from "vitest";
 import { withRegistryClient } from "../../src/images/index.js";
+import { localPlatform } from "../local-platform-support.js";
+
+const platform = await localPlatform();
 
 const caPem = "-----BEGIN CERTIFICATE-----\nQUJD\n-----END CERTIFICATE-----\n";
 const credential = { username: "kore-push", password: "s3cret-Pass_word-0123" };
@@ -48,11 +51,11 @@ test("the credential helper answers a get request with the environment's identit
       "docker-credential-kore-env",
     );
     const out = execFileSync(helper, ["get"], {
-      input: "127.0.0.1:30500",
+      input: platform.registryForward,
       env: client.env,
     }).toString();
     expect(JSON.parse(out)).toEqual({
-      ServerURL: "127.0.0.1:30500",
+      ServerURL: platform.registryForward,
       Username: credential.username,
       Secret: credential.password,
     });

@@ -12,6 +12,9 @@ import {
   options,
   sampleResponses,
 } from "../../src/testing/index.js";
+import { localPlatform } from "../local-platform-support.js";
+
+const platform = await localPlatform();
 
 // Real units together: the measurement and the metrics parser and summary it
 // runs (ADR 0098). Moved from src/platform/ingress-measurement.spec.ts.
@@ -175,6 +178,8 @@ test("a failing request load fails the measurement with an actionable message", 
   const { measurement } = fixture(sampleResponses(2), {}, failing);
   await assert.rejects(
     measurement.measure(),
-    /request load to https:\/\/kore.local:8443 failed: curl failed \(7\).*load balancer maps port 8443/,
+    new RegExp(
+      `request load to https://${platform.domain}:${platform.gatewayPort} failed: curl failed \\(7\\).*load balancer maps port ${platform.gatewayPort}`,
+    ),
   );
 });
