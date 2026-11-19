@@ -14,7 +14,10 @@ data:
       type: {{ .Values.gateway.service.type }}
       {{- if .Values.gateway.service.nodePort }}
       ports:
-        - port: {{ .Values.gateway.port }}
+        - port: {{ include "platform-config.servicePort" . }}
+          {{- if include "platform-config.sharedGateway" . }}
+          targetPort: {{ .Values.gateway.port }}
+          {{- end }}
           nodePort: {{ .Values.gateway.service.nodePort }}
       {{- end }}
 {{- end }}
@@ -35,7 +38,10 @@ spec:
       type: {{ .Values.gateway.service.type }}
       {{- if .Values.gateway.service.nodePort }}
       ports:
-        - port: {{ .Values.gateway.port }}
+        - port: {{ include "platform-config.servicePort" . }}
+          {{- if include "platform-config.sharedGateway" . }}
+          targetPort: {{ .Values.gateway.port }}
+          {{- end }}
           nodePort: {{ .Values.gateway.service.nodePort }}
       {{- end }}
 {{- end }}

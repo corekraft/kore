@@ -124,10 +124,24 @@ test("each chart that read a hand-set domain is handed it as a derived value", (
   expect(platformHelmArgs(local, "kore-platform-config")).toEqual([
     "--set-string",
     "gateway.hostname=kore.local",
+    "--set-string",
+    "gateway.platformHostname=*.platform.kore.local",
   ]);
   expect(platformHelmArgs(local, "kore-local-tls")).toEqual([
     "--set-string",
     "gateway.hostname=kore.local",
+  ]);
+});
+
+test("the shared Gateway's wildcard is the platform organization's names under the one platform domain", () => {
+  const internal = fakeEnvironment({
+    platform: { domain: "kore.internal", organizationId: "platform" },
+  });
+  expect(platformHelmArgs(internal, "kore-platform-config")).toEqual([
+    "--set-string",
+    "gateway.hostname=kore.internal",
+    "--set-string",
+    "gateway.platformHostname=*.platform.kore.internal",
   ]);
 });
 

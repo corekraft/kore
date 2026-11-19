@@ -1,0 +1,17 @@
+{{- if include "platform-config.sharedGateway" . }}
+# The platform organization's wildcard for the shared Gateway (ADR 0132): one
+# certificate from the local CA, in the Gateway's namespace, beside kore-local.
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: kore-platform-wildcard
+  namespace: kore-system
+  labels: {app.kubernetes.io/managed-by: Helm}
+spec:
+  secretName: {{ .Values.gateway.platformCertificateSecret }}
+  dnsNames:
+    - {{ required "set gateway.platformHostname, or render through kore, which derives it from the environment's platform field" .Values.gateway.platformHostname | quote }}
+  issuerRef:
+    kind: ClusterIssuer
+    name: {{ .Values.issuer.name }}
+{{- end }}

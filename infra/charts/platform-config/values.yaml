@@ -1,4 +1,11 @@
 environment: local
-gateway: {port: 443, certificateSecret: kore-local-tls, service: {}}
-issuer: {name: kore-local-ca}
-secrets: {sourceNamespace: kore-secret-source, storeName: platform-secrets}
+gateway:
+  {
+    port: 443,
+    certificateSecret: kore-local-tls,
+    service: {},
+    platformCertificateSecret: kore-platform-wildcard-tls,
+    sharedServicePort: 443
+  }
+issuer: { name: kore-local-ca }
+secrets: { sourceNamespace: kore-secret-source, storeName: platform-secrets }
