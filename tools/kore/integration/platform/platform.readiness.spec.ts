@@ -80,7 +80,7 @@ test("a TLS Secret that never completes fails with the readiness timeout", async
 
   await assert.rejects(
     reconcileComponent(repository, runner, component),
-    /component .* failed to become ready: secret\/edge-tls not ready \(complete TLS Secret\) within 1s/,
+    /component .* failed to become ready: secret\/edge-tls not ready \(complete TLS Secret\) after \d+\.\ds \(timeout 1s\)/,
   );
 });
 
