@@ -86,7 +86,9 @@ function portErrors(ports: unknown): string[] {
     const transport =
       protocol === "tcp" || protocol === "udp"
         ? []
-        : [`environment.k3d.ports[${index}].protocol must be tcp or udp`];
+        : [
+            `environment.k3d.ports[${index}].protocol must be tcp or udp, got ${JSON.stringify(protocol)}`,
+          ];
     const address =
       typeof port["hostAddress"] === "string" &&
       loopbackIPv4.test(port["hostAddress"])

@@ -245,6 +245,6 @@ test("a protocol other than tcp or udp is refused", () => {
     },
   ];
   expect(k3dErrors(withK3d("ports", ports), versions)).toEqual([
-    "environment.k3d.ports[0].protocol must be tcp or udp",
+    'environment.k3d.ports[0].protocol must be tcp or udp, got "sctp"',
   ]);
 });
