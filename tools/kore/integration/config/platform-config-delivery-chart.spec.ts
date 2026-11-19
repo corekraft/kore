@@ -153,7 +153,7 @@ test("a render without the gateway class fails rather than leaving kore-platform
   assert.match(message, /gatewayClassName/);
 });
 
-test("the handover deletes nothing: no prune, no cascade finalizer, no namespace creation, no replace", async () => {
+test("the handover deletes nothing: no prune, no cascade finalizer, no replace", async () => {
   for (const doc of await applications()) {
     assert.match(doc, /prune: false/);
     assert.match(doc, /selfHeal: true/);
@@ -161,10 +161,21 @@ test("the handover deletes nothing: no prune, no cascade finalizer, no namespace
     assert.match(doc, /PruneLast=true/);
     assert.doesNotMatch(doc, /finalizers/);
     assert.doesNotMatch(doc, /prune: true/);
-    assert.doesNotMatch(doc, /CreateNamespace=true/);
     assert.doesNotMatch(doc, /Replace=true/);
     assert.doesNotMatch(doc, /Force=true/);
   }
+});
+
+test("a delivered release's namespace has one owner, Argo CD through CreateNamespace, and the chart renders no Namespace object", async () => {
+  for (const doc of await applications()) {
+    const name = /^ {2}name: (.+)$/m.exec(doc)![1]!;
+    assert.match(doc, /CreateNamespace=true/, name);
+  }
+  const docs = await render();
+  assert.equal(
+    docs.some((d) => /^kind: Namespace$/m.test(d)),
+    false,
+  );
 });
 
 test("the Applications sit in an AppProject that allows only the platform registry and the release namespaces, and only platform operators may change it", async () => {
