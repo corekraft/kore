@@ -1,7 +1,14 @@
 import { registryTlsSecret } from "./registry-tls-fixtures.js";
 import { CommandError, type Runner } from "../runtime/index.js";
 
-/** Releases the local catalog gates off, so a healthy cluster never has them. */
+/** The kube context of the local cluster, the only one whose healthy fake runs metrics-server. */
+const localKubeContext = "k3d-kore-local";
+
+/**
+ * Releases the local catalog gates off, so a healthy cluster never has them.
+ * metrics-server is among them for every other cluster; the local cluster runs
+ * it, because local turns autoscaling-defaults on.
+ */
 const gatedOffReleases = [
   "agentgateway",
   "agentgateway-crds",
@@ -25,10 +32,14 @@ export function gatedOffReleaseAbsent(
   command: string,
   args: readonly string[],
 ): void {
+  const release = args[1] ?? "";
+  const runsHere =
+    release === "metrics-server" && args.includes(localKubeContext);
   if (
     command === "helm" &&
     args[0] === "status" &&
-    gatedOffReleases.includes(args[1] ?? "")
+    gatedOffReleases.includes(release) &&
+    !runsHere
   ) {
     throw new CommandError(command, args, {
       stdout: "",
