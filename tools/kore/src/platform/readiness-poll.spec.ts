@@ -20,7 +20,7 @@ type Attempt = (bound: string) => Promise<void>;
 const NO_STATUS_YET =
   "error: .status.conditions accessor error: <nil> is of the type <nil>, expected []interface{}";
 
-const waitRunner = (run: Runner["run"]) => ({ run }) as unknown as Runner;
+const waitRunner = (run: Runner["run"]): Runner => ({ run });
 
 beforeEach(() => {
   vi.useFakeTimers();
