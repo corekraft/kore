@@ -19,7 +19,7 @@
     "project": { "type": "string", "minLength": 1 },
     "operatorsGroup": { "type": "string", "minLength": 1 },
     "charts": {
-      "description": "One lock entry per handed-over release. The image policy is not one: kore keeps it (ADR 0028).",
+      "description": "One lock entry per handed-over release. The image policy is not one: kore keeps it (ADR 0028). The feature-gated releases (kore-policy-sync, kore-hostname-ownership-templates, kore-hostname-ownership) are allowed but never required: with their flag off kore hands over none of them.",
       "type": "object",
       "required": [
         "opa-authorizer",
@@ -36,7 +36,10 @@
         "kore-policy-templates": { "$ref": "#/definitions/entry" },
         "kore-policy-constraints": { "$ref": "#/definitions/entry" },
         "kore-local-tls": { "$ref": "#/definitions/entry" },
-        "kore-platform-config": { "$ref": "#/definitions/entry" }
+        "kore-platform-config": { "$ref": "#/definitions/entry" },
+        "kore-policy-sync": { "$ref": "#/definitions/entry" },
+        "kore-hostname-ownership-templates": { "$ref": "#/definitions/entry" },
+        "kore-hostname-ownership": { "$ref": "#/definitions/entry" }
       }
     },
     "releaseValues": {
@@ -49,7 +52,12 @@
         "kore-policy-templates": { "$ref": "#/definitions/valuesFiles" },
         "kore-policy-constraints": { "$ref": "#/definitions/valuesFiles" },
         "kore-local-tls": { "$ref": "#/definitions/valuesFiles" },
-        "kore-platform-config": { "$ref": "#/definitions/valuesFiles" }
+        "kore-platform-config": { "$ref": "#/definitions/valuesFiles" },
+        "kore-policy-sync": { "$ref": "#/definitions/valuesFiles" },
+        "kore-hostname-ownership-templates": {
+          "$ref": "#/definitions/valuesFiles"
+        },
+        "kore-hostname-ownership": { "$ref": "#/definitions/valuesFiles" }
       }
     },
     "namespaces": {
@@ -69,7 +77,12 @@
         "kore-policy-templates": { "$ref": "#/definitions/namespace" },
         "kore-policy-constraints": { "$ref": "#/definitions/namespace" },
         "kore-local-tls": { "$ref": "#/definitions/namespace" },
-        "kore-platform-config": { "$ref": "#/definitions/namespace" }
+        "kore-platform-config": { "$ref": "#/definitions/namespace" },
+        "kore-policy-sync": { "$ref": "#/definitions/namespace" },
+        "kore-hostname-ownership-templates": {
+          "$ref": "#/definitions/namespace"
+        },
+        "kore-hostname-ownership": { "$ref": "#/definitions/namespace" }
       }
     }
   },
