@@ -58,3 +58,8 @@ spec:
           selfHeal: true
         syncOptions:
           - CreateNamespace=true
+        {{- if .Values.sharedGateway }}
+        managedNamespaceMetadata:
+          labels:
+            platform.kore.dev/shared-gateway: "true"
+        {{- end }}

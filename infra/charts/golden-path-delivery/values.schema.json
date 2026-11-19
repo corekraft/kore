@@ -33,6 +33,10 @@
       "type": "string",
       "minLength": 1
     },
+    "sharedGateway": {
+      "description": "Labels each app namespace the sync creates with the platform-owned shared-gateway label, so the shared Gateway admits its routes (ADR 0133). Off, the sync sets no namespace metadata.",
+      "type": "boolean"
+    },
     "templateImages": {
       "type": "object",
       "required": ["static-frontend", "kotlin-bff"],

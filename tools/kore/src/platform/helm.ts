@@ -79,6 +79,8 @@ function goldenPathArgs(
     `ingress.platformDomain=${golden.ingress.platformDomain}`,
     "--set-string",
     `ingress.gatewayClassName=${golden.ingress.gatewayClassName}`,
+    // Only while platform-shared-gateway is on, so the flag off passes nothing new.
+    ...(golden.sharedGateway ? ["--set", "sharedGateway=true"] : []),
   ];
 }
 

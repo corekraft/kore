@@ -55,4 +55,4 @@ golden-path and Backstage charts' comments.
 - The shared Gateway's listeners are dark until `platform-shared-gateway` is
   turned on. With the flag off the rendered Gateway and Service are unchanged.
 - Narrowing the shared listener to platform-labelled namespaces is not decided
-  here; it is a later step, before the flag turns on.
+  here; it is a later step, before the flag turns on. ADR 0134 decides it.

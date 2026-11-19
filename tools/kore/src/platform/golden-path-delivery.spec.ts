@@ -84,7 +84,25 @@ test("the values carry the lock's digests, the checked-out commit and the enviro
       platformDomain: "kore.local",
       gatewayClassName: "agentgateway",
     },
+    sharedGateway: false,
   });
+});
+
+test("with platform-shared-gateway on the values carry sharedGateway, so the sync labels the app namespaces it creates", async () => {
+  const shared = {
+    ...repository,
+    environment: {
+      ...repository.environment,
+      features: { "platform-shared-gateway": true },
+    },
+  };
+  const { runner } = git();
+  const composed = await composeGoldenPathDelivery(
+    shared,
+    runner,
+    "template.lock.json",
+  );
+  expect(composed.goldenPathDelivery?.sharedGateway).toBe(true);
 });
 
 test("with the flag off the repository is untouched and neither a file nor git is read", async () => {
