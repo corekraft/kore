@@ -2,11 +2,13 @@
 import { beforeEach, expect, test, vi } from "vitest";
 import {
   enabledComponents,
+  featureEnabled,
   helmInstalledComponents,
   releaseOwner,
   type Repository,
 } from "../config/index.js";
 import { CommandError } from "../runtime/index.js";
+import { ensureLocalCaTrust } from "../security/index.js";
 import { helmReleaseStatus } from "./probe.js";
 import { awaitArgocdDelivery, reconcileConfigurations } from "./handover.js";
 import { reconcileConfiguration } from "./reconcile.js";
@@ -20,6 +22,7 @@ import {
 } from "./platform-support.js";
 
 vi.mock("../config/index.js");
+vi.mock("../security/index.js");
 vi.mock("./probe.js");
 vi.mock("./reconcile.js");
 vi.mock("./readiness.js");
@@ -255,4 +258,72 @@ test("an Application that is not Synced and Healthy fails the wait with its name
     "Application golden-path-example is Synced and Progressing",
   );
   expect(pollUntil).not.toHaveBeenCalled();
+});
+
+const portal = fakeComponent({
+  name: "kore-platform-backstage",
+  phase: "configuration",
+  namespace: "backstage",
+});
+
+test("with platform-dns on the portal's pods get the local CA before the portal is released, in the portal's namespace", async () => {
+  vi.mocked(helmInstalledComponents).mockReturnValue([policy, portal]);
+  vi.mocked(featureEnabled).mockReturnValue(true);
+  const order: string[] = [];
+  vi.mocked(ensureLocalCaTrust).mockImplementation(async (_r, _n, ns) => {
+    order.push(`ca:${ns}`);
+  });
+  vi.mocked(reconcileConfiguration).mockImplementation(async (_r, _n, c) => {
+    order.push(`reconcile:${c.name}`);
+  });
+  const { runner } = fakeRunner();
+
+  await reconcileConfigurations(repository, runner);
+
+  expect(order).toEqual([
+    "reconcile:policy",
+    "ca:backstage",
+    "reconcile:kore-platform-backstage",
+  ]);
+  expect(featureEnabled).toHaveBeenCalledWith(
+    repository.environment,
+    "platform-dns",
+  );
+  expect(ensureLocalCaTrust).toHaveBeenCalledWith(
+    repository,
+    runner,
+    "backstage",
+  );
+});
+
+test("with platform-dns off the local CA is neither read nor applied", async () => {
+  vi.mocked(helmInstalledComponents).mockReturnValue([policy, portal]);
+  vi.mocked(featureEnabled).mockReturnValue(false);
+
+  await reconcileConfigurations(repository, fakeRunner().runner);
+
+  expect(ensureLocalCaTrust).not.toHaveBeenCalled();
+  expect(reconciledNames()).toEqual(["policy", "kore-platform-backstage"]);
+});
+
+test("a missing local CA stops the portal's release before anything is applied for it", async () => {
+  vi.mocked(helmInstalledComponents).mockReturnValue([portal]);
+  vi.mocked(featureEnabled).mockReturnValue(true);
+  vi.mocked(ensureLocalCaTrust).mockRejectedValue(
+    new Error("the local CA is missing"),
+  );
+
+  await expect(
+    reconcileConfigurations(repository, fakeRunner().runner),
+  ).rejects.toThrow("the local CA is missing");
+  expect(reconcileConfiguration).not.toHaveBeenCalled();
+});
+
+test("no other component gets the local CA, even with platform-dns on", async () => {
+  vi.mocked(helmInstalledComponents).mockReturnValue([policy]);
+  vi.mocked(featureEnabled).mockReturnValue(true);
+
+  await reconcileConfigurations(repository, fakeRunner().runner);
+
+  expect(ensureLocalCaTrust).not.toHaveBeenCalled();
 });

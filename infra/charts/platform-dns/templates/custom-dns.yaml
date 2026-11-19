@@ -1,0 +1,33 @@
+{{- if index (.Values.features | default dict) "platform-dns" }}
+{{- $zone := required "zone is required: kore passes the environment's platform.domain" .Values.zone }}
+{{- /*
+The Gateway's Service is found by the label the Gateway controller puts on it,
+whatever the GatewayClass names it (agentgateway names it after the Gateway,
+Istio adds a suffix). With no cluster to ask, as in helm template, the Service
+is taken to carry the Gateway's name.
+*/}}
+{{- $service := .Values.gateway.name }}
+{{- range $found := (lookup "v1" "Service" .Values.gateway.namespace "" | default dict).items }}
+{{- if eq (index ($found.metadata.labels | default dict) "gateway.networking.k8s.io/gateway-name") $.Values.gateway.name }}
+{{- $service = $found.metadata.name }}
+{{- end }}
+{{- end }}
+# The k3s bundled DNS imports an optional ConfigMap with this name from
+# kube-system (*.override keys inside its main server block, *.server keys as
+# servers of their own). This chart is its only owner (ADR 0132).
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: coredns-custom
+  namespace: kube-system
+  labels: {app.kubernetes.io/name: platform-dns, app.kubernetes.io/managed-by: Helm}
+data:
+  # A pod asking for the zone or any name under it gets the Gateway Service's
+  # DNS name, not an address, so the answer follows the Service; the answer is
+  # rewritten back, so the pod sees the name it asked for.
+  platform.override: |
+    rewrite stop {
+        name regex ^(.+\.)?{{ $zone | replace "." "\\." }}\.$ {{ $service }}.{{ .Values.gateway.namespace }}.svc.cluster.local.
+        answer auto
+    }
+{{- end }}

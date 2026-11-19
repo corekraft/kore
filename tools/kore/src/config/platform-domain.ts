@@ -1,4 +1,8 @@
-import { featureEnabled, platformSharedGatewayFlag } from "./features.js";
+import {
+  featureEnabled,
+  platformDnsFlag,
+  platformSharedGatewayFlag,
+} from "./features.js";
 import type { Environment } from "./types.js";
 
 /** The platform domain and the platform organization's identifier. */
@@ -118,6 +122,36 @@ function sharedGatewayArgs(
   ].flatMap(([field, value]) => ["--set-string", `${key}.${field}=${value}`]);
 }
 
+/** The ConfigMap, in the portal's namespace, that carries the local CA its pods trust (ADR 0132). */
+export const localCaConfigMap = "kore-local-ca";
+
+/**
+ * With platform-dns on, the arguments the platform-dns and portal charts take
+ * for in-cluster name resolution: the Gateway whose Service the zone rewrites
+ * to, and the CA bundle the portal's pods trust. Off, none.
+ */
+function clusterResolutionArgs(
+  environment: Environment,
+  component: string,
+): string[] {
+  if (!featureEnabled(environment, platformDnsFlag)) {
+    return [];
+  }
+  if (component === "kore-platform-backstage") {
+    return ["--set-string", `localCa.configMap=${localCaConfigMap}`];
+  }
+  if (component === "kore-platform-dns") {
+    const { name, namespace } = environment.gateway;
+    return [
+      "--set-string",
+      `gateway.name=${name}`,
+      "--set-string",
+      `gateway.namespace=${namespace}`,
+    ];
+  }
+  return [];
+}
+
 /**
  * Helm arguments that hand the platform domain to a component that names it:
  * the overlay's values files and the chart defaults hold no copy, so the
@@ -129,7 +163,10 @@ export function platformHelmArgs(
 ): string[] {
   const key = domainValueKeys[component];
   const wildcard = wildcardValueKeys[component];
-  const shared = sharedGatewayArgs(environment, component);
+  const shared = [
+    ...sharedGatewayArgs(environment, component),
+    ...clusterResolutionArgs(environment, component),
+  ];
   if (key === undefined && wildcard === undefined) {
     return shared;
   }
