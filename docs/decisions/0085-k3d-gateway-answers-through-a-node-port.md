@@ -14,6 +14,8 @@ Refines: [ADR 0016](0016-release-readiness-checks-drive-wait-and-status.md),
 
 > Proposed refinement by [ADR 0131](0131-k3d-publishes-host-ports-on-the-loopback-address.md): the host port would bind the loopback address, not every interface, and drift would compare the host address.
 
+> Proposed refinement by [ADR 0132](0132-local-names-resolve-through-platform-dns-and-one-loopback-entry-point.md): host port 443 is published beside 8443, with a loopback DNS port; 8443 stays a deprecated alias until a contract ticket removes it.
+
 ## Context
 
 ADR 0076 replaces `minikube tunnel` with the k3d load balancer. k3s ServiceLB is
