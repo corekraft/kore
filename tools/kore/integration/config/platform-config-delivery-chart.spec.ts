@@ -181,6 +181,11 @@ test("a delivered release's namespace has one owner, Argo CD through CreateNames
   );
 });
 
+test("the AppProject whitelists the core-group Namespace kind, which CreateNamespace needs to create a missing release namespace", async () => {
+  const project = (await render()).find((d) => /^kind: AppProject$/m.test(d))!;
+  assert.match(project, /- group: ""\n\s+kind: Namespace\n/);
+});
+
 test("the Applications sit in an AppProject that allows only the platform registry and the release namespaces, and only platform operators may change it", async () => {
   const project = (await render()).find((d) => /^kind: AppProject$/m.test(d))!;
   assert.match(project, /name: platform-configuration/);
