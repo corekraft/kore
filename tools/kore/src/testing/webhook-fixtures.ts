@@ -34,6 +34,9 @@ const gatedOffReleases = [
   "kore-platform-apis",
   "kore-golden-path-delivery",
   "kore-config-delivery",
+  "kore-policy-sync",
+  "kore-hostname-ownership-templates",
+  "kore-hostname-ownership",
 ];
 
 /**

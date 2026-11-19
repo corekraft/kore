@@ -12,6 +12,9 @@ const CHARTS = [
   "kore-postgresql-api",
   "kore-policy-templates",
   "kore-policy-constraints",
+  "kore-policy-sync",
+  "kore-hostname-ownership-templates",
+  "kore-hostname-ownership",
   "kore-local-tls",
   "kore-platform-config",
 ];
@@ -96,7 +99,7 @@ test("a separate write-assets job attaches the chart lock and never replaces a d
   assert.match(attach, /refusing to replace it/);
 });
 
-test("the six configuration charts are packaged and the image policy is not", async () => {
+test("the configuration charts are packaged and the image policy is not", async () => {
   const text = await script();
   for (const name of CHARTS) {
     assert.match(text, new RegExp(`\\b${name}\\b`));

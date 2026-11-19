@@ -32,7 +32,14 @@
         "name": "policy-constraints",
         "step": 9,
         "capability": "shared-configuration",
-        "components": ["kore-policy-constraints", "kore-admission-gate"]
+        "components":
+          [
+            "kore-policy-constraints",
+            "kore-policy-sync",
+            "kore-hostname-ownership-templates",
+            "kore-hostname-ownership",
+            "kore-admission-gate"
+          ]
       },
       {
         "name": "networking-and-certificates",

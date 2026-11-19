@@ -1,0 +1,56 @@
+apiVersion: templates.gatekeeper.sh/v1
+kind: ConstraintTemplate
+metadata: { name: korehostnameownership }
+spec:
+  crd:
+    spec:
+      names: { kind: KoreHostnameOwnership }
+      validation:
+        openAPIV3Schema:
+          type: object
+          properties:
+            zones:
+              type: object
+              additionalProperties: { type: array, items: { type: string } }
+  targets:
+    - target: admission.k8s.gatekeeper.sh
+      rego: |
+        package kore.hostnameownership
+        import future.keywords.in
+        # One owner per hostname (ADR 0042). An HTTPRoute's owner is the organization
+        # label of its namespace, read from the synced Namespace, never from a label
+        # on the route itself, which anyone who can create the route can set. A host
+        # must sit inside one of that organization's zones, and no route in another
+        # namespace may claim it. Dryrun until the audit is clean (ADR 0017).
+        org_label := "platform.kore.dev/organization"
+        route := input.review.object
+        route_ns := route.metadata.namespace
+        hosts := object.get(route.spec, "hostnames", [])
+        owner := org {
+          org := data.inventory.cluster["v1"]["Namespace"][route_ns].metadata.labels[org_label]
+        }
+        # A host must be a strict subdomain of one of the organization's zones. A
+        # zone's own apex is not a service host: serving an apex means delegating
+        # the whole domain (ADR 0042), so the apex is outside the zone here.
+        inside_zone(host) {
+          zone := input.parameters.zones[owner][_]
+          endswith(host, concat("", [".", zone]))
+        }
+        violation[{"msg": msg}] {
+          host := hosts[_]
+          not owner
+          msg := sprintf("HTTPRoute %s/%s names no owning organization: namespace %s has no %s label, so hostname %s cannot be checked", [route_ns, route.metadata.name, route_ns, org_label, host])
+        }
+        violation[{"msg": msg}] {
+          host := hosts[_]
+          owner
+          not inside_zone(host)
+          msg := sprintf("hostname %s is outside the zones of organization %s: HTTPRoute %s/%s", [host, owner, route_ns, route.metadata.name])
+        }
+        violation[{"msg": msg}] {
+          host := hosts[_]
+          other := data.inventory.namespace[ns]["gateway.networking.k8s.io/v1"]["HTTPRoute"][_]
+          ns != route_ns
+          host in other.spec.hostnames
+          msg := sprintf("hostname %s is already claimed by HTTPRoute %s/%s", [host, ns, other.metadata.name])
+        }

@@ -897,6 +897,56 @@
           ]
       },
       {
+        "name": "kore-policy-sync",
+        "phase": "configuration",
+        "owner": "argocd",
+        "namespace": "gatekeeper-system",
+        "kind": "local-chart",
+        "chart": "infra/charts/kore-policy-sync",
+        "version": "local",
+        "featureFlag": "platform-hostname-ownership",
+        "ownsCRDs": [],
+        "dependencies": ["gatekeeper"],
+        "timeout": "5m",
+        "readiness": ["crd/configs.config.gatekeeper.sh"]
+      },
+      {
+        "name": "kore-hostname-ownership-templates",
+        "phase": "configuration",
+        "owner": "argocd",
+        "namespace": "gatekeeper-system",
+        "kind": "local-chart",
+        "chart": "infra/charts/kore-hostname-ownership-templates",
+        "version": "local",
+        "featureFlag": "platform-hostname-ownership",
+        "ownsCRDs": [],
+        "dependencies": ["gatekeeper"],
+        "timeout": "5m",
+        "readiness":
+          [
+            "constrainttemplate.templates.gatekeeper.sh/korehostnameownership",
+            "crd/korehostnameownership.constraints.gatekeeper.sh"
+          ]
+      },
+      {
+        "name": "kore-hostname-ownership",
+        "phase": "configuration",
+        "owner": "argocd",
+        "namespace": "gatekeeper-system",
+        "kind": "local-chart",
+        "chart": "infra/charts/kore-hostname-ownership",
+        "version": "local",
+        "featureFlag": "platform-hostname-ownership",
+        "ownsCRDs": [],
+        "dependencies":
+          ["kore-policy-sync", "kore-hostname-ownership-templates"],
+        "timeout": "5m",
+        "readiness":
+          [
+            "korehostnameownership.constraints.gatekeeper.sh/kore-hostname-ownership"
+          ]
+      },
+      {
         "name": "kore-admission-gate",
         "phase": "configuration",
         "namespace": "kore-system",

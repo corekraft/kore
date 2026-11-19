@@ -1,0 +1,6 @@
+apiVersion: v2
+name: kore-policy-sync
+description: Gatekeeper replication for the hostname-ownership constraint (ADR 0042), behind the platform-hostname-ownership flag
+type: application
+version: 0.1.0
+appVersion: 0.1.0

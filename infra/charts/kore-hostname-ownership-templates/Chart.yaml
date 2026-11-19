@@ -1,0 +1,6 @@
+apiVersion: v2
+name: kore-hostname-ownership-templates
+description: The Gatekeeper ConstraintTemplate for one owner per hostname (ADR 0042), behind the platform-hostname-ownership flag
+type: application
+version: 0.1.0
+appVersion: 0.1.0
