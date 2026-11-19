@@ -268,6 +268,7 @@ decisions; read one only when planning that area, and expect it to change.
 - [`docs/ideas/0046-platform-organization-service-apis-works-live-in-local.md`](ideas/0046-platform-organization-service-apis-works-live-in-local.md) — platform-organization-service-apis works live in local
 - [`docs/ideas/0047-platform-argocd-delivery-works-live-in-local.md`](ideas/0047-platform-argocd-delivery-works-live-in-local.md) — platform-argocd-delivery works live in local
 - [`docs/ideas/0048-kore-published-host-ports-bound-off-loopback-stay-at-zero.md`](ideas/0048-kore-published-host-ports-bound-off-loopback-stay-at-zero.md) — Kore-published host ports bound off loopback stay at zero
+- [`docs/ideas/0049-platform-shared-gateway-works-live-in-local.md`](ideas/0049-platform-shared-gateway-works-live-in-local.md) — platform-shared-gateway works live in local
 
 ## Operations and Guides
 
