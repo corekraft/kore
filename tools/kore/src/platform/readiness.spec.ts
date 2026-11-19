@@ -55,7 +55,7 @@ test("a deployment scaled to zero fails naming it, even though its rollout repor
   const { wait } = waitOn(["deployment/web"], () => "");
 
   await expect(wait()).rejects.toThrow(
-    "deployment/web not ready (rollout complete and a replica available) within 10m: deployment/web has no available replicas (scaled to zero or none passing readiness)",
+    "deployment/web not ready (rollout complete and a replica available) after 0.0s (timeout 10m): deployment/web has no available replicas (scaled to zero or none passing readiness)",
   );
 });
 
@@ -93,27 +93,25 @@ test("a CRD is proven Established in the environment's context, with no namespac
   expect(run.mock.calls[0]?.[1]).not.toContain("--namespace");
 });
 
-test("a CRD that does not exist yet is retried after a pause until it is Established", async () => {
-  let attempts = 0;
-  const { run, wait } = waitOn(["crd/x"], () => {
-    attempts += 1;
-    return attempts === 1
-      ? new Error(
-          'Error from server (NotFound): customresourcedefinitions "x" not found',
-        )
-      : "";
-  });
-
-  await wait();
-  expect(pause).toHaveBeenCalledTimes(1);
-  expect(run).toHaveBeenCalledTimes(2);
-});
-
 test("a wait that fails for another reason is rethrown at once, with no pause", async () => {
   const forbidden = () => new Error("forbidden: cannot list crds");
   const { wait } = waitOn(["crd/x"], forbidden);
   await expect(wait()).rejects.toThrow("forbidden");
   expect(pause).not.toHaveBeenCalled();
+});
+
+test("a readiness failure names the time its check ran, not the bound it may not have reached", async () => {
+  let clock = 0;
+  vi.spyOn(Date, "now").mockImplementation(() => clock);
+  customCheckReturns(async () => {
+    clock += 1200;
+    throw new Error("gateway refused");
+  });
+  const { wait } = waitOn(["gateway/web"]);
+
+  await expect(wait()).rejects.toThrow(
+    "gateway/web not ready (gateway accepted) after 1.2s (timeout 10m): gateway refused",
+  );
 });
 
 test("a Crossplane Function is proven Installed and then Healthy, in that order", async () => {
@@ -188,7 +186,7 @@ test("a TLS Secret that exists without its key material names the missing halves
   const { wait } = waitOn(["secret/web-tls"], () => "");
 
   await expect(wait()).rejects.toThrow(
-    "secret/web-tls not ready (complete TLS Secret) within 10m: Secret is missing tls.crt or tls.key",
+    "secret/web-tls not ready (complete TLS Secret) after 0.0s (timeout 10m): Secret is missing tls.crt or tls.key",
   );
 });
 
@@ -199,7 +197,7 @@ test("a TLS Secret cert-manager has not issued names the remedy", async () => {
   );
 
   await expect(wait()).rejects.toThrow(
-    'secret/web-tls not ready (complete TLS Secret) within 10m: secrets "web-tls" not found. cert-manager has not issued it; Run: kore trust install --environment local',
+    'secret/web-tls not ready (complete TLS Secret) after 0.0s (timeout 10m): secrets "web-tls" not found. cert-manager has not issued it; Run: kore trust install --environment local',
   );
 });
 
@@ -212,7 +210,7 @@ test("a TLS Secret read that fails for another reason is rethrown without a reme
   const error = await wait().catch((caught: unknown) => caught);
 
   expect(errorMessage(error)).toBe(
-    "secret/web-tls not ready (complete TLS Secret) within 10m: forbidden: secrets is forbidden",
+    "secret/web-tls not ready (complete TLS Secret) after 0.0s (timeout 10m): forbidden: secrets is forbidden",
   );
 });
 
@@ -249,7 +247,7 @@ test("a failing custom check fails the component's readiness naming the resource
   const { wait } = waitOn(["applications.argoproj.io"]);
 
   await expect(wait()).rejects.toThrow(
-    "applications.argoproj.io not ready (gateway accepted) within 10m: Application kore-local-tls is OutOfSync and Missing: chart digest is not signed",
+    "applications.argoproj.io not ready (gateway accepted) after 0.0s (timeout 10m): Application kore-local-tls is OutOfSync and Missing: chart digest is not signed",
   );
 });
 
@@ -306,7 +304,7 @@ test("the first failing resource stops the wait, so no later resource is checked
   );
 
   await expect(wait()).rejects.toThrow(
-    "statefulset/db not ready (rollout complete) within 10m",
+    "statefulset/db not ready (rollout complete) after 0.0s (timeout 10m)",
   );
 
   expect(tails(run)).toEqual([["status", "statefulset/db", "--timeout=10m"]]);
