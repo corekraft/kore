@@ -49,8 +49,17 @@ export async function ensureResolver(
       next: `no terminal to ask on, so ${target.path} was not installed; run kore dns install --environment ${environment.name} in a terminal to make ${target.zone} names resolve`,
     };
   }
+  const ask = options.confirm;
   return await installResolver(environment, runner, host, {
     yes: false,
-    confirm: options.confirm,
+    // A "no" fails here, naming both fixes, instead of in the install's own message.
+    confirm: async (question) => {
+      if (await ask(question)) {
+        return true;
+      }
+      throw new Error(
+        `kore dns install was not confirmed; nothing was written to ${target.path}; rerun kore local up and answer y, or run kore dns install --environment ${environment.name}`,
+      );
+    },
   });
 }

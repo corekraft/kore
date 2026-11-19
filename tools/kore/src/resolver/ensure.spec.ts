@@ -47,7 +47,7 @@ test("a missing file is installed once, through the install with the terminal co
   expect(installResolver).toHaveBeenCalledTimes(1);
   expect(installResolver).toHaveBeenCalledWith(environment, runner, host, {
     yes: false,
-    confirm,
+    confirm: expect.any(Function),
   });
 });
 
@@ -106,17 +106,33 @@ test("a file without the Kore marker is reported, never rewritten and never aske
   expect(run).not.toHaveBeenCalled();
 });
 
-test("a declined or failed install fails with its cause, not a status", async () => {
+test("the question goes to the terminal confirmation, and a yes lets the install go on", async () => {
+  const { runner } = fakeRunner();
+  await ensureResolver(environment, runner, fakeHost(undefined), { confirm });
+  const asked = vi.mocked(installResolver).mock.calls[0]![3].confirm!;
+
+  expect(await asked("Write it? [y/N] ")).toBe(true);
+  expect(confirm).toHaveBeenCalledWith("Write it? [y/N] ");
+});
+
+test("a declined prompt fails naming the file and both ways to fix it", async () => {
+  confirm.mockResolvedValueOnce(false);
+  const { runner } = fakeRunner();
+  await ensureResolver(environment, runner, fakeHost(undefined), { confirm });
+  const asked = vi.mocked(installResolver).mock.calls[0]![3].confirm!;
+
+  await expect(asked("Write it? [y/N] ")).rejects.toThrow(
+    `kore dns install was not confirmed; nothing was written to ${target.path}; rerun kore local up and answer y, or run kore dns install --environment local`,
+  );
+});
+
+test("a failed install fails with its cause, not a status", async () => {
   vi.mocked(installResolver).mockRejectedValue(
-    new Error(
-      `kore dns install was not confirmed; nothing was written to ${target.path}`,
-    ),
+    new Error("sudo: a password is required"),
   );
   const { runner } = fakeRunner();
 
   await expect(
     ensureResolver(environment, runner, fakeHost(undefined), { confirm }),
-  ).rejects.toThrow(
-    `kore dns install was not confirmed; nothing was written to ${target.path}`,
-  );
+  ).rejects.toThrow("sudo: a password is required");
 });

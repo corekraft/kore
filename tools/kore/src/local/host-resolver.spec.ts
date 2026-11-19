@@ -26,6 +26,8 @@ function flagOn(on: boolean): void {
   );
 }
 
+const originalIsTTY = Object.getOwnPropertyDescriptor(process.stdin, "isTTY");
+
 function stdinIsTerminal(isTTY: boolean): void {
   Object.defineProperty(process.stdin, "isTTY", {
     value: isTTY,
@@ -52,11 +54,15 @@ beforeEach(() => {
     calls.push("resolver");
     return { status: "unchanged", path: resolverPath };
   });
-  stdinIsTerminal(true);
   flagOn(true);
 });
 
 afterEach(() => {
+  if (originalIsTTY === undefined) {
+    Reflect.deleteProperty(process.stdin, "isTTY");
+  } else {
+    Object.defineProperty(process.stdin, "isTTY", originalIsTTY);
+  }
   vi.restoreAllMocks();
   vi.mocked(terminalConfirm).mockReset();
 });
@@ -75,6 +81,7 @@ test("with platform-dns off the work runs alone: the resolver file is neither re
 });
 
 test("with platform-dns on the resolver file is ensured once, with the terminal confirmation, before the work", async () => {
+  stdinIsTerminal(true);
   const { runner } = fakeRunner();
 
   expect(await withHostResolver(repository, runner, upWork)).toBe("done");
@@ -161,4 +168,10 @@ test("a refused install fails fast with its cause, and the work never starts", a
 
   expect(calls).toEqual([]);
   expect(stderr).toEqual([]);
+});
+
+test("the terminal check is put back after each test", () => {
+  expect(Object.getOwnPropertyDescriptor(process.stdin, "isTTY")).toEqual(
+    originalIsTTY,
+  );
 });
