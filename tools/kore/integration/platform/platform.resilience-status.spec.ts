@@ -124,7 +124,6 @@ test("the same status run is fully ready once the controller is back", async () 
       "keycloak-operator",
       "keycloak-provider",
       "kore-config-delivery",
-      "kore-platform-apis",
       "kore-golden-path-delivery",
       "kore-platform-keycloak",
       "kore-platform-backstage",

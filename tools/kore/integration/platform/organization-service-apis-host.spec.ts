@@ -149,16 +149,16 @@ test("the default host reaches a cluster only when the flag is on", async () => 
     enabledComponents(repository)
       .filter((c) => c.chart === "infra/charts/platform-apis")
       .map((c) => c.name);
-  assert.deepEqual(hostCharts(local), [], "flag off: no composition renders");
-  const on = {
+  assert.deepEqual(hostCharts(local), [component], "flag on: it renders");
+  const off = {
     ...local,
     environment: {
       ...local.environment,
       features: {
         ...local.environment.features,
-        [organizationServiceApisFlag]: true,
+        [organizationServiceApisFlag]: false,
       },
     },
   };
-  assert.deepEqual(hostCharts(on), [component]);
+  assert.deepEqual(hostCharts(off), [], "flag off: no composition renders");
 });

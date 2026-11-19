@@ -14,30 +14,52 @@ import {
 
 const component = "kore-platform-apis";
 
+function withFlag<T extends Awaited<ReturnType<typeof loadRepository>>>(
+  repository: T,
+  value: boolean,
+): T {
+  return {
+    ...repository,
+    environment: {
+      ...repository.environment,
+      features: {
+        ...repository.environment.features,
+        [organizationServiceApisFlag]: value,
+      },
+    },
+  };
+}
+
 async function read(path: string): Promise<string> {
   return await readFile(join(await findRoot(), path), "utf8");
 }
 
-test("the flag is declared off in every environment overlay", async () => {
+test("local declares the flag on and managed-example declares it off", async () => {
   assert.equal(
     organizationServiceApisFlag,
     "platform-organization-service-apis",
   );
-  for (const name of ["local", "managed-example"]) {
+  for (const [name, declared] of [
+    ["local", true],
+    ["managed-example", false],
+  ] as const) {
     const repository = await loadRepository(name);
     assert.equal(
       repository.environment.features?.[organizationServiceApisFlag],
-      false,
-      `${name} must declare ${organizationServiceApisFlag} as false`,
+      declared,
+      `${name} must declare ${organizationServiceApisFlag} as ${declared}`,
     );
   }
 });
 
-test("with the flag off the render installs no Organization or Service API", async () => {
-  for (const name of ["local", "managed-example"]) {
+test("local installs the Organization and Service APIs and managed-example installs none", async () => {
+  for (const [name, installed] of [
+    ["local", true],
+    ["managed-example", false],
+  ] as const) {
     const repository = await loadRepository(name);
     const names = enabledComponents(repository).map((c) => c.name);
-    assert.ok(!names.includes(component), `${name} must not install it`);
+    assert.equal(names.includes(component), installed, `${name}: ${component}`);
     assert.ok(
       repository.catalog.components.some((c) => c.name === component),
       "the catalog declares it, gated",
@@ -45,18 +67,14 @@ test("with the flag off the render installs no Organization or Service API", asy
   }
 });
 
-test("with the flag on the catalog installs the APIs after Crossplane and its functions", async () => {
+test("with the flag turned off in local the render installs no Organization or Service API", async () => {
   const repository = await loadRepository("local");
-  const on = {
-    ...repository,
-    environment: {
-      ...repository.environment,
-      features: {
-        ...repository.environment.features,
-        [organizationServiceApisFlag]: true,
-      },
-    },
-  };
+  const off = withFlag(repository, false);
+  assert.ok(!enabledComponents(off).some((c) => c.name === component));
+});
+
+test("with the flag on the catalog installs the APIs after Crossplane and its functions", async () => {
+  const on = await loadRepository("local");
   await validateRepository(on);
   const names = enabledComponents(on).map((c) => c.name);
   assert.ok(names.includes(component));
@@ -193,25 +211,13 @@ test("Crossplane may manage namespaces only through the flagged chart", async ()
   assert.match(rbac, /name: crossplane\n {4}namespace: crossplane-system/);
 });
 
-test("the namespace composition is rendered only when the flag is on", async () => {
+test("the namespace composition is rendered in local and only while the flag is on", async () => {
   const local = await loadRepository("local");
   const chart = "infra/charts/platform-apis";
   const rendering = (repository: typeof local): string[] =>
     enabledComponents(repository)
       .filter((c) => c.chart === chart)
       .map((c) => c.name);
-  assert.deepEqual(rendering(local), []);
-  assert.deepEqual(
-    rendering({
-      ...local,
-      environment: {
-        ...local.environment,
-        features: {
-          ...local.environment.features,
-          [organizationServiceApisFlag]: true,
-        },
-      },
-    }),
-    [component],
-  );
+  assert.deepEqual(rendering(local), [component]);
+  assert.deepEqual(rendering(withFlag(local, false)), []);
 });

@@ -32,6 +32,43 @@ test("a cluster that is not local, where autoscaling-defaults is off, answers me
   ).toThrow(CommandError);
 });
 
+test("the local cluster runs kore-platform-apis, so its release status is not answered not found", () => {
+  expect(() =>
+    gatedOffReleaseAbsent("helm", [
+      "status",
+      "kore-platform-apis",
+      "--namespace",
+      "crossplane-system",
+      "--kube-context",
+      "k3d-kore-local",
+    ]),
+  ).not.toThrow();
+});
+
+test("a cluster that is not local, where platform-organization-service-apis is off, answers kore-platform-apis not found", () => {
+  expect(() =>
+    gatedOffReleaseAbsent("helm", [
+      "status",
+      "kore-platform-apis",
+      "--namespace",
+      "crossplane-system",
+      "--kube-context",
+      "REQUIRED",
+    ]),
+  ).toThrow(CommandError);
+});
+
+test("a release local still gates off is answered not found under the local context too", () => {
+  expect(() =>
+    gatedOffReleaseAbsent("helm", [
+      "status",
+      "kore-platform-backstage",
+      "--kube-context",
+      "k3d-kore-local",
+    ]),
+  ).toThrow(CommandError);
+});
+
 test("a release the local overlay gates off is still answered not found, so its flag-off path holds", () => {
   expect(() =>
     gatedOffReleaseAbsent("helm", [
