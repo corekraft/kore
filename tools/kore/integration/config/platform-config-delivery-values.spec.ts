@@ -16,7 +16,11 @@ type Gateway = {
   port?: number;
   service?: { type?: string; nodePort?: number };
 };
-type Values = { gateway?: Gateway; features?: Record<string, boolean> };
+type Values = {
+  gateway?: Gateway;
+  features?: Record<string, boolean>;
+  secrets?: { storeName?: string };
+};
 
 /** The values an Application hands its chart, read back from the rendered `valuesObject` line. */
 function valuesObject(doc: string): Values | undefined {
@@ -68,6 +72,18 @@ test("a release's values files merge in the order given, a later file overriding
   assert.equal(values?.gateway?.port, 9443);
   assert.equal(values?.gateway?.service?.nodePort, 30443);
   assert.deepEqual(values?.features, { "agentgateway-mesh-enrollment": true });
+});
+
+test("a later file's false, 0 and empty string override an earlier file's values, as Helm's own --values does, rather than being dropped as empty", async () => {
+  const values = await platformConfig([
+    await overlayFile(),
+    '{"features": {"agentgateway-mesh-enrollment": true}}',
+    '{"features": {"agentgateway-mesh-enrollment": false}, "gateway": {"service": {"nodePort": 0}}, "secrets": {"storeName": ""}}',
+  ]);
+  assert.deepEqual(values?.features, { "agentgateway-mesh-enrollment": false });
+  assert.equal(values?.gateway?.service?.nodePort, 0);
+  assert.equal(values?.gateway?.service?.type, "NodePort");
+  assert.equal(values?.secrets?.storeName, "");
 });
 
 test("a values file that is not valid YAML fails the render, naming the release, rather than delivering an Application without its values", async () => {
