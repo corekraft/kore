@@ -8,7 +8,12 @@ import {
 } from "../images/index.js";
 import { CommandError, type Runner } from "../runtime/index.js";
 import { ClusterUnavailableError } from "./cluster-unavailable.js";
-import { drift, unreadableMessage, unreadablePorts } from "./k3d-drift.js";
+import {
+  apiHostAddress,
+  drift,
+  unreadableMessage,
+  unreadablePorts,
+} from "./k3d-drift.js";
 import { inspectPortMappings, loadBalancerContainer } from "./k3d-inspect.js";
 import { type ReadinessOptions, waitForClusterReady } from "./readiness.js";
 
@@ -98,6 +103,9 @@ export function k3dCreateArgs(
       "--port",
       `${port.hostAddress}:${port.hostPort}:${port.loadBalancerPort}@loadbalancer`,
     ]),
+    // k3d picks the API port's host port at random, on the declared address (ADR 0131).
+    "--api-port",
+    `${apiHostAddress(cluster)}:random`,
     ...(koreManagesRegistryAuth(repository)
       ? k3dTrustVolumeArgs(trustDirectory)
       : []),

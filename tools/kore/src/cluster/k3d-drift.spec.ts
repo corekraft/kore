@@ -78,12 +78,65 @@ test("without reported mappings only the counts compare, so a missing mapping li
   ]);
 });
 
-test("an extra mapping such as the random API port is ignored, even when it is off loopback", () => {
+test("an extra mapping that is not the API port is ignored, even when it is off loopback", () => {
   const extra = entry({
     "443/tcp": [{ HostIp: "127.0.0.1", HostPort: "8443" }],
-    "6443/tcp": [{ HostIp: "0.0.0.0", HostPort: "51234" }],
+    "9090/tcp": [{ HostIp: "0.0.0.0", HostPort: "51234" }],
   });
   expect(drift(extra, overlay)).toEqual([]);
+});
+
+test("the API port's random host port is not compared, but its address is: on the overlay's address it is no difference", () => {
+  const api = entry({
+    "443/tcp": [{ HostIp: "127.0.0.1", HostPort: "8443" }],
+    "6443/tcp": [{ HostIp: "127.0.0.1", HostPort: "51234" }],
+  });
+  expect(drift(api, overlay)).toEqual([]);
+});
+
+test("an API port published on every interface is refused naming its address, whatever host port k3d chose", () => {
+  const wide = entry({
+    "443/tcp": [{ HostIp: "127.0.0.1", HostPort: "8443" }],
+    "6443/tcp": [{ HostIp: "0.0.0.0", HostPort: "59290" }],
+  });
+  expect(drift(wide, overlay)).toEqual([
+    "port 6443 address: 0.0.0.0 != 127.0.0.1",
+  ]);
+});
+
+test("an API port whose address the listing omits is unreadable until docker inspect supplies it, and then compared", () => {
+  const silent = entry({
+    "443/tcp": [{ HostIp: "127.0.0.1", HostPort: "8443" }],
+    "6443/tcp": [{ HostPort: "51234" }],
+  });
+  expect(unreadablePorts(silent, overlay)).toEqual([
+    { hostAddress: "127.0.0.1", loadBalancerPort: 6443 },
+  ]);
+  const inspected = {
+    "6443/tcp": [{ HostIp: "0.0.0.0", HostPort: "51234" }],
+  };
+  expect(unreadablePorts(silent, overlay, inspected)).toEqual([]);
+  expect(drift(silent, overlay, inspected)).toEqual([
+    "port 6443 address: 0.0.0.0 != 127.0.0.1",
+  ]);
+});
+
+test("the API address is the first declared port's host address, so every loopback binding names one address", () => {
+  const two: K3dCluster = {
+    ...overlay,
+    ports: [
+      { hostAddress: "127.0.0.2", hostPort: 9000, loadBalancerPort: 30000 },
+      { hostAddress: "127.0.0.1", hostPort: 8443, loadBalancerPort: 443 },
+    ],
+  };
+  const api = entry({
+    "30000/tcp": [{ HostIp: "127.0.0.2", HostPort: "9000" }],
+    "443/tcp": [{ HostIp: "127.0.0.1", HostPort: "8443" }],
+    "6443/tcp": [{ HostIp: "127.0.0.1", HostPort: "51234" }],
+  });
+  expect(drift(api, two)).toEqual([
+    "port 6443 address: 127.0.0.1 != 127.0.0.2",
+  ]);
 });
 
 test("the unreadable message names the port and both commands that failed to report it, and never says to recreate the cluster", () => {

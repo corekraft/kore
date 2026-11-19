@@ -63,6 +63,21 @@ test("every host port is published on the loopback address its overlay entry dec
   ]);
 });
 
+test("the API port is published with a random host port on the first declared port's loopback address, so no create argument leaves it on all interfaces", () => {
+  const two = fakeRepository({
+    k3d: {
+      clusterName: "kore-local",
+      serviceCidr: "10.96.0.0/12",
+      ports: [
+        { hostAddress: "127.0.0.2", hostPort: 9000, loadBalancerPort: 30000 },
+        { hostAddress: "127.0.0.1", hostPort: 8443, loadBalancerPort: 443 },
+      ],
+    },
+  });
+  const args = k3dCreateArgs(two, TRUST);
+  expect(args[args.indexOf("--api-port") + 1]).toBe("127.0.0.2:random");
+});
+
 test("a drift verdict on the host address is refused with the recreate path before any start or write, and docker inspect is not consulted when the listing reports the address", async () => {
   vi.mocked(drift).mockReturnValue(["port 443 address: 0.0.0.0 != 127.0.0.1"]);
   const wide = fakeK3d(1);
