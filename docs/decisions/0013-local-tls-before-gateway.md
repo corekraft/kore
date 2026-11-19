@@ -12,6 +12,8 @@ Source: [`infra/plans/2-implementation.md` § Gateway Bootstrap Repair](../../in
 Refines: [ADR 0006](0006-istio-ambient-gateway-api.md) and
 [ADR 0011](0011-catalog-owned-releases-and-versions.md)
 
+> Proposed refinement by [ADR 0132](0132-local-names-resolve-through-platform-dns-and-one-loopback-entry-point.md): `kore local up` also installs the resolver file for the platform DNS, a second host change beside `kore trust install`.
+
 ## Context
 
 The clean-cluster run on 2026-09-13 stalled in `kore-platform-config`: the
