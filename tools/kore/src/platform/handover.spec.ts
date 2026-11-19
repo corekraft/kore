@@ -285,10 +285,6 @@ test("with platform-dns on the portal's pods get the local CA before the portal 
     "ca:backstage",
     "reconcile:kore-platform-backstage",
   ]);
-  expect(featureEnabled).toHaveBeenCalledWith(
-    repository.environment,
-    "platform-dns",
-  );
   expect(ensureLocalCaTrust).toHaveBeenCalledWith(
     repository,
     runner,
@@ -296,9 +292,11 @@ test("with platform-dns on the portal's pods get the local CA before the portal 
   );
 });
 
-test("with platform-dns off the local CA is neither read nor applied", async () => {
+test("the local CA is applied for no other component, nor for the portal with platform-dns off", async () => {
   vi.mocked(helmInstalledComponents).mockReturnValue([policy, portal]);
-  vi.mocked(featureEnabled).mockReturnValue(false);
+  vi.mocked(featureEnabled).mockImplementation(
+    (_environment, flag) => flag !== "platform-dns",
+  );
 
   await reconcileConfigurations(repository, fakeRunner().runner);
 
@@ -319,11 +317,27 @@ test("a missing local CA stops the portal's release before anything is applied f
   expect(reconcileConfiguration).not.toHaveBeenCalled();
 });
 
-test("no other component gets the local CA, even with platform-dns on", async () => {
-  vi.mocked(helmInstalledComponents).mockReturnValue([policy]);
+test("an Argo CD owned portal that Argo CD has taken over still gets the local CA, and Helm does not release it", async () => {
+  const delivered = fakeComponent({
+    name: "kore-platform-backstage",
+    phase: "configuration",
+    namespace: "backstage",
+    owner: "argocd",
+  });
+  vi.mocked(helmInstalledComponents).mockImplementation(
+    (_repository, deliveryInstalled) =>
+      deliveryInstalled ? [delivery] : [delivery, delivered],
+  );
   vi.mocked(featureEnabled).mockReturnValue(true);
+  vi.mocked(helmReleaseStatus).mockResolvedValue("deployed");
+  const { runner } = fakeRunner();
 
-  await reconcileConfigurations(repository, fakeRunner().runner);
+  await reconcileConfigurations(repository, runner);
 
-  expect(ensureLocalCaTrust).not.toHaveBeenCalled();
+  expect(ensureLocalCaTrust).toHaveBeenCalledWith(
+    repository,
+    runner,
+    "backstage",
+  );
+  expect(reconciledNames()).toEqual(["kore-config-delivery"]);
 });

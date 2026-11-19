@@ -35,17 +35,18 @@ export async function reconcileConfigurations(
     ) {
       continue;
     }
-    if (await handedToArgocd(repository, runner, candidates, component)) {
-      continue;
-    }
     // The portal's pods mount the local CA from a ConfigMap kore applies, so
-    // it precedes the release that mounts it, and only with platform-dns on
-    // (ADR 0132).
+    // it precedes the release that mounts it, whoever delivers that release
+    // (Helm here, or Argo CD once it has taken the release over), and only
+    // with platform-dns on (ADR 0132).
     if (
       component.name === "kore-platform-backstage" &&
       featureEnabled(repository.environment, platformDnsFlag)
     ) {
       await ensureLocalCaTrust(repository, runner, component.namespace);
+    }
+    if (await handedToArgocd(repository, runner, candidates, component)) {
+      continue;
     }
     await reconcileConfiguration(repository, runner, component);
   }

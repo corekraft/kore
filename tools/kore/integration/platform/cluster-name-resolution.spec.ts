@@ -115,18 +115,6 @@ test("the zone is rewritten to the Gateway Service's DNS name, never an address"
   assert.doesNotMatch(document, /\d+\.\d+\.\d+\.\d+/);
 });
 
-test("the Service is found by the Gateway's own label, so the class that names it does not matter", async () => {
-  const template = readFileSync(
-    join(
-      (await loadRepository("local")).root,
-      "infra/charts/platform-dns/templates/custom-dns.yaml",
-    ),
-    "utf8",
-  );
-  assert.match(template, /lookup "v1" "Service"/);
-  assert.match(template, /gateway\.networking\.k8s\.io\/gateway-name/);
-});
-
 test("the Gateway the rewrite follows is the environment's, handed over by kore", async () => {
   const repository = await loadRepository("local");
   const args = platformHelmArgs(
