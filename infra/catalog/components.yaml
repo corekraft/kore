@@ -244,8 +244,7 @@
             "deployment/argocd-server",
             "deployment/argocd-repo-server",
             "deployment/argocd-applicationset-controller",
-            "statefulset/argocd-application-controller",
-            "applications.argoproj.io"
+            "statefulset/argocd-application-controller"
           ]
       },
       {
@@ -829,7 +828,8 @@
           [
             "crd/applications.argoproj.io",
             "crd/appprojects.argoproj.io",
-            "statefulset/argocd-application-controller"
+            "statefulset/argocd-application-controller",
+            "applications.argoproj.io"
           ]
       },
       {
