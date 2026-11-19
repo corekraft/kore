@@ -283,6 +283,8 @@ export interface GoldenPathDeliveryValues {
   environment: string;
   templateImages: Record<string, { image: string; digest: string }>;
   ingress: { platformDomain: string; gatewayClassName: string };
+  /** True while platform-shared-gateway is on: the sync labels the app namespaces it creates (ADR 0133). */
+  sharedGateway?: boolean;
 }
 
 export interface Repository {

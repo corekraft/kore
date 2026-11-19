@@ -2,7 +2,7 @@ apiVersion: v1
 kind: Namespace
 metadata:
   name: kore-system
-  labels: {app.kubernetes.io/managed-by: Helm}
+  labels: {app.kubernetes.io/managed-by: Helm{{ if include "platform-config.sharedGateway" . }}, platform.kore.dev/shared-gateway: "true"{{ end }}}
 ---
 apiVersion: v1
 kind: Namespace
