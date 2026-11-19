@@ -3,6 +3,7 @@ import {
   alertEmailHelmArgs,
   alertForwardingHelmArgs,
   dashboardSidecarHelmArgs,
+  featureHelmArgs,
   registeredServiceHelmArgs,
 } from "../config/index.js";
 import {
@@ -127,6 +128,40 @@ test("kore-golden-path-delivery is given the commit, the template digests and th
     "--set-string",
     "ingress.gatewayClassName=istio",
   ]);
+});
+
+test("the delivery charts take no feature flags, since their closed schemas refuse a features key their templates never read", () => {
+  vi.mocked(featureHelmArgs).mockReturnValue([
+    "--set",
+    "features.platform-argocd-delivery=true",
+  ]);
+  for (const name of ["kore-config-delivery", "kore-golden-path-delivery"]) {
+    const { repository: _repository, ...release } = fakeComponent({
+      name,
+      kind: "local-chart",
+      chart: `infra/charts/${name}`,
+    });
+    const args = helmUpgradeArgs(
+      { ...repository, chartDelivery: delivery, goldenPathDelivery: golden },
+      release,
+    );
+    expect(args, name).not.toContain("features.platform-argocd-delivery=true");
+  }
+});
+
+test("a local chart that reads feature flags still receives them", () => {
+  vi.mocked(featureHelmArgs).mockReturnValue([
+    "--set",
+    "features.platform-argocd-delivery=true",
+  ]);
+  const { repository: _repository, ...local } = fakeComponent({
+    name: "platform-config",
+    kind: "local-chart",
+    chart: "infra/charts/platform-config",
+  });
+  expect(helmUpgradeArgs(repository, local)).toContain(
+    "features.platform-argocd-delivery=true",
+  );
 });
 
 test("no other component gets the golden-path values", () => {
