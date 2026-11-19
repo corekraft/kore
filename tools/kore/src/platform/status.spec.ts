@@ -3,6 +3,7 @@ import { beforeEach, expect, test, vi } from "vitest";
 import {
   componentGatedOff,
   orderedComponents,
+  releaseOwner,
   type Component,
   type Repository,
 } from "../config/index.js";
@@ -64,6 +65,7 @@ beforeEach(() => {
   vi.mocked(orderedComponents).mockReturnValue([]);
   vi.mocked(componentGatedOff).mockReturnValue(false);
   vi.mocked(gatedReleaseProblem).mockResolvedValue(undefined);
+  vi.mocked(releaseOwner).mockReturnValue("kore");
   vi.mocked(helmReleaseStatus).mockResolvedValue("deployed");
   vi.mocked(assertOwnedCrdsExist).mockResolvedValue(undefined);
   vi.mocked(errorMessage).mockImplementation((error) =>
@@ -106,6 +108,45 @@ test("an unfiltered status appends the registry trust, image inventory and admis
     "admission-gate",
   ]);
   expect(rows.at(-1)).toBe(gateRow);
+});
+
+test("an Argo CD owned release is judged by its resources, never by a Helm release Helm never installed", async () => {
+  vi.mocked(orderedComponents).mockReturnValue([
+    component("opa-authorizer", "helm", { owner: "argocd" }),
+  ]);
+  vi.mocked(releaseOwner).mockReturnValue("argocd");
+  vi.mocked(helmReleaseStatus).mockRejectedValue(
+    new Error("Error: release: not found"),
+  );
+
+  const [row] = await platformStatus(repository, runner, ["opa-authorizer"]);
+
+  expect(row).toEqual({
+    name: "opa-authorizer",
+    namespace: "kore-system",
+    status: "ready",
+    detail: "installed and ready",
+  });
+  expect(helmReleaseStatus).not.toHaveBeenCalled();
+});
+
+test("an Argo CD owned release whose resources are not ready is degraded with the readiness failure", async () => {
+  vi.mocked(orderedComponents).mockReturnValue([
+    component("opa-authorizer", "helm", { owner: "argocd" }),
+  ]);
+  vi.mocked(releaseOwner).mockReturnValue("argocd");
+  vi.mocked(readinessFailure).mockResolvedValue(
+    "deployment opa-authorizer is not available",
+  );
+
+  const [row] = await platformStatus(repository, runner, ["opa-authorizer"]);
+
+  expect(row).toEqual({
+    name: "opa-authorizer",
+    namespace: "kore-system",
+    status: "degraded",
+    detail: "deployment opa-authorizer is not available",
+  });
 });
 
 test("a gated-off component with a gated-release problem is degraded with that problem and is not probed", async () => {

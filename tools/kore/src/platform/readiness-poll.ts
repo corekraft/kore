@@ -1,3 +1,4 @@
+import type { Runner } from "../runtime/index.js";
 import { errorMessage } from "./probe.js";
 
 const POLL_MILLISECONDS = 250;
@@ -28,6 +29,9 @@ export function pause(): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, POLL_MILLISECONDS));
 }
 
+/** The bound of a poll ran out; the message is the last probe's reason. A caller can tell it from a probe error. */
+export class ReadinessTimeout extends Error {}
+
 /**
  * Polls `probe` until it reports ready (undefined) or the timeout elapses,
  * always probing at least once. A probe returns the reason it is not ready, or
@@ -54,9 +58,59 @@ export async function pollUntil(
       return;
     }
     if (Date.now() >= deadline) {
-      throw new Error(reason);
+      throw new ReadinessTimeout(reason);
     }
     await pause();
+  }
+}
+
+/**
+ * kubectl exits 1 at once, without waiting, while a new CRD has no `.status`
+ * yet: Crossplane writes it a moment after Helm returns. The same read succeeds
+ * on a later try, so it is not-yet-there until the deadline (#1292).
+ */
+const NO_STATUS_YET = /\.status\.conditions accessor error/;
+
+/**
+ * Waits for each condition on a cluster-scoped resource in order, retrying
+ * while the resource, its type or its status does not exist yet. Any other
+ * failure (Forbidden, unreachable context) is rethrown at once.
+ */
+export async function waitForConditions(
+  kubeContext: string,
+  runner: Runner,
+  resource: string,
+  conditions: readonly string[],
+  timeout: string,
+): Promise<void> {
+  const deadline = Date.now() + timeoutMilliseconds(timeout);
+  for (const condition of conditions) {
+    while (true) {
+      try {
+        await runner.run(
+          "kubectl",
+          [
+            "--context",
+            kubeContext,
+            "wait",
+            `--for=condition=${condition}`,
+            resource,
+            `--timeout=${timeout}`,
+          ],
+          { capture: true },
+        );
+        break;
+      } catch (error) {
+        const message = errorMessage(error);
+        if (
+          !(NOT_YET_THERE.test(message) || NO_STATUS_YET.test(message)) ||
+          Date.now() >= deadline
+        ) {
+          throw error;
+        }
+        await pause();
+      }
+    }
   }
 }
 

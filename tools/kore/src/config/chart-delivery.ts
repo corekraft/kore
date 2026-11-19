@@ -9,6 +9,12 @@ export interface ChartDeliveryValues {
   namespaces: Record<string, string>;
   /** The GatewayClass kore-platform-config needs, which only kore derives. */
   gatewayClassName: string;
+  /**
+   * Each release's environment values-file text, in the order Helm takes them,
+   * so the Argo CD Application renders the chart with the values the Helm path
+   * gives it. Composed beside the lock, since reading a file is not pure.
+   */
+  releaseValues?: Record<string, string[]>;
 }
 
 /** The release the delivery chart never carries: kore keeps the image policy (ADR 0028). */

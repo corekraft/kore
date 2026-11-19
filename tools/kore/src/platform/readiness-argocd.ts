@@ -89,6 +89,18 @@ async function applicationsProblem(
   return problems.length ? problems.join("; ") : undefined;
 }
 
+/**
+ * Polls, within `timeout`, until every Application that exists is Synced and
+ * Healthy. A delivery is asynchronous, so the gate's single read can race it;
+ * the failure names the Application that is not ready and its last state.
+ */
+export function waitForApplications(
+  context: ArgocdContext,
+  timeout: string,
+): Promise<void> {
+  return pollUntil(timeout, () => applicationsProblem(context, APPLICATIONS));
+}
+
 /** The readiness check for the Application collection, if `resource` is it. */
 export function argocdApplicationsCheck(
   context: ArgocdContext,

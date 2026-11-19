@@ -33,6 +33,8 @@ export function primeReadinessFakes(): void {
   );
   vi.mocked(assertIssuerReady).mockResolvedValue(undefined);
   vi.mocked(pause).mockResolvedValue(undefined);
+  // A frozen clock: every failure reports 0.0s elapsed, so messages are exact.
+  vi.spyOn(Date, "now").mockReturnValue(0);
   vi.mocked(pollUntil).mockImplementation(async (_timeout, probe) => {
     const reason = await probe();
     if (reason !== undefined) {

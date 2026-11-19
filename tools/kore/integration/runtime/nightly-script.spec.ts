@@ -173,6 +173,18 @@ test("a measurement-only suite is skipped, named in the summary, and never run, 
   expect(stderr).toMatch(/^skipped: test:live:footprint$/m);
 });
 
+test("the golden-path load suite is skipped like the footprint one: it scales a delivered service the night does not deliver", () => {
+  const { status, stderr, calls } = run([
+    "test:live:a",
+    "test:live:golden-path-load",
+  ]);
+  expect(status).toBe(0);
+  expect(calls.filter((call) => call.startsWith("suite"))).toEqual([
+    "suite test:live:a",
+  ]);
+  expect(stderr).toMatch(/^skipped: test:live:golden-path-load$/m);
+});
+
 test("a night with no excluded suite reports nothing as skipped", () => {
   const { status, stderr } = run(["test:live:a"]);
   expect(status).toBe(0);

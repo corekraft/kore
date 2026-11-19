@@ -1,7 +1,10 @@
 import type { Repository } from "../config/index.js";
 import { beforeEach, expect, test, vi } from "vitest";
 import type { Runner } from "../runtime/index.js";
-import { argocdApplicationsCheck } from "./readiness-argocd.js";
+import {
+  argocdApplicationsCheck,
+  waitForApplications,
+} from "./readiness-argocd.js";
 import { pollUntil } from "./readiness-poll.js";
 
 vi.mock("./readiness-poll.js");
@@ -210,6 +213,29 @@ test("a JSON answer without an item list is not ready either", async () => {
     ),
   ).rejects.toThrow(
     "kubectl get applications.argoproj.io returned output that is not a JSON Application list, so Application health is unknown; run kubectl --context k3d-kore-local -n argocd get applications.argoproj.io",
+  );
+});
+
+test("waitForApplications polls the Application list within the bound it is given, and fails naming the Application that is not Synced and Healthy", async () => {
+  const { run, runner } = runnerReturning(
+    list({
+      name: "golden-path-example",
+      sync: "Synced",
+      health: "Progressing",
+    }),
+  );
+
+  await expect(
+    waitForApplications({ repository, runner, base: BASE }, "5m"),
+  ).rejects.toThrow(
+    "Application golden-path-example is Synced and Progressing; run kubectl --context k3d-kore-local -n argocd describe application golden-path-example",
+  );
+
+  expect(pollUntil).toHaveBeenCalledWith("5m", expect.any(Function));
+  expect(run).toHaveBeenCalledWith(
+    "kubectl",
+    [...BASE, "get", RESOURCE, "--output", "json"],
+    { capture: true },
   );
 });
 

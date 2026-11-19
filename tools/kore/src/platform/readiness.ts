@@ -4,11 +4,9 @@ import { errorMessage } from "./probe.js";
 import { customCheck } from "./readiness-custom.js";
 import { assertIssuerReady, trustRemedy } from "./readiness-issuer.js";
 import {
-  NOT_YET_THERE,
   failureAcrossBounds,
-  pause,
   pollUntil,
-  timeoutMilliseconds,
+  waitForConditions,
   type RetryBudget,
 } from "./readiness-poll.js";
 export { retryBudget, type RetryBudget } from "./readiness-poll.js";
@@ -111,46 +109,6 @@ async function waitForExistence(
   });
 }
 
-/**
- * Waits for each condition on a cluster-scoped resource in order, retrying
- * while the resource or its type does not exist yet.
- */
-async function waitForConditions(
-  { repository, runner }: Context,
-  resource: string,
-  conditions: string[],
-  timeout: string,
-): Promise<void> {
-  const deadline = Date.now() + timeoutMilliseconds(timeout);
-  for (const condition of conditions) {
-    while (true) {
-      try {
-        await runner.run(
-          "kubectl",
-          [
-            "--context",
-            repository.environment.kubeContext,
-            "wait",
-            `--for=condition=${condition}`,
-            resource,
-            `--timeout=${timeout}`,
-          ],
-          { capture: true },
-        );
-        break;
-      } catch (error) {
-        if (
-          !NOT_YET_THERE.test(errorMessage(error)) ||
-          Date.now() >= deadline
-        ) {
-          throw error;
-        }
-        await pause();
-      }
-    }
-  }
-}
-
 function nativeCheck(
   { runner, base, capture }: Context,
   condition: string,
@@ -179,16 +137,31 @@ function webhookCheck(context: Context, resource: string): Check {
   };
 }
 
+/** Waits for the conditions in order, each as a kubectl wait with the component's bound. */
+function conditionsCheck(
+  context: Context,
+  resource: string,
+  conditions: string[],
+): Check {
+  return {
+    condition: conditions.join(" and "),
+    run: (timeout) =>
+      waitForConditions(
+        context.repository.environment.kubeContext,
+        context.runner,
+        resource,
+        conditions,
+        timeout,
+      ),
+  };
+}
+
 function checkFor(context: Context, resource: string): Check {
   const conditions = CONDITION_KINDS.find(([prefix]) =>
     resource.startsWith(prefix),
   )?.[1];
   if (conditions) {
-    return {
-      condition: conditions.join(" and "),
-      run: (timeout) =>
-        waitForConditions(context, resource, conditions, timeout),
-    };
+    return conditionsCheck(context, resource, conditions);
   }
   if (resource.startsWith("secret/")) {
     return {
@@ -301,11 +274,13 @@ async function runChecks(
   for (const { resource, check } of [...component.readiness, ...crds].map(
     named,
   )) {
+    const started = Date.now();
     try {
       await check.run(timeout);
     } catch (error) {
+      const elapsed = ((Date.now() - started) / 1000).toFixed(1);
       throw new Error(
-        `${resource} not ready (${check.condition}) within ${timeout}: ${errorMessage(error)}`,
+        `${resource} not ready (${check.condition}) after ${elapsed}s (timeout ${timeout}): ${errorMessage(error)}`,
       );
     }
   }

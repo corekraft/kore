@@ -74,8 +74,10 @@ async function repositoryWith(flag: boolean) {
   };
 }
 
-const DELIVERY_FAILURE =
-  "applications.argoproj.io not ready (every Application Synced and Healthy) within 3s: Application kore-local-tls is OutOfSync and Missing: chart digest is not signed; run kubectl --context k3d-kore-local -n argocd describe application kore-local-tls";
+// The elapsed time is read from the real clock, so only its shape is fixed.
+const DELIVERY_FAILURE = expect.stringMatching(
+  /^applications\.argoproj\.io not ready \(every Application Synced and Healthy\) after \d+\.\ds \(timeout 3s\): Application kore-local-tls is OutOfSync and Missing: chart digest is not signed; run kubectl --context k3d-kore-local -n argocd describe application kore-local-tls$/,
+);
 
 test("with the flag on, an unhealthy Application degrades kore-config-delivery naming the Application and its cause, not Argo CD", async () => {
   const { runner } = cluster(APPLICATIONS);

@@ -1,6 +1,7 @@
 import {
   componentGatedOff,
   orderedComponents,
+  releaseOwner,
   type Component,
   type Repository,
 } from "../config/index.js";
@@ -52,7 +53,9 @@ async function componentStatus(
   try {
     if (component.kind === "manifest") {
       await assertOwnedCrdsExist(repository, runner, component);
-    } else {
+    } else if (releaseOwner(repository.environment, component) !== "argocd") {
+      // An Argo CD owned release has no Helm release on a profile Helm never
+      // installed it on, so its resources' readiness is the check (ADR 0043).
       const releaseStatus = await helmReleaseStatus(
         repository,
         runner,
