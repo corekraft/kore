@@ -168,9 +168,12 @@ test("the derived value follows the environment's field, not a default", () => {
   ).toEqual(["--set-string", "platformDomain=platform.example.com"]);
 });
 
-const sharedGatewayOn = fakeEnvironment({
+const sharedGateway = {
   platform: { domain: "kore.local", organizationId: "platform" },
   gateway: { namespace: "kore-system", name: "kore-gateway", port: 8443 },
+};
+const sharedGatewayOn = fakeEnvironment({
+  ...sharedGateway,
   features: { "platform-shared-gateway": true },
 });
 
@@ -194,8 +197,13 @@ test("with platform-shared-gateway on the portal and the golden-path delivery ar
 });
 
 test("with platform-shared-gateway off or omitted no shared Gateway value is handed to any chart", () => {
-  for (const features of [{ "platform-shared-gateway": false }, undefined]) {
-    const off = { ...sharedGatewayOn, features } as Environment;
+  for (const off of [
+    fakeEnvironment({
+      ...sharedGateway,
+      features: { "platform-shared-gateway": false },
+    }),
+    fakeEnvironment(sharedGateway),
+  ]) {
     expect(platformHelmArgs(off, "kore-platform-backstage")).toEqual([
       "--set-string",
       "platformDomain=kore.local",
@@ -205,10 +213,11 @@ test("with platform-shared-gateway off or omitted no shared Gateway value is han
 });
 
 test("the shared Gateway's domain follows the environment's organization and domain", () => {
-  const moved = {
-    ...sharedGatewayOn,
+  const moved = fakeEnvironment({
+    ...sharedGateway,
     platform: { domain: "kore.internal", organizationId: "acme" },
-  } as Environment;
+    features: { "platform-shared-gateway": true },
+  });
   expect(platformHelmArgs(moved, "kore-golden-path-delivery")).toContain(
     "ingress.sharedGateway.domain=acme.kore.internal",
   );
