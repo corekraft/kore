@@ -82,6 +82,8 @@ export async function renderDelivery(repository: Repository): Promise<{
     `gatewayClassName=${chartDelivery.gatewayClassName}`,
     "--set-string",
     `platformDomain=${chartDelivery.platformDomain}`,
+    "--set-string",
+    `platformHostname=${chartDelivery.platformHostname}`,
     "--set-json",
     `releaseValues=${JSON.stringify(chartDelivery.releaseValues)}`,
   ]);

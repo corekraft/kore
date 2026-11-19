@@ -13,6 +13,10 @@ import {
 } from "../../src/config/index.js";
 import { helmTemplateArgs, routeHostErrors } from "../../src/platform/index.js";
 import { withAbsoluteChart } from "../../src/testing/index.js";
+import {
+  composed,
+  withFlags,
+} from "../config/platform-config-delivery-project-support.js";
 import { escapeRegExp, localPlatform } from "../local-platform-support.js";
 
 const platform = await localPlatform();
@@ -207,25 +211,14 @@ test("a route host the platform Gateway has no listener for fails the check, nam
   );
 });
 
+// The charts, namespaces and platform wildcard kore composes for the six
+// releases the flags-off handover hands over, from the same lock and catalog
+// the release renders with, so the render takes what production composes.
+const delivered = await composed(await withFlags(false));
+assert.ok(delivered.chartDelivery);
+const { charts, namespaces, platformHostname } = delivered.chartDelivery;
+
 function renderDelivery(...set: string[]): string {
-  const names = [
-    "opa-authorizer",
-    "kore-postgresql-api",
-    "kore-policy-templates",
-    "kore-policy-constraints",
-    "kore-local-tls",
-    "kore-platform-config",
-  ];
-  const charts = Object.fromEntries(
-    names.map((name) => [
-      name,
-      {
-        chart: `registry.example/charts/${name}`,
-        digest: `sha256:${"a".repeat(64)}`,
-      },
-    ]),
-  );
-  const namespaces = Object.fromEntries(names.map((name) => [name, name]));
   return execFileSync(
     "helm",
     [
@@ -238,6 +231,8 @@ function renderDelivery(...set: string[]): string {
       `namespaces=${JSON.stringify(namespaces)}`,
       "--set-string",
       "gatewayClassName=agentgateway",
+      "--set-string",
+      `platformHostname=${platformHostname}`,
       ...set,
     ],
     { encoding: "utf8" },
