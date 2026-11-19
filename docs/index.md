@@ -198,6 +198,7 @@ repository root; `mise run kb-check` keeps this list complete.
 - [`docs/decisions/0129-the-judge-precheck-treats-the-opt-in-footprint-and-ingress-measurement-helpers-as-developer-tooling.md`](decisions/0129-the-judge-precheck-treats-the-opt-in-footprint-and-ingress-measurement-helpers-as-developer-tooling.md) — Six named measurement helpers under tools/kore/src/platform, imported only by specs or by each other, count as developer tooling in the precheck; the judge still reads the diff.
 - [`docs/decisions/0130-the-judge-precheck-also-counts-the-golden-path-load-helpers-and-the-ingress-measurement-as-developer-tooling.md`](decisions/0130-the-judge-precheck-also-counts-the-golden-path-load-helpers-and-the-ingress-measurement-as-developer-tooling.md) — Four more named files under tools/kore/src/platform, imported only by specs, the test-support barrel or each other, count as developer tooling; the list stays closed and the judge still reads the diff.
 - [`docs/decisions/0131-k3d-publishes-host-ports-on-the-loopback-address.md`](decisions/0131-k3d-publishes-host-ports-on-the-loopback-address.md) — Proposed, refines ADR 0085: each k3d host port binds a loopback address the overlay declares, and drift compares the address as well as the port.
+- [`docs/decisions/0132-local-names-resolve-through-platform-dns-and-one-loopback-entry-point.md`](decisions/0132-local-names-resolve-through-platform-dns-and-one-loopback-entry-point.md) — Local services are reached as <service>.platform.kore.internal through a platform DNS in the cluster, a host resolver file that kore local up installs, and one loopback entry point on port 443, with kore.local and 8443 kept as deprecated aliases.
 
 ## Proposed Decisions
 
@@ -263,6 +264,7 @@ decisions; read one only when planning that area, and expect it to change.
 - [`docs/ideas/0045-autoscaling-defaults-works-live-in-local.md`](ideas/0045-autoscaling-defaults-works-live-in-local.md) — autoscaling-defaults works live in local
 - [`docs/ideas/0046-platform-organization-service-apis-works-live-in-local.md`](ideas/0046-platform-organization-service-apis-works-live-in-local.md) — platform-organization-service-apis works live in local
 - [`docs/ideas/0047-platform-argocd-delivery-works-live-in-local.md`](ideas/0047-platform-argocd-delivery-works-live-in-local.md) — platform-argocd-delivery works live in local
+- [`docs/ideas/0048-kore-published-host-ports-bound-off-loopback-stay-at-zero.md`](ideas/0048-kore-published-host-ports-bound-off-loopback-stay-at-zero.md) — Kore-published host ports bound off loopback stay at zero
 
 ## Operations and Guides
 

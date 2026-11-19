@@ -13,6 +13,8 @@ Refines: [ADR 0034](0034-registry-authentication-and-authorization.md) (the
 push path no longer uses `nerdctl login` over `minikube ssh`) and
 [ADR 0015](0015-local-signed-image-delivery.md) (publish on k3d).
 
+> Proposed refinement by [ADR 0132](0132-local-names-resolve-through-platform-dns-and-one-loopback-entry-point.md): host callers reach the registry by `registry.platform.kore.internal` through the loopback entry point, which retires the registry port forward; the node push path is unchanged.
+
 ## Context
 
 ADR 0034's push path runs `nerdctl login --password-stdin` on the node over
