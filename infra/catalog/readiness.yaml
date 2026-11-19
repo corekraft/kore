@@ -83,6 +83,12 @@
         "components": ["kore-config-delivery"]
       },
       {
+        "name": "platform-dns",
+        "step": 8,
+        "capability": "endpoint",
+        "components": ["kore-platform-dns"]
+      },
+      {
         "name": "keycloak-operator",
         "step": 8,
         "capability": "controller",

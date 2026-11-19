@@ -36,6 +36,7 @@
       "registry-tag-pruning": false,
       "platform-organization-service-apis": false,
       "platform-argocd-delivery": false,
+      "platform-dns": false,
       "platform-portal": false,
       "automatic-retro": false,
       "automatic-approval": false,
@@ -128,6 +129,8 @@
         [
           "infra/environments/managed-example/values/mirror/opa-authorizer.yaml"
         ],
+      "kore-platform-dns":
+        ["infra/environments/managed-example/values/mirror/platform-dns.yaml"],
       "oci-registry":
         ["infra/environments/managed-example/values/mirror/oci-registry.yaml"],
       "policy-controller":

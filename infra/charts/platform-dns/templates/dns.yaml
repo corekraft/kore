@@ -1,0 +1,83 @@
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: platform-dns
+  namespace: {{ .Release.Namespace }}
+  labels: {app.kubernetes.io/name: platform-dns, app.kubernetes.io/managed-by: Helm}
+# The server never calls the Kubernetes API.
+automountServiceAccountToken: false
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: platform-dns
+  namespace: {{ .Release.Namespace }}
+  labels: {app.kubernetes.io/name: platform-dns, app.kubernetes.io/managed-by: Helm}
+spec:
+  replicas: 1
+  selector:
+    matchLabels: {app.kubernetes.io/name: platform-dns}
+  template:
+    metadata:
+      labels: {app.kubernetes.io/name: platform-dns}
+      annotations:
+        # reload is slow and a subPath mount never refreshes, so a changed
+        # Corefile replaces the pod.
+        checksum/corefile: {{ include (print $.Template.BasePath "/corefile.yaml") . | sha256sum }}
+    spec:
+      serviceAccountName: platform-dns
+      automountServiceAccountToken: false
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 65532
+        runAsGroup: 65532
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: coredns
+          image: {{ .Values.image.repository }}:{{ .Values.image.tag }}@{{ .Values.image.digest }}
+          imagePullPolicy: IfNotPresent
+          args: ["-conf", "/etc/coredns/Corefile"]
+          ports:
+            - {name: dns-udp, containerPort: 1053, protocol: UDP}
+            - {name: dns-tcp, containerPort: 1053, protocol: TCP}
+            - {name: health, containerPort: 8080, protocol: TCP}
+            - {name: ready, containerPort: 8181, protocol: TCP}
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            runAsNonRoot: true
+            capabilities: {drop: [ALL], add: [NET_BIND_SERVICE]}
+          livenessProbe:
+            httpGet: {path: /health, port: health}
+            initialDelaySeconds: 5
+            periodSeconds: 10
+            timeoutSeconds: 2
+          readinessProbe:
+            httpGet: {path: /ready, port: ready}
+            initialDelaySeconds: 2
+            periodSeconds: 5
+            timeoutSeconds: 2
+          resources:
+            requests: {cpu: 25m, memory: 32Mi}
+            limits: {cpu: 200m, memory: 64Mi}
+          volumeMounts:
+            - {name: corefile, mountPath: /etc/coredns, readOnly: true}
+      volumes:
+        - name: corefile
+          configMap: {name: platform-dns}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: platform-dns
+  namespace: {{ .Release.Namespace }}
+  labels: {app.kubernetes.io/name: platform-dns, app.kubernetes.io/managed-by: Helm}
+spec:
+  # Cluster-internal only; the host reaches it through whatever the local
+  # environment publishes.
+  type: ClusterIP
+  selector: {app.kubernetes.io/name: platform-dns}
+  ports:
+    - {name: dns-udp, port: 53, targetPort: dns-udp, protocol: UDP}
+    - {name: dns-tcp, port: 53, targetPort: dns-tcp, protocol: TCP}

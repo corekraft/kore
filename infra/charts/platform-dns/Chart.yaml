@@ -1,0 +1,6 @@
+apiVersion: v2
+name: platform-dns
+description: Local-only DNS server that answers the platform domain zone with the loopback address and gives empty IPv6 answers
+type: application
+version: 0.1.0
+appVersion: 1.14.7
