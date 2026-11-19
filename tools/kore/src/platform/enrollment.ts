@@ -165,12 +165,29 @@ export async function enrollPlatformNamespaces(
   await enrollOwned(runner, repository, existing, {
     owner: sharedGatewayOwner,
     purpose: "for the shared Gateway",
-    namespaces: sharedGatewayOn(repository)
-      ? enabledComponents(repository)
-          .filter(({ sharedGatewayRoutes }) => sharedGatewayRoutes)
-          .map(({ namespace }) => namespace)
-      : [],
+    namespaces: sharedGatewayNamespaces(repository),
   });
+}
+
+/**
+ * The namespaces of the enabled components that attach a route to the shared
+ * Gateway, while platform-shared-gateway is on. A component whose route renders
+ * only under its own flag (`sharedGatewayRouteFlag`) counts only while that flag
+ * is on too, so the flag off changes no namespace.
+ */
+function sharedGatewayNamespaces(repository: Repository): string[] {
+  if (!sharedGatewayOn(repository)) {
+    return [];
+  }
+  const features = repository.environment.features;
+  return enabledComponents(repository)
+    .filter(
+      ({ sharedGatewayRoutes, sharedGatewayRouteFlag }) =>
+        sharedGatewayRoutes &&
+        (sharedGatewayRouteFlag === undefined ||
+          features?.[sharedGatewayRouteFlag] === true),
+    )
+    .map(({ namespace }) => namespace);
 }
 
 type Existing = Map<

@@ -1,3 +1,4 @@
+import { registryRouteHelmArgs } from "./registry-name.js";
 import type { Environment, Repository } from "./types.js";
 
 /** Port the in-cluster registry listens on when the address names none. */
@@ -110,6 +111,7 @@ export function registryHelmArgs(
           `service.port=${plan.port ?? defaultRegistryPort}`,
         ]
       : []),
+    ...registryRouteHelmArgs(environment, component),
   ];
 }
 

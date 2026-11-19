@@ -10,6 +10,7 @@ vi.mock("node:fs/promises");
 vi.mock("node:os");
 vi.mock("node:path");
 vi.mock("./registry-https.js");
+vi.mock("./registry-name.js");
 
 const directory = "/tmp/kore-registry-abc";
 const ca = "-----BEGIN CERTIFICATE-----\nQUJD\n-----END CERTIFICATE-----\n";
@@ -53,7 +54,7 @@ test("the config and the CA are written mode 0600, and the credential is written
     mode: 0o600,
   });
   for (const [, content] of vi.mocked(writeFile).mock.calls) {
-    expect(String(content)).not.toContain(credential.password);
+    expect(JSON.stringify(content)).not.toContain(credential.password);
   }
 });
 
@@ -66,8 +67,9 @@ test("the helper script is written and made executable, and only get is answered
     script,
     { mode: 0o700 },
   ]);
-  expect(String(script)).toMatch(/^#!\/bin\/sh\n/);
-  expect(String(script)).toContain('if [ "$1" != "get" ]; then');
+  const text = typeof script === "string" ? script : "";
+  expect(text).toMatch(/^#!\/bin\/sh\n/);
+  expect(text).toContain('if [ "$1" != "get" ]; then');
   expect(chmod).toHaveBeenCalledWith(helper, 0o700);
 });
 
@@ -120,4 +122,21 @@ test("the private directory is removed even when the action fails, and the failu
   ).rejects.toBe(failure);
 
   expect(rm).toHaveBeenCalledWith(directory, { force: true, recursive: true });
+});
+
+test("the client carries the address host-side callers dial, the port-forward's unless told otherwise", async () => {
+  const forwarded = await withRegistryClient(
+    credential,
+    ca,
+    async (client) => client.address,
+  );
+  const named = await withRegistryClient(
+    credential,
+    ca,
+    async (client) => client.address,
+    "registry.platform.kore.internal",
+  );
+
+  expect(forwarded).toBe("127.0.0.1:30500");
+  expect(named).toBe("registry.platform.kore.internal");
 });

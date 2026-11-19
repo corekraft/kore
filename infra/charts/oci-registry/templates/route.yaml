@@ -1,0 +1,30 @@
+{{- if index .Values.features "registry-by-name" }}
+{{- /*
+  The registry's name on the shared Gateway (ADR 0132, ADR 0133). The route is
+  TLS passthrough: the Gateway chooses the backend by the SNI name and never
+  terminates TLS, so the client verifies the registry's own certificate and the
+  proxy's basic authentication still decides who may read and who may write
+  (ADR 0034, ADR 0058). The platform owns the Gateway and its listener; this
+  chart owns the route only. Nodes keep pulling from the Service's fixed address
+  (ADR 0031), not this name.
+*/ -}}
+apiVersion: gateway.networking.k8s.io/v1
+kind: TLSRoute
+metadata:
+  name: oci-registry
+  namespace: {{ .Release.Namespace }}
+  labels: {app.kubernetes.io/managed-by: Helm}
+spec:
+  parentRefs:
+    - group: gateway.networking.k8s.io
+      kind: Gateway
+      name: {{ required "set registryRoute.gateway.name, or render through kore, which derives it from the environment's gateway" .Values.registryRoute.gateway.name | quote }}
+      namespace: {{ required "set registryRoute.gateway.namespace, or render through kore, which derives it from the environment's gateway" .Values.registryRoute.gateway.namespace | quote }}
+      sectionName: {{ .Values.registryRoute.sectionName | quote }}
+  hostnames:
+    - {{ required "set registryRoute.hostname, or render through kore, which derives it from the environment's platform field" .Values.registryRoute.hostname | quote }}
+  rules:
+    - backendRefs:
+        - name: oci-registry
+          port: {{ .Values.service.port }}
+{{- end }}
