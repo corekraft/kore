@@ -14,6 +14,7 @@ import {
 import type { ActionHandler } from "./context.js";
 import { mutateAction } from "./context.js";
 import {
+  assertChartLockMatchesCheckout,
   composeChartDelivery,
   composeGoldenPathDelivery,
 } from "../platform/index.js";
@@ -86,6 +87,11 @@ test("local up and down run as mutations, with down's prune, purge and force opt
   expect(await localCommand(context)).toBe(0);
   await actionsOf().up!(context, runner);
   expect(composeChartDelivery).toHaveBeenCalledWith(repository, "charts.json");
+  expect(assertChartLockMatchesCheckout).toHaveBeenCalledWith(
+    repository,
+    runner,
+    "charts.json",
+  );
   expect(composeGoldenPathDelivery).toHaveBeenCalledWith(
     chartsComposed,
     runner,
@@ -257,4 +263,24 @@ test("local up ensures the host resolver only after both locks are composed, and
 
   await actionsOf().down!(context, runner);
   expect(withHostResolver).toHaveBeenCalledTimes(1);
+});
+
+test("local up stops on a chart lock that differs from the checkout before the template lock, the host resolver or any cluster work", async () => {
+  const context = fakeContext({
+    command: "local",
+    action: "up",
+    repository,
+    parsed: parsedArgs(),
+  });
+  vi.mocked(composeChartDelivery).mockResolvedValue(chartsComposed);
+  vi.mocked(assertChartLockMatchesCheckout).mockRejectedValue(
+    new Error("platform chart lock: opa-authorizer differs"),
+  );
+  await localCommand(context);
+  await expect(actionsOf().up!(context, runner)).rejects.toThrow(
+    "platform chart lock: opa-authorizer differs",
+  );
+  expect(composeGoldenPathDelivery).not.toHaveBeenCalled();
+  expect(withHostResolver).not.toHaveBeenCalled();
+  expect(localUp).not.toHaveBeenCalled();
 });

@@ -5,6 +5,7 @@ import {
 } from "../images/index.js";
 import { localDown, localUp, withHostResolver } from "../local/index.js";
 import {
+  assertChartLockMatchesCheckout,
   composeChartDelivery,
   composeGoldenPathDelivery,
 } from "../platform/index.js";
@@ -23,12 +24,13 @@ export async function localCommand(context: CommandContext): Promise<number> {
   const { repository } = context;
   return await mutateAction(context, {
     up: async (_context, runner) => {
-      // Schema-check both release locks before any cluster call (ADR 0043).
+      // Schema-check both release locks before any cluster call (ADR 0043),
+      // and prove the chart lock was published from this checkout's charts.
+      const chartLock = stringFlag(context.parsed, "platform-chart-lock");
+      const charts = await composeChartDelivery(repository, chartLock);
+      await assertChartLockMatchesCheckout(repository, runner, chartLock);
       const delivered = await composeGoldenPathDelivery(
-        await composeChartDelivery(
-          repository,
-          stringFlag(context.parsed, "platform-chart-lock"),
-        ),
+        charts,
         runner,
         stringFlag(context.parsed, "platform-template-lock"),
       );

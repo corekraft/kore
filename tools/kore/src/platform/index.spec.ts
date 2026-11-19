@@ -31,6 +31,7 @@ test("the platform barrel exposes exactly the runtime names its callers use", ()
       "applyProbePatches",
       "argsFingerprint",
       "assertAdmissionGateOpen",
+      "assertChartLockMatchesCheckout",
       "bootstrapControllers",
       "capacityWarningPercent",
       "closeGateIfDegraded",

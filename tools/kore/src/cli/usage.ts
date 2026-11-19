@@ -13,7 +13,7 @@ Usage:
   kore app status <name> [--environment <name>] [--json]   (reports degraded when the registry or verifier is down)
   kore data export --environment <name> [--namespace reference] [--json]
   kore data restore --environment <name> --from <file> [--identity <age-key-file>] [--overwrite-data --yes] [--json]
-  kore local up|down --environment local [--prune [--purge-data]] [--force] [--platform-chart-lock <platform-charts.lock.json>] [--platform-template-lock <template-images.lock.json>]   (the locks are read only by "up", and only while platform-argocd-delivery is on, when both are required; see "kore platform")
+  kore local up|down --environment local [--prune [--purge-data]] [--force] [--platform-chart-lock <platform-charts.lock.json>] [--platform-template-lock <template-images.lock.json>]   (the locks are read only by "up", and only while platform-argocd-delivery is on, when both are required; "up" also packages the checkout's charts offline and stops before any cluster work when a chart version in the chart lock differs from the checkout's; see "kore platform")
   kore registry rotate-credentials --environment <name> --yes [--json]
   kore signer swap-key --environment local --yes [--json]
   kore secrets sync --environment local [--rotate --yes]
