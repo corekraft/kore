@@ -7,6 +7,7 @@ import {
   orphanCheckDeferred,
 } from "./bootstrap.js";
 import { assertNoOrphanedReleases } from "./gated-release.js";
+import { awaitArgocdDelivery } from "./handover.js";
 import { enrollPlatformNamespaces } from "./enrollment.js";
 import { CommandError } from "../runtime/index.js";
 import type { ReadinessEvidence } from "./readiness-manifest.js";
@@ -23,6 +24,11 @@ import {
 vi.mock("../config/index.js");
 vi.mock("../security/index.js");
 vi.mock("./bootstrap.js");
+// The handover's own loop runs for real; only the Argo CD wait is recorded.
+vi.mock("./handover.js", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("./handover.js")>()),
+  awaitArgocdDelivery: vi.fn(),
+}));
 vi.mock("./enrollment.js");
 vi.mock("./gated-release.js");
 vi.mock("./platform-state.js");
@@ -67,6 +73,7 @@ beforeEach(() => {
       order.push(`configure:${c.name}`);
     },
   );
+  vi.mocked(awaitArgocdDelivery).mockImplementation(record("delivery"));
   vi.mocked(enrollPlatformNamespaces).mockImplementation(record("enroll"));
   vi.mocked(openApplicationAdmission).mockImplementation(async () => {
     order.push("open-gate");
@@ -110,6 +117,37 @@ test("enrollment runs after every configuration phase, and before the gate opens
   await platformUp(local, runner);
   expect(order.slice(-3)).toEqual(["enroll", "open-gate", "state:ready"]);
   expect(enrollPlatformNamespaces).toHaveBeenCalledWith(local, runner);
+});
+
+test("the Argo CD delivery is awaited after the configuration, before enrollment and the gate", async () => {
+  await platformUp(local, fakeRunner().runner);
+  expect(order.slice(-5)).toEqual([
+    "configure:enforce",
+    "delivery",
+    "enroll",
+    "open-gate",
+    "state:ready",
+  ]);
+});
+
+test("the Argo CD delivery is awaited with the repository and runner of this run", async () => {
+  const { runner } = fakeRunner();
+  await platformUp(local, runner);
+  expect(awaitArgocdDelivery).toHaveBeenCalledWith(local, runner);
+});
+
+test("a delivery wait that fails stops up before enrollment, the gate and the state, so the gate stays closed", async () => {
+  vi.mocked(awaitArgocdDelivery).mockRejectedValueOnce(
+    new Error(
+      "Application golden-path-example is Synced and Progressing; run kubectl --context k3d-kore-local -n argocd describe application golden-path-example",
+    ),
+  );
+  await expect(platformUp(local, fakeRunner().runner)).rejects.toThrow(
+    "Application golden-path-example is Synced and Progressing",
+  );
+  expect(enrollPlatformNamespaces).not.toHaveBeenCalled();
+  expect(openApplicationAdmission).not.toHaveBeenCalled();
+  expect(writePlatformState).not.toHaveBeenCalled();
 });
 
 test("the platform state is written as ready last, after the gate opens", async () => {
@@ -219,10 +257,11 @@ test("up hands the orphan check to itself and runs it after the configuration, b
   expect(bootstrapControllers).toHaveBeenCalledWith(local, expect.anything(), {
     orphanCheck: "caller",
   });
-  expect(order.slice(-6)).toEqual([
+  expect(order.slice(-7)).toEqual([
     "configure:policy",
     "configure:enforce",
     "orphans",
+    "delivery",
     "enroll",
     "open-gate",
     "state:ready",
