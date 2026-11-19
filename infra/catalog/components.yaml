@@ -906,7 +906,7 @@
         "version": "local",
         "featureFlag": "platform-hostname-ownership",
         "ownsCRDs": [],
-        "dependencies": ["gatekeeper"],
+        "dependencies": ["gatekeeper", "kore-platform-apis"],
         "timeout": "5m",
         "readiness": ["crd/configs.config.gatekeeper.sh"]
       },

@@ -1,0 +1,6 @@
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata: { name: portal, namespace: platform-app }
+spec:
+  parentRefs: [{ name: kore-gateway }]
+  hostnames: [portal.apps.example.com]

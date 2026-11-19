@@ -256,3 +256,34 @@ test("with platform-dns off or omitted the portal is handed no CA bundle", () =>
     ]);
   }
 });
+
+test("with platform-hostname-ownership on the Organization API is handed the organization identifier its zone is built from", () => {
+  const on = fakeEnvironment({
+    platform: { domain: "kore.local", organizationId: "platform" },
+    features: { "platform-hostname-ownership": true },
+  });
+  expect(platformHelmArgs(on, "kore-platform-apis")).toEqual([
+    "--set-string",
+    "platformDomain=kore.local",
+    "--set-string",
+    "platformOrganizationId=platform",
+  ]);
+  expect(platformHelmArgs(on, "kore-platform-keycloak")).toEqual([
+    "--set-string",
+    "platformDomain=kore.local",
+  ]);
+});
+
+test("with platform-hostname-ownership off or omitted the Organization API is handed no organization identifier", () => {
+  for (const off of [{ "platform-hostname-ownership": false }, {}]) {
+    expect(
+      platformHelmArgs(
+        fakeEnvironment({
+          platform: { domain: "kore.local", organizationId: "platform" },
+          features: off,
+        }),
+        "kore-platform-apis",
+      ),
+    ).toEqual(["--set-string", "platformDomain=kore.local"]);
+  }
+});

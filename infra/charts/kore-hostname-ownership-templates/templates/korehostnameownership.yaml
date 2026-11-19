@@ -5,13 +5,6 @@ spec:
   crd:
     spec:
       names: { kind: KoreHostnameOwnership }
-      validation:
-        openAPIV3Schema:
-          type: object
-          properties:
-            zones:
-              type: object
-              additionalProperties: { type: array, items: { type: string } }
   targets:
     - target: admission.k8s.gatekeeper.sh
       rego: |
@@ -20,8 +13,10 @@ spec:
         # One owner per hostname (ADR 0042). An HTTPRoute's owner is the organization
         # label of its namespace, read from the synced Namespace, never from a label
         # on the route itself, which anyone who can create the route can set. A host
-        # must sit inside one of that organization's zones, and no route in another
-        # namespace may claim it. Dryrun until the audit is clean (ADR 0017).
+        # must sit inside that organization's zone, read from the synced Organization
+        # object (its spec.zone, the platform API's one owner of it), never from a
+        # parameter; an organization with no object or no zone owns no host. No route
+        # in another namespace may claim it. Dryrun until the audit is clean (ADR 0017).
         org_label := "platform.kore.dev/organization"
         route := input.review.object
         route_ns := route.metadata.namespace
@@ -29,11 +24,12 @@ spec:
         owner := org {
           org := data.inventory.cluster["v1"]["Namespace"][route_ns].metadata.labels[org_label]
         }
-        # A host must be a strict subdomain of one of the organization's zones. A
+        organization := data.inventory.cluster["platform.kore.dev/v1alpha1"]["Organization"][owner]
+        # A host must be a strict subdomain of the organization's zone. A
         # zone's own apex is not a service host: serving an apex means delegating
         # the whole domain (ADR 0042), so the apex is outside the zone here.
         inside_zone(host) {
-          zone := input.parameters.zones[owner][_]
+          zone := organization.spec.zone
           endswith(host, concat("", [".", zone]))
         }
         violation[{"msg": msg}] {
@@ -45,7 +41,7 @@ spec:
           host := hosts[_]
           owner
           not inside_zone(host)
-          msg := sprintf("hostname %s is outside the zones of organization %s: HTTPRoute %s/%s", [host, owner, route_ns, route.metadata.name])
+          msg := sprintf("hostname %s is outside the zone of organization %s: HTTPRoute %s/%s", [host, owner, route_ns, route.metadata.name])
         }
         violation[{"msg": msg}] {
           host := hosts[_]

@@ -5,8 +5,13 @@
   "additionalProperties": false,
   "properties": {
     "features": {
-      "description": "Kore passes the environment's feature flags here (ADR 0077). Only platform-portal is read: on, the Organization composition also owns the realm.",
+      "description": "Kore passes the environment's feature flags here (ADR 0077). Only platform-portal and platform-hostname-ownership are read: portal on, the Organization composition also owns the realm; hostname ownership on, the Organization XRD carries a zone.",
       "type": "object"
+    },
+    "platformOrganizationId": {
+      "description": "The platform organization's identifier, passed only while platform-hostname-ownership is on: the Organization's zone defaults to <platformOrganizationId>.<platformDomain>.",
+      "type": "string",
+      "pattern": "^[a-z0-9]([-a-z0-9]{0,61}[a-z0-9])?$"
     },
     "platformDomain": {
       "description": "The environment's platform domain (ADR 0042). A service host is <service>.<organization>.<platformDomain>, so with a 63-character service and the organization the whole host stays within 253 characters.",

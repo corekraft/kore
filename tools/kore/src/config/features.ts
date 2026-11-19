@@ -73,6 +73,9 @@ export const platformArgocdDeliveryFlag = "platform-argocd-delivery";
 /** The flag that installs the local-only platform DNS server, answering the platform domain zone with the loopback address (plan 15, issue 1202). */
 export const platformDnsFlag = "platform-dns";
 
+/** The flag that installs the hostname-ownership constraint and the zone field it reads from the Organization API (ADR 0042, issue 1331). */
+export const platformHostnameOwnershipFlag = "platform-hostname-ownership";
+
 /** The flag that gates the platform organization's portal: its Keycloak and, later, its Backstage (ADR 0113, plan 15 step 6). */
 export const platformPortalFlag = "platform-portal";
 
