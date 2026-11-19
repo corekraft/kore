@@ -21,7 +21,7 @@
       "owner-writer": true,
       "local-image-reuse": true,
       "registry-tag-pruning": false,
-      "platform-organization-service-apis": false,
+      "platform-organization-service-apis": true,
       "platform-argocd-delivery": false,
       "platform-portal": false,
       "automatic-retro": true,
