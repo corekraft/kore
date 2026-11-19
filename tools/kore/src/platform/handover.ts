@@ -7,10 +7,10 @@ import {
   type Repository,
 } from "../config/index.js";
 import { CommandError, type Runner } from "../runtime/index.js";
-import { errorMessage, helmReleaseStatus } from "./probe.js";
+import { helmReleaseStatus } from "./probe.js";
 import { reconcileConfiguration } from "./reconcile.js";
 import { waitForApplications } from "./readiness-argocd.js";
-import { pollUntil } from "./readiness-poll.js";
+import { ReadinessTimeout, pollUntil } from "./readiness-poll.js";
 import { readinessFailure } from "./readiness.js";
 
 // Docs: docs/decisions/0043-platform-configuration-through-argo-cd.md (the safe order, step 4)
@@ -126,7 +126,12 @@ export async function awaitArgocdDelivery(
   }
 }
 
-/** Polls a release's readiness within its own timeout; the failure names the release. */
+/**
+ * Polls a release's readiness within its own timeout. Only a timeout is
+ * reported as one, naming the release and the command that describes its first
+ * readiness resource; any other error (Forbidden, unreachable context) is
+ * rethrown as itself.
+ */
 async function awaitRelease(
   repository: Repository,
   runner: Runner,
@@ -137,8 +142,12 @@ async function awaitRelease(
       readinessFailure(repository, runner, component),
     );
   } catch (error) {
+    if (!(error instanceof ReadinessTimeout)) {
+      throw error;
+    }
+    const [resource = component.name] = component.readiness;
     throw new Error(
-      `argocd-owned release ${component.name} is not ready after ${component.timeout}: ${errorMessage(error)}`,
+      `argocd-owned release ${component.name} is not ready after ${component.timeout}: ${error.message}; run kubectl --context ${repository.environment.kubeContext} -n ${component.namespace} describe ${resource}`,
     );
   }
 }

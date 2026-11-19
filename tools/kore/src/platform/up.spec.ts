@@ -1,5 +1,5 @@
 import { beforeEach, expect, test, vi } from "vitest";
-import { helmInstalledComponents, isLocalProvider } from "../config/index.js";
+import { isLocalProvider } from "../config/index.js";
 import { installLocalTrust } from "../security/index.js";
 import {
   bootstrapControllers,
@@ -7,48 +7,23 @@ import {
   orphanCheckDeferred,
 } from "./bootstrap.js";
 import { assertNoOrphanedReleases } from "./gated-release.js";
-import { awaitArgocdDelivery } from "./handover.js";
+import { awaitArgocdDelivery, reconcileConfigurations } from "./handover.js";
 import { enrollPlatformNamespaces } from "./enrollment.js";
-import { CommandError } from "../runtime/index.js";
 import type { ReadinessEvidence } from "./readiness-manifest.js";
 import { platformUp } from "./up.js";
-import { helmReleaseStatus } from "./probe.js";
 import { writePlatformState } from "./platform-state.js";
-import { reconcileConfiguration } from "./reconcile.js";
-import {
-  fakeComponent,
-  fakeRepository,
-  fakeRunner,
-} from "./platform-support.js";
+import { fakeRepository, fakeRunner } from "./platform-support.js";
 
 vi.mock("../config/index.js");
 vi.mock("../security/index.js");
 vi.mock("./bootstrap.js");
-// The handover's own loop runs for real; only the Argo CD wait is recorded.
-vi.mock("./handover.js", async (importOriginal) => ({
-  ...(await importOriginal<typeof import("./handover.js")>()),
-  awaitArgocdDelivery: vi.fn(),
-}));
+vi.mock("./handover.js");
 vi.mock("./enrollment.js");
 vi.mock("./gated-release.js");
 vi.mock("./platform-state.js");
-vi.mock("./probe.js");
-vi.mock("./reconcile.js");
 
 const local = fakeRepository({ provider: "k3d" });
 const managed = fakeRepository({ provider: "managed" });
-const core = fakeComponent({ name: "gate", phase: "core" });
-const policy = fakeComponent({ name: "policy", phase: "configuration" });
-const handed = fakeComponent({
-  name: "tls",
-  phase: "configuration",
-  owner: "argocd",
-});
-const delivery = fakeComponent({
-  name: "kore-config-delivery",
-  phase: "configuration",
-});
-const enforce = fakeComponent({ name: "enforce", phase: "enforcement" });
 const openEvidence: ReadinessEvidence = {
   manifestVersion: 1,
   environment: "local",
@@ -68,11 +43,7 @@ beforeEach(() => {
   const record = (name: string) => async () => void order.push(name);
   vi.mocked(bootstrapControllers).mockImplementation(record("bootstrap"));
   vi.mocked(installLocalTrust).mockImplementation(record("trust"));
-  vi.mocked(reconcileConfiguration).mockImplementation(
-    async (_repo, _runner, c) => {
-      order.push(`configure:${c.name}`);
-    },
-  );
+  vi.mocked(reconcileConfigurations).mockImplementation(record("configure"));
   vi.mocked(awaitArgocdDelivery).mockImplementation(record("delivery"));
   vi.mocked(enrollPlatformNamespaces).mockImplementation(record("enroll"));
   vi.mocked(openApplicationAdmission).mockImplementation(async () => {
@@ -85,8 +56,6 @@ beforeEach(() => {
   vi.mocked(isLocalProvider).mockImplementation(
     (environment) => environment.provider === "k3d",
   );
-  vi.mocked(helmInstalledComponents).mockReturnValue([core, policy, enforce]);
-  vi.mocked(helmReleaseStatus).mockResolvedValue(undefined);
 });
 
 test("platform up bootstraps the controllers before anything else", async () => {
@@ -104,25 +73,12 @@ test("a managed environment never installs local trust", async () => {
   expect(installLocalTrust).not.toHaveBeenCalled();
 });
 
-test("only configuration and enforcement components are reconciled by up", async () => {
+test("the configuration is reconciled after trust, then the Argo CD delivery is awaited, then enrollment, the gate and the state", async () => {
   await platformUp(local, fakeRunner().runner);
-  expect(order.filter((step) => step.startsWith("configure:"))).toEqual([
-    "configure:policy",
-    "configure:enforce",
-  ]);
-});
-
-test("enrollment runs after every configuration phase, and before the gate opens", async () => {
-  const { runner } = fakeRunner();
-  await platformUp(local, runner);
-  expect(order.slice(-3)).toEqual(["enroll", "open-gate", "state:ready"]);
-  expect(enrollPlatformNamespaces).toHaveBeenCalledWith(local, runner);
-});
-
-test("the Argo CD delivery is awaited after the configuration, before enrollment and the gate", async () => {
-  await platformUp(local, fakeRunner().runner);
-  expect(order.slice(-5)).toEqual([
-    "configure:enforce",
+  expect(order).toEqual([
+    "bootstrap",
+    "trust",
+    "configure",
     "delivery",
     "enroll",
     "open-gate",
@@ -130,10 +86,48 @@ test("the Argo CD delivery is awaited after the configuration, before enrollment
   ]);
 });
 
-test("the Argo CD delivery is awaited with the repository and runner of this run", async () => {
+test("the configuration and the Argo CD delivery are each given the repository and runner of this run", async () => {
   const { runner } = fakeRunner();
   await platformUp(local, runner);
+  expect(reconcileConfigurations).toHaveBeenCalledWith(local, runner);
   expect(awaitArgocdDelivery).toHaveBeenCalledWith(local, runner);
+});
+
+test("enrollment runs after the delivery wait, and before the gate opens", async () => {
+  const { runner } = fakeRunner();
+  await platformUp(local, runner);
+  expect(order.slice(-3)).toEqual(["enroll", "open-gate", "state:ready"]);
+  expect(enrollPlatformNamespaces).toHaveBeenCalledWith(local, runner);
+});
+
+test("the platform state is written as ready last, after the gate opens", async () => {
+  await platformUp(local, fakeRunner().runner);
+  expect(writePlatformState).toHaveBeenCalledWith(local, "ready");
+  expect(order.at(-1)).toBe("state:ready");
+});
+
+test("a configuration failure stops up before the delivery wait, enrollment, the gate and the state", async () => {
+  vi.mocked(reconcileConfigurations).mockRejectedValueOnce(
+    new Error("policy crashed"),
+  );
+  await expect(platformUp(local, fakeRunner().runner)).rejects.toThrow(
+    "policy crashed",
+  );
+  expect(awaitArgocdDelivery).not.toHaveBeenCalled();
+  expect(enrollPlatformNamespaces).not.toHaveBeenCalled();
+  expect(openApplicationAdmission).not.toHaveBeenCalled();
+  expect(writePlatformState).not.toHaveBeenCalled();
+});
+
+test("a failed bootstrap stops up before any configuration is reconciled", async () => {
+  vi.mocked(bootstrapControllers).mockRejectedValueOnce(
+    new Error("cluster down"),
+  );
+  await expect(platformUp(local, fakeRunner().runner)).rejects.toThrow(
+    "cluster down",
+  );
+  expect(reconcileConfigurations).not.toHaveBeenCalled();
+  expect(installLocalTrust).not.toHaveBeenCalled();
 });
 
 test("a delivery wait that fails stops up before enrollment, the gate and the state, so the gate stays closed", async () => {
@@ -150,105 +144,7 @@ test("a delivery wait that fails stops up before enrollment, the gate and the st
   expect(writePlatformState).not.toHaveBeenCalled();
 });
 
-test("the platform state is written as ready last, after the gate opens", async () => {
-  await platformUp(local, fakeRunner().runner);
-  expect(writePlatformState).toHaveBeenCalledWith(local, "ready");
-  expect(order.at(-1)).toBe("state:ready");
-});
-
-test("a configuration component that fails stops up before enrollment, the gate and the state", async () => {
-  vi.mocked(reconcileConfiguration).mockRejectedValueOnce(
-    new Error("policy crashed"),
-  );
-  await expect(platformUp(local, fakeRunner().runner)).rejects.toThrow(
-    "policy crashed",
-  );
-  expect(enrollPlatformNamespaces).not.toHaveBeenCalled();
-  expect(openApplicationAdmission).not.toHaveBeenCalled();
-  expect(writePlatformState).not.toHaveBeenCalled();
-});
-
-test("a failed bootstrap stops up before any configuration is reconciled", async () => {
-  vi.mocked(bootstrapControllers).mockRejectedValueOnce(
-    new Error("cluster down"),
-  );
-  await expect(platformUp(local, fakeRunner().runner)).rejects.toThrow(
-    "cluster down",
-  );
-  expect(reconcileConfiguration).not.toHaveBeenCalled();
-  expect(installLocalTrust).not.toHaveBeenCalled();
-});
-
-/** The flag is on: Helm lists the argocd release until the delivery release is installed. */
-function flagOn(): void {
-  vi.mocked(helmInstalledComponents).mockImplementation(
-    (_repository, deliveryInstalled) =>
-      deliveryInstalled
-        ? [core, policy, delivery]
-        : [core, handed, delivery, policy],
-  );
-}
-
-test("an argocd release is still reconciled by Helm while kore-config-delivery is not installed, so a failed delivery leaves Helm managing it", async () => {
-  flagOn();
-  vi.mocked(helmReleaseStatus).mockResolvedValue("failed");
-  await platformUp(local, fakeRunner().runner);
-  expect(order.filter((step) => step.startsWith("configure:"))).toEqual([
-    "configure:tls",
-    "configure:kore-config-delivery",
-    "configure:policy",
-  ]);
-});
-
-test("an argocd release is not reconciled by Helm once kore-config-delivery is deployed, and the delivery release still is", async () => {
-  flagOn();
-  vi.mocked(helmReleaseStatus).mockResolvedValue("deployed");
-  const { runner } = fakeRunner();
-  await platformUp(local, runner);
-  expect(order.filter((step) => step.startsWith("configure:"))).toEqual([
-    "configure:kore-config-delivery",
-    "configure:policy",
-  ]);
-  expect(helmReleaseStatus).toHaveBeenCalledWith(local, runner, delivery);
-});
-
-test("with the flag off up never asks the cluster whether the delivery release is installed", async () => {
-  await platformUp(local, fakeRunner().runner);
-  expect(helmReleaseStatus).not.toHaveBeenCalled();
-});
-
-test("a delivery release that is not found, as on a fresh profile, leaves Helm managing the argocd release", async () => {
-  flagOn();
-  vi.mocked(helmReleaseStatus).mockRejectedValue(
-    new CommandError("helm", ["status"], {
-      stdout: "",
-      stderr: "Error: release: not found",
-      code: 1,
-    }),
-  );
-  await platformUp(local, fakeRunner().runner);
-  expect(order.filter((step) => step.startsWith("configure:"))).toEqual([
-    "configure:tls",
-    "configure:kore-config-delivery",
-    "configure:policy",
-  ]);
-});
-
-test("any other failure reading the delivery release stops up, never a guess that Helm still owns the release", async () => {
-  flagOn();
-  const unreachable = new CommandError("helm", ["status"], {
-    stdout: "",
-    stderr: "Error: Kubernetes cluster unreachable",
-    code: 1,
-  });
-  vi.mocked(helmReleaseStatus).mockRejectedValue(unreachable);
-  await expect(platformUp(local, fakeRunner().runner)).rejects.toBe(
-    unreachable,
-  );
-  expect(reconcileConfiguration).not.toHaveBeenCalled();
-});
-
-test("up hands the orphan check to itself and runs it after the configuration, before enrollment, when the check is deferred", async () => {
+test("up hands the orphan check to itself and runs it after the configuration, before the delivery wait, when the check is deferred", async () => {
   vi.mocked(orphanCheckDeferred).mockReturnValue(true);
   vi.mocked(assertNoOrphanedReleases).mockImplementation(async () => {
     order.push("orphans");
@@ -257,9 +153,10 @@ test("up hands the orphan check to itself and runs it after the configuration, b
   expect(bootstrapControllers).toHaveBeenCalledWith(local, expect.anything(), {
     orphanCheck: "caller",
   });
-  expect(order.slice(-7)).toEqual([
-    "configure:policy",
-    "configure:enforce",
+  expect(order).toEqual([
+    "bootstrap",
+    "trust",
+    "configure",
     "orphans",
     "delivery",
     "enroll",
@@ -276,7 +173,7 @@ test("a deferred orphan refusal fails up after configuring, and leaves the gate 
   await expect(platformUp(local, fakeRunner().runner)).rejects.toThrow(
     "helm uninstall agentgateway",
   );
-  expect(order).toContain("configure:policy");
+  expect(order).toContain("configure");
   expect(openApplicationAdmission).not.toHaveBeenCalled();
   expect(writePlatformState).not.toHaveBeenCalled();
 });

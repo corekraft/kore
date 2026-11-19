@@ -5,6 +5,7 @@ import {
   failureAcrossBounds,
   pause,
   pollUntil,
+  ReadinessTimeout,
   retryBudget,
   timeoutMilliseconds,
 } from "./readiness-poll.js";
@@ -86,6 +87,29 @@ test("a wait that never becomes ready fails with the last reason at its bound, a
   await outcome;
 
   expect(probe).toHaveBeenCalledTimes(13);
+});
+
+test("a wait that runs out of time fails with a ReadinessTimeout, so a caller can tell a timeout from a probe error", async () => {
+  const probe = vi.fn<Probe>().mockResolvedValue("deployment/web not ready");
+  const outcome = pollUntil("3s", probe);
+  const failure = outcome.catch((error: unknown) => error);
+
+  await vi.advanceTimersByTimeAsync(3000);
+
+  expect(await failure).toBeInstanceOf(ReadinessTimeout);
+  expect(await failure).toHaveProperty("message", "deployment/web not ready");
+});
+
+test("a probe error that is not a timeout is rethrown as itself, never as a ReadinessTimeout", async () => {
+  const forbidden = new Error('secrets "x" is forbidden: Forbidden');
+  const probe = vi.fn<Probe>().mockRejectedValue(forbidden);
+
+  const failure = await pollUntil("10s", probe).catch(
+    (error: unknown) => error,
+  );
+
+  expect(failure).toBe(forbidden);
+  expect(failure).not.toBeInstanceOf(ReadinessTimeout);
 });
 
 test("a Forbidden error fails at once with the same error and is not probed again", async () => {

@@ -28,6 +28,9 @@ export function pause(): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, POLL_MILLISECONDS));
 }
 
+/** The bound of a poll ran out; the message is the last probe's reason. A caller can tell it from a probe error. */
+export class ReadinessTimeout extends Error {}
+
 /**
  * Polls `probe` until it reports ready (undefined) or the timeout elapses,
  * always probing at least once. A probe returns the reason it is not ready, or
@@ -54,7 +57,7 @@ export async function pollUntil(
       return;
     }
     if (Date.now() >= deadline) {
-      throw new Error(reason);
+      throw new ReadinessTimeout(reason);
     }
     await pause();
   }
