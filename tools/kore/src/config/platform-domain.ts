@@ -1,3 +1,4 @@
+import { featureEnabled, platformSharedGatewayFlag } from "./features.js";
 import type { Environment } from "./types.js";
 
 /** The platform domain and the platform organization's identifier. */
@@ -84,6 +85,40 @@ const wildcardValueKeys: Record<string, string | undefined> = {
 };
 
 /**
+ * The chart value prefix each component that attaches a route to the shared
+ * Gateway reads it through (ADR 0133): the portal's top-level `sharedGateway`
+ * and the golden-path ApplicationSet's `ingress.sharedGateway`.
+ */
+const sharedGatewayValueKeys: Record<string, string | undefined> = {
+  "kore-platform-backstage": "sharedGateway",
+  "kore-golden-path-delivery": "ingress.sharedGateway",
+};
+
+/**
+ * With platform-shared-gateway on, the Gateway a route attaches to and the
+ * organization's domain it serves, `<organizationId>.<domain>`; otherwise none,
+ * so the flag off renders what it rendered before.
+ */
+function sharedGatewayArgs(
+  environment: Environment,
+  component: string,
+): string[] {
+  const key = sharedGatewayValueKeys[component];
+  if (
+    key === undefined ||
+    !featureEnabled(environment, platformSharedGatewayFlag)
+  ) {
+    return [];
+  }
+  const { domain, organizationId } = platformPlan(environment);
+  return [
+    ["name", environment.gateway.name],
+    ["namespace", environment.gateway.namespace],
+    ["domain", `${organizationId}.${domain}`],
+  ].flatMap(([field, value]) => ["--set-string", `${key}.${field}=${value}`]);
+}
+
+/**
  * Helm arguments that hand the platform domain to a component that names it:
  * the overlay's values files and the chart defaults hold no copy, so the
  * environment's field is the one source.
@@ -94,8 +129,9 @@ export function platformHelmArgs(
 ): string[] {
   const key = domainValueKeys[component];
   const wildcard = wildcardValueKeys[component];
+  const shared = sharedGatewayArgs(environment, component);
   if (key === undefined && wildcard === undefined) {
-    return [];
+    return shared;
   }
   const { domain, organizationId } = platformPlan(environment);
   return [
@@ -103,5 +139,6 @@ export function platformHelmArgs(
     ...(wildcard === undefined
       ? []
       : ["--set-string", `${wildcard}=*.${organizationId}.${domain}`]),
+    ...shared,
   ];
 }

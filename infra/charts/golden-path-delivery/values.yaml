@@ -38,3 +38,7 @@ project: default
 #   platformDomain: kore.local
 #   gatewayClassName: agentgateway
 #   issuer: kore-local-ca   # the ClusterIssuer, default kore-local-ca
+#   sharedGateway:          # kore passes it only while platform-shared-gateway is on
+#     name: kore-gateway
+#     namespace: kore-system
+#     domain: platform.kore.local   # <organizationId>.<platformDomain>
