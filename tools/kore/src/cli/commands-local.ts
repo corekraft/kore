@@ -3,7 +3,7 @@ import {
   rotateRegistryCredentials,
   swapLocalSigningKey,
 } from "../images/index.js";
-import { localDown, localUp } from "../local/index.js";
+import { localDown, localUp, withHostResolver } from "../local/index.js";
 import {
   composeChartDelivery,
   composeGoldenPathDelivery,
@@ -22,19 +22,23 @@ import { print } from "./output.js";
 export async function localCommand(context: CommandContext): Promise<number> {
   const { repository } = context;
   return await mutateAction(context, {
-    up: async (_context, runner) =>
+    up: async (_context, runner) => {
       // Schema-check both release locks before any cluster call (ADR 0043).
-      await localUp(
-        await composeGoldenPathDelivery(
-          await composeChartDelivery(
-            repository,
-            stringFlag(context.parsed, "platform-chart-lock"),
-          ),
-          runner,
-          stringFlag(context.parsed, "platform-template-lock"),
+      const delivered = await composeGoldenPathDelivery(
+        await composeChartDelivery(
+          repository,
+          stringFlag(context.parsed, "platform-chart-lock"),
         ),
         runner,
-      ),
+        stringFlag(context.parsed, "platform-template-lock"),
+      );
+      // With platform-dns on, the host resolver file is brought up to date first (ADR 0132).
+      return await withHostResolver(
+        delivered,
+        runner,
+        async () => await localUp(delivered, runner),
+      );
+    },
     down: async (_context, runner) =>
       await localDown(repository, runner, {
         prune: boolFlag(context.parsed, "prune"),
