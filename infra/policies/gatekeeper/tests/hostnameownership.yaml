@@ -1,0 +1,48 @@
+kind: Suite
+apiVersion: test.gatekeeper.sh/v1alpha1
+tests:
+  - name: hostname-ownership
+    template: ../templates/korehostnameownership.yaml
+    constraint: ../constraints/korehostnameownership.yaml
+    cases:
+      - {
+          name: admits-route-in-owning-zone,
+          object: objects/host-allowed.yaml,
+          inventory: [objects/host-ns-platform.yaml],
+          assertions: [{ violations: 0 }]
+        }
+      - {
+          name: rejects-duplicate-host-held-by-another-namespace,
+          object: objects/host-duplicate.yaml,
+          inventory:
+            [
+              objects/host-ns-platform.yaml,
+              objects/host-ns-platform-two.yaml,
+              objects/host-held.yaml
+            ],
+          assertions: [{ violations: 1, message: already claimed }]
+        }
+      - {
+          name: rejects-host-outside-owning-zone,
+          object: objects/host-outside.yaml,
+          inventory: [objects/host-ns-platform.yaml],
+          assertions: [{ violations: 1, message: outside }]
+        }
+      - {
+          name: ignores-organization-label-on-the-route,
+          object: objects/host-forged-label.yaml,
+          inventory: [objects/host-ns-team.yaml],
+          assertions: [{ violations: 1, message: outside }]
+        }
+      - {
+          name: rejects-route-in-namespace-without-organization,
+          object: objects/host-allowed.yaml,
+          inventory: [objects/host-ns-unlabelled.yaml],
+          assertions: [{ violations: 1, message: no owning organization }]
+        }
+      - {
+          name: admits-route-reapplied-in-its-own-namespace,
+          object: objects/host-held.yaml,
+          inventory: [objects/host-ns-platform.yaml, objects/host-held.yaml],
+          assertions: [{ violations: 0 }]
+        }
