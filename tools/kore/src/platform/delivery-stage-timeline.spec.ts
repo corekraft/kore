@@ -36,6 +36,31 @@ test("each stage takes the seconds from the end of the stage before it, and a st
   });
 });
 
+test("a cold delivery's six stage ends give 5, 10, 2, 33, 30 and 5 seconds, totalling 85", () => {
+  const merged = Date.parse("2026-11-18T10:00:00Z");
+
+  expect(
+    stageTimes(merged, [
+      ["namespace", Date.parse("2026-11-18T10:00:05Z")],
+      ["sync", Date.parse("2026-11-18T10:00:15Z")],
+      ["admission", Date.parse("2026-11-18T10:00:17Z")],
+      ["certificate", Date.parse("2026-11-18T10:00:50Z")],
+      ["rollout", Date.parse("2026-11-18T10:01:20Z")],
+      ["readiness", Date.parse("2026-11-18T10:01:25Z")],
+    ]),
+  ).toEqual({
+    stages: [
+      { stage: "namespace", seconds: 5 },
+      { stage: "sync", seconds: 10 },
+      { stage: "admission", seconds: 2 },
+      { stage: "certificate", seconds: 33 },
+      { stage: "rollout", seconds: 30 },
+      { stage: "readiness", seconds: 5 },
+    ],
+    totalSeconds: 85,
+  });
+});
+
 test("stage seconds are rounded to one decimal place", () => {
   const merged = Date.parse("2026-11-18T10:00:00Z");
 

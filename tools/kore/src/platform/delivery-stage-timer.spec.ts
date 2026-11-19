@@ -1,11 +1,26 @@
-import { expect, test } from "vitest";
+import { beforeEach, expect, test, vi } from "vitest";
 import { fakeRunner } from "./platform-support.js";
 import {
   DeliveryStageTimer,
   type DeliveryTimerOptions,
 } from "./delivery-stage-timer.js";
+import {
+  mergedMilliseconds,
+  stageTimes,
+  type StageTime,
+} from "./delivery-stage-timeline.js";
+
+// The merge check and the stage arithmetic are same-domain pure helpers, so they
+// are stubs here (ADR 0098). Their own spec proves the arithmetic; the constants
+// stay real.
+vi.mock("./delivery-stage-timeline.js", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("./delivery-stage-timeline.js")>()),
+  mergedMilliseconds: vi.fn(),
+  stageTimes: vi.fn(),
+}));
 
 const MERGED = "2026-11-18T10:00:00Z";
+const MERGED_MS = Date.parse(MERGED);
 
 const options: DeliveryTimerOptions = {
   service: "shop",
@@ -14,6 +29,17 @@ const options: DeliveryTimerOptions = {
   host: "shop.platform.kore.internal",
   mergedAt: MERGED,
 };
+
+// The stage seconds the timeline stub hands back, so the timer's report can be
+// checked for carrying them as they are.
+const STAGES: StageTime[] = [
+  { stage: "namespace", seconds: 5 },
+  { stage: "sync", seconds: 10 },
+  { stage: "admission", seconds: 2 },
+  { stage: "certificate", seconds: 33 },
+  { stage: "rollout", seconds: 30 },
+  { stage: "readiness", seconds: 5 },
+];
 
 // One cluster state for a cold delivery of `shop`, merged at MERGED. Each
 // stage's time source is a field of the object that carries it.
@@ -110,36 +136,52 @@ function timerWith(cluster: Cluster) {
   return { timer, run };
 }
 
-test("a merge time that is not RFC 3339 fails before any read, and the runner is never called", async () => {
-  const { runner, run } = fakeRunner(clusterReply(COLD));
-  const timer = new DeliveryStageTimer(
-    runner,
-    { ...options, mergedAt: "2026-11-18 10:00:00" },
-    { now: () => Date.parse("2026-11-18T10:05:00Z") },
-  );
+beforeEach(() => {
+  vi.mocked(mergedMilliseconds).mockReset();
+  vi.mocked(stageTimes).mockReset();
+  vi.mocked(mergedMilliseconds).mockReturnValue(MERGED_MS);
+  vi.mocked(stageTimes).mockReturnValue({ stages: STAGES, totalSeconds: 85 });
+});
 
-  await expect(timer.measure()).rejects.toThrow(
-    new Error(
-      "KORE_DELIVERY_MERGED_AT must be an RFC 3339 time, for example 2026-11-18T10:00:00Z",
-    ),
-  );
+test("a merge time the timeline refuses fails before any read, and the runner is never called", async () => {
+  const message =
+    "KORE_DELIVERY_MERGED_AT must be an RFC 3339 time, for example 2026-11-18T10:00:00Z";
+  vi.mocked(mergedMilliseconds).mockImplementation(() => {
+    throw new Error(message);
+  });
+  const { timer, run } = timerWith(COLD);
+
+  await expect(timer.measure()).rejects.toThrow(new Error(message));
   expect(run).not.toHaveBeenCalled();
 });
 
-test("a merge time with a numeric offset is an RFC 3339 time and is measured", async () => {
-  const { runner } = fakeRunner(clusterReply(COLD));
-  const timer = new DeliveryStageTimer(
-    runner,
-    { ...options, mergedAt: "2026-11-18T11:00:00+01:00" },
-    { now: () => Date.parse("2026-11-18T10:05:00Z") },
-  );
+test("the timer reads the merge time through the timeline, before any cluster read", async () => {
+  const { timer, run } = timerWith(COLD);
 
-  const report = await timer.measure();
+  await timer.measure();
 
-  expect(report.cold.map((run) => run.totalSeconds)).toEqual([85]);
+  expect(mergedMilliseconds).toHaveBeenCalledExactlyOnceWith(MERGED);
+  expect(
+    vi.mocked(mergedMilliseconds).mock.invocationCallOrder[0],
+  ).toBeLessThan(run.mock.invocationCallOrder[0] ?? Number.NEGATIVE_INFINITY);
 });
 
-test("a cold delivery times the six stages from the merge, in stage order, with the total", async () => {
+test("the timer passes the timeline the merge time and each stage's end from the cluster, in stage order", async () => {
+  const { timer } = timerWith(COLD);
+
+  await timer.measure();
+
+  expect(stageTimes).toHaveBeenCalledExactlyOnceWith(MERGED_MS, [
+    ["namespace", Date.parse("2026-11-18T10:00:05Z")],
+    ["sync", Date.parse("2026-11-18T10:00:15Z")],
+    ["admission", Date.parse("2026-11-18T10:00:17Z")],
+    ["certificate", Date.parse("2026-11-18T10:00:50Z")],
+    ["rollout", Date.parse("2026-11-18T10:01:20Z")],
+    ["readiness", Date.parse("2026-11-18T10:01:25Z")],
+  ]);
+});
+
+test("a cold delivery reports the stages and total the timeline returns, in the cold series, with its metadata", async () => {
   const { timer } = timerWith(COLD);
 
   const report = await timer.measure();
@@ -152,21 +194,14 @@ test("a cold delivery times the six stages from the merge, in stage order, with 
       host: "shop.platform.kore.internal",
       mergedAt: MERGED,
       measuredAt: "2026-11-18T10:05:00.000Z",
-      stages: [
-        { stage: "namespace", seconds: 5 },
-        { stage: "sync", seconds: 10 },
-        { stage: "admission", seconds: 2 },
-        { stage: "certificate", seconds: 33 },
-        { stage: "rollout", seconds: 30 },
-        { stage: "readiness", seconds: 5 },
-      ],
+      stages: STAGES,
       totalSeconds: 85,
       excluded: ["tenant build"],
     },
   ]);
 });
 
-test("a namespace created before the merge is a redeploy, reported in its own series, and its stage takes no time", async () => {
+test("a namespace created before the merge is a redeploy series, and the timeline is given that namespace end", async () => {
   const { timer } = timerWith({
     ...COLD,
     namespace: { metadata: { creationTimestamp: "2026-11-17T09:50:00Z" } },
@@ -176,18 +211,11 @@ test("a namespace created before the merge is a redeploy, reported in its own se
 
   expect(report.cold).toEqual([]);
   expect(report.redeploy).toEqual([
-    expect.objectContaining({
-      series: "redeploy",
-      stages: [
-        { stage: "namespace", seconds: 0 },
-        { stage: "sync", seconds: 15 },
-        { stage: "admission", seconds: 2 },
-        { stage: "certificate", seconds: 33 },
-        { stage: "rollout", seconds: 30 },
-        { stage: "readiness", seconds: 5 },
-      ],
-      totalSeconds: 85,
-    }),
+    expect.objectContaining({ series: "redeploy", stages: STAGES }),
+  ]);
+  expect(vi.mocked(stageTimes).mock.calls[0]?.[1][0]).toEqual([
+    "namespace",
+    Date.parse("2026-11-17T09:50:00Z"),
   ]);
 });
 
