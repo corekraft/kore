@@ -108,6 +108,11 @@ export interface K3dPort {
   hostAddress: string;
   hostPort: number;
   loadBalancerPort: number;
+  /**
+   * Skipped by the check that refuses `kore local up` when a host port is
+   * taken (#1198). The overlay still publishes the port.
+   */
+  optional?: boolean;
 }
 
 export interface Environment {

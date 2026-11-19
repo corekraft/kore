@@ -10,6 +10,7 @@ import { CommandError, type Runner } from "../runtime/index.js";
 import { ClusterUnavailableError } from "./cluster-unavailable.js";
 import { drift, unreadableMessage, unreadablePorts } from "./k3d-drift.js";
 import { inspectPortMappings, loadBalancerContainer } from "./k3d-inspect.js";
+import { checkHostPorts, type PortProbe } from "./k3d-ports.js";
 import { type ReadinessOptions, waitForClusterReady } from "./readiness.js";
 
 /** The state of a k3d cluster as `k3d cluster list` reports it. */
@@ -233,6 +234,7 @@ export async function clusterUpK3d(
   runner: Runner,
   readiness: ReadinessOptions,
   home?: string,
+  probe?: PortProbe,
 ): Promise<void> {
   const { clusterName } = k3dCluster(repository.environment);
   if (k3dContext(clusterName) !== repository.environment.kubeContext) {
@@ -267,6 +269,15 @@ export async function clusterUpK3d(
         `k3d cluster ${clusterName} differs from the overlay (${differences.join("; ")}); recreate it with \`kore local down --prune\` then \`kore local up\``,
       );
     }
+  }
+  if (state === "absent") {
+    // Refused before any write or create: a taken host port fails here, named (#1198).
+    await checkHostPorts(
+      repository.environment.name,
+      k3dCluster(repository.environment),
+      runner,
+      probe,
+    );
   }
   if (state !== "running" && koreManagesRegistryAuth(repository)) {
     // Both create and start bind-mount these files; a missing source would
