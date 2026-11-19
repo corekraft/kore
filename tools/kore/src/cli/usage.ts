@@ -19,6 +19,7 @@ Usage:
   kore secrets sync --environment local [--rotate --yes]
   kore secrets smtp --environment <name>   (streams {"user": "...", "password": "..."} on stdin into the grafana-smtp Secret that the alert email settings read; run it after the platform is up; the login is never read from a flag, file or config)
   kore trust install --environment local
+  kore dns install|uninstall --environment local [--yes] [--json]
   kore journal [--environment <name>] [--limit <n>] [--json]
   kore ops inventory|recovery [--environment local] [--json]
   kore ops upgrade-check|crd-check [--from <release-tag>] [--environment local] [--json]
@@ -85,6 +86,14 @@ environment refuses. It requires --yes and is safe to rerun after a failure.
 only when the mkcert CA is not already trusted on the host; on macOS it skips
 the install when the CA files exist and "security verify-cert" accepts the
 root, and on other hosts it always runs it.
+
+"dns install" writes one file, /etc/resolver/<platform domain>, which points that
+zone at the platform DNS on loopback (ADR 0132). It shows the file, then runs
+"sudo mkdir -p /etc/resolver" and "sudo tee" for it after you confirm, or at once
+with --yes; without a terminal it needs --yes. The file starts with a Kore
+marker. It is unchanged when already current, and a file without the marker is
+never overwritten. "dns uninstall" runs "sudo rm -f" on that file only when it
+carries the marker, after the same confirmation. Undo either with the other.
 
 "ops" is read-only and offline. "inventory" lists every pinned tool, component,
 image, npm package, and GitHub Action, and fails on a range, a missing digest or

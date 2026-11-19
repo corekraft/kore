@@ -10,6 +10,7 @@ import {
   type Check,
   type CheckStatus,
 } from "./doctor.js";
+import { resolverChecks, systemResolverHost } from "../resolver/index.js";
 import { errno, fakeRepository, fakeRunner } from "./diagnostics-support.js";
 
 vi.mock("node:fs/promises");
@@ -17,6 +18,10 @@ vi.mock("node:os");
 // Factories name only what doctor reads, so the real barrels never load.
 vi.mock("../cluster/index.js", () => ({ k3dClusterInfo: vi.fn() }));
 vi.mock("../config/index.js", () => ({ managedCluster: vi.fn() }));
+vi.mock("../resolver/index.js", () => ({
+  resolverChecks: vi.fn(),
+  systemResolverHost: vi.fn(),
+}));
 
 const tools: Record<string, string> = {
   node: "22.11.0",
@@ -92,6 +97,30 @@ beforeEach(() => {
     diskSize: "100g",
   } as ReturnType<typeof managedCluster>);
   vi.mocked(k3dClusterInfo).mockResolvedValue(clusterState("running"));
+  vi.mocked(resolverChecks).mockResolvedValue([]);
+  vi.mocked(systemResolverHost).mockReturnValue({} as never);
+});
+
+test("doctor appends the host resolver findings after the platform checks, reading the environment through the resolver", async () => {
+  const finding = {
+    name: "host:resolver",
+    status: "warn" as const,
+    required: false as const,
+    message:
+      "/etc/resolver/kore.internal is missing; run kore dns install --environment managed-example",
+  };
+  vi.mocked(resolverChecks).mockResolvedValue([finding]);
+  const repository = managed();
+  const { runner } = replies();
+
+  const checks = await doctor(repository, runner);
+
+  expect(checks.at(-1)).toEqual(finding);
+  expect(resolverChecks).toHaveBeenCalledWith(
+    repository.environment,
+    runner,
+    expect.anything(),
+  );
 });
 
 test("a detected version passes when its major and minor match the pin, whatever the patch", async () => {
