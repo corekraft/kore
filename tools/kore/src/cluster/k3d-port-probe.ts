@@ -18,7 +18,7 @@ export function bindProbe(
       }
       reject(
         new Error(
-          `cannot check host port ${hostAddress}:${hostPort}: ${error.message}`,
+          `cannot check host port ${hostAddress}:${hostPort}: ${error.message}. Check that ${hostAddress} is a loopback address on this host and that this user may bind port ${hostPort}, or set "optional": true on that k3d.ports entry in the overlay.`,
           { cause: error },
         ),
       );

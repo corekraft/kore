@@ -17,7 +17,7 @@ import {
   TRUST,
   TRUST_VOLUMES,
 } from "./k3d-cluster-support.js";
-import type { PortProbe } from "./k3d-ports.js";
+import { checkHostPorts, type PortProbe } from "./k3d-ports.js";
 
 vi.mock("../images/index.js");
 vi.mock("./readiness.js");
@@ -30,8 +30,10 @@ vi.mock("./k3d-inspect.js", async (importOriginal) => ({
   ...(await importOriginal<typeof import("./k3d-inspect.js")>()),
   inspectPortMappings: vi.fn(),
 }));
-
-const LSOF = "lsof -nP -iTCP:8443 -sTCP:LISTEN -Fpc";
+vi.mock("./k3d-ports.js", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("./k3d-ports.js")>()),
+  checkHostPorts: vi.fn(),
+}));
 
 const up = (runner: Parameters<typeof clusterUpK3d>[1], probe: PortProbe) =>
   clusterUpK3d(fakeRepository(), runner, READINESS, "/home/u", probe);
@@ -46,26 +48,39 @@ beforeEach(() => {
   vi.mocked(drift).mockReturnValue([]);
   vi.mocked(unreadablePorts).mockReturnValue([]);
   vi.mocked(inspectPortMappings).mockResolvedValue(undefined);
+  vi.mocked(checkHostPorts).mockResolvedValue(undefined);
 });
 
-test("a taken host port refuses an absent cluster before any create or registry write, and no cluster command runs after the refusal", async () => {
-  const probe = vi.fn<PortProbe>(async () => false);
+test("an absent cluster has its host ports checked once, with the environment name, the overlay's cluster, the runner and the probe", async () => {
+  const probe = vi.fn<PortProbe>(async () => true);
   const absent = fakeK3d(undefined);
-  await expect(up(absent.runner, probe)).rejects.toThrow(
-    new Error(
-      "host port 127.0.0.1:8443 is already in use, so the cluster cannot publish it. The overlay setting that publishes it is k3d.ports[0] (loadBalancerPort 443) in environment local. The holder could not be identified: lsof reported none or is not installed. Free the port by stopping the process holding it, or change k3d.ports[0].hostPort, then rerun kore local up --environment local.",
-    ),
+  const repository = fakeRepository();
+  await clusterUpK3d(repository, absent.runner, READINESS, "/home/u", probe);
+  expect(checkHostPorts).toHaveBeenCalledTimes(1);
+  expect(checkHostPorts).toHaveBeenCalledWith(
+    "local",
+    repository.environment.k3d,
+    absent.runner,
+    probe,
   );
-  expect(commandLines(absent.run)).toEqual([LIST, LSOF]);
+});
+
+test("a refusal from the host port check stops the run before the registry write and the create, so no cluster command runs after it", async () => {
+  vi.mocked(checkHostPorts).mockRejectedValue(
+    new Error("refused by the host port check"),
+  );
+  const absent = fakeK3d(undefined);
+  await expect(up(absent.runner, async () => true)).rejects.toThrow(
+    "refused by the host port check",
+  );
   expect(writeK3dRegistriesConfig).not.toHaveBeenCalled();
+  expect(commandLines(absent.run)).toEqual([LIST]);
   expect(waitForClusterReady).not.toHaveBeenCalled();
 });
 
-test("a free host port lets the absent cluster be created on its loopback address", async () => {
-  const probe = vi.fn<PortProbe>(async () => true);
+test("a passing host port check lets the absent cluster be created on its loopback address", async () => {
   const absent = fakeK3d(undefined);
-  await up(absent.runner, probe);
-  expect(probe).toHaveBeenCalledWith("127.0.0.1", 8443);
+  await up(absent.runner, async () => true);
   const creates = commandLines(absent.run).filter((line) =>
     line.startsWith("k3d cluster create"),
   );
@@ -73,14 +88,15 @@ test("a free host port lets the absent cluster be created on its loopback addres
   expect(creates[0]).toContain("--port 127.0.0.1:8443:443@loadbalancer");
 });
 
-test("no probe runs when the cluster already exists, running or stopped", async () => {
+test("no host port check runs when the cluster is running or stopped", async () => {
   const probe = vi.fn<PortProbe>(async () => false);
   await up(fakeK3d(1).runner, probe);
   await up(fakeK3d(0).runner, probe);
+  expect(checkHostPorts).not.toHaveBeenCalled();
   expect(probe).not.toHaveBeenCalled();
 });
 
-test("the ports checked are the effective overlay's own, so a port added to the overlay is checked and named without a code change", async () => {
+test("the check receives the effective overlay's own cluster, so a port added to the overlay is checked without a code change", async () => {
   const overlay = fakeRepository({
     k3d: {
       clusterName: "kore-local",
@@ -92,24 +108,13 @@ test("the ports checked are the effective overlay's own, so a port added to the 
       ],
     },
   });
-  const probe = vi.fn<PortProbe>(
-    async (_address: string, hostPort: number) => hostPort !== 9100,
-  );
+  const probe = vi.fn<PortProbe>(async () => true);
   const absent = fakeK3d(undefined);
-  await expect(
-    clusterUpK3d(overlay, absent.runner, READINESS, "/home/u", probe),
-  ).rejects.toThrow(
-    new Error(
-      "host port 127.0.0.1:9100 is already in use, so the cluster cannot publish it. The overlay setting that publishes it is k3d.ports[2] (loadBalancerPort 30100) in environment local. The holder could not be identified: lsof reported none or is not installed. Free the port by stopping the process holding it, or change k3d.ports[2].hostPort, then rerun kore local up --environment local.",
-    ),
+  await clusterUpK3d(overlay, absent.runner, READINESS, "/home/u", probe);
+  expect(checkHostPorts).toHaveBeenCalledWith(
+    "local",
+    overlay.environment.k3d,
+    absent.runner,
+    probe,
   );
-  expect(probe.mock.calls).toEqual([
-    ["127.0.0.1", 8443],
-    ["127.0.0.1", 9000],
-    ["127.0.0.1", 9100],
-  ]);
-  expect(commandLines(absent.run)).toEqual([
-    LIST,
-    "lsof -nP -iTCP:9100 -sTCP:LISTEN -Fpc",
-  ]);
 });

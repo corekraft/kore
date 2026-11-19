@@ -44,9 +44,11 @@ test("a port that binds is reported free, and the probe listener is closed befor
   expect(server.close).toHaveBeenCalledTimes(1);
 });
 
-test("a bind failure other than address-in-use is rethrown naming the address and port, never reported as free or taken", async () => {
+test("a bind failure other than address-in-use is rethrown naming the address and port, with the fix, never reported as free or taken", async () => {
   fakeServer(Object.assign(new Error("permission denied"), { code: "EACCES" }));
   await expect(bindProbe("127.0.0.1", 443)).rejects.toThrow(
-    "cannot check host port 127.0.0.1:443: permission denied",
+    new Error(
+      'cannot check host port 127.0.0.1:443: permission denied. Check that 127.0.0.1 is a loopback address on this host and that this user may bind port 443, or set "optional": true on that k3d.ports entry in the overlay.',
+    ),
   );
 });
