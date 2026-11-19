@@ -8,7 +8,8 @@ import {
 } from "../images/index.js";
 import { CommandError, type Runner } from "../runtime/index.js";
 import { ClusterUnavailableError } from "./cluster-unavailable.js";
-import { drift } from "./k3d-drift.js";
+import { drift, unreadableMessage, unreadablePorts } from "./k3d-drift.js";
+import { inspectPortMappings, loadBalancerContainer } from "./k3d-inspect.js";
 import { type ReadinessOptions, waitForClusterReady } from "./readiness.js";
 
 /** The state of a k3d cluster as `k3d cluster list` reports it. */
@@ -244,7 +245,23 @@ export async function clusterUpK3d(
     runner,
   );
   if (entry !== undefined) {
-    const differences = drift(entry, k3dCluster(repository.environment));
+    const cluster = k3dCluster(repository.environment);
+    // The listing is the first source of host addresses; docker inspect is the second.
+    const inspected =
+      unreadablePorts(entry, cluster).length > 0
+        ? await inspectPortMappings(runner, clusterName)
+        : undefined;
+    const unreadable = unreadablePorts(entry, cluster, inspected);
+    if (unreadable.length > 0) {
+      throw new Error(
+        unreadableMessage(
+          clusterName,
+          loadBalancerContainer(clusterName),
+          unreadable,
+        ),
+      );
+    }
+    const differences = drift(entry, cluster, inspected);
     if (differences.length > 0) {
       throw new Error(
         `k3d cluster ${clusterName} differs from the overlay (${differences.join("; ")}); recreate it with \`kore local down --prune\` then \`kore local up\``,

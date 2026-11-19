@@ -9,6 +9,8 @@ import {
 import { CommandError } from "../runtime/index.js";
 import { ClusterUnavailableError } from "./cluster-unavailable.js";
 import { waitForClusterReady } from "./readiness.js";
+import { drift, unreadablePorts } from "./k3d-drift.js";
+import { inspectPortMappings } from "./k3d-inspect.js";
 import {
   assertExpectedK3dCluster,
   clusterStatusK3d,
@@ -29,7 +31,6 @@ import {
   LIST,
   MESSAGES,
   NAMESPACE_CHECK,
-  loadBalancer,
   READINESS,
   RUNNING_STATUS,
   TRUST,
@@ -39,10 +40,22 @@ import {
 
 vi.mock("../images/index.js");
 vi.mock("./readiness.js");
+vi.mock("./k3d-drift.js", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("./k3d-drift.js")>()),
+  drift: vi.fn(),
+  unreadablePorts: vi.fn(),
+}));
+vi.mock("./k3d-inspect.js", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("./k3d-inspect.js")>()),
+  inspectPortMappings: vi.fn(),
+}));
 
 const repository = fakeRepository();
 
 beforeEach(() => {
+  vi.mocked(drift).mockReturnValue([]);
+  vi.mocked(unreadablePorts).mockReturnValue([]);
+  vi.mocked(inspectPortMappings).mockResolvedValue(undefined);
   vi.mocked(k3dTrustDirectory).mockReturnValue(TRUST);
   vi.mocked(k3dTrustVolumeArgs).mockReturnValue(TRUST_VOLUMES);
   vi.mocked(koreManagesRegistryAuth).mockReturnValue(true);
@@ -254,34 +267,19 @@ test("an external registry creates the cluster with no trust mounts and writes n
   expect(writeK3dRegistriesConfig).not.toHaveBeenCalled();
 });
 
-test("drift is refused with the recreate path before any start or write, when servers differ or a published port is not the overlay's host port", async () => {
+test("drift is refused with the recreate path before any start or write, whichever difference the verdict names", async () => {
+  vi.mocked(drift).mockReturnValueOnce(["servers: 3 != 1"]);
   const servers = fakeK3d(1, { serversCount: 3, serversRunning: 3 });
   await expect(up(servers.runner)).rejects.toThrow(MESSAGES.overlayServers);
   expect(commandLines(servers.run)).toEqual([LIST]);
-  const wrong = fakeK3d(1, {
-    nodes: loadBalancer({ "443/tcp": [{ HostPort: "9443" }] }),
-  });
+  vi.mocked(drift).mockReturnValueOnce(["port 443: 9443 != 8443"]);
+  const wrong = fakeK3d(1);
   await expect(up(wrong.runner)).rejects.toThrow(MESSAGES.wrongPort);
-  const unmapped = fakeK3d(1, { nodes: loadBalancer({ "443/tcp": [] }) });
+  vi.mocked(drift).mockReturnValueOnce(["port 443: unmapped != 8443"]);
+  const unmapped = fakeK3d(1);
   await expect(up(unmapped.runner)).rejects.toThrow(MESSAGES.unmappedPort);
   expect(writeK3dRegistriesConfig).not.toHaveBeenCalled();
   expect(waitForClusterReady).not.toHaveBeenCalled();
-});
-
-test("an extra load-balancer mapping such as the random API port is not drift", async () => {
-  const extra = fakeK3d(1, {
-    nodes: [
-      {
-        role: "loadbalancer",
-        portMappings: {
-          "443/tcp": [{ HostIp: "127.0.0.1", HostPort: "8443" }],
-          "6443/tcp": [{ HostIp: "0.0.0.0", HostPort: "51234" }],
-        },
-      },
-    ],
-  });
-  await up(extra.runner);
-  expect(waitForClusterReady).toHaveBeenCalledTimes(1);
 });
 
 test("a readiness failure after create is raised as it is, and the identity check is never reached", async () => {

@@ -11,11 +11,6 @@ export const TRUST = "/home/u/.kore/k3d/kore-local/registry-trust";
 /** The readiness bound the spec's ups run under; the readiness wait itself is mocked. */
 export const READINESS = { timeoutMs: 1000 };
 
-/** The k3d entry's nodes: one load balancer publishing the given container-to-host ports. */
-export const loadBalancer = (
-  ports: Record<string, { HostIp?: string; HostPort: string }[]>,
-) => [{ role: "loadbalancer", portMappings: ports }];
-
 /** A k3d up with the spec's readiness bound and home, against the given repository. */
 export const up = (
   runner: Runner,
@@ -108,7 +103,7 @@ export const MESSAGES = {
   unmappedPort: "port 443: unmapped != 8443",
   wrongAddress:
     "k3d cluster kore-local differs from the overlay (port 443 address: 0.0.0.0 != 127.0.0.1); recreate it with `kore local down --prune` then `kore local up`",
-  unreportedAddress:
-    "k3d cluster kore-local differs from the overlay (port 443 address: unreported != 127.0.0.1); recreate it with `kore local down --prune` then `kore local up`",
+  unreadableAddress:
+    "k3d cluster kore-local does not report the host address of port 443 in `k3d cluster list --output json` or `docker inspect k3d-kore-local-serverlb`; it cannot be checked against the overlay, and recreating the cluster does not change that. Check that k3d and Docker report the load balancer's port bindings.",
   install: /install k3d \(mise install\)/,
 };

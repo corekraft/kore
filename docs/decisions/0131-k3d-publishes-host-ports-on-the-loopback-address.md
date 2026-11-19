@@ -32,7 +32,11 @@ every interface matched the overlay and was never refused.
   declared port. A port published on the right host port at another address is
   refused, naming the address, with the existing recreate instruction:
   `port 443 address: 0.0.0.0 != 127.0.0.1`. A listing that omits the host
-  address reads as `unreported` and is refused the same way.
+  address is read again from `docker inspect` on the load balancer container,
+  which reports the same bindings. If neither source reports the address, the
+  cluster is refused with a message naming both commands. That refusal does not
+  tell the owner to recreate, because recreating cannot change what k3d and
+  Docker report.
 - A cluster created before this change binds every interface, so it fails
   drift. The owner recreates it with `kore local down --prune`, then
   `kore local up`. There is no in-place migration.
