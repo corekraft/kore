@@ -72,3 +72,6 @@ export const platformArgocdDeliveryFlag = "platform-argocd-delivery";
 
 /** The flag that gates the platform organization's portal: its Keycloak and, later, its Backstage (ADR 0113, plan 15 step 6). */
 export const platformPortalFlag = "platform-portal";
+
+/** The flag that gates the local-only platform DNS component, a pinned DNS server in its own namespace (#1202, #1194). */
+export const platformDnsFlag = "platform-dns";

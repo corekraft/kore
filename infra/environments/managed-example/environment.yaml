@@ -36,6 +36,7 @@
       "registry-tag-pruning": false,
       "platform-organization-service-apis": false,
       "platform-argocd-delivery": false,
+      "platform-dns": false,
       "platform-portal": false,
       "automatic-retro": false,
       "automatic-approval": false,

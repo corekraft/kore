@@ -82,6 +82,7 @@ export {
   localImageReuseFlag,
   organizationServiceApisFlag,
   platformArgocdDeliveryFlag,
+  platformDnsFlag,
   platformPortalFlag,
   registryPruneFlag,
 } from "./features.js";

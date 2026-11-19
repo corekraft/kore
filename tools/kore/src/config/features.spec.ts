@@ -4,6 +4,7 @@ import {
   agentgatewayMeshEnrollmentFlag,
   autoscalingFlag,
   platformArgocdDeliveryFlag,
+  platformDnsFlag,
   platformPortalFlag,
   componentGatedOff,
   enabledComponents,
@@ -135,6 +136,18 @@ test("the platform Argo CD delivery flag gates a component off until an overlay 
       environment({ [platformArgocdDeliveryFlag]: true }),
       gated,
     ),
+  ).toBe(false);
+});
+
+test("the platform DNS flag gates its component off until an overlay turns it on, and an omitted flag is off", () => {
+  expect(platformDnsFlag).toBe("platform-dns");
+  const gated = fakeComponent({ featureFlag: platformDnsFlag });
+  expect(
+    componentGatedOff(environment({ [platformDnsFlag]: false }), gated),
+  ).toBe(true);
+  expect(componentGatedOff(environment(undefined), gated)).toBe(true);
+  expect(
+    componentGatedOff(environment({ [platformDnsFlag]: true }), gated),
   ).toBe(false);
 });
 
