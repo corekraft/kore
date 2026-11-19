@@ -2,6 +2,9 @@ import type { K3dCluster } from "../config/index.js";
 
 type K3dPort = K3dCluster["ports"][number];
 
+/** The container port the k3s API listens on through the load balancer. */
+const apiContainerPort = 6443;
+
 /** One host binding docker reports for a published port. */
 export interface Binding {
   HostIp?: string;
@@ -10,6 +13,44 @@ export interface Binding {
 
 /** Port mappings as `k3d cluster list` and `docker inspect` report them: container port to its host bindings. */
 export type PortMappings = Record<string, Binding[] | null>;
+
+/**
+ * A port the overlay wants published on a host address. A declared port has a
+ * host port; the API port has none, because k3d chooses it at random. A port
+ * without a protocol is TCP.
+ */
+export interface Published {
+  loadBalancerPort: number;
+  hostAddress: string;
+  hostPort?: number;
+  protocol?: K3dPort["protocol"];
+}
+
+/**
+ * The host address the API port binds: the first declared port's, so one
+ * overlay address serves every loopback binding (ADR 0131). The overlay schema
+ * requires at least one declared port.
+ */
+export function apiHostAddress(cluster: K3dCluster): string {
+  const first = cluster.ports[0];
+  if (first === undefined) {
+    throw new Error(
+      "environment.k3d.ports declares no port, so the API port has no host address to bind; declare a loopback port",
+    );
+  }
+  return first.hostAddress;
+}
+
+/** Every port the overlay wants published: the declared ports, then the API port. */
+export function publishedPorts(cluster: K3dCluster): Published[] {
+  return [
+    ...cluster.ports,
+    {
+      loadBalancerPort: apiContainerPort,
+      hostAddress: apiHostAddress(cluster),
+    },
+  ];
+}
 
 /** The load balancer's port mappings in a `k3d cluster list` entry; undefined when the entry reports none. */
 function listedMappings(
@@ -22,21 +63,21 @@ function listedMappings(
 }
 
 /** A mapping's transport: TCP unless it says otherwise. */
-function protocolOf(port: K3dPort): string {
+function protocolOf(port: Published): string {
   return port.protocol ?? "tcp";
 }
 
-/** How a declared port is named in a difference: UDP ports carry their protocol. */
-function labelOf(port: K3dPort): string {
+/** How a published port is named in a difference: UDP ports carry their protocol. */
+function labelOf(port: Published): string {
   return port.protocol === "udp"
     ? `port ${port.loadBalancerPort}/udp`
     : `port ${port.loadBalancerPort}`;
 }
 
-/** Every binding under a declared port's container port, whatever its host port. */
+/** Every binding under a published port's container port and protocol, whatever its host port. */
 function bindingsUnder(
   mappings: PortMappings | undefined,
-  port: K3dPort,
+  port: Published,
 ): Binding[] {
   return Object.entries(mappings ?? {})
     .filter(([container]) => {
@@ -49,39 +90,44 @@ function bindingsUnder(
     .flatMap(([, bindings]) => bindings ?? []);
 }
 
-/** The bindings a declared port publishes on its declared host port. */
+/** The bindings a published port occupies: on its host port when it declares one, else any under its container port. */
 function bindingsOn(
   mappings: PortMappings | undefined,
-  port: K3dPort,
+  port: Published,
 ): Binding[] {
   return bindingsUnder(mappings, port).filter(
-    (binding) => String(binding.HostPort) === String(port.hostPort),
+    (binding) =>
+      port.hostPort === undefined ||
+      String(binding.HostPort) === String(port.hostPort),
   );
 }
 
-/** A binding's host address: the listing's, else the one docker inspect reports for the same host port. */
+/** A binding's host address: the listing's, else the one docker inspect reports for the same container and host port. */
 function addressOf(
   binding: Binding,
-  port: K3dPort,
+  port: Published,
   inspected: PortMappings | undefined,
 ): string | undefined {
   return (
-    binding.HostIp || bindingsOn(inspected, port).find((b) => b.HostIp)?.HostIp
+    binding.HostIp ||
+    bindingsUnder(inspected, port)
+      .filter((b) => String(b.HostPort) === String(binding.HostPort))
+      .find((b) => b.HostIp)?.HostIp
   );
 }
 
 /**
- * The declared ports whose published host address neither the listing nor the
- * docker inspect bindings report. A declared port the listing does not publish
- * on its host port is a port difference for `drift`, not an unreadable address.
+ * The published ports whose host address neither the listing nor the docker
+ * inspect bindings report. A declared port the listing does not publish on its
+ * host port is a port difference for `drift`, not an unreadable address.
  */
 export function unreadablePorts(
   entry: Record<string, unknown>,
   cluster: K3dCluster,
   inspected?: PortMappings,
-): K3dPort[] {
+): Published[] {
   const listed = listedMappings(entry);
-  return cluster.ports.filter((port) =>
+  return publishedPorts(cluster).filter((port) =>
     bindingsOn(listed, port).some(
       (binding) => addressOf(binding, port, inspected) === undefined,
     ),
@@ -92,11 +138,12 @@ export function unreadablePorts(
  * How an existing cluster differs from the overlay. Counts always compare;
  * each declared port must be published on its host port, bound to its host
  * address, when k3d's entry reports mappings. A port published on the right
- * host port at another address is an address difference (ADR 0131). Extra
- * mappings (k3d publishes the API port on a random host port) are ignored.
- * The service CIDR is not compared: k3d's list does not report it in a form
- * confirmed live (gap for the live proof, #149). Callers refuse
- * `unreadablePorts` first, so every address compared here is known.
+ * host port at another address is an address difference (ADR 0131). The API
+ * port is compared on its address only, since k3d chooses its host port at
+ * random; a port published on any other address is refused. Other extra
+ * mappings are ignored. The service CIDR is not compared: k3d's list does not
+ * report it in a form confirmed live (gap for the live proof, #149). Callers
+ * refuse `unreadablePorts` first, so every address compared here is known.
  */
 export function drift(
   entry: Record<string, unknown>,
@@ -113,28 +160,30 @@ export function drift(
   compare("agents", entry["agentsCount"], cluster.agents ?? 0);
   const listed = listedMappings(entry);
   if (listed !== undefined) {
-    for (const port of cluster.ports) {
-      const under = bindingsUnder(listed, port);
+    for (const port of publishedPorts(cluster)) {
       const onPort = bindingsOn(listed, port);
       if (onPort.length === 0) {
-        compare(
-          labelOf(port),
-          under.length
-            ? under.map((binding) => String(binding.HostPort)).join(",")
-            : "unmapped",
-          port.hostPort,
-        );
-      } else {
-        const addresses = onPort.map(
-          (binding) => addressOf(binding, port, inspected) ?? "unreported",
-        );
-        if (!addresses.includes(port.hostAddress)) {
+        if (port.hostPort !== undefined) {
+          const under = bindingsUnder(listed, port);
           compare(
-            `${labelOf(port)} address`,
-            addresses.join(","),
-            port.hostAddress,
+            labelOf(port),
+            under.length
+              ? under.map((binding) => String(binding.HostPort)).join(",")
+              : "unmapped",
+            port.hostPort,
           );
         }
+        continue;
+      }
+      const addresses = onPort.map(
+        (binding) => addressOf(binding, port, inspected) ?? "unreported",
+      );
+      if (!addresses.includes(port.hostAddress)) {
+        compare(
+          `${labelOf(port)} address`,
+          addresses.join(","),
+          port.hostAddress,
+        );
       }
     }
   }
@@ -149,7 +198,7 @@ export function drift(
 export function unreadableMessage(
   clusterName: string,
   container: string,
-  ports: readonly K3dPort[],
+  ports: readonly Published[],
 ): string {
   const names = ports.map(labelOf).join(", ");
   return `k3d cluster ${clusterName} does not report the host address of ${names} in \`k3d cluster list --output json\` or \`docker inspect ${container}\`; it cannot be checked against the overlay, and recreating the cluster does not change that. Check that k3d and Docker report the load balancer's port bindings.`;
