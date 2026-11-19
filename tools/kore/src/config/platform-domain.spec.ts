@@ -222,3 +222,37 @@ test("the shared Gateway's domain follows the environment's organization and dom
     "ingress.sharedGateway.domain=acme.kore.internal",
   );
 });
+
+const dnsOn = fakeEnvironment({
+  ...sharedGateway,
+  features: { "platform-dns": true },
+});
+
+test("with platform-dns on the portal is handed the CA bundle its pods trust, and the DNS component the Gateway whose Service it rewrites to", () => {
+  expect(platformHelmArgs(dnsOn, "kore-platform-backstage")).toEqual([
+    "--set-string",
+    "platformDomain=kore.local",
+    "--set-string",
+    "localCa.configMap=kore-local-ca",
+  ]);
+  expect(platformHelmArgs(dnsOn, "kore-platform-dns")).toEqual([
+    "--set-string",
+    "zone=kore.local",
+    "--set-string",
+    "gateway.name=kore-gateway",
+    "--set-string",
+    "gateway.namespace=kore-system",
+  ]);
+});
+
+test("with platform-dns off or omitted the portal is handed no CA bundle", () => {
+  for (const off of [
+    fakeEnvironment({ ...sharedGateway, features: { "platform-dns": false } }),
+    fakeEnvironment(sharedGateway),
+  ]) {
+    expect(platformHelmArgs(off, "kore-platform-backstage")).toEqual([
+      "--set-string",
+      "platformDomain=kore.local",
+    ]);
+  }
+});

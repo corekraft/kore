@@ -42,6 +42,11 @@ spec:
             - --cookie-secure=true
             - --cookie-httponly=true
             - --cookie-samesite=lax
+{{- if .Values.localCa }}
+            # Keycloak's certificate comes from the local CA (ADR 0132); this adds
+            # it to the roots the proxy verifies the issuer with.
+            - --provider-ca-file=/etc/kore/local-ca/ca.crt
+{{- end }}
           env:
             - name: OAUTH2_PROXY_CLIENT_SECRET
               valueFrom:
@@ -64,6 +69,12 @@ spec:
             httpGet:
               path: /ping
               port: http
+{{- if .Values.localCa }}
+          volumeMounts:
+            - name: local-ca
+              mountPath: /etc/kore/local-ca
+              readOnly: true
+{{- end }}
           resources:
             requests: { cpu: 10m, memory: 32Mi }
             limits: { cpu: 200m, memory: 96Mi }
@@ -98,9 +109,15 @@ spec:
                   name: backstage-oidc
                   key: client-secret
             # The catalog provider calls the API server, whose certificate the
-            # cluster CA signed.
+            # cluster CA signed. Node reads one extra file, so with the local CA
+            # mounted it is the bundle of the local CA and the cluster CA, which
+            # also lets the backend verify Keycloak behind the shared Gateway.
             - name: NODE_EXTRA_CA_CERTS
+{{- if .Values.localCa }}
+              value: /etc/kore/local-ca/bundle.crt
+{{- else }}
               value: /var/run/secrets/kubernetes.io/serviceaccount/ca.crt
+{{- end }}
             - name: POSTGRES_HOST
               value: backstage-db-rw
             - name: POSTGRES_PORT
@@ -125,6 +142,12 @@ spec:
                 - fetch("http://127.0.0.1:7007/.backstage/health/v1/readiness").then((r)=>process.exit(r.ok?0:1),()=>process.exit(1))
             periodSeconds: 10
             timeoutSeconds: 5
+{{- if .Values.localCa }}
+          volumeMounts:
+            - name: local-ca
+              mountPath: /etc/kore/local-ca
+              readOnly: true
+{{- end }}
           resources:
             requests: { cpu: 100m, memory: 384Mi }
             limits: { cpu: "1", memory: 768Mi }
@@ -132,6 +155,18 @@ spec:
             allowPrivilegeEscalation: false
             capabilities:
               drop: [ALL]
+{{- if .Values.localCa }}
+      volumes:
+        # Only the two public certificates are projected.
+        - name: local-ca
+          configMap:
+            name: {{ .Values.localCa.configMap }}
+            items:
+              - key: ca.crt
+                path: ca.crt
+              - key: bundle.crt
+                path: bundle.crt
+{{- end }}
 ---
 apiVersion: v1
 kind: Service

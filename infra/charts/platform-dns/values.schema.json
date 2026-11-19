@@ -1,7 +1,7 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
   "type": "object",
-  "required": ["zone", "image", "answer", "service"],
+  "required": ["zone", "image", "answer", "service", "gateway"],
   "additionalProperties": false,
   "properties": {
     "features": { "type": "object" },
@@ -19,6 +19,16 @@
         "repository": { "type": "string", "minLength": 1 },
         "tag": { "type": "string", "minLength": 1 },
         "digest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" }
+      }
+    },
+    "gateway": {
+      "description": "The platform Gateway whose Service the zone is rewritten to inside the cluster; kore passes the environment's own (ADR 0132).",
+      "type": "object",
+      "required": ["name", "namespace"],
+      "additionalProperties": false,
+      "properties": {
+        "name": { "type": "string", "minLength": 1 },
+        "namespace": { "type": "string", "minLength": 1 }
       }
     },
     "service": {

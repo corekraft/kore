@@ -917,7 +917,7 @@
         "version": "local",
         "featureFlag": "platform-dns",
         "ownsCRDs": [],
-        "dependencies": [],
+        "dependencies": ["kore-platform-config"],
         "timeout": "5m",
         "readiness": ["deployment/platform-dns"]
       },

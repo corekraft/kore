@@ -14,3 +14,8 @@ service:
   # Unset keeps the Service cluster-internal. An environment that publishes the
   # DNS sets one node port, used for both UDP and TCP.
   nodePort: null
+gateway:
+  # Kore passes the environment's gateway.name and gateway.namespace; these
+  # match the local overlay. The Service is found by the Gateway's label.
+  name: kore-gateway
+  namespace: kore-system
