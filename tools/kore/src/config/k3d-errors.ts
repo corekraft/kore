@@ -96,6 +96,10 @@ function portErrors(ports: unknown): string[] {
         : [
             `environment.k3d.ports[${index}].hostAddress must be a loopback IPv4 address such as 127.0.0.1`,
           ];
+    const optional =
+      port["optional"] === undefined || typeof port["optional"] === "boolean"
+        ? []
+        : [`environment.k3d.ports[${index}].optional must be true or false`];
     return [
       ...address,
       ...transport,
@@ -105,6 +109,7 @@ function portErrors(ports: unknown): string[] {
           (key) =>
             `environment.k3d.ports[${index}].${key} must be an integer from 1 to 65535`,
         ),
+      ...optional,
     ];
   });
   return [

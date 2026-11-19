@@ -101,6 +101,7 @@ test("a k3d up is the k3d domain's up, with the readiness bound and the home it 
     runner,
     READINESS,
     HOME,
+    undefined,
   );
 });
 

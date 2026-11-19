@@ -76,7 +76,14 @@ test("cluster up writes the registries file before it creates the cluster, so th
         return runner.run(command, args, options);
       },
     };
-    await clusterUp(await k3dRepository(), watching, fast, home);
+    // The host port probe is injected as free: this spec touches no real port.
+    await clusterUp(
+      await k3dRepository(),
+      watching,
+      fast,
+      home,
+      async () => true,
+    );
     assert.ok(atCreate.includes(`"${REGISTRY}":`));
     assert.ok(atCreate.includes("ca_file: /etc/kore/registry-ca/ca.crt"));
   } finally {

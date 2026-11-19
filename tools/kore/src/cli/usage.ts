@@ -58,6 +58,12 @@ holder's pid, worktree and lock path, then waits ten minutes; "local up" waits
 thirty, because a first-time "up" takes 15 to 20. KORE_LOCK_WAIT_MS (whole
 milliseconds) overrides both, and a wait that runs out is refused naming the holder.
 
+Before "local up" creates a cluster it checks that each host port the overlay
+publishes is free on its loopback address. A taken port is refused before
+anything is written or created; the message names the port, the overlay setting
+that publishes it, and the process holding it when lsof can tell. A port the
+overlay declares "optional": true is not checked.
+
 "app down" uninstalls only the workload release and reports the retained data
 (claims and volumes) that remains; with --json it always prints
 { name, retained: [...], warnings? }.

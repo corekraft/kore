@@ -5,6 +5,10 @@ import type { Repository } from "../config/index.js";
 import type { Runner } from "../runtime/index.js";
 import { clusterUpK3d } from "./k3d-cluster.js";
 import { fakeRepository, pinnedK3s } from "./cluster-support.js";
+import type { PortProbe } from "./k3d-ports.js";
+
+/** Every declared host port reads as free, so no spec binds a real port. */
+export const FREE_PORTS: PortProbe = async () => true;
 
 export const TRUST = "/home/u/.kore/k3d/kore-local/registry-trust";
 
@@ -15,7 +19,7 @@ export const READINESS = { timeoutMs: 1000 };
 export const up = (
   runner: Runner,
   env: Repository = fakeRepository(),
-): Promise<void> => clusterUpK3d(env, runner, READINESS, "/home/u");
+): Promise<void> => clusterUpK3d(env, runner, READINESS, "/home/u", FREE_PORTS);
 
 /** The registry trust mounts k3dTrustVolumeArgs returns for `TRUST`. */
 export const TRUST_VOLUMES = [

@@ -139,6 +139,35 @@ test("ports must be a non-empty list, and each must name a host and a load balan
   ]);
 });
 
+test("a port's optional flag, when declared, must be true or false, and a true one is accepted", () => {
+  expect(
+    k3dErrors(
+      withK3d("ports", [
+        {
+          hostAddress: "127.0.0.1",
+          hostPort: 8080,
+          loadBalancerPort: 30080,
+          optional: "yes",
+        },
+      ]),
+      versions,
+    ),
+  ).toEqual(["environment.k3d.ports[0].optional must be true or false"]);
+  expect(
+    k3dErrors(
+      withK3d("ports", [
+        {
+          hostAddress: "127.0.0.1",
+          hostPort: 8080,
+          loadBalancerPort: 30080,
+          optional: true,
+        },
+      ]),
+      versions,
+    ),
+  ).toEqual([]);
+});
+
 test("each port binds a loopback IPv4 host address: a missing, malformed, or non-loopback address is refused, and any 127.x address is accepted", () => {
   const onAddress = (hostAddress: unknown) =>
     k3dErrors(

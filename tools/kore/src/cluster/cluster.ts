@@ -7,6 +7,7 @@ import {
   assertExpectedK3dCluster,
   clusterStatusK3d,
   clusterUpK3d,
+  type PortProbe,
 } from "./k3d-cluster.js";
 import {
   clusterStopK3d,
@@ -47,10 +48,11 @@ export async function clusterUp(
   runner: Runner,
   readiness: ReadinessOptions = {},
   home?: string,
+  probe?: PortProbe,
 ): Promise<void> {
   const { environment } = repository;
   if (environment.provider === "k3d") {
-    return await clusterUpK3d(repository, runner, readiness, home);
+    return await clusterUpK3d(repository, runner, readiness, home, probe);
   }
   throw new Error(
     "cluster up only manages k3d environments; provision managed clusters with OpenTofu",
