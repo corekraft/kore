@@ -6,6 +6,7 @@ import { withHealthyWebhooks } from "../testing/index.js";
 const events = vi.hoisted(() => [] as string[]);
 
 vi.mock("../images/index.js", () => ({
+  applyChartCredential: async () => undefined,
   ensureLocalSigningPublicKey: async () => {
     events.push("public-key");
   },

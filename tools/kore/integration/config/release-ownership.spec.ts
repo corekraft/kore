@@ -18,30 +18,35 @@ const handedOver = [
   "kore-platform-config",
 ];
 
-for (const name of ["local", "managed-example"]) {
-  test(`${name} with platform-argocd-delivery off is owned entirely by kore, so Helm installs what it installed before`, async () => {
-    const repository = await loadRepository(name);
-    await validateRepository(repository);
-    for (const component of repository.catalog.components) {
-      assert.equal(releaseOwner(repository.environment, component), "kore");
-    }
-  });
-}
+test("managed-example with platform-argocd-delivery off is owned entirely by kore, so Helm installs what it installed before", async () => {
+  const repository = await loadRepository("managed-example");
+  await validateRepository(repository);
+  for (const component of repository.catalog.components) {
+    assert.equal(releaseOwner(repository.environment, component), "kore");
+  }
+});
 
-test("with platform-argocd-delivery on, exactly the six configuration releases are argocd-owned, Helm installs none of them, and golden-path delivery stays kore-owned", async () => {
+test("local with platform-argocd-delivery turned off is owned entirely by kore again", async () => {
   const repository = await loadRepository("local");
-  const on = {
+  const off = {
     ...repository,
     environment: {
       ...repository.environment,
       features: {
         ...repository.environment.features,
-        [platformArgocdDeliveryFlag]: true,
-        // kore-golden-path-delivery depends on kore-platform-apis.
-        [organizationServiceApisFlag]: true,
+        [platformArgocdDeliveryFlag]: false,
       },
     },
   };
+  await validateRepository(off);
+  for (const component of off.catalog.components) {
+    assert.equal(releaseOwner(off.environment, component), "kore");
+  }
+});
+
+test("local declares platform-argocd-delivery on, so exactly the six configuration releases are argocd-owned, Helm installs none of them, and golden-path delivery stays kore-owned", async () => {
+  const on = await loadRepository("local");
+  assert.equal(on.environment.features?.[organizationServiceApisFlag], true);
   await validateRepository(on);
   const owned = on.catalog.components
     .filter((c) => releaseOwner(on.environment, c) === "argocd")

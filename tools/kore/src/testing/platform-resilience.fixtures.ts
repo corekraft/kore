@@ -1,4 +1,5 @@
 import {
+  healthyApplicationOutput,
   healthyDaemonSetOutput,
   healthyWebhookOutput,
 } from "./webhook-fixtures.js";
@@ -36,15 +37,6 @@ export function healthyGatewayOutput(
           { status: { loadBalancer: { ingress: [{ ip: "10.0.0.1" }] } } },
         ],
       })
-    : undefined;
-}
-
-/** No Application yet: Argo CD's list answer on a cluster where it is healthy. */
-export function healthyApplicationOutput(
-  args: readonly string[],
-): string | undefined {
-  return args.includes("applications.argoproj.io")
-    ? JSON.stringify({ items: [] })
     : undefined;
 }
 

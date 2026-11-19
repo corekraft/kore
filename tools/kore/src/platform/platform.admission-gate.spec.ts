@@ -22,6 +22,7 @@ vi.mock("../cluster/index.js", () => ({
   clusterUp: async () => undefined,
 }));
 vi.mock("../images/index.js", () => ({
+  applyChartCredential: async () => undefined,
   ensureLocalSigningPublicKey: async () => undefined,
   ensureRegistryAuth: async () => undefined,
   ensureRegistryTrust: async () => undefined,
@@ -30,6 +31,12 @@ vi.mock("../images/index.js", () => ({
 // The Gatekeeper webhook wait is covered in gatekeeper-admission.spec.ts.
 vi.mock("./gatekeeper-admission.js", () => ({
   waitForGatekeeperAdmission: async () => undefined,
+}));
+// The Argo CD delivery wait (flag on in local) polls on real timers; it is
+// covered in handover.spec.ts. The rest of handover stays real.
+vi.mock("./handover.js", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("./handover.js")>()),
+  awaitArgocdDelivery: async () => undefined,
 }));
 vi.mock("./reconcile.js", () => ({
   reconcileIfNeeded: async (_r: unknown, _n: unknown, c: { name: string }) => {
@@ -82,6 +89,14 @@ function cluster(initial?: Gate) {
   const runner: Runner = {
     async run(command, args, options) {
       gatedOffReleaseAbsent(command, args);
+      if (command === "helm" && args[0] === "status") {
+        // Local runs the Argo CD releases, so Helm reports them deployed.
+        return {
+          stdout: '{"info":{"status":"deployed"}}',
+          stderr: "",
+          code: 0,
+        };
+      }
       if (args.includes("apply")) {
         const object = JSON.parse(options?.input ?? "{}") as {
           kind: string;

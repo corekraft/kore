@@ -3,6 +3,7 @@ import { CommandError, type Runner } from "../runtime/index.js";
 import { registryTlsSecret } from "./registry-tls-fixtures.js";
 import {
   gatedOffReleaseAbsent,
+  healthyApplicationOutput,
   withHealthyWebhooks,
 } from "./webhook-fixtures.js";
 
@@ -58,6 +59,38 @@ test("a cluster that is not local, where platform-organization-service-apis is o
   ).toThrow(CommandError);
 });
 
+for (const release of [
+  "argocd",
+  "kore-config-delivery",
+  "kore-golden-path-delivery",
+]) {
+  test(`the local cluster runs ${release}, so its release status is not answered not found`, () => {
+    expect(() =>
+      gatedOffReleaseAbsent("helm", [
+        "status",
+        release,
+        "--namespace",
+        "argocd",
+        "--kube-context",
+        "k3d-kore-local",
+      ]),
+    ).not.toThrow();
+  });
+
+  test(`a cluster that is not local, where platform-argocd-delivery is off, answers ${release} not found`, () => {
+    expect(() =>
+      gatedOffReleaseAbsent("helm", [
+        "status",
+        release,
+        "--namespace",
+        "argocd",
+        "--kube-context",
+        "REQUIRED",
+      ]),
+    ).toThrow(CommandError);
+  });
+}
+
 test("a release local still gates off is answered not found under the local context too", () => {
   expect(() =>
     gatedOffReleaseAbsent("helm", [
@@ -78,6 +111,16 @@ test("a release the local overlay gates off is still answered not found, so its 
       "argocd",
     ]),
   ).toThrow(CommandError);
+});
+
+test("Argo CD lists no Application, so the delivery wait local turns on sees every Application settled", () => {
+  expect(
+    healthyApplicationOutput(["get", "applications.argoproj.io", "-o", "json"]),
+  ).toBe(JSON.stringify({ items: [] }));
+});
+
+test("a read that is not an Argo CD Application list is not answered", () => {
+  expect(healthyApplicationOutput(["get", "pods"])).toBeUndefined();
 });
 
 /** A healthy-webhook wrapper over a wrapped runner that answers every call with `passed through`. */

@@ -49,6 +49,8 @@ vi.mock("./registry-tls-fixtures.js", () => ({
 }));
 vi.mock("./webhook-fixtures.js", () => ({
   gatedOffReleaseAbsent: vi.fn(),
+  healthyApplicationOutput: (args: readonly string[]) =>
+    args.includes("applications.argoproj.io") ? "applications-ok" : undefined,
   healthyDaemonSetOutput: (args: readonly string[]) =>
     args.includes("daemonset") ? "daemonset-ok" : undefined,
   healthyWebhookOutput: (args: readonly string[]) =>

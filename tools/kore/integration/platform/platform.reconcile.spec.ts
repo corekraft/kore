@@ -231,7 +231,7 @@ test("render validation checks manifest components without mutating the cluster"
 test("platform status reports a failed Helm release as degraded", async () => {
   const repository = await loadRepository("local");
   const component = repository.catalog.components.find(
-    ({ name }) => name === "opa-authorizer",
+    ({ name }) => name === "kore-image-policy",
   )!;
   repository.catalog.components = [{ ...component, dependencies: [] }];
   const runner = new RecordingRunner([

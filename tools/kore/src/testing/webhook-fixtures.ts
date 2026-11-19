@@ -5,13 +5,20 @@ import { CommandError, type Runner } from "../runtime/index.js";
 const localKubeContext = "k3d-kore-local";
 
 /** Gated releases the local overlay turns on, so only the local cluster runs them. */
-const runsInLocal = ["metrics-server", "kore-platform-apis"];
+const runsInLocal = [
+  "metrics-server",
+  "kore-platform-apis",
+  "argocd",
+  "kore-config-delivery",
+  "kore-golden-path-delivery",
+];
 
 /**
  * Releases the local catalog gates off, so a healthy cluster never has them.
- * metrics-server and kore-platform-apis are among them for every other
- * cluster; the local cluster runs them, because local turns autoscaling-defaults
- * and platform-organization-service-apis on.
+ * metrics-server, kore-platform-apis, argocd, kore-config-delivery and
+ * kore-golden-path-delivery are among them for every other cluster; the local
+ * cluster runs them, because local turns autoscaling-defaults,
+ * platform-organization-service-apis and platform-argocd-delivery on.
  */
 const gatedOffReleases = [
   "agentgateway",
@@ -83,6 +90,15 @@ export function healthyDaemonSetOutput(
         numberReady: 1,
         updatedNumberScheduled: 1,
       })
+    : undefined;
+}
+
+/** No Application yet: Argo CD's list answer on a cluster where it is healthy. */
+export function healthyApplicationOutput(
+  args: readonly string[],
+): string | undefined {
+  return args.includes("applications.argoproj.io")
+    ? JSON.stringify({ items: [] })
     : undefined;
 }
 

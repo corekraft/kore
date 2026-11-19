@@ -6,7 +6,10 @@ import {
   platformStatusReport,
   platformStatus,
 } from "../../src/platform/index.js";
-import { crdOwnershipStatus } from "../../src/testing/index.js";
+import {
+  crdOwnershipStatus,
+  healthyClusterOutput,
+} from "../../src/testing/index.js";
 
 // Docs: docs/decisions/0057-runtime-crd-ownership.md
 // Cluster CRDs with no catalog owner, or more than one, are reported as
@@ -131,7 +134,9 @@ test("the status report carries the CRD ownership row, a filtered query omits it
       if (command === "helm") {
         throw new Error("release not found");
       }
-      return { stdout: "", stderr: "", code: 0 };
+      // Local turns Argo CD delivery on, so its Applications are read; a healthy
+      // answer keeps the report from polling for them on a real timer.
+      return { stdout: healthyClusterOutput(args), stderr: "", code: 0 };
     },
   };
 

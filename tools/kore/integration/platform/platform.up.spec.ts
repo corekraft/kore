@@ -8,6 +8,13 @@
 vi.mock("../../src/platform/enrollment.js", () => ({
   enrollPlatformNamespaces: async () => undefined,
 }));
+// ./handover.js stubs only the Argo CD delivery wait, which polls the cluster
+// for Applications; local turns platform-argocd-delivery on, and the wait is
+// covered in handover.spec.ts. Helm's own reconcile of each release stays real.
+vi.mock("../../src/platform/handover.js", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("../../src/platform/handover.js")>()),
+  awaitArgocdDelivery: async () => undefined,
+}));
 
 vi.mock("../../src/images/index.js", () => ({
   ensureLocalSigningPublicKey: async () => undefined,
