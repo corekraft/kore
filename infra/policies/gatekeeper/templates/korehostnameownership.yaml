@@ -29,6 +29,9 @@ spec:
         owner := org {
           org := data.inventory.cluster["v1"]["Namespace"][route_ns].metadata.labels[org_label]
         }
+        # A host must be a strict subdomain of one of the organization's zones. A
+        # zone's own apex is not a service host: serving an apex means delegating
+        # the whole domain (ADR 0042), so the apex is outside the zone here.
         inside_zone(host) {
           zone := input.parameters.zones[owner][_]
           endswith(host, concat("", [".", zone]))

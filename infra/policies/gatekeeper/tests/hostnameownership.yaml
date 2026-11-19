@@ -46,3 +46,20 @@ tests:
           inventory: [objects/host-ns-platform.yaml, objects/host-held.yaml],
           assertions: [{ violations: 0 }]
         }
+      - {
+          name: rejects-duplicate-host-held-by-another-organization,
+          object: objects/host-duplicate-cross-org.yaml,
+          inventory:
+            [
+              objects/host-ns-platform.yaml,
+              objects/host-ns-team.yaml,
+              objects/host-held-by-team.yaml
+            ],
+          assertions: [{ violations: 1, message: already claimed }]
+        }
+      - {
+          name: rejects-zone-apex-itself,
+          object: objects/host-apex.yaml,
+          inventory: [objects/host-ns-platform.yaml],
+          assertions: [{ violations: 1, message: outside }]
+        }
