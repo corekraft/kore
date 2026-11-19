@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.10.0](https://github.com/corekraft/kore/compare/v0.9.0...v0.10.0) (2026-11-19)
+
+
+### Features
+
+* **policy:** add the hostname-ownership constraint in dryrun ([#1332](https://github.com/corekraft/kore/issues/1332)) ([95ee123](https://github.com/corekraft/kore/commit/95ee12308f9647ce8c34493e8d7cd1de0b25fd97))
+* **policy:** read hostname-ownership zones from the Organization API behind the flag ([#1339](https://github.com/corekraft/kore/issues/1339)) ([ad4c81a](https://github.com/corekraft/kore/commit/ad4c81a6f429b8d2fb59e1378c4c9c24d6ee5e6f))
+
 ## [0.9.0](https://github.com/corekraft/kore/compare/v0.8.0...v0.9.0) (2026-11-19)
 
 
