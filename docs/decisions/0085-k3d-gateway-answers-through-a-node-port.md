@@ -16,6 +16,8 @@ Refines: [ADR 0016](0016-release-readiness-checks-drive-wait-and-status.md),
 
 > Proposed refinement by [ADR 0132](0132-local-names-resolve-through-platform-dns-and-one-loopback-entry-point.md): host port 443 is published beside 8443, with a loopback DNS port; 8443 stays a deprecated alias until a contract ticket removes it.
 
+> Refined by [ADR 0133](0133-the-platform-owns-the-gateway-its-listeners-and-its-certificate-charts-own-routes-only.md) (proposed): the platform owns the Gateway, its listeners and its certificate, and service charts own routes only.
+
 ## Context
 
 ADR 0076 replaces `minikube tunnel` with the k3d load balancer. k3s ServiceLB is

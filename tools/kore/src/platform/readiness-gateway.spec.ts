@@ -126,7 +126,7 @@ test("a Service with a LoadBalancer address is published, and the wait passes", 
   ).resolves.toBeUndefined();
 });
 
-test("a NodePort Service on the configured node port is published", async () => {
+test("a NodePort Service on the configured node port is published, reached through two host mappings to it", async () => {
   const { runner } = kube({
     "gateway/kore": gateway([accepted, programmed]),
     "--selector": {

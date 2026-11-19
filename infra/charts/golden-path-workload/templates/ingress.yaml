@@ -3,8 +3,10 @@
   resources, in the service namespace: the Gateway holds the one listener for
   the host, cert-manager issues its Secret into the same namespace, and the
   route sends the BFF path to the BFF and the rest to the frontend. The
-  platform Gateway in kore-system is not touched, so it keeps one owner.
-  Nothing renders without ingress.host, which only the ApplicationSet sets.
+  platform owns the Gateway in kore-system, its listeners and its certificate
+  (ADR 0133); this chart's own Gateway stays until its routes move onto the
+  platform Gateway (ADR 0132). Nothing renders without ingress.host, which only
+  the ApplicationSet sets.
 */ -}}
 {{- with .Values.ingress }}
 ---

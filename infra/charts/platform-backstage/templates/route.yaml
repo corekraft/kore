@@ -5,8 +5,9 @@
   cert-manager issues its Secret into the same namespace, and the route sends
   every path to the sign-in proxy's Service. Nothing is routed to Backstage's
   own port, so a request with no sign-in is refused by the proxy. The platform
-  Gateway in kore-system is not touched, so it keeps one owner. Nothing renders
-  until kore passes the gateway class.
+  owns the Gateway in kore-system, its listeners and its certificate (ADR 0133);
+  this chart's own Gateway stays until its routes move onto the platform Gateway
+  (ADR 0132). Nothing renders until kore passes the gateway class.
 */ -}}
 {{- with .Values.gatewayClassName }}
 ---
