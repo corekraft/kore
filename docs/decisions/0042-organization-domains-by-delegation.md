@@ -68,3 +68,9 @@ still need working hosts.
   subdomain.
 - Hosts outside a delegated zone are unsupported; adding them later, for
   example by TXT verification, needs a new ADR.
+- The hostname-ownership constraint reads each organization's zone from the
+  `Organization` object's `spec.zone`, not from a parameter list. The zone
+  defaults to `<organizationId>.<platform domain>` from the environment's one
+  `platform` field. This makes `platform-hostname-ownership` depend on
+  `platform-organization-service-apis`: an environment that turns the first on
+  with the second off fails validation up front, naming the dependency.
