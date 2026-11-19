@@ -909,6 +909,19 @@
         "readiness": ["clusterrole/kore-admission-gate"]
       },
       {
+        "name": "kore-platform-dns",
+        "phase": "configuration",
+        "namespace": "kore-dns",
+        "kind": "local-chart",
+        "chart": "infra/charts/platform-dns",
+        "version": "local",
+        "featureFlag": "platform-dns",
+        "ownsCRDs": [],
+        "dependencies": [],
+        "timeout": "5m",
+        "readiness": ["deployment/platform-dns"]
+      },
+      {
         "name": "kore-local-tls",
         "phase": "configuration",
         "owner": "argocd",

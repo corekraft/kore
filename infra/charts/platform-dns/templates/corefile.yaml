@@ -1,0 +1,27 @@
+{{- $zone := required "zone is required: kore passes the environment's platform.domain" .Values.zone }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: platform-dns
+  namespace: {{ .Release.Namespace }}
+  labels: {app.kubernetes.io/name: platform-dns, app.kubernetes.io/managed-by: Helm}
+data:
+  # One zone and nothing else: no forwarder, so the server never leaves the
+  # cluster. A name in the zone answers the loopback address; an IPv6 query gets
+  # an empty NOERROR answer so a resolver falls back to IPv4 without delay.
+  Corefile: |
+    {{ $zone }}:1053 {
+        template IN A {{ $zone }} {
+            match "^(.+\.)?{{ $zone | replace "." "\\." }}\.$"
+            answer "{{ "{{ .Name }}" }} {{ .Values.answer.ttl }} IN A {{ .Values.answer.address }}"
+            fallthrough
+        }
+        template IN AAAA {{ $zone }} {
+            rcode NOERROR
+            fallthrough
+        }
+        health :8080
+        ready :8181
+        errors
+        reload
+    }

@@ -72,6 +72,7 @@ const domainValueKeys: Record<string, string | undefined> = {
   "kore-platform-backstage": "platformDomain",
   "kore-platform-config": "gateway.hostname",
   "kore-local-tls": "gateway.hostname",
+  "kore-platform-dns": "zone",
 };
 
 /**

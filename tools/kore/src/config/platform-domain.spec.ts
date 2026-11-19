@@ -131,6 +131,13 @@ test("each chart that read a hand-set domain is handed it as a derived value", (
   ]);
 });
 
+test("the platform DNS component is handed the platform domain as its zone", () => {
+  expect(platformHelmArgs(local, "kore-platform-dns")).toEqual([
+    "--set-string",
+    "zone=kore.local",
+  ]);
+});
+
 test("a component that reads no platform domain is handed none", () => {
   expect(platformHelmArgs(local, "cert-manager")).toEqual([]);
   expect(platformHelmArgs(local, "kore-config-delivery")).toEqual([]);

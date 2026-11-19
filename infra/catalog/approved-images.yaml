@@ -198,6 +198,18 @@
           }
       },
       {
+        "image": "docker.io/coredns/coredns:1.14.7@sha256:7efd3c635b03efd68c4e8398fc45f0d993d0e9ab016f72c1cefb0fd6d01aa286",
+        "name": "platform-dns",
+        "component": "kore-platform-dns",
+        "evidence":
+          {
+            "method": "registry-digest",
+            "source": "crane digest docker.io/coredns/coredns:1.14.7 resolves to this index digest. 1.14.7 is the CoreDNS version the pinned k3s v1.37.2-k3s1 bundles (rancher/mirrored-coredns-coredns:1.14.7 in its coredns manifest). No cosign signature published (cosign verify: no signatures found). Runs only under platform-dns, local only.",
+            "checked": "2026-11-19",
+            "provenance": { "signed": false }
+          }
+      },
+      {
         "image": "quay.io/kiwigrid/k8s-sidecar:2.5.0@sha256:a6b3f707f883108376514489a94d6629109a327b2978e1d826cd104c4ca436df",
         "name": "grafana-sidecar",
         "component": "grafana",

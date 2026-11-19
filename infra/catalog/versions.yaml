@@ -60,6 +60,7 @@
       "policy-controller-kubectl": "cgr.dev/chainguard/kubectl:latest-dev@sha256:3562a8854a81a77e39eb34cd87106345d1122432f88d74ea2dd4c9595883c033",
       "backstage-runtime": "gcr.io/distroless/nodejs26-debian13:nonroot@sha256:1d736cf8b5716c07a245301f92717143215d248fd55771ee1936ef4b3302e531",
       "backstage-build": "node:26.13.0-alpine3.24@sha256:8996bb5821d62a8fd9bb27c1cb07462f3fdce6e47d640c6a881ead0b064ce216",
+      "platform-dns": "docker.io/coredns/coredns:1.14.7@sha256:7efd3c635b03efd68c4e8398fc45f0d993d0e9ab016f72c1cefb0fd6d01aa286",
       "k3s": "rancher/k3s:v1.37.2-k3s1@sha256:21ea6e0fac4e3930c2ce8aa40ddd41a8b18cb3e9a0222c030dc005e7e88c4332",
       "reference": "kore/reference:0.1.0"
     }

@@ -1,0 +1,34 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "required": ["zone", "image", "answer"],
+  "additionalProperties": false,
+  "properties": {
+    "features": { "type": "object" },
+    "zone": {
+      "type": "string",
+      "minLength": 3,
+      "maxLength": 180,
+      "pattern": "^([a-z0-9]([-a-z0-9]{0,61}[a-z0-9])?\\.)+[a-z0-9]([-a-z0-9]{0,61}[a-z0-9])?$"
+    },
+    "image": {
+      "type": "object",
+      "required": ["repository", "tag", "digest"],
+      "additionalProperties": false,
+      "properties": {
+        "repository": { "type": "string", "minLength": 1 },
+        "tag": { "type": "string", "minLength": 1 },
+        "digest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" }
+      }
+    },
+    "answer": {
+      "type": "object",
+      "required": ["address", "ttl"],
+      "additionalProperties": false,
+      "properties": {
+        "address": { "type": "string", "format": "ipv4" },
+        "ttl": { "type": "integer", "minimum": 1 }
+      }
+    }
+  }
+}

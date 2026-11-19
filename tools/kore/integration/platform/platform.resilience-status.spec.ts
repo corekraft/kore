@@ -129,6 +129,7 @@ test("the same status run is fully ready once the controller is back", async () 
       "agentgateway",
       "keycloak-operator",
       "keycloak-provider",
+      "kore-platform-dns",
       "kore-platform-keycloak",
       "kore-platform-backstage",
       "kore-service-observability",

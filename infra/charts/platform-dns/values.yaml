@@ -1,0 +1,12 @@
+# Kore derives the zone from the environment's platform.domain field and passes
+# it as `zone`; the chart holds no default, so a missing value fails the render.
+zone: ""
+image:
+  repository: docker.io/coredns/coredns
+  tag: 1.14.7
+  digest: sha256:7efd3c635b03efd68c4e8398fc45f0d993d0e9ab016f72c1cefb0fd6d01aa286
+answer:
+  # Every name in the zone resolves here, so a browser on the host reaches the
+  # published gateway port.
+  address: 127.0.0.1
+  ttl: 60

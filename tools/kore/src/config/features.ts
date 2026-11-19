@@ -70,5 +70,8 @@ export const organizationServiceApisFlag = "platform-organization-service-apis";
 /** The flag that installs the platform organization's Argo CD in the core phase (ADR 0043, plan 15 step 5). */
 export const platformArgocdDeliveryFlag = "platform-argocd-delivery";
 
+/** The flag that installs the local-only platform DNS server, answering the platform domain zone with the loopback address (plan 15, issue 1202). */
+export const platformDnsFlag = "platform-dns";
+
 /** The flag that gates the platform organization's portal: its Keycloak and, later, its Backstage (ADR 0113, plan 15 step 6). */
 export const platformPortalFlag = "platform-portal";
