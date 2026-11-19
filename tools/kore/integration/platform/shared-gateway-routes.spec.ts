@@ -196,13 +196,16 @@ test("with platform-shared-gateway off a delivered Service renders only its own 
   assert.doesNotMatch(renderDelivery(repository), /sharedGateway/);
 }, 30_000);
 
-test("with platform-shared-gateway on a delivered Service keeps its own Gateway and gains a route on the shared Gateway", async () => {
+test("with platform-shared-gateway on a delivered Service under the organization renders no Gateway or certificate of its own, only its route on the shared Gateway", async () => {
   const repository = withSharedGateway(await loadRepository("local"), true);
   const { gateway, domain, organizationId } = shared(repository);
   const host = `web.${organizationId}.${domain}`;
   const output = renderWorkload(repository, host);
-  assert.match(output, /kind: Gateway\s+metadata:\s+name: web\n/);
-  assert.match(output, /kind: Certificate/);
+  assert.doesNotMatch(output, /^kind: Gateway$/m);
+  assert.doesNotMatch(output, /^kind: Certificate$/m);
+  assert.doesNotMatch(output, /web-tls/);
+  assert.doesNotMatch(output, /^ {2}name: web$/m);
+  assert.equal(output.match(/kind: HTTPRoute/g)?.length, 1);
   const route = sharedRoute(output, "web-shared");
   assert.match(
     route,
@@ -225,7 +228,9 @@ test("a delivered Service whose host the shared listener does not serve gets no 
     repository,
     `web.not-${organizationId}.${domain}`,
   );
-  assert.match(output, /kind: Gateway/);
+  assert.match(output, /kind: Gateway\s+metadata:\s+name: web\n/);
+  assert.match(output, /kind: Certificate/);
+  assert.match(output, /^ {2}name: web$/m);
   assert.doesNotMatch(output, /web-shared/);
 }, 30_000);
 
