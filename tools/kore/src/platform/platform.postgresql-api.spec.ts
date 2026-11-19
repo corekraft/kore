@@ -52,7 +52,11 @@ test("the chart binds no Secret access; kore app up binds it per application nam
     "infra/charts/crossplane-postgresql-rbac/templates/rbac.yaml",
   );
   assert.doesNotMatch(rbac, /kind: RoleBinding/);
-  assert.doesNotMatch(rbac, /\.Values/);
+  assert.deepEqual(
+    [...rbac.matchAll(/\.Values\.(\w+)/g)].map((m) => m[1]),
+    ["databaseRoutes"],
+    "the only value the chart reads is the database-routes gate",
+  );
 });
 
 test("the composition reports CloudNativePG phase, failure and endpoint on the composite status", async () => {

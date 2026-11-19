@@ -55,3 +55,48 @@ test("the cluster-wide Crossplane role carries no Secret rule", async () => {
   assert.doesNotMatch(role, /secrets/);
   assert.match(role, /postgresql\.cnpg\.io/);
 });
+
+async function renderWith(...set: string[]): Promise<string> {
+  const root = await findRoot();
+  const { stdout } = await run("helm", [
+    "template",
+    "kore-postgresql-rbac",
+    join(root, "infra/charts/crossplane-postgresql-rbac"),
+    ...set,
+  ]);
+  return stdout;
+}
+
+const composition = (stdout: string) =>
+  stdout
+    .split(/^---$/m)
+    .find(
+      (doc) =>
+        /^kind: ClusterRole$/m.test(doc) &&
+        /^ {2}name: crossplane-postgresql-composition$/m.test(doc),
+    ) ?? "";
+
+test("with databaseRoutes off the composition role's rules are exactly the CloudNativePG rules, as before the flag", async () => {
+  assert.equal(
+    composition(await renderWith())
+      .split("rules:\n")[1]
+      ?.trimEnd(),
+    [
+      "  - apiGroups: [postgresql.cnpg.io]",
+      "    resources: [clusters]",
+      "    verbs: [get, list, watch, create, update, patch, delete]",
+      "  - apiGroups: [postgresql.cnpg.io]",
+      "    resources: [clusters/status]",
+      "    verbs: [get]",
+    ].join("\n"),
+  );
+});
+
+test("with databaseRoutes on the composition role may manage cert-manager certificates with the cluster verbs and no Secret rule", async () => {
+  const role = composition(await renderWith("--set", "databaseRoutes=true"));
+  assert.match(
+    role,
+    /  - apiGroups: \[cert-manager\.io\]\n {4}resources: \[certificates\]\n {4}verbs: \[get, list, watch, create, update, patch, delete\]/,
+  );
+  assert.doesNotMatch(role, /secrets/);
+});

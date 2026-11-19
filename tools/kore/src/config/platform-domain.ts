@@ -1,4 +1,5 @@
 import {
+  databaseRoutesFlag,
   featureEnabled,
   platformDnsFlag,
   platformHostnameOwnershipFlag,
@@ -133,6 +134,27 @@ function sharedGatewayArgs(
   ].flatMap(([field, value]) => ["--set-string", `${key}.${field}=${value}`]);
 }
 
+/** The chart value each component that grants the database composition its certificate rule reads it through (ADR 0137). */
+const databaseRoutesValueKeys: Record<string, string | undefined> = {
+  "kore-postgresql-rbac": "databaseRoutes",
+};
+
+/**
+ * With database-routes on, the value that grants the PostgreSQL composition
+ * its cert-manager certificate rule (ADR 0137); otherwise none, so the flag off
+ * renders the composition role it rendered before.
+ */
+function databaseRoutesArgs(
+  environment: Environment,
+  component: string,
+): string[] {
+  const key = databaseRoutesValueKeys[component];
+  if (key === undefined || !featureEnabled(environment, databaseRoutesFlag)) {
+    return [];
+  }
+  return ["--set", `${key}=true`];
+}
+
 /** The ConfigMap, in the portal's namespace, that carries the local CA its pods trust (ADR 0132). */
 export const localCaConfigMap = "kore-local-ca";
 
@@ -196,6 +218,7 @@ export function platformHelmArgs(
     ...zoneArgs(environment, component),
     ...sharedGatewayArgs(environment, component),
     ...clusterResolutionArgs(environment, component),
+    ...databaseRoutesArgs(environment, component),
   ];
   if (key === undefined && wildcard === undefined) {
     return shared;
