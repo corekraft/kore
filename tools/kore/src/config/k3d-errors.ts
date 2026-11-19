@@ -100,9 +100,18 @@ function portErrors(ports: unknown): string[] {
       port["optional"] === undefined || typeof port["optional"] === "boolean"
         ? []
         : [`environment.k3d.ports[${index}].optional must be true or false`];
+    const flag =
+      port["featureFlag"] === undefined ||
+      (typeof port["featureFlag"] === "string" &&
+        /^[a-z][a-z0-9-]*$/.test(port["featureFlag"]))
+        ? []
+        : [
+            `environment.k3d.ports[${index}].featureFlag must be a lowercase feature flag name`,
+          ];
     return [
       ...address,
       ...transport,
+      ...flag,
       ...(["hostPort", "loadBalancerPort"] as const)
         .filter((key) => !isPort(port[key]))
         .map(

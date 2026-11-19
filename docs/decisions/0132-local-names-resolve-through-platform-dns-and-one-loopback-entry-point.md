@@ -75,15 +75,18 @@ in an explicit command. ADR 0085 fixes the Gateway on host port 8443.
   address and the receiver is already reachable by every pod in the cluster.
   Authentication for OTLP is out of scope.
 
-- **The DNS mapping exists with the flag off.** The local overlay declares
-  loopback port 1053 over TCP and UDP (load balancer port 31053, the node port
-  of the `kore-platform-dns` Service) in `k3d.ports` whether or not
-  `platform-dns` is on. k3d fixes ports when it creates the cluster, so a
-  mapping declared only after the flag turns on would force a second recreate;
-  the recreate this change already needs covers it. A cluster created before
-  the mapping fails the drift check, naming the port and the remedy. The
-  `kore-dns` namespace is in `enrollmentExemptions` with a reason, so image
-  enrollment never makes name resolution wait on the verifier.
+- **The DNS mapping follows the flag.** The local overlay declares loopback
+  port 1053 over TCP and UDP (load balancer port 31053, the node port of the
+  `kore-platform-dns` Service) in `k3d.ports`, each entry carrying
+  `featureFlag: platform-dns`. While the flag is off the mapping is not
+  created, not compared by the drift check and not probed, so an existing
+  cluster, and a host already using loopback 1053, behave as before. k3d fixes
+  ports when it creates the cluster, so the first activation of `platform-dns`
+  on a cluster created without the mapping needs one recreate
+  (`kore local down --prune`, then `kore local up`); the drift check then names
+  the unmapped port. The `kore-dns` namespace is in `enrollmentExemptions` with
+  a reason, so image enrollment never makes name resolution wait on the
+  verifier.
 
 ### Why the earlier decisions change
 

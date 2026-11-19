@@ -6,6 +6,7 @@ import { test } from "vitest";
 import {
   componentValues,
   loadRepository,
+  platformDnsFlag,
   platformHelmArgs,
   validateRepository,
 } from "../../src/config/index.js";
@@ -47,14 +48,25 @@ test("the local overlay publishes port 1053 on the loopback address over TCP and
     (p) => p.hostPort === dnsPort,
   );
   assert.deepEqual(
-    mappings.map(({ hostAddress, hostPort, protocol }) => ({
+    mappings.map(({ hostAddress, hostPort, protocol, featureFlag }) => ({
       hostAddress,
       hostPort,
       protocol,
+      featureFlag,
     })),
     [
-      { hostAddress: "127.0.0.1", hostPort: dnsPort, protocol: "tcp" },
-      { hostAddress: "127.0.0.1", hostPort: dnsPort, protocol: "udp" },
+      {
+        hostAddress: "127.0.0.1",
+        hostPort: dnsPort,
+        protocol: "tcp",
+        featureFlag: platformDnsFlag,
+      },
+      {
+        hostAddress: "127.0.0.1",
+        hostPort: dnsPort,
+        protocol: "udp",
+        featureFlag: platformDnsFlag,
+      },
     ],
   );
 });

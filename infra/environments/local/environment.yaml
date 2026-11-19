@@ -18,13 +18,15 @@
             "hostAddress": "127.0.0.1",
             "hostPort": 1053,
             "loadBalancerPort": 31053,
-            "protocol": "tcp"
+            "protocol": "tcp",
+            "featureFlag": "platform-dns"
           },
           {
             "hostAddress": "127.0.0.1",
             "hostPort": 1053,
             "loadBalancerPort": 31053,
-            "protocol": "udp"
+            "protocol": "udp",
+            "featureFlag": "platform-dns"
           }
         ]
     },

@@ -1,8 +1,10 @@
-import { expect, test, vi } from "vitest";
-import type { K3dCluster } from "../config/index.js";
+import { describe, expect, test, vi } from "vitest";
+import { featureEnabled, type K3dCluster } from "../config/index.js";
 import { CommandError, type Runner } from "../runtime/index.js";
 import { commandLines, fakeRunner } from "./cluster-support.js";
-import { checkHostPorts, type PortProbe } from "./k3d-ports.js";
+import { activePorts, checkHostPorts, type PortProbe } from "./k3d-ports.js";
+
+vi.mock("../config/index.js", () => ({ featureEnabled: vi.fn() }));
 
 const local: K3dCluster = {
   clusterName: "kore-local",
@@ -133,4 +135,52 @@ test("every taken host port is named in the refusal, not only the first", async 
     "lsof -nP -iTCP:8443 -sTCP:LISTEN -Fpc",
     "lsof -nP -iTCP:9000 -sTCP:LISTEN -Fpc",
   ]);
+});
+
+describe("activePorts", () => {
+  const gateway = {
+    hostAddress: "127.0.0.1",
+    hostPort: 8443,
+    loadBalancerPort: 443,
+  };
+  const dns = {
+    hostAddress: "127.0.0.1",
+    hostPort: 1053,
+    loadBalancerPort: 31053,
+    featureFlag: "platform-dns",
+  };
+  const environment = (features?: Record<string, boolean>) =>
+    ({
+      ...(features === undefined ? {} : { features }),
+      k3d: {
+        clusterName: "kore-local",
+        serviceCidr: "10.96.0.0/12",
+        ports: [gateway, dns],
+      },
+    }) as unknown as Parameters<typeof activePorts>[0];
+
+  const flags = (on: string[]) =>
+    vi
+      .mocked(featureEnabled)
+      .mockImplementation((_environment, flag) => on.includes(flag));
+
+  test("a port naming a flag that is off or omitted is left out, so it is neither created, compared nor probed", () => {
+    flags([]);
+    expect(activePorts(environment({ "platform-dns": false }))).toEqual([
+      gateway,
+    ]);
+    expect(activePorts(environment())).toEqual([gateway]);
+    expect(featureEnabled).toHaveBeenCalledWith(
+      expect.anything(),
+      "platform-dns",
+    );
+  });
+
+  test("a port naming a flag that is on is kept, beside the ports that name none", () => {
+    flags(["platform-dns"]);
+    expect(activePorts(environment({ "platform-dns": true }))).toEqual([
+      gateway,
+      dns,
+    ]);
+  });
 });
