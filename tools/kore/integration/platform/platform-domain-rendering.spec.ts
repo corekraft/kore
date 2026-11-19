@@ -77,6 +77,23 @@ function renderBackstage(repository: Repository): string {
   );
 }
 
+// The shared Gateway adds the organization's wildcard listener, so the route
+// host specs state the flag instead of reading the local overlay's default.
+const sharedGatewayFlag = "platform-shared-gateway";
+
+function withSharedGateway(repository: Repository, on: boolean): Repository {
+  return {
+    ...repository,
+    environment: {
+      ...repository.environment,
+      features: {
+        ...repository.environment.features,
+        [sharedGatewayFlag]: on,
+      },
+    },
+  };
+}
+
 function renderReferenceRoute(repository: Repository, host: string): string {
   const { gateway } = repository.environment;
   return execFileSync(
@@ -186,7 +203,7 @@ test("no overlay values file and no chart default carries a copy of the platform
 
 test("every route host on the platform Gateway has a listener hostname that serves it", async () => {
   for (const name of ["local", "managed-example"]) {
-    const repository = await loadRepository(name);
+    const repository = withSharedGateway(await loadRepository(name), false);
     const { domain } = platformPlan(repository.environment);
     const rendered = [
       render(repository, "kore-platform-config"),
@@ -200,7 +217,7 @@ test("every route host on the platform Gateway has a listener hostname that serv
 });
 
 test("a route host the platform Gateway has no listener for fails the check, naming the host", async () => {
-  const repository = await loadRepository("local");
+  const repository = withSharedGateway(await loadRepository("local"), false);
   const rendered = [
     render(repository, "kore-platform-config"),
     renderReferenceRoute(repository, "moved.example.test"),
