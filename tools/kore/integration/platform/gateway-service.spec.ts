@@ -1,5 +1,4 @@
 import assert from "node:assert/strict";
-import { execFileSync } from "node:child_process";
 import { readFile } from "node:fs/promises";
 import { test } from "vitest";
 import {
@@ -7,28 +6,12 @@ import {
   loadRepository,
   type Repository,
 } from "../../src/config/index.js";
-import { helmTemplateArgs } from "../../src/platform/index.js";
-import { withAbsoluteChart } from "../../src/testing/index.js";
 import {
   generatedPorts,
   merge,
   overlayPorts,
-} from "./gateway-service-ports-support.js";
-
-function render(repository: Repository): string {
-  const component = repository.catalog.components.find(
-    (c) => c.name === "kore-platform-config",
-  )!;
-  return execFileSync(
-    "helm",
-    withAbsoluteChart(
-      repository,
-      component,
-      helmTemplateArgs(repository, component),
-    ),
-    { cwd: repository.root, encoding: "utf8" },
-  );
-}
+  render,
+} from "./gateway-service-support.js";
 
 function withSharedGateway(repository: Repository, on: boolean): Repository {
   return {

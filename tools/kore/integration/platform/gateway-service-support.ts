@@ -1,4 +1,25 @@
 import assert from "node:assert/strict";
+import { execFileSync } from "node:child_process";
+import { type Repository } from "../../src/config/index.js";
+import { helmTemplateArgs } from "../../src/platform/index.js";
+import { withAbsoluteChart } from "../../src/testing/index.js";
+
+// Shared by the Gateway Service and database listener integration specs.
+
+export function render(repository: Repository): string {
+  const component = repository.catalog.components.find(
+    (c) => c.name === "kore-platform-config",
+  )!;
+  return execFileSync(
+    "helm",
+    withAbsoluteChart(
+      repository,
+      component,
+      helmTemplateArgs(repository, component),
+    ),
+    { cwd: repository.root, encoding: "utf8" },
+  );
+}
 
 export interface ServicePort {
   name?: string;
@@ -34,12 +55,26 @@ export function overlayPorts(output: string): ServicePort[] {
 export function generatedPorts(
   gatewayClass: string,
   port: number,
+  databasePort?: number,
 ): ServicePort[] {
+  const database =
+    databasePort === undefined
+      ? []
+      : [
+          {
+            name:
+              gatewayClass === "agentgateway"
+                ? `listener-${databasePort}`
+                : "postgres",
+            port: databasePort,
+          },
+        ];
   return gatewayClass === "agentgateway"
-    ? [{ name: `listener-${port}`, port }]
+    ? [{ name: `listener-${port}`, port }, ...database]
     : [
         { name: "status-port", port: 15021 },
         { name: "https", port },
+        ...database,
       ];
 }
 

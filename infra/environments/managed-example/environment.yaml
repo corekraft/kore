@@ -36,6 +36,7 @@
       "registry-tag-pruning": false,
       "platform-organization-service-apis": false,
       "platform-argocd-delivery": false,
+      "database-routes": false,
       "platform-dns": false,
       "platform-shared-gateway": false,
       "platform-hostname-ownership": false,

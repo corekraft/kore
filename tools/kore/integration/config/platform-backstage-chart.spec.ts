@@ -13,6 +13,7 @@ import {
   platformHelmArgs,
   platformPortalFlag,
   validateRepository,
+  type Repository,
 } from "../../src/config/index.js";
 import { escapeRegExp, localPlatform } from "../local-platform-support.js";
 
@@ -23,9 +24,28 @@ const domain = escapeRegExp(platform.domain);
 
 const run = promisify(execFile);
 
-async function render(environment: string): Promise<string> {
+// The flag decides whether the portal also attaches a route to the shared
+// Gateway, so every render here states it off; the shared-on cases are in
+// platform-backstage-shared-gateway.spec.ts.
+async function withFlagOff(environment: string): Promise<Repository> {
+  const base = await loadRepository(environment);
+  return {
+    ...base,
+    environment: {
+      ...base.environment,
+      features: {
+        ...base.environment.features,
+        "platform-shared-gateway": false,
+      },
+    },
+  };
+}
+
+async function renderWith(
+  repository: Repository,
+  extra: string[] = [],
+): Promise<string> {
   const root = await findRoot();
-  const repository = await loadRepository(environment);
   const component = repository.catalog.components.find(
     (c) => c.name === "kore-platform-backstage",
   );
@@ -42,8 +62,13 @@ async function render(environment: string): Promise<string> {
     "backstage",
     ...values,
     ...platformHelmArgs(repository.environment, "kore-platform-backstage"),
+    ...extra,
   ]);
   return stdout;
+}
+
+async function render(environment: string): Promise<string> {
+  return renderWith(await withFlagOff(environment));
 }
 
 const document = (rendered: string, kind: string): string =>
@@ -188,28 +213,10 @@ test("managed-example takes the hosts from its platform domain and both images f
 async function renderRouted(
   gatewayClassName = "agentgateway",
 ): Promise<string> {
-  const root = await findRoot();
-  const repository = await loadRepository("local");
-  const component = repository.catalog.components.find(
-    (c) => c.name === "kore-platform-backstage",
-  );
-  const values = (component?.values ?? [])
-    .concat(
-      repository.environment.componentValues?.["kore-platform-backstage"] ?? [],
-    )
-    .flatMap((file) => ["--values", join(root, file)]);
-  const { stdout } = await run("helm", [
-    "template",
-    "kore-platform-backstage",
-    join(root, "infra/charts/platform-backstage"),
-    "--namespace",
-    "backstage",
-    ...values,
-    ...platformHelmArgs(repository.environment, "kore-platform-backstage"),
+  return renderWith(await withFlagOff("local"), [
     "--set-string",
     `gatewayClassName=${gatewayClassName}`,
   ]);
-  return stdout;
 }
 
 const documents = (rendered: string, kind: string): string[] =>
@@ -267,24 +274,7 @@ test("the portal host is served over HTTPS from a certificate for that host only
 });
 
 test("the managed-example portal host comes from its platform domain, so the route is never a hard-coded host", async () => {
-  const root = await findRoot();
-  const repository = await loadRepository("managed-example");
-  const component = repository.catalog.components.find(
-    (c) => c.name === "kore-platform-backstage",
-  );
-  const values = [
-    ...(component?.values ?? []),
-    ...(repository.environment.componentValues?.["kore-platform-backstage"] ??
-      []),
-  ].flatMap((file) => ["--values", join(root, file)]);
-  const { stdout } = await run("helm", [
-    "template",
-    "kore-platform-backstage",
-    join(root, "infra/charts/platform-backstage"),
-    "--namespace",
-    "backstage",
-    ...values,
-    ...platformHelmArgs(repository.environment, "kore-platform-backstage"),
+  const stdout = await renderWith(await withFlagOff("managed-example"), [
     "--set-string",
     "gatewayClassName=agentgateway",
   ]);

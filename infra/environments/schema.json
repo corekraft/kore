@@ -77,6 +77,11 @@
                 "pattern": "^[a-z][a-z0-9-]*$",
                 "description": "The feature flag that makes this mapping real. While it is off the mapping is not created, compared for drift or probed; turning it on for a cluster created without it needs a recreate."
               },
+              "optOut": {
+                "type": "boolean",
+                "default": false,
+                "description": "This environment opts out of the mapping, for a developer whose native service holds the host port: it is not created, compared for drift or probed, and the rest of the platform comes up. Turning it back on for a cluster created without it needs a recreate."
+              },
               "protocol": {
                 "enum": ["tcp", "udp"],
                 "default": "tcp",

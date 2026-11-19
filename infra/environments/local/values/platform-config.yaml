@@ -5,6 +5,11 @@ gateway:
   service:
     type: NodePort
     nodePort: 30443
+  # The k3d load balancer forwards loopback port 5432 to this node port while
+  # database-routes is on; the overlay's k3d.ports lists the same number
+  # (ADR 0136).
+  database:
+    nodePort: 30432
 issuer:
   name: kore-local-ca
 secrets:

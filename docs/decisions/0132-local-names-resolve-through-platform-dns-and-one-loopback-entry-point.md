@@ -14,6 +14,8 @@ Refines: [ADR 0013](0013-local-tls-before-gateway.md),
 [ADR 0083](0083-k3d-publishes-through-the-node-containerd-client.md)
 and [ADR 0085](0085-k3d-gateway-answers-through-a-node-port.md).
 
+> Refined by [ADR 0136](0136-the-shared-gateway-serves-database-routes-on-a-loopback-5432-passthrough-listener-behind-database-routes.md): the 5432 passthrough listener, its Service port and its loopback mapping are rendered behind `database-routes`, with a per-environment opt-out.
+
 ## Context
 
 A developer reaches local services at `https://kore.local:8443/` through a
