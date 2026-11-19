@@ -134,6 +134,12 @@ export interface K3dPort {
    * a cluster created without it stays valid. Unset means always published.
    */
   featureFlag?: string;
+  /**
+   * True when this environment opts out of the mapping (a developer's native
+   * Postgres holds the host port): it is not created, compared or probed, and
+   * the rest of the platform comes up. Unset means opted in.
+   */
+  optOut?: boolean;
 }
 
 export interface Environment {

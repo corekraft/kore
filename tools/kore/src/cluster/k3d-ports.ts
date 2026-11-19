@@ -10,15 +10,17 @@ type K3dPort = K3dCluster["ports"][number];
 
 /**
  * The overlay's ports that are published now: a port naming a feature flag
- * counts only while the flag is on, for the create arguments, the drift check
- * and the host port check alike (an unset flag means always).
+ * counts only while the flag is on, and a port the environment opts out of
+ * never counts, for the create arguments, the drift check and the host port
+ * check alike (an unset flag means always).
  */
 export function activePorts(
   environment: Pick<Environment, "features" | "k3d">,
 ): K3dPort[] {
   return (environment.k3d?.ports ?? []).filter(
-    ({ featureFlag }) =>
-      featureFlag === undefined || featureEnabled(environment, featureFlag),
+    ({ featureFlag, optOut }) =>
+      optOut !== true &&
+      (featureFlag === undefined || featureEnabled(environment, featureFlag)),
   );
 }
 

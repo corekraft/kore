@@ -47,6 +47,20 @@ spec:
       allowedRoutes:
         namespaces: {{ include "platform-config.routeNamespaces" . }}
 {{- end }}
+{{- if include "platform-config.databaseRoutes" . }}
+    # A TLS passthrough listener for databases reached by name: the database
+    # keeps its own certificate, and a TLSRoute in the database's namespace picks
+    # the backend by the name the client sends. It sits on its own port, so it
+    # never shares one with the HTTPS listeners.
+    - name: {{ include "platform-config.databasePortName" . }}
+      hostname: {{ required "set gateway.platformHostname, or render through kore, which derives it from the environment's platform field" .Values.gateway.platformHostname | quote }}
+      port: {{ .Values.gateway.database.port }}
+      protocol: TLS
+      tls:
+        mode: Passthrough
+      allowedRoutes:
+        namespaces: {{ include "platform-config.routeNamespaces" . }}
+{{- end }}
 {{- if include "platform-config.registryByName" . }}
     # The registry keeps its own certificate, authentication and end-to-end
     # verification (ADR 0058): the Gateway never terminates its TLS. Routing is by

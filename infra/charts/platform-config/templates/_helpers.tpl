@@ -77,3 +77,46 @@ sectionName; an integration spec holds the two together.
 {{- define "platform-config.registryListenerName" -}}
 tls-registry
 {{- end -}}
+
+{{/*
+True (a non-empty string) only while the database-routes flag is on: the Gateway
+gains a TLS passthrough listener on the database port, and, where the overlay
+sets a node port, its Service a second port for it. Off, nothing it renders
+changes.
+*/}}
+{{- define "platform-config.databaseRoutes" -}}
+{{- if index (.Values.features | default dict) "database-routes" -}}true{{- end -}}
+{{- end -}}
+
+{{/*
+The Gateway Service ports the overlay adds: the standard port with the shared
+Gateway on, and the database port when database-routes is on and the overlay
+sets its node port. Rendered as the `ports:` entries of the Service overlay,
+or nothing. The database entry carries the port and the name of its listener,
+so the merge on `port` updates the controller's generated entry in place and
+every port stays named.
+*/}}
+{{- define "platform-config.servicePorts" -}}
+{{- if .Values.gateway.service.nodePort }}
+- port: {{ include "platform-config.servicePort" . }}
+  {{- if include "platform-config.sharedGateway" . }}
+  name: {{ include "platform-config.servicePortName" . }}
+  targetPort: {{ .Values.gateway.port }}
+  {{- end }}
+  nodePort: {{ .Values.gateway.service.nodePort }}
+{{- end }}
+{{- if and (include "platform-config.databaseRoutes" .) .Values.gateway.database.nodePort }}
+- port: {{ .Values.gateway.database.port }}
+  name: {{ include "platform-config.databasePortName" . }}
+  nodePort: {{ .Values.gateway.database.nodePort }}
+{{- end }}
+{{- end -}}
+
+{{/*
+The name of the database listener and of its Service port. Istio names the
+generated port after the listener; agentgateway names it listener-<port>, which
+the overlay's entry renames in place.
+*/}}
+{{- define "platform-config.databasePortName" -}}
+postgres
+{{- end -}}

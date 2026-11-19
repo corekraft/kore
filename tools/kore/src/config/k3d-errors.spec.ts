@@ -190,6 +190,26 @@ test("a port's featureFlag, when declared, must be a lowercase flag name", () =>
   expect(withFlag("platform-dns")).toEqual([]);
 });
 
+test("a port's optOut, when declared, must be true or false", () => {
+  const withOptOut = (optOut: unknown) =>
+    k3dErrors(
+      withK3d("ports", [
+        {
+          hostAddress: "127.0.0.1",
+          hostPort: 5432,
+          loadBalancerPort: 30432,
+          optOut,
+        },
+      ]),
+      versions,
+    );
+  expect(withOptOut("yes")).toEqual([
+    "environment.k3d.ports[0].optOut must be true or false",
+  ]);
+  expect(withOptOut(true)).toEqual([]);
+  expect(withOptOut(false)).toEqual([]);
+});
+
 test("each port binds a loopback IPv4 host address: a missing, malformed, or non-loopback address is refused, and any 127.x address is accepted", () => {
   const onAddress = (hostAddress: unknown) =>
     k3dErrors(

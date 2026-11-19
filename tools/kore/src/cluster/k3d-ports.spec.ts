@@ -183,4 +183,28 @@ describe("activePorts", () => {
       dns,
     ]);
   });
+
+  test("a port the environment opts out of is left out even while its flag is on, so the host-port check never probes it", () => {
+    flags(["database-routes"]);
+    const postgres = {
+      hostAddress: "127.0.0.1",
+      hostPort: 5432,
+      loadBalancerPort: 30432,
+      featureFlag: "database-routes",
+    };
+    const optedOut = (value: boolean) =>
+      ({
+        features: { "database-routes": true },
+        k3d: {
+          clusterName: "kore-local",
+          serviceCidr: "10.96.0.0/12",
+          ports: [gateway, { ...postgres, optOut: value }],
+        },
+      }) as unknown as Parameters<typeof activePorts>[0];
+    expect(activePorts(optedOut(true))).toEqual([gateway]);
+    expect(activePorts(optedOut(false))).toEqual([
+      gateway,
+      { ...postgres, optOut: false },
+    ]);
+  });
 });
