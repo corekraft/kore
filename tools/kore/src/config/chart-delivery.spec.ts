@@ -5,7 +5,7 @@ import {
   chartDeliveryValues,
   chartRepositoryUrls,
 } from "./chart-delivery.js";
-import { gatewayClassName } from "./features.js";
+import { enabledComponents, gatewayClassName } from "./features.js";
 import { platformPlan } from "./platform-domain.js";
 import { fakeComponent, fakeRepository, malformed } from "./config-support.js";
 
@@ -47,6 +47,7 @@ const lock = (entries: Record<string, unknown> = {}) => ({
 });
 
 beforeEach(() => {
+  vi.mocked(enabledComponents).mockImplementation((r) => r.catalog.components);
   vi.mocked(gatewayClassName).mockReturnValue("istio");
   vi.mocked(platformPlan).mockReturnValue({
     domain: "kore.local",
@@ -81,6 +82,26 @@ test("the image policy never reaches the values, and a lock entry for it is refu
     ),
   ).toEqual([
     "platform chart lock: entry kore-image-policy must not exist; kore keeps the image policy (ADR 0028), so publish the release without it",
+  ]);
+});
+
+test("a feature-gated argocd release with its flag off needs no lock entry, and with it on still does", () => {
+  const gated = fakeComponent({
+    name: "kore-policy-sync",
+    namespace: "gatekeeper-system",
+    owner: "argocd",
+    featureFlag: "platform-hostname-ownership",
+  });
+  const withGated = fakeRepository({
+    catalog: { components: [...repository.catalog.components, gated] },
+  });
+  vi.mocked(enabledComponents).mockImplementation((r) =>
+    r.catalog.components.filter((c) => c.name !== "kore-policy-sync"),
+  );
+  expect(chartDeliveryErrors(withGated, lock())).toEqual([]);
+  vi.mocked(enabledComponents).mockImplementation((r) => r.catalog.components);
+  expect(chartDeliveryErrors(withGated, lock())).toEqual([
+    "platform chart lock: no entry for release kore-policy-sync; pass the platform-charts.lock.json of the release that published it",
   ]);
 });
 

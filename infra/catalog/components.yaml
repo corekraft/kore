@@ -846,7 +846,6 @@
             "korecontainersecurity.constraints.gatekeeper.sh",
             "koreimagedigest.constraints.gatekeeper.sh",
             "koremeshenrollment.constraints.gatekeeper.sh",
-            "korehostnameownership.constraints.gatekeeper.sh",
             "korerbac.constraints.gatekeeper.sh",
             "koreretention.constraints.gatekeeper.sh",
             "koresecrets.constraints.gatekeeper.sh",
@@ -861,7 +860,6 @@
             "constrainttemplate.templates.gatekeeper.sh/korecontainersecurity",
             "constrainttemplate.templates.gatekeeper.sh/koreimagedigest",
             "constrainttemplate.templates.gatekeeper.sh/koremeshenrollment",
-            "constrainttemplate.templates.gatekeeper.sh/korehostnameownership",
             "constrainttemplate.templates.gatekeeper.sh/korerbac",
             "constrainttemplate.templates.gatekeeper.sh/koreretention",
             "constrainttemplate.templates.gatekeeper.sh/koresecrets",
@@ -870,7 +868,6 @@
             "crd/korecontainersecurity.constraints.gatekeeper.sh",
             "crd/koreimagedigest.constraints.gatekeeper.sh",
             "crd/koremeshenrollment.constraints.gatekeeper.sh",
-            "crd/korehostnameownership.constraints.gatekeeper.sh",
             "crd/korerbac.constraints.gatekeeper.sh",
             "crd/koreretention.constraints.gatekeeper.sh",
             "crd/koresecrets.constraints.gatekeeper.sh",
@@ -893,7 +890,6 @@
             "korecontainersecurity.constraints.gatekeeper.sh/kore-container-security",
             "koreimagedigest.constraints.gatekeeper.sh/kore-image-digest",
             "koremeshenrollment.constraints.gatekeeper.sh/kore-mesh-enrollment",
-            "korehostnameownership.constraints.gatekeeper.sh/kore-hostname-ownership",
             "korerbac.constraints.gatekeeper.sh/kore-rbac",
             "koreretention.constraints.gatekeeper.sh/kore-retention",
             "koresecrets.constraints.gatekeeper.sh/kore-secrets",
@@ -905,13 +901,50 @@
         "phase": "configuration",
         "owner": "argocd",
         "namespace": "gatekeeper-system",
-        "kind": "manifest",
-        "source": "infra/policies/gatekeeper/sync",
+        "kind": "local-chart",
+        "chart": "infra/charts/kore-policy-sync",
         "version": "local",
+        "featureFlag": "platform-hostname-ownership",
         "ownsCRDs": [],
         "dependencies": ["gatekeeper"],
         "timeout": "5m",
         "readiness": ["crd/configs.config.gatekeeper.sh"]
+      },
+      {
+        "name": "kore-hostname-ownership-templates",
+        "phase": "configuration",
+        "owner": "argocd",
+        "namespace": "gatekeeper-system",
+        "kind": "local-chart",
+        "chart": "infra/charts/kore-hostname-ownership-templates",
+        "version": "local",
+        "featureFlag": "platform-hostname-ownership",
+        "ownsCRDs": [],
+        "dependencies": ["gatekeeper"],
+        "timeout": "5m",
+        "readiness":
+          [
+            "constrainttemplate.templates.gatekeeper.sh/korehostnameownership",
+            "crd/korehostnameownership.constraints.gatekeeper.sh"
+          ]
+      },
+      {
+        "name": "kore-hostname-ownership",
+        "phase": "configuration",
+        "owner": "argocd",
+        "namespace": "gatekeeper-system",
+        "kind": "local-chart",
+        "chart": "infra/charts/kore-hostname-ownership",
+        "version": "local",
+        "featureFlag": "platform-hostname-ownership",
+        "ownsCRDs": [],
+        "dependencies":
+          ["kore-policy-sync", "kore-hostname-ownership-templates"],
+        "timeout": "5m",
+        "readiness":
+          [
+            "korehostnameownership.constraints.gatekeeper.sh/kore-hostname-ownership"
+          ]
       },
       {
         "name": "kore-admission-gate",

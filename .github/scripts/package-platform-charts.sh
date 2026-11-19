@@ -28,6 +28,9 @@ names=(
   kore-postgresql-api
   kore-policy-templates
   kore-policy-constraints
+  kore-policy-sync
+  kore-hostname-ownership-templates
+  kore-hostname-ownership
   kore-local-tls
   kore-platform-config
 )

@@ -1,4 +1,4 @@
-import { gatewayClassName } from "./features.js";
+import { enabledComponents, gatewayClassName } from "./features.js";
 import { platformPlan } from "./platform-domain.js";
 import type { Repository } from "./types.js";
 
@@ -62,8 +62,12 @@ function entryErrors(name: string, entry: Entry | undefined): string[] {
   ];
 }
 
+/**
+ * The argocd-owned releases this environment turns on. A feature-gated release
+ * whose flag is off is not installed, so it needs no lock entry (ADR 0077).
+ */
 function handedOver(repository: Repository) {
-  return repository.catalog.components.filter((c) => c.owner === "argocd");
+  return enabledComponents(repository).filter((c) => c.owner === "argocd");
 }
 
 /**

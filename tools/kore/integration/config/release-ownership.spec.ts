@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "vitest";
 import {
+  enabledComponents,
   helmInstalledComponents,
   loadRepository,
   organizationServiceApisFlag,
@@ -48,7 +49,8 @@ test("local declares platform-argocd-delivery on, so exactly the six configurati
   const on = await loadRepository("local");
   assert.equal(on.environment.features?.[organizationServiceApisFlag], true);
   await validateRepository(on);
-  const owned = on.catalog.components
+  // A feature-gated release with its flag off is installed by neither owner (ADR 0077).
+  const owned = enabledComponents(on)
     .filter((c) => releaseOwner(on.environment, c) === "argocd")
     .map((c) => c.name)
     .sort();

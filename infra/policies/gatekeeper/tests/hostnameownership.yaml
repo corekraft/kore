@@ -2,8 +2,8 @@ kind: Suite
 apiVersion: test.gatekeeper.sh/v1alpha1
 tests:
   - name: hostname-ownership
-    template: ../templates/korehostnameownership.yaml
-    constraint: ../constraints/korehostnameownership.yaml
+    template: ../../../charts/kore-hostname-ownership-templates/templates/korehostnameownership.yaml
+    constraint: ../../../charts/kore-hostname-ownership/templates/korehostnameownership.yaml
     cases:
       - {
           name: admits-route-in-owning-zone,
