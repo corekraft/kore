@@ -31,6 +31,8 @@ export interface ScaleCheckOptions {
   port: number;
   /** The mkcert CAROOT directory; the load verifies the local CA. */
   caRoot: string;
+  /** The published address the hostname resolves to; unset is loopback. */
+  address?: string;
   requestsPerRoute: number;
   concurrency: number;
   /** The check is refused at or above this host 1-minute load average. */
