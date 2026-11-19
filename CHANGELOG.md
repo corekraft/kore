@@ -1,5 +1,15 @@
 # Changelog
 
+## [0.10.1](https://github.com/corekraft/kore/compare/v0.10.0...v0.10.1) (2026-11-19)
+
+
+### Bug fixes
+
+* **platform:** allow the flag-gated policy components in the config delivery schema ([#1341](https://github.com/corekraft/kore/issues/1341)) ([bd4d033](https://github.com/corekraft/kore/commit/bd4d033d21fdf08d2f94af51d6f192ed0e2c2f5c))
+* **platform:** carry the platform wildcard into the kore-platform-config Application ([#1346](https://github.com/corekraft/kore/issues/1346)) ([9a28801](https://github.com/corekraft/kore/commit/9a28801cebcabc63e10f920e64d0645025229dad))
+* **platform:** name the Gateway Service overlay port the shared Gateway publishes ([#1348](https://github.com/corekraft/kore/issues/1348)) ([11f2d71](https://github.com/corekraft/kore/commit/11f2d7161b497accca126a3849c818b43efef88d))
+* **platform:** permit the hostname-ownership constraint kind in the config delivery project ([#1344](https://github.com/corekraft/kore/issues/1344)) ([a58282a](https://github.com/corekraft/kore/commit/a58282a944f7c83772932b492ccd88a67b75d86c))
+
 ## [0.10.0](https://github.com/corekraft/kore/compare/v0.9.0...v0.10.0) (2026-11-19)
 
 
