@@ -18,6 +18,19 @@ changes.
 {{- end -}}
 
 {{/*
+The namespaces a Gateway listener admits routes from. Off, every namespace, as
+before. On, only namespaces carrying the platform-owned label that the platform
+charts and the delivery ApplicationSet set (ADR 0133).
+*/}}
+{{- define "platform-config.routeNamespaces" -}}
+{{- if include "platform-config.sharedGateway" . -}}
+{from: Selector, selector: {matchLabels: {platform.kore.dev/shared-gateway: "true"}}}
+{{- else -}}
+{from: All}
+{{- end -}}
+{{- end -}}
+
+{{/*
 The Gateway Service's port: the standard port with the shared Gateway on, which
 reaches the listener through targetPort; otherwise the listener's own port.
 */}}
