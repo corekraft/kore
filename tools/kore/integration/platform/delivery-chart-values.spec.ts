@@ -9,7 +9,7 @@ import {
 import {
   helmTemplateArgs,
   withAbsoluteChart,
-} from "../../src/platform/helm.js";
+} from "../../src/platform/index.js";
 
 // The composed values the delivery releases take when the flag is on. Their
 // charts' schemas are closed, so any key kore passes that the schema does not
