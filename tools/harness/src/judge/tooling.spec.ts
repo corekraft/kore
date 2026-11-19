@@ -131,6 +131,10 @@ describe("isTooling: measurement helpers", () => {
     "tools/kore/src/platform/ingress-host-parse.ts",
     "tools/kore/src/platform/ingress-host.ts",
     "tools/kore/src/platform/ingress-rated-measurement.ts",
+    "tools/kore/src/platform/ingress-measurement.ts",
+    "tools/kore/src/platform/route-load.ts",
+    "tools/kore/src/platform/golden-path-routes.ts",
+    "tools/kore/src/platform/golden-path-scale-check.ts",
   ])("%s is tooling", (path) => {
     expect(isTooling(file(path))).toBe(true);
   });
@@ -139,11 +143,13 @@ describe("isTooling: measurement helpers", () => {
     "tools/kore/src/platform/footprint-summary.ts",
     "tools/kore/src/platform/footprint-measurement.ts.bak",
     "tools/kore/src/platform/footprint-other-parse.ts",
-    "tools/kore/src/platform/ingress-measurement.ts",
+    "tools/kore/src/platform/ingress-measurement.ts.bak",
     "tools/kore/src/platform/ingress-metrics.ts",
     "tools/kore/src/platform/ingress-pacing.ts",
     "tools/kore/src/platform/gateway-parse.ts",
     "tools/kore/src/platform/other-measurement.ts",
+    "tools/kore/src/platform/golden-path-delivery.ts",
+    "tools/kore/src/platform/nested/route-load.ts",
     "tools/kore/src/platform/nested/footprint-parse.ts",
     "tools/kore/src/cli/footprint-parse.ts",
   ])("%s is product", (path) => {
