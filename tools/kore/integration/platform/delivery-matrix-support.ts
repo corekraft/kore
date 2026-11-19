@@ -45,6 +45,14 @@ export async function withOnly(on: string | undefined): Promise<Repository> {
   };
 }
 
+function componentOf(repository: Repository, name: string): Component {
+  const component = repository.catalog.components.find((c) => c.name === name);
+  if (component === undefined) {
+    throw new Error(`${name} is not in the component catalog`);
+  }
+  return component;
+}
+
 /** What Argo CD is told to render for one release: its merged values and the parameters laid over them. */
 export interface DeliveredApplication {
   name: string;
@@ -87,9 +95,7 @@ export async function renderDelivered(
   repository: Repository,
   application: DeliveredApplication,
 ): Promise<Delivered> {
-  const component = repository.catalog.components.find(
-    (c) => c.name === application.name,
-  ) as Component;
+  const component = componentOf(repository, application.name);
   if (!component.chart) {
     return {
       resources: await renderedResources(repository, application.name),
@@ -123,9 +129,7 @@ export async function unadmitted(repository: Repository): Promise<string[]> {
   const { clusterKinds, destinations } = admitted(appProject(docs));
   const refused: string[] = [];
   for (const application of deliveredApplications(docs)) {
-    const component = repository.catalog.components.find(
-      (c) => c.name === application.name,
-    ) as Component;
+    const component = componentOf(repository, application.name);
     const { resources } = await renderDelivered(repository, application);
     if (resources.length === 0) {
       refused.push(`${application.name}: renders nothing`);

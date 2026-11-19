@@ -131,6 +131,7 @@ export const platformModule = () => ({
   platformStop: vi.fn(async () => void dispatch.push("platformStop")),
   platformUp: vi.fn(async () => void dispatch.push("platformUp")),
   composeChartDelivery: vi.fn(async (given: unknown) => given),
+  assertChartLockMatchesCheckout: vi.fn(async () => undefined),
   composeGoldenPathDelivery: vi.fn(async (given: unknown) => given),
 });
 
