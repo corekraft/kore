@@ -14,6 +14,7 @@ import {
   secretsCommand,
   trustCommand,
 } from "./commands-local.js";
+import { dnsCommand } from "./commands-dns.js";
 import {
   doctorCommand,
   journalCommand,
@@ -61,6 +62,8 @@ export const COMMANDS: ReadonlyMap<string, CommandSpec> = new Map<
     },
   ],
   ["trust", { mutations: ["install"], alwaysMutates: true, run: trustCommand }],
+  // Writes or removes the host resolver file (ADR 0132); each action changes the host.
+  ["dns", { mutations: ["install", "uninstall"], run: dnsCommand }],
 ]);
 
 export function isMutating(

@@ -9,6 +9,7 @@ vi.mock("./commands-infra.js", () => ({
   dataCommand: vi.fn(),
   statusCommand: vi.fn(),
 }));
+vi.mock("./commands-dns.js", () => ({ dnsCommand: vi.fn() }));
 vi.mock("./commands-ops.js", () => ({ opsCommand: vi.fn() }));
 vi.mock("./commands-policy.js", () => ({ policyCommand: vi.fn() }));
 vi.mock("./commands-local.js", () => ({

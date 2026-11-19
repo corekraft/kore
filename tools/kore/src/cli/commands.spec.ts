@@ -1,6 +1,7 @@
 import { expect, test, vi } from "vitest";
 import * as infra from "./commands-infra.js";
 import * as local from "./commands-local.js";
+import * as dns from "./commands-dns.js";
 import * as read from "./commands-read.js";
 import * as ops from "./commands-ops.js";
 import * as policy from "./commands-policy.js";
@@ -16,6 +17,7 @@ vi.mock("./commands-infra.js");
 vi.mock("./commands-ops.js");
 vi.mock("./commands-policy.js");
 vi.mock("./commands-local.js");
+vi.mock("./commands-dns.js");
 vi.mock("./commands-read.js");
 
 test("the command table names every command, in dispatch order", () => {
@@ -35,6 +37,7 @@ test("the command table names every command, in dispatch order", () => {
     "registry",
     "secrets",
     "trust",
+    "dns",
   ]);
 });
 
@@ -59,6 +62,7 @@ test("each command's mutating actions are exactly the actions that change its en
     registry: ["rotate-credentials"],
     secrets: ["sync", "smtp"],
     trust: ["install"],
+    dns: ["install", "uninstall"],
   });
 });
 
@@ -84,6 +88,7 @@ test("each command runs its own handler", () => {
   expect(runOf("registry")).toBe(handlerOf(local, "registryCommand"));
   expect(runOf("secrets")).toBe(handlerOf(local, "secretsCommand"));
   expect(runOf("trust")).toBe(handlerOf(local, "trustCommand"));
+  expect(runOf("dns")).toBe(handlerOf(dns, "dnsCommand"));
 });
 
 test("a read-only command never mutates, whatever action it is given", () => {
