@@ -53,10 +53,15 @@ async function organizationXrd(repository: Repository): Promise<string> {
 }
 
 test("with the flag on the Organization XRD carries a validated zone defaulting to the environment's organization under its platform domain", async () => {
-  const xrd = await organizationXrd(await localWith(true));
+  const repository = await localWith(true);
+  const { domain, organizationId } = repository.environment.platform ?? {};
+  const xrd = await organizationXrd(repository);
   const zone = xrd.split(/^ {16}zone:$/m)[1]?.split(/^ {16}\S/m)[0] ?? "";
   assert.match(zone, /^ {18}type: string$/m);
-  assert.match(zone, /^ {18}default: "platform\.kore\.local"$/m);
+  assert.ok(
+    zone.includes(`default: "${organizationId}.${domain}"`),
+    "the default is the organization identifier under the platform domain",
+  );
   assert.match(zone, /^ {18}maxLength: 253$/m);
   assert.match(
     zone,
