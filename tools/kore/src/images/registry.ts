@@ -1,6 +1,6 @@
 import { spawn } from "node:child_process";
 import { connect } from "node:tls";
-import type { Repository } from "../config/index.js";
+import { registryByName, type Repository } from "../config/index.js";
 import {
   listHostProcesses,
   terminateMatching,
@@ -13,6 +13,7 @@ import {
   readForwardOwner,
   recordForwardOwner,
 } from "./registry-forward-owner.js";
+import { ensureRegistryName, hostRegistryAddress } from "./registry-name.js";
 import { loadRegistryCa } from "./registry-tls.js";
 
 export interface RegistryDependencies {
@@ -122,8 +123,11 @@ async function ensurePortForward(
 }
 
 /**
- * Makes the registry answer on 127.0.0.1:30500 before any request to it: a
- * forward already running is used, otherwise one is started and awaited.
+ * Makes the registry answer where host-side callers dial it before any request
+ * to it. With registry-by-name on that is its name through the shared Gateway,
+ * checked once and never forwarded (a name that cannot be reached fails naming
+ * the cause); otherwise a forward already running on 127.0.0.1:30500 is used,
+ * or one is started and awaited.
  */
 export async function ensureRegistryForward(
   repository: Repository,
@@ -131,6 +135,10 @@ export async function ensureRegistryForward(
   dependencies: RegistryDependencies = {},
 ): Promise<void> {
   if (repository.environment.provider !== "k3d") {
+    return;
+  }
+  if (registryByName(repository.environment)) {
+    await ensureRegistryName(repository, runner);
     return;
   }
   await ensurePortForward(
@@ -150,7 +158,10 @@ export async function localRegistryReference(
     return reference;
   }
   await ensureRegistryForward(repository, runner, dependencies);
-  return reference.replace(/^[^/]+/, "127.0.0.1:30500");
+  return reference.replace(
+    /^[^/]+/,
+    hostRegistryAddress(repository.environment),
+  );
 }
 
 /**

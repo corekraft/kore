@@ -49,6 +49,12 @@ export interface Component {
    * (ADR 0134). Helm creates the namespace unlabelled; kore owns only the label.
    */
   sharedGatewayRoutes?: boolean;
+  /**
+   * With `sharedGatewayRoutes`, the flag under which the route renders at all.
+   * The namespace is labelled only while that flag is on as well, so the flag
+   * off changes no namespace (ADR 0132).
+   */
+  sharedGatewayRouteFlag?: string;
   dependencies: string[];
   timeout: string;
   values?: string[];

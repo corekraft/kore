@@ -34,6 +34,7 @@ export async function pruneRegistryTagsInCluster(
       podImages: async () => await imagesInUse(repository, runner),
       lockedDigests: async () => await lockedDigests(repository),
       admin: createRegistryAdmin({
+        address: client.address,
         authorization: client.authorization,
         ca,
       }),

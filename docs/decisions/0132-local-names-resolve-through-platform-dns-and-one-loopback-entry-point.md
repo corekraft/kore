@@ -88,6 +88,46 @@ in an explicit command. ADR 0085 fixes the Gateway on host port 8443.
   a reason, so image enrollment never makes name resolution wait on the
   verifier.
 
+### The registry by name
+
+Behind the flag `registry-by-name` (off in every overlay; issue 1219), host-side
+digest lookup, cosign verification and pruning dial
+`registry.platform.kore.internal` instead of the registry port-forward.
+
+- **A passthrough route, not termination.** The shared Gateway gains a TLS
+  passthrough listener (`tls-registry`) for the registry's name on the same port
+  as its HTTPS listeners, and the registry chart owns one `TLSRoute` to its own
+  proxy Service. The Gateway never terminates the registry's TLS, so the client
+  verifies the registry's own certificate against its own CA, the proxy's basic
+  authentication still decides who may read and who may write, and ADR 0058's
+  end-to-end verification and ADR 0034's two accounts hold unchanged. A
+  terminating route would add a re-encrypt hop and give up that verification, so
+  it is not used.
+- **One port.** The probe of issue 1218 (agentgateway v1.7.0, Gateway API 1.7.0)
+  showed an HTTPS listener and a passthrough listener serve one port, told apart
+  by the SNI name, so the registry keeps port 443 and its URL carries no port.
+  The fallback of a separate loopback port is therefore not taken.
+- **The certificate carries the name.** The registry's serving certificate gains
+  the name as a DNS name beside the in-cluster address and `127.0.0.1`, so a
+  verifying client succeeds. cert-manager reissues it on a flag change, but the
+  proxy reads it at start, so an existing registry pod is restarted once; the
+  host check names that command when it sees a certificate without the name.
+- **Nodes are unchanged.** Nodes keep pulling from the registry's fixed
+  in-cluster address (ADR 0031), which does not depend on DNS.
+- **Admission and ownership.** The route attaches only to the shared Gateway and
+  lives in the registry's namespace, which carries the shared-Gateway label
+  (ADR 0134) only while this flag is on as well, through the catalog's
+  `sharedGatewayRouteFlag`. The Gateway chart derives the registry's name from
+  the platform wildcard it already takes, so the Helm path and the Argo CD
+  Application agree.
+- **Clear failures.** With the flag on, a name that does not resolve, a Gateway
+  that refuses port 443, a certificate the registry's CA did not issue (no
+  route), a dropped connection, and a certificate without the name each fail
+  naming the cause and the fix, never a timeout. `kore doctor` runs the same
+  check, as a warning, only while the flag is on.
+- **The forward stays** until a contract ticket retires it, after one green live
+  run by name. With the flag off every caller still uses it.
+
 ### Why the earlier decisions change
 
 - **ADR 0042: the separateness rule holds for the domain chosen.**

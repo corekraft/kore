@@ -38,6 +38,7 @@ function repository(): Repository {
 
 function client(): PublishSession["client"] {
   return {
+    address: "127.0.0.1:30500",
     env: {},
     authorization: "Basic a29yZTpwdw==",
     head: vi.fn(),

@@ -6,7 +6,8 @@
   ca.crt from oci-registry-tls and distributes it to every client.
   The address kore derives from registry.address (ADR 0031) is a SAN, so
   clients that dial the pinned ClusterIP verify it; 127.0.0.1 covers the
-  host's port-forward.
+  host's port-forward, and with registry-by-name on the registry's name under
+  the platform organization covers the shared Gateway's passthrough route.
 */ -}}
 {{- $address := .Values.platform.registry.address | default "" }}
 {{- $host := regexReplaceAll ":[0-9]+$" $address "" }}
@@ -61,6 +62,9 @@ spec:
     - oci-registry.{{ .Release.Namespace }}.svc
     - oci-registry.{{ .Release.Namespace }}.svc.cluster.local
     - localhost
+    {{- if index .Values.features "registry-by-name" }}
+    - {{ required "set registryRoute.hostname, or render through kore, which derives it from the environment's platform field" .Values.registryRoute.hostname | quote }}
+    {{- end }}
     {{- if and $host (not $isIP) }}
     - {{ $host | quote }}
     {{- end }}

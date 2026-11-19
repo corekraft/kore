@@ -1,5 +1,5 @@
 // Docs: docs/decisions/0031-registry-address-platform-variable.md
-import { expect, test } from "vitest";
+import { expect, test, vi } from "vitest";
 import {
   fakeEnvironment,
   fakeRepository,
@@ -11,7 +11,12 @@ import {
   registryHelmArgs,
   registryPlan,
 } from "./registry-address.js";
+import { registryRouteHelmArgs } from "./registry-name.js";
 import type { Environment } from "./types.js";
+
+vi.mock("./registry-name.js", () => ({
+  registryRouteHelmArgs: vi.fn(() => []),
+}));
 
 const inCluster = (address: string) =>
   fakeEnvironment({
@@ -183,4 +188,26 @@ test("a component's values may not hardcode the registry host, anywhere in their
     "kore-image-policy values must not set trust.images; it is derived from registry.address in environment local",
     "kore-image-policy values hardcode the registry host registry.example.internal; remove it, registry.address in environment local is the only place it is written",
   ]);
+});
+
+test("the oci registry also receives the route values registry-by-name adds, after its address", () => {
+  vi.mocked(registryRouteHelmArgs).mockReturnValueOnce([
+    "--set-string",
+    "registryRoute.hostname=registry.platform.kore.internal",
+  ]);
+  const environment = inCluster("10.96.0.50:5000");
+  expect(registryHelmArgs(environment, "oci-registry")).toEqual([
+    "--set-string",
+    "platform.registry.address=10.96.0.50:5000",
+    "--set-string",
+    "service.clusterIP=10.96.0.50",
+    "--set-string",
+    "service.port=5000",
+    "--set-string",
+    "registryRoute.hostname=registry.platform.kore.internal",
+  ]);
+  expect(registryRouteHelmArgs).toHaveBeenCalledWith(
+    environment,
+    "oci-registry",
+  );
 });

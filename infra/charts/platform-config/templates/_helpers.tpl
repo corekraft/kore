@@ -50,3 +50,30 @@ ones.
 {{- define "platform-config.servicePortName" -}}
 https-standard
 {{- end -}}
+
+{{/*
+True (a non-empty string) only while the registry-by-name flag is on: the Gateway
+gains a TLS passthrough listener for the registry's name, on the same port as its
+HTTPS listeners, so host-side callers reach the registry's own proxy with its own
+certificate (ADR 0132). Off, nothing it renders changes.
+*/}}
+{{- define "platform-config.registryByName" -}}
+{{- if index (.Values.features | default dict) "registry-by-name" -}}true{{- end -}}
+{{- end -}}
+
+{{/*
+The name the registry answers to, registry.<organization>.<domain>: the platform
+wildcard without its leading "*.", under "registry.". Derived from the one value
+kore passes, so the Helm path and the Argo CD Application agree.
+*/}}
+{{- define "platform-config.registryHostname" -}}
+{{- printf "registry.%s" (trimPrefix "*." (required "set gateway.platformHostname, or render through kore, which derives it from the environment's platform field" .Values.gateway.platformHostname)) -}}
+{{- end -}}
+
+{{/*
+The name of the passthrough listener. The registry chart's route names it as its
+sectionName; an integration spec holds the two together.
+*/}}
+{{- define "platform-config.registryListenerName" -}}
+tls-registry
+{{- end -}}

@@ -46,6 +46,7 @@
       "platform-argocd-delivery": true,
       "platform-dns": false,
       "platform-shared-gateway": true,
+      "registry-by-name": false,
       "platform-hostname-ownership": false,
       "platform-portal": false,
       "automatic-retro": true,

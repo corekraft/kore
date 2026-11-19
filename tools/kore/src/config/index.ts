@@ -49,6 +49,7 @@ export {
   platformPlan,
 } from "./platform-domain.js";
 export type { PlatformPlan } from "./platform-domain.js";
+export { registryByName, registryHostname } from "./registry-name.js";
 export {
   registryConsumers,
   registryHelmArgs,
