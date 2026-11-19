@@ -23,7 +23,7 @@ import { RatedMeasurement } from "./ingress-rated-measurement.js";
 // - the golden-path p95, p50 and max at the service's own Gateway, read-only
 //   against the cluster, separate from the reference routes' numbers;
 // - the scale check, whose one cluster write is `kubectl scale` on the BFF
-//   Deployment, put back to its starting count however the run ends.
+//   Deployment, put back to the count it had before the run however it ends.
 // Only baselines are recorded; there is no target. KORE_GOLDEN_PATH_SERVICE
 // names the delivered Service (default golden-path-example),
 // KORE_SCALE_PEAK_REPLICAS is N (default 4) and KORE_SCALE_START_REPLICAS sets

@@ -125,14 +125,74 @@ test("scales the BFF out to the peak and back to its starting count, recording b
   });
 });
 
-test("sets the starting count it was given and records the count it reached, not a literal one", async () => {
+test("sets the starting count it was given, records it, and puts back the count it found", async () => {
   const { runner, state } = cluster(2);
 
   const result = await check(runner, { startReplicas: 1 }).scaleCheck.run();
 
-  expect(scales(runner)).toEqual([1, 4, 1]);
+  expect(scales(runner)).toEqual([1, 4, 1, 2]);
   expect(result.replicas.start).toBe(1);
-  expect(state.ready).toBe(1);
+  expect(state.desired).toBe(2);
+});
+
+test("a failed request puts back the count it found, not the starting count it was given", async () => {
+  const { runner, state } = cluster(3);
+  const { scaleCheck } = check(runner, { startReplicas: 1 }, async () => ({
+    stdout: "bad\n",
+    stderr: "",
+    code: 0,
+  }));
+
+  await expect(scaleCheck.run()).rejects.toThrow("a request failed");
+
+  expect(state.desired).toBe(3);
+});
+
+test("a later kubectl failure after a failed request still scales back, and the request failure is the error reported", async () => {
+  const { state, runner } = cluster(2);
+  const failing = {
+    run: vi.fn<Runner["run"]>(async (command, args, runOptions) => {
+      if (args.includes("get") && state.desired === 4) {
+        throw new Error("kubectl get failed");
+      }
+      return runner.run(command, args, runOptions);
+    }),
+  } satisfies Runner;
+  const { scaleCheck } = check(failing, {}, async () => ({
+    stdout: "bad\n",
+    stderr: "",
+    code: 0,
+  }));
+
+  await expect(scaleCheck.run()).rejects.toThrow(
+    "a request failed during the scale check of golden-path-example--local/golden-path-example-bff: route / answered 503 for 1 of 50 requests, expected 200",
+  );
+
+  expect(state.desired).toBe(2);
+});
+
+test("a restore that fails is named beside the original failure and never replaces it", async () => {
+  const { runner } = cluster(2);
+  let scaled = 0;
+  const failing = {
+    run: vi.fn<Runner["run"]>(async (command, args, runOptions) => {
+      if (args.some((arg) => arg.startsWith("--replicas=")) && ++scaled > 2) {
+        throw new Error("the API server is gone");
+      }
+      return runner.run(command, args, runOptions);
+    }),
+  } satisfies Runner;
+  const { scaleCheck } = check(failing, {}, async () => ({
+    stdout: "bad\n",
+    stderr: "",
+    code: 0,
+  }));
+
+  await expect(scaleCheck.run()).rejects.toThrow(
+    new Error(
+      "a request failed during the scale check of golden-path-example--local/golden-path-example-bff: route / answered 503 for 1 of 50 requests, expected 200; restoring golden-path-example--local/golden-path-example-bff to 2 replicas also failed: the API server is gone; scale it back by hand",
+    ),
+  );
 });
 
 test("addresses the configured context, namespace and deployment, never the current context", async () => {

@@ -9,8 +9,8 @@ import { countRound, loadArgs } from "./route-load.js";
 // starting replica count to N and back while the golden-path routes carry
 // load, and any failed request fails the check. It is a test helper: the one
 // cluster write is `kubectl scale` on the named Deployment, addressed by the
-// configured context and namespace and put back to the starting count however
-// the check ends. Sequential rounds count requests the way the ingress
+// configured context and namespace and put back to the count it had before the
+// first write, whether that is the starting count or not, however the check ends. Sequential rounds count requests the way the ingress
 // measurement does (`route-load.ts`).
 
 export interface ScaleCheckOptions {
@@ -80,6 +80,8 @@ interface Replicas {
 }
 
 const tenth = (value: number): number => Math.round(value * 10) / 10;
+const reason = (error: unknown): string =>
+  error instanceof Error ? error.message : JSON.stringify(error);
 
 export class GoldenPathScaleCheck {
   private requests = 0;
@@ -118,18 +120,37 @@ export class GoldenPathScaleCheck {
 
   private async scale(loadAverage: number): Promise<ScaleCheckResult> {
     const { peakReplicas } = this.options;
-    const start = this.options.startReplicas ?? (await this.replicas()).desired;
+    // The count the Deployment has before the first write is the one put back.
+    const found = (await this.replicas()).desired;
+    const start = this.options.startReplicas ?? found;
     if (peakReplicas <= start) {
       throw new Error(
         `peak replicas ${peakReplicas} must be above the starting count ${start}; pass a larger KORE_SCALE_PEAK_REPLICAS`,
       );
     }
+    const written = { value: false };
+    try {
+      const result = await this.underLoad(start, loadAverage, written);
+      if (start !== found) {
+        await this.scaleTo(found);
+      }
+      return result;
+    } catch (error) {
+      throw await this.restored(this.failureError() ?? error, found, written);
+    }
+  }
+
+  /** Sets the starting count, then scales out and back while the load runs. */
+  private async underLoad(
+    start: number,
+    loadAverage: number,
+    written: { value: boolean },
+  ): Promise<ScaleCheckResult> {
     const running = { value: true };
     let loading: Promise<void> | undefined;
-    let scaled = false;
     try {
+      written.value = true;
       await this.scaleTo(start);
-      scaled = true;
       await this.waitFor(start, "settled");
       const began = this.deps.now();
       loading = this.loadUntil(() => running.value);
@@ -138,16 +159,32 @@ export class GoldenPathScaleCheck {
       await loading;
       this.throwFailure();
       return this.result(start, end, loadAverage, began);
-    } catch (error) {
+    } finally {
       running.value = false;
       await loading;
-      // A request that failed is the cause, not the stop it forced.
-      this.throwFailure();
-      // Put the Deployment back to where the run found it.
-      if (scaled) {
-        await this.scaleTo(start);
-      }
-      throw error;
+    }
+  }
+
+  /**
+   * Puts the Deployment back to the count it was found with once a write was
+   * attempted. A restore that fails is named beside the original error and
+   * never replaces it.
+   */
+  private async restored(
+    error: unknown,
+    found: number,
+    written: { value: boolean },
+  ): Promise<unknown> {
+    if (!written.value) {
+      return error;
+    }
+    try {
+      await this.scaleTo(found);
+      return error;
+    } catch (restoreError) {
+      return new Error(
+        `${reason(error)}; restoring ${this.subject()} to ${found} replicas also failed: ${reason(restoreError)}; scale it back by hand`,
+      );
     }
   }
 
@@ -186,15 +223,18 @@ export class GoldenPathScaleCheck {
     return `${this.options.namespace}/${this.options.deployment}`;
   }
 
+  private failureError(): Error | undefined {
+    return this.failure === undefined
+      ? undefined
+      : new Error(
+          `a request failed during the scale check of ${this.subject()}: ${reason(this.failure)}`,
+        );
+  }
+
   private throwFailure(): void {
-    if (this.failure !== undefined) {
-      const reason =
-        this.failure instanceof Error
-          ? this.failure.message
-          : JSON.stringify(this.failure);
-      throw new Error(
-        `a request failed during the scale check of ${this.subject()}: ${reason}`,
-      );
+    const failure = this.failureError();
+    if (failure !== undefined) {
+      throw failure;
     }
   }
 

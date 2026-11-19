@@ -236,8 +236,10 @@ at a time on an idle host (stop writer and challenger panes first).
   that fails or answers another status fails the check, as does a Deployment
   that never reaches N (a sync reverting the scale shows up there). The result
   records the starting, peak and end ready counts and the host record. The one
-  cluster write is `kubectl scale`, put back to the starting count however the
-  run ends. The live run needs `autoscaling-defaults` on and the service
+  cluster write is `kubectl scale`, put back to the count the Deployment had
+  before the first write (not the starting count, when one was set) however
+  the run ends; a restore that fails is named beside the original failure. The
+  live run needs `autoscaling-defaults` on and the service
   delivered through Argo CD.
 - **Host record.** Both results carry the ingress measurement's `host` record
   beside the numbers; the scale check refuses a host 1-minute load average of
