@@ -1,7 +1,7 @@
 import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, relative } from "node:path";
-import { defaultPlatformDomain } from "../config/index.js";
+import { defaultPlatformDomain } from "../platform-domain.fixtures.js";
 
 export const digest = "sha256:" + "a".repeat(64);
 

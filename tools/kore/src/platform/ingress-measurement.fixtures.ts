@@ -7,7 +7,7 @@ import {
 } from "../runtime/index.js";
 import { IngressMeasurement } from "./ingress-measurement.js";
 import type { MeasurementOptions } from "./ingress-measurement.js";
-import { defaultPlatformDomain } from "../config/index.js";
+import { defaultPlatformDomain } from "../platform-domain.fixtures.js";
 
 export const metrics = (
   pods: { name: string; containers: [string, string][] }[],

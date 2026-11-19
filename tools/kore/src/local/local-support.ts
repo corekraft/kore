@@ -1,11 +1,8 @@
 // Fakes and fixtures shared by the local domain's unit specs. A support file is
 // not a unit, so it needs no spec of its own (ADR 0098).
 import { vi } from "vitest";
-import {
-  defaultPlatformDomain,
-  type Environment,
-  type Repository,
-} from "../config/index.js";
+import type { Environment, Repository } from "../config/index.js";
+import { defaultPlatformDomain } from "../platform-domain.fixtures.js";
 import type {
   BuiltLocalImage,
   LockedImage,

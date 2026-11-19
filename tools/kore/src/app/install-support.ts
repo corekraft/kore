@@ -2,7 +2,7 @@
 // registry the kore-managed credential serves, and a chart fingerprint that
 // differs from what Helm recorded. A test overrides only the answer it tests.
 import { vi } from "vitest";
-import { defaultPlatformDomain } from "../config/index.js";
+import { defaultPlatformDomain } from "../platform-domain.fixtures.js";
 import {
   koreManagesRegistryAuth,
   loadRegistryCredential,

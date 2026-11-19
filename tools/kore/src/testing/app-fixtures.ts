@@ -8,7 +8,7 @@ import {
   healthyWebhookOutput,
 } from "./webhook-fixtures.js";
 import { CommandError, type Runner } from "../runtime/index.js";
-import { defaultPlatformDomain } from "../config/index.js";
+import { defaultPlatformDomain } from "../platform-domain.fixtures.js";
 
 import { digest, releaseSigner } from "./release-lock-fixtures.js";
 export {

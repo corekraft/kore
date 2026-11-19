@@ -2,7 +2,8 @@
 // not a unit, so it needs no spec of its own (ADR 0098).
 import { vi } from "vitest";
 import type { LockedImage } from "../images/index.js";
-import { defaultPlatformDomain, type Repository } from "../config/index.js";
+import type { Repository } from "../config/index.js";
+import { defaultPlatformDomain } from "../platform-domain.fixtures.js";
 import type { Runner } from "../runtime/index.js";
 
 export type Run = Runner["run"];

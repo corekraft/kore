@@ -31,9 +31,11 @@ vi.mock("node:fs/promises", () => ({
   writeFile: vi.fn(),
 }));
 vi.mock("node:os", () => ({ tmpdir: vi.fn() }));
-vi.mock("node:path", () => ({ join: vi.fn(), relative: vi.fn() }));
+vi.mock("node:path", () => ({
+  join: vi.fn(),
+  relative: vi.fn(),
+}));
 vi.mock("../config/index.js", () => ({
-  defaultPlatformDomain: "kore.local",
   loadRepository: async () => ({
     environment: { name: "local" },
     imageTrustValues: { trust: { type: "keyless", subjects: [] } },
