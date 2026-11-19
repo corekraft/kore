@@ -7,7 +7,7 @@ import {
   writeK3dRegistriesConfig,
 } from "../images/index.js";
 import { k3dCreateArgs } from "./k3d-cluster.js";
-import { drift, unreadablePorts } from "./k3d-drift.js";
+import { apiHostAddress, drift, unreadablePorts } from "./k3d-drift.js";
 import { inspectPortMappings } from "./k3d-inspect.js";
 import { commandLines, fakeK3d, fakeRepository } from "./cluster-support.js";
 import { waitForClusterReady } from "./readiness.js";
@@ -24,6 +24,7 @@ vi.mock("../images/index.js");
 vi.mock("./readiness.js");
 vi.mock("./k3d-drift.js", async (importOriginal) => ({
   ...(await importOriginal<typeof import("./k3d-drift.js")>()),
+  apiHostAddress: vi.fn(),
   drift: vi.fn(),
   unreadablePorts: vi.fn(),
 }));
@@ -74,7 +75,9 @@ test("the API port is published with a random host port on the first declared po
       ],
     },
   });
+  vi.mocked(apiHostAddress).mockReturnValue("127.0.0.2");
   const args = k3dCreateArgs(two, TRUST);
+  expect(apiHostAddress).toHaveBeenCalledWith(two.environment.k3d);
   expect(args[args.indexOf("--api-port") + 1]).toBe("127.0.0.2:random");
 });
 
