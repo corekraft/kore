@@ -261,11 +261,13 @@ fi
 destructive_suites=(test:live:signer test:live:lifecycle)
 # Measurement-only suites are never nightly suites: they measure the host, not
 # the platform, and need a host the runner is not (test:live:footprint reads the
-# macOS swap usage and fails on Linux; Linux support is debt #659). Add a future
-# measurement suite here deliberately; each one found is named in the summary.
-# test:live:golden-path-load scales a delivered golden-path service under load
-# on an idle host, and the night delivers none.
-excluded_suites=(test:live:footprint test:live:golden-path-load)
+# macOS swap usage and fails on Linux; Linux support is debt #659). The
+# delivery-stage timer needs one merged change's service, merge time and host
+# for each run, so no nightly can supply them. test:live:golden-path-load scales
+# a delivered golden-path service under load on an idle host, and the night
+# delivers none. Add a future measurement suite here deliberately; each one found
+# is named in the summary.
+excluded_suites=(test:live:footprint test:live:golden-path-load test:live:delivery-stage)
 suites_all="$suites"
 for excluded in "${excluded_suites[@]}"; do
   if printf '%s\n' "$suites_all" | grep -qxF "$excluded"; then
