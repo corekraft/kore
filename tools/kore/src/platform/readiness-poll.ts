@@ -116,6 +116,32 @@ export async function waitForConditions(
 
 const KUBECTL_WAIT_TIMED_OUT = /timed out waiting for the condition/i;
 
+/**
+ * A control-plane restart reaches kubectl as the API connection dropping: EOF
+ * while a watch was open, or connection refused while the k3s server container
+ * starts again (#1309). A webhook that closes on EOF is not the API server, so
+ * it is not matched here.
+ */
+const CONTROL_PLANE_DROP: readonly RegExp[] = [
+  /connection to the server [^\n]*was refused/i,
+  /Unable to connect to the server: EOF/i,
+  /previous attempt: EOF/i,
+];
+
+/** True when a failed readiness read says the Kubernetes API connection dropped. */
+export function isControlPlaneDrop(message: string): boolean {
+  return CONTROL_PLANE_DROP.some((pattern) => pattern.test(message));
+}
+
+/**
+ * The named cause for a control-plane drop, with the k3s server container of
+ * the kube context (`<context>-server-0`) and the commands that show its exit.
+ */
+export function controlPlaneRestartCause(kubeContext: string): string {
+  const server = `${kubeContext}-server-0`;
+  return `control-plane restart: the Kubernetes API dropped the connection (EOF or connection refused), so the k3s server ${server} restarted. Check its exit with docker logs ${server} (a level=fatal line names it) and docker inspect --format '{{.RestartCount}}' ${server}, then rerun kore local up.`;
+}
+
 /** The longer retry a status run may spend; shared by every component in it. */
 export interface RetryBudget {
   spent: boolean;
