@@ -54,6 +54,7 @@ test("the platform barrel exposes exactly the runtime names its callers use", ()
       "readinessFailureSummary",
       "recoverRelease",
       "releaseMatchesFingerprint",
+      "routeHostErrors",
       "waitForHTTPRoute",
       "withAbsoluteChart",
     ].sort(),

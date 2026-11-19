@@ -47,7 +47,7 @@ export async function renderedKinds(name: string): Promise<string[]> {
       name,
       join(root, component.chart),
       "--set",
-      "gateway.className=kore",
+      "gateway.className=kore,gateway.hostname=kore.local",
     ]);
     return topLevelKinds(stdout);
   }
@@ -108,6 +108,8 @@ export async function render(...set: string[]): Promise<string[]> {
     `namespaces=${JSON.stringify(await namespaces())}`,
     "--set-string",
     "gatewayClassName=agentgateway",
+    "--set-string",
+    "platformDomain=kore.local",
     ...set,
   ]);
   return stdout.split("\n---\n").filter((doc) => /^kind:/m.test(doc));

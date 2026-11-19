@@ -1,4 +1,5 @@
 import { gatewayClassName } from "./features.js";
+import { platformPlan } from "./platform-domain.js";
 import type { Repository } from "./types.js";
 
 // Docs: docs/decisions/0043-platform-configuration-through-argo-cd.md (the handover values)
@@ -9,6 +10,11 @@ export interface ChartDeliveryValues {
   namespaces: Record<string, string>;
   /** The GatewayClass kore-platform-config needs, which only kore derives. */
   gatewayClassName: string;
+  /**
+   * The environment's platform domain, which the delivered kore-platform-config
+   * and kore-local-tls take as `gateway.hostname`: their charts hold no default.
+   */
+  platformDomain: string;
   /**
    * Each release's environment values-file text, in the order Helm takes them,
    * so the Argo CD Application renders the chart with the values the Helm path
@@ -115,6 +121,7 @@ export function chartDeliveryValues(
       components.map((c) => [c.name, c.namespace]),
     ),
     gatewayClassName: gatewayClassName(repository.environment),
+    platformDomain: platformPlan(repository.environment).domain,
   };
 }
 

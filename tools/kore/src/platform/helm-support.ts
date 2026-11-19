@@ -12,6 +12,7 @@ import {
   featureHelmArgs,
   gatewayClassName,
   noMatchPolicy,
+  platformHelmArgs,
   registeredServiceHelmArgs,
   registryHelmArgs,
 } from "../config/index.js";
@@ -30,6 +31,7 @@ export function configAnswers(): void {
   vi.mocked(featureHelmArgs).mockReturnValue([]);
   vi.mocked(gatewayClassName).mockReturnValue("kore-gateway");
   vi.mocked(noMatchPolicy).mockReturnValue("warn");
+  vi.mocked(platformHelmArgs).mockReturnValue([]);
   vi.mocked(registeredServiceHelmArgs).mockReturnValue([]);
   vi.mocked(registryHelmArgs).mockImplementation((_env, name) => [
     "--set-string",

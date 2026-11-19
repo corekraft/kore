@@ -9,6 +9,7 @@ import {
   findRoot,
   loadRepository,
   organizationServiceApisFlag,
+  platformHelmArgs,
 } from "../../src/config/index.js";
 
 // Docs: docs/decisions/0042-organization-domains-by-delegation.md
@@ -37,7 +38,7 @@ test("the Service composition composes the default host service.organization.pla
   assert.match(source, /platform\.kore\.dev\/default-host: \{\{ \$host \}\}/);
 });
 
-test("each environment overlay supplies its own platform domain and the chart has no default", async () => {
+test("each environment supplies its platform domain through its one platform field, and neither the chart nor an overlay values file holds a copy", async () => {
   await assert.rejects(
     read("infra/charts/platform-apis/values.yaml"),
     /ENOENT/,
@@ -48,15 +49,18 @@ test("each environment overlay supplies its own platform domain and the chart ha
     ["managed-example", "platform.example.com"],
   ] as const) {
     const repository = await loadRepository(name);
-    const files = repository.environment.componentValues?.[component] ?? [];
-    assert.deepEqual(files, [
-      `infra/environments/${name}/values/platform-apis.yaml`,
-    ]);
-    const values = await read(files[0]!);
-    assert.match(
-      values,
-      new RegExp(`^platformDomain: ${domain.replace(/\./g, "\\.")}$`, "m"),
+    assert.equal(repository.environment.platform.domain, domain);
+    assert.equal(
+      repository.environment.componentValues?.[component],
+      undefined,
+      "no overlay values file carries the domain",
     );
+    await assert.rejects(
+      read(`infra/environments/${name}/values/platform-apis.yaml`),
+      /ENOENT/,
+    );
+    const args = platformHelmArgs(repository.environment, component);
+    assert.deepEqual(args, ["--set-string", `platformDomain=${domain}`]);
   }
   await assert.rejects(
     helmRender(),

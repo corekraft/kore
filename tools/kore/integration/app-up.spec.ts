@@ -284,9 +284,9 @@ test("a changed gateway hostname upgrades both app releases on the next app up",
     ...repository,
     environment: {
       ...repository.environment,
-      gateway: {
-        ...repository.environment.gateway,
-        hostname: "moved.kore.local",
+      platform: {
+        ...repository.environment.platform,
+        domain: "moved.kore.local",
       },
     },
   };

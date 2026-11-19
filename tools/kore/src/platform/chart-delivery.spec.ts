@@ -14,7 +14,12 @@ vi.mock("node:fs/promises");
 vi.mock("../config/index.js");
 
 const repository = { ...fakeRepository(), catalog: { components: [] } };
-const values = { charts: {}, namespaces: {}, gatewayClassName: "istio" };
+const values = {
+  charts: {},
+  namespaces: {},
+  gatewayClassName: "istio",
+  platformDomain: "kore.local",
+};
 const delivered = {
   charts: {
     "kore-platform-config": {
@@ -28,6 +33,7 @@ const delivered = {
   },
   namespaces: {},
   gatewayClassName: "istio",
+  platformDomain: "kore.local",
 };
 const lockText = '{"version":1,"entries":{}}';
 /** readFile answers the lock with its text and each values file from `files`, failing any other path. */

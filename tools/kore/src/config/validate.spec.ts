@@ -6,7 +6,7 @@ import { imageListErrors } from "./approved.js";
 import { overlayErrors, overlayWarnings } from "./overlay-errors.js";
 import { orderedComponents, readinessErrors } from "./order.js";
 import { policyErrors } from "./policy-validation.js";
-import { registryAddressErrors } from "./registry-address.js";
+import { environmentFieldErrors } from "./environment-errors.js";
 import { validateRepository } from "./validate.js";
 import type { Component, Environment, Repository, Versions } from "./types.js";
 import type { ManagedCluster } from "./managed-cluster.js";
@@ -32,7 +32,9 @@ vi.mock("./overlay-errors.js", () => ({
   overlayWarnings: vi.fn(),
 }));
 vi.mock("./policy-validation.js", () => ({ policyErrors: vi.fn() }));
-vi.mock("./registry-address.js", () => ({ registryAddressErrors: vi.fn() }));
+vi.mock("./environment-errors.js", () => ({
+  environmentFieldErrors: vi.fn(),
+}));
 
 const sound = fakeComponent();
 const soundVersions = fakeVersions({ istio: "1.23.0" }, {});
@@ -69,7 +71,7 @@ beforeEach(() => {
   vi.mocked(imageListErrors).mockResolvedValue([]);
   vi.mocked(policyErrors).mockResolvedValue([]);
   vi.mocked(readinessErrors).mockReturnValue([]);
-  vi.mocked(registryAddressErrors).mockReturnValue([]);
+  vi.mocked(environmentFieldErrors).mockReturnValue([]);
   vi.mocked(orderedComponents).mockReturnValue([]);
 });
 
@@ -85,7 +87,16 @@ test("a repository that passes every rule validates without throwing, and each c
   expect(vi.mocked(overlayErrors).mock.calls).toEqual([[repository]]);
   expect(vi.mocked(policyErrors).mock.calls).toEqual([[repository]]);
   expect(vi.mocked(readinessErrors).mock.calls).toEqual([[repository]]);
-  expect(vi.mocked(registryAddressErrors).mock.calls).toEqual([[repository]]);
+  expect(vi.mocked(environmentFieldErrors).mock.calls).toEqual([[repository]]);
+});
+
+test("a platform domain error fails validation before any cluster command, with the fix in the message", async () => {
+  vi.mocked(environmentFieldErrors).mockReturnValue([
+    'platform.domain must be a lowercase DNS name of at least two labels, for example kore.local, in environment local, got "kore"',
+  ]);
+  expect(await messageOf(repositoryWith({}))).toBe(
+    'platform.domain must be a lowercase DNS name of at least two labels, for example kore.local, in environment local, got "kore"',
+  );
 });
 
 test("unsound version pins and sections are reported, each once", async () => {
@@ -254,7 +265,7 @@ test("the errors of every collaborator are merged, de-duplicated and sorted into
     "k3d: bad cluster",
   ]);
   vi.mocked(readinessErrors).mockReturnValue(["readiness: missing check"]);
-  vi.mocked(registryAddressErrors).mockReturnValue(["registry: bad address"]);
+  vi.mocked(environmentFieldErrors).mockReturnValue(["registry: bad address"]);
   vi.mocked(imageListErrors).mockResolvedValue(["image: unpinned"]);
   vi.mocked(policyErrors).mockResolvedValue(["policy: unpromoted"]);
   expect(await messageOf(repositoryWith({}))).toBe(

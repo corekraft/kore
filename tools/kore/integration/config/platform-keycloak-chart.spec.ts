@@ -9,6 +9,7 @@ import {
   findRoot,
   loadRepository,
   orderedComponents,
+  platformHelmArgs,
   platformPortalFlag,
   validateRepository,
 } from "../../src/config/index.js";
@@ -20,18 +21,13 @@ const run = promisify(execFile);
 async function render(environment: string): Promise<string> {
   const root = await findRoot();
   const repository = await loadRepository(environment);
-  const values = repository.environment.componentValues?.[
-    "kore-platform-keycloak"
-  ]?.map((file) => join(root, file));
-  assert.equal(values?.length, 1, "one environment values file");
   const { stdout } = await run("helm", [
     "template",
     "kore-platform-keycloak",
     join(root, "infra/charts/platform-keycloak"),
     "--namespace",
     "keycloak",
-    "--values",
-    values![0]!,
+    ...platformHelmArgs(repository.environment, "kore-platform-keycloak"),
   ]);
   return stdout;
 }

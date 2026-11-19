@@ -10,6 +10,7 @@ import {
   findRoot,
   loadRepository,
   orderedComponents,
+  platformHelmArgs,
   platformPortalFlag,
   validateRepository,
 } from "../../src/config/index.js";
@@ -36,6 +37,7 @@ async function render(environment: string): Promise<string> {
     "--namespace",
     "backstage",
     ...values,
+    ...platformHelmArgs(repository.environment, "kore-platform-backstage"),
   ]);
   return stdout;
 }
@@ -194,6 +196,7 @@ async function renderRouted(
     "--namespace",
     "backstage",
     ...values,
+    ...platformHelmArgs(repository.environment, "kore-platform-backstage"),
     "--set-string",
     `gatewayClassName=${gatewayClassName}`,
   ]);
@@ -272,6 +275,7 @@ test("the managed-example portal host comes from its platform domain, so the rou
     "--namespace",
     "backstage",
     ...values,
+    ...platformHelmArgs(repository.environment, "kore-platform-backstage"),
     "--set-string",
     "gatewayClassName=agentgateway",
   ]);

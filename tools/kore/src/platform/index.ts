@@ -39,3 +39,5 @@ export {
   withAbsoluteChart,
 } from "./helm.js";
 export { capacityWarningPercent } from "./capacity-status.js";
+export { routeHostErrors } from "./route-hosts.js";
+export type { GatewayRef } from "./route-hosts.js";

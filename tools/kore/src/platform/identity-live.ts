@@ -1,7 +1,11 @@
 import { readdir, readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { assertExpectedCluster } from "../cluster/index.js";
-import { loadRepository, type Repository } from "../config/index.js";
+import {
+  loadRepository,
+  platformPlan,
+  type Repository,
+} from "../config/index.js";
 import { findRoot } from "../config/index.js";
 import {
   ProcessRunner,
@@ -77,7 +81,8 @@ export async function viaGateway(
   path: string,
   authorization?: string,
 ): Promise<number> {
-  const { hostname, port } = repository.environment.gateway;
+  const { port } = repository.environment.gateway;
+  const { domain: hostname } = platformPlan(repository.environment);
   const { stdout } = await runner.run(
     "curl",
     [

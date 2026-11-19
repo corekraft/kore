@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, expect, test, vi } from "vitest";
 import { assertExpectedCluster } from "../cluster/index.js";
-import { findRoot, loadRepository } from "../config/index.js";
+import { findRoot, loadRepository, platformPlan } from "../config/index.js";
 import { liveEnvironment, ProcessRunner } from "../runtime/index.js";
 import {
   constraints,
@@ -30,6 +30,7 @@ vi.mock("../cluster/index.js", () => ({ assertExpectedCluster: vi.fn() }));
 vi.mock("../config/index.js", () => ({
   findRoot: vi.fn(),
   loadRepository: vi.fn(),
+  platformPlan: vi.fn(),
 }));
 vi.mock("../runtime/index.js", () => ({
   ProcessRunner: vi.fn(),
@@ -38,10 +39,9 @@ vi.mock("../runtime/index.js", () => ({
 
 /** A fake repository with a gateway and a catalog; the catalog holds the given components. */
 function repositoryWith(components = [fakeComponent({ name: "reference" })]) {
-  return Object.assign(
-    fakeRepository({ gateway: { hostname: "kore.local", port: 8443 } }),
-    { catalog: { components } },
-  );
+  return Object.assign(fakeRepository({ gateway: { port: 8443 } }), {
+    catalog: { components },
+  });
 }
 
 const repository = repositoryWith();
@@ -49,6 +49,10 @@ const repository = repositoryWith();
 beforeEach(() => {
   vi.mocked(findRoot).mockResolvedValue("/repo");
   vi.mocked(liveEnvironment).mockReturnValue("local");
+  vi.mocked(platformPlan).mockReturnValue({
+    domain: "kore.local",
+    organizationId: "platform",
+  });
 });
 
 afterEach(() => {

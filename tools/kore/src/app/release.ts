@@ -1,5 +1,6 @@
 import {
   isLocalProvider,
+  platformPlan,
   registryPlan,
   type Repository,
 } from "../config/index.js";
@@ -31,7 +32,7 @@ export function releaseArgs(
     "--set-string",
     `platform.gateway.namespace=${repository.environment.gateway.namespace}`,
     "--set-string",
-    `platform.gateway.hostname=${repository.environment.gateway.hostname}`,
+    `platform.gateway.hostname=${platformPlan(repository.environment).domain}`,
     "--set-string",
     `platform.registry.address=${registryPlan(repository.environment).address}`,
     "--set-string",

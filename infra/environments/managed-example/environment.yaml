@@ -21,13 +21,10 @@
       "cosign-system": "Enrolling the verifier's own namespace deadlocks its webhook (ADR 0056).",
       "kore-registry": "The registry serves the signatures the verifier needs, so enrolling it would make a registry restart depend on the registry (ADR 0056)."
     },
+  "platform":
+    { "domain": "platform.example.com", "organizationId": "platform" },
   "gateway":
-    {
-      "namespace": "kore-system",
-      "name": "kore-gateway",
-      "hostname": "REQUIRED",
-      "port": 443
-    },
+    { "namespace": "kore-system", "name": "kore-gateway", "port": 443 },
   "features":
     {
       "agentgateway-mesh-enrollment": false,
@@ -62,13 +59,8 @@
     },
   "componentValues":
     {
-      "kore-platform-apis":
-        ["infra/environments/managed-example/values/platform-apis.yaml"],
-      "kore-platform-keycloak":
-        ["infra/environments/managed-example/values/platform-keycloak.yaml"],
       "kore-platform-backstage":
         [
-          "infra/environments/managed-example/values/platform-backstage.yaml",
           "infra/environments/managed-example/values/mirror/platform-backstage.yaml"
         ],
       "otel-collector":

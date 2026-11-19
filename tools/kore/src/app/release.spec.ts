@@ -1,6 +1,10 @@
 // Docs: docs/decisions/0063-lifecycle-resume-and-release-only-app-up.md
 import { beforeEach, expect, test, vi } from "vitest";
-import { isLocalProvider, registryPlan } from "../config/index.js";
+import {
+  isLocalProvider,
+  platformPlan,
+  registryPlan,
+} from "../config/index.js";
 import { digest, fakeImage, fakeRepository } from "./app-support.js";
 import {
   imageReleaseArgs,
@@ -14,6 +18,10 @@ const repository = fakeRepository();
 
 beforeEach(() => {
   vi.mocked(isLocalProvider).mockReturnValue(true);
+  vi.mocked(platformPlan).mockReturnValue({
+    domain: "kore.local",
+    organizationId: "platform",
+  });
   vi.mocked(registryPlan).mockReturnValue({
     address: "registry.kore.local:30500",
   } as ReturnType<typeof registryPlan>);

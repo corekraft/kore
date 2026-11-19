@@ -40,6 +40,7 @@ const chartDelivery = {
   ),
   namespaces: Object.fromEntries(handedOver.map((name) => [name, name])),
   gatewayClassName: "istio",
+  platformDomain: "kore.local",
 };
 
 const goldenPathDelivery = {

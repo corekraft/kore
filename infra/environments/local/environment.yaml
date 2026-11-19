@@ -49,13 +49,9 @@
       "cosign-system": "Enrolling the verifier's own namespace deadlocks its webhook (ADR 0056).",
       "kore-registry": "The registry serves the signatures the verifier needs, so enrolling it would make a registry restart depend on the registry (ADR 0056)."
     },
+  "platform": { "domain": "kore.local", "organizationId": "platform" },
   "gateway":
-    {
-      "namespace": "kore-system",
-      "name": "kore-gateway",
-      "hostname": "kore.local",
-      "port": 8443
-    },
+    { "namespace": "kore-system", "name": "kore-gateway", "port": 8443 },
   "secrets":
     {
       "storeName": "platform-secrets",
@@ -65,12 +61,6 @@
     { "otlpEndpoint": "http://otel-collector.observability.svc:4318" },
   "componentValues":
     {
-      "kore-platform-apis":
-        ["infra/environments/local/values/platform-apis.yaml"],
-      "kore-platform-keycloak":
-        ["infra/environments/local/values/platform-keycloak.yaml"],
-      "kore-platform-backstage":
-        ["infra/environments/local/values/platform-backstage.yaml"],
       "istio-cni": ["infra/environments/local/values/istio-cni.yaml"],
       "prometheus": ["infra/environments/local/values/prometheus.yaml"],
       "loki": ["infra/environments/local/values/loki.yaml"],

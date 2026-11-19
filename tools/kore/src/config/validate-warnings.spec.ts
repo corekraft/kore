@@ -6,7 +6,7 @@ import { imageListErrors } from "./approved.js";
 import { overlayErrors, overlayWarnings } from "./overlay-errors.js";
 import { orderedComponents, readinessErrors } from "./order.js";
 import { policyErrors } from "./policy-validation.js";
-import { registryAddressErrors } from "./registry-address.js";
+import { environmentFieldErrors } from "./environment-errors.js";
 import { exemptionCheckMode, validateRepository } from "./validate.js";
 import {
   fakeCatalog,
@@ -31,7 +31,9 @@ vi.mock("./overlay-errors.js", () => ({
   overlayWarnings: vi.fn(),
 }));
 vi.mock("./policy-validation.js", () => ({ policyErrors: vi.fn() }));
-vi.mock("./registry-address.js", () => ({ registryAddressErrors: vi.fn() }));
+vi.mock("./environment-errors.js", () => ({
+  environmentFieldErrors: vi.fn(),
+}));
 
 function repositoryWith(environment: Partial<Environment> = {}) {
   return fakeRepository({
@@ -49,7 +51,7 @@ beforeEach(() => {
   vi.mocked(imageListErrors).mockResolvedValue([]);
   vi.mocked(policyErrors).mockResolvedValue([]);
   vi.mocked(readinessErrors).mockReturnValue([]);
-  vi.mocked(registryAddressErrors).mockReturnValue([]);
+  vi.mocked(environmentFieldErrors).mockReturnValue([]);
   vi.mocked(orderedComponents).mockReturnValue([]);
 });
 

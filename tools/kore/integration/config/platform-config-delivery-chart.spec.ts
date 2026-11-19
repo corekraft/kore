@@ -69,14 +69,20 @@ test("the handover keeps the Helm release name and the release namespace, so Arg
 test("only kore-platform-config is passed the gateway class kore derives, as the chart's own gateway.className", async () => {
   for (const doc of await applications()) {
     const name = /^ {2}name: (.+)$/m.exec(doc)![1]!;
-    if (name === "kore-platform-config") {
-      assert.match(
-        doc,
-        /parameters:\n\s+- name: "gateway\.className"\n\s+value: "agentgateway"/,
-      );
-    } else {
-      assert.doesNotMatch(doc, /parameters:/);
-    }
+    assert.equal(
+      /- name: "gateway\.className"\n\s+value: "agentgateway"/.test(doc),
+      name === "kore-platform-config",
+    );
+  }
+});
+
+test("only kore-platform-config and kore-local-tls are passed the platform domain, as the charts' own gateway.hostname, over any values file", async () => {
+  for (const doc of await applications()) {
+    const name = /^ {2}name: (.+)$/m.exec(doc)![1]!;
+    assert.equal(
+      /- name: "gateway\.hostname"\n\s+value: "kore\.local"/.test(doc),
+      name === "kore-platform-config" || name === "kore-local-tls",
+    );
   }
 });
 
@@ -91,6 +97,8 @@ test("a render without the gateway class fails rather than leaving kore-platform
       `charts=${JSON.stringify(lock())}`,
       "--set-json",
       `namespaces=${JSON.stringify(await namespaces())}`,
+      "--set-string",
+      "platformDomain=kore.local",
     ]),
   );
   assert.match(message, /gatewayClassName/);

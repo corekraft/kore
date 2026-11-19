@@ -28,7 +28,12 @@ const repository = {
       "agentgateway-mesh-enrollment": false,
     },
   },
-  chartDelivery: { charts: {}, namespaces: {}, gatewayClassName: "istio" },
+  chartDelivery: {
+    charts: {},
+    namespaces: {},
+    gatewayClassName: "istio",
+    platformDomain: "kore.local",
+  },
   goldenPathDelivery: {
     repoURL: "https://github.com/corekraft/kore.git",
     revision: "a".repeat(40),

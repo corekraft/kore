@@ -17,8 +17,8 @@
 # overriding an earlier one key by key, and the Application carries the result
 # as helm.valuesObject, so Argo CD renders the chart as `helm upgrade --values`
 # would. The values are desired state in the repository: no secret is among
-# them, and kore passes none. The gateway class stays a parameter, which
-# Argo CD applies over the values.
+# them, and kore passes none. The gateway class and the platform domain stay
+# parameters, which Argo CD applies over the values.
 {{- range $name, $entry := .Values.charts }}
 ---
 apiVersion: argoproj.io/v1alpha1
@@ -51,6 +51,12 @@ spec:
       parameters:
         - name: "gateway.className"
           value: {{ $.Values.gatewayClassName | quote }}
+        - name: "gateway.hostname"
+          value: {{ $.Values.platformDomain | quote }}
+      {{- else if eq $name "kore-local-tls" }}
+      parameters:
+        - name: "gateway.hostname"
+          value: {{ $.Values.platformDomain | quote }}
       {{- end }}
   destination:
     server: https://kubernetes.default.svc

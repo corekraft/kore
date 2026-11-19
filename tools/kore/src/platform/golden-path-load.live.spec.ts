@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { loadavg } from "node:os";
 import test from "node:test";
-import { loadRepository } from "../config/index.js";
+import { loadRepository, platformPlan } from "../config/index.js";
 import { ProcessRunner, liveEnvironment } from "../runtime/index.js";
 import { mkcertRoot } from "./gateway-cluster.live.js";
 import { goldenPathRouteSet } from "./golden-path-routes.js";
@@ -61,7 +61,7 @@ async function context() {
     kubeContext,
     service,
     namespace: `${service}--${name}`,
-    hostname: `${service}.platform.${gateway.hostname}`,
+    hostname: `${service}.platform.${platformPlan(repository.environment).domain}`,
     port: gateway.port,
     caRoot: await mkcertRoot(runner),
     deps: {

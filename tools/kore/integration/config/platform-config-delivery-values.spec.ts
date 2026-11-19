@@ -61,7 +61,11 @@ test("the rendered kore-platform-config Application carries the overlay's gatewa
   assert.equal(values?.gateway?.service?.type, "NodePort");
   assert.equal(values?.gateway?.service?.nodePort, 30443);
   assert.equal(values?.gateway?.port, 8443);
-  assert.equal(values?.gateway?.hostname, "kore.local");
+  assert.equal(
+    values?.gateway?.hostname,
+    undefined,
+    "the platform domain is a parameter, not a values-file key",
+  );
 });
 
 test("a release's values files merge in the order given, a later file overriding an earlier one key by key, as Helm's own --values does", async () => {

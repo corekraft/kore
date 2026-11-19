@@ -35,6 +35,7 @@ vi.mock("../config/index.js", () => ({
   featureHelmArgs: vi.fn(),
   gatewayClassName: vi.fn(),
   noMatchPolicy: vi.fn(),
+  platformHelmArgs: vi.fn(),
   registryConsumers: ["oci-registry", "kore-image-policy"],
   registeredServiceHelmArgs: vi.fn(),
   registryHelmArgs: vi.fn(),

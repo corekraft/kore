@@ -37,6 +37,19 @@ registry Service pin, the image policy glob, and every push, sign, and deploy
 reference from it, so changing it there moves everything
 ([ADR 0031](docs/decisions/0031-registry-address-platform-variable.md)).
 
+The platform's names are one per-environment field too, `platform` in
+`environment.yaml`: `domain` (local: `kore.local`) and `organizationId`
+(`platform`). `kore` validates both before any cluster command (a lowercase DNS
+name of at least two labels, and one lowercase label), then derives every copy
+from them: the Gateway hostname, the platform APIs, Keycloak and Backstage
+`platformDomain`, the certificate host, the reference application's route host
+and the delivery path's `platformDomain`. A values file or chart default that
+repeated the domain would be a second owner, so none do; a service host is
+`<service>.<organizationId>.<domain>`
+([ADR 0042](docs/decisions/0042-organization-domains-by-delegation.md)). A
+check renders the platform Gateway and the routes attached to it and fails when
+a route host has no listener hostname that serves it.
+
 An overlay may also carry a `features:` map of flag name to boolean, off unless
 set `true`. `kore` validates it with the rest of the overlay before any
 mutation and passes each flag to local charts as `features.<name>`, so charts
