@@ -1,5 +1,6 @@
 // Docs: infra/plans/14-test-tiers.md#step-2-pilots
 import { afterEach, beforeEach, expect, test, vi } from "vitest";
+import type { Runner } from "../runtime/index.js";
 import { errorMessage } from "./probe.js";
 import {
   failureAcrossBounds,
@@ -8,12 +9,19 @@ import {
   ReadinessTimeout,
   retryBudget,
   timeoutMilliseconds,
+  waitForConditions,
 } from "./readiness-poll.js";
 
 vi.mock("./probe.js");
 
 type Probe = () => Promise<string | undefined>;
 type Attempt = (bound: string) => Promise<void>;
+
+/** The exit-1 kubectl gives at once while a new CRD has no status yet (#1292). */
+const NO_STATUS_YET =
+  "error: .status.conditions accessor error: <nil> is of the type <nil>, expected []interface{}";
+
+const waitRunner = (run: Runner["run"]): Runner => ({ run });
 
 beforeEach(() => {
   vi.useFakeTimers();
@@ -233,4 +241,119 @@ test("once the budget is spent, a later timed-out component is not given the lon
   await failureAcrossBounds(["3s", "15s"], attempt, budget);
 
   expect(attempt.mock.calls).toEqual([["3s"]]);
+});
+
+test("a CRD that is not served yet is retried every 250 ms until it is Established", async () => {
+  const notFound = new Error(
+    'Error from server (NotFound): customresourcedefinitions "x" not found',
+  );
+  const run = vi
+    .fn<Runner["run"]>()
+    .mockRejectedValueOnce(notFound)
+    .mockResolvedValueOnce({ stdout: "", stderr: "", code: 0 });
+  const done = waitForConditions(
+    "k3d-kore-local",
+    waitRunner(run),
+    "crd/x",
+    ["Established"],
+    "10s",
+  );
+
+  await vi.advanceTimersByTimeAsync(250);
+  await done;
+
+  expect(run).toHaveBeenCalledTimes(2);
+});
+
+test("a CRD with no status yet is retried, not failed at once, until it is Established", async () => {
+  const run = vi
+    .fn<Runner["run"]>()
+    .mockRejectedValueOnce(new Error(NO_STATUS_YET))
+    .mockRejectedValueOnce(new Error(NO_STATUS_YET))
+    .mockResolvedValueOnce({ stdout: "", stderr: "", code: 0 });
+  const done = waitForConditions(
+    "k3d-kore-local",
+    waitRunner(run),
+    "crd/x",
+    ["Established"],
+    "10s",
+  );
+
+  await vi.advanceTimersByTimeAsync(500);
+  await done;
+
+  expect(run).toHaveBeenCalledTimes(3);
+});
+
+test("a CRD that never gets a status fails at its bound with the last kubectl error, after the same probes as any wait", async () => {
+  const run = vi
+    .fn<Runner["run"]>()
+    .mockRejectedValue(new Error(NO_STATUS_YET));
+  const outcome = expect(
+    waitForConditions(
+      "k3d-kore-local",
+      waitRunner(run),
+      "crd/x",
+      ["Established"],
+      "1s",
+    ),
+  ).rejects.toThrow(NO_STATUS_YET);
+
+  await vi.advanceTimersByTimeAsync(1000);
+  await outcome;
+
+  expect(run).toHaveBeenCalledTimes(5);
+});
+
+test("a Forbidden error on a CRD wait fails at once with its own error and is not retried", async () => {
+  const forbidden = new Error(
+    'Error from server (Forbidden): customresourcedefinitions.apiextensions.k8s.io "x" is forbidden',
+  );
+  const run = vi.fn<Runner["run"]>().mockRejectedValue(forbidden);
+
+  await expect(
+    waitForConditions(
+      "k3d-kore-local",
+      waitRunner(run),
+      "crd/x",
+      ["Established"],
+      "10s",
+    ),
+  ).rejects.toBe(forbidden);
+
+  expect(run).toHaveBeenCalledTimes(1);
+  expect(vi.getTimerCount()).toBe(0);
+});
+
+test("each condition is waited on in order, and the kubectl wait names the context, condition, resource and bound", async () => {
+  const run = vi
+    .fn<Runner["run"]>()
+    .mockResolvedValue({ stdout: "", stderr: "", code: 0 });
+
+  await waitForConditions(
+    "k3d-kore-local",
+    waitRunner(run),
+    "function.pkg.crossplane.io/kcl",
+    ["Installed", "Healthy"],
+    "10s",
+  );
+
+  expect(run.mock.calls.map((call) => call[1])).toEqual([
+    [
+      "--context",
+      "k3d-kore-local",
+      "wait",
+      "--for=condition=Installed",
+      "function.pkg.crossplane.io/kcl",
+      "--timeout=10s",
+    ],
+    [
+      "--context",
+      "k3d-kore-local",
+      "wait",
+      "--for=condition=Healthy",
+      "function.pkg.crossplane.io/kcl",
+      "--timeout=10s",
+    ],
+  ]);
 });

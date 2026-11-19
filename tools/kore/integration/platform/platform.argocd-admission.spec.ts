@@ -81,8 +81,10 @@ test("with the flag on, an unhealthy Application degrades Argo CD naming the App
       name: "argocd",
       namespace: "argocd",
       status: "degraded",
-      detail:
-        "applications.argoproj.io not ready (every Application Synced and Healthy) within 3s: Application kore-local-tls is OutOfSync and Missing: chart digest is not signed; run kubectl --context k3d-kore-local -n argocd describe application kore-local-tls",
+      // The elapsed time is read from the real clock, so only its shape is fixed.
+      detail: expect.stringMatching(
+        /^applications\.argoproj\.io not ready \(every Application Synced and Healthy\) after \d+\.\ds \(timeout 3s\): Application kore-local-tls is OutOfSync and Missing: chart digest is not signed; run kubectl --context k3d-kore-local -n argocd describe application kore-local-tls$/,
+      ),
     },
   ]);
 });
