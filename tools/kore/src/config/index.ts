@@ -43,7 +43,11 @@ export type {
   AuditReport,
   PromotionRecord,
 } from "./policy-promotion.js";
-export { platformHelmArgs, platformPlan } from "./platform-domain.js";
+export {
+  localCaConfigMap,
+  platformHelmArgs,
+  platformPlan,
+} from "./platform-domain.js";
 export type { PlatformPlan } from "./platform-domain.js";
 export {
   registryConsumers,
