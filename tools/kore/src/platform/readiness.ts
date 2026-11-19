@@ -4,7 +4,9 @@ import { errorMessage } from "./probe.js";
 import { customCheck } from "./readiness-custom.js";
 import { assertIssuerReady, trustRemedy } from "./readiness-issuer.js";
 import {
+  controlPlaneRestartCause,
   failureAcrossBounds,
+  isControlPlaneDrop,
   pollUntil,
   waitForConditions,
   type RetryBudget,
@@ -279,8 +281,12 @@ async function runChecks(
       await check.run(timeout);
     } catch (error) {
       const elapsed = ((Date.now() - started) / 1000).toFixed(1);
+      const message = errorMessage(error);
+      const reason = isControlPlaneDrop(message)
+        ? `${controlPlaneRestartCause(repository.environment.kubeContext)} kubectl said: ${message}`
+        : message;
       throw new Error(
-        `${resource} not ready (${check.condition}) after ${elapsed}s (timeout ${timeout}): ${errorMessage(error)}`,
+        `${resource} not ready (${check.condition}) after ${elapsed}s (timeout ${timeout}): ${reason}`,
       );
     }
   }
