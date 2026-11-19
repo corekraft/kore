@@ -112,6 +112,20 @@ test("the sync owns the workload and its namespace: the Application creates the 
   assert.doesNotMatch(set, /kind: Namespace/);
 });
 
+test("with sharedGateway the sync labels each app namespace it creates with the platform-owned shared-gateway label", async () => {
+  const set = (await delivery("--set", "sharedGateway=true"))[0]!;
+  assert.match(
+    set,
+    /syncOptions:\n\s+- CreateNamespace=true\n\s+managedNamespaceMetadata:\n\s+labels:\n\s+platform\.kore\.dev\/shared-gateway: "true"/,
+  );
+});
+
+test("without sharedGateway the sync sets no namespace metadata, so app namespaces are unchanged", async () => {
+  const set = (await delivery())[0]!;
+  assert.doesNotMatch(set, /managedNamespaceMetadata/);
+  assert.doesNotMatch(set, /shared-gateway/);
+});
+
 test("the generated Application carries the service's part-of label, so Backstage finds it with the same selector as the workload", async () => {
   const set = (await delivery())[0]!;
   assert.match(

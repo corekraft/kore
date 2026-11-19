@@ -110,6 +110,8 @@ export async function composeGoldenPathDelivery(
         platformDomain: platformPlan(repository.environment).domain,
         gatewayClassName: gatewayClassName(repository.environment),
       },
+      sharedGateway:
+        repository.environment.features?.["platform-shared-gateway"] === true,
     },
   };
 }

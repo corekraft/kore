@@ -7,8 +7,14 @@
   (ADR 0133); this chart's own Gateway stays until its routes move onto the
   platform Gateway (ADR 0132). Nothing renders without ingress.host, which only
   the ApplicationSet sets.
+
+  With platform-shared-gateway on, the ApplicationSet also sets
+  ingress.sharedGateway, and a host under its domain gets a second route that
+  attaches to the shared Gateway, beside this chart's own Gateway. The route owns
+  no listener or certificate (ADR 0133); a host outside the domain gets none.
 */ -}}
 {{- with .Values.ingress }}
+{{- $ingress := . }}
 ---
 apiVersion: gateway.networking.k8s.io/v1
 kind: Gateway
@@ -63,4 +69,29 @@ spec:
         - {name: {{ $.Values.service }}-bff, port: 80}
     - backendRefs:
         - {name: {{ $.Values.service }}-frontend, port: 80}
+{{- with .sharedGateway }}
+{{- if hasSuffix (printf ".%s" .domain) $ingress.host }}
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: {{ $.Values.service }}-shared
+  labels:
+    app.kubernetes.io/part-of: {{ $.Values.service }}
+spec:
+  parentRefs:
+    - kind: Gateway
+      name: {{ .name }}
+      namespace: {{ .namespace }}
+  hostnames:
+    - {{ $ingress.host | quote }}
+  rules:
+    - matches:
+        - path: {type: PathPrefix, value: /api}
+      backendRefs:
+        - {name: {{ $.Values.service }}-bff, port: 80}
+    - backendRefs:
+        - {name: {{ $.Values.service }}-frontend, port: 80}
+{{- end }}
+{{- end }}
 {{- end }}

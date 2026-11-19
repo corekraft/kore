@@ -32,6 +32,22 @@
         "issuer": {
           "type": "string",
           "minLength": 1
+        },
+        "sharedGateway": {
+          "description": "Set by the ApplicationSet only while platform-shared-gateway is on (ADR 0133): the shared platform Gateway and the organization's domain its wildcard listener serves. A host under that domain also gets a route on it; any other host does not.",
+          "type": "object",
+          "required": ["name", "namespace", "domain"],
+          "additionalProperties": false,
+          "properties": {
+            "name": { "type": "string", "minLength": 1 },
+            "namespace": { "type": "string", "minLength": 1 },
+            "domain": {
+              "description": "The platform organization's domain, <organizationId>.<platformDomain>, which the shared Gateway's wildcard listener serves.",
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 190
+            }
+          }
         }
       }
     }
