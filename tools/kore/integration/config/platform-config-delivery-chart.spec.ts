@@ -1,6 +1,5 @@
 import assert from "node:assert/strict";
 import { execFile } from "node:child_process";
-import { readdir, readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { promisify } from "node:util";
 import { test } from "vitest";
@@ -14,6 +13,10 @@ import {
   releaseOwner,
   validateRepository,
 } from "../../src/config/index.js";
+import {
+  namespacedKinds,
+  renderedKinds,
+} from "./platform-config-delivery-chart-support.js";
 
 // Docs: docs/decisions/0043-platform-configuration-through-argo-cd.md
 
@@ -153,7 +156,7 @@ test("a render without the gateway class fails rather than leaving kore-platform
   assert.match(message, /gatewayClassName/);
 });
 
-test("the handover deletes nothing: no prune, no cascade finalizer, no namespace creation, no replace", async () => {
+test("the handover deletes nothing: no prune, no cascade finalizer, no replace", async () => {
   for (const doc of await applications()) {
     assert.match(doc, /prune: false/);
     assert.match(doc, /selfHeal: true/);
@@ -161,10 +164,26 @@ test("the handover deletes nothing: no prune, no cascade finalizer, no namespace
     assert.match(doc, /PruneLast=true/);
     assert.doesNotMatch(doc, /finalizers/);
     assert.doesNotMatch(doc, /prune: true/);
-    assert.doesNotMatch(doc, /CreateNamespace=true/);
     assert.doesNotMatch(doc, /Replace=true/);
     assert.doesNotMatch(doc, /Force=true/);
   }
+});
+
+test("a delivered release's namespace has one owner, Argo CD through CreateNamespace, and the chart renders no Namespace object", async () => {
+  for (const doc of await applications()) {
+    const name = /^ {2}name: (.+)$/m.exec(doc)![1]!;
+    assert.match(doc, /CreateNamespace=true/, name);
+  }
+  const docs = await render();
+  assert.equal(
+    docs.some((d) => /^kind: Namespace$/m.test(d)),
+    false,
+  );
+});
+
+test("the AppProject whitelists the core-group Namespace kind, which CreateNamespace needs to create a missing release namespace", async () => {
+  const project = (await render()).find((d) => /^kind: AppProject$/m.test(d))!;
+  assert.match(project, /- group: ""\n\s+kind: Namespace\n/);
 });
 
 test("the Applications sit in an AppProject that allows only the platform registry and the release namespaces, and only platform operators may change it", async () => {
@@ -260,55 +279,6 @@ test("the delivery chart is a gated release owned by kore, installed after Argo 
   const order = orderedComponents(on.catalog).map((c) => c.name);
   assert.ok(order.indexOf("argocd") < order.indexOf(name));
 });
-
-// Kinds the six charts render that live in a namespace. A kind in neither this
-// list nor the AppProject whitelist fails the spec, so a new one is decided.
-const namespacedKinds = new Set([
-  "Deployment",
-  "ConfigMap",
-  "Service",
-  "ServiceAccount",
-  "Certificate",
-  "Gateway",
-  "AuthorizationPolicy",
-  "PeerAuthentication",
-]);
-
-async function yamlFiles(dir: string): Promise<string[]> {
-  const entries = await readdir(dir, { withFileTypes: true });
-  const nested = await Promise.all(
-    entries.map((entry) =>
-      entry.isDirectory()
-        ? yamlFiles(join(dir, entry.name))
-        : Promise.resolve(
-            entry.name.endsWith(".yaml") ? [join(dir, entry.name)] : [],
-          ),
-    ),
-  );
-  return nested.flat();
-}
-
-const topLevelKinds = (text: string) =>
-  [...text.matchAll(/^kind: (\w+)$/gm)].map((m) => m[1]!);
-
-async function renderedKinds(name: string): Promise<string[]> {
-  const root = await findRoot();
-  const repository = await loadRepository("local");
-  const component = repository.catalog.components.find((c) => c.name === name)!;
-  if (component.chart) {
-    const { stdout } = await run("helm", [
-      "template",
-      name,
-      join(root, component.chart),
-      "--set",
-      "gateway.className=kore",
-    ]);
-    return topLevelKinds(stdout);
-  }
-  const files = await yamlFiles(join(root, component.source!));
-  const texts = await Promise.all(files.map((f) => readFile(f, "utf8")));
-  return texts.flatMap(topLevelKinds);
-}
 
 test("the AppProject whitelists exactly the cluster-scoped kinds the six charts render, with no wildcard", async () => {
   const project = (await render()).find((d) => /^kind: AppProject$/m.test(d))!;
