@@ -3,7 +3,7 @@ import { parsePodMetrics, summarizeSamples } from "./ingress-metrics.js";
 import type { MeasurementSummary, PodUsage } from "./ingress-metrics.js";
 import { summarizeLatency } from "./ingress-metrics.js";
 import type { LatencySummary } from "./ingress-metrics.js";
-import { countRound, loadArgs } from "./route-load.js";
+import { countRound, loadArgs, resolveValue } from "./route-load.js";
 import type { LoadRoute } from "./route-load.js";
 
 // Docs: infra/plans/13-agentgateway-ingress.md#measurement-method
@@ -41,6 +41,8 @@ export interface MeasurementOptions {
   port: number;
   /** The mkcert CAROOT directory; the load verifies the local CA. */
   caRoot: string;
+  /** The published address the hostname resolves to; unset is loopback. */
+  address?: string;
   /** Idle wait before the first sample. */
   settleSeconds: number;
   sampleCount: number;
@@ -206,7 +208,7 @@ export class IngressMeasurement {
           "--cacert",
           `${caRoot}/rootCA.pem`,
           "--resolve",
-          `${hostname}:${port}:127.0.0.1`,
+          resolveValue(this.options),
           `https://${hostname}:${port}${route.path}#[1-${probes}]`,
         ],
         { capture: true },

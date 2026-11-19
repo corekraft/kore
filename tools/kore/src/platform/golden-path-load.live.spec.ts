@@ -4,6 +4,7 @@ import test from "node:test";
 import { loadRepository, platformPlan } from "../config/index.js";
 import { ProcessRunner, liveEnvironment } from "../runtime/index.js";
 import { mkcertRoot } from "./gateway-cluster.live.js";
+import { goldenPathReach } from "./golden-path-reach.js";
 import { goldenPathRouteSet } from "./golden-path-routes.js";
 import {
   GoldenPathScaleCheck,
@@ -24,6 +25,8 @@ import { RatedMeasurement } from "./ingress-rated-measurement.js";
 //   against the cluster, separate from the reference routes' numbers;
 // - the scale check, whose one cluster write is `kubectl scale` on the BFF
 //   Deployment, put back to the count it had before the run however it ends.
+// The probes reach the Service at its published address; with none published
+// the run fails before any load is sent, naming the Service (golden-path-reach.ts).
 // Only baselines are recorded; there is no target. KORE_GOLDEN_PATH_SERVICE
 // names the delivered Service (default golden-path-example),
 // KORE_SCALE_PEAK_REPLICAS is N (default 4) and KORE_SCALE_START_REPLICAS sets
@@ -53,16 +56,23 @@ function count(variable: string): number | undefined {
 
 async function context() {
   const repository = await loadRepository(liveEnvironment());
-  const { gateway, kubeContext, name } = repository.environment;
+  const { kubeContext, name } = repository.environment;
   const service = process.env.KORE_GOLDEN_PATH_SERVICE ?? "golden-path-example";
   const runner = new ProcessRunner();
+  // Fails before any load when the Service publishes no address to reach.
+  const reach = await goldenPathReach(runner, {
+    kubeContext,
+    namespace: `${service}--${name}`,
+    service,
+  });
   return {
     runner,
     kubeContext,
     service,
     namespace: `${service}--${name}`,
     hostname: `${service}.platform.${platformPlan(repository.environment).domain}`,
-    port: gateway.port,
+    port: reach.port,
+    address: reach.address,
     caRoot: await mkcertRoot(runner),
     deps: {
       sleep: (seconds: number) =>
@@ -93,6 +103,7 @@ test(
         gateway: { namespace: c.namespace, name: c.service },
         hostname: c.hostname,
         port: c.port,
+        address: c.address,
         caRoot: c.caRoot,
         routeSet: goldenPathRouteSet,
       },
@@ -124,6 +135,7 @@ test(
         peakReplicas: count("KORE_SCALE_PEAK_REPLICAS") ?? 4,
         hostname: c.hostname,
         port: c.port,
+        address: c.address,
         caRoot: c.caRoot,
       },
       c.deps,

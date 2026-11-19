@@ -17,6 +17,17 @@ export interface LoadTarget {
   caRoot: string;
   requestsPerRoute: number;
   concurrency: number;
+  /**
+   * The published address the hostname resolves to. Unset is the k3d load
+   * balancer on loopback, which serves only the shared Gateway.
+   */
+  address?: string;
+}
+
+/** The curl `--resolve` value that points the hostname and port at the address. */
+export function resolveValue(target: LoadTarget): string {
+  const { hostname, port, address = "127.0.0.1" } = target;
+  return `${hostname}:${port}:${address}`;
 }
 
 /** The curl arguments of one round of a route: `requestsPerRoute` GETs, `concurrency` in flight. */
@@ -36,7 +47,7 @@ export function loadArgs(target: LoadTarget, path: string): string[] {
     "--cacert",
     `${caRoot}/rootCA.pem`,
     "--resolve",
-    `${hostname}:${port}:127.0.0.1`,
+    resolveValue(target),
     "--parallel",
     "--parallel-max",
     String(concurrency),
