@@ -5,17 +5,13 @@ import { join } from "node:path";
 import { promisify } from "node:util";
 import {
   findRoot,
+  loadRepository,
+  platformArgocdDeliveryFlag,
   type Component,
   type Repository,
 } from "../../src/config/index.js";
+import { withFlags } from "../platform-config-delivery-project-support.js";
 import {
-  admitted,
-  appProject,
-  renderDelivery,
-  withFlags,
-} from "../platform-config-delivery-project-support.js";
-import {
-  namespacedKinds,
   renderedResources,
   resourcesOf,
   type Resource,
@@ -23,29 +19,50 @@ import {
 
 const run = promisify(execFile);
 
-/** The flags whose components kore hands to Argo CD only while they are on. */
-export const matrixFlags = [
+/** The Next proof flags a live run turns on beside platform-argocd-delivery. */
+export const proofFlags = [
   "platform-dns",
   "platform-shared-gateway",
   "platform-hostname-ownership",
+  "platform-portal",
 ] as const;
 
-/** The local repository with every flag off but `on`, Argo CD delivery staying on. */
-export async function withOnly(on: string | undefined): Promise<Repository> {
-  const off = await withFlags(false);
+/** One set of flags to render under: local as it is, or every flag off, plus the flags turned on. */
+export interface FlagSet {
+  label: string;
+  base: "local" | "off";
+  flags: readonly string[];
+}
+
+export const flagSets: readonly FlagSet[] = [
+  { label: "every flag off", base: "off", flags: [] },
+  { label: "local as it is", base: "local", flags: [] },
+  ...proofFlags.map((flag): FlagSet => ({
+    label: `${flag} on`,
+    base: "local",
+    flags: [flag],
+  })),
+  { label: "all proof flags together", base: "local", flags: proofFlags },
+];
+
+/** The local repository under a flag set, Argo CD delivery on. */
+export async function repositoryFor(set: FlagSet): Promise<Repository> {
+  const base =
+    set.base === "off" ? await withFlags(false) : await loadRepository("local");
   return {
-    ...off,
+    ...base,
     environment: {
-      ...off.environment,
+      ...base.environment,
       features: {
-        ...off.environment.features,
-        ...(on === undefined ? {} : { [on]: true }),
+        ...base.environment.features,
+        [platformArgocdDeliveryFlag]: true,
+        ...Object.fromEntries(set.flags.map((flag) => [flag, true])),
       },
     },
   };
 }
 
-function componentOf(repository: Repository, name: string): Component {
+export function componentOf(repository: Repository, name: string): Component {
   const component = repository.catalog.components.find((c) => c.name === name);
   if (component === undefined) {
     throw new Error(`${name} is not in the component catalog`);
@@ -123,28 +140,12 @@ export async function renderDelivered(
   return { resources: resourcesOf(stdout), text: stdout };
 }
 
-/** Every kind or namespace a delivered release renders that the AppProject does not admit. */
-export async function unadmitted(repository: Repository): Promise<string[]> {
-  const { docs } = await renderDelivery(repository);
-  const { clusterKinds, destinations } = admitted(appProject(docs));
-  const refused: string[] = [];
-  for (const application of deliveredApplications(docs)) {
-    const component = componentOf(repository, application.name);
-    const { resources } = await renderDelivered(repository, application);
-    if (resources.length === 0) {
-      refused.push(`${application.name}: renders nothing`);
-    }
-    for (const resource of resources) {
-      const kind = `${resource.group}/${resource.kind}`;
-      const space = resource.namespace ?? component.namespace;
-      if (!namespacedKinds.has(kind) && !clusterKinds.includes(kind)) {
-        refused.push(`${application.name}: ${kind} is not whitelisted`);
-      } else if (namespacedKinds.has(kind) && !destinations.includes(space)) {
-        refused.push(
-          `${application.name}: ${kind} in ${space} is not a destination`,
-        );
-      }
-    }
+/** What an error says: a failed process's stderr, else its message, on one line. */
+export function message(error: unknown): string {
+  const stderr = (error as { stderr?: unknown }).stderr;
+  let text = error instanceof Error ? error.message : String(error);
+  if (typeof stderr === "string" && stderr.trim() !== "") {
+    text = stderr;
   }
-  return refused;
+  return text.trim().replaceAll(/\s*\n\s*/g, " ");
 }

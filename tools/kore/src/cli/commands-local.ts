@@ -5,11 +5,6 @@ import {
 } from "../images/index.js";
 import { localDown, localUp, withHostResolver } from "../local/index.js";
 import {
-  assertChartLockMatchesCheckout,
-  composeChartDelivery,
-  composeGoldenPathDelivery,
-} from "../platform/index.js";
-import {
   applySmtpCredentials,
   installLocalTrust,
   parseSmtpCredentials,
@@ -17,23 +12,20 @@ import {
 } from "../security/index.js";
 import { mutateAction } from "./context.js";
 import type { CommandContext } from "./context.js";
-import { boolFlag, stringFlag } from "./flags.js";
+import { boolFlag } from "./flags.js";
+import { composeLocalDelivery, lockCheck } from "./local-chart-lock.js";
 import { print } from "./output.js";
 
 export async function localCommand(context: CommandContext): Promise<number> {
   const { repository } = context;
+  if (context.action === "lock-check") {
+    return await lockCheck(context);
+  }
   return await mutateAction(context, {
     up: async (_context, runner) => {
-      // Schema-check both release locks before any cluster call (ADR 0043),
-      // and prove the chart lock was published from this checkout's charts.
-      const chartLock = stringFlag(context.parsed, "platform-chart-lock");
-      const charts = await composeChartDelivery(repository, chartLock);
-      await assertChartLockMatchesCheckout(repository, runner, chartLock);
-      const delivered = await composeGoldenPathDelivery(
-        charts,
-        runner,
-        stringFlag(context.parsed, "platform-template-lock"),
-      );
+      // Both release locks are checked, and the chart lock compared with the
+      // checkout, before any cluster call (ADR 0043).
+      const delivered = await composeLocalDelivery(context, runner);
       // With platform-dns on, the host resolver file is brought up to date first (ADR 0132).
       return await withHostResolver(
         delivered,

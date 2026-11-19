@@ -206,3 +206,18 @@ test("platform status does not fail for a gated-off row, but still fails for a d
   ] as never);
   expect(await main(["platform", "status"])).toBe(1);
 });
+
+test("local lock-check compares the chart lock read-only, without locking or mutating", async () => {
+  expect(
+    await main([
+      "local",
+      "lock-check",
+      "--environment",
+      "local",
+      "--platform-chart-lock",
+      "platform-charts.lock.json",
+      "--json",
+    ]),
+  ).toBe(0);
+  expect(dispatch).toEqual(["chartLockDrift"]);
+});

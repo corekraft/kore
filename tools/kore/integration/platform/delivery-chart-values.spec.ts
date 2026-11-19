@@ -6,7 +6,6 @@ import { join } from "node:path";
 import { promisify } from "node:util";
 import { describe, test } from "vitest";
 import {
-  gatewayClassName,
   loadRepository,
   platformArgocdDeliveryFlag,
   type Repository,
@@ -16,23 +15,14 @@ import {
   helmTemplateArgs,
   withAbsoluteChart,
 } from "../../src/platform/index.js";
-import {
-  argocdOwned,
-  renderDelivery,
-} from "../platform-config-delivery-project-support.js";
 import { localPlatform } from "../local-platform-support.js";
 import {
-  deliveredApplications,
-  matrixFlags,
-  renderDelivered,
+  schemaProblems,
   unadmitted,
-  withOnly,
-} from "./delivery-matrix-support.js";
-import {
-  generatedPorts,
-  merge,
-  overlayPorts,
-} from "./gateway-service-ports-support.js";
+  valueProblems,
+} from "./delivery-matrix-checks-support.js";
+import { portProblems } from "./delivery-matrix-ports-support.js";
+import { flagSets, repositoryFor } from "./delivery-matrix-support.js";
 
 const platform = await localPlatform();
 
@@ -167,69 +157,39 @@ test("kore-config-delivery composed from the local overlay renders the platform-
   );
 });
 
-// The flag matrix: with each of the flags that gate a delivered release on, and
-// with all of them off, the repository's charts are rendered as Argo CD renders
-// them. A live run found five faults a render shows; each case here fails on
-// the fault it would have found (#1340, #1343, #1345, #1346, #1347).
-const matrix: [string, string | undefined][] = [
-  ["every flag off", undefined],
-  ...matrixFlags.map((flag): [string, string] => [`${flag} on`, flag]),
+// The flag matrix: under each set of flags, the repository's charts are
+// rendered as Argo CD renders them. Live runs found faults a render shows; each
+// check fails on the fault it would have found (#1340 schema, #1343 AppProject
+// kind, #1345 derived hostname, #1347 Gateway Service port name).
+const checks: [string, typeof schemaProblems][] = [
+  [
+    "the delivery chart's schema accepts every enabled component",
+    schemaProblems,
+  ],
+  [
+    "every kind and namespace a delivered chart renders is admitted by the AppProject",
+    unadmitted,
+  ],
+  [
+    "every delivered chart renders from its Application's values, with the derived values non-empty",
+    valueProblems,
+  ],
+  [
+    "every Service port a Gateway or Route refers to exists and is named",
+    portProblems,
+  ],
 ];
 
-for (const [label, flag] of matrix) {
-  describe(`with ${label}`, () => {
-    test("the delivery chart's schema accepts every component the flag enables, and delivers exactly those", async () => {
-      const repository = await withOnly(flag);
-      const { applications } = await renderDelivery(repository);
-      assert.deepEqual(
-        [...applications].sort(),
-        [...argocdOwned(repository)].sort(),
+for (const set of flagSets) {
+  describe(`with ${set.label}`, () => {
+    for (const [name, check] of checks) {
+      test(
+        name,
+        async () => {
+          assert.deepEqual(await check(set, await repositoryFor(set)), []);
+        },
+        180_000,
       );
-    }, 120_000);
-
-    test("every kind and namespace a delivered release renders is admitted by the AppProject", async () => {
-      assert.deepEqual(await unadmitted(await withOnly(flag)), []);
-    }, 120_000);
-
-    test("each delivered release renders from the Application's own values, and the derived values reach the releases that require them", async () => {
-      const repository = await withOnly(flag);
-      const { docs } = await renderDelivery(repository);
-      const applications = deliveredApplications(docs);
-      const parameters = (name: string) =>
-        applications.find((a) => a.name === name)!.parameters;
-      assert.deepEqual(parameters("kore-platform-config"), {
-        "gateway.className": gatewayClassName(repository.environment),
-        "gateway.hostname": platform.domain,
-        "gateway.platformHostname": `*.platform.${platform.domain}`,
-      });
-      assert.deepEqual(parameters("kore-local-tls"), {
-        "gateway.hostname": platform.domain,
-      });
-      // A chart's required value that the Application leaves out fails here.
-      for (const application of applications) {
-        await renderDelivered(repository, application);
-      }
-    }, 120_000);
-
-    test("every port of the Service the Gateway publishes is named once merged with the controller's own ports", async () => {
-      const repository = await withOnly(flag);
-      const { docs } = await renderDelivery(repository);
-      const application = deliveredApplications(docs).find(
-        (a) => a.name === "kore-platform-config",
-      )!;
-      const { text } = await renderDelivered(repository, application);
-      const merged = merge(
-        generatedPorts(
-          application.parameters["gateway.className"]!,
-          repository.environment.gateway.port,
-        ),
-        overlayPorts(text),
-      );
-      assert.deepEqual(
-        merged.filter((p) => !p.name),
-        [],
-        "a Service with more than one port names each",
-      );
-    }, 120_000);
+    }
   });
 }

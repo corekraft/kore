@@ -24,6 +24,7 @@ export const namespacedKinds = new Set([
   "security.istio.io/AuthorizationPolicy",
   "security.istio.io/PeerAuthentication",
   "config.gatekeeper.sh/Config",
+  "agentgateway.dev/AgentgatewayParameters",
 ]);
 
 async function yamlFiles(dir: string): Promise<string[]> {
