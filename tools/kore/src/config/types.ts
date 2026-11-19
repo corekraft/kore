@@ -178,7 +178,13 @@ export interface Environment {
     addresses?: string[];
     smtp?: { host?: string; port?: number; from?: string };
   };
-  gateway: { namespace: string; name: string; hostname: string; port: number };
+  /**
+   * The platform's one name field: the platform domain and the platform
+   * organization's identifier. Every chart's copy of the domain, the Gateway's
+   * hostname and the delivery path's value derive from it (ADR 0042).
+   */
+  platform: { domain: string; organizationId: string };
+  gateway: { namespace: string; name: string; port: number };
   secrets: { storeName: string; sourceNamespace: string };
   telemetry: { otlpEndpoint: string };
   componentValues?: Record<string, string[]>;

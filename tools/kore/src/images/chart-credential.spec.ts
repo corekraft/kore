@@ -17,6 +17,7 @@ const delivery = {
   charts: {},
   namespaces: {},
   gatewayClassName: "istio",
+  platformDomain: "kore.local",
 };
 const repository = {
   ...fakeRepository(),

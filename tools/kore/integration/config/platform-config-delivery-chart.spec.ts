@@ -70,6 +70,8 @@ async function render(...set: string[]): Promise<string[]> {
     `namespaces=${JSON.stringify(await namespaces())}`,
     "--set-string",
     "gatewayClassName=agentgateway",
+    "--set-string",
+    "platformDomain=kore.local",
     ...set,
   ]);
   return stdout.split("\n---\n").filter((doc) => /^kind:/m.test(doc));
@@ -126,14 +128,10 @@ test("the handover keeps the Helm release name and the release namespace, so Arg
 test("only kore-platform-config is passed the gateway class kore derives, as the chart's own gateway.className", async () => {
   for (const doc of await applications()) {
     const name = /^ {2}name: (.+)$/m.exec(doc)![1]!;
-    if (name === "kore-platform-config") {
-      assert.match(
-        doc,
-        /parameters:\n\s+- name: "gateway\.className"\n\s+value: "agentgateway"/,
-      );
-    } else {
-      assert.doesNotMatch(doc, /parameters:/);
-    }
+    assert.equal(
+      /- name: "gateway\.className"\n\s+value: "agentgateway"/.test(doc),
+      name === "kore-platform-config",
+    );
   }
 });
 
@@ -148,6 +146,8 @@ test("a render without the gateway class fails rather than leaving kore-platform
       `charts=${JSON.stringify(lock())}`,
       "--set-json",
       `namespaces=${JSON.stringify(await namespaces())}`,
+      "--set-string",
+      "platformDomain=kore.local",
     ]),
   );
   assert.match(message, /gatewayClassName/);
@@ -301,7 +301,7 @@ async function renderedKinds(name: string): Promise<string[]> {
       name,
       join(root, component.chart),
       "--set",
-      "gateway.className=kore",
+      "gateway.className=kore,gateway.hostname=kore.local",
     ]);
     return topLevelKinds(stdout);
   }

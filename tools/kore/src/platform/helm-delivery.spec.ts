@@ -2,8 +2,10 @@ import { beforeEach, expect, test, vi } from "vitest";
 import {
   alertEmailHelmArgs,
   alertForwardingHelmArgs,
+  componentValues,
   dashboardSidecarHelmArgs,
   featureHelmArgs,
+  platformHelmArgs,
   registeredServiceHelmArgs,
 } from "../config/index.js";
 import {
@@ -25,6 +27,7 @@ vi.mock("../config/index.js", () => ({
   featureHelmArgs: vi.fn(),
   gatewayClassName: vi.fn(),
   noMatchPolicy: vi.fn(),
+  platformHelmArgs: vi.fn(),
   registeredServiceHelmArgs: vi.fn(),
   registryConsumers: ["oci-registry", "kore-image-policy"],
   registryHelmArgs: vi.fn(),
@@ -44,6 +47,7 @@ const delivery = {
   },
   namespaces: { "kore-local-tls": "cert" },
   gatewayClassName: "istio",
+  platformDomain: "kore.local",
 };
 
 test("kore-config-delivery is given the composed chart values as JSON, so no lock or catalog is read at install", () => {
@@ -51,13 +55,15 @@ test("kore-config-delivery is given the composed chart values as JSON, so no loc
     { ...repository, chartDelivery: delivery },
     fakeComponent({ name: "kore-config-delivery" }),
   );
-  expect(args.slice(-6)).toEqual([
+  expect(args.slice(-8)).toEqual([
     "--set-json",
     `charts=${JSON.stringify(delivery.charts)}`,
     "--set-json",
     `namespaces=${JSON.stringify(delivery.namespaces)}`,
     "--set-string",
     "gatewayClassName=istio",
+    "--set-string",
+    "platformDomain=kore.local",
   ]);
 });
 
@@ -264,5 +270,24 @@ test("the metrics store's alert forwarding arguments come from the config domain
   expect(alertForwardingHelmArgs).toHaveBeenCalledWith(
     repository.environment,
     "prometheus",
+  );
+});
+
+test("a component that names the platform domain is handed the environment's value after its values files, so no hand-set copy can win", () => {
+  vi.mocked(componentValues).mockReturnValue(["infra/values/a.yaml"]);
+  vi.mocked(platformHelmArgs).mockReturnValue([
+    "--set-string",
+    "platformDomain=kore.local",
+  ]);
+  const args = helmUpgradeArgs(
+    repository,
+    fakeComponent({ name: "kore-platform-apis" }),
+  );
+  expect(args.indexOf("platformDomain=kore.local")).toBeGreaterThan(
+    args.indexOf("/repo/infra/values/a.yaml"),
+  );
+  expect(platformHelmArgs).toHaveBeenCalledWith(
+    repository.environment,
+    "kore-platform-apis",
   );
 });

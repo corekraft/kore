@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft-07/schema#",
   "type": "object",
-  "required": ["charts", "namespaces", "gatewayClassName"],
+  "required": ["charts", "namespaces", "gatewayClassName", "platformDomain"],
   "additionalProperties": false,
   "properties": {
     "namespace": { "type": "string", "minLength": 1 },
@@ -9,6 +9,12 @@
       "description": "The GatewayClass kore derives from the ingress flag; passed to kore-platform-config as gateway.className.",
       "type": "string",
       "enum": ["istio", "agentgateway"]
+    },
+    "platformDomain": {
+      "description": "The environment's platform domain, which kore passes from platform.domain; handed to kore-platform-config and kore-local-tls as gateway.hostname, because their charts hold no default.",
+      "type": "string",
+      "maxLength": 180,
+      "pattern": "^([a-z0-9]([-a-z0-9]{0,61}[a-z0-9])?\\.)+[a-z0-9]([-a-z0-9]{0,61}[a-z0-9])?$"
     },
     "project": { "type": "string", "minLength": 1 },
     "operatorsGroup": { "type": "string", "minLength": 1 },

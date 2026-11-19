@@ -12,7 +12,12 @@ vi.mock("node:fs/promises");
 vi.mock("../config/index.js");
 
 const repository = fakeRepository();
-const values = { charts: {}, namespaces: {}, gatewayClassName: "istio" };
+const values = {
+  charts: {},
+  namespaces: {},
+  gatewayClassName: "istio",
+  platformDomain: "kore.local",
+};
 
 beforeEach(() => {
   vi.mocked(helmInstalledComponents).mockReturnValue([

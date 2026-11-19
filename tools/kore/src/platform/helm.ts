@@ -9,6 +9,7 @@ import {
   featureHelmArgs,
   gatewayClassName,
   noMatchPolicy,
+  platformHelmArgs,
   registeredServiceHelmArgs,
   registryConsumers,
   registryHelmArgs,
@@ -101,6 +102,7 @@ const gatewayClassKeys: Record<string, string | undefined> = {
 function trailingArgs(repository: Repository, component: Component): string[] {
   return [
     ...goldenPathArgs(repository, component),
+    ...platformHelmArgs(repository.environment, component.name),
     ...alertAndServiceArgs(repository, component),
     ...dashboardSidecarHelmArgs(repository.environment, component.name),
   ];
@@ -180,6 +182,8 @@ function chartSelectionArgs(
       `namespaces=${JSON.stringify(delivery.namespaces)}`,
       "--set-string",
       `gatewayClassName=${delivery.gatewayClassName}`,
+      "--set-string",
+      `platformDomain=${delivery.platformDomain}`,
     );
   }
   args.push(...trailingArgs(repository, component));

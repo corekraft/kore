@@ -4,7 +4,11 @@ import { join } from "node:path";
 import { promisify } from "node:util";
 import { test } from "vitest";
 import { findRoot } from "../../src/config/index.js";
-import { gatewayClassName, loadRepository } from "../../src/config/index.js";
+import {
+  gatewayClassName,
+  loadRepository,
+  platformHelmArgs,
+} from "../../src/config/index.js";
 
 // Docs: docs/decisions/0013-local-tls-before-gateway.md
 // The platform-secrets store contract: the store the environment names is the
@@ -72,6 +76,7 @@ test("the rendered ExternalSecret and store carry no secret value", async () => 
       ),
       "--set-string",
       `gateway.className=${gatewayClassName(environment)}`,
+      ...platformHelmArgs(environment, "kore-platform-config"),
     )),
   ];
   for (const doc of docs) {
@@ -91,6 +96,7 @@ test("the environment's store name is the ClusterSecretStore the platform-config
     ),
     "--set-string",
     `gateway.className=${gatewayClassName(repository.environment)}`,
+    ...platformHelmArgs(repository.environment, "kore-platform-config"),
   );
   const store = docs.find((doc) => /^kind: ClusterSecretStore$/m.test(doc))!;
   assert.ok(store, "platform-config must render the ClusterSecretStore");

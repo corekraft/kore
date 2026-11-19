@@ -146,6 +146,8 @@ test("the config barrel exposes exactly the entry points other domains use", () 
     "patchableKinds",
     "platformArgocdDeliveryFlag",
     "platformClaimErrors",
+    "platformHelmArgs",
+    "platformPlan",
     "platformPortalFlag",
     "policyPromotionErrors",
     "probeFields",

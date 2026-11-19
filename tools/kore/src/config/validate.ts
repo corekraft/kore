@@ -1,4 +1,4 @@
-import { registryAddressErrors } from "./registry-address.js";
+import { environmentFieldErrors } from "./environment-errors.js";
 import { policyErrors } from "./policy-validation.js";
 import { catalogErrors } from "./catalog-errors.js";
 import { k3dErrors } from "./k3d-errors.js";
@@ -214,16 +214,16 @@ function duplicateErrors(components: Component[]): string[] {
 
 function crdOwnerErrors(components: Component[]): string[] {
   const errors: string[] = [];
-  const owners = new Map<string, string>();
+  const crdOwners = new Map<string, string>();
   for (const component of components) {
     for (const crd of component.ownsCRDs ?? []) {
-      const owner = owners.get(crd);
+      const owner = crdOwners.get(crd);
       if (owner) {
         errors.push(
           `CRD ${crd} has multiple owners: ${owner} and ${component.name}`,
         );
       }
-      owners.set(crd, component.name);
+      crdOwners.set(crd, component.name);
     }
   }
   return errors;
@@ -293,7 +293,7 @@ export async function validateRepository(
     ...(await imageListErrors(repository)),
     ...(await policyErrors(repository)),
     ...readinessErrors(repository),
-    ...registryAddressErrors(repository),
+    ...environmentFieldErrors(repository),
   ];
   if (errors.length) {
     throw new Error([...new Set(errors)].sort().join("\n"));

@@ -14,6 +14,11 @@
 # ingress feature flag and so passes in. No default.
 # gatewayClassName: istio
 
+# The environment's platform domain (platform.domain), which kore passes in. The
+# delivered kore-platform-config and kore-local-tls take it as gateway.hostname
+# because their charts hold no default. No default.
+# platformDomain: kore.local
+
 # Argo CD namespace, the AppProject, and the Keycloak group that alone may
 # change it (ADR 0043).
 namespace: argocd

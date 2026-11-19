@@ -2,6 +2,7 @@ import { readFile } from "node:fs/promises";
 import {
   gatewayClassName,
   helmInstalledComponents,
+  platformPlan,
   type Repository,
 } from "../config/index.js";
 import type { Runner } from "../runtime/index.js";
@@ -106,7 +107,7 @@ export async function composeGoldenPathDelivery(
       environment: repository.environment.name,
       templateImages: templates,
       ingress: {
-        platformDomain: repository.environment.gateway.hostname,
+        platformDomain: platformPlan(repository.environment).domain,
         gatewayClassName: gatewayClassName(repository.environment),
       },
     },

@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "type": "object",
-  "required": ["name", "provider", "kubeContext", "registry"],
+  "required": ["name", "provider", "kubeContext", "registry", "platform"],
   "allOf": [
     {
       "if": { "properties": { "provider": { "const": "k3d" } } },
@@ -67,6 +67,25 @@
         },
         "servers": { "type": "integer", "minimum": 1, "default": 1 },
         "agents": { "type": "integer", "minimum": 0, "default": 0 }
+      }
+    },
+    "platform": {
+      "type": "object",
+      "description": "The platform's one name field. The domain and the platform organization's identifier are written here and nowhere else: the Gateway hostname, each chart's platform domain and the delivery path's value derive from them (ADR 0042). A service host is <service>.<organizationId>.<domain>.",
+      "required": ["domain", "organizationId"],
+      "additionalProperties": false,
+      "properties": {
+        "domain": {
+          "type": "string",
+          "maxLength": 180,
+          "description": "A lowercase DNS name of at least two labels, for example kore.local.",
+          "pattern": "^([a-z0-9]([-a-z0-9]{0,61}[a-z0-9])?\\.)+[a-z0-9]([-a-z0-9]{0,61}[a-z0-9])?$"
+        },
+        "organizationId": {
+          "type": "string",
+          "description": "The platform organization's identifier, one lowercase DNS label, for example platform.",
+          "pattern": "^[a-z0-9]([-a-z0-9]{0,61}[a-z0-9])?$"
+        }
       }
     },
     "registry": {

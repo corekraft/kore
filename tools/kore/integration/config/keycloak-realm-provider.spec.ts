@@ -10,6 +10,7 @@ import {
   findRoot,
   loadRepository,
   orderedComponents,
+  platformHelmArgs,
   platformPortalFlag,
   validateRepository,
 } from "../../src/config/index.js";
@@ -41,6 +42,7 @@ async function render(
     join(root, "infra/charts", chart),
     ...(common ?? []).flatMap((file) => ["--values", join(root, file)]),
     ...values,
+    ...platformHelmArgs(repository.environment, component),
     ...flags.flatMap((flag) => ["--set", flag]),
   ]);
   return stdout;

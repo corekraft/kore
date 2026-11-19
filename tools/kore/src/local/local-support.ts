@@ -72,10 +72,10 @@ export function fakeRepository(
       provider: "k3d",
       kubeContext: "k3d-kore-local",
       registry: { address: "registry.kore.local:30500" },
+      platform: { domain: "kore.local", organizationId: "platform" },
       gateway: {
         namespace: "kore-system",
         name: "kore-gateway",
-        hostname: "kore.local",
         port: 443,
       },
       secrets: {

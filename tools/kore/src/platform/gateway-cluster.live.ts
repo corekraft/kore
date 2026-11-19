@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { randomBytes } from "node:crypto";
-import { loadRepository } from "../config/index.js";
+import { loadRepository, platformPlan } from "../config/index.js";
 import { ProcessRunner, liveEnvironment } from "../runtime/index.js";
 import type { Runner } from "../runtime/index.js";
 import { proofManifests } from "./gateway-proof.js";
@@ -91,7 +91,7 @@ async function proofOptions(
   assert.match(image, /@sha256:[0-9a-f]{64}$/, "the reference image is pinned");
   return {
     namespace,
-    hostname: gateway.hostname,
+    hostname: platformPlan(cluster.repository.environment).domain,
     gateway: { name: gateway.name, namespace: gateway.namespace },
     image,
     pullPolicy: await reference(cluster, "imagePullPolicy"),

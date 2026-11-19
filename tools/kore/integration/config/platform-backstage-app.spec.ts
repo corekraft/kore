@@ -4,7 +4,11 @@ import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { promisify } from "node:util";
 import { test } from "vitest";
-import { findRoot, loadRepository } from "../../src/config/index.js";
+import {
+  findRoot,
+  loadRepository,
+  platformHelmArgs,
+} from "../../src/config/index.js";
 
 // Docs: docs/decisions/0111-run-a-backstage-and-an-argo-cd-for-the-platform-organization-s-operators.md
 
@@ -32,6 +36,7 @@ async function render(): Promise<string> {
     "--namespace",
     "backstage",
     ...values,
+    ...platformHelmArgs(repository.environment, "kore-platform-backstage"),
   ]);
   return stdout;
 }

@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import type { loadRepository } from "../config/index.js";
+import { platformPlan, type loadRepository } from "../config/index.js";
 import type { ProcessRunner } from "../runtime/index.js";
 import { readReferenceApiToken } from "./reference-token.js";
 
@@ -32,7 +32,8 @@ async function assertStrictMtls(
 }
 
 function gatewayRequester(repository: Repository, runner: ProcessRunner) {
-  const { hostname, port } = repository.environment.gateway;
+  const { port } = repository.environment.gateway;
+  const { domain: hostname } = platformPlan(repository.environment);
   return async (path: string, authorization?: string): Promise<HttpResult> => {
     const result = await runner.run(
       "curl",

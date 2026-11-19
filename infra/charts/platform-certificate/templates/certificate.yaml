@@ -5,7 +5,7 @@ metadata:
 spec:
   secretName: {{ .Values.gateway.certificateSecret }}
   dnsNames:
-    - {{ .Values.gateway.hostname | quote }}
+    - {{ required "set gateway.hostname, or render through kore, which derives it from the environment's platform.domain" .Values.gateway.hostname | quote }}
   issuerRef:
     kind: ClusterIssuer
     name: {{ .Values.issuer.name }}

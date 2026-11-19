@@ -28,6 +28,12 @@ spec:
       parameters:
         - name: "gateway.className"
           value: {{ $.Values.gatewayClassName | quote }}
+        - name: "gateway.hostname"
+          value: {{ $.Values.platformDomain | quote }}
+      {{- else if eq $name "kore-local-tls" }}
+      parameters:
+        - name: "gateway.hostname"
+          value: {{ $.Values.platformDomain | quote }}
       {{- end }}
   destination:
     server: https://kubernetes.default.svc

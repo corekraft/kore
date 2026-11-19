@@ -24,7 +24,7 @@ spec:
   gatewayClassName: {{ required "set gateway.className, or render through kore, which derives it from the ingress-agentgateway feature flag" .Values.gateway.className }}
   listeners:
     - name: https
-      hostname: {{ .Values.gateway.hostname | quote }}
+      hostname: {{ required "set gateway.hostname, or render through kore, which derives it from the environment's platform.domain" .Values.gateway.hostname | quote }}
       port: {{ .Values.gateway.port }}
       protocol: HTTPS
       tls:

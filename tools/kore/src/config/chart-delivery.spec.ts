@@ -6,9 +6,11 @@ import {
   chartRepositoryUrls,
 } from "./chart-delivery.js";
 import { gatewayClassName } from "./features.js";
+import { platformPlan } from "./platform-domain.js";
 import { fakeComponent, fakeRepository, malformed } from "./config-support.js";
 
 vi.mock("./features.js");
+vi.mock("./platform-domain.js");
 
 const digest = (n: number) => `sha256:${n.toString(16).repeat(64)}`;
 const repository = fakeRepository({
@@ -46,6 +48,10 @@ const lock = (entries: Record<string, unknown> = {}) => ({
 
 beforeEach(() => {
   vi.mocked(gatewayClassName).mockReturnValue("istio");
+  vi.mocked(platformPlan).mockReturnValue({
+    domain: "kore.local",
+    organizationId: "platform",
+  });
 });
 
 test("the values are the lock's chart and digest and the catalog's namespace for each argocd release", () => {
@@ -62,6 +68,7 @@ test("the values are the lock's chart and digest and the catalog's namespace for
     },
     namespaces: { "kore-local-tls": "cert", "opa-authorizer": "opa" },
     gatewayClassName: "istio",
+    platformDomain: "kore.local",
   });
 });
 

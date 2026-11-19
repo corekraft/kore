@@ -1,7 +1,11 @@
 // Docs: docs/decisions/0043-platform-configuration-through-argo-cd.md (the handover values)
 import { readFile } from "node:fs/promises";
 import { beforeEach, expect, test, vi } from "vitest";
-import { gatewayClassName, helmInstalledComponents } from "../config/index.js";
+import {
+  gatewayClassName,
+  helmInstalledComponents,
+  platformPlan,
+} from "../config/index.js";
 import { composeGoldenPathDelivery } from "./golden-path-delivery.js";
 import {
   fakeComponent,
@@ -19,7 +23,8 @@ const repository = {
   ...base,
   environment: {
     ...base.environment,
-    gateway: { namespace: "g", name: "g", hostname: "kore.local", port: 8443 },
+    platform: { domain: "kore.local", organizationId: "platform" },
+    gateway: { namespace: "g", name: "g", port: 8443 },
   },
 };
 const lock = {
@@ -46,6 +51,10 @@ beforeEach(() => {
     fakeComponent({ name: "kore-golden-path-delivery" }),
   ]);
   vi.mocked(gatewayClassName).mockReturnValue("agentgateway");
+  vi.mocked(platformPlan).mockReturnValue({
+    domain: "kore.local",
+    organizationId: "platform",
+  });
   vi.mocked(readFile).mockResolvedValue(JSON.stringify(lock));
 });
 

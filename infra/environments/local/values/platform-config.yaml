@@ -1,6 +1,5 @@
 environment: local
 gateway:
-  hostname: kore.local
   port: 8443
   certificateSecret: kore-local-tls
   service:
