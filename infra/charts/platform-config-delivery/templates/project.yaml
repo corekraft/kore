@@ -1,10 +1,11 @@
 # The AppProject for the configuration-phase releases (ADR 0043). It admits only
-# the platform registry's charts and the namespaces those releases live in, and
-# only the platform operators' group may change it or its Applications.
+# the platform registry's charts, each by its oci:// URL exactly as its
+# Application names it, and the namespaces those releases live in. Only the
+# platform operators' group may change it or its Applications.
 {{- $repos := dict }}
 {{- $spaces := dict }}
 {{- range $name, $entry := .Values.charts }}
-{{- $_ := set $repos (dir $entry.chart) true }}
+{{- $_ := set $repos (printf "oci://%s" $entry.chart) true }}
 {{- $_ := set $spaces (required (printf "namespaces.%s is required" $name) (index $.Values.namespaces $name)) true }}
 {{- end }}
 apiVersion: argoproj.io/v1alpha1

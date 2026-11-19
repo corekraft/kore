@@ -98,14 +98,14 @@ test("one Application per handed-over release plus one AppProject, and never one
   assert.equal(docs.join("\n").includes("kore-image-policy"), false);
 });
 
-test("each Application pulls its chart from the platform registry pinned by the lock's digest, never by tag or version", async () => {
+test("each Application pulls its chart as an OCI source from the platform registry, pinned by the lock's digest, never by tag or version", async () => {
   for (const doc of await applications()) {
     const name = /^ {2}name: (.+)$/m.exec(doc)![1]!;
-    assert.match(doc, new RegExp(`repoURL: "${registry}"`));
-    assert.match(doc, new RegExp(`chart: "${name}"`));
+    assert.match(doc, new RegExp(`repoURL: "oci://${registry}/${name}"`));
+    assert.match(doc, /path: "\."/);
     assert.match(doc, new RegExp(`targetRevision: "${digestOf(name)}"`));
+    assert.doesNotMatch(doc, /^ {4}chart: /m);
     assert.doesNotMatch(doc, /0\.0\.0-0123456789ab/);
-    assert.doesNotMatch(doc, /oci:\/\//);
   }
 });
 
@@ -170,8 +170,15 @@ test("the handover deletes nothing: no prune, no cascade finalizer, no namespace
 test("the Applications sit in an AppProject that allows only the platform registry and the release namespaces, and only platform operators may change it", async () => {
   const project = (await render()).find((d) => /^kind: AppProject$/m.test(d))!;
   assert.match(project, /name: platform-configuration/);
-  assert.ok(project.includes(`- "${registry}"`));
+  for (const name of handedOver) {
+    assert.ok(project.includes(`- "oci://${registry}/${name}"`), name);
+  }
+  assert.equal(project.includes(`- "${registry}"`), false);
   assert.doesNotMatch(project, /sourceRepos:\n\s+- "\*"/);
+  for (const doc of await applications()) {
+    const source = /repoURL: "(.+)"/.exec(doc)![1]!;
+    assert.ok(project.includes(`- "${source}"`), source);
+  }
   for (const namespace of new Set(Object.values(await namespaces()))) {
     assert.ok(project.includes(`namespace: "${namespace}"`), namespace);
   }
