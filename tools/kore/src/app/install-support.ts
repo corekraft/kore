@@ -2,6 +2,7 @@
 // registry the kore-managed credential serves, and a chart fingerprint that
 // differs from what Helm recorded. A test overrides only the answer it tests.
 import { vi } from "vitest";
+import { defaultPlatformDomain } from "../config/index.js";
 import {
   koreManagesRegistryAuth,
   loadRegistryCredential,
@@ -27,7 +28,9 @@ export function installDefaults(): void {
   vi.mocked(loadRegistryCredential).mockResolvedValue({
     username: "kore-read",
   } as RegistryCredential);
-  vi.mocked(registryAddress).mockReturnValue("registry.kore.local:30500");
+  vi.mocked(registryAddress).mockReturnValue(
+    `registry.${defaultPlatformDomain}:30500`,
+  );
   vi.mocked(registryPullSecret).mockReturnValue({
     metadata: { name: "kore-registry-pull" },
   } as ReturnType<typeof registryPullSecret>);

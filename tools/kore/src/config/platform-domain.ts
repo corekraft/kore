@@ -7,6 +7,12 @@ export interface PlatformPlan {
 }
 
 /**
+ * The platform domain a local environment declares and the test fixtures
+ * default to. Fixtures read it from here; a test injects another domain instead.
+ */
+export const defaultPlatformDomain = "kore.local";
+
+/**
  * Longest platform domain: the 253-character name limit less a 63-character
  * service label and the organization identifier `platform` with their dots
  * (ADR 0042). The platform charts' schemas hold the same bound.

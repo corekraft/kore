@@ -29,6 +29,7 @@ vi.mock("./local-signer.js");
 vi.mock("./registry.js");
 vi.mock("./local-publish.js");
 vi.mock("../config/index.js", () => ({
+  defaultPlatformDomain: "kore.local",
   featureEnabled: vi.fn(),
   localImageReuseFlag: "local-image-reuse",
 }));

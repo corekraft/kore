@@ -122,6 +122,7 @@ test("the config barrel exposes exactly the entry points other domains use", () 
     "crdNameFormatErrors",
     "crdOwners",
     "dashboardSidecarHelmArgs",
+    "defaultPlatformDomain",
     "enabledComponents",
     "evaluateAudit",
     "exemptionCheckMode",
