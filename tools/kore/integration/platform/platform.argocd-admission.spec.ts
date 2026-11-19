@@ -1,5 +1,6 @@
 import { expect, test } from "vitest";
 import {
+  enabledComponents,
   loadRepository,
   platformArgocdDeliveryFlag,
 } from "../../src/config/index.js";
@@ -35,7 +36,11 @@ function cluster(applications: string, installed = true) {
     async run(command, args) {
       calls.push([command, ...args]);
       const line = args.join(" ");
-      if (installed && command === "helm" && line.startsWith("status argocd")) {
+      if (
+        installed &&
+        command === "helm" &&
+        /^status (argocd|kore-config-delivery) /.test(line)
+      ) {
         return {
           stdout: JSON.stringify({ info: { status: "deployed" } }),
           stderr: "",
@@ -69,21 +74,40 @@ async function repositoryWith(flag: boolean) {
   };
 }
 
-test("with the flag on, an unhealthy Application degrades Argo CD naming the Application and its cause", async () => {
+const DELIVERY_FAILURE =
+  "applications.argoproj.io not ready (every Application Synced and Healthy) within 3s: Application kore-local-tls is OutOfSync and Missing: chart digest is not signed; run kubectl --context k3d-kore-local -n argocd describe application kore-local-tls";
+
+test("with the flag on, an unhealthy Application degrades kore-config-delivery naming the Application and its cause, not Argo CD", async () => {
   const { runner } = cluster(APPLICATIONS);
 
   const rows = await platformStatus(await repositoryWith(true), runner, [
     "argocd",
+    "kore-config-delivery",
   ]);
 
   expect(rows).toEqual([
     {
       name: "argocd",
       namespace: "argocd",
-      status: "degraded",
-      detail:
-        "applications.argoproj.io not ready (every Application Synced and Healthy) within 3s: Application kore-local-tls is OutOfSync and Missing: chart digest is not signed; run kubectl --context k3d-kore-local -n argocd describe application kore-local-tls",
+      status: "ready",
+      detail: "installed and ready",
     },
+    {
+      name: "kore-config-delivery",
+      namespace: "argocd",
+      status: "degraded",
+      detail: DELIVERY_FAILURE,
+    },
+  ]);
+});
+
+test("only the delivery release, reconciled in the configuration phase, waits on Application health, so a rerun can repair a failed delivery before any Application wait", async () => {
+  const waiting = enabledComponents(await repositoryWith(true))
+    .filter(({ readiness }) => readiness.includes("applications.argoproj.io"))
+    .map(({ name, phase }) => ({ name, phase }));
+
+  expect(waiting).toEqual([
+    { name: "kore-config-delivery", phase: "configuration" },
   ]);
 });
 
