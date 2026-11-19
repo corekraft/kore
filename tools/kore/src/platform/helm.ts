@@ -144,6 +144,8 @@ function chartDeliveryArgs(
     `gatewayClassName=${delivery.gatewayClassName}`,
     "--set-string",
     `platformDomain=${delivery.platformDomain}`,
+    "--set-string",
+    `platformHostname=${delivery.platformHostname}`,
     ...(delivery.releaseValues === undefined
       ? []
       : [

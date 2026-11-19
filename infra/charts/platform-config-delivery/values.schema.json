@@ -1,7 +1,13 @@
 {
   "$schema": "https://json-schema.org/draft-07/schema#",
   "type": "object",
-  "required": ["charts", "namespaces", "gatewayClassName", "platformDomain"],
+  "required": [
+    "charts",
+    "namespaces",
+    "gatewayClassName",
+    "platformDomain",
+    "platformHostname"
+  ],
   "additionalProperties": false,
   "properties": {
     "namespace": { "type": "string", "minLength": 1 },
@@ -15,6 +21,12 @@
       "type": "string",
       "maxLength": 180,
       "pattern": "^([a-z0-9]([-a-z0-9]{0,61}[a-z0-9])?\\.)+[a-z0-9]([-a-z0-9]{0,61}[a-z0-9])?$"
+    },
+    "platformHostname": {
+      "description": "The platform organization's wildcard, *.<organizationId>.<platformDomain>, which kore passes from platform.organizationId and platform.domain; handed to kore-platform-config as gateway.platformHostname, because its wildcard certificate requires it and its chart holds no default.",
+      "type": "string",
+      "maxLength": 253,
+      "pattern": "^\\*\\.([a-z0-9]([-a-z0-9]{0,61}[a-z0-9])?\\.)+[a-z0-9]([-a-z0-9]{0,61}[a-z0-9])?$"
     },
     "project": { "type": "string", "minLength": 1 },
     "operatorsGroup": { "type": "string", "minLength": 1 },

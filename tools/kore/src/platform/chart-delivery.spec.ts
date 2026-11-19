@@ -19,6 +19,7 @@ const values = {
   namespaces: {},
   gatewayClassName: "istio",
   platformDomain: "kore.local",
+  platformHostname: "*.platform.kore.local",
 };
 const delivered = {
   charts: {
@@ -34,6 +35,7 @@ const delivered = {
   namespaces: {},
   gatewayClassName: "istio",
   platformDomain: "kore.local",
+  platformHostname: "*.platform.kore.local",
 };
 const lockText = '{"version":1,"entries":{}}';
 /** readFile answers the lock with its text and each values file from `files`, failing any other path. */

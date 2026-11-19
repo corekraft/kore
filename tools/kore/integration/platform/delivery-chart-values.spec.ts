@@ -44,6 +44,7 @@ const chartDelivery = {
   namespaces: Object.fromEntries(handedOver.map((name) => [name, name])),
   gatewayClassName: "istio",
   platformDomain: platform.domain,
+  platformHostname: `*.platform.${platform.domain}`,
 };
 
 const goldenPathDelivery = {

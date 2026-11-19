@@ -33,6 +33,7 @@ const repository = {
     namespaces: {},
     gatewayClassName: "istio",
     platformDomain: "kore.local",
+    platformHostname: "*.platform.kore.local",
   },
   goldenPathDelivery: {
     repoURL: "https://github.com/corekraft/kore.git",

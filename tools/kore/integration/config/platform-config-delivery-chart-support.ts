@@ -63,6 +63,8 @@ export async function render(...set: string[]): Promise<string[]> {
     "gatewayClassName=agentgateway",
     "--set-string",
     `platformDomain=${platform.domain}`,
+    "--set-string",
+    `platformHostname=*.platform.${platform.domain}`,
     ...set,
   ]);
   return stdout.split("\n---\n").filter((doc) => /^kind:/m.test(doc));

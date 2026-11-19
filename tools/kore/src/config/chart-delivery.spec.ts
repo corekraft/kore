@@ -70,7 +70,14 @@ test("the values are the lock's chart and digest and the catalog's namespace for
     namespaces: { "kore-local-tls": "cert", "opa-authorizer": "opa" },
     gatewayClassName: "istio",
     platformDomain: "kore.local",
+    platformHostname: "*.platform.kore.local",
   });
+});
+
+test("the platform wildcard is the value kore-platform-config takes as gateway.platformHostname, derived from the same organization and domain as the Helm path", () => {
+  expect(chartDeliveryValues(repository, lock()).platformHostname).toBe(
+    "*.platform.kore.local",
+  );
 });
 
 test("the image policy never reaches the values, and a lock entry for it is refused", () => {
