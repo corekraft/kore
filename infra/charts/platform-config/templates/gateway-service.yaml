@@ -12,14 +12,9 @@ data:
   service: |
     spec:
       type: {{ .Values.gateway.service.type }}
-      {{- if .Values.gateway.service.nodePort }}
+      {{- with include "platform-config.servicePorts" . | trim }}
       ports:
-        - port: {{ include "platform-config.servicePort" . }}
-          {{- if include "platform-config.sharedGateway" . }}
-          name: {{ include "platform-config.servicePortName" . }}
-          targetPort: {{ .Values.gateway.port }}
-          {{- end }}
-          nodePort: {{ .Values.gateway.service.nodePort }}
+        {{- . | nindent 8 }}
       {{- end }}
 {{- end }}
 {{- if and .Values.gateway.service.type (eq .Values.gateway.className "agentgateway") }}
@@ -37,13 +32,8 @@ spec:
   service:
     spec:
       type: {{ .Values.gateway.service.type }}
-      {{- if .Values.gateway.service.nodePort }}
+      {{- with include "platform-config.servicePorts" . | trim }}
       ports:
-        - port: {{ include "platform-config.servicePort" . }}
-          {{- if include "platform-config.sharedGateway" . }}
-          name: {{ include "platform-config.servicePortName" . }}
-          targetPort: {{ .Values.gateway.port }}
-          {{- end }}
-          nodePort: {{ .Values.gateway.service.nodePort }}
+        {{- . | nindent 8 }}
       {{- end }}
 {{- end }}

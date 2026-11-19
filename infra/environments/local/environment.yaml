@@ -27,6 +27,12 @@
             "loadBalancerPort": 31053,
             "protocol": "udp",
             "featureFlag": "platform-dns"
+          },
+          {
+            "hostAddress": "127.0.0.1",
+            "hostPort": 5432,
+            "loadBalancerPort": 30432,
+            "featureFlag": "database-routes"
           }
         ]
     },
@@ -44,6 +50,7 @@
       "registry-tag-pruning": false,
       "platform-organization-service-apis": true,
       "platform-argocd-delivery": true,
+      "database-routes": false,
       "platform-dns": false,
       "platform-shared-gateway": true,
       "platform-hostname-ownership": false,

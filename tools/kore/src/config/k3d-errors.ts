@@ -108,10 +108,15 @@ function portErrors(ports: unknown): string[] {
         : [
             `environment.k3d.ports[${index}].featureFlag must be a lowercase feature flag name`,
           ];
+    const optOut =
+      port["optOut"] === undefined || typeof port["optOut"] === "boolean"
+        ? []
+        : [`environment.k3d.ports[${index}].optOut must be true or false`];
     return [
       ...address,
       ...transport,
       ...flag,
+      ...optOut,
       ...(["hostPort", "loadBalancerPort"] as const)
         .filter((key) => !isPort(port[key]))
         .map(
