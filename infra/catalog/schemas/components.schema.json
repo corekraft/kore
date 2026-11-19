@@ -72,6 +72,10 @@
             "type": "boolean",
             "description": "The platform labels the component's namespace istio.io/dataplane-mode: ambient once the component is enabled."
           },
+          "sharedGatewayRoutes": {
+            "type": "boolean",
+            "description": "The component attaches a route to the shared Gateway; while platform-shared-gateway is on the platform labels its namespace platform.kore.dev/shared-gateway: \"true\" (ADR 0134)."
+          },
           "ownsCRDGroups": {
             "type": "array",
             "items": { "type": "string", "minLength": 1 }
