@@ -5,6 +5,7 @@ import { test } from "vitest";
 import { loadRepository, type Repository } from "../../src/config/index.js";
 import { helmTemplateArgs } from "../../src/platform/index.js";
 import { withAbsoluteChart } from "../../src/testing/index.js";
+import { escapeRegExp, localPlatform } from "../local-platform-support.js";
 
 // The platform Gateway's wildcard for the platform organization's names: one
 // HTTPS listener beside the existing one, on the same port, with its own
@@ -39,38 +40,42 @@ function withSharedGateway(repository: Repository, on: boolean): Repository {
 }
 
 test("with platform-shared-gateway off the Gateway has its one HTTPS listener and no wildcard Certificate renders", async () => {
+  const { domain } = await localPlatform();
   const output = render(
     withSharedGateway(await loadRepository("local"), false),
   );
-  assert.doesNotMatch(output, /\*\.platform\./);
+  assert.doesNotMatch(output, new RegExp(escapeRegExp(`*.platform.${domain}`)));
   assert.doesNotMatch(output, /kore-platform-wildcard/);
   assert.doesNotMatch(output, /kind: Certificate/);
 });
 
-test("with platform-shared-gateway on the wildcard is a second HTTPS listener on the same port, beside kore.local", async () => {
+test("with platform-shared-gateway on the wildcard is a second HTTPS listener on the same port, beside the platform domain", async () => {
   const repository = withSharedGateway(await loadRepository("local"), true);
-  const { gateway } = repository.environment;
+  const { domain, gatewayPort } = await localPlatform();
   const output = render(repository);
-  // The existing listener is unchanged: kore.local on the Gateway's port.
+  // The existing listener is unchanged: the platform name on the Gateway's port.
   assert.match(
     output,
     new RegExp(
-      `- name: https\\s+hostname: "kore\\.local"\\s+port: ${gateway.port}\\s+protocol: HTTPS`,
+      `- name: https\\s+hostname: "${escapeRegExp(domain)}"\\s+port: ${gatewayPort}\\s+protocol: HTTPS`,
     ),
   );
   // The wildcard is a second listener, same port and protocol, with its own secret.
   assert.match(
     output,
     new RegExp(
-      `- name: https-platform\\s+hostname: "\\*\\.platform\\.kore\\.local"\\s+port: ${gateway.port}\\s+protocol: HTTPS\\s+tls:\\s+mode: Terminate\\s+certificateRefs:\\s+- \\{kind: Secret, name: kore-platform-wildcard-tls\\}`,
+      `- name: https-platform\\s+hostname: "${escapeRegExp(`*.platform.${domain}`)}"\\s+port: ${gatewayPort}\\s+protocol: HTTPS\\s+tls:\\s+mode: Terminate\\s+certificateRefs:\\s+- \\{kind: Secret, name: kore-platform-wildcard-tls\\}`,
     ),
   );
 });
 
 test("with platform-shared-gateway on a Certificate for the wildcard is issued by the local CA into kore-system", async () => {
+  const { domain } = await localPlatform();
   const output = render(withSharedGateway(await loadRepository("local"), true));
   assert.match(
     output,
-    /kind: Certificate\s+metadata:\s+name: kore-platform-wildcard\s+namespace: kore-system[\s\S]*?secretName: kore-platform-wildcard-tls\s+dnsNames:\s+- "\*\.platform\.kore\.local"\s+issuerRef:\s+kind: ClusterIssuer\s+name: kore-local-ca/,
+    new RegExp(
+      `kind: Certificate\\s+metadata:\\s+name: kore-platform-wildcard\\s+namespace: kore-system[\\s\\S]*?secretName: kore-platform-wildcard-tls\\s+dnsNames:\\s+- "${escapeRegExp(`*.platform.${domain}`)}"\\s+issuerRef:\\s+kind: ClusterIssuer\\s+name: kore-local-ca`,
+    ),
   );
 });
