@@ -144,6 +144,17 @@ The k3d load balancer maps host port `8443` to the Gateway Service's node port
 `platform up` waits for the Gateway Service to publish the configured node
 port before it reports the Gateway ready.
 
+With the `platform-dns` flag on, the local overlay also publishes the platform
+DNS on `127.0.0.1:1053`, over both TCP and UDP, through the same load balancer
+(node port 31053 on the `kore-platform-dns` Service in `kore-dns`). The two
+mappings in `k3d.ports` name the flag, so with it off they are not created,
+compared for drift or probed. k3d fixes ports when it creates the cluster, so
+turning the flag on for a cluster created without them fails the drift check
+with the recreate instruction (`kore local down --prune`, then `kore local up`).
+The `kore-dns` namespace is exempt from image enrollment so the DNS answers
+before anything else
+([ADR 0132](docs/decisions/0132-local-names-resolve-through-platform-dns-and-one-loopback-entry-point.md)).
+
 For the local profile, the focused cluster lifecycle commands are:
 
 ```sh

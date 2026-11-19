@@ -27,14 +27,20 @@ test("local audits and managed-example enforces the image inventory", async () =
   );
 });
 
-test("only cosign-system and kore-registry are exempt from enrollment, in every environment", async () => {
-  for (const name of ["local", "managed-example"]) {
-    const { environment } = await loadRepository(name);
-    assert.deepEqual(
-      Object.keys(environment.enrollmentExemptions ?? {}).sort(),
-      ["cosign-system", "kore-registry"],
-    );
-  }
+test("only the verifier, the registry and the local-only platform DNS are exempt from enrollment", async () => {
+  const exempt = async (name: string) =>
+    Object.keys(
+      (await loadRepository(name)).environment.enrollmentExemptions ?? {},
+    ).sort();
+  assert.deepEqual(await exempt("local"), [
+    "cosign-system",
+    "kore-dns",
+    "kore-registry",
+  ]);
+  assert.deepEqual(await exempt("managed-example"), [
+    "cosign-system",
+    "kore-registry",
+  ]);
 });
 
 test("an enrollment exemption for a namespace the catalog does not manage is rejected", async () => {

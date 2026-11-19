@@ -168,6 +168,28 @@ test("a port's optional flag, when declared, must be true or false, and a true o
   ).toEqual([]);
 });
 
+test("a port's featureFlag, when declared, must be a lowercase flag name", () => {
+  const withFlag = (featureFlag: unknown) =>
+    k3dErrors(
+      withK3d("ports", [
+        {
+          hostAddress: "127.0.0.1",
+          hostPort: 1053,
+          loadBalancerPort: 31053,
+          featureFlag,
+        },
+      ]),
+      versions,
+    );
+  expect(withFlag(true)).toEqual([
+    "environment.k3d.ports[0].featureFlag must be a lowercase feature flag name",
+  ]);
+  expect(withFlag("Platform DNS")).toEqual([
+    "environment.k3d.ports[0].featureFlag must be a lowercase feature flag name",
+  ]);
+  expect(withFlag("platform-dns")).toEqual([]);
+});
+
 test("each port binds a loopback IPv4 host address: a missing, malformed, or non-loopback address is refused, and any 127.x address is accepted", () => {
   const onAddress = (hostAddress: unknown) =>
     k3dErrors(

@@ -1,8 +1,26 @@
-import type { K3dCluster } from "../config/index.js";
+import {
+  featureEnabled,
+  type Environment,
+  type K3dCluster,
+} from "../config/index.js";
 import { CommandError, type Runner } from "../runtime/index.js";
 import { bindProbe, type HostProtocol } from "./k3d-port-probe.js";
 
 type K3dPort = K3dCluster["ports"][number];
+
+/**
+ * The overlay's ports that are published now: a port naming a feature flag
+ * counts only while the flag is on, for the create arguments, the drift check
+ * and the host port check alike (an unset flag means always).
+ */
+export function activePorts(
+  environment: Pick<Environment, "features" | "k3d">,
+): K3dPort[] {
+  return (environment.k3d?.ports ?? []).filter(
+    ({ featureFlag }) =>
+      featureFlag === undefined || featureEnabled(environment, featureFlag),
+  );
+}
 
 /** Whether a host port is free to bind on its address, over its transport. */
 export type PortProbe = (

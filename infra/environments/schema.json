@@ -72,6 +72,11 @@
                 "default": false,
                 "description": "Skipped by the check that refuses kore local up when a host port is taken. The port is still published."
               },
+              "featureFlag": {
+                "type": "string",
+                "pattern": "^[a-z][a-z0-9-]*$",
+                "description": "The feature flag that makes this mapping real. While it is off the mapping is not created, compared for drift or probed; turning it on for a cluster created without it needs a recreate."
+              },
               "protocol": {
                 "enum": ["tcp", "udp"],
                 "default": "tcp",
