@@ -15,11 +15,14 @@ const fieldManager = "kore-chart-credential";
 
 /**
  * Gives the platform Argo CD the registry's read identity for the chart
- * repositories kore itself serves, as an Argo CD repository Secret. The
- * password goes to the cluster only on kubectl's stdin, never to disk, an
- * argument or git. A chart host other than the platform registry (a public or
- * provider-owned registry) gets nothing: the read identity never leaves the
- * registry it belongs to. Returns whether a Secret was applied.
+ * repositories kore itself serves, as an Argo CD repo credential template
+ * (`repo-creds`) for each `oci://` registry path. A template matches every
+ * chart under its path by prefix; a repository Secret would match only its
+ * exact URL, and each Application's repoURL names one chart. The password goes
+ * to the cluster only on kubectl's stdin, never to disk, an argument or git. A
+ * chart host other than the platform registry (a public or provider-owned
+ * registry) gets nothing: the read identity never leaves the registry it
+ * belongs to. Returns whether a Secret was applied.
  */
 export async function applyChartCredential(
   repository: Repository,
@@ -61,14 +64,12 @@ export async function applyChartCredential(
             metadata: {
               name,
               namespace: argocdNamespace,
-              labels: { "argocd.argoproj.io/secret-type": "repository" },
+              labels: { "argocd.argoproj.io/secret-type": "repo-creds" },
             },
             type: "Opaque",
             stringData: {
-              type: "helm",
-              name,
-              enableOCI: "true",
-              url,
+              type: "oci",
+              url: `oci://${url}`,
               username,
               password,
             },

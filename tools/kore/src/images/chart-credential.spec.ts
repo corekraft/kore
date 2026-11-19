@@ -63,19 +63,28 @@ test("the read credential reaches Argo CD only through kubectl's stdin, in the c
     metadata: {
       name: "kore-platform-charts-0",
       namespace: "argocd",
-      labels: { "argocd.argoproj.io/secret-type": "repository" },
+      labels: { "argocd.argoproj.io/secret-type": "repo-creds" },
     },
     type: "Opaque",
     stringData: {
-      type: "helm",
-      name: "kore-platform-charts-0",
-      enableOCI: "true",
-      url: "10.96.0.50:5000/charts",
+      type: "oci",
+      url: "oci://10.96.0.50:5000/charts",
       username: "kore-read",
       password: "s3cret",
     },
   });
   expect(JSON.stringify(args)).not.toContain("s3cret");
+});
+
+test("the read credential is an oci:// credential template, which Argo CD matches by prefix to every chart under the registry path", async () => {
+  const { runner, calls } = fakeRunner();
+  await applyChartCredential(repository, runner);
+  const secret = JSON.parse(calls[0]!.options!.input!);
+  expect(secret.metadata.labels).toEqual({
+    "argocd.argoproj.io/secret-type": "repo-creds",
+  });
+  expect(secret.stringData.url).toMatch(/^oci:\/\//);
+  expect(secret.stringData.type).toBe("oci");
 });
 
 test("a chart host that is not the platform registry gets no credential, so the read identity never leaves it", async () => {

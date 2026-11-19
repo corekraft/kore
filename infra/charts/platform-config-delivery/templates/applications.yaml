@@ -1,10 +1,12 @@
 # One Application per handed-over release (ADR 0043). Each renders the release's
-# chart from the platform registry at the digest the chart lock records, with the
-# Helm release's own name and namespace, so Argo CD adopts the resources Helm
-# created. The handover deletes nothing: no prune, no cascade finalizer (deleting
-# an Application leaves its resources), no namespace creation, no replace. Helm's
-# release secret stays as an inert record; kore never uninstalls it and, with the
-# flag on, never runs Helm on these releases again.
+# chart as an OCI source from the platform registry at the digest the chart lock
+# records (Argo CD accepts a digest as an oci:// targetRevision, but not as a
+# Helm chart's semver constraint), with the Helm release's own name and
+# namespace, so Argo CD adopts the resources Helm created. The handover deletes
+# nothing: no prune, no cascade finalizer (deleting an Application leaves its
+# resources), no namespace creation, no replace. Helm's release secret stays as
+# an inert record; kore never uninstalls it and, with the flag on, never runs
+# Helm on these releases again.
 {{- range $name, $entry := .Values.charts }}
 ---
 apiVersion: argoproj.io/v1alpha1
@@ -17,8 +19,8 @@ metadata:
 spec:
   project: {{ $.Values.project | quote }}
   source:
-    repoURL: {{ dir $entry.chart | quote }}
-    chart: {{ base $entry.chart | quote }}
+    repoURL: {{ printf "oci://%s" $entry.chart | quote }}
+    path: "."
     targetRevision: {{ $entry.digest | quote }}
     helm:
       releaseName: {{ $name | quote }}
