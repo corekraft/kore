@@ -94,3 +94,34 @@ test("a cluster whose drift verdict is empty passes with the commands of a match
   expect(inspectPortMappings).not.toHaveBeenCalled();
   expect(waitForClusterReady).toHaveBeenCalledTimes(1);
 });
+
+test("a mapping with no protocol is passed as before, and a UDP mapping on the same host port as a TCP one is passed beside it", () => {
+  const dns = fakeRepository({
+    k3d: {
+      clusterName: "kore-local",
+      serviceCidr: "10.96.0.0/12",
+      ports: [
+        { hostAddress: "127.0.0.1", hostPort: 1053, loadBalancerPort: 1053 },
+        {
+          hostAddress: "127.0.0.1",
+          hostPort: 1053,
+          loadBalancerPort: 1053,
+          protocol: "udp",
+        },
+        {
+          hostAddress: "127.0.0.1",
+          hostPort: 8443,
+          loadBalancerPort: 443,
+          protocol: "tcp",
+        },
+      ],
+    },
+  });
+  expect(
+    k3dCreateArgs(dns, TRUST).filter((arg) => arg.endsWith("@loadbalancer")),
+  ).toEqual([
+    "127.0.0.1:1053:1053@loadbalancer",
+    "127.0.0.1:1053:1053/udp@loadbalancer",
+    "127.0.0.1:8443:443@loadbalancer",
+  ]);
+});

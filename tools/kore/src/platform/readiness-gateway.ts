@@ -65,8 +65,10 @@ function holds(conditions: Condition[], type: string): string | undefined {
  */
 function configuredNodePort(repository: Repository): number | undefined {
   const { k3d, gateway } = repository.environment;
-  return k3d?.ports.find(({ hostPort }) => hostPort === gateway.port)
-    ?.loadBalancerPort;
+  return k3d?.ports.find(
+    ({ hostPort, protocol }) =>
+      hostPort === gateway.port && (protocol ?? "tcp") === "tcp",
+  )?.loadBalancerPort;
 }
 
 /** Undefined once the Service is published; otherwise why it is not. */

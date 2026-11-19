@@ -71,6 +71,11 @@
                 "type": "boolean",
                 "default": false,
                 "description": "Skipped by the check that refuses kore local up when a host port is taken. The port is still published."
+              },
+              "protocol": {
+                "enum": ["tcp", "udp"],
+                "default": "tcp",
+                "description": "The transport the mapping publishes."
               }
             }
           }

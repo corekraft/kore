@@ -73,14 +73,22 @@ function portErrors(ports: unknown): string[] {
       "environment.k3d.ports must be a non-empty list of { hostAddress, hostPort, loadBalancerPort }",
     ];
   }
-  const seen = new Set<unknown>();
-  const duplicates = new Set<unknown>();
+  const seen = new Set<string>();
+  const duplicates = new Set<string>();
   const errors = ports.flatMap((entry: unknown, index) => {
     const port = (entry ?? {}) as Record<string, unknown>;
-    if (seen.has(port["hostPort"])) {
-      duplicates.add(port["hostPort"]);
+    const protocol = port["protocol"] ?? "tcp";
+    const mapping = `${String(port["hostPort"])}/${typeof protocol === "string" ? protocol : "invalid"}`;
+    if (seen.has(mapping)) {
+      duplicates.add(mapping);
     }
-    seen.add(port["hostPort"]);
+    seen.add(mapping);
+    const transport =
+      protocol === "tcp" || protocol === "udp"
+        ? []
+        : [
+            `environment.k3d.ports[${index}].protocol must be tcp or udp, got ${JSON.stringify(protocol)}`,
+          ];
     const address =
       typeof port["hostAddress"] === "string" &&
       loopbackIPv4.test(port["hostAddress"])
@@ -94,6 +102,7 @@ function portErrors(ports: unknown): string[] {
         : [`environment.k3d.ports[${index}].optional must be true or false`];
     return [
       ...address,
+      ...transport,
       ...(["hostPort", "loadBalancerPort"] as const)
         .filter((key) => !isPort(port[key]))
         .map(
@@ -106,9 +115,10 @@ function portErrors(ports: unknown): string[] {
   return [
     ...errors,
     ...[...duplicates]
-      .filter(isPort)
+      .filter((mapping) => isPort(Number.parseInt(mapping, 10)))
       .map(
-        (host) => `environment.k3d.ports maps host port ${String(host)} twice`,
+        (mapping) =>
+          `environment.k3d.ports maps host port ${mapping.replace(/\/tcp$/, "")} twice`,
       ),
   ];
 }

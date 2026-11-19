@@ -26,8 +26,31 @@ test("a taken loopback host port is refused before any cluster command, naming t
       "host port 127.0.0.1:8443 is already in use, so the cluster cannot publish it. The overlay setting that publishes it is k3d.ports[0] (loadBalancerPort 443) in environment local. Holder: nginx (pid 4242). Free the port by stopping the process holding it, or change k3d.ports[0].hostPort, then rerun kore local up --environment local.",
     ),
   );
-  expect(probe).toHaveBeenCalledWith("127.0.0.1", 8443);
+  expect(probe).toHaveBeenCalledWith("127.0.0.1", 8443, "tcp");
   expect(commandLines(run)).toEqual(["lsof -nP -iTCP:8443 -sTCP:LISTEN -Fpc"]);
+});
+
+test("a taken UDP mapping is probed and looked up over UDP, so the refusal names /udp and a TCP listener is not the holder", async () => {
+  const udp: K3dCluster = {
+    ...local,
+    ports: [
+      {
+        hostAddress: "127.0.0.1",
+        hostPort: 53,
+        loadBalancerPort: 53,
+        protocol: "udp",
+      },
+    ],
+  };
+  const probe = vi.fn<PortProbe>(async () => false);
+  const { runner, run } = fakeRunner(() => "p4242\ncnamed\n");
+  await expect(checkHostPorts("local", udp, runner, probe)).rejects.toThrow(
+    new Error(
+      "host port 127.0.0.1:53/udp is already in use, so the cluster cannot publish it. The overlay setting that publishes it is k3d.ports[0] (loadBalancerPort 53) in environment local. Holder: named (pid 4242). Free the port by stopping the process holding it, or change k3d.ports[0].hostPort, then rerun kore local up --environment local.",
+    ),
+  );
+  expect(probe).toHaveBeenCalledWith("127.0.0.1", 53, "udp");
+  expect(commandLines(run)).toEqual(["lsof -nP -iUDP:53 -Fpc"]);
 });
 
 test("a taken host port whose holder lsof cannot name is refused, saying plainly that the holder could not be identified", async () => {
@@ -70,7 +93,7 @@ test("a free host port passes with no holder lookup", async () => {
   await expect(
     checkHostPorts("local", local, runner, probe),
   ).resolves.toBeUndefined();
-  expect(probe).toHaveBeenCalledWith("127.0.0.1", 8443);
+  expect(probe).toHaveBeenCalledWith("127.0.0.1", 8443, "tcp");
   expect(commandLines(run)).toEqual([]);
 });
 

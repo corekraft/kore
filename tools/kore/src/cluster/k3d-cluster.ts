@@ -11,6 +11,8 @@ import { ClusterUnavailableError } from "./cluster-unavailable.js";
 import { drift, unreadableMessage, unreadablePorts } from "./k3d-drift.js";
 import { inspectPortMappings, loadBalancerContainer } from "./k3d-inspect.js";
 import { checkHostPorts, type PortProbe } from "./k3d-ports.js";
+
+export type { PortProbe };
 import { type ReadinessOptions, waitForClusterReady } from "./readiness.js";
 
 /** The state of a k3d cluster as `k3d cluster list` reports it. */
@@ -97,7 +99,7 @@ export function k3dCreateArgs(
     `--service-cidr=${cluster.serviceCidr}@server:*`,
     ...cluster.ports.flatMap((port) => [
       "--port",
-      `${port.hostAddress}:${port.hostPort}:${port.loadBalancerPort}@loadbalancer`,
+      `${port.hostAddress}:${port.hostPort}:${port.loadBalancerPort}${port.protocol === "udp" ? "/udp" : ""}@loadbalancer`,
     ]),
     ...(koreManagesRegistryAuth(repository)
       ? k3dTrustVolumeArgs(trustDirectory)

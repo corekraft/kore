@@ -1,30 +1,33 @@
 import type { K3dCluster } from "../config/index.js";
 import { CommandError, type Runner } from "../runtime/index.js";
-import { bindProbe } from "./k3d-port-probe.js";
+import { bindProbe, type HostProtocol } from "./k3d-port-probe.js";
 
 type K3dPort = K3dCluster["ports"][number];
 
-/** Whether a host port is free to bind on its address. */
+/** Whether a host port is free to bind on its address, over its transport. */
 export type PortProbe = (
   hostAddress: string,
   hostPort: number,
+  protocol: HostProtocol,
 ) => Promise<boolean>;
 
 /**
  * The process listening on a host port, as lsof names it (`command (pid n)`);
- * undefined when lsof names none or is not installed. Read-only.
+ * undefined when lsof names none or is not installed. Read-only. A UDP port
+ * has no LISTEN state, so its lookup is every UDP socket on the port.
  */
 async function holderOf(
   runner: Runner,
   hostPort: number,
+  protocol: HostProtocol,
 ): Promise<string | undefined> {
+  const args =
+    protocol === "udp"
+      ? ["-nP", `-iUDP:${hostPort}`, "-Fpc"]
+      : ["-nP", `-iTCP:${hostPort}`, "-sTCP:LISTEN", "-Fpc"];
   let stdout: string;
   try {
-    ({ stdout } = await runner.run(
-      "lsof",
-      ["-nP", `-iTCP:${hostPort}`, "-sTCP:LISTEN", "-Fpc"],
-      { capture: true },
-    ));
+    ({ stdout } = await runner.run("lsof", args, { capture: true }));
   } catch (error) {
     if (
       error instanceof CommandError ||
@@ -47,19 +50,22 @@ function refusal(
   environmentName: string,
   port: K3dPort,
   index: number,
+  protocol: HostProtocol,
   holder: string | undefined,
 ): string {
   const who =
     holder === undefined
       ? "The holder could not be identified: lsof reported none or is not installed."
       : `Holder: ${holder}.`;
-  return `host port ${port.hostAddress}:${port.hostPort} is already in use, so the cluster cannot publish it. The overlay setting that publishes it is k3d.ports[${index}] (loadBalancerPort ${port.loadBalancerPort}) in environment ${environmentName}. ${who} Free the port by stopping the process holding it, or change k3d.ports[${index}].hostPort, then rerun kore local up --environment ${environmentName}.`;
+  const named = `${port.hostAddress}:${port.hostPort}${protocol === "udp" ? "/udp" : ""}`;
+  return `host port ${named} is already in use, so the cluster cannot publish it. The overlay setting that publishes it is k3d.ports[${index}] (loadBalancerPort ${port.loadBalancerPort}) in environment ${environmentName}. ${who} Free the port by stopping the process holding it, or change k3d.ports[${index}].hostPort, then rerun kore local up --environment ${environmentName}.`;
 }
 
 /**
  * Refuses a cluster that is about to be created when a declared host port is
- * taken on its loopback address. Every taken port is named. Optional ports
- * are skipped. Runs no cluster command; the caller runs it before create.
+ * taken on its loopback address, over the mapping's own transport. Every taken
+ * port is named. Optional ports are skipped. Runs no cluster command; the
+ * caller runs it before create.
  */
 export async function checkHostPorts(
   environmentName: string,
@@ -73,7 +79,8 @@ export async function checkHostPorts(
     if (port.optional === true) {
       continue;
     }
-    if (await isFree(port.hostAddress, port.hostPort)) {
+    const protocol: HostProtocol = port.protocol ?? "tcp";
+    if (await isFree(port.hostAddress, port.hostPort, protocol)) {
       continue;
     }
     refusals.push(
@@ -81,7 +88,8 @@ export async function checkHostPorts(
         environmentName,
         port,
         index,
-        await holderOf(runner, port.hostPort),
+        protocol,
+        await holderOf(runner, port.hostPort, protocol),
       ),
     );
   }

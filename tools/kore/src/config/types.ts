@@ -113,6 +113,8 @@ export interface K3dPort {
    * taken (#1198). The overlay still publishes the port.
    */
   optional?: boolean;
+  /** The transport the mapping publishes; TCP when unset. */
+  protocol?: "tcp" | "udp";
 }
 
 export interface Environment {
