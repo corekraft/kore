@@ -146,3 +146,14 @@ test("a missing cluster CA ConfigMap stops the apply, because the bundle would d
   );
   expect(run.mock.calls.some(([, args]) => args.includes("apply"))).toBe(false);
 });
+
+test("a Secret whose data is not a map of strings is treated as missing, not trusted", async () => {
+  const { runner, run } = fakeRunner(() =>
+    JSON.stringify({ data: { "tls.crt": 5 } }),
+  );
+
+  await expect(
+    ensureLocalCaTrust(repository, runner, "backstage"),
+  ).rejects.toThrow("the local CA is missing");
+  expect(run.mock.calls.some(([, args]) => args.includes("apply"))).toBe(false);
+});

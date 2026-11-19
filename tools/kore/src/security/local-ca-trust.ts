@@ -48,9 +48,26 @@ async function getJson(
     ],
     { capture: true },
   );
-  return stdout.trim() === ""
-    ? undefined
-    : (JSON.parse(stdout) as { data?: Record<string, string> });
+  if (stdout.trim() === "") {
+    return undefined;
+  }
+  const parsed: unknown = JSON.parse(stdout);
+  return isObject(parsed) && isObject(parsed["data"])
+    ? { data: stringEntries(parsed["data"]) }
+    : {};
+}
+
+function isObject(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null;
+}
+
+/** The string-valued entries of a Secret's or ConfigMap's data. */
+function stringEntries(data: Record<string, unknown>): Record<string, string> {
+  return Object.fromEntries(
+    Object.entries(data).filter(
+      (entry): entry is [string, string] => typeof entry[1] === "string",
+    ),
+  );
 }
 
 /** The local CA's public certificate; only tls.crt is read, never the key beside it. */
