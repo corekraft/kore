@@ -20,8 +20,9 @@ const labelPattern = new RegExp(`^${label}$`);
 const missing = (environment: Environment) =>
   `environment ${environment.name} must declare platform.domain and platform.organizationId (for example kore.local and platform)`;
 
+/** The field as declared, widened because an overlay can omit or half-fill it. */
 function declared(environment: Environment): Partial<PlatformPlan> | undefined {
-  return (environment as { platform?: Partial<PlatformPlan> }).platform;
+  return environment.platform;
 }
 
 /** Reads the environment's one platform field; every derived copy goes through it. */
