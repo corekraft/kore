@@ -75,3 +75,6 @@ export const platformDnsFlag = "platform-dns";
 
 /** The flag that gates the platform organization's portal: its Keycloak and, later, its Backstage (ADR 0113, plan 15 step 6). */
 export const platformPortalFlag = "platform-portal";
+
+/** The flag that adds the shared Gateway's wildcard listener, and so lets the golden-path and portal charts attach routes to it beside their own Gateways (ADR 0132, ADR 0133). */
+export const platformSharedGatewayFlag = "platform-shared-gateway";

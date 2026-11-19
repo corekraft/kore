@@ -20,6 +20,22 @@
       "type": "string",
       "minLength": 1
     },
+    "sharedGateway": {
+      "description": "The shared platform Gateway the portal also attaches a route to, which kore passes only while platform-shared-gateway is on (ADR 0133). The route host is backstage.<domain>. Without it no shared route renders.",
+      "type": "object",
+      "required": ["name", "namespace", "domain"],
+      "additionalProperties": false,
+      "properties": {
+        "name": { "type": "string", "minLength": 1 },
+        "namespace": { "type": "string", "minLength": 1 },
+        "domain": {
+          "description": "The platform organization's domain, <organizationId>.<platformDomain>, which the shared Gateway's wildcard listener serves.",
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 190
+        }
+      }
+    },
     "database": {
       "type": "object",
       "additionalProperties": false,

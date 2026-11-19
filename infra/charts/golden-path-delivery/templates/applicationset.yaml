@@ -48,6 +48,14 @@ spec:
               value: {{ .gatewayClassName | quote }}
             - name: ingress.issuer
               value: {{ .issuer | default "kore-local-ca" | quote }}
+            {{- with .sharedGateway }}
+            - name: ingress.sharedGateway.name
+              value: {{ .name | quote }}
+            - name: ingress.sharedGateway.namespace
+              value: {{ .namespace | quote }}
+            - name: ingress.sharedGateway.domain
+              value: {{ .domain | quote }}
+            {{- end }}
             {{- end }}
       destination:
         server: https://kubernetes.default.svc

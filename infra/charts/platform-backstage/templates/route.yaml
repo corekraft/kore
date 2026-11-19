@@ -8,6 +8,11 @@
   owns the Gateway in kore-system, its listeners and its certificate (ADR 0133);
   this chart's own Gateway stays until its routes move onto the platform Gateway
   (ADR 0132). Nothing renders until kore passes the gateway class.
+
+  With platform-shared-gateway on, kore also passes sharedGateway, and a second
+  route attaches the portal's name under the platform organization,
+  backstage.<organizationId>.<platformDomain>, to the shared Gateway, beside the
+  chart's own Gateway. It owns no listener or certificate (ADR 0133).
 */ -}}
 {{- with .Values.gatewayClassName }}
 ---
@@ -54,6 +59,25 @@ spec:
       name: backstage
   hostnames:
     - {{ printf "backstage.%s" $.Values.platformDomain | quote }}
+  rules:
+    - backendRefs:
+        - name: backstage
+          port: 80
+{{- end }}
+{{- with .Values.sharedGateway }}
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: backstage-shared
+  namespace: {{ $.Release.Namespace }}
+spec:
+  parentRefs:
+    - kind: Gateway
+      name: {{ .name }}
+      namespace: {{ .namespace }}
+  hostnames:
+    - {{ printf "backstage.%s" .domain | quote }}
   rules:
     - backendRefs:
         - name: backstage
