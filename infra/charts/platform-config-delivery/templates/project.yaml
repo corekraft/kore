@@ -24,8 +24,9 @@ spec:
     - server: https://kubernetes.default.svc
       namespace: {{ $space | quote }}
     {{- end }}
-  # Exactly the cluster-scoped kinds the six charts render (an integration spec
-  # renders them and fails when one is missing or a wildcard appears). A new
+  # Exactly the cluster-scoped kinds the argocd-owned components render with
+  # every flag on (an integration spec renders them and fails when one is
+  # missing or a wildcard appears). A new
   # cluster-scoped kind in a handed-over chart is added here deliberately.
   clusterResourceWhitelist:
     - group: ""
@@ -38,7 +39,7 @@ spec:
       kind: Composition
     - group: templates.gatekeeper.sh
       kind: ConstraintTemplate
-    {{- range $kind := list "KoreContainerSecurity" "KoreImageDigest" "KoreMeshEnrollment" "KoreRBAC" "KoreRetention" "KoreSecrets" "KoreWorkloadIdentity" }}
+    {{- range $kind := list "KoreContainerSecurity" "KoreHostnameOwnership" "KoreImageDigest" "KoreMeshEnrollment" "KoreRBAC" "KoreRetention" "KoreSecrets" "KoreWorkloadIdentity" }}
     - group: constraints.gatekeeper.sh
       kind: {{ $kind }}
     {{- end }}

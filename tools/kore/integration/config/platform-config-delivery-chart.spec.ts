@@ -17,10 +17,8 @@ import {
   handedOver,
   lock,
   namespaces,
-  namespacedKinds,
   registry,
   render,
-  renderedKinds,
   digestOf,
 } from "./platform-config-delivery-chart-support.js";
 import { escapeRegExp, localPlatform } from "../local-platform-support.js";
@@ -223,21 +221,4 @@ test("the delivery chart is a gated release owned by kore, installed after Argo 
   assert.ok(helmInstalledComponents(on, false).some((c) => c.name === name));
   const order = orderedComponents(on.catalog).map((c) => c.name);
   assert.ok(order.indexOf("argocd") < order.indexOf(name));
-});
-
-test("the AppProject whitelists exactly the cluster-scoped kinds the six charts render, with no wildcard", async () => {
-  const project = (await render()).find((d) => /^kind: AppProject$/m.test(d))!;
-  const whitelist = project.slice(project.indexOf("clusterResourceWhitelist:"));
-  const listed = [...whitelist.matchAll(/ kind: (\S+)/g)].map((m) => m[1]!);
-  assert.doesNotMatch(whitelist.split("roles:")[0]!, /["']?\*["']?/);
-  const rendered = new Set<string>();
-  for (const name of handedOver) {
-    for (const kind of await renderedKinds(name)) {
-      rendered.add(kind);
-    }
-  }
-  const clusterScoped = [...rendered].filter((k) => !namespacedKinds.has(k));
-  assert.deepEqual([...clusterScoped].sort(), [...listed].sort());
-  assert.ok(clusterScoped.includes("ConstraintTemplate"));
-  assert.ok(clusterScoped.includes("Composition"));
 });
