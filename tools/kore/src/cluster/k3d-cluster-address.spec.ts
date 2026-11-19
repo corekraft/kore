@@ -7,7 +7,7 @@ import {
   writeK3dRegistriesConfig,
 } from "../images/index.js";
 import { k3dCreateArgs } from "./k3d-cluster.js";
-import { drift, unreadablePorts } from "./k3d-drift.js";
+import { apiHostAddress, drift, unreadablePorts } from "./k3d-drift.js";
 import { inspectPortMappings } from "./k3d-inspect.js";
 import { commandLines, fakeK3d, fakeRepository } from "./cluster-support.js";
 import { waitForClusterReady } from "./readiness.js";
@@ -24,6 +24,7 @@ vi.mock("../images/index.js");
 vi.mock("./readiness.js");
 vi.mock("./k3d-drift.js", async (importOriginal) => ({
   ...(await importOriginal<typeof import("./k3d-drift.js")>()),
+  apiHostAddress: vi.fn(),
   drift: vi.fn(),
   unreadablePorts: vi.fn(),
 }));
@@ -61,6 +62,23 @@ test("every host port is published on the loopback address its overlay entry dec
     "127.0.0.1:8443:443@loadbalancer",
     "127.0.0.2:9000:30000@loadbalancer",
   ]);
+});
+
+test("the API port is published with a random host port on the first declared port's loopback address, so no create argument leaves it on all interfaces", () => {
+  const two = fakeRepository({
+    k3d: {
+      clusterName: "kore-local",
+      serviceCidr: "10.96.0.0/12",
+      ports: [
+        { hostAddress: "127.0.0.2", hostPort: 9000, loadBalancerPort: 30000 },
+        { hostAddress: "127.0.0.1", hostPort: 8443, loadBalancerPort: 443 },
+      ],
+    },
+  });
+  vi.mocked(apiHostAddress).mockReturnValue("127.0.0.2");
+  const args = k3dCreateArgs(two, TRUST);
+  expect(apiHostAddress).toHaveBeenCalledWith(two.environment.k3d);
+  expect(args[args.indexOf("--api-port") + 1]).toBe("127.0.0.2:random");
 });
 
 test("a drift verdict on the host address is refused with the recreate path before any start or write, and docker inspect is not consulted when the listing reports the address", async () => {

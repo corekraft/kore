@@ -40,6 +40,10 @@ every interface matched the overlay and was never refused.
   cluster is refused with a message naming both commands. That refusal does not
   tell the owner to recreate, because recreating cannot change what k3d and
   Docker report.
+- The Kubernetes API port is published too. k3d chooses its host port at
+  random, so the create arguments pass `--api-port <address>:random`, with the
+  address of the first declared port (the local overlay declares one). The
+  drift check compares only the API port's address, never its random host port.
 - A cluster created before this change binds every interface, so it fails
   drift. The owner recreates it with `kore local down --prune`, then
   `kore local up`. There is no in-place migration.

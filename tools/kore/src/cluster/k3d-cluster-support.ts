@@ -53,6 +53,8 @@ export function createArgs(
     "--service-cidr=10.96.0.0/12@server:*",
     "--port",
     "127.0.0.1:8443:443@loadbalancer",
+    "--api-port",
+    "127.0.0.1:random",
     ...volumes,
     "--kubeconfig-update-default=true",
     "--kubeconfig-switch-context=false",
