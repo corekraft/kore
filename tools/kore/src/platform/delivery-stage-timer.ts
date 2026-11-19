@@ -1,23 +1,21 @@
 import type { Runner } from "../runtime/index.js";
+import {
+  mergedMilliseconds,
+  stageTimes,
+  type DeliveryStage,
+  type StageEnds,
+  type StageTime,
+} from "./delivery-stage-timeline.js";
 
-// Docs: infra/plans/15-next-horizon.md (Step 7) and docs/decisions/0043-platform-configuration-through-argo-cd.md
+export { deliveryStages } from "./delivery-stage-timeline.js";
+export type { DeliveryStage, StageTime } from "./delivery-stage-timeline.js";
+
+// Docs: infra/plans/15-next-horizon.md (Step 7)
 //
-// The delivery-stage timer (#1113): times a merged Service change with a signed
-// digest to a working HTTPS address, broken into six stages. Each stage's end is
-// a timestamp read from cluster state, so no stage is guessed. The clock starts
-// at the merge, so the tenant's own build, which happens before the merge, is
-// never counted. A stage whose time source cannot be read fails the run by name
-// rather than reporting a total with a hole in it. It is read-only: `kubectl get`.
-
-export const deliveryStages = [
-  "namespace",
-  "sync",
-  "admission",
-  "certificate",
-  "rollout",
-  "readiness",
-] as const;
-export type DeliveryStage = (typeof deliveryStages)[number];
+// The delivery-stage timer (#1113): times a merged Service change to a working
+// HTTPS address in six stages, each end read from cluster state. The clock starts
+// at the merge, so the tenant build is never counted; a stage with no readable time
+// source fails the run by name. Read-only: `kubectl get`.
 
 export interface DeliveryTimerOptions {
   /** The Service's name, for example `shop`. */
@@ -37,11 +35,6 @@ export interface DeliveryTimerDeps {
   now: () => number;
 }
 
-export interface StageTime {
-  stage: DeliveryStage;
-  seconds: number;
-}
-
 export interface DeliveryRun {
   series: "cold" | "redeploy";
   service: string;
@@ -59,18 +52,12 @@ export interface DeliveryReport {
   redeploy: DeliveryRun[];
 }
 
-/** The end of each stage, in stage order, in epoch milliseconds. */
-type StageEnds = [DeliveryStage, number][];
-
 interface Resource {
   metadata?: { creationTimestamp?: unknown };
   status?: {
     operationState?: { finishedAt?: unknown };
     conditions?: unknown;
   };
-}
-
-interface ResourceList {
   items?: unknown;
 }
 
@@ -83,7 +70,7 @@ export class DeliveryStageTimer {
 
   /** Reads the six time sources and returns the run in its series. */
   async measure(): Promise<DeliveryReport> {
-    const merged = Date.parse(this.options.mergedAt);
+    const merged = mergedMilliseconds(this.options.mergedAt);
     const ends = await this.stageEnds();
     const namespaceCreated = ends[0]?.[1] ?? merged;
     const run: DeliveryRun = {
@@ -148,15 +135,12 @@ export class DeliveryStageTimer {
     );
   }
 
-  /**
-   * The first pod stored by the apiserver: the pods of the Service were admitted
-   * by the admission chain before the apiserver stored them.
-   */
+  /** The first pod stored: the admission chain accepted it before the apiserver stored it. */
   private async admissionEnd(
     service: string,
     namespace: string,
   ): Promise<number> {
-    const pods = await this.read<ResourceList>(
+    const pods = await this.read<Resource>(
       "admission",
       `the pods of ${service}`,
       [
@@ -205,7 +189,7 @@ export class DeliveryStageTimer {
     service: string,
     namespace: string,
   ): Promise<{ rolledOut: number; available: number }> {
-    const deployments = await this.read<ResourceList>(
+    const deployments = await this.read<Resource>(
       "rollout",
       `the deployments of ${service}`,
       [
@@ -335,27 +319,4 @@ export class DeliveryStageTimer {
     }
     return this.timestamp(stage, `${what} ${field}`, match[field]);
   }
-}
-
-/**
- * Each stage's seconds from the end of the stage before it, starting at the
- * merge. A stage that ended before the one before it (a namespace created
- * before a redeploy's merge) takes zero seconds, never a negative one.
- */
-function stageTimes(
-  merged: number,
-  ends: StageEnds,
-): { stages: StageTime[]; totalSeconds: number } {
-  const stages: StageTime[] = [];
-  let previous = merged;
-  for (const [stage, end] of ends) {
-    stages.push({ stage, seconds: seconds(Math.max(0, end - previous)) });
-    previous = Math.max(previous, end);
-  }
-  return { stages, totalSeconds: seconds(previous - merged) };
-}
-
-/** Seconds from milliseconds, to one decimal place, as the footprint measurement rounds. */
-function seconds(milliseconds: number): number {
-  return Math.round(milliseconds / 100) / 10;
 }

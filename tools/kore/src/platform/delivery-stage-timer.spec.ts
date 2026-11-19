@@ -110,6 +110,35 @@ function timerWith(cluster: Cluster) {
   return { timer, run };
 }
 
+test("a merge time that is not RFC 3339 fails before any read, and the runner is never called", async () => {
+  const { runner, run } = fakeRunner(clusterReply(COLD));
+  const timer = new DeliveryStageTimer(
+    runner,
+    { ...options, mergedAt: "2026-11-18 10:00:00" },
+    { now: () => Date.parse("2026-11-18T10:05:00Z") },
+  );
+
+  await expect(timer.measure()).rejects.toThrow(
+    new Error(
+      "KORE_DELIVERY_MERGED_AT must be an RFC 3339 time, for example 2026-11-18T10:00:00Z",
+    ),
+  );
+  expect(run).not.toHaveBeenCalled();
+});
+
+test("a merge time with a numeric offset is an RFC 3339 time and is measured", async () => {
+  const { runner } = fakeRunner(clusterReply(COLD));
+  const timer = new DeliveryStageTimer(
+    runner,
+    { ...options, mergedAt: "2026-11-18T11:00:00+01:00" },
+    { now: () => Date.parse("2026-11-18T10:05:00Z") },
+  );
+
+  const report = await timer.measure();
+
+  expect(report.cold.map((run) => run.totalSeconds)).toEqual([85]);
+});
+
 test("a cold delivery times the six stages from the merge, in stage order, with the total", async () => {
   const { timer } = timerWith(COLD);
 
