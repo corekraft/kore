@@ -1,13 +1,17 @@
 import { registryTlsSecret } from "./registry-tls-fixtures.js";
 import { CommandError, type Runner } from "../runtime/index.js";
 
-/** The kube context of the local cluster, the only one whose healthy fake runs metrics-server. */
+/** The kube context of the local cluster, the only one whose healthy fake runs the releases below. */
 const localKubeContext = "k3d-kore-local";
+
+/** Gated releases the local overlay turns on, so only the local cluster runs them. */
+const runsInLocal = ["metrics-server", "kore-platform-apis"];
 
 /**
  * Releases the local catalog gates off, so a healthy cluster never has them.
- * metrics-server is among them for every other cluster; the local cluster runs
- * it, because local turns autoscaling-defaults on.
+ * metrics-server and kore-platform-apis are among them for every other
+ * cluster; the local cluster runs them, because local turns autoscaling-defaults
+ * and platform-organization-service-apis on.
  */
 const gatedOffReleases = [
   "agentgateway",
@@ -34,7 +38,7 @@ export function gatedOffReleaseAbsent(
 ): void {
   const release = args[1] ?? "";
   const runsHere =
-    release === "metrics-server" && args.includes(localKubeContext);
+    runsInLocal.includes(release) && args.includes(localKubeContext);
   if (
     command === "helm" &&
     args[0] === "status" &&
