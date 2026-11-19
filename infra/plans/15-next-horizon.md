@@ -202,6 +202,7 @@ Safety pattern: `feature-flagged` (`autoscaling-defaults`, off in `local`).
       because a pod started cold.
 
       - 2026-11-15 not provable: no project command exists (owner decision 2026-11-15, no command scales a BFF 1 to N under load and back while counting failed requests; tracked on [#616](https://github.com/corekraft/kore/issues/616)). Not ticked.
+      - 2026-11-18 command added ([#1114](https://github.com/corekraft/kore/issues/1114)): `npm run test:live:golden-path-load` in `tools/kore` scales the BFF out and back under the golden-path load and fails on any failed request ([plan 13](13-agentgateway-ingress.md#golden-path-route-set)). One live run is owed, on an idle host with `autoscaling-defaults` on and the BFF delivered through Argo CD, recorded on #1114 with its host record. Not ticked.
 
 ### Exit Criteria
 
@@ -318,6 +319,9 @@ Safety pattern: `no-behaviour-change` (records only).
 - [ ] Record the golden-path frontend's p95 at the Gateway with
       [plan 13](13-agentgateway-ingress.md)'s load harness, which already
       computes p95.
+
+      - 2026-11-18 route set added ([#1114](https://github.com/corekraft/kore/issues/1114)): the same `npm run test:live:golden-path-load` run reports the golden-path p95, p50 and max under its own route set, apart from the reference routes ([plan 13](13-agentgateway-ingress.md#golden-path-route-set)). The baseline is owed from one live run. Not ticked.
+
 - [ ] Run the end-user token test: a browser finds no access or refresh token
       readable by script, and every session cookie is host-only, `HttpOnly`,
       `Secure` and `SameSite`.

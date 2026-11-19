@@ -210,7 +210,50 @@ comparison, so change it only with a new baseline.
   ztunnel column is reported beside the ingress and does not decide the
   outcome. `judgeOutcome` in `ingress-metrics.ts` applies this rule.
 
+## Golden-Path Route Set
+
+The golden-path service gets its own route set, baseline and results, so a
+golden-path number is never compared with a reference-route number
+([#1114](https://github.com/corekraft/kore/issues/1114)). No load tool is
+added: `RatedMeasurement` extends the harness above with `routeSet` and still
+records p95 (nearest-rank, from sequential probes). Every other value of the
+[Measurement Method](#measurement-method) is unchanged.
+`npm run test:live:golden-path-load` in `tools/kore` runs both parts below, one run
+at a time on an idle host (stop writer and challenger panes first).
+
+- **Route set `golden-path`.** A delivered service's default host
+  (`<service>.platform.kore.local`) at its own Gateway in the service
+  namespace: `/` and `/healthz` answer 200 from the static frontend, `/api`
+  answers 404 from the BFF (the unmodified kotlin-bff template maps no
+  controller there; a BFF with a controller is a different baseline). The
+  result names the set in `method.routeSet`; the reference set carries none.
+  It reports p95, p50 and max of the sequential probes, the same way.
+- **Scale check.** `GoldenPathScaleCheck` sets the BFF Deployment to a starting
+  count (`KORE_SCALE_START_REPLICAS`, else the count the Deployment has, which
+  is recorded, never assumed to be one), starts the golden-path load, grows to
+  N (`KORE_SCALE_PEAK_REPLICAS`, default 4) until N replicas are ready, returns
+  to the starting count until only it remains, and stops the load. Any request
+  that fails or answers another status fails the check, as does a Deployment
+  that never reaches N (a sync reverting the scale shows up there). The result
+  records the starting, peak and end ready counts and the host record. The one
+  cluster write is `kubectl scale`, put back to the starting count however the
+  run ends. The live run needs `autoscaling-defaults` on and the service
+  delivered through Argo CD.
+- **Host record.** Both results carry the ingress measurement's `host` record
+  beside the numbers; the scale check refuses a host 1-minute load average of
+  10 or more, as the ingress measurement does.
+- **Baselines only.** There is no target; a baseline is read from the runs.
+  k6 stays held behind its trigger ([#1151](https://github.com/corekraft/kore/issues/1151)):
+  adopt it only if p95 across three clean runs spreads beyond the bound that
+  spec sets, since sequential probes undercount queueing under overload and the
+  load is paced batches, not a fixed arrival rate.
+
 ## Results
+
+### Golden-path route set baseline
+
+Not recorded yet: it needs one live run of `npm run test:live:golden-path-load`, to be
+recorded as one JSON comment on #1114 with a plan 15 line.
 
 ### Comparison point: Istio ingress on k3d (2026-11-12)
 

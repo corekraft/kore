@@ -263,7 +263,9 @@ destructive_suites=(test:live:signer test:live:lifecycle)
 # the platform, and need a host the runner is not (test:live:footprint reads the
 # macOS swap usage and fails on Linux; Linux support is debt #659). Add a future
 # measurement suite here deliberately; each one found is named in the summary.
-excluded_suites=(test:live:footprint)
+# test:live:golden-path-load scales a delivered golden-path service under load
+# on an idle host, and the night delivers none.
+excluded_suites=(test:live:footprint test:live:golden-path-load)
 suites_all="$suites"
 for excluded in "${excluded_suites[@]}"; do
   if printf '%s\n' "$suites_all" | grep -qxF "$excluded"; then
