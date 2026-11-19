@@ -3,6 +3,9 @@ import { expect, test, vi } from "vitest";
 import { localRegistryReference } from "../../src/images/index.js";
 import type { Repository } from "../../src/config/index.js";
 import type { Runner } from "../../src/runtime/index.js";
+import { localPlatform } from "../local-platform-support.js";
+
+const platform = await localPlatform();
 
 // The registry units read only the repository's environment, so a fake carries
 // those fields alone. The one cast stands in for the rest of the Repository type.
@@ -61,7 +64,7 @@ test("local registry verification starts a host-side port forward", async () => 
       },
     }),
     caRunner,
-    "registry.kore.local:30500/reference@sha256:" + "a".repeat(64),
+    `${platform.registry}/reference@sha256:` + "a".repeat(64),
     {
       spawnPortForward: (repository) => {
         calls.push({
@@ -73,7 +76,7 @@ test("local registry verification starts a host-side port forward", async () => 
             "kore-registry",
             "port-forward",
             "service/oci-registry",
-            "30500:5000",
+            `${platform.registryPort}:5000`,
           ],
           input: undefined,
         });
@@ -82,7 +85,10 @@ test("local registry verification starts a host-side port forward", async () => 
       isPortOpen: async () => portChecks++ > 0,
     },
   );
-  assert.equal(reference, "127.0.0.1:30500/reference@sha256:" + "a".repeat(64));
+  assert.equal(
+    reference,
+    `${platform.registryForward}/reference@sha256:` + "a".repeat(64),
+  );
   assert.deepEqual(calls[0]!.args, [
     "--context",
     "k3d-kore-local",
@@ -90,7 +96,7 @@ test("local registry verification starts a host-side port forward", async () => 
     "kore-registry",
     "port-forward",
     "service/oci-registry",
-    "30500:5000",
+    `${platform.registryPort}:5000`,
   ]);
 });
 
@@ -117,7 +123,7 @@ test("managed registry references pass through without a local port forward", as
 });
 
 test("an already available local registry avoids starting another port forward", async () => {
-  const reference = "registry.kore.local:30500/reference:dev";
+  const reference = `${platform.registry}/reference:dev`;
   let started = false;
 
   await expect(
@@ -135,7 +141,7 @@ test("an already available local registry avoids starting another port forward",
         },
       },
     ),
-  ).resolves.toBe("127.0.0.1:30500/reference:dev");
+  ).resolves.toBe(`${platform.registryForward}/reference:dev`);
   expect(started).toBe(false);
 });
 
@@ -150,7 +156,7 @@ test("local registry setup reports when the port forward never becomes ready", a
         environment: { provider: "k3d", kubeContext: "k3d-kore-local" },
       }),
       caRunner,
-      "registry.kore.local/reference:dev",
+      `${platform.registryHost}/reference:dev`,
       {
         isPortOpen: async () => false,
         spawnPortForward,
@@ -173,9 +179,9 @@ test("default local registry setup starts kubectl and waits for its port", async
       localRegistryReference(
         repository,
         caRunner,
-        "registry.kore.local/reference:dev",
+        `${platform.registryHost}/reference:dev`,
       ),
-    ).resolves.toBe("127.0.0.1:30500/reference:dev");
+    ).resolves.toBe(`${platform.registryForward}/reference:dev`);
     expect(spawnMock).toHaveBeenCalledWith(
       "kubectl",
       [
@@ -185,7 +191,7 @@ test("default local registry setup starts kubectl and waits for its port", async
         "kore-registry",
         "port-forward",
         "service/oci-registry",
-        "30500:5000",
+        `${platform.registryPort}:5000`,
       ],
       { detached: true, stdio: "ignore" },
     );
@@ -206,7 +212,7 @@ test("default local registry setup fails if kubectl cannot start", async () => {
           environment: { provider: "k3d", kubeContext: "k3d-kore-local" },
         }),
         caRunner,
-        "registry.kore.local/reference:dev",
+        `${platform.registryHost}/reference:dev`,
       ),
     ).rejects.toThrow(/could not start the local OCI registry port-forward/);
   } finally {
@@ -237,5 +243,5 @@ test("a k3d environment starts the registry port forward for its own context", a
   );
 
   expect(forwardedContext).toBe("k3d-kore-local");
-  expect(reference).toBe("127.0.0.1:30500/reference:kore-local");
+  expect(reference).toBe(`${platform.registryForward}/reference:kore-local`);
 });

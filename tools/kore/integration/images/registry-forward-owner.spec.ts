@@ -10,6 +10,9 @@ import {
   localRegistryReference,
   stopRegistryForward,
 } from "../../src/images/index.js";
+import { localPlatform } from "../local-platform-support.js";
+
+const platform = await localPlatform();
 
 // Docs: AGENTS.md "One owner per resource."
 
@@ -18,7 +21,7 @@ vi.mock("../../src/images/registry-tls.js", () => ({
 }));
 
 const context = "k3d-kore-local";
-const forwardCommand = `kubectl --context ${context} --namespace kore-registry port-forward service/oci-registry 30500:5000`;
+const forwardCommand = `kubectl --context ${context} --namespace kore-registry port-forward service/oci-registry ${platform.registryPort}:5000`;
 const roots: string[] = [];
 
 beforeEach(async () => {
@@ -52,7 +55,7 @@ async function start(repository: Repository): Promise<void> {
     {
       run: async () => ({ stdout: "", stderr: "", code: 0 }),
     } as unknown as Runner,
-    "registry.kore.local:30500/reference:dev",
+    `${platform.registry}/reference:dev`,
     {
       isPortOpen: async () => {
         const open = ready;
@@ -144,7 +147,7 @@ async function useOpenForward(repository: Repository) {
     {
       run: async () => ({ stdout: "", stderr: "", code: 0 }),
     } as unknown as Runner,
-    "registry.kore.local:30500/reference:dev",
+    `${platform.registry}/reference:dev`,
     { isPortOpen: async () => true, report: (line) => void lines.push(line) },
   );
   return lines;
@@ -154,7 +157,7 @@ test("a forward found already open with no recorded owner is reported, never sil
   const lines = await useOpenForward(await worktree());
 
   expect(lines.join("\n")).toMatch(/no owner recorded/);
-  expect(lines.join("\n")).toContain("30500");
+  expect(lines.join("\n")).toContain(String(platform.registryPort));
 });
 
 test("a forward found open that a worktree recorded is used without a warning", async () => {

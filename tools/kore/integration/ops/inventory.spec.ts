@@ -10,6 +10,9 @@ import {
 } from "../../src/config/index.js";
 import type { Runner } from "../../src/runtime/index.js";
 import { opsReport } from "../../src/ops/index.js";
+import { localPlatform } from "../local-platform-support.js";
+
+const platform = await localPlatform();
 
 // Real files and real units together: the inventory and its integrity checks
 // read a temporary repository through the ops barrel. Unit tests of each file
@@ -46,7 +49,7 @@ function pinnedFiles(): Record<string, string> {
       authorizedSigners: ["local-kore-key"],
       entries: {
         reference: {
-          image: "registry.kore.local:30500/reference",
+          image: `${platform.registry}/reference`,
           digest: DIGEST,
           signer: "local-kore-key",
         },

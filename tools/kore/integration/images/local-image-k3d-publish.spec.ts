@@ -19,6 +19,9 @@ import {
   k3dImagePublishArgs,
   k3dRegistrySessionArgs,
 } from "../../src/testing/index.js";
+import { localPlatform } from "../local-platform-support.js";
+
+const platform = await localPlatform();
 
 const registryReference = vi.hoisted(() => vi.fn());
 vi.mock("../../src/images/registry.js", () => ({
@@ -49,7 +52,7 @@ async function k3dRepository(): Promise<Repository> {
       k3d: {
         clusterName: "kore-local",
         serviceCidr: "10.96.0.0/12",
-        ports: [{ hostPort: 8443, loadBalancerPort: 443 }],
+        ports: [{ hostPort: platform.hostPort, loadBalancerPort: 443 }],
       },
     },
   };
@@ -93,7 +96,7 @@ test("the built image is named by the registry address the nodes and the image p
     entry,
   );
 
-  expect(entry.image).toBe("registry.kore.local:30500/reference");
+  expect(entry.image).toBe(`${platform.registry}/reference`);
   expect(built.image.reference).toBe(`10.96.0.50:5000/reference@${digest}`);
 });
 

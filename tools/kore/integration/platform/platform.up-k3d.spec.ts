@@ -50,6 +50,9 @@ vi.mock("../../src/platform/status.js", () => ({
 import { loadRepository } from "../../src/config/index.js";
 import type { Runner } from "../../src/runtime/index.js";
 import { platformUp } from "../../src/platform/index.js";
+import { localPlatform } from "../local-platform-support.js";
+
+const platform = await localPlatform();
 
 type Call = { command: string; args: readonly string[] };
 
@@ -68,7 +71,10 @@ const healthyGateway = JSON.stringify({
 const nodePortService = JSON.stringify({
   items: [
     {
-      spec: { type: "NodePort", ports: [{ port: 8443, nodePort: 30443 }] },
+      spec: {
+        type: "NodePort",
+        ports: [{ port: platform.gatewayPort, nodePort: 30443 }],
+      },
       status: { loadBalancer: {} },
     },
   ],

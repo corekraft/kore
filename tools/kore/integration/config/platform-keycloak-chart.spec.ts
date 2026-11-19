@@ -13,6 +13,9 @@ import {
   platformPortalFlag,
   validateRepository,
 } from "../../src/config/index.js";
+import { escapeRegExp, localPlatform } from "../local-platform-support.js";
+
+const platform = await localPlatform();
 
 // Docs: docs/decisions/0113-run-a-keycloak-for-the-platform-organization-s-operators.md
 
@@ -74,7 +77,10 @@ test("the Keycloak reads its database credentials and bootstrap admin from Secre
   assert.match(keycloak, /host: keycloak-db-rw/);
   assert.match(keycloak, /name: keycloak-db-app/);
   assert.match(keycloak, /secret: keycloak-admin/);
-  assert.match(keycloak, /hostname: keycloak\.kore\.local/);
+  assert.match(
+    keycloak,
+    new RegExp(`hostname: keycloak\\.${escapeRegExp(platform.domain)}`),
+  );
   assert.equal(/password:\s*\S/i.test(keycloak), false);
   assert.equal(keycloak.includes("image:"), false, "the operator's digest");
 });

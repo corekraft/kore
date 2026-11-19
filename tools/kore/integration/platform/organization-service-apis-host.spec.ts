@@ -11,6 +11,9 @@ import {
   organizationServiceApisFlag,
   platformHelmArgs,
 } from "../../src/config/index.js";
+import { localPlatform } from "../local-platform-support.js";
+
+const platform = await localPlatform();
 
 // Docs: docs/decisions/0042-organization-domains-by-delegation.md
 
@@ -45,7 +48,7 @@ test("each environment supplies its platform domain through its one platform fie
     "a chart default would give a non-local environment the local domain",
   );
   for (const [name, domain] of [
-    ["local", "kore.local"],
+    ["local", platform.domain],
     ["managed-example", "platform.example.com"],
   ] as const) {
     const repository = await loadRepository(name);
@@ -76,7 +79,7 @@ test("each environment supplies its platform domain through its one platform fie
   assert.deepEqual(schema.required, ["platformDomain"]);
   const { pattern, maxLength } = schema.properties.platformDomain;
   const re = new RegExp(pattern);
-  assert.ok(re.test("kore.local"));
+  assert.ok(re.test(platform.domain));
   assert.ok(!re.test("Kore.local"), "uppercase is rejected");
   assert.ok(!re.test("kore"), "a single label is not a domain");
   assert.ok(!re.test(`${"a".repeat(64)}.local`), "labels are at most 63");

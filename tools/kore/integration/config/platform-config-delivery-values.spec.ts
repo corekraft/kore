@@ -8,6 +8,9 @@ import {
   handedOver,
   render,
 } from "./platform-config-delivery-chart-support.js";
+import { localPlatform } from "../local-platform-support.js";
+
+const platform = await localPlatform();
 
 // Docs: docs/decisions/0043-platform-configuration-through-argo-cd.md (environment values)
 
@@ -56,11 +59,11 @@ async function platformConfig(texts: string[]): Promise<Values | undefined> {
   );
 }
 
-test("the rendered kore-platform-config Application carries the overlay's gateway values, NodePort 30443 on port 8443, so Argo CD renders the Gateway the Helm path does", async () => {
+test("the rendered kore-platform-config Application carries the overlay's gateway values, NodePort 30443 on the gateway port, so Argo CD renders the Gateway the Helm path does", async () => {
   const values = await platformConfig([await overlayFile()]);
   assert.equal(values?.gateway?.service?.type, "NodePort");
   assert.equal(values?.gateway?.service?.nodePort, 30443);
-  assert.equal(values?.gateway?.port, 8443);
+  assert.equal(values?.gateway?.port, platform.gatewayPort);
   assert.equal(
     values?.gateway?.hostname,
     undefined,

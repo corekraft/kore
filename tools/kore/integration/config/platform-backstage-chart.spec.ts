@@ -14,6 +14,10 @@ import {
   platformPortalFlag,
   validateRepository,
 } from "../../src/config/index.js";
+import { escapeRegExp, localPlatform } from "../local-platform-support.js";
+
+const platform = await localPlatform();
+const domain = escapeRegExp(platform.domain);
 
 // Docs: docs/decisions/0111-run-a-backstage-and-an-argo-cd-for-the-platform-organization-s-operators.md
 
@@ -87,7 +91,9 @@ test("the proxy refuses a request with no session and signs in through the platf
   assert.match(deployment, /--provider=keycloak-oidc/);
   assert.match(
     deployment,
-    /--oidc-issuer-url=https:\/\/keycloak\.kore\.local\/realms\/platform/,
+    new RegExp(
+      `--oidc-issuer-url=https://keycloak\\.${domain}/realms/platform`,
+    ),
   );
   assert.match(deployment, /--upstream=http:\/\/127\.0\.0\.1:7007/);
   assert.match(deployment, /--cookie-secure=true/);
@@ -119,7 +125,10 @@ test("the Keycloak client is registered for the callback under the platform doma
   assert.match(client, /namespace: keycloak/);
   assert.match(client, /keycloakCRName: keycloak/);
   assert.match(client, /realm: platform/);
-  assert.match(client, /https:\/\/backstage\.kore\.local\/oauth2\/callback/);
+  assert.match(
+    client,
+    new RegExp(`https://backstage\\.${domain}/oauth2/callback`),
+  );
   assert.match(client, /name: backstage-oidc/);
   assert.match(client, /key: client-secret/);
 });
@@ -213,7 +222,7 @@ test("the portal host routes only to the sign-in proxy's Service, so a request w
   const routes = documents(rendered, "HTTPRoute");
   assert.equal(routes.length, 1);
   const route = routes[0]!;
-  assert.match(route, /hostnames:\n\s+- "backstage\.kore\.local"/);
+  assert.match(route, new RegExp(`hostnames:\\n\\s+- "backstage\\.${domain}"`));
   const backends = [...route.matchAll(/backendRefs:[\s\S]*?(?=\n\S|$)/g)];
   assert.equal(backends.length, 1);
   assert.match(route, /name: backstage\n\s+port: 80/);
@@ -244,12 +253,12 @@ test("the portal host is served over HTTPS from a certificate for that host only
   const gateway = document(rendered, "Gateway");
   assert.match(gateway, /namespace: backstage/);
   assert.match(gateway, /gatewayClassName: "agentgateway"/);
-  assert.match(gateway, /hostname: "backstage\.kore\.local"/);
+  assert.match(gateway, new RegExp(`hostname: "backstage\\.${domain}"`));
   assert.match(gateway, /protocol: HTTPS/);
   assert.match(gateway, /mode: Terminate/);
   assert.match(gateway, /from: Same/);
   const certificate = document(rendered, "Certificate");
-  assert.match(certificate, /- "backstage\.kore\.local"/);
+  assert.match(certificate, new RegExp(`- "backstage\\.${domain}"`));
   assert.match(certificate, /name: kore-local-ca/);
   assert.match(certificate, /secretName: backstage-tls/);
   assert.match(gateway, /name: backstage-tls/);
@@ -283,7 +292,7 @@ test("the managed-example portal host comes from its platform domain, so the rou
     document(stdout, "HTTPRoute"),
     /"backstage\.platform\.example\.com"/,
   );
-  assert.equal(stdout.includes("kore.local"), false);
+  assert.equal(stdout.includes(platform.domain), false);
 });
 
 test("the route renders only once the gateway class is given, so a render without it adds no resource", async () => {
