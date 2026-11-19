@@ -785,6 +785,7 @@
         "chart": "infra/charts/platform-backstage",
         "version": "local",
         "featureFlag": "platform-portal",
+        "sharedGatewayRoutes": true,
         "ownsCRDs": [],
         "dependencies":
           [

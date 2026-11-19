@@ -208,3 +208,80 @@ test("a mesh label kore applied is released once its component is no longer mesh
   expect(released!.input).not.toContain(ambient);
   expect(released!.args).toContain("--field-manager=kore-mesh-enrollment");
 });
+
+// Docs: docs/decisions/0134-the-shared-gateway-admits-routes-only-from-platform-labelled-namespaces.md
+// A platform namespace holding a route for the shared Gateway carries the label
+// the Gateway's listeners select on, only while platform-shared-gateway is on.
+
+const sharedGateway = "platform.kore.dev/shared-gateway";
+const sharedOn = fakeRepository({
+  imageInventory: "audit",
+  features: { "platform-shared-gateway": true },
+});
+
+test("with platform-shared-gateway on, a component that attaches a route to it has its namespace labelled under its own field manager", async () => {
+  vi.mocked(managedNamespaces).mockResolvedValue([]);
+  vi.mocked(enabledComponents).mockReturnValue([
+    fakeComponent({ namespace: "portal", sharedGatewayRoutes: true }),
+    fakeComponent({ namespace: "other" }),
+  ]);
+  const { runner, run } = cluster([{ name: "portal" }, { name: "other" }]);
+  await enrollPlatformNamespaces(sharedOn, runner);
+  const [applied, ...rest] = applies(run);
+  expect(rest).toEqual([]);
+  expect(appliedName({ input: applied!.input })).toBe("portal");
+  expect(applied!.input).toContain(`${sharedGateway}: "true"`);
+  expect(applied!.args).toContain(
+    "--field-manager=kore-shared-gateway-enrollment",
+  );
+});
+
+test("with platform-shared-gateway off, no namespace is labelled for the shared Gateway", async () => {
+  vi.mocked(managedNamespaces).mockResolvedValue([]);
+  vi.mocked(enabledComponents).mockReturnValue([
+    fakeComponent({ namespace: "portal", sharedGatewayRoutes: true }),
+  ]);
+  const { runner, run } = cluster([{ name: "portal" }]);
+  await enrollPlatformNamespaces(
+    fakeRepository({
+      imageInventory: "audit",
+      features: { "platform-shared-gateway": false },
+    }),
+    runner,
+  );
+  expect(applies(run)).toEqual([]);
+});
+
+test("a shared Gateway namespace that does not exist fails naming it", async () => {
+  vi.mocked(managedNamespaces).mockResolvedValue([]);
+  vi.mocked(enabledComponents).mockReturnValue([
+    fakeComponent({ namespace: "portal", sharedGatewayRoutes: true }),
+  ]);
+  const { runner } = cluster([]);
+  await expect(enrollPlatformNamespaces(sharedOn, runner)).rejects.toThrow(
+    /portal for the shared Gateway: namespace portal does not exist/,
+  );
+});
+
+test("a shared Gateway label kore applied is released once the flag is off again", async () => {
+  vi.mocked(managedNamespaces).mockResolvedValue([]);
+  vi.mocked(enabledComponents).mockReturnValue([
+    fakeComponent({ namespace: "portal", sharedGatewayRoutes: true }),
+  ]);
+  const { runner, run } = cluster([
+    {
+      name: "portal",
+      labels: { [sharedGateway]: "true" },
+      manager: "kore-shared-gateway-enrollment",
+    },
+  ]);
+  await enrollPlatformNamespaces(
+    fakeRepository({ imageInventory: "audit" }),
+    runner,
+  );
+  const [released] = applies(run);
+  expect(released!.input).not.toContain(sharedGateway);
+  expect(released!.args).toContain(
+    "--field-manager=kore-shared-gateway-enrollment",
+  );
+});
