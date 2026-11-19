@@ -76,6 +76,14 @@ const domainValueKeys: Record<string, string | undefined> = {
 };
 
 /**
+ * The chart value each component reads the platform organization's wildcard
+ * through, `*.<organizationId>.<domain>` (ADR 0132).
+ */
+const wildcardValueKeys: Record<string, string | undefined> = {
+  "kore-platform-config": "gateway.platformHostname",
+};
+
+/**
  * Helm arguments that hand the platform domain to a component that names it:
  * the overlay's values files and the chart defaults hold no copy, so the
  * environment's field is the one source.
@@ -85,7 +93,15 @@ export function platformHelmArgs(
   component: string,
 ): string[] {
   const key = domainValueKeys[component];
-  return key === undefined
-    ? []
-    : ["--set-string", `${key}=${platformPlan(environment).domain}`];
+  const wildcard = wildcardValueKeys[component];
+  if (key === undefined && wildcard === undefined) {
+    return [];
+  }
+  const { domain, organizationId } = platformPlan(environment);
+  return [
+    ...(key === undefined ? [] : ["--set-string", `${key}=${domain}`]),
+    ...(wildcard === undefined
+      ? []
+      : ["--set-string", `${wildcard}=*.${organizationId}.${domain}`]),
+  ];
 }

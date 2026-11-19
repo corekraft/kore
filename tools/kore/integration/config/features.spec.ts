@@ -122,6 +122,7 @@ test("the managed-example overlay validates with and without flags", async () =>
         "platform-dns": false,
         "platform-organization-service-apis": false,
         "platform-portal": false,
+        "platform-shared-gateway": false,
       },
     },
   });

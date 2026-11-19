@@ -37,6 +37,7 @@
       "platform-organization-service-apis": false,
       "platform-argocd-delivery": false,
       "platform-dns": false,
+      "platform-shared-gateway": false,
       "platform-portal": false,
       "automatic-retro": false,
       "automatic-approval": false,

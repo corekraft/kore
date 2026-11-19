@@ -14,7 +14,11 @@ export const BASE = [
 ];
 export const GATEWAY = "gateway/kore";
 
-/** The environment's Gateway port maps to the load balancer's node port 30443. */
+/**
+ * The environment's Gateway port maps to the load balancer's node port 30443.
+ * Host 443, the shared Gateway's standard port, maps to that same node port, so
+ * readiness must find 30443 from two host mappings to one node port.
+ */
 export const repository = {
   environment: {
     kubeContext: "k3d-kore-local",
@@ -22,6 +26,7 @@ export const repository = {
     k3d: {
       ports: [
         { hostAddress: "127.0.0.1", hostPort: 8443, loadBalancerPort: 30443 },
+        { hostAddress: "127.0.0.1", hostPort: 443, loadBalancerPort: 30443 },
       ],
     },
   },
