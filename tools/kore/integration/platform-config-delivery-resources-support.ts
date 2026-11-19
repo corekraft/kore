@@ -3,8 +3,8 @@ import { mkdtemp, readdir, readFile, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { promisify } from "node:util";
-import { findRoot, type Repository } from "../../src/config/index.js";
-import { localPlatform } from "../local-platform-support.js";
+import { findRoot, type Repository } from "../src/config/index.js";
+import { localPlatform } from "./local-platform-support.js";
 
 const platform = await localPlatform();
 
@@ -24,6 +24,7 @@ export const namespacedKinds = new Set([
   "security.istio.io/AuthorizationPolicy",
   "security.istio.io/PeerAuthentication",
   "config.gatekeeper.sh/Config",
+  "agentgateway.dev/AgentgatewayParameters",
 ]);
 
 async function yamlFiles(dir: string): Promise<string[]> {
@@ -47,7 +48,7 @@ export type Resource = {
   namespace?: string;
 };
 
-const resourcesOf = (text: string): Resource[] =>
+export const resourcesOf = (text: string): Resource[] =>
   text
     .split(/^---$/m)
     .filter((doc) => /^kind: \w+$/m.test(doc))

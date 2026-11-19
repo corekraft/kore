@@ -13,7 +13,8 @@ Usage:
   kore app status <name> [--environment <name>] [--json]   (reports degraded when the registry or verifier is down)
   kore data export --environment <name> [--namespace reference] [--json]
   kore data restore --environment <name> --from <file> [--identity <age-key-file>] [--overwrite-data --yes] [--json]
-  kore local up|down --environment local [--prune [--purge-data]] [--force] [--platform-chart-lock <platform-charts.lock.json>] [--platform-template-lock <template-images.lock.json>]   (the locks are read only by "up", and only while platform-argocd-delivery is on, when both are required; see "kore platform")
+  kore local lock-check --platform-chart-lock <platform-charts.lock.json> [--json]   (read-only: packages the checkout's charts offline with the release script, prints one row per handed-over release as name, repository, lock and drift plus a verdict, and exits 1 on any drift; run it before every live proof)
+  kore local up|down --environment local [--prune [--purge-data]] [--force] [--require-fresh-lock] [--platform-chart-lock <platform-charts.lock.json>] [--platform-template-lock <template-images.lock.json>]   (the locks are read only by "up", and only while platform-argocd-delivery is on, when both are required; "up" also packages the checkout's charts offline and warns when a chart version in the chart lock differs from the checkout's; --require-fresh-lock turns that warning into a refusal before any cluster work, for a proof; see "kore platform")
   kore registry rotate-credentials --environment <name> --yes [--json]
   kore signer swap-key --environment local --yes [--json]
   kore secrets sync --environment local [--rotate --yes]

@@ -86,6 +86,17 @@ and is not part of Next.
      which stay `proposed` meanwhile. A cloud runner is a separate decision.
      This replaces the 2026-11-14 threshold, which was set from the plan 2
      baseline; the revisit list is the three Next ADRs above.
+- **Before every live proof (#1349, #1354, #1355).** Two checks, both offline
+  and with no cluster, so a run tests the change and not a stale published chart:
+  1. `kore local lock-check --platform-chart-lock <platform-charts.lock.json>`
+     packages the checkout's charts with the release script and compares each
+     handed-over release's version with the lock's. It exits 1 on drift and
+     names the chart; the fix is a release that contains the change. Start the
+     run itself with `kore local up --require-fresh-lock`, which refuses on the
+     same drift (without it `local up` only warns).
+  2. `npm --prefix tools/kore exec vitest run --config vitest.integration.config.ts integration/platform/delivery-chart-values.spec.ts`
+     renders the delivery chart and every delivered chart for each proof flag
+     alone, all together, and local as it is.
 - **Live proofs blocked on the release locks (2026-11-15).** The
   `platform-argocd-delivery` and `platform-portal` live proofs are blocked on
   the release locks: the `platform-charts` lock, `template-images.lock.json`

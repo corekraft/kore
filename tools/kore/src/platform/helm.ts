@@ -85,13 +85,14 @@ function goldenPathArgs(
 }
 
 /**
- * The delivery charts, whose closed schemas name no feature flag and whose
- * templates read none: kore passes them no `features.*` value, since Helm
- * refuses a key the schema does not declare.
+ * The charts whose closed schemas name no feature flag and whose templates
+ * read none (the delivery charts and the portal): kore passes them no
+ * `features.*` value, since Helm refuses a key the schema does not declare.
  */
 const featureFreeCharts = new Set([
   "kore-config-delivery",
   "kore-golden-path-delivery",
+  "kore-platform-backstage",
 ]);
 
 /** The chart value each release takes the GatewayClass through. */

@@ -131,6 +131,21 @@ export const platformModule = () => ({
   platformStop: vi.fn(async () => void dispatch.push("platformStop")),
   platformUp: vi.fn(async () => void dispatch.push("platformUp")),
   composeChartDelivery: vi.fn(async (given: unknown) => given),
+  upChartLockDrift: vi.fn(async (): Promise<unknown[]> => []),
+  chartLockDriftMessage: vi.fn(() => ""),
+  chartLockDrift: vi.fn(
+    async (): Promise<unknown[]> => (
+      dispatch.push("chartLockDrift"),
+      [
+        {
+          name: "opa-authorizer",
+          repository: "0.0.0-a",
+          lock: "0.0.0-a",
+          drift: false,
+        },
+      ]
+    ),
+  ),
   composeGoldenPathDelivery: vi.fn(async (given: unknown) => given),
 });
 

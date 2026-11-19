@@ -10,8 +10,8 @@ import {
   loadRepository,
   platformArgocdDeliveryFlag,
   type Repository,
-} from "../../src/config/index.js";
-import { composeChartDelivery } from "../../src/platform/index.js";
+} from "../src/config/index.js";
+import { composeChartDelivery } from "../src/platform/index.js";
 
 const run = promisify(execFile);
 
@@ -97,3 +97,33 @@ export async function renderDelivery(repository: Repository): Promise<{
     ].map((m) => m[1]!),
   };
 }
+
+/** The lines of one top-level field of the rendered AppProject spec, up to the next field. */
+function section(project: string, field: string, next: string): string {
+  const start = project.indexOf(`\n  ${field}:`);
+  const end = project.indexOf(`\n  ${next}:`, start);
+  assert.ok(start >= 0 && end > start, `${field} sits before ${next}`);
+  return project.slice(start, end);
+}
+
+/** What the AppProject lets an Application in it apply, read from its own whitelist and destinations. */
+export function admitted(project: string) {
+  const whitelist = section(project, "clusterResourceWhitelist", "roles");
+  const destinations = section(
+    project,
+    "destinations",
+    "clusterResourceWhitelist",
+  );
+  return {
+    whitelist,
+    clusterKinds: [...whitelist.matchAll(/- group: (.*)\n\s+kind: (\S+)/g)].map(
+      (m) => `${m[1]!.replaceAll('"', "")}/${m[2]!}`,
+    ),
+    destinations: [...destinations.matchAll(/ namespace: "(.+)"/g)].map(
+      (m) => m[1]!,
+    ),
+  };
+}
+
+export const appProject = (docs: string[]) =>
+  docs.find((d) => /^kind: AppProject$/m.test(d))!;

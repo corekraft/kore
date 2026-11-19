@@ -25,6 +25,7 @@ const barrel = await import("./index.js");
 test("the platform barrel exposes exactly the runtime names its callers use", () => {
   expect(Object.keys(barrel).sort()).toEqual(
     [
+      "ChartPackagingError",
       "activationLabel",
       "admissionGate",
       "admissionGateStatusName",
@@ -33,6 +34,8 @@ test("the platform barrel exposes exactly the runtime names its callers use", ()
       "assertAdmissionGateOpen",
       "bootstrapControllers",
       "capacityWarningPercent",
+      "chartLockDrift",
+      "chartLockDriftMessage",
       "closeGateIfDegraded",
       "composeChartDelivery",
       "composeGoldenPathDelivery",
@@ -55,6 +58,7 @@ test("the platform barrel exposes exactly the runtime names its callers use", ()
       "recoverRelease",
       "releaseMatchesFingerprint",
       "routeHostErrors",
+      "upChartLockDrift",
       "waitForHTTPRoute",
       "withAbsoluteChart",
     ].sort(),

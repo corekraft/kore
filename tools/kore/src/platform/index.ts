@@ -15,6 +15,13 @@ export type {
 } from "./platform-claims-status.js";
 export type { ComponentStatus } from "./status.js";
 export { composeChartDelivery } from "./chart-delivery.js";
+export {
+  ChartPackagingError,
+  chartLockDrift,
+  chartLockDriftMessage,
+  upChartLockDrift,
+} from "./chart-lock-drift.js";
+export type { ChartLockRow } from "./chart-lock-drift.js";
 export { composeGoldenPathDelivery } from "./golden-path-delivery.js";
 export { platformUp } from "./up.js";
 export { argsFingerprint } from "./fingerprint.js";

@@ -13,11 +13,8 @@ import {
 } from "../security/index.js";
 import type { ActionHandler } from "./context.js";
 import { mutateAction } from "./context.js";
-import {
-  composeChartDelivery,
-  composeGoldenPathDelivery,
-} from "../platform/index.js";
-import { boolFlag, stringFlag } from "./flags.js";
+import { boolFlag } from "./flags.js";
+import { composeLocalDelivery, lockCheck } from "./local-chart-lock.js";
 import { print } from "./output.js";
 import {
   localCommand,
@@ -40,6 +37,7 @@ vi.mock("../platform/index.js");
 vi.mock("../security/index.js");
 vi.mock("./context.js");
 vi.mock("./flags.js");
+vi.mock("./local-chart-lock.js");
 vi.mock("./output.js");
 
 const repository = fakeRepository({ gateway: { name: "kore-gateway" } });
@@ -76,21 +74,10 @@ test("local up and down run as mutations, with down's prune, purge and force opt
     parsed: parsedArgs(),
   });
   const delivered = fakeRepository({ gateway: { name: "delivered" } });
-  const locks: Record<string, string> = {
-    "platform-chart-lock": "charts.json",
-    "platform-template-lock": "templates.json",
-  };
-  vi.mocked(stringFlag).mockImplementation((_parsed, name) => locks[name]);
-  vi.mocked(composeChartDelivery).mockResolvedValue(chartsComposed);
-  vi.mocked(composeGoldenPathDelivery).mockResolvedValue(delivered);
+  vi.mocked(composeLocalDelivery).mockResolvedValue(delivered);
   expect(await localCommand(context)).toBe(0);
   await actionsOf().up!(context, runner);
-  expect(composeChartDelivery).toHaveBeenCalledWith(repository, "charts.json");
-  expect(composeGoldenPathDelivery).toHaveBeenCalledWith(
-    chartsComposed,
-    runner,
-    "templates.json",
-  );
+  expect(composeLocalDelivery).toHaveBeenCalledWith(context, runner);
   await actionsOf().down!(context, runner);
   expect(withHostResolver).toHaveBeenCalledWith(
     delivered,
@@ -238,7 +225,7 @@ test("local up ensures the host resolver only after both locks are composed, and
     parsed: parsedArgs(),
   });
   const order: string[] = [];
-  vi.mocked(composeGoldenPathDelivery).mockImplementation(async () => {
+  vi.mocked(composeLocalDelivery).mockImplementation(async () => {
     order.push("locks");
     return chartsComposed;
   });
@@ -257,4 +244,26 @@ test("local up ensures the host resolver only after both locks are composed, and
 
   await actionsOf().down!(context, runner);
   expect(withHostResolver).toHaveBeenCalledTimes(1);
+});
+
+test("local up stops when the locks are refused, before the host resolver or any cluster work", async () => {
+  const context = fakeContext({ command: "local", action: "up", repository });
+  vi.mocked(composeLocalDelivery).mockRejectedValue(new Error("drift"));
+  await localCommand(context);
+  await expect(actionsOf().up!(context, runner)).rejects.toThrow("drift");
+  expect(withHostResolver).not.toHaveBeenCalled();
+  expect(localUp).not.toHaveBeenCalled();
+});
+
+test("local lock-check is read-only: it returns the check's exit code without the environment lock or journal", async () => {
+  const context = fakeContext({
+    command: "local",
+    action: "lock-check",
+    repository,
+  });
+  vi.mocked(lockCheck).mockResolvedValue(1);
+  expect(await localCommand(context)).toBe(1);
+  expect(lockCheck).toHaveBeenCalledWith(context);
+  expect(mutateAction).not.toHaveBeenCalled();
+  expect(context.mutate).not.toHaveBeenCalled();
 });

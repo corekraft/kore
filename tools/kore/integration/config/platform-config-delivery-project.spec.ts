@@ -1,51 +1,23 @@
 import assert from "node:assert/strict";
 import { test } from "vitest";
 import {
+  admitted,
+  appProject,
   argocdOwned,
   composed,
   renderDelivery,
   withFlags,
-} from "./platform-config-delivery-project-support.js";
+} from "../platform-config-delivery-project-support.js";
 import {
   namespacedKinds,
   renderedResources,
   type Resource,
-} from "./platform-config-delivery-resources-support.js";
+} from "../platform-config-delivery-resources-support.js";
 
 // Docs: docs/decisions/0043-platform-configuration-through-argo-cd.md (the AppProject admits only what the handed-over releases render)
 
-/** The lines of one top-level field of the rendered AppProject spec, up to the next field. */
-function section(project: string, field: string, next: string): string {
-  const start = project.indexOf(`\n  ${field}:`);
-  const end = project.indexOf(`\n  ${next}:`, start);
-  assert.ok(start >= 0 && end > start, `${field} sits before ${next}`);
-  return project.slice(start, end);
-}
-
 const group = (resource: Pick<Resource, "group" | "kind">) =>
   `${resource.group}/${resource.kind}`;
-
-/** What the AppProject lets an Application in it apply, read from its own whitelist and destinations. */
-function admitted(project: string) {
-  const whitelist = section(project, "clusterResourceWhitelist", "roles");
-  const destinations = section(
-    project,
-    "destinations",
-    "clusterResourceWhitelist",
-  );
-  return {
-    whitelist,
-    clusterKinds: [...whitelist.matchAll(/- group: (.*)\n\s+kind: (\S+)/g)].map(
-      (m) => `${m[1]!.replaceAll('"', "")}/${m[2]!}`,
-    ),
-    destinations: [...destinations.matchAll(/ namespace: "(.+)"/g)].map(
-      (m) => m[1]!,
-    ),
-  };
-}
-
-const appProject = (docs: string[]) =>
-  docs.find((d) => /^kind: AppProject$/m.test(d))!;
 
 for (const on of [true, false]) {
   test(`the AppProject admits every cluster-scoped kind and namespace the argocd-owned components render with every flag ${on ? "on" : "off"}`, async () => {

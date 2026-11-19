@@ -4,7 +4,7 @@ import { mkdtemp, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { promisify } from "node:util";
-import { test } from "vitest";
+import { describe, test } from "vitest";
 import {
   loadRepository,
   platformArgocdDeliveryFlag,
@@ -16,6 +16,13 @@ import {
   withAbsoluteChart,
 } from "../../src/platform/index.js";
 import { localPlatform } from "../local-platform-support.js";
+import {
+  schemaProblems,
+  unadmitted,
+  valueProblems,
+} from "./delivery-matrix-checks-support.js";
+import { portProblems } from "./delivery-matrix-ports-support.js";
+import { flagSets, repositoryFor } from "./delivery-matrix-support.js";
 
 const platform = await localPlatform();
 
@@ -149,3 +156,40 @@ test("kore-config-delivery composed from the local overlay renders the platform-
     "the feature flags reach the Application as the Helm path passes them",
   );
 });
+
+// The flag matrix: under each set of flags, the repository's charts are
+// rendered as Argo CD renders them. Live runs found faults a render shows; each
+// check fails on the fault it would have found (#1340 schema, #1343 AppProject
+// kind, #1345 derived hostname, #1347 Gateway Service port name).
+const checks: [string, typeof schemaProblems][] = [
+  [
+    "the delivery chart's schema accepts every enabled component",
+    schemaProblems,
+  ],
+  [
+    "every kind and namespace a delivered chart renders is admitted by the AppProject",
+    unadmitted,
+  ],
+  [
+    "every delivered chart renders from its Application's values, with the derived values non-empty",
+    valueProblems,
+  ],
+  [
+    "every Service port a Gateway or Route refers to exists and is named",
+    portProblems,
+  ],
+];
+
+for (const set of flagSets) {
+  describe(`with ${set.label}`, () => {
+    for (const [name, check] of checks) {
+      test(
+        name,
+        async () => {
+          assert.deepEqual(await check(set, await repositoryFor(set)), []);
+        },
+        180_000,
+      );
+    }
+  });
+}
