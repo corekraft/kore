@@ -3,12 +3,13 @@
 import { vi } from "vitest";
 import type { LockedImage } from "../images/index.js";
 import type { Repository } from "../config/index.js";
+import { defaultPlatformDomain } from "../platform-domain.fixtures.js";
 import type { Runner } from "../runtime/index.js";
 
 export type Run = Runner["run"];
 
 export const digest = "sha256:" + "a".repeat(64);
-export const reference = `registry.kore.local:30500/reference@${digest}`;
+export const reference = `registry.${defaultPlatformDomain}:30500/reference@${digest}`;
 
 export function errno(code: string): NodeJS.ErrnoException {
   return Object.assign(new Error(code), { code });
@@ -51,7 +52,7 @@ export function fakeRepository(
       name: "local",
       provider: "k3d",
       kubeContext: "k3d-kore-local",
-      platform: { domain: "kore.local", organizationId: "platform" },
+      platform: { domain: defaultPlatformDomain, organizationId: "platform" },
       gateway: {
         name: "kore-gateway",
         namespace: "kore-system",
