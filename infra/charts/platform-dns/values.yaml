@@ -10,3 +10,7 @@ answer:
   # published gateway port.
   address: 127.0.0.1
   ttl: 60
+service:
+  # Unset keeps the Service cluster-internal. An environment that publishes the
+  # DNS sets one node port, used for both UDP and TCP.
+  nodePort: null

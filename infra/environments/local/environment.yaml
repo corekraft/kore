@@ -13,6 +13,18 @@
             "hostAddress": "127.0.0.1",
             "hostPort": 8443,
             "loadBalancerPort": 30443
+          },
+          {
+            "hostAddress": "127.0.0.1",
+            "hostPort": 1053,
+            "loadBalancerPort": 31053,
+            "protocol": "tcp"
+          },
+          {
+            "hostAddress": "127.0.0.1",
+            "hostPort": 1053,
+            "loadBalancerPort": 31053,
+            "protocol": "udp"
           }
         ]
     },
@@ -55,6 +67,7 @@
   "enrollmentExemptions":
     {
       "cosign-system": "Enrolling the verifier's own namespace deadlocks its webhook (ADR 0056).",
+      "kore-dns": "The platform DNS answers before anything else, so enrolling its namespace would make name resolution wait on the image verifier (ADR 0132).",
       "kore-registry": "The registry serves the signatures the verifier needs, so enrolling it would make a registry restart depend on the registry (ADR 0056)."
     },
   "platform": { "domain": "kore.local", "organizationId": "platform" },
@@ -79,6 +92,8 @@
       "kore-storage": ["infra/environments/local/values/platform-storage.yaml"],
       "kore-platform-config":
         ["infra/environments/local/values/platform-config.yaml"],
+      "kore-platform-dns":
+        ["infra/environments/local/values/platform-dns.yaml"],
       "kore-local-tls":
         ["infra/environments/local/values/platform-config.yaml"],
       "kore-image-policy":
