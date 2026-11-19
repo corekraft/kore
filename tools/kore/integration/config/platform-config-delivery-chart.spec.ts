@@ -102,6 +102,8 @@ test("a render without the gateway class fails rather than leaving kore-platform
       `namespaces=${JSON.stringify(await namespaces())}`,
       "--set-string",
       `platformDomain=${platform.domain}`,
+      "--set-string",
+      `platformHostname=*.platform.${platform.domain}`,
     ]),
   );
   assert.match(message, /gatewayClassName/);

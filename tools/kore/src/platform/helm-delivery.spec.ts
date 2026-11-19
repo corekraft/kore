@@ -48,31 +48,12 @@ const delivery = {
   namespaces: { "kore-local-tls": "cert" },
   gatewayClassName: "istio",
   platformDomain: "kore.local",
+  platformHostname: "*.platform.kore.internal",
 };
 
 test("kore-config-delivery is given the composed chart values as JSON, so no lock or catalog is read at install", () => {
   const args = helmUpgradeArgs(
     { ...repository, chartDelivery: delivery },
-    fakeComponent({ name: "kore-config-delivery" }),
-  );
-  expect(args.slice(-8)).toEqual([
-    "--set-json",
-    `charts=${JSON.stringify(delivery.charts)}`,
-    "--set-json",
-    `namespaces=${JSON.stringify(delivery.namespaces)}`,
-    "--set-string",
-    "gatewayClassName=istio",
-    "--set-string",
-    "platformDomain=kore.local",
-  ]);
-});
-
-test("kore-config-delivery is handed each release's values-file text as JSON, so the Applications carry the environment values the Helm path gives", () => {
-  const releaseValues = {
-    "kore-local-tls": ["gateway:\n  port: 8443\n"],
-  };
-  const args = helmUpgradeArgs(
-    { ...repository, chartDelivery: { ...delivery, releaseValues } },
     fakeComponent({ name: "kore-config-delivery" }),
   );
   expect(args.slice(-10)).toEqual([
@@ -84,6 +65,30 @@ test("kore-config-delivery is handed each release's values-file text as JSON, so
     "gatewayClassName=istio",
     "--set-string",
     "platformDomain=kore.local",
+    "--set-string",
+    "platformHostname=*.platform.kore.internal",
+  ]);
+});
+
+test("kore-config-delivery is handed each release's values-file text as JSON, so the Applications carry the environment values the Helm path gives", () => {
+  const releaseValues = {
+    "kore-local-tls": ["gateway:\n  port: 8443\n"],
+  };
+  const args = helmUpgradeArgs(
+    { ...repository, chartDelivery: { ...delivery, releaseValues } },
+    fakeComponent({ name: "kore-config-delivery" }),
+  );
+  expect(args.slice(-12)).toEqual([
+    "--set-json",
+    `charts=${JSON.stringify(delivery.charts)}`,
+    "--set-json",
+    `namespaces=${JSON.stringify(delivery.namespaces)}`,
+    "--set-string",
+    "gatewayClassName=istio",
+    "--set-string",
+    "platformDomain=kore.local",
+    "--set-string",
+    "platformHostname=*.platform.kore.internal",
     "--set-json",
     `releaseValues=${JSON.stringify(releaseValues)}`,
   ]);

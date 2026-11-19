@@ -6,7 +6,7 @@ import {
   chartRepositoryUrls,
 } from "./chart-delivery.js";
 import { enabledComponents, gatewayClassName } from "./features.js";
-import { platformPlan } from "./platform-domain.js";
+import { platformPlan, platformWildcard } from "./platform-domain.js";
 import { fakeComponent, fakeRepository, malformed } from "./config-support.js";
 
 vi.mock("./features.js");
@@ -50,9 +50,10 @@ beforeEach(() => {
   vi.mocked(enabledComponents).mockImplementation((r) => r.catalog.components);
   vi.mocked(gatewayClassName).mockReturnValue("istio");
   vi.mocked(platformPlan).mockReturnValue({
-    domain: "kore.local",
+    domain: "kore.internal",
     organizationId: "platform",
   });
+  vi.mocked(platformWildcard).mockReturnValue("*.platform.kore.internal");
 });
 
 test("the values are the lock's chart and digest and the catalog's namespace for each argocd release", () => {
@@ -69,8 +70,17 @@ test("the values are the lock's chart and digest and the catalog's namespace for
     },
     namespaces: { "kore-local-tls": "cert", "opa-authorizer": "opa" },
     gatewayClassName: "istio",
-    platformDomain: "kore.local",
+    platformDomain: "kore.internal",
+    platformHostname: "*.platform.kore.internal",
   });
+});
+
+test("the platform wildcard is the platformWildcard helper's value for the environment, the same value the Helm path hands kore-platform-config", () => {
+  vi.mocked(platformWildcard).mockReturnValue("*.helper.kore.internal");
+  expect(chartDeliveryValues(repository, lock()).platformHostname).toBe(
+    "*.helper.kore.internal",
+  );
+  expect(platformWildcard).toHaveBeenCalledWith(repository.environment);
 });
 
 test("the image policy never reaches the values, and a lock entry for it is refused", () => {

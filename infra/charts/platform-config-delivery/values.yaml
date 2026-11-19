@@ -19,6 +19,11 @@
 # because their charts hold no default. No default.
 # platformDomain: kore.local
 
+# The platform organization's wildcard, *.<organizationId>.<platformDomain>,
+# which kore passes in. The delivered kore-platform-config takes it as
+# gateway.platformHostname, which its wildcard certificate requires. No default.
+# platformHostname: "*.platform.kore.internal"
+
 # The text of each release's environment values files, in order, which kore
 # reads from the repository so Argo CD renders a release with the values the
 # Helm path gives it. Optional: a release with none takes the chart's defaults.

@@ -53,6 +53,8 @@ spec:
           value: {{ $.Values.gatewayClassName | quote }}
         - name: "gateway.hostname"
           value: {{ $.Values.platformDomain | quote }}
+        - name: "gateway.platformHostname"
+          value: {{ $.Values.platformHostname | quote }}
       {{- else if eq $name "kore-local-tls" }}
       parameters:
         - name: "gateway.hostname"

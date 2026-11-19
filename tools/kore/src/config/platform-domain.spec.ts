@@ -5,6 +5,7 @@ import {
   platformDomainErrors,
   platformHelmArgs,
   platformPlan,
+  platformWildcard,
 } from "./platform-domain.js";
 import type { Environment } from "./types.js";
 
@@ -143,6 +144,13 @@ test("the shared Gateway's wildcard is the platform organization's names under t
     "--set-string",
     "gateway.platformHostname=*.platform.kore.internal",
   ]);
+});
+
+test("the platform wildcard is one helper's value, which the Helm path hands kore-platform-config as gateway.platformHostname", () => {
+  expect(platformWildcard(local)).toBe("*.platform.kore.local");
+  expect(platformHelmArgs(local, "kore-platform-config")).toContain(
+    `gateway.platformHostname=${platformWildcard(local)}`,
+  );
 });
 
 test("the platform DNS component is handed the platform domain as its zone", () => {

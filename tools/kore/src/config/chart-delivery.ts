@@ -1,5 +1,5 @@
 import { enabledComponents, gatewayClassName } from "./features.js";
-import { platformPlan } from "./platform-domain.js";
+import { platformPlan, platformWildcard } from "./platform-domain.js";
 import type { Repository } from "./types.js";
 
 // Docs: docs/decisions/0043-platform-configuration-through-argo-cd.md (the handover values)
@@ -15,6 +15,12 @@ export interface ChartDeliveryValues {
    * and kore-local-tls take as `gateway.hostname`: their charts hold no default.
    */
   platformDomain: string;
+  /**
+   * The platform organization's wildcard, `*.<organizationId>.<domain>`, which
+   * kore-platform-config takes as `gateway.platformHostname`: its wildcard
+   * certificate's template requires it and its chart holds no default (ADR 0132).
+   */
+  platformHostname: string;
   /**
    * Each release's environment values-file text, in the order Helm takes them,
    * so the Argo CD Application renders the chart with the values the Helm path
@@ -111,6 +117,7 @@ export function chartDeliveryValues(
   }
   const entries = entriesOf(lock)!;
   const components = handedOver(repository);
+  const { domain } = platformPlan(repository.environment);
   return {
     charts: Object.fromEntries(
       components.map((c) => [
@@ -125,7 +132,8 @@ export function chartDeliveryValues(
       components.map((c) => [c.name, c.namespace]),
     ),
     gatewayClassName: gatewayClassName(repository.environment),
-    platformDomain: platformPlan(repository.environment).domain,
+    platformDomain: domain,
+    platformHostname: platformWildcard(repository.environment),
   };
 }
 

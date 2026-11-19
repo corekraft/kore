@@ -71,6 +71,16 @@ export function platformDomainErrors(environment: Environment): string[] {
   ];
 }
 
+/**
+ * The platform organization's wildcard, `*.<organizationId>.<domain>` (ADR 0132).
+ * The one derivation: the Helm path and the delivery chart's values both take it
+ * from here, so the two renders cannot disagree.
+ */
+export function platformWildcard(environment: Environment): string {
+  const { domain, organizationId } = platformPlan(environment);
+  return `*.${organizationId}.${domain}`;
+}
+
 /** The chart value each component that names the platform domain reads it through. */
 const domainValueKeys: Record<string, string | undefined> = {
   "kore-platform-apis": "platformDomain",
@@ -190,12 +200,12 @@ export function platformHelmArgs(
   if (key === undefined && wildcard === undefined) {
     return shared;
   }
-  const { domain, organizationId } = platformPlan(environment);
+  const { domain } = platformPlan(environment);
   return [
     ...(key === undefined ? [] : ["--set-string", `${key}=${domain}`]),
     ...(wildcard === undefined
       ? []
-      : ["--set-string", `${wildcard}=*.${organizationId}.${domain}`]),
+      : ["--set-string", `${wildcard}=${platformWildcard(environment)}`]),
     ...shared,
   ];
 }
