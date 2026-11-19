@@ -123,7 +123,6 @@ test("the same status run is fully ready once the controller is back", async () 
       "argocd",
       "keycloak-operator",
       "keycloak-provider",
-      "metrics-server",
       "kore-config-delivery",
       "kore-platform-apis",
       "kore-golden-path-delivery",

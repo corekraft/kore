@@ -1,7 +1,47 @@
 import { expect, test, vi } from "vitest";
-import type { Runner } from "../runtime/index.js";
+import { CommandError, type Runner } from "../runtime/index.js";
 import { registryTlsSecret } from "./registry-tls-fixtures.js";
-import { withHealthyWebhooks } from "./webhook-fixtures.js";
+import {
+  gatedOffReleaseAbsent,
+  withHealthyWebhooks,
+} from "./webhook-fixtures.js";
+
+test("the local cluster runs metrics-server, so its release status is not answered not found", () => {
+  expect(() =>
+    gatedOffReleaseAbsent("helm", [
+      "status",
+      "metrics-server",
+      "--namespace",
+      "metrics-server",
+      "--kube-context",
+      "k3d-kore-local",
+    ]),
+  ).not.toThrow();
+});
+
+test("a cluster that is not local, where autoscaling-defaults is off, answers metrics-server not found", () => {
+  expect(() =>
+    gatedOffReleaseAbsent("helm", [
+      "status",
+      "metrics-server",
+      "--namespace",
+      "metrics-server",
+      "--kube-context",
+      "REQUIRED",
+    ]),
+  ).toThrow(CommandError);
+});
+
+test("a release the local overlay gates off is still answered not found, so its flag-off path holds", () => {
+  expect(() =>
+    gatedOffReleaseAbsent("helm", [
+      "status",
+      "argocd",
+      "--namespace",
+      "argocd",
+    ]),
+  ).toThrow(CommandError);
+});
 
 /** A healthy-webhook wrapper over a wrapped runner that answers every call with `passed through`. */
 function wrapped() {
