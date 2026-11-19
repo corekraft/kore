@@ -14,7 +14,7 @@ import { waitForClusterReady } from "./readiness.js";
 import { READINESS, TRUST, TRUST_VOLUMES } from "./k3d-cluster-support.js";
 import { checkHostPorts } from "./k3d-ports.js";
 
-// Docs: docs/decisions/0136-the-shared-gateway-publishes-database-routes-on-loopback-5432-behind-database-routes.md
+// Docs: docs/decisions/0136-the-shared-gateway-serves-database-routes-on-a-loopback-5432-passthrough-listener-behind-database-routes.md
 
 vi.mock("../images/index.js");
 vi.mock("./readiness.js");
