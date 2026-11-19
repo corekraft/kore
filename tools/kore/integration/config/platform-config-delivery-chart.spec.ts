@@ -9,7 +9,6 @@ import {
   helmInstalledComponents,
   loadRepository,
   orderedComponents,
-  platformArgocdDeliveryFlag,
   releaseOwner,
   validateRepository,
 } from "../../src/config/index.js";
@@ -192,28 +191,20 @@ test("a release without a namespace fails the render rather than guessing one", 
 
 test("the delivery chart is a gated release owned by kore, installed after Argo CD, so Helm never owns what it creates", async () => {
   const name = "kore-config-delivery";
-  for (const environment of ["local", "managed-example"]) {
-    const repository = await loadRepository(environment);
-    await validateRepository(repository);
-    assert.equal(
-      enabledComponents(repository).some((c) => c.name === name),
-      false,
-      `${environment} installs nothing with the flag off`,
-    );
-  }
-  const repository = await loadRepository("local");
-  const on = {
-    ...repository,
-    environment: {
-      ...repository.environment,
-      features: {
-        ...repository.environment.features,
-        [platformArgocdDeliveryFlag]: true,
-        "platform-organization-service-apis": true,
-      },
-    },
-  };
+  const managed = await loadRepository("managed-example");
+  await validateRepository(managed);
+  assert.equal(
+    enabledComponents(managed).some((c) => c.name === name),
+    false,
+    "managed-example installs nothing with the flag off",
+  );
+  const on = await loadRepository("local");
   await validateRepository(on);
+  assert.equal(
+    enabledComponents(on).some((c) => c.name === name),
+    true,
+    "local declares the flag on",
+  );
   const component = on.catalog.components.find((c) => c.name === name)!;
   assert.equal(releaseOwner(on.environment, component), "kore");
   assert.ok(helmInstalledComponents(on, false).some((c) => c.name === name));

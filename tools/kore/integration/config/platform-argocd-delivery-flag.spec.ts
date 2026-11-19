@@ -10,49 +10,62 @@ import {
   validateRepository,
 } from "../../src/config/index.js";
 
-for (const name of ["local", "managed-example"]) {
-  test(`${name} declares platform-argocd-delivery off, so Argo CD is cataloged but never installed and Helm owns every release`, async () => {
-    const repository = await loadRepository(name);
-    await validateRepository(repository);
-    assert.equal(
-      repository.environment.features?.[platformArgocdDeliveryFlag],
-      false,
-    );
-    assert.equal(
-      featureEnabled(repository.environment, platformArgocdDeliveryFlag),
-      false,
-    );
-    const argocd = repository.catalog.components.find(
-      (c) => c.name === "argocd",
-    );
-    assert.equal(argocd?.featureFlag, platformArgocdDeliveryFlag);
-    assert.equal(argocd?.phase, "core");
-    assert.equal(argocd?.kind, "helm");
-    assert.equal(
-      enabledComponents(repository).some((c) => c.name === "argocd"),
-      false,
-    );
-  });
-}
+test("managed-example declares platform-argocd-delivery off, so Argo CD is cataloged but never installed and Helm owns every release", async () => {
+  const repository = await loadRepository("managed-example");
+  await validateRepository(repository);
+  assert.equal(
+    repository.environment.features?.[platformArgocdDeliveryFlag],
+    false,
+  );
+  assert.equal(
+    featureEnabled(repository.environment, platformArgocdDeliveryFlag),
+    false,
+  );
+  const argocd = repository.catalog.components.find((c) => c.name === "argocd");
+  assert.equal(argocd?.featureFlag, platformArgocdDeliveryFlag);
+  assert.equal(argocd?.phase, "core");
+  assert.equal(argocd?.kind, "helm");
+  assert.equal(
+    enabledComponents(repository).some((c) => c.name === "argocd"),
+    false,
+  );
+});
 
-test("turning the flag on installs Argo CD after the controllers it needs, so the gate is the only thing between it and a cluster", async () => {
+test("local declares platform-argocd-delivery on, so Argo CD is installed after the controllers it needs", async () => {
   const repository = await loadRepository("local");
-  const on = {
+  await validateRepository(repository);
+  assert.equal(
+    repository.environment.features?.[platformArgocdDeliveryFlag],
+    true,
+  );
+  assert.equal(
+    featureEnabled(repository.environment, platformArgocdDeliveryFlag),
+    true,
+  );
+  assert.equal(
+    enabledComponents(repository).some((c) => c.name === "argocd"),
+    true,
+  );
+  const names = orderedComponents(repository.catalog).map((c) => c.name);
+  assert.ok(names.indexOf("argocd") > names.indexOf("cert-manager"));
+});
+
+test("turning the flag off removes Argo CD from local, so the gate is the only thing between it and a cluster", async () => {
+  const repository = await loadRepository("local");
+  const off = {
     ...repository,
     environment: {
       ...repository.environment,
       features: {
         ...repository.environment.features,
-        [platformArgocdDeliveryFlag]: true,
+        [platformArgocdDeliveryFlag]: false,
       },
     },
   };
   assert.equal(
-    enabledComponents(on).some((c) => c.name === "argocd"),
-    true,
+    enabledComponents(off).some((c) => c.name === "argocd"),
+    false,
   );
-  const names = orderedComponents(repository.catalog).map((c) => c.name);
-  assert.ok(names.indexOf("argocd") > names.indexOf("cert-manager"));
 });
 
 test("the Argo CD pins agree, so one chart version and exact image digests are the only ones in the catalog", async () => {

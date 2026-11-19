@@ -261,6 +261,7 @@ decisions; read one only when planning that area, and expect it to change.
 - [`docs/ideas/0044-automatic-revert-works-in-local-owner-waiver.md`](ideas/0044-automatic-revert-works-in-local-owner-waiver.md) — automatic-revert works in local (owner waiver)
 - [`docs/ideas/0045-autoscaling-defaults-works-live-in-local.md`](ideas/0045-autoscaling-defaults-works-live-in-local.md) — autoscaling-defaults works live in local
 - [`docs/ideas/0046-platform-organization-service-apis-works-live-in-local.md`](ideas/0046-platform-organization-service-apis-works-live-in-local.md) — platform-organization-service-apis works live in local
+- [`docs/ideas/0047-platform-argocd-delivery-works-live-in-local.md`](ideas/0047-platform-argocd-delivery-works-live-in-local.md) — platform-argocd-delivery works live in local
 
 ## Operations and Guides
 

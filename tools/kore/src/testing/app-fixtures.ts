@@ -6,6 +6,7 @@ import { platformGeneration } from "../platform/index.js";
 import { registryTlsSecret } from "./registry-tls-fixtures.js";
 import {
   gatedOffReleaseAbsent,
+  healthyApplicationOutput,
   healthyDaemonSetOutput,
   healthyWebhookOutput,
 } from "./webhook-fixtures.js";
@@ -83,7 +84,7 @@ export function healthyReadinessOutput(
   if (args.includes("service") && args.includes("--selector")) {
     return healthyService;
   }
-  const webhook = healthyWebhookOutput(args);
+  const webhook = healthyWebhookOutput(args) ?? healthyApplicationOutput(args);
   if (webhook !== undefined) {
     return webhook;
   }

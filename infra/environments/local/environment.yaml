@@ -22,7 +22,7 @@
       "local-image-reuse": true,
       "registry-tag-pruning": false,
       "platform-organization-service-apis": true,
-      "platform-argocd-delivery": false,
+      "platform-argocd-delivery": true,
       "platform-portal": false,
       "automatic-retro": true,
       "automatic-approval": false,

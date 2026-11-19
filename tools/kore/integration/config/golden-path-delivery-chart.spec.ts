@@ -8,7 +8,6 @@ import {
   findRoot,
   loadRepository,
   orderedComponents,
-  platformArgocdDeliveryFlag,
   validateRepository,
 } from "../../src/config/index.js";
 
@@ -167,37 +166,27 @@ test("the workload chart refuses an image reference that carries no digest", asy
 
 test("the delivery chart is a gated catalog release installed after Argo CD and the Service API, and the workload chart is never a catalog release", async () => {
   const name = "kore-golden-path-delivery";
-  for (const environment of ["local", "managed-example"]) {
-    const repository = await loadRepository(environment);
-    await validateRepository(repository);
-    assert.equal(
-      enabledComponents(repository).some((c) => c.name === name),
-      false,
-      `${environment} installs nothing with the flag off`,
-    );
-    assert.equal(
-      repository.catalog.components.some((c) =>
-        /golden-path-workload/.test(c.chart ?? ""),
-      ),
-      false,
-      "kore never applies the workload; the sync owns it",
-    );
-  }
+  const managed = await loadRepository("managed-example");
+  await validateRepository(managed);
+  assert.equal(
+    enabledComponents(managed).some((c) => c.name === name),
+    false,
+    "managed-example installs nothing with the flag off",
+  );
   const repository = await loadRepository("local");
-  const on = {
-    ...repository,
-    environment: {
-      ...repository.environment,
-      features: {
-        ...repository.environment.features,
-        [platformArgocdDeliveryFlag]: true,
-        "platform-organization-service-apis": true,
-      },
-    },
-  };
+  await validateRepository(repository);
+  assert.equal(
+    repository.catalog.components.some((c) =>
+      /golden-path-workload/.test(c.chart ?? ""),
+    ),
+    false,
+    "kore never applies the workload; the sync owns it",
+  );
+  const on = repository;
   assert.equal(
     enabledComponents(on).some((c) => c.name === name),
     true,
+    "local declares the flag on",
   );
   const order = orderedComponents(on.catalog).map((c) => c.name);
   assert.ok(order.includes(name));

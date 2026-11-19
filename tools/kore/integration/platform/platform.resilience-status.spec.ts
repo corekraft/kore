@@ -80,8 +80,13 @@ describe.each(["zero", "stuck"] as const)("a controller %s", (mode) => {
   const checks = workloadChecks(repository).filter(
     ([, check]) => mode === "stuck" || check.startsWith("deployment/"),
   );
-  for (const [owner, check] of checks) {
-    test(`${check} down degrades only ${owner} and mutates nothing`, async () => {
+  // A workload two components both check (Argo CD's ApplicationSet controller
+  // is read by argocd and by kore-golden-path-delivery) degrades each of them.
+  const owners = (check: string) =>
+    checks.filter(([, c]) => c === check).map(([owner]) => owner);
+  for (const check of new Set(checks.map(([, c]) => c))) {
+    const expected = owners(check);
+    test(`${check} down degrades only ${expected.join(" and ")} and mutates nothing`, async () => {
       const { runner, calls } = clusterWith(check, mode);
 
       const rows = await platformStatus(repository, runner, names);
@@ -90,12 +95,14 @@ describe.each(["zero", "stuck"] as const)("a controller %s", (mode) => {
         ({ status }) => status !== "ready" && status !== "gated-off",
       );
       assert.deepEqual(
-        broken.map(({ name }) => name),
-        [owner],
-        `only ${owner} may be reported broken`,
+        broken.map(({ name }) => name).sort(),
+        [...expected].sort(),
+        `only ${expected.join(" and ")} may be reported broken`,
       );
-      assert.equal(broken[0]?.status, "degraded");
-      assert.match(broken[0]!.detail, new RegExp(check.split("/")[1]!));
+      for (const row of broken) {
+        assert.equal(row.status, "degraded");
+        assert.match(row.detail, new RegExp(check.split("/")[1]!));
+      }
       assert.deepEqual(
         calls.filter((call) => MUTATING.test(call)),
         [],
@@ -120,11 +127,8 @@ test("the same status run is fully ready once the controller is back", async () 
     [
       "agentgateway-crds",
       "agentgateway",
-      "argocd",
       "keycloak-operator",
       "keycloak-provider",
-      "kore-config-delivery",
-      "kore-golden-path-delivery",
       "kore-platform-keycloak",
       "kore-platform-backstage",
       "kore-service-observability",
