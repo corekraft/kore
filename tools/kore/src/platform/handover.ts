@@ -1,12 +1,15 @@
 import {
   configDeliveryRelease,
   enabledComponents,
+  featureEnabled,
   helmInstalledComponents,
+  platformDnsFlag,
   releaseOwner,
   type Component,
   type Repository,
 } from "../config/index.js";
 import { CommandError, type Runner } from "../runtime/index.js";
+import { ensureLocalCaTrust } from "../security/index.js";
 import { helmReleaseStatus } from "./probe.js";
 import { reconcileConfiguration } from "./reconcile.js";
 import { waitForApplications } from "./readiness-argocd.js";
@@ -31,6 +34,16 @@ export async function reconcileConfigurations(
       component.phase !== "enforcement"
     ) {
       continue;
+    }
+    // The portal's pods mount the local CA from a ConfigMap kore applies, so
+    // it precedes the release that mounts it, whoever delivers that release
+    // (Helm here, or Argo CD once it has taken the release over), and only
+    // with platform-dns on (ADR 0132).
+    if (
+      component.name === "kore-platform-backstage" &&
+      featureEnabled(repository.environment, platformDnsFlag)
+    ) {
+      await ensureLocalCaTrust(repository, runner, component.namespace);
     }
     if (await handedToArgocd(repository, runner, candidates, component)) {
       continue;

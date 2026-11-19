@@ -15,7 +15,7 @@ import {
   unreadablePorts,
 } from "./k3d-drift.js";
 import { inspectPortMappings, loadBalancerContainer } from "./k3d-inspect.js";
-import { checkHostPorts, type PortProbe } from "./k3d-ports.js";
+import { activePorts, checkHostPorts, type PortProbe } from "./k3d-ports.js";
 
 export type { PortProbe };
 import { type ReadinessOptions, waitForClusterReady } from "./readiness.js";
@@ -43,14 +43,14 @@ const reportedFields = [
 const missingK3d =
   "k3d is not available; install k3d (mise install) and check that Docker is running";
 
-/** The k3d settings of an environment; fails with the cause when it has none. */
+/** The k3d settings of an environment, publishing only its active ports; fails with the cause when it has none. */
 export function k3dCluster(environment: Environment): K3dCluster {
   if (environment.k3d === undefined) {
     throw new Error(
       `environment ${environment.name} has no k3d cluster settings; it is a ${environment.provider} overlay, so k3d commands do not apply to it`,
     );
   }
-  return environment.k3d;
+  return { ...environment.k3d, ports: activePorts(environment) };
 }
 
 /** Bounds create and start, so a stuck server fails named (create rolls back). */

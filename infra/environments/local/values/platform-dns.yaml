@@ -1,0 +1,4 @@
+# The k3d load balancer forwards loopback port 1053 (TCP and UDP) to this node
+# port; the overlay's k3d.ports lists the same number (ADR 0132).
+service:
+  nodePort: 31053

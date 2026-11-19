@@ -118,3 +118,101 @@ test("the check receives the effective overlay's own cluster, so a port added to
     probe,
   );
 });
+
+const dnsPorts = [
+  {
+    hostAddress: "127.0.0.1",
+    hostPort: 1053,
+    loadBalancerPort: 31053,
+    protocol: "tcp",
+    featureFlag: "platform-dns",
+  },
+  {
+    hostAddress: "127.0.0.1",
+    hostPort: 1053,
+    loadBalancerPort: 31053,
+    protocol: "udp",
+    featureFlag: "platform-dns",
+  },
+];
+const gatewayPort = {
+  hostAddress: "127.0.0.1",
+  hostPort: 8443,
+  loadBalancerPort: 443,
+};
+
+function withDnsPorts(platformDns: boolean) {
+  return fakeRepository({
+    features: { "platform-dns": platformDns },
+    k3d: {
+      clusterName: "kore-local",
+      serviceCidr: "10.96.0.0/12",
+      ports: [gatewayPort, ...dnsPorts],
+    },
+  });
+}
+
+test("with the flag off an existing cluster is compared to the overlay without the flagged mappings, so a cluster created before them shows no drift", async () => {
+  await clusterUpK3d(
+    withDnsPorts(false),
+    fakeK3d(1).runner,
+    READINESS,
+    "/home/u",
+  );
+  expect(vi.mocked(drift).mock.calls[0]?.[1].ports).toEqual([gatewayPort]);
+  expect(vi.mocked(unreadablePorts).mock.calls[0]?.[1].ports).toEqual([
+    gatewayPort,
+  ]);
+});
+
+test("with the flag on an existing cluster is compared to the overlay with the flagged mappings", async () => {
+  await clusterUpK3d(
+    withDnsPorts(true),
+    fakeK3d(1).runner,
+    READINESS,
+    "/home/u",
+  );
+  expect(vi.mocked(drift).mock.calls[0]?.[1].ports).toEqual([
+    gatewayPort,
+    ...dnsPorts,
+  ]);
+});
+
+test("with the flag off the host port check is not asked about the flagged mappings, so a host already using loopback 1053 is not refused", async () => {
+  await clusterUpK3d(
+    withDnsPorts(false),
+    fakeK3d(undefined).runner,
+    READINESS,
+    "/home/u",
+    async () => true,
+  );
+  expect(vi.mocked(checkHostPorts).mock.calls[0]?.[1].ports).toEqual([
+    gatewayPort,
+  ]);
+});
+
+test("with the flag off the create arguments publish no flagged mapping, and with it on they publish both protocols", async () => {
+  const created = async (platformDns: boolean) => {
+    const absent = fakeK3d(undefined);
+    await clusterUpK3d(
+      withDnsPorts(platformDns),
+      absent.runner,
+      READINESS,
+      "/home/u",
+      async () => true,
+    );
+    return commandLines(absent.run)
+      .filter((line) => line.startsWith("k3d cluster create"))
+      .flatMap((line) =>
+        line.split(" --").filter((a) => a.startsWith("port ")),
+      );
+  };
+  expect(await created(false)).toEqual([
+    "port 127.0.0.1:8443:443@loadbalancer",
+  ]);
+  expect(await created(true)).toEqual([
+    "port 127.0.0.1:8443:443@loadbalancer",
+    "port 127.0.0.1:1053:31053@loadbalancer",
+    "port 127.0.0.1:1053:31053/udp@loadbalancer",
+  ]);
+});

@@ -144,6 +144,17 @@ The k3d load balancer maps host port `8443` to the Gateway Service's node port
 `platform up` waits for the Gateway Service to publish the configured node
 port before it reports the Gateway ready.
 
+With the `platform-dns` flag on, the local overlay also publishes the platform
+DNS on `127.0.0.1:1053`, over both TCP and UDP, through the same load balancer
+(node port 31053 on the `kore-platform-dns` Service in `kore-dns`). The two
+mappings in `k3d.ports` name the flag, so with it off they are not created,
+compared for drift or probed. k3d fixes ports when it creates the cluster, so
+turning the flag on for a cluster created without them fails the drift check
+with the recreate instruction (`kore local down --prune`, then `kore local up`).
+The `kore-dns` namespace is exempt from image enrollment so the DNS answers
+before anything else
+([ADR 0132](docs/decisions/0132-local-names-resolve-through-platform-dns-and-one-loopback-entry-point.md)).
+
 For the local profile, the focused cluster lifecycle commands are:
 
 ```sh
@@ -324,20 +335,21 @@ recent operations and any that were interrupted.
 Run `kore --help` for every flag; the usage text in `tools/kore/src/cli/usage.ts`
 is the source of truth.
 
-| Command         | Does                                                                                                                                           |
-| --------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
-| `kore doctor`   | Checks pinned tools and prerequisites. Read-only.                                                                                              |
-| `kore validate` | Validates catalogs, environments, and release ordering. Read-only.                                                                             |
-| `kore status`   | Reports each Organization and Service claim's readiness, behind the platform-organization-service-apis flag. Read-only.                        |
-| `kore cluster`  | Starts, stops, destroys, or reports the k3d cluster.                                                                                           |
-| `kore platform` | Bootstraps, reconciles, stops, destroys, renders, or reports platform releases.                                                                |
-| `kore app`      | Deploys, removes, or reports one application's resources and workload releases.                                                                |
-| `kore data`     | Exports retained CloudNativePG data as an age-encrypted, digest-manifested artifact, or restores it into a fresh profile.                      |
-| `kore local`    | Brings the whole local environment up or down (`--prune` destroys it; `--prune --purge-data` also purges retained data).                       |
-| `kore registry` | Rotates the registry's push and read passwords and the enrolled pull Secrets (`rotate-credentials --yes`).                                     |
-| `kore signer`   | Swaps the local cosign signing key and republishes only the public key to Policy Controller (`swap-key --yes`).                                |
-| `kore secrets`  | Syncs local secrets, including the generated API token, into the cluster.                                                                      |
-| `kore trust`    | Installs the local certificate authority before the Gateway is configured.                                                                     |
-| `kore ops`      | Offline checks: dependency inventory and integrity, recovery objectives, upgrade from the previous release, CRD safety. Read-only.             |
-| `kore policy`   | Records audit evidence, promotes one Gatekeeper constraint from dryrun to deny on clean evidence, or rolls it back. Edits the repository only. |
-| `kore journal`  | Lists recent mutating operations and flags interrupted ones. Read-only.                                                                        |
+| Command         | Does                                                                                                                                                                                                     |
+| --------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `kore doctor`   | Checks pinned tools and prerequisites. Read-only.                                                                                                                                                        |
+| `kore validate` | Validates catalogs, environments, and release ordering. Read-only.                                                                                                                                       |
+| `kore status`   | Reports each Organization and Service claim's readiness, behind the platform-organization-service-apis flag. Read-only.                                                                                  |
+| `kore cluster`  | Starts, stops, destroys, or reports the k3d cluster.                                                                                                                                                     |
+| `kore platform` | Bootstraps, reconciles, stops, destroys, renders, or reports platform releases.                                                                                                                          |
+| `kore app`      | Deploys, removes, or reports one application's resources and workload releases.                                                                                                                          |
+| `kore data`     | Exports retained CloudNativePG data as an age-encrypted, digest-manifested artifact, or restores it into a fresh profile.                                                                                |
+| `kore local`    | Brings the whole local environment up or down (`--prune` destroys it; `--prune --purge-data` also purges retained data).                                                                                 |
+| `kore registry` | Rotates the registry's push and read passwords and the enrolled pull Secrets (`rotate-credentials --yes`).                                                                                               |
+| `kore signer`   | Swaps the local cosign signing key and republishes only the public key to Policy Controller (`swap-key --yes`).                                                                                          |
+| `kore secrets`  | Syncs local secrets, including the generated API token, into the cluster.                                                                                                                                |
+| `kore trust`    | Installs the local certificate authority before the Gateway is configured.                                                                                                                               |
+| `kore dns`      | Writes or removes the host resolver file for the platform domain, pointing it at the platform DNS on loopback (ADR 0132). Asks before `sudo` unless `--yes`; `uninstall` removes only a file kore wrote. |
+| `kore ops`      | Offline checks: dependency inventory and integrity, recovery objectives, upgrade from the previous release, CRD safety. Read-only.                                                                       |
+| `kore policy`   | Records audit evidence, promotes one Gatekeeper constraint from dryrun to deny on clean evidence, or rolls it back. Edits the repository only.                                                           |
+| `kore journal`  | Lists recent mutating operations and flags interrupted ones. Read-only.                                                                                                                                  |
