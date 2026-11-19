@@ -4,9 +4,12 @@
 # Helm chart's semver constraint), with the Helm release's own name and
 # namespace, so Argo CD adopts the resources Helm created. The handover deletes
 # nothing: no prune, no cascade finalizer (deleting an Application leaves its
-# resources), no namespace creation, no replace. Helm's release secret stays as
-# an inert record; kore never uninstalls it and, with the flag on, never runs
-# Helm on these releases again.
+# resources), no replace. The namespace has one owner: Argo CD, through
+# CreateNamespace, creates a release's namespace only when it is absent, so a
+# namespace Helm already made is left as it is, and kore never creates a
+# namespace for a handed-over release. Helm's release secret stays as an inert
+# record; kore never uninstalls it and, with the flag on, never runs Helm on
+# these releases again.
 {{- range $name, $entry := .Values.charts }}
 ---
 apiVersion: argoproj.io/v1alpha1
@@ -46,4 +49,5 @@ spec:
       - ServerSideApply=true
       - ApplyOutOfSyncOnly=true
       - PruneLast=true
+      - CreateNamespace=true
 {{- end }}
