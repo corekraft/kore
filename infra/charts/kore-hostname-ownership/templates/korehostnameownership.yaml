@@ -6,8 +6,3 @@ spec:
   match:
     kinds:
       - { apiGroups: [gateway.networking.k8s.io], kinds: [HTTPRoute] }
-  parameters:
-    # Interim (ADR 0042): the platform organization's default zone only. Other
-    # organizations' zones are added here until the Organization API carries them.
-    zones:
-      platform: [platform.kore.internal]

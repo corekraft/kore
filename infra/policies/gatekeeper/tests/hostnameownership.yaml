@@ -8,7 +8,8 @@ tests:
       - {
           name: admits-route-in-owning-zone,
           object: objects/host-allowed.yaml,
-          inventory: [objects/host-ns-platform.yaml],
+          inventory:
+            [objects/host-ns-platform.yaml, objects/host-org-platform.yaml],
           assertions: [{ violations: 0 }]
         }
       - {
@@ -17,6 +18,7 @@ tests:
           inventory:
             [
               objects/host-ns-platform.yaml,
+              objects/host-org-platform.yaml,
               objects/host-ns-platform-two.yaml,
               objects/host-held.yaml
             ],
@@ -25,13 +27,14 @@ tests:
       - {
           name: rejects-host-outside-owning-zone,
           object: objects/host-outside.yaml,
-          inventory: [objects/host-ns-platform.yaml],
+          inventory:
+            [objects/host-ns-platform.yaml, objects/host-org-platform.yaml],
           assertions: [{ violations: 1, message: outside }]
         }
       - {
           name: ignores-organization-label-on-the-route,
           object: objects/host-forged-label.yaml,
-          inventory: [objects/host-ns-team.yaml],
+          inventory: [objects/host-ns-team.yaml, objects/host-org-team.yaml],
           assertions: [{ violations: 1, message: outside }]
         }
       - {
@@ -43,7 +46,12 @@ tests:
       - {
           name: admits-route-reapplied-in-its-own-namespace,
           object: objects/host-held.yaml,
-          inventory: [objects/host-ns-platform.yaml, objects/host-held.yaml],
+          inventory:
+            [
+              objects/host-ns-platform.yaml,
+              objects/host-org-platform.yaml,
+              objects/host-held.yaml
+            ],
           assertions: [{ violations: 0 }]
         }
       - {
@@ -52,7 +60,9 @@ tests:
           inventory:
             [
               objects/host-ns-platform.yaml,
+              objects/host-org-platform.yaml,
               objects/host-ns-team.yaml,
+              objects/host-org-team.yaml,
               objects/host-held-by-team.yaml
             ],
           assertions: [{ violations: 1, message: already claimed }]
@@ -60,6 +70,43 @@ tests:
       - {
           name: rejects-zone-apex-itself,
           object: objects/host-apex.yaml,
+          inventory:
+            [objects/host-ns-platform.yaml, objects/host-org-platform.yaml],
+          assertions: [{ violations: 1, message: outside }]
+        }
+      - {
+          name: admits-host-inside-the-zone-the-organization-declares,
+          object: objects/host-in-moved-zone.yaml,
+          inventory:
+            [
+              objects/host-ns-platform.yaml,
+              objects/host-org-platform-moved.yaml
+            ],
+          assertions: [{ violations: 0 }]
+        }
+      - {
+          name: rejects-host-outside-the-zone-the-organization-declares,
+          object: objects/host-allowed.yaml,
+          inventory:
+            [
+              objects/host-ns-platform.yaml,
+              objects/host-org-platform-moved.yaml
+            ],
+          assertions: [{ violations: 1, message: outside }]
+        }
+      - {
+          name: rejects-host-when-the-organization-declares-no-zone,
+          object: objects/host-allowed.yaml,
+          inventory:
+            [
+              objects/host-ns-platform.yaml,
+              objects/host-org-platform-no-zone.yaml
+            ],
+          assertions: [{ violations: 1, message: outside }]
+        }
+      - {
+          name: rejects-host-when-no-organization-object-exists,
+          object: objects/host-allowed.yaml,
           inventory: [objects/host-ns-platform.yaml],
           assertions: [{ violations: 1, message: outside }]
         }

@@ -1,4 +1,5 @@
 # Cluster scope: ADR 0115 (the namespace composition creates cluster-scoped Namespaces).
+{{- $features := .Values.features | default dict }}
 apiVersion: apiextensions.crossplane.io/v2
 kind: CompositeResourceDefinition
 metadata:
@@ -33,6 +34,17 @@ spec:
                 parent:
                   type: string
                   pattern: "^[a-z0-9]([-a-z0-9]{0,61}[a-z0-9])?$"
+{{- if index $features "platform-hostname-ownership" }}
+                # The zone the organization owns (ADR 0042): the one place the
+                # hostname-ownership constraint reads it, with no parameter list
+                # beside it. It defaults to the environment's default zone,
+                # <organizationId>.<platformDomain>, from the one environment field.
+                zone:
+                  type: string
+                  default: {{ printf "%s.%s" (required "platformOrganizationId is required while platform-hostname-ownership is on" .Values.platformOrganizationId) .Values.platformDomain | quote }}
+                  maxLength: 253
+                  pattern: "^([a-z0-9]([-a-z0-9]{0,61}[a-z0-9])?\\.)+[a-z0-9]([-a-z0-9]{0,61}[a-z0-9])?$"
+{{- end }}
             status:
               type: object
               properties:

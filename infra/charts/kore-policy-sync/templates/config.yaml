@@ -1,6 +1,7 @@
 # Gatekeeper replication for the hostname-ownership constraint (ADR 0042). It syncs
-# only what the constraint reads: HTTPRoutes, to find other claims on a host, and
-# Namespaces, to read each route's organization label. It changes what the cluster
+# only what the constraint reads: HTTPRoutes, to find other claims on a host,
+# Namespaces, to read each route's organization label, and Organizations, to read
+# the zone each one owns. It changes what the cluster
 # runs (watches and an in-memory cache), not what admission decides.
 apiVersion: config.gatekeeper.sh/v1alpha1
 kind: Config
@@ -10,3 +11,4 @@ spec:
     syncOnly:
       - { group: gateway.networking.k8s.io, version: v1, kind: HTTPRoute }
       - { group: "", version: v1, kind: Namespace }
+      - { group: platform.kore.dev, version: v1alpha1, kind: Organization }

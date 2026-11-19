@@ -1,6 +1,7 @@
 import {
   featureEnabled,
   platformDnsFlag,
+  platformHostnameOwnershipFlag,
   platformSharedGatewayFlag,
 } from "./features.js";
 import type { Environment } from "./types.js";
@@ -153,6 +154,24 @@ function clusterResolutionArgs(
 }
 
 /**
+ * With platform-hostname-ownership on, the organization identifier the
+ * Organization API builds its zone default from, `<organizationId>.<domain>`;
+ * otherwise none, so the flag off renders what it rendered before.
+ */
+function zoneArgs(environment: Environment, component: string): string[] {
+  if (
+    component !== "kore-platform-apis" ||
+    !featureEnabled(environment, platformHostnameOwnershipFlag)
+  ) {
+    return [];
+  }
+  return [
+    "--set-string",
+    `platformOrganizationId=${platformPlan(environment).organizationId}`,
+  ];
+}
+
+/**
  * Helm arguments that hand the platform domain to a component that names it:
  * the overlay's values files and the chart defaults hold no copy, so the
  * environment's field is the one source.
@@ -164,6 +183,7 @@ export function platformHelmArgs(
   const key = domainValueKeys[component];
   const wildcard = wildcardValueKeys[component];
   const shared = [
+    ...zoneArgs(environment, component),
     ...sharedGatewayArgs(environment, component),
     ...clusterResolutionArgs(environment, component),
   ];
