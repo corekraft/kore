@@ -1,3 +1,5 @@
+import { isIP } from "node:net";
+
 // Docs: infra/plans/13-agentgateway-ingress.md#measurement-method
 //
 // The request load shared by the ingress measurement and the golden-path scale
@@ -24,10 +26,16 @@ export interface LoadTarget {
   address?: string;
 }
 
-/** The curl `--resolve` value that points the hostname and port at the address. */
-export function resolveValue(target: LoadTarget): string {
+/**
+ * The curl arguments that send the hostname and port to the address. curl's
+ * `--resolve` takes only a numerical address, so a published hostname goes
+ * through `--connect-to`, which takes a host name as its target.
+ */
+export function resolveArgs(target: LoadTarget): string[] {
   const { hostname, port, address = "127.0.0.1" } = target;
-  return `${hostname}:${port}:${address}`;
+  return isIP(address) === 0
+    ? ["--connect-to", `${hostname}:${port}:${address}:${port}`]
+    : ["--resolve", `${hostname}:${port}:${address}`];
 }
 
 /** The curl arguments of one round of a route: `requestsPerRoute` GETs, `concurrency` in flight. */
@@ -46,8 +54,7 @@ export function loadArgs(target: LoadTarget, path: string): string[] {
     "60",
     "--cacert",
     `${caRoot}/rootCA.pem`,
-    "--resolve",
-    resolveValue(target),
+    ...resolveArgs(target),
     "--parallel",
     "--parallel-max",
     String(concurrency),

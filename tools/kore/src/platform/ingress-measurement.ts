@@ -3,7 +3,7 @@ import { parsePodMetrics, summarizeSamples } from "./ingress-metrics.js";
 import type { MeasurementSummary, PodUsage } from "./ingress-metrics.js";
 import { summarizeLatency } from "./ingress-metrics.js";
 import type { LatencySummary } from "./ingress-metrics.js";
-import { countRound, loadArgs, resolveValue } from "./route-load.js";
+import { countRound, loadArgs, resolveArgs } from "./route-load.js";
 import type { LoadRoute } from "./route-load.js";
 
 // Docs: infra/plans/13-agentgateway-ingress.md#measurement-method
@@ -207,8 +207,7 @@ export class IngressMeasurement {
           "60",
           "--cacert",
           `${caRoot}/rootCA.pem`,
-          "--resolve",
-          resolveValue(this.options),
+          ...resolveArgs(this.options),
           `https://${hostname}:${port}${route.path}#[1-${probes}]`,
         ],
         { capture: true },
