@@ -1,4 +1,8 @@
+import assert from "node:assert/strict";
 import { execFile } from "node:child_process";
+import { mkdtemp, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { promisify } from "node:util";
 import { test } from "vitest";
 import {
@@ -7,6 +11,7 @@ import {
   type Repository,
 } from "../../src/config/index.js";
 import {
+  composeChartDelivery,
   helmTemplateArgs,
   withAbsoluteChart,
 } from "../../src/platform/index.js";
@@ -91,3 +96,51 @@ for (const name of ["kore-config-delivery", "kore-golden-path-delivery"]) {
     );
   });
 }
+
+test("kore-config-delivery composed from the local overlay renders the platform-config Application with the overlay's gateway values, which the Helm path gives that release", async () => {
+  const flagged = await localWithFlagOn();
+  const directory = await mkdtemp(join(tmpdir(), "chart-lock-"));
+  const lockPath = join(directory, "platform-charts.lock.json");
+  await writeFile(
+    lockPath,
+    JSON.stringify({
+      version: 1,
+      entries: Object.fromEntries(
+        handedOver.map((name) => [
+          name,
+          { chart: `registry.example/charts/${name}`, digest: digest("a") },
+        ]),
+      ),
+    }),
+  );
+  const repository = await composeChartDelivery(
+    { ...flagged, chartDelivery: undefined },
+    lockPath,
+  );
+  const component = repository.catalog.components.find(
+    (c) => c.name === "kore-config-delivery",
+  )!;
+  const { stdout } = await promisify(execFile)(
+    "helm",
+    withAbsoluteChart(
+      repository,
+      component,
+      helmTemplateArgs(repository, component),
+    ),
+  );
+  const application = stdout
+    .split("\n---\n")
+    .find((doc) => /^ {2}name: kore-platform-config$/m.test(doc))!;
+  const values: {
+    gateway: { port: number; service: { type: string; nodePort: number } };
+    features: Record<string, boolean>;
+  } = JSON.parse(/^ {6}valuesObject: (.+)$/m.exec(application)![1]!);
+  assert.equal(values.gateway.service.type, "NodePort");
+  assert.equal(values.gateway.service.nodePort, 30443);
+  assert.equal(values.gateway.port, 8443);
+  assert.equal(
+    values.features["platform-argocd-delivery"],
+    true,
+    "the feature flags reach the Application as the Helm path passes them",
+  );
+});
