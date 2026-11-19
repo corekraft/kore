@@ -1,5 +1,5 @@
 import { enabledComponents, gatewayClassName } from "./features.js";
-import { platformPlan } from "./platform-domain.js";
+import { platformPlan, platformWildcard } from "./platform-domain.js";
 import type { Repository } from "./types.js";
 
 // Docs: docs/decisions/0043-platform-configuration-through-argo-cd.md (the handover values)
@@ -117,7 +117,7 @@ export function chartDeliveryValues(
   }
   const entries = entriesOf(lock)!;
   const components = handedOver(repository);
-  const { domain, organizationId } = platformPlan(repository.environment);
+  const { domain } = platformPlan(repository.environment);
   return {
     charts: Object.fromEntries(
       components.map((c) => [
@@ -133,7 +133,7 @@ export function chartDeliveryValues(
     ),
     gatewayClassName: gatewayClassName(repository.environment),
     platformDomain: domain,
-    platformHostname: `*.${organizationId}.${domain}`,
+    platformHostname: platformWildcard(repository.environment),
   };
 }
 
