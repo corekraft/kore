@@ -281,3 +281,21 @@ test("isPrivateUseDomain flags a domain under a reserved suffix as unregistered"
   expect(isPrivateUseDomain("kore.local")).toBe(true);
   expect(isPrivateUseDomain("example.com")).toBe(false);
 });
+
+test("resolverState reports foreign when the marker is only on a later line, so a hand-written file that quotes it is never treated as Kore's", () => {
+  const target = resolverTarget(environment);
+  const quoted = `nameserver 10.0.0.53\n${marker}\nport 1053\n`;
+  expect(resolverState(target, quoted)).toBe("foreign");
+});
+
+test("uninstallResolver removes nothing from a hand-written file whose marker is on a later line", async () => {
+  const { runner, run } = fakeRunner();
+  const quoted = `nameserver 10.0.0.53\n${marker}\nport 1053\n`;
+
+  await expect(
+    uninstallResolver(environment, runner, fakeHost(quoted), { yes: true }),
+  ).rejects.toThrow(
+    "/etc/resolver/kore.internal exists and was not written by kore; it is left in place",
+  );
+  expect(run).not.toHaveBeenCalled();
+});

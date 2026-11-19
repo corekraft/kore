@@ -90,7 +90,8 @@ export function resolverState(
   if (current === target.content) {
     return "current";
   }
-  return current.split("\n").includes(resolverMarker) ? "outdated" : "foreign";
+  // Only a marker on the first line makes a file Kore's; a hand-written file that quotes it does not.
+  return current.split("\n")[0] === resolverMarker ? "outdated" : "foreign";
 }
 
 /** Whether a domain sits under a reserved private-use suffix, so no public DNS answers it. */

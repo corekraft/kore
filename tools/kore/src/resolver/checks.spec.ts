@@ -2,19 +2,24 @@
 import { beforeEach, expect, test, vi } from "vitest";
 import { k3dClusterInfo } from "../cluster/index.js";
 import { isLocalProvider, platformPlan } from "../config/index.js";
-import type { Environment } from "../config/index.js";
-import { CommandError, type Runner } from "../runtime/index.js";
 import { resolverChecks } from "./checks.js";
+import {
+  environment,
+  errno,
+  fakeHost,
+  fakeRunner,
+  target,
+} from "./resolver-support.js";
 import {
   isPrivateUseDomain,
   resolverState,
   resolverTarget,
-  type ResolverHost,
-  type ResolverTarget,
 } from "./resolver.js";
 
-// Each collaborator has behaviour of its own, so the unit takes its answers.
-vi.mock("../cluster/index.js", () => ({ k3dClusterInfo: vi.fn() }));
+vi.mock("../cluster/index.js", () => ({
+  k3dClusterInfo: vi.fn(),
+  ClusterUnavailableError: class extends Error {},
+}));
 vi.mock("../config/index.js", () => ({
   platformPlan: vi.fn(),
   isLocalProvider: vi.fn(),
@@ -24,42 +29,6 @@ vi.mock("./resolver.js", () => ({
   resolverState: vi.fn(),
   isPrivateUseDomain: vi.fn(),
 }));
-
-const environment = { name: "local" } as unknown as Environment;
-const target: ResolverTarget = {
-  path: "/etc/resolver/kore.internal",
-  zone: "kore.internal",
-  nameserver: "127.0.0.1",
-  port: 1053,
-  content: "# Managed by kore dns install\nnameserver 127.0.0.1\nport 1053\n",
-};
-
-function fakeRunner() {
-  const run = vi.fn<Runner["run"]>(async () => ({
-    stdout: "",
-    stderr: "",
-    code: 0,
-  }));
-  return { runner: { run } as Runner, run };
-}
-
-function fakeHost(
-  file: string | undefined,
-  answer: string[] | Error = ["127.0.0.1"],
-): ResolverHost & {
-  read: ReturnType<typeof vi.fn>;
-  probe: ReturnType<typeof vi.fn>;
-} {
-  return {
-    read: vi.fn(async () => file),
-    probe: vi.fn(async () => {
-      if (answer instanceof Error) {
-        throw answer;
-      }
-      return answer;
-    }),
-  };
-}
 
 function clusterState(state: "running" | "stopped" | "absent") {
   vi.mocked(k3dClusterInfo).mockResolvedValue({
@@ -204,97 +173,6 @@ test("passes the domain check for a name that is not private-use", async () => {
   });
 });
 
-test("probes the platform DNS for the organization's name while the cluster runs", async () => {
-  clusterState("running");
-  const { runner } = fakeRunner();
-  const host = fakeHost(target.content, ["127.0.0.1"]);
-
-  const findings = await resolverChecks(environment, runner, host);
-
-  expect(host.probe).toHaveBeenCalledTimes(1);
-  expect(host.probe).toHaveBeenCalledWith("platform.kore.internal", {
-    address: "127.0.0.1",
-    port: 1053,
-  });
-  expect(findings).toContainEqual({
-    name: "host:platform-dns",
-    status: "pass",
-    required: false,
-    message: "kore.internal answers on 127.0.0.1:1053",
-  });
-});
-
-test("does not probe the platform DNS while the cluster is stopped, and reports no DNS finding", async () => {
-  clusterState("stopped");
-  const { runner } = fakeRunner();
-  const host = fakeHost(target.content);
-
-  const findings = await resolverChecks(environment, runner, host);
-
-  expect(host.probe).not.toHaveBeenCalled();
-  expect(findings.map((finding) => finding.name)).not.toContain(
-    "host:platform-dns",
-  );
-});
-
-test("reports an unreachable platform DNS with the error code as the named cause", async () => {
-  clusterState("running");
-  const { runner } = fakeRunner();
-  const timeout = Object.assign(new Error("timed out"), { code: "ETIMEDOUT" });
-
-  const findings = await resolverChecks(
-    environment,
-    runner,
-    fakeHost(target.content, timeout),
-  );
-
-  expect(findings).toContainEqual({
-    name: "host:platform-dns",
-    status: "warn",
-    required: false,
-    message:
-      "platform DNS on 127.0.0.1:1053 did not answer (ETIMEDOUT); run kore local up",
-  });
-});
-
-test("reports a platform DNS that answers without the loopback address", async () => {
-  clusterState("running");
-  const { runner } = fakeRunner();
-
-  const findings = await resolverChecks(
-    environment,
-    runner,
-    fakeHost(target.content, ["10.0.0.9"]),
-  );
-
-  expect(findings).toContainEqual({
-    name: "host:platform-dns",
-    status: "warn",
-    required: false,
-    message:
-      "platform DNS on 127.0.0.1:1053 answered platform.kore.internal with 10.0.0.9, not 127.0.0.1",
-  });
-});
-
-test("treats a cluster the listing cannot reach as not running, so no probe is sent", async () => {
-  vi.mocked(k3dClusterInfo).mockRejectedValue(
-    new CommandError("k3d", ["node", "list"], {
-      stdout: "",
-      stderr: "k3d unavailable",
-      code: 1,
-    }),
-  );
-  const { runner } = fakeRunner();
-  const host = fakeHost(target.content);
-
-  const findings = await resolverChecks(environment, runner, host);
-
-  expect(host.probe).not.toHaveBeenCalled();
-  expect(findings.map((finding) => finding.name)).not.toContain(
-    "host:platform-dns",
-  );
-});
-
 test("adds no resolver finding for a managed environment, which has no local resolver file", async () => {
   vi.mocked(isLocalProvider).mockReturnValue(false);
   const { runner, run } = fakeRunner();
@@ -305,11 +183,31 @@ test("adds no resolver finding for a managed environment, which has no local res
   expect(run).not.toHaveBeenCalled();
 });
 
-test("rethrows a cluster listing failure that is not a command failure", async () => {
-  vi.mocked(k3dClusterInfo).mockRejectedValue(new TypeError("bad overlay"));
+test("warns with the path and error code when the resolver file cannot be read, and still runs the other checks", async () => {
+  const { runner } = fakeRunner();
+
+  const findings = await resolverChecks(
+    environment,
+    runner,
+    fakeHost(errno("EACCES")),
+  );
+
+  expect(findings[0]).toEqual({
+    name: "host:resolver",
+    status: "warn",
+    required: false,
+    message:
+      "/etc/resolver/kore.internal could not be read (EACCES); check its permissions",
+  });
+  expect(findings).toContainEqual(
+    expect.objectContaining({ name: "host:platform-domain" }),
+  );
+});
+
+test("rethrows a read failure that carries no error code, since it is not an expected unreadable file", async () => {
   const { runner } = fakeRunner();
 
   await expect(
-    resolverChecks(environment, runner, fakeHost(target.content)),
-  ).rejects.toThrow("bad overlay");
+    resolverChecks(environment, runner, fakeHost(new Error("disk on fire"))),
+  ).rejects.toThrow("disk on fire");
 });

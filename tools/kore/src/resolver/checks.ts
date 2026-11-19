@@ -1,5 +1,5 @@
 // Docs: docs/decisions/0132-local-names-resolve-through-platform-dns-and-one-loopback-entry-point.md
-import { k3dClusterInfo } from "../cluster/index.js";
+import { ClusterUnavailableError, k3dClusterInfo } from "../cluster/index.js";
 import { isLocalProvider, platformPlan } from "../config/index.js";
 import type { Environment } from "../config/index.js";
 import { CommandError, type Runner } from "../runtime/index.js";
@@ -34,7 +34,22 @@ async function fileFinding(
   host: ResolverHost,
 ): Promise<ResolverFinding> {
   const name = "host:resolver";
-  const state = resolverState(target, await host.read(target.path));
+  let current: string | undefined;
+  try {
+    current = await host.read(target.path);
+  } catch (error) {
+    // An unreadable file is a finding, not a crash; a failure with no code is not expected, so it is rethrown.
+    if (typeof (error as NodeJS.ErrnoException).code !== "string") {
+      throw error;
+    }
+    return {
+      name,
+      status: "warn",
+      required: false,
+      message: `${target.path} could not be read (${errorCode(error)}); check its permissions`,
+    };
+  }
+  const state = resolverState(target, current);
   const fix = `run kore dns install --environment ${environmentName}`;
   switch (state) {
     case "current":
@@ -94,7 +109,11 @@ async function clusterRunning(
     const { state } = await k3dClusterInfo(environment, runner);
     return state === "running";
   } catch (error) {
-    if (error instanceof CommandError) {
+    // A missing k3d or a failed listing is reported by doctor's own checks; here it only means no probe.
+    if (
+      error instanceof CommandError ||
+      error instanceof ClusterUnavailableError
+    ) {
       return false;
     }
     throw error;

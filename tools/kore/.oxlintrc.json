@@ -109,6 +109,10 @@
             "message": "import from the runtime barrel (runtime/index.js), not one of its files"
           },
           {
+            "group": ["**/resolver/**", "!**/resolver/index.js"],
+            "message": "import from the resolver barrel (resolver/index.js), not one of its files"
+          },
+          {
             "group": ["**/security/**", "!**/security/index.js"],
             "message": "import from the security barrel (security/index.js), not one of its files"
           },
@@ -186,6 +190,10 @@
               {
                 "group": ["**/runtime/**", "!**/runtime/index.js"],
                 "message": "import from the runtime barrel (runtime/index.js), not one of its files"
+              },
+              {
+                "group": ["**/resolver/**", "!**/resolver/index.js"],
+                "message": "import from the resolver barrel (resolver/index.js), not one of its files"
               },
               {
                 "group": ["**/security/**", "!**/security/index.js"],
