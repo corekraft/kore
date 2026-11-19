@@ -269,3 +269,33 @@ test("an HTTPRoute the route proof rejects fails with the proof's reason", async
     waitForHTTPRoute(runner, BASE, "httproute/web", "10m"),
   ).rejects.toThrow("parent gateway/kore has not Accepted the route");
 });
+
+test("a UDP mapping on the Gateway host port does not supply the configured node port", async () => {
+  const withUdp = {
+    environment: {
+      ...repository.environment,
+      k3d: {
+        ...repository.environment.k3d,
+        ports: [
+          {
+            hostAddress: "127.0.0.1",
+            hostPort: 8443,
+            loadBalancerPort: 31053,
+            protocol: "udp",
+          },
+          ...(repository.environment.k3d?.ports ?? []),
+        ],
+      },
+    },
+  } as unknown as typeof repository;
+  const { runner } = kube({
+    "gateway/kore": gateway([accepted, programmed]),
+    "--selector": {
+      items: [{ spec: { type: "NodePort", ports: [{ nodePort: 30443 }] } }],
+    },
+  });
+
+  await expect(
+    waitForGateway(withUdp, runner, BASE, GATEWAY, "10m"),
+  ).resolves.toBeUndefined();
+});

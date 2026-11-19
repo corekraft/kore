@@ -1,5 +1,7 @@
 import type { K3dCluster } from "../config/index.js";
 
+type K3dPort = K3dCluster["ports"][number];
+
 /** The container port the k3s API listens on through the load balancer. */
 const apiContainerPort = 6443;
 
@@ -14,12 +16,14 @@ export type PortMappings = Record<string, Binding[] | null>;
 
 /**
  * A port the overlay wants published on a host address. A declared port has a
- * host port; the API port has none, because k3d chooses it at random.
+ * host port; the API port has none, because k3d chooses it at random. A port
+ * without a protocol is TCP.
  */
 export interface Published {
   loadBalancerPort: number;
   hostAddress: string;
   hostPort?: number;
+  protocol?: K3dPort["protocol"];
 }
 
 /**
@@ -58,16 +62,31 @@ function listedMappings(
   ] as PortMappings | undefined;
 }
 
-/** Every binding under a container port, whatever its host port. */
+/** A mapping's transport: TCP unless it says otherwise. */
+function protocolOf(port: Published): string {
+  return port.protocol ?? "tcp";
+}
+
+/** How a published port is named in a difference: UDP ports carry their protocol. */
+function labelOf(port: Published): string {
+  return port.protocol === "udp"
+    ? `port ${port.loadBalancerPort}/udp`
+    : `port ${port.loadBalancerPort}`;
+}
+
+/** Every binding under a published port's container port and protocol, whatever its host port. */
 function bindingsUnder(
   mappings: PortMappings | undefined,
-  containerPort: number,
+  port: Published,
 ): Binding[] {
   return Object.entries(mappings ?? {})
-    .filter(
-      ([container]) =>
-        container.replace(/\/\w+$/, "") === String(containerPort),
-    )
+    .filter(([container]) => {
+      const [number, protocol = "tcp"] = container.split("/");
+      return (
+        number === String(port.loadBalancerPort) &&
+        protocol === protocolOf(port)
+      );
+    })
     .flatMap(([, bindings]) => bindings ?? []);
 }
 
@@ -76,7 +95,7 @@ function bindingsOn(
   mappings: PortMappings | undefined,
   port: Published,
 ): Binding[] {
-  return bindingsUnder(mappings, port.loadBalancerPort).filter(
+  return bindingsUnder(mappings, port).filter(
     (binding) =>
       port.hostPort === undefined ||
       String(binding.HostPort) === String(port.hostPort),
@@ -91,7 +110,7 @@ function addressOf(
 ): string | undefined {
   return (
     binding.HostIp ||
-    bindingsUnder(inspected, port.loadBalancerPort)
+    bindingsUnder(inspected, port)
       .filter((b) => String(b.HostPort) === String(binding.HostPort))
       .find((b) => b.HostIp)?.HostIp
   );
@@ -145,9 +164,9 @@ export function drift(
       const onPort = bindingsOn(listed, port);
       if (onPort.length === 0) {
         if (port.hostPort !== undefined) {
-          const under = bindingsUnder(listed, port.loadBalancerPort);
+          const under = bindingsUnder(listed, port);
           compare(
-            `port ${port.loadBalancerPort}`,
+            labelOf(port),
             under.length
               ? under.map((binding) => String(binding.HostPort)).join(",")
               : "unmapped",
@@ -161,7 +180,7 @@ export function drift(
       );
       if (!addresses.includes(port.hostAddress)) {
         compare(
-          `port ${port.loadBalancerPort} address`,
+          `${labelOf(port)} address`,
           addresses.join(","),
           port.hostAddress,
         );
@@ -181,6 +200,6 @@ export function unreadableMessage(
   container: string,
   ports: readonly Published[],
 ): string {
-  const names = ports.map((port) => `port ${port.loadBalancerPort}`).join(", ");
+  const names = ports.map(labelOf).join(", ");
   return `k3d cluster ${clusterName} does not report the host address of ${names} in \`k3d cluster list --output json\` or \`docker inspect ${container}\`; it cannot be checked against the overlay, and recreating the cluster does not change that. Check that k3d and Docker report the load balancer's port bindings.`;
 }

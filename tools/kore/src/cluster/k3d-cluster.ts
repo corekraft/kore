@@ -101,7 +101,7 @@ export function k3dCreateArgs(
     `--service-cidr=${cluster.serviceCidr}@server:*`,
     ...cluster.ports.flatMap((port) => [
       "--port",
-      `${port.hostAddress}:${port.hostPort}:${port.loadBalancerPort}@loadbalancer`,
+      `${port.hostAddress}:${port.hostPort}:${port.loadBalancerPort}${port.protocol === "udp" ? "/udp" : ""}@loadbalancer`,
     ]),
     // k3d picks the API port's host port at random, on the declared address (ADR 0131).
     "--api-port",

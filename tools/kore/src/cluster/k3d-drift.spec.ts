@@ -146,3 +146,61 @@ test("the unreadable message names the port and both commands that failed to rep
     "k3d cluster kore-local does not report the host address of port 443 in `k3d cluster list --output json` or `docker inspect k3d-kore-local-serverlb`; it cannot be checked against the overlay, and recreating the cluster does not change that. Check that k3d and Docker report the load balancer's port bindings.",
   );
 });
+
+const dnsOverlay: K3dCluster = {
+  clusterName: "kore-local",
+  serviceCidr: "10.96.0.0/12",
+  ports: [
+    { hostAddress: "127.0.0.1", hostPort: 1053, loadBalancerPort: 1053 },
+    {
+      hostAddress: "127.0.0.1",
+      hostPort: 1053,
+      loadBalancerPort: 1053,
+      protocol: "udp",
+    },
+  ],
+};
+
+test("a TCP and a UDP mapping on one port are each found under their own protocol", () => {
+  const both = entry({
+    "1053/tcp": [{ HostIp: "127.0.0.1", HostPort: "1053" }],
+    "1053/udp": [{ HostIp: "127.0.0.1", HostPort: "1053" }],
+  });
+  expect(drift(both, dnsOverlay)).toEqual([]);
+});
+
+test("a UDP mapping published only as TCP is unmapped, not satisfied by the TCP binding", () => {
+  const tcpOnly = entry({
+    "1053/tcp": [{ HostIp: "127.0.0.1", HostPort: "1053" }],
+  });
+  expect(drift(tcpOnly, dnsOverlay)).toEqual([
+    "port 1053/udp: unmapped != 1053",
+  ]);
+});
+
+test("a UDP binding does not satisfy a mapping with no protocol, and its address is checked on its own protocol", () => {
+  const udpOnly = entry({
+    "1053/udp": [{ HostIp: "127.0.0.1", HostPort: "1053" }],
+  });
+  expect(drift(udpOnly, dnsOverlay)).toEqual(["port 1053: unmapped != 1053"]);
+  const wideUdp = entry({
+    "1053/tcp": [{ HostIp: "127.0.0.1", HostPort: "1053" }],
+    "1053/udp": [{ HostIp: "0.0.0.0", HostPort: "1053" }],
+  });
+  expect(drift(wideUdp, dnsOverlay)).toEqual([
+    "port 1053/udp address: 0.0.0.0 != 127.0.0.1",
+  ]);
+});
+
+test("an unreadable address is attributed to the protocol that lacks it", () => {
+  const silentUdp = entry({
+    "1053/tcp": [{ HostIp: "127.0.0.1", HostPort: "1053" }],
+    "1053/udp": [{ HostPort: "1053" }],
+  });
+  expect(unreadablePorts(silentUdp, dnsOverlay)).toEqual([dnsOverlay.ports[1]]);
+  expect(
+    unreadableMessage("kore-local", "k3d-kore-local-serverlb", [
+      dnsOverlay.ports[1]!,
+    ]),
+  ).toContain("port 1053/udp");
+});

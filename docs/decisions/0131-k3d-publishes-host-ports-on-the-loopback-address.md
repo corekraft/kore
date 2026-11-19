@@ -28,6 +28,9 @@ every interface matched the overlay and was never refused.
   address, or one outside loopback, before any cluster command runs.
 - The create arguments are built in one place and emit the declared address
   for every published port, as `<hostAddress>:<hostPort>:<loadBalancerPort>@loadbalancer`.
+  An entry may set `protocol` to `tcp` (the default) or `udp`; a UDP mapping adds
+  `/udp` before `@loadbalancer`, and the same host port on TCP and UDP is two
+  mappings.
 - The drift check compares the host address as well as the host port of each
   declared port. A port published on the right host port at another address is
   refused, naming the address, with the existing recreate instruction:
