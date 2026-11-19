@@ -10,11 +10,11 @@ const TEST_SUPPORT =
   /^tools\/kore\/src\/(testing\/|.*(\.fixtures\.ts|-fixtures\.ts|-support\.ts|\.live\.ts)$)/;
 
 /**
- * The opt-in footprint and ingress measurement helpers, by exact name. Each is imported only by a live spec,
- * a unit spec or another file on this list; no generic suffix matches. ADR 0129.
+ * The opt-in footprint, ingress and golden-path load measurement helpers, by exact name. Each is imported only by
+ * a live spec, a unit spec, the test-support barrel or another file on this list; no generic suffix matches. ADRs 0129 and 0130.
  */
 const MEASUREMENT_HELPER =
-  /^tools\/kore\/src\/platform\/(footprint-measurement|footprint-parse|footprint-verdict|ingress-host-parse|ingress-host|ingress-rated-measurement)\.ts$/;
+  /^tools\/kore\/src\/platform\/(footprint-measurement|footprint-parse|footprint-verdict|ingress-host-parse|ingress-host|ingress-rated-measurement|ingress-measurement|route-load|golden-path-routes|golden-path-scale-check)\.ts$/;
 
 /** A list of unconverted sources, which every conversion edits (ADR 0098 and plan 14). */
 const UNCONVERTED = /(^|\/)unconverted\.txt$/;
