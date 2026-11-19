@@ -3,7 +3,7 @@ import { test } from "vitest";
 import {
   renderDelivery,
   withFlags,
-} from "./platform-config-delivery-chart-support.js";
+} from "./platform-config-delivery-project-support.js";
 
 // Docs: docs/decisions/0043-platform-configuration-through-argo-cd.md (the handover values)
 
