@@ -92,7 +92,7 @@ function applicationsOf(rendered: string): Map<string, Application> {
       values: valuesText === undefined ? {} : JSON.parse(valuesText),
       parameters: [
         ...doc.matchAll(/- name: "([^"]+)"\n\s+value: "([^"]*)"/g),
-      ].map(([, key, value]) => [key!, value!] as [string, string]),
+      ].map((match): [string, string] => [match[1] ?? "", match[2] ?? ""]),
     });
   }
   return applications;
