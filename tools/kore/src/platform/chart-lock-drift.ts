@@ -14,6 +14,18 @@ import type { Runner } from "../runtime/index.js";
 const prefix = "platform chart lock:";
 const script = ".github/scripts/package-platform-charts.sh";
 
+/**
+ * The packaging itself could not run (a missing tool, a failed script), as
+ * opposed to a lock or release problem the comparison found. `local up` warns
+ * and goes on for this one alone, since nothing was compared.
+ */
+export class ChartPackagingError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "ChartPackagingError";
+  }
+}
+
 /** One handed-over release: the version this checkout packages to, and the lock's. */
 export interface ChartLockRow {
   name: string;
@@ -61,7 +73,7 @@ async function checkoutVersions(
         capture: true,
       }));
     } catch (error) {
-      throw new Error(
+      throw new ChartPackagingError(
         `${prefix} packaging this checkout's charts to compare them with ${lockPath} failed: ${error instanceof Error ? error.message : String(error)}; install the pinned tools (mise install) and rerun`,
       );
     }

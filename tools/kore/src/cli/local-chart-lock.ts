@@ -1,5 +1,6 @@
 import type { Repository } from "../config/index.js";
 import {
+  ChartPackagingError,
   chartLockDrift,
   chartLockDriftMessage,
   composeChartDelivery,
@@ -14,7 +15,8 @@ import { print } from "./output.js";
 /**
  * Compares the chart lock with the checkout's charts before any cluster work.
  * Outside a proof, running ahead of the last release is normal, so a difference
- * (or a check that cannot run) is a warning; under `--require-fresh-lock` it
+ * (or packaging that cannot run) is a warning, and any other failure of the
+ * check, a lock or release problem, is refused; under `--require-fresh-lock` it
  * refuses, because a proof of a lock that lacks the change tests nothing new.
  */
 async function checkChartLockFreshness(
@@ -38,7 +40,7 @@ async function checkChartLockFreshness(
       process.stderr.write(`warning: ${message}\n`);
     }
   } catch (error) {
-    if (required || !(error instanceof Error)) {
+    if (required || !(error instanceof ChartPackagingError)) {
       throw error;
     }
     process.stderr.write(

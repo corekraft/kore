@@ -13,7 +13,7 @@ import {
   generatedPorts,
   merge,
   overlayPorts,
-} from "./gateway-service-ports-support.js";
+} from "./gateway-service-support.js";
 
 const run = promisify(execFile);
 

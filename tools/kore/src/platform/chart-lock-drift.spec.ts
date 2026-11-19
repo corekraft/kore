@@ -4,6 +4,7 @@ import { beforeEach, expect, test, vi } from "vitest";
 import { enabledComponents, helmInstalledComponents } from "../config/index.js";
 import type { Runner } from "../runtime/index.js";
 import {
+  ChartPackagingError,
   chartLockDrift,
   chartLockDriftMessage,
   upChartLockDrift,
@@ -172,9 +173,9 @@ test("a lock without an entries object is refused as not a release lock, running
 
 test("unreadable packaging output surfaces as the parse error it is, not as a packaging failure", async () => {
   const { runner } = fakeRunner(() => "not json\n");
-  await expect(
-    chartLockDrift(repository, runner, "lock.json"),
-  ).rejects.toBeInstanceOf(SyntaxError);
+  const failure = chartLockDrift(repository, runner, "lock.json");
+  await expect(failure).rejects.toBeInstanceOf(SyntaxError);
+  await expect(failure).rejects.not.toBeInstanceOf(ChartPackagingError);
   expect(rm).toHaveBeenCalledWith(scratch, { force: true, recursive: true });
 });
 
@@ -184,9 +185,11 @@ test("a packaging failure names its cause and the fix, and the scratch directory
       throw new Error("helm: command not found");
     }),
   };
-  await expect(chartLockDrift(repository, runner, "lock.json")).rejects.toThrow(
+  const failure = chartLockDrift(repository, runner, "lock.json");
+  await expect(failure).rejects.toThrow(
     "platform chart lock: packaging this checkout's charts to compare them with lock.json failed: helm: command not found; install the pinned tools (mise install) and rerun",
   );
+  await expect(failure).rejects.toBeInstanceOf(ChartPackagingError);
   expect(rm).toHaveBeenCalledWith(scratch, { force: true, recursive: true });
 });
 

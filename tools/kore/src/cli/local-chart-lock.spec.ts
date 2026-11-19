@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, expect, test, vi } from "vitest";
 import {
+  ChartPackagingError,
   chartLockDrift,
   chartLockDriftMessage,
   composeChartDelivery,
@@ -11,7 +12,14 @@ import { print } from "./output.js";
 import { fakeContext, fakeRepository, sharedRunner } from "./cli-support.js";
 import { composeLocalDelivery, lockCheck } from "./local-chart-lock.js";
 
-vi.mock("../platform/index.js");
+vi.mock("../platform/index.js", () => ({
+  ChartPackagingError: class extends Error {},
+  chartLockDrift: vi.fn(),
+  chartLockDriftMessage: vi.fn(),
+  composeChartDelivery: vi.fn(),
+  composeGoldenPathDelivery: vi.fn(),
+  upChartLockDrift: vi.fn(),
+}));
 vi.mock("./flags.js");
 vi.mock("./output.js");
 
@@ -103,13 +111,26 @@ test("--require-fresh-lock with a matching chart lock passes quietly", async () 
   expect(stderr).not.toHaveBeenCalled();
 });
 
-test("a check that cannot run is a warning by default and a refusal under --require-fresh-lock", async () => {
-  vi.mocked(upChartLockDrift).mockRejectedValue(new Error("no helm"));
+test("a packaging failure is a warning by default, since the check could not run, and a refusal under --require-fresh-lock", async () => {
+  vi.mocked(upChartLockDrift).mockRejectedValue(
+    new ChartPackagingError("no helm"),
+  );
   expect(await up()).toBe(delivered);
   expect(stderr).toHaveBeenCalledWith(
     "warning: the chart lock was not compared with the checkout: no helm\n",
   );
   await expect(up("require-fresh-lock")).rejects.toThrow("no helm");
+});
+
+test("any other failure of the check is refused even by default, since it names a lock or tooling problem and not a missing run", async () => {
+  vi.mocked(upChartLockDrift).mockRejectedValue(
+    new Error("lock.json has no entry for opa-authorizer"),
+  );
+  await expect(up()).rejects.toThrow(
+    "lock.json has no entry for opa-authorizer",
+  );
+  expect(composeGoldenPathDelivery).not.toHaveBeenCalled();
+  expect(stderr).not.toHaveBeenCalled();
 });
 
 test("--require-fresh-lock without a chart lock refuses, since nothing would be compared", async () => {

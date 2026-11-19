@@ -16,6 +16,7 @@ export type {
 export type { ComponentStatus } from "./status.js";
 export { composeChartDelivery } from "./chart-delivery.js";
 export {
+  ChartPackagingError,
   chartLockDrift,
   chartLockDriftMessage,
   upChartLockDrift,
