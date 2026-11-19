@@ -9,6 +9,7 @@ import {
   loadRepository,
   platformDnsFlag,
   platformHelmArgs,
+  platformPlan,
   validateRepository,
 } from "../../src/config/index.js";
 
@@ -72,6 +73,9 @@ test("the DNS server image is pinned by digest, approved with evidence, and name
   assert.equal(repository.versions.images["platform-dns"], image?.image);
 });
 
+const localDomain = async (): Promise<string> =>
+  platformPlan((await loadRepository("local")).environment).domain;
+
 async function render(zone?: string): Promise<string> {
   const repository = await loadRepository("local");
   const args = zone === undefined ? [] : ["--set-string", `zone=${zone}`];
@@ -92,7 +96,7 @@ test("the zone comes from the platform domain field, so the chart refuses to ren
     repository.environment,
     "kore-platform-dns",
   );
-  assert.equal(zone, "zone=kore.local");
+  assert.equal(zone, `zone=${await localDomain()}`);
   await assert.rejects(render(), /zone/);
 });
 
@@ -101,25 +105,28 @@ test("a name in the zone answers the loopback address, and a different domain mo
   assert.match(rendered, /template IN A example\.test \{/);
   assert.match(rendered, /match "\^\(\.\+\\\.\)\?example\\\.test\\\.\$"/);
   assert.match(rendered, /answer "\{\{ \.Name \}\} 60 IN A 127\.0\.0\.1"/);
-  assert.equal(rendered.includes("kore.local"), false);
+  assert.equal(rendered.includes(await localDomain()), false);
 });
 
 test("an IPv6 query in the zone gets an empty NOERROR answer, so resolvers fall back to IPv4 without a delay", async () => {
-  const rendered = await render("kore.local");
-  assert.match(rendered, /template IN AAAA kore\.local \{/);
+  const domain = await localDomain();
+  const rendered = await render(domain);
+  assert.ok(rendered.includes(`template IN AAAA ${domain} {`));
   const block = rendered.slice(rendered.indexOf("template IN AAAA"));
   assert.match(block.split("}")[0] ?? "", /rcode NOERROR/);
   assert.equal(/answer .*AAAA/.test(rendered), false);
 });
 
 test("the server forwards nothing and answers only its zone", async () => {
-  const rendered = await render("kore.local");
+  const domain = await localDomain();
+  const rendered = await render(domain);
   assert.equal(/^\s*forward\b/m.test(rendered), false);
-  assert.match(rendered, /^\s*kore\.local:1053 \{/m);
+  assert.ok(rendered.includes(`${domain}:1053 {`));
 });
 
 test("the pod is admitted by container security: non-root, read-only, no capabilities, with probes and limits", async () => {
-  const rendered = await render("kore.local");
+  const domain = await localDomain();
+  const rendered = await render(domain);
   assert.match(
     rendered,
     /image: docker\.io\/coredns\/coredns:1\.14\.7@sha256:[0-9a-f]{64}/,
@@ -142,7 +149,8 @@ test("the pod is admitted by container security: non-root, read-only, no capabil
 });
 
 test("the Service is cluster-internal on port 53 over UDP and TCP", async () => {
-  const rendered = await render("kore.local");
+  const domain = await localDomain();
+  const rendered = await render(domain);
   const service = rendered
     .split(/^---$/m)
     .find((d) => /^kind: Service$/m.test(d));
