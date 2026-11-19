@@ -14,6 +14,12 @@
 # ingress feature flag and so passes in. No default.
 # gatewayClassName: istio
 
+# The text of each release's environment values files, in order, which kore
+# reads from the repository so Argo CD renders a release with the values the
+# Helm path gives it. Optional: a release with none takes the chart's defaults.
+# releaseValues:
+#   kore-platform-config: ["gateway:\n  port: 8443\n"]
+
 # Argo CD namespace, the AppProject, and the Keycloak group that alone may
 # change it (ADR 0043).
 namespace: argocd
