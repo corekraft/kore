@@ -124,6 +124,33 @@ function alertAndServiceArgs(
   ];
 }
 
+/** The kore-config-delivery chart's composed values as Helm arguments; none for any other component. */
+function chartDeliveryArgs(
+  repository: Repository,
+  component: Component,
+): string[] {
+  const delivery = repository.chartDelivery;
+  if (component.name !== "kore-config-delivery" || !delivery) {
+    return [];
+  }
+  return [
+    "--set-json",
+    `charts=${JSON.stringify(delivery.charts)}`,
+    "--set-json",
+    `namespaces=${JSON.stringify(delivery.namespaces)}`,
+    "--set-string",
+    `gatewayClassName=${delivery.gatewayClassName}`,
+    "--set-string",
+    `platformDomain=${delivery.platformDomain}`,
+    ...(delivery.releaseValues === undefined
+      ? []
+      : [
+          "--set-json",
+          `releaseValues=${JSON.stringify(delivery.releaseValues)}`,
+        ]),
+  ];
+}
+
 function chartSelectionArgs(
   repository: Repository,
   component: Component,
@@ -173,19 +200,7 @@ function chartSelectionArgs(
       `webhook.configData.no-match-policy=${noMatchPolicy(repository)}`,
     );
   }
-  const delivery = repository.chartDelivery;
-  if (component.name === "kore-config-delivery" && delivery) {
-    args.push(
-      "--set-json",
-      `charts=${JSON.stringify(delivery.charts)}`,
-      "--set-json",
-      `namespaces=${JSON.stringify(delivery.namespaces)}`,
-      "--set-string",
-      `gatewayClassName=${delivery.gatewayClassName}`,
-      "--set-string",
-      `platformDomain=${delivery.platformDomain}`,
-    );
-  }
+  args.push(...chartDeliveryArgs(repository, component));
   args.push(...trailingArgs(repository, component));
   return args;
 }

@@ -99,12 +99,15 @@ test("the generated Application deploys both template images by the lock's diges
   assert.doesNotMatch(set, /:latest/);
 });
 
-test("the sync owns the workload: the Application never creates the namespace and prunes what it deploys", async () => {
+test("the sync owns the workload and its namespace: the Application creates the namespace only when absent, and prunes what it deploys", async () => {
   const set = (await delivery())[0]!;
   assert.match(set, /namespace: '\{\{ \.metadata\.name \}\}--local'/);
   assert.match(set, /prune: true/);
   assert.match(set, /selfHeal: true/);
-  assert.doesNotMatch(set, /CreateNamespace=true/);
+  assert.match(set, /syncOptions:\n\s+- CreateNamespace=true\n/);
+  assert.doesNotMatch(set, /Replace=true/);
+  assert.doesNotMatch(set, /Force=true/);
+  assert.doesNotMatch(set, /kind: Namespace/);
 });
 
 test("the generated Application carries the service's part-of label, so Backstage finds it with the same selector as the workload", async () => {

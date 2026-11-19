@@ -102,7 +102,7 @@ test("a Function that never becomes Healthy fails naming the Function and condit
 
   await assert.rejects(
     reconcileComponent(repository, runner, component),
-    /function\.pkg\.crossplane\.io\/function-go-templating not ready \(Installed and Healthy\) within 1s: .*timed out/s,
+    /function\.pkg\.crossplane\.io\/function-go-templating not ready \(Installed and Healthy\) after \d+\.\ds \(timeout 1s\): .*timed out/s,
   );
 });
 

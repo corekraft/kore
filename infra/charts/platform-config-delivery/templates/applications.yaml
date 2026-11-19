@@ -10,6 +10,15 @@
 # namespace for a handed-over release. Helm's release secret stays as an inert
 # record; kore never uninstalls it and, with the flag on, never runs Helm on
 # these releases again.
+#
+# Each release takes the environment values the Helm path gives it
+# (releaseValues.<release>: the text of its values files in order, which kore
+# reads from the repository). Helm parses and merges them here, a later file
+# overriding an earlier one key by key, and the Application carries the result
+# as helm.valuesObject, so Argo CD renders the chart as `helm upgrade --values`
+# would. The values are desired state in the repository: no secret is among
+# them, and kore passes none. The gateway class and the platform domain stay
+# parameters, which Argo CD applies over the values.
 {{- range $name, $entry := .Values.charts }}
 ---
 apiVersion: argoproj.io/v1alpha1
@@ -27,6 +36,17 @@ spec:
     targetRevision: {{ $entry.digest | quote }}
     helm:
       releaseName: {{ $name | quote }}
+      {{- with index ($.Values.releaseValues | default dict) $name }}
+      {{- $merged := dict }}
+      {{- range $position, $text := . }}
+      {{- $parsed := fromYaml $text }}
+      {{- if hasKey $parsed "Error" }}
+      {{- fail (printf "releaseValues.%s[%d] is not valid YAML: %s" $name $position $parsed.Error) }}
+      {{- end }}
+      {{- $merged = mergeOverwrite $merged $parsed }}
+      {{- end }}
+      valuesObject: {{ toJson $merged }}
+      {{- end }}
       {{- if eq $name "kore-platform-config" }}
       parameters:
         - name: "gateway.className"

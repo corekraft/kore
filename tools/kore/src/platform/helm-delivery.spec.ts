@@ -67,6 +67,28 @@ test("kore-config-delivery is given the composed chart values as JSON, so no loc
   ]);
 });
 
+test("kore-config-delivery is handed each release's values-file text as JSON, so the Applications carry the environment values the Helm path gives", () => {
+  const releaseValues = {
+    "kore-local-tls": ["gateway:\n  port: 8443\n"],
+  };
+  const args = helmUpgradeArgs(
+    { ...repository, chartDelivery: { ...delivery, releaseValues } },
+    fakeComponent({ name: "kore-config-delivery" }),
+  );
+  expect(args.slice(-10)).toEqual([
+    "--set-json",
+    `charts=${JSON.stringify(delivery.charts)}`,
+    "--set-json",
+    `namespaces=${JSON.stringify(delivery.namespaces)}`,
+    "--set-string",
+    "gatewayClassName=istio",
+    "--set-string",
+    "platformDomain=kore.local",
+    "--set-json",
+    `releaseValues=${JSON.stringify(releaseValues)}`,
+  ]);
+});
+
 test("no other component gets delivery values, and kore-config-delivery gets none before they are composed", () => {
   const withValues = { ...repository, chartDelivery: delivery };
   expect(helmUpgradeArgs(withValues, fakeComponent())).not.toContain(

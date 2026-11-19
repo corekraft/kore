@@ -39,6 +39,19 @@
         "kore-platform-config": { "$ref": "#/definitions/entry" }
       }
     },
+    "releaseValues": {
+      "description": "The text of each handed-over release's environment values files, in the order Helm would take them; Helm merges them into the Application's helm.valuesObject. Never a secret.",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "opa-authorizer": { "$ref": "#/definitions/valuesFiles" },
+        "kore-postgresql-api": { "$ref": "#/definitions/valuesFiles" },
+        "kore-policy-templates": { "$ref": "#/definitions/valuesFiles" },
+        "kore-policy-constraints": { "$ref": "#/definitions/valuesFiles" },
+        "kore-local-tls": { "$ref": "#/definitions/valuesFiles" },
+        "kore-platform-config": { "$ref": "#/definitions/valuesFiles" }
+      }
+    },
     "namespaces": {
       "type": "object",
       "required": [
@@ -61,6 +74,10 @@
     }
   },
   "definitions": {
+    "valuesFiles": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
     "namespace": {
       "type": "string",
       "pattern": "^[a-z0-9]([-a-z0-9]{0,61}[a-z0-9])?$"

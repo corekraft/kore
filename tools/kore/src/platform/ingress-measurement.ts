@@ -3,6 +3,8 @@ import { parsePodMetrics, summarizeSamples } from "./ingress-metrics.js";
 import type { MeasurementSummary, PodUsage } from "./ingress-metrics.js";
 import { summarizeLatency } from "./ingress-metrics.js";
 import type { LatencySummary } from "./ingress-metrics.js";
+import { countRound, loadArgs } from "./route-load.js";
+import type { LoadRoute } from "./route-load.js";
 
 // Docs: infra/plans/13-agentgateway-ingress.md#measurement-method
 //
@@ -19,7 +21,7 @@ import type { LatencySummary } from "./ingress-metrics.js";
  * Gateway, each with the status it must answer with. `/api/protected` is
  * denied without a principal, so it exercises the authorizer path too.
  */
-export const ingressRoutes: readonly { path: string; status: number }[] = [
+export const ingressRoutes: readonly LoadRoute[] = [
   { path: "/livez", status: 200 },
   { path: "/readyz", status: 200 },
   { path: "/api", status: 200 },
@@ -52,6 +54,12 @@ export interface MeasurementOptions {
    * Unset or 0 sends none and reports no latency.
    */
   latencyProbesPerRoute?: number;
+  /**
+   * A named route set that replaces the reference routes, such as the
+   * golden-path one. Its name is recorded in the result's method, so results
+   * of different route sets are never compared. Unset keeps `ingressRoutes`.
+   */
+  routeSet?: { name: string; routes: readonly LoadRoute[] };
 }
 
 /** The fixed method: Step 1 and Step 4 both run exactly these values. */
@@ -81,6 +89,8 @@ export interface Measurement {
     settleSeconds: number;
     sampleCount: number;
     sampleIntervalSeconds: number;
+    /** Present only for a named route set; absent means the reference routes. */
+    routeSet?: string;
   };
   /** The requests that completed with their expected status, and how fast. */
   load: { requests: number; elapsedSeconds: number; requestsPerSecond: number };
@@ -179,7 +189,7 @@ export class IngressMeasurement {
       return times;
     }
     const { hostname, port, caRoot } = this.options;
-    for (const route of ingressRoutes) {
+    for (const route of this.routes()) {
       const { stdout } = await this.loadRunner.run(
         "curl",
         [
@@ -231,13 +241,20 @@ export class IngressMeasurement {
       this.options;
     return {
       gateway: `${gateway.namespace}/${gateway.name}`,
-      routes: ingressRoutes.map((route) => route.path),
+      routes: this.routes().map((route) => route.path),
       requestsPerRoute,
       concurrency,
       settleSeconds,
       sampleCount: this.options.sampleCount,
       sampleIntervalSeconds: this.options.sampleIntervalSeconds,
+      ...(this.options.routeSet
+        ? { routeSet: this.options.routeSet.name }
+        : {}),
     };
+  }
+
+  private routes(): readonly LoadRoute[] {
+    return this.options.routeSet?.routes ?? ingressRoutes;
   }
 
   private async sample(): Promise<Sample> {
@@ -284,10 +301,10 @@ export class IngressMeasurement {
   /** Repeats the fixed load rounds until `running` turns false. */
   private async loadUntil(running: () => boolean): Promise<void> {
     do {
-      for (const route of ingressRoutes) {
+      for (const route of this.routes()) {
         const { stdout } = await this.loadRunner.run(
           "curl",
-          this.curlArgs(route.path),
+          loadArgs(this.options, route.path),
           { capture: true },
         );
         this.checkRound(route, stdout);
@@ -299,54 +316,7 @@ export class IngressMeasurement {
   }
 
   /** Counts a round's requests; any wrong or missing status fails the measurement. */
-  private checkRound(
-    route: (typeof ingressRoutes)[number],
-    stdout: string,
-  ): void {
-    const sent = this.options.requestsPerRoute;
-    const statuses = stdout
-      .split("\n")
-      .map((line) => line.trim())
-      .filter((line) => line !== "")
-      .map(Number);
-    const wrong = statuses.filter((status) => status !== route.status);
-    if (wrong.length > 0) {
-      throw new Error(
-        `route ${route.path} answered ${wrong[0]} for ${wrong.length} of ${sent} requests, expected ${route.status}`,
-      );
-    }
-    if (statuses.length !== sent) {
-      throw new Error(
-        `route ${route.path} completed ${statuses.length} of ${sent} requests`,
-      );
-    }
-    this.requests += statuses.length;
-  }
-
-  private curlArgs(path: string): string[] {
-    const { hostname, port, caRoot, requestsPerRoute, concurrency } =
-      this.options;
-    return [
-      "--silent",
-      "--show-error",
-      "--output",
-      "/dev/null",
-      "--write-out",
-      "%{http_code}\\n",
-      "--connect-timeout",
-      "5",
-      "--max-time",
-      "60",
-      "--cacert",
-      `${caRoot}/rootCA.pem`,
-      "--resolve",
-      `${hostname}:${port}:127.0.0.1`,
-      "--parallel",
-      "--parallel-max",
-      String(concurrency),
-      // The glob is in the fragment: curl repeats the request, but the path
-      // and query the Gateway routes and authorizes on stay exactly the route's.
-      `https://${hostname}:${port}${path}#[1-${requestsPerRoute}]`,
-    ];
+  private checkRound(route: LoadRoute, stdout: string): void {
+    this.requests += countRound(route, stdout, this.options.requestsPerRoute);
   }
 }

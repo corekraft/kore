@@ -143,3 +143,72 @@ test("an unreadable probe time fails naming the route and the fix", async () => 
     "latency probe of /livez returned an unreadable time 'not-a-time'; check that curl reached https://kore.local:8443",
   );
 });
+
+const GOLDEN_PATH = {
+  name: "golden-path",
+  routes: [
+    { path: "/", status: 200 },
+    { path: "/api", status: 404 },
+  ],
+};
+
+function goldenPathMeasurement() {
+  const metrics = fakeRunner(() => "metrics");
+  const load = fakeRunner((_command, args) =>
+    isTimed(args)
+      ? "0.010\n"
+      : `${/:\d+\/api#/.test(String(args.at(-1))) ? 404 : 200}\n`.repeat(50),
+  );
+  const deps: MeasurementDeps = {
+    sleep: vi.fn<(seconds: number) => Promise<void>>(async () => undefined),
+    loadAverage: vi.fn(() => 1),
+    now: vi.fn(() => 0),
+  };
+  const measurement = new IngressMeasurement(
+    metrics.runner,
+    load.runner,
+    { ...options, latencyProbesPerRoute: 1, routeSet: GOLDEN_PATH },
+    deps,
+  );
+  return { measurement, load };
+}
+
+test("with a route set the load and the probes use only its routes, each with its own status", async () => {
+  const { measurement, load } = goldenPathMeasurement();
+
+  await measurement.measure();
+
+  const urls = load.run.mock.calls.map(([, args]) => String(args.at(-1)));
+  expect(new Set(urls)).toEqual(
+    new Set([
+      "https://kore.local:8443/#[1-50]",
+      "https://kore.local:8443/api#[1-50]",
+      "https://kore.local:8443/#[1-1]",
+      "https://kore.local:8443/api#[1-1]",
+    ]),
+  );
+});
+
+test("with a route set the result names the set and its routes, so it is never read against the reference routes", async () => {
+  const { measurement } = goldenPathMeasurement();
+
+  const result = await measurement.measure();
+
+  expect(result.method.routeSet).toBe("golden-path");
+  expect(result.method.routes).toEqual(["/", "/api"]);
+  expect(result.latency).toEqual(LATENCY);
+});
+
+test("without a route set the result carries no route set name and the reference routes", async () => {
+  const { measurement } = measurementWith();
+
+  const result = await measurement.measure();
+
+  expect(result.method).not.toHaveProperty("routeSet");
+  expect(result.method.routes).toEqual([
+    "/livez",
+    "/readyz",
+    "/api",
+    "/api/protected",
+  ]);
+});
