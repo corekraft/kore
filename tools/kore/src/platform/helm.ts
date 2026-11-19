@@ -81,6 +81,16 @@ function goldenPathArgs(
   ];
 }
 
+/**
+ * The delivery charts, whose closed schemas name no feature flag and whose
+ * templates read none: kore passes them no `features.*` value, since Helm
+ * refuses a key the schema does not declare.
+ */
+const featureFreeCharts = new Set([
+  "kore-config-delivery",
+  "kore-golden-path-delivery",
+]);
+
 /** The chart value each release takes the GatewayClass through. */
 const gatewayClassKeys: Record<string, string | undefined> = {
   "kore-platform-config": "gateway.className",
@@ -134,7 +144,10 @@ function chartSelectionArgs(
   if (registryConsumers.includes(component.name)) {
     args.push(...registryHelmArgs(repository.environment, component.name));
   }
-  if (component.kind === "local-chart") {
+  if (
+    component.kind === "local-chart" &&
+    !featureFreeCharts.has(component.name)
+  ) {
     args.push(...featureHelmArgs(repository.environment));
   }
   const classKey = gatewayClassKeys[component.name];
