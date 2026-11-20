@@ -1,7 +1,20 @@
 // Docs: docs/decisions/0113-run-a-keycloak-for-the-platform-organization-s-operators.md
-import { expect, test, vi } from "vitest";
+import { beforeEach, expect, test, vi } from "vitest";
 import type { Runner } from "../runtime/index.js";
 import { organizationCheck } from "./readiness-organization.js";
+import { pollUntil } from "./readiness-poll.js";
+
+vi.mock("./readiness-poll.js");
+
+// One probe, then the reason it gives becomes the failure, as pollUntil does at its bound.
+beforeEach(() => {
+  vi.mocked(pollUntil).mockImplementation(async (_timeout, probe) => {
+    const reason = await probe();
+    if (reason !== undefined) {
+      throw new Error(reason);
+    }
+  });
+});
 
 const RESOURCE = "organization.platform.kore.dev/platform";
 const context = { base: ["--context", "k3d-kore-local"] };
