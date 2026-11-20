@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { readFile } from "node:fs/promises";
 import { loadavg } from "node:os";
 import test from "node:test";
 import { loadRepository, platformPlan } from "../config/index.js";
@@ -93,6 +94,8 @@ async function context() {
         const [one = 0, five = 0, fifteen = 0] = loadavg();
         return [one, five, fifteen];
       },
+      platform: process.platform,
+      readFile: (path) => readFile(path, "utf8"),
     }),
   };
 }

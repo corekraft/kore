@@ -15,6 +15,18 @@ export function parseMemAvailableMiB(stdout: string): number {
   return Math.round(Number(available[1]) / 1024);
 }
 
+/** The host's swap in use (MiB) on Linux: SwapTotal less SwapFree in `/proc/meminfo`. */
+export function parseLinuxSwapUsedMiB(stdout: string): number {
+  const total = /^SwapTotal:\s+(\d+)\s*kB/m.exec(stdout);
+  const free = /^SwapFree:\s+(\d+)\s*kB/m.exec(stdout);
+  if (!total || !free) {
+    throw new Error(
+      `unreadable host swap report ${JSON.stringify(stdout.trim())}`,
+    );
+  }
+  return Math.round((Number(total[1]) - Number(free[1])) / 1024);
+}
+
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === "object" && value !== null;
 
