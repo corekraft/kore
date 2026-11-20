@@ -5,6 +5,7 @@ import { loadRepository, platformPlan } from "../config/index.js";
 import { ProcessRunner, liveEnvironment } from "../runtime/index.js";
 import { mkcertRoot } from "./gateway-cluster.live.js";
 import { goldenPathReach } from "./golden-path-reach.live.js";
+import type { GoldenPathReach } from "./golden-path-reach.live.js";
 import { goldenPathRouteSet } from "./golden-path-routes.js";
 import {
   GoldenPathScaleCheck,
@@ -25,12 +26,18 @@ import { RatedMeasurement } from "./ingress-rated-measurement.js";
 //   against the cluster, separate from the reference routes' numbers;
 // - the scale check, whose one cluster write is `kubectl scale` on the BFF
 //   Deployment, put back to the count it had before the run however it ends.
-// The probes reach the Service at its published address; with none published
-// the run fails before any load is sent, naming the Service (golden-path-reach.ts).
+// The probes reach the service's own Gateway at its published address, or, when
+// the service has no Gateway of its own, the shared Gateway on loopback. Any other
+// case fails before any load is sent, naming the cause (golden-path-reach.live.ts).
 // Only baselines are recorded; there is no target. KORE_GOLDEN_PATH_SERVICE
 // names the delivered Service (default golden-path-example),
 // KORE_SCALE_PEAK_REPLICAS is N (default 4) and KORE_SCALE_START_REPLICAS sets
 // the starting count (default: the Deployment's own).
+
+// The probes take the address only when the Service publishes one.
+function addressOf(reach: GoldenPathReach): { address?: string } {
+  return reach.address === undefined ? {} : { address: reach.address };
+}
 
 const live = {
   concurrency: false,
@@ -64,6 +71,7 @@ async function context() {
     kubeContext,
     namespace: `${service}--${name}`,
     service,
+    sharedGateway: repository.environment.gateway,
   });
   return {
     runner,
@@ -71,8 +79,8 @@ async function context() {
     service,
     namespace: `${service}--${name}`,
     hostname: `${service}.platform.${platformPlan(repository.environment).domain}`,
+    reach,
     port: reach.port,
-    address: reach.address,
     caRoot: await mkcertRoot(runner),
     deps: {
       sleep: (seconds: number) =>
@@ -100,10 +108,10 @@ test(
       {
         ...ingressMeasurementDefaults,
         kubeContext: c.kubeContext,
-        gateway: { namespace: c.namespace, name: c.service },
+        gateway: c.reach.gateway,
         hostname: c.hostname,
-        port: c.port,
-        address: c.address,
+        port: c.reach.port,
+        ...addressOf(c.reach),
         caRoot: c.caRoot,
         routeSet: goldenPathRouteSet,
       },
@@ -134,8 +142,8 @@ test(
         ...(startReplicas === undefined ? {} : { startReplicas }),
         peakReplicas: count("KORE_SCALE_PEAK_REPLICAS") ?? 4,
         hostname: c.hostname,
-        port: c.port,
-        address: c.address,
+        port: c.reach.port,
+        ...addressOf(c.reach),
         caRoot: c.caRoot,
       },
       c.deps,
