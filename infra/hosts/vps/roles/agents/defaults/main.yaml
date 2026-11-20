@@ -33,3 +33,12 @@ agents_ssh_pubkey_files:
 # git's credential helper for GitHub, through the mise shim so a gh upgrade
 # does not leave it pointing at a removed install.
 agents_gh_helper: "!/home/{{ agents_user }}/.local/share/mise/shims/gh auth git-credential"
+
+# The platform DNS the cluster publishes on the host (the platform-dns feature's
+# port mapping in infra/environments/local/environment.yaml). Only names under
+# the zone go there; every other name keeps the host's own resolvers.
+agents_platform_dns_zone: platform.kore.local
+agents_platform_dns_address: 127.0.0.1
+agents_platform_dns_port: 1053
+# The dummy link that carries that server. Interface names are 15 characters or fewer.
+agents_platform_dns_link: kore-dns
