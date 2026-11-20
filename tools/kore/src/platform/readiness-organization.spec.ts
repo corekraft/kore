@@ -26,7 +26,8 @@ function fakeRunner(replies: {
     }
     return { stdout: reply, stderr: "", code: 0 };
   });
-  return { runner: { run } as Runner, run };
+  const runner: Runner = { run };
+  return { runner, run };
 }
 
 const organization = (conditions: object[]) =>
@@ -111,5 +112,25 @@ test("a read the API refuses is rethrown at once, not retried into a timeout", a
   });
   await expect(check?.run("0s")).rejects.toThrow(
     "Error from server (Forbidden): organizations is forbidden",
+  );
+});
+
+test("a reply with no status is named as having no Ready condition, not read as ready", async () => {
+  const { check } = checkWith({
+    sentinel: "",
+    json: JSON.stringify({ kind: "Organization" }),
+  });
+  await expect(check?.run("0s")).rejects.toThrow(
+    "organization platform has no Ready condition yet",
+  );
+});
+
+test("a Ready condition with no message is named with no reason given", async () => {
+  const { check } = checkWith({
+    sentinel: "",
+    json: organization([{ type: "Ready", status: "False" }]),
+  });
+  await expect(check?.run("0s")).rejects.toThrow(
+    "organization platform is not Ready: no reason given",
   );
 });

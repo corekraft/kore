@@ -24,16 +24,6 @@ export interface OrganizationContext {
   base: string[];
 }
 
-interface Condition {
-  type?: string;
-  status?: string;
-  message?: string;
-}
-
-interface OrganizationItem {
-  status?: { conditions?: Condition[] };
-}
-
 /**
  * Proves the platform Organization is Ready, which Crossplane reports once the
  * realm it composes exists. Each poll names the reason it is not ready, so a
@@ -82,14 +72,35 @@ async function notReadyReason(
   if (ready === "ready") {
     return undefined;
   }
-  const item = JSON.parse(
-    (await readOrDeclared(context, "json")) ?? "{}",
-  ) as OrganizationItem;
-  const condition = item.status?.conditions?.find(
-    (candidate) => candidate.type === "Ready",
-  );
-  if (condition === undefined) {
+  const message = readyMessage((await readOrDeclared(context, "json")) ?? "{}");
+  if (message === undefined) {
     return "organization platform has no Ready condition yet";
   }
-  return `organization platform is not Ready: ${condition.message || "no reason given"}`;
+  return `organization platform is not Ready: ${message || "no reason given"}`;
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null;
+}
+
+/**
+ * The message of the Ready condition in a JSON Organization, or undefined when
+ * it has none. The reply is read as unknown and each field narrowed, so a reply
+ * of another shape reads as having no Ready condition.
+ */
+function readyMessage(json: string): string | undefined {
+  const item: unknown = JSON.parse(json);
+  const status = isRecord(item) ? item["status"] : undefined;
+  const conditions = isRecord(status) ? status["conditions"] : undefined;
+  if (!Array.isArray(conditions)) {
+    return undefined;
+  }
+  const ready: unknown = conditions.find(
+    (candidate: unknown) =>
+      isRecord(candidate) && candidate["type"] === "Ready",
+  );
+  if (!isRecord(ready)) {
+    return undefined;
+  }
+  return typeof ready["message"] === "string" ? ready["message"] : "";
 }
