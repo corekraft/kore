@@ -1,6 +1,6 @@
 ---
 status: accepted
-summary: The vps environment overlay points kore at the persistent single-node k3s on the rented VPS as a managed cluster, with an in-cluster registry on a pinned ClusterIP, the local domain kore.internal, the internal CA local uses and its own sops recipient to come, and every feature flag off, so the overlay validates and changes nothing in any cluster until a live run and harness flag activate.
+summary: The vps environment overlay points kore at the persistent single-node k3s on the rented VPS as a managed cluster, with an in-cluster registry on a pinned ClusterIP, the local domain kore.internal, an internal root CA that cert-manager creates inside the cluster under local's issuer names, and its own sops recipient to come, and every feature flag off, so the overlay validates and changes nothing in any cluster until a live run and harness flag activate.
 date: 2026-11-20
 last-verified: 2026-11-20
 ---
@@ -49,11 +49,33 @@ not bought a domain, so no real domain belongs in it either.
   address. `10.43.0.50` is outside the services the cluster runs. The registry's
   own serving certificate comes from its chart's self-signed CA (ADR 0058), so
   the registry needs no ACME and no public name.
-- **The internal CA as the gateway issuer, as local does.** `issuer.name` is
-  `kore-local-ca`, the ClusterIssuer whose CA `kore trust install` creates from an
-  mkcert root, and the gateway certificate is `kore-local-tls`. Both names are
-  fixed in the code, so the vps overlay reuses them rather than inventing new ones.
-  No ACME issuer is used.
+- **An internal CA created inside the cluster, under local's names.**
+  `issuer.name` is `kore-local-ca` and the gateway certificate's Secret is
+  `kore-local-tls`, the names local uses. The names are defaults in the shared
+  charts (the golden-path workload's ingress, the PostgreSQL API, Backstage,
+  the platform-certificate and platform-config charts) and in the catalog's
+  readiness checks, so a vps-only name would mean overriding every one of them
+  for no gain; "local" in the name is history, not a statement that the CA is
+  mkcert's. No ACME issuer is used.
+- **The CA is made by cert-manager in the cluster, so its key never leaves it.**
+  Local's CA is an mkcert root that `kore trust install` copies in from the
+  developer's machine. Copying that root to the rented host would put its
+  private key there, and `installLocalTrust` refuses a non-k3d provider for that
+  reason. The `in-cluster-ca` flag, passed to every chart like the
+  others, makes the `platform-certificate` chart (the `kore-local-tls` release) render a `SelfSigned` ClusterIssuer
+  (`kore-local-selfsigned`), a CA Certificate `kore-local-ca` in the
+  `cert-manager` namespace (`isCA`, ECDSA P-256, key rotation `Never`, ten
+  years so the root outlives what it signs) whose Secret is
+  `kore-local-ca-key-pair`, and the `kore-local-ca` ClusterIssuer that signs
+  with it. The Secret name matches local's, so the readiness preflight and
+  `loadLocalCa` read the public `tls.crt` the same way for both. The flag
+  is off in every overlay, so nothing renders until a live run and
+  `harness flag activate` turn it on for vps; local renders what it did and
+  keeps one owner for its CA (`kore trust install`). `kore validate` refuses
+  the flag on for a k3d environment, because two owners would fight over one
+  ClusterIssuer. On vps the chart is the one owner, and `kore trust install`
+  stays refused there. The repository holds no key and no
+  certificate, and the controller needs only the public root.
 - **The policy controller trusts the registry CA, as local does.** The overlay
   layers `values/policy-controller.yaml` beside the mirror values: the verifier
   reads signatures from the in-cluster registry over TLS and trusts only the
@@ -80,13 +102,25 @@ not bought a domain, so no real domain belongs in it either.
 - `mise run validate` checks `vps` in CI beside `local` and `managed-example`,
   so a broken overlay fails before merge.
 - `kore trust install` refuses any non-k3d provider (`installLocalTrust`,
-  "local CA trust is only valid for a local k3d environment"). The `kore-local-ca`
-  ClusterIssuer and its CA secret therefore do not exist in the vps cluster until
-  the owner decides how to create them there. Enabling the install for `vps`
-  would put the CA's private key in a persistent cluster on a rented host, so
-  that is a separate owner decision, not part of this change. Until it is made,
+  "local CA trust is only valid for a local k3d environment") and still does:
+  the owner decided (2026-11-20) that vps creates its CA in the cluster rather
+  than copying one in. The `kore-local-ca` ClusterIssuer and its CA Secret appear
+  in the vps cluster when the `kore-local-tls` release is installed. Until then
   the gateway and the platform's certificates wait, and the readiness check
-  fails closed.
+  fails closed. Its remedy text for a non-local environment still reads
+  "Create the ClusterIssuer and its CA Secret for this environment".
+- The Argo CD AppProject that `platform-config-delivery` renders admits the
+  `ClusterIssuer` kind and the `cert-manager` namespace only while
+  `in-cluster-ca` is on: kore passes the chart `inClusterCa` then, as it passes
+  `databaseRoutes` for its flag (ADR 0137). Its spec renders every argocd-owned
+  release with every flag on, and the CA objects join that render. With the flag
+  off, local's delivered project is byte-identical to what it was. `vps` keeps
+  `platform-argocd-delivery` off, so Helm delivers its release.
+- The CA is proven only by a live run. The flag is off, so nothing in any cluster
+  changes until the owner runs `kore platform up --environment vps` on the
+  controller with the flag on, sees `clusterissuer/kore-local-ca` Ready and
+  `secret/kore-local-tls` issued, and records the outcome for
+  `harness flag activate`.
 - The node's containerd must trust the in-cluster registry's CA to pull from it.
   On k3d that trust is written at create (`k3d-registry-trust.ts`). On the vps
   host it is a k3s registries file that the Ansible role (ADR 0141) would own,
