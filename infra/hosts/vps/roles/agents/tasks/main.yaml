@@ -28,6 +28,24 @@
     password: "*"
     create_home: true
 
+- name: Create the agent's SSH directory
+  ansible.builtin.file:
+    path: "/home/{{ agents_user }}/.ssh"
+    state: directory
+    owner: "{{ agents_user }}"
+    group: "{{ agents_user }}"
+    mode: "0700"
+
+- name: Authorise the controller's public keys for the agent account
+  ansible.builtin.lineinfile:
+    path: "/home/{{ agents_user }}/.ssh/authorized_keys"
+    line: "{{ lookup('ansible.builtin.file', item).split()[:2] | join(' ') }}"
+    create: true
+    owner: "{{ agents_user }}"
+    group: "{{ agents_user }}"
+    mode: "0600"
+  loop: "{{ agents_ssh_pubkey_files }}"
+
 - name: Install the pinned mise
   ansible.builtin.get_url:
     url: "https://github.com/jdx/mise/releases/download/v{{ agents_mise_version }}/mise-v{{ agents_mise_version }}-linux-x64"

@@ -20,3 +20,9 @@ agents_tools:
 # against the vendor's checksums.txt, and its self-update is turned off.
 agents_moshi_hook_version: "v0.4.60"
 agents_moshi_hook_sha256: "5539b750fcdda8277555b0b1e2972bf2c2946c4c29838d06bb8a98963e47f348"
+
+# Public keys allowed to log in as the agent account, read on the controller at
+# run time and never committed. Moshi adds the phone's key when it pairs.
+agents_ssh_pubkey_files:
+  - ~/.ssh/id_ed25519.pub
+  - ~/.ssh/id_rsa.pub

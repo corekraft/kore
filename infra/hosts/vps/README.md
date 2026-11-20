@@ -29,8 +29,10 @@ Once, after the first `mise run vps-apply` stops at the VM's sign-in check:
 1. `ssh debian@kore-vps sudo incus exec kore-agents -- tailscale up --ssh --hostname=kore-agents`
    and approve the link, then `mise run vps-apply` again.
 
-Then as `agent` (`ssh agent@kore-agents`); none of these secrets enter the
-repository:
+Tailscale SSH is off on the VM (`tailscale_ssh: false`): its own sshd checks
+`authorized_keys`, where the playbook puts your public keys and Moshi puts the
+phone's. Then as `agent` (`ssh agent@kore-agents`); none of these secrets enter
+the repository:
 
 1. `gh auth login` with a fine-grained token limited to `corekraft/kore`.
 2. `claude` and sign in.

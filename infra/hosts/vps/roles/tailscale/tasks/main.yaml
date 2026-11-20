@@ -44,3 +44,14 @@
       prints, then run the playbook again. The network role closes public SSH
       and must not run before the tailnet works.
     quiet: true
+
+- name: Read the Tailscale preferences
+  ansible.builtin.command: tailscale debug prefs
+  register: tailscale_prefs
+  changed_when: false
+  check_mode: false
+
+- name: Set Tailscale SSH on or off
+  ansible.builtin.command: tailscale set --ssh={{ tailscale_ssh | lower }}
+  when: (tailscale_prefs.stdout | from_json).RunSSH != tailscale_ssh
+  changed_when: true

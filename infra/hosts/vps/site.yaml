@@ -3,6 +3,7 @@
   roles:
     - base
     - tailscale
+    - sshd
     - network
     - incus
 
@@ -10,5 +11,7 @@
   hosts: kore-agents
   roles:
     - base
-    - tailscale
+    - sshd
     - agents
+    # Last: it turns Tailscale SSH off once sshd and the keys are in place.
+    - tailscale

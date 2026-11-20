@@ -1,7 +1,7 @@
 # Managed by infra/hosts/vps (Ansible). Edits here are overwritten.
 # First match wins in sshd, and Debian includes this directory first.
 PermitRootLogin no
-AllowUsers {{ network_ssh_allow_users }}
+AllowUsers {{ sshd_allow_users }}
 PasswordAuthentication no
 KbdInteractiveAuthentication no
 AuthenticationMethods publickey
