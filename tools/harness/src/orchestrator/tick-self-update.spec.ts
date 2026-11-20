@@ -11,7 +11,7 @@ type Answers = Record<string, RunResult | RunResult[]>;
 
 const MAIN_BEHIND: Answers = {
   "git rev-parse --abbrev-ref HEAD": ok("main\n"),
-  "git status --porcelain": ok(""),
+  "git status --porcelain --untracked-files=no": ok(""),
   "git fetch --quiet origin main": ok(""),
   "git rev-list --count HEAD..origin/main": ok("2\n"),
   "git merge-base --is-ancestor HEAD origin/main": ok(""),
@@ -70,7 +70,7 @@ describe("tick self-update: the pull and the build", () => {
 
     expect(calls).toEqual([
       "git rev-parse --abbrev-ref HEAD",
-      "git status --porcelain",
+      "git status --porcelain --untracked-files=no",
       "git fetch --quiet origin main",
       "git rev-list --count HEAD..origin/main",
       "git merge-base --is-ancestor HEAD origin/main",
@@ -87,6 +87,23 @@ describe("tick self-update: the pull and the build", () => {
     expect(recordFailure).not.toHaveBeenCalled();
   });
 
+  it("updates a checkout whose only change is an untracked path, such as the worktrees directory", async () => {
+    const { updater, calls, out, err } = setup({
+      ...MAIN_BEHIND,
+      "git status --porcelain": ok("?? .claude/worktrees/\n"),
+      "git status --porcelain --untracked-files=no": ok(""),
+    });
+
+    await updater.run();
+
+    expect(calls).toContain("git pull --ff-only");
+    expect(calls).toContain("mise run harness-build");
+    expect(out.join("")).toBe(
+      "Updated main to bbb222 and rebuilt the harness bundle.\n",
+    );
+    expect(err.join("")).toBe("");
+  });
+
   it("does nothing when main already matches origin/main", async () => {
     const { updater, calls, out } = setup({
       ...MAIN_BEHIND,
@@ -97,7 +114,7 @@ describe("tick self-update: the pull and the build", () => {
 
     expect(calls).toEqual([
       "git rev-parse --abbrev-ref HEAD",
-      "git status --porcelain",
+      "git status --porcelain --untracked-files=no",
       "git fetch --quiet origin main",
       "git rev-list --count HEAD..origin/main",
     ]);
@@ -123,14 +140,16 @@ describe("tick self-update: the refusals", () => {
   it("never pulls over a dirty tree: the change is reported and the old bundle kept", async () => {
     const { updater, calls, out } = setup({
       ...MAIN_BEHIND,
-      "git status --porcelain": ok(" M tools/harness/src/hook/guard.ts\n"),
+      "git status --porcelain --untracked-files=no": ok(
+        " M tools/harness/src/hook/guard.ts\n",
+      ),
     });
 
     await updater.run();
 
     expect(calls).toEqual([
       "git rev-parse --abbrev-ref HEAD",
-      "git status --porcelain",
+      "git status --porcelain --untracked-files=no",
     ]);
     expect(out.join("")).toBe(
       "The checkout has uncommitted changes, so the tick did not update main and keeps the bundle it has. Commit or stash them, then the next pass updates.\n",
@@ -205,7 +224,7 @@ describe("tick self-update: a failed build", () => {
 
     expect(calls.slice(before)).toEqual([
       "git rev-parse --abbrev-ref HEAD",
-      "git status --porcelain",
+      "git status --porcelain --untracked-files=no",
       "git fetch --quiet origin main",
       "git rev-list --count HEAD..origin/main",
     ]);

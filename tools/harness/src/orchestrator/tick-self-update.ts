@@ -75,7 +75,11 @@ export class TickSelfUpdate {
       );
       return false;
     }
-    const status = await this.git(["status", "--porcelain"]);
+    const status = await this.git([
+      "status",
+      "--porcelain",
+      "--untracked-files=no",
+    ]);
     if (status.code !== 0) {
       this.failed("git status --porcelain", status);
       return false;
