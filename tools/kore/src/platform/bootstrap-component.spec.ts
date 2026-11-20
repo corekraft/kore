@@ -5,6 +5,7 @@ import {
   ensureRegistryTrust,
 } from "../images/index.js";
 import { bootstrapComponent } from "./bootstrap-component.js";
+import { enrollSharedGatewayRoute } from "./enrollment.js";
 import { waitForGatekeeperAdmission } from "./gatekeeper-admission.js";
 import {
   fakeComponent,
@@ -19,6 +20,7 @@ import { assertMetricsServerUnowned } from "./metrics-server-ownership.js";
 import { reconcileIfNeeded } from "./reconcile.js";
 
 vi.mock("../images/index.js");
+vi.mock("./enrollment.js");
 vi.mock("./gatekeeper-admission.js");
 vi.mock("./metrics-server-ownership.js");
 vi.mock("./portal-secrets.js");
@@ -142,4 +144,16 @@ test("a component that fails to reconcile skips the steps that follow it", async
   vi.mocked(reconcileIfNeeded).mockRejectedValueOnce(new Error("crd stuck"));
   await expect(steps("oci-registry")).rejects.toThrow("crd stuck");
   expect(ensureRegistryTrust).not.toHaveBeenCalled();
+});
+
+test("a route-bearing bootstrap component has its namespace enrolled for the shared Gateway before its release is applied and waited on", async () => {
+  vi.mocked(enrollSharedGatewayRoute).mockImplementation(async (_r, _n, c) => {
+    order.push(`enroll-shared-gateway:${c.name}`);
+  });
+  expect(await steps("oci-registry")).toEqual([
+    "registry-auth",
+    "enroll-shared-gateway:oci-registry",
+    "reconcile:oci-registry",
+    "registry-trust",
+  ]);
 });

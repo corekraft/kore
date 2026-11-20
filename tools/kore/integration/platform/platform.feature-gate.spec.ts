@@ -8,6 +8,7 @@ import { test, vi } from "vitest";
 
 vi.mock("../../src/platform/enrollment.js", () => ({
   enrollPlatformNamespaces: async () => undefined,
+  enrollSharedGatewayRoute: async () => undefined,
 }));
 vi.mock("../../src/images/index.js", () => ({
   ensureLocalSigningPublicKey: async () => undefined,
