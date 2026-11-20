@@ -1,4 +1,8 @@
-import { enabledComponents, type Repository } from "../config/index.js";
+import {
+  enabledComponents,
+  type Component,
+  type Repository,
+} from "../config/index.js";
 import { managedNamespaces } from "./gated-release.js";
 import type { Runner } from "../runtime/index.js";
 import { enrollmentLabel } from "./image-inventory.js";
@@ -170,24 +174,54 @@ export async function enrollPlatformNamespaces(
 }
 
 /**
- * The namespaces of the enabled components that attach a route to the shared
- * Gateway, while platform-shared-gateway is on. A component whose route renders
- * only under its own flag (`sharedGatewayRouteFlag`) counts only while that flag
- * is on too, so the flag off changes no namespace.
+ * Whether the component attaches a route to the shared Gateway right now:
+ * platform-shared-gateway is on, and so is the component's own route flag
+ * (`sharedGatewayRouteFlag`) when it has one, so the flag off changes no
+ * namespace.
  */
+function attachesSharedGatewayRoute(
+  repository: Repository,
+  { sharedGatewayRoutes, sharedGatewayRouteFlag }: Component,
+): boolean {
+  return (
+    sharedGatewayOn(repository) &&
+    sharedGatewayRoutes === true &&
+    (sharedGatewayRouteFlag === undefined ||
+      repository.environment.features?.[sharedGatewayRouteFlag] === true)
+  );
+}
+
+/** The namespaces of the enabled components that attach a route to the shared Gateway. */
 function sharedGatewayNamespaces(repository: Repository): string[] {
-  if (!sharedGatewayOn(repository)) {
-    return [];
-  }
-  const features = repository.environment.features;
   return enabledComponents(repository)
-    .filter(
-      ({ sharedGatewayRoutes, sharedGatewayRouteFlag }) =>
-        sharedGatewayRoutes &&
-        (sharedGatewayRouteFlag === undefined ||
-          features?.[sharedGatewayRouteFlag] === true),
-    )
+    .filter((component) => attachesSharedGatewayRoute(repository, component))
     .map(({ namespace }) => namespace);
+}
+
+/**
+ * Labels the namespace of one component that attaches a route to the shared
+ * Gateway, before its release is applied and waited on. A route waits for
+ * admission inside its own readiness check (`httproute/otlp`), long before the
+ * end-of-run enrollment above, so without this the wait times out with
+ * NoMatchingParent (#1388). Server-side apply creates the namespace when the
+ * chart has not yet (Helm's `--create-namespace` accepts an existing one) and
+ * is a no-op when the label is already there. A component that attaches no
+ * route, or whose flags are off, changes nothing.
+ */
+export async function enrollSharedGatewayRoute(
+  repository: Repository,
+  runner: Runner,
+  component: Component,
+): Promise<void> {
+  if (attachesSharedGatewayRoute(repository, component)) {
+    await apply(
+      repository,
+      runner,
+      component.namespace,
+      true,
+      sharedGatewayOwner,
+    );
+  }
 }
 
 type Existing = Map<
