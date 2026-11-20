@@ -40,11 +40,17 @@ reference from it, so changing it there moves everything
 The platform's names are one per-environment field too, `platform` in
 `environment.yaml`: `domain` (local: `kore.local`) and `organizationId`
 (`platform`). `kore` validates both before any cluster command (a lowercase DNS
-name of at least two labels, and one lowercase label), then derives every copy
-from them: the Gateway hostname, the platform APIs, Keycloak and Backstage
-`platformDomain`, the certificate host, the reference application's route host
-and the delivery path's `platformDomain`. A values file or chart default that
-repeated the domain would be a second owner, so none do; a service host is
+name of at least two labels, and one lowercase label). `domain` is the field
+every copy derives from: the Gateway hostname, the platform APIs, Keycloak and
+Backstage `platformDomain`, the certificate host, the reference application's
+route host and the delivery path's `platformDomain`. `organizationId` feeds only
+the platform organization's wildcard `*.<organizationId>.<domain>` on the
+Gateway, and, behind their flags, the Organization zone default
+(`platform-hostname-ownership`) and the database routes (`database-routes`). It
+does not yet name the platform `Organization` resource or the golden-path load
+test's hostname, which both use the literal `platform`, so changing it moves the
+wildcard and not those two. A values file or chart default that repeated the
+domain would be a second owner, so none do; a service host is
 `<service>.<organizationId>.<domain>`
 ([ADR 0042](docs/decisions/0042-organization-domains-by-delegation.md)). A
 check renders the platform Gateway and the routes attached to it and fails when
