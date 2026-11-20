@@ -1,5 +1,5 @@
 ---
-summary: Primitives retro over the sessions from 2026-11-18T02:13:52Z to 2026-11-20; seven proposals for hand-built sequences that should be one harness primitive, and existing primitives the main session bypasses. None filed or applied yet.
+summary: Primitives retro over the sessions from 2026-11-18T02:13:52Z to 2026-11-20, revised after its grill and the owner's decisions; five filing slots (pane traffic tools, judge and reviewer idea stamps, an after-merge step, one review path, a precheck false-positive fix), one finding held, one scope change to idea 0031, and the tick as the precondition. None filed or applied yet.
 date: 2026-11-20
 last-verified: 2026-11-20
 ---
@@ -7,311 +7,436 @@ last-verified: 2026-11-20
 # Primitives Retro 2026-11-20
 
 The question for this retro: which multi-step sequences do agents build by hand
-again and again, so that they should become one named primitive (a harness
-command, a hook, a tool or an agent role)? It also asks which existing
-primitives agents bypass, and which nothing calls. It is one of three
-independent retros of the same window. Its findings are proposals: none is
-filed as an idea or applied.
+again and again, so that they should become one Tool (a harness command), a
+hook or an agent role? It also asks which existing Tools agents bypass, and
+which nothing calls. A bypass here means a hand-built sequence of commands that
+a Tool already does. The word is used narrowly: idea 0022 uses it for evading a
+Guardrail.
 
-## Basis
+This is one of three independent retros of the same window. A grill pane tested
+it, and the owner then decided its open questions. This revision applies the
+grill's verdicts, its evidence corrections and the owner's decisions. Nothing
+here is filed as an idea or applied.
 
-- **Window.** 2026-11-18T02:13:52Z to 2026-11-20T08:40Z. The input was 151
-  Claude Code transcripts, 71 from the main checkout and 80 from worktrees.
-  Only `user` and `assistant` records with a timestamp inside the window were
-  counted: 10,614 tool calls, 8,430 of them Bash. Copies of earlier requests
-  (`api-request-blob` records) were left out.
-- **Launches.** The ledger shows 196 `session.launch` events: 98 judge, 72
-  writer, 10 reader, 9 principles-review, plus 7 others. `.kore/state/sessions`
-  agrees.
-- **The main session.** One long-running main session, `112bd8fe`, made 1,906
-  of the window's Bash calls. Most of the findings below are about it.
-- **The precomputed inputs.** The first `retro-scan --strict --evidence` run ran
-  out of Node heap. The rerun has no evidence rows, so guard-block forms below
-  come from the transcripts. `flow-report.json` covers the whole ledger, not
-  just the window, so window counts come from the ledger
-  (`.kore/state/ledger.jsonl`) filtered by `occurredAt`.
-- **The forked `/retro` pass.** It ran with the primitives topic as its lens,
-  and its proposals are folded in below. Its claim that `112bd8fe` used
-  `harness wait` 0 times in the window is wrong: the transcript has 161 such
-  calls. Its scan run also added `retro.main-session` events to the ledger.
-- **Citations.** `session:line` points into the transcript JSONL. Only counts
-  are cited here, never transcript text.
+## Owner decisions (2026-11-20, decided)
 
-## The seven findings, ranked by frequency times cost
+1. **The Guardrail freeze stays** (ADRs 0091, 0101, 0123). No new guard rule,
+   not even in audit mode: no warning on raw herdr sends, bare `gh pr merge` or
+   heredoc edits. Every Guardrail proposal from the first draft is dropped.
+2. **The orchestrator tick should run.** Findings that depended on that
+   decision now wait on the tick starting, not on a decision.
+3. **No `--override` or `--accept` on `judge merge` in this retro.** If one is
+   wanted later, it is a separate proposal with its own ADR.
+4. **The read-only Guardrail gets no loop or substitution parsing.** Only the
+   scratch-path redirect fix to the existing rule goes ahead.
+5. **`review post --none` refuses when no review is recorded for the head.**
+   This is accepted as a non-guard Tool rule.
+6. **The other grill questions.** Two were not named on their own in the
+   owner's list; the grill's recommendations stand for both:
+   - the ADR 0126 bar for a writer stamp at spawn stays as it is, and this
+     retro proposes no change to it
+   - the precheck file-class fix (finding 5 below) is filed with its evidence
+     list as an owner decision on the ADR 0099 boundary, each fix with its own
+     ADR
 
-| #   | Change                                                             | Hand-built count in window                        | Already filed             |
-| --- | ------------------------------------------------------------------ | ------------------------------------------------- | ------------------------- |
-| 1   | One `land` step: the judge's merge plus the post-merge chores      | bare `gh pr merge` on 93 PRs, `judge merge` on 16 | none                      |
-| 2   | Main session posts reviews through `review run`                    | 73 in-process reviews, 125 PRs hand-posted        | 0016 (related)            |
-| 3   | Main-session raw pane sends, reads and closes go through `session` | 107 raw prompts, 123 raw reads, 116 raw closes    | 0035                      |
-| 4   | One read-only status snapshot for the main session                 | about 100 hand-built sweeps                       | none                      |
-| 5   | Writers edit through Edit, not Python heredocs                     | 402 heredoc edits in 44 sessions                  | none                      |
-| 6   | `session spawn` stamps the idea itself                             | 195 of 196 launches unstamped                     | 0012, #827 (both partial) |
-| 7   | Read-only roles get batch and redirect forms                       | 240 `role-read-only` blocks                       | 0031 (readers only)       |
+The owner's decisions on context caps, writer models and judge effort belong to
+the other two retros and change nothing here.
 
-## 1. One `land` step: the judge's merge plus the post-merge chores
+## Basis and method
+
+- **Window and sources.**
+  - **Window.** 2026-11-18T02:13:52Z to 2026-11-20T08:40Z.
+  - **Transcripts.** 151 Claude Code transcripts: 71 from the main checkout and
+    80 from worktrees, after leaving out the three retro writers. A record
+    counts only if it is a `user` or `assistant` record with a timestamp inside
+    the window. Copies of earlier requests (`api-request-blob` records) are left
+    out. That leaves 10,614 tool calls, 8,430 of them Bash.
+  - **Roles.** A session's role comes from its first prompt: "Judge PR" is a
+    judge, "Review PR" is a reviewer, any other worktree session is a writer,
+    and the rest are main sessions.
+  - **The main session.** One long-running main session, `112bd8fe`, made 1,906
+    of the window's Bash calls.
+- **Ledger.** The ledger (`.kore/state/ledger.jsonl`) is filtered by
+  `occurredAt` inside the window: 7,764 events that are not tool events.
+  `.kore/state/sessions` agrees with its 196 `session.launch` events.
+- **The flow report.** `flow-report.json` covers the whole ledger, so window
+  figures here come from the transcripts or the filtered ledger. Each count
+  below names its source:
+  - **[T]** transcripts
+  - **[L]** ledger, window only
+  - **[F]** flow report, whole ledger
+  - **[G]** GitHub, read with `gh pr view`
+- **How a match is counted.**
+  - **Per Bash call.** A count is of Bash calls whose command matches, unless it
+    says "occurrences". A call that chains several commands counts once per
+    pattern.
+  - **Merges.** A merge is counted by the PR number after `gh pr merge` or
+    `judge merge`, then checked against `pr.merged` [L].
+  - **Quoted text.** Text inside a quoted comment body can match a pattern. Each
+    count used below was checked for that.
+- **Citations.** `session:line` points into the transcript JSONL and needs local
+  transcript access to resolve. No transcript text is quoted here.
+- **Every count is one pass.** None was recounted by a second reader.
+  - **The shared scan.** It failed: `retro-scan --strict --evidence` ran out of
+    Node heap, and its rerun has no evidence rows.
+  - **The forked `/retro` pass.** It miscounted `harness wait` in `112bd8fe` as
+    0 calls; the transcript has 161 calls [T].
+  - **This retro's first draft.** It had four wrong figures, all corrected
+    below:
+    - 125 reviewed PRs, which counted verdict kinds, not PRs
+    - 5 failed merges, from a loose match
+    - a 0.0053 send share, a whole-ledger figure
+    - an unaccounted remainder of 22 merges
+  - **Conditional findings.** Findings 1 to 4, the held finding and the scope
+    change stay conditional until a second reader pane recounts them.
+
+## The tick comes first
+
+The `orchestrator-tick` flag has been `true` in local since 2026-11-17 (#987).
+Even so, the whole ledger has 0 events of any `tick.*` kind [L]. ADR 0121 has a
+person start `orchestrate tick --loop` in a pane, so nothing started it.
+
+The owner has decided the tick runs. Findings 3 and 4 and the held status Tool
+measure work the tick takes over: merges, reviews, sweeps, reads and polls.
+Their windows open once the tick is running and a new baseline is taken. ADR
+0123's tick-off condition applies to those metrics, not to the send share.
+
+The `judgment` agent is launched only by the tick. Keep it (against idea 0037's
+removal) until the tick has run for one window.
+
+## Ranking and filing
+
+- **How findings are ranked.** By count, how clean the count is, whether a
+  flow-report field already measures it, and how many prerequisites block it.
+  There is no cost column, so this retro makes no "frequency times cost" claim.
+- **The cap.** ADR 0118 caps a retro at 5 filed ideas. The slots, in order, are
+  findings 1 to 5:
+  - findings 1, 2 and 5 are ready to file
+  - findings 3 and 4 are filed when unblocked, that is, when the tick runs and
+    the new counters exist
+- **Outside the cap.** The status Tool is held back for want of a slot.
+  Finding 7 is a scope change to idea 0031 and uses no slot.
+- **New counters.** Primaries marked "new counter" have no flow-report field.
+  Each needs a retro-scan counter, written by the scan rather than by the code
+  the change touches, and with no command text in the ledger (ADRs 0118, 0119
+  and 0123). If the scan code is shared, file the four counters as one
+  prerequisite ticket.
+
+| #   | Finding                                    | Primary metric                                                 | Flow-report field           | New counter? | Guard metrics                                                    | Slot         |
+| --- | ------------------------------------------ | -------------------------------------------------------------- | --------------------------- | ------------ | ---------------------------------------------------------------- | ------------ |
+| 1   | Session Tools do more than raw herdr       | signed share of main-session pane sends                        | `mainSession.signedSendShare` | no           | `mainSession.paneReadsPerFinishedPane`                           | 1, after 0035 |
+| 2   | Judge and reviewer spawns stamp the idea   | share of judge and reviewer launches with no idea (`pr.linked` join) | none                        | yes          | `attribution.noRoleShare`                                        | 2            |
+| 3   | `judge merge --after-merge` chores step    | bare `gh pr merge` calls per merged PR                         | none                        | yes          | `tokensPerMergedChange.current`; merges past a failed precheck must not rise | 3, on tick   |
+| 4   | One review path                            | `review post` verdicts with no recorded review, per merged PR  | none                        | yes          | `tokensPerMergedChange.current`; main-session context tokens     | 4, on tick   |
+| 5   | Precheck file-class fix                    | merges past a failed precheck, per merged PR                   | none                        | yes          | `rework.sendBacksPerIdea`                                        | 5            |
+| 6   | `orchestrate status` read-only Tool        | main-session sweep calls per merged PR                         | none                        | yes          | `mainSession.paneReadsPerFinishedPane`                           | held         |
+| 7   | Scratch-path redirect for read-only roles  | `guardBlocksByRule.role-read-only`                             | `guardBlocksByRule.role-read-only` | no           | the ADR 0119 corpus and replay conditions                        | 0031 scope   |
+
+## 1. Session Tools do more than raw herdr
+
+- **Evidence (conditional):**
+  - **Window counts [T], `112bd8fe`, counted as occurrences.**
+    - Sends: 30 `session send` against 115 raw `herdr agent prompt`, none of
+      which was a slash prompt.
+    - `herdr pane send-text` and `send-keys`: 0.
+    - The window's signed share is about 0.21 (30 of 145). Across every main
+      session in the main checkout it is about 0.22 (37 of 167, after taking
+      out 4 slash prompts).
+    - Reads: 124 raw `herdr agent read` and 4 raw `herdr pane read`, against 58
+      `session wait`.
+    - Closes: 142 raw `herdr pane close`, against 50 `session close`.
+  - **Ledger [L].** It records 38 `session.send` events.
+  - **Against the baseline.** ADR 0123's baseline is 5 of 45 (about 0.11). So
+    the share roughly doubled after the nudge flags went on; it did not stall.
+    The first draft's 0.0053 is a whole-ledger figure [F] and is withdrawn, as
+    is its claim that idea 0035 "has not moved".
+  - **The model to follow.** `harness wait`, which does strictly more than a
+    hand-built loop, was adopted: 161 calls [T].
+  - **Citations:** `112bd8fe:86943`, `112bd8fe:94746` (raw reads),
+    `112bd8fe:95291`, `112bd8fe:107976` (raw prompts).
+- **Proposed change:** Tool work, not a Guardrail (owner decision 1).
+  - Make each session Tool do strictly more than its raw herdr form:
+    - `session send` returns the target's state
+    - `session wait --json` returns the result summary and the last lines a raw
+      read would show
+    - `session close` closes several panes by name and reports the state of
+      each
+  - Offer only these Tools in the main session's context hook. Slash prompts
+    stay on `herdr agent prompt`.
+- **Hypothesis:** If the session Tools return everything the raw forms show and
+  more, the main session uses them by preference, as it did with
+  `harness wait`, and the signed share rises.
+- **Metric:** `mainSession.signedSendShare`, up, 14 days. This is idea 0035's
+  metric, so this idea's window opens after 0035's closes.
+- **Safety pattern:** `no-behaviour-change`
+- **Already filed:** 0035 (same metric; this is its Tool step).
+
+## 2. Judge and reviewer spawns stamp the idea
 
 - **Evidence:**
-  - **Bypass.** The ledger has 131 `pr.merged` events in the window. The main
-    session ran a bare `gh pr merge --squash` on 93 distinct PRs itself;
-    `harness judge merge` ran on 16.
-  - **The briefs.** Judge briefs said "approve only; do not merge" 123 times.
-    So the main session, not the judge, carried out the merge.
-  - **The chained chores.** Of 103 commands that ran `gh pr merge`:
+  - **Counts [L].** 195 `spawn.unstamped` events against 196 `session.launch`
+    in the window, and none of the unstamped carries a reason. Judges and
+    principles reviewers make 113 of the 195, all of their launches. 95 of
+    those 113 labels name the PR, which already exists when they start.
+  - **Citations:** the window's first `spawn.unstamped` event, for pane
+    `w3:p183`.
+- **Proposed change:** In `harness session spawn`, for the judge and
+  principles-review roles only, read the idea from the PR's `Idea:` line when no
+  idea is given. Writer spawns are left alone: ADR 0126 decided a writer's idea
+  is read from its PR on `pr.linked`, because a writer starts before its PR
+  exists. Record this as an ADR that narrows ADR 0126, not one that reverses it.
+- **Hypothesis:** If judge and reviewer spawns take the idea from their PR,
+  their sessions carry an idea, and attribution by role improves without
+  touching the writer path.
+- **Metric:** the share of judge and reviewer launches with no idea, read from
+  `pr.linked` joins rather than from the spawn's own `spawn.unstamped` events
+  (ADR 0119). Down, 14 days. This is a new counter; `attribution.noRoleShare`
+  [F] (0.56) is a guard.
+- **Safety pattern:** `no-behaviour-change`
+- **Already filed:** 0012 (issue #799), #827 (warn and record) and ADR 0126.
+  This narrows ADR 0126 to the roles whose PR already exists.
+
+## 3. `judge merge --after-merge` chores step
+
+- **Evidence (conditional):**
+  - **The merged set.** The window has 131 `pr.merged` events [L].
+    - 93 of them came from a bare `gh pr merge` [T] (71 percent of 131, 85
+      percent of the 109 merges a transcript call can be tied to).
+    - 16 came from `judge merge` [T].
+    - The other 22 were all merged under the owner's account [G]: 7 release
+      PRs, 5 VPS infrastructure PRs, and 10 whose numbers no window transcript
+      call names (at least one loop merged a variable PR number).
+  - **The briefs.** Judge briefs said "approve only; do not merge" 123 times
+    [T].
+  - **Chained chores [T].** Of 103 Bash calls that ran `gh pr merge`:
     - 75 chained `git pull --ff-only`
-    - 58 chained `mise run harness-build`
+    - 58 chained the harness build
     - 48 chained `gh issue close`
     - 45 chained a pane close
     - 34 chained `git worktree remove`
-    - 60 added `--admin --match-head-commit`
-  - **Hand-written overrides.** 26 merge comments were written by hand, each
-    explaining why a precheck mismatch was overridden.
-  - **Failures.** 5 merge commands failed: one was refused by branch policy,
-    and one passed a short SHA to `--match-head-commit`.
-  - **Citations:** `112bd8fe:86943`, `112bd8fe:92034` (merge, pull, build,
-    issue close, pane close and worktree remove in one call), `112bd8fe:113963`
-    (`--admin` after grepping the precheck), `112bd8fe:99321` (short-SHA
-    failure), `112bd8fe:110227` (hand-written override comment).
-- **Proposed change:** Add `harness judge merge <pr> --land` to the main
-  session's surface, as a harness command. It:
-  - merges the verified head as today
-  - pulls the main checkout fast-forward only, and rebuilds the harness bundle
+    - 60 used `--admin --match-head-commit`
+  - **Failed merges [T].** Two, listed apart from the rest:
+    - one refused by branch policy (`112bd8fe:99291`)
+    - one given a short SHA for `--match-head-commit` (`112bd8fe:99321`), which
+      cannot happen through `judge merge`
+  - **Citations:** `112bd8fe:86943`, `112bd8fe:92034` (merge and all five chores
+    in one call).
+- **Proposed change:** A non-guard Tool under ADR 0101: `judge merge <pr>
+  --after-merge`, or a separate `judge after-merge <pr>`. It runs only after a
+  normal passing precheck and a successful merge. It:
+  - pulls the main checkout fast-forward only
+  - rebuilds the harness bundle
   - closes the PR's judge and writer panes with
     `session close --remove-worktree`
-  - closes the issue only when the PR says `Closes`
 
-  An owner-authorized override becomes `--override "<reason>"`. It pins the
-  full head SHA, posts the signed reason comment and writes a ledger event, in
-  place of the hand-written comment and `gh pr merge --admin`.
+  It never closes a `Refs` issue (ADR 0097) and never runs
+  `gh pr update-branch`, which changes the head and voids the approval
+  (ADR 0109).
 
-- **Hypothesis:** If landing a PR is one command, the main session stops
-  chaining six commands for each merge, and its tokens per merged change fall.
-  Overrides also become countable in the ledger, not just in comments.
-- **Metric:** `tokensPerMergedChange.current`, down, 14 days.
+  The name avoids "land", which the glossary keeps for "land on trunk", and
+  "finish", which would collide with finish detection. There is no `--override`
+  (owner decision 3).
+- **Hypothesis:** If the chores after a merge are one Tool step, the main
+  session stops chaining them by hand, and its bare `gh pr merge` calls fall.
+- **Metric:** bare `gh pr merge` calls per merged PR, down, 14 days, from the
+  window after the tick starts. This is a new counter. Guards:
+  - `tokensPerMergedChange.current` [F]
+  - merges past a failed precheck must not rise
 - **Safety pattern:** `no-behaviour-change`
 - **Already filed:** none.
 
-## 2. Main session posts reviews through `review run`
+## 4. One review path
 
-- **Evidence:**
-  - **The hand-built path.** The main session started 119 in-process `Agent`
-    calls; 73 of them were principles reviews of a PR. It then posted verdicts
-    by hand with `harness review post` on 125 distinct PRs. On 97 of those it
-    posted `--none`, a no-findings verdict.
-  - **The primitive.** `harness review run`, which spawns the reviewer at its
-    declared tier, waits and posts for the same head, was called by the main
-    session for 5 PRs.
-  - **Blocks.** The in-process reviewers also caused 74 of the window's
-    `role-read-only` blocks, which the ledger attributes to `112bd8fe`.
+- **Evidence (conditional):**
+  - **Verdicts posted [T].** The main session posted verdicts with
+    `harness review post` on 108 distinct PRs. 98 of them had a `--none`
+    verdict, and 18 had both a `--none` and a findings verdict. The first
+    draft's 125 counted verdict kinds, not PRs.
+  - **Where the 108 reviews came from:**
+    - 69 were reviewed in process: an `Agent` call to principles-review in
+      `112bd8fe` names the PR.
+    - 1 was reviewed by `review run`.
+    - 0 were reviewed by a reviewer pane (9 reviewer panes ran in the window,
+      for other PRs).
+    - 38 have no review visible anywhere in the main session's transcript.
+  - **What the 38 change [G].** All 38 carry `--none`. 30 change only docs or
+    developer tooling, and 8 also touch product paths.
+  - **Context cost [T].** The in-process reviews put 73 review prompts and
+    their results in the main session's context. They also caused 74
+    `role-read-only` blocks that the ledger attributes to `112bd8fe` [L]; that
+    is a side effect, not a claim of this finding.
   - **Citations:** `112bd8fe:95551`, `112bd8fe:103946` (in-process review
-    launches), `112bd8fe:106372` (`review post --none`, precheck, comment and
-    merge in one call).
-- **Proposed change:** In the orchestrator agent definition and the main
-  session's context hook, name `review run <pr>` as the only review path. Add
-  an audit-mode guard on `review post` from the main session when no
-  `review.run` spawn exists for that head. The guard lives in `hook guard`, in
-  audit mode first per AGENTS.md.
-- **Hypothesis:** If the main session reviews through `review run`, reviews run
-  at the recorded tier in their own pane. That takes 73 review transcripts out
-  of the main session's context, so its tokens per merged change fall.
-- **Metric:** `tokensPerMergedChange.current`, down, 14 days.
-- **Safety pattern:** `no-behaviour-change`
-- **Already filed:** none directly. Idea 0016 asks whether principles-review
-  runs in the loop at all; this finding is about which path runs it.
+    launches), `112bd8fe:106372` (`review post --none` chained with the
+    precheck and a merge).
+- **Proposed change:** Two Tool rules, neither a Guardrail:
+  - the main session's context names `review run <pr>` as the review path
+  - `review post --none` refuses unless a `review.run` event or a recorded
+    review exists for that head (owner decision 5)
 
-## 3. Main-session raw pane sends, reads and closes go through `session`
+  This changes which path runs a review, not whether one runs. Idea 0016's
+  question, whether principles-review belongs in the loop, is a separate one.
+- **Hypothesis:** If reviews run through `review run`, and a no-findings verdict
+  needs a recorded review, then verdicts with no review behind them fall to
+  zero. Review transcripts also leave the main session's context.
+- **Metric:** `review post` verdicts with no recorded review for the head, per
+  merged PR, down, 14 days, from the window after the tick starts. This is a
+  new counter, with a baseline of 38 of 108. Guards:
+  - `tokensPerMergedChange.current` [F]
+  - the main session's context tokens
+- **Safety pattern:** `feature-flagged`. The `--none` refusal is a process
+  change the owner accepted (decision 5), so it is not `no-behaviour-change`.
+  The context line rides behind the same flag.
+- **Already filed:** none. Idea 0016 (whether principles-review runs) is
+  related; its primary is `rework.sendBacksPerIdea`, so the two don't clash.
 
-- **Evidence:**
-  - **Window counts.** In `112bd8fe` there were:
-    - 107 raw `herdr agent prompt` sends, against 30 `session send`
-    - 123 raw `herdr agent read` reads, against 58 `session wait`
-    - 116 raw `herdr pane close` closes, against 50 `session close`
-  - **Ledger.** The ledger has 38 `session.send` events in the window.
-  - **Flow report.** The flow report has `mainSession.signedSendShare` at
-    0.0053 (8 signed, 1,491 raw) and `mainSession.paneReadsPerFinishedPane` at
-    28.2.
-  - **Long-standing.** Idea 0035 counted 747 raw sends before this window. The
-    nudge flags `signed-main-sends` and `pane-result-summary` were turned on in
-    local just before the window opened, and the share did not move. The
-    `harness wait` tool, by contrast, was adopted: 161 calls.
-  - **Citations:** `112bd8fe:86943`, `112bd8fe:94746` (raw reads),
-    `112bd8fe:95291`, `112bd8fe:107976` (raw prompts).
-- **Proposed change:** Add an audit-mode guard in `hook guard` for the main
-  session on these raw commands, each pointing to its primitive:
-  - `herdr agent prompt` and `herdr pane send-text`: `session send`
-  - `herdr agent read` and `herdr pane read`: `session wait --json`
-  - `herdr pane close`: `session close`
+## 5. Precheck file-class fix
 
-  Exempt prompts that start with `/`, which are slash skills and must go
-  through herdr.
+- **Evidence (conditional):**
+  - **Override comments [T].** The main session wrote 26 signed merge comments
+    to explain merging past the precheck. Read one by one and classified by
+    their stated cause:
+    - 12: the precheck refused `feature-flagged` only because the flag already
+      existed, off in every overlay
+    - 3: developer tooling under `tools/kore/src` was read as a behaviour
+      change
+    - 1: a test refactor was read as a contract step
+    - 10 named no precheck mismatch; they cite unverified gating or
+      cluster-facing proof owed before the flag turns on, or nothing
+  - **So.** Precheck false positives (16 of 26) are the leading cause of these
+    overrides.
+  - **Citations:** `112bd8fe:102158` (existing flag), `112bd8fe:102574`
+    (developer tooling), `112bd8fe:110227` (test refactor).
+- **Proposed change:** In the judge precheck's pattern matcher:
+  - accept `feature-flagged` when the diff reads a flag that already exists and
+    is off in every overlay
+  - treat named measurement and load helpers as developer tooling, as ADR 0099
+    and its amendment list them
 
-- **Hypothesis:** If the main session is told which primitive to use each time
-  it reaches for raw herdr, its signed send share rises and its pane reads per
-  finished pane fall.
-- **Metric:** `mainSession.signedSendShare`, up, 14 days.
-- **Safety pattern:** `no-behaviour-change`
-- **Already filed:** 0035. That idea has the same metric and has not moved, so
-  this is its next step: from a reminder to an audit-mode rule.
-
-## 4. One read-only status snapshot for the main session
-
-- **Evidence:**
-  - **Counts.** `112bd8fe` ran `pmset -g batt` 114 times and
-    `git config core.bare` 102 times. 100 commands combined the two, and 89
-    combined `pmset` with an open-PR or pane listing. The same window also has:
-    - 157 `gh pr list --state open` calls with `statusCheckRollup` or
-      `mergeStateStatus`
-    - 146 `herdr agent list` calls
-    - 57 `for` loops over PR or issue numbers
-  - **What it is.** One hand-built status sweep: power state, a repo sanity
-    check, open PRs with head, checks and merge state, and live panes.
-  - **Citations:** `112bd8fe:87345`, `112bd8fe:103901`, `112bd8fe:117345`.
-- **Proposed change:** Add a read-only `harness orchestrate status [--json]`. It
-  prints:
-  - host power and load, from the latest `host-sample` ledger event
-  - whether `core.bare` is set
-  - live panes with their last ledger state
-  - open PRs with short head, checks, merge state and declared pattern
-
-  The repeated `core.bare` check is also a sign of a past incident: find its
-  cause and fix it at the root.
-
-- **Hypothesis:** If one command answers "what is open and what is the host
-  doing", the main session stops rebuilding the sweep about 50 times a day and
-  reads panes less.
-- **Metric:** `mainSession.paneReadsPerFinishedPane`, down, 14 days.
-- **Safety pattern:** `no-behaviour-change`
+  These change what merges without approval, so they are owner decisions on
+  the ADR 0099 boundary, each fix with its own ADR. The boundary fails closed.
+- **Hypothesis:** If the precheck recognizes an existing off flag and the named
+  tooling paths, honest declarations pass it. Merges past a failed precheck
+  then fall without any override.
+- **Metric:** merges past a failed precheck (an `--admin` merge with a precheck
+  mismatch), per merged PR, down, 14 days. This is a new counter.
+  `rework.sendBacksPerIdea` is a guard.
+- **Safety pattern:** `dark-launched`. The new matcher runs beside the old one
+  and records where they disagree, until the owner switches it.
 - **Already filed:** none.
 
-## 5. Writers edit through Edit, not Python heredocs
+## Held: `orchestrate status` read-only Tool
 
-- **Evidence:**
-  - **Counts.** 402 Bash calls did a `python3 - <<EOF` read-replace-write edit
-    of a tracked file, in 44 sessions: 360 from writers and 42 from other
-    sessions. That is against 851 `Edit` calls in the window.
-  - **Errors.** Of the 299 results that followed directly, 35 show an error: a
-    Python traceback, or a type or test failure from the edit.
-  - **Hooks miss them.** The post-edit format-and-lint hook runs for Write and
-    Edit only (`tools/harness/src/hook/feedback.ts:78`). The role guard flags
-    `python -c` but not a heredoc script
-    (`tools/harness/src/hook/guard-role-delivery.ts:53`). So these edits skip
-    both hooks.
-  - **The definition says otherwise.** `.claude/agents/writer.md:27` already
-    says to write scripts with the Write tool, not a heredoc.
-  - **Citations:** `0bf5938f:288` (27 such edits in one session),
-    `8efd617d:228`, `dfbdbfd5:308`, `19b8a907:147` (a heredoc edit that
-    failed).
-- **Proposed change:** Add an audit-mode `heredoc-edit` rule in `hook guard`. It
-  flags a Python or Perl heredoc that opens a worktree file for writing, and
-  points to `Edit` with `replace_all`. A second option: make the post-edit
-  feedback also run on Bash calls that changed tracked files.
-- **Hypothesis:** If heredoc edits are flagged and pointed at Edit, format and
-  lint problems surface at edit time rather than at commit or review, so fewer
-  changes are sent back.
-- **Metric:** `rework.sendBacksPerIdea`, down, 14 days. This is a proxy: no
-  flow report metric counts heredoc edits yet.
+- **Evidence (conditional) [T].** These counts are for `112bd8fe`:
+  - 114 calls ran `pmset -g batt`
+  - 89 combined it with an open-PR or pane listing
+  - 157 ran `gh pr list --state open` with check or merge state
+  - 146 ran `herdr agent list`
+
+  Citations: `112bd8fe:87345`, `112bd8fe:103901`, `112bd8fe:117345`.
+- **Proposed change:** A read-only, event-free Tool under the tick work. It
+  reuses the tick's state and the latest `host-sample` event, so one owner holds
+  the power and load rule. It prints live panes and open PRs with head, checks,
+  merge state and declared pattern.
+
+  The first draft's `core.bare` line is dropped, because `kb-check` already
+  reports that with its cause. Only add it back if the 102 hand checks show the
+  report goes unseen.
+- **Metric:** main-session sweep calls per merged PR, down, 14 days. This is a
+  new counter; `mainSession.paneReadsPerFinishedPane` is a guard.
 - **Safety pattern:** `no-behaviour-change`
+- **Why held:** No filing slot is left, and it waits on the tick starting.
 - **Already filed:** none.
 
-## 6. `session spawn` stamps the idea itself
+## Scope change to idea 0031: scratch-path redirect for read-only roles
 
-- **Evidence:**
-  - **Counts.** The ledger has 195 `spawn.unstamped` events against 196
-    `session.launch` in the window. None of the 195 carries a reason. Judge
-    spawns already name their PR in the label (180 of 195 have one).
-  - **The flow report.** `attribution.noRoleShare` is 0.56, and `rework` and
-    `metrics` report "insufficient history" for lack of stamped ideas.
-  - **Citations:** the ledger `spawn.unstamped` events, for example the first
-    of the window, for pane `w3:p183` (`merge-dates-judge`). Also
-    `112bd8fe:101981` (a writer spawn loop with no idea).
-- **Proposed change:** In `harness session spawn`, work out the idea when none
-  is given:
-  - from the PR's `Idea:` line, for judge and reviewer spawns
-  - from the issue's idea link, when `--issue` is given
+- **Evidence (conditional) [L].** 240 `role-read-only` blocks in the window:
+  - 112 judge
+  - 48 reader, which includes 6 from grill answerer panes started before the
+    window
+  - 6 principles-review pane
+  - 74 from the main session's in-process reviewers
 
-  Refuse with the reason flag named only when neither exists. The change lives
-  in the spawn command.
+  Without the in-process reviewers, the baseline is 166.
 
-- **Hypothesis:** If the spawn stamps the idea itself, unstamped spawns fall
-  near zero, and the per-idea metrics leave "insufficient history".
-- **Metric:** `unstampedSpawns.total`, down, 14 days.
-- **Safety pattern:** `no-behaviour-change`
-- **Already filed:** 0012 (stamping, issue #799) and #827 (warn and record).
-  Both record the gap; neither works out the idea for the caller.
+  Of the 71 block messages in transcripts [T], 6 are stdout redirects into the
+  session's own scratch or tool-results folder. Loops, substitutions and stderr
+  redirects stay blocked (owner decision 4).
 
-## 7. Read-only roles get batch and redirect forms
+  Citations: `1239f264:120`, `1239f264:143`, `1239f264:259`.
+- **Proposed change:** In the existing `role-read-only` rule, allow a stdout
+  redirect on an allowed read only into the session's one exact scratch path:
+  no `..` and no symlink. This is a quick fix to an existing rule. The ADR 0119
+  conditions for a Guardrail idea hold:
+  - the corpus still blocks every known-bad case in CI
+  - the replay lists every newly allowed command
+  - any allowed command that leaves the worktree or writes outside its role
+    refutes the idea
 
-- **Evidence:**
-  - **Counts.** The ledger has 240 `role-read-only` blocks in the window: 112
-    in judges, 42 in readers, 6 in principles-review panes, and 74 in the main
-    session's in-process reviewers.
-  - **The forms.** Of the 71 block messages in transcripts:
-    - 23 name a redirect such as `2>&1`, `2>/dev/null` or `> file`, on a read
-      that is otherwise allowed
-    - 10 are command or process substitutions
-    - the rest are mostly `for` loops over issue or PR numbers, and
-      `judge diff` output saved to the session's own folder
-  - **Long-standing.** `flow-report.json` counts 730 `role-read-only` events
-    across the whole ledger.
-  - **Citations:** `1239f264:120`, `1239f264:143`, `1239f264:259` (one judge,
-    4 blocks).
-- **Proposed change:** In the `role-read-only` rule of `hook guard`:
-  - allow stderr redirects, and stdout redirects into the session's own
-    scratch or tool-results folder, on an allowed read
-  - add a batch form to the reads the judge runs most: `judge diff --page`, and
-    `gh issue view` for several numbers
-
-  Extend idea 0031's change from readers to judges.
-
-- **Hypothesis:** If the common read forms are allowed, judges and readers stop
-  retrying after a block, and the rule's block count falls.
+  Add a corpus case for each bypass named in idea 0022.
 - **Metric:** `guardBlocksByRule.role-read-only`, down, 14 days.
 - **Safety pattern:** `no-behaviour-change`
-- **Already filed:** 0031, which covers reader panes only.
+- **Already filed:** 0031, which covers readers only. It records no issue or
+  outcome, so its window has not opened. This adds judges to its scope and uses
+  no filing slot.
 
-## Primitives nobody calls
+## Tools nobody calls
 
-- **`orchestrate tick` and the `judgment` agent.** There are 0 tick events in
-  the window, and the tick is the only thing that launches `judgment`
-  (ADR 0121). The tick would take findings 1, 2 and 3 off the main session, so
-  the open question is whether the tick runs, not whether to delete
-  `judgment`. Idea 0037 proposes removal; this retro recommends against it
-  until the tick decision is made.
+- **`orchestrate tick` and `judgment`.** See "The tick comes first".
 - **The `add-policy` skill.** It was loaded 0 times, although two policy
   changes merged in the window (#1332, #1339). Rewrite its description so it
-  triggers, rather than delete it. Also covered by idea 0037.
+  triggers, rather than delete it (idea 0037).
 
 ## Not kept
 
-- **Hand-written writer briefs.** The forked `/retro` pass found the main
-  session's writer briefs restating rules that `writer.md` and `pr open`
-  already enforce. A `session spawn --issue N` brief builder would answer it.
-  That is a smaller saving than the seven above, and finding 6 touches the
-  same spawn path.
+- **Heredoc edits (the first draft's finding 5).**
+  - **Counts [T].** Writers made 360 Python heredoc edits of tracked files, all
+    after #912 told them to write files with the Write tool (merged
+    2026-11-16). That is against 837 `Edit` calls.
+  - **The baseline.** The grill asked for one. After each edit I classified the
+    next Bash result in the same writer session, counting only type, test,
+    format and lint failures:
+    - after `Edit`: 81 of 370 checked results (22 percent)
+    - after heredoc edits: 71 of 276 (26 percent)
+  - **Dropped.** The rates are similar, so the finding is dropped.
+  - **Unchanged.** A Guardrail was decided against: idea 0022, #845 and PR #902
+    closed wontfix on 2026-11-17, and owner decision 1. The 2026-11-30 re-check
+    of idea 0022 stands.
+- **Hand-written writer briefs.** The forked `/retro` pass found writer briefs
+  restating rules that `writer.md` and `pr open` already enforce. It is a
+  smaller saving, and it touches the same spawn path as finding 2.
 - **The report-version literal.** Five spec files assert a report-version
-  literal, so bumping the version is a five-file edit (11 sampled
-  `role-worktree` blocks). That is a test cleanup, not a missing primitive.
-- **Updating PR branches.** `gh pr update-branch` ran 108 times by hand. Idea
-  0023 covers it.
+  literal, so a version bump is a five-file edit. That is a test cleanup, not a
+  missing Tool.
+- **Updating PR branches.** `gh pr update-branch` ran in 108 Bash calls [T].
+  Idea 0023 covers it only once its `behind-main-notice` flag is on; the flag
+  is off in local, and 0023 sends a writer a message rather than running
+  `update-branch`. `judge merge` itself names `gh pr update-branch` as the next
+  step when a PR is behind. Keep 108 as a baseline: it measures something
+  different from 0023's 45 sends. Do not fold it into the after-merge step,
+  since it changes the head and voids the approval (ADR 0109).
 
 ## Overall read
 
-The harness already has most of the primitives this window needed. The
-expensive pattern is bypass: the main session rebuilds them by hand, rather
-than any primitive being missing.
+The harness already has most of the Tools this window needed. The costly
+pattern is bypass: the main session rebuilds those Tools by hand, rather than
+any Tool being missing.
 
-The main session merged seven PRs in eight with a bare `gh pr merge` and the
-same five chained chores. It ran its own in-process reviews and posted the
-verdicts itself, even though `review run` exists. It drove panes with raw
-herdr far more often than with the signed `session` commands. The one tool
-that changed habits in this window, `harness wait`, did so because it does
-strictly more than the hand-built loop.
+What the bypass looked like:
 
-That points to the rule for the next primitives: fold the chores agents always
-chain into the primitive (`judge merge --land`, `orchestrate status`). Then
-turn the bypass into an audit-mode signal that names the primitive, rather
-than another reminder line, which the flag-on data shows did not move the
-share.
+- **Merges.** The main session merged 93 of 131 PRs with a bare `gh pr merge`
+  and the same chained chores.
+- **Reviews.** It reviewed 69 PRs in process and posted 38 no-findings verdicts
+  with no review visible behind them.
+- **Panes.** It still sends most pane messages raw, though the signed share
+  rose from about 0.11 to about 0.21.
+- **The precheck.** Its false positives explain most of the hand-written merge
+  overrides.
 
-The writer side has one real gap: heredoc edits that skip the post-edit hooks.
-Idea stamping at spawn is the precondition for measuring any of this per idea.
+What changed habits was a Tool that does strictly more than the hand-built
+loop: `harness wait`. Reminder lines did less. So the way forward is to fold
+the chores into the Tools (the after-merge step, the session Tools, one review
+path), fix the precheck's false positives at their cause, and start the tick
+that was built to carry this work.
+
+Guardrails are out of scope while the freeze holds. Any Guardrail proposal goes
+to the owner as its own decision.
