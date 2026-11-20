@@ -39,6 +39,9 @@ export interface ChartDeliveryValues {
    */
   databaseRoutes?: true;
   organizationId?: string;
+  /** With databaseRoutes: the shared Gateway each database's TLS route attaches to (ADR 0139). */
+  gatewayName?: string;
+  gatewayNamespace?: string;
 }
 
 /** The release the delivery chart never carries: kore keeps the image policy (ADR 0028). */
@@ -132,7 +135,14 @@ export function chartDeliveryValues(
   const { domain, organizationId } = platformPlan(repository.environment);
   const routes = featureEnabled(repository.environment, databaseRoutesFlag);
   return {
-    ...(routes ? { databaseRoutes: true as const, organizationId } : {}),
+    ...(routes
+      ? {
+          databaseRoutes: true as const,
+          organizationId,
+          gatewayName: repository.environment.gateway.name,
+          gatewayNamespace: repository.environment.gateway.namespace,
+        }
+      : {}),
     charts: Object.fromEntries(
       components.map((c) => [
         c.name,
@@ -159,12 +169,18 @@ export function databaseRoutesDeliveryArgs(
   delivery: ChartDeliveryValues,
 ): string[] {
   return delivery.databaseRoutes === true &&
-    delivery.organizationId !== undefined
+    delivery.organizationId !== undefined &&
+    delivery.gatewayName !== undefined &&
+    delivery.gatewayNamespace !== undefined
     ? [
         "--set",
         "databaseRoutes=true",
         "--set-string",
         `organizationId=${delivery.organizationId}`,
+        "--set-string",
+        `gatewayName=${delivery.gatewayName}`,
+        "--set-string",
+        `gatewayNamespace=${delivery.gatewayNamespace}`,
       ]
     : [];
 }

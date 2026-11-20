@@ -55,6 +55,34 @@ spec:
     kind: ClusterIssuer
     name: {{ $routes.issuer }}
 {{- end }}
+{{- if $certificates }}
+---
+# The database's name on the shared Gateway: a TLS passthrough route in the
+# database's own namespace, so the Gateway picks the backend by the name the
+# client sends and the database keeps its own certificate. The backend is the
+# read-write Service beside it; a backend names no namespace, so the route never
+# reaches another namespace and needs no ReferenceGrant (ADR 0139).
+apiVersion: gateway.networking.k8s.io/v1
+kind: TLSRoute
+metadata:
+  name: {{ $name }}
+  namespace: {{ $namespace }}
+  annotations:
+    gotemplating.fn.crossplane.io/composition-resource-name: database-route
+spec:
+  parentRefs:
+    - group: gateway.networking.k8s.io
+      kind: Gateway
+      name: {{ $routes.gatewayName }}
+      namespace: {{ $routes.gatewayNamespace }}
+      sectionName: {{ $routes.sectionName }}
+  hostnames:
+    - {{ $host }}
+  rules:
+    - backendRefs:
+        - name: {{ $name }}-rw
+          port: 5432
+{{- end }}
 ---
 apiVersion: v1
 kind: Secret

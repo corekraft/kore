@@ -234,6 +234,10 @@ test("with database-routes on the PostgreSQL API's Application is handed the fla
       "databaseRoutes=true",
       "--set-string",
       "organizationId=platform",
+      "--set-string",
+      "gatewayName=kore-gateway",
+      "--set-string",
+      "gatewayNamespace=kore-system",
     ),
   );
   assert.match(withRoutes, /- name: "databaseRoutes"\n\s+value: "true"/);
@@ -244,6 +248,10 @@ test("with database-routes on the PostgreSQL API's Application is handed the fla
     ),
   );
   assert.match(withRoutes, /- name: "organizationId"\n\s+value: "platform"/);
+  assert.match(
+    withRoutes,
+    /- name: "gateway\.name"\n\s+value: "kore-gateway"\n\s+- name: "gateway\.namespace"\n\s+value: "kore-system"/,
+  );
   const off = api(await applications());
   assert.doesNotMatch(off, /databaseRoutes/);
   assert.doesNotMatch(off, /parameters:/);

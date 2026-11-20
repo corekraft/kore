@@ -4,6 +4,8 @@ import {
   chartDeliveryErrors,
   chartDeliveryValues,
   chartRepositoryUrls,
+  databaseRoutesDeliveryArgs,
+  type ChartDeliveryValues,
 } from "./chart-delivery.js";
 import {
   enabledComponents,
@@ -11,13 +13,21 @@ import {
   gatewayClassName,
 } from "./features.js";
 import { platformPlan, platformWildcard } from "./platform-domain.js";
-import { fakeComponent, fakeRepository, malformed } from "./config-support.js";
+import {
+  fakeComponent,
+  fakeEnvironment,
+  fakeRepository,
+  malformed,
+} from "./config-support.js";
 
 vi.mock("./features.js");
 vi.mock("./platform-domain.js");
 
 const digest = (n: number) => `sha256:${n.toString(16).repeat(64)}`;
 const repository = fakeRepository({
+  environment: fakeEnvironment({
+    gateway: { namespace: "kore-system", name: "kore-gateway", port: 8443 },
+  }),
   catalog: {
     components: [
       fakeComponent({ name: "kore-image-policy", namespace: "kore-system" }),
@@ -182,6 +192,8 @@ test("with database-routes on the values carry the flag and the organization ide
       databaseRoutes: true,
       organizationId: "platform",
       platformDomain: "kore.internal",
+      gatewayName: "kore-gateway",
+      gatewayNamespace: "kore-system",
     });
   } finally {
     vi.mocked(featureEnabled).mockReset();
@@ -189,4 +201,27 @@ test("with database-routes on the values carry the flag and the organization ide
   const off = chartDeliveryValues(repository, lock());
   expect(off).not.toHaveProperty("databaseRoutes");
   expect(off).not.toHaveProperty("organizationId");
+  expect(off).not.toHaveProperty("gatewayName");
+  expect(off).not.toHaveProperty("gatewayNamespace");
+});
+
+test("the delivery arguments hand the kore-config-delivery chart the flag, the organization identifier and the Gateway only while database-routes is on", () => {
+  expect(
+    databaseRoutesDeliveryArgs({
+      databaseRoutes: true,
+      organizationId: "platform",
+      gatewayName: "kore-gateway",
+      gatewayNamespace: "kore-system",
+    } as ChartDeliveryValues),
+  ).toEqual([
+    "--set",
+    "databaseRoutes=true",
+    "--set-string",
+    "organizationId=platform",
+    "--set-string",
+    "gatewayName=kore-gateway",
+    "--set-string",
+    "gatewayNamespace=kore-system",
+  ]);
+  expect(databaseRoutesDeliveryArgs({} as ChartDeliveryValues)).toEqual([]);
 });

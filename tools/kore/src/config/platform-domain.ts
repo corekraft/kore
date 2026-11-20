@@ -137,7 +137,8 @@ function sharedGatewayArgs(
 /**
  * With database-routes on, the values a PostgreSQL chart takes (ADR 0137): the
  * certificate rule of the composition's RBAC, and for the composition itself the
- * platform domain and organization identifier its derived host is built from.
+ * platform domain and organization identifier its derived host is built from, and
+ * the Gateway its database routes attach to (ADR 0139).
  * Off, none is passed, so the flag off renders what it rendered before.
  */
 function databaseRoutesArgs(
@@ -159,6 +160,10 @@ function databaseRoutesArgs(
       `platformDomain=${domain}`,
       "--set-string",
       `organizationId=${organizationId}`,
+      "--set-string",
+      `gateway.name=${environment.gateway.name}`,
+      "--set-string",
+      `gateway.namespace=${environment.gateway.namespace}`,
     ];
   }
   return [];

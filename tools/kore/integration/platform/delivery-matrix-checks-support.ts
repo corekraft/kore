@@ -129,6 +129,8 @@ export async function valueProblems(
             databaseRoutes: "true",
             platformDomain: platform.domain,
             organizationId: platformPlan(repository.environment).organizationId,
+            "gateway.name": repository.environment.gateway.name,
+            "gateway.namespace": repository.environment.gateway.namespace,
           },
         }
       : {}),
