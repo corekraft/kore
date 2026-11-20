@@ -92,7 +92,7 @@ test("with database-routes off the enrolled render is the golden captured before
     [databaseRoutesFlag]: false,
   });
   const golden = await readFile(
-    `${repository.root}/tools/kore/integration/config/fixtures/mesh-policy-enrolled-off.golden.yaml`,
+    `${repository.root}/tools/kore/src/platform/fixtures/platform-config-enrolled.local.yaml`,
     "utf8",
   );
   assert.equal(render(repository), golden);
