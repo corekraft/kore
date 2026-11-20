@@ -1,0 +1,32 @@
+config:
+  limits.cpu: "{{ incus_agents_cpus }}"
+  limits.memory: {{ incus_agents_memory }}
+  boot.autostart: "true"
+  cloud-init.user-data: |
+    #cloud-config
+    users:
+      - name: debian
+        groups: [sudo]
+        shell: /bin/bash
+        sudo: "ALL=(ALL) NOPASSWD:ALL"
+        # "*" admits no password, and unlike a locked account ("!") sshd still
+        # accepts the key.
+        lock_passwd: false
+        hashed_passwd: "*"
+        ssh_authorized_keys:
+          - {{ lookup('ansible.builtin.file', incus_agents_ssh_pubkey_file).split()[:2] | join(' ') }}
+    packages:
+      - openssh-server
+      - python3
+    ssh_pwauth: false
+devices:
+  root:
+    path: /
+    pool: default
+    size: {{ incus_agents_disk }}
+    type: disk
+  eth0:
+    name: eth0
+    network: {{ incus_bridge }}
+    type: nic
+    ipv4.address: {{ incus_agents_address }}

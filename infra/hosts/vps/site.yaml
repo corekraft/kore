@@ -4,3 +4,11 @@
     - base
     - tailscale
     - network
+    - incus
+
+- name: Converge the agents VM
+  hosts: kore-agents
+  roles:
+    - base
+    - tailscale
+    - agents

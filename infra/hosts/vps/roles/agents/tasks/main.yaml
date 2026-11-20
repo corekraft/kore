@@ -1,0 +1,123 @@
+- name: Install the agent runtime packages
+  ansible.builtin.apt:
+    name:
+      - acl
+      - build-essential
+      - docker.io
+      - git
+      - jq
+      - mosh
+      - tmux
+      - unzip
+    state: present
+    update_cache: true
+    cache_valid_time: 3600
+
+- name: Run Docker at boot
+  ansible.builtin.systemd_service:
+    name: docker
+    enabled: true
+    state: started
+
+- name: Create the agent account without sudo
+  ansible.builtin.user:
+    name: "{{ agents_user }}"
+    shell: /bin/bash
+    groups: docker
+    append: true
+    password: "*"
+    create_home: true
+
+- name: Install the pinned mise
+  ansible.builtin.get_url:
+    url: "https://github.com/jdx/mise/releases/download/v{{ agents_mise_version }}/mise-v{{ agents_mise_version }}-linux-x64"
+    dest: /usr/local/bin/mise
+    checksum: "sha256:{{ agents_mise_sha256 }}"
+    owner: root
+    group: root
+    mode: "0755"
+
+- name: Create the agent's mise config directory
+  ansible.builtin.file:
+    path: "/home/{{ agents_user }}/.config/mise"
+    state: directory
+    owner: "{{ agents_user }}"
+    group: "{{ agents_user }}"
+    mode: "0755"
+
+- name: Pin the agent's global tools
+  ansible.builtin.template:
+    src: mise-config.toml.j2
+    dest: "/home/{{ agents_user }}/.config/mise/config.toml"
+    owner: "{{ agents_user }}"
+    group: "{{ agents_user }}"
+    mode: "0644"
+
+- name: Put the agent's tools on the non-interactive PATH
+  # Above Debian's interactive-only guard, so commands run over SSH (Moshi
+  # starting herdr or tmux, Ansible) find herdr, claude and gh.
+  ansible.builtin.lineinfile:
+    path: "/home/{{ agents_user }}/.bashrc"
+    line: 'export PATH="$HOME/.local/share/mise/shims:$HOME/.local/bin:$PATH"'
+    insertbefore: BOF
+    owner: "{{ agents_user }}"
+    group: "{{ agents_user }}"
+    mode: "0644"
+    create: true
+
+- name: Activate mise in the agent's shells
+  ansible.builtin.lineinfile:
+    path: "/home/{{ agents_user }}/.bashrc"
+    line: 'eval "$(/usr/local/bin/mise activate bash)"'
+    owner: "{{ agents_user }}"
+    group: "{{ agents_user }}"
+    mode: "0644"
+    create: true
+
+- name: Install the agent's tools
+  ansible.builtin.command: /usr/local/bin/mise install --yes
+  become: true
+  become_user: "{{ agents_user }}"
+  args:
+    chdir: "/home/{{ agents_user }}"
+  register: agents_mise_install
+  changed_when: "'installed 0 tools' not in agents_mise_install.stderr"
+
+- name: Let the agent's user services run without a login
+  ansible.builtin.command: loginctl enable-linger {{ agents_user }}
+  args:
+    creates: "/var/lib/systemd/linger/{{ agents_user }}"
+
+- name: Download the pinned moshi-hook
+  ansible.builtin.get_url:
+    url: "https://cdn.getmoshi.app/hook/{{ agents_moshi_hook_version }}/moshi-hook_Linux_x86_64.tar.gz"
+    dest: "/var/cache/moshi-hook-{{ agents_moshi_hook_version }}.tar.gz"
+    checksum: "sha256:{{ agents_moshi_hook_sha256 }}"
+    owner: root
+    group: root
+    mode: "0644"
+
+- name: Install moshi-hook
+  ansible.builtin.unarchive:
+    src: "/var/cache/moshi-hook-{{ agents_moshi_hook_version }}.tar.gz"
+    dest: /usr/local/bin
+    remote_src: true
+    include:
+      - moshi-hook
+    owner: root
+    group: root
+
+- name: Read the moshi-hook auto-update setting
+  ansible.builtin.command: /usr/local/bin/moshi-hook set auto-update
+  become: true
+  become_user: "{{ agents_user }}"
+  register: agents_moshi_auto_update
+  changed_when: false
+  check_mode: false
+
+- name: Keep moshi-hook at its pinned version
+  ansible.builtin.command: /usr/local/bin/moshi-hook set auto-update off
+  become: true
+  become_user: "{{ agents_user }}"
+  when: "(agents_moshi_auto_update.stdout_lines | first | trim) != 'auto-update: off'"
+  changed_when: true

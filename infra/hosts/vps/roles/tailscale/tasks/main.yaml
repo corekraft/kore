@@ -40,7 +40,7 @@
     that: (tailscale_status.stdout | from_json).BackendState == "Running"
     fail_msg: >-
       Tailscale is not signed in on this host. Run
-      `sudo tailscale up --ssh --hostname=kore-vps` on it, open the link it
+      `sudo tailscale up --ssh --hostname={{ inventory_hostname }}` on it, open the link it
       prints, then run the playbook again. The network role closes public SSH
       and must not run before the tailnet works.
     quiet: true
