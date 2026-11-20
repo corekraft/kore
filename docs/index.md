@@ -284,6 +284,15 @@ decisions; read one only when planning that area, and expect it to change.
 - [`docs/ideas/0054-tick-live-proofs-verification.md`](ideas/0054-tick-live-proofs-verification.md) — Verification that the tick-live-proofs flag hands live-proof tickets to one live-proof pane at a time on the delivery host, so it can be activated.
 - [`docs/ideas/0055-tick-self-update-verification.md`](ideas/0055-tick-self-update-verification.md) — Verification that the tick-self-update flag pulls a clean main and rebuilds the harness bundle between tick passes in local, so it can be activated. Turning it on needs this idea's recorded verification outcome and the owner's one-line approval.
 - [`docs/ideas/0058-follow-up-0010-writer-precheck-before-done.md`](ideas/0058-follow-up-0010-writer-precheck-before-done.md) — Follow up on idea 0010 after a refuted outcome
+- [`docs/ideas/0059-follow-up-0008-decision-advisor.md`](ideas/0059-follow-up-0008-decision-advisor.md) — Follow up on idea 0008 after a inconclusive outcome
+- [`docs/ideas/0060-follow-up-0009-pane-completion-from-ledger.md`](ideas/0060-follow-up-0009-pane-completion-from-ledger.md) — Follow up on idea 0009 after a refuted outcome
+- [`docs/ideas/0061-follow-up-0012-idea-stamping-and-retro-threshold.md`](ideas/0061-follow-up-0012-idea-stamping-and-retro-threshold.md) — Follow up on idea 0012 after a refuted outcome
+- [`docs/ideas/0063-follow-up-0014-role-pane-context.md`](ideas/0063-follow-up-0014-role-pane-context.md) — Follow up on idea 0014 after a inconclusive outcome
+- [`docs/ideas/0064-follow-up-0019-keep-the-main-session-s-waits-off-its-own-tur.md`](ideas/0064-follow-up-0019-keep-the-main-session-s-waits-off-its-own-tur.md) — Follow up on idea 0019 after a inconclusive outcome
+- [`docs/ideas/0065-follow-up-0020-carry-a-pane-s-result-summary-in-its-session.md`](ideas/0065-follow-up-0020-carry-a-pane-s-result-summary-in-its-session.md) — Follow up on idea 0020 after a inconclusive outcome
+- [`docs/ideas/0066-follow-up-0021-route-the-main-session-s-pane-messages-throug.md`](ideas/0066-follow-up-0021-route-the-main-session-s-pane-messages-throug.md) — Follow up on idea 0021 after a refuted outcome
+- [`docs/ideas/0067-follow-up-0022-guards-read-command-words-not-script-or-body.md`](ideas/0067-follow-up-0022-guards-read-command-words-not-script-or-body.md) — Follow up on idea 0022 after a inconclusive outcome
+- [`docs/ideas/0068-follow-up-0023-bring-a-writer-s-pull-request-up-to-date-with.md`](ideas/0068-follow-up-0023-bring-a-writer-s-pull-request-up-to-date-with.md) — Follow up on idea 0023 after a inconclusive outcome
 
 ## Operations and Guides
 

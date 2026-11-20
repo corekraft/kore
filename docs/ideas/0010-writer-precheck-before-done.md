@@ -46,7 +46,7 @@ ledger until the precheck records its reason. The owner decides the number
 - Result: refuted
 - Kind: experiment
 - Source: comparison
-- Evidence: Failed prechecks 68 of 142 (48%) up from 184 of 455 (40.4%), target under 15%; send-backs per merged change 0.11 vs about 0.05
+- Evidence: Mac ledger: failed prechecks 88 of 258 (34.1%) after the change merged (2026-11-16T10:24Z) vs 183 of 448 (40.8%) before, target under 15%; send-backs per merged change rose from 0.066 to 0.184
 - Recorded: 2026-11-20
 
-Failed prechecks are 68 of 142 (48%), up from 40.4%, against a target under 15%.
+Failed prechecks fell only from 40.8% to 34.1%, against a target under 15%, and send-backs per merged change rose.

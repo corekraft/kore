@@ -35,7 +35,7 @@ Decided in [ADR 0123](../decisions/0123-the-main-session-waits-and-sends-through
 - Result: inconclusive
 - Kind: experiment
 - Source: journal
-- Evidence: Window never opened (orchestrator-tick already on); about 11.6 poll minutes per merged change (1,525 min, 131 merges) vs about 3.2 before
+- Evidence: Window never opened (orchestrator-tick on at 2026-11-17T14:54Z, before the main-session flags at 2026-11-18T01:58Z); Mac ledger reads 54.7 poll minutes per merged change before (49 merges) and 11.3 after (135 merges), resting on one 19-hour baseline scan and confounded by the tick
 - Recorded: 2026-11-20
 
-The window never opened because orchestrator-tick was already on; the scan reads about 11.6 poll minutes per merged change.
+The window never opened because orchestrator-tick was already on; poll minutes per merged change fell from 54.7 to 11.3, but that fall rests on one 19-hour baseline and the tick.

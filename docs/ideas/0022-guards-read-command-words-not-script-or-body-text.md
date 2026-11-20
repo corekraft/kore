@@ -31,7 +31,7 @@ outcome: inconclusive
 - Result: inconclusive
 - Kind: experiment
 - Source: journal
-- Evidence: role-no-merge blocks read 0 but the ledger holds no guard blocks before 2026-11-20 (empty, not zero); target at most 2 legitimate blocks per 14 days; retro evidence is two anecdotes, guardrail replay never completed
+- Evidence: Mac ledger: 35 role-no-merge blocks in total, 14 since 2026-11-16T14:00Z and 9 since gated-help-exempt turned on (2026-11-18T03:15Z); target at most 2 legitimate blocks per 14 days; the blocks are not classified as legitimate or not (no retro-scan --evidence run), and the guardrail replay never completed
 - Recorded: 2026-11-20
 
-The ledger has no guard blocks before 2026-11-20, so 0 role-no-merge blocks is empty rather than zero; evidence is two anecdotes.
+The Mac ledger holds 14 role-no-merge blocks since the window opened, but none is classified as legitimate or not, so the target cannot be judged.
