@@ -1,0 +1,4 @@
+environment: vps
+gateway: { port: 443, certificateSecret: platform-gateway-tls }
+issuer: { name: managed-cluster-issuer }
+secrets: { sourceNamespace: external, storeName: platform-secrets }
