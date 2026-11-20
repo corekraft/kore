@@ -761,6 +761,7 @@
         "chart": "infra/charts/platform-keycloak",
         "version": "local",
         "featureFlag": "platform-portal",
+        "startsAfterDelivery": true,
         "ownsCRDs": [],
         "dependencies":
           [
@@ -808,6 +809,7 @@
         "chart": "infra/charts/platform-backstage",
         "version": "local",
         "featureFlag": "platform-portal",
+        "startsAfterDelivery": true,
         "sharedGatewayRoutes": true,
         "ownsCRDs": [],
         "dependencies":

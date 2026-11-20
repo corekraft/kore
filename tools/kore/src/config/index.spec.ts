@@ -160,6 +160,7 @@ const entryPoints = [
   "platformPlan",
   "platformPortalFlag",
   "policyPromotionErrors",
+  "portalStagedInstallFlag",
   "probeFields",
   "probeNames",
   "promoteConstraint",
@@ -180,6 +181,7 @@ const entryPoints = [
   "sessionCookieViolations",
   "smtpSecretName",
   "smtpSecretNamespace",
+  "startsAfterDelivery",
   "trustedSigners",
   "validateRepository",
 ];

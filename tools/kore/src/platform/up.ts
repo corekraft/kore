@@ -8,7 +8,11 @@ import {
 } from "./bootstrap.js";
 import { assertNoOrphanedReleases } from "./gated-release.js";
 import { enrollPlatformNamespaces } from "./enrollment.js";
-import { awaitArgocdDelivery, reconcileConfigurations } from "./handover.js";
+import {
+  awaitArgocdDelivery,
+  reconcileConfigurations,
+  reconcileStagedConfigurations,
+} from "./handover.js";
 import { writePlatformState } from "./platform-state.js";
 
 export async function platformUp(
@@ -28,6 +32,9 @@ export async function platformUp(
   // Argo CD delivers asynchronously: its Applications and every release it owns
   // must be ready before enrollment and the gate judge them (ADR 0043).
   await awaitArgocdDelivery(repository, runner);
+  // The portal's Keycloak and Backstage start only now, on a settled cluster,
+  // never while Argo CD is still syncing the Applications (ADR 0113).
+  await reconcileStagedConfigurations(repository, runner);
   // Every phase is done, so Policy Controller and the image policies are ready:
   // enforce environments enroll their namespaces now, before the inventory
   // judges them (ADR 0056).

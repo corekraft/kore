@@ -3,6 +3,7 @@ import {
   enabledComponents,
   helmInstalledComponents,
   releaseOwner,
+  startsAfterDelivery,
   type Component,
   type Repository,
 } from "../config/index.js";
@@ -16,10 +17,13 @@ import { readinessFailure } from "./readiness.js";
 
 // Docs: docs/decisions/0043-platform-configuration-through-argo-cd.md (the safe order, step 4)
 
+export { reconcileStagedConfigurations } from "./staged-configuration.js";
+
 /**
  * Reconciles each configuration and enforcement release Helm still owns. An
  * Argo CD owned release is skipped once Argo CD has taken it over (see
- * handedToArgocd), so Helm never reconciles it after the handover.
+ * handedToArgocd), so Helm never reconciles it after the handover. A release
+ * that starts after the delivery is left for the staged pass.
  */
 export async function reconcileConfigurations(
   repository: Repository,
@@ -28,8 +32,9 @@ export async function reconcileConfigurations(
   const candidates = helmInstalledComponents(repository, false);
   for (const component of candidates) {
     if (
-      component.phase !== "configuration" &&
-      component.phase !== "enforcement"
+      (component.phase !== "configuration" &&
+        component.phase !== "enforcement") ||
+      startsAfterDelivery(repository.environment, component)
     ) {
       continue;
     }

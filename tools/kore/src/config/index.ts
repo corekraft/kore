@@ -91,6 +91,8 @@ export {
   platformArgocdDeliveryFlag,
   platformDnsFlag,
   platformPortalFlag,
+  portalStagedInstallFlag,
+  startsAfterDelivery,
   registryPruneFlag,
   registryTailnetForwardFlag,
 } from "./features.js";

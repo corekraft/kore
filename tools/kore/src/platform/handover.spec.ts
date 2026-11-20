@@ -4,6 +4,7 @@ import {
   enabledComponents,
   helmInstalledComponents,
   releaseOwner,
+  startsAfterDelivery,
   type Repository,
 } from "../config/index.js";
 import { CommandError } from "../runtime/index.js";
@@ -279,30 +280,19 @@ test("each release is prepared before it is reconciled, in catalog order, so a r
   ]);
 });
 
-test("a kore-otlp-route like component is prepared, so its namespace is enrolled, before its release is reconciled and its httproute waited on", async () => {
-  const otlpRoute = fakeComponent({
-    name: "kore-otlp-route",
-    phase: "configuration",
-    namespace: "observability",
-    sharedGatewayRoutes: true,
-    sharedGatewayRouteFlag: "otlp-route",
-    readiness: ["httproute/otlp"],
-  });
-  vi.mocked(helmInstalledComponents).mockReturnValue([policy, otlpRoute]);
-  const order: string[] = [];
-  vi.mocked(prepareConfigurationRelease).mockImplementation(
-    async (_r, _n, c) => {
-      order.push(`enroll:${c.namespace}`);
-    },
+test("a release that starts after the delivery is neither prepared nor reconciled with the rest, so the portal workloads wait for Argo CD", async () => {
+  const portal = fakeComponent({ name: "portal", phase: "configuration" });
+  vi.mocked(startsAfterDelivery).mockImplementation(
+    (_environment, component) => component === portal,
   );
-  vi.mocked(reconcileConfiguration).mockImplementation(async (_r, _n, c) => {
-    order.push(`reconcile:${c.name}`);
-  });
+  vi.mocked(helmInstalledComponents).mockReturnValue([policy, portal, enforce]);
   await reconcileConfigurations(repository, fakeRunner().runner);
-  expect(order.slice(-2)).toEqual([
-    "enroll:observability",
-    "reconcile:kore-otlp-route",
-  ]);
+  expect(reconciledNames()).toEqual(["policy", "enforce"]);
+  expect(prepareConfigurationRelease).not.toHaveBeenCalledWith(
+    repository,
+    expect.anything(),
+    portal,
+  );
 });
 
 test("a release that fails its preparation is not reconciled", async () => {

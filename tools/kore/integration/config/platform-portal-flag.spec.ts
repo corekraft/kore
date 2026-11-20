@@ -8,6 +8,8 @@ import {
   featureEnabled,
   loadRepository,
   platformPortalFlag,
+  portalStagedInstallFlag,
+  startsAfterDelivery,
   validateRepository,
 } from "../../src/config/index.js";
 
@@ -138,4 +140,46 @@ test("the chart ships no OpenShift ingress grant, so the operator holds no clust
   );
   assert.equal(text.includes("config.openshift.io"), false);
   assert.equal(text.includes("keycloak-operator-clusterrole"), false);
+});
+
+for (const name of ["local", "vps", "managed-example"]) {
+  test(`${name} declares portal-staged-install off, so no release is staged until its live proof`, async () => {
+    const repository = await loadRepository(name);
+    await validateRepository(repository);
+    assert.equal(
+      repository.environment.features?.[portalStagedInstallFlag],
+      false,
+    );
+    const staged = repository.catalog.components.filter((c) =>
+      startsAfterDelivery(repository.environment, c),
+    );
+    assert.deepEqual(staged, []);
+  });
+}
+
+test("only the platform Keycloak and Backstage declare they start after the Argo CD delivery, and each is gated by platform-portal", async () => {
+  const repository = await loadRepository("local");
+  const declared = repository.catalog.components.filter(
+    (c) => c.startsAfterDelivery === true,
+  );
+  assert.deepEqual(
+    declared.map((c) => c.name),
+    ["kore-platform-keycloak", "kore-platform-backstage"],
+  );
+  for (const component of declared) {
+    assert.equal(component.featureFlag, platformPortalFlag, component.name);
+    assert.equal(component.phase, "configuration", component.name);
+    assert.notEqual(component.owner, "argocd", component.name);
+  }
+});
+
+test("Backstage is staged after Keycloak, which it depends on, so the two start in that order", async () => {
+  const repository = await loadRepository("local");
+  const backstage = repository.catalog.components.find(
+    (c) => c.name === "kore-platform-backstage",
+  );
+  assert.equal(
+    backstage?.dependencies.includes("kore-platform-keycloak"),
+    true,
+  );
 });
