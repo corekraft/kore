@@ -55,6 +55,13 @@ export interface Component {
    * off changes no namespace (ADR 0132).
    */
   sharedGatewayRouteFlag?: string;
+  /**
+   * Whether kore reconciles this Helm release only after Argo CD has delivered
+   * what it owns, and every Application is Synced and Healthy, so its workloads
+   * start on a cluster that has settled. A staged release is owned by kore.
+   * The release's order among the staged ones follows the catalog (ADR 0113).
+   */
+  startsAfterDelivery?: boolean;
   dependencies: string[];
   timeout: string;
   values?: string[];

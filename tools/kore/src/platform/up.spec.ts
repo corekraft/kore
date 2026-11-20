@@ -7,7 +7,11 @@ import {
   orphanCheckDeferred,
 } from "./bootstrap.js";
 import { assertNoOrphanedReleases } from "./gated-release.js";
-import { awaitArgocdDelivery, reconcileConfigurations } from "./handover.js";
+import {
+  awaitArgocdDelivery,
+  reconcileConfigurations,
+  reconcileStagedConfigurations,
+} from "./handover.js";
 import { enrollPlatformNamespaces } from "./enrollment.js";
 import type { ReadinessEvidence } from "./readiness-manifest.js";
 import { platformUp } from "./up.js";
@@ -45,6 +49,7 @@ beforeEach(() => {
   vi.mocked(installLocalTrust).mockImplementation(record("trust"));
   vi.mocked(reconcileConfigurations).mockImplementation(record("configure"));
   vi.mocked(awaitArgocdDelivery).mockImplementation(record("delivery"));
+  vi.mocked(reconcileStagedConfigurations).mockImplementation(record("staged"));
   vi.mocked(enrollPlatformNamespaces).mockImplementation(record("enroll"));
   vi.mocked(openApplicationAdmission).mockImplementation(async () => {
     order.push("open-gate");
@@ -73,13 +78,14 @@ test("a managed environment never installs local trust", async () => {
   expect(installLocalTrust).not.toHaveBeenCalled();
 });
 
-test("the configuration is reconciled after trust, then the Argo CD delivery is awaited, then enrollment, the gate and the state", async () => {
+test("the configuration is reconciled after trust, then the Argo CD delivery is awaited, then the staged releases start, then enrollment, the gate and the state", async () => {
   await platformUp(local, fakeRunner().runner);
   expect(order).toEqual([
     "bootstrap",
     "trust",
     "configure",
     "delivery",
+    "staged",
     "enroll",
     "open-gate",
     "state:ready",
@@ -91,6 +97,7 @@ test("the configuration and the Argo CD delivery are each given the repository a
   await platformUp(local, runner);
   expect(reconcileConfigurations).toHaveBeenCalledWith(local, runner);
   expect(awaitArgocdDelivery).toHaveBeenCalledWith(local, runner);
+  expect(reconcileStagedConfigurations).toHaveBeenCalledWith(local, runner);
 });
 
 test("enrollment runs after the delivery wait, and before the gate opens", async () => {
@@ -130,7 +137,7 @@ test("a failed bootstrap stops up before any configuration is reconciled", async
   expect(installLocalTrust).not.toHaveBeenCalled();
 });
 
-test("a delivery wait that fails stops up before enrollment, the gate and the state, so the gate stays closed", async () => {
+test("a delivery wait that fails stops up before the staged releases, enrollment, the gate and the state, so the portal never starts on an unhealthy delivery and the gate stays closed", async () => {
   vi.mocked(awaitArgocdDelivery).mockRejectedValueOnce(
     new Error(
       "Application golden-path-example is Synced and Progressing; run kubectl --context k3d-kore-local -n argocd describe application golden-path-example",
@@ -139,6 +146,20 @@ test("a delivery wait that fails stops up before enrollment, the gate and the st
   await expect(platformUp(local, fakeRunner().runner)).rejects.toThrow(
     "Application golden-path-example is Synced and Progressing",
   );
+  expect(reconcileStagedConfigurations).not.toHaveBeenCalled();
+  expect(enrollPlatformNamespaces).not.toHaveBeenCalled();
+  expect(openApplicationAdmission).not.toHaveBeenCalled();
+  expect(writePlatformState).not.toHaveBeenCalled();
+});
+
+test("a staged release that fails stops up before enrollment, the gate and the state", async () => {
+  vi.mocked(reconcileStagedConfigurations).mockRejectedValueOnce(
+    new Error("statefulset/keycloak not ready"),
+  );
+  await expect(platformUp(local, fakeRunner().runner)).rejects.toThrow(
+    "statefulset/keycloak not ready",
+  );
+  expect(order).toContain("delivery");
   expect(enrollPlatformNamespaces).not.toHaveBeenCalled();
   expect(openApplicationAdmission).not.toHaveBeenCalled();
   expect(writePlatformState).not.toHaveBeenCalled();
@@ -159,6 +180,7 @@ test("up hands the orphan check to itself and runs it after the configuration, b
     "configure",
     "orphans",
     "delivery",
+    "staged",
     "enroll",
     "open-gate",
     "state:ready",

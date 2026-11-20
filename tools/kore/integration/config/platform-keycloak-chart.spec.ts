@@ -51,7 +51,10 @@ test("the platform Keycloak is a flag-gated chart installed after its operator a
     assert.deepEqual(keycloak?.ownsCRDs, []);
     assert.ok(keycloak?.dependencies.includes("keycloak-operator"));
     assert.ok(keycloak?.dependencies.includes("kore-postgresql-api"));
-    assert.deepEqual(keycloak?.readiness, ["statefulset/keycloak"]);
+    assert.deepEqual(keycloak?.readiness, [
+      "statefulset/keycloak",
+      "realm.realm.keycloak.m.crossplane.io/platform",
+    ]);
     const installed = enabledComponents(repository).map((c) => c.name);
     assert.equal(installed.includes("kore-platform-keycloak"), false);
     const order = orderedComponents(repository.catalog).map((c) => c.name);

@@ -81,6 +81,10 @@
             "pattern": "^[a-z][a-z0-9-]*$",
             "description": "With sharedGatewayRoutes, the flag under which the route renders at all; the namespace is labelled only while this flag is on as well (ADR 0132)."
           },
+          "startsAfterDelivery": {
+            "type": "boolean",
+            "description": "kore reconciles this Helm release only after Argo CD has delivered what it owns and every Application is Synced and Healthy, so its workloads start on a settled cluster (ADR 0113)."
+          },
           "ownsCRDGroups": {
             "type": "array",
             "items": { "type": "string", "minLength": 1 }

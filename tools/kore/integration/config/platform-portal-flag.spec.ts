@@ -139,3 +139,38 @@ test("the chart ships no OpenShift ingress grant, so the operator holds no clust
   assert.equal(text.includes("config.openshift.io"), false);
   assert.equal(text.includes("keycloak-operator-clusterrole"), false);
 });
+
+test("only the platform Keycloak and Backstage start after the Argo CD delivery, so the portal's workloads never join Argo CD's first sync", async () => {
+  const repository = await loadRepository("local");
+  const staged = repository.catalog.components
+    .filter((c) => c.startsAfterDelivery === true)
+    .map((c) => c.name);
+  assert.deepEqual(staged, [
+    "kore-platform-keycloak",
+    "kore-platform-backstage",
+  ]);
+  for (const name of staged) {
+    const component = repository.catalog.components.find(
+      (c) => c.name === name,
+    );
+    assert.equal(component?.featureFlag, platformPortalFlag, name);
+    assert.equal(component?.phase, "configuration", name);
+    assert.notEqual(component?.owner, "argocd", name);
+  }
+});
+
+test("Backstage is staged after Keycloak, and Keycloak is ready only once the platform realm is Ready, so the sign-in proxy finds its issuer", async () => {
+  const repository = await loadRepository("local");
+  const named = (name: string) =>
+    repository.catalog.components.find((c) => c.name === name);
+  assert.equal(
+    named("kore-platform-backstage")?.dependencies.includes(
+      "kore-platform-keycloak",
+    ),
+    true,
+  );
+  assert.deepEqual(named("kore-platform-keycloak")?.readiness, [
+    "statefulset/keycloak",
+    "realm.realm.keycloak.m.crossplane.io/platform",
+  ]);
+});

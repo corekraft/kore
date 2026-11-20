@@ -761,6 +761,7 @@
         "chart": "infra/charts/platform-keycloak",
         "version": "local",
         "featureFlag": "platform-portal",
+        "startsAfterDelivery": true,
         "ownsCRDs": [],
         "dependencies":
           [
@@ -770,7 +771,11 @@
             "kore-crossplane-functions"
           ],
         "timeout": "10m",
-        "readiness": ["statefulset/keycloak"]
+        "readiness":
+          [
+            "statefulset/keycloak",
+            "realm.realm.keycloak.m.crossplane.io/platform"
+          ]
       },
       {
         "name": "kore-service-observability",
@@ -808,6 +813,7 @@
         "chart": "infra/charts/platform-backstage",
         "version": "local",
         "featureFlag": "platform-portal",
+        "startsAfterDelivery": true,
         "sharedGatewayRoutes": true,
         "ownsCRDs": [],
         "dependencies":
