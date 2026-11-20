@@ -30,7 +30,9 @@ rescue mode is the way back in.
 The `incus` role creates `kore-agents` (an Incus VM on the private bridge
 `incusbr0`), and the second play converges it through the host. The VM runs
 herdr, Claude Code, gh, mise, mosh, tmux and moshi-hook as the `agent` account,
-which has Docker and no sudo.
+which has Docker and no sudo. The `agents` role gives it a local mkcert CA in its
+home and trusts that CA in the system store, as root, so `kore local up` never
+asks for a password; the key stays on the VM.
 
 With `TAILSCALE_AUTH_KEY` set, the playbook signs the VM in too. Without it,
 the run stops at the VM's sign-in check: run
