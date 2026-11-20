@@ -5,7 +5,7 @@
 
 import { describe, expect, it } from "vitest";
 import { permissionProblems } from "./workflow-permissions.js";
-import { SIGNERS, signerJob } from "./workflow-permissions-support.js";
+import { SIGNERS, release, signerJob } from "./workflow-permissions-support.js";
 
 const TAG = "if: github.ref_type == 'tag'";
 const MAIN = "if: github.ref == 'refs/heads/main'";
@@ -98,5 +98,46 @@ describe("permissionProblems: only the named charts-main job may sign on main", 
     expect(permissionProblems({ "release.yaml": text })).toEqual([
       "release.yaml: must not run on pull_request; a pull request could mint a trusted signature, so remove the trigger",
     ]);
+  });
+});
+
+describe("permissionProblems: a signing job's if: is one line equal to its gate", () => {
+  // GitHub joins a plain scalar's continuation lines into the condition, so a
+  // deeper-indented line after `if:` must be refused, not ignored.
+  const lineMessage = (name: string, runsOn: string, gate: string) =>
+    `release.yaml: signing job ${name} must run only for ${runsOn}; its if: spans more than one line, and the gate must be one line equal to the exact condition, so write \`if: ${gate}\` on one line`;
+  const CONT = ["\n      || true", "\n      - || true"];
+
+  it("refuses a charts-main job whose if: continues onto a second line", () => {
+    for (const cont of CONT) {
+      expect(
+        permissionProblems(releaseYaml("charts-main", `${MAIN}${cont}`)),
+      ).toEqual([
+        lineMessage("charts-main", "main", "github.ref == 'refs/heads/main'"),
+      ]);
+    }
+  });
+
+  it.each(["charts", "mirror"])(
+    "refuses a %s job whose tag gate continues onto a second line",
+    (name) => {
+      for (const cont of CONT) {
+        expect(permissionProblems(releaseYaml(name, `${TAG}${cont}`))).toEqual([
+          lineMessage(name, "tags", "github.ref_type == 'tag'"),
+        ]);
+      }
+    },
+  );
+
+  it("refuses a release job whose tag gate continues onto a second line", () => {
+    for (const cont of CONT) {
+      expect(
+        permissionProblems({
+          "release.yaml": release({
+            ifRelease: `github.ref_type == 'tag'${cont}`,
+          }),
+        }),
+      ).toEqual([lineMessage("release", "tags", "github.ref_type == 'tag'")]);
+    }
   });
 });

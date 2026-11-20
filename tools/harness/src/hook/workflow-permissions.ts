@@ -62,24 +62,37 @@ function addEntry(stack: Frame[], indent: number, body: string): number | null {
   return /^[|>]/.test(value) ? indent : null;
 }
 
-/** Parse the block-mapping subset of workflow YAML into nested objects. List items and block scalars are skipped. */
+/** A plain `if:` value whose deeper-indented continuation lines are still open: GitHub joins them into the condition. */
+type OpenIf = { indent: number; node: Node };
+
+/** Parse the block-mapping subset of workflow YAML into nested objects. List items and block scalars are skipped. A deeper-indented line after a plain `if:` value is joined onto it with a newline (GitHub joins such lines into the condition), so the gate check sees the whole condition and refuses one that spans lines. */
 export function parseWorkflow(text: string): Node {
   const rootNode: Node = {};
   const stack: Frame[] = [{ indent: -1, node: rootNode }];
   let skipAbove: number | null = null;
+  let openIf: OpenIf | null = null;
   for (const raw of text.split("\n")) {
     const line = raw.replace(/(^|\s)#.*$/, "");
     const indent = line.length - line.trimStart().length;
     if (line.trim() === "" || (skipAbove !== null && indent > skipAbove)) {
       continue;
     }
-    skipAbove = null;
     const body = line.trim();
+    if (openIf !== null && indent > openIf.indent) {
+      const first = openIf.node["if"];
+      openIf.node["if"] = `${typeof first === "string" ? first : ""}\n${body}`;
+      continue;
+    }
+    openIf = null;
+    skipAbove = null;
     if (body.startsWith("-")) {
       skipAbove = indent - 1;
       continue;
     }
     skipAbove = addEntry(stack, indent, body);
+    if (skipAbove === null && /^["']?if["']?:\s*\S/.test(body)) {
+      openIf = { indent, node: (stack[stack.length - 1] as Frame).node };
+    }
   }
   return rootNode;
 }
@@ -175,9 +188,12 @@ function jobProblems(file: string, name: string, job: unknown): string[] {
       );
     }
   }
-  if (signer !== undefined && signing.length > 0 && job["if"] !== signer.gate) {
+  const condition = job["if"];
+  if (signer !== undefined && signing.length > 0 && condition !== signer.gate) {
     problems.push(
-      `${file}: signing job ${name} must run only for ${signer.runsOn}; add \`if: ${signer.gate}\``,
+      typeof condition === "string" && condition.includes("\n")
+        ? `${file}: signing job ${name} must run only for ${signer.runsOn}; its if: spans more than one line, and the gate must be one line equal to the exact condition, so write \`if: ${signer.gate}\` on one line`
+        : `${file}: signing job ${name} must run only for ${signer.runsOn}; add \`if: ${signer.gate}\``,
     );
   }
   if (!isRelease) {
