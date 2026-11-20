@@ -55,6 +55,67 @@
     mode: "0600"
   notify: Restart k3s
 
+- name: Look for the registry's public CA on the controller
+  ansible.builtin.stat:
+    path: "{{ k3s_registry_ca_source }}"
+  register: k3s_registry_ca_stat
+  delegate_to: localhost
+  become: false
+  when: k3s_registry_trust | bool
+
+- name: Require the registry's public CA on the controller
+  ansible.builtin.assert:
+    that: k3s_registry_ca_stat.stat.exists
+    fail_msg: >-
+      k3s-registry-trust is on but {{ k3s_registry_ca_source }} does not exist.
+      After kore platform up has installed the registry, export its public CA
+      on this machine: kubectl --context kore-vps -n cosign-system get
+      configmap kore-registry-ca -o jsonpath='{.data.ca\.crt}' >
+      {{ k3s_registry_ca_source }}
+  when: k3s_registry_trust | bool
+
+- name: Read the registry's public CA
+  ansible.builtin.slurp:
+    src: "{{ k3s_registry_ca_source }}"
+  register: k3s_registry_ca_slurp
+  delegate_to: localhost
+  become: false
+  check_mode: false
+  when: k3s_registry_trust | bool
+
+- name: Refuse a registry CA file that is not a bare certificate
+  ansible.builtin.assert:
+    that:
+      - "'-----BEGIN CERTIFICATE-----' in k3s_registry_ca_pem"
+      - "'PRIVATE KEY' not in k3s_registry_ca_pem"
+    fail_msg: >-
+      {{ k3s_registry_ca_source }} must hold the registry's public CA
+      certificate and no private key. Export only ca.crt from the
+      cosign-system/kore-registry-ca ConfigMap.
+  vars:
+    k3s_registry_ca_pem: "{{ k3s_registry_ca_slurp.content | b64decode }}"
+  when: k3s_registry_trust | bool
+
+- name: Install the registry's public CA on the node
+  ansible.builtin.copy:
+    content: "{{ k3s_registry_ca_slurp.content | b64decode }}"
+    dest: "{{ k3s_registry_ca_path }}"
+    owner: root
+    group: root
+    mode: "0644"
+  notify: Restart k3s
+  when: k3s_registry_trust | bool
+
+- name: Trust the registry's CA in k3s
+  ansible.builtin.template:
+    src: registries.yaml.j2
+    dest: /etc/rancher/k3s/registries.yaml
+    owner: root
+    group: root
+    mode: "0600"
+  notify: Restart k3s
+  when: k3s_registry_trust | bool
+
 - name: Create the k3s service drop-in directory
   ansible.builtin.file:
     path: /etc/systemd/system/k3s.service.d
