@@ -1,5 +1,5 @@
 ---
-status: proposed
+status: accepted
 summary: A charts-main job publishes the platform charts signed with the release.yaml main identity and keeps the main chart lock as a 30-day artifact that feeds local proofs only, while flag activation still needs the release chart lock with equal chart digests.
 date: 2026-11-19
 last-verified: 2026-11-19
@@ -124,6 +124,6 @@ identity; GitHub's pending-run cancellation; the artifact retention default.
 - Activation still waits for a release; the proof record gains versions and
   digests, and activation gains a comparison.
 - Storage grows with chart content changes and is not pruned yet.
-- This ADR stays `proposed`. The owner accepts it after the baseline is
-  recorded; the follow-up tickets #1370 to #1373 are filed under #1356, and
-  the four ADRs above gain a refinement note when it is accepted.
+- The owner accepted this ADR on 2026-11-19. The follow-up tickets #1370 to
+  #1373 are filed under #1356, and the four ADRs above gain a refinement note
+  with them. The owner-wait baseline (#1369) is still recorded separately.

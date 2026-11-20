@@ -95,7 +95,7 @@ and is not part of Next.
      change. Start the run itself with `kore local up --require-fresh-lock`,
      which refuses on the same drift (without it `local up` only warns).
      `--require-fresh-lock` stays the gate for either lock. A local proof may
-     pass a main chart lock (proposed in
+     pass a main chart lock (decided in
      [ADR 0138](../../docs/decisions/0138-publish-signed-configuration-charts-from-main-for-local-proofs.md)):
      it counts for activation only when the outcome's recorded chart digests
      equal the release chart lock's, and a flag still turns on only after a
