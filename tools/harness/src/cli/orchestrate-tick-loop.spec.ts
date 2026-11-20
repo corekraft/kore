@@ -1,8 +1,11 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { Ledger } from "../ledger/index.js";
 import {
+  HarnessCliError,
   TickLoop,
+  TickSelfUpdate,
   tickFlagOn,
+  tickSelfUpdateOn,
   type LoopPorts,
   type LoopResult,
 } from "../orchestrator/index.js";
@@ -19,7 +22,9 @@ vi.mock("../orchestrator/index.js", () => ({
   TICK_STARTED: "tick.started",
   TICK_STOPPED: "tick.stopped",
   TickLoop: vi.fn(),
+  TickSelfUpdate: vi.fn(),
   tickFlagOn: vi.fn(),
+  tickSelfUpdateOn: vi.fn(),
 }));
 vi.mock("../runtime/index.js", () => ({
   mainRoot: vi.fn(),
@@ -181,5 +186,91 @@ describe("orchestrate tick --loop and the flag", () => {
     expect(out.join("")).toBe(
       "The orchestrator-tick flag turned off after 3 passes, so the loop stopped.\n",
     );
+  });
+});
+
+describe("orchestrate tick --loop self-update step", () => {
+  it("runs the self-update before each pass only while the tick-self-update flag is on", async () => {
+    const run = vi.fn().mockResolvedValue(undefined);
+    vi.mocked(TickSelfUpdate).mockImplementation(function () {
+      return { run } as unknown as TickSelfUpdate;
+    });
+    vi.mocked(tickSelfUpdateOn).mockResolvedValue(true);
+    const { deps } = setup();
+
+    await runTickLoop(deps, ROOT, undefined);
+    await capturedPorts().update?.();
+    expect(run).toHaveBeenCalledTimes(1);
+
+    vi.mocked(tickSelfUpdateOn).mockResolvedValue(false);
+    await capturedPorts().update?.();
+    expect(run).toHaveBeenCalledTimes(1);
+  });
+
+  const KEEPS = "The tick keeps the bundle it has and runs the pass";
+
+  it("prints a missing git or mise with its own message and how to install it", async () => {
+    const { deps, err } = setup();
+    const missing = Object.assign(new Error("spawn mise ENOENT"), {
+      code: "ENOENT",
+      syscall: "spawn mise",
+    });
+
+    await runTickLoop(deps, ROOT, undefined);
+    capturedPorts().updateFailed(missing);
+
+    expect(err.join("")).toBe(
+      `The self-update step could not start a tool: spawn mise ENOENT\n${KEEPS}; install git and mise on PATH (mise install), then the next pass retries the update.\n`,
+    );
+  });
+
+  it("prints a rejected ledger write with its own message and the ledger fix", async () => {
+    const { deps, err } = setup();
+
+    await runTickLoop(deps, ROOT, undefined);
+    capturedPorts().updateFailed(new HarnessCliError("ledger line is invalid"));
+
+    expect(err.join("")).toBe(
+      `The self-update step could not write the ledger: ledger line is invalid\n${KEEPS}; fix the ledger file it names, then the next pass retries the update.\n`,
+    );
+  });
+
+  it("rethrows an unexpected error and reports nothing as handled", async () => {
+    const { deps, err } = setup();
+    const odd = new RangeError("odd failure");
+
+    await runTickLoop(deps, ROOT, undefined);
+
+    expect(() => capturedPorts().updateFailed(odd)).toThrow(odd);
+    expect(err.join("")).toBe("");
+  });
+
+  it("rethrows a thrown non-error value and reports nothing as handled", async () => {
+    const { deps, err } = setup();
+
+    await runTickLoop(deps, ROOT, undefined);
+
+    let thrown: unknown;
+    try {
+      capturedPorts().updateFailed("plain string");
+    } catch (error) {
+      thrown = error;
+    }
+
+    expect(thrown).toBe("plain string");
+    expect(err.join("")).toBe("");
+  });
+
+  it("rethrows an ENOENT that is not a failed spawn", async () => {
+    const { deps, err } = setup();
+    const other = Object.assign(new Error("open x ENOENT"), {
+      code: "ENOENT",
+      syscall: "open",
+    });
+
+    await runTickLoop(deps, ROOT, undefined);
+
+    expect(() => capturedPorts().updateFailed(other)).toThrow(other);
+    expect(err.join("")).toBe("");
   });
 });

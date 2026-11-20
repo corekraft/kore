@@ -28,10 +28,23 @@ function fakes(passes: Array<typeof OK | typeof THREW>, flags: boolean[] = []) {
     return queue.shift() ?? OK;
   });
   const report = vi.fn();
+  const updateFailed = vi.fn();
   const sleep = vi.fn(async () => {
     calls.push("sleep");
   });
   const ports: LoopPorts = {
+    flagOn,
+    updateFailed,
+    heartbeat,
+    stopped,
+    pass,
+    report,
+    sleep,
+  };
+  return {
+    ports,
+    calls,
+    updateFailed,
     flagOn,
     heartbeat,
     stopped,
@@ -39,7 +52,6 @@ function fakes(passes: Array<typeof OK | typeof THREW>, flags: boolean[] = []) {
     report,
     sleep,
   };
-  return { ports, calls, flagOn, heartbeat, stopped, pass, report, sleep };
 }
 
 beforeEach(() => {
@@ -120,5 +132,67 @@ describe("tick loop", () => {
 
     await expect(new TickLoop(f.ports).run(1)).rejects.toThrow("ledger");
     expect(f.pass).not.toHaveBeenCalled();
+  });
+});
+
+describe("tick loop update step", () => {
+  it("runs the update after the flag check and before each pass", async () => {
+    const f = fakes([OK, OK]);
+    const update = vi.fn(async () => {
+      f.calls.push("update");
+    });
+
+    await new TickLoop({ ...f.ports, update }).run(2);
+
+    expect(f.calls).toEqual([
+      "flag",
+      "update",
+      "heartbeat",
+      "pass",
+      "sleep",
+      "flag",
+      "update",
+      "heartbeat",
+      "pass",
+      "stopped",
+    ]);
+  });
+
+  it("keeps looping when the update throws, and reports it", async () => {
+    const f = fakes([OK, OK]);
+    const boom = new Error("git exploded");
+    const update = vi.fn(async () => {
+      throw boom;
+    });
+
+    const result = await new TickLoop({ ...f.ports, update }).run(2);
+
+    expect(result).toEqual({ status: "limit", passes: 2 });
+    expect(f.updateFailed).toHaveBeenCalledTimes(2);
+    expect(f.updateFailed).toHaveBeenCalledWith(boom);
+    expect(f.pass).toHaveBeenCalledTimes(2);
+  });
+
+  it("ends the loop when the update reporter rethrows an unexpected error", async () => {
+    const f = fakes([OK]);
+    const odd = new RangeError("odd");
+    f.updateFailed.mockImplementation(() => {
+      throw odd;
+    });
+    const update = vi.fn(async () => {
+      throw odd;
+    });
+
+    await expect(new TickLoop({ ...f.ports, update }).run(2)).rejects.toBe(odd);
+    expect(f.pass).not.toHaveBeenCalled();
+  });
+
+  it("runs no update when the flag is off, so an off flag updates nothing", async () => {
+    const f = fakes([], [false]);
+    const update = vi.fn();
+
+    await new TickLoop({ ...f.ports, update }).run(3);
+
+    expect(update).not.toHaveBeenCalled();
   });
 });

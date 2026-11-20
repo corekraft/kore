@@ -86,6 +86,8 @@ describe("the orchestrator barrel", () => {
       "TICK_LEASE_MAX_AGE_MS",
       "TICK_LOOP_INTERVAL_MS",
       "TICK_POLL_MS",
+      "TICK_SELF_UPDATE_FAILED",
+      "TICK_SELF_UPDATE_FLAG",
       "TICK_STARTED",
       "TICK_STOPPED",
       "Tick",
@@ -95,6 +97,7 @@ describe("the orchestrator barrel", () => {
       "TickLoop",
       "TickNotifier",
       "TickPlanStore",
+      "TickSelfUpdate",
       "WAITING_KIND",
       "WaitingLedger",
       "WaitingStepNotifier",
@@ -110,6 +113,7 @@ describe("the orchestrator barrel", () => {
       "runTicks",
       "tickFlagOn",
       "tickHeartbeat",
+      "tickSelfUpdateOn",
     ]);
   });
 

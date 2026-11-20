@@ -1189,6 +1189,8 @@ power, load and live-run bounds. A ticket labelled `live-proof` is skipped. A ti
 outcome after the judge merges (its `Refs` or `Closes` decides whether GitHub closes the issue),
 and a third send-back reports `needs-judgment` with nothing started.
 
+With the `tick-self-update` flag on too (off in every overlay), `orchestrate tick --loop` runs a step before each pass: on a clean checkout of `main` that is behind `origin/main` as a fast-forward, it runs `git pull --ff-only` and then `mise run harness-build`, so a merged harness change runs on the host with no SSH. A dirty tree, another branch, a non-fast-forward, or a failed fetch or pull is reported and the old bundle keeps running. A failed build is recorded as a `tick.self-update-failed` event, and the step waits until `origin/main` moves. A pull that changes the loop's own files prints one line: restart `orchestrate tick --loop`, since the running loop is not reloaded.
+
 With the `behind-main-notice` flag on too (off in every overlay; detection runs only when both
 flags are on), a pass checks each idea's open pull request. A PR that conflicts with main
 (`DIRTY`), or is ready to merge but behind main (`BEHIND`, CI green, no judge precheck failure),

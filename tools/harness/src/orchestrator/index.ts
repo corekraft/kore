@@ -79,6 +79,15 @@ export {
   type TickHeartbeat,
 } from "./tick-heartbeat.js";
 export {
+  TICK_SELF_UPDATE_FLAG,
+  tickSelfUpdateOn,
+} from "./tick-self-update-flag.js";
+export {
+  TICK_SELF_UPDATE_FAILED,
+  TickSelfUpdate,
+  type SelfUpdatePorts,
+} from "./tick-self-update.js";
+export {
   TICK_LOOP_INTERVAL_MS,
   TickLoop,
   type LoopPorts,

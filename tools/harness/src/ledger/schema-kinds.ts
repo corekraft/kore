@@ -63,6 +63,7 @@ export const KINDS = [
   "tick.started",
   "tick.stopped",
   "tick.plan",
+  "tick.self-update-failed",
   "ticket.waiting",
 ] as const;
 export type Kind = (typeof KINDS)[number];
@@ -119,6 +120,7 @@ export const LINK_RULES: ReadonlyArray<{
 
 /** The kinds whose `label` is written: a name, a category, or a reason. */
 export const LABEL_KINDS: readonly Kind[] = [
+  "tick.self-update-failed",
   "issue.labelled",
   "session.labelled",
   "outcome",

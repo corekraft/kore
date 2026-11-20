@@ -73,6 +73,7 @@
       "behind-main-notice": false,
       "tick-live-proofs": true,
       "tick-ticket-queue": true,
+      "tick-self-update": false,
       "shell-aware-zsh-rules": true,
       "gated-help-exempt": true,
       "main-session-figures": true,
