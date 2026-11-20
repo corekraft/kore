@@ -1,0 +1,12 @@
+{
+  "image":
+    { "registry": "ghcr.io", "repository": "corekraft/kore/mirror/grafana" },
+  "sidecar":
+    {
+      "image":
+        {
+          "registry": "ghcr.io",
+          "repository": "corekraft/kore/mirror/grafana-sidecar"
+        }
+    }
+}

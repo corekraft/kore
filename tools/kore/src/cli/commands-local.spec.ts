@@ -14,7 +14,11 @@ import {
 import type { ActionHandler } from "./context.js";
 import { mutateAction } from "./context.js";
 import { boolFlag } from "./flags.js";
-import { composeLocalDelivery, lockCheck } from "./local-chart-lock.js";
+import {
+  composeLocalDelivery,
+  fetchChartLock,
+  lockCheck,
+} from "./local-chart-lock.js";
 import { print } from "./output.js";
 import {
   localCommand,
@@ -264,6 +268,19 @@ test("local lock-check is read-only: it returns the check's exit code without th
   vi.mocked(lockCheck).mockResolvedValue(1);
   expect(await localCommand(context)).toBe(1);
   expect(lockCheck).toHaveBeenCalledWith(context);
+  expect(mutateAction).not.toHaveBeenCalled();
+  expect(context.mutate).not.toHaveBeenCalled();
+});
+
+test("local fetch-lock is read-only: it returns the fetch's exit code without the environment lock or journal", async () => {
+  const context = fakeContext({
+    command: "local",
+    action: "fetch-lock",
+    repository,
+  });
+  vi.mocked(fetchChartLock).mockResolvedValue(0);
+  expect(await localCommand(context)).toBe(0);
+  expect(fetchChartLock).toHaveBeenCalledWith(context);
   expect(mutateAction).not.toHaveBeenCalled();
   expect(context.mutate).not.toHaveBeenCalled();
 });

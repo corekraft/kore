@@ -1,0 +1,10 @@
+{
+  "backstage":
+    {
+      "image": "ghcr.io/corekraft/kore/mirror/backstage:1.55.2@sha256:68f2025a3f2774e04d58a65a948ccd04a93ddab7b7977be850e9df6d3beae6e3"
+    },
+  "proxy":
+    {
+      "image": "ghcr.io/corekraft/kore/mirror/oauth2-proxy:v7.15.6@sha256:c3415e8660af553f5e18f5d90db050614c02493c0ac6260ac59442f6d9b12048"
+    }
+}

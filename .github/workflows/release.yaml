@@ -487,6 +487,9 @@ jobs:
     if: github.ref_type == 'tag'
     runs-on: ubuntu-latest
     timeout-minutes: 20
+    concurrency:
+      group: charts-${{ github.sha }}
+      cancel-in-progress: false
     permissions:
       contents: read
       packages: write
@@ -569,6 +572,103 @@ jobs:
           name: platform-charts.lock.json
           path: platform-charts.lock.json
           if-no-files-found: error
+          retention-days: 30
+
+  # Publishes the platform configuration charts from main on every push, so a
+  # local live proof can install a chart fix without a release (ADR 0138). It
+  # signs with the main workflow identity, which the signer guard admits only
+  # behind this job's exact main gate, and it uploads the lock as a 30-day
+  # artifact named by commit, never as a release asset. Only the release chart
+  # lock counts for activation.
+  charts-main:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    concurrency:
+      group: charts-${{ github.sha }}
+      cancel-in-progress: false
+    permissions:
+      contents: read
+      packages: write
+      id-token: write
+    env:
+      MISE_TASK_RUN_AUTO_INSTALL: "false"
+      # The one place the chart namespace is chosen, as in charts.
+      CHARTS: ghcr.io/corekraft/kore/charts
+      ISSUER: https://token.actions.githubusercontent.com
+      # This job runs only on main, so the workflow file's ref is refs/heads/main.
+      IDENTITY: https://github.com/corekraft/kore/.github/workflows/release.yaml@refs/heads/main
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: jdx/mise-action@b44d12e7d0d8ee7461bb893e1b1993500433185b # v5.2.7
+        with:
+          install: true
+          install_args: cosign crane helm
+          cache: false
+      - name: Log in to the registry
+        env:
+          REGISTRY_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          ACTOR: ${{ github.actor }}
+        run: |
+          printf '%s' "$REGISTRY_TOKEN" | mise exec -- crane auth login ghcr.io --username "$ACTOR" --password-stdin
+          printf '%s' "$REGISTRY_TOKEN" | mise exec -- helm registry login ghcr.io --username "$ACTOR" --password-stdin
+      - name: Package, push and sign each configuration chart
+        run: |
+          set -euo pipefail
+          mise exec -- .github/scripts/package-platform-charts.sh packaged > packaged.ndjson
+          : > entries.ndjson
+          while IFS= read -r row; do
+            name="$(jq -r .name <<< "$row")"
+            version="$(jq -r .version <<< "$row")"
+            file="$(jq -r .file <<< "$row")"
+            CRANE="mise exec -- crane" .github/scripts/link-mirror-package.sh "$CHARTS/$name"
+            if digest="$(mise exec -- crane digest "$CHARTS/$name:$version" 2> /dev/null)"; then
+              echo "$name $version already published as $digest; not pushing again"
+            else
+              mise exec -- helm push "packaged/$file" "oci://$CHARTS" 2>&1 | tee push.log
+              digest="$(sed -n 's/^Digest: //p' push.log | tail -n 1)"
+              [[ "$digest" =~ ^sha256:[0-9a-f]{64}$ ]] || { echo "$name: helm push reported no digest" >&2; exit 1; }
+              [ "$(mise exec -- crane digest "$CHARTS/$name:$version")" = "$digest" ] || {
+                echo "$name $version already published with a different digest" >&2
+                exit 1
+              }
+            fi
+            # A digest the main identity already verifies gets no new signature,
+            # so a push that changes no chart adds nothing to the registry.
+            if ! mise exec -- cosign verify \
+              --certificate-identity "$IDENTITY" \
+              --certificate-oidc-issuer "$ISSUER" \
+              "$CHARTS/$name@$digest" > /dev/null 2>&1; then
+              mise exec -- cosign sign --yes "$CHARTS/$name@$digest"
+            fi
+            jq -nc --arg name "$name" --arg chart "$CHARTS/$name" --arg version "$version" \
+              --arg digest "$digest" --arg signer "$IDENTITY" \
+              '{key: $name, value: {chart: $chart, version: $version, digest: $digest, signer: $signer}}' >> entries.ndjson
+          done < packaged.ndjson
+      - name: Write the platform chart lock
+        run: |
+          jq -s --arg signer "$IDENTITY" \
+            '{version: 1, authorizedSigners: [$signer], entries: from_entries}' entries.ndjson \
+            > platform-charts.lock.json
+          cat platform-charts.lock.json
+      # Every entry must verify against the main identity before the lock is uploaded.
+      - name: Verify every chart lock entry
+        run: |
+          set -euo pipefail
+          jq -r '.entries[] | "\(.chart)@\(.digest)"' platform-charts.lock.json | while IFS= read -r ref; do
+            mise exec -- cosign verify \
+              --certificate-identity "$IDENTITY" \
+              --certificate-oidc-issuer "$ISSUER" \
+              "$ref" > /dev/null
+          done
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: platform-charts.lock.json-${{ github.sha }}
+          path: platform-charts.lock.json
+          if-no-files-found: error
+          retention-days: 30
 
   # Attaches the chart lock to the GitHub release, as attach-lock does for the
   # platform image lock (ADR 0044): evidence, from a job with only the scope to

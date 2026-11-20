@@ -13,13 +13,20 @@ import {
 import { mutateAction } from "./context.js";
 import type { CommandContext } from "./context.js";
 import { boolFlag } from "./flags.js";
-import { composeLocalDelivery, lockCheck } from "./local-chart-lock.js";
+import {
+  composeLocalDelivery,
+  fetchChartLock,
+  lockCheck,
+} from "./local-chart-lock.js";
 import { print } from "./output.js";
 
 export async function localCommand(context: CommandContext): Promise<number> {
   const { repository } = context;
   if (context.action === "lock-check") {
     return await lockCheck(context);
+  }
+  if (context.action === "fetch-lock") {
+    return await fetchChartLock(context);
   }
   return await mutateAction(context, {
     up: async (_context, runner) => {

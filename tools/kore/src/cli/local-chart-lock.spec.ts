@@ -5,12 +5,22 @@ import {
   chartLockDriftMessage,
   composeChartDelivery,
   composeGoldenPathDelivery,
+  fetchMainChartLock,
   upChartLockDrift,
 } from "../platform/index.js";
 import { boolFlag, stringFlag } from "./flags.js";
 import { print } from "./output.js";
-import { fakeContext, fakeRepository, sharedRunner } from "./cli-support.js";
-import { composeLocalDelivery, lockCheck } from "./local-chart-lock.js";
+import {
+  fakeContext,
+  fakeRepository,
+  parsedArgs,
+  sharedRunner,
+} from "./cli-support.js";
+import {
+  composeLocalDelivery,
+  fetchChartLock,
+  lockCheck,
+} from "./local-chart-lock.js";
 
 vi.mock("../platform/index.js", () => ({
   ChartPackagingError: class extends Error {},
@@ -19,6 +29,7 @@ vi.mock("../platform/index.js", () => ({
   composeChartDelivery: vi.fn(),
   composeGoldenPathDelivery: vi.fn(),
   upChartLockDrift: vi.fn(),
+  fetchMainChartLock: vi.fn(),
 }));
 vi.mock("./flags.js");
 vi.mock("./output.js");
@@ -174,7 +185,7 @@ test("lock-check reports one row per release with a verdict naming the drifted c
   expect(print).toHaveBeenCalledWith(
     {
       verdict:
-        "drift in kore-platform-config: this run would test the published chart, not the repository's",
+        "drift in kore-platform-config: this run would test the published chart, not the repository's; the fix is a release or a main publish that contains the change",
       releases: [stale, row],
     },
     true,
@@ -203,4 +214,79 @@ test("lock-check without a chart lock names the flag and compares nothing", asyn
     "kore local lock-check needs --platform-chart-lock <platform-charts.lock.json>, the release asset published with the charts",
   );
   expect(chartLockDrift).not.toHaveBeenCalled();
+});
+
+const sha = "2f3534a7bf402e3a847e5e9597fc59a4986266bc";
+const mainLock = {
+  commit: sha,
+  path: "charts.json",
+  artifact: `platform-charts.lock.json-${sha}`,
+  runId: 44700515288,
+};
+
+/** `local fetch-lock` with the given parsed flags; read-only, so no lock or journal. */
+function fetchContext(parsed = parsedArgs(), json = false) {
+  return fakeContext({
+    command: "local",
+    action: "fetch-lock",
+    repository,
+    parsed,
+    json,
+  });
+}
+
+test("fetch-lock writes the main chart lock of the checkout's HEAD to the named path, and prints its commit and path", async () => {
+  vi.mocked(stringFlag).mockImplementation(
+    (_parsed, name) => ({ output: "charts.json" })[name],
+  );
+  vi.mocked(fetchMainChartLock).mockResolvedValue(mainLock);
+  expect(await fetchChartLock(fetchContext())).toBe(0);
+  expect(fetchMainChartLock).toHaveBeenCalledWith(runner, {
+    root: "/repo",
+    commit: undefined,
+    output: "charts.json",
+  });
+  expect(print).toHaveBeenCalledWith(
+    { status: "fetched", commit: sha, path: "charts.json" },
+    false,
+  );
+});
+
+test("fetch-lock with --commit fetches that commit's lock, and prints the same object as JSON when asked", async () => {
+  vi.mocked(stringFlag).mockImplementation(
+    (_parsed, name) => ({ output: "charts.json", commit: "2f3534a" })[name],
+  );
+  vi.mocked(fetchMainChartLock).mockResolvedValue(mainLock);
+  expect(
+    await fetchChartLock(fetchContext(parsedArgs({ commit: "2f3534a" }), true)),
+  ).toBe(0);
+  expect(fetchMainChartLock).toHaveBeenCalledWith(runner, {
+    root: "/repo",
+    commit: "2f3534a",
+    output: "charts.json",
+  });
+  expect(print).toHaveBeenCalledWith(
+    { status: "fetched", commit: sha, path: "charts.json" },
+    true,
+  );
+});
+
+test("fetch-lock without --output names the flag and fetches nothing", async () => {
+  vi.mocked(stringFlag).mockReturnValue(undefined);
+  await expect(fetchChartLock(fetchContext())).rejects.toThrow(
+    "kore local fetch-lock needs --output <platform-charts.lock.json>, the path the lock is written to",
+  );
+  expect(fetchMainChartLock).not.toHaveBeenCalled();
+});
+
+test("fetch-lock with a bare --commit refuses, rather than fetching the checkout's HEAD by mistake", async () => {
+  vi.mocked(stringFlag).mockImplementation(
+    (_parsed, name) => ({ output: "charts.json" })[name],
+  );
+  await expect(
+    fetchChartLock(fetchContext(parsedArgs({ commit: true }))),
+  ).rejects.toThrow(
+    "kore local fetch-lock --commit needs the sha of the commit whose lock to fetch; omit --commit for the checkout's HEAD",
+  );
+  expect(fetchMainChartLock).not.toHaveBeenCalled();
 });
