@@ -1,0 +1,46 @@
+- name: Harden sshd
+  ansible.builtin.template:
+    src: 10-kore-hardening.conf.j2
+    dest: /etc/ssh/sshd_config.d/10-kore-hardening.conf
+    owner: root
+    group: root
+    mode: "0644"
+  notify: Validate and reload sshd
+
+- name: Write the host firewall
+  ansible.builtin.copy:
+    src: nftables.conf
+    dest: /etc/nftables.conf
+    owner: root
+    group: root
+    mode: "0755"
+    validate: /usr/sbin/nft -c -f %s
+  register: network_firewall
+
+- name: Apply the firewall behind a rollback timer
+  when: network_firewall.changed and not ansible_check_mode
+  block:
+    - name: Arm the rollback timer
+      ansible.builtin.command: >-
+        systemd-run --unit=kore-firewall-rollback
+        --on-active={{ network_firewall_rollback_seconds }}
+        /usr/sbin/nft delete table inet kore_host
+      changed_when: true
+
+    - name: Load the firewall
+      ansible.builtin.command: /usr/sbin/nft -f /etc/nftables.conf
+      changed_when: true
+
+    - name: Prove the controller can still reach the host
+      ansible.builtin.wait_for_connection:
+        timeout: 60
+
+    - name: Disarm the rollback timer
+      ansible.builtin.systemd_service:
+        name: kore-firewall-rollback.timer
+        state: stopped
+
+- name: Load the firewall at boot
+  ansible.builtin.systemd_service:
+    name: nftables
+    enabled: true

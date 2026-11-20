@@ -1,0 +1,7 @@
+# The host is named by its tailnet name only. Its public address never appears
+# in this public repository.
+all:
+  hosts:
+    kore-vps:
+      ansible_user: debian
+      ansible_become: true
