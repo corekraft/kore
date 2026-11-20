@@ -5,6 +5,7 @@ import {
   chartLockDriftMessage,
   composeChartDelivery,
   composeGoldenPathDelivery,
+  fetchMainChartLock,
   upChartLockDrift,
 } from "../platform/index.js";
 import type { Runner } from "../runtime/index.js";
@@ -49,6 +50,35 @@ async function checkChartLockFreshness(
   }
 }
 
+/**
+ * The read-only `fetch-lock`: writes the main chart lock of a commit, the
+ * checkout's HEAD by default, to the path given, so a proof can pass it to
+ * `--platform-chart-lock`. It touches no cluster and needs no environment lock.
+ */
+export async function fetchChartLock(context: CommandContext): Promise<number> {
+  const output = stringFlag(context.parsed, "output");
+  if (output === undefined) {
+    throw new Error(
+      "kore local fetch-lock needs --output <platform-charts.lock.json>, the path the lock is written to",
+    );
+  }
+  if (context.parsed.flags.get("commit") === true) {
+    throw new Error(
+      "kore local fetch-lock --commit needs the sha of the commit whose lock to fetch; omit --commit for the checkout's HEAD",
+    );
+  }
+  const lock = await fetchMainChartLock(context.runner, {
+    root: context.repository.root,
+    commit: stringFlag(context.parsed, "commit"),
+    output,
+  });
+  print(
+    { status: "fetched", commit: lock.commit, path: lock.path },
+    context.json,
+  );
+  return 0;
+}
+
 /** The read-only `lock-check`: one row per handed-over release, nonzero on drift. */
 export async function lockCheck(context: CommandContext): Promise<number> {
   const lockPath = stringFlag(context.parsed, "platform-chart-lock");
@@ -67,7 +97,7 @@ export async function lockCheck(context: CommandContext): Promise<number> {
     {
       verdict:
         drifted.length > 0
-          ? `drift in ${drifted.join(", ")}: this run would test the published chart, not the repository's`
+          ? `drift in ${drifted.join(", ")}: this run would test the published chart, not the repository's; the fix is a release or a main publish that contains the change`
           : `no drift: the chart lock matches this checkout for ${releases.length} release${releases.length === 1 ? "" : "s"}`,
       releases,
     },

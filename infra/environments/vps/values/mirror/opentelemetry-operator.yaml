@@ -1,0 +1,17 @@
+{
+  "manager":
+    {
+      "image":
+        {
+          "repository": "ghcr.io/corekraft/kore/mirror/opentelemetry-operator"
+        },
+      "collectorImage":
+        {
+          "repository": "ghcr.io/corekraft/kore/mirror/opentelemetry-collector-k8s"
+        },
+      "targetAllocatorImage":
+        {
+          "repository": "ghcr.io/corekraft/kore/mirror/opentelemetry-target-allocator"
+        }
+    }
+}

@@ -90,3 +90,9 @@ test("usage lists kore status read-only, and the validate --platform-claims chec
     "skipped with a warning while the platform-organization-service-apis flag is off",
   );
 });
+
+test("usage names the read-only fetch-lock action with its output and commit flags", () => {
+  expect(usage).toContain(
+    "kore local fetch-lock --output <platform-charts.lock.json> [--commit <sha>] [--json]",
+  );
+});

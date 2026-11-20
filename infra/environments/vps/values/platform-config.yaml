@@ -1,0 +1,6 @@
+environment: vps
+gateway: { port: 443, certificateSecret: kore-local-tls }
+# The internal CA that local uses (ADR 0132): a self-signed root kore keeps in
+# the cluster, not an ACME issuer, because the cluster has no public ingress.
+issuer: { name: kore-local-ca }
+secrets: { sourceNamespace: external, storeName: platform-secrets }

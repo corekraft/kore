@@ -1,0 +1,20 @@
+{
+  "controller":
+    {
+      "image":
+        {
+          "registry": "ghcr.io",
+          "repository": "corekraft/kore/mirror/agentgateway-controller",
+          "tag": "v1.7.0@sha256:87c1363bf0cbc7fdb375866e592294114c8763097d2d0c9fc45fcb1fe00a4ab8"
+        }
+    },
+  "proxy":
+    {
+      "image":
+        {
+          "registry": "ghcr.io",
+          "repository": "corekraft/kore/mirror/agentgateway-proxy",
+          "tag": "v1.7.0@sha256:60216aafb03d37f94e952ff3d51d2f630a65b10ecaebdc0a864882f92610c45b"
+        }
+    }
+}
