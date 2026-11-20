@@ -1,5 +1,5 @@
 ---
-summary: Cost and token retro over the sessions from 2026-11-18T02:13Z to 2026-11-20; where the 2.1 billion tokens and 343 dollars went, and six savings with their arithmetic, quality risk and metric; none applied.
+summary: Cost and token retro over 2026-11-18T02:13Z to 2026-11-20T09:00Z (2.1 billion tokens, $343, 33.1 billion plan-weighted); two measured context-cap cases for idea 0038's E2 and E1, queued after E3, one brief line for PR reads, and notes on ideas 0012, 0019, 0031, 0033 and 0040; owner decisions recorded; none applied.
 date: 2026-11-20
 last-verified: 2026-11-20
 ---
@@ -7,37 +7,66 @@ last-verified: 2026-11-20
 # Cost Retro 2026-11-20
 
 This retro is one of several independent retro writers for the window since the
-last retrospective (2026-11-18T02:13:52Z) up to 2026-11-20 about 09:00Z, about
-2.3 days. Its lens is cost and token economics. These findings are proposals;
-none is applied, and no idea is filed from here.
+last retrospective, from 2026-11-18T02:13:52Z to 2026-11-20T09:00Z (the last
+transcript activity read is 08:59:34Z), about 2.3 days. Its lens is cost and
+token economics. It was grilled (retro-cost-griller and retro-cost-answerer),
+and the owner decided the open questions on 2026-11-20. Nothing here is
+applied, and no idea is filed from here; any idea named for filing goes
+through the owner under ADR 0120.
 
-## Method and sources
+## Sources and labels
 
-- **Transcripts.** Every transcript in the main checkout and the worktree
-  folders with a request in the window: 261 top-level sessions and 134
-  subagent transcripts, 15,424 API requests, deduplicated by message and
-  request id. Each request is priced with the repository's own table,
+Every count carries its source in brackets:
+
+- **[transcripts]**: every transcript in the main checkout and worktree folders
+  with a request in the window. That is 260 top-level sessions and 135
+  subagent transcripts (395), and 15,424 API requests, deduplicated by message
+  and request id. Each request is priced from
   `tools/harness/src/flow/writer-prices.ts` (read 2026-11-17), including the
-  Haiku price step above 100k prompt tokens.
-- **Roles.** A worktree is mapped to its role through `.kore/state/sessions/`.
-  A closed pane's record is gone, so 41 worktree sessions have no record; by
-  their names almost all are writers.
-- **Precomputed reports.** `/tmp/kore-retro-2026-11-20/flow-report.json` (all
-  history, trailing 7 days for the per-merged figures) and `retro-scan.json`
-  (window only).
-- **Ledger.** `.kore/state/ledger.jsonl` events in the window: 205
-  `session.launch`, 204 `spawn.unstamped`, 303 `guard.block`, 135 `pr.merged`.
-- **The retro skill**, run with this lens as a background fork. It returned
-  seven proposals; the strongest are below, with their figures checked and
-  corrected against the window. The rest are listed after the findings with
-  why they were not kept.
+  Haiku price step: above 100k prompt tokens, a Haiku request pays five times
+  the rate on the whole request (`PROMPT_STEP_TOKENS`).
+- **[plan-weighted]**: the same tokens weighted as
+  `tools/harness/src/flow/plan-tokens.ts` does: each model's input price over
+  Haiku's. That gives Haiku 1 (5 above the step), Sonnet 20, Opus 40. The
+  constraint is plan-weighted tokens; dollars are a readability aid, and raw
+  tokens come third. `weeklyTokenCeiling` is not set in `.claude/harness.json`,
+  so a share of one week's ceiling is "not set".
+- **[ledger]**: `.kore/state/ledger.jsonl` events inside the window.
+- **[flow report]**: `/tmp/kore-retro-2026-11-20/flow-report.json`, all
+  history; its per-merged figures cover the trailing 7 days.
+- **[retro scan]**: `/tmp/kore-retro-2026-11-20/retro-scan.json`, window only.
+- **[session records]**: `.kore/state/sessions/`. A closed pane's record is
+  gone, so 41 worktree sessions have none; by their names most are writers.
+- **[gh]**: `gh pr list` on `corekraft/kore`.
+- **[code]**: a grep of `tools/harness/src`.
 
-Citations are `session-id-prefix:line` in the transcript, or a ledger event
-kind. No transcript text is quoted.
+Citations are `session-id-prefix:line` in a transcript, or a ledger event kind.
+No transcript text is quoted.
+
+## Owner decisions (2026-11-20)
+
+The owner decided every open question from the grills. The ones that bear on
+this doc:
+
+1. **The guard freeze stays** (ADRs 0091, 0101, 0123). No new guard rule,
+   including in audit mode.
+2. **The orchestrator tick should run.** No finding here waits on it.
+3. **Context caps: as recommended.** E2 and E1 are not moved ahead of E3 on the
+   dollar case. They are presented as filed in sequence after E3, and the owner
+   sets the cap value after the baseline.
+4. **No `--override` or `--accept` on `judge merge`** inside this retro.
+5. **Read-only guard: no loop or substitution parsing.** Only the
+   scratchpad-redirect quick fix to the existing rule.
+6. **Opus for the 2026-11-20 retro writers** was a special case the owner
+   chose. It is not an issue, and no saving is proposed for it.
+7. **Judge effort** (medium or high) goes to the decider with data. The ADR
+   refining 0124 is held until the 5a rerun shows the double count. `review
+post --none` refusing when no review is recorded for the head is accepted as
+   a non-guard tool rule.
 
 ## Where the money and tokens went
 
-| Bucket (window)                          | Sessions | Dollars |    Tokens | Share of dollars |
+| Bucket (window) [transcripts]            | Sessions | Dollars |    Tokens | Share of dollars |
 | ---------------------------------------- | -------: | ------: | --------: | ---------------: |
 | Main checkout, top level                 |      138 |  171.40 |      955M |              50% |
 | of which orchestrator `112bd8fe`         |        1 |   93.71 |      707M |              27% |
@@ -47,267 +76,293 @@ kind. No transcript text is quoted.
 | Writer subagents (the retro skill forks) |        5 |    5.03 |        8M |               1% |
 | **All**                                  |  **395** | **343** | **2108M** |         **100%** |
 
-- 98% of all tokens are cache reads of a session's own context, so cost scales
-  with **context size times request count**, not with how much work a request
-  does.
-- Per merged change, the window's spend comes to $343 / 135 merged PRs = $2.54
-  and 2108M / 135 = 15.6M tokens. The flow report's trailing 7 days agree in
-  shape: orchestrate 149,885 and write 116,349 tokens per merged change, and
-  review only 567, because principles-review runs as a main-session subagent
-  and its tokens fall in the orchestrate stage.
-- By model, Sonnet is $216 (63%), Opus $77 (22%) and Haiku $50 (15%). The Opus
-  part is one owner-facing main session (`5dfa430d`, $39), a browser session
-  (`966a971c`, $13), and the retro writers themselves (5 sessions and their
-  forks, $18).
-- By tier, in the window's surviving session records, writers launched 44 times
-  on Sonnet at high effort, 28 on Haiku at high, 5 on Opus at high (the retro
-  writers) and once on Sonnet at medium. All 99 judges launched on Haiku at high
-  effort. `writer.md` and `judge.md` both say Haiku at medium.
+- 98% of all tokens are cache reads of a session's own context
+  [transcripts]. So cost scales with **context size times request count**,
+  not with the work a request does.
+- **Plan-weighted, the window is 33.1 billion tokens** [plan-weighted]:
+  - Sonnet: 1,151M raw, weighted ×20;
+  - Opus: 165M raw, weighted ×40;
+  - Haiku: 792M raw, of which 650M sit above the step and are weighted ×5.
+- Per merged change: $343 / 135 merged PRs [ledger `pr.merged`] = $2.54, and
+  15.6M raw tokens. The flow report's trailing 7 days show the same shape:
+  orchestrate 149,885 and write 116,349 tokens per merged change, and review
+  only 567 [flow report]. principles-review runs as a main-session subagent, so
+  its tokens land in orchestrate.
+- **By model**: Sonnet $216 (63%), Opus $78 (22%), Haiku $50 (15%)
+  [transcripts]. The Opus $78.15 breaks down as:
+  - the owner-facing session `5dfa430d`, $39.27;
+  - a browser session `966a971c`, $13.97;
+  - three other main-checkout sessions, $4.86;
+  - the five retro writers and their forks, $18.97;
+  - pieces under $0.50, the rest.
+- **Writer launches** in the window, 78 [ledger `session.launch`]:
+  - 35 Sonnet launches drawn by the 0040 window (`tierReason: experiment`);
+  - 28 Haiku launches as its control (`experiment-control`);
+  - 9 Sonnet grillers, by owner rule;
+  - 5 Opus retro writers (owner decision 6);
+  - 1 Sonnet relaunch after a third send-back.
 
-**Spend that ships nothing.** The findings overlap, so their figures are not a
-sum. Removing the overlap roughly: context carried above a 120k cap in the main
-sessions ($41), the Haiku price-step premium ($34), polling and repeated state
-reads (about $11 at today's context size) and guard-block retries (about $11)
-come to roughly $95, **about 28% of the window**. Abandoned work is small: the
-worktrees with no PR cost about $7.5 in the window, mostly grilling panes that
-were never meant to open one.
+  All judges, 99 of them, launched on Haiku at high effort [ledger].
 
-## Findings, most costly first
+- **Why the counts differ by source.** Haiku writers count 28 launches
+  [ledger], 30 transcripts with a writer record [session records], and 47 Haiku
+  worktree transcripts in all, which adds 17 with no record [transcripts]. A
+  record exists per pane name, and a transcript per Claude session, so a
+  resumed or relaunched pane adds a transcript but no record.
 
-### 1. Cap the main session's context and hand over at the cap
+## Avoidable in principle
 
-- **Evidence.** The orchestrator `112bd8fe` made 2,871 requests in the window
-  at an average prompt of 246,158 tokens. 2,520 of them were above 120k, and
-  carried 367.8M tokens above that line. Its first request over 120k is at
-  `112bd8fe:86886`, and its largest prompt, 479,979 tokens, at
-  `112bd8fe:100124`. The Opus main session `5dfa430d` had 337 of 520 requests
-  above 120k, 22.8M tokens over the line (first at `5dfa430d:3672`, largest at
-  `5dfa430d:6602`). `mainSessionSetups.compactionCap` is `null`, and every
-  stretch is labelled `not set`. The session `112bd8fe` has run since
-  2026-11-12, so this pattern is long-standing.
-- **Proposed change.** Set `cost.compactionCap` (120,000) in
-  `.claude/harness.json`. The main session reads `harness session prompt-size`
-  after each wave and runs the `handoff` skill, then compacts, when it is over
-  the cap. This is the E2 arm that idea 0038 names "filed after E3".
-- **Savings over the window.** At most the 390.6M tokens above the cap
-  (367.8M + 22.8M). A tighter cap means more compactions. The two sessions
-  wrote 5.06M new tokens to cache in the window (3.16M + 1.90M). At about 90k
-  of growth per stretch (from a 30k summary up to the 120k cap), that is about
-  56 compactions instead of today's 19, so 37 more at about 150k tokens each
-  (a 120k read and a 30k rewrite), or 5.6M tokens. The net saving is about
-  **385M tokens**: $36.78 plus $4.55 at the cache-read prices, less 37
-  compactions at about $0.19 each, so about **$34**. That is 49% of the two
-  sessions' 787M prompt tokens.
-- **Quality risk.** A compaction drops in-flight state, such as which pane
-  serves which PR or a decision not yet written down. That shows up as wrong
-  merges, repeated reads and repeated owner questions.
-- **Hypothesis.** If the main session hands over at a 120k cap, its tokens per
-  merged change fall by about half, while send-backs and owner questions per
-  merged change hold.
-- **Metric.** `tokensByStagePerMergedChange.current` (orchestrate), down,
-  14 days. Guards: `sendBacksPerMergedChange.current` and
-  `ownerQuestions`.
+This is net of each change's own overhead, over 2.3 days, not annualized.
+Cache reads above a cap are the cost of work that did ship, so these are
+**avoidable in principle**, not waste.
+
+- **E2 and E1 together: up to about $65 (about 19% of dollars) and about
+  10.9 billion plan-weighted tokens (about 33%)**. Both depend on the cap the
+  owner sets and on E3's outcome (findings 1 and 2).
+- **Smaller, and overlapping with E2.** Each halves once the main session's
+  context is capped, so they are not added to the line above:
+  - polling, on idea 0019: about $7.5;
+  - field-by-field PR reads: about $2.6;
+  - one retry round on read-only guard blocks: about $2.
+
+## Findings
+
+### 1. Queue early compaction (E2) after E3, with the window's measured case
+
+- **Evidence.**
+  - The orchestrator `112bd8fe` made 2,871 requests at an average prompt of
+    246,158 tokens [transcripts]. 2,520 of them were above 120k, carrying
+    367.8M tokens above that line [transcripts]. The first is at
+    `112bd8fe:86886`, and the largest prompt, 479,979 tokens, is at
+    `112bd8fe:100124`.
+  - The Opus session `5dfa430d` had 337 of 520 requests above 120k, 22.8M
+    tokens over the line, first at `5dfa430d:3672` [transcripts].
+  - The two sessions compacted 18 times, 9 each [ledger `session.compacted`].
+  - `mainSessionSetups.compactionCap` is `null` and every stretch reads `not
+set` [flow report]. `compactionCap` is read only for measurement:
+    `token.split` readings, `session prompt-size` and the flow report [code].
+  - `112bd8fe` has run since 2026-11-12, so this is long-standing.
+- **Proposed change.** File E2 in idea 0038's sequence: after E3's recorded
+  outcome, with the owner setting the cap after the baseline (owner decision
+  3). E3 has no recorded outcome yet: there is no `outcome` event for 0038
+  [ledger]. 120k here is an illustration only. The arm is an instruction in
+  the main session's brief, as 0038 has it: read `harness session
+prompt-size`, and at the cap run the `handoff` skill and compact.
+- **Existing mitigation.** `harness hook context` restates the rules and open
+  plan items after a compaction, and the `handoff` skill writes the plan state
+  first. Neither is shown to carry the pane-to-PR mapping or an owner decision
+  not yet written down.
+- **Upper bound over the window.** These are not forecasts:
+  - Gross: 390.6M raw tokens (367.8M + 22.8M), which is 8.27 billion
+    plan-weighted (367.8M × 20 + 22.8M × 40), or $41.33 at the cache-read
+    prices.
+  - Overhead, an estimate: the two sessions wrote 5.06M new tokens to cache
+    [transcripts]. At about 90k of growth per stretch, a cap like this means
+    about 56 compactions instead of the recorded 18. That is 38 more at about
+    150k tokens each, about 5.7M raw tokens and $7.
+  - Net, an estimate: about 385M raw tokens, 8.15 billion plan-weighted, and
+    $34. 5dfa430d's $39 is inside this figure, so it is not counted again
+    below.
+- **Quality risk.** A compaction drops in-flight state. That shows up as wrong
+  merges, repeated reads, stalled panes and repeated owner questions.
+- **Stop conditions** (copied from 0038):
+  - guard margins and baselines are fixed from the control window before the
+    arm opens;
+  - a guard breach stops the arm;
+  - a guard with too little data blocks judging;
+  - the arm never overlaps the writer-tier window;
+  - the owner opens the window.
+- **Hypothesis.** If the main session hands over at the owner's cap, main-session
+  cost per merged change falls, while 0038's guards hold.
+- **Metric.** `writerCost.current`, read as the orchestrate bucket, down,
+  14 days. Guards, as named in 0038: send-backs per merged change, stalled
+  panes, owner overturns of advisor decisions, main-session follow-ups per
+  writer session, and handovers. Margins come from the control window. The
+  compaction count is a side figure.
+- **Safety pattern.** `no-behaviour-change`, as an instruction in the brief
+  only. The brief comes from `harness hook context` under
+  `tools/harness/src/hook`, which ADR 0099 counts as developer tooling.
+- **Already filed.** 0038 names E2 and files it after E3's recorded outcome.
+
+### 2. Queue Haiku under the step (E1) after the 0040 window and E3, with the window's measured case
+
+- **Evidence.**
+  - 47 Haiku worktree sessions made 4,591 requests [transcripts]. 3,233 of
+    them (70%) had prompts above 100k, carrying 626.0M prompt tokens, 302.7M
+    of them above the line [transcripts].
+  - Those requests cost $42.97; at the base step they would have cost $8.59.
+    That is a **$34.38 premium, 75% of Haiku worktree dollars** ($45.7)
+    [transcripts].
+  - Examples: `3071a1af` (database-certs-local-ca), 282 of 307 requests over
+    100k, first at `3071a1af:338`, peaking at 465,568 at `3071a1af:3614`;
+    `798ba953` (loopback-443-cutover), 193 of 219, first at `798ba953:216`.
+  - Haiku's `over100kShare` is 0.66 against Sonnet's 0.42 [flow report].
+  - This is new since writers moved to Haiku (2026-11-17 to 19).
+- **Untested hypothesis on the cause.** Over all worktree sessions, excluding
+  the retro writers [transcripts]:
+
+  |                       | Haiku (47 sessions) | Sonnet (66 sessions) |
+  | --------------------- | ------------------: | -------------------: |
+  | Output tokens         |              92,701 |               38,133 |
+  | Requests (4,591 / 47) |                  98 |                   56 |
+  | Largest prompt        |                192k |                 115k |
+  | Tool-result tokens    |           about 42k |            about 33k |
+
+  The model's own output may be what fills the context. Only a Haiku-at-medium
+  window could test that, and 0040 holds the window effort at high.
+
+- **Proposed change.** Treat these figures as evidence for E1 and for 0040's
+  readout. E1 waits for the 0040 window to close, because 0040 merges no
+  prompt-size mechanism inside the window, and it also comes after E3, by
+  0038's order. No mechanism exists today: nothing applies a cap at spawn
+  [code]. So E1 would be a new build, and its mechanism is the owner's choice.
+- **Upper bound over the window.**
+  - Gross: the over-step requests are 3,130M plan-weighted (626.0M × 5).
+    Under a 100k cap they would carry at most 323.3M at weight 1, saving up
+    to 2.81 billion plan-weighted, or $34.38.
+  - Overhead, an estimate: compacting at about 95k down to about 25k is about
+    2.4 compactions per session ((192k − 25k) / 70k). Over 47 sessions that is
+    about 113 compactions at about 120k each, or 13.5M raw tokens.
+  - Net, an estimate: about 2.79 billion plan-weighted and about $31.
+- **Quality risk.** Haiku is blocked more often already: a blocked share of
+  0.33 against 0.10, and 0.6 send-backs per merged change against 0.31
+  (`writerArms.overall` [flow report]). A compaction in the middle of a TDD
+  loop could raise both.
+- **Hypothesis.** If a Haiku writer stays under the step, Haiku's all-in cost
+  per merged change falls, while its blocked share and send-backs hold.
+- **Metric.** `writerCost.current`, down, 14 days, read for the Haiku tier.
+  Guard: `sendBacksPerMergedChange.current`.
+- **Safety pattern.** None until the owner picks a mechanism.
+- **Already filed.** 0038 names E1 and files it after E3; 0040 holds the
+  window.
+
+### 3. Read a PR's state in one `gh pr view` call (a brief line)
+
+- **Evidence.**
+  - In `112bd8fe`, 390 requests ran a `gh pr view --json` that read the head
+    SHA, review decision or merge state, carrying 100.8M prompt tokens
+    [transcripts].
+  - 190 of them already read several fields in one call; the other 200 read a
+    single field, 51.8M tokens [transcripts].
+  - The main session already uses the multi-field form, so no new command is
+    needed.
+- **Proposed change.** One line in the brief that `harness hook context` gives
+  a fresh main session: read a PR's head, review decision and merge state in
+  one `gh pr view <n> --json headRefOid,reviewDecision,mergeStateStatus`
+  call.
+- **Savings over the window, an estimate.** If the 200 single-field reads fold
+  in pairs, about 26M raw tokens, 0.52 billion plan-weighted, and $2.6. This
+  halves again once finding 1 caps the context, so findings 1 and 3 are not
+  added together.
+- **Quality risk.** Low: the same data, read once.
+- **Hypothesis.** If the brief names the multi-field read, the main session's
+  single-field PR reads fall.
+- **Metric.** None that only this moves (ADR 0119). It shares the orchestrate
+  bucket with E3 and E2, so it is a brief line, not an idea.
 - **Safety pattern.** `no-behaviour-change`
-- **Already filed.** None. Idea 0038 names this as E2 but does not file it.
+- **Already filed.** None.
 
-### 2. Keep Haiku writers under the 100k price step
+## Notes on filed ideas (dropped as findings)
 
-- **Evidence.** 47 Haiku worktree sessions made 4,591 requests in the window.
-  3,233 of them (70%) had a prompt above 100k, carrying 626.0M prompt tokens,
-  302.7M of them above the line. Above 100k, Haiku pays five times its base
-  rate on the whole request, cache hits included. Those requests cost $42.97;
-  at the base step they would cost $8.59. That is a **$34.38 premium, 75% of
-  all Haiku worktree dollars** ($45.7). Examples: `3071a1af`
-  (database-certs-local-ca), 282 of its 307 requests over 100k, first at
-  `3071a1af:338`, peaking at 465,568 tokens at `3071a1af:3614`; `798ba953`
-  (loopback-443-cutover), 193 of 219, first at `798ba953:216`; and `8c345187`
-  (tier-cost-report), first at `8c345187:291`. The flow report gives Haiku
-  `over100kShare` 0.66 against Sonnet's 0.42. This is new since writers moved
-  to Haiku (2026-11-17 to 19).
-- **Why Haiku contexts grow.** Per writer session, Haiku writes 110,676 output
-  tokens against Sonnet's 65,798, and makes 116 requests against 91, while its
-  tool results are about the same (about 48k tokens against 51k). Its largest
-  prompt averages 222k against 175k. So most of the growth is Haiku's own
-  output, and all 28 Haiku writers ran at high effort, not the medium that
-  `writer.md` sets.
-- **Proposed change.** `session spawn` sets a 95k compaction threshold for a
-  Haiku pane, and the writer brief has it read `session prompt-size` before
-  each commit. This is idea 0038's E1 arm. Also launch Haiku writers at the
-  definition's medium effort, which cuts the output that fills the context.
-- **Savings over the window.** At most the 302.7M tokens above the step.
-  Compacting at 95k down to about 25k costs about 2.8 compactions per session
-  ((222k − 25k) / 70k). Over 47 sessions that is about 130 compactions at about
-  120k tokens each, or 15.6M tokens. The net saving is about **287M tokens**,
-  and dollars fall from the $34.38 premium to about **$31** once the
-  compactions are paid.
-- **Quality risk.** Haiku is already blocked more often: `writerArms.overall`
-  shows a blocked share of 0.33 against Sonnet's 0.10, and 0.6 send-backs per
-  merged change against 0.31. A compaction in the middle of a red-green loop
-  could raise both.
-- **Hypothesis.** If a Haiku writer compacts before 100k, Haiku's all-in cost
-  per merged change falls by about two-thirds, while its blocked share and
-  send-backs hold.
-- **Metric.** `writerCost.current`, down, 14 days. Guard:
-  `sendBacksPerMergedChange.current`.
-- **Safety pattern.** `feature-flagged`
-- **Already filed.** None. Idea 0038 names this as E1 but does not file it.
+- **Polling: a note on idea 0019**, whose primary is
+  `mainSession.foregroundPollMinutesPerMerged`. Idea 0035's primary is
+  `mainSession.signedSendShare`, and 0038 is E3.
+  - In `112bd8fe`, 678 requests only polled, 167.0M tokens and 23.6% of its
+    prompt tokens [transcripts]:
+    - 166 sleep or `until` loops, first at `112bd8fe:87151`;
+    - 152 CI check reads, first at `112bd8fe:88451`;
+    - 95 pane reads, first at `112bd8fe:86943`;
+    - 160 status reads;
+    - 105 Monitor reads.
+  - `harness wait` ran in 211 requests beside the polls [transcripts].
+  - Only the first three, 413 requests and 99.6M tokens, are what `harness
+wait --pr` or `--session` replaces. Status reads answer questions other
+    than "is it done", and Monitor is already event-driven, so those two
+    stay out of the saving.
+  - If one wait in four remains: 0.75 × 99.6M = 75M raw tokens, 1.49 billion
+    plan-weighted, about $7.5. This overlaps with E3 and halves under E2.
+  - The retro scan reports 1,525 minutes of polling, 891 pane reads and 890
+    raw sends against 44 signed sends [retro scan].
+  - `finishDetection.neverNoticed` is 308 of 552 [flow report].
+- **Guard blocks: a note on ideas 0031** (`guardBlocksByRule.role-read-only`)
+  **and 0033** (`guardBlocksByRule.role-worktree`). 0011 is the older, broader
+  idea.
+  - There were 303 `guard.block` events [ledger]: `role-read-only` 240,
+    `role-worktree` 49, `role-no-merge` 8.
+  - The blocked request is paid anyway, so the waste is one extra retry round.
+    For the 240 read-only blocks that round is 27.8M raw tokens, 457M
+    plan-weighted and $4.08, at each session's average request [transcripts].
+  - How many are false positives is not measured. The scan sampled 3 blocks
+    [retro scan]. `harness guardrail replay` and the guard corpus would
+    measure it. At half, the round is about 14M raw tokens, 229M plan-weighted
+    and $2.
+  - By owner decision 5, the only fix in scope is the scratchpad-redirect
+    quick fix to the existing rule: no loop or substitution parsing, and no
+    new rule (decision 1).
+- **Writer tier: a note on idea 0040.**
+  - The proposed brief line already exists: ticket 1068 and PR 1076, where the
+    main session names no model while the window is open.
+  - The 44 Sonnet writers are mostly the window's own draws: 35 of the 78
+    launches [ledger].
+  - Hand-picked launches still thin the randomized sample:
+    `writerArms.excluded.notRandomized` is 16 [flow report]. Whether every
+    hand-pick follows ticket 1068 is a compliance question for 0040's
+    readout.
+  - The per-session cost gap is confounded by ticket size, and 0040 exists to
+    settle the tier.
+- **Idea stamping: a note on idea 0012** (`attribution.withIdeaAndStage`).
+  - None of the 205 launches in the window carries an idea. 204
+    `spawn.unstamped` events, none with a `--no-idea` reason [ledger]:
+    99 judges, 77 writers, 14 readers and 14 principles-review.
+  - `--no-idea` spawns are recorded as `spawn.unstamped` too [code].
+  - `writerCost.current.unjoinable` is 480 of 560 merged changes [flow
+    report].
+  - Of 530 PRs merged since 2026-11-13, 139 carry an `Idea:` line naming an
+    idea [gh]. So stamping could join at most about 139 changes; the rest
+    serve no idea.
+  - No refusal is proposed: it would be a new guard (decision 1), and judges
+    and principles-review (113 of the 204) would answer it with boilerplate.
 
-### 3. Replace the main session's remaining polls with `harness wait` and one PR read
+## Observations (not findings)
 
-- **Evidence.** In `112bd8fe`, 678 requests (167.0M tokens, 23.6% of its prompt
-  tokens) only polled:
-  - 166 sleep or `until` loops, first at `112bd8fe:87151`;
-  - 160 status reads;
-  - 152 CI check reads, first at `112bd8fe:88451`;
-  - 105 Monitor reads;
-  - 95 pane reads, first at `112bd8fe:86943`.
+- **Judge effort.** All 99 judges launched at high effort [ledger], while
+  `judge.md` sets medium. The window's effort setting reaches writers only
+  (`tools/harness/src/session/spawn-experiment.ts:177`), so the high comes
+  from the main session's `--effort`. The data for the decider (owner decision
+  7): the 99 judge sessions cost $3.24 in all [transcripts].
+- **Opus retro writers.** Five sessions and their forks cost $18.97
+  [transcripts]. This was the owner's special case (decision 6). ADR 0117 says
+  retro runs on Sonnet at high effort. No saving is proposed.
+- **Owner-facing Opus sessions.** `5dfa430d` cost $39.27 and `966a971c` cost
+  $13.97 [transcripts], together about 15% of dollars. These are listed with
+  no verdict. 5dfa430d is also inside finding 1.
+- **A possible glossary term**, only if the owner wants one: **Price step**,
+  the 100k prompt length above which a Haiku request pays five times the rate
+  on the whole request.
 
-  Another 255 requests (63.2M) read PR fields one per call: the head SHA (46),
-  the review decision with or without the merge state (38), the body (16) and
-  the comments (10). `harness wait` is already in use (211 requests), so the
-  polling runs beside it rather than instead of it. The scan reports 1,525
-  minutes of main-session polling, 891 pane reads and 890 raw sends against 44
-  signed sends in the window. `finishDetection.neverNoticed` is 308 of 552
-  results. Polling is long-standing: ideas 0019, 0035 and 0038 date from
-  2026-11-14 to 18.
+## Retro skill proposals not kept
 
-- **Proposed change.** In the brief that `harness hook context` gives a fresh
-  main session: wait only with `harness wait --pr` or `--session` in the
-  background, never `sleep`, an `until` loop or a pane read. Add a read-only
-  `harness pr status <pr> --json` that returns the head SHA, review decision,
-  merge state and checks in one call, in place of field-by-field `gh pr view`
-  calls. `pr check` mutates, so it is not that read.
-- **Savings over the window.** The sleep loops, CI polls and pane reads come to
-  413 requests and 99.6M tokens. If one wait in four remains, the saving is
-  0.75 × 99.6M = 75M tokens. Halving the 255 field reads saves 31.6M. The total
-  is about **106M tokens (about $10.6)** at today's context size, and about
-  half that once finding 1 caps the context.
-- **Quality risk.** A wait that never wakes leaves a pane idle, which is what
-  `finishDetection.neverNoticed` already counts.
-- **Hypothesis.** If the main session waits only through `harness wait`, its
-  poll minutes per merged change fall, while lead time per merged change holds.
-- **Metric.** `mainSession.foregroundPollMinutesPerMerged`, down, 14 days.
-  Guard: `leadTimePerMergedChange.current`.
-- **Safety pattern.** `dark-launched`. The new read-only command ships unused
-  until the brief names it.
-- **Already filed.** 0019, 0035 and 0038 cover polling. The field-by-field PR
-  reads are not covered.
-
-### 4. Stop paying for guard blocks on read-only work
-
-- **Evidence.** 303 `guard.block` events in the window: `role-read-only` 240,
-  `role-worktree` 49, `role-no-merge` 8. Each block costs the refused request
-  and then a retry, both at the session's average prompt (116k for the
-  read-only blocks). The retro scan's sample found 2 of its 3 `role-read-only`
-  blocks were plain read commands: a `for` loop, and a command ending in a
-  stderr redirect. This session hit the same pattern four times: a regex inside
-  `node -e` read as a path, a write to its own scratchpad, a read under the
-  home transcripts folder, and the bash 3.2 refusal. All four were reads or
-  scratch writes.
-- **Proposed change.** In `tools/harness/src/hook/guard-role-allow.ts`, accept
-  file-descriptor redirects such as `2>&1` and `for` loops whose body is only
-  read-only commands. Let `role-worktree` allow reads, not writes, of the
-  transcript and session-state folders that retro roles are briefed to read.
-- **Savings over the window.** One round at the session average is 35.7M
-  tokens for the 303 blocks, so a block and its retry come to 2 × 35.7M =
-  71.4M tokens (about $11.3). If half the read-only blocks are false
-  positives, as the sample suggests, the saving is about **28M tokens (about
-  $4)**.
-- **Quality risk.** A looser allowlist can let a mutating command through.
-  The guard corpus in `tools/harness/integration/hook/guard-corpus.spec.ts` and
-  `harness guardrail replay` are the check.
-- **Hypothesis.** If the read-only guard accepts redirects and read-only
-  loops, `role-read-only` blocks fall by about half and no mutating command
-  gets through.
-- **Metric.** `guardBlocksByRule.role-read-only`, down, 14 days.
-- **Safety pattern.** `feature-flagged`. Loosening an enforced guard needs the
-  owner's approval (ADR 0080).
-- **Already filed.** 0011 (guard blocks on legitimate work).
-
-### 5. Launch writers at their definition's tier unless escalated
-
-- **Evidence.** In the window, 50 of 78 writer launches were overrides (ledger
-  `session.launch` with `tierSource: override`) and 28 used the definition.
-  44 ran on Sonnet, although `writer.md` says Haiku.
-  `writerArms.excluded.notRandomized` is 16, so the overrides also thin out the
-  randomized window of idea 0040. Window cost per writer session: Sonnet $1.34
-  (46 sessions, $61.70, 5.0M tokens each), Haiku $0.92 (30 sessions, $27.72,
-  14.4M tokens each). In the flow report the all-in cost per merged change is
-  $3.20 for Sonnet and $2.30 for Haiku, and `writerArms.overall` puts the
-  difference at −$0.55 with an interval of −$1.11 to −$0.02.
-- **Proposed change.** The main session names no `--model` for a writer unless
-  `queue escalate` recorded an escalation for that PR, as the `session spawn`
-  help already says while the window is open. This is a line in the main
-  session's brief.
-- **Savings over the window.** 44 × ($1.34 − $0.92) = **$18.5**. Tokens go
-  **up**, by 44 × (14.4M − 5.0M) = 414M, because Haiku runs larger contexts.
-  Do finding 2 first: with Haiku under the step, the per-session gap widens by
-  about $0.73 ($34.38 over 47 sessions).
-- **Quality risk.** Haiku's blocked share is 0.33 against 0.10, and its
-  send-backs 0.6 against 0.31 per merged change.
-- **Hypothesis.** If writers launch on Haiku unless escalated, all-in cost per
-  merged change falls, while send-backs per merged change stay under the
-  window's margin.
-- **Metric.** `writerCost.current`, down, 14 days. Guard:
-  `rework.sendBacksPerIdea`.
-- **Safety pattern.** `no-behaviour-change`
-- **Already filed.** 0040 (the writer tier window).
-
-### 6. Stamp every spawn with its idea, so cost can be measured at all
-
-- **Evidence.** None of the 205 `session.launch` events in the window carry an
-  idea. 204 `spawn.unstamped` events were recorded, none with a `--no-idea`
-  reason (99 judges, 77 writers, 14 readers, 14 principles-review). As a
-  result:
-  - in the flow report, `writerCost.current.unjoinable` is 480 of 560 merged
-    changes;
-  - `metrics.tokensPerIdea` reads "insufficient history" (2 of the 6 closed
-    ideas it needs);
-  - every `costWaiting.ideas` entry shows 0 dollars.
-
-  So the metric that a model-tier idea must use as its hypothesis cannot be
-  read, and neither can any per-idea saving above.
-
-- **Proposed change.** `session spawn` refuses a writer, judge or
-  principles-review spawn that names neither `--idea` nor `--no-idea`. Today
-  it warns and starts. Put the refusal behind a flag, in audit first.
-- **Savings over the window.** No tokens directly. It is the precondition for
-  measuring findings 1 to 5 per idea instead of per window.
-- **Quality risk.** A refused spawn delays a writer. The `--no-idea <reason>`
-  escape keeps that delay to one retry.
-- **Hypothesis.** If spawn refuses unstamped role panes, unstamped spawns fall
-  to near zero and `metrics.tokensPerIdea` becomes readable within 14 days.
-- **Metric.** `unstampedSpawns.total`, down, 14 days.
-- **Safety pattern.** `feature-flagged`
-- **Already filed.** 0012 (stamp every loop event with its idea and stage).
-
-## Retro skill proposals not kept as findings
-
-- **principles-review is costly.** The skill counted 618 calls over all
-  history and guessed a large hidden cost. In the window it ran 90 times for
-  $9.37 and 12.1M tokens, $0.10 a review: 2.7% of the window, and cheaper than
-  any change that keeps the review. Not kept.
-- **The retro scan runs out of memory** at node's default heap. That is wall
-  time and memory, not tokens, and belongs to the determinism lens.
-- **Remove the unused `add-policy` skill and `judgment` agent.** Fewer skill
-  descriptions save about 60 tokens a request, or about 0.9M tokens over
-  15,424 requests. That is too small to rank.
+- **principles-review is costly.** In the window it ran 90 times for $9.37 and
+  12.1M tokens, $0.10 a review [transcripts]. That is 2.7% of dollars, and
+  cheaper than any change that keeps the review. Leave it alone.
+- **The retro scan runs out of memory** at node's default heap. That costs wall
+  time, not tokens, and belongs to the determinism lens.
+- **Remove the unused `add-policy` skill and `judgment` agent.** That saves
+  about 60 tokens a request, about 0.9M over 15,424 requests. Too small to
+  rank.
 
 ## Overall read
 
-The delivery loop's cost is driven by context size, not by work done. 98% of
-the 2.1 billion tokens in the window are cache reads, so a request costs what
-its session already holds. The two levers that matter most are both
-compaction caps that the harness already measures but has not set: the main
-session carries an average of 246k tokens through 2,871 requests, and Haiku
-writers pay a five-times rate on 70% of their requests. Together they come to
-about 670M tokens and $65 over 2.3 days, about a fifth of all spend, and the
-early-compaction and Haiku-under-the-cap arms were planned in idea 0038 but
-never filed. Polling, field-by-field PR reads and guard retries are each
-smaller, and all are already filed. Model choice matters less than it looks:
-Haiku writers are cheaper per merged change only because they run on a cheap
-model while using about three times Sonnet's tokens, and that edge grows a lot
-once they stay under the step. Judges and principles-review are cheap and
-should be left alone. The largest blind spot is measurement: no spawn in the
-window carried an idea stamp, so per-idea cost cannot be read. Each saving
-above can be tested only as a window ratio until finding 6 lands.
+The delivery loop's cost is driven by context size, not by the work done. 98%
+of the 2.1 billion raw tokens are cache reads, so a request costs what its
+session already holds. The two levers that matter are the compaction caps that
+the harness measures but does not apply. The main session carries an average
+of 246k tokens through 2,871 requests, and Haiku writers pay the five-times
+rate on 70% of their requests. Over 2.3 days that is up to about $65, or 10.9
+billion of 33.1 billion plan-weighted tokens, avoidable in principle. Idea 0038
+already queues both arms after E3, and the owner sets the cap. Polling, PR
+reads and guard retries are each small, overlap with the caps, and already have
+owners. Model choice matters less than it looks: the Sonnet writers are mostly
+0040's own draws, and 0040 is where the tier gets settled. The largest blind
+spot is measurement. No launch in the window carried an idea stamp, so cost
+can be read only per window, not per idea.
