@@ -96,7 +96,7 @@
     },
     "platform": {
       "type": "object",
-      "description": "The platform's one name field. The domain and the platform organization's identifier are written here and nowhere else: the Gateway hostname, each chart's platform domain and the delivery path's value derive from them (ADR 0042). A service host is <service>.<organizationId>.<domain>.",
+      "description": "The platform's one name field. The domain is written here and nowhere else: the Gateway hostname, each chart's platform domain and the delivery path's value derive from it (ADR 0042). The organization identifier builds the platform organization's wildcard hostname *.<organizationId>.<domain>, the registry hostname registry.<organizationId>.<domain> and the host DNS check's <organizationId>.<domain>, and, behind their flags, the shared Gateway's route domain, the Organization zone default and the database routes; the platform Organization resource's name and the golden-path load test's hostname still use the literal platform. A service host is <service>.<organizationId>.<domain>.",
       "required": ["domain", "organizationId"],
       "additionalProperties": false,
       "properties": {
