@@ -46,6 +46,25 @@ test("herdr, a developer tool the platform catalog does not mirror, may live onl
   assert.deepEqual(comparePinnedTools({ herdr: "0.9.5" }, {}), []);
 });
 
+test("psql, a host client the platform catalog does not mirror, may live only in .mise.toml under its backend name", () => {
+  assert.deepEqual(
+    comparePinnedTools(
+      { "github:theseus-rs/postgresql-binaries": "17.12.0" },
+      {},
+    ),
+    [],
+  );
+});
+
+test("parseMiseTools reads a quoted backend name such as github:owner/repo as a tool pin", () => {
+  assert.deepEqual(
+    parseMiseTools(
+      '[tools]\n"github:theseus-rs/postgresql-binaries" = "17.12.0"\n',
+    ),
+    { "github:theseus-rs/postgresql-binaries": "17.12.0" },
+  );
+});
+
 test("an allow-list entry that is pinned in both files is reported as stale", () => {
   assert.deepEqual(
     comparePinnedTools({ docker: "29.7.2" }, { docker: "29.7.2" }),

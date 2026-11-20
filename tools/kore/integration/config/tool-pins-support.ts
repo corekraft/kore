@@ -15,6 +15,8 @@ const CATALOG_ONLY_TOOLS: Readonly<Record<string, string>> = {
 const MISE_ONLY_TOOLS: Readonly<Record<string, string>> = {
   herdr:
     "the harness runs its sessions in herdr panes; it is a developer tool, not a platform tool, so the platform tool catalog does not mirror it",
+  "github:theseus-rs/postgresql-binaries":
+    "the host psql (libpq 17 or newer) for the database-by-name proof; it is a developer client, not a platform tool, so the platform tool catalog does not mirror it",
 };
 
 const has = (table: Readonly<Record<string, string>>, name: string): boolean =>
@@ -37,13 +39,15 @@ export function parseMiseTools(text: string): ToolPins {
     if (!inTools) {
       continue;
     }
-    const pin = line.match(/^([A-Za-z0-9_-]+)\s*=\s*"([^"]*)"\s*$/);
+    const pin = line.match(
+      /^(?:([A-Za-z0-9_-]+)|"([^"]+)")\s*=\s*"([^"]*)"\s*$/,
+    );
     if (!pin) {
       throw new Error(
         `.mise.toml line '${line}' is not a tool pin; write it as name = "version"`,
       );
     }
-    tools[pin[1]!] = pin[2]!;
+    tools[(pin[1] ?? pin[2])!] = pin[3]!;
   }
   return tools;
 }
