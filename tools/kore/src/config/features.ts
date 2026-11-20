@@ -88,6 +88,20 @@ export const registryTailnetForwardFlag = "registry-tailnet-forward";
 /** The flag that gates the platform organization's portal: its Keycloak and, later, its Backstage (ADR 0113, plan 15 step 6). */
 export const platformPortalFlag = "platform-portal";
 
+/** The flag that stages the portal install: a release that declares startsAfterDelivery starts only after the Argo CD delivery is Synced and Healthy (ADR 0113, issue 1318). */
+export const portalStagedInstallFlag = "portal-staged-install";
+
+/** Whether a component starts after the Argo CD delivery: it declares so, and the staged install is on. */
+export function startsAfterDelivery(
+  environment: Pick<Environment, "features">,
+  component: Pick<Component, "startsAfterDelivery">,
+): boolean {
+  return (
+    component.startsAfterDelivery === true &&
+    featureEnabled(environment, portalStagedInstallFlag)
+  );
+}
+
 /** The flag that adds the shared Gateway's wildcard listener, and so lets the golden-path and portal charts attach routes to it beside their own Gateways (ADR 0132, ADR 0133). */
 export const platformSharedGatewayFlag = "platform-shared-gateway";
 

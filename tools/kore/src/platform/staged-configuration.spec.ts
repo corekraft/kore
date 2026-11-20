@@ -1,6 +1,6 @@
 // Docs: docs/decisions/0113-run-a-keycloak-for-the-platform-organization-s-operators.md
 import { beforeEach, expect, test, vi } from "vitest";
-import { enabledComponents } from "../config/index.js";
+import { enabledComponents, startsAfterDelivery } from "../config/index.js";
 import { reconcileConfiguration } from "./reconcile.js";
 import { prepareConfigurationRelease } from "./release-prerequisites.js";
 import { reconcileStagedConfigurations } from "./staged-configuration.js";
@@ -19,12 +19,10 @@ const policy = fakeComponent({ name: "policy", phase: "configuration" });
 const keycloak = fakeComponent({
   name: "kore-platform-keycloak",
   phase: "configuration",
-  startsAfterDelivery: true,
 });
 const backstage = fakeComponent({
   name: "kore-platform-backstage",
   phase: "configuration",
-  startsAfterDelivery: true,
 });
 
 /** Every collaborator records its step, so a test can assert the whole order. */
@@ -42,6 +40,9 @@ beforeEach(() => {
     order.push(`reconcile:${c.name}`);
   });
   vi.mocked(enabledComponents).mockReturnValue([policy, keycloak, backstage]);
+  vi.mocked(startsAfterDelivery).mockImplementation(
+    (_environment, component) => component !== policy,
+  );
 });
 
 test("only the releases that start after the delivery are reconciled, each prepared first, in catalog order", async () => {

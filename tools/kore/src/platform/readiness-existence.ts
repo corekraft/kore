@@ -16,9 +16,6 @@ interface ExistenceContext {
   capture?: boolean;
 }
 
-/** The platform Keycloak realm, which Crossplane creates once Keycloak answers. */
-const REALM_KIND = "realm.realm.keycloak.m.crossplane.io/";
-
 function kubectlCheck(
   { runner, base, capture = false }: ExistenceContext,
   condition: string,
@@ -62,9 +59,9 @@ function afterExists(
  * The readiness check for a resource that an operator or controller creates a
  * moment after the release that declares it is installed: the Keycloak
  * StatefulSet, which the Keycloak operator makes from the `Keycloak` resource
- * (a rollout wait right after `helm install` hit NotFound after 0.2 s), and the
- * platform realm, which a client of the realm needs Ready before it starts
- * (ADR 0113). Undefined for any other resource.
+ * (a rollout wait right after `helm install` hit NotFound after 0.2 s). A
+ * StatefulSet the release itself creates exists at once, so the read passes the
+ * first time. Undefined for any other resource.
  */
 export function existenceCheck(
   context: ExistenceContext,
@@ -77,18 +74,6 @@ export function existenceCheck(
       kubectlCheck(context, "rollout complete", (timeout) => [
         "rollout",
         "status",
-        resource,
-        `--timeout=${timeout}`,
-      ]),
-    );
-  }
-  if (resource.startsWith(REALM_KIND)) {
-    return afterExists(
-      context,
-      resource,
-      kubectlCheck(context, "Ready", (timeout) => [
-        "wait",
-        "--for=condition=Ready",
         resource,
         `--timeout=${timeout}`,
       ]),

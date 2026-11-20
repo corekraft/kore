@@ -1,4 +1,8 @@
-import { enabledComponents, type Repository } from "../config/index.js";
+import {
+  enabledComponents,
+  startsAfterDelivery,
+  type Repository,
+} from "../config/index.js";
 import type { Runner } from "../runtime/index.js";
 import { reconcileConfiguration } from "./reconcile.js";
 import { prepareConfigurationRelease } from "./release-prerequisites.js";
@@ -12,15 +16,14 @@ import { prepareConfigurationRelease } from "./release-prerequisites.js";
  * Keycloak's start is not added to the burst of Argo CD's first sync and the
  * rest of the install. Each release is prepared as any configuration release
  * is, and one that fails stops the rest, so Backstage never starts without
- * Keycloak. With no release declaring the stage, which is the portal off,
- * nothing runs.
+ * Keycloak. With portal-staged-install off, nothing runs.
  */
 export async function reconcileStagedConfigurations(
   repository: Repository,
   runner: Runner,
 ): Promise<void> {
   for (const component of enabledComponents(repository)) {
-    if (component.startsAfterDelivery !== true) {
+    if (!startsAfterDelivery(repository.environment, component)) {
       continue;
     }
     await prepareConfigurationRelease(repository, runner, component);

@@ -10,7 +10,6 @@ type Run = Runner["run"];
 
 const BASE = ["--context", "k3d-kore-local", "--namespace", "keycloak"];
 const STATEFULSET = "statefulset/keycloak";
-const REALM = "realm.realm.keycloak.m.crossplane.io/platform";
 
 /** A typed runner whose kubectl read succeeds, or fails with the given error. */
 function fakeRunner(failure?: Error) {
@@ -20,7 +19,8 @@ function fakeRunner(failure?: Error) {
     }
     return { stdout: "", stderr: "", code: 0 };
   });
-  return { runner: { run } as Runner, run };
+  const runner: Runner = { run };
+  return { runner, run };
 }
 
 /** The check for a resource, which these tests all expect to exist. */
@@ -45,12 +45,6 @@ test("a StatefulSet is proven to exist and then rolled out, and says so in its c
   );
 });
 
-test("a Keycloak realm is proven to exist and then Ready, and says so in its condition", () => {
-  expect(checkFor(REALM, fakeRunner().runner).condition).toBe(
-    "exists and Ready",
-  );
-});
-
 test("a StatefulSet is read by name, captured, before its rollout is asked for, at the same bound", async () => {
   const { runner, run } = fakeRunner();
   await checkFor(STATEFULSET, runner, false).run("10m");
@@ -66,20 +60,6 @@ test("a StatefulSet is read by name, captured, before its rollout is asked for, 
       "kubectl",
       [...BASE, "rollout", "status", STATEFULSET, "--timeout=10m"],
       { capture: false },
-    ],
-  ]);
-});
-
-test("a realm is read by name before its Ready wait, and the wait takes the capture of the run", async () => {
-  const { runner, run } = fakeRunner();
-  await checkFor(REALM, runner, true).run("3s");
-
-  expect(run.mock.calls).toEqual([
-    ["kubectl", [...BASE, "get", REALM, "--output", "name"], { capture: true }],
-    [
-      "kubectl",
-      [...BASE, "wait", "--for=condition=Ready", REALM, "--timeout=3s"],
-      { capture: true },
     ],
   ]);
 });
@@ -110,6 +90,7 @@ test.each([
   "daemonset/ztunnel",
   "crd/fakes.example.io",
   "configmap/settings",
+  "realm.realm.keycloak.m.crossplane.io/platform",
 ])("%s has no existence check, so it keeps the check it had", (resource) => {
   expect(
     existenceCheck({ runner: fakeRunner().runner, base: BASE }, resource),

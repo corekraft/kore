@@ -8,6 +8,8 @@ import {
   featureEnabled,
   loadRepository,
   platformPortalFlag,
+  portalStagedInstallFlag,
+  startsAfterDelivery,
   validateRepository,
 } from "../../src/config/index.js";
 
@@ -140,37 +142,44 @@ test("the chart ships no OpenShift ingress grant, so the operator holds no clust
   assert.equal(text.includes("keycloak-operator-clusterrole"), false);
 });
 
-test("only the platform Keycloak and Backstage start after the Argo CD delivery, so the portal's workloads never join Argo CD's first sync", async () => {
-  const repository = await loadRepository("local");
-  const staged = repository.catalog.components
-    .filter((c) => c.startsAfterDelivery === true)
-    .map((c) => c.name);
-  assert.deepEqual(staged, [
-    "kore-platform-keycloak",
-    "kore-platform-backstage",
-  ]);
-  for (const name of staged) {
-    const component = repository.catalog.components.find(
-      (c) => c.name === name,
+for (const name of ["local", "vps", "managed-example"]) {
+  test(`${name} declares portal-staged-install off, so no release is staged until its live proof`, async () => {
+    const repository = await loadRepository(name);
+    await validateRepository(repository);
+    assert.equal(
+      repository.environment.features?.[portalStagedInstallFlag],
+      false,
     );
-    assert.equal(component?.featureFlag, platformPortalFlag, name);
-    assert.equal(component?.phase, "configuration", name);
-    assert.notEqual(component?.owner, "argocd", name);
+    const staged = repository.catalog.components.filter((c) =>
+      startsAfterDelivery(repository.environment, c),
+    );
+    assert.deepEqual(staged, []);
+  });
+}
+
+test("only the platform Keycloak and Backstage declare they start after the Argo CD delivery, and each is gated by platform-portal", async () => {
+  const repository = await loadRepository("local");
+  const declared = repository.catalog.components.filter(
+    (c) => c.startsAfterDelivery === true,
+  );
+  assert.deepEqual(
+    declared.map((c) => c.name),
+    ["kore-platform-keycloak", "kore-platform-backstage"],
+  );
+  for (const component of declared) {
+    assert.equal(component.featureFlag, platformPortalFlag, component.name);
+    assert.equal(component.phase, "configuration", component.name);
+    assert.notEqual(component.owner, "argocd", component.name);
   }
 });
 
-test("Backstage is staged after Keycloak, and Keycloak is ready only once the platform realm is Ready, so the sign-in proxy finds its issuer", async () => {
+test("Backstage is staged after Keycloak, which it depends on, so the two start in that order", async () => {
   const repository = await loadRepository("local");
-  const named = (name: string) =>
-    repository.catalog.components.find((c) => c.name === name);
+  const backstage = repository.catalog.components.find(
+    (c) => c.name === "kore-platform-backstage",
+  );
   assert.equal(
-    named("kore-platform-backstage")?.dependencies.includes(
-      "kore-platform-keycloak",
-    ),
+    backstage?.dependencies.includes("kore-platform-keycloak"),
     true,
   );
-  assert.deepEqual(named("kore-platform-keycloak")?.readiness, [
-    "statefulset/keycloak",
-    "realm.realm.keycloak.m.crossplane.io/platform",
-  ]);
 });

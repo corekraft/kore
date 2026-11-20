@@ -4,6 +4,7 @@ import {
   enabledComponents,
   helmInstalledComponents,
   releaseOwner,
+  startsAfterDelivery,
   type Repository,
 } from "../config/index.js";
 import { CommandError } from "../runtime/index.js";
@@ -280,11 +281,10 @@ test("each release is prepared before it is reconciled, in catalog order, so a r
 });
 
 test("a release that starts after the delivery is neither prepared nor reconciled with the rest, so the portal workloads wait for Argo CD", async () => {
-  const portal = fakeComponent({
-    name: "portal",
-    phase: "configuration",
-    startsAfterDelivery: true,
-  });
+  const portal = fakeComponent({ name: "portal", phase: "configuration" });
+  vi.mocked(startsAfterDelivery).mockImplementation(
+    (_environment, component) => component === portal,
+  );
   vi.mocked(helmInstalledComponents).mockReturnValue([policy, portal, enforce]);
   await reconcileConfigurations(repository, fakeRunner().runner);
   expect(reconciledNames()).toEqual(["policy", "enforce"]);

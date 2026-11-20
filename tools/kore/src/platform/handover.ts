@@ -3,6 +3,7 @@ import {
   enabledComponents,
   helmInstalledComponents,
   releaseOwner,
+  startsAfterDelivery,
   type Component,
   type Repository,
 } from "../config/index.js";
@@ -33,7 +34,7 @@ export async function reconcileConfigurations(
     if (
       (component.phase !== "configuration" &&
         component.phase !== "enforcement") ||
-      component.startsAfterDelivery === true
+      startsAfterDelivery(repository.environment, component)
     ) {
       continue;
     }

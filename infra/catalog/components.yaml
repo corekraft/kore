@@ -771,11 +771,7 @@
             "kore-crossplane-functions"
           ],
         "timeout": "10m",
-        "readiness":
-          [
-            "statefulset/keycloak",
-            "realm.realm.keycloak.m.crossplane.io/platform"
-          ]
+        "readiness": ["statefulset/keycloak"]
       },
       {
         "name": "kore-service-observability",

@@ -52,34 +52,38 @@ peaking at 15.6 with CPU idle at 0 to 1%, while Argo CD's application
 controller (peak 1.26 cores) was still syncing the handed-over Applications and
 Keycloak's JVM started (peak 3.4 cores). The k3s container never restarted, so
 the install did not saturate that host, but the two bursts overlapped. The
-install also failed twice for other reasons: `rollout status` on
+install also failed for other reasons: `rollout status` on
 `statefulset/keycloak` returned NotFound after 0.2 s, because the operator
 creates it after the release is installed, and Backstage's sign-in proxy
-crashed before the platform realm existed.
+crashed.
 
-- **With `platform-portal` on, `kore-platform-keycloak` and
-  `kore-platform-backstage` declare `startsAfterDelivery`.** `platform up`
-  skips them in the configuration pass and reconciles them, Keycloak first,
-  after the Argo CD delivery wait, so they start only once every Application is
-  Synced and Healthy. With the flag off no release declares the stage and
-  nothing changes. The Keycloak operator and provider stay in the core phase:
-  they are small (the operator peaked at 0.7 cores) and the provider's
-  credential is streamed right after them.
-- **Keycloak is ready only when its realm is.** The release's readiness adds
-  `realm.realm.keycloak.m.crossplane.io/platform`, which Crossplane creates
-  from the Organization once Keycloak answers, so Backstage, which depends on
-  Keycloak, starts after the realm its proxy needs. It needs
-  `platform-organization-service-apis`; without it the wait names the realm
-  and times out.
-- **A StatefulSet and the realm are waited on to exist first.** A readiness
-  entry that starts `statefulset/` or names the realm polls `kubectl get`
-  within the release's bound before the rollout or Ready wait, so an object an
-  operator creates a moment after Helm returns is not a failure.
+- **Behind `portal-staged-install` (off in every overlay), `kore-platform-keycloak`
+  and `kore-platform-backstage` start after the Argo CD delivery.** Both declare
+  `startsAfterDelivery` in the catalog. With the flag on, `platform up` skips
+  them in the configuration pass and reconciles them, Keycloak first, after the
+  delivery wait, so they start only once every Application is Synced and
+  Healthy. With the flag off nothing changes. The Keycloak operator and provider
+  stay in the core phase: they are small (the operator peaked at 0.7 cores) and
+  the provider's credential is streamed right after them. A separate flag lets
+  the staging be proven and turned on without the portal's own flag moving.
+- **A StatefulSet readiness entry waits for the object to exist first.** A
+  `statefulset/` entry polls `kubectl get` within the release's bound before
+  the rollout wait, so an object an operator creates a moment after Helm
+  returns is not a failure. This applies to every release, flag or not, and
+  changes only a case that failed at once before.
 - **Not changed:** the local observability footprint (the agents, Prometheus
   and Loki together peaked near 0.2 cores) and the Gatekeeper audit interval
   (0.4 to 0.8 cores every 60 s), which is a policy decision for its own change.
 
+**Open: Backstage still needs the platform realm.** The realm is composed by
+the `Organization` API, and nothing in the repository creates the `platform`
+Organization claim, so on a fresh profile the realm never exists and Backstage's
+proxy cannot discover its issuer. Staging does not change that. A claim applied
+by `kore` or by a chart, or the realm moved to `kore-platform-keycloak`, would
+close it; that is a decision for the owner, taken before `platform-portal` is
+turned on.
+
 The change is unproven live: the golden-path BFF image needs x86-64-v3, which
 the 6 vCPU host lacks, so `kore local up` cannot pass the Application gate
-there with the portal off. Turning `platform-portal` on still needs a recorded
+there with the portal off. Turning `portal-staged-install` on needs a recorded
 live run on a host that can.

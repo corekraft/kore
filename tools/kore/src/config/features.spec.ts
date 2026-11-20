@@ -5,6 +5,8 @@ import {
   autoscalingFlag,
   platformArgocdDeliveryFlag,
   platformPortalFlag,
+  portalStagedInstallFlag,
+  startsAfterDelivery,
   componentGatedOff,
   enabledComponents,
   featureEnabled,
@@ -178,4 +180,31 @@ test("the mesh-enrollment flag is its own switch, independent of the ingress fla
       agentgatewayMeshEnrollmentFlag,
     ),
   ).toBe(true);
+});
+
+test("a release that declares startsAfterDelivery starts after the delivery only while portal-staged-install is on", () => {
+  const staged = fakeComponent({ startsAfterDelivery: true });
+
+  expect(
+    startsAfterDelivery(
+      environment({ [portalStagedInstallFlag]: true }),
+      staged,
+    ),
+  ).toBe(true);
+  expect(
+    startsAfterDelivery(
+      environment({ [portalStagedInstallFlag]: false }),
+      staged,
+    ),
+  ).toBe(false);
+  expect(startsAfterDelivery(environment(), staged)).toBe(false);
+});
+
+test("a release that does not declare startsAfterDelivery never starts after the delivery, whatever the flag", () => {
+  const on = environment({ [portalStagedInstallFlag]: true });
+
+  expect(startsAfterDelivery(on, fakeComponent())).toBe(false);
+  expect(
+    startsAfterDelivery(on, fakeComponent({ startsAfterDelivery: false })),
+  ).toBe(false);
 });
