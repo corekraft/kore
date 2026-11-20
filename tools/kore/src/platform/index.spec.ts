@@ -41,6 +41,7 @@ test("the platform barrel exposes exactly the runtime names its callers use", ()
       "composeGoldenPathDelivery",
       "ensureClosedAdmissionGate",
       "envOption",
+      "fetchMainChartLock",
       "helmEnv",
       "helmTemplateArgs",
       "helmUpgradeArgs",
