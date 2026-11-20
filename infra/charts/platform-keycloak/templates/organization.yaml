@@ -1,0 +1,15 @@
+# The platform organization (ADR 0113, issue 1318). The chart declares the claim,
+# so Helm owns it and the Organization owns the realm and its groups, which gives
+# membership one owner. The claim exists only with platform-portal on. Uninstalling
+# the chart deletes the Organization, but the realm's management policies leave out
+# Delete, so the realm and its users stay. The Organization kind comes from
+# platform-apis (kore-platform-apis).
+{{- $features := .Values.features | default dict }}
+{{- if index $features "platform-portal" }}
+apiVersion: platform.kore.dev/v1alpha1
+kind: Organization
+metadata:
+  name: platform
+spec:
+  tenant: platform
+{{- end }}

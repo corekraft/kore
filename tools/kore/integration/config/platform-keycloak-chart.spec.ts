@@ -21,7 +21,10 @@ const platform = await localPlatform();
 
 const run = promisify(execFile);
 
-async function render(environment: string): Promise<string> {
+async function render(
+  environment: string,
+  set: string[] = [],
+): Promise<string> {
   const root = await findRoot();
   const repository = await loadRepository(environment);
   const { stdout } = await run("helm", [
@@ -31,6 +34,7 @@ async function render(environment: string): Promise<string> {
     "--namespace",
     "keycloak",
     ...platformHelmArgs(repository.environment, "kore-platform-keycloak"),
+    ...set,
   ]);
   return stdout;
 }
@@ -51,7 +55,11 @@ test("the platform Keycloak is a flag-gated chart installed after its operator a
     assert.deepEqual(keycloak?.ownsCRDs, []);
     assert.ok(keycloak?.dependencies.includes("keycloak-operator"));
     assert.ok(keycloak?.dependencies.includes("kore-postgresql-api"));
-    assert.deepEqual(keycloak?.readiness, ["statefulset/keycloak"]);
+    assert.deepEqual(keycloak?.readiness, [
+      "statefulset/keycloak",
+      "organization.platform.kore.dev/platform",
+    ]);
+    assert.ok(keycloak?.dependencies.includes("kore-platform-apis"));
     const installed = enabledComponents(repository).map((c) => c.name);
     assert.equal(installed.includes("kore-platform-keycloak"), false);
     const order = orderedComponents(repository.catalog).map((c) => c.name);
@@ -118,4 +126,29 @@ test("the Keycloak-data recovery objective covers the claimed database by data e
   assert.deepEqual(objective?.components, ["kore-platform-keycloak"]);
   assert.equal(objective?.protection, "data-export");
   assert.match(objective?.restoreTest ?? "", /\.live\.spec\.ts$/);
+});
+
+test("the platform Organization claim appears only with platform-portal on, so with the flag off nothing reaches a cluster", async () => {
+  const off = await render("local", [
+    "--set",
+    "features.platform-portal=false",
+  ]);
+  assert.equal(off.includes("kind: Organization"), false);
+  const on = document(
+    await render("local", ["--set", "features.platform-portal=true"]),
+    "Organization",
+  );
+  assert.deepEqual(
+    on
+      .split("\n")
+      .filter((line) => line.trim() !== "" && !line.startsWith("#")),
+    [
+      "apiVersion: platform.kore.dev/v1alpha1",
+      "kind: Organization",
+      "metadata:",
+      "  name: platform",
+      "spec:",
+      "  tenant: platform",
+    ],
+  );
 });

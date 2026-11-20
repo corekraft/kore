@@ -768,10 +768,12 @@
             "keycloak-operator",
             "keycloak-provider",
             "kore-postgresql-api",
-            "kore-crossplane-functions"
+            "kore-crossplane-functions",
+            "kore-platform-apis"
           ],
         "timeout": "10m",
-        "readiness": ["statefulset/keycloak"]
+        "readiness":
+          ["statefulset/keycloak", "organization.platform.kore.dev/platform"]
       },
       {
         "name": "kore-service-observability",

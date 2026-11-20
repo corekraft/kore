@@ -55,6 +55,12 @@ test("the Argo CD check wins when both could apply, and the gateway check is nev
   expect(gatewayCheck).not.toHaveBeenCalled();
 });
 
+test("the platform Organization gets its own Ready check, not a rollout", () => {
+  expect(
+    customCheck(context, "organization.platform.kore.dev/platform"),
+  ).toMatchObject({ condition: "Ready, with the platform realm composed" });
+});
+
 test("any other resource has no custom check", () => {
   expect(customCheck(context, "deployment/web")).toBeUndefined();
 });
