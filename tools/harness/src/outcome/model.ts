@@ -1,3 +1,8 @@
+import {
+  parseCharts,
+  renderCharts,
+  type RecordedChart,
+} from "../flag/index.js";
 import { IdeaError, type IdeaRecord, type NewIdea } from "../idea/index.js";
 
 export const OUTCOME_KINDS = ["experiment", "usage", "verification"] as const;
@@ -8,6 +13,7 @@ export const OUTCOME_SOURCES = [
   "comparison",
   "owner-waiver",
 ] as const;
+export const LOCK_KINDS = ["main", "release"] as const;
 export const RESULTS = ["confirmed", "refuted", "inconclusive"] as const;
 export type Result = (typeof RESULTS)[number];
 
@@ -19,6 +25,8 @@ export interface Outcome {
   summary: string;
   /** Set when the outcome proves a flag live in an environment (ADR 0077). */
   flag?: { name: string; environment: string };
+  /** The chart lock a live flag proof ran on and each chart's version and digest (ADR 0138). */
+  lock?: { kind: (typeof LOCK_KINDS)[number]; charts: RecordedChart[] };
 }
 
 export const labelFor = (result: Result) => `outcome:${result}`;
@@ -63,6 +71,8 @@ export function parseOutcome(options: {
   summary?: string | undefined;
   flag?: string | undefined;
   environment?: string | undefined;
+  lock?: string | undefined;
+  charts?: string | undefined;
 }): Outcome {
   const kind = choice("kind", OUTCOME_KINDS, options.kind);
   const source = choice("source", OUTCOME_SOURCES, options.source);
@@ -96,7 +106,49 @@ export function parseOutcome(options: {
     requireWaiver(kind, evidence);
   }
   const flag = parseFlag(kind, source, options.flag, options.environment);
-  return { kind, source, result, evidence, summary, ...flag };
+  const lock = parseLock(source, flag, options.lock, options.charts);
+  return { kind, source, result, evidence, summary, ...flag, ...lock };
+}
+
+/** The chart lock a flag proof ran on: both --lock and --charts, and only on a live-run flag outcome. */
+function parseLock(
+  source: Outcome["source"],
+  flag: Pick<Outcome, "flag">,
+  kindOption: string | undefined,
+  chartsOption: string | undefined,
+): Pick<Outcome, "lock"> {
+  const given = [kindOption, chartsOption].map((v) => (v ?? "").trim());
+  if (given.every((v) => v === "")) {
+    return {};
+  }
+  for (const [name, value, other] of [
+    ["lock", given[0], "charts"],
+    ["charts", given[1], "lock"],
+  ] as const) {
+    if (value === "") {
+      throw new IdeaError(
+        `Missing --${name}; a chart lock outcome names both --lock and --charts (got only --${other}).`,
+      );
+    }
+  }
+  const kind = choice("lock", LOCK_KINDS, given[0]);
+  if (flag.flag === undefined) {
+    throw new IdeaError(
+      "--lock records the chart lock a flag proof ran on, so it needs --flag and --environment.",
+    );
+  }
+  if (source !== "live-run") {
+    throw new IdeaError(
+      "--lock needs --source live-run; an owner waiver ran no charts.",
+    );
+  }
+  const parsed = parseCharts(given[1] ?? "");
+  if ("error" in parsed) {
+    throw new IdeaError(
+      `--charts is unusable: ${parsed.error}; pass --charts <name>=<version>@sha256:<64 hex>[; ...] from the lock the proof ran on.`,
+    );
+  }
+  return { lock: { kind, charts: parsed.charts } };
 }
 
 const COMMENT_URL =
@@ -169,6 +221,12 @@ export function renderSection(outcome: Outcome, date: string): string {
       : [
           `- Flag: ${outcome.flag.name}`,
           `- Environment: ${outcome.flag.environment}`,
+        ]),
+    ...(outcome.lock === undefined
+      ? []
+      : [
+          `- Lock: ${outcome.lock.kind}`,
+          `- Charts: ${renderCharts(outcome.lock.charts)}`,
         ]),
     `- Evidence: ${outcome.evidence}`,
     `- Recorded: ${date}`,
