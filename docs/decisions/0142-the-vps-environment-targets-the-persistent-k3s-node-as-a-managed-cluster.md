@@ -123,8 +123,13 @@ not bought a domain, so no real domain belongs in it either.
   `harness flag activate`.
 - The node's containerd must trust the in-cluster registry's CA to pull from it.
   On k3d that trust is written at create (`k3d-registry-trust.ts`). On the vps
-  host it is a k3s registries file that the Ansible role (ADR 0141) would own,
-  and no role writes it yet.
+  host the Ansible role (ADR 0141) owns it: when the registry's public `ca.crt`
+  (the `oci-registry` chart's CA, ADR 0058, not `kore-local-ca`) is on the
+  controller at `~/.kube/kore-vps-registry-ca.crt`, the `k3s` role installs it
+  at `/etc/rancher/k3s/registry-ca.crt`, writes a `registries.yaml` entry for
+  `registry.address` (read from this overlay) with that `ca_file`, and restarts
+  k3s. The role refuses a file holding a private key, and without the file it
+  changes nothing.
 - The overlay copies managed-example's mirror and manifest values, so the two
   overlays drift apart whenever the release mirror changes; the copies must
   be updated together until one shared source exists.

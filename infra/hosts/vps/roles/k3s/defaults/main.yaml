@@ -15,6 +15,17 @@ k3s_data_path: /var/lib/rancher
 k3s_cpu_weight: 400
 k3s_io_weight: 400
 
+# The in-cluster registry's address, read from the vps environment overlay so
+# the role holds no second copy of it (one owner). It is a ClusterIP, so the
+# node's containerd reaches it and the CA below is the only trust it needs.
+k3s_registry_address: "{{ (lookup('ansible.builtin.file', playbook_dir ~ '/../../environments/vps/environment.yaml') | from_yaml).registry.address }}"
+
+# The registry's public CA (ca.crt only, never a key), exported on the
+# controller outside the repository. Without that file the role manages no
+# registry trust, so a run changes nothing here.
+k3s_registry_ca_source: ~/.kube/kore-vps-registry-ca.crt
+k3s_registry_ca_path: /etc/rancher/k3s/registry-ca.crt
+
 # Where the controller keeps the kubeconfig, outside the repository.
 k3s_controller_kubeconfig: ~/.kube/kore-vps.yaml
 k3s_context: kore-vps
