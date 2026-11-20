@@ -1,17 +1,28 @@
-// Signer guard: only the tag-gated signing jobs of release.yaml may hold
-// `id-token: write` (keyless signing) or `packages: write` (registry push), and
-// every job states its token permissions. The one exception is the nightly
-// failure-issue job, which opens or closes the integration tier's issue (#419).
-// Plan: infra/plans/2-implementation.md (Step 7), ADR 0044.
+// Signer guard: only the signing jobs of release.yaml may hold `id-token: write`
+// (keyless signing) or `packages: write` (registry push), and every job states
+// its token permissions. release, mirror and charts sign on a tag; charts-main
+// signs on main (ADR 0138). Each signing job must carry its own exact `if:`, so
+// a condition that ORs in another ref is refused. The one exception is the
+// nightly failure-issue job, which opens or closes the integration tier's issue
+// (#419). Plan: infra/plans/2-implementation.md (Step 7), ADR 0044, ADR 0138.
 
 import { join } from "node:path";
 import { CommandError, type FileSystem } from "../runtime/index.js";
 
 const RELEASE = "release.yaml";
-const SIGNING_JOBS = ["release", "mirror", "charts"];
 const SIGNING_SCOPES = ["id-token", "packages"];
 const TAG_GATE = "github.ref_type == 'tag'";
+const MAIN_GATE = "github.ref == 'refs/heads/main'";
 const PR_TRIGGERS = ["pull_request", "pull_request_target"];
+
+/** The signing jobs of release.yaml, each with the one exact `if:` it must carry and the ref it runs on. */
+const SIGNING_JOBS = new Map<string, { gate: string; runsOn: string }>([
+  ["release", { gate: TAG_GATE, runsOn: "tags" }],
+  ["mirror", { gate: TAG_GATE, runsOn: "tags" }],
+  ["charts", { gate: TAG_GATE, runsOn: "tags" }],
+  ["charts-main", { gate: MAIN_GATE, runsOn: "main" }],
+]);
+const SIGNING_JOB_NAMES = [...SIGNING_JOBS.keys()];
 
 /** The one job outside release.yaml that may hold a write scope: exactly these scopes, after the integration job, on the scheduled main run (ADR 0044). */
 const ISSUE_JOB = {
@@ -155,23 +166,18 @@ function jobProblems(file: string, name: string, job: unknown): string[] {
   }
   const isRelease = file === RELEASE;
   const signing = scopes.filter((s) => SIGNING_SCOPES.includes(s));
-  const allowedSigner = isRelease && SIGNING_JOBS.includes(name);
+  const signer = isRelease ? SIGNING_JOBS.get(name) : undefined;
   const problems: string[] = [];
-  if (!allowedSigner) {
+  if (signer === undefined) {
     for (const scope of signing) {
       problems.push(
-        `${file}: job ${name} requests ${scope}: write; only the ${SIGNING_JOBS.slice(0, -1).join(", ")} and ${SIGNING_JOBS[SIGNING_JOBS.length - 1]} jobs of ${RELEASE} may sign or push, so drop it`,
+        `${file}: job ${name} requests ${scope}: write; only the ${SIGNING_JOB_NAMES.slice(0, -1).join(", ")} and ${SIGNING_JOB_NAMES[SIGNING_JOB_NAMES.length - 1]} jobs of ${RELEASE} may sign or push, so drop it`,
       );
     }
   }
-  const gate = job["if"];
-  if (
-    allowedSigner &&
-    signing.length > 0 &&
-    !(typeof gate === "string" && gate.includes(TAG_GATE))
-  ) {
+  if (signer !== undefined && signing.length > 0 && job["if"] !== signer.gate) {
     problems.push(
-      `${file}: signing job ${name} must run only for tags; add \`if: ${TAG_GATE}\``,
+      `${file}: signing job ${name} must run only for ${signer.runsOn}; add \`if: ${signer.gate}\``,
     );
   }
   if (!isRelease) {
