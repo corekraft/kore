@@ -104,11 +104,24 @@ test("the agent receives its CA certificate and key as its own files, the key at
   assert.doesNotMatch(tasks, /ansible\.builtin\.(fetch|slurp)[\s\S]*mkcert/);
 });
 
-test("the agents role holds no key material, public address or domain", async () => {
+// Loopback (127.0.0.0/8) is allowed: the platform DNS listens on 127.0.0.1 by design.
+// Any other IPv4 address is a public or private one, and must not appear in the role.
+const nonLoopbackIpv4 = /\b(?!127\.)\d{1,3}(\.\d{1,3}){3}\b/;
+
+test("the agents role holds no key material, public address or domain; loopback is allowed", async () => {
   const role = [
     await readRoot("infra/hosts/vps/roles/agents/defaults/main.yaml"),
     await readRoot("infra/hosts/vps/roles/agents/tasks/main.yaml"),
   ].join("\n");
   assert.doesNotMatch(role, /PRIVATE KEY|BEGIN /);
-  assert.doesNotMatch(role, /\b\d{1,3}(\.\d{1,3}){3}\b/);
+  assert.doesNotMatch(role, nonLoopbackIpv4);
+});
+
+test("the address guard still catches a non-loopback IPv4 address, and lets 127.0.0.0/8 through", () => {
+  assert.match("agents_address: 203.0.113.7", nonLoopbackIpv4);
+  assert.match("agents_address: 10.0.0.1", nonLoopbackIpv4);
+  assert.doesNotMatch(
+    "agents_platform_dns_address: 127.0.0.1",
+    nonLoopbackIpv4,
+  );
 });
