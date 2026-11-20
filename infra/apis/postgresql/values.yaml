@@ -1,0 +1,10 @@
+# The PostgreSQL platform API. Off, the chart renders the definition and the local
+# composition exactly as they were (compositions/local.yaml). database-routes sets
+# the three values below; kore passes them only while that flag is on (ADR 0137).
+databaseRoutes: false
+# The environment's platform.domain and platform.organizationId, which kore passes.
+# No default: a database route needs them, and the chart refuses to render without.
+platformDomain: ""
+organizationId: ""
+# The ClusterIssuer that signs each database's server certificate: the local CA.
+issuer: { name: kore-local-ca }

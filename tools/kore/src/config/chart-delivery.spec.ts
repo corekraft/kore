@@ -5,7 +5,11 @@ import {
   chartDeliveryValues,
   chartRepositoryUrls,
 } from "./chart-delivery.js";
-import { enabledComponents, gatewayClassName } from "./features.js";
+import {
+  enabledComponents,
+  featureEnabled,
+  gatewayClassName,
+} from "./features.js";
 import { platformPlan, platformWildcard } from "./platform-domain.js";
 import { fakeComponent, fakeRepository, malformed } from "./config-support.js";
 
@@ -167,4 +171,22 @@ test("the chart repositories are each distinct parent path of a chart", () => {
   expect(chartRepositoryUrls(chartDeliveryValues(repository, lock()))).toEqual([
     "reg.example:5000/charts",
   ]);
+});
+
+test("with database-routes on the values carry the flag and the organization identifier the PostgreSQL API's derived host needs; off they carry neither", () => {
+  vi.mocked(featureEnabled).mockImplementation(
+    (_environment, flag) => flag === "database-routes",
+  );
+  try {
+    expect(chartDeliveryValues(repository, lock())).toMatchObject({
+      databaseRoutes: true,
+      organizationId: "platform",
+      platformDomain: "kore.internal",
+    });
+  } finally {
+    vi.mocked(featureEnabled).mockReset();
+  }
+  const off = chartDeliveryValues(repository, lock());
+  expect(off).not.toHaveProperty("databaseRoutes");
+  expect(off).not.toHaveProperty("organizationId");
 });

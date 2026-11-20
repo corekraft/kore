@@ -59,6 +59,16 @@ spec:
       parameters:
         - name: "gateway.hostname"
           value: {{ $.Values.platformDomain | quote }}
+      {{- else if and (eq $name "kore-postgresql-api") $.Values.databaseRoutes }}
+      # With database-routes on, the composition's derived host and certificate
+      # need the flag, the platform domain and the organization identifier (ADR 0137).
+      parameters:
+        - name: "databaseRoutes"
+          value: "true"
+        - name: "platformDomain"
+          value: {{ $.Values.platformDomain | quote }}
+        - name: "organizationId"
+          value: {{ $.Values.organizationId | quote }}
       {{- end }}
   destination:
     server: https://kubernetes.default.svc

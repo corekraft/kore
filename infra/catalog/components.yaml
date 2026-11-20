@@ -715,8 +715,8 @@
         "phase": "configuration",
         "owner": "argocd",
         "namespace": "crossplane-system",
-        "kind": "manifest",
-        "source": "infra/apis/postgresql",
+        "kind": "local-chart",
+        "chart": "infra/apis/postgresql",
         "version": "local",
         "ownsCRDs": ["postgresqlinstances.platform.kore.dev"],
         "dependencies":

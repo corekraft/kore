@@ -93,8 +93,13 @@ export async function renderedResources(
     "--namespace",
     component.namespace,
     ...values,
-    "--set",
-    `gateway.className=kore,gateway.hostname=${platform.domain},gateway.platformHostname=*.example.${platform.domain}`,
+    // The PostgreSQL API's chart takes no gateway value (ADR 0137), so it gets none.
+    ...(name === "kore-postgresql-api"
+      ? []
+      : [
+          "--set",
+          `gateway.className=kore,gateway.hostname=${platform.domain},gateway.platformHostname=*.example.${platform.domain}`,
+        ]),
   ]);
   return resourcesOf(stdout);
 }

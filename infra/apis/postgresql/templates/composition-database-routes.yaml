@@ -1,0 +1,37 @@
+{{- if .Values.databaseRoutes }}
+# With database-routes on, the composition gains the derived name, the local CA's
+# certificate and the verifying connection keys (ADR 0137). The Go template bodies
+# live beside it, unrendered by helm; the header line carries the platform values
+# that kore passes, so the composition reads them without a second source.
+apiVersion: apiextensions.crossplane.io/v1
+kind: Composition
+metadata:
+  name: postgresqlinstance-local
+  labels: { platform.kore.dev/provider: local }
+spec:
+  compositeTypeRef:
+    { apiVersion: platform.kore.dev/v1alpha1, kind: PostgreSQLInstance }
+  mode: Pipeline
+  pipeline:
+    - step: compose-cloudnative-pg
+      functionRef: { name: function-go-templating }
+      input:
+        apiVersion: gotemplating.fn.crossplane.io/v1beta1
+        kind: GoTemplate
+        source: Inline
+        inline:
+          template: |
+            {{ printf "{{- $routes := dict \"domain\" %q \"organizationId\" %q \"issuer\" %q }}" (required "set platformDomain, which kore passes from platform.domain, to render database routes" .Values.platformDomain) (required "set organizationId, which kore passes from platform.organizationId, to render database routes" .Values.organizationId) (required "set issuer.name to the ClusterIssuer that signs database certificates" .Values.issuer.name) }}
+{{ .Files.Get "compositions/database-routes/compose.gotmpl" | indent 12 }}
+    - step: project-status
+      functionRef: { name: function-go-templating }
+      input:
+        apiVersion: gotemplating.fn.crossplane.io/v1beta1
+        kind: GoTemplate
+        source: Inline
+        inline:
+          template: |
+{{ .Files.Get "compositions/database-routes/project-status.gotmpl" | indent 12 }}
+    - step: mark-ready
+      functionRef: { name: function-auto-ready }
+{{- end }}

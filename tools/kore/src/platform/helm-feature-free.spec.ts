@@ -51,3 +51,9 @@ test("another local chart still receives the feature flags, so only the portal i
     helmUpgradeArgs(fakeRepository(), localChart("kore-platform-keycloak")),
   ).toContain("features.platform-portal=true");
 });
+
+test("the PostgreSQL API chart takes no feature flags: its values schema declares none, and its composition reads only the database-routes gate", () => {
+  expect(
+    helmUpgradeArgs(fakeRepository(), localChart("kore-postgresql-api")),
+  ).not.toContain("features.platform-portal=true");
+});

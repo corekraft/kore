@@ -5,6 +5,7 @@ import {
   dashboardSidecarHelmArgs,
   componentValues,
   componentVersion,
+  databaseRoutesDeliveryArgs,
   expandVersions,
   featureHelmArgs,
   gatewayClassName,
@@ -86,13 +87,15 @@ function goldenPathArgs(
 
 /**
  * The charts whose closed schemas name no feature flag and whose templates
- * read none (the delivery charts and the portal): kore passes them no
- * `features.*` value, since Helm refuses a key the schema does not declare.
+ * read none (the delivery charts, the portal and the PostgreSQL API): kore passes
+ * them no `features.*` value on either path, since Helm refuses a key the schema
+ * does not declare.
  */
-const featureFreeCharts = new Set([
+export const featureFreeCharts = new Set([
   "kore-config-delivery",
   "kore-golden-path-delivery",
   "kore-platform-backstage",
+  "kore-postgresql-api",
 ]);
 
 /** The chart value each release takes the GatewayClass through. */
@@ -147,6 +150,7 @@ function chartDeliveryArgs(
     `platformDomain=${delivery.platformDomain}`,
     "--set-string",
     `platformHostname=${delivery.platformHostname}`,
+    ...databaseRoutesDeliveryArgs(delivery),
     ...(delivery.releaseValues === undefined
       ? []
       : [
