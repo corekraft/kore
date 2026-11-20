@@ -30,7 +30,7 @@ const {
   };
 });
 
-vi.mock("../idea/index.js", () => ({ ideaCommands }));
+vi.mock("./idea-commands.js", () => ({ ideaRecordCommands: ideaCommands }));
 vi.mock("./flag-commands.js", () => ({ flagCommands }));
 vi.mock("../ruleset/index.js", () => ({ rulesetCommands }));
 vi.mock("./status-command.js", () => ({ statusCommand }));

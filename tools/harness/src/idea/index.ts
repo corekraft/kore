@@ -1,4 +1,8 @@
-export { ideaCommands } from "./commands.js";
+export {
+  ideaCommands,
+  ideaCommandsWith,
+  type HarnessLabelFlag,
+} from "./commands.js";
 export { IdeaRepository, type Created } from "./repository.js";
 export {
   IdeaError,
