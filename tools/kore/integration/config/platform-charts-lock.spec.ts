@@ -30,7 +30,7 @@ function job(text: string, name: string): string {
   const start = text.indexOf(`\n  ${name}:\n`);
   assert.ok(start >= 0, `job ${name} exists`);
   const rest = text.slice(start + 1);
-  const next = /\n  [a-z-]+:\n/.exec(rest.slice(1));
+  const next = /\n  (?:[a-z-]+:\n|# )/.exec(rest.slice(1));
   return next ? rest.slice(0, next.index + 1) : rest;
 }
 
@@ -97,6 +97,89 @@ test("a separate write-assets job attaches the chart lock and never replaces a d
   assert.match(attach, /gh release upload "\$TAG" platform-charts\.lock\.json/);
   assert.match(attach, /cmp published\/platform-charts\.lock\.json/);
   assert.match(attach, /refusing to replace it/);
+});
+
+test("the charts-main job runs only on main, with no needs, and signs with the main identity", async () => {
+  const main = job(await workflow(), "charts-main");
+  assert.match(main, /^    if: github\.ref == 'refs\/heads\/main'$/m);
+  assert.doesNotMatch(main, /^    needs:/m);
+  assert.doesNotMatch(main, /ref_type|refs\/tags|ref_name|TAG:/);
+  assert.match(
+    main,
+    /^      IDENTITY: https:\/\/github\.com\/corekraft\/kore\/\.github\/workflows\/release\.yaml@refs\/heads\/main$/m,
+  );
+  assert.match(
+    main,
+    /ISSUER: https:\/\/token\.actions\.githubusercontent\.com/,
+  );
+  assert.match(
+    main,
+    /permissions:\n\s+contents: read\n\s+packages: write\n\s+id-token: write\n/,
+  );
+  assert.doesNotMatch(main, /contents: write/);
+});
+
+test("the charts-main job packages the same charts and pushes only a version that is absent", async () => {
+  const main = job(await workflow(), "charts-main");
+  assert.match(main, /\.github\/scripts\/package-platform-charts\.sh/);
+  assert.match(main, /CHARTS: ghcr\.io\/corekraft\/kore\/charts/);
+  assert.match(
+    main,
+    /if digest="\$\(mise exec -- crane digest "\$CHARTS\/\$name:\$version" 2> \/dev\/null\)"; then/,
+  );
+  assert.match(main, /helm push/);
+  assert.match(main, /already published with a different digest/);
+});
+
+test("the charts-main job signs only a digest the main identity does not already verify", async () => {
+  const main = job(await workflow(), "charts-main");
+  assert.match(
+    main,
+    /if ! mise exec -- cosign verify[\s\S]*?cosign sign --yes "\$CHARTS\/\$name@\$digest"/,
+  );
+});
+
+test("the charts-main job verifies every lock entry against the main identity before it uploads the lock", async () => {
+  const main = job(await workflow(), "charts-main");
+  const write = main.indexOf("- name: Write the platform chart lock");
+  const verify = main.indexOf("- name: Verify every chart lock entry");
+  const upload = main.indexOf(
+    "name: platform-charts.lock.json-${{ github.sha }}",
+  );
+  assert.ok(
+    write >= 0 && verify > write && upload > verify,
+    "write, verify, then upload",
+  );
+  assert.match(main.slice(write, verify), /authorizedSigners: \[\$signer\]/);
+  assert.match(
+    main.slice(verify, upload),
+    /cosign verify[\s\S]*--certificate-identity "\$IDENTITY"/,
+  );
+});
+
+test("the charts-main job uploads the main lock as a 30-day artifact named by commit and never attaches it to a release", async () => {
+  const main = job(await workflow(), "charts-main");
+  assert.match(
+    main,
+    /name: platform-charts\.lock\.json-\$\{\{ github\.sha \}\}\n\s+path: platform-charts\.lock\.json\n\s+if-no-files-found: error\n\s+retention-days: 30\n/,
+  );
+  assert.doesNotMatch(main, /gh release|attach/);
+});
+
+test("the charts and charts-main jobs share one per-commit concurrency group that never cancels a running publish", async () => {
+  const text = await workflow();
+  for (const name of ["charts", "charts-main"]) {
+    assert.match(
+      job(text, name),
+      /    concurrency:\n      group: charts-\$\{\{ github\.sha \}\}\n      cancel-in-progress: false\n/,
+      name,
+    );
+  }
+});
+
+test("the tag charts job keeps its lock artifact for 30 days too", async () => {
+  const charts = job(await workflow(), "charts");
+  assert.match(charts, /if-no-files-found: error\n\s+retention-days: 30\n/);
 });
 
 test("the configuration charts are packaged and the image policy is not", async () => {
