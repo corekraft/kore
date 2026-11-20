@@ -112,6 +112,7 @@ export function writerLaunch(
   issue: number,
   model: string | undefined,
   name: string = `idea-${idea}-writer`,
+  brief: string = `Deliver idea ${idea} (issue #${issue}) as one pull request that says \`Refs #${issue}\`. Do not merge.`,
 ): Launch {
   return {
     role: "writer",
@@ -119,7 +120,7 @@ export function writerLaunch(
     issue,
     worktree: true,
     ...(model === undefined ? {} : { model }),
-    brief: `Deliver idea ${idea} (issue #${issue}) as one pull request that says \`Refs #${issue}\`. Do not merge.`,
+    brief,
   };
 }
 
@@ -129,12 +130,13 @@ export function judgeLaunch(
   pr: number,
   issue: number,
   name: string = `idea-${idea}-judge`,
+  brief: string = `Judge PR #${pr} for idea ${idea} (issue #${issue}): run the precheck, then approve and merge it, or send it back with the reason.`,
 ): Launch {
   return {
     role: "judge",
     name,
     issue,
-    brief: `Judge PR #${pr} for idea ${idea} (issue #${issue}): run the precheck, then approve and merge it, or send it back with the reason.`,
+    brief,
   };
 }
 
