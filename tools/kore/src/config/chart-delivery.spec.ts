@@ -206,13 +206,21 @@ test("with database-routes on the values carry the flag and the organization ide
 });
 
 test("the delivery arguments hand the kore-config-delivery chart the flag, the organization identifier and the Gateway only while database-routes is on", () => {
+  const base: ChartDeliveryValues = {
+    charts: {},
+    namespaces: {},
+    gatewayClassName: "istio",
+    platformDomain: "kore.internal",
+    platformHostname: "*.platform.kore.internal",
+  };
   expect(
     databaseRoutesDeliveryArgs({
+      ...base,
       databaseRoutes: true,
       organizationId: "platform",
       gatewayName: "kore-gateway",
       gatewayNamespace: "kore-system",
-    } as ChartDeliveryValues),
+    }),
   ).toEqual([
     "--set",
     "databaseRoutes=true",
@@ -223,5 +231,5 @@ test("the delivery arguments hand the kore-config-delivery chart the flag, the o
     "--set-string",
     "gatewayNamespace=kore-system",
   ]);
-  expect(databaseRoutesDeliveryArgs({} as ChartDeliveryValues)).toEqual([]);
+  expect(databaseRoutesDeliveryArgs(base)).toEqual([]);
 });
