@@ -12,6 +12,7 @@ export { RegistryPruneError } from "./registry-prune-error.js";
 export {
   localRegistryReference,
   stopRegistryForward,
+  reachedThroughForward,
   tailnetForwardApplies,
 } from "./registry.js";
 export { registryNameProblem } from "./registry-name.js";

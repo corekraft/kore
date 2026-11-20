@@ -41,6 +41,22 @@ export function tailnetForwardApplies(repository: Repository): boolean {
   );
 }
 
+/**
+ * Whether `reference` names the in-cluster registry and so is reached through
+ * the tailnet forward (ADR 0143). A release image on a mirror is not in the
+ * registry, so it is never rewritten to the forward and never gets the
+ * registry's read credential.
+ */
+export function reachedThroughForward(
+  repository: Repository,
+  reference: string,
+): boolean {
+  return (
+    tailnetForwardApplies(repository) &&
+    reference.startsWith(`${registryPlan(repository.environment).address}/`)
+  );
+}
+
 export interface RegistryDependencies {
   spawnPortForward?: (repository: Repository) => number;
   isPortOpen?: (ca: string) => Promise<boolean>;
@@ -187,7 +203,7 @@ export async function localRegistryReference(
   reference: string,
   dependencies: RegistryDependencies = {},
 ): Promise<string> {
-  if (tailnetForwardApplies(repository)) {
+  if (reachedThroughForward(repository, reference)) {
     await ensureRegistryForward(repository, runner, dependencies);
     return reference.replace(/^[^/]+/, forwardAddress);
   }

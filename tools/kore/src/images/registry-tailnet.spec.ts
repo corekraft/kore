@@ -4,7 +4,11 @@ import { featureEnabled, registryPlan } from "../config/index.js";
 import { fakeRepository, fakeRunner } from "./images-support.js";
 import { recordForwardOwner } from "./registry-forward-owner.js";
 import { hostRegistryAddress } from "./registry-name.js";
-import { localRegistryReference, tailnetForwardApplies } from "./registry.js";
+import {
+  localRegistryReference,
+  reachedThroughForward,
+  tailnetForwardApplies,
+} from "./registry.js";
 import { loadRegistryCa } from "./registry-tls.js";
 
 vi.mock("../config/index.js");
@@ -105,4 +109,42 @@ test("the tailnet forward applies only to a managed environment with an in-clust
 
   vi.mocked(featureEnabled).mockReturnValue(false);
   expect(tailnetForwardApplies(vpsRepository)).toBe(false);
+});
+
+const mirrorReference = "ghcr.io/corekraft/kore/mirror/app@sha256:abc";
+
+test("a reference outside the in-cluster registry, such as a release mirror image, is returned unchanged and starts no forward even with the flag on", async () => {
+  vi.mocked(featureEnabled).mockReturnValue(true);
+  vi.mocked(registryPlan).mockReturnValue(inCluster);
+  const spawnPortForward = vi.fn(() => 1234);
+  const isPortOpen = vi.fn(async () => true);
+
+  await expect(
+    localRegistryReference(
+      vpsRepository,
+      fakeRunner().runner,
+      mirrorReference,
+      {
+        isPortOpen,
+        spawnPortForward,
+      },
+    ),
+  ).resolves.toBe(mirrorReference);
+
+  expect(spawnPortForward).not.toHaveBeenCalled();
+  expect(isPortOpen).not.toHaveBeenCalled();
+});
+
+test("only a reference in the in-cluster registry is reached through the forward, and only with the flag on", () => {
+  vi.mocked(featureEnabled).mockReturnValue(true);
+  vi.mocked(registryPlan).mockReturnValue(inCluster);
+  expect(
+    reachedThroughForward(vpsRepository, "10.43.0.50:5000/reference:dev"),
+  ).toBe(true);
+  expect(reachedThroughForward(vpsRepository, mirrorReference)).toBe(false);
+
+  vi.mocked(featureEnabled).mockReturnValue(false);
+  expect(
+    reachedThroughForward(vpsRepository, "10.43.0.50:5000/reference:dev"),
+  ).toBe(false);
 });

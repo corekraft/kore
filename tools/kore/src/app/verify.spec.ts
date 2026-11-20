@@ -6,7 +6,7 @@ import {
   loadRegistryCa,
   loadRegistryCredential,
   localRegistryReference,
-  tailnetForwardApplies,
+  reachedThroughForward,
   withRegistryClient,
   type RegistryClient,
   type RegistryCredential,
@@ -49,7 +49,7 @@ beforeEach(() => {
   vi.mocked(isLocalProvider).mockReturnValue(true);
   vi.mocked(trustedSigners).mockReturnValue([localKey, releaseSigner]);
   vi.mocked(koreManagesRegistryAuth).mockReturnValue(false);
-  vi.mocked(tailnetForwardApplies).mockReturnValue(false);
+  vi.mocked(reachedThroughForward).mockReturnValue(false);
   vi.mocked(localRegistryReference).mockImplementation(
     async (_repository, _runner, reference) => reference,
   );
@@ -223,7 +223,7 @@ test("a local verification loads only the read-only registry credential, never t
 test("a managed environment reached through the tailnet forward verifies over TLS with the read credential and the registry CA", async () => {
   vi.mocked(isLocalProvider).mockReturnValue(false);
   vi.mocked(koreManagesRegistryAuth).mockReturnValue(true);
-  vi.mocked(tailnetForwardApplies).mockReturnValue(true);
+  vi.mocked(reachedThroughForward).mockReturnValue(true);
   vi.mocked(loadRegistryCredential).mockResolvedValue(credential);
   vi.mocked(loadRegistryCa).mockResolvedValue("CA-PEM");
   vi.mocked(localRegistryReference).mockResolvedValue(
