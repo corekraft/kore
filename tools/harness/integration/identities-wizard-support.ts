@@ -41,6 +41,10 @@ export interface Sandbox {
   securityStdin: string;
   /** The keychain services already stored: one per line; `security find-generic-password` answers from it. */
   present: string;
+  /** Keychain values for `find-generic-password -w`: one `service=value` per line. */
+  values: string;
+  /** What each `ssh` received on stdin. */
+  sshStdin: string;
 }
 
 /** Shims for every outside tool: they log what they were given and touch nothing. */
@@ -59,6 +63,9 @@ export function sandbox(): Sandbox {
   const securityStdin = join(root, "security-stdin.log");
   const present = join(root, "present.txt");
   writeFileSync(present, "");
+  const values = join(root, "values.txt");
+  writeFileSync(values, "");
+  const sshStdin = join(root, "ssh-stdin.log");
   const shim = (name: string, body: string) => {
     const path = join(bin, name);
     writeFileSync(
@@ -67,10 +74,15 @@ export function sandbox(): Sandbox {
     );
     chmodSync(path, 0o755);
   };
-  // A lookup (`find-generic-password`) answers from the present list and reads no stdin; a store reads its stdin.
+  // A lookup (`find-generic-password`) answers from the present list, or from the values with -w, and reads no stdin; a store reads its stdin.
   shim(
     "security",
-    `if [ "$1" = find-generic-password ]; then grep -qx "$3" "${present}"; else cat >> "${securityStdin}"; fi`,
+    `if [ "$1" = find-generic-password ]; then case "$*" in *" -w") line=$(grep "^$3=" "${values}") || exit 44; printf '%s\\n' "\${line#*=}";; *) grep -qx "$3" "${present}";; esac; else cat >> "${securityStdin}"; fi`,
+  );
+  // ssh answers the age public key query and logs whatever else it is fed on stdin.
+  shim(
+    "ssh",
+    `case "$*" in *age-keygen*) echo age1hostpublickeyfortests;; *) cat >> "${sshStdin}";; esac`,
   );
   shim(
     "gh",
@@ -80,7 +92,17 @@ export function sandbox(): Sandbox {
     shim(opener, "exit 0");
   }
   shim("rm", "exit 0");
-  return { bin, home, cwd, pem, calls, securityStdin, present };
+  return {
+    bin,
+    home,
+    cwd,
+    pem,
+    calls,
+    securityStdin,
+    present,
+    values,
+    sshStdin,
+  };
 }
 
 export function runWizard(box: Sandbox, args: string[], input: string) {

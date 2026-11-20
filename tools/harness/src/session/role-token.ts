@@ -1,11 +1,9 @@
 import { createSign } from "node:crypto";
 import { FlagError, environments, readOverlay } from "../flag/index.js";
 import type { CliDeps } from "../runtime/index.js";
+import { WIZARD, identityItem } from "./identity-store.js";
+import type { RoleToken } from "./identity-store.js";
 
-/** Where the owner runs the wizard that creates the identities and fills the keychain. */
-export const WIZARD = "tools/harness/wizards/identities.sh";
-
-const ACCOUNT = "kore";
 const REPOSITORY = "kore";
 const API = "https://api.github.com";
 const JWT_LIFETIME_SECONDS = 540;
@@ -115,29 +113,7 @@ const IDENTITY_OF_ROLE: ReadonlyMap<string, keyof typeof APPS> = new Map([
   ["advisor", "orchestrator"],
 ]);
 
-export type RoleToken = { token: string } | { error: string };
-
-/** The keychain item's value; an error naming the item and the wizard when it is missing or empty. */
-async function fromKeychain(
-  deps: CliDeps,
-  service: string,
-  identity: string,
-): Promise<RoleToken> {
-  const read = await deps.runner.run("security", [
-    "find-generic-password",
-    "-s",
-    service,
-    "-a",
-    ACCOUNT,
-    "-w",
-  ]);
-  const value = read.stdout.trim();
-  return read.code === 0 && value !== ""
-    ? { token: value }
-    : {
-        error: `The ${identity} identity is missing: keychain item ${service} was not found. Create it with \`bash ${WIZARD}\`, then rerun. No pane was split.`,
-      };
-}
+export type { RoleToken };
 
 const base64url = (value: string | Buffer): string =>
   Buffer.from(value).toString("base64url");
@@ -172,9 +148,9 @@ function githubReason(result: { stdout: string; stderr: string }): string {
 async function mintApp(deps: CliDeps, app: AppIdentity): Promise<RoleToken> {
   const { service, label } = app;
   const [appId, installationId, key] = [
-    await fromKeychain(deps, service.appId, label),
-    await fromKeychain(deps, service.installationId, label),
-    await fromKeychain(deps, service.privateKey, label),
+    await identityItem(deps, service.appId, label),
+    await identityItem(deps, service.installationId, label),
+    await identityItem(deps, service.privateKey, label),
   ];
   for (const item of [appId, installationId, key]) {
     if ("error" in item) {
@@ -275,7 +251,8 @@ async function ownerToken(deps: CliDeps): Promise<RoleToken> {
 /**
  * The GitHub token a role's pane gets: a minted installation token for the
  * writer, the reviewer and the orchestrator Apps (the advisor pane uses the
- * orchestrator's, ADR 0120), the keychain PAT for the judge. With the
+ * orchestrator's, ADR 0120), the keychain PAT for the judge. Items come from
+ * the macOS keychain, or on Linux from the sops-encrypted identity store. With the
  * owner-writer flag also on, the writer gets the owner's own gh login token
  * and the judge a minted kore-judge installation token instead. Every other
  * role, the main session included, gets none (undefined)
@@ -306,6 +283,6 @@ export async function roleToken(
     return await ownerToken(deps);
   }
   return identity === "judge" && !ownerWriter
-    ? await fromKeychain(deps, JUDGE_PAT_SERVICE, "judge")
+    ? await identityItem(deps, JUDGE_PAT_SERVICE, "judge")
     : await mintApp(deps, APPS[identity]);
 }

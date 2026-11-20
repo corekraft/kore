@@ -70,6 +70,8 @@ export interface FakeDeps {
   root: Mock<CliDeps["root"]>;
   ids: { next: Mock<IdSource["next"]> };
   env: Record<string, string | undefined>;
+  /** Set by a spec that runs on another host; absent, the host is macOS. */
+  platform?: NodeJS.Platform;
   /** Set by a spec that samples launches; absent, nothing is sampled. */
   random?: Mock<() => number>;
   cwd: string;
