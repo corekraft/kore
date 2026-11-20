@@ -1,5 +1,26 @@
 # Changelog
 
+## [0.12.0](https://github.com/corekraft/kore/compare/v0.11.0...v0.12.0) (2026-11-20)
+
+
+### Features
+
+* **platform:** route databases by name through a PostgreSQL chart behind database-routes ([#1367](https://github.com/corekraft/kore/issues/1367)) ([e8836e2](https://github.com/corekraft/kore/commit/e8836e2c7e843b560a49c943cf444df10ba77868))
+* **platform:** route each database by name with a TLS route behind database-routes ([#1377](https://github.com/corekraft/kore/issues/1377)) ([a38dcd6](https://github.com/corekraft/kore/commit/a38dcd6d998700827ac2b4ac8aeb7280b4edd907))
+* **platform:** route OTLP by name to the standard collector receiver behind otlp-route ([#1378](https://github.com/corekraft/kore/issues/1378)) ([27053f1](https://github.com/corekraft/kore/commit/27053f17d7b84affa8f45043524b3f1d3c7b9dc0))
+
+
+### Bug fixes
+
+* **platform:** retry the Argo CD Application read on a full kubectl stdout buffer ([#1381](https://github.com/corekraft/kore/issues/1381)) ([a645036](https://github.com/corekraft/kore/commit/a6450362e96bdf3140d1d0ff8e5994d9f6b5d11c))
+
+
+### Documentation
+
+* **ideas:** record the idea 0042 outcome and its follow-up idea ([#1379](https://github.com/corekraft/kore/issues/1379)) ([d3be179](https://github.com/corekraft/kore/commit/d3be179aebe97e5e39fd642bbf26548f0b1d93a2))
+* **platform:** narrow platform.organizationId docs to what reads it ([#1376](https://github.com/corekraft/kore/issues/1376)) ([0592e6a](https://github.com/corekraft/kore/commit/0592e6a9f38195c382e61acbb57a85edeed99731))
+* **platform:** propose publishing signed configuration charts from main for local proofs ([#1374](https://github.com/corekraft/kore/issues/1374)) ([468958b](https://github.com/corekraft/kore/commit/468958b3f6b4c7c652fed1cbf948234226887d6f))
+
 ## [0.11.0](https://github.com/corekraft/kore/compare/v0.10.1...v0.11.0) (2026-11-20)
 
 
