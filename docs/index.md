@@ -354,6 +354,13 @@ decisions; read one only when planning that area, and expect it to change.
   the repo retro over 436 sessions, unified with the Pocock retro into one
   owner-decided triage; none applied yet. Read before changing the role guards
   or the writer agent definition.
+- [`docs/retros/2026-11-20-determinism-retro.md`](retros/2026-11-20-determinism-retro.md)
+  — the determinism retro, revised after its grill and the owner's decisions:
+  `pr check` lists the matching patterns (one idea), a flow figure for merges
+  past a failing precheck (upper bound 33 of 102), scan clipping and brief
+  exclusion, a measurement note on ideas 0021 and 0035, and a role-block
+  diagnostic; no guard; proposals only; none filed. Read before changing the
+  retro scan, `pr check` or the flow report.
 - [`docs/retros/2026-11-20-cost-retro.md`](retros/2026-11-20-cost-retro.md) —
   the cost and token retro over 2026-11-18 to 2026-11-20 ($343, 33.1 billion
   plan-weighted tokens): two measured context-cap cases for idea 0038's E2 and
