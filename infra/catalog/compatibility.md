@@ -58,6 +58,7 @@ on a live cluster.
 | actionlint                       | 1.7.12                   | 2026-11-08 | `mise run scan-workflows`: workflow syntax and expression checks, offline                                                                                                                                                                                                                                                                                                                                                                                                                                     |
 | zizmor                           | 1.31.1                   | 2026-11-08 | `mise run scan-workflows`: workflow security audit (`--offline`, regular persona), SHA pinning and permissions                                                                                                                                                                                                                                                                                                                                                                                                |
 | hadolint                         | 2.15.1                   | 2026-11-08 | `mise run scan-dockerfiles`: Dockerfile lint for `apps/reference` and `templates/static-frontend`                                                                                                                                                                                                                                                                                                                                                                                                             |
+| psql (host client)               | 17.12.0                  | 2026-11-19 | Host client for the database-by-name proof: `sslnegotiation=direct` needs libpq 17 or later, which Postgres 17 and 18 databases serve. Pinned in `.mise.toml` as `github:theseus-rs/postgresql-binaries`, a developer tool the tool catalog does not mirror. Archive SHA-256 and verification are in the psql note below; the live proof is owed to #1225                                                                                                                                                     |
 | OPA Envoy image                  | 1.22.2-envoy             | 2026-11-07 | `opa-authorizer` renders; same OPA release as the toolchain CLI; policies pass `test-opa`                                                                                                                                                                                                                                                                                                                                                                                                                     |
 | GraalVM JDK base image           | 25.0.2                   | 2026-11-14 | Kotlin BFF template (ADR 0046): `ghcr.io/graalvm/jdk-community:25.0.2@sha256:a3bdba6a313cddc89f7e1b2649140e898c68ba356994a9c317b96b01bcb9f982`; the tag was resolved to this index digest with `crane digest ghcr.io/graalvm/jdk-community:25.0.2` on 2026-11-14; JDK 25 AOT cache; template only, nothing deploys it; live image build owed                                                                                                                                                                  |
 | OpenTelemetry Java agent         | 2.33.1                   | 2026-11-14 | Kotlin BFF template: jar SHA-256 `e43a270df53c6f423e0ab157be9c27ccc01d5dc3232e162fe54777573db2f149`, taken from the digest GitHub records for the `v2.33.1` release asset `opentelemetry-javaagent.jar` (`gh api repos/open-telemetry/opentelemetry-java-instrumentation/releases/tags/v2.33.1`), compared with the release's `checksums.txt` and with `shasum -a 256` of the downloaded jar on 2026-11-14; the Gradle build refuses any other jar; startup with the agent and the AOT cache is measured live |
@@ -122,6 +123,37 @@ detection, so no values change.
 All pins are centralized in `versions.yaml`. A controller upgrade must render
 offline, pass CRD ownership tests, and pass the live bootstrap test before the
 matrix is changed.
+
+psql 17.12.0 (resolved 2026-11-19) is the prebuilt PostgreSQL release of
+https://github.com/theseus-rs/postgresql-binaries (tag `17.12.0`, built from the
+upstream `REL_17_12` tag by the project's `build.yml` workflow on GitHub-hosted
+runners; no source build here). mise's `github:` backend checks no checksum, so
+the pin is checked by hand, as for the OpenTelemetry Java agent. The release page
+has no notes (an empty body); its `manifest.json` names the PostgreSQL source tag
+and commit, and the release is not a draft or prerelease. Archive SHA-256 (the
+digest GitHub records for the release asset, the same value as the release's
+`.sha256` file and as `shasum -a 256` of the archive downloaded with
+`gh release download` on 2026-11-19), and `gh attestation verify` of each
+archive against `theseus-rs/postgresql-binaries` passed:
+
+| Platform                  | Archive SHA-256                                                    |
+| ------------------------- | ------------------------------------------------------------------ |
+| x86_64-apple-darwin       | `34ba0eca0f15776b4ab9a07b2decc6fb0b1910a57870ad7d7dacb7399b43c9bd` |
+| aarch64-apple-darwin      | `2f752033b208f9a6a12ef64a9ee23bf19149cff160841980db1e221bf7d24809` |
+| x86_64-unknown-linux-gnu  | `af316b6e42266ec0a153bdc9194e0b1b5f12c9ce4f0b13d9a96dfca77d9aaecc` |
+| aarch64-unknown-linux-gnu | `9b3ca376cbdecb297711f9b09bfe834ae0f7c231042de58b7cb4bb2c0a526301` |
+
+Platforms: all four assets exist and were hashed and verified. Checked live on
+macOS x64 (`uname -m` reports `x86_64`): `mise install` then `psql --version`
+prints `psql (PostgreSQL) 17.12`, and libpq accepts `sslnegotiation=direct`.
+macOS arm64 and the Linux runners CI uses (x86_64 and aarch64 glibc) are
+checked by asset presence, hash and attestation only, not run. Windows and
+musl assets exist but are out of scope. mise installs the psql pin on every
+runner that runs `mise install`, so CI downloads one more archive. Offline,
+on 2026-11-19: `mise run validate`, `mise run test` (kore 2805 and harness
+6606 tests) and `mise run test-opa` (19 of 19) pass; no chart changed, so the
+chart and container smoke checks do not apply. The live bootstrap test is still
+required before a release is tagged.
 
 metrics-server chart 3.14.0 (app v0.9.0, resolved 2026-11-14) is cataloged and
 pinned but not installed: it carries `featureFlag: autoscaling-defaults`, off in
