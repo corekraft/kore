@@ -208,8 +208,8 @@ mise exec -- npm --prefix tools/kore run kore -- data restore --environment loca
 ```
 
 `data export` dumps each retained CloudNativePG database with `pg_dump`,
-encrypts the stream with `age` to the recipient `.sops.yaml` names for the
-environment, and writes only ciphertext plus a manifest (SHA-256 of the
+encrypts the stream with `age` to every recipient the `.sops.yaml` rule for the
+environment names (a comma-separated list, one public key per machine), and writes only ciphertext plus a manifest (SHA-256 of the
 artifact, contents, environment, time) to the gitignored
 `.kore/exports/<environment>/`. It fails while the recipient is still
 `AGE-RECIPIENT-MUST-BE-CONFIGURED`. `cluster destroy` accepts an unreachable

@@ -12,7 +12,7 @@ function unquote(value: string): string {
     .replace(/^(["'])(.*)\1$/, "$2");
 }
 
-function findRecipient(text: string, name: string): string | undefined {
+function findRecipients(text: string, name: string): string | undefined {
   let inRule = false;
   let matches = false;
   for (const line of text.split("\n")) {
@@ -30,11 +30,28 @@ function findRecipient(text: string, name: string): string | undefined {
   return undefined;
 }
 
+/** Each entry is checked alone, so one bad entry is named, never the whole list. */
+function checkRecipient(entry: string, name: string): void {
+  if (entry === PLACEHOLDER_RECIPIENT) {
+    throw new Error(
+      `the age recipient in .sops.yaml for ${name} is still the placeholder ${PLACEHOLDER_RECIPIENT}; set it to the public age recipient (age1...) you generated, then retry`,
+    );
+  }
+  if (!AGE_RECIPIENT.test(entry)) {
+    throw new Error(
+      `"${entry}" in .sops.yaml is not a valid age recipient (expected age1 followed by 58 characters); set the public recipient printed by age-keygen`,
+    );
+  }
+}
+
 /**
- * Reads the age recipient that `.sops.yaml` names for this environment's
- * secrets. The recipient is public; no key material is read.
+ * Reads the age recipients that `.sops.yaml` names for this environment's
+ * secrets, a comma-separated list of public keys. Every entry is checked, and
+ * the export encrypts to all of them. No key material is read.
  */
-export async function exportRecipient(repository: Repository): Promise<string> {
+export async function exportRecipients(
+  repository: Repository,
+): Promise<string[]> {
   const name = repository.environment.name;
   let text: string;
   try {
@@ -44,21 +61,15 @@ export async function exportRecipient(repository: Repository): Promise<string> {
       `cannot read .sops.yaml for the age recipient: ${error instanceof Error ? error.message : String(error)}`,
     );
   }
-  const recipient = findRecipient(text, name);
-  if (recipient === undefined) {
+  const value = findRecipients(text, name);
+  if (value === undefined) {
     throw new Error(
       `.sops.yaml has no creation rule with an age recipient for environments/${name}/; add one before exporting`,
     );
   }
-  if (recipient === PLACEHOLDER_RECIPIENT) {
-    throw new Error(
-      `the age recipient in .sops.yaml for ${name} is still the placeholder ${PLACEHOLDER_RECIPIENT}; set it to the public age recipient (age1...) you generated, then retry`,
-    );
+  const recipients = value.split(",").map((entry) => entry.trim());
+  for (const recipient of recipients) {
+    checkRecipient(recipient, name);
   }
-  if (!AGE_RECIPIENT.test(recipient)) {
-    throw new Error(
-      `"${recipient}" in .sops.yaml is not a valid age recipient (expected age1 followed by 58 characters); set the public recipient printed by age-keygen`,
-    );
-  }
-  return recipient;
+  return recipients;
 }

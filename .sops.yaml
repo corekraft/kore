@@ -1,7 +1,7 @@
 creation_rules:
   - path_regex: infra/environments/local/secrets/.*\.enc\.yaml$
     encrypted_regex: "^(data|stringData)$"
-    age: age12mqechtl4xrs0mtl9ase7ayup36t8ad7f3ut85v7hgcnwm9f0p6sgg8hrx
+    age: age12mqechtl4xrs0mtl9ase7ayup36t8ad7f3ut85v7hgcnwm9f0p6sgg8hrx,age1q8yhuawfmjlqmtjq5mq3lulz3fru6u75323f0gdxfj4u4s80t95q9elfcf
 
   - path_regex: infra/environments/vps/secrets/.*\.enc\.yaml$
     encrypted_regex: "^(data|stringData)$"
