@@ -15,6 +15,11 @@ connection Secret exposes exactly `host`, `port`, `database`, `username`,
 `passwordSecretRef`, and `sslmode`, a `Retain` claim selects `kore-retained`,
 and CloudNativePG phase, failure reason, and endpoint reach the composite status.
 
+With database-routes on, `tools/kore/integration/platform/platform.postgresql-route-ready.spec.ts`
+asserts that a database's TLS route is ready only once the observed route has Accepted and
+ResolvedRefs True for the shared Gateway, and that a route the Gateway refused projects a False
+`DatabaseRouteReady` condition with the Gateway's reason (issue 1472).
+
 `kore app down` leaves the claim and database intact and reports retained
 resources (`tools/kore/src/app/app-lifecycle.spec.ts`). Live tests must still
 show the same against a real cluster.

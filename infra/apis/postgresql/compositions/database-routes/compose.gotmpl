@@ -56,6 +56,20 @@ spec:
     name: {{ $routes.issuer }}
 {{- end }}
 {{- if $certificates }}
+{{- $routeEntry := dict }}
+{{- with .observed.resources }}{{ with index . "database-route" }}{{ $routeEntry = . }}{{ end }}{{ end }}
+{{- $route := dig "resource" (dict) $routeEntry }}
+{{- $accepted := dict }}
+{{- $resolved := dict }}
+{{- range dig "status" "parents" (list) $route }}
+{{- if and (eq (dig "parentRef" "name" "" .) $routes.gatewayName) (eq (dig "parentRef" "namespace" "" .) $routes.gatewayNamespace) }}
+{{- range dig "conditions" (list) . }}
+{{- if eq (dig "type" "" .) "Accepted" }}{{ $accepted = . }}{{ end }}
+{{- if eq (dig "type" "" .) "ResolvedRefs" }}{{ $resolved = . }}{{ end }}
+{{- end }}
+{{- end }}
+{{- end }}
+{{- $routeReady := and (eq (dig "status" "" $accepted) "True") (eq (dig "status" "" $resolved) "True") }}
 ---
 # The database's name on the shared Gateway: a TLS passthrough route in the
 # database's own namespace, so the Gateway picks the backend by the name the
@@ -69,6 +83,7 @@ metadata:
   namespace: {{ $namespace }}
   annotations:
     gotemplating.fn.crossplane.io/composition-resource-name: database-route
+    gotemplating.fn.crossplane.io/ready: {{ if $routeReady }}"True"{{ else }}"False"{{ end }}
 spec:
   parentRefs:
     - group: gateway.networking.k8s.io
