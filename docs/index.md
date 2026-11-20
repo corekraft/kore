@@ -351,6 +351,10 @@ decisions; read one only when planning that area, and expect it to change.
   the repo retro over 436 sessions, unified with the Pocock retro into one
   owner-decided triage; none applied yet. Read before changing the role guards
   or the writer agent definition.
+- [`docs/retros/2026-11-20-friction-retro.md`](retros/2026-11-20-friction-retro.md)
+  — the bottleneck and friction retro over the sessions since 2026-11-18: seven
+  proposals, three bottlenecks and four friction points, none filed. Read before
+  changing the precheck pattern match, the retro skill or the role guards.
 
 ## Skills
 
