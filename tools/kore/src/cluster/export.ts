@@ -16,7 +16,7 @@ import {
   sha256,
   type ExportManifest,
 } from "./export-manifest.js";
-import { exportRecipient } from "./export-recipient.js";
+import { exportRecipients } from "./export-recipient.js";
 
 export interface ExportOptions {
   namespace: string;
@@ -154,7 +154,7 @@ export async function exportRetainedData(
   options: ExportOptions,
 ): Promise<{ exports: ExportEntry[] }> {
   // Fail on configuration before any cluster contact.
-  const recipient = await exportRecipient(repository);
+  const recipients = await exportRecipients(repository);
   await assertExpectedCluster(repository, runner);
   const { namespace } = options;
   const clusters = await exportableClusters(repository, runner, namespace);
@@ -175,7 +175,10 @@ export async function exportRetainedData(
     );
     const encrypted = await runner.run(
       "age",
-      ["--armor", "--recipient", recipient],
+      [
+        "--armor",
+        ...recipients.flatMap((recipient) => ["--recipient", recipient]),
+      ],
       { capture: true, input: dump.stdout },
     );
     exports.push(
@@ -185,7 +188,7 @@ export async function exportRetainedData(
         stamp,
         namespace,
         cluster: cluster.name,
-        recipient,
+        recipient: recipients.join(","),
         ciphertext: encrypted.stdout,
       }),
     );

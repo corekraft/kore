@@ -5,7 +5,7 @@ import { assertExpectedCluster } from "./cluster.js";
 import { exportRetainedData } from "./export.js";
 import { execArgs, retainedClusters } from "./export-cluster.js";
 import { exportDirectory, sha256 } from "./export-manifest.js";
-import { exportRecipient } from "./export-recipient.js";
+import { exportRecipients } from "./export-recipient.js";
 import { fakeRepository, fakeRunner } from "./cluster-support.js";
 
 vi.mock("node:fs/promises");
@@ -16,6 +16,7 @@ vi.mock("./export-manifest.js");
 vi.mock("./export-recipient.js");
 
 const RECIPIENT = `age1${"q".repeat(58)}`;
+const OTHER = `age1${"p".repeat(58)}`;
 const PLAIN = "CREATE TABLE t (id int);\n";
 const CIPHER = "-----BEGIN AGE ENCRYPTED FILE-----\nabc\n";
 const NOW = new Date("2026-11-14T10:00:00.000Z");
@@ -38,7 +39,7 @@ function reply(uncovered = "") {
 }
 
 beforeEach(() => {
-  vi.mocked(exportRecipient).mockResolvedValue(RECIPIENT);
+  vi.mocked(exportRecipients).mockResolvedValue([RECIPIENT]);
   vi.mocked(retainedClusters).mockResolvedValue([
     { name: "pg-main", primary: "pg-main-1" },
   ]);
@@ -66,6 +67,27 @@ test("each retained database is dumped from its primary and the dump is encrypte
     ["--armor", "--recipient", RECIPIENT],
     { capture: true, input: PLAIN },
   );
+});
+
+test("the dump is encrypted to every recipient the rule names, so each machine's identity can decrypt it", async () => {
+  vi.mocked(exportRecipients).mockResolvedValue([RECIPIENT, OTHER]);
+  const { runner, run } = fakeRunner(reply());
+  await exportRetainedData(repository, runner, options);
+  expect(run).toHaveBeenCalledWith(
+    "age",
+    ["--armor", "--recipient", RECIPIENT, "--recipient", OTHER],
+    { capture: true, input: PLAIN },
+  );
+});
+
+test("the manifest records every recipient, comma-separated, and a single recipient is recorded as it always was", async () => {
+  vi.mocked(exportRecipients).mockResolvedValue([RECIPIENT, OTHER]);
+  const { runner } = fakeRunner(reply());
+  await exportRetainedData(repository, runner, options);
+  const manifest = JSON.parse(
+    vi.mocked(writeFile).mock.calls[1]?.[1] as string,
+  ) as { recipient: string };
+  expect(manifest.recipient).toBe(`${RECIPIENT},${OTHER}`);
 });
 
 test("the artifact is written with a stamped name, owner-only mode, and no overwrite", async () => {
@@ -134,7 +156,7 @@ test("plaintext is never written to disk, only the ciphertext and the manifest",
 });
 
 test("the recipient is checked before the cluster is contacted, so a bad recipient runs no command", async () => {
-  vi.mocked(exportRecipient).mockRejectedValue(new Error("placeholder"));
+  vi.mocked(exportRecipients).mockRejectedValue(new Error("placeholder"));
   const { runner, run } = fakeRunner(reply());
   await expect(exportRetainedData(repository, runner, options)).rejects.toThrow(
     "placeholder",
