@@ -1,7 +1,7 @@
 import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, relative } from "node:path";
-import { lockedRegistryHost } from "../platform-domain.fixtures.js";
+import { defaultPlatformDomain } from "../platform-domain.fixtures.js";
 
 export const digest = "sha256:" + "a".repeat(64);
 
@@ -28,7 +28,7 @@ export async function writeReleaseLock(
       authorizedSigners: [signer],
       entries: {
         reference: {
-          image: `${lockedRegistryHost}:30500/reference`,
+          image: `registry.${defaultPlatformDomain}:30500/reference`,
           digest,
           signer,
         },

@@ -32,15 +32,22 @@ export type PortProbe = (
 ) => Promise<boolean>;
 
 /**
- * The process listening on a host port, as lsof names it (`command (pid n)`);
- * undefined when lsof names none or is not installed. Read-only. A UDP port
- * has no LISTEN state, so its lookup is every UDP socket on the port.
+ * What lsof says about a host port: the process listening on it (as lsof names
+ * it, `command (pid n)`), nothing, or that lsof could not run at all.
  */
-async function holderOf(
+export type Listener =
+  { kind: "held"; holder: string } | { kind: "free" } | { kind: "unavailable" };
+
+/**
+ * The listener on a host port, read-only. lsof exits 1 when it names none, so
+ * that is free; a missing lsof is unavailable, which is not the same answer. A
+ * UDP port has no LISTEN state, so its lookup is every UDP socket on the port.
+ */
+async function listenerOf(
   runner: Runner,
   hostPort: number,
   protocol: HostProtocol,
-): Promise<string | undefined> {
+): Promise<Listener> {
   const args =
     protocol === "udp"
       ? ["-nP", `-iUDP:${hostPort}`, "-Fpc"]
@@ -49,20 +56,50 @@ async function holderOf(
   try {
     ({ stdout } = await runner.run("lsof", args, { capture: true }));
   } catch (error) {
-    if (
-      error instanceof CommandError ||
-      (error as NodeJS.ErrnoException).code === "ENOENT"
-    ) {
-      return undefined;
+    if (error instanceof CommandError) {
+      return { kind: "free" };
+    }
+    if ((error as NodeJS.ErrnoException).code === "ENOENT") {
+      return { kind: "unavailable" };
     }
     throw error;
   }
   const pid = /^p(\d+)$/m.exec(stdout)?.[1];
   if (pid === undefined) {
-    return undefined;
+    return { kind: "free" };
   }
   const command = /^c(.*)$/m.exec(stdout)?.[1] ?? "unknown command";
-  return `${command} (pid ${pid})`;
+  return { kind: "held", holder: `${command} (pid ${pid})` };
+}
+
+/** The holder of a host port when lsof names one; undefined when it names none or cannot run. */
+async function holderOf(
+  runner: Runner,
+  hostPort: number,
+  protocol: HostProtocol,
+): Promise<string | undefined> {
+  const listener = await listenerOf(runner, hostPort, protocol);
+  return listener.kind === "held" ? listener.holder : undefined;
+}
+
+/**
+ * The refusal for a privileged host port (below 1024), which kore never binds
+ * to check: it names the port as privileged, then the holder, or that lsof was
+ * unavailable so the port cannot be checked at all.
+ */
+function privilegedRefusal(
+  environmentName: string,
+  port: K3dPort,
+  index: number,
+  protocol: HostProtocol,
+  listener: Exclude<Listener, { kind: "free" }>,
+): string {
+  const named = `${port.hostAddress}:${port.hostPort}${protocol === "udp" ? "/udp" : ""}`;
+  const setting = `The overlay setting that publishes it is k3d.ports[${index}] (loadBalancerPort ${port.loadBalancerPort}) in environment ${environmentName}.`;
+  if (listener.kind === "held") {
+    return `host port ${named} is privileged (below 1024) and already in use, so the cluster cannot publish it. ${setting} Holder: ${listener.holder}. Free the port by stopping the process holding it, or change k3d.ports[${index}].hostPort, then rerun kore local up --environment ${environmentName}.`;
+  }
+  return `host port ${named} is privileged (below 1024), so kore cannot bind it to check, and lsof was unavailable to name a holder, so the cluster cannot be checked. ${setting} Install lsof, or set "optional": true on k3d.ports[${index}] to skip this port, then rerun kore local up --environment ${environmentName}.`;
 }
 
 /** One taken port's refusal: the port, the overlay setting that publishes it, and the holder when known. */
@@ -109,9 +146,11 @@ export async function checkHostPorts(
     }
     const protocol: HostProtocol = port.protocol ?? "tcp";
     if (port.hostPort < privilegedPortLimit) {
-      const holder = await holderOf(runner, port.hostPort, protocol);
-      if (holder !== undefined) {
-        refusals.push(refusal(environmentName, port, index, protocol, holder));
+      const listener = await listenerOf(runner, port.hostPort, protocol);
+      if (listener.kind !== "free") {
+        refusals.push(
+          privilegedRefusal(environmentName, port, index, protocol, listener),
+        );
       }
       continue;
     }

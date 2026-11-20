@@ -2,7 +2,7 @@
 status: accepted
 summary: Organizations bring domains by delegating a zone under any TLD to the platform's DNS, services are subdomains within those zones, and every organization also gets one default zone under a per-environment platform domain.
 date: 2026-11-09
-last-verified: 2026-11-19
+last-verified: 2026-11-14
 ---
 
 # ADR 0042: Bring organization domains by delegation, with one platform default zone each
@@ -54,8 +54,8 @@ still need working hosts.
   `<service>.<organization>.<platform domain>` before any domain is delegated.
   The platform domain is a per-environment setting, a separate registrable
   domain from any organization's, and is still to be chosen; locally it is
-  `kore.internal`, with `kore.local` kept as a deprecated alias (ADR 0132). It
-  is submitted to the Public Suffix List before outside tenants are admitted.
+  `kore.local`. It is submitted to the Public Suffix List before outside
+  tenants are admitted.
 
 ## Consequences
 

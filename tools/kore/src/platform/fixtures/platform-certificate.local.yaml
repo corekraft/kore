@@ -1,0 +1,13 @@
+---
+# Source: platform-certificate/templates/certificate.yaml
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: kore-local
+spec:
+  secretName: kore-local-tls
+  dnsNames:
+    - "kore.local"
+  issuerRef:
+    kind: ClusterIssuer
+    name: kore-local-ca

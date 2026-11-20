@@ -132,8 +132,8 @@ describe("agentgateway live proof, mesh enrollment", () => {
     expect(request).toBeGreaterThan(
       phase2.indexOf("gone svc kore-gateway-istio"),
     );
-    expect(phase2).toContain("--resolve kore.internal:8443:127.0.0.1");
-    expect(phase2).toContain("https://kore.internal:8443/livez");
+    expect(phase2).toContain("--resolve kore.local:8443:127.0.0.1");
+    expect(phase2).toContain("https://kore.local:8443/livez");
     expect(phase2).toContain('[ "$status" = "200" ] || fail');
     expect(phase2.indexOf("phase 2 ok")).toBeGreaterThan(request);
   });

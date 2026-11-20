@@ -12,9 +12,13 @@ import type { Environment } from "./types.js";
 export interface PlatformPlan {
   domain: string;
   organizationId: string;
-  /** A former domain kept as a listener beside the domain until a contract ticket removes it (ADR 0132). */
-  deprecatedAlias?: string;
 }
+
+/**
+ * The field as an overlay may declare it: the plan plus the deprecated alias,
+ * which is read only through `deprecatedAliasOf` (ADR 0132).
+ */
+type DeclaredPlatform = Partial<PlatformPlan> & { deprecatedAlias?: string };
 
 /**
  * Longest platform domain: the 253-character name limit less a 63-character
@@ -31,7 +35,7 @@ const missing = (environment: Environment) =>
   `environment ${environment.name} must declare platform.domain and platform.organizationId (for example kore.local and platform)`;
 
 /** The field as declared, widened because an overlay can omit or half-fill it. */
-function declared(environment: Environment): Partial<PlatformPlan> | undefined {
+function declared(environment: Environment): DeclaredPlatform | undefined {
   return environment.platform;
 }
 
@@ -41,13 +45,22 @@ export function platformPlan(environment: Environment): PlatformPlan {
   if (field?.domain === undefined || field.organizationId === undefined) {
     throw new Error(missing(environment));
   }
-  return {
-    domain: field.domain,
-    organizationId: field.organizationId,
-    ...(field.deprecatedAlias === undefined
-      ? {}
-      : { deprecatedAlias: field.deprecatedAlias }),
-  };
+  return { domain: field.domain, organizationId: field.organizationId };
+}
+
+/**
+ * The deprecated alias the Gateway keeps beside the domain (ADR 0132), or
+ * undefined. Dark: it is handed to any chart only while platform-dns is on, so
+ * with the flag off no alias listener or certificate name renders, whatever the
+ * overlay declares.
+ */
+export function deprecatedAliasOf(
+  environment: Environment,
+): string | undefined {
+  const alias = declared(environment)?.deprecatedAlias;
+  return alias === undefined || !featureEnabled(environment, platformDnsFlag)
+    ? undefined
+    : alias;
 }
 
 /** The alias problems: a bad DNS name, or one equal to the domain it stands beside. */
@@ -312,7 +325,8 @@ export function platformHelmArgs(
   if (key === undefined && wildcard === undefined) {
     return shared;
   }
-  const { domain, deprecatedAlias } = platformPlan(environment);
+  const { domain } = platformPlan(environment);
+  const deprecatedAlias = deprecatedAliasOf(environment);
   return [
     ...(key === undefined ? [] : ["--set-string", `${key}=${domain}`]),
     ...(wildcard === undefined

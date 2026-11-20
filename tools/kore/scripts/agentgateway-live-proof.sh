@@ -20,7 +20,7 @@
 #      labelled ambient, platform status is clean.
 #      The gateway is reported ready by `kore platform status --json`, and the
 #      Istio ingress proxy (deploy and svc kore-gateway-istio) is gone. A request
-#      through the Gateway to the reference route (https://kore.internal:8443/livez)
+#      through the Gateway to the reference route (https://kore.local:8443/livez)
 #      must answer 200, so the proof no longer passes without sending traffic.
 #   3. rerun `kore local up`; no Helm release revision changes.
 #   4. ingress-agentgateway off again (the other flags stay on):
@@ -224,11 +224,11 @@ gone svc kore-gateway-istio
 ca_root="$(mise exec -- mkcert -CAROOT)"
 status=""
 for _ in 1 2 3 4 5 6; do
-  status="$(curl --silent --output /dev/null --write-out '%{http_code}' --connect-timeout 5 --max-time 20 --cacert "$ca_root/rootCA.pem" --resolve kore.internal:8443:127.0.0.1 https://kore.internal:8443/livez || true)"
+  status="$(curl --silent --output /dev/null --write-out '%{http_code}' --connect-timeout 5 --max-time 20 --cacert "$ca_root/rootCA.pem" --resolve kore.local:8443:127.0.0.1 https://kore.local:8443/livez || true)"
   [ "$status" != "200" ] || break
   sleep 5
 done
-[ "$status" = "200" ] || fail "a request through the Gateway to https://kore.internal:8443/livez answered '$status', expected 200; check the gateway pod carries istio.io/dataplane-mode=ambient and PeerAuthentication kore-gateway-listener exists in kore-system"
+[ "$status" = "200" ] || fail "a request through the Gateway to https://kore.local:8443/livez answered '$status', expected 200; check the gateway pod carries istio.io/dataplane-mode=ambient and PeerAuthentication kore-gateway-listener exists in kore-system"
 dataplane_pod="$(k -n kore-system get pods -l gateway.networking.k8s.io/gateway-name=kore-gateway -o jsonpath='{.items[0].metadata.labels.istio\.io/dataplane-mode}')"
 [ "$dataplane_pod" = "ambient" ] || fail "the kore-gateway pod's istio.io/dataplane-mode is '$dataplane_pod', expected ambient"
 echo "phase 2 ok: rollout, CRDs, ambient label, status, gateway ready, Istio proxy gone and the reference route answers 200 through the Gateway" >&2

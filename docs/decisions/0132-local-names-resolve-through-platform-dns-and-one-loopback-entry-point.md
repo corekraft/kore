@@ -161,34 +161,43 @@ digest lookup, cosign verification and pruning dial
 
 ### The cutover record (issue #1215)
 
+- **Everything new is dark.** The 443 mapping, the `https-alias` listener, the
+  alias's certificate name and the activated domain take effect only while
+  `platform-dns` is on. The checked-in local overlay keeps `platform.domain:
+kore.local` and declares no alias, so with the flag off the Gateway, the
+  certificate and the delivery values render byte-identically to main. The
+  integration goldens are rendered from main's charts, and the flag-off spec
+  compares against them. The feature is `feature-flagged` on `platform-dns`, off
+  in every overlay.
+- **The activation flips the domain and the flag together.** The owner-gated
+  `platform-dns` activation PR sets `platform.domain` to `kore.internal`,
+  declares `platform.deprecatedAlias: kore.local` and turns the flag on in
+  local. Only then does an existing cluster change: the next `kore local up`
+  applies the new listener hostnames and certificate names, and the 443 and
+  1053 mappings cost one recreation (`kore local down --prune`, then
+  `kore local up`), which the drift check names. That PR also checks the release
+  lock's registry host: nodes pull from the domain-derived address, so the lock
+  host follows the domain there, with its digests unchanged. Until then the
+  lock keeps `registry.kore.local:30500`, which matches the checked-in domain.
 - **443 follows the flag.** The loopback 443 mapping is declared with
   `featureFlag: platform-dns`, beside 1053, on the node port 8443 uses. Both
   mappings then cost one recreation, at the `platform-dns` activation. The gate
   is that flag and not `platform-shared-gateway`, which is on in local already:
   gating 443 on it would make the drift check refuse every existing cluster at
-  once, and 1053 would then cost a second recreation. A cluster created before
-  the change is refused while `platform-dns` is on, with
+  once, and 1053 would then cost a second recreation. With the flag on, a
+  cluster created before the change is refused, with
   `port 30443: 8443 != 443` and the recreate instruction; with the flag off it
-  is not compared, as the mapping is not wanted yet.
-- **A privileged port is not probed.** Below 1024 only root may bind, so the
-  pre-create check decides 443 by the listener lookup alone. Docker binds the
-  mapping as root, so a free 443 is not refused for want of a bind by this user.
-- **The alias and the default.** `platform.domain` defaults to `kore.internal`.
-  `platform.deprecatedAlias` (local: `kore.local`) adds an `https-alias`
-  listener on the Gateway's port and names it in the local certificate. Both
-  are additive: `kore.local` and 8443 keep answering until a contract ticket
-  removes them. The alias is not a flag, so this change is live-proven before
-  merge (ADR 0077).
-- **The registry reference.** The release lock keeps the references it pins,
-  `registry.kore.local:30500/...`. Those are the identities the digests and
-  signatures were verified under, so changing them is a release, not part of
-  this cutover. Nodes pull from the in-cluster address (ADR 0031), which does
-  not depend on the domain. Host callers derive the registry's name from
-  `platform.domain` only behind `registry-by-name` (ADR 0132, "The registry by
-  name"); until that flag is on, they keep the port-forward.
-- **kore.local resolves only where an older hosts entry exists.** The platform
-  DNS zone follows `platform.domain`, so it no longer answers `kore.local`. The
-  deprecated alias is a listener, not a name the platform DNS serves.
+  is not compared.
+- **A privileged port is decided by lsof, never bound by kore.** Below 1024 only
+  root may bind, so the pre-create check asks `lsof` and does not probe. A
+  listener refuses the cluster, the message saying the port is privileged and
+  naming the holder. A missing `lsof` also refuses (fail closed), the message
+  saying that lsof was unavailable, so the cluster cannot be checked. No
+  listener means free: Docker binds the mapping as root.
+- **kore.local after the activation.** The platform DNS zone follows
+  `platform.domain`, so once the domain is `kore.internal` it no longer answers
+  `kore.local`. The deprecated alias is a listener, not a name the platform DNS
+  serves; `kore.local` then resolves only through an older hosts entry.
 
 ## Consequences
 

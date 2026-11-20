@@ -78,14 +78,30 @@ test("a privileged host port is never bound by the probe, which this user cannot
   expect(commandLines(run)).toEqual(["lsof -nP -iTCP:443 -sTCP:LISTEN -Fpc"]);
 });
 
-test("a privileged host port with a listener is refused naming the holder, even though the probe was not run", async () => {
+test("a privileged host port with a listener is refused, saying the port is privileged and naming the holder, even though the probe was not run", async () => {
   const probe = vi.fn<PortProbe>(async () => true);
   const { runner } = fakeRunner(() => "p4242\ncnginx\n");
   await expect(
     checkHostPorts("local", privileged, runner, probe),
   ).rejects.toThrow(
     new Error(
-      "host port 127.0.0.1:443 is already in use, so the cluster cannot publish it. The overlay setting that publishes it is k3d.ports[0] (loadBalancerPort 30443) in environment local. Holder: nginx (pid 4242). Free the port by stopping the process holding it, or change k3d.ports[0].hostPort, then rerun kore local up --environment local.",
+      "host port 127.0.0.1:443 is privileged (below 1024) and already in use, so the cluster cannot publish it. The overlay setting that publishes it is k3d.ports[0] (loadBalancerPort 30443) in environment local. Holder: nginx (pid 4242). Free the port by stopping the process holding it, or change k3d.ports[0].hostPort, then rerun kore local up --environment local.",
+    ),
+  );
+  expect(probe).not.toHaveBeenCalled();
+});
+
+test("with lsof missing a privileged host port is refused, not passed as free: the message says the port is privileged and that lsof was unavailable, so the cluster cannot be checked", async () => {
+  const probe = vi.fn<PortProbe>(async () => true);
+  const missing = Object.assign(new Error("spawn lsof ENOENT"), {
+    code: "ENOENT",
+  });
+  const { runner } = failingRunner(missing);
+  await expect(
+    checkHostPorts("local", privileged, runner, probe),
+  ).rejects.toThrow(
+    new Error(
+      'host port 127.0.0.1:443 is privileged (below 1024), so kore cannot bind it to check, and lsof was unavailable to name a holder, so the cluster cannot be checked. The overlay setting that publishes it is k3d.ports[0] (loadBalancerPort 30443) in environment local. Install lsof, or set "optional": true on k3d.ports[0] to skip this port, then rerun kore local up --environment local.',
     ),
   );
   expect(probe).not.toHaveBeenCalled();

@@ -38,9 +38,11 @@ reference from it, so changing it there moves everything
 ([ADR 0031](docs/decisions/0031-registry-address-platform-variable.md)).
 
 The platform's names are one per-environment field too, `platform` in
-`environment.yaml`: `domain` (local: `kore.internal`) and `organizationId`
-(`platform`). A former domain may stay a listener beside the domain as
-`deprecatedAlias` (local: `kore.local`, deprecated, same port and certificate). `kore` validates both before any cluster command (a lowercase DNS
+`environment.yaml`: `domain` (local: `kore.local`) and `organizationId`
+(`platform`). The local domain moves to `kore.internal` only with the
+`platform-dns` activation, which flips the domain and the flag together; the
+names under `kore.internal` resolve only while `platform-dns` is on and the
+resolver file is installed (`kore dns install`). `kore` validates both before any cluster command (a lowercase DNS
 name of at least two labels, and one lowercase label). `domain` is the field
 every copy of the domain derives from: the Gateway hostname, the platform APIs,
 Keycloak and Backstage `platformDomain`, the certificate host, the reference
@@ -146,24 +148,22 @@ with an empty list when nothing is retained.
 
 ### Local Gateway
 
-The local Gateway answers on `https://kore.internal:8443/` (or your route path)
+The local Gateway answers on `https://kore.local:8443/` (or your route path)
 from this machine only: the host port binds `127.0.0.1`, and a cluster created
-before that binding is refused until it is recreated (ADR 0131). Names resolve
-through the platform DNS once `kore dns install` has written the host resolver
-file, so no hosts entry is needed. `kore.local` stays as a deprecated alias of
-the same Gateway on 8443.
+before that binding is refused until it is recreated (ADR 0131). While
+`platform-dns` is off, `kore.local` resolves through the hosts entry you already
+have; kore writes none.
 The k3d load balancer maps host port `8443` to the Gateway Service's node port
 (30443), so no tunnel process is needed ([ADR 0085](docs/decisions/0085-k3d-gateway-answers-through-a-node-port.md)).
 `platform up` waits for the Gateway Service to publish the configured node
 port before it reports the Gateway ready.
 
 With the `platform-dns` flag on, the local overlay also publishes the Gateway
-on `127.0.0.1:443` (the entry point names resolve to) and the platform DNS on
+on `127.0.0.1:443`, the port names resolve to, and the platform DNS on
 `127.0.0.1:1053`, over both TCP and UDP, through the same load balancer
-(node port 31053 on the `kore-platform-dns` Service in `kore-dns`). The
+(node port 31053 on the `kore-platform-dns` Service in `kore-dns`). The two
 mappings in `k3d.ports` name the flag, so with it off they are not created,
-compared for drift or probed; 443 needs no root on the host, as Docker binds it
-and kore only looks for a listener there. k3d fixes ports when it creates the cluster, so
+compared for drift or probed. k3d fixes ports when it creates the cluster, so
 turning the flag on for a cluster created without them fails the drift check
 with the recreate instruction (`kore local down --prune`, then `kore local up`).
 The `kore-dns` namespace is exempt from image enrollment so the DNS answers

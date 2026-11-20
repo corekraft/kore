@@ -1,18 +1,24 @@
 // Docs: docs/decisions/0132-local-names-resolve-through-platform-dns-and-one-loopback-entry-point.md
 import { expect, test } from "vitest";
 import { fakeEnvironment } from "./config-support.js";
-import { platformDomainErrors, platformHelmArgs } from "./platform-domain.js";
+import {
+  deprecatedAliasOf,
+  platformDomainErrors,
+  platformHelmArgs,
+} from "./platform-domain.js";
 
-const withAlias = fakeEnvironment({
-  platform: {
-    domain: "kore.internal",
-    organizationId: "platform",
-    deprecatedAlias: "kore.local",
-  },
-});
+const declaring = (platformDns: boolean) =>
+  fakeEnvironment({
+    platform: {
+      domain: "kore.internal",
+      organizationId: "platform",
+      deprecatedAlias: "kore.local",
+    },
+    features: { "platform-dns": platformDns },
+  });
 
 test("a deprecated alias is one lowercase DNS name, and a bad one is named with its field", () => {
-  expect(platformDomainErrors(withAlias)).toEqual([]);
+  expect(platformDomainErrors(declaring(true))).toEqual([]);
   const upper = fakeEnvironment({
     platform: {
       domain: "kore.internal",
@@ -38,8 +44,8 @@ test("a deprecated alias that equals the platform domain is refused, since the l
   ]);
 });
 
-test("with a deprecated alias the platform config and the local certificate are handed it beside the domain, and no other chart is", () => {
-  expect(platformHelmArgs(withAlias, "kore-platform-config")).toEqual([
+test("with platform-dns on the alias is handed to the platform config and the local certificate beside the domain, and to no other chart", () => {
+  expect(platformHelmArgs(declaring(true), "kore-platform-config")).toEqual([
     "--set-string",
     "gateway.hostname=kore.internal",
     "--set-string",
@@ -47,14 +53,28 @@ test("with a deprecated alias the platform config and the local certificate are 
     "--set-string",
     "gateway.deprecatedAlias=kore.local",
   ]);
-  expect(platformHelmArgs(withAlias, "kore-local-tls")).toEqual([
+  expect(platformHelmArgs(declaring(true), "kore-local-tls")).toEqual([
     "--set-string",
     "gateway.hostname=kore.internal",
     "--set-string",
     "gateway.deprecatedAlias=kore.local",
   ]);
-  expect(platformHelmArgs(withAlias, "kore-platform-apis")).toEqual([
+  expect(platformHelmArgs(declaring(true), "kore-platform-apis")).toEqual([
     "--set-string",
     "platformDomain=kore.internal",
   ]);
+});
+
+test("with platform-dns off a declared alias is handed to no chart: the arguments equal the ones with no alias at all, so the flag-off render is unchanged", () => {
+  const plain = fakeEnvironment({
+    platform: { domain: "kore.internal", organizationId: "platform" },
+    features: { "platform-dns": false },
+  });
+  for (const component of ["kore-platform-config", "kore-local-tls"]) {
+    expect(platformHelmArgs(declaring(false), component)).toEqual(
+      platformHelmArgs(plain, component),
+    );
+  }
+  expect(deprecatedAliasOf(declaring(false))).toBeUndefined();
+  expect(deprecatedAliasOf(declaring(true))).toBe("kore.local");
 });

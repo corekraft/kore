@@ -4,7 +4,11 @@ import {
   featureEnabled,
   gatewayClassName,
 } from "./features.js";
-import { platformPlan, platformWildcard } from "./platform-domain.js";
+import {
+  deprecatedAliasOf,
+  platformPlan,
+  platformWildcard,
+} from "./platform-domain.js";
 import type { Repository } from "./types.js";
 
 // Docs: docs/decisions/0043-platform-configuration-through-argo-cd.md (the handover values)
@@ -138,9 +142,8 @@ export function chartDeliveryValues(
   }
   const entries = entriesOf(lock)!;
   const components = handedOver(repository);
-  const { domain, organizationId, deprecatedAlias } = platformPlan(
-    repository.environment,
-  );
+  const { domain, organizationId } = platformPlan(repository.environment);
+  const deprecatedAlias = deprecatedAliasOf(repository.environment);
   const routes = featureEnabled(repository.environment, databaseRoutesFlag);
   return {
     ...(deprecatedAlias === undefined
