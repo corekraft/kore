@@ -81,7 +81,7 @@ test("with autoscaling on neither Deployment carries a replica count, so the aut
 test("with autoscaling on each container requests the CPU the utilisation target is computed against", async () => {
   const docs = await render(...on);
   for (const doc of deployments(docs)) {
-    expect(doc).toMatch(/resources:\n\s+requests:\n\s+cpu: "?25m"?/);
+    expect(doc).toMatch(/resources:\n\s+requests:\n\s+cpu: "?100m"?/);
   }
 });
 
