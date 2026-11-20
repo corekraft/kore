@@ -64,6 +64,7 @@ export const KINDS = [
   "tick.stopped",
   "tick.plan",
   "tick.self-update-failed",
+  "ticket.waiting",
 ] as const;
 export type Kind = (typeof KINDS)[number];
 
@@ -137,6 +138,7 @@ export const LABEL_KINDS: readonly Kind[] = [
   "auto-approved",
   "qualifier.warned",
   "tick.bound",
+  "ticket.waiting",
   "session.send",
   "guardrail.requested",
   "guardrail.activated",

@@ -45,6 +45,18 @@ export class TickCli extends HarnessCli {
     super(runner, repo);
   }
 
+  /** `gh issue comment`: posts the body as one comment on the issue; the error text when gh refuses, or undefined once posted (#1431). */
+  async commentIssue(issue: number, body: string): Promise<string | undefined> {
+    const done = await this.runner.run(
+      "gh",
+      ["issue", "comment", String(issue), "--body", body],
+      { cwd: this.repo },
+    );
+    return done.code === 0
+      ? undefined
+      : done.stderr.trim() || `gh exited ${done.code}`;
+  }
+
   /** The PR's merge state as GitHub reports it (DIRTY, BEHIND, CLEAN, ...); throws when it cannot be read (#980). */
   async mergeState(pr: number): Promise<string> {
     const read = (await this.view(pr, "mergeStateStatus")) as {

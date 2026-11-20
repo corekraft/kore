@@ -64,6 +64,12 @@ export {
   type BranchPorts,
 } from "./tick-branch-notice.js";
 export { BranchLedger } from "./tick-branch-ledger.js";
+export { WaitingLedger, WAITING_KIND } from "./tick-ticket-waiting-ledger.js";
+export {
+  WaitingStepNotifier,
+  WaitingTicketNotice,
+  type WaitingPorts,
+} from "./tick-ticket-waiting.js";
 export {
   TICK_HEARTBEAT_GAP_MS,
   TICK_STARTED,

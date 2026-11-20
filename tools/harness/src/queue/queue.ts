@@ -15,6 +15,8 @@ export type QueueItem =
       lane: "product" | "harness";
       horizon: "next" | "then" | "none";
       labels: readonly string[];
+      /** The PR that refers to this ticket and has merged; the ticket waits on it, so it is not queued work (#1431). */
+      merged?: number;
     };
 
 export type SendBackItem = Extract<QueueItem, { kind: "send-back" }>;
