@@ -279,6 +279,7 @@ decisions; read one only when planning that area, and expect it to change.
 - [`docs/ideas/0049-platform-shared-gateway-works-live-in-local.md`](ideas/0049-platform-shared-gateway-works-live-in-local.md) — platform-shared-gateway works live in local
 - [`docs/ideas/0050-follow-up-0042-proof-225-bad-change.md`](ideas/0050-follow-up-0042-proof-225-bad-change.md) — Follow up on idea 0042 after a inconclusive outcome
 - [`docs/ideas/0051-platform-dns-works-live-in-local.md`](ideas/0051-platform-dns-works-live-in-local.md) — platform-dns works live in local
+- [`docs/ideas/0052-tick-works-ready-tickets.md`](ideas/0052-tick-works-ready-tickets.md) — orchestrate tick builds its queue from every open ready-for-agent issue with no open blocker, no open sub-issue, no assignee and no paused or spec label, not only from idea records; behind a local flag, off.
 
 ## Operations and Guides
 
@@ -353,6 +354,13 @@ decisions; read one only when planning that area, and expect it to change.
   the repo retro over 436 sessions, unified with the Pocock retro into one
   owner-decided triage; none applied yet. Read before changing the role guards
   or the writer agent definition.
+- [`docs/retros/2026-11-20-determinism-retro.md`](retros/2026-11-20-determinism-retro.md)
+  — the determinism retro, revised after its grill and the owner's decisions:
+  `pr check` lists the matching patterns (one idea), a flow figure for merges
+  past a failing precheck (upper bound 33 of 102), scan clipping and brief
+  exclusion, a measurement note on ideas 0021 and 0035, and a role-block
+  diagnostic; no guard; proposals only; none filed. Read before changing the
+  retro scan, `pr check` or the flow report.
 - [`docs/retros/2026-11-20-cost-retro.md`](retros/2026-11-20-cost-retro.md) —
   the cost and token retro over 2026-11-18 to 2026-11-20 ($343, 33.1 billion
   plan-weighted tokens): two measured context-cap cases for idea 0038's E2 and
@@ -370,6 +378,14 @@ decisions; read one only when planning that area, and expect it to change.
   revised after its grill: four new ideas, three tickets and three folds into
   ideas 0031, 0033 and 0035, none filed. Read before changing the precheck
   pattern match, the retro filing path or the role guards.
+- [`docs/retros/2026-11-20-primitives-retro.md`](retros/2026-11-20-primitives-retro.md)
+  — the primitives retro, revised after its grill and the owner's decisions:
+  five filing slots (session Tools over raw herdr, judge and reviewer idea
+  stamps, an after-merge step for the 93 of 131 bare merges, one review path
+  for the 38 of 108 unreviewed verdicts, a precheck false-positive fix for 16 of
+  26 overrides), one held Tool and a scope change to idea 0031; none filed.
+  Read before adding a harness Tool or changing the main session's merge,
+  review or pane tools.
 
 ## Skills
 
