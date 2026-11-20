@@ -5,6 +5,7 @@
     - tailscale
     - sshd
     - network
+    - neovim
     - incus
     - k3s
 
