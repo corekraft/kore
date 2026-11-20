@@ -1,0 +1,79 @@
+{{- $images := dict "16" "ghcr.io/cloudnative-pg/postgresql:16.4@sha256:99be063781d171d3971089b49c992706bdab9ccbd2b57cdf126c7542773aedfe" "17" "ghcr.io/cloudnative-pg/postgresql:17.4@sha256:3c0ba08ea353c9705a755c113e4ae395be76553e0ed68076e5410cb09b9d17d9" "18" "ghcr.io/cloudnative-pg/postgresql:18.4@sha256:6138f19539304b585c6cafd1af82ca407f184139459a8e06f0880df4556d3588" }}
+{{- $name := .observed.composite.resource.metadata.name }}
+{{- $namespace := .observed.composite.resource.metadata.namespace }}
+{{- $version := .observed.composite.resource.spec.compatibilityVersion | int }}
+{{- $host := printf "%s.%s.%s" $name $routes.organizationId $routes.domain }}
+{{- $certificates := ne $version 16 }}
+apiVersion: postgresql.cnpg.io/v1
+kind: Cluster
+metadata:
+  name: {{ .observed.composite.resource.metadata.name }}
+  namespace: {{ .observed.composite.resource.metadata.namespace }}
+  annotations:
+    gotemplating.fn.crossplane.io/composition-resource-name: database
+  labels:
+    platform.kore.dev/retention: {{ .observed.composite.resource.spec.retentionPolicy }}
+spec:
+  instances: 1
+  inheritedMetadata:
+    labels:
+      platform.kore.dev/retention: {{ .observed.composite.resource.spec.retentionPolicy }}
+      istio.io/dataplane-mode: none
+  imageName: {{ index $images (.observed.composite.resource.spec.compatibilityVersion | int | toString) }}
+  storage:
+    size: {{ .observed.composite.resource.spec.storageSize }}
+    storageClass: {{ if eq .observed.composite.resource.spec.retentionPolicy "Retain" }}kore-retained{{ else }}kore-standard{{ end }}
+  bootstrap: {initdb: {database: app, owner: app}}
+{{- if $certificates }}
+  certificates:
+    serverTLSSecret: {{ $name }}-server-tls
+    serverCASecret: {{ $name }}-server-tls
+{{- end }}
+{{- if $certificates }}
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: {{ $name }}-server
+  namespace: {{ $namespace }}
+  annotations:
+    gotemplating.fn.crossplane.io/composition-resource-name: server-certificate
+spec:
+  secretName: {{ $name }}-server-tls
+  secretTemplate:
+    labels:
+      cnpg.io/reload: ""
+  dnsNames:
+    - {{ $host }}
+    - {{ $name }}-rw
+    - {{ $name }}-rw.{{ $namespace }}.svc
+    - {{ $name }}-ro
+    - {{ $name }}-ro.{{ $namespace }}.svc
+    - {{ $name }}-r
+    - {{ $name }}-r.{{ $namespace }}.svc
+  issuerRef:
+    kind: ClusterIssuer
+    name: {{ $routes.issuer }}
+{{- end }}
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: {{ .observed.composite.resource.spec.connectionSecretName }}
+  namespace: {{ .observed.composite.resource.metadata.namespace }}
+  annotations:
+    gotemplating.fn.crossplane.io/composition-resource-name: connection
+    gotemplating.fn.crossplane.io/ready: "True"
+  labels:
+    app.kubernetes.io/part-of: {{ .observed.composite.resource.metadata.namespace }}
+type: Opaque
+stringData:
+  host: {{ .observed.composite.resource.metadata.name }}-rw
+  port: "5432"
+  database: app
+  username: app
+  passwordSecretRef: {{ .observed.composite.resource.metadata.name }}-app
+  sslmode: require
+  externalHost: {{ $host }}
+  externalPort: "5432"
+  externalSslmode: verify-full

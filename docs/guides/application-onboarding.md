@@ -2,7 +2,9 @@
 
 How an application joins the platform. The reference application in
 [`apps/reference`](../../apps/reference) is the worked example. Commands are
-written as `kore ...` (see the [operator guide](operator.md)).
+written as `kore ...` (see the [operator guide](operator.md)). A claimed
+database can be reached from the host by name once `database-routes` is on; see
+[reaching a database by name](database-by-name.md).
 
 ## The contract
 

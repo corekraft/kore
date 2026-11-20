@@ -3,10 +3,11 @@ import {
   crdNameFormatErrors,
   providerCrdGroupErrors,
 } from "./crd-ownership.js";
+import { takeOwnershipWithoutReason } from "./helm-options.js";
 import { componentPatchErrors } from "./patch-validation.js";
 import type { Component, Environment } from "./types.js";
 
-/** Catalog-wide checks of CRD claims, provider-owned CRD groups and probe patches, each naming the component. */
+/** Catalog-wide checks of CRD claims, provider-owned CRD groups, probe patches and helm takeovers, each naming the component. */
 export function catalogErrors(
   environment: Environment,
   components: Component[],
@@ -22,5 +23,11 @@ export function catalogErrors(
       ...crdNameFormatErrors(component.name, component.ownsCRDs ?? []),
       ...componentPatchErrors(component),
     ]),
+    ...components
+      .filter((component) => takeOwnershipWithoutReason(component))
+      .map(
+        (component) =>
+          `${component.name}: helm.takeOwnership requires a reason naming what it adopts`,
+      ),
   ];
 }

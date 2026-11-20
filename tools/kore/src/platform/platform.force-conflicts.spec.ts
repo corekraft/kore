@@ -74,7 +74,7 @@ test("only catalog components with a recorded reason force conflicts", async () 
   const forced = repository.catalog.components
     .filter(({ helm }) => helm?.forceConflicts)
     .map(({ name }) => name);
-  assert.deepEqual(forced, ["policy-controller"]);
+  assert.deepEqual(forced.sort(), ["kore-postgresql-api", "policy-controller"]);
 });
 
 test("forcing conflicts without a reason fails validation naming the component", async () => {

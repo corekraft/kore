@@ -8,6 +8,7 @@ import {
   type Component,
   type Repository,
 } from "../config/index.js";
+import { featureFreeCharts } from "./feature-free-charts.js";
 
 // Docs: docs/decisions/0043-platform-configuration-through-argo-cd.md (the handover values)
 
@@ -34,7 +35,11 @@ async function valuesTexts(
     }
   }
   const features = repository.environment.features ?? {};
-  if (component.kind === "local-chart" && Object.keys(features).length > 0) {
+  if (
+    component.kind === "local-chart" &&
+    !featureFreeCharts.has(component.name) &&
+    Object.keys(features).length > 0
+  ) {
     texts.push(JSON.stringify({ features }));
   }
   return texts;

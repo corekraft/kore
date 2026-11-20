@@ -51,3 +51,11 @@ test("another local chart still receives the feature flags, so only the portal i
     helmUpgradeArgs(fakeRepository(), localChart("kore-platform-keycloak")),
   ).toContain("features.platform-portal=true");
 });
+
+test("the PostgreSQL API chart takes no feature flags: no argument starts with features, so its values schema is never refused", () => {
+  const args = helmUpgradeArgs(
+    fakeRepository(),
+    localChart("kore-postgresql-api"),
+  );
+  expect(args.filter((arg) => arg.startsWith("features"))).toEqual([]);
+});

@@ -6,6 +6,7 @@ import {
   providerCrdGroupErrors,
 } from "./crd-ownership.js";
 import { componentPatchErrors } from "./patch-validation.js";
+import { takeOwnershipWithoutReason } from "./helm-options.js";
 import type { Component } from "./types.js";
 import { fakeComponent, fakeEnvironment } from "./config-support.js";
 
@@ -16,6 +17,7 @@ vi.mock("./crd-ownership.js", () => ({
   providerCrdGroupErrors: vi.fn(),
 }));
 vi.mock("./patch-validation.js", () => ({ componentPatchErrors: vi.fn() }));
+vi.mock("./helm-options.js", () => ({ takeOwnershipWithoutReason: vi.fn() }));
 
 const environment = fakeEnvironment({
   provider: "k3d",
@@ -32,6 +34,21 @@ beforeEach(() => {
   vi.mocked(providerCrdGroupErrors).mockReturnValue([]);
   vi.mocked(crdNameFormatErrors).mockReturnValue([]);
   vi.mocked(componentPatchErrors).mockReturnValue([]);
+  vi.mocked(takeOwnershipWithoutReason).mockReturnValue(false);
+});
+
+test("a release that takes over objects without a reason is named, and the others are not", () => {
+  vi.mocked(takeOwnershipWithoutReason).mockImplementation(
+    (candidate) => candidate.name === "kore-postgresql-api",
+  );
+  expect(
+    catalogErrors(environment, [
+      component("kore-registry"),
+      component("kore-postgresql-api"),
+    ]),
+  ).toEqual([
+    "kore-postgresql-api: helm.takeOwnership requires a reason naming what it adopts",
+  ]);
 });
 
 test("a catalog with no problems reports none, and every check runs once", () => {

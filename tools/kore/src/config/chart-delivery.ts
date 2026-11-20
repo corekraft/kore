@@ -1,4 +1,9 @@
-import { enabledComponents, gatewayClassName } from "./features.js";
+import {
+  databaseRoutesFlag,
+  enabledComponents,
+  featureEnabled,
+  gatewayClassName,
+} from "./features.js";
 import { platformPlan, platformWildcard } from "./platform-domain.js";
 import type { Repository } from "./types.js";
 
@@ -27,6 +32,13 @@ export interface ChartDeliveryValues {
    * gives it. Composed beside the lock, since reading a file is not pure.
    */
   releaseValues?: Record<string, string[]>;
+  /**
+   * Only while database-routes is on: the PostgreSQL API's Application takes
+   * the flag, with the platform domain and organizationId, as Helm parameters
+   * (ADR 0137). Absent, the Application carries none.
+   */
+  databaseRoutes?: true;
+  organizationId?: string;
 }
 
 /** The release the delivery chart never carries: kore keeps the image policy (ADR 0028). */
@@ -117,8 +129,10 @@ export function chartDeliveryValues(
   }
   const entries = entriesOf(lock)!;
   const components = handedOver(repository);
-  const { domain } = platformPlan(repository.environment);
+  const { domain, organizationId } = platformPlan(repository.environment);
+  const routes = featureEnabled(repository.environment, databaseRoutesFlag);
   return {
+    ...(routes ? { databaseRoutes: true as const, organizationId } : {}),
     charts: Object.fromEntries(
       components.map((c) => [
         c.name,
@@ -135,6 +149,24 @@ export function chartDeliveryValues(
     platformDomain: domain,
     platformHostname: platformWildcard(repository.environment),
   };
+}
+
+/**
+ * The Helm arguments that hand the PostgreSQL API its database-routes values for
+ * the kore-config-delivery chart, only while database-routes is on (ADR 0137).
+ */
+export function databaseRoutesDeliveryArgs(
+  delivery: ChartDeliveryValues,
+): string[] {
+  return delivery.databaseRoutes === true &&
+    delivery.organizationId !== undefined
+    ? [
+        "--set",
+        "databaseRoutes=true",
+        "--set-string",
+        `organizationId=${delivery.organizationId}`,
+      ]
+    : [];
 }
 
 /** Each distinct registry path that holds a chart, as Argo CD addresses a repository. */

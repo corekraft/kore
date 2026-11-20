@@ -278,6 +278,7 @@ decisions; read one only when planning that area, and expect it to change.
 - [`docs/guides/contributor.md`](guides/contributor.md) — the change loop: tests first, the checks to run, where each kind of change lives, and feature flag activation. Read before your first change.
 - [`docs/guides/troubleshooting.md`](guides/troubleshooting.md) — symptom to cause to fix, by status row and error. Read when a command or the platform fails.
 - [`docs/guides/application-onboarding.md`](guides/application-onboarding.md) — the contract an application meets and the steps to deploy one. Read before adding an application.
+- [`docs/guides/database-by-name.md`](guides/database-by-name.md) — reaching a PostgreSQL claim from the host by name on port 5432 with a verified certificate from the local CA, the Postgres 16 port-forward fallback, and the opt-out of the host port. Read when connecting to a database; it applies only while `database-routes` is on.
 - [`docs/operations/support-and-upgrades.md`](operations/support-and-upgrades.md) — support window, upgrade order, rollback, and the gaps. Read before upgrading a pin or Kore.
 - [`docs/operations/registry.md`](operations/registry.md) — registry backup, restore, recovery objectives, garbage collection, signature retention, and the digest policy. Read when the registry or its data is lost or full.
 - [`docs/operations/signing-and-keys.md`](operations/signing-and-keys.md) — signing identities, key and identity rotation, compromise response, pipeline controls, and break-glass. Read when changing who may sign.
