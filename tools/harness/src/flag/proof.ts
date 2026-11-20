@@ -23,7 +23,7 @@ function fieldBlock(section: string): string[] {
 function lines(section: string): Map<string, string> {
   const found = new Map<string, string>();
   for (const line of fieldBlock(section)) {
-    const match = /^- ([A-Za-z]+): (.*)$/.exec(line);
+    const match = /^- ([A-Za-z]+):\s*(.*)$/.exec(line);
     if (match?.[1] !== undefined && !found.has(match[1])) {
       found.set(match[1], (match[2] ?? "").trim());
     }
@@ -31,7 +31,7 @@ function lines(section: string): Map<string, string> {
   return found;
 }
 
-/** What activation made of the recorded outcomes: the proof that counts, and why each other matching live run does not. */
+/** What activation made of the recorded outcomes: the proof that counts, and why each live run that was read before it was refused. */
 export interface ActivationProof {
   proof: Proof | undefined;
   refused: string[];
@@ -78,7 +78,7 @@ async function scan(
       waived = { idea: record.number, path: record.path, source };
     }
   }
-  return { proof: waived, refused: waived === undefined ? refused : [] };
+  return { proof: waived, refused };
 }
 
 /**
@@ -102,8 +102,9 @@ export async function findProof(
  * counts only when every recorded chart has the release lock's version and
  * digest; a partial lock record never counts; a live run with no lock or a
  * release lock, and an owner waiver, count as in `findProof` (ADR 0138).
- * `refused` names why each matching live run was refused, and is empty when a
- * proof counts.
+ * `refused` names why each matching live run was refused. It is empty when a
+ * live run counts, and kept when an owner waiver stands in, so the caller can
+ * warn that the waiver replaced a refused run.
  */
 export function activationProof(
   repo: IdeaRepository,

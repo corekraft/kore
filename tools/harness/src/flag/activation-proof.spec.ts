@@ -187,7 +187,7 @@ describe("activationProof choosing among outcomes", () => {
     });
   });
 
-  it("falls back to an owner waiver when the live run is refused, and reports no refusal", async () => {
+  it("falls back to an owner waiver when the live run is refused, and still reports why the live run was refused", async () => {
     const repo = fakeRepository([
       locked("0001", "main-bad"),
       locked("0002", "none", "owner-waiver"),
@@ -198,7 +198,9 @@ describe("activationProof choosing among outcomes", () => {
         path: "docs/ideas/0002-proof.md",
         source: "owner-waiver",
       },
-      refused: [],
+      refused: [
+        "docs/ideas/0001-proof.md: its main-lock charts differ from the release lock: cilium (version 9.9.9, release lock 1.0.0)",
+      ],
     });
   });
 
@@ -249,5 +251,14 @@ describe("findProof does not compare charts", () => {
       idea: "0001",
     });
     expect(readProofLock).not.toHaveBeenCalled();
+  });
+});
+
+describe("activationProof reading the lock line", () => {
+  it("reads a hand-edited '- Lock:' line with no value as a stated lock, not as no lock", async () => {
+    const repo = fakeRepository([idea("0001", section(proven, "- Lock:"))]);
+    await activationProof(repo, FLAG, ENVIRONMENT, RELEASE);
+    const fields = vi.mocked(readProofLock).mock.calls[0]?.[0];
+    expect(fields?.get("Lock")).toBe("");
   });
 });

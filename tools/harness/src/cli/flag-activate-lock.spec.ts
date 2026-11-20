@@ -143,3 +143,40 @@ describe("flag activate compares a main-lock proof with the release chart lock",
     expect(writeFile).not.toHaveBeenCalled();
   });
 });
+
+describe("flag activate under a waiver that stands in for a refused live run", () => {
+  const REASON =
+    "docs/ideas/0001-proof.md: its main-lock charts differ from the release lock: cilium (version 9.9.9, release lock 1.0.0)";
+
+  beforeEach(() => {
+    vi.mocked(activationProof).mockResolvedValue({
+      proof: { ...PROOF, idea: "0002", source: "owner-waiver" },
+      refused: [REASON],
+    });
+    vi.mocked(openLedger).mockResolvedValue({ ledger: fakeLedger().ledger });
+  });
+
+  it("warns with the refused live run's reasons, naming the charts, before saying the waiver is used", async () => {
+    const { context, out } = flagContext();
+    expect(await command("activate").run(context)).toBe(0);
+    expect(out()).toBe(
+      `warning: a live run of ${FLAG} in local was refused, ${REASON}\nFlag ${FLAG} is on in local under an owner waiver, not a live run; proof: ${PROOF.path}\n`,
+    );
+  });
+
+  it("carries the refused reasons in the JSON output", async () => {
+    const { context, out } = flagContext({ json: true });
+    expect(await command("activate").run(context)).toBe(0);
+    expect(JSON.parse(out())).toMatchObject({
+      source: "owner-waiver",
+      refused: [REASON],
+    });
+  });
+
+  it("prints no warning and no refused field when a proof counts with nothing refused", async () => {
+    vi.mocked(activationProof).mockResolvedValue({ proof: PROOF, refused: [] });
+    const { context, out } = flagContext({ json: true });
+    expect(await command("activate").run(context)).toBe(0);
+    expect(JSON.parse(out())).not.toHaveProperty("refused");
+  });
+});

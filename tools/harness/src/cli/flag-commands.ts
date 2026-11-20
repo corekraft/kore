@@ -12,6 +12,7 @@ import {
   waivedLine,
   withFlagOn,
 } from "../flag/index.js";
+import type { Proof } from "../flag/index.js";
 
 const FAILED = 1;
 
@@ -97,6 +98,29 @@ async function releaseLock(context: CommandContext, base: string) {
   return parseReleaseLock(lockText, path);
 }
 
+/** The activation's output. A waiver stands in only after a live run was refused, so each reason is a warning: the waiver is never a silent fallback. */
+function activationReport(
+  flag: string,
+  environment: string,
+  proof: Proof,
+  refused: string[],
+  json: boolean,
+): string {
+  if (json) {
+    const found = { flag, environment, idea: proof.idea, proof: proof.path };
+    return `${JSON.stringify({ ...found, source: proof.source, ...(refused.length === 0 ? {} : { refused }) })}\n`;
+  }
+  const warnings = refused.map(
+    (reason) =>
+      `warning: a live run of ${flag} in ${environment} was refused, ${reason}\n`,
+  );
+  const waiver =
+    proof.source === "owner-waiver"
+      ? " under an owner waiver, not a live run"
+      : "";
+  return `${warnings.join("")}Flag ${flag} is on in ${environment}${waiver}; proof: ${proof.path}\n`;
+}
+
 async function activateFlag(context: CommandContext): Promise<number> {
   const { deps, json } = context;
   const { flag, environment } = activationTarget(context);
@@ -148,11 +172,7 @@ async function activateFlag(context: CommandContext): Promise<number> {
       proof.idea,
     );
   }
-  deps.stdout(
-    json
-      ? `${JSON.stringify({ flag, environment, idea: proof.idea, proof: proof.path, source: proof.source })}\n`
-      : `Flag ${flag} is on in ${environment}${proof.source === "owner-waiver" ? " under an owner waiver, not a live run" : ""}; proof: ${proof.path}\n`,
-  );
+  deps.stdout(activationReport(flag, environment, proof, refused, json));
   return 0;
 }
 
