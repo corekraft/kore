@@ -229,7 +229,11 @@ export interface Environment {
    * Organization resource's name and the golden-path load test's hostname
    * still use the literal `platform` (ADR 0042).
    */
-  platform: { domain: string; organizationId: string };
+  platform: {
+    domain: string;
+    organizationId: string;
+    deprecatedAlias?: string;
+  };
   gateway: { namespace: string; name: string; port: number };
   secrets: { storeName: string; sourceNamespace: string };
   telemetry: { otlpEndpoint: string };

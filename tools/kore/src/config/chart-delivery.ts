@@ -27,6 +27,12 @@ export interface ChartDeliveryValues {
    */
   platformHostname: string;
   /**
+   * The environment's deprecated alias of the platform domain, which the
+   * delivered kore-platform-config and kore-local-tls take as
+   * `gateway.deprecatedAlias` only when the environment declares one (ADR 0132).
+   */
+  platformDeprecatedAlias?: string;
+  /**
    * Each release's environment values-file text, in the order Helm takes them,
    * so the Argo CD Application renders the chart with the values the Helm path
    * gives it. Composed beside the lock, since reading a file is not pure.
@@ -132,9 +138,14 @@ export function chartDeliveryValues(
   }
   const entries = entriesOf(lock)!;
   const components = handedOver(repository);
-  const { domain, organizationId } = platformPlan(repository.environment);
+  const { domain, organizationId, deprecatedAlias } = platformPlan(
+    repository.environment,
+  );
   const routes = featureEnabled(repository.environment, databaseRoutesFlag);
   return {
+    ...(deprecatedAlias === undefined
+      ? {}
+      : { platformDeprecatedAlias: deprecatedAlias }),
     ...(routes
       ? {
           databaseRoutes: true as const,

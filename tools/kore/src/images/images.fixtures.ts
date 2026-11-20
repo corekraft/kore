@@ -7,7 +7,7 @@ import type { Repository } from "../config/index.js";
 const registryCaPem =
   "-----BEGIN CERTIFICATE-----\nQUJD\n-----END CERTIFICATE-----\n";
 import type { ImageLockEntry } from "./image-lock.js";
-import { defaultPlatformDomain } from "../platform-domain.fixtures.js";
+import { lockedRegistryHost } from "../platform-domain.fixtures.js";
 import type { Runner, RunOptions, RunResult } from "../runtime/index.js";
 
 // Fakes and fixtures shared by the images domain's specs. A support file is not
@@ -171,7 +171,7 @@ export function stubRegistry(
 }
 
 export const entry: ImageLockEntry = {
-  image: `registry.${defaultPlatformDomain}:30500/reference`,
+  image: `${lockedRegistryHost}:30500/reference`,
   digest: `sha256:${"a".repeat(64)}`,
   signer: "release@kore.dev",
 };

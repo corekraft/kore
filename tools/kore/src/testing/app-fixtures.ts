@@ -8,7 +8,7 @@ import {
   healthyWebhookOutput,
 } from "./webhook-fixtures.js";
 import { CommandError, type Runner } from "../runtime/index.js";
-import { defaultPlatformDomain } from "../platform-domain.fixtures.js";
+import { lockedRegistryHost } from "../platform-domain.fixtures.js";
 
 import { digest, releaseSigner } from "./release-lock-fixtures.js";
 export {
@@ -20,7 +20,7 @@ export {
 
 export function lockedImage(
   signer = "local-kore-key",
-  registry = `registry.${defaultPlatformDomain}:30500`,
+  registry = `${lockedRegistryHost}:30500`,
 ) {
   return { reference: `${registry}/reference@${digest}`, digest, signer };
 }

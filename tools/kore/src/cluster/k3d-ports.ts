@@ -81,11 +81,19 @@ function refusal(
   return `host port ${named} is already in use, so the cluster cannot publish it. The overlay setting that publishes it is k3d.ports[${index}] (loadBalancerPort ${port.loadBalancerPort}) in environment ${environmentName}. ${who} Free the port by stopping the process holding it, or change k3d.ports[${index}].hostPort, then rerun kore local up --environment ${environmentName}.`;
 }
 
+/** The highest privileged host port: below it only root may bind, so this user's probe cannot tell a free one (ADR 0132). */
+const privilegedPortLimit = 1024;
+
 /**
  * Refuses a cluster that is about to be created when a declared host port is
  * taken on its loopback address, over the mapping's own transport. Every taken
  * port is named. Optional ports are skipped. Runs no cluster command; the
  * caller runs it before create.
+ *
+ * A privileged port (below 1024, such as the 443 entry point) is not probed:
+ * this user's bind fails there whether or not anything holds it, so the
+ * listener lookup decides alone, and no listener means the port is free for
+ * Docker, which runs the mapping as root.
  */
 export async function checkHostPorts(
   environmentName: string,
@@ -100,6 +108,13 @@ export async function checkHostPorts(
       continue;
     }
     const protocol: HostProtocol = port.protocol ?? "tcp";
+    if (port.hostPort < privilegedPortLimit) {
+      const holder = await holderOf(runner, port.hostPort, protocol);
+      if (holder !== undefined) {
+        refusals.push(refusal(environmentName, port, index, protocol, holder));
+      }
+      continue;
+    }
     if (await isFree(port.hostAddress, port.hostPort, protocol)) {
       continue;
     }

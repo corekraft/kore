@@ -122,6 +122,12 @@ test("the check receives the effective overlay's own cluster, so a port added to
 const dnsPorts = [
   {
     hostAddress: "127.0.0.1",
+    hostPort: 443,
+    loadBalancerPort: 30443,
+    featureFlag: "platform-dns",
+  },
+  {
+    hostAddress: "127.0.0.1",
     hostPort: 1053,
     loadBalancerPort: 31053,
     protocol: "tcp",
@@ -191,7 +197,7 @@ test("with the flag off the host port check is not asked about the flagged mappi
   ]);
 });
 
-test("with the flag off the create arguments publish no flagged mapping, and with it on they publish both protocols", async () => {
+test("with the flag off the create arguments publish no flagged mapping, and with it on they publish 443 and both 1053 protocols beside 8443", async () => {
   const created = async (platformDns: boolean) => {
     const absent = fakeK3d(undefined);
     await clusterUpK3d(
@@ -212,6 +218,7 @@ test("with the flag off the create arguments publish no flagged mapping, and wit
   ]);
   expect(await created(true)).toEqual([
     "port 127.0.0.1:8443:443@loadbalancer",
+    "port 127.0.0.1:443:30443@loadbalancer",
     "port 127.0.0.1:1053:31053@loadbalancer",
     "port 127.0.0.1:1053:31053/udp@loadbalancer",
   ]);

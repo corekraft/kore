@@ -97,6 +97,24 @@ test("the platform wildcard is the platformWildcard helper's value for the envir
   expect(platformWildcard).toHaveBeenCalledWith(repository.environment);
 });
 
+test("the deprecated alias reaches the values only when the environment declares one, so the Argo CD parameter is handed only then", () => {
+  vi.mocked(platformPlan).mockReturnValue({
+    domain: "kore.internal",
+    organizationId: "platform",
+    deprecatedAlias: "kore.local",
+  });
+  expect(chartDeliveryValues(repository, lock()).platformDeprecatedAlias).toBe(
+    "kore.local",
+  );
+  vi.mocked(platformPlan).mockReturnValue({
+    domain: "kore.internal",
+    organizationId: "platform",
+  });
+  expect(chartDeliveryValues(repository, lock())).not.toHaveProperty(
+    "platformDeprecatedAlias",
+  );
+});
+
 test("the image policy never reaches the values, and a lock entry for it is refused", () => {
   expect(chartDeliveryErrors(repository, lock())).toEqual([]);
   expect(

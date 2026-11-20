@@ -159,6 +159,37 @@ digest lookup, cosign verification and pruning dial
   like the existing ones. This does not contradict ADR 0131: every published
   port, new ones included, binds a loopback address the overlay declares.
 
+### The cutover record (issue #1215)
+
+- **443 follows the flag.** The loopback 443 mapping is declared with
+  `featureFlag: platform-dns`, beside 1053, on the node port 8443 uses. Both
+  mappings then cost one recreation, at the `platform-dns` activation. The gate
+  is that flag and not `platform-shared-gateway`, which is on in local already:
+  gating 443 on it would make the drift check refuse every existing cluster at
+  once, and 1053 would then cost a second recreation. A cluster created before
+  the change is refused while `platform-dns` is on, with
+  `port 30443: 8443 != 443` and the recreate instruction; with the flag off it
+  is not compared, as the mapping is not wanted yet.
+- **A privileged port is not probed.** Below 1024 only root may bind, so the
+  pre-create check decides 443 by the listener lookup alone. Docker binds the
+  mapping as root, so a free 443 is not refused for want of a bind by this user.
+- **The alias and the default.** `platform.domain` defaults to `kore.internal`.
+  `platform.deprecatedAlias` (local: `kore.local`) adds an `https-alias`
+  listener on the Gateway's port and names it in the local certificate. Both
+  are additive: `kore.local` and 8443 keep answering until a contract ticket
+  removes them. The alias is not a flag, so this change is live-proven before
+  merge (ADR 0077).
+- **The registry reference.** The release lock keeps the references it pins,
+  `registry.kore.local:30500/...`. Those are the identities the digests and
+  signatures were verified under, so changing them is a release, not part of
+  this cutover. Nodes pull from the in-cluster address (ADR 0031), which does
+  not depend on the domain. Host callers derive the registry's name from
+  `platform.domain` only behind `registry-by-name` (ADR 0132, "The registry by
+  name"); until that flag is on, they keep the port-forward.
+- **kore.local resolves only where an older hosts entry exists.** The platform
+  DNS zone follows `platform.domain`, so it no longer answers `kore.local`. The
+  deprecated alias is a listener, not a name the platform DNS serves.
+
 ## Consequences
 
 - One recreate of the local cluster (`kore local down --prune`, then

@@ -2,7 +2,7 @@
 status: accepted
 summary: On k3d, kore publishes images with the node's bundled containerd client through docker exec, with the credential on stdin and held only in a memory-backed hosts.toml; no node shell, and the registry port-forward is ended by platform stop and destroy.
 date: 2026-11-11
-last-verified: 2026-11-11
+last-verified: 2026-11-19
 ---
 
 # ADR 0083: Publish to the registry on k3d through the node's containerd client
