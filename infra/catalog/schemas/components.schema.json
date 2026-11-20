@@ -134,6 +134,7 @@
             "additionalProperties": false,
             "properties": {
               "forceConflicts": { "type": "boolean" },
+              "takeOwnership": { "type": "boolean" },
               "wait": { "const": false },
               "reason": { "type": "string", "minLength": 1 }
             },
@@ -142,6 +143,10 @@
                 {
                   "required": ["forceConflicts"],
                   "properties": { "forceConflicts": { "const": true } }
+                },
+                {
+                  "required": ["takeOwnership"],
+                  "properties": { "takeOwnership": { "const": true } }
                 },
                 { "required": ["wait"] }
               ]

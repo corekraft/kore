@@ -80,3 +80,30 @@ manifest would be a second source.
   recorded here so a later step refuses it rather than discovering it live.
 - The flag stays off in every overlay (ADR 0136). Turning it on needs a recorded
   live-run outcome for `database-routes`, as before.
+- **Activation needs a release that publishes the chart.** A release lock older
+  than the chart names the manifest-wrapped `kore-postgresql-api` and has no
+  parameters for it, so turning the flag on against it changes nothing on the
+  Argo CD path: the wrapped manifests ignore `databaseRoutes`. Activation waits
+  for a release whose lock names the new chart version, and `kore local
+lock-check` must report no drift for that release first.
+
+## Adoption
+
+The composition was applied as manifests with `kubectl apply --server-side`
+(field manager `kore`). Helm refuses to take objects that carry no Helm
+ownership metadata, so the paths differ:
+
+- **Argo CD path (`platform-argocd-delivery` on, local).** Unaffected. Argo CD
+  already rendered the composition from a wrapper chart, so the resources carry
+  Argo CD's own tracking label and no Helm ownership annotations, and the chart
+  renders the same names. Argo CD tracks objects by its label, not by Helm's.
+- **A fresh Helm profile.** Unaffected: there are no objects to adopt.
+- **An existing Helm-path profile (`platform-argocd-delivery` off, as in
+  `managed-example`).** Its first upgrade needs the catalog's helm options
+  `takeOwnership` (Helm `--take-ownership`, which adopts objects with no
+  ownership metadata) and `forceConflicts` (`--force-conflicts`). The second is
+  needed because turning the flag on changes the composition's text, and the
+  `kore` field manager owns the old values. Both are recorded on the component
+  with a reason, which the catalog validation requires. Once every profile has
+  upgraded, both can be removed. Deleting the definition instead would delete the
+  claims it defines, so that is not an option.

@@ -8,7 +8,7 @@ import {
   type Component,
   type Repository,
 } from "../config/index.js";
-import { featureFreeCharts } from "./helm.js";
+import { featureFreeCharts } from "./feature-free-charts.js";
 
 // Docs: docs/decisions/0043-platform-configuration-through-argo-cd.md (the handover values)
 

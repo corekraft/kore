@@ -18,6 +18,7 @@ import {
   type Repository,
 } from "../config/index.js";
 import type { Runner } from "../runtime/index.js";
+import { featureFreeCharts } from "./feature-free-charts.js";
 import { applyProbePatches } from "./patches.js";
 
 /** The Helm post-renderer plugin kept in the repository. */
@@ -84,19 +85,6 @@ function goldenPathArgs(
     ...(golden.sharedGateway ? ["--set", "sharedGateway=true"] : []),
   ];
 }
-
-/**
- * The charts whose closed schemas name no feature flag and whose templates
- * read none (the delivery charts, the portal and the PostgreSQL API): kore passes
- * them no `features.*` value on either path, since Helm refuses a key the schema
- * does not declare.
- */
-export const featureFreeCharts = new Set([
-  "kore-config-delivery",
-  "kore-golden-path-delivery",
-  "kore-platform-backstage",
-  "kore-postgresql-api",
-]);
 
 /** The chart value each release takes the GatewayClass through. */
 const gatewayClassKeys: Record<string, string | undefined> = {
@@ -266,6 +254,7 @@ export function helmUpgradeArgs(
     // component that skips the wait cannot also roll back automatically.
     ...(component.helm?.wait === false ? [] : ["--rollback-on-failure"]),
     ...(component.helm?.forceConflicts ? ["--force-conflicts"] : []),
+    ...(component.helm?.takeOwnership ? ["--take-ownership"] : []),
     ...chartSelectionArgs(repository, component),
   ];
 }

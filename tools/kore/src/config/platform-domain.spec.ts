@@ -319,6 +319,9 @@ test("the PostgreSQL charts are handed their database-routes values only while t
     "organizationId=platform",
   ]);
   expect(args({ "database-routes": false }, "kore-postgresql-api")).toEqual([]);
+  expect(args({ "database-routes": false }, "kore-postgresql-rbac")).toEqual(
+    [],
+  );
   expect(args({}, "kore-postgresql-rbac")).toEqual([]);
   expect(args(on, "kore-platform-config")).not.toContain("databaseRoutes=true");
 });

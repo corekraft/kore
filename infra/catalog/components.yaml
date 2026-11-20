@@ -727,6 +727,12 @@
             "kore-postgresql-rbac"
           ],
         "timeout": "10m",
+        "helm":
+          {
+            "forceConflicts": true,
+            "takeOwnership": true,
+            "reason": "The XRD and the composition were applied by kubectl apply --server-side (field manager kore) before this release was a chart, so Helm takes over those objects (takeOwnership) and their fields (forceConflicts) on its first upgrade; once every profile has been upgraded the two options can go (ADR 0137)."
+          },
         "readiness": ["crd/postgresqlinstances.platform.kore.dev"]
       },
       {
