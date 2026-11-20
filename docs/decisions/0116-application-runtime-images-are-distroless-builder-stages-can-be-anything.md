@@ -2,7 +2,7 @@
 status: accepted
 summary: Every runtime image Kore builds or templates is distroless, with no shell and no package manager; builder stages are free, and upstream images we only pull are exempt but prefer distroless variants.
 date: 2026-11-14
-last-verified: 2026-11-14
+last-verified: 2026-11-20
 ---
 
 # ADR 0116: Application runtime images are distroless; builder stages can be anything
@@ -10,6 +10,8 @@ last-verified: 2026-11-14
 Source: [`infra/plans/15-next-horizon.md` § Step 4](../../infra/plans/15-next-horizon.md#step-4-golden-path-templates) and [§ Step 6](../../infra/plans/15-next-horizon.md#step-6-platform-keycloak-and-backstage)
 
 Refines: [ADR 0045](0045-static-frontends-as-signed-images.md) and [ADR 0046](0046-bff-jvm-with-agent-and-aot-cache.md)
+
+> Refined by [ADR 0144](0144-run-the-kotlin-bff-on-the-ol9-graalvm-base-so-it-starts-on-x86-64-v2-hosts.md): the BFF's Jib base is the OL9 variant of GraalVM 25.0.2, which starts on x86-64-v2 hosts. It is not distroless; the Kotlin BFF row in the follow-up table stays open.
 
 ## Context
 

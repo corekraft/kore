@@ -2,7 +2,7 @@
 status: accepted
 summary: The Kotlin BFF always runs on the GraalVM JDK as a JVM with the OpenTelemetry Java agent, and starts fast from Spring AOT and a JDK AOT cache produced by a training run at build time and baked into the Jib image; native image leaves the golden path.
 date: 2026-11-09
-last-verified: 2026-11-14
+last-verified: 2026-11-20
 ---
 
 # ADR 0046: Run the BFF on the JVM with the Java agent and a build-time AOT cache
@@ -11,6 +11,8 @@ Source: [`docs/vision.md` § Backend for Frontend](../vision.md#backend-for-fron
 
 Refines: [ADR 0015](0015-local-signed-image-delivery.md), whose Docker build
 the Jib build replaces for these services.
+
+> Refined by [ADR 0144](0144-run-the-kotlin-bff-on-the-ol9-graalvm-base-so-it-starts-on-x86-64-v2-hosts.md): the base is the OL9 variant of the same JDK 25.0.2, pinned by digest; the JVM, agent and cache design stand.
 
 ## Context
 
