@@ -185,7 +185,7 @@ test("the compatibility table records each Kotlin BFF template pin with full dig
   }
   assert.ok(
     table.includes(
-      "sha256:a3bdba6a313cddc89f7e1b2649140e898c68ba356994a9c317b96b01bcb9f982",
+      "sha256:3a9d4b5ef050893a6bfd683ecff0b0de3da3b89d40fda513c9acf9932dec0d9d",
     ),
   );
   assert.ok(
@@ -193,7 +193,10 @@ test("the compatibility table records each Kotlin BFF template pin with full dig
       "e43a270df53c6f423e0ab157be9c27ccc01d5dc3232e162fe54777573db2f149",
     ),
   );
-  assert.match(table, /crane digest ghcr\.io\/graalvm\/jdk-community:25\.0\.2/);
+  assert.match(
+    table,
+    /crane digest ghcr\.io\/graalvm\/jdk-community:25\.0\.2-ol9/,
+  );
   assert.match(table, /checksums\.txt/);
 });
 
