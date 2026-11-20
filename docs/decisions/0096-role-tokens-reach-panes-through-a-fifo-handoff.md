@@ -84,3 +84,9 @@ sandboxed writer included.
 - The `security -i` and keychain round trip was checked against a temporary
   keychain; creating the App and the machine user by the wizard is a live step
   the owner runs.
+- A Linux delivery host has no keychain. There `session spawn` reads the same item
+  names from `~/.config/kore/identities.sops.json`, encrypted to the host's own age
+  key, one `sops decrypt --extract` per item through the runner (#1439). The
+  wizard's `--transfer <user@host>` step fills it from the Mac keychain over ssh
+  stdin; see [role identities](../operations/role-identities.md). macOS reads the
+  keychain as before.
