@@ -354,10 +354,12 @@ decisions; read one only when planning that area, and expect it to change.
   owner-decided triage; none applied yet. Read before changing the role guards
   or the writer agent definition.
 - [`docs/retros/2026-11-20-determinism-retro.md`](retros/2026-11-20-determinism-retro.md)
-  — six decisions agents make by hand or around code that already decides
-  them (safety pattern, merges past a failing precheck, raw pane sends, spawn
-  briefs, scan figures, role tool fit); proposals only. Read before changing
-  `pr open`, `judge merge`, `session spawn` or the retro scan.
+  — the determinism retro, revised after its grill and the owner's decisions:
+  `pr check` lists the matching patterns (one idea), a flow figure for merges
+  past a failing precheck (upper bound 33 of 102), scan clipping and brief
+  exclusion, a measurement note on ideas 0021 and 0035, and a role-block
+  diagnostic; no guard; proposals only; none filed. Read before changing the
+  retro scan, `pr check` or the flow report.
 
 ## Skills
 
