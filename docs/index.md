@@ -353,6 +353,12 @@ decisions; read one only when planning that area, and expect it to change.
   the repo retro over 436 sessions, unified with the Pocock retro into one
   owner-decided triage; none applied yet. Read before changing the role guards
   or the writer agent definition.
+- [`docs/retros/2026-11-20-cost-retro.md`](retros/2026-11-20-cost-retro.md) —
+  the cost and token retro over 2026-11-18 to 2026-11-20 ($343, 33.1 billion
+  plan-weighted tokens): two measured context-cap cases for idea 0038's E2 and
+  E1, queued after E3, one brief line for PR reads, notes on five filed ideas
+  and the owner's decisions; none applied. Read before setting a compaction cap
+  or changing a writer or judge tier.
 - [`docs/retros/2026-11-20-general-retro.md`](retros/2026-11-20-general-retro.md)
   — the general retro of 2026-11-18 to 2026-11-20, revised after its grill and
   the owner's decisions: no new idea, four tickets and a writer.md guidance line,
