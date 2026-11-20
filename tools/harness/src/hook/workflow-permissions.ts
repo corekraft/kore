@@ -1,17 +1,28 @@
-// Signer guard: only the tag-gated signing jobs of release.yaml may hold
-// `id-token: write` (keyless signing) or `packages: write` (registry push), and
-// every job states its token permissions. The one exception is the nightly
-// failure-issue job, which opens or closes the integration tier's issue (#419).
-// Plan: infra/plans/2-implementation.md (Step 7), ADR 0044.
+// Signer guard: only the signing jobs of release.yaml may hold `id-token: write`
+// (keyless signing) or `packages: write` (registry push), and every job states
+// its token permissions. release, mirror and charts sign on a tag; charts-main
+// signs on main (ADR 0138). Each signing job must carry its own exact `if:`, so
+// a condition that ORs in another ref is refused. The one exception is the
+// nightly failure-issue job, which opens or closes the integration tier's issue
+// (#419). Plan: infra/plans/2-implementation.md (Step 7), ADR 0044, ADR 0138.
 
 import { join } from "node:path";
 import { CommandError, type FileSystem } from "../runtime/index.js";
 
 const RELEASE = "release.yaml";
-const SIGNING_JOBS = ["release", "mirror", "charts"];
 const SIGNING_SCOPES = ["id-token", "packages"];
 const TAG_GATE = "github.ref_type == 'tag'";
+const MAIN_GATE = "github.ref == 'refs/heads/main'";
 const PR_TRIGGERS = ["pull_request", "pull_request_target"];
+
+/** The signing jobs of release.yaml, each with the one exact `if:` it must carry and the ref it runs on. */
+const SIGNING_JOBS = new Map<string, { gate: string; runsOn: string }>([
+  ["release", { gate: TAG_GATE, runsOn: "tags" }],
+  ["mirror", { gate: TAG_GATE, runsOn: "tags" }],
+  ["charts", { gate: TAG_GATE, runsOn: "tags" }],
+  ["charts-main", { gate: MAIN_GATE, runsOn: "main" }],
+]);
+const SIGNING_JOB_NAMES = [...SIGNING_JOBS.keys()];
 
 /** The one job outside release.yaml that may hold a write scope: exactly these scopes, after the integration job, on the scheduled main run (ADR 0044). */
 const ISSUE_JOB = {
@@ -51,24 +62,42 @@ function addEntry(stack: Frame[], indent: number, body: string): number | null {
   return /^[|>]/.test(value) ? indent : null;
 }
 
-/** Parse the block-mapping subset of workflow YAML into nested objects. List items and block scalars are skipped. */
+/** A plain `if:` value whose deeper-indented continuation lines are still open: GitHub joins them into the condition. */
+type OpenIf = { indent: number; node: Node };
+
+/** Parse the block-mapping subset of workflow YAML into nested objects. List items and block scalars are skipped. A deeper-indented line after a plain `if:` value is joined onto it with a newline (GitHub joins such lines into the condition), so the gate check sees the whole condition and refuses one that spans lines. */
 export function parseWorkflow(text: string): Node {
   const rootNode: Node = {};
   const stack: Frame[] = [{ indent: -1, node: rootNode }];
   let skipAbove: number | null = null;
+  let openIf: OpenIf | null = null;
   for (const raw of text.split("\n")) {
     const line = raw.replace(/(^|\s)#.*$/, "");
     const indent = line.length - line.trimStart().length;
     if (line.trim() === "" || (skipAbove !== null && indent > skipAbove)) {
       continue;
     }
-    skipAbove = null;
     const body = line.trim();
+    if (openIf !== null && indent > openIf.indent) {
+      const first = openIf.node["if"];
+      openIf.node["if"] = `${typeof first === "string" ? first : ""}\n${body}`;
+      continue;
+    }
+    openIf = null;
+    skipAbove = null;
     if (body.startsWith("-")) {
       skipAbove = indent - 1;
       continue;
     }
     skipAbove = addEntry(stack, indent, body);
+    const top = stack[stack.length - 1];
+    if (
+      skipAbove === null &&
+      top !== undefined &&
+      /^["']?if["']?:\s*\S/.test(body)
+    ) {
+      openIf = { indent, node: top.node };
+    }
   }
   return rootNode;
 }
@@ -155,23 +184,21 @@ function jobProblems(file: string, name: string, job: unknown): string[] {
   }
   const isRelease = file === RELEASE;
   const signing = scopes.filter((s) => SIGNING_SCOPES.includes(s));
-  const allowedSigner = isRelease && SIGNING_JOBS.includes(name);
+  const signer = isRelease ? SIGNING_JOBS.get(name) : undefined;
   const problems: string[] = [];
-  if (!allowedSigner) {
+  if (signer === undefined) {
     for (const scope of signing) {
       problems.push(
-        `${file}: job ${name} requests ${scope}: write; only the ${SIGNING_JOBS.slice(0, -1).join(", ")} and ${SIGNING_JOBS[SIGNING_JOBS.length - 1]} jobs of ${RELEASE} may sign or push, so drop it`,
+        `${file}: job ${name} requests ${scope}: write; only the ${SIGNING_JOB_NAMES.slice(0, -1).join(", ")} and ${SIGNING_JOB_NAMES[SIGNING_JOB_NAMES.length - 1]} jobs of ${RELEASE} may sign or push, so drop it`,
       );
     }
   }
-  const gate = job["if"];
-  if (
-    allowedSigner &&
-    signing.length > 0 &&
-    !(typeof gate === "string" && gate.includes(TAG_GATE))
-  ) {
+  const condition = job["if"];
+  if (signer !== undefined && signing.length > 0 && condition !== signer.gate) {
     problems.push(
-      `${file}: signing job ${name} must run only for tags; add \`if: ${TAG_GATE}\``,
+      typeof condition === "string" && condition.includes("\n")
+        ? `${file}: signing job ${name} must run only for ${signer.runsOn}; its if: spans more than one line, and the gate must be one line equal to the exact condition, so write \`if: ${signer.gate}\` on one line`
+        : `${file}: signing job ${name} must run only for ${signer.runsOn}; add \`if: ${signer.gate}\``,
     );
   }
   if (!isRelease) {
