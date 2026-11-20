@@ -8,7 +8,14 @@
 [Match]
 Name={{ agents_platform_dns_link }}
 
+[Link]
+# A DNS-only dummy link must never hold up systemd-networkd-wait-online at boot.
+RequiredForOnline=no
+
 [Network]
+# systemd-resolved opens a DNS scope on a link only when the link has a routable
+# address. The /128 is from the private ULA prefix and routes nothing else.
+Address={{ agents_platform_dns_link_address }}
 DNS={{ agents_platform_dns_address }}:{{ agents_platform_dns_port }}
 Domains=~{{ agents_platform_dns_zone }}
 DNSDefaultRoute=no
