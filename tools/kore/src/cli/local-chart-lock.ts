@@ -67,7 +67,7 @@ export async function lockCheck(context: CommandContext): Promise<number> {
     {
       verdict:
         drifted.length > 0
-          ? `drift in ${drifted.join(", ")}: this run would test the published chart, not the repository's`
+          ? `drift in ${drifted.join(", ")}: this run would test the published chart, not the repository's; the fix is a release or a main publish that contains the change`
           : `no drift: the chart lock matches this checkout for ${releases.length} release${releases.length === 1 ? "" : "s"}`,
       releases,
     },

@@ -174,7 +174,7 @@ test("lock-check reports one row per release with a verdict naming the drifted c
   expect(print).toHaveBeenCalledWith(
     {
       verdict:
-        "drift in kore-platform-config: this run would test the published chart, not the repository's",
+        "drift in kore-platform-config: this run would test the published chart, not the repository's; the fix is a release or a main publish that contains the change",
       releases: [stale, row],
     },
     true,
