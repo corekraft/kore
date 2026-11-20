@@ -1,0 +1,5 @@
+# Managed by infra/hosts/vps (Ansible). Edits here are overwritten.
+[tools]
+{% for name, version in agents_tools.items() %}
+"{{ name }}" = "{{ version }}"
+{% endfor %}

@@ -1,0 +1,17 @@
+- name: Harden sshd
+  ansible.builtin.template:
+    src: 10-kore-hardening.conf.j2
+    dest: /etc/ssh/sshd_config.d/10-kore-hardening.conf
+    owner: root
+    group: root
+    mode: "0644"
+  notify: Validate and reload sshd
+
+- name: Read the drop-in directory first
+  # Stock Debian has this line; the Incus cloud image's minimal sshd_config
+  # does not, and without it the hardening above is never read.
+  ansible.builtin.lineinfile:
+    path: /etc/ssh/sshd_config
+    line: Include /etc/ssh/sshd_config.d/*.conf
+    insertbefore: BOF
+  notify: Validate and reload sshd

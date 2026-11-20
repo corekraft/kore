@@ -1,0 +1,64 @@
+- name: Install Incus and the VM runtime
+  ansible.builtin.apt:
+    name:
+      - incus
+      - qemu-system-x86
+      - ovmf
+    state: present
+    update_cache: true
+    cache_valid_time: 3600
+
+- name: Read the VM thin pool
+  ansible.builtin.command: lvs --noheadings vg/{{ incus_thinpool }}
+  register: incus_thinpool_lv
+  changed_when: false
+  failed_when: false
+  check_mode: false
+
+- name: Create the VM thin pool at its fixed size
+  ansible.builtin.command: >-
+    lvcreate --type thin-pool --size {{ incus_thinpool_size }}
+    --name {{ incus_thinpool }} vg
+  when: incus_thinpool_lv.rc != 0
+  changed_when: true
+
+- name: Read the Incus storage pools
+  ansible.builtin.command: incus storage list --format csv
+  register: incus_pools
+  changed_when: false
+  # A dry run on a host without Incus yet has nothing to read.
+  failed_when: incus_pools.rc != 0 and not ansible_check_mode
+  check_mode: false
+
+- name: Initialise Incus from the preseed
+  ansible.builtin.command:
+    cmd: incus admin init --preseed
+    stdin: "{{ lookup('ansible.builtin.template', 'preseed.yaml.j2') }}"
+  when: incus_pools.stdout | trim | length == 0
+  changed_when: true
+
+- name: Read the agents VM
+  ansible.builtin.command: incus info {{ incus_agents_name }}
+  register: incus_agents_info
+  changed_when: false
+  failed_when: false
+  check_mode: false
+
+- name: Create the agents VM
+  ansible.builtin.command:
+    argv:
+      - incus
+      - launch
+      - "{{ incus_agents_image }}"
+      - "{{ incus_agents_name }}"
+      - --vm
+    stdin: "{{ lookup('ansible.builtin.template', 'agents-instance.yaml.j2') }}"
+  when: incus_agents_info.rc != 0
+  changed_when: true
+
+- name: Wait for SSH in the agents VM
+  ansible.builtin.wait_for:
+    host: "{{ incus_agents_address }}"
+    port: 22
+    timeout: 600
+  when: not ansible_check_mode

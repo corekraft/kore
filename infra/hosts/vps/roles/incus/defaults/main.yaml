@@ -1,0 +1,21 @@
+# Debian packages follow trixie and its security updates, like the base role's;
+# only third-party repositories are pinned to exact versions.
+
+# A thin pool of a fixed size for VM disks, so the rest of the volume group
+# stays free for k3s.
+incus_thinpool: incus
+incus_thinpool_size: 1000g
+
+incus_bridge: incusbr0
+incus_bridge_address: 10.77.0.1/24
+
+# The agents VM. Incus caps these; it does not reserve them.
+incus_agents_name: kore-agents
+incus_agents_image: images:debian/13/cloud
+incus_agents_cpus: 6
+incus_agents_memory: 40GiB
+incus_agents_disk: 800GiB
+incus_agents_address: 10.77.0.10
+
+# Read on the controller at run time and never committed.
+incus_agents_ssh_pubkey_file: ~/.ssh/id_ed25519.pub
