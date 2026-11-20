@@ -37,6 +37,20 @@ test.each([
   ).toBe("");
 });
 
+test("a healthy cluster answers an HTTPRoute read with its parent Accepted and ResolvedRefs true, so a route's readiness passes", () => {
+  expect(
+    JSON.parse(healthyClusterOutput(read("httproute/otlp", "--output", "json")))
+      .status.parents,
+  ).toEqual([
+    {
+      conditions: [
+        { type: "Accepted", status: "True" },
+        { type: "ResolvedRefs", status: "True" },
+      ],
+    },
+  ]);
+});
+
 test("a Gateway status read still answers the healthy conditions", () => {
   expect(
     JSON.parse(

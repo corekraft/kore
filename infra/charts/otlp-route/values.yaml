@@ -1,0 +1,18 @@
+# The OTLP route (ADR 0140). Kore passes otlpRoute.hostname and the gateway
+# while otlp-route is on; never set them in an environment overlay.
+otlpRoute:
+  # Derived from the environment's platform field: otlp.<organizationId>.<domain>.
+  hostname: ""
+  gateway:
+    name: ""
+    namespace: ""
+  # The platform wildcard's HTTPS listener on the shared Gateway (ADR 0132).
+  sectionName: https-platform
+  # The collector's standard OTLP/HTTP receiver. The loopback-only receiver on
+  # 4319 (ADR 0062) is never routed.
+  service:
+    name: otel-collector
+    port: 4318
+# Kore passes the environment's flags here (ADR 0077). Off renders nothing.
+features:
+  otlp-route: false

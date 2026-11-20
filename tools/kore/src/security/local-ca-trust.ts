@@ -71,7 +71,7 @@ function stringEntries(data: Record<string, unknown>): Record<string, string> {
 }
 
 /** The local CA's public certificate; only tls.crt is read, never the key beside it. */
-async function loadLocalCa(
+export async function loadLocalCa(
   repository: Repository,
   runner: Runner,
 ): Promise<string> {

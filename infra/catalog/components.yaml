@@ -786,6 +786,21 @@
         "readiness": ["configmap/kore-service-rules"]
       },
       {
+        "name": "kore-otlp-route",
+        "phase": "configuration",
+        "namespace": "observability",
+        "kind": "local-chart",
+        "chart": "infra/charts/otlp-route",
+        "version": "local",
+        "featureFlag": "otlp-route",
+        "sharedGatewayRoutes": true,
+        "sharedGatewayRouteFlag": "otlp-route",
+        "ownsCRDs": [],
+        "dependencies": ["otel-collector", "kore-platform-config"],
+        "timeout": "2m",
+        "readiness": ["httproute/otlp"]
+      },
+      {
         "name": "kore-platform-backstage",
         "phase": "configuration",
         "namespace": "backstage",

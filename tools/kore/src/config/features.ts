@@ -87,3 +87,6 @@ export const platformSharedGatewayFlag = "platform-shared-gateway";
 
 /** The flag that routes databases by name through the shared Gateway's passthrough listener, and gives each database its certificate from the local CA (ADR 0136, ADR 0137). */
 export const databaseRoutesFlag = "database-routes";
+
+/** The flag that routes OTLP by name through the shared Gateway to the standard collector receiver on 4318 (ADR 0140, issue 1224). */
+export const otlpRouteFlag = "otlp-route";

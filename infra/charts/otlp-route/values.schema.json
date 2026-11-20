@@ -1,0 +1,47 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["otlpRoute"],
+  "properties": {
+    "otlpRoute": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["hostname", "gateway", "sectionName", "service"],
+      "properties": {
+        "hostname": {
+          "type": "string",
+          "description": "The OTLP name, otlp.<organizationId>.<domain>; kore derives it from the environment's platform field (ADR 0140)."
+        },
+        "gateway": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["name", "namespace"],
+          "properties": {
+            "name": { "type": "string" },
+            "namespace": { "type": "string" }
+          }
+        },
+        "sectionName": {
+          "type": "string",
+          "minLength": 1,
+          "description": "The Gateway's HTTPS listener for the platform wildcard (ADR 0132)."
+        },
+        "service": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["name", "port"],
+          "properties": {
+            "name": { "type": "string", "minLength": 1 },
+            "port": { "type": "integer", "minimum": 1, "maximum": 65535 }
+          }
+        }
+      }
+    },
+    "features": {
+      "type": "object",
+      "description": "The environment's flags, passed by kore; only otlp-route selects anything here.",
+      "additionalProperties": { "type": "boolean" }
+    }
+  }
+}

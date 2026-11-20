@@ -1,0 +1,5 @@
+apiVersion: v2
+name: otlp-route
+description: Routes OTLP by name, otlp.<organizationId>.<domain>, through the shared Gateway to the collector's standard OTLP/HTTP receiver, behind the otlp-route flag
+type: application
+version: 0.1.0

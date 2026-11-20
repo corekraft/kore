@@ -8,7 +8,7 @@ import {
   type Runner,
   liveEnvironment,
 } from "../runtime/index.js";
-import { postOtlp, waitForOtlp, withForward } from "./otlp-forward.js";
+import { sendSyntheticSignals } from "./otlp-send.js";
 import { platformStatus } from "./status.js";
 
 // Docs: docs/decisions/0019-telemetry-pipeline-wiring.md
@@ -17,8 +17,10 @@ import { platformStatus } from "./status.js";
 // endpoint, then reads each signal back from its backend. Everything goes
 // through the API server's Service proxy, except the OTLP POST: the proxy cannot
 // set a Content-Type, so a short-lived port-forward to the Collector carries it.
-// No image or Pod is created and no Secret is read. The synthetic signals expire with the
-// backends' bounded retention; there is nothing to delete.
+// With otlp-route on (ADR 0140) the POST goes to the OTLP name through the shared
+// Gateway instead, and only the local CA's public certificate is read. No image or
+// Pod is created. The synthetic signals expire with the backends' bounded
+// retention; there is nothing to delete.
 
 const namespace = "observability";
 const serviceName = "kore-telemetry-proof";
@@ -192,22 +194,7 @@ test(
     const marker = `/proof/${traceId.slice(0, 12)}`;
     const payloads = syntheticPayloads(traceId, marker);
 
-    // A port-forward dials the pod's loopback, which the pod-IP OTLP receiver on
-    // 4318 refuses (ADR 0062); the Collector's loopback-only receiver takes it.
-    await withForward(
-      {
-        context: repository.environment.kubeContext,
-        namespace,
-        target: "deployment/otel-collector",
-        remotePort: 4319,
-      },
-      async (port) => {
-        await waitForOtlp(port);
-        for (const signal of ["traces", "logs", "metrics"] as const) {
-          await postOtlp(port, signal, payloads[signal]);
-        }
-      },
-    );
+    await sendSyntheticSignals(repository, runner, payloads);
 
     const trace = await until("Tempo to return the trace", async () => {
       const body = await call("http:tempo:3200", `/api/traces/${traceId}`);

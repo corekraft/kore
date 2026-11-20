@@ -1,0 +1,28 @@
+{{- if index .Values.features "otlp-route" }}
+{{- /*
+  The OTLP name on the shared Gateway (ADR 0140). The route is HTTPS: the Gateway
+  terminates TLS with the platform wildcard's certificate, and forwards plain
+  OTLP/HTTP to the collector's standard receiver on 4318. The loopback-only
+  receiver on 4319 (ADR 0062) is never routed, so its guarantee holds. The
+  receiver has no authentication; the trade-off is recorded in ADR 0140.
+*/ -}}
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: otlp
+  namespace: {{ .Release.Namespace }}
+  labels: {app.kubernetes.io/managed-by: Helm}
+spec:
+  parentRefs:
+    - group: gateway.networking.k8s.io
+      kind: Gateway
+      name: {{ required "set otlpRoute.gateway.name, or render through kore, which derives it from the environment's gateway" .Values.otlpRoute.gateway.name }}
+      namespace: {{ required "set otlpRoute.gateway.namespace, or render through kore, which derives it from the environment's gateway" .Values.otlpRoute.gateway.namespace }}
+      sectionName: {{ .Values.otlpRoute.sectionName }}
+  hostnames:
+    - {{ required "set otlpRoute.hostname, or render through kore, which derives it from the environment's platform field" .Values.otlpRoute.hostname | quote }}
+  rules:
+    - backendRefs:
+        - name: {{ .Values.otlpRoute.service.name }}
+          port: {{ .Values.otlpRoute.service.port }}
+{{- end }}
