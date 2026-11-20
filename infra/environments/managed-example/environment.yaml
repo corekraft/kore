@@ -52,6 +52,7 @@
       "orchestrator-tick": false,
       "behind-main-notice": false,
       "tick-live-proofs": false,
+      "tick-ticket-queue": false,
       "shell-aware-zsh-rules": false,
       "gated-help-exempt": false,
       "main-session-figures": false,

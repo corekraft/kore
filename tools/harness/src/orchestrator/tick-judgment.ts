@@ -265,13 +265,3 @@ export class TickJudgment {
     return { step: "spawn-judgment", pane: name };
   }
 }
-
-/** The extra fields a judgment step adds to its idea's step: the pane it started, or the bound that held it. */
-export function judgedExtra(
-  outcome: JudgmentOutcome,
-): Partial<Pick<JudgmentOutcome, "pane" | "bound">> {
-  return {
-    ...(outcome.pane === undefined ? {} : { pane: outcome.pane }),
-    ...(outcome.bound === undefined ? {} : { bound: outcome.bound }),
-  };
-}

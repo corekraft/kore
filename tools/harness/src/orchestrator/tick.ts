@@ -1,26 +1,32 @@
-import type { QueueItem } from "../queue/index.js";
 import {
   escalateStage,
-  judgeLaunch,
   outcomeStage,
   precheckStage,
   reviewStage,
   sendBackStage,
-  writerLaunch,
   type Harness,
   type Measured,
 } from "./idea-run.js";
-import { OPEN_GATE, type BoundName, type PassGate } from "./tick-bounds.js";
-import {
-  TickJudgment,
-  judgedExtra,
-  type JudgmentPorts,
-  type JudgmentStep,
-} from "./tick-judgment.js";
-import type { TickNotifier } from "./tick-notify.js";
+import { OPEN_GATE, type PassGate } from "./tick-bounds.js";
+import { TickJudgment, type JudgmentPorts } from "./tick-judgment.js";
+import type {
+  IdeaPane,
+  IdeaStep,
+  LiveProofPass,
+  StepName,
+  StepNotifier,
+} from "./tick-step.js";
 import type { StoredPlan } from "./tick-plan-store.js";
 import { nextPiece, pieceLaunch } from "./tick-piece.js";
 import { Starts } from "./tick-starts.js";
+import {
+  isTicketKey,
+  type Queue,
+  type QueuedIdea,
+  judgeFor,
+  workedItems,
+  writerFor,
+} from "./tick-ticket.js";
 
 /** A third send-back starts a judgment flow (ADR 0121), which decides once; the tick reports needs-judgment after that. */
 const JUDGMENT_AFTER = 3;
@@ -30,14 +36,6 @@ type Done = (
   step: StepName,
   extra?: Partial<Pick<IdeaStep, "pr" | "pane" | "bound">>,
 ) => IdeaStep;
-
-export type PaneState = "running" | "done" | "blocked" | "closed";
-
-/** One pane `session spawn` made for an idea, read from the session registry. */
-export interface IdeaPane {
-  name: string;
-  state: PaneState;
-}
 
 /** What the tick reads and does: the stage ports of `orchestrate run`, plus three non-blocking reads. */
 export type TickPorts = Pick<
@@ -67,46 +65,11 @@ export type TickPorts = Pick<
   workPlan(idea: string): Promise<StoredPlan | undefined>;
   /** Persists a checked work plan for the idea through `orchestrate plan`, once (ADR 0121). */
   persistPlan: JudgmentPorts["persistPlan"];
+  /** Whether the `tick-ticket-queue` flag is on in the local overlay, so plain tickets are worked; read-only. */
+  ticketsOn(): Promise<boolean>;
+  /** The issue's title, for a ticket's brief; read-only. */
+  issueTitle(issue: number): Promise<string>;
 };
-
-export type StepName =
-  | "spawn-writer"
-  | "relaunch-writer"
-  | "spawn-judge"
-  | "spawn-piece"
-  | "spawn-live-proof"
-  | "review"
-  | "send-back"
-  | "close"
-  | "record-outcome"
-  | "waiting"
-  | "blocked"
-  | "awaiting-judge"
-  | "awaiting-outcome"
-  | "needs-judgment"
-  | "not-queued"
-  | "held"
-  | JudgmentStep;
-
-/** The one step a pass took for an idea. */
-export interface IdeaStep {
-  idea: string;
-  issue?: number;
-  step: StepName;
-  pr?: number;
-  pane?: string;
-  /** On a held step: the bound that stopped the pane start this pass. */
-  bound?: BoundName;
-  /** What the branch update notice did for this idea this pass, when it has something to say (#980). */
-  notice?: string;
-}
-
-/** The live-proof part of a pass, as the tick sees it (see LiveProofs). */
-export interface LiveProofPass {
-  pass(queue: readonly QueueItem[], starts: Starts): Promise<IdeaStep[]>;
-}
-
-type QueuedIdea = Extract<QueueItem, { kind: "idea" }>;
 
 /** The pull request an idea's pass works on, and the head commit it is at. */
 interface Change {
@@ -133,7 +96,7 @@ export class Tick {
     /** The judgment flow a third send-back starts and a finished judgment pane feeds (ADR 0121). */
     private readonly judgment: TickJudgment = new TickJudgment(ports),
     /** Told each step of a pass, so an idea that needs a person can reach the attended pane. */
-    private readonly notifier: Pick<TickNotifier, "notify"> = {
+    private readonly notifier: StepNotifier = {
       notify: async () => undefined,
     },
   ) {}
@@ -147,10 +110,7 @@ export class Tick {
   /** Advances every queued idea, or only `only` when given. */
   async pass(only?: string): Promise<IdeaStep[]> {
     const queue = await this.ports.queue();
-    const ideas = queue.filter(
-      (item): item is QueuedIdea =>
-        item.kind === "idea" && (only === undefined || item.idea === only),
-    );
+    const ideas = await workedItems(queue, this.ports, only);
     const starts = new Starts(await this.gate.read(), this.gate);
     const steps: IdeaStep[] = [];
     for (const item of ideas) {
@@ -172,7 +132,7 @@ export class Tick {
 
   private async advance(
     item: QueuedIdea,
-    queue: readonly QueueItem[],
+    queue: Queue,
     starts: Starts,
   ): Promise<IdeaStep> {
     const { idea, issue } = item;
@@ -181,7 +141,10 @@ export class Tick {
     if (panes.some((p) => p.state === "running")) {
       return done("waiting");
     }
-    const planned = await this.planned(item, panes, done, starts);
+    // A ticket has no idea record, so no judgment flow or work plan.
+    const planned = isTicketKey(idea)
+      ? undefined
+      : await this.planned(item, panes, done, starts);
     if (planned !== undefined) {
       return planned;
     }
@@ -220,7 +183,8 @@ export class Tick {
       starts.admit(issue),
     );
     if (judged !== undefined) {
-      return done(judged.step, judgedExtra(judged));
+      const { step, ...extra } = judged;
+      return done(step, extra);
     }
     return this.pieceStep(item, panes, done, starts);
   }
@@ -265,7 +229,9 @@ export class Tick {
     if (bound !== undefined) {
       return done("held", { bound });
     }
-    await this.ports.spawn(writerLaunch(idea, issue, undefined));
+    await this.ports.spawn(
+      await writerFor({ idea, issue }, this.ports, undefined),
+    );
     starts.taken();
     return done("spawn-writer");
   }
@@ -275,6 +241,10 @@ export class Tick {
     pr: number,
     done: (step: StepName, extra: { pr: number }) => IdeaStep,
   ): Promise<IdeaStep> {
+    // A ticket records no outcome: its pull request's Refs or Closes decides whether GitHub closes the issue.
+    if (isTicketKey(idea)) {
+      return done("merged", { pr });
+    }
     const outcome = this.outcomes.get(idea);
     if (outcome === undefined) {
       return done("awaiting-outcome", { pr });
@@ -296,8 +266,8 @@ export class Tick {
     }
     const tier = await this.ports.sendBacks(pr);
     if (tier.count >= JUDGMENT_AFTER) {
-      // The flow decides once per idea; after that a person decides, so nothing else is started.
-      if (this.judgment.begun(idea, panes)) {
+      // A ticket has no judgment flow, and the flow decides once per idea; a person decides after, so nothing is started.
+      if (isTicketKey(idea) || this.judgment.begun(idea, panes)) {
         return done("needs-judgment", { pr });
       }
       const started = await this.judgment.begin(
@@ -307,7 +277,8 @@ export class Tick {
         tier.count,
         () => starts.admit(issue),
       );
-      return done(started.step, { pr, ...judgedExtra(started) });
+      const { step, ...extra } = started;
+      return done(step, { pr, ...extra });
     }
     const bound = await starts.held(issue);
     if (bound !== undefined) {
@@ -317,7 +288,9 @@ export class Tick {
       escalated: false,
       model: undefined,
     });
-    await this.ports.spawn(writerLaunch(idea, issue, escalation.model, name));
+    await this.ports.spawn(
+      await writerFor({ idea, issue }, this.ports, escalation.model, name),
+    );
     starts.taken();
     return done("relaunch-writer", { pr, pane: name });
   }
@@ -351,8 +324,18 @@ export class Tick {
     if (bound !== undefined) {
       return done("held", { pr, bound });
     }
-    await this.ports.spawn(judgeLaunch(idea, pr, issue, name));
+    await this.ports.spawn(
+      await judgeFor({ idea, issue }, this.ports, pr, name),
+    );
     starts.taken();
     return done("spawn-judge", { pr, pane: name });
   }
 }
+
+export type {
+  IdeaPane,
+  IdeaStep,
+  LiveProofPass,
+  PaneState,
+  StepName,
+} from "./tick-step.js";

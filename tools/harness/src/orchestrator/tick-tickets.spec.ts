@@ -27,6 +27,7 @@ function ports(queue: unknown[]) {
       .fn()
       .mockResolvedValue({ count: 1, model: "haiku", escalate: false }),
     workPlan: vi.fn().mockResolvedValue(undefined),
+    ticketsOn: vi.fn().mockResolvedValue(false),
   } as unknown as TickPorts & { spawn: ReturnType<typeof vi.fn> };
 }
 
@@ -36,6 +37,7 @@ const TICKET = {
   since: "2026-11-10",
   lane: "product",
   horizon: "next",
+  labels: ["ready-for-agent"],
 };
 
 beforeEach(() => {
@@ -51,7 +53,7 @@ beforeEach(() => {
   );
 });
 
-describe("Tick and the plain tickets the frontier queue lists", () => {
+describe("Tick and the plain tickets the frontier queue lists, with the ticket flag off", () => {
   it("starts no plain ticket the queue lists, and advances the idea items in the order given", async () => {
     const p = ports([
       TICKET,

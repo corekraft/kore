@@ -4,6 +4,7 @@ import type { WorkPiece } from "./judgment-check.js";
 import { HarnessCli, HarnessCliError } from "./harness-cli.js";
 import { TickPlanStore, type StoredPlan } from "./tick-plan-store.js";
 import type { IdeaPane, PaneState } from "./tick.js";
+import { ticketFlagOn } from "./tick-ticket-flag.js";
 
 const HARNESS = "skills/bin/harness.mjs";
 
@@ -139,6 +140,22 @@ export class TickCli extends HarnessCli {
       { cwd: this.repo, input: JSON.stringify({ work }) },
     );
     this.check(`harness orchestrate plan ${idea}`, done);
+  }
+
+  /** Whether the local overlay turns the `tick-ticket-queue` flag on. */
+  ticketsOn(): Promise<boolean> {
+    return ticketFlagOn(this.fs, this.repo);
+  }
+
+  /** `gh issue view`: the issue's title, for a ticket's brief. */
+  async issueTitle(issue: number): Promise<string> {
+    const done = await this.runner.run(
+      "gh",
+      ["issue", "view", String(issue), "--json", "title"],
+      { cwd: this.repo },
+    );
+    this.check(`gh issue view ${issue}`, done);
+    return (this.json(done.stdout) as { title: string }).title;
   }
 
   /** `gh pr view`: the pull request's head commit. */

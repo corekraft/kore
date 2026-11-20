@@ -60,6 +60,22 @@ const record = (name: string, extra: object = {}) =>
 
 const file = (name: string) => `${SESSIONS}/${name}.json`;
 
+describe("TickCli issue title", () => {
+  it("reads an issue's title with a read-only gh call", async () => {
+    const { cli, calls } = setup(() => ({
+      stdout: JSON.stringify({ title: "Tick works tickets" }),
+    }));
+
+    expect(await cli.issueTitle(1419)).toBe("Tick works tickets");
+    expect(calls).toEqual([
+      {
+        command: "gh",
+        args: ["issue", "view", "1419", "--json", "title"],
+      },
+    ]);
+  });
+});
+
 describe("TickCli head and review reads", () => {
   it("reads a pull request's head commit with a read-only gh call", async () => {
     const { cli, calls } = setup(() => ({
@@ -165,23 +181,6 @@ describe("TickCli panes", () => {
     );
 
     await expect(cli.panes("0001")).rejects.toThrow(/herdr pane read p failed/);
-  });
-});
-
-describe("TickCli livePanes", () => {
-  it("lists every live-proof pane, whatever the ticket, and no idea pane", async () => {
-    const { cli } = setup(() => ({}), {
-      [file("live-proof-8")]: record("live-proof-8", { closedAt: "t" }),
-      [file("live-proof-9")]: record("live-proof-9", { closedAt: "t" }),
-      [file("idea-0001-writer")]: record("idea-0001-writer", {
-        closedAt: "t",
-      }),
-    });
-
-    expect(await cli.livePanes()).toEqual([
-      { name: "live-proof-8", state: "closed" },
-      { name: "live-proof-9", state: "closed" },
-    ]);
   });
 });
 

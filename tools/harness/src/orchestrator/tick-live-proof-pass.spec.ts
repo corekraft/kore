@@ -16,6 +16,7 @@ function ports(): TickPorts {
   return {
     queue: vi.fn().mockResolvedValue([TICKET]),
     panes: vi.fn().mockResolvedValue([]),
+    ticketsOn: vi.fn().mockResolvedValue(true),
     spawn: vi.fn(),
     close: vi.fn(),
   } as unknown as TickPorts;
