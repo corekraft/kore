@@ -1,0 +1,18 @@
+# Managed by infra/hosts/vps (Ansible). Edits here are overwritten.
+#
+# Scoped on purpose. The server is set on this link only, as the zone's
+# routing-only domain (~zone) with DNSDefaultRoute=no, so systemd-resolved sends
+# names under the zone here and no other name. A global DNS= in resolved.conf
+# would make this server the default for every name and drop the host's uplink
+# resolvers from the path.
+[Match]
+Name={{ agents_platform_dns_link }}
+
+[Network]
+DNS={{ agents_platform_dns_address }}:{{ agents_platform_dns_port }}
+Domains=~{{ agents_platform_dns_zone }}
+DNSDefaultRoute=no
+LinkLocalAddressing=no
+IPv6AcceptRA=no
+LLMNR=no
+MulticastDNS=no
