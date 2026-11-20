@@ -11,6 +11,18 @@ async function readRoot(path: string): Promise<string> {
   return readFile(join(root, path), "utf8");
 }
 
+// The platform DNS listens on 127.0.0.0/8 (ADR 0132, ADR 0141), so a loopback
+// address is not a public one. Every other dotted quad is.
+function publicAddresses(text: string): string[] {
+  return (text.match(/\b\d{1,3}(\.\d{1,3}){3}\b/g) ?? []).filter(
+    (address) => !address.startsWith("127."),
+  );
+}
+
+function assertNoPublicAddress(text: string): void {
+  assert.deepEqual(publicAddresses(text), []);
+}
+
 function taskBlock(tasks: string, name: string): string {
   const block = tasks.split(`- name: ${name}\n`)[1]?.split("\n- name:")[0];
   assert.ok(block, name);
@@ -104,24 +116,24 @@ test("the agent receives its CA certificate and key as its own files, the key at
   assert.doesNotMatch(tasks, /ansible\.builtin\.(fetch|slurp)[\s\S]*mkcert/);
 });
 
-// Loopback (127.0.0.0/8) is allowed: the platform DNS listens on 127.0.0.1 by design.
-// Any other IPv4 address is a public or private one, and must not appear in the role.
-const nonLoopbackIpv4 = /\b(?!127\.)\d{1,3}(\.\d{1,3}){3}\b/;
-
-test("the agents role holds no key material, public address or domain; loopback is allowed", async () => {
+test("the agents role holds no key material, public address or domain", async () => {
   const role = [
     await readRoot("infra/hosts/vps/roles/agents/defaults/main.yaml"),
     await readRoot("infra/hosts/vps/roles/agents/tasks/main.yaml"),
   ].join("\n");
   assert.doesNotMatch(role, /PRIVATE KEY|BEGIN /);
-  assert.doesNotMatch(role, nonLoopbackIpv4);
+  assertNoPublicAddress(role);
 });
 
-test("the address guard still catches a non-loopback IPv4 address, and lets 127.0.0.0/8 through", () => {
-  assert.match("agents_address: 203.0.113.7", nonLoopbackIpv4);
-  assert.match("agents_address: 10.0.0.1", nonLoopbackIpv4);
-  assert.doesNotMatch(
-    "agents_platform_dns_address: 127.0.0.1",
-    nonLoopbackIpv4,
+test("the public-address check still fails on a dotted address outside 127.0.0.0/8, and passes the loopback range", () => {
+  assert.doesNotThrow(() => assertNoPublicAddress("dns_address: 127.0.0.1"));
+  assert.doesNotThrow(() => assertNoPublicAddress("dns_address: 127.255.0.9"));
+  assert.throws(
+    () => assertNoPublicAddress("dns_address: 10.0.0.1"),
+    assert.AssertionError,
+  );
+  assert.throws(
+    () => assertNoPublicAddress("dns_address: 128.0.0.1"),
+    assert.AssertionError,
   );
 });
