@@ -3,7 +3,7 @@ import type { FileSystem } from "../runtime/index.js";
 import type { QueueItem } from "../queue/index.js";
 import { ticketQueueOn } from "../queue/index.js";
 import { localFlagOn } from "./local-flag.js";
-import type { PassGate } from "./tick-bounds.js";
+import type { BoundName } from "./tick-bounds.js";
 import {
   LIVE_PROOF_LABEL,
   LIVE_PROOFS_FLAG,
@@ -13,7 +13,7 @@ import {
   liveProofsOn,
   type LiveProofPorts,
 } from "./tick-live-proof.js";
-import { Starts } from "./tick-starts.js";
+import type { Starts } from "./tick-starts.js";
 
 vi.mock("./local-flag.js", () => ({ localFlagOn: vi.fn() }));
 vi.mock("../queue/index.js", () => ({ ticketQueueOn: vi.fn() }));
@@ -42,15 +42,16 @@ function ports(over: Partial<LiveProofPorts> = {}) {
   };
 }
 
-function starts(hold?: "live-run" | "load", saver = false) {
-  const recordMock = vi.fn().mockResolvedValue(undefined);
-  const gate: PassGate = { read: vi.fn(), record: recordMock };
+/** A stub Starts: `held` answers with the bound given, and the mocks show what LiveProofs asked of it. */
+function starts(bound?: BoundName) {
+  const held = vi.fn().mockResolvedValue(bound);
+  const record = vi.fn().mockResolvedValue(undefined);
+  const taken = vi.fn();
   return {
-    gate: { recordMock },
-    starts: new Starts(
-      { saver, ...(hold === undefined ? {} : { hold }) },
-      gate,
-    ),
+    starts: { held, record, taken } as unknown as Starts,
+    held,
+    record,
+    taken,
   };
 }
 
@@ -146,14 +147,14 @@ describe("LiveProofs", () => {
 
   it("holds and records live-run when the host lease is held, starting nothing", async () => {
     const p = ports();
-    const { starts: s, gate } = starts("live-run");
+    const { starts: s, held } = starts("live-run");
 
     const steps = await new LiveProofs(p).pass([ticket(8, PROOF)], s);
 
     expect(steps).toEqual([
       { idea: "ticket-8", issue: 8, step: "held", bound: "live-run" },
     ]);
-    expect(gate.recordMock).toHaveBeenCalledWith(8, "live-run");
+    expect(held).toHaveBeenCalledWith(8);
     expect(p.spawnMock).not.toHaveBeenCalled();
   });
 
@@ -163,14 +164,15 @@ describe("LiveProofs", () => {
         .fn()
         .mockResolvedValue([{ name: "live-proof-5", state: "running" }]),
     });
-    const { starts: s, gate } = starts();
+    const { starts: s, held, record } = starts();
 
     const steps = await new LiveProofs(p).pass([ticket(8, PROOF)], s);
 
     expect(steps).toEqual([
       { idea: "ticket-8", issue: 8, step: "held", bound: "live-proof" },
     ]);
-    expect(gate.recordMock).toHaveBeenCalledWith(8, "live-proof");
+    expect(record).toHaveBeenCalledWith(8, "live-proof");
+    expect(held).not.toHaveBeenCalled();
     expect(p.spawnMock).not.toHaveBeenCalled();
   });
 });
@@ -223,12 +225,13 @@ describe("LiveProofs one pane at a time", () => {
     expect(steps.map((x) => x.pane)).toEqual(["live-proof-9"]);
   });
 
-  it("counts its start so saver mode lets no second pane through", async () => {
-    const p = ports();
-    const { starts: s } = starts(undefined, true);
+  it("tells Starts a start was taken after it spawns, and not when it holds", async () => {
+    const started = starts();
+    await new LiveProofs(ports()).pass([ticket(8, PROOF)], started.starts);
+    const held = starts("load");
+    await new LiveProofs(ports()).pass([ticket(8, PROOF)], held.starts);
 
-    await new LiveProofs(p).pass([ticket(8, PROOF)], s);
-
-    expect(await s.held(99)).toBe("saver");
+    expect(started.taken).toHaveBeenCalledTimes(1);
+    expect(held.taken).not.toHaveBeenCalled();
   });
 });
