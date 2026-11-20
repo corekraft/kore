@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { fakeRunner, recordFixture } from "./idea-support.js";
 import { withoutOutcome } from "./record.js";
-import { issueTarget, renderBody } from "./sync.js";
+import { issueTarget, numberedIssue, renderBody } from "./sync.js";
 import {
   BODY,
   PATH,
@@ -36,6 +36,38 @@ describe("renderBody", () => {
     expect(withoutOutcome).toHaveBeenCalledWith("outcome text");
     expect(body.endsWith("feature-flagged\n\nAuthor prose.\n")).toBe(true);
     expect(body).not.toContain("outcome text");
+  });
+});
+
+describe("numberedIssue", () => {
+  it("returns a bare issue number with the repository gh reports for the checkout", async () => {
+    const runner = fakeRunner();
+    runner.run.mockResolvedValueOnce(repoName);
+
+    expect(await numberedIssue(runner, ROOT, "1435")).toEqual({
+      number: "1435",
+      repo: "corekraft/kore",
+    });
+    expect(runner.run).toHaveBeenCalledWith("gh", REPO_VIEW, { cwd: ROOT });
+  });
+
+  it("keeps the repository a link names, asking gh for nothing", async () => {
+    const runner = fakeRunner();
+
+    expect(
+      await numberedIssue(
+        runner,
+        ROOT,
+        "https://github.com/corekraft/kore/issues/1435",
+      ),
+    ).toEqual({ number: "1435", repo: "corekraft/kore" });
+    expect(runner.run).not.toHaveBeenCalled();
+  });
+
+  it("refuses a value that is neither a number nor a link", async () => {
+    await expect(numberedIssue(fakeRunner(), ROOT, "nope")).rejects.toThrow(
+      `"nope" is not an issue number or link;`,
+    );
   });
 });
 
