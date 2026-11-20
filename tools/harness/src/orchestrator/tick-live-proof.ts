@@ -36,7 +36,9 @@ export function liveProofBrief(issue: number): string {
   return [
     `Run the live proof that issue #${issue} names, on the delivery host. Read the issue first.`,
     "Take the host lease the way a live run does (`kore local up` takes it), run `kore local up` on the configured local context, then the test task the issue names.",
-    "Record the result through the existing tools only: for a flag, a verification outcome with `harness outcome record --kind verification --source live-run --flag <name> --environment local`; and a comment on the issue through a harness command, which writes the sender line. Never run `harness flag activate`.",
+    "A ticket has no idea of its own. For each flag the ticket proves, find the idea whose record names that flag and environment (search docs/ideas, or run `harness idea list`), then record the result with the full command: `harness outcome record --idea <that idea> --kind verification --source live-run --result confirmed|refuted --flag <name> --environment local --evidence <the run's log or ledger reference> --summary <one line>`.",
+    "If no idea names the flag, record nothing: comment the gap on the ticket with `harness decision ask`, which labels it needs-info, and end blocked.",
+    "Also comment the result on the issue through a harness command, which writes the sender line. Never run `harness flag activate`.",
     "On a missing prerequisite, run `harness decision ask` to comment the blocker and its clearing command (it labels the issue needs-info), then end blocked.",
     "Never dispatch live.yml or the nightly, and never reach kore-vps.",
   ].join("\n");

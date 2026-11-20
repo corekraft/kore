@@ -94,6 +94,19 @@ describe("liveProofBrief", () => {
     expect(brief).toContain("kore local up");
   });
 
+  it("carries the full outcome record command, found through the idea that names the flag", () => {
+    expect(brief).toContain("docs/ideas");
+    expect(brief).toContain(
+      "`harness outcome record --idea <that idea> --kind verification --source live-run --result confirmed|refuted --flag <name> --environment local --evidence <the run's log or ledger reference> --summary <one line>`",
+    );
+  });
+
+  it("records nothing when no idea names the flag, and ends blocked with the gap commented", () => {
+    expect(brief).toContain(
+      "If no idea names the flag, record nothing: comment the gap on the ticket with `harness decision ask`, which labels it needs-info, and end blocked.",
+    );
+  });
+
   it("records through verification, never an activation, and blocks with a comment", () => {
     expect(brief).toContain("harness outcome record");
     expect(brief).toContain("--kind verification --source live-run");
