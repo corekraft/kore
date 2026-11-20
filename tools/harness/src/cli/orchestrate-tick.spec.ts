@@ -36,6 +36,8 @@ vi.mock("../orchestrator/index.js", async () => ({
   BranchNotice: vi.fn(),
   BranchStepNotifier: vi.fn(),
   branchNoticeFlagOn: vi.fn(),
+  LiveProofs: vi.fn(),
+  liveProofsOn: vi.fn(),
   leasedPass: vi.fn(),
   runTicks: vi.fn(),
   tickFlagOn: vi.fn(),

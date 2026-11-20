@@ -4,6 +4,9 @@ import {
   BranchNotice,
   BranchStepNotifier,
   branchNoticeFlagOn,
+  LiveProofs,
+  Tick,
+  liveProofsOn,
   leasedPass,
   tickFlagOn,
 } from "../orchestrator/index.js";
@@ -31,6 +34,8 @@ vi.mock("../orchestrator/index.js", async () => ({
   BranchNotice: vi.fn(),
   BranchStepNotifier: vi.fn(),
   branchNoticeFlagOn: vi.fn(),
+  LiveProofs: vi.fn(),
+  liveProofsOn: vi.fn(),
   leasedPass: vi.fn(),
   runTicks: vi.fn(),
   tickFlagOn: vi.fn(),
@@ -111,5 +116,39 @@ describe("orchestrate tick with the branch notice flag on", () => {
     expect(await tickCommand.run(context)).toBe(0);
     expect(BranchNotice).toHaveBeenCalledTimes(1);
     expect(BranchStepNotifier).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("orchestrate tick with live proofs", () => {
+  const withLiveProofs = vi.fn();
+  beforeEach(() => {
+    withLiveProofs.mockImplementation(function (this: unknown) {
+      return this;
+    });
+    vi.mocked(Tick).mockImplementation(function () {
+      return { withLiveProofs } as unknown as Tick;
+    });
+  });
+
+  it("hands the tick no live-proof pass while live proofs are off", async () => {
+    vi.mocked(liveProofsOn).mockResolvedValue(false);
+    vi.mocked(leasedPass).mockResolvedValue({ status: "ran", steps: [] });
+    const { context } = setup();
+
+    expect(await tickCommand.run(context)).toBe(0);
+    expect(LiveProofs).not.toHaveBeenCalled();
+    expect(withLiveProofs).not.toHaveBeenCalled();
+  });
+
+  it("hands the tick a live-proof pass once tick-live-proofs and tick-ticket-queue are on", async () => {
+    vi.mocked(liveProofsOn).mockResolvedValue(true);
+    vi.mocked(leasedPass).mockResolvedValue({ status: "ran", steps: [] });
+    const { context } = setup();
+
+    expect(await tickCommand.run(context)).toBe(0);
+    expect(LiveProofs).toHaveBeenCalledTimes(1);
+    expect(withLiveProofs).toHaveBeenCalledWith(
+      vi.mocked(LiveProofs).mock.instances[0],
+    );
   });
 });

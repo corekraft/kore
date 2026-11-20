@@ -23,6 +23,11 @@ export class Starts {
     return bound;
   }
 
+  /** Records a bound this pass hit for the issue, for a hold the host reads cannot see. */
+  record(issue: number, bound: BoundName): Promise<void> {
+    return this.gate.record(issue, bound);
+  }
+
   /** Counts a start that went ahead, so saver mode lets no second one through. */
   taken(): void {
     this.started += 1;

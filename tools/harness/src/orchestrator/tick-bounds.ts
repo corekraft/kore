@@ -4,7 +4,7 @@ import type { Power } from "../runtime/index.js";
 export type HoldName = "load" | "live-run";
 
 /** A bound a pass hit, as the tick.bound ledger event names it. */
-export type BoundName = HoldName | "saver";
+export type BoundName = HoldName | "saver" | "live-proof";
 
 /** What the host allows this pass: saver mode on battery, and a hold that stops every start. */
 export interface PassBounds {
@@ -34,6 +34,7 @@ export const BOUND_LABELS: Record<BoundName, string> = {
   saver: "on battery: one pane starts per pass",
   load: "host load above KORE_SPAWN_MAX_LOAD, or unreadable",
   "live-run": "a live run holds the host lease, or it cannot be judged",
+  "live-proof": "a live-proof pane is already running on the host",
 };
 
 /** Reads the host through its readers into one pass's bounds. */

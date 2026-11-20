@@ -1133,7 +1133,7 @@ first, lowest number on a tie. `--json` adds `excluded` with each reason, and `-
 <issue>` places one issue or names why it is out. `harness idea sync` adds the `harness`
 label to a harness idea's issue when it creates or edits it, with the flag on, and never
 removes one. The tick takes the items in that order; it starts a plain ticket only with the
-`tick-ticket-queue` flag on (see `orchestrate tick`), and starts no ticket labelled `live-proof`.
+`tick-ticket-queue` flag on (see `orchestrate tick`). A ticket labelled `live-proof` is not worked as a plain ticket: with the `tick-live-proofs` flag on too, the tick starts one `live-proof-<issue>` pane for the first such ticket, one at a time on the host. A held host lease or a running live-proof pane starts none and is reported as held (`live-run`, `live-proof`). The pane records a verification outcome and a comment, and never activates a flag.
 
 `orchestrate tick [--idea <n>]` ([ADR 0121](../decisions/0121-the-orchestrator-is-a-tick-with-judgment-panes.md))
 is one pass over the queue that advances each approved idea by at most one step,

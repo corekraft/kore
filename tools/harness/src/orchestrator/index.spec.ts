@@ -26,6 +26,11 @@ vi.mock("./tick-lease.js", () => ({
   TICK_LEASE_MAX_AGE_MS: 1,
   TickLease: vi.fn(),
 }));
+vi.mock("./tick-live-proof.js", () => ({
+  LIVE_PROOFS_FLAG: "f",
+  LiveProofs: vi.fn(),
+  liveProofsOn: vi.fn(),
+}));
 vi.mock("./tick-leased.js", () => ({ leasedPass: vi.fn() }));
 vi.mock("./tick-heartbeat.js", () => ({
   TICK_HEARTBEAT_GAP_MS: 1,
@@ -60,6 +65,8 @@ describe("the orchestrator barrel", () => {
       "HarnessCli",
       "HarnessCliError",
       "IdeaRun",
+      "LIVE_PROOFS_FLAG",
+      "LiveProofs",
       "MAX_ROUNDS",
       "MAX_TICK_PASSES",
       "NotifyLedger",
@@ -91,6 +98,7 @@ describe("the orchestrator barrel", () => {
       "branchNoticeFlagOn",
       "checkPlan",
       "leasedPass",
+      "liveProofsOn",
       "pieceNameProblem",
       "restartJobPath",
       "restartJobPlist",

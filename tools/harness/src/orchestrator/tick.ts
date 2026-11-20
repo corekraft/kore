@@ -7,13 +7,15 @@ import {
   type Harness,
   type Measured,
 } from "./idea-run.js";
-import { OPEN_GATE, type BoundName, type PassGate } from "./tick-bounds.js";
-import {
-  TickJudgment,
-  type JudgmentPorts,
-  type JudgmentStep,
-} from "./tick-judgment.js";
-import type { TickNotifier } from "./tick-notify.js";
+import { OPEN_GATE, type PassGate } from "./tick-bounds.js";
+import { TickJudgment, type JudgmentPorts } from "./tick-judgment.js";
+import type {
+  IdeaPane,
+  IdeaStep,
+  LiveProofPass,
+  StepName,
+  StepNotifier,
+} from "./tick-step.js";
 import type { StoredPlan } from "./tick-plan-store.js";
 import { nextPiece, pieceLaunch } from "./tick-piece.js";
 import { Starts } from "./tick-starts.js";
@@ -34,14 +36,6 @@ type Done = (
   step: StepName,
   extra?: Partial<Pick<IdeaStep, "pr" | "pane" | "bound">>,
 ) => IdeaStep;
-
-export type PaneState = "running" | "done" | "blocked" | "closed";
-
-/** One pane `session spawn` made for an idea, read from the session registry. */
-export interface IdeaPane {
-  name: string;
-  state: PaneState;
-}
 
 /** What the tick reads and does: the stage ports of `orchestrate run`, plus three non-blocking reads. */
 export type TickPorts = Pick<
@@ -77,38 +71,6 @@ export type TickPorts = Pick<
   issueTitle(issue: number): Promise<string>;
 };
 
-export type StepName =
-  | "spawn-writer"
-  | "relaunch-writer"
-  | "spawn-judge"
-  | "spawn-piece"
-  | "review"
-  | "send-back"
-  | "close"
-  | "record-outcome"
-  | "waiting"
-  | "blocked"
-  | "awaiting-judge"
-  | "awaiting-outcome"
-  | "merged"
-  | "needs-judgment"
-  | "not-queued"
-  | "held"
-  | JudgmentStep;
-
-/** The one step a pass took for an idea. */
-export interface IdeaStep {
-  idea: string;
-  issue?: number;
-  step: StepName;
-  pr?: number;
-  pane?: string;
-  /** On a held step: the bound that stopped the pane start this pass. */
-  bound?: BoundName;
-  /** What the branch update notice did for this idea this pass, when it has something to say (#980). */
-  notice?: string;
-}
-
 /** The pull request an idea's pass works on, and the head commit it is at. */
 interface Change {
   pr: number;
@@ -123,6 +85,8 @@ interface Change {
  * one twice. The tick merges and edits nothing, and calls no model.
  */
 export class Tick {
+  private live: LiveProofPass | undefined;
+
   constructor(
     private readonly ports: TickPorts,
     /** The measured outcome to record for an idea once its change has merged. */
@@ -132,10 +96,16 @@ export class Tick {
     /** The judgment flow a third send-back starts and a finished judgment pane feeds (ADR 0121). */
     private readonly judgment: TickJudgment = new TickJudgment(ports),
     /** Told each step of a pass, so an idea that needs a person can reach the attended pane. */
-    private readonly notifier: Pick<TickNotifier, "notify"> = {
+    private readonly notifier: StepNotifier = {
       notify: async () => undefined,
     },
   ) {}
+
+  /** Behind tick-live-proofs: adds the live-proof pass, which runs after the ideas in a pass over the whole queue. */
+  withLiveProofs(live: LiveProofPass): this {
+    this.live = live;
+    return this;
+  }
 
   /** Advances every queued idea, or only `only` when given. */
   async pass(only?: string): Promise<IdeaStep[]> {
@@ -145,6 +115,12 @@ export class Tick {
     const steps: IdeaStep[] = [];
     for (const item of ideas) {
       const step = await this.advance(item, queue, starts);
+      await this.notifier.notify(step);
+      steps.push(step);
+    }
+    for (const step of only === undefined
+      ? ((await this.live?.pass(queue, starts)) ?? [])
+      : []) {
       await this.notifier.notify(step);
       steps.push(step);
     }
@@ -355,3 +331,11 @@ export class Tick {
     return done("spawn-judge", { pr, pane: name });
   }
 }
+
+export type {
+  IdeaPane,
+  IdeaStep,
+  LiveProofPass,
+  PaneState,
+  StepName,
+} from "./tick-step.js";
