@@ -15,8 +15,13 @@ describe("the queue barrel", () => {
     expect(Object.keys(barrel).sort()).toEqual([
       "ESCALATION_MODEL",
       "ESCALATION_THRESHOLD",
+      "FrontierError",
+      "TICKET_QUEUE_FLAG",
+      "buildFrontier",
       "buildQueue",
       "countSendBacks",
+      "readReadyIssues",
+      "ticketQueueOn",
       "writerTier",
     ]);
   });

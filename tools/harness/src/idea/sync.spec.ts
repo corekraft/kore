@@ -29,7 +29,7 @@ const sync = (
   runner: FakeRunner,
   record: IdeaRecord = recordFixture(),
   recordLink = vi.fn(),
-) => syncIssue(runner, ROOT, record, TEXT, recordLink);
+) => syncIssue(runner, ROOT, record, TEXT, { recordLink });
 
 beforeEach(() => {
   vi.mocked(withoutOutcome).mockImplementation((text: string) => text);

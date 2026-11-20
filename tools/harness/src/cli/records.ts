@@ -1,5 +1,5 @@
-import { ideaCommands } from "../idea/index.js";
 import type { Command } from "../runtime/index.js";
+import { ideaRecordCommands } from "./idea-commands.js";
 import { rulesetCommands } from "../ruleset/index.js";
 import { flagCommands } from "./flag-commands.js";
 import { statusCommand } from "./status-command.js";
@@ -9,7 +9,7 @@ import { outcomeCommands } from "./outcome-commands.js";
 
 /** The delivery loop's records: ideas, the outcomes that close them, the flags those outcomes prove, and the judge's precheck. */
 export const records: Record<string, Record<string, Command>> = {
-  idea: ideaCommands,
+  idea: ideaRecordCommands,
   outcome: outcomeCommands,
   decision: decisionCommands,
   flag: flagCommands,

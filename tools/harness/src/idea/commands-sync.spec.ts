@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { URL, context, prepareCommands, sync } from "./commands-support.js";
 import type { FakeDeps, FakeRepository } from "./idea-support.js";
 import { recordFixture } from "./idea-support.js";
+import { ideaCommandsWith } from "./commands.js";
 import { syncIssue } from "./sync.js";
 
 vi.mock("./repository.js");
@@ -40,15 +41,43 @@ describe("harness idea sync", () => {
     const record = recordFixture();
     repo.get.mockResolvedValue(record);
     vi.mocked(syncIssue).mockImplementation(
-      async (_r, _root, _rec, _t, link) => {
-        await link(URL);
+      async (_r, _root, _rec, _t, options) => {
+        await options.recordLink(URL);
         return { action: "created", issue: URL };
       },
     );
     await sync.run(context(deps, { idea: "1" }));
     expect(repo.recordIssue.mock.calls).toEqual([[record, URL]]);
   });
+});
 
+describe("harness idea sync with the harness label flag", () => {
+  it("passes the harness label flag's answer to syncIssue, so the label is added only when the flag is on", async () => {
+    const record = recordFixture({
+      harness: { metric: "m", direction: "down", window: "14d" },
+    });
+    repo.get.mockResolvedValue(record);
+    vi.mocked(syncIssue).mockResolvedValue({ action: "created", issue: URL });
+    const on = ideaCommandsWith(() => Promise.resolve(true));
+    expect(await on.sync?.run(context(deps, { idea: "1" }))).toBe(0);
+    expect(vi.mocked(syncIssue).mock.calls[0]?.[4]).toEqual({
+      recordLink: expect.any(Function) as unknown,
+      harnessLabel: true,
+    });
+  });
+
+  it("passes harnessLabel false by default, so the command behaves as it did before the flag", async () => {
+    repo.get.mockResolvedValue(recordFixture());
+    vi.mocked(syncIssue).mockResolvedValue({ action: "created", issue: URL });
+    await sync.run(context(deps, { idea: "1" }));
+    expect(vi.mocked(syncIssue).mock.calls[0]?.[4]).toEqual({
+      recordLink: expect.any(Function) as unknown,
+      harnessLabel: false,
+    });
+  });
+});
+
+describe("harness idea sync output", () => {
   it("prints the idea number, action and issue as JSON under --json", async () => {
     repo.get.mockResolvedValue(recordFixture());
     vi.mocked(syncIssue).mockResolvedValue({ action: "unchanged", issue: URL });
