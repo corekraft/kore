@@ -279,6 +279,32 @@ test("each release is prepared before it is reconciled, in catalog order, so a r
   ]);
 });
 
+test("a kore-otlp-route like component is prepared, so its namespace is enrolled, before its release is reconciled and its httproute waited on", async () => {
+  const otlpRoute = fakeComponent({
+    name: "kore-otlp-route",
+    phase: "configuration",
+    namespace: "observability",
+    sharedGatewayRoutes: true,
+    sharedGatewayRouteFlag: "otlp-route",
+    readiness: ["httproute/otlp"],
+  });
+  vi.mocked(helmInstalledComponents).mockReturnValue([policy, otlpRoute]);
+  const order: string[] = [];
+  vi.mocked(prepareConfigurationRelease).mockImplementation(
+    async (_r, _n, c) => {
+      order.push(`enroll:${c.namespace}`);
+    },
+  );
+  vi.mocked(reconcileConfiguration).mockImplementation(async (_r, _n, c) => {
+    order.push(`reconcile:${c.name}`);
+  });
+  await reconcileConfigurations(repository, fakeRunner().runner);
+  expect(order.slice(-2)).toEqual([
+    "enroll:observability",
+    "reconcile:kore-otlp-route",
+  ]);
+});
+
 test("a release that fails its preparation is not reconciled", async () => {
   vi.mocked(helmInstalledComponents).mockReturnValue([policy]);
   vi.mocked(prepareConfigurationRelease).mockRejectedValue(

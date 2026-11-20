@@ -1,10 +1,16 @@
-import { expect, test } from "vitest";
+import { expect, test, vi } from "vitest";
 import { enrollSharedGatewayRoute } from "./enrollment.js";
 import {
   fakeComponent,
   fakeRepository,
   fakeRunner,
 } from "./platform-support.js";
+
+vi.mock("../config/index.js");
+vi.mock("./gated-release.js");
+vi.mock("./image-inventory.js", () => ({
+  enrollmentLabel: "policy.sigstore.dev/include",
+}));
 
 // Docs: docs/decisions/0134-the-shared-gateway-admits-routes-only-from-platform-labelled-namespaces.md
 // A route waits for admission inside its own component's readiness check, so
