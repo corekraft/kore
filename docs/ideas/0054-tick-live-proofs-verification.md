@@ -7,6 +7,19 @@ safety-pattern: feature-flagged
 date: 2026-11-20
 parent: 0052
 issue: https://github.com/corekraft/kore/issues/1428
+outcome: confirmed
 ---
 
 # Idea 0054: tick-live-proofs works in local
+
+## Outcome
+
+- Result: confirmed
+- Kind: verification
+- Source: owner-waiver
+- Flag: tick-live-proofs
+- Environment: local
+- Evidence: https://github.com/corekraft/kore/issues/1428#issuecomment-7042256371
+- Recorded: 2026-11-20
+
+Owner waived the live run; the first live-proof run on kore-agents is the check, and the pane never activates a flag.
