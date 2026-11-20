@@ -281,6 +281,7 @@ decisions; read one only when planning that area, and expect it to change.
 - [`docs/ideas/0051-platform-dns-works-live-in-local.md`](ideas/0051-platform-dns-works-live-in-local.md) — platform-dns works live in local
 - [`docs/ideas/0052-tick-works-ready-tickets.md`](ideas/0052-tick-works-ready-tickets.md) — orchestrate tick builds its queue from every open ready-for-agent issue with no open blocker, no open sub-issue, no assignee and no paused or spec label, not only from idea records; behind a local flag, off.
 - [`docs/ideas/0053-tick-ticket-queue-verification.md`](ideas/0053-tick-ticket-queue-verification.md) — Verification that the tick-ticket-queue flag turns on the frontier queue, its steering view and the harness label in local, so it can be activated.
+- [`docs/ideas/0054-tick-live-proofs-verification.md`](ideas/0054-tick-live-proofs-verification.md) — Verification that the tick-live-proofs flag hands live-proof tickets to one live-proof pane at a time on the delivery host, so it can be activated.
 
 ## Operations and Guides
 
