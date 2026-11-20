@@ -1,5 +1,23 @@
 # Changelog
 
+## [0.13.0](https://github.com/corekraft/kore/compare/v0.12.0...v0.13.0) (2026-11-20)
+
+
+### Features
+
+* **infra:** converge the vps host with a pinned ansible playbook ([#1387](https://github.com/corekraft/kore/issues/1387)) ([b46d5af](https://github.com/corekraft/kore/commit/b46d5af3086ab6f2eaad798d22fd95f3e399f2bf))
+
+
+### Bug fixes
+
+* **platform:** label a route component's namespace before its release waits for admission ([#1389](https://github.com/corekraft/kore/issues/1389)) ([02b7dae](https://github.com/corekraft/kore/commit/02b7dae2c9d24a973cdf8e9484ccf59bea166adf))
+* **tools:** allow the ansible pins as mise-only developer tools ([#1391](https://github.com/corekraft/kore/issues/1391)) ([123435d](https://github.com/corekraft/kore/commit/123435d6a67d23b2dd5fee175067cd6be1a12e2c)), closes [#1390](https://github.com/corekraft/kore/issues/1390)
+
+
+### Documentation
+
+* **ideas:** record the platform-dns live outcome as confirmed in local ([#1383](https://github.com/corekraft/kore/issues/1383)) ([826b627](https://github.com/corekraft/kore/commit/826b62799b734b032538eca5e9c384679a79a9b6))
+
 ## [0.12.0](https://github.com/corekraft/kore/compare/v0.11.0...v0.12.0) (2026-11-20)
 
 
