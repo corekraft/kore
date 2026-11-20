@@ -279,6 +279,7 @@ decisions; read one only when planning that area, and expect it to change.
 - [`docs/ideas/0049-platform-shared-gateway-works-live-in-local.md`](ideas/0049-platform-shared-gateway-works-live-in-local.md) — platform-shared-gateway works live in local
 - [`docs/ideas/0050-follow-up-0042-proof-225-bad-change.md`](ideas/0050-follow-up-0042-proof-225-bad-change.md) — Follow up on idea 0042 after a inconclusive outcome
 - [`docs/ideas/0051-platform-dns-works-live-in-local.md`](ideas/0051-platform-dns-works-live-in-local.md) — platform-dns works live in local
+- [`docs/ideas/0052-tick-works-ready-tickets.md`](ideas/0052-tick-works-ready-tickets.md) — orchestrate tick builds its queue from every open ready-for-agent issue with no open blocker, no open sub-issue, no assignee and no paused or spec label, not only from idea records; behind a local flag, off.
 
 ## Operations and Guides
 
