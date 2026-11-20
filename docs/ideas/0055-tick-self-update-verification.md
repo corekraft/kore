@@ -7,8 +7,21 @@ safety-pattern: feature-flagged
 date: 2026-11-20
 parent: 0052
 issue: https://github.com/corekraft/kore/issues/1445
+outcome: confirmed
 ---
 
 # Idea 0055: tick-self-update works in local
 
 This idea verifies the `tick-self-update` flag in the local environment. The flag stays off: turning it on needs this idea's recorded verification outcome and the owner's one-line approval. Nothing here activates the flag or edits an environment overlay.
+
+## Outcome
+
+- Result: confirmed
+- Kind: verification
+- Source: owner-waiver
+- Flag: tick-self-update
+- Environment: local
+- Evidence: https://github.com/corekraft/kore/issues/1445#issuecomment-7044215985
+- Recorded: 2026-11-20
+
+Owner waived the live run: the first loop run on kore-agents after activation is the check.
