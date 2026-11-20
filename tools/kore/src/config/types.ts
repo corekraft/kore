@@ -221,10 +221,13 @@ export interface Environment {
   /**
    * The platform's one name field: the platform domain and the platform
    * organization's identifier. Every chart's copy of the domain, the Gateway's
-   * hostname and the delivery path's value derive from the domain; the
-   * identifier feeds only the platform organization's wildcard hostname and,
-   * behind their flags, the Organization zone default and the database routes
-   * (ADR 0042).
+   * hostname and the delivery path's value derive from the domain. The
+   * identifier builds the platform organization's wildcard hostname, the
+   * registry hostname and the host DNS check's `<organizationId>.<domain>`,
+   * and, behind their flags, the shared Gateway's route domain, the
+   * Organization zone default and the database routes; the platform
+   * Organization resource's name and the golden-path load test's hostname
+   * still use the literal `platform` (ADR 0042).
    */
   platform: { domain: string; organizationId: string };
   gateway: { namespace: string; name: string; port: number };
