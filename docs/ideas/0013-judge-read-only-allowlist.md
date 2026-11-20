@@ -20,7 +20,7 @@ outcome: refuted
 - Result: refuted
 - Kind: experiment
 - Source: comparison
-- Evidence: 240 role-read-only blocks 2026-11-18..20 (about 107/day) vs 281 in the four days before (about 70/day), target under 30
+- Evidence: Mac ledger: role-read-only blocks ran at 95 a day (441) from 2026-11-12 to 2026-11-16T15:15Z, 76 a day (307) after the change merged, and 103 a day (278) over 2026-11-18..20; target under 30
 - Recorded: 2026-11-20
 
-Role-read-only blocks rose to about 107 a day from about 70, against a target under 30; follow-up is idea 0031.
+Role-read-only blocks stayed between 76 and 103 a day, against a target under 30; follow-up is idea 0031.

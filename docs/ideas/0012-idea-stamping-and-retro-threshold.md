@@ -10,17 +10,17 @@ hypothesis-metric: attribution.withIdeaAndStage
 hypothesis-direction: up
 hypothesis-window: 14d
 issue: https://github.com/corekraft/kore/issues/799
-outcome: inconclusive
+outcome: refuted
 ---
 
 # Idea 0012: Stamp every loop event with its idea and stage
 
 ## Outcome
 
-- Result: inconclusive
+- Result: refuted
 - Kind: experiment
 - Source: journal
-- Evidence: 4,731 of 7,512 events carry an idea and stage (63%) over 8 hours only; review, judge and verify show 0 events; tokens per idea has 2 closed ideas of 6 needed
+- Evidence: Mac ledger since 2026-11-13: 8,044 of 59,554 role-session events carry an idea and stage (13.5%); 22% since 2026-11-16T14:15Z and 4.8% since 2026-11-18T02:06Z, against a target of over half; review stage 9 events, verify 0; the share peaked near 50% on 2026-11-17
 - Recorded: 2026-11-20
 
-63% of events carry an idea and stage, but over only 8 hours, and tokens per idea has 2 of 6 closed ideas needed.
+On the Mac ledger, which holds the full history, the share of events with an idea and stage never reached half and fell to 4.8% after 2026-11-18. An earlier reading of 63% covered 8 hours on the kore-agents ledger only and was recorded as inconclusive.

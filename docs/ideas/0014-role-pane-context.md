@@ -20,7 +20,7 @@ outcome: inconclusive
 - Result: inconclusive
 - Kind: experiment
 - Source: comparison
-- Evidence: Tokens per idea has insufficient history; first-event input tokens writer median 233,726 after (n=17) vs 80,403 before (n=323), not attributable to the change
+- Evidence: Mac ledger: tokens per idea has insufficient history (5 closed ideas, 6 needed); writer first-event input tokens median 132,169 after (n=198) vs 80,403 before (n=323); tokens per merged change 301k vs 267k
 - Recorded: 2026-11-20
 
-Tokens per idea has insufficient history, and first-event input tokens (233,726 vs 80,403) cannot be attributed to the change.
+Tokens per idea has insufficient history, and neither proxy fell: writer first-event tokens rose from 80,403 to 132,169 and tokens per merged change from 267k to 301k.
