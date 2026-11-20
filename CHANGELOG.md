@@ -1,5 +1,25 @@
 # Changelog
 
+## [0.18.0](https://github.com/corekraft/kore/compare/v0.17.0...v0.18.0) (2026-11-20)
+
+
+### Features
+
+* **hosts:** resolve platform.kore.local through the platform DNS on the agents VM ([#1467](https://github.com/corekraft/kore/issues/1467)) ([fb0b1da](https://github.com/corekraft/kore/commit/fb0b1daad829bae367a6ddf32afc50fb4568af92))
+* **platform:** add an autoscaler to the golden-path workload under autoscaling-defaults ([#1468](https://github.com/corekraft/kore/issues/1468)) ([be84a17](https://github.com/corekraft/kore/commit/be84a1704d51915da5c51e3933239341f0cc68ed)), closes [#1465](https://github.com/corekraft/kore/issues/1465) [#1114](https://github.com/corekraft/kore/issues/1114)
+* **platform:** raise the golden-path workload cpu request to 100m ([#1487](https://github.com/corekraft/kore/issues/1487)) ([2da0f0d](https://github.com/corekraft/kore/commit/2da0f0de0f69d8cd5b926f2a9dbca50cd80d11f2))
+
+
+### Bug fixes
+
+* **hosts:** give the platform DNS link an address so systemd-resolved uses it ([#1471](https://github.com/corekraft/kore/issues/1471)) ([ac0f038](https://github.com/corekraft/kore/commit/ac0f038a534350e77b8614baac93963c2d424b6f))
+* **platform:** admit the database port through the gateway's mesh policy ([#1477](https://github.com/corekraft/kore/issues/1477)) ([b72e9a1](https://github.com/corekraft/kore/commit/b72e9a1a113e0da7e4a62ec25abc509e81bc55d0))
+* **platform:** make the golden-path scale check wait out the autoscaler's scale-in ([#1475](https://github.com/corekraft/kore/issues/1475)) ([00af587](https://github.com/corekraft/kore/commit/00af58789161eb93f3047e3e50070c2ce9ae3284)), closes [#1474](https://github.com/corekraft/kore/issues/1474) [#1114](https://github.com/corekraft/kore/issues/1114)
+* **platform:** mark the database route ready from its Gateway API conditions ([#1473](https://github.com/corekraft/kore/issues/1473)) ([408e6fd](https://github.com/corekraft/kore/commit/408e6fd96920a252803c3a0fa91c525ea6ddb5ce)), closes [#1472](https://github.com/corekraft/kore/issues/1472) [#1225](https://github.com/corekraft/kore/issues/1225)
+* **platform:** reach the golden-path load through the shared Gateway ([#1461](https://github.com/corekraft/kore/issues/1461)) ([a31c2e7](https://github.com/corekraft/kore/commit/a31c2e739bd5b17611468c33bd7adba1d59444cf)), closes [#1460](https://github.com/corekraft/kore/issues/1460) [#1114](https://github.com/corekraft/kore/issues/1114)
+* **platform:** read the host record from /proc/meminfo on Linux ([#1464](https://github.com/corekraft/kore/issues/1464)) ([6fe6d1e](https://github.com/corekraft/kore/commit/6fe6d1e52ebab8731ce7bc0716687f9d609d383a)), closes [#1462](https://github.com/corekraft/kore/issues/1462) [#1114](https://github.com/corekraft/kore/issues/1114)
+* **platform:** refuse the scale check when no autoscaler owns the BFF ([#1466](https://github.com/corekraft/kore/issues/1466)) ([1dbe31e](https://github.com/corekraft/kore/commit/1dbe31e8d36d950b4faa248e2aac53f14eaa3df1)), closes [#1465](https://github.com/corekraft/kore/issues/1465) [#1114](https://github.com/corekraft/kore/issues/1114)
+
 ## [0.17.0](https://github.com/corekraft/kore/compare/v0.16.0...v0.17.0) (2026-11-20)
 
 
