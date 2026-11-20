@@ -2,3 +2,17 @@ gateway:
   certificateSecret: kore-local-tls
 issuer:
   name: kore-local-ca
+# Kore passes the environment's flags here (ADR 0077). in-cluster-ca makes
+# cert-manager create the root CA the issuer above signs with, inside the
+# cluster (ADR 0142). Off, the issuer and its CA Secret come from elsewhere:
+# kore trust install creates local's from the mkcert root.
+features:
+  in-cluster-ca: false
+ca:
+  selfSignedIssuerName: kore-local-selfsigned
+  namespace: cert-manager
+  secretName: kore-local-ca-key-pair
+  commonName: kore-local-ca
+  # Ten years: the root outlives every certificate it signs, and trust copies
+  # of its public certificate go stale when it is re-issued.
+  duration: 87600h

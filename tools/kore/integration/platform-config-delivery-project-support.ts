@@ -88,6 +88,9 @@ export async function renderDelivery(repository: Repository): Promise<{
     "--set-json",
     `releaseValues=${JSON.stringify(chartDelivery.releaseValues)}`,
     ...databaseRoutesDeliveryArgs(chartDelivery),
+    ...(chartDelivery.inClusterCa === true
+      ? ["--set", "inClusterCa=true"]
+      : []),
   ]);
   return {
     handedOver: argocdOwned(repository),
