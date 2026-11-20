@@ -5,13 +5,14 @@ import { countRound, loadArgs } from "./route-load.js";
 
 // Docs: infra/plans/13-agentgateway-ingress.md#golden-path-route-set
 //
-// The scale check of plan 15 Step 3: the golden-path BFF grows from its
-// starting replica count to N and back while the golden-path routes carry
-// load, and any failed request fails the check. It is a test helper: the one
-// cluster write is `kubectl scale` on the named Deployment, addressed by the
-// configured context and namespace and put back to the count it had before the
-// first write, whether that is the starting count or not, however the check ends. Sequential rounds count requests the way the ingress
-// measurement does (`route-load.ts`).
+// The scale check of plan 15 Step 3: the golden-path BFF scales out under the
+// golden-path routes' load until it reaches the peak, the load stops, and it
+// scales back in to its HorizontalPodAutoscaler's minimum (ADR 0047). Any failed
+// request fails the check. The autoscaler moves the replica count, so the check
+// writes nothing to the cluster: every call it makes is a read. It stops the load
+// once the peak is reached, because the autoscaler scales in only after the CPU
+// has fallen. Sequential rounds count requests the way the ingress measurement
+// does (`route-load.ts`).
 
 export interface ScaleCheckOptions {
   kubeContext: string;
@@ -20,11 +21,9 @@ export interface ScaleCheckOptions {
   /** The BFF Deployment, `<service>-bff`. */
   deployment: string;
   /**
-   * The replica count the run sets before the load starts and returns to.
-   * Unset keeps the count the Deployment has, and records it.
+   * N: the ready replica count the run waits to see under load. It must be above
+   * the autoscaler's minimum and at most its maximum.
    */
-  startReplicas?: number;
-  /** N: the ready replica count the run grows to. */
   peakReplicas: number;
   /** The golden-path Service's default host, `<service>.<organization>.<platformDomain>`. */
   hostname: string;
@@ -42,12 +41,16 @@ export interface ScaleCheckOptions {
   pollIntervalSeconds: number;
 }
 
-/** The fixed method of the recorded baseline. */
+/**
+ * The fixed method of the recorded baseline. The poll budget covers the
+ * autoscaler's scale-down stabilisation window (five minutes by default) plus
+ * the time the Pods take to terminate.
+ */
 export const scaleCheckDefaults = {
   requestsPerRoute: 50,
   concurrency: 4,
   maxLoadAverage: 10,
-  maxPolls: 60,
+  maxPolls: 120,
   pollIntervalSeconds: 5,
 } as const;
 
@@ -66,8 +69,10 @@ export interface ScaleCheckResult {
     requestsPerRoute: number;
     concurrency: number;
   };
-  /** Ready replicas: where the run began, the most it saw, and where it ended. */
-  replicas: { start: number; requestedPeak: number; peak: number; end: number };
+  /** The HorizontalPodAutoscaler's bounds on the BFF; the run starts and ends at its minimum. */
+  autoscaler: { minReplicas: number; maxReplicas: number };
+  /** Ready replicas: where the run began, the most it saw under load, and where it ended. */
+  replicas: { start: number; peak: number; end: number };
   /** Every request answered its expected status, or the check failed. */
   load: { requests: number; failedRequests: 0; elapsedSeconds: number };
   loadAverage: { start: number };
@@ -76,13 +81,23 @@ export interface ScaleCheckResult {
 }
 
 interface Replicas {
-  desired: number;
   total: number;
   ready: number;
 }
 
+interface Autoscaler {
+  minReplicas: number;
+  maxReplicas: number;
+}
+
 interface Autoscalers {
-  items?: { spec?: { scaleTargetRef?: { kind?: string; name?: string } } }[];
+  items?: {
+    spec?: {
+      scaleTargetRef?: { kind?: string; name?: string };
+      minReplicas?: number;
+      maxReplicas?: number;
+    };
+  }[];
 }
 
 const tenth = (value: number): number => Math.round(value * 10) / 10;
@@ -102,14 +117,9 @@ export class GoldenPathScaleCheck {
     private readonly host?: HostReader,
   ) {}
 
-  /** Refuses a busy host, then scales out and back under the golden-path load. */
+  /** Refuses a busy host or a missing autoscaler, then scales out and back under the golden-path load. */
   async run(): Promise<ScaleCheckResult> {
-    const { startReplicas, peakReplicas, maxLoadAverage } = this.options;
-    if (startReplicas !== undefined && peakReplicas <= startReplicas) {
-      throw new Error(
-        `peak replicas ${peakReplicas} must be above the starting count ${startReplicas}; pass a larger KORE_SCALE_PEAK_REPLICAS`,
-      );
-    }
+    const { maxLoadAverage } = this.options;
     const loadAverage = this.deps.loadAverage();
     if (loadAverage >= maxLoadAverage) {
       throw new Error(
@@ -117,93 +127,58 @@ export class GoldenPathScaleCheck {
       );
     }
     const before = await this.host?.read();
-    const result = await this.scale(loadAverage);
+    const autoscaler = await this.requireAutoscaler();
+    this.requirePeak(autoscaler);
+    const result = await this.scale(autoscaler, loadAverage);
     const after = await this.host?.read();
     return before === undefined || after === undefined
       ? result
       : { ...result, host: { before, after } };
   }
 
-  private async scale(loadAverage: number): Promise<ScaleCheckResult> {
-    const { peakReplicas } = this.options;
-    // The count the Deployment has before the first write is the one put back.
-    const found = (await this.replicas()).desired;
-    const start = this.options.startReplicas ?? found;
-    if (peakReplicas <= start) {
-      throw new Error(
-        `peak replicas ${peakReplicas} must be above the starting count ${start}; pass a larger KORE_SCALE_PEAK_REPLICAS`,
-      );
-    }
-    await this.requireAutoscaler(found);
-    const written = { value: false };
-    try {
-      const result = await this.underLoad(start, loadAverage, written);
-      if (start !== found) {
-        await this.scaleTo(found);
-      }
-      return result;
-    } catch (error) {
-      throw await this.restored(this.failureError() ?? error, found, written);
-    }
-  }
-
-  /** Sets the starting count, then scales out and back while the load runs. */
-  private async underLoad(
-    start: number,
+  private async scale(
+    autoscaler: Autoscaler,
     loadAverage: number,
-    written: { value: boolean },
   ): Promise<ScaleCheckResult> {
+    const { minReplicas } = autoscaler;
+    // The run starts only once the autoscaler has settled the BFF at its minimum.
+    const start = await this.waitFor(
+      minReplicas,
+      "settled",
+      (seen) =>
+        `${this.subject()} has ${seen.ready} ready replicas after ${this.options.maxPolls} reads before any load, not its autoscaler's minimum of ${minReplicas}; the autoscaler has not settled at its minimum`,
+    );
+    const began = this.deps.now();
+    const loading = this.loadUntil(() => running.value);
     const running = { value: true };
-    let loading: Promise<void> | undefined;
+    let waited: unknown;
     try {
-      written.value = true;
-      await this.scaleTo(start);
-      await this.waitFor(start, "settled");
-      const began = this.deps.now();
-      loading = this.loadUntil(() => running.value);
-      const end = await this.outAndBack(start);
-      running.value = false;
-      await loading;
-      this.throwFailure();
-      return this.result(start, end, loadAverage, began);
-    } finally {
-      running.value = false;
-      await loading;
-    }
-  }
-
-  /**
-   * Puts the Deployment back to the count it was found with once a write was
-   * attempted. A restore that fails is named beside the original error and
-   * never replaces it.
-   */
-  private async restored(
-    error: unknown,
-    found: number,
-    written: { value: boolean },
-  ): Promise<unknown> {
-    if (!written.value) {
-      return error;
-    }
-    try {
-      await this.scaleTo(found);
-      return error;
-    } catch (restoreError) {
-      return new Error(
-        `${reason(error)}; restoring ${this.subject()} to ${found} replicas also failed: ${reason(restoreError)}; scale it back by hand`,
+      await this.waitFor(
+        this.options.peakReplicas,
+        "ready",
+        (seen) =>
+          `${this.subject()} reached ${seen.ready} of ${this.options.peakReplicas} ready replicas after ${this.options.maxPolls} reads; check the autoscaler can scale out under load (its CPU is measured against the container's request) and the cluster has room`,
       );
+    } catch (error) {
+      waited = error;
     }
-  }
-
-  /** Grows to the peak, then returns to `start`, reading the counts reached. */
-  private async outAndBack(start: number): Promise<Replicas> {
-    await this.scaleTo(this.options.peakReplicas);
-    await this.waitFor(this.options.peakReplicas, "ready");
-    await this.scaleTo(start);
-    return this.waitFor(start, "settled");
+    running.value = false;
+    await loading;
+    this.throwFailure();
+    if (waited !== undefined) {
+      throw waited;
+    }
+    const end = await this.waitFor(
+      minReplicas,
+      "settled",
+      (seen) =>
+        `${this.subject()} still has ${seen.ready} ready replicas after ${this.options.maxPolls} reads, not its minimum of ${minReplicas}; the autoscaler has not scaled back in`,
+    );
+    return this.result(autoscaler, start.ready, end, loadAverage, began);
   }
 
   private result(
+    autoscaler: Autoscaler,
     start: number,
     end: Replicas,
     loadAverage: number,
@@ -211,12 +186,11 @@ export class GoldenPathScaleCheck {
   ): ScaleCheckResult {
     return {
       method: this.method(),
-      replicas: {
-        start,
-        requestedPeak: this.options.peakReplicas,
-        peak: this.peak,
-        end: end.ready,
+      autoscaler: {
+        minReplicas: autoscaler.minReplicas,
+        maxReplicas: autoscaler.maxReplicas,
       },
+      replicas: { start, peak: this.peak, end: end.ready },
       load: {
         requests: this.requests,
         failedRequests: 0,
@@ -270,30 +244,41 @@ export class GoldenPathScaleCheck {
     );
   }
 
-  private scaleTo(replicas: number): Promise<unknown> {
-    return this.kubectl([
-      "scale",
-      `deployment/${this.options.deployment}`,
-      `--replicas=${replicas}`,
-    ]);
-  }
-
   /**
-   * Refuses before the first write when no HorizontalPodAutoscaler targets the
-   * BFF: the chart sets its replica count and creates no autoscaler, and Argo
-   * CD's selfHeal reverts any scale the chart does not own.
+   * Reads the HorizontalPodAutoscaler that targets the BFF and refuses before any
+   * load when none does: the chart creates one only while autoscaling-defaults is
+   * on, and without one no scale-out can be measured.
    */
-  private async requireAutoscaler(found: number): Promise<void> {
+  private async requireAutoscaler(): Promise<Autoscaler> {
     const { stdout } = await this.kubectl(["get", "hpa", "--output", "json"]);
     const { items = [] } = JSON.parse(stdout) as Autoscalers;
-    const targets = items.some(
+    const target = items.find(
       ({ spec }) =>
         spec?.scaleTargetRef?.kind === "Deployment" &&
         spec.scaleTargetRef.name === this.options.deployment,
     );
-    if (!targets) {
+    if (target?.spec === undefined) {
       throw new Error(
-        `${this.subject()} has replicas: ${found} and no HorizontalPodAutoscaler targets it; the golden-path-workload chart sets its replica count and creates no autoscaler, and Argo CD selfHeal reverts a scale the chart does not own, so no scale would stay; give the chart an autoscaler (ADR 0047) or a delivered replica value, then rerun`,
+        `${this.subject()} has no HorizontalPodAutoscaler that targets it; the golden-path-workload chart creates one only while autoscaling-defaults is on (ADR 0047), so no scale-out can be measured; turn the flag on, let the sync converge, then rerun`,
+      );
+    }
+    return {
+      minReplicas: target.spec.minReplicas ?? 1,
+      maxReplicas: target.spec.maxReplicas ?? 1,
+    };
+  }
+
+  /** Refuses a peak the autoscaler could never reach, or one that is no scale-out at all. */
+  private requirePeak({ minReplicas, maxReplicas }: Autoscaler): void {
+    const { peakReplicas } = this.options;
+    if (peakReplicas <= minReplicas) {
+      throw new Error(
+        `peak replicas ${peakReplicas} must be above the autoscaler's minimum ${minReplicas}; pass a larger KORE_SCALE_PEAK_REPLICAS`,
+      );
+    }
+    if (peakReplicas > maxReplicas) {
+      throw new Error(
+        `peak replicas ${peakReplicas} is above the autoscaler's maximum ${maxReplicas}; pass a KORE_SCALE_PEAK_REPLICAS of at most ${maxReplicas}`,
       );
     }
   }
@@ -307,23 +292,23 @@ export class GoldenPathScaleCheck {
       "json",
     ]);
     const parsed = JSON.parse(stdout) as {
-      spec?: { replicas?: number };
       status?: { replicas?: number; readyReplicas?: number };
     };
     return {
-      desired: parsed.spec?.replicas ?? 0,
       total: parsed.status?.replicas ?? 0,
       ready: parsed.status?.readyReplicas ?? 0,
     };
   }
 
   /**
-   * Reads the Deployment until it has `count` ready replicas (`ready`) and no
-   * others still starting or stopping (`settled`), noting the most it saw.
+   * Reads the Deployment until it has `count` ready replicas (`ready`) or exactly
+   * `count` with none still starting or stopping (`settled`), noting the most
+   * ready replicas it has seen. A failed request ends the wait early.
    */
   private async waitFor(
     count: number,
     until: "ready" | "settled",
+    message: (seen: Replicas) => string,
   ): Promise<Replicas> {
     const { maxPolls, pollIntervalSeconds } = this.options;
     let seen = await this.replicas();
@@ -341,9 +326,7 @@ export class GoldenPathScaleCheck {
         seen = await this.replicas();
       }
     }
-    throw new Error(
-      `${this.subject()} reached ${seen.ready} of ${count} ready replicas after ${maxPolls} reads; check the sync is not reverting the scale and the cluster has room`,
-    );
+    throw new Error(message(seen));
   }
 
   /** Repeats the golden-path rounds until `running` turns false; the first failure ends the load. */

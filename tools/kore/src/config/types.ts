@@ -333,6 +333,7 @@ export interface GoldenPathDeliveryValues {
   ingress: { platformDomain: string; gatewayClassName: string };
   /** True while platform-shared-gateway is on: the sync labels the app namespaces it creates (ADR 0133). */
   sharedGateway?: boolean;
+  autoscaling?: boolean;
 }
 
 export interface Repository {

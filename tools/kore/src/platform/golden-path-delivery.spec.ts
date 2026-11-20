@@ -85,6 +85,7 @@ test("the values carry the lock's digests, the checked-out commit and the enviro
       gatewayClassName: "agentgateway",
     },
     sharedGateway: false,
+    autoscaling: false,
   });
 });
 
@@ -103,6 +104,33 @@ test("with platform-shared-gateway on the values carry sharedGateway, so the syn
     "template.lock.json",
   );
   expect(composed.goldenPathDelivery?.sharedGateway).toBe(true);
+});
+
+test("with autoscaling-defaults on the values carry autoscaling, so the Application sets the workload's autoscaler", async () => {
+  const autoscaled = {
+    ...repository,
+    environment: {
+      ...repository.environment,
+      features: { "autoscaling-defaults": true },
+    },
+  };
+  const { runner } = git();
+  const composed = await composeGoldenPathDelivery(
+    autoscaled,
+    runner,
+    "template.lock.json",
+  );
+  expect(composed.goldenPathDelivery?.autoscaling).toBe(true);
+});
+
+test("with autoscaling-defaults off the values carry autoscaling false, so the Application sets no autoscaler", async () => {
+  const { runner } = git();
+  const composed = await composeGoldenPathDelivery(
+    repository,
+    runner,
+    "template.lock.json",
+  );
+  expect(composed.goldenPathDelivery?.autoscaling).toBe(false);
 });
 
 test("with the flag off the repository is untouched and neither a file nor git is read", async () => {

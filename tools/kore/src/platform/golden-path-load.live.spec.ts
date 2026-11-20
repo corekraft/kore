@@ -25,15 +25,15 @@ import { RatedMeasurement } from "./ingress-rated-measurement.js";
 // Two tests, each printing one JSON record with the host record beside it:
 // - the golden-path p95, p50 and max at the service's own Gateway, read-only
 //   against the cluster, separate from the reference routes' numbers;
-// - the scale check, whose one cluster write is `kubectl scale` on the BFF
-//   Deployment, put back to the count it had before the run however it ends.
+// - the scale check, which writes nothing: the BFF's HorizontalPodAutoscaler
+//   scales it out under load and back to its minimum.
 // The probes reach the service's own Gateway at its published address, or, when
 // the service has no Gateway of its own, the shared Gateway on loopback. Any other
 // case fails before any load is sent, naming the cause (golden-path-reach.live.ts).
 // Only baselines are recorded; there is no target. KORE_GOLDEN_PATH_SERVICE
-// names the delivered Service (default golden-path-example),
-// KORE_SCALE_PEAK_REPLICAS is N (default 4) and KORE_SCALE_START_REPLICAS sets
-// the starting count (default: the Deployment's own).
+// names the delivered Service (default golden-path-example), and
+// KORE_SCALE_PEAK_REPLICAS is N (default 4), which must be above the autoscaler's
+// minimum and at most its maximum.
 
 // The probes take the address only when the Service publishes one.
 function addressOf(reach: GoldenPathReach): { address?: string } {
@@ -133,7 +133,6 @@ test(
   live,
   async () => {
     const c = await context();
-    const startReplicas = count("KORE_SCALE_START_REPLICAS");
     const result = await new GoldenPathScaleCheck(
       c.runner,
       c.runner,
@@ -142,7 +141,6 @@ test(
         kubeContext: c.kubeContext,
         namespace: c.namespace,
         deployment: `${c.service}-bff`,
-        ...(startReplicas === undefined ? {} : { startReplicas }),
         peakReplicas: count("KORE_SCALE_PEAK_REPLICAS") ?? 4,
         hostname: c.hostname,
         port: c.reach.port,
@@ -153,7 +151,7 @@ test(
       c.host,
     ).run();
     assert.equal(result.load.failedRequests, 0);
-    assert.equal(result.replicas.peak, result.replicas.requestedPeak);
+    assert.ok(result.replicas.peak > result.replicas.start);
     assert.equal(result.replicas.end, result.replicas.start);
     assert.ok(result.host !== undefined);
     console.log(JSON.stringify(result, null, 2));

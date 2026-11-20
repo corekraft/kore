@@ -1,0 +1,117 @@
+---
+# Source: golden-path-workload/templates/workload.yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: auth-bff
+  labels:
+    app.kubernetes.io/part-of: auth
+spec:
+  selector:
+    app.kubernetes.io/name: auth-bff
+  ports:
+    - name: http
+      port: 80
+      targetPort: http
+
+---
+# Source: golden-path-workload/templates/workload.yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: auth-frontend
+  labels:
+    app.kubernetes.io/part-of: auth
+spec:
+  selector:
+    app.kubernetes.io/name: auth-frontend
+  ports:
+    - name: http
+      port: 80
+      targetPort: http
+
+---
+# Source: golden-path-workload/templates/workload.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: auth-bff
+  labels:
+    app.kubernetes.io/name: auth-bff
+    app.kubernetes.io/part-of: auth
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: auth-bff
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: auth-bff
+        app.kubernetes.io/part-of: auth
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: bff
+          image: "ghcr.io/corekraft/kore/kotlin-bff-template@sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+          ports:
+            - name: http
+              containerPort: 8080
+          startupProbe:
+            httpGet: { path: /actuator/health, port: http }
+            periodSeconds: 5
+            failureThreshold: 60
+          readinessProbe:
+            httpGet: { path: /actuator/health, port: http }
+          livenessProbe:
+            httpGet: { path: /actuator/health, port: http }
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: [ALL]
+
+---
+# Source: golden-path-workload/templates/workload.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: auth-frontend
+  labels:
+    app.kubernetes.io/name: auth-frontend
+    app.kubernetes.io/part-of: auth
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: auth-frontend
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: auth-frontend
+        app.kubernetes.io/part-of: auth
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: frontend
+          image: "ghcr.io/corekraft/kore/static-frontend-template@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+          ports:
+            - name: http
+              containerPort: 8080
+          startupProbe:
+            httpGet: { path: /healthz, port: http }
+            periodSeconds: 5
+            failureThreshold: 60
+          readinessProbe:
+            httpGet: { path: /healthz, port: http }
+          livenessProbe:
+            httpGet: { path: /healthz, port: http }
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: [ALL]

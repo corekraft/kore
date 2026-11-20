@@ -318,3 +318,15 @@ test("an ingress without a gateway class is refused by the delivery chart", asyn
   );
   assert.match(message, /gatewayClassName/);
 });
+
+const autoscalingParameter = /name: autoscaling\.enabled\s+value: "true"/;
+
+test("with autoscaling-defaults on, the Application sets autoscaling.enabled, so each workload's chart renders its autoscaler", async () => {
+  const set = (await delivery("--set", "autoscaling=true"))[0]!;
+  assert.match(set, autoscalingParameter);
+});
+
+test("with autoscaling-defaults off the Application sets no autoscaling parameter, so the workload renders unchanged", async () => {
+  const set = (await delivery())[0]!;
+  assert.doesNotMatch(set, /autoscaling/);
+});

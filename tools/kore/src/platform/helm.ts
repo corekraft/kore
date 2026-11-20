@@ -83,6 +83,8 @@ function goldenPathArgs(
     `ingress.gatewayClassName=${golden.ingress.gatewayClassName}`,
     // Only while platform-shared-gateway is on, so the flag off passes nothing new.
     ...(golden.sharedGateway ? ["--set", "sharedGateway=true"] : []),
+    // Only while autoscaling-defaults is on, so the flag off passes nothing new.
+    ...(golden.autoscaling ? ["--set", "autoscaling=true"] : []),
   ];
 }
 

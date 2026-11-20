@@ -41,6 +41,10 @@ spec:
               value: {{ printf "%s@%s" $frontend.image $frontend.digest | quote }}
             - name: bff.image
               value: {{ printf "%s@%s" $bff.image $bff.digest | quote }}
+            {{- if .Values.autoscaling }}
+            - name: autoscaling.enabled
+              value: "true"
+            {{- end }}
             {{- with .Values.ingress }}
             - name: ingress.host
               value: '{{`{{ .metadata.name }}`}}.{{`{{ .spec.organization }}`}}.{{ .platformDomain }}'

@@ -1,5 +1,6 @@
 import { readFile } from "node:fs/promises";
 import {
+  autoscalingFlag,
   gatewayClassName,
   helmInstalledComponents,
   platformPlan,
@@ -112,6 +113,7 @@ export async function composeGoldenPathDelivery(
       },
       sharedGateway:
         repository.environment.features?.["platform-shared-gateway"] === true,
+      autoscaling: repository.environment.features?.[autoscalingFlag] === true,
     },
   };
 }

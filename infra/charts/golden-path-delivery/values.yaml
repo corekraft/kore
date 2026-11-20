@@ -19,6 +19,11 @@ workloadPath: infra/charts/golden-path-workload
 namespace: argocd
 project: default
 
+# Set by kore only while autoscaling-defaults is on (ADR 0047). The sync then
+# sets autoscaling.enabled on each workload, so the workload chart renders its
+# HorizontalPodAutoscaler and no replica count.
+# autoscaling: true
+
 # Set by kore only while platform-shared-gateway is on. The sync then labels each
 # app namespace it creates with the platform-owned shared-gateway label (ADR
 # 0133). Off by default, so the sync sets no namespace metadata.
