@@ -7,6 +7,7 @@ export const ESCALATION_MODEL = "claude-sonnet-5-5";
 
 export type QueueItem =
   | { kind: "idea"; idea: string; issue: number; since: string }
+  | { kind: "send-back"; pr: number; count: number; since: string }
   | {
       kind: "ticket";
       issue: number;
@@ -14,8 +15,9 @@ export type QueueItem =
       lane: "product" | "harness";
       horizon: "next" | "then" | "none";
       labels: readonly string[];
-    }
-  | { kind: "send-back"; pr: number; count: number; since: string };
+    };
+
+export type SendBackItem = Extract<QueueItem, { kind: "send-back" }>;
 
 export interface OpenPr {
   number: number;
@@ -66,25 +68,16 @@ export interface QueueInput {
 }
 
 /**
- * The work the orchestrator may pick up, oldest first: approved ideas with no
- * outcome, and send-backs still waiting for a writer. A send-back is pending
+ * The send-backs still waiting for a writer, oldest first: a send-back is pending
  * while its PR is open and still at the head the judge sent back.
  */
-export function buildQueue(input: QueueInput): QueueItem[] {
-  const items: QueueItem[] = [];
-  for (const record of input.ideas) {
-    const issue = issueNumber(record.issue);
-    const since = issue === undefined ? undefined : input.approved.get(issue);
-    if (
-      issue !== undefined &&
-      since !== undefined &&
-      record.outcome === undefined
-    ) {
-      items.push({ kind: "idea", idea: record.number, issue, since });
-    }
-  }
-  for (const pr of input.openPrs) {
-    const events = sendBacksOf(input.sendBacks, pr.number);
+export function pendingSendBacks(
+  openPrs: readonly OpenPr[],
+  sendBacks: readonly LedgerEvent[],
+): SendBackItem[] {
+  const items: SendBackItem[] = [];
+  for (const pr of openPrs) {
+    const events = sendBacksOf(sendBacks, pr.number);
     const newest = events.reduce<LedgerEvent | undefined>(
       (latest, e) =>
         latest === undefined ||
@@ -107,5 +100,27 @@ export function buildQueue(input: QueueInput): QueueItem[] {
       });
     }
   }
+  return items.sort((a, b) => Date.parse(a.since) - Date.parse(b.since));
+}
+
+/**
+ * The work the orchestrator may pick up, oldest first: approved ideas with no
+ * outcome, and send-backs still waiting for a writer. A send-back is pending
+ * while its PR is open and still at the head the judge sent back.
+ */
+export function buildQueue(input: QueueInput): QueueItem[] {
+  const items: QueueItem[] = [];
+  for (const record of input.ideas) {
+    const issue = issueNumber(record.issue);
+    const since = issue === undefined ? undefined : input.approved.get(issue);
+    if (
+      issue !== undefined &&
+      since !== undefined &&
+      record.outcome === undefined
+    ) {
+      items.push({ kind: "idea", idea: record.number, issue, since });
+    }
+  }
+  items.push(...pendingSendBacks(input.openPrs, input.sendBacks));
   return items.sort((a, b) => Date.parse(a.since) - Date.parse(b.since));
 }

@@ -10,6 +10,8 @@ export interface SyncResult {
 
 /** gh's answer for a missing issue; a missing repository or a network failure must not match. */
 const NOT_FOUND = /could not resolve to an issue|issue .*not found|no issue/i;
+/** The label the tick-ticket-queue flag puts on a harness idea's issue, so it lands in the harness lane. */
+const HARNESS_LABEL = "harness";
 const ISSUE_URL = /https:\/\/github\.com\/([\w.-]+\/[\w.-]+)\/issues\/(\d+)/;
 
 /** Everything in the markdown after its first heading: the author's own prose, never the recorded outcome. */
@@ -84,12 +86,21 @@ type Gh = (
 
 const fix = "Check `gh auth status` and rerun `harness idea sync`.";
 
+/** How `harness idea sync` behaves beyond the markdown: the tick-ticket-queue flag's harness label. */
+export interface SyncOptions {
+  /** Records the link of an issue this sync created, so the idea points at it. */
+  recordLink: (url: string) => Promise<void>;
+  /** Add the harness label when the issue is created or edited, for a harness idea only; never removes one. */
+  harnessLabel?: boolean;
+}
+
 /** Brings an existing issue in line with the markdown, writing only when it differs. */
 async function reconcile(
   gh: Gh,
   record: IdeaRecord,
   body: string,
   at: { number: string; repo: string },
+  labelled: boolean,
 ): Promise<SyncResult | undefined> {
   const title = record.title.trim();
   const issue = record.issue ?? "";
@@ -123,6 +134,7 @@ async function reconcile(
       title,
       "--body-file",
       "-",
+      ...(labelled ? ["--add-label", HARNESS_LABEL] : []),
     ],
     body,
   );
@@ -134,16 +146,19 @@ async function reconcile(
 
 /**
  * Mirrors an idea to its GitHub issue in one direction. The issue is read only to
- * decide whether a write is needed; only the title and body are ever written, never
- * labels or assignees.
+ * decide whether a write is needed; the title and body are written, and with the
+ * harness label option on, the harness label is added. Assignees are never written,
+ * and no label is ever removed.
  */
 export async function syncIssue(
   runner: Runner,
   root: string,
   record: IdeaRecord,
   text: string,
-  recordLink: (url: string) => Promise<void>,
+  options: SyncOptions,
 ): Promise<SyncResult> {
+  const labelled =
+    options.harnessLabel === true && record.harness !== undefined;
   const body = renderBody(record, text);
   const gh: Gh = async (args, input) =>
     await runner.run("gh", args, {
@@ -160,7 +175,13 @@ export async function syncIssue(
   const existing =
     at === undefined
       ? undefined
-      : await reconcile(gh, record, body, { number: at.number, repo });
+      : await reconcile(
+          gh,
+          record,
+          body,
+          { number: at.number, repo },
+          labelled,
+        );
   if (existing !== undefined) {
     return existing;
   }
@@ -174,6 +195,7 @@ export async function syncIssue(
       record.title.trim(),
       "--body-file",
       "-",
+      ...(labelled ? ["--label", HARNESS_LABEL] : []),
     ],
     body,
   );
@@ -187,7 +209,7 @@ export async function syncIssue(
     );
   }
   try {
-    await recordLink(url);
+    await options.recordLink(url);
   } catch (error) {
     throw new IdeaError(
       `Created ${url} but could not record it in ${record.path}: ${error instanceof Error ? error.message : String(error)}. Add \`issue: ${url}\` to its frontmatter, then rerun \`harness idea sync\`; otherwise a second issue is created.`,

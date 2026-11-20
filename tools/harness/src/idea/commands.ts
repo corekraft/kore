@@ -206,9 +206,16 @@ const list: Command = {
   },
 };
 
-const sync: Command = {
+/**
+ * Whether `harness idea sync` adds the harness label to a harness idea's issue. The
+ * CLI supplies it (the tick-ticket-queue flag, read from the local overlay): the
+ * flag domain reaches back to this one, so this domain must not import it.
+ */
+export type HarnessLabelFlag = (context: CommandContext) => Promise<boolean>;
+
+const syncCommand = (harnessLabel: HarnessLabelFlag): Command => ({
   summary:
-    "mirror one idea to its GitHub issue, creating it when missing and editing only when the body changed (--idea <number or slug>)",
+    "mirror one idea to its GitHub issue, creating it when missing and editing only when the body changed (--idea <number or slug>); with the local tick-ticket-queue flag on, a harness idea's issue also gets the harness label when created or edited, and no label is ever removed",
   options: { idea: "string" },
   run(context) {
     return guarded(context, async () => {
@@ -225,7 +232,10 @@ const sync: Command = {
         await context.deps.root(),
         record,
         await repo.source(record),
-        (url) => repo.recordIssue(record, url),
+        {
+          recordLink: (url) => repo.recordIssue(record, url),
+          harnessLabel: await harnessLabel(context),
+        },
       );
       context.deps.stdout(
         context.json
@@ -234,11 +244,21 @@ const sync: Command = {
       );
     });
   },
-};
+});
 
-export const ideaCommands: Record<string, Command> = {
-  new: create,
-  list,
-  show,
-  sync,
-};
+/** The idea commands, with the harness-label flag the CLI reads for `idea sync`. */
+export function ideaCommandsWith(
+  harnessLabel: HarnessLabelFlag,
+): Record<string, Command> {
+  return {
+    new: create,
+    list,
+    show,
+    sync: syncCommand(harnessLabel),
+  };
+}
+
+/** The idea commands with the harness label off, as before the tick-ticket-queue flag. */
+export const ideaCommands: Record<string, Command> = ideaCommandsWith(() =>
+  Promise.resolve(false),
+);
