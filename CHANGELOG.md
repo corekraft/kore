@@ -1,5 +1,48 @@
 # Changelog
 
+## [0.16.0](https://github.com/corekraft/kore/compare/v0.15.0...v0.16.0) (2026-11-20)
+
+
+### Features
+
+* **harness:** activate tick-self-update in local ([#1448](https://github.com/corekraft/kore/issues/1448)) ([6cf312d](https://github.com/corekraft/kore/commit/6cf312dfcd608375d4f877e110d8ba279fc791d5))
+* **harness:** activate tick-ticket-queue and tick-live-proofs in local ([#1430](https://github.com/corekraft/kore/issues/1430)) ([c383d8d](https://github.com/corekraft/kore/commit/c383d8dea0fdd8f861d641fd7a22800dc59d89e2))
+* **harness:** hand live-proof tickets to one live-proof pane ([#1427](https://github.com/corekraft/kore/issues/1427)) ([01dd8d8](https://github.com/corekraft/kore/commit/01dd8d899ea19bb1f91942435f78059fb86e77f7))
+* **harness:** let an advisor record a decision on a plain ticket with --issue ([#1438](https://github.com/corekraft/kore/issues/1438)) ([a1aa5cc](https://github.com/corekraft/kore/commit/a1aa5ccc45f1f2a4ab314972f2a81b1688595ba3)), closes [#1435](https://github.com/corekraft/kore/issues/1435)
+* **harness:** pull and rebuild a clean main between tick passes ([#1437](https://github.com/corekraft/kore/issues/1437)) ([7b77991](https://github.com/corekraft/kore/commit/7b77991c57fda2e5e29e76565deaea873735a587))
+* **harness:** read role identities from a sops store on Linux ([#1440](https://github.com/corekraft/kore/issues/1440)) ([1de4ed2](https://github.com/corekraft/kore/commit/1de4ed2cc89a5ca919f8719a3be466fcb3c91bd1)), closes [#1439](https://github.com/corekraft/kore/issues/1439)
+* **harness:** say what a merged ticket waits on ([#1436](https://github.com/corekraft/kore/issues/1436)) ([a9b8def](https://github.com/corekraft/kore/commit/a9b8defa32cdc0b52cde4c43c01fa61724875a54)), closes [#1431](https://github.com/corekraft/kore/issues/1431)
+* **harness:** the tick works plain tickets behind tick-ticket-queue ([#1426](https://github.com/corekraft/kore/issues/1426)) ([91f70ff](https://github.com/corekraft/kore/commit/91f70ffd95c86ebec04e88daa529a20dcb90d2e3))
+* **infra:** trust the in-cluster registry's CA in the vps k3s role ([#1416](https://github.com/corekraft/kore/issues/1416)) ([99663b1](https://github.com/corekraft/kore/commit/99663b1d28c154b86d9202cd0649df49b5ec418b))
+* **platform:** create the vps root CA inside the cluster behind in-cluster-ca ([#1413](https://github.com/corekraft/kore/issues/1413)) ([7e9ef2c](https://github.com/corekraft/kore/commit/7e9ef2c55829c4cfa0378755e9b2cdce8c082eb2))
+* **platform:** encrypt local secrets and exports to every age recipient ([#1422](https://github.com/corekraft/kore/issues/1422)) ([cba80c4](https://github.com/corekraft/kore/commit/cba80c46eb4b1de2117c37b8193d853ae4551640))
+* **platform:** reach a managed registry over the tailnet through a forward ([#1417](https://github.com/corekraft/kore/issues/1417)) ([31f4bf1](https://github.com/corekraft/kore/commit/31f4bf1c3eb69aadb44d14e61353a2af349c6ab9))
+* **platform:** stage the portal install behind portal-staged-install ([#1449](https://github.com/corekraft/kore/issues/1449)) ([d395c89](https://github.com/corekraft/kore/commit/d395c89594071ce5a160dc0bbfba7791cb093fa9))
+* **queue:** list the tick's frontier behind the tick-ticket-queue flag ([#1423](https://github.com/corekraft/kore/issues/1423)) ([a5bf4da](https://github.com/corekraft/kore/commit/a5bf4da1435a5c8c2f8326f83551385f96780f47)), closes [#1419](https://github.com/corekraft/kore/issues/1419)
+
+
+### Bug fixes
+
+* **harness:** encrypt transferred identities to every age key on the host ([#1442](https://github.com/corekraft/kore/issues/1442)) ([1526781](https://github.com/corekraft/kore/commit/15267813e18021bbd52a7858a99fbf3003e8bff4))
+* **harness:** ignore untracked files when tick self-update checks the checkout is clean ([#1451](https://github.com/corekraft/kore/issues/1451)) ([9c50dab](https://github.com/corekraft/kore/commit/9c50dabbbe68702518b3539a37df5e146813258b)), closes [#1450](https://github.com/corekraft/kore/issues/1450)
+* **harness:** read a Linux host with no battery as on mains ([#1434](https://github.com/corekraft/kore/issues/1434)) ([0a04eaa](https://github.com/corekraft/kore/commit/0a04eaa0fa6074dc2fd7b9a90e5dde422751775b))
+* **harness:** read a reviewer verdict whose findings a narrow pane wrapped ([#1447](https://github.com/corekraft/kore/issues/1447)) ([7274090](https://github.com/corekraft/kore/commit/7274090b1d62c2904ffc8df93e7b4ec92c27e8c4))
+* **infra:** trust the agent's mkcert CA as root so kore local up needs no sudo ([#1418](https://github.com/corekraft/kore/issues/1418)) ([3203152](https://github.com/corekraft/kore/commit/32031527e57d8c04c1766ec74814131a47dc7ae3)), closes [#1210](https://github.com/corekraft/kore/issues/1210)
+
+
+### Documentation
+
+* add the 2026-11-20 bottleneck and friction retro ([#1409](https://github.com/corekraft/kore/issues/1409)) ([3c433c2](https://github.com/corekraft/kore/commit/3c433c25f877c5b50fd11459aac8820563d26b73))
+* add the 2026-11-20 cost and token retro ([#1414](https://github.com/corekraft/kore/issues/1414)) ([a8a818f](https://github.com/corekraft/kore/commit/a8a818f5858369792e90a76fdf993eb39be2dbfb))
+* add the 2026-11-20 determinism retro ([#1410](https://github.com/corekraft/kore/issues/1410)) ([90397d9](https://github.com/corekraft/kore/commit/90397d908405c331e513049230a3687b0b6c181e))
+* add the 2026-11-20 general retro ([#1411](https://github.com/corekraft/kore/issues/1411)) ([22a803a](https://github.com/corekraft/kore/commit/22a803a601b09273813cc5f60591344eb92e5b6c))
+* add the 2026-11-20 primitives retro ([#1412](https://github.com/corekraft/kore/issues/1412)) ([a05ae9b](https://github.com/corekraft/kore/commit/a05ae9b73a35b2b4edfd3e1f584e878217312c08))
+* file idea 0052, the tick works any ready ticket ([#1420](https://github.com/corekraft/kore/issues/1420)) ([719a691](https://github.com/corekraft/kore/commit/719a6914906ad1a7580aeaed22f14dbbc98ec54e))
+* file idea 0053, verify tick-ticket-queue in local ([#1425](https://github.com/corekraft/kore/issues/1425)) ([eae70fb](https://github.com/corekraft/kore/commit/eae70fb57326edc3e64864204ceb549eda64f9ed))
+* file idea 0054, verify tick-live-proofs in local ([#1429](https://github.com/corekraft/kore/issues/1429)) ([69d49c7](https://github.com/corekraft/kore/commit/69d49c79737633301aee912e871b668ea46c1d14))
+* file idea 0055, verify tick-self-update in local ([#1446](https://github.com/corekraft/kore/issues/1446)) ([131aa8f](https://github.com/corekraft/kore/commit/131aa8fafee4abd3f66ed1299dbf0bc439b350a2))
+* record the outcomes of twelve harness ideas ([#1452](https://github.com/corekraft/kore/issues/1452)) ([4a55405](https://github.com/corekraft/kore/commit/4a554051a539a378449757feb24f476f32edc25d))
+
 ## [0.15.0](https://github.com/corekraft/kore/compare/v0.14.0...v0.15.0) (2026-11-20)
 
 
