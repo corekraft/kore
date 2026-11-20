@@ -5,6 +5,7 @@ import { loadLocalCa } from "../security/index.js";
 import { postOtlp, withForward } from "./otlp-forward.js";
 import { postOtlpToName } from "./otlp-name.js";
 import { sendSyntheticSignals } from "./otlp-send.js";
+import type { Runner } from "../runtime/index.js";
 import { fakeRepository } from "./platform-support.js";
 
 vi.mock("../config/index.js", () => ({
@@ -20,7 +21,11 @@ vi.mock("./otlp-forward.js", () => ({
 vi.mock("./otlp-name.js", () => ({ postOtlpToName: vi.fn() }));
 
 const repository = fakeRepository();
-const runner = {} as Parameters<typeof sendSyntheticSignals>[1];
+const runner: Runner = {
+  run: async () => {
+    throw new Error("the unit test starts no process");
+  },
+};
 const payloads = {
   traces: { t: 1 },
   logs: { l: 1 },
