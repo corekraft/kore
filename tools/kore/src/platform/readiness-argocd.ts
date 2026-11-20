@@ -1,5 +1,9 @@
 import type { Repository } from "../config/index.js";
-import type { Runner } from "../runtime/index.js";
+import {
+  CommandError,
+  CommandTimeoutError,
+  type Runner,
+} from "../runtime/index.js";
 import { pollUntil } from "./readiness-poll.js";
 
 // Docs: docs/decisions/0043-platform-configuration-through-argo-cd.md
@@ -66,19 +70,67 @@ function applicationItems(stdout: string): Application[] | undefined {
 }
 
 /**
+ * kubectl could not write its answer to stdout while the host was under memory
+ * pressure (#1380). The same read succeeds on a later try, so it is retried.
+ */
+const STDOUT_BUFFER_FULL = /write \/dev\/stdout: no buffer space available/;
+
+/** Reads after the first one, made only while the stdout error repeats. */
+const RETRY_READS = 2;
+
+/**
+ * Reads the Application list as JSON. A full stdout buffer is read again up to
+ * RETRY_READS times; any other failure is rethrown at once, and a buffer error
+ * that outlasts the retries names the command and the cause.
+ */
+async function readApplications(
+  { repository, runner, base }: ArgocdContext,
+  resource: string,
+): Promise<string> {
+  const args = [...base, "get", resource, "--output", "json"];
+  let reads = 0;
+  while (true) {
+    reads += 1;
+    try {
+      return (await runner.run("kubectl", args, { capture: true })).stdout;
+    } catch (error) {
+      if (!isStdoutBufferFull(error)) {
+        throw error;
+      }
+      if (reads > RETRY_READS) {
+        const { kubeContext } = repository.environment;
+        throw new Error(
+          `${error.message}; ${reads} reads failed the same way, so Application health is unknown; run ${kubectlArgocd(kubeContext)} get ${resource}`,
+          { cause: error },
+        );
+      }
+    }
+  }
+}
+
+/**
+ * kubectl's own failure to write its answer: a CommandError whose stderr carries
+ * the text. A timeout is a CommandError too, but it hung rather than failed, so
+ * it is never read again.
+ */
+function isStdoutBufferFull(error: unknown): error is CommandError {
+  return (
+    error instanceof CommandError &&
+    !(error instanceof CommandTimeoutError) &&
+    STDOUT_BUFFER_FULL.test(error.result.stderr)
+  );
+}
+
+/**
  * Every Application that exists must be Synced and Healthy. An unreadable
  * Application list is an error, never a pass, so the gate stays closed.
  */
 async function applicationsProblem(
-  { repository, runner, base }: ArgocdContext,
+  context: ArgocdContext,
   resource: string,
 ): Promise<string | undefined> {
-  const result = await runner.run(
-    "kubectl",
-    [...base, "get", resource, "--output", "json"],
-    { capture: true },
-  );
-  const items = applicationItems(result.stdout);
+  const { repository } = context;
+  const items = applicationItems(await readApplications(context, resource));
   if (items === undefined) {
     const { kubeContext } = repository.environment;
     return `kubectl get ${resource} returned output that is not a JSON Application list, so Application health is unknown; run ${kubectlArgocd(kubeContext)} get ${resource}`;
