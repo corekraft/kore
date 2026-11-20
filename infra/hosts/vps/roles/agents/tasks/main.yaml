@@ -77,12 +77,34 @@
   # starting herdr or tmux, Ansible) find herdr, claude and gh.
   ansible.builtin.lineinfile:
     path: "/home/{{ agents_user }}/.bashrc"
-    line: 'export PATH="$HOME/.local/share/mise/shims:$HOME/.local/bin:$PATH"'
+    regexp: '^export PATH="\$HOME/\.local/'
+    line: 'export PATH="$HOME/.local/bin:$HOME/.local/share/mise/shims:$PATH"'
     insertbefore: BOF
     owner: "{{ agents_user }}"
     group: "{{ agents_user }}"
     mode: "0644"
     create: true
+
+# Moshi resolves herdr from the login PATH and compares it with the binary the
+# herdr server runs. Through the mise shim it reads mise's own version and
+# calls the two installs different, so a real link comes first on the PATH.
+- name: Create the agent's local bin directory
+  ansible.builtin.file:
+    path: "/home/{{ agents_user }}/.local/bin"
+    state: directory
+    owner: "{{ agents_user }}"
+    group: "{{ agents_user }}"
+    mode: "0755"
+
+- name: Link herdr to the pinned install
+  ansible.builtin.file:
+    src: "/home/{{ agents_user }}/.local/share/mise/installs/herdr/{{ agents_tools.herdr }}/herdr"
+    dest: "/home/{{ agents_user }}/.local/bin/herdr"
+    state: link
+    force: true
+    follow: false
+    owner: "{{ agents_user }}"
+    group: "{{ agents_user }}"
 
 - name: Activate mise in the agent's shells
   ansible.builtin.lineinfile:

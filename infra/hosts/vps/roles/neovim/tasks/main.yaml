@@ -1,0 +1,33 @@
+- name: Download the pinned neovim release
+  ansible.builtin.get_url:
+    url: "https://github.com/neovim/neovim/releases/download/v{{ neovim_version }}/nvim-linux-x86_64.tar.gz"
+    dest: "/var/cache/nvim-{{ neovim_version }}.tar.gz"
+    checksum: "sha256:{{ neovim_sha256 }}"
+    owner: root
+    group: root
+    mode: "0644"
+
+- name: Create the neovim install directory
+  ansible.builtin.file:
+    path: "{{ neovim_prefix }}/{{ neovim_version }}"
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+
+- name: Unpack neovim
+  ansible.builtin.unarchive:
+    src: "/var/cache/nvim-{{ neovim_version }}.tar.gz"
+    dest: "{{ neovim_prefix }}/{{ neovim_version }}"
+    remote_src: true
+    extra_opts: [--strip-components=1]
+    creates: "{{ neovim_prefix }}/{{ neovim_version }}/bin/nvim"
+
+- name: Put nvim on the PATH
+  ansible.builtin.file:
+    src: "{{ neovim_prefix }}/{{ neovim_version }}/bin/nvim"
+    dest: /usr/local/bin/nvim
+    state: link
+    force: true
+    owner: root
+    group: root

@@ -5,7 +5,9 @@
     - tailscale
     - sshd
     - network
+    - neovim
     - incus
+    - k3s
 
 - name: Converge the agents VM
   hosts: kore-agents

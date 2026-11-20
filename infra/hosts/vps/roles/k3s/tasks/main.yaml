@@ -1,0 +1,135 @@
+- name: Read the k3s data volume
+  ansible.builtin.command: lvs --noheadings vg/{{ k3s_data_lv }}
+  register: k3s_data_lv_state
+  changed_when: false
+  failed_when: false
+  check_mode: false
+
+- name: Create the k3s data volume
+  ansible.builtin.command: lvcreate --yes --size {{ k3s_data_size }} --name {{ k3s_data_lv }} vg
+  when: k3s_data_lv_state.rc != 0
+  changed_when: true
+
+- name: Read the k3s data volume's filesystem
+  ansible.builtin.command: blkid -o value -s TYPE /dev/vg/{{ k3s_data_lv }}
+  register: k3s_data_fs
+  changed_when: false
+  failed_when: false
+  check_mode: false
+
+- name: Format the k3s data volume
+  ansible.builtin.command: mkfs.ext4 -q -L k3s /dev/vg/{{ k3s_data_lv }}
+  when: k3s_data_fs.stdout | trim != "ext4" and not ansible_check_mode
+  changed_when: true
+
+- name: Mount the k3s data volume at boot
+  ansible.builtin.template:
+    src: data.mount.j2
+    dest: /etc/systemd/system/var-lib-rancher.mount
+    owner: root
+    group: root
+    mode: "0644"
+
+- name: Mount the k3s data volume
+  ansible.builtin.systemd_service:
+    name: var-lib-rancher.mount
+    enabled: true
+    state: started
+    daemon_reload: true
+  when: not ansible_check_mode
+
+- name: Create the k3s configuration directory
+  ansible.builtin.file:
+    path: /etc/rancher/k3s
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+
+- name: Configure k3s
+  ansible.builtin.template:
+    src: config.yaml.j2
+    dest: /etc/rancher/k3s/config.yaml
+    owner: root
+    group: root
+    mode: "0600"
+  notify: Restart k3s
+
+- name: Create the k3s service drop-in directory
+  ansible.builtin.file:
+    path: /etc/systemd/system/k3s.service.d
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+
+- name: Give k3s priority over the agents VM
+  ansible.builtin.template:
+    src: 10-kore-priority.conf.j2
+    dest: /etc/systemd/system/k3s.service.d/10-kore-priority.conf
+    owner: root
+    group: root
+    mode: "0644"
+  notify: Restart k3s
+
+- name: Download the pinned k3s installer
+  ansible.builtin.get_url:
+    url: "https://raw.githubusercontent.com/k3s-io/k3s/{{ k3s_version | urlencode }}/install.sh"
+    dest: "/usr/local/lib/k3s-install-{{ k3s_version }}.sh"
+    checksum: "sha256:{{ k3s_installer_sha256 }}"
+    owner: root
+    group: root
+    mode: "0755"
+
+- name: Read the installed k3s version
+  ansible.builtin.command: k3s --version
+  register: k3s_installed
+  changed_when: false
+  failed_when: false
+  check_mode: false
+
+- name: Install the pinned k3s
+  ansible.builtin.command: "/usr/local/lib/k3s-install-{{ k3s_version }}.sh"
+  environment:
+    INSTALL_K3S_VERSION: "{{ k3s_version }}"
+  when: k3s_version not in (k3s_installed.stdout | default(''))
+  changed_when: true
+
+- name: Flush pending k3s restarts
+  ansible.builtin.meta: flush_handlers
+
+- name: Wait for the node to be Ready
+  ansible.builtin.command:
+    # An argument list keeps the quotes in the JSONPath filter intact.
+    argv:
+      - k3s
+      - kubectl
+      - get
+      - node
+      - "{{ inventory_hostname }}"
+      - -o
+      - jsonpath={.status.conditions[?(@.type=="Ready")].status}
+  register: k3s_ready
+  until: k3s_ready.stdout == "True"
+  retries: 60
+  delay: 5
+  changed_when: false
+  when: not ansible_check_mode
+
+- name: Read the cluster kubeconfig
+  ansible.builtin.slurp:
+    src: /etc/rancher/k3s/k3s.yaml
+  register: k3s_kubeconfig
+  when: not ansible_check_mode
+
+- name: Write the kubeconfig on the controller
+  ansible.builtin.copy:
+    content: >-
+      {{ k3s_kubeconfig.content | b64decode
+      | regex_replace('https://127\.0\.0\.1:6443', 'https://' ~ inventory_hostname ~ ':6443')
+      | regex_replace('(?m)^(\s*-?\s*(name|cluster|user|current-context):\s*)default$', '\g<1>' ~ k3s_context) }}
+    dest: "{{ k3s_controller_kubeconfig }}"
+    mode: "0600"
+  delegate_to: localhost
+  become: false
+  when: not ansible_check_mode
