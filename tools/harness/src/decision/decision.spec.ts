@@ -20,6 +20,14 @@ const INPUT = {
   decision: "Median, as the report already says.",
 };
 const TARGET = { idea: "0008", number: "795", repo: "corekraft/kore" };
+const ISSUE_TARGET = { number: "1435", repo: "corekraft/kore" };
+const ISSUE_URL = "https://github.com/corekraft/kore/issues/1435";
+const ISSUE_INPUT = {
+  issue: "1435",
+  category: "naming",
+  question: "Name the column Median or P50?",
+  decision: "Median, as the report already says.",
+};
 const COMMENT = "https://github.com/corekraft/kore/issues/795#c1";
 
 function ports(overrides: Partial<DecisionPorts> = {}): DecisionPorts {
@@ -27,6 +35,7 @@ function ports(overrides: Partial<DecisionPorts> = {}): DecisionPorts {
     env: ENV,
     flagOn: vi.fn(() => Promise.resolve(true)),
     target: vi.fn(() => Promise.resolve(TARGET)),
+    issue: vi.fn(() => Promise.resolve(ISSUE_TARGET)),
     post: vi.fn(() => Promise.resolve(COMMENT)),
     record: vi.fn(() => Promise.resolve({ ok: true as const })),
     ...overrides,
@@ -101,6 +110,97 @@ describe("makeDecision", () => {
     ).rejects.toThrow(/category "credentials" is reserved/);
 
     expect(p.post).not.toHaveBeenCalled();
+  });
+});
+
+describe("makeDecision for a plain ticket", () => {
+  it("posts on the ticket's issue and records decision.made with the issue number and category, never an idea", async () => {
+    const p = ports();
+
+    const made = await makeDecision(p, ISSUE_INPUT);
+
+    expect(p.issue).toHaveBeenCalledWith("1435");
+    expect(p.target).not.toHaveBeenCalled();
+    expect(p.post).toHaveBeenCalledWith(ISSUE_TARGET, "SIGNED BODY");
+    const recorded = vi.mocked(p.record).mock.calls[0]?.[0] as Record<
+      string,
+      unknown
+    >;
+    expect(recorded).toEqual({ label: "naming", number: 1435 });
+    expect("idea" in recorded).toBe(false);
+    expect(made).toEqual({
+      category: "naming",
+      issue: ISSUE_URL,
+      commentUrl: COMMENT,
+    });
+    expect("idea" in made).toBe(false);
+  });
+});
+
+describe("makeDecision refusals for a plain ticket", () => {
+  it("refuses an input with neither --idea nor --issue, posting and recording nothing", async () => {
+    const p = ports();
+
+    await expect(
+      makeDecision(p, { category: "naming", question: "Q?", decision: "D." }),
+    ).rejects.toThrow(/exactly one of --idea and --issue/);
+
+    expect(p.target).not.toHaveBeenCalled();
+    expect(p.issue).not.toHaveBeenCalled();
+    expect(p.post).not.toHaveBeenCalled();
+    expect(p.record).not.toHaveBeenCalled();
+  });
+
+  it("refuses an input with both --idea and --issue, posting and recording nothing", async () => {
+    const p = ports();
+
+    await expect(makeDecision(p, { ...INPUT, issue: "1435" })).rejects.toThrow(
+      /exactly one of --idea and --issue/,
+    );
+
+    expect(p.target).not.toHaveBeenCalled();
+    expect(p.issue).not.toHaveBeenCalled();
+    expect(p.post).not.toHaveBeenCalled();
+    expect(p.record).not.toHaveBeenCalled();
+  });
+
+  it.each(["abc", "0", "1435a", "#1435"])(
+    "refuses --issue %j, which is not an issue number, posting nothing",
+    async (issue) => {
+      const p = ports();
+
+      await expect(makeDecision(p, { ...ISSUE_INPUT, issue })).rejects.toThrow(
+        /--issue/,
+      );
+
+      expect(p.issue).not.toHaveBeenCalled();
+      expect(p.post).not.toHaveBeenCalled();
+    },
+  );
+
+  it("refuses a reserved question on a ticket too, posting and recording nothing", async () => {
+    vi.mocked(reservedCategory).mockReturnValue("destruction");
+    const p = ports();
+
+    await expect(makeDecision(p, ISSUE_INPUT)).rejects.toThrow(
+      /matches the reserved category "destruction"/,
+    );
+
+    expect(p.issue).not.toHaveBeenCalled();
+    expect(p.post).not.toHaveBeenCalled();
+    expect(p.record).not.toHaveBeenCalled();
+  });
+
+  it("names the issue number to record by hand when the ledger rejects the event afterwards", async () => {
+    const p = ports({
+      record: vi.fn(() =>
+        Promise.resolve({ ok: false as const, message: "ledger is full" }),
+      ),
+    });
+
+    await expect(makeDecision(p, ISSUE_INPUT)).rejects.toThrow(
+      `The decision was posted at ${COMMENT}, but its ledger event was rejected: ledger is full Record it with \`harness ledger record --source claude --kind decision.made --number 1435 --label naming --occurred-at <now, ISO 8601 UTC>\`; do not post the decision again.`,
+    );
   });
 });
 

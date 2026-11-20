@@ -25,6 +25,7 @@ it("the idea barrel exposes exactly the names its callers import", () => {
     "ideaCommands",
     "ideaCommandsWith",
     "issueTarget",
+    "numberedIssue",
     "outcomeSection",
   ]);
 });

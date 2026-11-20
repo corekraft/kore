@@ -1084,10 +1084,10 @@ the writer named it (ADR 0126). `--idea none`, or no `--idea`, writes no `Idea:`
 line and records `none`, so a bug fix or a docs change needs no idea. The tool
 renders the `Idea:` line, never the writer by hand.
 
-`decision make --idea <n> --category <name> --question <text> --decision <text>`
-is the advisor's tool ([ADR 0120](../decisions/0120-recommended-decisions-go-to-an-advisor-reserved-decisions-to-the-owner.md)).
-It posts the decision on the idea's issue and records `decision.made` with the
-idea and the category only; the question and the reasoning stay on the issue. It
+`decision make --idea <n> --category <name> --question <text> --decision <text>`, or
+`decision make --issue <n> ...` for a plain ticket with no idea record, is the advisor's tool ([ADR 0120](../decisions/0120-recommended-decisions-go-to-an-advisor-reserved-decisions-to-the-owner.md)).
+It posts the decision on the idea's issue (or the plain ticket's issue) and records
+`decision.made` with the idea (or the issue number) and the category only; the question and the reasoning stay on the issue. It
 does nothing while the `decision-advisor` flag is off in the local overlay, and it
 refuses, posting nothing, a question that matches the reserved list in
 `tools/harness/src/decision/reserved.ts` or a category that names a reserved one.
