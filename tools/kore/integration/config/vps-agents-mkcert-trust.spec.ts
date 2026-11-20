@@ -11,6 +11,18 @@ async function readRoot(path: string): Promise<string> {
   return readFile(join(root, path), "utf8");
 }
 
+// The platform DNS listens on 127.0.0.0/8 (ADR 0132, ADR 0141), so a loopback
+// address is not a public one. Every other dotted quad is.
+function publicAddresses(text: string): string[] {
+  return (text.match(/\b\d{1,3}(\.\d{1,3}){3}\b/g) ?? []).filter(
+    (address) => !address.startsWith("127."),
+  );
+}
+
+function assertNoPublicAddress(text: string): void {
+  assert.deepEqual(publicAddresses(text), []);
+}
+
 function taskBlock(tasks: string, name: string): string {
   const block = tasks.split(`- name: ${name}\n`)[1]?.split("\n- name:")[0];
   assert.ok(block, name);
@@ -110,5 +122,18 @@ test("the agents role holds no key material, public address or domain", async ()
     await readRoot("infra/hosts/vps/roles/agents/tasks/main.yaml"),
   ].join("\n");
   assert.doesNotMatch(role, /PRIVATE KEY|BEGIN /);
-  assert.doesNotMatch(role, /\b\d{1,3}(\.\d{1,3}){3}\b/);
+  assertNoPublicAddress(role);
+});
+
+test("the public-address check still fails on a dotted address outside 127.0.0.0/8, and passes the loopback range", () => {
+  assert.doesNotThrow(() => assertNoPublicAddress("dns_address: 127.0.0.1"));
+  assert.doesNotThrow(() => assertNoPublicAddress("dns_address: 127.255.0.9"));
+  assert.throws(
+    () => assertNoPublicAddress("dns_address: 10.0.0.1"),
+    assert.AssertionError,
+  );
+  assert.throws(
+    () => assertNoPublicAddress("dns_address: 128.0.0.1"),
+    assert.AssertionError,
+  );
 });
