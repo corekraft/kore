@@ -6,6 +6,7 @@
 // rows from readyRows). It also stubs the images barrel's signing-key publish.
 vi.mock("../../src/platform/enrollment.js", () => ({
   enrollPlatformNamespaces: async () => undefined,
+  enrollSharedGatewayRoute: async () => undefined,
 }));
 // ./handover.js stubs only the Argo CD delivery wait, which polls the cluster
 // for Applications; local turns platform-argocd-delivery on, and the wait is
