@@ -363,3 +363,13 @@ _Avoid_: Package, layer
 **Distroless runtime image**:
 The image an application runs in, holding no shell and no package manager. Images may be built in any stage, but only a distroless one runs.
 _Avoid_: Slim image, minimal image
+
+## Chart locks
+
+**Main chart lock**:
+The chart lock built from a push to `main` and kept as a workflow artifact for 30 days. It may feed a local proof and never counts for flag activation on its own. See [ADR 0138](docs/decisions/0138-publish-signed-configuration-charts-from-main-for-local-proofs.md).
+_Avoid_: Dev lock, snapshot lock
+
+**Release chart lock**:
+The chart lock attached to a release. It is the only chart lock that counts for flag activation, and a main chart lock's proof counts only when its recorded chart digests equal the ones in this lock.
+_Avoid_: Tag lock, final lock
