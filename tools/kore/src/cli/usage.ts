@@ -36,7 +36,7 @@ running when another worktree, or another kore process in this one, started it;
 --force stops it anyway.
 
 "data export" dumps each retained CloudNativePG database with pg_dump in the
-primary, encrypts the stream with age to the recipient that .sops.yaml names for
+primary, encrypts the stream with age to every recipient that .sops.yaml names for
 the environment, and writes only ciphertext plus a manifest (digest, contents,
 environment, time) to .kore/exports/<environment>/. It refuses while the
 recipient is the placeholder, and while retained volumes exist that the dump

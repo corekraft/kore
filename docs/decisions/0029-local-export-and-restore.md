@@ -58,3 +58,14 @@ profile. Scheduled backups and object storage wait for the managed environment.
   them stays behind `--purge-data`.
 - Live evidence (export, destroy, fresh `kore local up`, restore) still needs a
   cluster and the user's age recipient.
+
+## Note: several local recipients, one per machine (2026-11-20)
+
+The local creation rule in `.sops.yaml` may now list several public age
+recipients, comma-separated, one per machine that runs `kore local up`. The
+export reads every entry, checks each one, and encrypts to all of them; a bad
+entry fails before any cluster contact and is named. One recipient still
+behaves exactly as this ADR describes. The reason is #1421: the delivery host
+`kore-agents` shared the Mac's private key, and a second recipient lets each
+machine keep its own identity. The manifest's `recipient` field records the
+list comma-joined. The vps rule still names one recipient.
