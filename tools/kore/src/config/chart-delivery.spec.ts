@@ -248,3 +248,19 @@ test("the delivery arguments hand the kore-config-delivery chart the flag, the o
   ]);
   expect(databaseRoutesDeliveryArgs(base)).toEqual([]);
 });
+
+test("with in-cluster-ca on the values carry the flag the AppProject needs to admit the CA objects; off they carry none, so local's project is unchanged", () => {
+  vi.mocked(featureEnabled).mockImplementation(
+    (_environment, flag) => flag === "in-cluster-ca",
+  );
+  try {
+    expect(chartDeliveryValues(repository, lock())).toMatchObject({
+      inClusterCa: true,
+    });
+  } finally {
+    vi.mocked(featureEnabled).mockReset();
+  }
+  expect(chartDeliveryValues(repository, lock())).not.toHaveProperty(
+    "inClusterCa",
+  );
+});

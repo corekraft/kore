@@ -1,0 +1,42 @@
+{{- if index .Values.features "in-cluster-ca" }}
+{{- /*
+A root CA created inside the cluster (ADR 0142): cert-manager makes the key, so
+it never leaves the cluster and never enters the repository. The CA Certificate
+lives in cert-manager's cluster resource namespace, where a ClusterIssuer reads
+its CA Secret. Environments that bring their own CA (local, from mkcert, through
+kore trust install) leave in-cluster-ca off and render none of this.
+*/}}
+apiVersion: cert-manager.io/v1
+kind: ClusterIssuer
+metadata:
+  name: {{ .Values.ca.selfSignedIssuerName }}
+spec:
+  selfSigned: {}
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: {{ .Values.issuer.name }}
+  namespace: {{ .Values.ca.namespace }}
+spec:
+  isCA: true
+  commonName: {{ .Values.ca.commonName }}
+  secretName: {{ .Values.ca.secretName }}
+  duration: {{ .Values.ca.duration }}
+  privateKey:
+    algorithm: ECDSA
+    size: 256
+    rotationPolicy: Never
+  issuerRef:
+    kind: ClusterIssuer
+    name: {{ .Values.ca.selfSignedIssuerName }}
+---
+apiVersion: cert-manager.io/v1
+kind: ClusterIssuer
+metadata:
+  name: {{ .Values.issuer.name }}
+spec:
+  ca:
+    secretName: {{ .Values.ca.secretName }}
+---
+{{- end }}

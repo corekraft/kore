@@ -57,3 +57,24 @@ its own volume at `/var/lib/rancher`, and CPU and IO priority over the agents
 VM. The API answers on the tailnet only. `mise run vps-apply` writes the
 kubeconfig to `~/.kube/kore-vps.yaml` on your machine with the context
 `kore-vps`; it is a credential and never enters the repository.
+
+### Trusting the in-cluster registry
+
+k3s pulls from the in-cluster registry (`registry.address` in
+`infra/environments/vps/environment.yaml`) over TLS, so its containerd needs
+the registry's public CA. The role manages this only while the `k3s-registry-trust`
+flag is on in `infra/environments/vps/environment.yaml` (off until a live run
+and `harness flag activate`); with it off a run changes nothing here. After
+`kore platform up --environment vps` has installed the registry, from your
+machine (only the public `ca.crt`, never a key; the file stays outside the
+repository; with the flag on and no file the run stops and says so):
+
+```sh
+kubectl --context kore-vps -n cosign-system get configmap kore-registry-ca \
+  -o jsonpath='{.data.ca\.crt}' > ~/.kube/kore-vps-registry-ca.crt
+mise run vps-apply
+```
+
+The run installs the CA at `/etc/rancher/k3s/registry-ca.crt`, writes
+`/etc/rancher/k3s/registries.yaml`, and restarts k3s once (the pods restart
+with it). It refuses a file that holds a private key.
