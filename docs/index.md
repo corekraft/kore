@@ -351,6 +351,11 @@ decisions; read one only when planning that area, and expect it to change.
   the repo retro over 436 sessions, unified with the Pocock retro into one
   owner-decided triage; none applied yet. Read before changing the role guards
   or the writer agent definition.
+- [`docs/retros/2026-11-20-determinism-retro.md`](retros/2026-11-20-determinism-retro.md)
+  — six decisions agents make by hand or around code that already decides
+  them (safety pattern, merges past a failing precheck, raw pane sends, spawn
+  briefs, scan figures, role tool fit); proposals only. Read before changing
+  `pr open`, `judge merge`, `session spawn` or the retro scan.
 
 ## Skills
 
