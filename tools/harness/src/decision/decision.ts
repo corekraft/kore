@@ -8,19 +8,25 @@ export const DECISION_FLAG = "decision-advisor";
 export class DecisionError extends Error {}
 
 export interface DecisionInput {
-  /** The idea whose issue the decision is recorded on. */
-  readonly idea: string;
+  /** The idea whose issue the decision is recorded on; exactly one of idea and issue is given. */
+  readonly idea?: string;
+  /** A plain ticket's issue number, for a ticket that has no idea record. */
+  readonly issue?: string;
   /** The category the asking pane declared; never a reserved one. */
   readonly category: string;
   readonly question: string;
   readonly decision: string;
 }
 
-export interface DecisionTarget {
-  /** The idea's number, as its record writes it. */
-  readonly idea: string;
+/** Where a decision is posted: the issue's number and repository. */
+export interface IssueTarget {
   readonly number: string;
   readonly repo: string;
+}
+
+export interface DecisionTarget extends IssueTarget {
+  /** The idea's number, as its record writes it. */
+  readonly idea: string;
 }
 
 /** What the tool reaches outside itself through: the overlay, the idea records, gh and the ledger. */
@@ -29,18 +35,21 @@ export interface DecisionPorts {
   readonly env: Readonly<Record<string, string | undefined>>;
   readonly flagOn: () => Promise<boolean>;
   readonly target: (idea: string) => Promise<DecisionTarget>;
+  /** Resolves a plain ticket's issue number to the repository it is in. */
+  readonly issue: (number: string) => Promise<IssueTarget>;
   /** Posts the comment and returns its URL. */
-  readonly post: (target: DecisionTarget, body: string) => Promise<string>;
+  readonly post: (target: IssueTarget, body: string) => Promise<string>;
   /** Records decision.made: the idea, the issue it was posted on and the category, never the question or the reasoning. */
   readonly record: (event: {
-    idea: string;
+    idea?: string;
     label: string;
     number: number;
   }) => Promise<{ ok: true } | { ok: false; message: string }>;
 }
 
 export interface Made {
-  readonly idea: string;
+  /** Absent when the decision was made on a plain ticket. */
+  readonly idea?: string;
   readonly category: string;
   readonly issue: string;
   readonly commentUrl: string;
@@ -50,6 +59,18 @@ export interface Made {
 export const CATEGORY_NAME = /^[a-z][a-z0-9-]{0,63}$/;
 
 function checked(input: DecisionInput): void {
+  const idea = (input.idea ?? "").trim();
+  const issue = (input.issue ?? "").trim();
+  if ((idea === "") === (issue === "")) {
+    throw new DecisionError(
+      "Give exactly one of --idea and --issue: --idea is an idea's number or slug, --issue a plain ticket's issue number; not both, and not neither.",
+    );
+  }
+  if (issue !== "" && !/^[1-9]\d*$/.test(issue)) {
+    throw new DecisionError(
+      `--issue "${issue}" is not an issue number: give the number alone, such as 1435.`,
+    );
+  }
   if (!CATEGORY_NAME.test(input.category)) {
     throw new DecisionError(
       `--category "${input.category}" is not a category name: use lowercase letters, digits and "-", starting with a letter, such as "naming".`,
@@ -95,7 +116,10 @@ export async function makeDecision(
   }
   checked(input);
   refuseReserved(input);
-  const target = await ports.target(input.idea);
+  const target: IssueTarget & { readonly idea?: string } =
+    (input.issue ?? "").trim() !== ""
+      ? await ports.issue((input.issue ?? "").trim())
+      : await ports.target((input.idea ?? "").trim());
   const signed = signedBody(
     ports.env,
     "decision make",
@@ -105,18 +129,22 @@ export async function makeDecision(
     throw new DecisionError(signed.error);
   }
   const commentUrl = await ports.post(target, signed.body);
+  const where =
+    target.idea === undefined
+      ? `--number ${target.number}`
+      : `--idea ${target.idea}`;
   const recorded = await ports.record({
-    idea: target.idea,
+    ...(target.idea === undefined ? {} : { idea: target.idea }),
     label: input.category,
     number: Number(target.number),
   });
   if (!recorded.ok) {
     throw new DecisionError(
-      `The decision was posted at ${commentUrl}, but its ledger event was rejected: ${recorded.message} Record it with \`harness ledger record --source claude --kind decision.made --idea ${target.idea} --label ${input.category} --occurred-at <now, ISO 8601 UTC>\`; do not post the decision again.`,
+      `The decision was posted at ${commentUrl}, but its ledger event was rejected: ${recorded.message} Record it with \`harness ledger record --source claude --kind decision.made ${where} --label ${input.category} --occurred-at <now, ISO 8601 UTC>\`; do not post the decision again.`,
     );
   }
   return {
-    idea: target.idea,
+    ...(target.idea === undefined ? {} : { idea: target.idea }),
     category: input.category,
     issue: `https://github.com/${target.repo}/issues/${target.number}`,
     commentUrl,

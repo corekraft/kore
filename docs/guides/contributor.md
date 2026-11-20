@@ -1084,10 +1084,10 @@ the writer named it (ADR 0126). `--idea none`, or no `--idea`, writes no `Idea:`
 line and records `none`, so a bug fix or a docs change needs no idea. The tool
 renders the `Idea:` line, never the writer by hand.
 
-`decision make --idea <n> --category <name> --question <text> --decision <text>`
-is the advisor's tool ([ADR 0120](../decisions/0120-recommended-decisions-go-to-an-advisor-reserved-decisions-to-the-owner.md)).
-It posts the decision on the idea's issue and records `decision.made` with the
-idea and the category only; the question and the reasoning stay on the issue. It
+`decision make --idea <n> --category <name> --question <text> --decision <text>`, or
+`decision make --issue <n> ...` for a plain ticket with no idea record, is the advisor's tool ([ADR 0120](../decisions/0120-recommended-decisions-go-to-an-advisor-reserved-decisions-to-the-owner.md)).
+It posts the decision on the idea's issue (or the plain ticket's issue) and records
+`decision.made` with the idea (or the issue number) and the category only; the question and the reasoning stay on the issue. It
 does nothing while the `decision-advisor` flag is off in the local overlay, and it
 refuses, posting nothing, a question that matches the reserved list in
 `tools/harness/src/decision/reserved.ts` or a category that names a reserved one.
@@ -1162,7 +1162,9 @@ worktree, or a reader. A piece that ends blocked stops the plan for the owner, a
 piece has a closed pane the idea goes on to its pull request.
 
 Before it starts a pane, the tick reads the host. On battery, or when the power
-source cannot be read, one pane starts per pass (saver mode). Above the load
+source cannot be read, one pane starts per pass (saver mode). It reads `pmset` on
+macOS and `/sys/class/power_supply` on Linux, where a host with no battery (a server
+or desktop) counts as on mains and a battery that is discharging counts as on battery. Above the load
 ceiling `KORE_SPAWN_MAX_LOAD`, or while a live run holds the host lease, no pane
 starts. Each start that a bound holds is reported as `held` with the bound's name,
 and is recorded as a `tick.bound` ledger event on the idea's issue. The held idea
