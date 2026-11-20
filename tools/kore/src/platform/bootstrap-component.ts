@@ -5,6 +5,7 @@ import {
   ensureRegistryTrust,
 } from "../images/index.js";
 import type { Runner } from "../runtime/index.js";
+import { enrollSharedGatewayRoute } from "./enrollment.js";
 import { waitForGatekeeperAdmission } from "./gatekeeper-admission.js";
 import {
   ensureKeycloakProviderCredentials,
@@ -39,6 +40,9 @@ export async function bootstrapComponent(
   if (component.name === "metrics-server") {
     await assertMetricsServerUnowned(repository, runner);
   }
+  // A route-bearing component's namespace carries the shared Gateway label
+  // before its release is applied and waited on (#1388).
+  await enrollSharedGatewayRoute(repository, runner, component);
   await reconcileIfNeeded(repository, runner, component);
   // Argo CD is installed, so it gets the registry's read identity before
   // kore-config-delivery creates the Applications that pull charts with it

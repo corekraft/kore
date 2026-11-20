@@ -2,13 +2,12 @@
 import { beforeEach, expect, test, vi } from "vitest";
 import {
   enabledComponents,
-  featureEnabled,
   helmInstalledComponents,
   releaseOwner,
   type Repository,
 } from "../config/index.js";
 import { CommandError } from "../runtime/index.js";
-import { ensureLocalCaTrust } from "../security/index.js";
+import { prepareConfigurationRelease } from "./release-prerequisites.js";
 import { helmReleaseStatus } from "./probe.js";
 import { awaitArgocdDelivery, reconcileConfigurations } from "./handover.js";
 import { reconcileConfiguration } from "./reconcile.js";
@@ -22,7 +21,7 @@ import {
 } from "./platform-support.js";
 
 vi.mock("../config/index.js");
-vi.mock("../security/index.js");
+vi.mock("./release-prerequisites.js");
 vi.mock("./probe.js");
 vi.mock("./reconcile.js");
 vi.mock("./readiness.js");
@@ -260,84 +259,46 @@ test("an Application that is not Synced and Healthy fails the wait with its name
   expect(pollUntil).not.toHaveBeenCalled();
 });
 
-const portal = fakeComponent({
-  name: "kore-platform-backstage",
-  phase: "configuration",
-  namespace: "backstage",
-});
-
-test("with platform-dns on the portal's pods get the local CA before the portal is released, in the portal's namespace", async () => {
-  vi.mocked(helmInstalledComponents).mockReturnValue([policy, portal]);
-  vi.mocked(featureEnabled).mockReturnValue(true);
+test("each release is prepared before it is reconciled, in catalog order, so a route's namespace is enrolled before its readiness wait", async () => {
+  vi.mocked(helmInstalledComponents).mockReturnValue([policy, enforce]);
   const order: string[] = [];
-  vi.mocked(ensureLocalCaTrust).mockImplementation(async (_r, _n, ns) => {
-    order.push(`ca:${ns}`);
-  });
+  vi.mocked(prepareConfigurationRelease).mockImplementation(
+    async (_r, _n, c) => {
+      order.push(`prepare:${c.name}`);
+    },
+  );
   vi.mocked(reconcileConfiguration).mockImplementation(async (_r, _n, c) => {
     order.push(`reconcile:${c.name}`);
   });
-  const { runner } = fakeRunner();
-
-  await reconcileConfigurations(repository, runner);
-
-  expect(order).toEqual([
-    "reconcile:policy",
-    "ca:backstage",
-    "reconcile:kore-platform-backstage",
-  ]);
-  expect(ensureLocalCaTrust).toHaveBeenCalledWith(
-    repository,
-    runner,
-    "backstage",
-  );
-});
-
-test("the local CA is applied for no other component, nor for the portal with platform-dns off", async () => {
-  vi.mocked(helmInstalledComponents).mockReturnValue([policy, portal]);
-  vi.mocked(featureEnabled).mockImplementation(
-    (_environment, flag) => flag !== "platform-dns",
-  );
-
   await reconcileConfigurations(repository, fakeRunner().runner);
-
-  expect(ensureLocalCaTrust).not.toHaveBeenCalled();
-  expect(reconciledNames()).toEqual(["policy", "kore-platform-backstage"]);
+  expect(order).toEqual([
+    "prepare:policy",
+    "reconcile:policy",
+    "prepare:enforce",
+    "reconcile:enforce",
+  ]);
 });
 
-test("a missing local CA stops the portal's release before anything is applied for it", async () => {
-  vi.mocked(helmInstalledComponents).mockReturnValue([portal]);
-  vi.mocked(featureEnabled).mockReturnValue(true);
-  vi.mocked(ensureLocalCaTrust).mockRejectedValue(
+test("a release that fails its preparation is not reconciled", async () => {
+  vi.mocked(helmInstalledComponents).mockReturnValue([policy]);
+  vi.mocked(prepareConfigurationRelease).mockRejectedValue(
     new Error("the local CA is missing"),
   );
-
   await expect(
     reconcileConfigurations(repository, fakeRunner().runner),
   ).rejects.toThrow("the local CA is missing");
   expect(reconcileConfiguration).not.toHaveBeenCalled();
 });
 
-test("an Argo CD owned portal that Argo CD has taken over still gets the local CA, and Helm does not release it", async () => {
-  const delivered = fakeComponent({
-    name: "kore-platform-backstage",
-    phase: "configuration",
-    namespace: "backstage",
-    owner: "argocd",
-  });
-  vi.mocked(helmInstalledComponents).mockImplementation(
-    (_repository, deliveryInstalled) =>
-      deliveryInstalled ? [delivery] : [delivery, delivered],
-  );
-  vi.mocked(featureEnabled).mockReturnValue(true);
+test("an Argo CD owned release that Argo CD has taken over is still prepared, and Helm does not release it", async () => {
+  handoverFlagOn();
   vi.mocked(helmReleaseStatus).mockResolvedValue("deployed");
   const { runner } = fakeRunner();
-
   await reconcileConfigurations(repository, runner);
-
-  expect(ensureLocalCaTrust).toHaveBeenCalledWith(
+  expect(prepareConfigurationRelease).toHaveBeenCalledWith(
     repository,
     runner,
-    "backstage",
+    handed,
   );
-  expect(reconciledNames()).toEqual(["kore-config-delivery"]);
+  expect(reconciledNames()).toEqual(["kore-config-delivery", "policy"]);
 });
