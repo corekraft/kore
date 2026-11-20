@@ -257,6 +257,14 @@ at a time on an idle host (stop writer and challenger panes first).
 Not recorded yet: it needs one live run of `npm run test:live:golden-path-load`, to be
 recorded as one JSON comment on #1114 with a plan 15 line.
 
+The first attempt (`live-1114-a`, 2026-11-19, on main after #1313, with
+`platform-argocd-delivery` on and portal off) failed on both tests with a curl
+`SSL_ERROR_SYSCALL` to `golden-path-example.platform.kore.local:8443`: the
+service's own Gateway publishes no address on k3d, so nothing mapped the port to
+it. #1316 (merged in #1317) makes the run refuse by name in that case. The rerun
+waits on the shared Gateway attach (#1211), which publishes the route. No
+baseline exists until a rerun passes.
+
 ### Comparison point: Istio ingress on k3d (2026-11-12)
 
 Subject: the single `kore-gateway-istio` pod (GatewayClass `istio`) serving
