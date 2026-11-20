@@ -44,6 +44,8 @@ spec:
     - "oci://ghcr.io/corekraft/kore/charts/opa-authorizer"
   destinations:
     - server: https://kubernetes.default.svc
+      namespace: "cert-manager"
+    - server: https://kubernetes.default.svc
       namespace: "crossplane-system"
     - server: https://kubernetes.default.svc
       namespace: "gatekeeper-system"
@@ -58,6 +60,8 @@ spec:
   clusterResourceWhitelist:
     - group: ""
       kind: Namespace
+    - group: cert-manager.io
+      kind: ClusterIssuer
     - group: external-secrets.io
       kind: ClusterSecretStore
     - group: apiextensions.crossplane.io

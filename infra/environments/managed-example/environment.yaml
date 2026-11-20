@@ -41,6 +41,7 @@
       "platform-shared-gateway": false,
       "registry-by-name": false,
       "otlp-route": false,
+      "in-cluster-ca": false,
       "platform-hostname-ownership": false,
       "platform-portal": false,
       "automatic-retro": false,
