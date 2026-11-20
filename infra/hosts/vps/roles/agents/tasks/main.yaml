@@ -6,6 +6,7 @@
       - docker.io
       - git
       - jq
+      - lsof
       - mosh
       - tmux
       - unzip
@@ -18,6 +19,27 @@
     name: docker
     enabled: true
     state: started
+
+# systemd-resolved sends the platform zone to the cluster's DNS and nothing
+# else. The server sits on its own dummy link, scoped to the zone, rather than in
+# a global DNS= in resolved.conf (see the network template for why).
+- name: Create the platform DNS dummy link
+  ansible.builtin.template:
+    src: kore-platform-dns.netdev.j2
+    dest: /etc/systemd/network/25-kore-platform-dns.netdev
+    owner: root
+    group: root
+    mode: "0644"
+  notify: Reload systemd-networkd
+
+- name: Route the platform zone to the platform DNS link
+  ansible.builtin.template:
+    src: kore-platform-dns.network.j2
+    dest: /etc/systemd/network/25-kore-platform-dns.network
+    owner: root
+    group: root
+    mode: "0644"
+  notify: Reload systemd-networkd
 
 - name: Create the agent account without sudo
   register: agents_account
