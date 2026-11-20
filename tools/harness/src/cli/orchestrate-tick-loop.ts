@@ -60,10 +60,7 @@ export async function runTickLoop(
         await updater.run();
       }
     },
-    updateFailed: (error) =>
-      deps.stderr(
-        `The self-update step failed: ${error instanceof Error ? error.message : String(error)}\nThe tick keeps the bundle it has and runs the pass; fix the checkout or ledger it names, then the next pass retries the update.\n`,
-      ),
+    updateFailed: (error) => deps.stderr(describeUpdateFailure(error)),
     heartbeat: () => beat(TICK_STARTED),
     stopped: () => beat(TICK_STOPPED),
     pass: () => deps.runner.run(process.execPath, args, { cwd: root }),
@@ -86,6 +83,25 @@ export async function runTickLoop(
     );
   }
   return 0;
+}
+
+const UPDATE_KEEPS = "The tick keeps the bundle it has and runs the pass";
+
+/** The caught update error's own message with the fix for its kind; an unknown kind is still reported. */
+function describeUpdateFailure(error: unknown): string {
+  if (error instanceof HarnessCliError) {
+    return `The self-update step could not write the ledger: ${error.message}\n${UPDATE_KEEPS}; fix the ledger file it names, then the next pass retries the update.\n`;
+  }
+  if (
+    error instanceof Error &&
+    (error as NodeJS.ErrnoException).code === "ENOENT" &&
+    String((error as NodeJS.ErrnoException).syscall).startsWith("spawn")
+  ) {
+    return `The self-update step could not start a tool: ${error.message}\n${UPDATE_KEEPS}; install git and mise on PATH (mise install), then the next pass retries the update.\n`;
+  }
+  const kind = error instanceof Error ? error.name : "non-error";
+  const message = error instanceof Error ? error.message : String(error);
+  return `The self-update step failed unexpectedly (${kind}): ${message}\n${UPDATE_KEEPS}; report this error, then the next pass retries the update.\n`;
 }
 
 /** The step the loop runs before each pass: the tick-self-update flag gates it, and a failed build is recorded on the ledger. */

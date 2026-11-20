@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { Ledger } from "../ledger/index.js";
 import {
+  HarnessCliError,
   TickLoop,
   TickSelfUpdate,
   tickFlagOn,
@@ -206,14 +207,53 @@ describe("orchestrate tick --loop self-update step", () => {
     expect(run).toHaveBeenCalledTimes(1);
   });
 
-  it("reports a thrown update on stderr and says the pass still runs", async () => {
+  const KEEPS = "The tick keeps the bundle it has and runs the pass";
+
+  it("prints a missing git or mise with its own message and how to install it", async () => {
+    const { deps, err } = setup();
+    const missing = Object.assign(new Error("spawn mise ENOENT"), {
+      code: "ENOENT",
+      syscall: "spawn mise",
+    });
+
+    await runTickLoop(deps, ROOT, undefined);
+    capturedPorts().updateFailed(missing);
+
+    expect(err.join("")).toBe(
+      `The self-update step could not start a tool: spawn mise ENOENT\n${KEEPS}; install git and mise on PATH (mise install), then the next pass retries the update.\n`,
+    );
+  });
+
+  it("prints a rejected ledger write with its own message and the ledger fix", async () => {
     const { deps, err } = setup();
 
     await runTickLoop(deps, ROOT, undefined);
-    capturedPorts().updateFailed(new Error("git exploded"));
+    capturedPorts().updateFailed(new HarnessCliError("ledger line is invalid"));
 
     expect(err.join("")).toBe(
-      "The self-update step failed: git exploded\nThe tick keeps the bundle it has and runs the pass; fix the checkout or ledger it names, then the next pass retries the update.\n",
+      `The self-update step could not write the ledger: ledger line is invalid\n${KEEPS}; fix the ledger file it names, then the next pass retries the update.\n`,
+    );
+  });
+
+  it("prints an unexpected error with its own message and keeps the loop alive", async () => {
+    const { deps, err } = setup();
+
+    await runTickLoop(deps, ROOT, undefined);
+    capturedPorts().updateFailed(new RangeError("odd failure"));
+
+    expect(err.join("")).toBe(
+      `The self-update step failed unexpectedly (RangeError): odd failure\n${KEEPS}; report this error, then the next pass retries the update.\n`,
+    );
+  });
+
+  it("prints a thrown non-error value as text", async () => {
+    const { deps, err } = setup();
+
+    await runTickLoop(deps, ROOT, undefined);
+    capturedPorts().updateFailed("plain string");
+
+    expect(err.join("")).toContain(
+      "failed unexpectedly (non-error): plain string\n",
     );
   });
 });
