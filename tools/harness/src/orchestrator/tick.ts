@@ -13,7 +13,7 @@ import {
 import { OPEN_GATE, type BoundName, type PassGate } from "./tick-bounds.js";
 import {
   TickJudgment,
-  type JudgmentOutcome,
+  judgedExtra,
   type JudgmentPorts,
   type JudgmentStep,
 } from "./tick-judgment.js";
@@ -25,16 +25,6 @@ import { Starts } from "./tick-starts.js";
 /** A third send-back starts a judgment flow (ADR 0121), which decides once; the tick reports needs-judgment after that. */
 const JUDGMENT_AFTER = 3;
 const HEAD_LENGTH = 7;
-
-/** The extra fields a judgment step adds to its idea's step: the pane it started, or the bound that held it. */
-function judgedExtra(
-  outcome: JudgmentOutcome,
-): Partial<Pick<IdeaStep, "pane" | "bound">> {
-  return {
-    ...(outcome.pane === undefined ? {} : { pane: outcome.pane }),
-    ...(outcome.bound === undefined ? {} : { bound: outcome.bound }),
-  };
-}
 
 type Done = (
   step: StepName,
@@ -84,6 +74,7 @@ export type StepName =
   | "relaunch-writer"
   | "spawn-judge"
   | "spawn-piece"
+  | "spawn-live-proof"
   | "review"
   | "send-back"
   | "close"
@@ -110,6 +101,11 @@ export interface IdeaStep {
   notice?: string;
 }
 
+/** The live-proof part of a pass, as the tick sees it (see LiveProofs). */
+export interface LiveProofPass {
+  pass(queue: readonly QueueItem[], starts: Starts): Promise<IdeaStep[]>;
+}
+
 type QueuedIdea = Extract<QueueItem, { kind: "idea" }>;
 
 /** The pull request an idea's pass works on, and the head commit it is at. */
@@ -126,6 +122,8 @@ interface Change {
  * one twice. The tick merges and edits nothing, and calls no model.
  */
 export class Tick {
+  private live: LiveProofPass | undefined;
+
   constructor(
     private readonly ports: TickPorts,
     /** The measured outcome to record for an idea once its change has merged. */
@@ -140,6 +138,12 @@ export class Tick {
     },
   ) {}
 
+  /** Behind tick-live-proofs: adds the live-proof pass, which runs after the ideas in a pass over the whole queue. */
+  withLiveProofs(live: LiveProofPass): this {
+    this.live = live;
+    return this;
+  }
+
   /** Advances every queued idea, or only `only` when given. */
   async pass(only?: string): Promise<IdeaStep[]> {
     const queue = await this.ports.queue();
@@ -151,6 +155,12 @@ export class Tick {
     const steps: IdeaStep[] = [];
     for (const item of ideas) {
       const step = await this.advance(item, queue, starts);
+      await this.notifier.notify(step);
+      steps.push(step);
+    }
+    for (const step of only === undefined
+      ? ((await this.live?.pass(queue, starts)) ?? [])
+      : []) {
       await this.notifier.notify(step);
       steps.push(step);
     }

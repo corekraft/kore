@@ -52,6 +52,12 @@ export { TICK_COMMAND, TICK_ENV, TickCli } from "./tick-cli.js";
 export { TickNotifier } from "./tick-notify.js";
 export { NotifyLedger } from "./tick-notify-ports.js";
 export { TICK_FLAG, tickFlagOn } from "./tick-flag.js";
+export {
+  LIVE_PROOFS_FLAG,
+  LiveProofs,
+  TICKET_QUEUE_FLAG,
+  liveProofsOn,
+} from "./tick-live-proof.js";
 export { BRANCH_NOTICE_FLAG, branchNoticeFlagOn } from "./tick-branch-flag.js";
 export {
   BranchNotice,

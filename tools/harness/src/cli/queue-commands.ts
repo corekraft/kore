@@ -102,10 +102,15 @@ function prOf(context: CommandContext, verb: string): number {
   return Number(operand);
 }
 
-const describeItem = (item: QueueItem): string =>
-  item.kind === "idea"
-    ? `idea ${item.idea} (issue #${item.issue}) approved ${item.since}`
-    : `send-back on PR #${item.pr} (${item.count} so far) since ${item.since}`;
+function describeItem(item: QueueItem): string {
+  if (item.kind === "idea") {
+    return `idea ${item.idea} (issue #${item.issue}) approved ${item.since}`;
+  }
+  if (item.kind === "ticket") {
+    return `ticket #${item.issue} (${item.lane}, horizon ${item.horizon}) since ${item.since}`;
+  }
+  return `send-back on PR #${item.pr} (${item.count} so far) since ${item.since}`;
+}
 
 async function listRows(
   context: CommandContext,

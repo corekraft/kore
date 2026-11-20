@@ -8,6 +8,7 @@ import {
   BranchStepNotifier,
   FileLeaseStore,
   HarnessCliError,
+  LiveProofs,
   NotifyLedger,
   PLANS_DIRECTORY,
   TICK_COMMAND,
@@ -20,6 +21,7 @@ import {
   TickNotifier,
   branchNoticeFlagOn,
   leasedPass,
+  liveProofsOn,
   runTicks,
   tickFlagOn,
   type IdeaStep,
@@ -126,8 +128,17 @@ async function build(
   const told = (await branchNoticeFlagOn(deps.fs, root))
     ? new BranchStepNotifier(notifier, branchNotice(deps, cli, main))
     : notifier;
+  // Live proofs run only behind tick-live-proofs and tick-ticket-queue, one pane at a time.
+  const liveProofs = (await liveProofsOn(deps.fs, root))
+    ? new LiveProofs({
+        panes: () => cli.livePanes(),
+        spawn: (launch) => cli.spawn(launch),
+        close: (name) => cli.close(name),
+      })
+    : undefined;
+  const tick = new Tick(cli, outcomes, boundGate(deps, main), undefined, told);
   return {
-    tick: new Tick(cli, outcomes, boundGate(deps, main), undefined, told),
+    tick: liveProofs === undefined ? tick : tick.withLiveProofs(liveProofs),
     lease,
     cli,
   };

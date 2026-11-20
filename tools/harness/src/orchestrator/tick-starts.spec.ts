@@ -51,3 +51,13 @@ describe("Starts on AC power with no hold", () => {
     expect(g.record).not.toHaveBeenCalled();
   });
 });
+
+describe("Starts record", () => {
+  it("writes the bound hit through the gate", async () => {
+    const g = gate();
+
+    await new Starts({ saver: false }, g).record(11, "live-proof");
+
+    expect(g.record).toHaveBeenCalledWith(11, "live-proof");
+  });
+});

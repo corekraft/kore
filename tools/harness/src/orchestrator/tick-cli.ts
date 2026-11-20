@@ -217,8 +217,16 @@ export class TickCli extends HarnessCli {
   }
 
   /** The idea's panes from the session registry; an open one is asked once for its result. */
-  async panes(idea: string): Promise<IdeaPane[]> {
-    const prefix = `idea-${idea}-`;
+  panes(idea: string): Promise<IdeaPane[]> {
+    return this.panesNamed(`idea-${idea}-`);
+  }
+
+  /** Every live-proof pane the tick has started, for any ticket; read the same way as an idea's panes. */
+  livePanes(): Promise<IdeaPane[]> {
+    return this.panesNamed("live-proof-");
+  }
+
+  private async panesNamed(prefix: string): Promise<IdeaPane[]> {
     const files = await this.fs
       .readdir(this.sessions)
       .catch((error: unknown) => {

@@ -168,6 +168,23 @@ describe("TickCli panes", () => {
   });
 });
 
+describe("TickCli livePanes", () => {
+  it("lists every live-proof pane, whatever the ticket, and no idea pane", async () => {
+    const { cli } = setup(() => ({}), {
+      [file("live-proof-8")]: record("live-proof-8", { closedAt: "t" }),
+      [file("live-proof-9")]: record("live-proof-9", { closedAt: "t" }),
+      [file("idea-0001-writer")]: record("idea-0001-writer", {
+        closedAt: "t",
+      }),
+    });
+
+    expect(await cli.livePanes()).toEqual([
+      { name: "live-proof-8", state: "closed" },
+      { name: "live-proof-9", state: "closed" },
+    ]);
+  });
+});
+
 describe("TickCli judgment reads and labels", () => {
   it("reads a finished pane's text through its session result and the pane's own text", async () => {
     const { cli, calls } = setup((command) =>

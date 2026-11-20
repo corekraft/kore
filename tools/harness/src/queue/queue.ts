@@ -7,7 +7,15 @@ export const ESCALATION_MODEL = "claude-sonnet-5-5";
 
 export type QueueItem =
   | { kind: "idea"; idea: string; issue: number; since: string }
-  | { kind: "send-back"; pr: number; count: number; since: string };
+  | { kind: "send-back"; pr: number; count: number; since: string }
+  | {
+      kind: "ticket";
+      issue: number;
+      since: string;
+      lane: "product" | "harness";
+      horizon: "next" | "then" | "none";
+      labels: readonly string[];
+    };
 
 export interface OpenPr {
   number: number;
