@@ -1,5 +1,15 @@
 # Changelog
 
+## [0.14.0](https://github.com/corekraft/kore/compare/v0.13.0...v0.14.0) (2026-11-20)
+
+
+### Features
+
+* **harness:** compare a main-lock proof's chart digests at activation ([#1394](https://github.com/corekraft/kore/issues/1394)) ([aed62e7](https://github.com/corekraft/kore/commit/aed62e74b3552012e43f0307774c030c54d133fa))
+* **infra:** run an incus agents vm with herdr, claude code and moshi ([#1392](https://github.com/corekraft/kore/issues/1392)) ([97f8b58](https://github.com/corekraft/kore/commit/97f8b586b8b412b63a66d22edbda913712c30b82))
+* **platform:** keep the cutover dark behind platform-dns ([#1395](https://github.com/corekraft/kore/issues/1395)) ([2b2af7f](https://github.com/corekraft/kore/commit/2b2af7fc1dc2eb0f4585e8588cf9eea747e5e4c5))
+* **tools:** gate each signing job by its own exact ref ([#1393](https://github.com/corekraft/kore/issues/1393)) ([d3c45c5](https://github.com/corekraft/kore/commit/d3c45c5b097499264df7bf11d3e1c8767322e92e))
+
 ## [0.13.0](https://github.com/corekraft/kore/compare/v0.12.0...v0.13.0) (2026-11-20)
 
 
