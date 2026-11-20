@@ -1,1 +1,4 @@
-# No values. Secret access is bound per application namespace by `kore app up`.
+# Secret access is bound per application namespace by `kore app up`, so the chart
+# takes no Secret value. databaseRoutes is set by kore only while database-routes
+# is on (ADR 0137); off, the composition role keeps its CloudNativePG rules alone.
+databaseRoutes: false

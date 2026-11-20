@@ -84,3 +84,6 @@ export const platformPortalFlag = "platform-portal";
 
 /** The flag that adds the shared Gateway's wildcard listener, and so lets the golden-path and portal charts attach routes to it beside their own Gateways (ADR 0132, ADR 0133). */
 export const platformSharedGatewayFlag = "platform-shared-gateway";
+
+/** The flag that routes databases by name through the shared Gateway's passthrough listener, and gives each database its certificate from the local CA (ADR 0136, ADR 0137). */
+export const databaseRoutesFlag = "database-routes";

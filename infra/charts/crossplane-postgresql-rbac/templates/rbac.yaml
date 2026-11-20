@@ -11,6 +11,14 @@ rules:
   - apiGroups: [postgresql.cnpg.io]
     resources: [clusters/status]
     verbs: [get]
+{{- if .Values.databaseRoutes }}
+  # With database-routes on, the composition asks the local CA for each
+  # database's server certificate (ADR 0137). No Secret rule: cert-manager writes
+  # that Secret and CloudNativePG reads it in the database's own namespace.
+  - apiGroups: [cert-manager.io]
+    resources: [certificates]
+    verbs: [get, list, watch, create, update, patch, delete]
+{{- end }}
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding

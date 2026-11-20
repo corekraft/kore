@@ -295,3 +295,31 @@ test("with platform-hostname-ownership off or omitted the Organization API is ha
     ).toEqual(["--set-string", "platformDomain=kore.local"]);
   }
 });
+
+test("with database-routes on the PostgreSQL RBAC chart is handed databaseRoutes=true and no other component is", () => {
+  const on = fakeEnvironment({
+    platform: { domain: "kore.local", organizationId: "platform" },
+    features: { "database-routes": true },
+  });
+  expect(platformHelmArgs(on, "kore-postgresql-rbac")).toEqual([
+    "--set",
+    "databaseRoutes=true",
+  ]);
+  expect(platformHelmArgs(on, "kore-platform-config")).not.toContain(
+    "databaseRoutes=true",
+  );
+});
+
+test("with database-routes off or omitted the PostgreSQL RBAC chart is handed nothing new", () => {
+  for (const features of [{ "database-routes": false }, {}]) {
+    expect(
+      platformHelmArgs(
+        fakeEnvironment({
+          platform: { domain: "kore.local", organizationId: "platform" },
+          features,
+        }),
+        "kore-postgresql-rbac",
+      ),
+    ).toEqual([]);
+  }
+});
