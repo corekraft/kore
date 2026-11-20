@@ -15,6 +15,16 @@
       "description": "The environment's platform.organizationId, which kore passes with databaseRoutes; the derived host is <database>.<organizationId>.<platformDomain>.",
       "type": "string"
     },
+    "gateway": {
+      "description": "The shared Gateway a database's TLS route attaches to, and its passthrough listener (ADR 0136). kore passes the name and namespace from the environment's gateway while database-routes is on.",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "name": { "type": "string" },
+        "namespace": { "type": "string" },
+        "sectionName": { "type": "string", "minLength": 1 }
+      }
+    },
     "issuer": {
       "type": "object",
       "additionalProperties": false,

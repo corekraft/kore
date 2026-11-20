@@ -100,3 +100,16 @@ test("with databaseRoutes on the composition role may manage cert-manager certif
   );
   assert.doesNotMatch(role, /secrets/);
 });
+
+test("with databaseRoutes on the composition role may manage TLS routes with the cluster verbs, and no other Gateway API kind", async () => {
+  const role = composition(await renderWith("--set", "databaseRoutes=true"));
+  assert.match(
+    role,
+    /  - apiGroups: \[gateway\.networking\.k8s\.io\]\n {4}resources: \[tlsroutes\]\n {4}verbs: \[get, list, watch, create, update, patch, delete\]/,
+  );
+  assert.doesNotMatch(role, /referencegrants|gateways|httproutes/);
+});
+
+test("with databaseRoutes off the composition role has no Gateway API rule", async () => {
+  assert.doesNotMatch(composition(await renderWith()), /gateway\.networking/);
+});

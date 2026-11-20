@@ -8,3 +8,8 @@ platformDomain: ""
 organizationId: ""
 # The ClusterIssuer that signs each database's server certificate: the local CA.
 issuer: { name: kore-local-ca }
+# The Gateway a database's TLS route attaches to, which kore passes from the
+# environment's gateway while database-routes is on. No default for the name and
+# namespace: the route needs them, and the chart refuses to render without. The
+# section is the listener the platform's Gateway names for databases (ADR 0136).
+gateway: { name: "", namespace: "", sectionName: postgres }

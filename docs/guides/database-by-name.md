@@ -21,6 +21,17 @@ environment the organization is `platform` and the domain is `kore.internal`.
 The name is unique per organization, so two claims with the same name in
 different namespaces collide.
 
+## How the name reaches the database
+
+For a Postgres 17 or 18 database the composition emits a TLS route in the
+database's own namespace. It attaches to the Gateway's `postgres` listener, names
+the host above, and sends the connection to the database's `-rw` Service in the
+same namespace; the Gateway never terminates the TLS, so the database's own
+certificate is the one you verify ([ADR 0139](../decisions/0139-each-database-gets-a-tls-route-in-its-own-namespace-for-postgres-17-and-18-behind-database-routes.md)).
+While `platform-shared-gateway` is on, the Gateway admits the route only from a
+namespace labelled `platform.kore.dev/shared-gateway: "true"`, which `kore app up`
+adds to an application namespace. A Postgres 16 database gets no route.
+
 ## Connect
 
 Read the database's user and database name from its connection Secret (the
