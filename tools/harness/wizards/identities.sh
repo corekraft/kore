@@ -202,6 +202,18 @@ finish() {
 #
 #   bash tools/harness/wizards/identities.sh            # the real run
 #   bash tools/harness/wizards/identities.sh --dry-run  # touches nothing
+#
+# A Linux delivery host has no macOS keychain. It keeps the same items in a
+# sops-encrypted JSON file, ~/.config/kore/identities.sops.json, encrypted to the
+# host's own age key. Fill it from this Mac, after the stages above:
+#
+#   bash tools/harness/wizards/identities.sh --transfer agent@kore-agents
+#   bash tools/harness/wizards/identities.sh --transfer agent@kore-agents --dry-run
+#
+# The transfer reads each item from the keychain into this shell's memory and
+# streams the values over ssh, on stdin only, into `sops encrypt` on the host. No
+# plaintext lands on either disk or in a command line. Re-running replaces the
+# host's file with the keychain's current items.
 # ──────────────────────────────────────────────────────────────────────────
 
 run_wizard() {
@@ -213,12 +225,21 @@ ACCOUNT="kore"
 # No stage writes to a dotenv file; this keeps the library's hidden-entry helpers from reading one.
 ENV_FILE=/dev/null
 
+USAGE='Usage: identities.sh [--dry-run] [--transfer <user@host>]'
 DRY_RUN=0
-for arg in "$@"; do
-  case "$arg" in
+TRANSFER_HOST=""
+while (( $# )); do
+  case "$1" in
     --dry-run) DRY_RUN=1 ;;
-    *) printf 'Unknown option %s. Usage: identities.sh [--dry-run]\n' "$arg" >&2; exit 2 ;;
+    --transfer)
+      [[ $# -ge 2 ]] || { printf -- '--transfer needs a host. %s\n' "$USAGE" >&2; exit 2; }
+      TRANSFER_HOST="$2"
+      # ssh reads a leading dash as an option, so a host is user@name only.
+      [[ "$TRANSFER_HOST" =~ ^[A-Za-z0-9_][A-Za-z0-9._@-]*$ ]] || { printf 'Not a host: %s. %s\n' "$TRANSFER_HOST" "$USAGE" >&2; exit 2; }
+      shift ;;
+    *) printf 'Unknown option %s. %s\n' "$1" "$USAGE" >&2; exit 2 ;;
   esac
+  shift
 done
 
 # In a dry run nothing is opened, read, stored, deleted or called, and no prompt waits.
@@ -258,6 +279,101 @@ keychain_has() {
 keep_item() {
   printf '  %s✓ kept%s keychain item %s, already stored; not changed\n' "$GREEN" "$RESET" "$1"
 }
+
+# transfer_identities HOST copies every identity item from the keychain to the Linux host's
+# sops-encrypted store, encrypted to that host's own age key. Values live only in this
+# shell's memory and cross ssh on stdin; nothing is written to a file or a command line.
+transfer_identities() {
+  local host="$1" item value json="" sep="" count=0 age_pub remote
+  local store='$HOME/.config/kore/identities.sops.json'
+  local items=(
+    kore.writer.app-id kore.writer.installation-id kore.writer.private-key
+    kore.judge.pat
+    kore.reviewer.app-id kore.reviewer.installation-id kore.reviewer.private-key
+    kore.orchestrator.app-id kore.orchestrator.installation-id kore.orchestrator.private-key
+    kore.judge.app-id kore.judge.installation-id kore.judge.private-key
+  )
+
+  banner "Send the role identities to $host, encrypted at rest"
+
+  stage "Check you are ready"
+  say "The host keeps the identities in ~/.config/kore/identities.sops.json, encrypted to its own age key."
+  note "Values go from your keychain to the host over ssh stdin. No file or command line holds one."
+  if (( DRY_RUN )); then
+    note "Dry run: nothing is read from the keychain or sent."
+  else
+    command -v security >/dev/null 2>&1 || { warn "needs macOS's \`security\` tool: run this on the Mac"; exit 1; }
+    command -v ssh >/dev/null 2>&1 || { warn "needs \`ssh\`"; exit 1; }
+  fi
+
+  stage "Read the identities from the keychain"
+  if (( DRY_RUN )); then
+    for item in "${items[@]}"; do note "[dry run] would read keychain item $item"; done
+  else
+    for item in "${items[@]}"; do
+      if ! value=$(security find-generic-password -s "$item" -a "$ACCOUNT" -w 2>/dev/null) || [[ -z "$value" ]]; then
+        note "$item is not in the keychain, so it is not sent"
+        continue
+      fi
+      # Every item is a number, a token or base64, so a plain character set fits a JSON string unescaped.
+      if [[ ! "$value" =~ ^[A-Za-z0-9_+/=.:-]+$ ]]; then
+        warn "$item holds a character the transfer cannot place in JSON safely; recreate it with \`bash tools/harness/wizards/identities.sh\`"
+        exit 1
+      fi
+      json+="$sep\"$item\":\"$value\""
+      sep=","
+      count=$((count + 1))
+      printf '  %s✓ read%s keychain item %s\n' "$GREEN" "$RESET" "$item"
+    done
+    unset value
+    if (( count == 0 )); then
+      warn "no identity in the keychain, so there is nothing to send; run \`bash tools/harness/wizards/identities.sh\` first"
+      exit 1
+    fi
+    json="{$json}"
+  fi
+
+  stage "Read the host's age public key"
+  if (( DRY_RUN )); then
+    note "[dry run] would ask $host for its age public key (age-keygen -y)"
+    age_pub="age1dryrun"
+  else
+    age_pub=$(ssh -- "$host" 'age-keygen -y "$HOME/.config/sops/age/keys.txt"' 2>/dev/null) || age_pub=""
+    if [[ ! "$age_pub" =~ ^age1[a-z0-9]+$ ]]; then
+      warn "could not read an age public key on $host"
+      say "On $host, install age and sops, then create the key: age-keygen -o ~/.config/sops/age/keys.txt"
+      exit 1
+    fi
+    printf '  %s✓ read%s the age public key of %s\n' "$GREEN" "$RESET" "$host"
+  fi
+
+  stage "Send the identities, encrypted"
+  if (( DRY_RUN )); then
+    note "[dry run] would send the identities to $host, encrypted to its age key, into $store"
+    return 0
+  fi
+  confirm "Send $count identity item(s) to $host, replacing its identity store?" || exit 1
+  # --config /dev/null keeps a .sops.yaml near the host's working directory out of it; the
+  # age key on the command line is the only recipient. A failed run leaves no partial file.
+  remote="umask 077 && mkdir -p \"\$HOME/.config/kore\" && { sops --config /dev/null encrypt --age $age_pub --input-type json --output-type json /dev/stdin > \"\$HOME/.config/kore/identities.sops.json.new\" && mv \"\$HOME/.config/kore/identities.sops.json.new\" \"\$HOME/.config/kore/identities.sops.json\"; } || { rm -f \"\$HOME/.config/kore/identities.sops.json.new\"; exit 1; }"
+  if printf '%s' "$json" | ssh -- "$host" "$remote"; then
+    unset json
+    printf '  %s✓ stored%s the identities on %s, encrypted\n' "$GREEN" "$RESET" "$host"
+  else
+    unset json
+    warn "could not store the identities on $host; is sops installed there?"
+    exit 1
+  fi
+}
+
+# transfer mode runs only the transfer, and nothing of the stages below.
+if [[ -n "$TRANSFER_HOST" ]]; then
+  TOTAL_STAGES=4
+  transfer_identities "$TRANSFER_HOST"
+  say "On $TRANSFER_HOST the next \`harness review run <pr>\` reads these identities."
+  finish
+  return 0
+fi
 
 # app_identity LABEL APP PERMISSION... sets up a GitHub App identity (kore.LABEL.* in the
 # keychain) in three stages: the App and its App ID, its private key, and its installation.

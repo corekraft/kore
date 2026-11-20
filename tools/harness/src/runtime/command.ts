@@ -26,6 +26,8 @@ export interface CliDeps {
    */
   bundleUrl?: string;
   env: Readonly<Record<string, string | undefined>>;
+  /** The host's operating system; absent in fakes, which stand for macOS. */
+  platform?: NodeJS.Platform;
   /** The process working directory (a worktree's own checkout, not the repository root). */
   cwd: string;
   /** Reads all of standard input as text. */
