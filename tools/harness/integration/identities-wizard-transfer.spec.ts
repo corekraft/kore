@@ -110,6 +110,40 @@ describe("identities wizard --transfer sends the keychain, encrypted", () => {
   });
 });
 
+describe("identities wizard --transfer with several age keys on the host", () => {
+  it("encrypts to every key the host reports, comma-joined", () => {
+    const box = sandbox();
+    stock(box, ITEMS);
+    writeFileSync(
+      `${box.bin}/ssh`,
+      `#!/bin/sh\necho "ssh $*" >> "${box.calls}"\ncase "$*" in *age-keygen*) printf 'age1firstkey\\nage1secondkey\\n';; *) cat >> "${box.sshStdin}";; esac\n`,
+    );
+
+    const result = runWizard(box, ["--transfer", HOST], YES);
+
+    expect(result.status).toBe(0);
+    expect(read(box.calls)).toContain(
+      "sops --config /dev/null encrypt --age age1firstkey,age1secondkey --input-type json",
+    );
+    expect(JSON.parse(read(box.sshStdin))).toEqual(ITEMS);
+  });
+
+  it("exits 1 and sends nothing when ssh answers with an error message", () => {
+    const box = sandbox();
+    stock(box, ITEMS);
+    writeFileSync(
+      `${box.bin}/ssh`,
+      `#!/bin/sh\ncase "$*" in *age-keygen*) echo 'age-keygen: command not found';; *) cat >> "${box.sshStdin}";; esac\n`,
+    );
+
+    const result = runWizard(box, ["--transfer", HOST], YES);
+
+    expect(result.status).toBe(1);
+    expect(result.stdout).toContain(HOST);
+    expect(read(box.sshStdin)).toBe("");
+  });
+});
+
 describe("identities wizard --transfer stops before it sends", () => {
   it("sends only the items the keychain holds and names the ones it lacks", () => {
     const box = sandbox();

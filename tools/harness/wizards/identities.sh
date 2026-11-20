@@ -338,8 +338,9 @@ transfer_identities() {
     note "[dry run] would ask $host for its age public key (age-keygen -y)"
     age_pub="age1dryrun"
   else
-    age_pub=$(ssh -- "$host" 'age-keygen -y "$HOME/.config/sops/age/keys.txt"' 2>/dev/null) || age_pub=""
-    if [[ ! "$age_pub" =~ ^age1[a-z0-9]+$ ]]; then
+    # A host may hold more than one age identity; encrypt to every one, comma-joined as sops takes them.
+    age_pub=$(ssh -- "$host" 'age-keygen -y "$HOME/.config/sops/age/keys.txt"' 2>/dev/null | paste -sd, -) || age_pub=""
+    if [[ ! "$age_pub" =~ ^age1[a-z0-9]+(,age1[a-z0-9]+)*$ ]]; then
       warn "could not read an age public key on $host"
       say "On $host, install age and sops, then create the key: age-keygen -o ~/.config/sops/age/keys.txt"
       exit 1
