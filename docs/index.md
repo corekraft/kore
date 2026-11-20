@@ -351,6 +351,11 @@ decisions; read one only when planning that area, and expect it to change.
   the repo retro over 436 sessions, unified with the Pocock retro into one
   owner-decided triage; none applied yet. Read before changing the role guards
   or the writer agent definition.
+- [`docs/retros/2026-11-20-cost-retro.md`](retros/2026-11-20-cost-retro.md) —
+  the cost and token retro over 2026-11-18 to 2026-11-20: spend by role, model
+  and tier, the share that ships nothing, and six savings with their arithmetic;
+  none applied. Read before changing a compaction cap, a writer or judge tier,
+  or the main session's waits.
 
 ## Skills
 
