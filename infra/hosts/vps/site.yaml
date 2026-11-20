@@ -6,6 +6,7 @@
     - sshd
     - network
     - incus
+    - k3s
 
 - name: Converge the agents VM
   hosts: kore-agents

@@ -1,0 +1,13 @@
+# Managed by infra/hosts/vps (Ansible).
+[Unit]
+Description=k3s data volume
+Before=k3s.service
+
+[Mount]
+What=/dev/vg/{{ k3s_data_lv }}
+Where={{ k3s_data_path }}
+Type=ext4
+Options=defaults,noatime
+
+[Install]
+WantedBy=local-fs.target

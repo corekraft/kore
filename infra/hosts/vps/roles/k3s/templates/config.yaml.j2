@@ -1,0 +1,12 @@
+# Managed by infra/hosts/vps (Ansible). Edits here are overwritten.
+node-name: {{ inventory_hostname }}
+write-kubeconfig-mode: "0600"
+# Kore brings its own gateway; one owner per resource.
+disable:
+  - traefik
+  - servicelb
+# The API is reached over the tailnet only; the firewall drops 6443 publicly.
+tls-san:
+  - {{ inventory_hostname }}
+  - {{ ansible_facts['tailscale0']['ipv4']['address'] }}
+secrets-encryption: true

@@ -1,0 +1,20 @@
+# Pinned to the repository's kubectl minor (.mise.toml). The installer is
+# pinned by checksum and itself checks the k3s binary against the release's
+# sha256sum file.
+k3s_version: v1.37.2+k3s1
+k3s_installer_sha256: ed01f89fd977bf20ac1516bbebf8370bf3ddbaa55dac8aba610956a4c78cc00b
+
+# k3s data (images, containerd, local volumes) on its own volume, so it cannot
+# fill the root filesystem.
+k3s_data_lv: k3s
+k3s_data_size: 300g
+k3s_data_path: /var/lib/rancher
+
+# The persistent cluster outranks the agents VM for CPU and disk time on the
+# shared cores and HDDs (systemd's default weight is 100).
+k3s_cpu_weight: 400
+k3s_io_weight: 400
+
+# Where the controller keeps the kubeconfig, outside the repository.
+k3s_controller_kubeconfig: ~/.kube/kore-vps.yaml
+k3s_context: kore-vps
