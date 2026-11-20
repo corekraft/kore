@@ -275,6 +275,7 @@ decisions; read one only when planning that area, and expect it to change.
 - [`docs/ideas/0048-kore-published-host-ports-bound-off-loopback-stay-at-zero.md`](ideas/0048-kore-published-host-ports-bound-off-loopback-stay-at-zero.md) — Kore-published host ports bound off loopback stay at zero
 - [`docs/ideas/0049-platform-shared-gateway-works-live-in-local.md`](ideas/0049-platform-shared-gateway-works-live-in-local.md) — platform-shared-gateway works live in local
 - [`docs/ideas/0050-follow-up-0042-proof-225-bad-change.md`](ideas/0050-follow-up-0042-proof-225-bad-change.md) — Follow up on idea 0042 after a inconclusive outcome
+- [`docs/ideas/0051-platform-dns-works-live-in-local.md`](ideas/0051-platform-dns-works-live-in-local.md) — platform-dns works live in local
 
 ## Operations and Guides
 
