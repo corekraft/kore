@@ -1,5 +1,9 @@
 import type { Repository } from "../config/index.js";
-import type { Runner } from "../runtime/index.js";
+import {
+  CommandError,
+  CommandTimeoutError,
+  type Runner,
+} from "../runtime/index.js";
 import { pollUntil } from "./readiness-poll.js";
 
 // Docs: docs/decisions/0043-platform-configuration-through-argo-cd.md
@@ -90,17 +94,31 @@ async function readApplications(
     try {
       return (await runner.run("kubectl", args, { capture: true })).stdout;
     } catch (error) {
-      if (!(error instanceof Error && STDOUT_BUFFER_FULL.test(error.message))) {
+      if (!isStdoutBufferFull(error)) {
         throw error;
       }
       if (reads > RETRY_READS) {
         const { kubeContext } = repository.environment;
         throw new Error(
           `${error.message}; ${reads} reads failed the same way, so Application health is unknown; run ${kubectlArgocd(kubeContext)} get ${resource}`,
+          { cause: error },
         );
       }
     }
   }
+}
+
+/**
+ * kubectl's own failure to write its answer: a CommandError whose stderr carries
+ * the text. A timeout is a CommandError too, but it hung rather than failed, so
+ * it is never read again.
+ */
+function isStdoutBufferFull(error: unknown): error is CommandError {
+  return (
+    error instanceof CommandError &&
+    !(error instanceof CommandTimeoutError) &&
+    STDOUT_BUFFER_FULL.test(error.result.stderr)
+  );
 }
 
 /**
