@@ -1,13 +1,13 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { FileSystem } from "../runtime/index.js";
 import type { QueueItem } from "../queue/index.js";
+import { ticketQueueOn } from "../queue/index.js";
 import { localFlagOn } from "./local-flag.js";
 import type { PassGate } from "./tick-bounds.js";
 import {
   LIVE_PROOF_LABEL,
   LIVE_PROOFS_FLAG,
   LiveProofs,
-  TICKET_QUEUE_FLAG,
   liveProofBrief,
   liveProofName,
   liveProofsOn,
@@ -16,6 +16,7 @@ import {
 import { Starts } from "./tick-starts.js";
 
 vi.mock("./local-flag.js", () => ({ localFlagOn: vi.fn() }));
+vi.mock("../queue/index.js", () => ({ ticketQueueOn: vi.fn() }));
 
 const ticket = (issue: number, labels: string[]): QueueItem => ({
   kind: "ticket",
@@ -58,11 +59,8 @@ beforeEach(() => {
 });
 
 describe("liveProofsOn", () => {
-  it("names the two flags", () => {
-    expect([LIVE_PROOFS_FLAG, TICKET_QUEUE_FLAG]).toEqual([
-      "tick-live-proofs",
-      "tick-ticket-queue",
-    ]);
+  it("names its flag", () => {
+    expect(LIVE_PROOFS_FLAG).toBe("tick-live-proofs");
   });
 
   it.each([
@@ -73,9 +71,8 @@ describe("liveProofsOn", () => {
   ])(
     "reads tick-live-proofs %s and tick-ticket-queue %s as %s",
     async (live, queue, expected) => {
-      vi.mocked(localFlagOn).mockImplementation(async (_fs, _root, flag) =>
-        flag === LIVE_PROOFS_FLAG ? live : queue,
-      );
+      vi.mocked(localFlagOn).mockResolvedValue(live);
+      vi.mocked(ticketQueueOn).mockResolvedValue(queue);
 
       expect(await liveProofsOn({} as FileSystem, "/repo")).toBe(expected);
     },

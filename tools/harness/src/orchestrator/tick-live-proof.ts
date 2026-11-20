@@ -1,4 +1,4 @@
-import type { QueueItem } from "../queue/index.js";
+import { ticketQueueOn, type QueueItem } from "../queue/index.js";
 import type { FileSystem } from "../runtime/index.js";
 import type { Launch } from "./idea-run.js";
 import { localFlagOn } from "./local-flag.js";
@@ -9,22 +9,19 @@ import type { Starts } from "./tick-starts.js";
 /** The flag that lets the tick hand live-proof tickets to a live-proof pane; off until the owner activates it. */
 export const LIVE_PROOFS_FLAG = "tick-live-proofs";
 
-/** The flag that lets the tick read tickets from the queue at all; live proofs run only when it is on too. */
-export const TICKET_QUEUE_FLAG = "tick-ticket-queue";
-
 /** The ticket label that marks a live proof for the delivery host. */
 export const LIVE_PROOF_LABEL = "live-proof";
 
 const NAME_PREFIX = "live-proof-";
 const MODEL = "claude-sonnet-5-5";
 
-/** Whether the local overlay turns on live proofs: tick-live-proofs and tick-ticket-queue are both on. */
+/** Whether the local overlay turns on live proofs: tick-live-proofs and tick-ticket-queue (the queue's own flag) are both on. */
 export async function liveProofsOn(
   fs: FileSystem,
   root: string,
 ): Promise<boolean> {
   return (
-    (await localFlagOn(fs, root, TICKET_QUEUE_FLAG)) &&
+    (await ticketQueueOn(fs, root)) &&
     (await localFlagOn(fs, root, LIVE_PROOFS_FLAG))
   );
 }

@@ -4,6 +4,7 @@ import type { LedgerEvent } from "../ledger/index.js";
 import {
   buildQueue,
   countSendBacks,
+  ticketQueueOn,
   writerTier,
   type QueueItem,
 } from "../queue/index.js";
@@ -20,6 +21,7 @@ vi.mock("../queue/index.js", async (importOriginal) => ({
   ...(await importOriginal<typeof import("../queue/index.js")>()),
   buildQueue: vi.fn(),
   countSendBacks: vi.fn(),
+  ticketQueueOn: vi.fn(),
   writerTier: vi.fn(),
 }));
 
@@ -99,6 +101,7 @@ beforeEach(() => {
     return { list: () => Promise.resolve([{ number: "0001" } as IdeaRecord]) };
   } as unknown as typeof IdeaRepository);
   vi.mocked(buildQueue).mockReturnValue(ITEMS);
+  vi.mocked(ticketQueueOn).mockResolvedValue(false);
   vi.mocked(countSendBacks).mockReturnValue(1);
   vi.mocked(writerTier).mockImplementation((count, model) => ({
     model: count >= 2 ? "claude-sonnet-5-5" : model,

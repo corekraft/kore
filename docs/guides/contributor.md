@@ -1123,6 +1123,17 @@ tick runs. `harness status` lists the open questions after the idea counts. A ti
 writes `decision.blocking` to mark an idea whose question blocks it; the tick does not
 write that mark yet.
 
+`harness queue next` lists the frontier behind the local `tick-ticket-queue` flag (off).
+It holds every open `ready-for-agent` issue that no exclusion keeps out: an assignee, the
+`paused` or `spec` label, an open blocker, a sub-issue (a parent), a grilling source
+(a body that starts `Filed by `), or an idea issue whose idea record has an outcome or no
+record. It orders the queue: pending send-backs first, then issues without the `harness`
+label before those with it, `horizon:next` before `horizon:then` before neither, oldest
+first, lowest number on a tie. `--json` adds `excluded` with each reason, and `--explain
+<issue>` places one issue or names why it is out. `harness idea sync` adds the `harness`
+label to a harness idea's issue when it creates or edits it, with the flag on, and never
+removes one. The tick takes idea items in that order and does not start plain tickets yet.
+
 `orchestrate tick [--idea <n>]` ([ADR 0121](../decisions/0121-the-orchestrator-is-a-tick-with-judgment-panes.md))
 is one pass over the queue that advances each approved idea by at most one step,
 then exits, and calls no model. It does nothing, and exits 0, while the

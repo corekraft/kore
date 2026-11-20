@@ -23,6 +23,7 @@ it("the idea barrel exposes exactly the names its callers import", () => {
     "TIER_FIELDS",
     "TIER_GUARD_METRIC",
     "ideaCommands",
+    "ideaCommandsWith",
     "issueTarget",
     "outcomeSection",
   ]);

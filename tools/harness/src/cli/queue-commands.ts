@@ -2,70 +2,30 @@ import { IdeaRepository } from "../idea/index.js";
 import {
   ESCALATION_MODEL,
   ESCALATION_THRESHOLD,
+  FrontierError,
+  TICKET_QUEUE_FLAG,
+  buildFrontier,
   buildQueue,
   countSendBacks,
+  readReadyIssues,
+  ticketQueueOn,
   writerTier,
-  type OpenPr,
   type QueueItem,
 } from "../queue/index.js";
 import { resolveTier } from "../session/index.js";
 import type { Command, CommandContext } from "../runtime/index.js";
 import { openLedger } from "./ledger-commands.js";
+import { QueueError } from "./queue-error.js";
+import { approvedIssues, gh, openPullRequests, repoName } from "./queue-gh.js";
+import {
+  explainedIssue,
+  explanation,
+  renderFrontier,
+} from "./queue-frontier-view.js";
 
 const FAILED = 1;
-const APPROVED_LABEL = "ready-for-agent";
 
-class QueueError extends Error {}
-
-async function gh(context: CommandContext, args: string[], root: string) {
-  const done = await context.deps.runner.run("gh", args, { cwd: root });
-  if (done.code !== 0) {
-    throw new QueueError(
-      `gh ${args.slice(0, 2).join(" ")} failed: ${done.stderr.trim() || "no output"}. Check \`gh auth status\`, then rerun.`,
-    );
-  }
-  return done.stdout;
-}
-
-function parsed(text: string, what: string): unknown[] {
-  try {
-    const value: unknown = JSON.parse(text);
-    if (Array.isArray(value)) {
-      return value;
-    }
-  } catch {
-    // Reported below with the rest of the unreadable output.
-  }
-  throw new QueueError(`gh returned unreadable ${what}; rerun the command.`);
-}
-
-const rowsOf = (text: string, what: string) =>
-  parsed(text, what).filter(
-    (row): row is Record<string, unknown> =>
-      typeof row === "object" && row !== null,
-  );
-
-async function repoName(context: CommandContext, root: string) {
-  const view = await gh(
-    context,
-    ["repo", "view", "--json", "nameWithOwner"],
-    root,
-  );
-  try {
-    const name = (JSON.parse(view) as { nameWithOwner?: unknown })
-      .nameWithOwner;
-    if (typeof name === "string" && name !== "") {
-      return name;
-    }
-  } catch {
-    // Falls through to the error below.
-  }
-  throw new QueueError(
-    "gh could not tell which repository this is; run it inside the repository.",
-  );
-}
-
-/** Runs an action, turning a QueueError into an actionable message and a non-zero exit. */
+/** Runs an action, turning a reported error into an actionable message and a non-zero exit. */
 async function guarded(
   { json, deps }: CommandContext,
   action: () => Promise<void>,
@@ -74,7 +34,7 @@ async function guarded(
     await action();
     return 0;
   } catch (error) {
-    if (!(error instanceof QueueError)) {
+    if (!isReported(error)) {
       throw error;
     }
     deps.stderr(
@@ -83,6 +43,10 @@ async function guarded(
     return FAILED;
   }
 }
+
+/** Errors this command names and reports; anything else is a bug and propagates. */
+const isReported = (error: unknown): error is Error =>
+  error instanceof QueueError || error instanceof FrontierError;
 
 async function openedLedger(context: CommandContext) {
   const opened = await openLedger(context);
@@ -102,86 +66,15 @@ function prOf(context: CommandContext, verb: string): number {
   return Number(operand);
 }
 
-function describeItem(item: QueueItem): string {
+const describeItem = (item: QueueItem): string => {
   if (item.kind === "idea") {
     return `idea ${item.idea} (issue #${item.issue}) approved ${item.since}`;
   }
   if (item.kind === "ticket") {
-    return `ticket #${item.issue} (${item.lane}, horizon ${item.horizon}) since ${item.since}`;
+    return `ticket issue #${item.issue} lane ${item.lane} horizon ${item.horizon} since ${item.since}`;
   }
   return `send-back on PR #${item.pr} (${item.count} so far) since ${item.since}`;
-}
-
-async function listRows(
-  context: CommandContext,
-  repo: string,
-  root: string,
-  args: string[],
-  what: string,
-) {
-  return rowsOf(
-    await gh(context, [...args, "--repo", repo, "--limit", "200"], root),
-    what,
-  );
-}
-
-/** Open issues carrying the approval label, keyed by number, with their creation time. */
-async function approvedIssues(
-  context: CommandContext,
-  repo: string,
-  root: string,
-) {
-  const rows = await listRows(
-    context,
-    repo,
-    root,
-    [
-      "issue",
-      "list",
-      "--label",
-      APPROVED_LABEL,
-      "--state",
-      "open",
-      "--json",
-      "number,createdAt",
-    ],
-    "issue list",
-  );
-  const approved = new Map<number, string>();
-  for (const row of rows) {
-    if (
-      typeof row["number"] === "number" &&
-      typeof row["createdAt"] === "string"
-    ) {
-      approved.set(row["number"], row["createdAt"]);
-    }
-  }
-  return approved;
-}
-
-async function openPullRequests(
-  context: CommandContext,
-  repo: string,
-  root: string,
-) {
-  const rows = await listRows(
-    context,
-    repo,
-    root,
-    ["pr", "list", "--state", "open", "--json", "number,headRefOid"],
-    "PR list",
-  );
-  const openPrs: OpenPr[] = [];
-  for (const row of rows) {
-    if (
-      typeof row["number"] === "number" &&
-      typeof row["headRefOid"] === "string"
-    ) {
-      openPrs.push({ number: row["number"], head: row["headRefOid"] });
-    }
-  }
-  return openPrs;
-}
+};
 
 function render(queue: QueueItem[], json: boolean): string {
   if (json) {
@@ -193,9 +86,9 @@ function render(queue: QueueItem[], json: boolean): string {
   return `${queue.map(describeItem).join("\n")}\n`;
 }
 
-async function next(context: CommandContext): Promise<void> {
+/** The queue as it has always been: approved ideas and send-backs, oldest first. */
+async function nextToday(context: CommandContext, root: string) {
   const { deps, json } = context;
-  const root = await deps.root();
   const ledger = await openedLedger(context);
   const repo = await repoName(context, root);
   const queue = buildQueue({
@@ -205,6 +98,44 @@ async function next(context: CommandContext): Promise<void> {
     sendBacks: (await ledger.list({ kind: "send-back" })).events,
   });
   deps.stdout(render(queue, json));
+}
+
+/** The frontier behind the tick-ticket-queue flag: the steering view, or one issue's place in it. */
+async function nextFrontier(
+  context: CommandContext,
+  root: string,
+  explain: number | undefined,
+) {
+  const { deps, json } = context;
+  const ledger = await openedLedger(context);
+  const repo = await repoName(context, root);
+  const frontier = buildFrontier({
+    issues: await readReadyIssues((args) => gh(context, args, root), repo),
+    ideas: await new IdeaRepository(deps.fs, deps.clock, root).list(),
+    openPrs: await openPullRequests(context, repo, root),
+    sendBacks: (await ledger.list({ kind: "send-back" })).events,
+  });
+  if (explain === undefined) {
+    deps.stdout(renderFrontier(frontier, json));
+    return;
+  }
+  const answer = explanation(explain, frontier);
+  deps.stdout(json ? `${JSON.stringify(answer.json)}\n` : `${answer.text}\n`);
+}
+
+async function next(context: CommandContext): Promise<void> {
+  const root = await context.deps.root();
+  const explain = explainedIssue(context.options["explain"]);
+  if (!(await ticketQueueOn(context.deps.fs, root))) {
+    if (explain !== undefined) {
+      throw new QueueError(
+        `--explain needs the local ${TICKET_QUEUE_FLAG} flag, which is off; run \`harness queue next\` without --explain, or ask the owner to turn the flag on.`,
+      );
+    }
+    await nextToday(context, root);
+    return;
+  }
+  await nextFrontier(context, root, explain);
 }
 
 async function countFor(context: CommandContext, pr: number) {
@@ -273,8 +204,8 @@ async function escalateWriter(context: CommandContext): Promise<void> {
 
 const nextCommand: Command = {
   summary:
-    "read-only; list approved ideas without an outcome and pending judge send-backs, oldest first ([--json] [--ledger])",
-  options: { ledger: "string" },
+    "read-only; list approved ideas without an outcome and pending judge send-backs, oldest first ([--json] [--ledger]); with the local tick-ticket-queue flag on, the whole frontier instead: send-backs, then every open ready-for-agent issue the exclusion rules keep, one line each with kind, lane and horizon ([--json adds excluded] [--explain <issue>] places one issue or names why it is excluded; the tick takes idea items in this order and does not start plain tickets yet)",
+  options: { ledger: "string", explain: "string" },
   run: (context) => guarded(context, () => next(context)),
 };
 

@@ -29,7 +29,6 @@ vi.mock("./tick-lease.js", () => ({
 vi.mock("./tick-live-proof.js", () => ({
   LIVE_PROOFS_FLAG: "f",
   LiveProofs: vi.fn(),
-  TICKET_QUEUE_FLAG: "f",
   liveProofsOn: vi.fn(),
 }));
 vi.mock("./tick-leased.js", () => ({ leasedPass: vi.fn() }));
@@ -79,7 +78,6 @@ describe("the orchestrator barrel", () => {
       "RetroFiling",
       "RetroFilingCli",
       "RetroLaunch",
-      "TICKET_QUEUE_FLAG",
       "TICK_COMMAND",
       "TICK_ENV",
       "TICK_FLAG",
