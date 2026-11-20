@@ -66,11 +66,12 @@ crashed.
   stay in the core phase: they are small (the operator peaked at 0.7 cores) and
   the provider's credential is streamed right after them. A separate flag lets
   the staging be proven and turned on without the portal's own flag moving.
-- **A StatefulSet readiness entry waits for the object to exist first.** A
-  `statefulset/` entry polls `kubectl get` within the release's bound before
-  the rollout wait, so an object an operator creates a moment after Helm
-  returns is not a failure. This applies to every release, flag or not, and
-  changes only a case that failed at once before.
+- **The Keycloak StatefulSet's readiness waits for it to exist first.** The
+  entry `statefulset/keycloak`, the one object an operator creates after Helm
+  returns, polls `kubectl get` and then runs the rollout wait with whatever is
+  left of the release's bound, so the two together never take longer than that
+  bound. Keycloak exists only while `platform-portal` is on, and every other
+  release's readiness is unchanged.
 - **Not changed:** the local observability footprint (the agents, Prometheus
   and Loki together peaked near 0.2 cores) and the Gatekeeper audit interval
   (0.4 to 0.8 cores every 60 s), which is a policy decision for its own change.

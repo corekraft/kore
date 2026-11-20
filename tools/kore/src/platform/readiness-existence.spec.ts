@@ -1,7 +1,7 @@
 // Docs: docs/decisions/0113-run-a-keycloak-for-the-platform-organization-s-operators.md
 import { beforeEach, expect, test, vi } from "vitest";
 import type { Runner } from "../runtime/index.js";
-import { pollUntil } from "./readiness-poll.js";
+import { pollUntil, timeoutMilliseconds } from "./readiness-poll.js";
 import { existenceCheck } from "./readiness-existence.js";
 
 vi.mock("./readiness-poll.js");
@@ -34,6 +34,8 @@ function checkFor(resource: string, runner: Runner, capture = false) {
 
 beforeEach(() => {
   vi.resetAllMocks();
+  vi.mocked(timeoutMilliseconds).mockReturnValue(600_000);
+  vi.spyOn(Date, "now").mockReturnValue(0);
   vi.mocked(pollUntil).mockImplementation(async (_timeout, probe) => {
     await probe();
   });
@@ -58,7 +60,7 @@ test("a StatefulSet is read by name, captured, before its rollout is asked for, 
     ],
     [
       "kubectl",
-      [...BASE, "rollout", "status", STATEFULSET, "--timeout=10m"],
+      [...BASE, "rollout", "status", STATEFULSET, "--timeout=600s"],
       { capture: false },
     ],
   ]);
@@ -85,7 +87,37 @@ test("a kubectl failure reaches the poll as it is, so the poll alone decides whe
   expect(pollUntil).toHaveBeenCalledTimes(1);
 });
 
+test("the wait and the rollout share the one bound: the rollout gets only the time the wait left", async () => {
+  const { runner, run } = fakeRunner();
+  vi.mocked(pollUntil).mockImplementation(async (_timeout, probe) => {
+    await probe();
+    vi.spyOn(Date, "now").mockReturnValue(240_000);
+  });
+  await checkFor(STATEFULSET, runner).run("10m");
+
+  expect(run.mock.calls.at(-1)?.[1]).toEqual([
+    ...BASE,
+    "rollout",
+    "status",
+    STATEFULSET,
+    "--timeout=360s",
+  ]);
+});
+
+test("a wait that used up the bound still leaves the rollout one second, never zero or negative", async () => {
+  const { runner, run } = fakeRunner();
+  vi.mocked(pollUntil).mockImplementation(async () => {
+    vi.spyOn(Date, "now").mockReturnValue(600_000);
+  });
+  await checkFor(STATEFULSET, runner).run("10m");
+
+  expect(run.mock.calls.at(-1)?.[1]?.at(-1)).toBe("--timeout=1s");
+});
+
 test.each([
+  "statefulset/loki",
+  "statefulset/tempo",
+  "statefulset/argocd-application-controller",
   "deployment/web",
   "daemonset/ztunnel",
   "crd/fakes.example.io",
