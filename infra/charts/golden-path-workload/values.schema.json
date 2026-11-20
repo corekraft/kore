@@ -14,6 +14,31 @@
     "bff": {
       "$ref": "#/definitions/workload"
     },
+    "autoscaling": {
+      "description": "Set by the golden-path ApplicationSet while autoscaling-defaults is on (ADR 0047). With it on, each Deployment renders no replica count and a CPU HorizontalPodAutoscaler.",
+      "type": "object",
+      "properties": {
+        "enabled": { "type": "boolean" },
+        "minReplicas": { "type": "integer" },
+        "maxReplicas": { "type": "integer" },
+        "targetCPUUtilizationPercentage": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 100
+        }
+      }
+    },
+    "resources": {
+      "type": "object",
+      "properties": {
+        "requests": {
+          "type": "object",
+          "properties": {
+            "cpu": { "type": "string", "minLength": 1 }
+          }
+        }
+      }
+    },
     "ingress": {
       "description": "Set by the ApplicationSet from the Service's default host (ADR 0042); without it no ingress resource renders.",
       "type": "object",

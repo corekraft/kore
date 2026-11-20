@@ -1,0 +1,15 @@
+# Off by default. The golden-path ApplicationSet turns it on with the
+# autoscaling.enabled parameter while autoscaling-defaults is on (ADR 0047). Then
+# each Deployment carries no replica count and its HorizontalPodAutoscaler is the
+# only owner of it, so Argo CD needs no ignore.
+autoscaling:
+  enabled: false
+  minReplicas: 2
+  maxReplicas: 5
+  targetCPUUtilizationPercentage: 80
+
+# The CPU request the utilisation target is measured against. Rendered only while
+# autoscaling is on, so the flag-off render is unchanged.
+resources:
+  requests:
+    cpu: 25m
