@@ -351,6 +351,11 @@ decisions; read one only when planning that area, and expect it to change.
   the repo retro over 436 sessions, unified with the Pocock retro into one
   owner-decided triage; none applied yet. Read before changing the role guards
   or the writer agent definition.
+- [`docs/retros/2026-11-20-primitives-retro.md`](retros/2026-11-20-primitives-retro.md)
+  — seven proposals for sequences agents build by hand that should be one
+  harness primitive, and primitives the main session bypasses; none filed or
+  applied. Read before adding a harness command or changing the main session's
+  merge, review or pane tools.
 
 ## Skills
 
