@@ -12,4 +12,4 @@ autoscaling:
 # autoscaling is on, so the flag-off render is unchanged.
 resources:
   requests:
-    cpu: 25m
+    cpu: 100m
