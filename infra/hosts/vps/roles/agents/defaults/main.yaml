@@ -27,3 +27,7 @@ agents_moshi_hook_sha256: "5539b750fcdda8277555b0b1e2972bf2c2946c4c29838d06bb8a9
 agents_ssh_pubkey_files:
   - ~/.ssh/id_ed25519.pub
   - ~/.ssh/id_rsa.pub
+
+# git's credential helper for GitHub, through the mise shim so a gh upgrade
+# does not leave it pointing at a removed install.
+agents_gh_helper: "!/home/{{ agents_user }}/.local/share/mise/shims/gh auth git-credential"

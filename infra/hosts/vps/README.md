@@ -8,13 +8,21 @@ Desired state for the rented VPS host `kore-vps`, converged by Ansible
 1. In the provider's control panel, install Debian 13 with software RAID1, a
    1 GiB `/boot`, an 80 GiB `/` on the LVM volume `root`, 4 GiB swap per disk,
    the rest of the volume group left free, and your SSH public key.
-2. On the host: install Tailscale (or run `mise run vps-apply` once over the
-   public address, which stops at the sign-in check), then
-   `sudo tailscale up --ssh --hostname=kore-vps` and approve the link it prints.
-3. From your machine: `mise run vps-check` to see the diff, then
-   `mise run vps-apply`.
+2. In the Tailscale admin console, remove the old `kore-vps` and `kore-agents`
+   machines so the new ones keep those names, and generate a one-off auth key
+   (reusable, so it signs in both machines, and expiring within a day).
+3. From your machine, with the key only in your shell:
+   `export TAILSCALE_AUTH_KEY=<key>`, then
+   `mise run vps-apply -e ansible_host=<public address> --limit kore-vps`.
+   The playbook signs the host in through stdin and closes public SSH. Then
+   `mise run vps-apply` for the agents VM, and `unset TAILSCALE_AUTH_KEY`.
+4. `tofu apply` in `infra/tofu/stacks/tailnet` tags the new machines.
 
-Public SSH is closed after step 3. If the tailnet is lost, the provider's
+Without a key, the playbook stops at the sign-in check: run
+`sudo tailscale up --ssh --hostname=kore-vps` on the host, approve the link,
+and run it again. Public SSH is closed after step 3.
+
+If the tailnet is lost, the provider's
 rescue mode is the way back in.
 
 ## The agents VM
@@ -24,10 +32,10 @@ The `incus` role creates `kore-agents` (an Incus VM on the private bridge
 herdr, Claude Code, gh, mise, mosh, tmux and moshi-hook as the `agent` account,
 which has Docker and no sudo.
 
-Once, after the first `mise run vps-apply` stops at the VM's sign-in check:
-
-1. `ssh debian@kore-vps sudo incus exec kore-agents -- tailscale up --ssh --hostname=kore-agents`
-   and approve the link, then `mise run vps-apply` again.
+With `TAILSCALE_AUTH_KEY` set, the playbook signs the VM in too. Without it,
+the run stops at the VM's sign-in check: run
+`ssh debian@kore-vps sudo incus exec kore-agents -- tailscale up --hostname=kore-agents`,
+approve the link, then `mise run vps-apply` again.
 
 Tailscale SSH is off on the VM (`tailscale_ssh: false`): its own sshd checks
 `authorized_keys`, where the playbook puts your public keys and Moshi puts the
