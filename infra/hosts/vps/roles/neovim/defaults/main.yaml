@@ -1,0 +1,5 @@
+# The upstream release build, the same version the agents VM gets through mise
+# (agents_tools.neovim). Debian's package lags several releases behind.
+neovim_version: "0.12.6"
+neovim_sha256: 474430d53e6264f6d6dd18db42d6dc9df3a1b56ca9e88a325bbf860e1a811d87
+neovim_prefix: /opt/nvim

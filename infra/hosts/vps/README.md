@@ -40,3 +40,12 @@ the repository:
    the app (it is a temporary access token). The playbook already runs the
    moshi-hook daemon and adds its Claude Code hooks; `moshi-hook doctor` should
    show every feature ready.
+
+## k3s
+
+The `k3s` role runs a single-node k3s on the host for the persistent kore: the
+pinned version, the SQLite datastore, Traefik and servicelb disabled, data on
+its own volume at `/var/lib/rancher`, and CPU and IO priority over the agents
+VM. The API answers on the tailnet only. `mise run vps-apply` writes the
+kubeconfig to `~/.kube/kore-vps.yaml` on your machine with the context
+`kore-vps`; it is a credential and never enters the repository.
