@@ -17,6 +17,10 @@ const MISE_ONLY_TOOLS: Readonly<Record<string, string>> = {
     "the harness runs its sessions in herdr panes; it is a developer tool, not a platform tool, so the platform tool catalog does not mirror it",
   "github:theseus-rs/postgresql-binaries":
     "the host psql (libpq 17 or newer) for the database-by-name proof; it is a developer client, not a platform tool, so the platform tool catalog does not mirror it",
+  "pipx:ansible-core":
+    "the ansible-core that lints and converges the VPS host (ADR 0141); it is a developer tool pinned in .mise.toml, not a platform tool, so the platform tool catalog does not mirror it",
+  "pipx:ansible-lint":
+    "the ansible-lint that checks the VPS host playbook (ADR 0141); it is a developer tool pinned in .mise.toml, not a platform tool, so the platform tool catalog does not mirror it",
 };
 
 const has = (table: Readonly<Record<string, string>>, name: string): boolean =>

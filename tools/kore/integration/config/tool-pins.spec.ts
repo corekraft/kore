@@ -56,6 +56,28 @@ test("psql, a host client the platform catalog does not mirror, may live only in
   );
 });
 
+test("ansible-core and ansible-lint, the pinned lint and converge tools for the VPS host (ADR 0141), may live only in .mise.toml under their pipx backend names", () => {
+  assert.deepEqual(
+    comparePinnedTools(
+      { "pipx:ansible-core": "2.21.6", "pipx:ansible-lint": "26.11.0" },
+      {},
+    ),
+    [],
+  );
+});
+
+test("an ansible tool pinned only in the tool catalog under its bare name fails, because the allowance covers the .mise.toml backend name alone", () => {
+  assert.deepEqual(comparePinnedTools({}, { "ansible-core": "2.21.6" }), [
+    "ansible-core is pinned in infra/catalog/versions.yaml but not in .mise.toml; add it to .mise.toml or allow it",
+  ]);
+});
+
+test("a pipx tool that is not on the allow list fails and is named, so the allowance does not cover every pipx tool", () => {
+  assert.deepEqual(comparePinnedTools({ "pipx:black": "26.1.0" }, {}), [
+    "pipx:black is pinned in .mise.toml but not in infra/catalog/versions.yaml; add it to the catalog or allow it",
+  ]);
+});
+
 test("parseMiseTools reads a quoted backend name such as github:owner/repo as a tool pin", () => {
   assert.deepEqual(
     parseMiseTools(
