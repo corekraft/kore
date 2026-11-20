@@ -60,6 +60,22 @@ const record = (name: string, extra: object = {}) =>
 
 const file = (name: string) => `${SESSIONS}/${name}.json`;
 
+describe("TickCli issue title", () => {
+  it("reads an issue's title with a read-only gh call", async () => {
+    const { cli, calls } = setup(() => ({
+      stdout: JSON.stringify({ title: "Tick works tickets" }),
+    }));
+
+    expect(await cli.issueTitle(1419)).toBe("Tick works tickets");
+    expect(calls).toEqual([
+      {
+        command: "gh",
+        args: ["issue", "view", "1419", "--json", "title"],
+      },
+    ]);
+  });
+});
+
 describe("TickCli head and review reads", () => {
   it("reads a pull request's head commit with a read-only gh call", async () => {
     const { cli, calls } = setup(() => ({

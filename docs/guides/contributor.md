@@ -1166,6 +1166,15 @@ was spawned from, read from the session registry. The line goes through the sign
 and the send is recorded as a `session.send` event naming the idea and the state, so a restart
 or a later pass sends nothing twice. An idea with no recorded pane gets no line.
 
+With the `tick-ticket-queue` flag on too (off in every overlay), a plain `ready-for-agent`
+ticket in the queue takes the idea's steps: a writer pane named `idea-ticket-<issue>-writer`
+whose brief is the issue number and title with an instruction to read the issue and follow
+`writer.md`, `review run`, the precheck and send-back, the judge, and a relaunch on the tier's
+model, each keyed on the ticket and the PR head so a rerun starts nothing twice, under the same
+power, load and live-run bounds. A ticket labelled `live-proof` is skipped. A ticket records no
+outcome after the judge merges (its `Refs` or `Closes` decides whether GitHub closes the issue),
+and a third send-back reports `needs-judgment` with nothing started.
+
 With the `behind-main-notice` flag on too (off in every overlay; detection runs only when both
 flags are on), a pass checks each idea's open pull request. A PR that conflicts with main
 (`DIRTY`), or is ready to merge but behind main (`BEHIND`, CI green, no judge precheck failure),
