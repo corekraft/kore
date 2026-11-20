@@ -3,20 +3,28 @@ import { expect, test, vi } from "vitest";
 import * as flag from "./index.js";
 import { unprovenFlags, unprovenLine } from "./audit.js";
 import { FlagError, environments, readOverlay, withFlagOn } from "./overlay.js";
-import { findProof } from "./proof.js";
+import { activationProof, findProof } from "./proof.js";
+import { parseCharts, renderCharts } from "./recorded-lock.js";
+import { parseReleaseLock } from "./release-lock.js";
 
 vi.mock("./audit.js");
 vi.mock("./overlay.js");
 vi.mock("./proof.js");
+vi.mock("./recorded-lock.js");
+vi.mock("./release-lock.js");
 
 test("the flag barrel exposes exactly the overlay, proof and audit entry points", () => {
   expect(Object.keys(flag).sort()).toEqual(
     [
       "FlagError",
+      "activationProof",
       "environments",
       "findProof",
+      "parseCharts",
+      "parseReleaseLock",
       "proofAudit",
       "readOverlay",
+      "renderCharts",
       "unprovenFlags",
       "unprovenLine",
       "waivedLine",
@@ -31,6 +39,10 @@ test("the flag barrel re-exports each module's own function, not a copy", () => 
   expect(flag.readOverlay).toBe(readOverlay);
   expect(flag.withFlagOn).toBe(withFlagOn);
   expect(flag.findProof).toBe(findProof);
+  expect(flag.activationProof).toBe(activationProof);
+  expect(flag.parseCharts).toBe(parseCharts);
+  expect(flag.renderCharts).toBe(renderCharts);
+  expect(flag.parseReleaseLock).toBe(parseReleaseLock);
   expect(flag.unprovenFlags).toBe(unprovenFlags);
   expect(flag.unprovenLine).toBe(unprovenLine);
 });

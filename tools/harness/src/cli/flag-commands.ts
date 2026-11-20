@@ -4,13 +4,15 @@ import { openLedger } from "./ledger-commands.js";
 import type { Command, CommandContext } from "../runtime/index.js";
 import {
   FlagError,
-  findProof,
+  activationProof,
+  parseReleaseLock,
   readOverlay,
   proofAudit,
   unprovenLine,
   waivedLine,
   withFlagOn,
 } from "../flag/index.js";
+import type { Proof } from "../flag/index.js";
 
 const FAILED = 1;
 
@@ -80,6 +82,45 @@ function activationTarget(context: CommandContext) {
   return { flag, environment };
 }
 
+/** The release chart lock named by --chart-lock, or undefined when none is named. */
+async function releaseLock(context: CommandContext, base: string) {
+  const path = text(context.options, "chart-lock");
+  if (path === undefined) {
+    return undefined;
+  }
+  const lockText = await context.deps.fs
+    .readFile(path.startsWith("/") ? path : `${base}/${path}`)
+    .catch((cause: unknown) => {
+      throw new FlagError(
+        `Cannot read the release chart lock ${path}: ${cause instanceof Error ? cause.message : String(cause)}. Pass --chart-lock <platform-charts.lock.json> attached to the release.`,
+      );
+    });
+  return parseReleaseLock(lockText, path);
+}
+
+/** The activation's output. A waiver stands in only after a live run was refused, so each reason is a warning: the waiver is never a silent fallback. */
+function activationReport(
+  flag: string,
+  environment: string,
+  proof: Proof,
+  refused: string[],
+  json: boolean,
+): string {
+  if (json) {
+    const found = { flag, environment, idea: proof.idea, proof: proof.path };
+    return `${JSON.stringify({ ...found, source: proof.source, ...(refused.length === 0 ? {} : { refused }) })}\n`;
+  }
+  const warnings = refused.map(
+    (reason) =>
+      `warning: a live run of ${flag} in ${environment} was refused, ${reason}\n`,
+  );
+  const waiver =
+    proof.source === "owner-waiver"
+      ? " under an owner waiver, not a live run"
+      : "";
+  return `${warnings.join("")}Flag ${flag} is on in ${environment}${waiver}; proof: ${proof.path}\n`;
+}
+
 async function activateFlag(context: CommandContext): Promise<number> {
   const { deps, json } = context;
   const { flag, environment } = activationTarget(context);
@@ -90,11 +131,17 @@ async function activateFlag(context: CommandContext): Promise<number> {
       `${overlay.path} does not declare flag "${flag}". Declared: ${Object.keys(overlay.features).join(", ") || "none"}. Declare it as false first.`,
     );
   }
-  const proof = await findProof(
+  const { proof, refused } = await activationProof(
     new IdeaRepository(deps.fs, deps.clock, base),
     flag,
     environment,
+    await releaseLock(context, base),
   );
+  if (proof === undefined && refused.length > 0) {
+    throw new FlagError(
+      `No live run of ${flag} in ${environment} counts, so ${overlay.path} is unchanged: ${refused.join("; ")}. Re-prove it live on charts equal to the release chart lock, then record a new verification outcome with --lock and --charts.`,
+    );
+  }
   if (proof === undefined) {
     throw new FlagError(
       `No verification outcome records a live run or an owner waiver of ${flag} in ${environment}, so ${overlay.path} is unchanged. Prove it live, then run \`harness outcome record --idea <number> --kind verification --source live-run --result confirmed --flag ${flag} --environment ${environment} --evidence <run> --summary <text>\`. Or, when the owner has waived the live run in a GitHub comment, use \`--source owner-waiver --evidence <comment url>\`.`,
@@ -125,11 +172,7 @@ async function activateFlag(context: CommandContext): Promise<number> {
       proof.idea,
     );
   }
-  deps.stdout(
-    json
-      ? `${JSON.stringify({ flag, environment, idea: proof.idea, proof: proof.path, source: proof.source })}\n`
-      : `Flag ${flag} is on in ${environment}${proof.source === "owner-waiver" ? " under an owner waiver, not a live run" : ""}; proof: ${proof.path}\n`,
-  );
+  deps.stdout(activationReport(flag, environment, proof, refused, json));
   return 0;
 }
 
@@ -156,9 +199,9 @@ async function auditFlags(context: CommandContext): Promise<number> {
 
 const activate: Command = {
   summary:
-    "turn a flag on in an environment overlay, only when a confirmed verification outcome from a live run or an owner waiver names that flag and environment; records a flag.activated ledger event (<flag> --environment <env> [--ledger])",
+    "turn a flag on in an environment overlay, only when a confirmed verification outcome from a live run or an owner waiver names that flag and environment; a live run that records a main chart lock counts only when its charts equal the release chart lock given by --chart-lock; records a flag.activated ledger event (<flag> --environment <env> [--chart-lock <platform-charts.lock.json>] [--ledger])",
   operand: "flag",
-  options: { environment: "string", ledger: "string" },
+  options: { environment: "string", ledger: "string", "chart-lock": "string" },
   run: (context) => guarded(context, () => activateFlag(context)),
 };
 
