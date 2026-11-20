@@ -85,6 +85,12 @@ export interface HelmOptions {
    */
   forceConflicts?: boolean;
   /**
+   * Upgrade with `--take-ownership`, for a release that adopts objects an
+   * earlier kubectl apply created (the manifest-to-chart conversion, ADR 0137),
+   * so Helm does not refuse them for missing ownership metadata.
+   */
+  takeOwnership?: boolean;
+  /**
    * `false` makes Helm wait for hooks only, not for the release's resources, for
    * a resources-only release whose claim binds when its consumer starts. The
    * consumer's own readiness check proves the volume.

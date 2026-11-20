@@ -25,6 +25,7 @@ export const proofFlags = [
   "platform-shared-gateway",
   "platform-hostname-ownership",
   "platform-portal",
+  "database-routes",
 ] as const;
 
 /** One set of flags to render under: local as it is, or every flag off, plus the flags turned on. */
@@ -132,8 +133,10 @@ export async function renderDelivered(
     component.namespace,
     "--values",
     file,
+    // Argo CD passes a parameter with --set unless forceString is set, so a
+    // boolean parameter ("true") reaches the chart typed, as its schema expects.
     ...Object.entries(application.parameters).flatMap(([key, value]) => [
-      "--set-string",
+      "--set",
       `${key}=${value}`,
     ]),
   ]);

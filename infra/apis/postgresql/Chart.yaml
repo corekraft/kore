@@ -1,0 +1,5 @@
+apiVersion: v2
+name: kore-postgresql-api
+description: The PostgreSQL platform API, its definition and its CloudNativePG composition (ADR 0137)
+type: application
+version: 0.1.0

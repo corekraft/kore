@@ -134,25 +134,34 @@ function sharedGatewayArgs(
   ].flatMap(([field, value]) => ["--set-string", `${key}.${field}=${value}`]);
 }
 
-/** The chart value each component that grants the database composition its certificate rule reads it through (ADR 0137). */
-const databaseRoutesValueKeys: Record<string, string | undefined> = {
-  "kore-postgresql-rbac": "databaseRoutes",
-};
-
 /**
- * With database-routes on, the value that grants the PostgreSQL composition
- * its cert-manager certificate rule (ADR 0137); otherwise none, so the flag off
- * renders the composition role it rendered before.
+ * With database-routes on, the values a PostgreSQL chart takes (ADR 0137): the
+ * certificate rule of the composition's RBAC, and for the composition itself the
+ * platform domain and organization identifier its derived host is built from.
+ * Off, none is passed, so the flag off renders what it rendered before.
  */
 function databaseRoutesArgs(
   environment: Environment,
   component: string,
 ): string[] {
-  const key = databaseRoutesValueKeys[component];
-  if (key === undefined || !featureEnabled(environment, databaseRoutesFlag)) {
+  if (!featureEnabled(environment, databaseRoutesFlag)) {
     return [];
   }
-  return ["--set", `${key}=true`];
+  if (component === "kore-postgresql-rbac") {
+    return ["--set", "databaseRoutes=true"];
+  }
+  if (component === "kore-postgresql-api") {
+    const { domain, organizationId } = platformPlan(environment);
+    return [
+      "--set",
+      "databaseRoutes=true",
+      "--set-string",
+      `platformDomain=${domain}`,
+      "--set-string",
+      `organizationId=${organizationId}`,
+    ];
+  }
+  return [];
 }
 
 /** The ConfigMap, in the portal's namespace, that carries the local CA its pods trust (ADR 0132). */

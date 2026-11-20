@@ -1,4 +1,8 @@
-import { gatewayClassName, type Repository } from "../../src/config/index.js";
+import {
+  gatewayClassName,
+  platformPlan,
+  type Repository,
+} from "../../src/config/index.js";
 import { localPlatform } from "../local-platform-support.js";
 import {
   admitted,
@@ -117,6 +121,17 @@ export async function valueProblems(
       "gateway.platformHostname": `*.platform.${platform.domain}`,
     },
     "kore-local-tls": { "gateway.hostname": platform.domain },
+    // With database-routes on, the PostgreSQL API takes its flag and the platform
+    // values its derived host needs (ADR 0137); off, it takes no parameter.
+    ...(set.flags.includes("database-routes")
+      ? {
+          "kore-postgresql-api": {
+            databaseRoutes: "true",
+            platformDomain: platform.domain,
+            organizationId: platformPlan(repository.environment).organizationId,
+          },
+        }
+      : {}),
   };
   for (const application of deliveredApplications(docs)) {
     const expected = wanted[application.name];

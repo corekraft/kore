@@ -5,6 +5,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { promisify } from "node:util";
 import {
+  databaseRoutesDeliveryArgs,
   enabledComponents,
   findRoot,
   loadRepository,
@@ -86,6 +87,7 @@ export async function renderDelivery(repository: Repository): Promise<{
     `platformHostname=${chartDelivery.platformHostname}`,
     "--set-json",
     `releaseValues=${JSON.stringify(chartDelivery.releaseValues)}`,
+    ...databaseRoutesDeliveryArgs(chartDelivery),
   ]);
   return {
     handedOver: argocdOwned(repository),

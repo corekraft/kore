@@ -152,7 +152,7 @@ test("managed environments select platform infrastructure through an overlay", a
 test("manifest components apply nested manifest directories recursively", async () => {
   const repository = await loadRepository("local");
   const component = repository.catalog.components.find(
-    ({ name }) => name === "kore-postgresql-api",
+    ({ name }) => name === "kore-policy-templates",
   )!;
   const runner = new RecordingRunner();
 
@@ -164,7 +164,7 @@ test("manifest components apply nested manifest directories recursively", async 
 test("retries an asynchronously-created CRD until it is established", async () => {
   const repository = await loadRepository("local");
   const component = repository.catalog.components.find(
-    ({ name }) => name === "kore-postgresql-api",
+    ({ name }) => name === "kore-gateway-api",
   )!;
   let waits = 0;
   const runner: Runner = {
@@ -182,13 +182,14 @@ test("retries an asynchronously-created CRD until it is established", async () =
   };
 
   await reconcileComponent(repository, runner, component);
-  assert.equal(waits, 3);
+  // One wait per owned CRD (3), one per readiness CRD (2), and the one retry.
+  assert.equal(waits, 6);
 });
 
 test("preserves CRD wait errors so an asynchronous NotFound is retried", async () => {
   const repository = await loadRepository("local");
   const component = repository.catalog.components.find(
-    ({ name }) => name === "kore-postgresql-api",
+    ({ name }) => name === "kore-gateway-api",
   )!;
   let waits = 0;
   const runner: Runner = {
@@ -209,13 +210,14 @@ test("preserves CRD wait errors so an asynchronous NotFound is retried", async (
   };
 
   await reconcileComponent(repository, runner, component);
-  assert.equal(waits, 3);
+  // One wait per owned CRD (3), one per readiness CRD (2), and the one retry.
+  assert.equal(waits, 6);
 });
 
 test("render validation checks manifest components without mutating the cluster", async () => {
   const repository = await loadRepository("local");
   const component = repository.catalog.components.find(
-    ({ name }) => name === "kore-postgresql-api",
+    ({ name }) => name === "kore-policy-templates",
   )!;
   repository.catalog.components = [{ ...component, dependencies: [] }];
   const runner = new RecordingRunner();

@@ -296,30 +296,32 @@ test("with platform-hostname-ownership off or omitted the Organization API is ha
   }
 });
 
-test("with database-routes on the PostgreSQL RBAC chart is handed databaseRoutes=true and no other component is", () => {
-  const on = fakeEnvironment({
-    platform: { domain: "kore.local", organizationId: "platform" },
-    features: { "database-routes": true },
-  });
-  expect(platformHelmArgs(on, "kore-postgresql-rbac")).toEqual([
+test("the PostgreSQL charts are handed their database-routes values only while the flag is on, and no other chart is", () => {
+  const args = (features: Record<string, boolean>, component: string) =>
+    platformHelmArgs(
+      fakeEnvironment({
+        platform: { domain: "kore.internal", organizationId: "platform" },
+        features,
+      }),
+      component,
+    );
+  const on = { "database-routes": true };
+  expect(args(on, "kore-postgresql-rbac")).toEqual([
     "--set",
     "databaseRoutes=true",
   ]);
-  expect(platformHelmArgs(on, "kore-platform-config")).not.toContain(
+  expect(args(on, "kore-postgresql-api")).toEqual([
+    "--set",
     "databaseRoutes=true",
+    "--set-string",
+    "platformDomain=kore.internal",
+    "--set-string",
+    "organizationId=platform",
+  ]);
+  expect(args({ "database-routes": false }, "kore-postgresql-api")).toEqual([]);
+  expect(args({ "database-routes": false }, "kore-postgresql-rbac")).toEqual(
+    [],
   );
-});
-
-test("with database-routes off or omitted the PostgreSQL RBAC chart is handed nothing new", () => {
-  for (const features of [{ "database-routes": false }, {}]) {
-    expect(
-      platformHelmArgs(
-        fakeEnvironment({
-          platform: { domain: "kore.local", organizationId: "platform" },
-          features,
-        }),
-        "kore-postgresql-rbac",
-      ),
-    ).toEqual([]);
-  }
+  expect(args({}, "kore-postgresql-rbac")).toEqual([]);
+  expect(args(on, "kore-platform-config")).not.toContain("databaseRoutes=true");
 });

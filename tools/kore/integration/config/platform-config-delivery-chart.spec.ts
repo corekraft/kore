@@ -224,3 +224,27 @@ test("the delivery chart is a gated release owned by kore, installed after Argo 
   const order = orderedComponents(on.catalog).map((c) => c.name);
   assert.ok(order.indexOf("argocd") < order.indexOf(name));
 });
+
+test("with database-routes on the PostgreSQL API's Application is handed the flag, the platform domain and the organization identifier as Helm parameters; with it off it carries none", async () => {
+  const api = (docs: string[]) =>
+    docs.find((doc) => /^ {2}name: kore-postgresql-api$/m.test(doc)) ?? "";
+  const withRoutes = api(
+    await render(
+      "--set",
+      "databaseRoutes=true",
+      "--set-string",
+      "organizationId=platform",
+    ),
+  );
+  assert.match(withRoutes, /- name: "databaseRoutes"\n\s+value: "true"/);
+  assert.match(
+    withRoutes,
+    new RegExp(
+      `- name: "platformDomain"\\n\\s+value: "${escapeRegExp(platform.domain)}"`,
+    ),
+  );
+  assert.match(withRoutes, /- name: "organizationId"\n\s+value: "platform"/);
+  const off = api(await applications());
+  assert.doesNotMatch(off, /databaseRoutes/);
+  assert.doesNotMatch(off, /parameters:/);
+});

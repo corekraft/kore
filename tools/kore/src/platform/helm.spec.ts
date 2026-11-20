@@ -107,6 +107,16 @@ test("force-conflicts is passed only for a release that takes over co-owned fiel
   );
 });
 
+test("take-ownership is passed only for a release that adopts objects an earlier manifest apply created", () => {
+  const adopting = fakeComponent({
+    helm: { forceConflicts: true, takeOwnership: true, reason: "adopts" },
+  });
+  expect(helmUpgradeArgs(repository, adopting)).toContain("--take-ownership");
+  expect(helmUpgradeArgs(repository, fakeComponent())).not.toContain(
+    "--take-ownership",
+  );
+});
+
 test("a non-OCI Helm repository is passed with --repo and the chart name is the target", () => {
   const args = helmUpgradeArgs(
     repository,

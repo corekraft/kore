@@ -126,6 +126,7 @@ const entryPoints = [
   "crdNameFormatErrors",
   "crdOwners",
   "dashboardSidecarHelmArgs",
+  "databaseRoutesDeliveryArgs",
   "enabledComponents",
   "evaluateAudit",
   "exemptionCheckMode",

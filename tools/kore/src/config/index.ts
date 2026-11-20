@@ -91,7 +91,11 @@ export {
   platformPortalFlag,
   registryPruneFlag,
 } from "./features.js";
-export { chartDeliveryValues, chartRepositoryUrls } from "./chart-delivery.js";
+export {
+  chartDeliveryValues,
+  chartRepositoryUrls,
+  databaseRoutesDeliveryArgs,
+} from "./chart-delivery.js";
 export type { ChartDeliveryValues } from "./chart-delivery.js";
 export type { GoldenPathDeliveryValues } from "./types.js";
 export {
