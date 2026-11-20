@@ -10,6 +10,7 @@ hypothesis-metric: mainSession.paneReadsPerFinishedPane
 hypothesis-direction: down
 hypothesis-window: 14d
 issue: https://github.com/corekraft/kore/issues/937
+outcome: inconclusive
 ---
 
 # Idea 0020: Carry a pane's result summary in its session state file
@@ -31,3 +32,13 @@ Decided in [ADR 0123](../decisions/0123-the-main-session-waits-and-sends-through
   idea 0007's primary and a shared metric, so it is not this idea's primary.
 - **The window** opens only while `orchestrator-tick` is off; a tick turned on
   mid-window makes it insufficient and restarts it.
+
+## Outcome
+
+- Result: inconclusive
+- Kind: experiment
+- Source: journal
+- Evidence: Window never opened, as 0019; 891 pane reads over 552 finished panes (about 1.6 per pane), baseline has no per-pane denominator
+- Recorded: 2026-11-20
+
+The window never opened; 891 pane reads over 552 finished panes (about 1.6 each), with no baseline denominator.

@@ -10,6 +10,7 @@ hypothesis-metric: rework.sendBacksPerIdea
 hypothesis-direction: down
 hypothesis-window: 14d
 issue: https://github.com/corekraft/kore/issues/797
+outcome: refuted
 ---
 
 # Idea 0010: Writers run the judge precheck before they report done
@@ -39,3 +40,13 @@ change merges.
 Not set. A writer-owned failure rate per PR head cannot be read from the
 ledger until the precheck records its reason. The owner decides the number
 (see #841).
+
+## Outcome
+
+- Result: refuted
+- Kind: experiment
+- Source: comparison
+- Evidence: Failed prechecks 68 of 142 (48%) up from 184 of 455 (40.4%), target under 15%; send-backs per merged change 0.11 vs about 0.05
+- Recorded: 2026-11-20
+
+Failed prechecks are 68 of 142 (48%), up from 40.4%, against a target under 15%.

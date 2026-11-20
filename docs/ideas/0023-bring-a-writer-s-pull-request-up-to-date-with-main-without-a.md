@@ -10,6 +10,7 @@ hypothesis-metric: rework.mainFollowUpsPerWriterSession
 hypothesis-direction: down
 hypothesis-window: 14d
 issue: https://github.com/corekraft/kore/issues/965
+outcome: inconclusive
 ---
 
 # Idea 0023: Bring a writer's pull request up to date with main without a main-session message
@@ -72,3 +73,13 @@ No ADR was written. The rule is already stated by "one owner per resource" in AG
 ### Window
 
 The window for this idea opens after idea 0015's window closes (ADR 0119). Building behind the flag may proceed meanwhile; activation waits.
+
+## Outcome
+
+- Result: inconclusive
+- Kind: experiment
+- Source: journal
+- Evidence: Window never opened: behind-main-notice is off and the tick only started 2026-11-20; 0 notices sent vs baseline 45 sends, target at most 4
+- Recorded: 2026-11-20
+
+The window never opened: behind-main-notice is off, 0 notices were sent, and the target of at most 4 is untested.

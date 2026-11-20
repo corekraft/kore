@@ -10,6 +10,17 @@ hypothesis-metric: leadTime.medianSeconds
 hypothesis-direction: down
 hypothesis-window: 14d
 issue: https://github.com/corekraft/kore/issues/796
+outcome: refuted
 ---
 
 # Idea 0009: Take pane completion from session wait and a watchdog timer
+
+## Outcome
+
+- Result: refuted
+- Kind: experiment
+- Source: comparison
+- Evidence: 365 of 552 results went undetected (66%); median lead time 731 s now vs 750 s trailing (n=756 and 525)
+- Recorded: 2026-11-20
+
+365 of 552 results went undetected (66%) and median lead time is flat (731 s vs 750 s).
