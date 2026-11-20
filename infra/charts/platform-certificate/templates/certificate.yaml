@@ -6,6 +6,10 @@ spec:
   secretName: {{ .Values.gateway.certificateSecret }}
   dnsNames:
     - {{ required "set gateway.hostname, or render through kore, which derives it from the environment's platform.domain" .Values.gateway.hostname | quote }}
+{{- if .Values.gateway.deprecatedAlias }}
+    {{- /* The former domain's name, so the alias listener serves the same certificate (ADR 0132). */}}
+    - {{ .Values.gateway.deprecatedAlias | quote }}
+{{- end }}
   issuerRef:
     kind: ClusterIssuer
     name: {{ .Values.issuer.name }}

@@ -59,6 +59,32 @@ test("a listing that reports the host address is readable without docker inspect
   expect(unreadablePorts(listed, overlay)).toEqual([]);
 });
 
+/** The local overlay's entry point with the platform-dns 443 mapping beside it: both share the node port (ADR 0132). */
+const withPort443: K3dCluster = {
+  ...overlay,
+  ports: [
+    { hostAddress: "127.0.0.1", hostPort: 8443, loadBalancerPort: 30443 },
+    { hostAddress: "127.0.0.1", hostPort: 443, loadBalancerPort: 30443 },
+  ],
+};
+
+test("a cluster created before the 443 mapping, which publishes only 8443, is refused naming the missing host port", () => {
+  const before = entry({
+    "30443/tcp": [{ HostIp: "127.0.0.1", HostPort: "8443" }],
+  });
+  expect(drift(before, withPort443)).toEqual(["port 30443: 8443 != 443"]);
+});
+
+test("a cluster that publishes 443 and 8443 on the loopback address is no difference", () => {
+  const both = entry({
+    "30443/tcp": [
+      { HostIp: "127.0.0.1", HostPort: "8443" },
+      { HostIp: "127.0.0.1", HostPort: "443" },
+    ],
+  });
+  expect(drift(both, withPort443)).toEqual([]);
+});
+
 test("a port on another host port is named by its port, not by its address", () => {
   const moved = entry({
     "443/tcp": [{ HostIp: "127.0.0.1", HostPort: "9443" }],

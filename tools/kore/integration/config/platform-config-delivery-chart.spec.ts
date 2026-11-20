@@ -31,6 +31,33 @@ const run = promisify(execFile);
 const applications = async () =>
   (await render()).filter((doc) => /^kind: Application$/m.test(doc));
 
+test("the deprecated alias passes the delivery schema and reaches the kore-platform-config and kore-local-tls Applications as gateway.deprecatedAlias, and no other Application, while a malformed alias is refused by the schema", async () => {
+  const alias = `alias.${platform.domain}`;
+  const withAlias = await render(
+    "--set-string",
+    `platformDeprecatedAlias=${alias}`,
+  );
+  for (const name of ["kore-platform-config", "kore-local-tls"]) {
+    const doc = withAlias.find((d) =>
+      new RegExp(`^ {2}name: ${name}$`, "m").test(d),
+    )!;
+    assert.match(
+      doc,
+      new RegExp(
+        `name: "gateway\\.deprecatedAlias"\\n\\s+value: "${escapeRegExp(alias)}"`,
+      ),
+    );
+  }
+  const policy = withAlias.find((d) => /^ {2}name: opa-authorizer$/m.test(d))!;
+  assert.doesNotMatch(policy, /deprecatedAlias/);
+  const plain = await render();
+  assert.equal(plain.join("\n").includes("deprecatedAlias"), false);
+  const refused = await failure(
+    render("--set-string", "platformDeprecatedAlias=Kore.Local"),
+  );
+  assert.match(refused, /platformDeprecatedAlias/);
+});
+
 test("one Application per handed-over release plus one AppProject, and never one for the image policy", async () => {
   const docs = await render();
   const names = (await applications())

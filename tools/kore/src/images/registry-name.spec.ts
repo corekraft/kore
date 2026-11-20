@@ -79,7 +79,7 @@ test("a Gateway that refuses connections on 443 names the missing loopback mappi
   vi.mocked(registryRequest).mockRejectedValue(failure("ECONNREFUSED"));
   const { runner } = fakeRunner();
   await expect(registryNameProblem(repository, runner)).resolves.toBe(
-    `nothing answers ${name} on port 443 (ECONNREFUSED); turn on platform-shared-gateway, and recreate a local cluster created without the 443 mapping with \`kore local down --prune\`, then \`kore local up\``,
+    `nothing answers ${name} on port 443 (ECONNREFUSED); turn on platform-dns, which publishes the 443 mapping, and recreate a local cluster created without it with \`kore local down --prune\`, then \`kore local up\``,
   );
 });
 

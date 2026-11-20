@@ -17,11 +17,11 @@ const phase2 = script.slice(
 const phase4 = script.slice(script.indexOf('step "phase 4'));
 const at = (needle: string): number => phase4.indexOf(needle);
 
-describe("agentgateway live proof, phase 4 rollback", () => {
-  const firstUp = at("kore local up --environment");
-  const secondUp = phase4.indexOf("kore local up --environment", firstUp + 1);
-  const firstUninstall = at("mise exec -- helm uninstall");
+const firstUp = at("kore local up --environment");
+const secondUp = phase4.indexOf("kore local up --environment", firstUp + 1);
+const firstUninstall = at("mise exec -- helm uninstall");
 
+describe("agentgateway live proof, phase 4 rollback", () => {
   it("expects the first kore local up to fail with the gated-off refusal, and fails the proof if it succeeds", () => {
     const expected = at('if up_out="$(kore local up');
     expect(expected).toBeGreaterThan(-1);
@@ -84,7 +84,9 @@ describe("agentgateway live proof, phase 4 rollback", () => {
     expect(listing).toBeGreaterThan(-1);
     expect(listing).toBeLessThan(firstUninstall);
   });
+});
 
+describe("agentgateway live proof, phase 4 rollback, the deletions", () => {
   it("deletes nothing by hand: Helm removes Kore's own AgentgatewayParameters", () => {
     expect(phase4).not.toMatch(/\bk (-n \S+ )?delete\b/);
   });

@@ -55,10 +55,18 @@ spec:
           value: {{ $.Values.platformDomain | quote }}
         - name: "gateway.platformHostname"
           value: {{ $.Values.platformHostname | quote }}
+        {{- if $.Values.platformDeprecatedAlias }}
+        - name: "gateway.deprecatedAlias"
+          value: {{ $.Values.platformDeprecatedAlias | quote }}
+        {{- end }}
       {{- else if eq $name "kore-local-tls" }}
       parameters:
         - name: "gateway.hostname"
           value: {{ $.Values.platformDomain | quote }}
+        {{- if $.Values.platformDeprecatedAlias }}
+        - name: "gateway.deprecatedAlias"
+          value: {{ $.Values.platformDeprecatedAlias | quote }}
+        {{- end }}
       {{- else if and (eq $name "kore-postgresql-api") $.Values.databaseRoutes }}
       # With database-routes on, the composition's derived host, certificate and
       # route need the flag, the platform domain, the organization identifier and

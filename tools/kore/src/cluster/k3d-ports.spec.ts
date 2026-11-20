@@ -38,8 +38,8 @@ test("a taken UDP mapping is probed and looked up over UDP, so the refusal names
     ports: [
       {
         hostAddress: "127.0.0.1",
-        hostPort: 53,
-        loadBalancerPort: 53,
+        hostPort: 1053,
+        loadBalancerPort: 31053,
         protocol: "udp",
       },
     ],
@@ -48,11 +48,63 @@ test("a taken UDP mapping is probed and looked up over UDP, so the refusal names
   const { runner, run } = fakeRunner(() => "p4242\ncnamed\n");
   await expect(checkHostPorts("local", udp, runner, probe)).rejects.toThrow(
     new Error(
-      "host port 127.0.0.1:53/udp is already in use, so the cluster cannot publish it. The overlay setting that publishes it is k3d.ports[0] (loadBalancerPort 53) in environment local. Holder: named (pid 4242). Free the port by stopping the process holding it, or change k3d.ports[0].hostPort, then rerun kore local up --environment local.",
+      "host port 127.0.0.1:1053/udp is already in use, so the cluster cannot publish it. The overlay setting that publishes it is k3d.ports[0] (loadBalancerPort 31053) in environment local. Holder: named (pid 4242). Free the port by stopping the process holding it, or change k3d.ports[0].hostPort, then rerun kore local up --environment local.",
     ),
   );
-  expect(probe).toHaveBeenCalledWith("127.0.0.1", 53, "udp");
-  expect(commandLines(run)).toEqual(["lsof -nP -iUDP:53 -Fpc"]);
+  expect(probe).toHaveBeenCalledWith("127.0.0.1", 1053, "udp");
+  expect(commandLines(run)).toEqual(["lsof -nP -iUDP:1053 -Fpc"]);
+});
+
+const privileged: K3dCluster = {
+  ...local,
+  ports: [{ hostAddress: "127.0.0.1", hostPort: 443, loadBalancerPort: 30443 }],
+};
+
+test("a privileged host port is never bound by the probe, which this user cannot do below 1024, so a free 443 is decided by lsof alone", async () => {
+  const probe = vi.fn<PortProbe>(async () => {
+    throw new Error("EACCES: a probe below 1024 must not run");
+  });
+  const { runner, run } = failingRunner(
+    new CommandError("lsof", ["-nP", "-iTCP:443"], {
+      code: 1,
+      stdout: "",
+      stderr: "",
+    }),
+  );
+  await expect(
+    checkHostPorts("local", privileged, runner, probe),
+  ).resolves.toBeUndefined();
+  expect(probe).not.toHaveBeenCalled();
+  expect(commandLines(run)).toEqual(["lsof -nP -iTCP:443 -sTCP:LISTEN -Fpc"]);
+});
+
+test("a privileged host port with a listener is refused, saying the port is privileged and naming the holder, even though the probe was not run", async () => {
+  const probe = vi.fn<PortProbe>(async () => true);
+  const { runner } = fakeRunner(() => "p4242\ncnginx\n");
+  await expect(
+    checkHostPorts("local", privileged, runner, probe),
+  ).rejects.toThrow(
+    new Error(
+      "host port 127.0.0.1:443 is privileged (below 1024) and already in use, so the cluster cannot publish it. The overlay setting that publishes it is k3d.ports[0] (loadBalancerPort 30443) in environment local. Holder: nginx (pid 4242). Free the port by stopping the process holding it, or change k3d.ports[0].hostPort, then rerun kore local up --environment local.",
+    ),
+  );
+  expect(probe).not.toHaveBeenCalled();
+});
+
+test("with lsof missing a privileged host port is refused, not passed as free: the message says the port is privileged and that lsof was unavailable, so the cluster cannot be checked", async () => {
+  const probe = vi.fn<PortProbe>(async () => true);
+  const missing = Object.assign(new Error("spawn lsof ENOENT"), {
+    code: "ENOENT",
+  });
+  const { runner } = failingRunner(missing);
+  await expect(
+    checkHostPorts("local", privileged, runner, probe),
+  ).rejects.toThrow(
+    new Error(
+      'host port 127.0.0.1:443 is privileged (below 1024), so kore cannot bind it to check, and lsof was unavailable to name a holder, so the cluster cannot be checked. The overlay setting that publishes it is k3d.ports[0] (loadBalancerPort 30443) in environment local. Install lsof, or set "optional": true on k3d.ports[0] to skip this port, then rerun kore local up --environment local.',
+    ),
+  );
+  expect(probe).not.toHaveBeenCalled();
 });
 
 test("a taken host port whose holder lsof cannot name is refused, saying plainly that the holder could not be identified", async () => {

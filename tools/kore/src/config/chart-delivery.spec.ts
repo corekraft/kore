@@ -12,7 +12,11 @@ import {
   featureEnabled,
   gatewayClassName,
 } from "./features.js";
-import { platformPlan, platformWildcard } from "./platform-domain.js";
+import {
+  deprecatedAliasOf,
+  platformPlan,
+  platformWildcard,
+} from "./platform-domain.js";
 import {
   fakeComponent,
   fakeEnvironment,
@@ -95,6 +99,17 @@ test("the platform wildcard is the platformWildcard helper's value for the envir
     "*.helper.kore.internal",
   );
   expect(platformWildcard).toHaveBeenCalledWith(repository.environment);
+});
+
+test("the deprecated alias reaches the Argo CD values only while platform-dns hands it out, and with it off the values carry no alias key", () => {
+  vi.mocked(deprecatedAliasOf).mockReturnValue("kore.local");
+  expect(chartDeliveryValues(repository, lock()).platformDeprecatedAlias).toBe(
+    "kore.local",
+  );
+  vi.mocked(deprecatedAliasOf).mockReturnValue(undefined);
+  expect(chartDeliveryValues(repository, lock())).not.toHaveProperty(
+    "platformDeprecatedAlias",
+  );
 });
 
 test("the image policy never reaches the values, and a lock entry for it is refused", () => {

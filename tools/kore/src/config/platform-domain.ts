@@ -15,6 +15,12 @@ export interface PlatformPlan {
 }
 
 /**
+ * The field as an overlay may declare it: the plan plus the deprecated alias,
+ * which is read only through `deprecatedAliasOf` (ADR 0132).
+ */
+type DeclaredPlatform = Partial<PlatformPlan> & { deprecatedAlias?: string };
+
+/**
  * Longest platform domain: the 253-character name limit less a 63-character
  * service label and the organization identifier `platform` with their dots
  * (ADR 0042). The platform charts' schemas hold the same bound.
@@ -29,7 +35,7 @@ const missing = (environment: Environment) =>
   `environment ${environment.name} must declare platform.domain and platform.organizationId (for example kore.local and platform)`;
 
 /** The field as declared, widened because an overlay can omit or half-fill it. */
-function declared(environment: Environment): Partial<PlatformPlan> | undefined {
+function declared(environment: Environment): DeclaredPlatform | undefined {
   return environment.platform;
 }
 
@@ -40,6 +46,40 @@ export function platformPlan(environment: Environment): PlatformPlan {
     throw new Error(missing(environment));
   }
   return { domain: field.domain, organizationId: field.organizationId };
+}
+
+/**
+ * The deprecated alias the Gateway keeps beside the domain (ADR 0132), or
+ * undefined. Dark: it is handed to any chart only while platform-dns is on, so
+ * with the flag off no alias listener or certificate name renders, whatever the
+ * overlay declares.
+ */
+export function deprecatedAliasOf(
+  environment: Environment,
+): string | undefined {
+  const alias = declared(environment)?.deprecatedAlias;
+  return alias === undefined || !featureEnabled(environment, platformDnsFlag)
+    ? undefined
+    : alias;
+}
+
+/** The alias problems: a bad DNS name, or one equal to the domain it stands beside. */
+function aliasErrors(
+  environment: Environment,
+  domain: unknown,
+  alias: unknown,
+): string[] {
+  const where = `in environment ${environment.name}`;
+  if (typeof alias !== "string" || !domainPattern.test(alias)) {
+    return [
+      `platform.deprecatedAlias must be a lowercase DNS name of at least two labels, for example kore.local, ${where}, got ${JSON.stringify(alias)}`,
+    ];
+  }
+  return alias === domain
+    ? [
+        `platform.deprecatedAlias must differ from platform.domain, ${where}, got ${JSON.stringify(alias)}`,
+      ]
+    : [];
 }
 
 /**
@@ -65,6 +105,9 @@ export function platformDomainErrors(environment: Environment): string[] {
           `platform.domain must be at most ${maxDomainLength} characters so <service>.<organizationId>.<domain> fits 253, ${where}, got ${domain.length}`,
         ]
       : []),
+    ...(field.deprecatedAlias === undefined
+      ? []
+      : aliasErrors(environment, domain, field.deprecatedAlias)),
     ...(typeof organizationId === "string" && labelPattern.test(organizationId)
       ? []
       : [
@@ -126,6 +169,15 @@ const domainValueKeys: Record<string, string | undefined> = {
   "kore-local-tls": "gateway.hostname",
   "kore-platform-dns": "zone",
 };
+
+/**
+ * The components that carry the Gateway's HTTPS listeners and its local
+ * certificate: they take the deprecated alias beside the domain (ADR 0132).
+ */
+const aliasValueComponents = new Set([
+  "kore-platform-config",
+  "kore-local-tls",
+]);
 
 /**
  * The chart value each component reads the platform organization's wildcard
@@ -274,11 +326,15 @@ export function platformHelmArgs(
     return shared;
   }
   const { domain } = platformPlan(environment);
+  const deprecatedAlias = deprecatedAliasOf(environment);
   return [
     ...(key === undefined ? [] : ["--set-string", `${key}=${domain}`]),
     ...(wildcard === undefined
       ? []
       : ["--set-string", `${wildcard}=${platformWildcard(environment)}`]),
+    ...(deprecatedAlias === undefined || !aliasValueComponents.has(component)
+      ? []
+      : ["--set-string", `gateway.deprecatedAlias=${deprecatedAlias}`]),
     ...shared,
   ];
 }

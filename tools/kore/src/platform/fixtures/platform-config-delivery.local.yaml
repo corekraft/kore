@@ -1,0 +1,281 @@
+---
+# Source: platform-config-delivery/templates/applications.yaml
+# One Application per handed-over release (ADR 0043). Each renders the release's
+# chart as an OCI source from the platform registry at the digest the chart lock
+# records (Argo CD accepts a digest as an oci:// targetRevision, but not as a
+# Helm chart's semver constraint), with the Helm release's own name and
+# namespace, so Argo CD adopts the resources Helm created. The handover deletes
+# nothing: no prune, no cascade finalizer (deleting an Application leaves its
+# resources), no replace. The namespace has one owner: Argo CD, through
+# CreateNamespace, creates a release's namespace only when it is absent, so a
+# namespace Helm already made is left as it is, and kore never creates a
+# namespace for a handed-over release. Helm's release secret stays as an inert
+# record; kore never uninstalls it and, with the flag on, never runs Helm on
+# these releases again.
+#
+# Each release takes the environment values the Helm path gives it
+# (releaseValues.<release>: the text of its values files in order, which kore
+# reads from the repository). Helm parses and merges them here, a later file
+# overriding an earlier one key by key, and the Application carries the result
+# as helm.valuesObject, so Argo CD renders the chart as `helm upgrade --values`
+# would. The values are desired state in the repository: no secret is among
+# them, and kore passes none. The gateway class and the platform domain stay
+# parameters, which Argo CD applies over the values.
+
+---
+# Source: platform-config-delivery/templates/project.yaml
+# The AppProject for the configuration-phase releases (ADR 0043). It admits only
+# the platform registry's charts, each by its oci:// URL exactly as its
+# Application names it, and the namespaces those releases live in. Only the
+# platform operators' group may change it or its Applications.
+apiVersion: argoproj.io/v1alpha1
+kind: AppProject
+metadata:
+  name: platform-configuration
+  namespace: argocd
+spec:
+  description: Platform configuration handed over from Helm, delivered by chart digest
+  sourceRepos:
+    - "oci://ghcr.io/corekraft/kore/charts/kore-local-tls"
+    - "oci://ghcr.io/corekraft/kore/charts/kore-platform-config"
+    - "oci://ghcr.io/corekraft/kore/charts/kore-policy-constraints"
+    - "oci://ghcr.io/corekraft/kore/charts/kore-policy-templates"
+    - "oci://ghcr.io/corekraft/kore/charts/kore-postgresql-api"
+    - "oci://ghcr.io/corekraft/kore/charts/opa-authorizer"
+  destinations:
+    - server: https://kubernetes.default.svc
+      namespace: "crossplane-system"
+    - server: https://kubernetes.default.svc
+      namespace: "gatekeeper-system"
+    - server: https://kubernetes.default.svc
+      namespace: "kore-system"
+    - server: https://kubernetes.default.svc
+      namespace: "opa-system"
+  # Exactly the cluster-scoped kinds the argocd-owned components render with
+  # every flag on (an integration spec renders them and fails when one is
+  # missing or a wildcard appears). A new
+  # cluster-scoped kind in a handed-over chart is added here deliberately.
+  clusterResourceWhitelist:
+    - group: ""
+      kind: Namespace
+    - group: external-secrets.io
+      kind: ClusterSecretStore
+    - group: apiextensions.crossplane.io
+      kind: CompositeResourceDefinition
+    - group: apiextensions.crossplane.io
+      kind: Composition
+    - group: templates.gatekeeper.sh
+      kind: ConstraintTemplate
+    - group: constraints.gatekeeper.sh
+      kind: KoreContainerSecurity
+    - group: constraints.gatekeeper.sh
+      kind: KoreHostnameOwnership
+    - group: constraints.gatekeeper.sh
+      kind: KoreImageDigest
+    - group: constraints.gatekeeper.sh
+      kind: KoreMeshEnrollment
+    - group: constraints.gatekeeper.sh
+      kind: KoreRBAC
+    - group: constraints.gatekeeper.sh
+      kind: KoreRetention
+    - group: constraints.gatekeeper.sh
+      kind: KoreSecrets
+    - group: constraints.gatekeeper.sh
+      kind: KoreWorkloadIdentity
+  roles:
+    - name: operators
+      description: Platform operators change and sync the configuration
+      groups:
+        - "platform-operators"
+      policies:
+        - p, proj:platform-configuration:operators, applications, *, platform-configuration/*, allow
+
+---
+# Source: platform-config-delivery/templates/applications.yaml
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: kore-local-tls
+  namespace: argocd
+  labels:
+    platform.kore.dev/release: kore-local-tls
+spec:
+  project: "platform-configuration"
+  source:
+    repoURL: "oci://ghcr.io/corekraft/kore/charts/kore-local-tls"
+    path: "."
+    targetRevision: "sha256:5555555555555555555555555555555555555555555555555555555555555555"
+    helm:
+      releaseName: "kore-local-tls"
+      parameters:
+        - name: "gateway.hostname"
+          value: "kore.local"
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: "kore-system"
+  syncPolicy:
+    automated:
+      prune: false
+      selfHeal: true
+    syncOptions:
+      - ServerSideApply=true
+      - ApplyOutOfSyncOnly=true
+      - PruneLast=true
+      - CreateNamespace=true
+
+---
+# Source: platform-config-delivery/templates/applications.yaml
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: kore-platform-config
+  namespace: argocd
+  labels:
+    platform.kore.dev/release: kore-platform-config
+spec:
+  project: "platform-configuration"
+  source:
+    repoURL: "oci://ghcr.io/corekraft/kore/charts/kore-platform-config"
+    path: "."
+    targetRevision: "sha256:6666666666666666666666666666666666666666666666666666666666666666"
+    helm:
+      releaseName: "kore-platform-config"
+      parameters:
+        - name: "gateway.className"
+          value: "agentgateway"
+        - name: "gateway.hostname"
+          value: "kore.local"
+        - name: "gateway.platformHostname"
+          value: "*.platform.kore.local"
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: "kore-system"
+  syncPolicy:
+    automated:
+      prune: false
+      selfHeal: true
+    syncOptions:
+      - ServerSideApply=true
+      - ApplyOutOfSyncOnly=true
+      - PruneLast=true
+      - CreateNamespace=true
+
+---
+# Source: platform-config-delivery/templates/applications.yaml
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: kore-policy-constraints
+  namespace: argocd
+  labels:
+    platform.kore.dev/release: kore-policy-constraints
+spec:
+  project: "platform-configuration"
+  source:
+    repoURL: "oci://ghcr.io/corekraft/kore/charts/kore-policy-constraints"
+    path: "."
+    targetRevision: "sha256:4444444444444444444444444444444444444444444444444444444444444444"
+    helm:
+      releaseName: "kore-policy-constraints"
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: "gatekeeper-system"
+  syncPolicy:
+    automated:
+      prune: false
+      selfHeal: true
+    syncOptions:
+      - ServerSideApply=true
+      - ApplyOutOfSyncOnly=true
+      - PruneLast=true
+      - CreateNamespace=true
+
+---
+# Source: platform-config-delivery/templates/applications.yaml
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: kore-policy-templates
+  namespace: argocd
+  labels:
+    platform.kore.dev/release: kore-policy-templates
+spec:
+  project: "platform-configuration"
+  source:
+    repoURL: "oci://ghcr.io/corekraft/kore/charts/kore-policy-templates"
+    path: "."
+    targetRevision: "sha256:3333333333333333333333333333333333333333333333333333333333333333"
+    helm:
+      releaseName: "kore-policy-templates"
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: "gatekeeper-system"
+  syncPolicy:
+    automated:
+      prune: false
+      selfHeal: true
+    syncOptions:
+      - ServerSideApply=true
+      - ApplyOutOfSyncOnly=true
+      - PruneLast=true
+      - CreateNamespace=true
+
+---
+# Source: platform-config-delivery/templates/applications.yaml
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: kore-postgresql-api
+  namespace: argocd
+  labels:
+    platform.kore.dev/release: kore-postgresql-api
+spec:
+  project: "platform-configuration"
+  source:
+    repoURL: "oci://ghcr.io/corekraft/kore/charts/kore-postgresql-api"
+    path: "."
+    targetRevision: "sha256:2222222222222222222222222222222222222222222222222222222222222222"
+    helm:
+      releaseName: "kore-postgresql-api"
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: "crossplane-system"
+  syncPolicy:
+    automated:
+      prune: false
+      selfHeal: true
+    syncOptions:
+      - ServerSideApply=true
+      - ApplyOutOfSyncOnly=true
+      - PruneLast=true
+      - CreateNamespace=true
+
+---
+# Source: platform-config-delivery/templates/applications.yaml
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: opa-authorizer
+  namespace: argocd
+  labels:
+    platform.kore.dev/release: opa-authorizer
+spec:
+  project: "platform-configuration"
+  source:
+    repoURL: "oci://ghcr.io/corekraft/kore/charts/opa-authorizer"
+    path: "."
+    targetRevision: "sha256:1111111111111111111111111111111111111111111111111111111111111111"
+    helm:
+      releaseName: "opa-authorizer"
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: "opa-system"
+  syncPolicy:
+    automated:
+      prune: false
+      selfHeal: true
+    syncOptions:
+      - ServerSideApply=true
+      - ApplyOutOfSyncOnly=true
+      - PruneLast=true
+      - CreateNamespace=true

@@ -33,6 +33,19 @@ spec:
           - {kind: Secret, name: {{ .Values.gateway.certificateSecret }}}
       allowedRoutes:
         namespaces: {{ include "platform-config.routeNamespaces" . }}
+{{- if .Values.gateway.deprecatedAlias }}
+    {{- /* The former domain stays a listener beside the platform domain, on the same port and with the same certificate, until a contract ticket removes it (ADR 0132). Rendered only while platform-dns hands the alias out. */}}
+    - name: https-alias
+      hostname: {{ .Values.gateway.deprecatedAlias | quote }}
+      port: {{ .Values.gateway.port }}
+      protocol: HTTPS
+      tls:
+        mode: Terminate
+        certificateRefs:
+          - {kind: Secret, name: {{ .Values.gateway.certificateSecret }}}
+      allowedRoutes:
+        namespaces: {{ include "platform-config.routeNamespaces" . }}
+{{- end }}
 {{- if include "platform-config.sharedGateway" . }}
     # A listener holds one hostname, so the platform organization's wildcard is a
     # second HTTPS listener on the same port, with its own certificate (ADR 0132).

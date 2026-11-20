@@ -44,7 +44,7 @@ function requestProblem(
   const platformUp = `run \`kore platform up --env ${environment.name}\``;
   switch (code) {
     case "ECONNREFUSED":
-      return `nothing answers ${name} on port 443 (${code}); turn on platform-shared-gateway, and recreate a local cluster created without the 443 mapping with \`kore local down --prune\`, then \`kore local up\``;
+      return `nothing answers ${name} on port 443 (${code}); turn on platform-dns, which publishes the 443 mapping, and recreate a local cluster created without it with \`kore local down --prune\`, then \`kore local up\``;
     case "ERR_TLS_CERT_ALTNAME_INVALID":
       return `the registry's certificate does not carry ${name} (${code}); cert-manager reissues it once registry-by-name is on, but the proxy reads it at start, so run \`kubectl --context ${environment.kubeContext} --namespace kore-registry rollout restart deployment/oci-registry\``;
     case "UNABLE_TO_VERIFY_LEAF_SIGNATURE":

@@ -16,6 +16,12 @@
           },
           {
             "hostAddress": "127.0.0.1",
+            "hostPort": 443,
+            "loadBalancerPort": 30443,
+            "featureFlag": "platform-dns"
+          },
+          {
+            "hostAddress": "127.0.0.1",
             "hostPort": 1053,
             "loadBalancerPort": 31053,
             "protocol": "tcp",
