@@ -105,6 +105,54 @@ export async function approvedIssues(
   return approved;
 }
 
+const REFERENCE = /Refs #(\d+)/g;
+
+/**
+ * Each issue a PR refers to, mapped to that PR, for the issues whose newest referring PR has merged.
+ * A rerun over the same rows gives the same map; an issue with no referring PR is left out (#1431).
+ */
+export function mergedPrsByIssue(
+  rows: readonly Record<string, unknown>[],
+): Map<number, number> {
+  const newest = new Map<number, { pr: number; merged: boolean }>();
+  const numbered = rows
+    .filter((row) => typeof row["number"] === "number")
+    .sort((a, b) => Number(a["number"]) - Number(b["number"]));
+  for (const row of numbered) {
+    const body = typeof row["body"] === "string" ? row["body"] : "";
+    for (const match of body.matchAll(REFERENCE)) {
+      newest.set(Number(match[1]), {
+        pr: Number(row["number"]),
+        merged: typeof row["mergedAt"] === "string",
+      });
+    }
+  }
+  const merged = new Map<number, number>();
+  for (const [issue, ref] of newest) {
+    if (ref.merged) {
+      merged.set(issue, ref.pr);
+    }
+  }
+  return merged;
+}
+
+/** The merged PR each ticket refers to, read from the repository's pull requests of every state (#1431). */
+export async function mergedPullRequests(
+  context: CommandContext,
+  repo: string,
+  root: string,
+) {
+  return mergedPrsByIssue(
+    await listRows(
+      context,
+      repo,
+      root,
+      ["pr", "list", "--state", "all", "--json", "number,body,mergedAt"],
+      "PR list",
+    ),
+  );
+}
+
 /** Open pull requests and the head each is at. */
 export async function openPullRequests(
   context: CommandContext,
