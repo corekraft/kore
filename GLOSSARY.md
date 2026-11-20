@@ -363,3 +363,13 @@ _Avoid_: Package, layer
 **Distroless runtime image**:
 The image an application runs in, holding no shell and no package manager. Images may be built in any stage, but only a distroless one runs.
 _Avoid_: Slim image, minimal image
+
+## Chart locks
+
+**Main chart lock**:
+A chart lock that may feed a local proof but never counts for flag activation.
+_Avoid_: Dev lock, snapshot lock
+
+**Release chart lock**:
+The chart lock that counts for flag activation.
+_Avoid_: Tag lock, final lock

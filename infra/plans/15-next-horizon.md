@@ -91,9 +91,15 @@ and is not part of Next.
   1. `kore local lock-check --platform-chart-lock <platform-charts.lock.json>`
      packages the checkout's charts with the release script and compares each
      handed-over release's version with the lock's. It exits 1 on drift and
-     names the chart; the fix is a release that contains the change. Start the
-     run itself with `kore local up --require-fresh-lock`, which refuses on the
-     same drift (without it `local up` only warns).
+     names the chart; the fix is a release or a main publish that contains the
+     change. Start the run itself with `kore local up --require-fresh-lock`,
+     which refuses on the same drift (without it `local up` only warns).
+     `--require-fresh-lock` stays the gate for either lock. A local proof may
+     pass a main chart lock (decided in
+     [ADR 0138](../../docs/decisions/0138-publish-signed-configuration-charts-from-main-for-local-proofs.md)):
+     it counts for activation only when the outcome's recorded chart digests
+     equal the release chart lock's, and a flag still turns on only after a
+     release.
   2. `npm --prefix tools/kore exec vitest run --config vitest.integration.config.ts integration/platform/delivery-chart-values.spec.ts`
      renders the delivery chart and every delivered chart for each proof flag
      alone, all together, and local as it is.
