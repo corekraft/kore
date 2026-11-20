@@ -9,7 +9,11 @@ export type { BuiltLocalImage } from "./local-image.js";
 export { pruneStaleImageTags } from "./image-prune.js";
 export { pruneRegistryTagsInCluster } from "./registry-prune-run.js";
 export { RegistryPruneError } from "./registry-prune-error.js";
-export { localRegistryReference, stopRegistryForward } from "./registry.js";
+export {
+  localRegistryReference,
+  stopRegistryForward,
+  tailnetForwardApplies,
+} from "./registry.js";
 export { registryNameProblem } from "./registry-name.js";
 export {
   ensureLocalSigningPublicKey,

@@ -60,6 +60,7 @@ test("the images barrel exposes exactly the public surface, each name from the m
     RegistryPruneError: registryPruneError.RegistryPruneError,
     localRegistryReference: registry.localRegistryReference,
     stopRegistryForward: registry.stopRegistryForward,
+    tailnetForwardApplies: registry.tailnetForwardApplies,
     registryNameProblem: registryName.registryNameProblem,
     ensureLocalSigningPublicKey: localSigner.ensureLocalSigningPublicKey,
     swapLocalSigningKey: localSigner.swapLocalSigningKey,

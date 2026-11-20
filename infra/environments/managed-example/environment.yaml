@@ -40,6 +40,7 @@
       "platform-dns": false,
       "platform-shared-gateway": false,
       "registry-by-name": false,
+      "registry-tailnet-forward": false,
       "otlp-route": false,
       "in-cluster-ca": false,
       "k3s-registry-trust": false,
