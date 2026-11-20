@@ -21,13 +21,19 @@ spec:
   rules:
     - to:
         - operation:
-            ports: [{{ .Values.gateway.port | quote }}]
+            ports: [{{ .Values.gateway.port | quote }}{{ if include "platform-config.databaseRoutes" . }}, {{ .Values.gateway.database.port | quote }}{{ end }}]
 {{- if include "platform-config.agentgatewayEnrolled" . }}
 ---
 # The gateway pod is enrolled in the ambient mesh (ADR 0081), so kore-system's
 # STRICT default would reject the load balancer's plaintext connection to it.
+{{- if include "platform-config.databaseRoutes" . }}
+# Only the gateway's listener port and, behind database-routes, the database
+# listener's port are permissive, the same exposure the Istio gateway has; every
+# other port and workload stays STRICT.
+{{- else }}
 # Only the gateway's listener port is permissive, the same exposure the Istio
 # gateway has; every other port and workload stays STRICT.
+{{- end }}
 apiVersion: security.istio.io/v1
 kind: PeerAuthentication
 metadata: {name: kore-gateway-listener, namespace: kore-system}
@@ -38,4 +44,7 @@ spec:
   mtls: {mode: STRICT}
   portLevelMtls:
     {{ .Values.gateway.port | quote }}: {mode: PERMISSIVE}
+{{- if include "platform-config.databaseRoutes" . }}
+    {{ .Values.gateway.database.port | quote }}: {mode: PERMISSIVE}
+{{- end }}
 {{- end }}
