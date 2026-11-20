@@ -1,0 +1,7 @@
+# Managed by infra/hosts/vps (Ansible). Edits here are overwritten.
+# Only the registry's public CA is trusted; no mirror or endpoint is added
+# and verification is never skipped.
+configs:
+  {{ k3s_registry_address | to_json }}:
+    tls:
+      ca_file: {{ k3s_registry_ca_path }}

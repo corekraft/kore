@@ -122,15 +122,15 @@ removal) until the tick has run for one window.
   and 0123). If the scan code is shared, file the four counters as one
   prerequisite ticket.
 
-| #   | Finding                                    | Primary metric                                                 | Flow-report field           | New counter? | Guard metrics                                                    | Slot         |
-| --- | ------------------------------------------ | -------------------------------------------------------------- | --------------------------- | ------------ | ---------------------------------------------------------------- | ------------ |
-| 1   | Session Tools do more than raw herdr       | signed share of main-session pane sends                        | `mainSession.signedSendShare` | no           | `mainSession.paneReadsPerFinishedPane`                           | 1, after 0035 |
-| 2   | Judge and reviewer spawns stamp the idea   | share of judge and reviewer launches with no idea (`pr.linked` join) | none                        | yes          | `attribution.noRoleShare`                                        | 2            |
-| 3   | `judge merge --after-merge` chores step    | bare `gh pr merge` calls per merged PR                         | none                        | yes          | `tokensPerMergedChange.current`; merges past a failed precheck must not rise | 3, on tick   |
-| 4   | One review path                            | `review post` verdicts with no recorded review, per merged PR  | none                        | yes          | `tokensPerMergedChange.current`; main-session context tokens     | 4, on tick   |
-| 5   | Precheck file-class fix                    | merges past a failed precheck, per merged PR                   | none                        | yes          | `rework.sendBacksPerIdea`                                        | 5            |
-| 6   | `orchestrate status` read-only Tool        | main-session sweep calls per merged PR                         | none                        | yes          | `mainSession.paneReadsPerFinishedPane`                           | held         |
-| 7   | Scratch-path redirect for read-only roles  | `guardBlocksByRule.role-read-only`                             | `guardBlocksByRule.role-read-only` | no           | the ADR 0119 corpus and replay conditions                        | 0031 scope   |
+| #   | Finding                                   | Primary metric                                                       | Flow-report field                  | New counter? | Guard metrics                                                                | Slot          |
+| --- | ----------------------------------------- | -------------------------------------------------------------------- | ---------------------------------- | ------------ | ---------------------------------------------------------------------------- | ------------- |
+| 1   | Session Tools do more than raw herdr      | signed share of main-session pane sends                              | `mainSession.signedSendShare`      | no           | `mainSession.paneReadsPerFinishedPane`                                       | 1, after 0035 |
+| 2   | Judge and reviewer spawns stamp the idea  | share of judge and reviewer launches with no idea (`pr.linked` join) | none                               | yes          | `attribution.noRoleShare`                                                    | 2             |
+| 3   | `judge merge --after-merge` chores step   | bare `gh pr merge` calls per merged PR                               | none                               | yes          | `tokensPerMergedChange.current`; merges past a failed precheck must not rise | 3, on tick    |
+| 4   | One review path                           | `review post` verdicts with no recorded review, per merged PR        | none                               | yes          | `tokensPerMergedChange.current`; main-session context tokens                 | 4, on tick    |
+| 5   | Precheck file-class fix                   | merges past a failed precheck, per merged PR                         | none                               | yes          | `rework.sendBacksPerIdea`                                                    | 5             |
+| 6   | `orchestrate status` read-only Tool       | main-session sweep calls per merged PR                               | none                               | yes          | `mainSession.paneReadsPerFinishedPane`                                       | held          |
+| 7   | Scratch-path redirect for read-only roles | `guardBlocksByRule.role-read-only`                                   | `guardBlocksByRule.role-read-only` | no           | the ADR 0119 corpus and replay conditions                                    | 0031 scope    |
 
 ## 1. Session Tools do more than raw herdr
 
@@ -222,7 +222,7 @@ removal) until the tick has run for one window.
   - **Citations:** `112bd8fe:86943`, `112bd8fe:92034` (merge and all five chores
     in one call).
 - **Proposed change:** A non-guard Tool under ADR 0101: `judge merge <pr>
-  --after-merge`, or a separate `judge after-merge <pr>`. It runs only after a
+--after-merge`, or a separate `judge after-merge <pr>`. It runs only after a
   normal passing precheck and a successful merge. It:
   - pulls the main checkout fast-forward only
   - rebuilds the harness bundle
@@ -236,6 +236,7 @@ removal) until the tick has run for one window.
   The name avoids "land", which the glossary keeps for "land on trunk", and
   "finish", which would collide with finish detection. There is no `--override`
   (owner decision 3).
+
 - **Hypothesis:** If the chores after a merge are one Tool step, the main
   session stops chaining them by hand, and its bare `gh pr merge` calls fall.
 - **Metric:** bare `gh pr merge` calls per merged PR, down, 14 days, from the
@@ -275,6 +276,7 @@ removal) until the tick has run for one window.
 
   This changes which path runs a review, not whether one runs. Idea 0016's
   question, whether principles-review belongs in the loop, is a separate one.
+
 - **Hypothesis:** If reviews run through `review run`, and a no-findings verdict
   needs a recorded review, then verdicts with no review behind them fall to
   zero. Review transcripts also leave the main session's context.
@@ -314,6 +316,7 @@ removal) until the tick has run for one window.
 
   These change what merges without approval, so they are owner decisions on
   the ADR 0099 boundary, each fix with its own ADR. The boundary fails closed.
+
 - **Hypothesis:** If the precheck recognizes an existing off flag and the named
   tooling paths, honest declarations pass it. Merges past a failed precheck
   then fall without any override.
@@ -333,6 +336,7 @@ removal) until the tick has run for one window.
   - 146 ran `herdr agent list`
 
   Citations: `112bd8fe:87345`, `112bd8fe:103901`, `112bd8fe:117345`.
+
 - **Proposed change:** A read-only, event-free Tool under the tick work. It
   reuses the tick's state and the latest `host-sample` event, so one owner holds
   the power and load rule. It prints live panes and open PRs with head, checks,
@@ -341,6 +345,7 @@ removal) until the tick has run for one window.
   The first draft's `core.bare` line is dropped, because `kb-check` already
   reports that with its cause. Only add it back if the 102 hand checks show the
   report goes unseen.
+
 - **Metric:** main-session sweep calls per merged PR, down, 14 days. This is a
   new counter; `mainSession.paneReadsPerFinishedPane` is a guard.
 - **Safety pattern:** `no-behaviour-change`
@@ -363,6 +368,7 @@ removal) until the tick has run for one window.
   redirects stay blocked (owner decision 4).
 
   Citations: `1239f264:120`, `1239f264:143`, `1239f264:259`.
+
 - **Proposed change:** In the existing `role-read-only` rule, allow a stdout
   redirect on an allowed read only into the session's one exact scratch path:
   no `..` and no symlink. This is a quick fix to an existing rule. The ADR 0119
@@ -373,6 +379,7 @@ removal) until the tick has run for one window.
     refutes the idea
 
   Add a corpus case for each bypass named in idea 0022.
+
 - **Metric:** `guardBlocksByRule.role-read-only`, down, 14 days.
 - **Safety pattern:** `no-behaviour-change`
 - **Already filed:** 0031, which covers readers only. It records no issue or

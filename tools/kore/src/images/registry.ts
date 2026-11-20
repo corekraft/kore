@@ -1,6 +1,12 @@
 import { spawn } from "node:child_process";
 import { connect } from "node:tls";
-import { registryByName, type Repository } from "../config/index.js";
+import {
+  featureEnabled,
+  registryByName,
+  registryPlan,
+  registryTailnetForwardFlag,
+  type Repository,
+} from "../config/index.js";
 import {
   listHostProcesses,
   terminateMatching,
@@ -13,8 +19,43 @@ import {
   readForwardOwner,
   recordForwardOwner,
 } from "./registry-forward-owner.js";
-import { ensureRegistryName, hostRegistryAddress } from "./registry-name.js";
+import {
+  ensureRegistryName,
+  forwardAddress,
+  hostRegistryAddress,
+} from "./registry-name.js";
 import { loadRegistryCa } from "./registry-tls.js";
+
+/**
+ * Whether the controller reaches a managed cluster's in-cluster registry
+ * through a kubectl port-forward over its own context (ADR 0143). Only a
+ * managed environment whose registry is a ClusterIP, and only behind its flag,
+ * qualifies; every other environment keeps what it did.
+ */
+export function tailnetForwardApplies(repository: Repository): boolean {
+  const { environment } = repository;
+  return (
+    featureEnabled(environment, registryTailnetForwardFlag) &&
+    environment.provider === "managed" &&
+    registryPlan(environment).clusterIP !== undefined
+  );
+}
+
+/**
+ * Whether `reference` names the in-cluster registry and so is reached through
+ * the tailnet forward (ADR 0143). A release image on a mirror is not in the
+ * registry, so it is never rewritten to the forward and never gets the
+ * registry's read credential.
+ */
+export function reachedThroughForward(
+  repository: Repository,
+  reference: string,
+): boolean {
+  return (
+    tailnetForwardApplies(repository) &&
+    reference.startsWith(`${registryPlan(repository.environment).address}/`)
+  );
+}
 
 export interface RegistryDependencies {
   spawnPortForward?: (repository: Repository) => number;
@@ -134,6 +175,14 @@ export async function ensureRegistryForward(
   runner: Runner,
   dependencies: RegistryDependencies = {},
 ): Promise<void> {
+  if (tailnetForwardApplies(repository)) {
+    await ensurePortForward(
+      repository,
+      dependencies,
+      await loadRegistryCa(repository, runner),
+    );
+    return;
+  }
   if (repository.environment.provider !== "k3d") {
     return;
   }
@@ -154,6 +203,10 @@ export async function localRegistryReference(
   reference: string,
   dependencies: RegistryDependencies = {},
 ): Promise<string> {
+  if (reachedThroughForward(repository, reference)) {
+    await ensureRegistryForward(repository, runner, dependencies);
+    return reference.replace(/^[^/]+/, forwardAddress);
+  }
   if (repository.environment.provider !== "k3d") {
     return reference;
   }

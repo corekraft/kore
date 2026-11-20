@@ -206,6 +206,7 @@ repository root; `mise run kb-check` keeps this list complete.
 - [`docs/decisions/0138-publish-signed-configuration-charts-from-main-for-local-proofs.md`](decisions/0138-publish-signed-configuration-charts-from-main-for-local-proofs.md) — A charts-main job publishes the platform charts signed with the release.yaml main identity and keeps the main chart lock as a 30-day artifact that feeds local proofs only, while flag activation still needs the release chart lock with equal chart digests.
 - [`docs/decisions/0141-the-vps-host-is-converged-by-an-ansible-playbook-in-the-repository.md`](decisions/0141-the-vps-host-is-converged-by-an-ansible-playbook-in-the-repository.md) — A rented VPS host keeps its packages, firewall, sshd and Tailscale as desired state in infra/hosts/vps, converged over the tailnet by a pinned ansible-core; the provider OS install and the Tailscale sign-in stay manual, and account-level state such as the tailnet policy belongs to OpenTofu.
 - [`docs/decisions/0142-the-vps-environment-targets-the-persistent-k3s-node-as-a-managed-cluster.md`](decisions/0142-the-vps-environment-targets-the-persistent-k3s-node-as-a-managed-cluster.md) — The vps overlay points kore at the persistent single-node k3s on the VPS as a managed cluster (context kore-vps, local domain kore.internal, release mirror), with every feature flag off so nothing runs until a live run and harness flag activate. Read when adding or changing the vps environment.
+- [`docs/decisions/0143-the-controller-reaches-a-managed-registry-through-a-forward-over-the-tailnet.md`](decisions/0143-the-controller-reaches-a-managed-registry-through-a-forward-over-the-tailnet.md) — The controller reaches a managed cluster's in-cluster registry through a kubectl port-forward over its kube context, which runs over the tailnet, behind the registry-tailnet-forward flag; the push transport stays an owner decision. Read when changing how host-side callers reach a registry.
 
 ## Proposed Decisions
 
@@ -352,6 +353,11 @@ decisions; read one only when planning that area, and expect it to change.
   the repo retro over 436 sessions, unified with the Pocock retro into one
   owner-decided triage; none applied yet. Read before changing the role guards
   or the writer agent definition.
+- [`docs/retros/2026-11-20-friction-retro.md`](retros/2026-11-20-friction-retro.md)
+  — the throughput-limit and cost retro over the sessions since 2026-11-18,
+  revised after its grill: four new ideas, three tickets and three folds into
+  ideas 0031, 0033 and 0035, none filed. Read before changing the precheck
+  pattern match, the retro filing path or the role guards.
 - [`docs/retros/2026-11-20-primitives-retro.md`](retros/2026-11-20-primitives-retro.md)
   — the primitives retro, revised after its grill and the owner's decisions:
   five filing slots (session Tools over raw herdr, judge and reviewer idea
