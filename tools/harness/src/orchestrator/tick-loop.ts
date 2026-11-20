@@ -7,6 +7,8 @@ export const TICK_LOOP_INTERVAL_MS = 60 * 1000;
 export interface LoopPorts {
   /** Whether the local overlay still turns the tick on; read before every pass. */
   flagOn(): Promise<boolean>;
+  /** Brings the checkout and bundle up to date before a pass; absent means the loop has no update step. */
+  update?(): Promise<void>;
   /** Writes the heartbeat (tick.started) before a pass starts. */
   heartbeat(): Promise<void>;
   /** Writes tick.stopped once the loop has ended. */
@@ -40,6 +42,7 @@ export class TickLoop {
         if (!(await this.ports.flagOn())) {
           return { status: "flag-off", passes };
         }
+        await this.ports.update?.();
         await this.ports.heartbeat();
         started = true;
         const result = await this.ports.pass();

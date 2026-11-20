@@ -2,7 +2,9 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { Ledger } from "../ledger/index.js";
 import {
   TickLoop,
+  TickSelfUpdate,
   tickFlagOn,
+  tickSelfUpdateOn,
   type LoopPorts,
   type LoopResult,
 } from "../orchestrator/index.js";
@@ -19,7 +21,9 @@ vi.mock("../orchestrator/index.js", () => ({
   TICK_STARTED: "tick.started",
   TICK_STOPPED: "tick.stopped",
   TickLoop: vi.fn(),
+  TickSelfUpdate: vi.fn(),
   tickFlagOn: vi.fn(),
+  tickSelfUpdateOn: vi.fn(),
 }));
 vi.mock("../runtime/index.js", () => ({
   mainRoot: vi.fn(),
@@ -181,5 +185,24 @@ describe("orchestrate tick --loop and the flag", () => {
     expect(out.join("")).toBe(
       "The orchestrator-tick flag turned off after 3 passes, so the loop stopped.\n",
     );
+  });
+});
+
+describe("orchestrate tick --loop self-update step", () => {
+  it("runs the self-update before each pass only while the tick-self-update flag is on", async () => {
+    const run = vi.fn().mockResolvedValue(undefined);
+    vi.mocked(TickSelfUpdate).mockImplementation(function () {
+      return { run } as unknown as TickSelfUpdate;
+    });
+    vi.mocked(tickSelfUpdateOn).mockResolvedValue(true);
+    const { deps } = setup();
+
+    await runTickLoop(deps, ROOT, undefined);
+    await capturedPorts().update?.();
+    expect(run).toHaveBeenCalledTimes(1);
+
+    vi.mocked(tickSelfUpdateOn).mockResolvedValue(false);
+    await capturedPorts().update?.();
+    expect(run).toHaveBeenCalledTimes(1);
   });
 });

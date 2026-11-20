@@ -122,3 +122,36 @@ describe("tick loop", () => {
     expect(f.pass).not.toHaveBeenCalled();
   });
 });
+
+describe("tick loop update step", () => {
+  it("runs the update after the flag check and before each pass", async () => {
+    const f = fakes([OK, OK]);
+    const update = vi.fn(async () => {
+      f.calls.push("update");
+    });
+
+    await new TickLoop({ ...f.ports, update }).run(2);
+
+    expect(f.calls).toEqual([
+      "flag",
+      "update",
+      "heartbeat",
+      "pass",
+      "sleep",
+      "flag",
+      "update",
+      "heartbeat",
+      "pass",
+      "stopped",
+    ]);
+  });
+
+  it("runs no update when the flag is off, so an off flag updates nothing", async () => {
+    const f = fakes([], [false]);
+    const update = vi.fn();
+
+    await new TickLoop({ ...f.ports, update }).run(3);
+
+    expect(update).not.toHaveBeenCalled();
+  });
+});

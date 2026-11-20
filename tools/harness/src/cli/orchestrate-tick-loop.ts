@@ -2,10 +2,13 @@ import { join, resolve } from "node:path";
 import { DEFAULT_LEDGER, Ledger } from "../ledger/index.js";
 import {
   HarnessCliError,
+  TICK_SELF_UPDATE_FAILED,
   TICK_STARTED,
   TICK_STOPPED,
   TickLoop,
+  TickSelfUpdate,
   tickFlagOn,
+  tickSelfUpdateOn,
 } from "../orchestrator/index.js";
 import { mainRoot, type CliDeps } from "../runtime/index.js";
 
@@ -43,6 +46,7 @@ export async function runTickLoop(
       );
     }
   };
+  const updater = selfUpdater(deps, root, ledger);
   const args = [
     join(root, HARNESS),
     "orchestrate",
@@ -51,6 +55,11 @@ export async function runTickLoop(
   ];
   const loop = new TickLoop({
     flagOn: () => tickFlagOn(deps.fs, root),
+    update: async () => {
+      if (await tickSelfUpdateOn(deps.fs, root)) {
+        await updater.run();
+      }
+    },
     heartbeat: () => beat(TICK_STARTED),
     stopped: () => beat(TICK_STOPPED),
     pass: () => deps.runner.run(process.execPath, args, { cwd: root }),
@@ -73,4 +82,31 @@ export async function runTickLoop(
     );
   }
   return 0;
+}
+
+/** The step the loop runs before each pass: the tick-self-update flag gates it, and a failed build is recorded on the ledger. */
+function selfUpdater(
+  deps: CliDeps,
+  root: string,
+  ledger: Ledger,
+): TickSelfUpdate {
+  return new TickSelfUpdate({
+    runner: deps.runner,
+    root,
+    recordFailure: async (label) => {
+      const written = await ledger.record({
+        source: "claude",
+        kind: TICK_SELF_UPDATE_FAILED,
+        occurredAt: deps.clock.now().toISOString(),
+        label,
+      });
+      if (!written.ok) {
+        deps.stderr(
+          `The ${TICK_SELF_UPDATE_FAILED} event was rejected: ${written.message}\n`,
+        );
+      }
+    },
+    stdout: (text) => deps.stdout(text),
+    stderr: (text) => deps.stderr(text),
+  });
 }
