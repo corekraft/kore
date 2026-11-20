@@ -5,7 +5,7 @@ expected-outcome: queue next on the delivery host shows product tickets before h
 measurement: Run harness queue next and queue next --json on the delivery host with the flag on, and compare the order and the exclusions with the owner's frontier search.
 safety-pattern: feature-flagged
 date: 2026-11-20
-parent: 52
+parent: 0052
 issue: https://github.com/corekraft/kore/issues/1424
 ---
 
