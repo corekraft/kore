@@ -228,6 +228,7 @@ at a time on an idle host (stop writer and challenger panes first).
   controller there; a BFF with a controller is a different baseline). The
   result names the set in `method.routeSet`; the reference set carries none.
   It reports p95, p50 and max of the sequential probes, the same way.
+- **Reach.** The probes reach the golden path at the service's own Gateway when its Service publishes an address. A service with no Gateway of its own (`platform-shared-gateway` on: its namespace has no Service of that name) is reached through the shared Gateway, on loopback at the environment's gateway port, which the k3d load balancer maps. The run first checks that its HTTPRoute `<service>-shared` exists, and refuses by name when it does not. `method.gateway` names the Gateway reached, so the two cases are told apart in a result ([#1460](https://github.com/corekraft/kore/issues/1460)).
 - **Scale check.** `GoldenPathScaleCheck` sets the BFF Deployment to a starting
   count (`KORE_SCALE_START_REPLICAS`, else the count the Deployment has, which
   is recorded, never assumed to be one), starts the golden-path load, grows to
@@ -261,8 +262,9 @@ The first attempt (`live-1114-a`, 2026-11-19, on main after #1313, with
 `platform-argocd-delivery` on and portal off) failed on both tests with a curl
 `SSL_ERROR_SYSCALL` to `golden-path-example.platform.kore.local:8443`: the
 service's own Gateway publishes no address on k3d, so nothing mapped the port to
-it. #1316 (merged in #1317) makes the run refuse by name in that case. The rerun
-waits on the shared Gateway attach (#1211), which publishes the route. No
+it. #1316 (merged in #1317) makes the run refuse by name in that case. [#1460](https://github.com/corekraft/kore/issues/1460) reaches the route through
+the shared Gateway when the service has no Gateway of its own, so the rerun waits on
+that merge. No
 baseline exists until a rerun passes.
 
 ### Comparison point: Istio ingress on k3d (2026-11-12)

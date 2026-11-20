@@ -1,25 +1,34 @@
 import type { Runner } from "../runtime/index.js";
 
 // Docs: infra/plans/13-agentgateway-ingress.md#golden-path-route-set
-//
-// Where the host reaches the golden-path Service's own Gateway. The Service is
-// a LoadBalancer, and on k3d its address stays pending unless the environment
-// publishes one; the k3d port mapping serves only the shared Gateway. So the
-// live probes take the published address and its port from the Service, or
-// refuse by name before any load is sent. Read-only: one `kubectl get`.
+
+// Which Gateway the host reaches for the golden-path Service. A delivered
+// Service with its own Gateway is a LoadBalancer, and on k3d its address stays
+// pending unless the environment publishes one, so its probes take the
+// published address and port or refuse by name before any load is sent. A
+// Service with no Gateway of its own (platform-shared-gateway on) has no
+// Service to read; its HTTPRoute is served by the shared Gateway, which the k3d
+// load balancer maps on loopback at the environment's gateway port. Read-only:
+// the kubectl reads below change nothing.
 
 export interface GoldenPathReachOptions {
   kubeContext: string;
   /** The service namespace, `<service>--<environment>`. */
   namespace: string;
-  /** The delivered Service, which is also the Gateway's name. */
+  /** The delivered Service, which is also the Gateway's name when it has one. */
   service: string;
+  /** The environment's shared Gateway and the port the k3d load balancer maps to it. */
+  sharedGateway: { namespace: string; name: string; port: number };
 }
 
 export interface GoldenPathReach {
-  /** The published IP or hostname the probes resolve the service host to. */
-  address: string;
-  /** The port the Service declares for the Gateway. */
+  /** The Gateway the probes reach: the service's own, or the shared one. */
+  gateway: { namespace: string; name: string };
+  /** `service` for the service's own Gateway, `shared` for the shared one. */
+  via: "service" | "shared";
+  /** The published IP or hostname the probes resolve the service host to; unset is loopback. */
+  address?: string;
+  /** The port the probes use. */
   port: number;
 }
 
@@ -46,12 +55,17 @@ export async function goldenPathReach(
       "get",
       "service",
       service,
+      "--ignore-not-found",
       "--output",
       "json",
     ],
     { capture: true },
   );
+  if (stdout.trim() === "") {
+    return sharedReach(runner, options, subject);
+  }
   const parsed = JSON.parse(stdout) as ServiceDocument;
+  const gateway = { namespace, name: service };
   const published = parsed.status?.loadBalancer?.ingress?.[0];
   const address = published?.ip ?? published?.hostname;
   if (address === undefined) {
@@ -65,5 +79,46 @@ export async function goldenPathReach(
       `${subject} declares no port, so there is nothing to reach at ${address}; check the delivered chart's Service`,
     );
   }
-  return { address, port };
+  return { gateway, via: "service", address, port };
+}
+
+/**
+ * The service has no Gateway of its own: its HTTPRoute must exist on the shared
+ * Gateway, and the probes reach that Gateway on loopback, where the k3d load
+ * balancer maps the port. Refused by name when the route is absent, so a missing
+ * route fails before the load rather than as 404s after the settle wait.
+ */
+async function sharedReach(
+  runner: Runner,
+  options: GoldenPathReachOptions,
+  subject: string,
+): Promise<GoldenPathReach> {
+  const { kubeContext, namespace, service, sharedGateway } = options;
+  const route = `${service}-shared`;
+  const { stdout } = await runner.run(
+    "kubectl",
+    [
+      "--context",
+      kubeContext,
+      "--namespace",
+      namespace,
+      "get",
+      "httproute",
+      route,
+      "--ignore-not-found",
+      "--output",
+      "name",
+    ],
+    { capture: true },
+  );
+  if (stdout.trim() === "") {
+    throw new Error(
+      `${subject} has no Gateway of its own, and its HTTPRoute ${route} is absent from ${namespace}, so the shared Gateway ${sharedGateway.namespace}/${sharedGateway.name} has no route to the host; deliver the service with platform-shared-gateway on (ADR 0134)`,
+    );
+  }
+  return {
+    gateway: { namespace: sharedGateway.namespace, name: sharedGateway.name },
+    via: "shared",
+    port: sharedGateway.port,
+  };
 }
