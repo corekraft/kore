@@ -92,6 +92,7 @@ export {
   platformDnsFlag,
   platformPortalFlag,
   registryPruneFlag,
+  registryTailnetForwardFlag,
 } from "./features.js";
 export {
   chartDeliveryValues,

@@ -8,6 +8,7 @@ import {
   loadRegistryCa,
   loadRegistryCredential,
   localRegistryReference,
+  reachedThroughForward,
   withRegistryClient,
   type LockedImage,
 } from "../images/index.js";
@@ -83,7 +84,8 @@ export async function verifyImage(
   };
   const publicKey = publicKeyOverride ?? localPublicKey(repository, image);
   if (
-    !isLocalProvider(repository.environment) ||
+    (!isLocalProvider(repository.environment) &&
+      !reachedThroughForward(repository, image.reference)) ||
     !koreManagesRegistryAuth(repository)
   ) {
     await runner.run(
