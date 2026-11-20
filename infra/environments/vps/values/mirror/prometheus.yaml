@@ -1,0 +1,22 @@
+{
+  "server":
+    { "image": { "repository": "ghcr.io/corekraft/kore/mirror/prometheus" } },
+  "configmapReload":
+    {
+      "prometheus":
+        {
+          "image":
+            {
+              "repository": "ghcr.io/corekraft/kore/mirror/prometheus-config-reloader"
+            }
+        }
+    },
+  "kube-state-metrics":
+    {
+      "image":
+        {
+          "registry": "ghcr.io",
+          "repository": "corekraft/kore/mirror/kube-state-metrics"
+        }
+    }
+}

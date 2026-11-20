@@ -1,0 +1,24 @@
+{
+  "config":
+    {
+      "processors":
+        {
+          "resource/environment":
+            {
+              "attributes":
+                [
+                  {
+                    "key": "k8s.cluster.name",
+                    "value": "REQUIRED",
+                    "action": "upsert"
+                  },
+                  {
+                    "key": "deployment.environment.name",
+                    "value": "vps",
+                    "action": "upsert"
+                  }
+                ]
+            }
+        }
+    }
+}
