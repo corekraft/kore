@@ -1,0 +1,31 @@
+{
+  "loki":
+    {
+      "image":
+        { "registry": "ghcr.io", "repository": "corekraft/kore/mirror/loki" }
+    },
+  "gateway":
+    {
+      "image":
+        {
+          "registry": "ghcr.io",
+          "repository": "corekraft/kore/mirror/loki-gateway-nginx"
+        }
+    },
+  "sidecar":
+    {
+      "image":
+        {
+          "registry": "ghcr.io",
+          "repository": "corekraft/kore/mirror/loki-sidecar"
+        }
+    },
+  "lokiCanary":
+    {
+      "image":
+        {
+          "registry": "ghcr.io",
+          "repository": "corekraft/kore/mirror/loki-canary"
+        }
+    }
+}
