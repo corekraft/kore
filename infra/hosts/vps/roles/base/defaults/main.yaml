@@ -1,0 +1,8 @@
+# The host's own locale, and every locale an SSH client forwards (SSH passes
+# the client's LANG and LC_* through). A forwarded locale that is not generated
+# prints setlocale warnings on every login.
+base_default_locale: en_CA.UTF-8
+base_locales:
+  - en_CA.UTF-8
+  - en_US.UTF-8
+  - en_PH.UTF-8

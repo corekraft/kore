@@ -6,6 +6,7 @@
       - nftables
       - ca-certificates
       - curl
+      - locales
     state: present
     update_cache: true
     cache_valid_time: 3600
@@ -43,3 +44,20 @@
     group: root
     mode: "0644"
   notify: Restart systemd-resolved
+
+- name: Enable the locales the host and its SSH clients use
+  ansible.builtin.lineinfile:
+    path: /etc/locale.gen
+    regexp: "^#? *{{ item }} UTF-8$"
+    line: "{{ item }} UTF-8"
+  loop: "{{ base_locales }}"
+  notify: Generate locales
+
+- name: Set the default locale
+  ansible.builtin.copy:
+    content: |
+      LANG={{ base_default_locale }}
+    dest: /etc/default/locale
+    owner: root
+    group: root
+    mode: "0644"
