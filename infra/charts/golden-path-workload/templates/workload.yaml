@@ -1,4 +1,16 @@
 {{- /* Probe paths: the frontend's /healthz (templates/static-frontend/nginx.conf) and the BFF's actuator health. Both listen on 8080. The startupProbe allows up to 5 minutes (periodSeconds 5 x failureThreshold 60) for a slow JVM start, so liveness cannot restart a container that has not yet started. */}}
+{{- $autoscaling := .Values.autoscaling }}
+{{- if $autoscaling.enabled }}
+{{- if lt (int $autoscaling.minReplicas) 2 }}
+{{- fail "autoscaling.minReplicas must be at least 2 so one pod can be lost or drained without an outage; raise it or set autoscaling.enabled=false" }}
+{{- end }}
+{{- if lt (int $autoscaling.maxReplicas) (int $autoscaling.minReplicas) }}
+{{- fail "autoscaling.maxReplicas must not be below autoscaling.minReplicas; raise maxReplicas" }}
+{{- end }}
+{{- if not ((.Values.resources.requests | default dict).cpu) }}
+{{- fail "autoscaling.enabled needs resources.requests.cpu: the autoscaler computes CPU utilisation against the request; set resources.requests.cpu (for example 25m) or set autoscaling.enabled=false" }}
+{{- end }}
+{{- end }}
 {{- range $name, $path := dict "frontend" "/healthz" "bff" "/actuator/health" }}
 {{- $workload := index $.Values $name }}
 ---
@@ -10,7 +22,9 @@ metadata:
     app.kubernetes.io/name: {{ $.Values.service }}-{{ $name }}
     app.kubernetes.io/part-of: {{ $.Values.service }}
 spec:
+  {{- if not $autoscaling.enabled }}
   replicas: 1
+  {{- end }}
   selector:
     matchLabels:
       app.kubernetes.io/name: {{ $.Values.service }}-{{ $name }}
@@ -30,6 +44,11 @@ spec:
           ports:
             - name: http
               containerPort: 8080
+          {{- if $autoscaling.enabled }}
+          resources:
+            requests:
+              cpu: {{ $.Values.resources.requests.cpu | quote }}
+          {{- end }}
           startupProbe:
             httpGet: { path: {{ $path }}, port: http }
             periodSeconds: 5
@@ -56,4 +75,23 @@ spec:
     - name: http
       port: 80
       targetPort: http
+{{- if $autoscaling.enabled }}
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: {{ $.Values.service }}-{{ $name }}
+  labels:
+    app.kubernetes.io/name: {{ $.Values.service }}-{{ $name }}
+    app.kubernetes.io/part-of: {{ $.Values.service }}
+spec:
+  scaleTargetRef: {apiVersion: apps/v1, kind: Deployment, name: {{ $.Values.service }}-{{ $name }}}
+  minReplicas: {{ $autoscaling.minReplicas }}
+  maxReplicas: {{ $autoscaling.maxReplicas }}
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target: {type: Utilization, averageUtilization: {{ $autoscaling.targetCPUUtilizationPercentage }}}
+{{- end }}
 {{- end }}

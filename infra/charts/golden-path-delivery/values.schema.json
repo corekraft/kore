@@ -33,6 +33,10 @@
       "type": "string",
       "minLength": 1
     },
+    "autoscaling": {
+      "description": "Set by kore only while autoscaling-defaults is on (ADR 0047). The sync then sets autoscaling.enabled on each workload, so its chart renders the HorizontalPodAutoscaler and no replica count. Off, the sync sets no such parameter.",
+      "type": "boolean"
+    },
     "sharedGateway": {
       "description": "Labels each app namespace the sync creates with the platform-owned shared-gateway label, so the shared Gateway admits its routes (ADR 0133). Off, the sync sets no namespace metadata.",
       "type": "boolean"

@@ -229,19 +229,7 @@ at a time on an idle host (stop writer and challenger panes first).
   result names the set in `method.routeSet`; the reference set carries none.
   It reports p95, p50 and max of the sequential probes, the same way.
 - **Reach.** The probes reach the golden path at the service's own Gateway when its Service publishes an address. A service with no Gateway of its own (`platform-shared-gateway` on: its namespace has no Service of that name) is reached through the shared Gateway, on loopback at the environment's gateway port, which the k3d load balancer maps. The run first checks that its HTTPRoute `<service>-shared` exists, and refuses by name when it does not. `method.gateway` names the Gateway reached, so the two cases are told apart in a result ([#1460](https://github.com/corekraft/kore/issues/1460)).
-- **Scale check.** `GoldenPathScaleCheck` sets the BFF Deployment to a starting
-  count (`KORE_SCALE_START_REPLICAS`, else the count the Deployment has, which
-  is recorded, never assumed to be one), starts the golden-path load, grows to
-  N (`KORE_SCALE_PEAK_REPLICAS`, default 4) until N replicas are ready, returns
-  to the starting count until only it remains, and stops the load. Any request
-  that fails or answers another status fails the check, as does a Deployment
-  that never reaches N (a sync reverting the scale shows up there). The result
-  records the starting, peak and end ready counts and the host record. The one
-  cluster write is `kubectl scale`, put back to the count the Deployment had
-  before the first write (not the starting count, when one was set) however
-  the run ends; a restore that fails is named beside the original failure. The
-  live run needs `autoscaling-defaults` on and the service
-  delivered through Argo CD.
+- **Scale check.** `GoldenPathScaleCheck` reads the HorizontalPodAutoscaler that targets the BFF and refuses before any load when none does: the chart creates one only while `autoscaling-defaults` is on (ADR 0047, [#1465](https://github.com/corekraft/kore/issues/1465)). It waits for the BFF to settle at the autoscaler's minimum, starts the golden-path load, and waits until it sees N ready replicas (`KORE_SCALE_PEAK_REPLICAS`, default 4, above the minimum and at most the maximum). It then stops the load and waits for the BFF to return to the minimum. The check writes nothing to the cluster: the autoscaler moves the replica count, and the chart omits `spec.replicas` while it is on, so Argo CD's self-heal has nothing to revert. Any request that fails or answers another status fails the check, as does a BFF that never reaches N or never settles at its minimum. The result records the start, the most ready replicas seen, and the end, with the autoscaler's bounds and the host record. The live run needs `autoscaling-defaults` on and the service delivered through Argo CD.
 - **Self-heal (#1465).** The golden-path workload chart sets `replicas: 1` and
   creates no HorizontalPodAutoscaler, with or without `autoscaling-defaults`
   (`infra/charts/golden-path-workload`), and the delivery's ApplicationSet
