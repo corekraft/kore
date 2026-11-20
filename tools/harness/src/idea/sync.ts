@@ -246,10 +246,27 @@ export async function issueTarget(
       `${record.path} has no issue; run \`harness idea sync --idea ${record.number}\` to create and link it first.`,
     );
   }
-  const at = locate(record.issue);
-  if (at === undefined) {
+  if (locate(record.issue) === undefined) {
     throw new IdeaError(
       `${record.path} has issue "${record.issue}", which is not an issue number or link; set it to e.g. 123 or https://github.com/<owner>/<repo>/issues/123.`,
+    );
+  }
+  return numberedIssue(runner, root, record.issue);
+}
+
+/**
+ * The number and repository of an issue given as a number or a link. A bare number is looked up
+ * in the checkout's own repository, through gh, as every other gh call here is.
+ */
+export async function numberedIssue(
+  runner: Runner,
+  root: string,
+  issue: string,
+): Promise<{ number: string; repo: string }> {
+  const at = locate(issue);
+  if (at === undefined) {
+    throw new IdeaError(
+      `"${issue}" is not an issue number or link; set it to e.g. 123 or https://github.com/<owner>/<repo>/issues/123.`,
     );
   }
   const gh: Gh = async (args, input) =>

@@ -6,7 +6,12 @@ import {
   type DecisionPorts,
   type Made,
 } from "../decision/index.js";
-import { IdeaError, IdeaRepository, issueTarget } from "../idea/index.js";
+import {
+  IdeaError,
+  IdeaRepository,
+  issueTarget,
+  numberedIssue,
+} from "../idea/index.js";
 import type { LedgerEvent } from "../ledger/index.js";
 import { contextWith, fakeLedger } from "./command-support.js";
 import { decisionCommands } from "./decision-commands.js";
@@ -21,6 +26,7 @@ vi.mock("../idea/index.js", async (importOriginal) => ({
   ...(await importOriginal<typeof import("../idea/index.js")>()),
   IdeaRepository: vi.fn(),
   issueTarget: vi.fn(),
+  numberedIssue: vi.fn(),
 }));
 vi.mock("./ledger-commands.js");
 
@@ -30,6 +36,18 @@ const FLAGS = {
   category: "naming",
   question: "Median or P50?",
   decision: "Median.",
+};
+const ISSUE_URL = "https://github.com/corekraft/kore/issues/1435";
+const ISSUE_FLAGS = {
+  issue: "1435",
+  category: "naming",
+  question: "Median or P50?",
+  decision: "Median.",
+};
+const MADE_ON_ISSUE: Made = {
+  category: "naming",
+  issue: ISSUE_URL,
+  commentUrl: "https://github.com/corekraft/kore/issues/1435#c1",
 };
 const MADE: Made = {
   idea: "0008",
@@ -144,7 +162,7 @@ describe("decision make ports", () => {
 
     await decisionCommands["make"]?.run(ctx);
     const url = await portsOf().post(
-      { idea: "0008", number: "795", repo: "corekraft/kore" },
+      { number: "795", repo: "corekraft/kore" },
       "BODY",
     );
 
@@ -165,7 +183,7 @@ describe("decision make ports", () => {
     await decisionCommands["make"]?.run(ctx);
 
     await expect(
-      portsOf().post({ idea: "0008", number: "795", repo: "r/k" }, "BODY"),
+      portsOf().post({ number: "795", repo: "r/k" }, "BODY"),
     ).rejects.toThrow(
       "gh issue comment failed for issue #795: not logged in. Check `gh auth status`, then rerun the same command.",
     );
@@ -258,20 +276,75 @@ describe("decision make failures", () => {
     expect(deps.stderr).toHaveBeenCalledWith("no ledger\n");
   });
 
-  it("is a usage error, calling nothing, when --idea is missing", async () => {
+  it("is a usage error, calling nothing, when neither --idea nor --issue is given", async () => {
     const { ctx, deps } = context({ ...FLAGS, idea: "" });
 
     expect(await decisionCommands["make"]?.run(ctx)).toBe(2);
 
     expect(makeDecision).not.toHaveBeenCalled();
     expect(deps.stderr).toHaveBeenCalledWith(
-      "Missing --idea; run `harness decision make --idea <number or slug> --category <name> --question <text> --decision <text> [--ledger]`.\n",
+      "Missing --idea or --issue; run `harness decision make (--idea <number or slug> | --issue <number>) --category <name> --question <text> --decision <text>`.\n",
     );
+  });
+});
+
+describe("decision make for a plain ticket", () => {
+  it("makes the decision on a plain ticket from --issue, with no idea", async () => {
+    vi.mocked(makeDecision).mockResolvedValue(MADE_ON_ISSUE);
+    const { ctx, deps } = context(ISSUE_FLAGS);
+
+    expect(await decisionCommands["make"]?.run(ctx)).toBe(0);
+
+    expect(makeDecision).toHaveBeenCalledWith(expect.anything(), ISSUE_FLAGS);
+    expect(vi.mocked(makeDecision).mock.calls[0]?.[1]).not.toHaveProperty(
+      "idea",
+    );
+    expect(deps.stdout).toHaveBeenCalledWith(
+      `Recorded a naming decision for the issue at ${ISSUE_URL}: ${MADE_ON_ISSUE.commentUrl}\n`,
+    );
+  });
+
+  it("resolves a plain ticket's issue number through the repository gh reports", async () => {
+    vi.mocked(numberedIssue).mockResolvedValue({
+      number: "1435",
+      repo: "corekraft/kore",
+    });
+    const { ctx, deps } = context(ISSUE_FLAGS);
+
+    await decisionCommands["make"]?.run(ctx);
+
+    expect(await portsOf().issue("1435")).toEqual({
+      number: "1435",
+      repo: "corekraft/kore",
+    });
+    expect(numberedIssue).toHaveBeenCalledWith(deps.runner, ROOT, "1435");
+  });
+
+  it("records a plain ticket's decision.made with the issue number and category, and no idea", async () => {
+    const ledger = fakeLedger([], { ok: true, event: {} as LedgerEvent });
+    vi.mocked(openLedger).mockResolvedValue({ ledger: ledger.ledger });
+    const { ctx } = context(ISSUE_FLAGS);
+
+    await decisionCommands["make"]?.run(ctx);
+    expect(await portsOf().record({ label: "naming", number: 1435 })).toEqual({
+      ok: true,
+    });
+
+    const written = ledger.write.mock.calls[0]?.[0];
+    expect(written).toEqual({
+      source: "claude",
+      kind: "decision.made",
+      occurredAt: "2026-11-16T10:00:00.000Z",
+      label: "naming",
+      number: 1435,
+    });
+    expect(written).not.toHaveProperty("idea");
   });
 
   it("declares no --role flag, so a role cannot be supplied by hand", () => {
     expect(Object.keys(decisionCommands["make"]?.options ?? {})).toEqual([
       "idea",
+      "issue",
       "category",
       "question",
       "decision",
