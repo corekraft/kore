@@ -124,6 +124,48 @@
   register: agents_mise_install
   changed_when: "'installed 0 tools' not in agents_mise_install.stderr"
 
+# kore local up runs `mkcert -install` as the agent, which asks sudo for the
+# system store, and the agent has no sudo. The pinned mkcert runs here as root
+# instead: it creates the agent's CA in the agent's home and adds it to the
+# system store. Afterwards its own check finds the CA trusted and skips sudo.
+# Root created the CA files, so the agent gets them back: kore reads the key to
+# build the cluster's CA secret, and the key never leaves this VM.
+- name: Create the agent's mkcert CA directory
+  ansible.builtin.file:
+    path: "/home/{{ agents_user }}/.local/share/mkcert"
+    state: directory
+    owner: "{{ agents_user }}"
+    group: "{{ agents_user }}"
+    mode: "0700"
+
+- name: Create the agent's local CA and trust it in the system store
+  ansible.builtin.command:
+    argv:
+      - "/home/{{ agents_user }}/.local/share/mise/installs/mkcert/{{ agents_tools.mkcert }}/mkcert"
+      - -install
+  environment:
+    CAROOT: "/home/{{ agents_user }}/.local/share/mkcert"
+    TRUST_STORES: system
+  register: agents_mkcert_install
+  changed_when: "'now installed in the system trust store' in agents_mkcert_install.stderr"
+  when: not ansible_check_mode
+
+- name: Hand the agent's mkcert CA certificate to the agent
+  ansible.builtin.file:
+    path: "/home/{{ agents_user }}/.local/share/mkcert/rootCA.pem"
+    owner: "{{ agents_user }}"
+    group: "{{ agents_user }}"
+    mode: "0644"
+  when: not ansible_check_mode
+
+- name: Hand the agent's mkcert CA key to the agent
+  ansible.builtin.file:
+    path: "/home/{{ agents_user }}/.local/share/mkcert/rootCA-key.pem"
+    owner: "{{ agents_user }}"
+    group: "{{ agents_user }}"
+    mode: "0600"
+  when: not ansible_check_mode
+
 - name: Let the agent's user services run without a login
   ansible.builtin.command: loginctl enable-linger {{ agents_user }}
   args:
@@ -230,7 +272,8 @@
 # first entry clears any helper inherited from the system config.
 - name: Read the agent's git credential helpers
   ansible.builtin.command:
-    argv: [git, config, --global, --get-all, "credential.https://{{ item }}.helper"]
+    argv:
+      [git, config, --global, --get-all, "credential.https://{{ item }}.helper"]
   become: true
   become_user: "{{ agents_user }}"
   register: agents_git_helpers

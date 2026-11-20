@@ -16,6 +16,8 @@ agents_tools:
   # The native release binary through aqua, which checks its checksum.
   claude: "2.1.329"
   neovim: "0.12.6"
+  # The CA tool kore local up uses; the agent's mkcert is installed from this pin.
+  mkcert: "1.4.4"
 
 # moshi-hook connects the Moshi phone app to Claude Code. Pinned, checked
 # against the vendor's checksums.txt, and its self-update is turned off.
