@@ -34,10 +34,33 @@ export function readVerdict(text: string): string[] | undefined {
   if (end === null) {
     return undefined;
   }
-  const findings = rest
-    .slice(0, end.index)
-    .split("\n")
-    .map((line) => line.trim())
-    .filter((line) => line !== "");
+  const findings = joinWrapped(
+    rest
+      .slice(0, end.index)
+      .split("\n")
+      .map((line) => line.trim())
+      .filter((line) => line !== ""),
+  );
   return findings.length === 0 ? undefined : findings;
+}
+
+/** A finding has four fields, `file:line | rule | what is wrong | smallest fix`, so three separators. */
+const FIELDS = 4;
+
+/**
+ * Rejoins the rows a narrow pane cut from one finding: a row continues the finding before it
+ * while that finding still lacks a field, so a cut inside a word, a path or a field comes back
+ * as it was written. A finding with fewer fields than that takes the next row too.
+ */
+function joinWrapped(rows: string[]): string[] {
+  const findings: string[] = [];
+  for (const row of rows) {
+    const last = findings.at(-1);
+    if (last !== undefined && last.split("|").length < FIELDS) {
+      findings[findings.length - 1] = last + row;
+    } else {
+      findings.push(row);
+    }
+  }
+  return findings;
 }
