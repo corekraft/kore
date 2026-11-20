@@ -173,6 +173,7 @@ const entryPoints = [
   "registryHostname",
   "registryPlan",
   "registryPruneFlag",
+  "registryTailnetForwardFlag",
   "releaseOwner",
   "renderedCrdNames",
   "rollbackConstraint",

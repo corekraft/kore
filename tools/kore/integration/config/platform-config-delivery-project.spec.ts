@@ -89,3 +89,20 @@ test("the AppProject whitelists exactly the cluster-scoped kinds the argocd-owne
     [...rendered].sort(),
   );
 }, 120_000);
+
+test("the AppProject admits the CA's ClusterIssuer kind and the cert-manager namespace only with in-cluster-ca on", async () => {
+  for (const on of [true, false]) {
+    const repository = await withFlags(true);
+    const flagged: typeof repository = {
+      ...repository,
+      environment: {
+        ...repository.environment,
+        features: { ...repository.environment.features, "in-cluster-ca": on },
+      },
+    };
+    const { docs } = await renderDelivery(flagged);
+    const { clusterKinds, destinations } = admitted(appProject(docs));
+    assert.equal(clusterKinds.includes("cert-manager.io/ClusterIssuer"), on);
+    assert.equal(destinations.includes("cert-manager"), on);
+  }
+}, 120_000);

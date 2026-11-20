@@ -38,6 +38,10 @@
       "description": "Only while database-routes is on, kore passes true, and the PostgreSQL API's Application takes it with the platform domain and organizationId as Helm parameters (ADR 0137). Absent, the Application carries none.",
       "type": "boolean"
     },
+    "inClusterCa": {
+      "description": "Only while in-cluster-ca is on, kore passes true, and the AppProject admits the cert-manager ClusterIssuer kind and the cert-manager namespace that kore-local-tls renders the CA into (ADR 0142). Absent, the project is unchanged.",
+      "type": "boolean"
+    },
     "organizationId": {
       "description": "The platform organization identifier, which kore passes only with databaseRoutes; the PostgreSQL API's derived host is <database>.<organizationId>.<platformDomain>.",
       "type": "string",

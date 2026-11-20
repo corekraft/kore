@@ -6,6 +6,7 @@ import {
   loadRegistryCa,
   loadRegistryCredential,
   localRegistryReference,
+  reachedThroughForward,
   withRegistryClient,
   type RegistryClient,
   type RegistryCredential,
@@ -48,6 +49,7 @@ beforeEach(() => {
   vi.mocked(isLocalProvider).mockReturnValue(true);
   vi.mocked(trustedSigners).mockReturnValue([localKey, releaseSigner]);
   vi.mocked(koreManagesRegistryAuth).mockReturnValue(false);
+  vi.mocked(reachedThroughForward).mockReturnValue(false);
   vi.mocked(localRegistryReference).mockImplementation(
     async (_repository, _runner, reference) => reference,
   );
@@ -216,4 +218,46 @@ test("a local verification loads only the read-only registry credential, never t
   expect(vi.mocked(loadRegistryCredential).mock.calls).toEqual([
     [expect.anything(), runner, "read"],
   ]);
+});
+
+test("a managed environment reached through the tailnet forward verifies over TLS with the read credential and the registry CA", async () => {
+  vi.mocked(isLocalProvider).mockReturnValue(false);
+  vi.mocked(koreManagesRegistryAuth).mockReturnValue(true);
+  vi.mocked(reachedThroughForward).mockReturnValue(true);
+  vi.mocked(loadRegistryCredential).mockResolvedValue(credential);
+  vi.mocked(loadRegistryCa).mockResolvedValue("CA-PEM");
+  vi.mocked(localRegistryReference).mockResolvedValue(
+    "127.0.0.1:30500/release/app@sha256:abc",
+  );
+  withFakeClient();
+  const { runner, run } = fakeRunner();
+
+  await verifyImage(
+    fakeRepository({ provider: "managed" }),
+    runner,
+    fakeImage(releaseSigner),
+  );
+
+  expect(loadRegistryCredential).toHaveBeenCalledWith(
+    expect.anything(),
+    runner,
+    "read",
+  );
+  expect(withRegistryClient).toHaveBeenCalledWith(
+    credential,
+    "CA-PEM",
+    expect.any(Function),
+  );
+  expect(run).toHaveBeenCalledWith(
+    "cosign",
+    verifyLockedImageArgs(
+      {
+        ...fakeImage(releaseSigner),
+        reference: "127.0.0.1:30500/release/app@sha256:abc",
+      },
+      undefined,
+      client.caFile,
+    ),
+    { capture: false, env: expect.objectContaining(client.env) },
+  );
 });

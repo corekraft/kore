@@ -181,6 +181,18 @@ test("the workload chart refuses an image reference that carries no digest", asy
   assert.match(message, /frontend\/image.*sha256/);
 });
 
+test("each workload's startupProbe allows a slow start up to five minutes on its own HTTP path and port, while liveness and readiness stay as they were", async () => {
+  const docs = await workload();
+  const deployment = (name: string) =>
+    docs.find((d) =>
+      d.includes(`kind: Deployment\nmetadata:\n  name: auth-${name}\n`),
+    )!;
+  const probes = (path: string) =>
+    `          startupProbe:\n            httpGet: { path: ${path}, port: http }\n            periodSeconds: 5\n            failureThreshold: 60\n          readinessProbe:\n            httpGet: { path: ${path}, port: http }\n          livenessProbe:\n            httpGet: { path: ${path}, port: http }`;
+  assert.ok(deployment("frontend").includes(probes("/healthz")));
+  assert.ok(deployment("bff").includes(probes("/actuator/health")));
+});
+
 test("the delivery chart is a gated catalog release installed after Argo CD and the Service API, and the workload chart is never a catalog release", async () => {
   const name = "kore-golden-path-delivery";
   const managed = await loadRepository("managed-example");

@@ -1,4 +1,4 @@
-{{- /* Probe paths: the frontend's /healthz (templates/static-frontend/nginx.conf) and the BFF's actuator health. Both listen on 8080. */}}
+{{- /* Probe paths: the frontend's /healthz (templates/static-frontend/nginx.conf) and the BFF's actuator health. Both listen on 8080. The startupProbe allows up to 5 minutes (periodSeconds 5 x failureThreshold 60) for a slow JVM start, so liveness cannot restart a container that has not yet started. */}}
 {{- range $name, $path := dict "frontend" "/healthz" "bff" "/actuator/health" }}
 {{- $workload := index $.Values $name }}
 ---
@@ -30,6 +30,10 @@ spec:
           ports:
             - name: http
               containerPort: 8080
+          startupProbe:
+            httpGet: { path: {{ $path }}, port: http }
+            periodSeconds: 5
+            failureThreshold: 60
           readinessProbe:
             httpGet: { path: {{ $path }}, port: http }
           livenessProbe:

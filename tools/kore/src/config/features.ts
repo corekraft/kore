@@ -79,6 +79,12 @@ export const platformHostnameOwnershipFlag = "platform-hostname-ownership";
 /** The flag that makes host-side digest lookup, cosign and pruning reach the registry by name through a passthrough route, not the port-forward (ADR 0132, issue 1219). */
 export const registryByNameFlag = "registry-by-name";
 
+/** The flag that makes cert-manager create the cluster's own root CA, so the CA key never leaves a managed cluster; k3d environments take theirs from kore trust install (ADR 0142). */
+export const inClusterCaFlag = "in-cluster-ca";
+
+/** The flag that lets the controller reach a managed cluster's in-cluster registry through a kubectl port-forward over its own context, across the tailnet (ADR 0143, issue 1404). */
+export const registryTailnetForwardFlag = "registry-tailnet-forward";
+
 /** The flag that gates the platform organization's portal: its Keycloak and, later, its Backstage (ADR 0113, plan 15 step 6). */
 export const platformPortalFlag = "platform-portal";
 

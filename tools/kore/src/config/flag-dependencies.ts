@@ -1,9 +1,11 @@
 import {
   featureEnabled,
+  inClusterCaFlag,
   otlpRouteFlag,
   platformSharedGatewayFlag,
   registryByNameFlag,
 } from "./features.js";
+import { isLocalProvider } from "./provider.js";
 import type { Environment } from "./types.js";
 
 // Docs: docs/decisions/0132-local-names-resolve-through-platform-dns-and-one-loopback-entry-point.md
@@ -21,7 +23,7 @@ const sharedGatewayReasons: Record<string, string> = {
  * Gateway, so each needs platform-shared-gateway (ADR 0132, ADR 0140).
  */
 export function flagDependencyErrors(environment: Environment): string[] {
-  return Object.keys(sharedGatewayReasons).flatMap((flag) =>
+  const sharedGateway = Object.keys(sharedGatewayReasons).flatMap((flag) =>
     featureEnabled(environment, flag) &&
     !featureEnabled(environment, platformSharedGatewayFlag)
       ? [
@@ -29,4 +31,11 @@ export function flagDependencyErrors(environment: Environment): string[] {
         ]
       : [],
   );
+  const twoCaOwners =
+    featureEnabled(environment, inClusterCaFlag) && isLocalProvider(environment)
+      ? [
+          `environment ${environment.name} turns on ${inClusterCaFlag}, which creates the cluster's own root CA, but a k3d environment's CA comes from kore trust install and the two would own one ClusterIssuer; turn ${inClusterCaFlag} off in the ${environment.name} environment overlay`,
+        ]
+      : [];
+  return [...sharedGateway, ...twoCaOwners];
 }
