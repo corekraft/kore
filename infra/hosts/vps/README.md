@@ -62,11 +62,12 @@ kubeconfig to `~/.kube/kore-vps.yaml` on your machine with the context
 
 k3s pulls from the in-cluster registry (`registry.address` in
 `infra/environments/vps/environment.yaml`) over TLS, so its containerd needs
-the registry's public CA. The role manages this only when the CA file exists on
-your machine; without it a run changes nothing here. After
+the registry's public CA. The role manages this only while the `k3s-registry-trust`
+flag is on in `infra/environments/vps/environment.yaml` (off until a live run
+and `harness flag activate`); with it off a run changes nothing here. After
 `kore platform up --environment vps` has installed the registry, from your
 machine (only the public `ca.crt`, never a key; the file stays outside the
-repository):
+repository; with the flag on and no file the run stops and says so):
 
 ```sh
 kubectl --context kore-vps -n cosign-system get configmap kore-registry-ca \

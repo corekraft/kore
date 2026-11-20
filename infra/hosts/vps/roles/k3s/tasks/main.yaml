@@ -61,6 +61,18 @@
   register: k3s_registry_ca_stat
   delegate_to: localhost
   become: false
+  when: k3s_registry_trust | bool
+
+- name: Require the registry's public CA on the controller
+  ansible.builtin.assert:
+    that: k3s_registry_ca_stat.stat.exists
+    fail_msg: >-
+      k3s-registry-trust is on but {{ k3s_registry_ca_source }} does not exist.
+      After kore platform up has installed the registry, export its public CA
+      on this machine: kubectl --context kore-vps -n cosign-system get
+      configmap kore-registry-ca -o jsonpath='{.data.ca\.crt}' >
+      {{ k3s_registry_ca_source }}
+  when: k3s_registry_trust | bool
 
 - name: Read the registry's public CA
   ansible.builtin.slurp:
@@ -69,7 +81,7 @@
   delegate_to: localhost
   become: false
   check_mode: false
-  when: k3s_registry_ca_stat.stat.exists
+  when: k3s_registry_trust | bool
 
 - name: Refuse a registry CA file that is not a bare certificate
   ansible.builtin.assert:
@@ -82,7 +94,7 @@
       cosign-system/kore-registry-ca ConfigMap.
   vars:
     k3s_registry_ca_pem: "{{ k3s_registry_ca_slurp.content | b64decode }}"
-  when: k3s_registry_ca_stat.stat.exists
+  when: k3s_registry_trust | bool
 
 - name: Install the registry's public CA on the node
   ansible.builtin.copy:
@@ -92,7 +104,7 @@
     group: root
     mode: "0644"
   notify: Restart k3s
-  when: k3s_registry_ca_stat.stat.exists
+  when: k3s_registry_trust | bool
 
 - name: Trust the registry's CA in k3s
   ansible.builtin.template:
@@ -102,7 +114,7 @@
     group: root
     mode: "0600"
   notify: Restart k3s
-  when: k3s_registry_ca_stat.stat.exists
+  when: k3s_registry_trust | bool
 
 - name: Create the k3s service drop-in directory
   ansible.builtin.file:

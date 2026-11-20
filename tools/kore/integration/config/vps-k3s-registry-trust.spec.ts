@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { test } from "vitest";
-import { findRoot } from "../../src/config/index.js";
+import { findRoot, loadRepository } from "../../src/config/index.js";
 
 // Docs: docs/decisions/0142-the-vps-environment-targets-the-persistent-k3s-node-as-a-managed-cluster.md
 
@@ -27,11 +27,19 @@ test("the k3s registries file trusts the registry's CA by file and names no mirr
   );
 });
 
-test("the registry address comes from the vps environment overlay, so the role holds no second copy of it", async () => {
+test("the registry address and the k3s-registry-trust flag come from the vps environment overlay, so the role holds no second copy of either", async () => {
   const defaults = await readRole("defaults/main.yaml");
   assert.match(
     defaults,
-    /^k3s_registry_address: "\{\{ \(lookup\('ansible\.builtin\.file', playbook_dir ~ '\/\.\.\/\.\.\/environments\/vps\/environment\.yaml'\) \| from_yaml\)\.registry\.address \}\}"$/m,
+    /^k3s_vps_environment: "\{\{ lookup\('ansible\.builtin\.file', playbook_dir ~ '\/\.\.\/\.\.\/environments\/vps\/environment\.yaml'\) \| from_yaml \}\}"$/m,
+  );
+  assert.match(
+    defaults,
+    /^k3s_registry_address: "\{\{ k3s_vps_environment\.registry\.address \}\}"$/m,
+  );
+  assert.match(
+    defaults,
+    /^k3s_registry_trust: "\{\{ k3s_vps_environment\.features\['k3s-registry-trust'\] \| default\(false\) \}\}"$/m,
   );
   for (const path of [
     "defaults/main.yaml",
@@ -42,18 +50,23 @@ test("the registry address comes from the vps environment overlay, so the role h
   }
 });
 
-test("the registry trust is a no-op until the public CA file exists on the controller, and the file is never inside the repository", async () => {
+test("k3s-registry-trust is listed and off in every overlay until a live run on kore-vps and harness flag activate turn it on", async () => {
+  for (const name of ["local", "managed-example", "vps"]) {
+    const { environment } = await loadRepository(name);
+    assert.equal(environment.features?.["k3s-registry-trust"], false, name);
+  }
+});
+
+test("the registry trust is skipped unless the flag is on, and with it on a missing CA file stops the run naming the export command", async () => {
   const defaults = await readRole("defaults/main.yaml");
   assert.match(
     defaults,
     /^k3s_registry_ca_source: ~\/\.kube\/kore-vps-registry-ca\.crt$/m,
   );
   const tasks = await readRole("tasks/main.yaml");
-  assert.match(
-    tasks,
-    /- name: Look for the registry's public CA on the controller\n  ansible\.builtin\.stat:\n    path: "\{\{ k3s_registry_ca_source \}\}"\n  register: k3s_registry_ca_stat\n  delegate_to: localhost\n  become: false\n/,
-  );
   for (const task of [
+    "Look for the registry's public CA on the controller",
+    "Require the registry's public CA on the controller",
     "Read the registry's public CA",
     "Refuse a registry CA file that is not a bare certificate",
     "Install the registry's public CA on the node",
@@ -61,8 +74,17 @@ test("the registry trust is a no-op until the public CA file exists on the contr
   ]) {
     const block = tasks.split(`- name: ${task}\n`)[1]?.split("\n- name:")[0];
     assert.ok(block, task);
-    assert.match(block, /when: k3s_registry_ca_stat\.stat\.exists/, task);
+    assert.match(block, /when: k3s_registry_trust \| bool/, task);
   }
+  const require = tasks
+    .split("- name: Require the registry's public CA on the controller\n")[1]
+    ?.split("\n- name:")[0];
+  assert.ok(require);
+  assert.match(require, /that: k3s_registry_ca_stat\.stat\.exists/);
+  assert.match(
+    require,
+    /kubectl --context kore-vps -n cosign-system get\s+configmap kore-registry-ca/,
+  );
 });
 
 test("a registry CA file holding a private key or no certificate is refused before anything is written to the node", async () => {

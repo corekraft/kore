@@ -42,6 +42,7 @@
       "registry-by-name": false,
       "otlp-route": false,
       "in-cluster-ca": false,
+      "k3s-registry-trust": false,
       "platform-hostname-ownership": false,
       "platform-portal": false,
       "automatic-retro": false,
