@@ -26,7 +26,7 @@ which has Docker and no sudo.
 
 Once, after the first `mise run vps-apply` stops at the VM's sign-in check:
 
-1. `ssh -J debian@kore-vps debian@10.77.0.10 sudo tailscale up --ssh --hostname=kore-agents`
+1. `ssh debian@kore-vps sudo incus exec kore-agents -- tailscale up --ssh --hostname=kore-agents`
    and approve the link, then `mise run vps-apply` again.
 
 Then as `agent` (`ssh agent@kore-agents`); none of these secrets enter the
