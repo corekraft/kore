@@ -1,6 +1,6 @@
 import type { Repository } from "../config/index.js";
 import { beforeEach, expect, test, vi } from "vitest";
-import type { Runner } from "../runtime/index.js";
+import { CommandError, type Runner } from "../runtime/index.js";
 import {
   argocdApplicationsCheck,
   waitForApplications,
@@ -258,3 +258,79 @@ test.each([
     );
   },
 );
+
+function fullStdoutBuffer(): CommandError {
+  return new CommandError(
+    "kubectl",
+    [...BASE, "get", RESOURCE, "--output", "json"],
+    {
+      stdout: "",
+      stderr: "error: write /dev/stdout: no buffer space available",
+      code: 1,
+    },
+  );
+}
+
+const healthyList = {
+  stdout: list({ name: "opa-authorizer", sync: "Synced", health: "Healthy" }),
+  stderr: "",
+  code: 0,
+};
+
+test("a read that hits a full kubectl stdout buffer once is read again, and the retry is judged as the answer (#1380)", async () => {
+  const run = vi
+    .fn()
+    .mockRejectedValueOnce(fullStdoutBuffer())
+    .mockResolvedValueOnce(healthyList);
+  const runner = { run } as unknown as Runner;
+
+  await expect(
+    argocdApplicationsCheck({ repository, runner, base: BASE }, RESOURCE)?.run(
+      "3s",
+    ),
+  ).resolves.toBeUndefined();
+  expect(run).toHaveBeenCalledTimes(2);
+  expect(run).toHaveBeenLastCalledWith(
+    "kubectl",
+    [...BASE, "get", RESOURCE, "--output", "json"],
+    { capture: true },
+  );
+});
+
+test("a read that keeps hitting the full stdout buffer fails after three reads, naming the command and the cause (#1380)", async () => {
+  const run = vi.fn().mockRejectedValue(fullStdoutBuffer());
+  const runner = { run } as unknown as Runner;
+
+  await expect(
+    argocdApplicationsCheck({ repository, runner, base: BASE }, RESOURCE)?.run(
+      "3s",
+    ),
+  ).rejects.toThrow(
+    new Error(
+      "kubectl --context kore-local --namespace argocd get applications.argoproj.io --output json failed (1): error: write /dev/stdout: no buffer space available; 3 reads failed the same way, so Application health is unknown; run kubectl --context k3d-kore-local -n argocd get applications.argoproj.io",
+    ),
+  );
+  expect(run).toHaveBeenCalledTimes(3);
+});
+
+test("any other failure reading the Applications is rethrown at once, never read again (#1380)", async () => {
+  const forbidden = new CommandError(
+    "kubectl",
+    [...BASE, "get", RESOURCE, "--output", "json"],
+    {
+      stdout: "",
+      stderr:
+        'applications.argoproj.io is forbidden: User "kore" cannot list resource',
+      code: 1,
+    },
+  );
+  const run = vi.fn().mockRejectedValue(forbidden);
+  const runner = { run } as unknown as Runner;
+
+  await expect(
+    argocdApplicationsCheck({ repository, runner, base: BASE }, RESOURCE)?.run(
+      "3s",
+    ),
+  ).rejects.toBe(forbidden);
+  expect(run).toHaveBeenCalledTimes(1);
+});

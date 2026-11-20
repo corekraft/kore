@@ -66,19 +66,53 @@ function applicationItems(stdout: string): Application[] | undefined {
 }
 
 /**
+ * kubectl could not write its answer to stdout while the host was under memory
+ * pressure (#1380). The same read succeeds on a later try, so it is retried.
+ */
+const STDOUT_BUFFER_FULL = /write \/dev\/stdout: no buffer space available/;
+
+/** Reads after the first one, made only while the stdout error repeats. */
+const RETRY_READS = 2;
+
+/**
+ * Reads the Application list as JSON. A full stdout buffer is read again up to
+ * RETRY_READS times; any other failure is rethrown at once, and a buffer error
+ * that outlasts the retries names the command and the cause.
+ */
+async function readApplications(
+  { repository, runner, base }: ArgocdContext,
+  resource: string,
+): Promise<string> {
+  const args = [...base, "get", resource, "--output", "json"];
+  let reads = 0;
+  while (true) {
+    reads += 1;
+    try {
+      return (await runner.run("kubectl", args, { capture: true })).stdout;
+    } catch (error) {
+      if (!(error instanceof Error && STDOUT_BUFFER_FULL.test(error.message))) {
+        throw error;
+      }
+      if (reads > RETRY_READS) {
+        const { kubeContext } = repository.environment;
+        throw new Error(
+          `${error.message}; ${reads} reads failed the same way, so Application health is unknown; run ${kubectlArgocd(kubeContext)} get ${resource}`,
+        );
+      }
+    }
+  }
+}
+
+/**
  * Every Application that exists must be Synced and Healthy. An unreadable
  * Application list is an error, never a pass, so the gate stays closed.
  */
 async function applicationsProblem(
-  { repository, runner, base }: ArgocdContext,
+  context: ArgocdContext,
   resource: string,
 ): Promise<string | undefined> {
-  const result = await runner.run(
-    "kubectl",
-    [...base, "get", resource, "--output", "json"],
-    { capture: true },
-  );
-  const items = applicationItems(result.stdout);
+  const { repository } = context;
+  const items = applicationItems(await readApplications(context, resource));
   if (items === undefined) {
     const { kubeContext } = repository.environment;
     return `kubectl get ${resource} returned output that is not a JSON Application list, so Application health is unknown; run ${kubectlArgocd(kubeContext)} get ${resource}`;
