@@ -1,5 +1,24 @@
 # Changelog
 
+## [0.15.0](https://github.com/corekraft/kore/compare/v0.14.0...v0.15.0) (2026-11-20)
+
+
+### Features
+
+* **infra:** publish signed configuration charts from main for local proofs ([#1407](https://github.com/corekraft/kore/issues/1407)) ([2f3534a](https://github.com/corekraft/kore/commit/2f3534a7bf402e3a847e5e9597fc59a4986266bc)), closes [#1371](https://github.com/corekraft/kore/issues/1371)
+* **infra:** sign in from an auth key and pin gh's credential helper to the shim ([#1402](https://github.com/corekraft/kore/issues/1402)) ([05df623](https://github.com/corekraft/kore/commit/05df62388e559775ee5385e69b76685d6ce514dd))
+* **platform:** fetch the main chart lock for a commit with kore local ([#1408](https://github.com/corekraft/kore/issues/1408)) ([0f2807b](https://github.com/corekraft/kore/commit/0f2807b698debd08d7c247dba8764e6ef9c61388))
+
+
+### Bug fixes
+
+* **local:** name the fix in the lock-check drift verdict ([#1405](https://github.com/corekraft/kore/issues/1405)) ([09f5688](https://github.com/corekraft/kore/commit/09f56887e8929d8b80330e7acfb76e72cb87ac17))
+
+
+### Documentation
+
+* **platform:** record the flag-matrix revert evidence for [#1355](https://github.com/corekraft/kore/issues/1355) ([#1406](https://github.com/corekraft/kore/issues/1406)) ([356968c](https://github.com/corekraft/kore/commit/356968c0b66b489a9471b7f1802e5db6665a5b6d))
+
 ## [0.14.0](https://github.com/corekraft/kore/compare/v0.13.0...v0.14.0) (2026-11-20)
 
 

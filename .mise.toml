@@ -103,6 +103,7 @@ description = "Validate catalogs, environments, and release ordering for every e
 run = [
   "npm --prefix tools/kore run kore -- validate --environment local",
   "npm --prefix tools/kore run kore -- validate --environment managed-example",
+  "npm --prefix tools/kore run kore -- validate --environment vps",
 ]
 
 [tasks.validate-tofu]

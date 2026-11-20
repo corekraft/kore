@@ -1,0 +1,4 @@
+{
+  "tempo":
+    { "registry": "ghcr.io", "repository": "corekraft/kore/mirror/tempo" }
+}
