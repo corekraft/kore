@@ -46,6 +46,8 @@ const artifact = (overrides: Record<string, unknown> = {}) => ({
 const listing = (...artifacts: unknown[]) =>
   JSON.stringify({ total_count: artifacts.length, artifacts });
 
+/** The program a failed rev-parse names; a constant, since the spec only builds the error. */
+const revParse = "git";
 const head = `git rev-parse --verify --quiet HEAD^{commit}`;
 const list = `gh api repos/{owner}/{repo}/actions/artifacts?name=${artifactName}`;
 const download = `gh run download ${runId} --name ${artifactName} --dir ${scratch}`;
@@ -186,7 +188,7 @@ test("gh not signed in fails naming the fix, before the artifact is listed", asy
 test("a --commit that is not a commit in this checkout fails naming the ref, and lists nothing", async () => {
   const { runner, run } = scripted({
     ["git rev-parse --verify --quiet nope^{commit}"]: new CommandError(
-      "git",
+      revParse,
       ["rev-parse", "--verify", "--quiet", "nope^{commit}"],
       { stdout: "", stderr: "", code: 1 },
     ),
