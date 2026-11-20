@@ -40,11 +40,29 @@ export function healthyGatewayOutput(
     : undefined;
 }
 
+/** An HTTPRoute the controller has accepted, with its parent's Accepted and ResolvedRefs true. */
+export function healthyRouteOutput(
+  args: readonly string[],
+): string | undefined {
+  if (!args.some((arg) => arg.startsWith("httproute/"))) {
+    return undefined;
+  }
+  const condition = (type: string) => ({ type, status: "True" });
+  return JSON.stringify({
+    status: {
+      parents: [
+        { conditions: [condition("Accepted"), condition("ResolvedRefs")] },
+      ],
+    },
+  });
+}
+
 /** What a healthy cluster answers to any read-only readiness check, if args are one. */
 export function healthyClusterOutput(args: readonly string[]): string {
   return (
     healthyApplicationOutput(args) ??
     healthyGatewayOutput(args) ??
+    healthyRouteOutput(args) ??
     healthyDaemonSetOutput(args) ??
     healthyWebhookOutput(args) ??
     "ready"

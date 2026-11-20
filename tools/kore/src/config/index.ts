@@ -45,6 +45,8 @@ export type {
 } from "./policy-promotion.js";
 export {
   localCaConfigMap,
+  otlpByName,
+  otlpHostname,
   platformHelmArgs,
   platformPlan,
 } from "./platform-domain.js";

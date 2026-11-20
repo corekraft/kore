@@ -8,6 +8,7 @@ import { featureEnabled } from "./features.js";
 import { findRoot, loadRepository } from "./config.js";
 import { isLocalProvider } from "./provider.js";
 import { managedCluster } from "./managed-cluster.js";
+import { otlpByName, otlpHostname } from "./platform-domain.js";
 import { patchableKinds } from "./patch-validation.js";
 import { registryPlan } from "./registry-address.js";
 import { trustedSigners } from "./image-trust.js";
@@ -149,6 +150,8 @@ const entryPoints = [
   "noMatchPolicy",
   "orderedComponents",
   "organizationServiceApisFlag",
+  "otlpByName",
+  "otlpHostname",
   "patchableKinds",
   "platformArgocdDeliveryFlag",
   "platformClaimErrors",
@@ -194,6 +197,8 @@ test("each entry point is the function its own unit defines, not a copy", () => 
   expect(config.evaluateAudit).toBe(evaluateAudit);
   expect(config.registryPlan).toBe(registryPlan);
   expect(config.patchableKinds).toBe(patchableKinds);
+  expect(config.otlpByName).toBe(otlpByName);
+  expect(config.otlpHostname).toBe(otlpHostname);
   expect(config.approvedImageList).toBe(approvedImageList);
   expect(config.featureEnabled).toBe(featureEnabled);
   expect(config.managedCluster).toBe(managedCluster);

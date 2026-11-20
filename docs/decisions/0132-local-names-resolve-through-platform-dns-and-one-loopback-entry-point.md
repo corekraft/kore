@@ -15,6 +15,8 @@ Refines: [ADR 0013](0013-local-tls-before-gateway.md),
 and [ADR 0085](0085-k3d-gateway-answers-through-a-node-port.md).
 
 > Refined by [ADR 0136](0136-the-shared-gateway-serves-database-routes-on-a-loopback-5432-passthrough-listener-behind-database-routes.md): the 5432 passthrough listener, its Service port and its loopback mapping are rendered behind `database-routes`, with a per-environment opt-out.
+>
+> Refined by [ADR 0140](0140-otlp-is-routed-by-name-to-the-standard-collector-receiver-behind-otlp-route.md): the OTLP name is an HTTPS route to the standard receiver on 4318 behind `otlp-route`, and its exposure is recorded there.
 
 ## Context
 

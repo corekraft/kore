@@ -6,6 +6,7 @@ import { flagDependencyErrors } from "./flag-dependencies.js";
 
 vi.mock("./features.js", () => ({
   featureEnabled: vi.fn(),
+  otlpRouteFlag: "otlp-route",
   registryByNameFlag: "registry-by-name",
   platformSharedGatewayFlag: "platform-shared-gateway",
 }));
@@ -32,6 +33,25 @@ test("registry-by-name on with platform-shared-gateway off is refused, naming bo
 
 test("registry-by-name on with platform-shared-gateway on has no error", () => {
   flagsOn("registry-by-name", "platform-shared-gateway");
+  expect(flagDependencyErrors(environment)).toEqual([]);
+});
+
+test("otlp-route on with platform-shared-gateway off is refused, naming both flags and the fix", () => {
+  flagsOn("otlp-route");
+  expect(flagDependencyErrors(environment)).toEqual([
+    'environment local turns on otlp-route, which needs platform-shared-gateway: its route is served only through the shared Gateway; set "platform-shared-gateway": true in the local environment overlay, or turn otlp-route off',
+  ]);
+});
+
+test("otlp-route on with platform-shared-gateway on has no error", () => {
+  flagsOn("otlp-route", "platform-shared-gateway");
+  expect(flagDependencyErrors(environment)).toEqual([]);
+});
+
+test("otlp-route off needs nothing, whether or not the shared Gateway is on", () => {
+  flagsOn();
+  expect(flagDependencyErrors(environment)).toEqual([]);
+  flagsOn("platform-shared-gateway");
   expect(flagDependencyErrors(environment)).toEqual([]);
 });
 

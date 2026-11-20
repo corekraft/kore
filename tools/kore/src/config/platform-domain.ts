@@ -2,6 +2,7 @@ import {
   databaseRoutesFlag,
   featureEnabled,
   platformDnsFlag,
+  otlpRouteFlag,
   platformHostnameOwnershipFlag,
   platformSharedGatewayFlag,
 } from "./features.js";
@@ -80,6 +81,40 @@ export function platformDomainErrors(environment: Environment): string[] {
 export function platformWildcard(environment: Environment): string {
   const { domain, organizationId } = platformPlan(environment);
   return `*.${organizationId}.${domain}`;
+}
+
+/**
+ * The OTLP receiver's name under the platform organization,
+ * `otlp.<organizationId>.<domain>` (ADR 0140): the one derivation that the OTLP
+ * route's chart and the live telemetry test both take from here.
+ */
+export function otlpHostname(environment: Environment): string {
+  const { domain, organizationId } = platformPlan(environment);
+  return `otlp.${organizationId}.${domain}`;
+}
+
+/** Whether OTLP is reached by its name through the shared Gateway (ADR 0140). */
+export function otlpByName(environment: Environment): boolean {
+  return featureEnabled(environment, otlpRouteFlag);
+}
+
+/**
+ * With otlp-route on, the values the OTLP route chart takes for its name and the
+ * shared Gateway its HTTPS route attaches to (ADR 0140). Off, none is passed, so
+ * the flag off renders what it rendered before.
+ */
+function otlpRouteArgs(environment: Environment, component: string): string[] {
+  if (component !== "kore-otlp-route" || !otlpByName(environment)) {
+    return [];
+  }
+  return [
+    "--set-string",
+    `otlpRoute.hostname=${otlpHostname(environment)}`,
+    "--set-string",
+    `otlpRoute.gateway.name=${environment.gateway.name}`,
+    "--set-string",
+    `otlpRoute.gateway.namespace=${environment.gateway.namespace}`,
+  ];
 }
 
 /** The chart value each component that names the platform domain reads it through. */
@@ -233,6 +268,7 @@ export function platformHelmArgs(
     ...sharedGatewayArgs(environment, component),
     ...clusterResolutionArgs(environment, component),
     ...databaseRoutesArgs(environment, component),
+    ...otlpRouteArgs(environment, component),
   ];
   if (key === undefined && wildcard === undefined) {
     return shared;

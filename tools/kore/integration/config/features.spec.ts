@@ -118,6 +118,7 @@ test("the managed-example overlay validates with and without flags", async () =>
         "gateway-class-change-release": false,
         "gateway-rollback-order": false,
         "ingress-agentgateway": false,
+        "otlp-route": false,
         "platform-argocd-delivery": false,
         "platform-dns": false,
         "platform-hostname-ownership": false,

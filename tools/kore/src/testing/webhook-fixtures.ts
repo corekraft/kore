@@ -37,6 +37,7 @@ const gatedOffReleases = [
   "kore-policy-sync",
   "kore-hostname-ownership-templates",
   "kore-hostname-ownership",
+  "kore-otlp-route",
 ];
 
 /**

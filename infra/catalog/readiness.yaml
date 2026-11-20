@@ -177,6 +177,12 @@
             "otel-collector",
             "otel-agent"
           ]
+      },
+      {
+        "name": "otlp-route",
+        "step": 11,
+        "capability": "endpoint",
+        "components": ["kore-otlp-route"]
       }
     ]
 }
