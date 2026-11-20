@@ -10,6 +10,17 @@ hypothesis-metric: metrics.sessionsPerIdea
 hypothesis-direction: down
 hypothesis-window: 1d
 issue: https://github.com/corekraft/kore/issues/1258
+outcome: inconclusive
 ---
 
 # Idea 0042: Proof for 225: a deliberately wrong claim about sessions per idea
+
+## Outcome
+
+- Result: inconclusive
+- Kind: experiment
+- Source: comparison
+- Evidence: ledger flow metric metrics.sessionsPerIdea: 1d before 2026-11-18T15:40:14.000Z against the 1d after
+- Recorded: 2026-11-20
+
+metrics.sessionsPerIdea went from 0 to 0 (expected down, noise threshold 10%): insufficient history.
