@@ -24,11 +24,15 @@ test("the Kotlin BFF template pins its Gradle plugins to exact versions", async 
   assert.doesNotMatch(script, /version "[^"]*[+[(]|latest/);
 });
 
-test("Jib builds the BFF on the GraalVM JDK base pinned by tag and digest", async () => {
+test("Jib builds the BFF on the x86-64-v2 GraalVM JDK base (25.0.2 on OL9) pinned by tag and digest", async () => {
   const script = await read(build);
   assert.match(
     script,
-    /val graalvmBase =\s*"ghcr\.io\/graalvm\/jdk-community:25\.0\.2@sha256:a3bdba6a313cddc89f7e1b2649140e898c68ba356994a9c317b96b01bcb9f982"/,
+    /val graalvmBase =\s*"ghcr\.io\/graalvm\/jdk-community:25\.0\.2-ol9@sha256:3a9d4b5ef050893a6bfd683ecff0b0de3da3b89d40fda513c9acf9932dec0d9d"/,
+  );
+  assert.doesNotMatch(
+    script,
+    /a3bdba6a313cddc89f7e1b2649140e898c68ba356994a9c317b96b01bcb9f982/,
   );
   assert.match(script, /image = graalvmBase/);
 });
@@ -57,7 +61,10 @@ test("the container always starts the JVM with the agent and the build-time AOT 
 test("the AOT cache comes from a training run with the same agent that stops after the Spring context refreshes and holds no secret", async () => {
   const script = await read(build);
   assert.match(script, /-XX:AOTCacheOutput=/);
-  assert.match(script, /"-Dotel\.javaagent\.enabled=false",\s*"-XX:AOTCacheOutput=/);
+  assert.match(
+    script,
+    /"-Dotel\.javaagent\.enabled=false",\s*"-XX:AOTCacheOutput=/,
+  );
   assert.match(script, /-Dspring\.context\.exit=onRefresh/);
   assert.match(script, /extraDirectories/);
   assert.doesNotMatch(script, /password|secret|token/i);

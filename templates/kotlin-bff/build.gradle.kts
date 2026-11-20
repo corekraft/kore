@@ -24,8 +24,12 @@ dependencies {
     implementation("org.jetbrains.kotlin:kotlin-reflect")
 }
 
+// The 25.0.2 base on Oracle Linux 9 (ADR 0144). The default 25.0.2 image is built
+// for x86-64-v3 and stops with "CPU does not support x86-64-v3" on a v2 host; the
+// OL9 variant starts on both. aotTraining runs this base, so the cache is retrained
+// on every build with it, in CI.
 val graalvmBase =
-    "ghcr.io/graalvm/jdk-community:25.0.2@sha256:a3bdba6a313cddc89f7e1b2649140e898c68ba356994a9c317b96b01bcb9f982"
+    "ghcr.io/graalvm/jdk-community:25.0.2-ol9@sha256:3a9d4b5ef050893a6bfd683ecff0b0de3da3b89d40fda513c9acf9932dec0d9d"
 val otelAgentVersion = "2.33.1"
 val otelAgentSha256 =
     "e43a270df53c6f423e0ab157be9c27ccc01d5dc3232e162fe54777573db2f149"
