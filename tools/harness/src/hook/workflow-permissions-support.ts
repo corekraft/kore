@@ -36,6 +36,34 @@ jobs:
       - run: echo hi
 `;
 
+/** A release.yaml with the tag-gated release job and one more job named `name`, holding id-token and packages write. `ifLine` is that job's `if:` line verbatim (null for none), indented under the job name. */
+export const signerJob = (name: string, ifLine: string | null) => `name: release
+on:
+  push:
+    tags: ["v[0-9]+.[0-9]+.[0-9]+"]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  release:
+    if: github.ref_type == 'tag'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+      id-token: write
+    steps:
+      - run: echo sign
+  ${name}:
+${ifLine === null ? "" : `    ${ifLine}\n`}    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+      packages: write
+    steps:
+      - run: echo sign
+`;
+
 /** A workflow with one read-only job, so a file that is only checked, not signed. */
 export const readonly = (name: string) => ({
   [name]: `name: x
@@ -144,7 +172,7 @@ jobs:
 export const TOP_BAD =
   "nightly.yml: top-level permissions must be present and read-only; add `permissions: {}` or `contents: read`";
 export const SIGNERS =
-  "only the release, mirror and charts jobs of release.yaml may sign or push, so drop it";
+  "only the release, mirror, charts and charts-main jobs of release.yaml may sign or push, so drop it";
 export const WANT = "issues: write, actions: read, contents: read";
 /** The problem for a failure-issue job that does not request exactly its scopes. */
 export const notExact = (got: string) =>
