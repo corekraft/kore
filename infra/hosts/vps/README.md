@@ -36,6 +36,7 @@ the repository:
 
 1. `gh auth login` with a fine-grained token limited to `corekraft/kore`.
 2. `claude` and sign in.
-3. Moshi: `moshi-hook host setup` and scan the QR in the app (it is a temporary
-   access token), `moshi-hook service install`, then `moshi-hook install` to add
-   its Claude Code hooks. Pick herdr as the multiplexer in the app.
+3. Moshi: `ssh -t agent@kore-agents moshi-hook host setup` and scan the QR in
+   the app (it is a temporary access token). The playbook already runs the
+   moshi-hook daemon and adds its Claude Code hooks; `moshi-hook doctor` should
+   show every feature ready.

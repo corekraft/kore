@@ -20,6 +20,7 @@
     state: started
 
 - name: Create the agent account without sudo
+  register: agents_account
   ansible.builtin.user:
     name: "{{ agents_user }}"
     shell: /bin/bash
@@ -138,4 +139,66 @@
   become: true
   become_user: "{{ agents_user }}"
   when: "(agents_moshi_auto_update.stdout_lines | first | trim) != 'auto-update: off'"
+  changed_when: true
+
+- name: Create the moshi-hook service drop-in directory
+  ansible.builtin.file:
+    path: "/home/{{ agents_user }}/.config/systemd/user/moshi-hook.service.d"
+    state: directory
+    owner: "{{ agents_user }}"
+    group: "{{ agents_user }}"
+    mode: "0755"
+
+- name: Give the moshi-hook daemon the agent's tools
+  ansible.builtin.template:
+    src: moshi-hook-path.conf.j2
+    dest: "/home/{{ agents_user }}/.config/systemd/user/moshi-hook.service.d/10-kore-path.conf"
+    owner: "{{ agents_user }}"
+    group: "{{ agents_user }}"
+    mode: "0644"
+  register: agents_moshi_dropin
+
+- name: Install the moshi-hook user service
+  ansible.builtin.command: /usr/local/bin/moshi-hook service install
+  become: true
+  become_user: "{{ agents_user }}"
+  environment:
+    XDG_RUNTIME_DIR: "/run/user/{{ agents_account.uid }}"
+  args:
+    creates: "/home/{{ agents_user }}/.config/systemd/user/moshi-hook.service"
+
+- name: Run the moshi-hook daemon with its current settings
+  ansible.builtin.systemd_service:
+    name: moshi-hook.service
+    scope: user
+    enabled: true
+    state: "{{ 'restarted' if agents_moshi_dropin.changed else 'started' }}"
+    daemon_reload: "{{ agents_moshi_dropin.changed }}"
+  become: true
+  become_user: "{{ agents_user }}"
+  environment:
+    XDG_RUNTIME_DIR: "/run/user/{{ agents_account.uid }}"
+  when: not ansible_check_mode
+
+- name: Create the agent's Claude Code directory
+  ansible.builtin.file:
+    path: "/home/{{ agents_user }}/.claude"
+    state: directory
+    owner: "{{ agents_user }}"
+    group: "{{ agents_user }}"
+    mode: "0700"
+
+- name: Read the agent's Claude Code settings
+  ansible.builtin.slurp:
+    src: "/home/{{ agents_user }}/.claude/settings.json"
+  register: agents_claude_settings
+  failed_when: false
+
+- name: Add Moshi's hooks to Claude Code
+  ansible.builtin.command: /usr/local/bin/moshi-hook install
+  become: true
+  become_user: "{{ agents_user }}"
+  environment:
+    PATH: "/home/{{ agents_user }}/.local/share/mise/shims:/usr/local/bin:/usr/bin:/bin"
+  when: "'moshi-hook' not in (agents_claude_settings.content | default('') | b64decode)"
   changed_when: true

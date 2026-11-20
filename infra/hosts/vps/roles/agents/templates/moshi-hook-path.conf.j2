@@ -1,0 +1,6 @@
+# Managed by infra/hosts/vps (Ansible). systemd user services do not read the
+# shell profile, so the daemon gets the mise shims here to find claude, and the
+# pinned herdr binary itself (through the shim, herdr reports mise's version).
+[Service]
+Environment=PATH=/home/{{ agents_user }}/.local/share/mise/shims:/home/{{ agents_user }}/.local/bin:/usr/local/bin:/usr/bin:/bin
+Environment=MOSHI_HERDR_PATH=/home/{{ agents_user }}/.local/share/mise/installs/herdr/{{ agents_tools.herdr }}/herdr
