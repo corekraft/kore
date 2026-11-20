@@ -51,7 +51,21 @@
     regexp: "^#? *{{ item }} UTF-8$"
     line: "{{ item }} UTF-8"
   loop: "{{ base_locales }}"
-  notify: Generate locales
+
+- name: Read the generated locales
+  ansible.builtin.command: locale -a
+  register: base_generated_locales
+  changed_when: false
+  check_mode: false
+
+# Decided from what is generated, not from a handler: a run that fails after
+# editing locale.gen skips its handlers, and the next run sees nothing to do.
+- name: Generate missing locales
+  ansible.builtin.command: locale-gen
+  when: >-
+    base_locales | map('regex_replace', '\\.UTF-8$', '.utf8')
+    | difference(base_generated_locales.stdout_lines) | length > 0
+  changed_when: true
 
 - name: Set the default locale
   ansible.builtin.copy:
