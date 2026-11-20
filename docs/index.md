@@ -360,6 +360,31 @@ decisions; read one only when planning that area, and expect it to change.
   exclusion, a measurement note on ideas 0021 and 0035, and a role-block
   diagnostic; no guard; proposals only; none filed. Read before changing the
   retro scan, `pr check` or the flow report.
+- [`docs/retros/2026-11-20-cost-retro.md`](retros/2026-11-20-cost-retro.md) —
+  the cost and token retro over 2026-11-18 to 2026-11-20 ($343, 33.1 billion
+  plan-weighted tokens): two measured context-cap cases for idea 0038's E2 and
+  E1, queued after E3, one brief line for PR reads, notes on five filed ideas
+  and the owner's decisions; none applied. Read before setting a compaction cap
+  or changing a writer or judge tier.
+- [`docs/retros/2026-11-20-general-retro.md`](retros/2026-11-20-general-retro.md)
+  — the general retro of 2026-11-18 to 2026-11-20, revised after its grill and
+  the owner's decisions: no new idea, four tickets and a writer.md guidance line,
+  and evidence for ideas 0038, 0019, 0035, 0031, 0013, 0033, 0022 and 0012;
+  none applied. Read before changing the main session's loop, the merge path or
+  the role guards.
+- [`docs/retros/2026-11-20-friction-retro.md`](retros/2026-11-20-friction-retro.md)
+  — the throughput-limit and cost retro over the sessions since 2026-11-18,
+  revised after its grill: four new ideas, three tickets and three folds into
+  ideas 0031, 0033 and 0035, none filed. Read before changing the precheck
+  pattern match, the retro filing path or the role guards.
+- [`docs/retros/2026-11-20-primitives-retro.md`](retros/2026-11-20-primitives-retro.md)
+  — the primitives retro, revised after its grill and the owner's decisions:
+  five filing slots (session Tools over raw herdr, judge and reviewer idea
+  stamps, an after-merge step for the 93 of 131 bare merges, one review path
+  for the 38 of 108 unreviewed verdicts, a precheck false-positive fix for 16 of
+  26 overrides), one held Tool and a scope change to idea 0031; none filed.
+  Read before adding a harness Tool or changing the main session's merge,
+  review or pane tools.
 
 ## Skills
 
