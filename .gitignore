@@ -16,3 +16,8 @@ cosign.key
 skills/bin/harness.mjs
 skills/bin/harness.mjs.*.tmp
 test-results/
+
+# OpenTofu state stays on the machine that applies a stack.
+*.tfstate
+*.tfstate.*
+.terraform.tfstate.lock.info
