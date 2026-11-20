@@ -367,9 +367,9 @@ _Avoid_: Slim image, minimal image
 ## Chart locks
 
 **Main chart lock**:
-The chart lock built from a push to `main` and kept as a workflow artifact for 30 days. It may feed a local proof and never counts for flag activation on its own. See [ADR 0138](docs/decisions/0138-publish-signed-configuration-charts-from-main-for-local-proofs.md).
+A chart lock that may feed a local proof but never counts for flag activation.
 _Avoid_: Dev lock, snapshot lock
 
 **Release chart lock**:
-The chart lock attached to a release. It is the only chart lock that counts for flag activation, and a main chart lock's proof counts only when its recorded chart digests equal the ones in this lock.
+The chart lock that counts for flag activation.
 _Avoid_: Tag lock, final lock
