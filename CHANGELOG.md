@@ -1,5 +1,23 @@
 # Changelog
 
+## [0.17.0](https://github.com/corekraft/kore/compare/v0.16.0...v0.17.0) (2026-11-20)
+
+
+### Features
+
+* **platform:** declare the platform Organization in platform-keycloak ([#1458](https://github.com/corekraft/kore/issues/1458)) ([1fafc04](https://github.com/corekraft/kore/commit/1fafc0467ef1d6409aba549334ea2bc02d834a0f))
+
+
+### Bug fixes
+
+* **platform:** run the kotlin bff on the ol9 graalvm base for x86-64-v2 hosts ([#1455](https://github.com/corekraft/kore/issues/1455)) ([69a5d0e](https://github.com/corekraft/kore/commit/69a5d0e3581875a2f3c3aeca259a7d97cb3152b7))
+
+
+### Documentation
+
+* **plan:** record the delivery-stage timer as built and its live proof owed ([#1456](https://github.com/corekraft/kore/issues/1456)) ([4a8e5b3](https://github.com/corekraft/kore/commit/4a8e5b35ef0e2bbe6b57430a5288c66e9a0d1437))
+* record the first golden-path load attempt in plan 13 ([#1457](https://github.com/corekraft/kore/issues/1457)) ([8c50da1](https://github.com/corekraft/kore/commit/8c50da133836da72a316d9befb3cbdcd986573ff))
+
 ## [0.16.0](https://github.com/corekraft/kore/compare/v0.15.0...v0.16.0) (2026-11-20)
 
 
