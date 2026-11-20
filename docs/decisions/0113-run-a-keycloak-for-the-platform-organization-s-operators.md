@@ -76,15 +76,33 @@ crashed.
   and Loki together peaked near 0.2 cores) and the Gatekeeper audit interval
   (0.4 to 0.8 cores every 60 s), which is a policy decision for its own change.
 
-**Open: Backstage still needs the platform realm.** The realm is composed by
-the `Organization` API, and nothing in the repository creates the `platform`
-Organization claim, so on a fresh profile the realm never exists and Backstage's
-proxy cannot discover its issuer. Staging does not change that. A claim applied
-by `kore` or by a chart, or the realm moved to `kore-platform-keycloak`, would
-close it; that is a decision for the owner, taken before `platform-portal` is
-turned on.
+**Closed 2026-11-20: the platform chart declares the `platform` Organization.**
+See the refinement below.
 
 The change is unproven live: the golden-path BFF image needs x86-64-v3, which
 the 6 vCPU host lacks, so `kore local up` cannot pass the Application gate
 there with the portal off. Turning `portal-staged-install` on needs a recorded
 live run on a host that can.
+
+## Refinement 2026-11-20: the platform chart declares the `platform` Organization (issue 1318)
+
+The owner chose option A for the question left open above: the `platform-keycloak`
+chart declares the `platform` Organization claim. Helm owns the claim, and the
+Organization owns the realm and its groups, so membership keeps one owner. Rejected:
+`kore` applying the claim, because desired state belongs in the repository and `kore`
+does not reconcile resources itself; and moving the realm into `kore-platform-keycloak`,
+which reverses this ADR's split of ownership. A separate `platform-organization` chart
+waits until the Organization must exist without the portal.
+
+- The claim exists only while `platform-portal` is on, so with the flag off the render
+  is unchanged. Keycloak's release depends on `kore-platform-apis`, which owns the
+  Organization kind, so the portal also needs the organization service APIs on;
+  validation refuses the combination otherwise.
+- Uninstalling the chart deletes the Organization, but the realm's management policies
+  leave out Delete, so the realm and its users stay.
+- The Keycloak release is ready only when the Organization's Ready condition is True,
+  checked after the StatefulSet. A missing or failing realm ends the wait with the
+  Organization's reason named, not a timeout in Backstage's sign-in proxy.
+
+The live proof is still owed: the realm and its sign-in are proven by the live run that
+gates `platform-portal` (issue 1111).
