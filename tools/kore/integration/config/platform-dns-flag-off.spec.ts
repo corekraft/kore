@@ -4,16 +4,14 @@ import { readFile } from "node:fs/promises";
 import { promisify } from "node:util";
 import { test } from "vitest";
 import {
+  chartDeliveryValues,
   findRoot,
   loadRepository,
   type Repository,
 } from "../../src/config/index.js";
 import { helmTemplateArgs } from "../../src/platform/index.js";
 import { withAbsoluteChart } from "../../src/testing/index.js";
-import {
-  lock,
-  namespaces,
-} from "./platform-config-delivery-chart-support.js";
+import { lock, namespaces } from "./platform-config-delivery-chart-support.js";
 import { escapeRegExp, localPlatform } from "../local-platform-support.js";
 
 // Docs: docs/decisions/0132-local-names-resolve-through-platform-dns-and-one-loopback-entry-point.md
@@ -48,7 +46,7 @@ async function withAlias(
           deprecatedAlias: alias,
         },
         features: { ...base.environment.features, "platform-dns": platformDns },
-      } as never,
+      },
     },
   };
 }
@@ -88,6 +86,9 @@ async function deliveryRender(chart: string): Promise<string> {
   return stdout;
 }
 
+/** The release lock document the delivery values are built from. */
+const lockFile = () => ({ version: 1, entries: lock() });
+
 const golden = async (name: string) =>
   readFile(
     `${await findRoot()}/tools/kore/src/platform/fixtures/${name}`,
@@ -102,11 +103,21 @@ test("with platform-dns off a declared alias leaves the local certificate byte-i
   );
 });
 
-test("with platform-dns off a declared alias leaves the delivery values byte-identical to the golden rendered from main", async () => {
+test("with no alias the delivery render is byte-identical to the golden rendered from main, and with platform-dns off a declared alias is handed to no delivery values", async () => {
   const chart = `${await findRoot()}/infra/charts/platform-config-delivery`;
   assert.equal(
     await deliveryRender(chart),
     await golden("platform-config-delivery.local.yaml"),
+  );
+  const { repository } = await withAlias(false);
+  assert.equal(
+    "platformDeprecatedAlias" in chartDeliveryValues(repository, lockFile()),
+    false,
+  );
+  const on = await withAlias(true);
+  assert.equal(
+    chartDeliveryValues(on.repository, lockFile()).platformDeprecatedAlias,
+    on.alias,
   );
 });
 
