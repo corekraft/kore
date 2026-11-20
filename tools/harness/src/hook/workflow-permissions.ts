@@ -90,8 +90,13 @@ export function parseWorkflow(text: string): Node {
       continue;
     }
     skipAbove = addEntry(stack, indent, body);
-    if (skipAbove === null && /^["']?if["']?:\s*\S/.test(body)) {
-      openIf = { indent, node: (stack[stack.length - 1] as Frame).node };
+    const top = stack[stack.length - 1];
+    if (
+      skipAbove === null &&
+      top !== undefined &&
+      /^["']?if["']?:\s*\S/.test(body)
+    ) {
+      openIf = { indent, node: top.node };
     }
   }
   return rootNode;
