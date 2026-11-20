@@ -42,3 +42,6 @@ agents_platform_dns_address: 127.0.0.1
 agents_platform_dns_port: 1053
 # The dummy link that carries that server. Interface names are 15 characters or fewer.
 agents_platform_dns_link: kore-dns
+# The address that lets systemd-resolved use that link: it opens a DNS scope only on a
+# link with a routable address. A /128 from the private ULA prefix routes nothing else.
+agents_platform_dns_link_address: "fd4b:6f72:6500::1/128"

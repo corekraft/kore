@@ -1,6 +1,7 @@
 # Managed by infra/hosts/vps (Ansible). Edits here are overwritten.
-# A dummy link that carries only the platform DNS server. It has no address; it
-# exists so systemd-networkd can attach the server and its routing domain to it.
+# A dummy link that carries only the platform DNS server. Its address is set in the
+# matching .network unit; the link exists so systemd-networkd can attach the server
+# and its routing domain to it.
 [NetDev]
 Name={{ agents_platform_dns_link }}
 Kind=dummy
