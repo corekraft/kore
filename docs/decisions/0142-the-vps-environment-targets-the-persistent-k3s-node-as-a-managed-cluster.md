@@ -109,13 +109,13 @@ not bought a domain, so no real domain belongs in it either.
   the gateway and the platform's certificates wait, and the readiness check
   fails closed. Its remedy text for a non-local environment still reads
   "Create the ClusterIssuer and its CA Secret for this environment".
-- The Argo CD AppProject that `platform-config-delivery` renders now admits the
-  `ClusterIssuer` kind and the `cert-manager` namespace, because its spec
-  renders every argocd-owned release with every flag on and the CA objects
-  join that render. The admission is unconditional, so local's delivered
-  project widens by that kind and namespace though no resource uses them while
-  the flag is off; `vps` keeps `platform-argocd-delivery` off, so Helm
-  delivers its release.
+- The Argo CD AppProject that `platform-config-delivery` renders admits the
+  `ClusterIssuer` kind and the `cert-manager` namespace only while
+  `in-cluster-ca` is on: kore passes the chart `inClusterCa` then, as it passes
+  `databaseRoutes` for its flag (ADR 0137). Its spec renders every argocd-owned
+  release with every flag on, and the CA objects join that render. With the flag
+  off, local's delivered project is byte-identical to what it was. `vps` keeps
+  `platform-argocd-delivery` off, so Helm delivers its release.
 - The CA is proven only by a live run. The flag is off, so nothing in any cluster
   changes until the owner runs `kore platform up --environment vps` on the
   controller with the flag on, sees `clusterissuer/kore-local-ca` Ready and

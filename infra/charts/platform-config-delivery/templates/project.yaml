@@ -8,8 +8,10 @@
 {{- $_ := set $repos (printf "oci://%s" $entry.chart) true }}
 {{- $_ := set $spaces (required (printf "namespaces.%s is required" $name) (index $.Values.namespaces $name)) true }}
 {{- end }}
-{{- /* cert-manager's cluster resource namespace holds the CA Secret and CA Certificate that kore-local-tls renders with in-cluster-ca on (ADR 0142). */}}
+{{- /* cert-manager's cluster resource namespace holds the CA Secret and CA Certificate that kore-local-tls renders with in-cluster-ca on; kore passes inClusterCa only then, so with the flag off the project is unchanged (ADR 0142). */}}
+{{- if .Values.inClusterCa }}
 {{- $_ := set $spaces "cert-manager" true }}
+{{- end }}
 apiVersion: argoproj.io/v1alpha1
 kind: AppProject
 metadata:
@@ -33,8 +35,10 @@ spec:
   clusterResourceWhitelist:
     - group: ""
       kind: Namespace
+    {{- if .Values.inClusterCa }}
     - group: cert-manager.io
       kind: ClusterIssuer
+    {{- end }}
     - group: external-secrets.io
       kind: ClusterSecretStore
     - group: apiextensions.crossplane.io

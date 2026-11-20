@@ -30,6 +30,11 @@
 # beside the domain (ADR 0132). No default.
 # platformDeprecatedAlias: kore.local
 
+# Passed true by kore only while in-cluster-ca is on (ADR 0142): the AppProject
+# then admits the cert-manager ClusterIssuer kind and namespace the CA objects
+# need. Absent, the project is unchanged.
+# inClusterCa: true
+
 # The text of each release's environment values files, in order, which kore
 # reads from the repository so Argo CD renders a release with the values the
 # Helm path gives it. Optional: a release with none takes the chart's defaults.
