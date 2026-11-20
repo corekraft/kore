@@ -359,6 +359,12 @@ decisions; read one only when planning that area, and expect it to change.
   E1, queued after E3, one brief line for PR reads, notes on five filed ideas
   and the owner's decisions; none applied. Read before setting a compaction cap
   or changing a writer or judge tier.
+- [`docs/retros/2026-11-20-general-retro.md`](retros/2026-11-20-general-retro.md)
+  — the general retro of 2026-11-18 to 2026-11-20, revised after its grill and
+  the owner's decisions: no new idea, four tickets and a writer.md guidance line,
+  and evidence for ideas 0038, 0019, 0035, 0031, 0013, 0033, 0022 and 0012;
+  none applied. Read before changing the main session's loop, the merge path or
+  the role guards.
 - [`docs/retros/2026-11-20-friction-retro.md`](retros/2026-11-20-friction-retro.md)
   — the throughput-limit and cost retro over the sessions since 2026-11-18,
   revised after its grill: four new ideas, three tickets and three folds into
