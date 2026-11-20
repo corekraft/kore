@@ -1,0 +1,5 @@
+# Seconds before a just-applied firewall removes itself unless the playbook
+# reconnects and cancels it. Rescue mode stays the last resort.
+network_firewall_rollback_seconds: 300
+# The only account sshd accepts. Tailscale SSH does not go through sshd.
+network_ssh_allow_users: debian

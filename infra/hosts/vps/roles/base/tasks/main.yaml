@@ -1,0 +1,63 @@
+- name: Install the base packages
+  ansible.builtin.apt:
+    name:
+      - unattended-upgrades
+      - apt-listchanges
+      - nftables
+      - ca-certificates
+      - curl
+      - locales
+    state: present
+    update_cache: true
+    cache_valid_time: 3600
+
+- name: Turn on daily unattended security upgrades
+  ansible.builtin.copy:
+    src: 20auto-upgrades
+    dest: /etc/apt/apt.conf.d/20auto-upgrades
+    owner: root
+    group: root
+    mode: "0644"
+
+- name: Apply the kernel hardening settings
+  ansible.builtin.copy:
+    src: 90-kore-hardening.conf
+    dest: /etc/sysctl.d/90-kore-hardening.conf
+    owner: root
+    group: root
+    mode: "0644"
+  notify: Reload sysctl
+
+- name: Create the systemd-resolved drop-in directory
+  ansible.builtin.file:
+    path: /etc/systemd/resolved.conf.d
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+
+- name: Turn off LLMNR and mDNS in systemd-resolved
+  ansible.builtin.copy:
+    src: 90-kore-no-llmnr.conf
+    dest: /etc/systemd/resolved.conf.d/90-kore-no-llmnr.conf
+    owner: root
+    group: root
+    mode: "0644"
+  notify: Restart systemd-resolved
+
+- name: Enable the locales the host and its SSH clients use
+  ansible.builtin.lineinfile:
+    path: /etc/locale.gen
+    regexp: "^#? *{{ item }} UTF-8$"
+    line: "{{ item }} UTF-8"
+  loop: "{{ base_locales }}"
+  notify: Generate locales
+
+- name: Set the default locale
+  ansible.builtin.copy:
+    content: |
+      LANG={{ base_default_locale }}
+    dest: /etc/default/locale
+    owner: root
+    group: root
+    mode: "0644"

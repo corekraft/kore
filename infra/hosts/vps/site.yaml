@@ -1,0 +1,6 @@
+- name: Converge the kore VPS host
+  hosts: kore-vps
+  roles:
+    - base
+    - tailscale
+    - network

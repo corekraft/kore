@@ -23,6 +23,23 @@ hadolint = "2.15.1"
 gradle = "9.9.1"
 herdr = "0.9.5"
 "github:theseus-rs/postgresql-binaries" = "17.12.0"
+"pipx:ansible-core" = "2.21.6"
+"pipx:ansible-lint" = "26.11.0"
+
+[tasks.vps-lint]
+description = "Lint the VPS host playbook in infra/hosts/vps. Touches no host"
+dir = "infra/hosts/vps"
+run = "ansible-lint --strict site.yaml"
+
+[tasks.vps-check]
+description = "Show what converging the VPS host would change, as a diff, without changing it (ansible-playbook --check). Needs the tailnet"
+dir = "infra/hosts/vps"
+run = "ansible-playbook --check --diff site.yaml"
+
+[tasks.vps-apply]
+description = "Converge the VPS host kore-vps over the tailnet: base packages, Tailscale, firewall and sshd hardening. Mutates the host"
+dir = "infra/hosts/vps"
+run = "ansible-playbook --diff site.yaml"
 
 [tasks.build]
 description = "Build the kore executable"
