@@ -224,3 +224,33 @@
     PATH: "/home/{{ agents_user }}/.local/share/mise/shims:/usr/local/bin:/usr/bin:/bin"
   when: "'moshi-hook' not in (agents_claude_settings.content | default('') | b64decode)"
   changed_when: true
+
+# `gh auth setup-git` writes the helper with gh's versioned install path, which
+# breaks on the next gh upgrade. The shim follows the pinned version. The empty
+# first entry clears any helper inherited from the system config.
+- name: Read the agent's git credential helpers
+  ansible.builtin.command:
+    argv: [git, config, --global, --get-all, "credential.https://{{ item }}.helper"]
+  become: true
+  become_user: "{{ agents_user }}"
+  register: agents_git_helpers
+  changed_when: false
+  failed_when: agents_git_helpers.rc not in [0, 1]
+  check_mode: false
+  loop: [github.com, gist.github.com]
+
+- name: Point git's GitHub credential helper at the gh shim
+  ansible.builtin.shell:
+    cmd: |
+      set -eu
+      git config --global --unset-all "credential.https://{{ item.item }}.helper" || true
+      git config --global --add "credential.https://{{ item.item }}.helper" ""
+      git config --global --add "credential.https://{{ item.item }}.helper" "{{ agents_gh_helper }}"
+    executable: /bin/bash
+  become: true
+  become_user: "{{ agents_user }}"
+  changed_when: true
+  when: item.stdout_lines != ["", agents_gh_helper]
+  loop: "{{ agents_git_helpers.results }}"
+  loop_control:
+    label: "{{ item.item }}"

@@ -35,13 +35,39 @@
   changed_when: false
   check_mode: false
 
+# An auth key from the controller's environment joins a fresh machine without
+# opening a browser. The key streams through stdin and is never logged or
+# written to disk. Tags stay with OpenTofu (infra/tofu/stacks/tailnet), the
+# single owner of machine tags, so the key itself needs none.
+- name: Join the tailnet with an auth key from the controller
+  ansible.builtin.command:
+    argv:
+      - tailscale
+      - up
+      - --auth-key=file:/dev/stdin
+      - "--hostname={{ inventory_hostname }}"
+      - "--ssh={{ tailscale_ssh | lower }}"
+    stdin: "{{ tailscale_auth_key }}"
+  no_log: true
+  changed_when: true
+  when:
+    - (tailscale_status.stdout | from_json).BackendState != "Running"
+    - tailscale_auth_key | length > 0
+
+- name: Read the Tailscale backend state after joining
+  ansible.builtin.command: tailscale status --json
+  register: tailscale_status
+  changed_when: false
+  check_mode: false
+
 - name: Require the host to be signed in to the tailnet
   ansible.builtin.assert:
     that: (tailscale_status.stdout | from_json).BackendState == "Running"
     fail_msg: >-
-      Tailscale is not signed in on this host. Run
-      `sudo tailscale up --ssh --hostname={{ inventory_hostname }}` on it, open the link it
-      prints, then run the playbook again. The network role closes public SSH
+      Tailscale is not signed in on this host. Export TAILSCALE_AUTH_KEY on
+      the controller and run the playbook again, or run
+      `sudo tailscale up --ssh --hostname={{ inventory_hostname }}` on the host
+      and open the link it prints. The network role closes public SSH
       and must not run before the tailnet works.
     quiet: true
 
