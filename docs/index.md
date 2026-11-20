@@ -359,6 +359,11 @@ decisions; read one only when planning that area, and expect it to change.
   and evidence for ideas 0038, 0019, 0035, 0031, 0013, 0033, 0022 and 0012;
   none applied. Read before changing the main session's loop, the merge path or
   the role guards.
+- [`docs/retros/2026-11-20-friction-retro.md`](retros/2026-11-20-friction-retro.md)
+  — the throughput-limit and cost retro over the sessions since 2026-11-18,
+  revised after its grill: four new ideas, three tickets and three folds into
+  ideas 0031, 0033 and 0035, none filed. Read before changing the precheck
+  pattern match, the retro filing path or the role guards.
 
 ## Skills
 
