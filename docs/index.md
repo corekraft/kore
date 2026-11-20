@@ -352,9 +352,10 @@ decisions; read one only when planning that area, and expect it to change.
   owner-decided triage; none applied yet. Read before changing the role guards
   or the writer agent definition.
 - [`docs/retros/2026-11-20-friction-retro.md`](retros/2026-11-20-friction-retro.md)
-  — the bottleneck and friction retro over the sessions since 2026-11-18: seven
-  proposals, three bottlenecks and four friction points, none filed. Read before
-  changing the precheck pattern match, the retro skill or the role guards.
+  — the throughput-limit and cost retro over the sessions since 2026-11-18,
+  revised after its grill: four new ideas, three tickets and three folds into
+  ideas 0031, 0033 and 0035, none filed. Read before changing the precheck
+  pattern match, the retro filing path or the role guards.
 
 ## Skills
 
