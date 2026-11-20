@@ -116,7 +116,7 @@ describe("tick self-update: the refusals", () => {
 
     expect(calls).toEqual(["git rev-parse --abbrev-ref HEAD"]);
     expect(out.join("")).toBe(
-      "The checkout is on idea-ticket-1433-writer, not main, so the tick keeps the bundle it has.\n",
+      "The checkout is on idea-ticket-1433-writer, not main, so the tick keeps the bundle it has. Switch it back with git switch main, then the next pass updates.\n",
     );
   });
 
@@ -133,7 +133,7 @@ describe("tick self-update: the refusals", () => {
       "git status --porcelain",
     ]);
     expect(out.join("")).toBe(
-      "The checkout has uncommitted changes, so the tick did not update main and keeps the bundle it has.\n",
+      "The checkout has uncommitted changes, so the tick did not update main and keeps the bundle it has. Commit or stash them, then the next pass updates.\n",
     );
   });
 
@@ -148,7 +148,7 @@ describe("tick self-update: the refusals", () => {
     expect(calls).not.toContain("git pull --ff-only");
     expect(calls).not.toContain("mise run harness-build");
     expect(err.join("")).toBe(
-      "origin/main is not a fast-forward of this checkout, so the tick did not pull it and keeps the bundle it has.\n",
+      "origin/main is not a fast-forward of this checkout, so the tick did not pull it and keeps the bundle it has. Reconcile the checkout by hand with git pull --rebase, or reset it to origin/main with git reset --hard origin/main, then the next pass updates.\n",
     );
   });
 
@@ -162,7 +162,7 @@ describe("tick self-update: the refusals", () => {
 
     expect(calls.at(-1)).toBe("git fetch --quiet origin main");
     expect(err.join("")).toBe(
-      "git fetch --quiet origin main failed with exit 1: boom\nThe tick keeps the bundle it has.\n",
+      "git fetch --quiet origin main failed with exit 1: boom\nThe tick keeps the bundle it has.\nCheck the network and the origin remote (git remote -v), then the next pass retries.\n",
     );
   });
 
@@ -177,7 +177,7 @@ describe("tick self-update: the refusals", () => {
     expect(calls.at(-1)).toBe("git pull --ff-only");
     expect(calls).not.toContain("mise run harness-build");
     expect(err.join("")).toBe(
-      "git pull --ff-only failed with exit 1: fatal: Not possible to fast-forward\nThe tick keeps the bundle it has.\n",
+      "git pull --ff-only failed with exit 1: fatal: Not possible to fast-forward\nThe tick keeps the bundle it has.\nReconcile the checkout by hand with git pull --rebase, or reset it to origin/main with git reset --hard origin/main, then the next pass updates.\n",
     );
   });
 });

@@ -60,6 +60,10 @@ export async function runTickLoop(
         await updater.run();
       }
     },
+    updateFailed: (error) =>
+      deps.stderr(
+        `The self-update step failed: ${error instanceof Error ? error.message : String(error)}\nThe tick keeps the bundle it has and runs the pass; fix the checkout or ledger it names, then the next pass retries the update.\n`,
+      ),
     heartbeat: () => beat(TICK_STARTED),
     stopped: () => beat(TICK_STOPPED),
     pass: () => deps.runner.run(process.execPath, args, { cwd: root }),

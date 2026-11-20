@@ -12,6 +12,14 @@ const LOOP_FILES: readonly string[] = [
 
 const KEEPS = "The tick keeps the bundle it has.\n";
 
+/** How to fix a git step that failed outright: the checkout or the repository is unhealthy. */
+const FIX_GIT =
+  "Check that the checkout is a healthy git repository (git status), then the next pass retries.\n";
+const FIX_FETCH =
+  "Check the network and the origin remote (git remote -v), then the next pass retries.\n";
+const FIX_DIVERGED =
+  "Reconcile the checkout by hand with git pull --rebase, or reset it to origin/main with git reset --hard origin/main, then the next pass updates.\n";
+
 export interface SelfUpdatePorts {
   runner: Pick<Runner, "run">;
   root: string;
@@ -39,7 +47,7 @@ export class TickSelfUpdate {
     }
     const pull = await this.git(["pull", "--ff-only"]);
     if (pull.code !== 0) {
-      return this.failed("git pull --ff-only", pull);
+      return this.failed("git pull --ff-only", pull, FIX_DIVERGED);
     }
     const after = await this.head();
     if (after === undefined) {
@@ -63,7 +71,7 @@ export class TickSelfUpdate {
     const name = branch.stdout.trim();
     if (name !== "main") {
       this.ports.stdout(
-        `The checkout is on ${name}, not main, so the tick keeps the bundle it has.\n`,
+        `The checkout is on ${name}, not main, so the tick keeps the bundle it has. Switch it back with git switch main, then the next pass updates.\n`,
       );
       return false;
     }
@@ -74,7 +82,7 @@ export class TickSelfUpdate {
     }
     if (status.stdout.trim() !== "") {
       this.ports.stdout(
-        "The checkout has uncommitted changes, so the tick did not update main and keeps the bundle it has.\n",
+        "The checkout has uncommitted changes, so the tick did not update main and keeps the bundle it has. Commit or stash them, then the next pass updates.\n",
       );
       return false;
     }
@@ -85,7 +93,7 @@ export class TickSelfUpdate {
   private async behindFastForward(): Promise<boolean> {
     const fetch = await this.git(["fetch", "--quiet", "origin", "main"]);
     if (fetch.code !== 0) {
-      this.failed("git fetch --quiet origin main", fetch);
+      this.failed("git fetch --quiet origin main", fetch, FIX_FETCH);
       return false;
     }
     const behind = await this.git(["rev-list", "--count", "HEAD..origin/main"]);
@@ -104,7 +112,7 @@ export class TickSelfUpdate {
     ]);
     if (ancestor.code !== 0) {
       this.ports.stderr(
-        `origin/main is not a fast-forward of this checkout, so the tick did not pull it and keeps the bundle it has.\n`,
+        `origin/main is not a fast-forward of this checkout, so the tick did not pull it and keeps the bundle it has. ${FIX_DIVERGED}`,
       );
       return false;
     }
@@ -149,9 +157,13 @@ export class TickSelfUpdate {
     return head.stdout.trim();
   }
 
-  private failed(label: string, result: RunResult): void {
+  private failed(
+    label: string,
+    result: RunResult,
+    fix: string = FIX_GIT,
+  ): void {
     this.ports.stderr(
-      `${label} failed with exit ${result.code}${detail(result.stderr)}${KEEPS}`,
+      `${label} failed with exit ${result.code}${detail(result.stderr)}${KEEPS}${fix}`,
     );
   }
 

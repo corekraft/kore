@@ -205,4 +205,15 @@ describe("orchestrate tick --loop self-update step", () => {
     await capturedPorts().update?.();
     expect(run).toHaveBeenCalledTimes(1);
   });
+
+  it("reports a thrown update on stderr and says the pass still runs", async () => {
+    const { deps, err } = setup();
+
+    await runTickLoop(deps, ROOT, undefined);
+    capturedPorts().updateFailed(new Error("git exploded"));
+
+    expect(err.join("")).toBe(
+      "The self-update step failed: git exploded\nThe tick keeps the bundle it has and runs the pass; fix the checkout or ledger it names, then the next pass retries the update.\n",
+    );
+  });
 });

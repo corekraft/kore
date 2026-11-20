@@ -9,6 +9,8 @@ export interface LoopPorts {
   flagOn(): Promise<boolean>;
   /** Brings the checkout and bundle up to date before a pass; absent means the loop has no update step. */
   update?(): Promise<void>;
+  /** Reports an update that threw; the loop goes on to the pass with the bundle it has. */
+  updateFailed(error: unknown): void;
   /** Writes the heartbeat (tick.started) before a pass starts. */
   heartbeat(): Promise<void>;
   /** Writes tick.stopped once the loop has ended. */
@@ -42,7 +44,11 @@ export class TickLoop {
         if (!(await this.ports.flagOn())) {
           return { status: "flag-off", passes };
         }
-        await this.ports.update?.();
+        try {
+          await this.ports.update?.();
+        } catch (error) {
+          this.ports.updateFailed(error);
+        }
         await this.ports.heartbeat();
         started = true;
         const result = await this.ports.pass();
