@@ -135,6 +135,21 @@ describe("outcome record", () => {
     );
   });
 
+  it("passes --lock and --charts to the outcome parser", async () => {
+    const { ctx } = context({
+      ...RECORD_FLAGS,
+      lock: "main",
+      charts: "cilium=1.0.0@sha256:a",
+    });
+    expect(await outcomeCommands.record?.run(ctx)).toBe(0);
+    expect(parseOutcome).toHaveBeenCalledWith(
+      expect.objectContaining({
+        lock: "main",
+        charts: "cilium=1.0.0@sha256:a",
+      }),
+    );
+  });
+
   it("logs one ledger event for the idea, labelled by its result and numbered by its issue", async () => {
     const ledger = withLedger();
     const { ctx } = context(RECORD_FLAGS);

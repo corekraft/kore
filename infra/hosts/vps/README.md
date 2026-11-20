@@ -16,3 +16,27 @@ Desired state for the rented VPS host `kore-vps`, converged by Ansible
 
 Public SSH is closed after step 3. If the tailnet is lost, the provider's
 rescue mode is the way back in.
+
+## The agents VM
+
+The `incus` role creates `kore-agents` (an Incus VM on the private bridge
+`incusbr0`), and the second play converges it through the host. The VM runs
+herdr, Claude Code, gh, mise, mosh, tmux and moshi-hook as the `agent` account,
+which has Docker and no sudo.
+
+Once, after the first `mise run vps-apply` stops at the VM's sign-in check:
+
+1. `ssh debian@kore-vps sudo incus exec kore-agents -- tailscale up --ssh --hostname=kore-agents`
+   and approve the link, then `mise run vps-apply` again.
+
+Tailscale SSH is off on the VM (`tailscale_ssh: false`): its own sshd checks
+`authorized_keys`, where the playbook puts your public keys and Moshi puts the
+phone's. Then as `agent` (`ssh agent@kore-agents`); none of these secrets enter
+the repository:
+
+1. `gh auth login` with a fine-grained token limited to `corekraft/kore`.
+2. `claude` and sign in.
+3. Moshi: `ssh -t agent@kore-agents moshi-hook host setup` and scan the QR in
+   the app (it is a temporary access token). The playbook already runs the
+   moshi-hook daemon and adds its Claude Code hooks; `moshi-hook doctor` should
+   show every feature ready.

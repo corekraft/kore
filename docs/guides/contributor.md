@@ -273,9 +273,17 @@ Dark launch means on only in `local`.
    only, [ADR 0127](../decisions/0127-an-owner-waiver-recorded-in-an-outcome-counts-as-proof-for-a-flag.md));
    a waiver never stands in for the live run a cluster-facing
    `no-behaviour-change` needs before merge.
+   A proof that ran on a main chart lock also passes
+   `--lock main --charts '<name>=<version>@sha256:<digest>; ...'` for each
+   handed-over chart, copied from that lock ([ADR 0138](../decisions/0138-publish-signed-configuration-charts-from-main-for-local-proofs.md)).
 3. `node skills/bin/harness.mjs flag activate <name> --environment <env>` edits
    the overlay only when that confirmed outcome exists, and records a
    `flag.activated` ledger event. Without proof it refuses and changes nothing.
+   A main-lock proof counts only when `--chart-lock <platform-charts.lock.json>`,
+   the release's lock, has the same version and digest for every recorded
+   chart; otherwise it refuses, names the charts that differ and says to
+   re-prove. A proof with no lock, a release lock or an owner waiver is not
+   compared.
 4. `flag audit` exits 1 when any flag is on without proof, and lists each flag
    that rests on an owner waiver rather than a live run. `kb-check` runs it
    and reports a warning, which never fails `--strict` (ADR 0080: audit before

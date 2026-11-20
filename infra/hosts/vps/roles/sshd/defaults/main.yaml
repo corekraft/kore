@@ -1,0 +1,3 @@
+# The accounts sshd accepts, space-separated. Tailscale SSH, where it is on,
+# does not go through sshd.
+sshd_allow_users: debian

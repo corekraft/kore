@@ -2,7 +2,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { IdeaRepository } from "../idea/index.js";
 import {
-  findProof,
+  activationProof,
   readOverlay,
   proofAudit,
   unprovenLine,
@@ -19,7 +19,7 @@ vi.mock("../idea/index.js", () => ({ IdeaRepository: vi.fn() }));
 vi.mock("./ledger-commands.js");
 vi.mock("../flag/index.js", async (importOriginal) => ({
   ...(await importOriginal<typeof import("../flag/index.js")>()),
-  findProof: vi.fn(),
+  activationProof: vi.fn(),
   readOverlay: vi.fn(),
   proofAudit: vi.fn(),
   unprovenLine: vi.fn(),
@@ -64,7 +64,7 @@ function overlay(on: boolean) {
 
 beforeEach(() => {
   vi.mocked(readOverlay).mockResolvedValue(overlay(false));
-  vi.mocked(findProof).mockResolvedValue(PROOF);
+  vi.mocked(activationProof).mockResolvedValue({ proof: PROOF, refused: [] });
   vi.mocked(withFlagOn).mockReturnValue("TURNED ON");
   vi.mocked(openLedger).mockResolvedValue({ ledger: fakeLedger().ledger });
   vi.mocked(proofAudit).mockResolvedValue({ unproven: [], waived: [] });
@@ -123,7 +123,10 @@ describe("flag activate refusals before any write", () => {
   });
 
   it("refuses a flag with no verification outcome, and leaves the overlay unchanged", async () => {
-    vi.mocked(findProof).mockResolvedValue(undefined);
+    vi.mocked(activationProof).mockResolvedValue({
+      proof: undefined,
+      refused: [],
+    });
     const { context, err, writeFile } = flagContext();
     expect(await command("activate").run(context)).toBe(FAILED);
     expect(err()).toContain(
@@ -195,9 +198,9 @@ describe("flag activate writes", () => {
 
 describe("flag activate under an owner waiver", () => {
   it("says a flag turned on under an owner waiver rests on the waiver, not a live run", async () => {
-    vi.mocked(findProof).mockResolvedValue({
-      ...PROOF,
-      source: "owner-waiver",
+    vi.mocked(activationProof).mockResolvedValue({
+      proof: { ...PROOF, source: "owner-waiver" },
+      refused: [],
     });
     vi.mocked(openLedger).mockResolvedValue({ ledger: fakeLedger().ledger });
     const { context, out } = flagContext();

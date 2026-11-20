@@ -3,4 +3,15 @@
   roles:
     - base
     - tailscale
+    - sshd
     - network
+    - incus
+
+- name: Converge the agents VM
+  hosts: kore-agents
+  roles:
+    - base
+    - sshd
+    - agents
+    # Last: it turns Tailscale SSH off once sshd and the keys are in place.
+    - tailscale

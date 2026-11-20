@@ -1,0 +1,25 @@
+networks:
+  - name: {{ incus_bridge }}
+    type: bridge
+    config:
+      ipv4.address: {{ incus_bridge_address }}
+      ipv4.nat: "true"
+      ipv6.address: none
+storage_pools:
+  - name: default
+    driver: lvm
+    config:
+      source: vg
+      lvm.thinpool_name: {{ incus_thinpool }}
+      lvm.vg.force_reuse: "true"
+profiles:
+  - name: default
+    devices:
+      root:
+        path: /
+        pool: default
+        type: disk
+      eth0:
+        name: eth0
+        network: {{ incus_bridge }}
+        type: nic

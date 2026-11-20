@@ -113,6 +113,8 @@ async function conclusion(context: CommandContext, verb: "record" | "close") {
             summary: text(context.options, "summary"),
             flag: text(context.options, "flag"),
             environment: text(context.options, "environment"),
+            lock: text(context.options, "lock"),
+            charts: text(context.options, "charts"),
           }),
         )
       : await closeOutcome(ctx, ref);
@@ -125,7 +127,7 @@ async function conclusion(context: CommandContext, verb: "record" | "close") {
 }
 
 const record: Command = {
-  summary: `record an idea's measured outcome in its markdown, post it to the issue with one outcome:* label, close the issue, and open a follow-up idea when refuted or inconclusive (--idea --kind ${OUTCOME_KINDS.join("|")} --source ${OUTCOME_SOURCES.join("|")} --evidence <reference> --result ${RESULTS.join("|")} --summary <text> [--flag <name> --environment <env>, only on a live-run or owner-waiver verification; owner-waiver needs --kind verification and --evidence a GitHub comment URL] [--ledger])`,
+  summary: `record an idea's measured outcome in its markdown, post it to the issue with one outcome:* label, close the issue, and open a follow-up idea when refuted or inconclusive (--idea --kind ${OUTCOME_KINDS.join("|")} --source ${OUTCOME_SOURCES.join("|")} --evidence <reference> --result ${RESULTS.join("|")} --summary <text> [--flag <name> --environment <env>, only on a live-run or owner-waiver verification; owner-waiver needs --kind verification and --evidence a GitHub comment URL] [--lock main|release --charts '<name>=<version>@sha256:<digest>; ...', the chart lock a live flag proof ran on and its charts, so activation can compare a main lock with the release lock] [--ledger])`,
   options: {
     idea: "string",
     kind: "string",
@@ -135,6 +137,8 @@ const record: Command = {
     summary: "string",
     flag: "string",
     environment: "string",
+    lock: "string",
+    charts: "string",
     ledger: "string",
   },
   run(context) {

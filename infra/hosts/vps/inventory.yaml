@@ -1,7 +1,19 @@
-# The host is named by its tailnet name only. Its public address never appears
-# in this public repository.
+# Hosts are named by their tailnet names only. Public addresses never appear in
+# this public repository.
 all:
   hosts:
     kore-vps:
       ansible_user: debian
       ansible_become: true
+    kore-agents:
+      # Reached through the host over the private Incus bridge, so Ansible
+      # works before and after the VM joins the tailnet.
+      ansible_host: 10.77.0.10
+      ansible_user: debian
+      ansible_become: true
+      # The key the incus role put in the VM (incus_agents_ssh_pubkey_file).
+      ansible_ssh_private_key_file: ~/.ssh/id_ed25519
+      ansible_ssh_common_args: -o ProxyJump=debian@kore-vps -o StrictHostKeyChecking=accept-new
+      sshd_allow_users: debian agent
+      # Moshi pairs through the VM's own sshd, which checks authorized_keys.
+      tailscale_ssh: false

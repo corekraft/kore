@@ -1,0 +1,28 @@
+# The unprivileged account herdr and Claude Code run as. It has Docker (for
+# throwaway `kore local up` profiles) and no sudo; the VM is the boundary.
+agents_user: agent
+
+# mise itself, from its signed GitHub release, checked against this checksum.
+agents_mise_version: "2026.11.10"
+agents_mise_sha256: "b603a4f48563fc379a794d9ea2cf9f709ed276c9141068604cb0c59fa3e674a9"
+
+# The agent's global tools. A kore checkout's own .mise.toml pins the rest
+# (herdr and node are repeated here so they work outside a checkout; keep them
+# equal to the repository's pins).
+agents_tools:
+  node: "26.13.0"
+  herdr: "0.9.5"
+  gh: "2.105.0"
+  # The native release binary through aqua, which checks its checksum.
+  claude: "2.1.329"
+
+# moshi-hook connects the Moshi phone app to Claude Code. Pinned, checked
+# against the vendor's checksums.txt, and its self-update is turned off.
+agents_moshi_hook_version: "v0.4.60"
+agents_moshi_hook_sha256: "5539b750fcdda8277555b0b1e2972bf2c2946c4c29838d06bb8a98963e47f348"
+
+# Public keys allowed to log in as the agent account, read on the controller at
+# run time and never committed. Moshi adds the phone's key when it pairs.
+agents_ssh_pubkey_files:
+  - ~/.ssh/id_ed25519.pub
+  - ~/.ssh/id_rsa.pub
