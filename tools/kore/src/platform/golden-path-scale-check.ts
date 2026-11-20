@@ -81,6 +81,10 @@ interface Replicas {
   ready: number;
 }
 
+interface Autoscalers {
+  items?: { spec?: { scaleTargetRef?: { kind?: string; name?: string } } }[];
+}
+
 const tenth = (value: number): number => Math.round(value * 10) / 10;
 const reason = (error: unknown): string =>
   error instanceof Error ? error.message : JSON.stringify(error);
@@ -130,6 +134,7 @@ export class GoldenPathScaleCheck {
         `peak replicas ${peakReplicas} must be above the starting count ${start}; pass a larger KORE_SCALE_PEAK_REPLICAS`,
       );
     }
+    await this.requireAutoscaler(found);
     const written = { value: false };
     try {
       const result = await this.underLoad(start, loadAverage, written);
@@ -271,6 +276,26 @@ export class GoldenPathScaleCheck {
       `deployment/${this.options.deployment}`,
       `--replicas=${replicas}`,
     ]);
+  }
+
+  /**
+   * Refuses before the first write when no HorizontalPodAutoscaler targets the
+   * BFF: the chart sets its replica count and creates no autoscaler, and Argo
+   * CD's selfHeal reverts any scale the chart does not own.
+   */
+  private async requireAutoscaler(found: number): Promise<void> {
+    const { stdout } = await this.kubectl(["get", "hpa", "--output", "json"]);
+    const { items = [] } = JSON.parse(stdout) as Autoscalers;
+    const targets = items.some(
+      ({ spec }) =>
+        spec?.scaleTargetRef?.kind === "Deployment" &&
+        spec.scaleTargetRef.name === this.options.deployment,
+    );
+    if (!targets) {
+      throw new Error(
+        `${this.subject()} has replicas: ${found} and no HorizontalPodAutoscaler targets it; the golden-path-workload chart sets its replica count and creates no autoscaler, and Argo CD selfHeal reverts a scale the chart does not own, so no scale would stay; give the chart an autoscaler (ADR 0047) or a delivered replica value, then rerun`,
+      );
+    }
   }
 
   private async replicas(): Promise<Replicas> {
