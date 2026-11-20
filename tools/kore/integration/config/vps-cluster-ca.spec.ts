@@ -93,8 +93,10 @@ test("the vps CA render never carries a Secret, so the CA's private key is creat
 });
 
 test("with in-cluster-ca off the certificate release creates no issuer, for vps as committed and for local, whose CA kore trust install owns from the mkcert root", async () => {
-  for (const name of ["vps", "local"]) {
-    const docs = documents(certificateRender(await loadRepository(name)));
+  for (const environment of ["vps", "local"]) {
+    const docs = documents(
+      certificateRender(await loadRepository(environment)),
+    );
     assert.deepEqual(
       docs.map(({ kind, name }) => `${kind}/${name}`),
       ["Certificate/kore-local"],
