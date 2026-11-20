@@ -1,5 +1,22 @@
 # Changelog
 
+## [0.11.0](https://github.com/corekraft/kore/compare/v0.10.1...v0.11.0) (2026-11-20)
+
+
+### Features
+
+* **local:** preflight the chart lock and render delivered charts per flag ([#1351](https://github.com/corekraft/kore/issues/1351)) ([956a591](https://github.com/corekraft/kore/commit/956a591e5b08d1366c1fa3a75fd79829e028e2b2))
+* **platform:** add the 5432 passthrough listener behind database-routes ([#1363](https://github.com/corekraft/kore/issues/1363)) ([bf0fa5f](https://github.com/corekraft/kore/commit/bf0fa5fe199c27da9da4a344ad0e5b9e889a875d))
+* **platform:** drop a delivered Service's own Gateway when the shared route serves its host ([#1361](https://github.com/corekraft/kore/issues/1361)) ([71cb4b2](https://github.com/corekraft/kore/commit/71cb4b2d83ba493950cf534776e6acaf9843b378)), closes [#1212](https://github.com/corekraft/kore/issues/1212)
+* **platform:** let the PostgreSQL composition's role request certificates behind database-routes ([#1366](https://github.com/corekraft/kore/issues/1366)) ([7f88af6](https://github.com/corekraft/kore/commit/7f88af6bc4cf8c40fe6880418c564f2e5f9ca029))
+* **platform:** reach the registry by name through a TLS passthrough route ([#1364](https://github.com/corekraft/kore/issues/1364)) ([d82f6e2](https://github.com/corekraft/kore/commit/d82f6e2054abb4e3561cc67d631889726301f34e))
+* **platform:** turn platform-shared-gateway on in local after its live proof ([#1360](https://github.com/corekraft/kore/issues/1360)) ([fe952cb](https://github.com/corekraft/kore/commit/fe952cb435537a51df53840cb42261210cc0ec28))
+
+
+### Bug fixes
+
+* **platform:** label route-bearing namespaces so the shared Gateway admits their routes ([#1352](https://github.com/corekraft/kore/issues/1352)) ([1c5b493](https://github.com/corekraft/kore/commit/1c5b493faca80656180d561379493470002b3442))
+
 ## [0.10.1](https://github.com/corekraft/kore/compare/v0.10.0...v0.10.1) (2026-11-19)
 
 
