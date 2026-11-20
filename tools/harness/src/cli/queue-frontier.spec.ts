@@ -125,6 +125,7 @@ describe("harness queue next with the tick-ticket-queue flag on", () => {
       ideas: [{ number: "0001" }],
       openPrs: [{ number: 50, head: "aaaaaaa999" }],
       sendBacks: [],
+      mergedPrs: new Map(),
     });
     expect(buildQueue).not.toHaveBeenCalled();
   });
@@ -139,6 +140,7 @@ describe("harness queue next with the tick-ticket-queue flag on", () => {
     expect(c.runs.map((r) => [r.command, ...r.args.slice(0, 2)])).toEqual([
       ["gh", "repo", "view"],
       ["gh", "api", "graphql"],
+      ["gh", "pr", "list"],
       ["gh", "pr", "list"],
     ]);
   });

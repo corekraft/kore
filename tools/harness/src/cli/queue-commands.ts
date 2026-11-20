@@ -16,7 +16,13 @@ import { resolveTier } from "../session/index.js";
 import type { Command, CommandContext } from "../runtime/index.js";
 import { openLedger } from "./ledger-commands.js";
 import { QueueError } from "./queue-error.js";
-import { approvedIssues, gh, openPullRequests, repoName } from "./queue-gh.js";
+import {
+  approvedIssues,
+  gh,
+  mergedPullRequests,
+  openPullRequests,
+  repoName,
+} from "./queue-gh.js";
 import {
   explainedIssue,
   explanation,
@@ -113,6 +119,7 @@ async function nextFrontier(
     issues: await readReadyIssues((args) => gh(context, args, root), repo),
     ideas: await new IdeaRepository(deps.fs, deps.clock, root).list(),
     openPrs: await openPullRequests(context, repo, root),
+    mergedPrs: await mergedPullRequests(context, repo, root),
     sendBacks: (await ledger.list({ kind: "send-back" })).events,
   });
   if (explain === undefined) {
@@ -204,7 +211,7 @@ async function escalateWriter(context: CommandContext): Promise<void> {
 
 const nextCommand: Command = {
   summary:
-    "read-only; list approved ideas without an outcome and pending judge send-backs, oldest first ([--json] [--ledger]); with the local tick-ticket-queue flag on, the whole frontier instead: send-backs, then every open ready-for-agent issue the exclusion rules keep, one line each with kind, lane and horizon ([--json adds excluded] [--explain <issue>] places one issue or names why it is excluded; the tick takes idea items in this order and does not start plain tickets yet)",
+    "read-only; list approved ideas without an outcome and pending judge send-backs, oldest first ([--json] [--ledger]); with the local tick-ticket-queue flag on, the whole frontier instead: send-backs, then every open ready-for-agent issue the exclusion rules keep, one line each with kind, lane and horizon ([--json adds excluded] [--explain <issue>] places one issue or names why it is excluded, and a ticket whose PR has merged is listed as waiting on it; the tick takes idea items in this order and does not start plain tickets yet)",
   options: { ledger: "string", explain: "string" },
   run: (context) => guarded(context, () => next(context)),
 };

@@ -52,6 +52,8 @@ export interface FrontierInput {
   ideas: readonly IdeaRecord[];
   openPrs: readonly OpenPr[];
   sendBacks: readonly LedgerEvent[];
+  /** Each ticket issue whose newest referring PR has merged, mapped to that PR (#1431). */
+  mergedPrs?: ReadonlyMap<number, number>;
 }
 
 const issueNumber = (ref: string | undefined): number | undefined => {
@@ -116,9 +118,15 @@ export function buildFrontier(input: FrontierInput): Frontier {
       lane: laneOf(issue.labels),
       horizon: horizonOf(issue.labels),
     };
+    const merged = input.mergedPrs?.get(issue.number);
     issued.push(
       idea === undefined
-        ? { kind: "ticket", ...place, labels: issue.labels }
+        ? {
+            kind: "ticket",
+            ...place,
+            labels: issue.labels,
+            ...(merged === undefined ? {} : { merged }),
+          }
         : { kind: "idea", idea: idea.number, ...place },
     );
   }

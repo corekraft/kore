@@ -31,7 +31,13 @@ const REASONS: Record<ExclusionReason, string> = {
   "idea-missing": "no idea record matches this idea issue",
 };
 
-/** The steering view: one numbered line per item in queue order, or the whole frontier as JSON. */
+/** A ticket whose PR has merged: it waits on that PR, so it is not queued work (#1431). */
+const isWaiting = (
+  item: FrontierItem,
+): item is FrontierItem & { kind: "ticket"; merged: number } =>
+  item.kind === "ticket" && item.merged !== undefined;
+
+/** The steering view: one numbered line per queued item in queue order, a waiting line per merged ticket, or the whole frontier as JSON. */
 export function renderFrontier(frontier: Frontier, json: boolean): string {
   if (json) {
     return `${JSON.stringify({ queue: frontier.queue, excluded: frontier.excluded })}\n`;
@@ -39,8 +45,15 @@ export function renderFrontier(frontier: Frontier, json: boolean): string {
   if (frontier.queue.length === 0) {
     return "The queue is empty.\n";
   }
+  let position = 0;
   return frontier.queue
-    .map((item, index) => `${index + 1}. ${describeFrontierItem(item)}\n`)
+    .map((item) => {
+      if (isWaiting(item)) {
+        return `ticket issue #${item.issue} waiting: merged PR #${item.merged}\n`;
+      }
+      position += 1;
+      return `${position}. ${describeFrontierItem(item)}\n`;
+    })
     .join("");
 }
 
@@ -59,9 +72,20 @@ export function explainedIssue(
   return Number(raw);
 }
 
-/** One issue's place in the frontier: queued at a position, excluded with its reason, or absent. */
+/** One issue's place in the frontier: waiting on its merged PR, queued at a position, excluded with its reason, or absent. */
 export function explanation(issue: number, frontier: Frontier) {
-  const placed = frontier.queue
+  const steering = frontier.queue.filter((item) => !isWaiting(item));
+  const waiting = frontier.queue.find(
+    (item): item is FrontierItem & { kind: "ticket"; merged: number } =>
+      isWaiting(item) && item.issue === issue,
+  );
+  if (waiting !== undefined) {
+    return {
+      json: { issue, status: "waiting", pr: waiting.merged },
+      text: `issue #${issue} is waiting: merged PR #${waiting.merged}`,
+    };
+  }
+  const placed = steering
     .flatMap((item, index) =>
       item.kind === "send-back" ? [] : [{ item, position: index + 1 }],
     )
@@ -70,7 +94,7 @@ export function explanation(issue: number, frontier: Frontier) {
     const { item, position } = placed;
     return {
       json: { issue, status: "queued", position, item },
-      text: `issue #${issue} is queued at position ${position} of ${frontier.queue.length}: ${item.kind}, lane ${item.lane}, horizon ${item.horizon}`,
+      text: `issue #${issue} is queued at position ${position} of ${steering.length}: ${item.kind}, lane ${item.lane}, horizon ${item.horizon}`,
     };
   }
   const excluded = frontier.excluded.find((e) => e.issue === issue);
