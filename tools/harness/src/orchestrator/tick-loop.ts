@@ -9,7 +9,7 @@ export interface LoopPorts {
   flagOn(): Promise<boolean>;
   /** Brings the checkout and bundle up to date before a pass; absent means the loop has no update step. */
   update?(): Promise<void>;
-  /** Reports an update that threw; the loop goes on to the pass with the bundle it has. */
+  /** Reports an expected update failure and returns, so the loop goes on to the pass with the bundle it has; rethrows any other error, which ends the loop. */
   updateFailed(error: unknown): void;
   /** Writes the heartbeat (tick.started) before a pass starts. */
   heartbeat(): Promise<void>;

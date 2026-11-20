@@ -173,6 +173,20 @@ describe("tick loop update step", () => {
     expect(f.pass).toHaveBeenCalledTimes(2);
   });
 
+  it("ends the loop when the update reporter rethrows an unexpected error", async () => {
+    const f = fakes([OK]);
+    const odd = new RangeError("odd");
+    f.updateFailed.mockImplementation(() => {
+      throw odd;
+    });
+    const update = vi.fn(async () => {
+      throw odd;
+    });
+
+    await expect(new TickLoop({ ...f.ports, update }).run(2)).rejects.toBe(odd);
+    expect(f.pass).not.toHaveBeenCalled();
+  });
+
   it("runs no update when the flag is off, so an off flag updates nothing", async () => {
     const f = fakes([], [false]);
     const update = vi.fn();

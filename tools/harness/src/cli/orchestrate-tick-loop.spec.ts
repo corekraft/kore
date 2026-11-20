@@ -235,25 +235,42 @@ describe("orchestrate tick --loop self-update step", () => {
     );
   });
 
-  it("prints an unexpected error with its own message and keeps the loop alive", async () => {
+  it("rethrows an unexpected error and reports nothing as handled", async () => {
     const { deps, err } = setup();
+    const odd = new RangeError("odd failure");
 
     await runTickLoop(deps, ROOT, undefined);
-    capturedPorts().updateFailed(new RangeError("odd failure"));
 
-    expect(err.join("")).toBe(
-      `The self-update step failed unexpectedly (RangeError): odd failure\n${KEEPS}; report this error, then the next pass retries the update.\n`,
-    );
+    expect(() => capturedPorts().updateFailed(odd)).toThrow(odd);
+    expect(err.join("")).toBe("");
   });
 
-  it("prints a thrown non-error value as text", async () => {
+  it("rethrows a thrown non-error value and reports nothing as handled", async () => {
     const { deps, err } = setup();
 
     await runTickLoop(deps, ROOT, undefined);
-    capturedPorts().updateFailed("plain string");
 
-    expect(err.join("")).toContain(
-      "failed unexpectedly (non-error): plain string\n",
-    );
+    let thrown: unknown;
+    try {
+      capturedPorts().updateFailed("plain string");
+    } catch (error) {
+      thrown = error;
+    }
+
+    expect(thrown).toBe("plain string");
+    expect(err.join("")).toBe("");
+  });
+
+  it("rethrows an ENOENT that is not a failed spawn", async () => {
+    const { deps, err } = setup();
+    const other = Object.assign(new Error("open x ENOENT"), {
+      code: "ENOENT",
+      syscall: "open",
+    });
+
+    await runTickLoop(deps, ROOT, undefined);
+
+    expect(() => capturedPorts().updateFailed(other)).toThrow(other);
+    expect(err.join("")).toBe("");
   });
 });
