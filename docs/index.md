@@ -353,6 +353,12 @@ decisions; read one only when planning that area, and expect it to change.
   the repo retro over 436 sessions, unified with the Pocock retro into one
   owner-decided triage; none applied yet. Read before changing the role guards
   or the writer agent definition.
+- [`docs/retros/2026-11-20-general-retro.md`](retros/2026-11-20-general-retro.md)
+  — the general retro of 2026-11-18 to 2026-11-20, revised after its grill and
+  the owner's decisions: no new idea, four tickets and a writer.md guidance line,
+  and evidence for ideas 0038, 0019, 0035, 0031, 0013, 0033, 0022 and 0012;
+  none applied. Read before changing the main session's loop, the merge path or
+  the role guards.
 - [`docs/retros/2026-11-20-friction-retro.md`](retros/2026-11-20-friction-retro.md)
   — the throughput-limit and cost retro over the sessions since 2026-11-18,
   revised after its grill: four new ideas, three tickets and three folds into
