@@ -41,13 +41,24 @@ const AFTER = { load: { oneMinute: 2 } } as unknown as HostSnapshot;
  * A deployment that moves one ready replica per read towards the replica count
  * last scaled to. `stuckAt` stops it short, as a sync that reverts the scale would.
  */
-function cluster(initial: number, stuckAt?: number) {
+/** `scaled` names the Deployments the autoscalers target; `[]` is a chart with none. */
+function cluster(
+  initial: number,
+  stuckAt?: number,
+  scaled = [options.deployment],
+) {
   const state = { desired: initial, ready: initial };
   const run = vi.fn<Runner["run"]>(async (_command, args) => {
     const scale = args.find((arg) => arg.startsWith("--replicas="));
     if (scale !== undefined) {
       state.desired = Number(scale.slice("--replicas=".length));
       return { stdout: "", stderr: "", code: 0 };
+    }
+    if (args.includes("hpa")) {
+      const items = scaled.map((name) => ({
+        spec: { scaleTargetRef: { kind: "Deployment", name } },
+      }));
+      return { stdout: JSON.stringify({ items }), stderr: "", code: 0 };
     }
     const target = Math.min(state.desired, stuckAt ?? state.desired);
     state.ready += Math.sign(target - state.ready);
@@ -313,6 +324,28 @@ test("records the host before and after the run beside the result", async () => 
   }).scaleCheck.run();
 
   expect(result.host).toEqual({ before: BEFORE, after: AFTER });
+});
+
+test("refuses before its first write when no HorizontalPodAutoscaler targets the BFF, naming the count it found", async () => {
+  const { runner } = cluster(1, undefined, []);
+  const { scaleCheck, loadRunner } = check(runner);
+
+  await expect(scaleCheck.run()).rejects.toThrow(
+    "golden-path-example--local/golden-path-example-bff has replicas: 1 and no HorizontalPodAutoscaler targets it",
+  );
+
+  expect(scales(runner)).toEqual([]);
+  expect(loadRunner.run).not.toHaveBeenCalled();
+});
+
+test("an autoscaler that targets another Deployment is not a route for the BFF, so the check refuses", async () => {
+  const { runner } = cluster(2, undefined, ["golden-path-example-frontend"]);
+
+  await expect(check(runner).scaleCheck.run()).rejects.toThrow(
+    "golden-path-example--local/golden-path-example-bff has replicas: 2 and no HorizontalPodAutoscaler targets it",
+  );
+
+  expect(scales(runner)).toEqual([]);
 });
 
 test("omits the host record when no host reader was given", async () => {

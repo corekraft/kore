@@ -242,6 +242,18 @@ at a time on an idle host (stop writer and challenger panes first).
   the run ends; a restore that fails is named beside the original failure. The
   live run needs `autoscaling-defaults` on and the service
   delivered through Argo CD.
+- **Self-heal (#1465).** The golden-path workload chart sets `replicas: 1` and
+  creates no HorizontalPodAutoscaler, with or without `autoscaling-defaults`
+  (`infra/charts/golden-path-workload`), and the delivery's ApplicationSet
+  syncs with `selfHeal: true`, so Argo CD reverts a scale of the BFF. The 1114-d
+  run found one ready replica (the chart's count, not the two the ticket
+  expected). The check now reads the autoscalers first and refuses before its
+  first write, naming the replica count it found, unless one targets the BFF.
+  No route that survives self-heal is built yet. Choosing one is an owner
+  decision: an autoscaler from the chart's values (ADR 0047), a delivered
+  replica value, or an Argo CD ignore on `spec.replicas`. Each changes what
+  runs in a cluster and needs its own live run. The scale proof stays owed on
+  [#1114](https://github.com/corekraft/kore/issues/1114).
 - **Host record.** Both results carry the ingress measurement's `host` record
   beside the numbers; the scale check refuses a host 1-minute load average of
   10 or more, as the ingress measurement does.
