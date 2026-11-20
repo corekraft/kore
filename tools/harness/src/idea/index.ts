@@ -11,7 +11,7 @@ export {
   type IdeaRecord,
   type NewIdea,
 } from "./record.js";
-export { issueTarget } from "./sync.js";
+export { issueTarget, numberedIssue } from "./sync.js";
 export {
   TIER_COST_METRIC,
   TIER_FIELDS,
