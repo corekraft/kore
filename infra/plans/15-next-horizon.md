@@ -333,6 +333,7 @@ Safety pattern: `no-behaviour-change` (records only).
       own build, and report cold services separately from redeploys.
 
       - 2026-11-15 not provable: no project command exists (owner decision 2026-11-15, no command times each delivery stage; tracked on [#616](https://github.com/corekraft/kore/issues/616)). Not ticked.
+      - 2026-11-20 built, live proof owed: the delivery-stage timer is merged as a live test task (#1299, `npm run test:live:delivery-stage`, not a `kore` subcommand). Its recorded run is [#1113](https://github.com/corekraft/kore/issues/1113), held until the next Service change merges to main; that run's one-line summary goes here. Not ticked.
 
 - [ ] Record the golden-path frontend's p95 at the Gateway with
       [plan 13](13-agentgateway-ingress.md)'s load harness, which already
