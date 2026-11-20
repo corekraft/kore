@@ -23,6 +23,7 @@ try {
     hostLoad: systemHostLoad,
     bundleUrl: import.meta.url,
     env: process.env,
+    platform: process.platform,
     cwd: process.cwd(),
     stdin: () => readStdin(process.stdin),
     root: () =>
