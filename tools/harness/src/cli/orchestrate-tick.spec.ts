@@ -85,6 +85,16 @@ beforeEach(() => {
   vi.mocked(hostLocksDirectory).mockReturnValue("/host/.kore/locks");
 });
 
+describe("orchestrate tick flags", () => {
+  it("declares the idea, loop and install flags, so the CLI accepts them", () => {
+    expect(tickCommand.options).toEqual({
+      idea: "string",
+      loop: "boolean",
+      install: "boolean",
+    });
+  });
+});
+
 describe("orchestrate tick with the flag off", () => {
   it("does nothing, and says the flag is off, so behaviour is unchanged", async () => {
     vi.mocked(tickFlagOn).mockResolvedValue(false);
