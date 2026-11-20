@@ -9,11 +9,12 @@
       "kubernetesVersion": "1.37.2",
       "driver": "external",
       "containerRuntime": "containerd",
+      "serviceCidr": "10.43.0.0/16",
       "cpus": 4,
       "memoryMB": 20480,
       "diskSize": "300g"
     },
-  "registry": { "address": "registry.kore.internal" },
+  "registry": { "address": "10.43.0.50:5000" },
   "platformMirror": "ghcr.io/corekraft/kore/mirror",
   "imageInventory": "enforce",
   "enrollmentExemptions":
@@ -110,6 +111,9 @@
       "oci-registry":
         ["infra/environments/vps/values/mirror/oci-registry.yaml"],
       "policy-controller":
-        ["infra/environments/vps/values/mirror/policy-controller.yaml"]
+        [
+          "infra/environments/vps/values/mirror/policy-controller.yaml",
+          "infra/environments/vps/values/policy-controller.yaml"
+        ]
     }
 }

@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { readFile } from "node:fs/promises";
+import { readdir, readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { test } from "vitest";
 import {
@@ -53,4 +53,66 @@ test("the vps cluster sizing leaves room for the agents VM's 40 GiB cap and the 
   assert.equal(environment.cluster?.cpus, 4);
   assert.equal(environment.cluster?.memoryMB, 20480);
   assert.equal(environment.cluster?.diskSize, "300g");
+});
+
+test("the vps registry is an in-cluster ClusterIP at 10.43.0.50:5000, inside the k3s service CIDR and clear of the services the cluster runs", async () => {
+  const { environment } = await loadRepository("vps");
+  assert.equal(environment.registry?.address, "10.43.0.50:5000");
+  assert.equal(environment.cluster?.serviceCidr, "10.43.0.0/16");
+});
+
+test("the vps gateway takes its certificate from the internal CA that local uses, not from ACME", async () => {
+  const root = await findRoot();
+  const config = await readFile(
+    join(root, "infra/environments/vps/values/platform-config.yaml"),
+    "utf8",
+  );
+  assert.match(config, /^issuer: \{ name: kore-local-ca \}$/m);
+  assert.match(config, /certificateSecret: kore-local-tls/);
+  assert.doesNotMatch(config, /managed-cluster-issuer/);
+});
+
+test("the vps policy controller trusts only the in-cluster registry's CA, as local does, so signatures are read over verified TLS", async () => {
+  const { environment } = await loadRepository("vps");
+  assert.ok(
+    environment.componentValues?.["policy-controller"]?.includes(
+      "infra/environments/vps/values/policy-controller.yaml",
+    ),
+    "the registry CA values are layered beside the mirror values",
+  );
+  const root = await findRoot();
+  const values = await readFile(
+    join(root, "infra/environments/vps/values/policy-controller.yaml"),
+    "utf8",
+  );
+  assert.match(
+    values,
+    /"registryCaBundle": \{ "name": "kore-registry-ca", "key": "ca.crt" \}/,
+  );
+});
+
+test("the vps secrets directory holds no encrypted document and no rule that reuses local's age recipient, until the owner creates the environment's own recipient", async () => {
+  const root = await findRoot();
+  const directory = join(root, "infra/environments/vps/secrets");
+  const names = (await readdir(directory)).sort();
+  assert.deepEqual(
+    names.filter((name) => name.endsWith(".enc.yaml")),
+    [],
+  );
+  assert.ok(
+    names.includes("README.md"),
+    "the owner steps are recorded beside it",
+  );
+  const sops = await readFile(join(root, ".sops.yaml"), "utf8");
+  const local =
+    /infra\/environments\/local\/secrets[\s\S]*?age: (age1\S+)/.exec(sops)?.[1];
+  const vps = /infra\/environments\/vps\/secrets[\s\S]*?age: (\S+)/.exec(
+    sops,
+  )?.[1];
+  assert.ok(local !== undefined, "local keeps its own recipient");
+  assert.equal(
+    vps === undefined || vps !== local,
+    true,
+    "vps never reuses local's recipient",
+  );
 });
