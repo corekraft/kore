@@ -91,7 +91,7 @@ test("the vps policy controller trusts only the in-cluster registry's CA, as loc
   );
 });
 
-test("the vps secrets directory holds no encrypted document and no rule that reuses local's age recipient, until the owner creates the environment's own recipient", async () => {
+test("vps secrets encrypt to the environment's own age recipient, never to local's", async () => {
   const root = await findRoot();
   const directory = join(root, "infra/environments/vps/secrets");
   const names = (await readdir(directory)).sort();
@@ -106,13 +106,10 @@ test("the vps secrets directory holds no encrypted document and no rule that reu
   const sops = await readFile(join(root, ".sops.yaml"), "utf8");
   const local =
     /infra\/environments\/local\/secrets[\s\S]*?age: (age1\S+)/.exec(sops)?.[1];
-  const vps = /infra\/environments\/vps\/secrets[\s\S]*?age: (\S+)/.exec(
+  const vps = /infra\/environments\/vps\/secrets[\s\S]*?age: (age1\S+)/.exec(
     sops,
   )?.[1];
   assert.ok(local !== undefined, "local keeps its own recipient");
-  assert.equal(
-    vps === undefined || vps !== local,
-    true,
-    "vps never reuses local's recipient",
-  );
+  assert.ok(vps !== undefined, "vps has its own creation rule");
+  assert.notEqual(vps, local, "vps never reuses local's recipient");
 });
