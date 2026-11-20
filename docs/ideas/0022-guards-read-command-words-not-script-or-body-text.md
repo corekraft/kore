@@ -10,6 +10,7 @@ hypothesis-metric: guardBlocksByRule.role-no-merge
 hypothesis-direction: down
 hypothesis-window: 14d
 issue: https://github.com/corekraft/kore/issues/964
+outcome: inconclusive
 ---
 
 # Idea 0022: Guards read command words, not script or body text
@@ -24,3 +25,13 @@ issue: https://github.com/corekraft/kore/issues/964
 - **Heredoc scope, if the guard changes later.** A heredoc body counts as data only as the text argument of `gh pr create`, `gh issue ...` or `harness pr open`. A body redirected to a file or piped to a shell (`cat > a.sh`, then `sh a.sh`) stays a bypass. Decided on the owner's answer on #964 (comment 6950010261).
 - **The two pieces are split out.** Piece 1, the `--help` exemption in `role-no-merge` behind the `gated-help-exempt` flag, is #973; it has no idea of its own and is a quick fix under ADR 0091, and the owner has approved its activation in local once the guardrail replay's newly allowed list is empty and an outcome is recorded. Piece 2, `harness pr open --body-file`, is #974 (`no-behaviour-change`, ADR 0099). Widening `--body-file` to `decision ask` and `judge send-back` is #982, blocked by #974.
 - **Activation is the owner's.** The `gated-help-exempt` flag is not turned on by a writer; only `harness flag activate` turns it on, after the owner's approval (ADR 0080, ADR 0120).
+
+## Outcome
+
+- Result: inconclusive
+- Kind: experiment
+- Source: journal
+- Evidence: role-no-merge blocks read 0 but the ledger holds no guard blocks before 2026-11-20 (empty, not zero); target at most 2 legitimate blocks per 14 days; retro evidence is two anecdotes, guardrail replay never completed
+- Recorded: 2026-11-20
+
+The ledger has no guard blocks before 2026-11-20, so 0 role-no-merge blocks is empty rather than zero; evidence is two anecdotes.

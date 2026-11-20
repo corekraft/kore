@@ -10,6 +10,17 @@ hypothesis-metric: metrics.tokensPerIdea
 hypothesis-direction: down
 hypothesis-window: 14d
 issue: https://github.com/corekraft/kore/issues/802
+outcome: inconclusive
 ---
 
 # Idea 0014: Give role panes only the context their role needs
+
+## Outcome
+
+- Result: inconclusive
+- Kind: experiment
+- Source: comparison
+- Evidence: Tokens per idea has insufficient history; first-event input tokens writer median 233,726 after (n=17) vs 80,403 before (n=323), not attributable to the change
+- Recorded: 2026-11-20
+
+Tokens per idea has insufficient history, and first-event input tokens (233,726 vs 80,403) cannot be attributed to the change.

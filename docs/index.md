@@ -283,6 +283,7 @@ decisions; read one only when planning that area, and expect it to change.
 - [`docs/ideas/0053-tick-ticket-queue-verification.md`](ideas/0053-tick-ticket-queue-verification.md) — Verification that the tick-ticket-queue flag turns on the frontier queue, its steering view and the harness label in local, so it can be activated.
 - [`docs/ideas/0054-tick-live-proofs-verification.md`](ideas/0054-tick-live-proofs-verification.md) — Verification that the tick-live-proofs flag hands live-proof tickets to one live-proof pane at a time on the delivery host, so it can be activated.
 - [`docs/ideas/0055-tick-self-update-verification.md`](ideas/0055-tick-self-update-verification.md) — Verification that the tick-self-update flag pulls a clean main and rebuilds the harness bundle between tick passes in local, so it can be activated. Turning it on needs this idea's recorded verification outcome and the owner's one-line approval.
+- [`docs/ideas/0058-follow-up-0010-writer-precheck-before-done.md`](ideas/0058-follow-up-0010-writer-precheck-before-done.md) — Follow up on idea 0010 after a refuted outcome
 
 ## Operations and Guides
 

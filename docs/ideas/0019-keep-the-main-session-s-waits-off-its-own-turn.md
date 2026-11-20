@@ -10,6 +10,7 @@ hypothesis-metric: mainSession.foregroundPollMinutesPerMerged
 hypothesis-direction: down
 hypothesis-window: 14d
 issue: https://github.com/corekraft/kore/issues/936
+outcome: inconclusive
 ---
 
 # Idea 0019: Keep the main session's waits off its own turn
@@ -28,3 +29,13 @@ Decided in [ADR 0123](../decisions/0123-the-main-session-waits-and-sends-through
   flow report from the scan's `retro.main-session` event.
 - **The window** opens only while `orchestrator-tick` is off; a tick turned on
   mid-window makes it insufficient and restarts it.
+
+## Outcome
+
+- Result: inconclusive
+- Kind: experiment
+- Source: journal
+- Evidence: Window never opened (orchestrator-tick already on); about 11.6 poll minutes per merged change (1,525 min, 131 merges) vs about 3.2 before
+- Recorded: 2026-11-20
+
+The window never opened because orchestrator-tick was already on; the scan reads about 11.6 poll minutes per merged change.

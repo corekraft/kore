@@ -10,6 +10,17 @@ hypothesis-metric: outcomes.ownerMinutes.perMerged
 hypothesis-direction: down
 hypothesis-window: 14d
 issue: https://github.com/corekraft/kore/issues/795
+outcome: inconclusive
 ---
 
 # Idea 0008: Send recommended decisions to an advisor role, not the owner
+
+## Outcome
+
+- Result: inconclusive
+- Kind: experiment
+- Source: journal
+- Evidence: Owner minutes per merged change 0.45 upper bound (252 min / 560 merges), no baseline recorded; 3 of 13 decisions reached the owner (23%) vs target at most 1 in 10; 0 of 10 advisor decisions overturned
+- Recorded: 2026-11-20
+
+No baseline for owner minutes per merged change; 3 of 13 decisions reached the owner (23%) against a target of at most 1 in 10.

@@ -10,6 +10,7 @@ hypothesis-metric: mainSession.signedSendShare
 hypothesis-direction: up
 hypothesis-window: 14d
 issue: https://github.com/corekraft/kore/issues/938
+outcome: refuted
 ---
 
 # Idea 0021: Route the main session's pane messages through session send
@@ -33,3 +34,13 @@ Decided in [ADR 0123](../decisions/0123-the-main-session-waits-and-sends-through
 - **Parked for the owner.** Whether the owner digest counts the main session's
   bare herdr sends, and learns `herdr agent prompt`, is a reserved question
   (ADR 0120); this idea does not depend on it.
+
+## Outcome
+
+- Result: refuted
+- Kind: experiment
+- Source: comparison
+- Evidence: 44 signed sends vs 890 raw: signed share 4.7%, target at least 90% (n=890)
+- Recorded: 2026-11-20
+
+The signed share of sends is 4.7% (44 of 890), against a target of at least 90%; follow-up is idea 0035.

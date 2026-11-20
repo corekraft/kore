@@ -10,6 +10,17 @@ hypothesis-metric: friction.total
 hypothesis-direction: down
 hypothesis-window: 14d
 issue: https://github.com/corekraft/kore/issues/801
+outcome: refuted
 ---
 
 # Idea 0013: Let read-only roles run the git and gh reads they need
+
+## Outcome
+
+- Result: refuted
+- Kind: experiment
+- Source: comparison
+- Evidence: 240 role-read-only blocks 2026-11-18..20 (about 107/day) vs 281 in the four days before (about 70/day), target under 30
+- Recorded: 2026-11-20
+
+Role-read-only blocks rose to about 107 a day from about 70, against a target under 30; follow-up is idea 0031.
