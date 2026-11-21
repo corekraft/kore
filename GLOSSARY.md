@@ -373,3 +373,37 @@ _Avoid_: Dev lock, snapshot lock
 **Release chart lock**:
 The chart lock that counts for flag activation.
 _Avoid_: Tag lock, final lock
+
+## App model
+
+**Service**:
+The deployed unit of an application: one name, one suborg, one set of components, one app record. A repository may hold several.
+_Avoid_: App (informal only), microservice, workload
+
+**App repository**:
+The repository an application's source lives in, outside the Kore repository. It holds source, a build file and the application's declarations, never manifests.
+_Avoid_: App repo mirror, source mirror
+
+**App record**:
+The pair of files in the Kore repository that describe one service: the spec file, which people review, and the release file, which only the platform writes.
+_Avoid_: Registration, service manifest
+
+**Spec file**:
+The half of an app record that says what a service is and may do: its suborg, repository, components, resources, grants, hostnames and gateway.
+_Avoid_: Service definition
+
+**Release file**:
+The half of an app record that says what runs: the signed digest of each component and the on or off state of each flag. Only the platform writes it.
+_Avoid_: Lock, deploy file
+
+**Suborg**:
+An organization one level below the tenant root. It is the namespace, quota and trust boundary of its services, and the second label of their hostnames.
+_Avoid_: Team, project, tenant
+
+**Suborg namespace**:
+The one namespace a suborg's services share, named exactly like the suborg and owned by the platform, never by Argo CD or a service.
+_Avoid_: App namespace, service namespace
+
+**Grant**:
+An entry in a service's spec that lets another named service in another suborg reach it. Without one, traffic between suborgs is denied.
+_Avoid_: Allow rule, exception
