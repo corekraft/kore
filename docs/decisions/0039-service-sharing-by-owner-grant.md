@@ -1,8 +1,8 @@
 ---
-status: proposed
+status: accepted
 summary: Within a tenant a service is shared only by an explicit grant from its owner, which a parent organization can block but not force; across tenants only an operator can grant access.
 date: 2026-11-08
-last-verified: 2026-11-09
+last-verified: 2026-11-20
 ---
 
 # ADR 0039: Share services by owner grant
@@ -39,3 +39,7 @@ and the tenant root is the isolation boundary
 - Revoking a grant removes the generated policy and data access; the grantee's
   calls fail closed.
 - The portal shows grants on both the owner's and the grantee's services.
+
+## Acceptance (2026-11-20)
+
+The owner accepted this ADR on 2026-11-20 while answering the questions parked under issue #1484 (platform v1 app model). Its first use is the `allowFrom` list in a service's spec file, which the suborg tenancy decision turns into policy.

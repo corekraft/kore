@@ -571,7 +571,7 @@ numbers stay stable so earlier references still resolve.
 2. **Hierarchy depth.** Decided (ADR 0038): at most four levels below the tenant root,
    with tenant and organization labels on namespaces
    ([ADR 0038](decisions/0038-organization-hierarchy-depth-and-labels.md)).
-3. **Sharing.** Chosen, proposed (ADR 0039): owner grants within a tenant, parents can block, and
+3. **Sharing.** Decided (ADR 0039): owner grants within a tenant, parents can block, and
    only operators grant across tenants
    ([ADR 0039](decisions/0039-service-sharing-by-owner-grant.md)).
 4. **Argo CD for platform components.** Decided (ADR 0043): `kore` keeps the early phases,

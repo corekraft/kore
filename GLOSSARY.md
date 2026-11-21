@@ -110,6 +110,26 @@ A deterministic script that does a step in place of an agent, and may launch
 agents.
 _Avoid_: Helper, utility
 
+## Change safety
+
+**Capacity budget**:
+What one cluster may commit to apps: what the node can allocate, less what the
+platform's own pods request. The suborg quotas together may use only a fixed
+share of it, so a rollout has headroom. An app that does not fit is refused
+before it is delivered.
+_Avoid_: Quota (a quota enforces one suborg's share of the budget, it is not the
+budget), limit
+
+**Maintenance window**:
+The announced time in which the one outage a host needs, a kernel reboot, is
+allowed to happen. Everything else about maintenance leaves apps up.
+_Avoid_: Downtime, outage window
+
+**Soak**:
+The time a release stays active under watch, with no revert and no failed
+health, before a contract step may follow it. Each rollout sets its own.
+_Avoid_: Bake time, burn-in
+
 ## Cost
 
 **Main-session cost**:
@@ -373,3 +393,274 @@ _Avoid_: Dev lock, snapshot lock
 **Release chart lock**:
 The chart lock that counts for flag activation.
 _Avoid_: Tag lock, final lock
+
+## Flags and production
+
+**Feature flag**:
+A flag that holds back a platform capability until it is proven live. It is
+retired once it is on in every environment it applies to.
+_Avoid_: Toggle, switch
+
+**Environment flag**:
+A flag that selects how one kind of environment is built, not a capability. It
+stays a flag and is never retired.
+_Avoid_: Feature flag, environment variable
+
+**Harness flag**:
+A flag for the delivery loop's own tooling. It is read where the loop runs, not
+in the cluster.
+_Avoid_: Platform flag
+
+**Flag manifest**:
+The one file that declares each flag's kind, the environments it applies to and
+the flags it requires.
+_Avoid_: Flag registry, flag list
+
+**Proof run**:
+A live run that turns one new flag on in an environment from the pull request
+that carries it, using only release chart and image locks, to produce that
+flag's outcome.
+_Avoid_: Test run, canary
+
+**Rollout run**:
+A run that brings an environment to a release, from the release tag and its
+locks, and is recorded when it finishes.
+_Avoid_: Deploy, sync
+
+**Flag soak**:
+The time a flag stays on in every environment it applies to, with no revert,
+before it may be retired. Not the **Soak** of a release.
+_Avoid_: Burn-in, soak
+
+**Retirement**:
+Deleting a feature flag, its off path and their tests once it has soaked.
+_Avoid_: Cleanup, removal
+
+## Backup and recovery
+
+**Protection class**:
+How a thing on the box comes back after the box is lost: rebuilt from git, rebuilt from elsewhere, regenerated, or backed up. Each thing on the box has exactly one.
+_Avoid_: Backup tier, recovery tier
+
+**Backup target**:
+The S3-compatible store that backups are written to, declared once for an environment with a kind, interim or off-host.
+_Avoid_: Backup bucket, backup destination
+
+**Interim target**:
+A backup target that does not survive the loss of the box. Backups written to it prove the mechanics, not the protection, and every report names it as such.
+_Avoid_: Local target, test target
+
+**Off-host target**:
+A backup target that survives the loss of the box. A service with data does not go public until the environment has one.
+_Avoid_: Remote target, cloud target
+
+**Restorable backup**:
+The newest backup of a database when its manifest matches the object in the target, it is under 24 hours old, and a restore drill of the mechanism has passed recently. Only a restorable backup satisfies a contract release or a destroy.
+_Avoid_: Fresh backup, valid backup
+
+**Recovery kit**:
+The keys and credentials the owner holds off the box and off the controller so that every backup stays readable and the box can be rebuilt. The repository lists where each is held, never a value.
+_Avoid_: Key backup, escrow
+
+**Canary database**:
+A platform-owned synthetic database with fixed rows, backed up like any other, whose restore is verified weekly without a person. It holds no real data.
+_Avoid_: Test database, drill database
+
+**Recovery hold**:
+The state of a rebuilt environment in which no application is synced until its databases are restored. It is lifted by the restore, never by the application.
+_Avoid_: Maintenance mode, freeze
+
+## Ingress
+
+**Internal Gateway**:
+The Gateway that answers only on the tailnet. Every service is reachable through it by default, and every platform name lives behind it.
+_Avoid_: Private gateway, tailnet gateway
+
+**External Gateway**:
+The Gateway that answers on the public internet. A service reaches it only when its spec says so, and only for the hostnames it claims.
+_Avoid_: Public gateway, edge gateway
+
+**Hostname claim**:
+A hostname a service lists in its spec so the platform serves it. The first claim merged wins and holds the name exclusively until the record or its suborg is removed.
+_Avoid_: Hostname request, domain registration
+
+**Reserved name**:
+A label no service may claim and no suborg may take, kept in one file the owner reviews.
+_Avoid_: Blocked name, protected name
+
+**Foreign name**:
+A claimed hostname under a domain the platform does not own. It is served only on the External Gateway, and only after a certificate authority has proved that its public DNS points at the platform.
+_Avoid_: External domain, custom domain
+
+**Internal name**:
+The name every service has under the internal zone of its suborg. It never reaches public DNS.
+_Avoid_: Private name, tailnet name
+
+## DNS and the domain
+
+**Platform domain**:
+The one bought domain the platform serves apps under, held as a single zone at
+the DNS provider. Every suborg's default names derive from it. Its real value is
+a run-time value; the repository holds only the placeholder domain.
+_Avoid_: Root domain, base domain
+
+**Placeholder domain**:
+The non-resolving domain a managed environment's overlay declares in place of
+the platform domain, so validation and every test run without a real name.
+_Avoid_: Fake domain, dummy domain
+
+**Run-time value**:
+A setting supplied by the environment of the machine that runs Kore and never
+committed, for a fact that is public but kept out of the repository, such as
+the platform domain or the host's public address. It is not a secret, so it is
+not encrypted.
+_Avoid_: Local config, env override
+
+**Fixed record**:
+A DNS record the infrastructure code owns, such as the apex, the certificate
+authority restriction or the mail records. The route controller never edits it.
+_Avoid_: Static record, manual record
+
+**Route record**:
+A DNS record the route controller creates from a route's hostname and
+withdraws only by its own ownership record.
+_Avoid_: App record, dynamic record
+
+**Ownership record**:
+The TXT record that marks a route record as the route controller's. A record
+without one is never edited by it.
+_Avoid_: Registry record, marker record
+
+**Foreign domain**:
+Any domain other than the platform domain, including one the owner owns. The
+platform serves a name under it once a certificate challenge proves its DNS
+points here, and never writes its DNS or holds a credential for it.
+_Avoid_: Custom domain, external domain
+
+## App model
+
+**Service**:
+The deployed unit of an application: one name, one suborg, one set of components, one app record. A repository may hold several.
+_Avoid_: App (informal only), microservice, workload
+
+**App repository**:
+The repository an application's source lives in, outside the Kore repository. It holds source, a build file and the application's declarations, never manifests.
+_Avoid_: App repo mirror, source mirror
+
+**App record**:
+The pair of files in the Kore repository that describe one service: the spec file, which people review, and the release file, which only the platform writes.
+_Avoid_: Registration, service manifest
+
+**Spec file**:
+The half of an app record that says what a service is and may do: its suborg, repository, components, resources, grants, hostnames and gateway.
+_Avoid_: Service definition
+
+**Release file**:
+The half of an app record that says what runs: the signed digest of each component and the on or off state of each flag. Only the platform writes it.
+_Avoid_: Lock, deploy file
+
+**Suborg**:
+An organization one level below the tenant root. It is the namespace, quota and trust boundary of its services, the second label of their hostnames, and may be a short-lived sandbox that is torn down whole.
+_Avoid_: Team, project, tenant
+
+**Suborg namespace**:
+The one namespace a suborg's services share, named exactly like the suborg and owned by the platform, never by Argo CD or a service.
+_Avoid_: App namespace, service namespace
+
+**Grant**:
+An entry in a service's spec that lets another named service in another suborg reach it. Without one, traffic between suborgs is denied.
+_Avoid_: Allow rule, exception
+
+## App delivery
+
+**Platform workflow**:
+The reusable workflow the platform owns, which every application repository
+calls pinned by commit SHA. It builds the image, runs the deterministic evals
+and signs the **Attestations**; its identity is the only signer admission
+trusts, so an application can call the evals but cannot fake their result.
+_Avoid_: Pipeline, CI template
+
+**Attestation**:
+A signed statement about one image digest made by the **Platform workflow**: the
+eval result, the declared flags, or the classified migrations. Admission requires
+the image signature and every attestation before a pod runs.
+_Avoid_: Provenance, report
+
+**Candidate**:
+An image digest the **Platform workflow** built, evaluated and signed from an
+application's main branch, not yet deployed anywhere. A newer candidate
+supersedes a queued one.
+_Avoid_: Release candidate, build
+
+**Bump**:
+The platform's change to an application record in git that points it at a
+**Candidate**'s digest. It is a pull request the judge verifies and merges, and
+it touches nothing but the digest and its attestation references.
+_Avoid_: Deploy, promotion
+
+**App flag**:
+A flag an application declares in its own repository (name, default off, owner,
+safety pattern) and reads at run time. The platform alone holds its on/off state
+and alone turns it on, from live evidence and a recorded outcome. A flag in an
+environment overlay is a platform flag, not an app flag.
+_Avoid_: Feature toggle, runtime flag
+
+**Rollout**:
+How an **App flag** is exposed in a controlled way: a kind (flag, canary or dark
+launch), the criteria that must hold and a **Soak window**, all declared by the
+app. The platform turns the flag on only when a rollout's criteria hold.
+_Avoid_: Release, launch
+
+**Soak window**:
+The time a rollout must hold its criteria before the platform acts on it, set
+per rollout and as short as hours. It is also the time a release named as
+last-used must have run before a **Contract release** may follow. There is no
+fixed minimum.
+_Avoid_: Bake time, cooldown
+
+**Dark deploy**:
+Rolling a **Candidate** out with every flag it introduces off, so the new code
+runs and the new behaviour does not.
+_Avoid_: Silent deploy
+
+**Expand migration**:
+A schema change that the previous release still runs correctly against. A
+normal release carries only these.
+_Avoid_: Additive migration
+
+**Contract migration**:
+A schema change that removes what an earlier release stopped using. It ships
+alone, in a later release, after the soak.
+_Avoid_: Cleanup migration, destructive migration
+
+**Contract release**:
+A release that carries only a contract step and names the earlier release in
+which the thing was last used: a data contract (contract migrations only) or a
+code contract (a flag and its off path deleted, no migration). It states its
+**Soak window**.
+_Avoid_: Cleanup release
+
+**Shadow migration**:
+A run of a release's migrations, schema or data, against a copy of the database
+restored from a backup, before the real migration runs. The real migration runs
+only when the shadow run passed.
+_Avoid_: Dry run, rehearsal
+
+**Break-glass**:
+The emergency primitive that lets a release skip the **Shadow migration**. Every
+use is recorded and shown to the owner, and it bypasses nothing else.
+_Avoid_: Override, force
+
+## App flag activation
+
+**Activation window**:
+The period over which the platform reads an app flag's evidence set before it turns the flag on. A window ends `confirmed`, `refuted` or `inconclusive`; missing evidence is never `confirmed`.
+_Avoid_: Soak, canary
+
+**Evidence set**:
+The fixed signals the platform produces and reads in an activation window, the same for every app. Series an app pushes about itself are not part of it.
+_Avoid_: Health check, metrics
+
+**App flag outcome**:
+The platform-written, append-only record of one activation window's verdict and evidence for an app's flag. It is not an Outcome, which closes an idea.
+_Avoid_: Flag proof, verdict

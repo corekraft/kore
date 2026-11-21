@@ -1,0 +1,42 @@
+---
+status: proposed
+summary: Services are grouped into suborgs, organizations one level below a single tenant root; each suborg has one platform-owned namespace named like it, a required quota, an AppProject, default-denied ingress from other suborgs opened only by accepted grants, a clean teardown path as an agent sandbox, and is the trust boundary of its services; a dark flag turns the layout on.
+date: 2026-11-20
+last-verified: 2026-11-20
+---
+
+# ADR 0165: A suborg is the namespace, quota and trust boundary of its services
+
+Source: [issue #1484](https://github.com/corekraft/kore/issues/1484), under the platform v1 interview record [#1478](https://github.com/corekraft/kore/issues/1478) (decisions 5, 9, 12, 13, 14 and the naming section).
+
+Refines: [ADR 0037](0037-tenant-isolation-by-namespace.md) (a namespace per service environment becomes a namespace per suborg), [ADR 0025](0025-application-namespace-ambient-enrollment.md) (who owns an application namespace), [ADR 0038](0038-organization-hierarchy-depth-and-labels.md) and [ADR 0115](0115-scope-the-organization-and-service-platform-apis-to-the-cluster.md) (the Organization API gains more than `platform`). Builds on [ADR 0042](0042-organization-domains-by-delegation.md) (a suborg's default zone) and [ADR 0041](0041-backstage-and-argo-cd-per-tenant.md) (an AppProject per organization).
+
+## Context
+
+The Service composition makes a namespace `<service>--<environment>`, and the XRD allows only the `platform` organization. The composition makes no quota, LimitRange or NetworkPolicy. The golden-path ApplicationSet creates the namespace itself, labels it only with the shared-gateway label, runs in the Argo CD project `default`, and so leaves the namespace outside image admission (only `kore app up` sets the include label, [ADR 0032](0032-application-namespace-image-admission.md)). The owner decided that the cluster is the environment, so no environment belongs in a namespace name, and that the namespace is per suborg, with traffic free inside a suborg and denied across suborgs unless an app record allows it.
+
+## Decision
+
+- **A suborg is an Organization** one level below the tenant root `platform`. v1 has one tenant and depth one; the XRD rule "only the platform organization" is lifted by expand and contract. The API field stays `organization`; "suborg" is glossary language. Its default zone is `<suborg>.<platform domain>` ([ADR 0042](0042-organization-domains-by-delegation.md)), so service `leads` in suborg `api` is `leads.api.example.com`.
+- **One namespace per suborg, named exactly like it,** with the labels `platform.kore.dev/tenant` (the root) and `platform.kore.dev/organization` (the suborg). The Organization composition owns it and every label on it: tenant, organization, Pod Security `restricted`, the mesh label, the image-admission include label and the shared-gateway label. The golden-path ApplicationSet stops using `CreateNamespace`. A preview inside production is the exception `<suborg>--preview`.
+- **Names are checked up front.** A suborg name is label-safe and short enough that `<suborg>--preview` is at most 63 characters (so at most 54), has no `--`, and is not reserved: every platform namespace (`argocd`, `cert-manager`, `external-secrets`, `default`, ...), `kube-*`, `kore-*`, `internal` and `www`. A suborg called `internal` would make `x.internal.example.com` ambiguous with the tailnet zone.
+- **Suborgs are Organization manifests** at `infra/environments/<env>/organizations/<suborg>.json`, validated by `kore validate` (name rules, parent, quota present) and applied by the same platform Argo CD Application as the Service records.
+- **Traffic.** Inside a suborg nothing restricts it. Ingress from other suborgs is denied, except from the gateway, platform telemetry, probes and DNS. A service's `allowFrom` lists grantees (`<suborg>/<service>`); the Service composition makes an AuthorizationPolicy naming the grantee's identity (`cluster.local/ns/<suborg>/sa/<service>`) and a NetworkPolicy opening only the grantee's namespace ([ADR 0039](0039-service-sharing-by-owner-grant.md), accepted by the owner on 2026-11-20). Egress is denied to other suborgs' namespaces, the Kubernetes API and platform namespaces; open internet egress is the v1 default (owner, 2026-11-20). A self-service per-app egress allow-list that the platform enforces without extra work is a later (`horizon:then`) addition.
+- **Identity.** Each service has one ServiceAccount named after it, shared by its components.
+- **In cluster,** `<service>.<suborg>.svc.cluster.local` is a Service named exactly `<service>` that selects the bff pods (the frontend pods when there is no bff). The `-bff` and `-frontend` Services stay.
+- **Quota is required.** The Organization spec carries requests for cpu and memory, pods and storage, as a ResourceQuota and LimitRange, with no default, so no unbounded suborg exists. The sum of suborg quotas must fit the environment's capacity and each record's requests must fit its suborg's quota, both checked before any apply. The numbers are an owner pull request.
+- **An AppProject per suborg.** The composition makes one, whose only destination is the suborg namespace and whose only source is the Kore repository; it allows no cluster-scoped kind. The workload ApplicationSet uses it instead of `default`.
+- **Image admission.** Every suborg namespace is enrolled. A separate ClusterImagePolicy for application images, with one keyless authority (the platform workflow's identity), runs in `enforce` from the first deploy, since no application image exists to break; platform namespaces stay in `warn` ([ADR 0032](0032-application-namespace-image-admission.md)).
+- **A suborg is the trust boundary.** Sibling services share a namespace, so they can read each other's Secrets and reach each other's databases. The owner puts only mutually trusted services in one suborg; a service that distrusts a sibling gets its own suborg. A service cannot change suborg: `organization` is immutable, and a move is a new service plus a data migration.
+- **Removal and teardown.** Removing a suborg is refused while any service or retained data remains, so a hand-deleted manifest cannot orphan data. A suborg is also an agent sandbox (no human approves a new one, owner 2026-11-20), so it needs a clean teardown path: a change that removes the suborg together with all its services' records is accepted by validation, workloads, quota, the project and the secret store go with it, and any data goes only through the explicit data-removal command with its second opt-in ([ADR 0003](0003-separate-claims-and-retain-data.md)). A teardown check proves nothing is left behind.
+- **Dark rollout.** One flag, `suborg-tenancy`, false in every overlay, covers the namespace move, quotas, NetworkPolicies, the AppProjects and the per-suborg secret stores. Additive record fields need no flag. The contract step (dropping `environments` and `<service>--<environment>` namespaces) waits for the soak.
+- **Live proof, with negative checks** (one run from the agents host over the tailnet, then one outcome, then `harness flag activate`), with two suborgs: a pod in one cannot reach the other's pods without a grant; a service cannot list or read the other suborg's Secrets, its secret store or its source namespace; a workload over the quota is refused; an Application from a suborg's project cannot target another namespace or a cluster-scoped kind; an image not signed by the platform workflow is refused in a suborg namespace.
+
+## Consequences
+
+- ADR 0037's "one namespace per service environment" no longer holds. Its isolation layers, quotas and the negative-test requirement do; the unit of isolation is the suborg.
+- A noisy service can use its suborg's whole quota; services that must not starve each other need separate suborgs.
+- No owner decision is open for this ADR: ADR 0039 is accepted, open internet egress is the v1 default, and new services and suborgs need no human approval (all 2026-11-20).
+- The Service XRD loses `<service>--<environment>`, the `platform` enum and `environments` over the contract step; `service-observability` and `service-registrations.ts` follow the record's move.
+- The hostname rule that foreign domains need an ACME proof contradicts ADR 0042's "no TXT path"; that belongs to the ingress decision.
+- The reference app's `reference` namespace stays with `kore app up`.
