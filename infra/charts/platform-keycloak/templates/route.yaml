@@ -1,0 +1,25 @@
+{{- /*
+  HTTPS for Keycloak on the platform Gateway (ADR 0133). The chart owns only this
+  route: the listener and its certificate are the platform's, in platform-config.
+  It renders only while kore passes sharedGateway, which it does while
+  platform-shared-gateway is on, so the flag off renders no route. The route sends
+  every path to the Keycloak operator's HTTP Service, keycloak-service on 8080.
+*/ -}}
+{{- with .Values.sharedGateway }}
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: keycloak
+  namespace: {{ $.Release.Namespace }}
+spec:
+  parentRefs:
+    - kind: Gateway
+      name: {{ .name }}
+      namespace: {{ .namespace }}
+  hostnames:
+    - {{ $.Values.keycloakHostname | quote }}
+  rules:
+    - backendRefs:
+        - name: keycloak-service
+          port: 8080
+{{- end }}

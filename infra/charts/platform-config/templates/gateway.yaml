@@ -47,6 +47,20 @@ spec:
       allowedRoutes:
         namespaces: {{ include "platform-config.routeNamespaces" . }}
 {{- end }}
+{{- if include "platform-config.sharedGateway" . }}
+    # Keycloak answers to its own name under the platform organization, with its own
+    # listener and certificate (ADR 0133). Its HTTPRoute is the Keycloak chart's.
+    - name: https-keycloak
+      hostname: {{ include "platform-config.keycloakHostname" . | quote }}
+      port: {{ .Values.gateway.port }}
+      protocol: HTTPS
+      tls:
+        mode: Terminate
+        certificateRefs:
+          - {kind: Secret, name: {{ .Values.gateway.keycloakCertificateSecret }}}
+      allowedRoutes:
+        namespaces: {{ include "platform-config.routeNamespaces" . }}
+{{- end }}
 {{- if include "platform-config.databaseRoutes" . }}
     # A TLS passthrough listener for databases reached by name: the database
     # keeps its own certificate, and a TLSRoute in the database's namespace picks
