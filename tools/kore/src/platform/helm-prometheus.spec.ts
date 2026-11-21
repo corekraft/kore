@@ -1,4 +1,4 @@
-// Docs: issue #1705 (prometheus-server is OOMKilled at its 1Gi limit with platform-portal installed)
+// Docs: infra/plans/15-next-horizon.md (issue #1705: prometheus-server is OOMKilled at its 1Gi limit with platform-portal installed)
 import { beforeEach, expect, test, vi } from "vitest";
 import { prometheusPortalHelmArgs } from "../config/index.js";
 import { helmUpgradeArgs } from "./helm.js";
