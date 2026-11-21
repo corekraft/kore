@@ -146,7 +146,6 @@ function otlpRouteArgs(environment: Environment, component: string): string[] {
 /** The chart value each component that names the platform domain reads it through. */
 const domainValueKeys: Record<string, string | undefined> = {
   "kore-platform-apis": "platformDomain",
-  "kore-platform-keycloak": "platformDomain",
   "kore-platform-backstage": "platformDomain",
   "kore-platform-config": "gateway.hostname",
   "kore-local-tls": "gateway.hostname",
@@ -168,8 +167,37 @@ const wildcardValueKeys: Record<string, string | undefined> = {
  */
 const sharedGatewayValueKeys: Record<string, string | undefined> = {
   "kore-platform-backstage": "sharedGateway",
+  "kore-platform-keycloak": "sharedGateway",
   "kore-golden-path-delivery": "ingress.sharedGateway",
 };
+
+/**
+ * Keycloak's host, which the Keycloak chart and the portal's sign-in both take:
+ * keycloak.<organizationId>.<domain> while platform-shared-gateway is on, where the
+ * platform Gateway serves it by name (ADR 0133); otherwise keycloak.<domain>, the
+ * host the flag off renders.
+ */
+function keycloakHostname(environment: Environment): string {
+  const { domain, organizationId } = platformPlan(environment);
+  return featureEnabled(environment, platformSharedGatewayFlag)
+    ? `keycloak.${organizationId}.${domain}`
+    : `keycloak.${domain}`;
+}
+
+const keycloakHostComponents = [
+  "kore-platform-keycloak",
+  "kore-platform-backstage",
+];
+
+/** The Keycloak host the Keycloak chart and the portal take, from the one derivation. */
+function keycloakHostArgs(
+  environment: Environment,
+  component: string,
+): string[] {
+  return keycloakHostComponents.includes(component)
+    ? ["--set-string", `keycloakHostname=${keycloakHostname(environment)}`]
+    : [];
+}
 
 /**
  * With platform-shared-gateway on, the Gateway a route attaches to and the
@@ -290,6 +318,7 @@ export function platformHelmArgs(
   const key = domainValueKeys[component];
   const wildcard = wildcardValueKeys[component];
   const shared = [
+    ...keycloakHostArgs(environment, component),
     ...zoneArgs(environment, component),
     ...sharedGatewayArgs(environment, component),
     ...clusterResolutionArgs(environment, component),

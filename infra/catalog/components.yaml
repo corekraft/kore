@@ -762,6 +762,7 @@
         "version": "local",
         "featureFlag": "platform-portal",
         "startsAfterDelivery": true,
+        "sharedGatewayRoutes": true,
         "ownsCRDs": [],
         "dependencies":
           [

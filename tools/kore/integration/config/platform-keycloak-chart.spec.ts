@@ -87,7 +87,9 @@ test("the Keycloak reads its database credentials and bootstrap admin from Secre
   assert.match(keycloak, /secret: keycloak-admin/);
   assert.match(
     keycloak,
-    new RegExp(`hostname: keycloak\\.${escapeRegExp(platform.domain)}`),
+    new RegExp(
+      `hostname: keycloak\\.platform\\.${escapeRegExp(platform.domain)}`,
+    ),
   );
   assert.equal(/password:\s*\S/i.test(keycloak), false);
   assert.equal(keycloak.includes("image:"), false, "the operator's digest");
