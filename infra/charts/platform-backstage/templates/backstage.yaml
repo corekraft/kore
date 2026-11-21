@@ -132,6 +132,19 @@ spec:
                 secretKeyRef:
                   name: backstage-db-app
                   key: password
+            # One database, one schema per plugin. Backstage's default is a
+            # database per plugin, which the role the claim gives it may not
+            # create (issue 1700); the database is the one the PostgreSQL API
+            # provisioned, and its owner may create the schemas in it.
+            - name: APP_CONFIG_backend_database_pluginDivisionMode
+              value: schema
+            - name: APP_CONFIG_backend_database_ensureSchemaExists
+              value: "true"
+            - name: APP_CONFIG_backend_database_connection_database
+              valueFrom:
+                secretKeyRef:
+                  name: backstage-db-connection
+                  key: database
           # The port is loopback-only, which the kubelet cannot reach over the
           # pod address, so readiness runs inside the container.
           readinessProbe:
