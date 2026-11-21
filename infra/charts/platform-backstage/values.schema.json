@@ -1,13 +1,13 @@
 {
   "$schema": "https://json-schema.org/draft-07/schema#",
   "type": "object",
-  "required": ["platformDomain", "keycloakHostname", "backstage", "proxy"],
+  "required": ["backstageHostname", "keycloakHostname", "backstage", "proxy"],
   "additionalProperties": false,
   "properties": {
-    "platformDomain": {
-      "description": "The environment's platform domain (ADR 0042). Backstage is served at backstage.<platformDomain> and signs in against the Keycloak host kore passes as keycloakHostname (ADR 0113, ADR 0133).",
+    "backstageHostname": {
+      "description": "The portal's host, which kore derives (ADR 0111, ADR 0133): backstage.<organizationId>.<platformDomain> while platform-shared-gateway is on, where the shared Gateway serves it, and backstage.<platformDomain> otherwise. The route, the base URL, the sign-in redirect and the Keycloak client's redirect URIs take this one value.",
       "type": "string",
-      "maxLength": 180,
+      "maxLength": 253,
       "pattern": "^([a-z0-9]([-a-z0-9]{0,61}[a-z0-9])?\\.)+[a-z0-9]([-a-z0-9]{0,61}[a-z0-9])?$"
     },
     "keycloakHostname": {
@@ -17,7 +17,7 @@
       "pattern": "^([a-z0-9]([-a-z0-9]{0,61}[a-z0-9])?\\.)+[a-z0-9]([-a-z0-9]{0,61}[a-z0-9])?$"
     },
     "gatewayClassName": {
-      "description": "The GatewayClass the portal's own Gateway uses, which kore derives from the ingress feature flag and passes in. With none set the chart renders no route.",
+      "description": "The GatewayClass the portal's own Gateway uses, which kore derives from the ingress feature flag and passes in. With none set, or with sharedGateway set, the chart renders no Gateway of its own.",
       "type": "string",
       "minLength": 1
     },
@@ -27,7 +27,7 @@
       "minLength": 1
     },
     "sharedGateway": {
-      "description": "The shared platform Gateway the portal also attaches a route to, which kore passes only while platform-shared-gateway is on (ADR 0133). The route host is backstage.<domain>. Without it no shared route renders.",
+      "description": "The shared platform Gateway the portal's route attaches to, which kore passes only while platform-shared-gateway is on (ADR 0133). The route's host is backstageHostname. Passing it drops the chart's own Gateway, certificate and route. Without it no shared route renders.",
       "type": "object",
       "required": ["name", "namespace", "domain"],
       "additionalProperties": false,

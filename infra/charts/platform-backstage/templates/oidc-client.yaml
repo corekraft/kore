@@ -14,10 +14,10 @@ spec:
   client:
     displayName: Backstage
     enabled: true
-    appUrl: https://backstage.{{ .Values.platformDomain }}
+    appUrl: https://{{ .Values.backstageHostname }}
     redirectUris:
-      - https://backstage.{{ .Values.platformDomain }}/oauth2/callback
-      - https://backstage.{{ .Values.platformDomain }}/api/auth/oidc/handler/frame
+      - https://{{ .Values.backstageHostname }}/oauth2/callback
+      - https://{{ .Values.backstageHostname }}/api/auth/oidc/handler/frame
     loginFlows:
       - STANDARD
     auth:

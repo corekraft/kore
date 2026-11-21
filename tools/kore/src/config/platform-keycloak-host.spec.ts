@@ -61,7 +61,19 @@ test("keycloakHostname is the host Keycloak serves: under the platform organizat
   expect(keycloakHostname(sharedGatewayOff)).toBe("keycloak.kore.internal");
 });
 
-test("backstageHostname is the portal's host under the bare platform domain whatever the shared Gateway flag, the name its sign-in redirect and base URL name", () => {
-  expect(backstageHostname(sharedGatewayOn)).toBe("backstage.kore.internal");
+test("backstageHostname is the host the shared Gateway serves while platform-shared-gateway is on, and the bare domain while it is off, the name the portal's sign-in redirect and base URL take", () => {
+  expect(backstageHostname(sharedGatewayOn)).toBe(
+    "backstage.platform.kore.internal",
+  );
   expect(backstageHostname(sharedGatewayOff)).toBe("backstage.kore.internal");
+});
+
+test("the portal is handed the one backstageHostname the helper derives, and no platform domain of its own", () => {
+  for (const environment of [sharedGatewayOn, sharedGatewayOff]) {
+    const args = platformHelmArgs(environment, "kore-platform-backstage");
+    expect(args).toContain(
+      `backstageHostname=${backstageHostname(environment)}`,
+    );
+    expect(args.some((arg) => arg.startsWith("platformDomain="))).toBe(false);
+  }
 });

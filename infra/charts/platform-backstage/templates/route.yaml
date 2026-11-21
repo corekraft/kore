@@ -1,20 +1,22 @@
 {{- /*
-  HTTPS for the portal host, backstage.<platformDomain> (ADR 0042, ADR 0111).
-  The chart owns all three resources, in its own namespace, on the same pattern
-  as a delivered service: the Gateway holds the one listener for the host,
-  cert-manager issues its Secret into the same namespace, and the route sends
-  every path to the sign-in proxy's Service. Nothing is routed to Backstage's
-  own port, so a request with no sign-in is refused by the proxy. The platform
-  owns the Gateway in kore-system, its listeners and its certificate (ADR 0133);
-  this chart's own Gateway stays until its routes move onto the platform Gateway
-  (ADR 0132). Nothing renders until kore passes the gateway class.
+  HTTPS for the portal host (ADR 0042, ADR 0111, ADR 0133). kore passes
+  backstageHostname, the one host the portal is served at: the shared platform
+  Gateway's organization host, backstage.<organizationId>.<domain>, while
+  platform-shared-gateway is on, and backstage.<domain> while it is off. The
+  portal's base URL, its sign-in redirect and the Keycloak client's redirect URIs
+  take the same value, so none names a host of its own.
 
-  With platform-shared-gateway on, kore also passes sharedGateway, and a second
-  route attaches the portal's name under the platform organization,
-  backstage.<organizationId>.<platformDomain>, to the shared Gateway, beside the
-  chart's own Gateway. It owns no listener or certificate (ADR 0133).
+  While platform-shared-gateway is on, kore also passes sharedGateway, and the
+  route attaches to the platform Gateway in kore-system, which owns the listener
+  and the certificate for that host (ADR 0133). The chart's own Gateway,
+  certificate and route are then dropped: their routes have moved, so keeping
+  them would leave a second owner for the same host.
+
+  While the flag is off, the chart keeps its own Gateway, certificate and route
+  for the bare platform domain, as it rendered before. Nothing renders until kore
+  passes the gateway class.
 */ -}}
-{{- with .Values.gatewayClassName }}
+{{- if and .Values.gatewayClassName (not .Values.sharedGateway) }}
 ---
 apiVersion: gateway.networking.k8s.io/v1
 kind: Gateway
@@ -22,10 +24,10 @@ metadata:
   name: backstage
   namespace: {{ $.Release.Namespace }}
 spec:
-  gatewayClassName: {{ . | quote }}
+  gatewayClassName: {{ .Values.gatewayClassName | quote }}
   listeners:
     - name: https
-      hostname: {{ printf "backstage.%s" $.Values.platformDomain | quote }}
+      hostname: {{ $.Values.backstageHostname | quote }}
       port: 443
       protocol: HTTPS
       tls:
@@ -43,7 +45,7 @@ metadata:
 spec:
   secretName: backstage-tls
   dnsNames:
-    - {{ printf "backstage.%s" $.Values.platformDomain | quote }}
+    - {{ $.Values.backstageHostname | quote }}
   issuerRef:
     kind: ClusterIssuer
     name: {{ $.Values.issuer }}
@@ -58,7 +60,7 @@ spec:
     - kind: Gateway
       name: backstage
   hostnames:
-    - {{ printf "backstage.%s" $.Values.platformDomain | quote }}
+    - {{ $.Values.backstageHostname | quote }}
   rules:
     - backendRefs:
         - name: backstage
@@ -77,7 +79,7 @@ spec:
       name: {{ .name }}
       namespace: {{ .namespace }}
   hostnames:
-    - {{ printf "backstage.%s" .domain | quote }}
+    - {{ $.Values.backstageHostname | quote }}
   rules:
     - backendRefs:
         - name: backstage

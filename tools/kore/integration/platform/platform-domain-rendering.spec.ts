@@ -161,7 +161,7 @@ test("every chart that names the platform domain renders the environment's field
     renderBackstage(moved),
     new RegExp(escapeRegExp(platform.domain)),
   );
-  assert.ok(renderBackstage(moved).includes("backstage.moved.example"));
+  assert.ok(renderBackstage(moved).includes("platform.moved.example"));
 }, 30_000);
 
 test("a malformed platform field is refused by validation before any chart renders", async () => {
