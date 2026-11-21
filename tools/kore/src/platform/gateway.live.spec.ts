@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { loadRepository } from "../config/index.js";
+import { gatewayEntryPort, loadRepository } from "../config/index.js";
 import {
   listHostProcesses,
   ProcessRunner,
@@ -59,7 +59,7 @@ const httpsLive = (cluster: Cluster, options: ProofOptions, root: string) =>
     async () => {
       const tunnel = tunnelProcessProblem(
         await listHostProcesses(),
-        cluster.repository.environment.gateway.port,
+        gatewayEntryPort,
       );
       return tunnel
         ? { status: 0, body: tunnel }

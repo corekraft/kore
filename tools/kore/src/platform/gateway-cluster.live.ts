@@ -1,6 +1,10 @@
 import assert from "node:assert/strict";
 import { randomBytes } from "node:crypto";
-import { loadRepository, platformPlan } from "../config/index.js";
+import {
+  gatewayEntryPort,
+  loadRepository,
+  platformPlan,
+} from "../config/index.js";
 import { ProcessRunner, liveEnvironment } from "../runtime/index.js";
 import type { Runner } from "../runtime/index.js";
 import { proofManifests } from "./gateway-proof.js";
@@ -135,7 +139,7 @@ export async function httpsGet(
   root: string,
   path: string,
 ): Promise<{ status: number; body: string }> {
-  const { port } = cluster.repository.environment.gateway;
+  const port = gatewayEntryPort;
   const { stdout } = await cluster.runner.run(
     "curl",
     [
