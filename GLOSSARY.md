@@ -373,3 +373,17 @@ _Avoid_: Dev lock, snapshot lock
 **Release chart lock**:
 The chart lock that counts for flag activation.
 _Avoid_: Tag lock, final lock
+
+## App flag activation
+
+**Activation window**:
+The period over which the platform reads an app flag's evidence set before it turns the flag on. A window ends `confirmed`, `refuted` or `inconclusive`; missing evidence is never `confirmed`.
+_Avoid_: Soak, canary
+
+**Evidence set**:
+The fixed signals the platform produces and reads in an activation window, the same for every app. Series an app pushes about itself are not part of it.
+_Avoid_: Health check, metrics
+
+**App flag outcome**:
+The platform-written, append-only record of one activation window's verdict and evidence for an app's flag. It is not an Outcome, which closes an idea.
+_Avoid_: Flag proof, verdict
