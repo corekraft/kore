@@ -37,6 +37,15 @@
       "description": "Set by kore only while autoscaling-defaults is on (ADR 0047). The sync then sets autoscaling.enabled on each workload, so its chart renders the HorizontalPodAutoscaler and no replica count. Off, the sync sets no such parameter.",
       "type": "boolean"
     },
+    "serviceRecords": {
+      "description": "Set by kore only while platform-portal, platform-organization-service-apis and platform-argocd-delivery are all on (ADR 0166). The sync then also applies each registration's Service record to the cluster, and the Service composition, not the sync, creates each app namespace. Off, the sync creates the namespace itself and applies no records.",
+      "type": "boolean"
+    },
+    "recordsPath": {
+      "description": "The directory of the Service spec files the records Application syncs (ADR 0166).",
+      "type": "string",
+      "minLength": 1
+    },
     "sharedGateway": {
       "description": "Labels each app namespace the sync creates with the platform-owned shared-gateway label, so the shared Gateway admits its routes (ADR 0133). Off, the sync sets no namespace metadata.",
       "type": "boolean"
