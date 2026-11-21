@@ -1,5 +1,5 @@
 import type { Repository } from "../config/index.js";
-import { gatewayEntryPort, platformPlan } from "../config/index.js";
+import { gatewayEntryPort, keycloakHostname } from "../config/index.js";
 import type { Runner } from "../runtime/index.js";
 
 // Docs: docs/decisions/0113-run-a-keycloak-for-the-platform-organization-s-operators.md
@@ -57,7 +57,7 @@ export class KeycloakTestUsers {
     repository: Repository,
     runner: Runner,
   ): Promise<KeycloakTestUsers> {
-    const host = `keycloak.${platformPlan(repository.environment).domain}`;
+    const host = keycloakHostname(repository.environment);
     const { stdout } = await runner.run(
       "kubectl",
       [

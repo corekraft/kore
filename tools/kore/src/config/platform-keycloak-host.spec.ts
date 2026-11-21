@@ -1,6 +1,10 @@
 import { expect, test } from "vitest";
 import { fakeEnvironment } from "./config-support.js";
-import { platformHelmArgs } from "./platform-domain.js";
+import {
+  backstageHostname,
+  keycloakHostname,
+  platformHelmArgs,
+} from "./platform-domain.js";
 
 // Docs: docs/decisions/0113-run-a-keycloak-for-the-platform-organization-s-operators.md
 // Docs: docs/decisions/0133-the-platform-owns-the-gateway-its-listeners-and-its-certificate-charts-own-routes-only.md
@@ -48,4 +52,16 @@ test("the portal is handed the same Keycloak host the Keycloak chart is, so its 
       keycloakHost(platformHelmArgs(environment, "kore-platform-keycloak")),
     );
   }
+});
+
+test("keycloakHostname is the host Keycloak serves: under the platform organization while platform-shared-gateway is on, under the bare domain while it is off", () => {
+  expect(keycloakHostname(sharedGatewayOn)).toBe(
+    "keycloak.platform.kore.internal",
+  );
+  expect(keycloakHostname(sharedGatewayOff)).toBe("keycloak.kore.internal");
+});
+
+test("backstageHostname is the portal's host under the bare platform domain whatever the shared Gateway flag, the name its sign-in redirect and base URL name", () => {
+  expect(backstageHostname(sharedGatewayOn)).toBe("backstage.kore.internal");
+  expect(backstageHostname(sharedGatewayOff)).toBe("backstage.kore.internal");
 });

@@ -1,7 +1,8 @@
 import { randomBytes } from "node:crypto";
 import {
+  backstageHostname,
   gatewayEntryPort,
-  platformPlan,
+  keycloakHostname,
   type Repository,
 } from "../config/index.js";
 import { pinnedBrowserImage, runHeadlessBrowser } from "./headless-browser.js";
@@ -45,7 +46,6 @@ export async function checkSignIn(
   repository: Repository,
   runner: Runner,
 ): Promise<SignInResult> {
-  const { domain } = platformPlan(repository.environment);
   const password = randomBytes(24).toString("base64url");
   const username = `kore-signin-check-${randomBytes(4).toString("hex")}`;
   const users = await KeycloakTestUsers.connect(repository, runner);
@@ -56,7 +56,8 @@ export async function checkSignIn(
     const reply = await runHeadlessBrowser(runner, {
       image: pinnedBrowserImage,
       program: signInProgram({
-        domain,
+        backstageHost: backstageHostname(repository.environment),
+        keycloakHost: keycloakHostname(repository.environment),
         port: gatewayEntryPort,
         username,
         password,

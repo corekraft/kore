@@ -4,8 +4,10 @@ import { chromiumProgram } from "./chromium-program.js";
 // Docs: docs/decisions/0113-run-a-keycloak-for-the-platform-organization-s-operators.md
 
 export interface SignInProgramOptions {
-  /** The platform domain, such as kore.internal. */
-  domain: string;
+  /** The portal's host, from backstageHostname in the config domain. */
+  backstageHost: string;
+  /** Keycloak's host, from keycloakHostname in the config domain. */
+  keycloakHost: string;
   /** The gateway's HTTPS port. 443 is left out of the URLs. */
   port: number;
   username: string;
@@ -25,8 +27,7 @@ function origin(host: string, port: number): string {
  * 401 or a redirect to Keycloak. Its output is two assertions and no credential.
  */
 export function signInProgram(options: SignInProgramOptions): string {
-  const backstageHost = `backstage.${options.domain}`;
-  const keycloakHost = `keycloak.${options.domain}`;
+  const { backstageHost, keycloakHost } = options;
   const backstageUrl = `${origin(backstageHost, options.port)}/`;
   const keycloakOrigin = origin(keycloakHost, options.port);
   const flow = line(

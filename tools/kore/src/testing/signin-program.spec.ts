@@ -9,7 +9,8 @@ vi.mock("./chromium-program.js", () => ({
 
 const password = "Qx3-operator_pw-Rt8";
 const options = {
-  domain: "kore.internal",
+  backstageHost: "backstage.kore.internal",
+  keycloakHost: "keycloak.platform.kore.internal",
   port: 443,
   username: "kore-signin-check-a1",
   password,
@@ -23,7 +24,7 @@ describe("signInProgram", () => {
   it("hands exactly the Backstage and Keycloak hosts to the browser program", () => {
     signInProgram(options);
     expect(chromiumProgram).toHaveBeenCalledWith(
-      ["backstage.kore.internal", "keycloak.kore.internal"],
+      ["backstage.kore.internal", "keycloak.platform.kore.internal"],
       expect.any(String),
     );
   });
@@ -58,6 +59,16 @@ describe("signInProgram", () => {
     expect(flow).toContain("anonymous.documents.some(");
     expect(flow).not.toContain(
       "hostIs(keycloakHost) + ' && document.readyState",
+    );
+  });
+
+  it("names the Keycloak host it is given in the sign-in form and the refused-request redirect, so both name the same host", () => {
+    const flow = signInProgram(options);
+    expect(flow).toContain(
+      'const keycloakHost = "keycloak.platform.kore.internal";',
+    );
+    expect(flow).toContain(
+      'const keycloakOrigin = "https://keycloak.platform.kore.internal";',
     );
   });
 

@@ -45,7 +45,9 @@ export type {
   PromotionRecord,
 } from "./policy-promotion.js";
 export {
+  backstageHostname,
   gatewayEntryPort,
+  keycloakHostname,
   localCaConfigMap,
   otlpByName,
   otlpHostname,

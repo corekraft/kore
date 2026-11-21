@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import type { Repository } from "../config/index.js";
+import { keycloakHostname, type Repository } from "../config/index.js";
 import type { Runner } from "../runtime/index.js";
 import { runHeadlessBrowser } from "./headless-browser.js";
 import { KeycloakTestUsers } from "./keycloak-test-user.js";
@@ -8,10 +8,8 @@ import { signInProgram } from "./signin-program.js";
 
 vi.mock("../config/index.js", () => ({
   gatewayEntryPort: 443,
-  platformPlan: vi.fn(() => ({
-    domain: "kore.internal",
-    organizationId: "platform",
-  })),
+  backstageHostname: vi.fn(() => "backstage.kore.internal"),
+  keycloakHostname: vi.fn(() => "keycloak.platform.kore.internal"),
 }));
 vi.mock("./headless-browser.js", () => ({
   pinnedBrowserImage: "mcr.microsoft.com/playwright:pinned",
@@ -130,6 +128,19 @@ describe("checkSignIn", () => {
     vi.mocked(runHeadlessBrowser).mockResolvedValue({ status: 200 });
     await expect(checkSignIn(repository, runner)).rejects.toThrow(
       "no assertions",
+    );
+  });
+});
+
+describe("checkSignIn hosts", () => {
+  it("hands the browser program the Keycloak and Backstage hosts the platform-domain helpers derive, from the environment", async () => {
+    await checkSignIn(repository, runner);
+    expect(keycloakHostname).toHaveBeenCalledWith(repository.environment);
+    expect(signInProgram).toHaveBeenCalledWith(
+      expect.objectContaining({
+        backstageHost: "backstage.kore.internal",
+        keycloakHost: "keycloak.platform.kore.internal",
+      }),
     );
   });
 });

@@ -177,11 +177,20 @@ const sharedGatewayValueKeys: Record<string, string | undefined> = {
  * platform Gateway serves it by name (ADR 0133); otherwise keycloak.<domain>, the
  * host the flag off renders.
  */
-function keycloakHostname(environment: Environment): string {
+export function keycloakHostname(environment: Environment): string {
   const { domain, organizationId } = platformPlan(environment);
   return featureEnabled(environment, platformSharedGatewayFlag)
     ? `keycloak.${organizationId}.${domain}`
     : `keycloak.${domain}`;
+}
+
+/**
+ * The portal's host, backstage.<domain> (ADR 0111). Its sign-in redirect, its
+ * base URL and its own Gateway name it whatever the shared Gateway flag, so the
+ * sign-in check reaches the portal at the one host the portal serves.
+ */
+export function backstageHostname(environment: Environment): string {
+  return `backstage.${platformPlan(environment).domain}`;
 }
 
 const keycloakHostComponents = [
