@@ -203,7 +203,10 @@ test("with platform-shared-gateway on the portal and the golden-path delivery ar
     "backstageHostname=backstage.platform.kore.internal",
     "--set-string",
     "keycloakHostname=keycloak.platform.kore.internal",
-    ...values(""),
+    "--set-string",
+    "sharedGateway.name=kore-gateway",
+    "--set-string",
+    "sharedGateway.namespace=kore-system",
   ]);
   expect(
     platformHelmArgs(sharedGatewayOn, "kore-golden-path-delivery"),

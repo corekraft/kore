@@ -239,10 +239,13 @@ function sharedGatewayArgs(
     return [];
   }
   const { domain, organizationId } = platformPlan(environment);
+  // The portal's host is backstageHostname, so its sharedGateway takes no domain.
   return [
     ["name", environment.gateway.name],
     ["namespace", environment.gateway.namespace],
-    ["domain", `${organizationId}.${domain}`],
+    ...(component === "kore-platform-backstage"
+      ? []
+      : [["domain", `${organizationId}.${domain}`]]),
   ].flatMap(([field, value]) => ["--set-string", `${key}.${field}=${value}`]);
 }
 

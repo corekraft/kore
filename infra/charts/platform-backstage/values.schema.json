@@ -27,18 +27,18 @@
       "minLength": 1
     },
     "sharedGateway": {
-      "description": "The shared platform Gateway the portal's route attaches to, which kore passes only while platform-shared-gateway is on (ADR 0133). The route's host is backstageHostname. Passing it drops the chart's own Gateway, certificate and route. Without it no shared route renders.",
+      "description": "The shared platform Gateway the portal's route attaches to, which kore passes only while platform-shared-gateway is on (ADR 0133). The route's host is backstageHostname, so no domain is passed. Passing it drops the chart's own Gateway, certificate and route. Without it no shared route renders.",
       "type": "object",
-      "required": ["name", "namespace", "domain"],
+      "required": ["name", "namespace"],
       "additionalProperties": false,
       "properties": {
-        "name": { "type": "string", "minLength": 1 },
-        "namespace": { "type": "string", "minLength": 1 },
-        "domain": {
-          "description": "The platform organization's domain, <organizationId>.<platformDomain>, which the shared Gateway's wildcard listener serves.",
+        "name": {
           "type": "string",
-          "minLength": 1,
-          "maxLength": 190
+          "minLength": 1
+        },
+        "namespace": {
+          "type": "string",
+          "minLength": 1
         }
       }
     },
@@ -48,7 +48,10 @@
       "required": ["configMap"],
       "additionalProperties": false,
       "properties": {
-        "configMap": { "type": "string", "minLength": 1 }
+        "configMap": {
+          "type": "string",
+          "minLength": 1
+        }
       }
     },
     "database": {

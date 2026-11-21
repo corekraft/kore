@@ -104,11 +104,11 @@ test("the Keycloak client also accepts the in-app sign-in callback, beside the p
   );
   assert.match(
     client,
-    /backstage\.\{\{ \.Values\.platformDomain \}\}\/oauth2\/callback/,
+    /\{\{ \.Values\.backstageHostname \}\}\/oauth2\/callback/,
   );
   assert.match(
     client,
-    /backstage\.\{\{ \.Values\.platformDomain \}\}\/api\/auth\/oidc\/handler\/frame/,
+    /\{\{ \.Values\.backstageHostname \}\}\/api\/auth\/oidc\/handler\/frame/,
   );
 });
 

@@ -161,12 +161,13 @@ test("with platform-shared-gateway off the portal renders only its own Gateway a
   assert.doesNotMatch(output, /backstage-shared|kore-gateway|sharedGateway/);
 }, 30_000);
 
-test("with platform-shared-gateway on the portal keeps its own Gateway and gains a route on the shared Gateway for its name under the organization", async () => {
+test("with platform-shared-gateway on the portal owns no Gateway or certificate, and its one route attaches to the shared Gateway under the organization's host", async () => {
   const repository = withSharedGateway(await loadRepository("local"), true);
   const { gateway, domain, organizationId } = shared(repository);
   const output = renderBackstage(repository);
-  assert.match(output, /kind: Gateway\s+metadata:\s+name: backstage\n/);
-  assert.match(
+  assert.doesNotMatch(output, /^kind: (Gateway|Certificate)$/m);
+  assert.equal(output.match(/^kind: HTTPRoute$/gm)?.length, 1);
+  assert.doesNotMatch(
     output,
     new RegExp(`hostname: "backstage\\.${escapeRegExp(domain)}"`),
   );
