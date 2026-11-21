@@ -215,7 +215,12 @@ test("the gatekeeper exemptions schema requires every field and the seeded file 
 });
 
 test("the repository's seeded constraints raise no exemption warnings except the kore-secret-source gap", async () => {
-  const { warnings } = await loadRepository("local");
+  const { warnings: all } = await loadRepository("local");
+  // With platform-portal on, local also warns that no alert contact point is set
+  // while the run-time address is unset; that warning depends on the shell.
+  const warnings = (all ?? []).filter(
+    (w) => !w.startsWith("alerts have no contact point"),
+  );
   assert.deepEqual(warnings, [
     "exemption: kore-mesh-enrollment exempts namespace kore-secret-source, which gatekeeper-exemptions.yaml does not list; add an entry with its component and accepted ADR, or remove the namespace from exemptNamespaces",
   ]);
