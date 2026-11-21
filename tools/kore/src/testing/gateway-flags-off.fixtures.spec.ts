@@ -18,6 +18,7 @@ const repository = {
       "registry-by-name": true,
       "database-routes": true,
       "otlp-route": true,
+      "platform-dns": true,
       "role-tokens": true,
     },
   },
@@ -34,6 +35,7 @@ test("the gateway and traffic flags read off, so the istio path and no live-only
     "registry-by-name": false,
     "database-routes": false,
     "otlp-route": false,
+    "platform-dns": false,
     "role-tokens": true,
   });
 });
