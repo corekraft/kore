@@ -13,6 +13,7 @@ import {
   overlayPorts,
   render,
 } from "./gateway-service-support.js";
+import { withGatewayFlagsOff } from "../../src/testing/index.js";
 
 // Docs: docs/decisions/0136-the-shared-gateway-serves-database-routes-on-a-loopback-5432-passthrough-listener-behind-database-routes.md
 
@@ -50,7 +51,10 @@ const postgresPort = 5432;
 test.each(["agentgateway", "istio"])(
   "with database-routes off the %s Gateway renders no passthrough listener, Service port or node port, exactly as it rendered before the flag existed",
   async (gatewayClass) => {
-    const base = withClass(await loadRepository("local"), gatewayClass);
+    const base = withClass(
+      withGatewayFlagsOff(await loadRepository("local")),
+      gatewayClass,
+    );
     const off = render(withDatabaseRoutes(base, false));
     const { [databaseRoutesFlag]: _declared, ...features } =
       base.environment.features ?? {};
@@ -68,7 +72,10 @@ test.each(["agentgateway", "istio"])(
   "with database-routes on the %s Gateway, its Service port, node port and the loopback mapping agree on 5432",
   async (gatewayClass) => {
     const repository = withDatabaseRoutes(
-      withClass(await loadRepository("local"), gatewayClass),
+      withClass(
+        withGatewayFlagsOff(await loadRepository("local")),
+        gatewayClass,
+      ),
       true,
     );
     const output = render(repository);

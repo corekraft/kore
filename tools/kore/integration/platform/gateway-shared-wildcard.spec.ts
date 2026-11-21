@@ -4,7 +4,10 @@ import { execFileSync } from "node:child_process";
 import { test } from "vitest";
 import { loadRepository, type Repository } from "../../src/config/index.js";
 import { helmTemplateArgs } from "../../src/platform/index.js";
-import { withAbsoluteChart } from "../../src/testing/index.js";
+import {
+  withAbsoluteChart,
+  withGatewayFlagsOff,
+} from "../../src/testing/index.js";
 import { escapeRegExp, localPlatform } from "../local-platform-support.js";
 
 // The platform Gateway's wildcard for the platform organization's names: one
@@ -42,7 +45,10 @@ function withSharedGateway(repository: Repository, on: boolean): Repository {
 test("with platform-shared-gateway off the Gateway has its one HTTPS listener and no wildcard Certificate renders", async () => {
   const { domain } = await localPlatform();
   const output = render(
-    withSharedGateway(await loadRepository("local"), false),
+    withSharedGateway(
+      withGatewayFlagsOff(await loadRepository("local")),
+      false,
+    ),
   );
   assert.doesNotMatch(output, new RegExp(escapeRegExp(`*.platform.${domain}`)));
   assert.doesNotMatch(output, /kore-platform-wildcard/);
@@ -50,7 +56,10 @@ test("with platform-shared-gateway off the Gateway has its one HTTPS listener an
 });
 
 test("with platform-shared-gateway on the wildcard is a second HTTPS listener on the same port, beside the platform domain", async () => {
-  const repository = withSharedGateway(await loadRepository("local"), true);
+  const repository = withSharedGateway(
+    withGatewayFlagsOff(await loadRepository("local")),
+    true,
+  );
   const { domain, gatewayPort } = await localPlatform();
   const output = render(repository);
   // The existing listener is unchanged: the platform name on the Gateway's port.
@@ -71,7 +80,9 @@ test("with platform-shared-gateway on the wildcard is a second HTTPS listener on
 
 test("with platform-shared-gateway on a Certificate for the wildcard is issued by the local CA into kore-system", async () => {
   const { domain } = await localPlatform();
-  const output = render(withSharedGateway(await loadRepository("local"), true));
+  const output = render(
+    withSharedGateway(withGatewayFlagsOff(await loadRepository("local")), true),
+  );
   assert.match(
     output,
     new RegExp(
