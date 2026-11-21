@@ -373,3 +373,44 @@ _Avoid_: Dev lock, snapshot lock
 **Release chart lock**:
 The chart lock that counts for flag activation.
 _Avoid_: Tag lock, final lock
+
+## DNS and the domain
+
+**Platform domain**:
+The one bought domain the platform serves apps under, held as a single zone at
+the DNS provider. Every suborg's default names derive from it. Its real value is
+a run-time value; the repository holds only the placeholder domain.
+_Avoid_: Root domain, base domain
+
+**Placeholder domain**:
+The non-resolving domain a managed environment's overlay declares in place of
+the platform domain, so validation and every test run without a real name.
+_Avoid_: Fake domain, dummy domain
+
+**Run-time value**:
+A setting supplied by the environment of the machine that runs Kore and never
+committed, for a fact that is public but kept out of the repository, such as
+the platform domain or the host's public address. It is not a secret, so it is
+not encrypted.
+_Avoid_: Local config, env override
+
+**Fixed record**:
+A DNS record the infrastructure code owns, such as the apex, the certificate
+authority restriction or the mail records. The route controller never edits it.
+_Avoid_: Static record, manual record
+
+**Route record**:
+A DNS record the route controller creates from a route's hostname and
+withdraws only by its own ownership record.
+_Avoid_: App record, dynamic record
+
+**Ownership record**:
+The TXT record that marks a route record as the route controller's. A record
+without one is never edited by it.
+_Avoid_: Registry record, marker record
+
+**Foreign domain**:
+Any domain other than the platform domain, including one the owner owns. The
+platform serves a name under it once a certificate challenge proves its DNS
+points here, and never writes its DNS or holds a credential for it.
+_Avoid_: Custom domain, external domain
