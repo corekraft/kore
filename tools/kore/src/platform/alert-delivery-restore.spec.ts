@@ -87,6 +87,16 @@ test("rethrows the stage error unchanged when the restore succeeds", async () =>
   expect(events).toEqual(proofEvents);
 });
 
+test("keeps the failed stage and its detail in the message when a stage fails and the restore is refused too", async () => {
+  const { message } = await proveFailing({
+    receivers: [undefined],
+    refuseRestore: true,
+  });
+  expect(message).toBe(
+    "could not restore these Deployments in golden-path-example--local; scale them back by hand: golden-path-example to 2 replicas (kubectl refused); the proof ended at stage alert not forwarded: Grafana shows no ServiceUnavailable alert for golden-path-example within 900 s; the metrics store did not forward it",
+  );
+});
+
 test("keeps the stage error in the message when the restore is refused too", async () => {
   const { message } = await proveFailing({
     receiversError: "Grafana alerts answer is not JSON",

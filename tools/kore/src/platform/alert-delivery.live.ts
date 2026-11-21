@@ -260,9 +260,13 @@ class Delivery {
     await this.restoreEach(leftovers);
   }
 
-  /** Puts back each Deployment this run scaled to zero, and clears its record. */
-  async restore(): Promise<void> {
-    await this.restoreEach(this.scaledDown);
+  /** Puts back each Deployment this run scaled to zero and clears its record; a refusal throws with `stopped` appended. */
+  async restore(stopped: string): Promise<void> {
+    try {
+      await this.restoreEach(this.scaledDown);
+    } catch (error) {
+      throw new Error(messageOf(error) + stopped);
+    }
   }
 
   /** Tries every Deployment, then throws one error naming each refused restore; a record stays until its restore works. */
@@ -314,17 +318,14 @@ export async function proveAlertDelivery(
   try {
     outcome = await run.fireAndCheck();
   } catch (error) {
-    try {
-      await run.restore();
-    } catch (restoreError) {
-      throw new Error(
-        messageOf(restoreError) +
-          "; the proof stopped first with: " +
-          messageOf(error),
-      );
-    }
+    await run.restore("; the proof stopped first with: " + messageOf(error));
     throw error;
   }
-  await run.restore();
+  const { stage, detail } = outcome;
+  await run.restore(
+    stage === undefined
+      ? ""
+      : "; the proof ended at stage " + stage + ": " + detail,
+  );
   return outcome;
 }
