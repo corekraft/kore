@@ -41,7 +41,8 @@ activated far more often than that, so the same shape cannot carry it.
 - **`otlp-route` is not needed and stays off on vps.** Pods already send to
   `otel-collector.observability.svc:4318`. ADR 0140 stands: no route on a
   Gateway reachable from a network without OTLP authentication, and none on
-  the external Gateway.
+  the external Gateway. The owner confirmed it is outside vps's "all on"
+  count: it is host-side only and not applicable there.
 - **The evidence set is fixed by the platform.** Per window: available replicas
   never below the app's declared minimum, no container restart and no failed
   rollout, readiness never failing, and, once request series are proven, the
@@ -60,6 +61,11 @@ activated far more often than that, so the same shape cannot carry it.
   Prometheus through `kubectl port-forward` on the environment's kube context,
   as ADR 0143 does for the registry. Prometheus, Loki, Tempo and Grafana stay
   unrouted.
+- **The platform owns the outcome.** Only the platform writes the record and
+  validates it; deciding that an app is safe is never the app's job. The app
+  gets a read-only view of its own outcomes. Whether that view becomes a
+  platform application primitive (an outcome resource the platform writes and
+  the app reads) is open and is chosen by a spike.
 - **The outcome carries its evidence.** At the end of a window the platform
   writes an app flag outcome with the queries, values, window and baseline, so
   the decision survives metrics retention and a lost box. Its fields mirror
@@ -70,6 +76,12 @@ activated far more often than that, so the same shape cannot carry it.
   expand-contract. `findProof` counts it only for an app flag. `live-run` and
   `owner-waiver` stay valid, and a waiver stays visible in `flag audit`
   (ADR 0127).
+- **A flag is proven before the real namespace.** The owner decided that an app
+  flag is proven either on k3d (local) or in a preview app (`<suborg>--preview`
+  inside prod) before it turns on in the real namespace. Activation requires,
+  for the same flag and digest, a confirmed dark window in the real namespace
+  and a confirmed flag proof from one of those two places. A proof sends its
+  own traffic, so it can reach the request floor.
 - **Evidence is bound to the artifact.** The outcome names the image digest and
   the app record commit it observed. Activation refuses when the app record's
   current digest differs, as chart locks bind evidence to charts (ADR 0138).
@@ -85,9 +97,18 @@ activated far more often than that, so the same shape cannot carry it.
   and emails the owner through the ADR 0128 path. After activation a regression
   only alerts (notify-only, ADR 0114). Turning a flag off automatically is an
   enforcing guardrail and needs the owner's approval (ADR 0080).
-- **Low traffic is inconclusive.** A window that reads request series needs a
-  minimum request count, one platform default; below it the result is
-  `inconclusive`. An availability-only window is exempt.
+- **Low traffic is inconclusive.** A window that reads request series needs at
+  least 100 requests over the whole window; fewer is `inconclusive` and names
+  the count ("37 of 100"). An availability-only window is exempt.
+- **Starting thresholds, one platform default for all apps, tuned after the vps
+  soak.** The server-error ratio is computed from request counts over the whole
+  window, with numerator and denominator recorded, and is not above the
+  baseline plus 2 points; the 5 percent cap is the one `ServiceHighErrorRatio`
+  uses, defined once in the recording rules, and is the only limit on a first
+  release. p95 latency is not above 2 times the baseline and is refuted only
+  when it is also above a floor near 250 ms; it is skipped on a first release
+  with no baseline. The dark window is at least 30 minutes and the flag-proof
+  window at least 60, with a tolerance for a few failed measurements.
 - **The evidence signals have one owner.** The `service-observability` chart
   defines each signal once as a recording rule per service. The dashboard, the
   alert rules and the judge read those recorded series, and an evidence summary
@@ -101,13 +122,17 @@ activated far more often than that, so the same shape cannot carry it.
   move (expand-contract).
 - **The baseline is the service's own prior window.** It is the equal-length
   window before the release rolled out. A first release has no baseline and is
-  judged against absolute limits only (the 5 percent error ratio of
-  `ServiceHighErrorRatio`, zero restarts, readiness never failing). A baseline
+  judged against absolute limits only (the 5 percent error ratio, zero
+  restarts, readiness never failing). A baseline
   that itself breaks those limits is not used.
-- **Disk is evidence.** A window also requires free node disk above a platform
-  floor, so an app is not activated on a node about to fill. Notify-only alerts
-  for node filesystem and PVC fill go through the ADR 0128 path; their
-  threshold values are owner decisions.
+- **Disk is evidence.** A window also requires at least 20 percent free on the
+  filesystem that holds `/var/lib/rancher`, as an activation gate only, so an
+  app is not activated on a node about to fill. Separately, notify-only alerts
+  go through the ADR 0128 path: volume fill at 85 percent and a node filesystem
+  critical at 90 percent. The local-path provisioner ignores a volume's
+  capacity, so volume fill there is fill of the node filesystem.
+- **Retention is explicit on vps.** Metrics 15 days plus a size limit near 80
+  percent of the volume, logs 14 days (ADR 0114), traces 7 days (ADR 0114).
 - **Owners read evidence from the outcome.** Grafana stays unrouted: the owner
   reads the outcome and its quoted series, and reaches Grafana by
   `kubectl port-forward` on the `kore-vps` context. A route to it belongs to the
@@ -122,12 +147,14 @@ activated far more often than that, so the same shape cannot carry it.
   single-binary setting, Grafana has no datasource, and `k8s.cluster.name` is
   the placeholder `REQUIRED`.
 - Nothing alerts on disk today: no filesystem series exists on vps.
-- Quiet apps cannot confirm on request evidence until a platform probe exists;
-  that probe is a follow-up, not v1.
-- The margin and factor over baseline, the minimum request count, the window
-  lengths, the disk thresholds, the metrics retention, the outcome record's
-  location and whether a preview inside prod is the live proof of an app flag
-  (it adds capacity use on one node) are owner decisions, recorded in #1486
-  and not decided here.
+- Quiet apps cannot confirm on request evidence from live traffic alone; a
+  proof on k3d or in a preview sends its own, and a platform probe for live
+  traffic is a follow-up, not v1.
+- A preview app adds capacity use on one node for the length of a proof; it is
+  removed when the window ends, and the capacity concept decides what admission
+  refuses.
+- The owner decided the flag proof, the outcome ownership, the starting
+  thresholds and the `otlp-route` count on #1486; the thresholds are tuned
+  after the vps soak.
 - Platform flags are proven as before, by a live run or an owner waiver in
   `docs/ideas`.
