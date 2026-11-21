@@ -34,6 +34,8 @@ async function overlay(
       features: {
         ...base.environment.features,
         [sharedGatewayFlag]: false,
+        // ADR 0132: the deprecated alias listener is served only while platform-dns is on, and withGatewayFlagsOff pins it off, so these renders state it on.
+        "platform-dns": true,
         ...features,
       },
     },
@@ -125,7 +127,7 @@ test("the flag alone does nothing under the istio class: the render equals the f
     [agentgatewayMeshEnrollmentFlag]: true,
   });
   const golden = await readFile(
-    `${repository.root}/tools/kore/src/platform/fixtures/platform-config.local.yaml`,
+    `${repository.root}/tools/kore/src/platform/fixtures/platform-config-alias.local.yaml`,
     "utf8",
   );
   assert.equal(render(repository), golden);

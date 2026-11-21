@@ -136,7 +136,8 @@ DNS, and services are subdomains inside those zones
 - **One default zone per organization.** Before delegating anything, every
   organization gets `<organization>.<platform domain>`. The platform domain is
   a per-environment setting, separate from any organization's domain and still
-  to be chosen; locally it is `kore.local`. It goes on the Public Suffix List,
+  to be chosen; locally it is `kore.internal`, with `kore.local` kept as a
+  deprecated alias (ADR 0175). It goes on the Public Suffix List,
   as `github.io` does, before outside tenants arrive, so browsers treat each
   organization as its own site.
 - **A lapsed delegation has a grace period.** No new routes are admitted, the
@@ -153,7 +154,7 @@ Upstream controllers deliver it, and Kore coordinates them:
 - **DNS records.** ExternalDNS writes records inside delegated zones, in the
   DNS provider the environment names
   ([ADR 0012](decisions/0012-environment-overlays-hold-provider-specifics.md));
-  locally, hosts resolve the way `kore.local` does today.
+  locally, hosts resolve the way `kore.internal` does.
 - **Routing.** Each service's `HTTPRoute` lists its hostnames, and the Gateway
   accepts them ([ADR 0006](decisions/0006-istio-ambient-gateway-api.md)).
 - **Certificates.** cert-manager issues certificates for each zone, including

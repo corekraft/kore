@@ -38,11 +38,12 @@ reference from it, so changing it there moves everything
 ([ADR 0031](docs/decisions/0031-registry-address-platform-variable.md)).
 
 The platform's names are one per-environment field too, `platform` in
-`environment.yaml`: `domain` (local: `kore.local`) and `organizationId`
-(`platform`). The local domain moves to `kore.internal` only with the
-`platform-dns` activation, which flips the domain and the flag together; the
-names under `kore.internal` resolve only while `platform-dns` is on and the
-resolver file is installed (`kore dns install`). `kore` validates both before any cluster command (a lowercase DNS
+`environment.yaml`: `domain` (local: `kore.internal`) and `organizationId`
+(`platform`). The local domain is `kore.internal` (ADR 0147). `kore.local` stays a
+deprecated alias: a listener on the local Gateway with no names of its own,
+until a contract step removes it. The names under `kore.internal` resolve only
+while `platform-dns` is on and the resolver file is installed
+(`kore dns install`). `kore` validates both before any cluster command (a lowercase DNS
 name of at least two labels, and one lowercase label). `domain` is the field
 every copy of the domain derives from: the Gateway hostname, the platform APIs,
 Keycloak and Backstage `platformDomain`, the certificate host, the reference
@@ -148,11 +149,12 @@ with an empty list when nothing is retained.
 
 ### Local Gateway
 
-The local Gateway answers on `https://kore.local:8443/` (or your route path)
+The local Gateway answers on `https://kore.internal/` (or your route path)
 from this machine only: the host port binds `127.0.0.1`, and a cluster created
-before that binding is refused until it is recreated (ADR 0131). While
-`platform-dns` is off, `kore.local` resolves through the hosts entry you already
-have; kore writes none.
+before that binding is refused until it is recreated (ADR 0131). The deprecated
+`https://kore.local:8443/` answers beside it until the contract step (ADR 0147).
+While `platform-dns` is off, `kore.internal` resolves through the hosts entry you
+already have; kore writes none.
 The k3d load balancer maps host port `8443` to the Gateway Service's node port
 (30443), so no tunnel process is needed ([ADR 0085](docs/decisions/0085-k3d-gateway-answers-through-a-node-port.md)).
 `platform up` waits for the Gateway Service to publish the configured node

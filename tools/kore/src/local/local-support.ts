@@ -2,7 +2,10 @@
 // not a unit, so it needs no spec of its own (ADR 0098).
 import { vi } from "vitest";
 import type { Environment, Repository } from "../config/index.js";
-import { defaultPlatformDomain } from "../platform-domain.fixtures.js";
+import {
+  defaultPlatformDomain,
+  lockRegistryHost,
+} from "../platform-domain.fixtures.js";
 import type {
   BuiltLocalImage,
   LockedImage,
@@ -24,14 +27,14 @@ export function noDaemon(): CommandError {
 }
 
 /** The text the local lock is written with after one application is built and signed. */
-export function signedLocalLock(domain = defaultPlatformDomain): string {
+export function signedLocalLock(): string {
   return JSON.stringify(
     {
       version: 1,
       authorizedSigners: ["local-kore-key"],
       entries: {
         reference: {
-          image: `registry.${domain}:30500/reference`,
+          image: `${lockRegistryHost}/reference`,
           digest,
           signer: "local-kore-key",
         },
@@ -73,7 +76,7 @@ export function fakeRepository(
       name: "local",
       provider: "k3d",
       kubeContext: "k3d-kore-local",
-      registry: { address: `registry.${domain}:30500` },
+      registry: { address: lockRegistryHost },
       platform: { domain, organizationId: "platform" },
       gateway: {
         namespace: "kore-system",
@@ -109,7 +112,7 @@ export function imageLock(...applications: string[]): ImageLock {
       applications.map((application) => [
         application,
         {
-          image: `registry.${defaultPlatformDomain}:30500/${application}`,
+          image: `${lockRegistryHost}/${application}`,
           digest: `sha256:${"b".repeat(64)}`,
           signer: "local-kore-key",
         },
@@ -119,12 +122,9 @@ export function imageLock(...applications: string[]): ImageLock {
 }
 
 /** What building one application's image hands back: its signed reference and the public key. */
-export function builtImage(
-  application: string,
-  domain = defaultPlatformDomain,
-): BuiltLocalImage {
+export function builtImage(application: string): BuiltLocalImage {
   const image: LockedImage = {
-    reference: `registry.${domain}:30500/${application}@${digest}`,
+    reference: `${lockRegistryHost}/${application}@${digest}`,
     digest,
     signer: "local-kore-key",
   };

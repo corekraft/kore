@@ -9,6 +9,7 @@ const FORWARDS: Record<string, readonly string[]> = {
   "./gateway-flags-off.fixtures.js": [
     "loadLocalGatewayFlagsOff",
     "withGatewayFlagsOff",
+    "withPlatformDnsOn",
   ],
   "./app-fixtures.js": [
     "digest",

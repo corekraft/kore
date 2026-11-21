@@ -209,6 +209,22 @@ export function databaseRoutesDeliveryArgs(
     : [];
 }
 
+/**
+ * The deprecated alias the kore-config-delivery chart takes beside its domain,
+ * only when the environment declares one, so the Argo CD Applications serve the
+ * alias name the Helm path serves (ADR 0132).
+ */
+export function deprecatedAliasDeliveryArgs(
+  delivery: ChartDeliveryValues,
+): string[] {
+  return delivery.platformDeprecatedAlias === undefined
+    ? []
+    : [
+        "--set-string",
+        `platformDeprecatedAlias=${delivery.platformDeprecatedAlias}`,
+      ];
+}
+
 /** Each distinct registry path that holds a chart, as Argo CD addresses a repository. */
 export function chartRepositoryUrls(values: ChartDeliveryValues): string[] {
   return [

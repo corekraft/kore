@@ -70,7 +70,7 @@ export async function goldenPathReach(
   const address = published?.ip ?? published?.hostname;
   if (address === undefined) {
     throw new Error(
-      `${subject} has no published address (status.loadBalancer.ingress is empty), so the host cannot reach its Gateway; the reference routes at kore.local are unaffected; the shared Gateway attach (#1211) publishes the address`,
+      `${subject} has no published address (status.loadBalancer.ingress is empty), so the host cannot reach its Gateway; the reference routes at kore.internal are unaffected; the shared Gateway attach (#1211) publishes the address`,
     );
   }
   const port = parsed.spec?.ports?.[0]?.port;

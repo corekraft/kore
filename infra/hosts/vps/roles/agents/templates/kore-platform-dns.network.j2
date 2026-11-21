@@ -17,7 +17,7 @@ RequiredForOnline=no
 # address. The /128 is from the private ULA prefix and routes nothing else.
 Address={{ agents_platform_dns_link_address }}
 DNS={{ agents_platform_dns_address }}:{{ agents_platform_dns_port }}
-Domains=~{{ agents_platform_dns_zone }}
+Domains={{ agents_platform_dns_zones | map('regex_replace', '^', '~') | join(' ') }}
 DNSDefaultRoute=no
 LinkLocalAddressing=no
 IPv6AcceptRA=no

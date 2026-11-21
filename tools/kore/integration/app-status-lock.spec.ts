@@ -10,9 +10,8 @@ import { loadRepository } from "../src/config/index.js";
 import { appStatus } from "../src/app/index.js";
 import type { Runner } from "../src/runtime/index.js";
 import { list } from "../src/testing/index.js";
-import { localPlatform } from "./local-platform-support.js";
+import { lockRegistryHost } from "../src/platform-domain.fixtures.js";
 
-const platform = await localPlatform();
 
 /** Helm and kubectl answer healthy and the cluster is the local k3d one. */
 const healthy: Runner = {
@@ -38,7 +37,7 @@ test("app status reports the committed release lock's image, its digest and its 
     );
     const status = await appStatus({ ...base, root }, healthy, "reference");
     expect(status.image).toEqual({
-      reference: `${platform.registry}/reference@sha256:76eae6c0774b5292f70e3541e57bd8f2b4df2e5f74aacaba258fed9fa894b3bc`,
+      reference: `${lockRegistryHost}/reference@sha256:76eae6c0774b5292f70e3541e57bd8f2b4df2e5f74aacaba258fed9fa894b3bc`,
       digest:
         "sha256:76eae6c0774b5292f70e3541e57bd8f2b4df2e5f74aacaba258fed9fa894b3bc",
       signer: "local-kore-key",

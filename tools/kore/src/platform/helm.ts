@@ -6,6 +6,7 @@ import {
   componentValues,
   componentVersion,
   databaseRoutesDeliveryArgs,
+  deprecatedAliasDeliveryArgs,
   expandVersions,
   featureHelmArgs,
   gatewayClassName,
@@ -140,6 +141,7 @@ function chartDeliveryArgs(
     `platformDomain=${delivery.platformDomain}`,
     "--set-string",
     `platformHostname=${delivery.platformHostname}`,
+    ...deprecatedAliasDeliveryArgs(delivery),
     ...databaseRoutesDeliveryArgs(delivery),
     ...(delivery.inClusterCa === true ? ["--set", "inClusterCa=true"] : []),
     ...(delivery.releaseValues === undefined

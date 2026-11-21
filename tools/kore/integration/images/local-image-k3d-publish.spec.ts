@@ -19,6 +19,7 @@ import {
   k3dImagePublishArgs,
   k3dRegistrySessionArgs,
 } from "../../src/testing/index.js";
+import { lockRegistryHost } from "../../src/platform-domain.fixtures.js";
 import { localPlatform } from "../local-platform-support.js";
 
 const platform = await localPlatform();
@@ -102,7 +103,7 @@ test("the built image is named by the registry address the nodes and the image p
     entry,
   );
 
-  expect(entry.image).toBe(`${platform.registry}/reference`);
+  expect(entry.image).toBe(`${lockRegistryHost}/reference`);
   expect(built.image.reference).toBe(`10.96.0.50:5000/reference@${digest}`);
 });
 

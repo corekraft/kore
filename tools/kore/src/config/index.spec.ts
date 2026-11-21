@@ -128,6 +128,7 @@ const entryPoints = [
   "crdOwners",
   "dashboardSidecarHelmArgs",
   "databaseRoutesDeliveryArgs",
+  "deprecatedAliasDeliveryArgs",
   "enabledComponents",
   "evaluateAudit",
   "exemptionCheckMode",
