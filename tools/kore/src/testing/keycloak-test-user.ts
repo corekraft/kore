@@ -39,6 +39,60 @@ function expectStatus(reply: Reply, expected: number, what: string): void {
 }
 
 /**
+ * Reads the bootstrap admin credentials from the Secret and asks Keycloak for an
+ * admin token. The admin password goes to curl on its stdin only.
+ */
+async function adminToken(
+  repository: Repository,
+  runner: Runner,
+  host: string,
+): Promise<string> {
+  const { stdout } = await runner.run(
+    "kubectl",
+    [
+      "--context",
+      repository.environment.kubeContext,
+      "--namespace",
+      namespace,
+      "get",
+      "secret",
+      adminSecretName,
+      "--output=json",
+    ],
+    { capture: true },
+  );
+  const data = (JSON.parse(stdout) as { data?: Record<string, string> }).data;
+  if (data?.["username"] === undefined || data["password"] === undefined) {
+    throw new Error(
+      `the ${adminSecretName} Secret in ${namespace} has no admin credentials; run kore platform up so Keycloak is installed first`,
+    );
+  }
+  const username = Buffer.from(data["username"], "base64").toString("utf8");
+  const password = Buffer.from(data["password"], "base64").toString("utf8");
+  const { stdout: tokenBody } = await runner.run("curl", curlArguments(host), {
+    capture: true,
+    input: [
+      line(
+        "url",
+        `https://${host}/realms/master/protocol/openid-connect/token`,
+      ),
+      line("data-urlencode", "grant_type=password"),
+      line("data-urlencode", "client_id=admin-cli"),
+      line("data-urlencode", `username=${username}`),
+      line("data-urlencode", `password=${password}`),
+    ].join("\n"),
+  });
+  const token = (JSON.parse(tokenBody) as { access_token?: unknown })
+    .access_token;
+  if (typeof token !== "string") {
+    throw new Error(
+      "Keycloak issued no admin token; check that the keycloak-admin Secret matches the running Keycloak",
+    );
+  }
+  return token;
+}
+
+/**
  * Creates, groups and removes the throwaway users of the sign-in check through
  * the platform Keycloak's admin REST API, reached through the platform gateway.
  * The admin password is read from the bootstrap Secret into memory and sent to
@@ -49,7 +103,8 @@ export class KeycloakTestUsers {
   private constructor(
     private readonly runner: Runner,
     private readonly host: string,
-    private readonly token: string,
+    private token: string,
+    private readonly renew: () => Promise<string>,
   ) {}
 
   /** Signs in as the bootstrap admin, which the platform Keycloak keeps for the life of the install. */
@@ -58,53 +113,8 @@ export class KeycloakTestUsers {
     runner: Runner,
   ): Promise<KeycloakTestUsers> {
     const host = keycloakHostname(repository.environment);
-    const { stdout } = await runner.run(
-      "kubectl",
-      [
-        "--context",
-        repository.environment.kubeContext,
-        "--namespace",
-        namespace,
-        "get",
-        "secret",
-        adminSecretName,
-        "--output=json",
-      ],
-      { capture: true },
-    );
-    const data = (JSON.parse(stdout) as { data?: Record<string, string> }).data;
-    if (data?.["username"] === undefined || data["password"] === undefined) {
-      throw new Error(
-        `the ${adminSecretName} Secret in ${namespace} has no admin credentials; run kore platform up so Keycloak is installed first`,
-      );
-    }
-    const username = Buffer.from(data["username"], "base64").toString("utf8");
-    const password = Buffer.from(data["password"], "base64").toString("utf8");
-    const { stdout: tokenBody } = await runner.run(
-      "curl",
-      curlArguments(host),
-      {
-        capture: true,
-        input: [
-          line(
-            "url",
-            `https://${host}/realms/master/protocol/openid-connect/token`,
-          ),
-          line("data-urlencode", "grant_type=password"),
-          line("data-urlencode", "client_id=admin-cli"),
-          line("data-urlencode", `username=${username}`),
-          line("data-urlencode", `password=${password}`),
-        ].join("\n"),
-      },
-    );
-    const token = (JSON.parse(tokenBody) as { access_token?: unknown })
-      .access_token;
-    if (typeof token !== "string") {
-      throw new Error(
-        "Keycloak issued no admin token; check that the keycloak-admin Secret matches the running Keycloak",
-      );
-    }
-    return new KeycloakTestUsers(runner, host, token);
+    const renew = () => adminToken(repository, runner, host);
+    return new KeycloakTestUsers(runner, host, await renew(), renew);
   }
 
   /** Creates an enabled user with a password, and returns its id. */
@@ -142,12 +152,18 @@ export class KeycloakTestUsers {
     expectStatus(put, 204, `add user ${userId} to platform-operators`);
   }
 
-  /** Removes the user. A refusal is an error, because a leftover user is a finding. */
+  /**
+   * Removes the user. The admin token can expire while the browser waits, so a 401
+   * gets one retry with a freshly issued token. A refusal after that is an error,
+   * because a leftover user is a finding.
+   */
   async remove(userId: string): Promise<void> {
-    const reply = await this.send(
-      "DELETE",
-      `/admin/realms/${realm}/users/${userId}`,
-    );
+    const path = `/admin/realms/${realm}/users/${userId}`;
+    let reply = await this.send("DELETE", path);
+    if (reply.status === 401) {
+      this.token = await this.renew();
+      reply = await this.send("DELETE", path);
+    }
     expectStatus(reply, 204, `remove the test user ${userId}`);
   }
 

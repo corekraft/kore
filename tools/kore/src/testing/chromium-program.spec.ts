@@ -17,6 +17,14 @@ describe("chromiumProgram", () => {
     expect(() => chromiumProgram([], "")).toThrow("at least one host");
   });
 
+  it("names only the host and path of the page when a wait times out, never its query, text or values", () => {
+    const program = chromiumProgram(["a.kore.internal"], "");
+    expect(program).toContain("location.host + location.pathname");
+    expect(program).not.toContain("location.href");
+    expect(program).not.toContain("innerText");
+    expect(program).not.toContain("document.body");
+  });
+
   it("launches Chromium ignoring certificate errors, as the local CA is not in the container's trust store", () => {
     expect(chromiumProgram(["a.kore.internal"], "")).toContain(
       "--ignore-certificate-errors",
