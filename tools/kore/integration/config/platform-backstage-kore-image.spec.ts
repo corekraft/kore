@@ -62,10 +62,10 @@ const document = (rendered: string, kind: string): string =>
     .split(/^---$/m)
     .find((part) => new RegExp("^kind: " + kind + "$", "m").test(part)) ?? "";
 
-// The Kore-built image (issue 1708): the digest the v0.19.0 release recorded in
+// The Kore-built image (issue 1708): the digest the v0.20.0 release recorded in
 // backstage-image.lock.json, signed by that tag's release workflow.
 const koreBackstageImage =
-  "ghcr.io/corekraft/kore/backstage@sha256:1a2da946e7aed3546dc20eeafc7191aa5b19fc483f5c3e23c489cd7c1fd81b40";
+  "ghcr.io/corekraft/kore/backstage@sha256:86ea69871da3e31af13bd1880ae9a96d54577681d1f3bb10b85716ccb5790157";
 
 const backstageContainer = (deployment: string): string =>
   deployment
