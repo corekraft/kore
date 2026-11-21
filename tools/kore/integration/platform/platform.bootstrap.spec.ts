@@ -12,6 +12,7 @@ vi.mock("../../src/platform/admission-gate.js", async (importOriginal) => ({
 import { loadRepository } from "../../src/config/index.js";
 import {
   desiredFingerprint,
+  loadLocalGatewayFlagsOff,
   runningK3dCluster,
   withHealthyWebhooks,
 } from "../../src/testing/index.js";
@@ -29,7 +30,7 @@ import { RecordingRunner } from "../../src/runtime/index.js";
 import { tmpdir } from "node:os";
 
 test("controller bootstrap reconciles controllers before shared Gateway configuration", async () => {
-  const repository = await loadRepository("local");
+  const repository = await loadLocalGatewayFlagsOff();
   const runner = new RecordingRunner([
     { stdout: runningK3dCluster, stderr: "", code: 0 },
     { stdout: "kube-system", stderr: "", code: 0 },
@@ -150,7 +151,7 @@ test("platform destroy purges and then deletes the k3d cluster", async () => {
 });
 
 test("controller bootstrap installs no shared composition, issuer, gateway, secret store, or OPA authorizer", async () => {
-  const repository = await loadRepository("local");
+  const repository = await loadLocalGatewayFlagsOff();
   const runner = new RecordingRunner([
     { stdout: runningK3dCluster, stderr: "", code: 0 },
     { stdout: "kube-system", stderr: "", code: 0 },

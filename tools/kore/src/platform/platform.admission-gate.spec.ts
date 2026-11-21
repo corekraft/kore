@@ -77,7 +77,10 @@ import {
 } from "./admission-gate-support.js";
 import { platformGeneration, readAdmissionGate } from "./admission-gate.js";
 import { platformUp } from "./up.js";
-import { gatedOffReleaseAbsent } from "../testing/index.js";
+import {
+  gatedOffReleaseAbsent,
+  loadLocalGatewayFlagsOff,
+} from "../testing/index.js";
 
 interface Gate {
   generation: string;
@@ -140,7 +143,7 @@ async function run(
   initial: Gate | undefined,
   mutate?: (r: Awaited<ReturnType<typeof loadRepository>>) => void,
 ) {
-  const base = await loadRepository("local");
+  const base = await loadLocalGatewayFlagsOff();
   const root = await mkdtemp(join(tmpdir(), "kore-gate-"));
   const repository = { ...base, root };
   mutate?.(repository);
@@ -191,7 +194,7 @@ test("a run that fails a readiness check leaves the gate closed and fails", asyn
 
 test("a run that fails a phase leaves a previously open gate closed", async () => {
   control.failConfiguration = true;
-  const base = await loadRepository("local");
+  const base = await loadLocalGatewayFlagsOff();
   const previous = { generation: platformGeneration(base), state: "open" };
 
   const { box, error } = await run(previous);
@@ -225,7 +228,7 @@ test("a run with no earlier gate writes nothing until the foundation is ready", 
 });
 
 test("readiness is evaluated in the same run as the opening, never from an earlier one", async () => {
-  const base = await loadRepository("local");
+  const base = await loadLocalGatewayFlagsOff();
   const generation = platformGeneration(base);
   control.unready = true;
 

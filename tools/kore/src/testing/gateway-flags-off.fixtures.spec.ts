@@ -19,6 +19,7 @@ const repository = {
       "database-routes": true,
       "otlp-route": true,
       "platform-dns": true,
+      "platform-portal": true,
       "role-tokens": true,
     },
   },
@@ -36,6 +37,7 @@ test("the gateway and traffic flags read off, so the istio path and no live-only
     "database-routes": false,
     "otlp-route": false,
     "platform-dns": false,
+    "platform-portal": false,
     "role-tokens": true,
   });
 });
@@ -58,6 +60,7 @@ test("withPlatformDnsOn turns platform-dns on and leaves every other flag as it 
     "database-routes": false,
     "otlp-route": false,
     "platform-dns": true,
+    "platform-portal": false,
     "role-tokens": true,
   });
 });

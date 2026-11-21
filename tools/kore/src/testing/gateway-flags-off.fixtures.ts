@@ -2,7 +2,8 @@ import { loadRepository, type Repository } from "../config/index.js";
 
 // The flags a spec pins off so it does not depend on the committed local
 // overlay: the agentgateway flags, the three that PR #1574 turned on in local
-// (registry-by-name, database-routes, otlp-route), and platform-dns (#1682).
+// (registry-by-name, database-routes, otlp-route), platform-dns (#1682), and
+// platform-portal (#1715 turns it on in local).
 const gatewayFlags = [
   "ingress-agentgateway",
   "gateway-class-change-release",
@@ -12,6 +13,7 @@ const gatewayFlags = [
   "database-routes",
   "otlp-route",
   "platform-dns",
+  "platform-portal",
 ] as const;
 
 /**

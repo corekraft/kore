@@ -1,7 +1,10 @@
 import { expect, test, vi } from "vitest";
 import { loadRepository } from "../config/index.js";
 import { RecordingRunner } from "../runtime/index.js";
-import { withHealthyWebhooks } from "../testing/index.js";
+import {
+  loadLocalGatewayFlagsOff,
+  withHealthyWebhooks,
+} from "../testing/index.js";
 
 const events = vi.hoisted(() => [] as string[]);
 
@@ -33,7 +36,7 @@ import { bootstrapControllers } from "./bootstrap.js";
 
 test("the public signing key Secret exists once Policy Controller is installed and before configuration starts", async () => {
   events.length = 0;
-  const repository = await loadRepository("local");
+  const repository = await loadLocalGatewayFlagsOff();
 
   await bootstrapControllers(
     repository,
@@ -60,7 +63,10 @@ test("managed environments never publish the local signing key", async () => {
 test("registry credentials exist before the registry release starts, in every environment", async () => {
   for (const name of ["local", "managed-example"]) {
     events.length = 0;
-    const repository = await loadRepository(name);
+    const repository =
+      name === "local"
+        ? await loadLocalGatewayFlagsOff()
+        : await loadRepository(name);
 
     await bootstrapControllers(
       repository,
@@ -76,7 +82,7 @@ test("registry credentials exist before the registry release starts, in every en
 
 test("the registry CA reaches the clients right after the registry is issued and before Policy Controller starts", async () => {
   events.length = 0;
-  const repository = await loadRepository("local");
+  const repository = await loadLocalGatewayFlagsOff();
 
   await bootstrapControllers(
     repository,
