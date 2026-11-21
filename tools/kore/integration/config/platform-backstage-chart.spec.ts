@@ -308,3 +308,23 @@ test("group authorization stays with the platform-operators group, and the route
   assert.ok(subjects.length > 0);
   assert.ok(subjects.every((s) => s === "platform-operators"));
 });
+
+// The pod sets runAsNonRoot, and the kubelet can only verify it when each
+// container names a numeric uid: the Backstage image's user is the name node,
+// uid 1000 (its /etc/passwd), and the proxy image's user is the numeric 65532.
+test("each Backstage container names the numeric uid of its image's user, so the kubelet can verify non-root", async () => {
+  const deployment = document(await render("local"), "Deployment");
+  assert.match(deployment, /^ {8}runAsNonRoot: true$/m);
+  const containers =
+    deployment.split(/^ {6}containers:$/m)[1]?.split(/^ {6}\S/m)[0] ?? "";
+  const uids = Object.fromEntries(
+    containers
+      .split(/^ {8}- name: /m)
+      .slice(1)
+      .map((part) => [
+        part.split("\n")[0],
+        /^ {12}runAsUser: (\d+)$/m.exec(part)?.[1] ?? null,
+      ]),
+  );
+  assert.deepEqual(uids, { proxy: "65532", backstage: "1000" });
+});
