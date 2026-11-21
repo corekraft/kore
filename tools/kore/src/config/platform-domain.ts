@@ -146,7 +146,6 @@ function otlpRouteArgs(environment: Environment, component: string): string[] {
 /** The chart value each component that names the platform domain reads it through. */
 const domainValueKeys: Record<string, string | undefined> = {
   "kore-platform-apis": "platformDomain",
-  "kore-platform-backstage": "platformDomain",
   "kore-platform-config": "gateway.hostname",
   "kore-local-tls": "gateway.hostname",
   "kore-platform-dns": "zone",
@@ -185,12 +184,27 @@ export function keycloakHostname(environment: Environment): string {
 }
 
 /**
- * The portal's host, backstage.<domain> (ADR 0111). Its sign-in redirect, its
- * base URL and its own Gateway name it whatever the shared Gateway flag, so the
- * sign-in check reaches the portal at the one host the portal serves.
+ * The portal's host (ADR 0111, ADR 0042, ADR 0133): backstage.<organizationId>.<domain>
+ * while platform-shared-gateway is on, the host the shared platform Gateway serves
+ * by name, and backstage.<domain> while it is off, the host the flag off renders.
+ * The portal chart's route, its base URL, its sign-in redirect and its Keycloak
+ * client take this one value, and so does the sign-in check.
  */
 export function backstageHostname(environment: Environment): string {
-  return `backstage.${platformPlan(environment).domain}`;
+  const { domain, organizationId } = platformPlan(environment);
+  return featureEnabled(environment, platformSharedGatewayFlag)
+    ? `backstage.${organizationId}.${domain}`
+    : `backstage.${domain}`;
+}
+
+/** The portal's host, which the portal chart takes from backstageHostname. */
+function backstageHostArgs(
+  environment: Environment,
+  component: string,
+): string[] {
+  return component === "kore-platform-backstage"
+    ? ["--set-string", `backstageHostname=${backstageHostname(environment)}`]
+    : [];
 }
 
 const keycloakHostComponents = [
@@ -225,10 +239,13 @@ function sharedGatewayArgs(
     return [];
   }
   const { domain, organizationId } = platformPlan(environment);
+  // The portal's host is backstageHostname, so its sharedGateway takes no domain.
   return [
     ["name", environment.gateway.name],
     ["namespace", environment.gateway.namespace],
-    ["domain", `${organizationId}.${domain}`],
+    ...(component === "kore-platform-backstage"
+      ? []
+      : [["domain", `${organizationId}.${domain}`]]),
   ].flatMap(([field, value]) => ["--set-string", `${key}.${field}=${value}`]);
 }
 
@@ -327,6 +344,7 @@ export function platformHelmArgs(
   const key = domainValueKeys[component];
   const wildcard = wildcardValueKeys[component];
   const shared = [
+    ...backstageHostArgs(environment, component),
     ...keycloakHostArgs(environment, component),
     ...zoneArgs(environment, component),
     ...sharedGatewayArgs(environment, component),

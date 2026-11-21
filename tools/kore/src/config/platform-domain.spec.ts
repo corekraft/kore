@@ -122,7 +122,7 @@ test("each chart that read a hand-set domain is handed it as a derived value", (
   ]);
   expect(platformHelmArgs(local, "kore-platform-backstage")).toEqual([
     "--set-string",
-    "platformDomain=kore.internal",
+    "backstageHostname=backstage.kore.internal",
     "--set-string",
     "keycloakHostname=keycloak.kore.internal",
   ]);
@@ -200,10 +200,13 @@ test("with platform-shared-gateway on the portal and the golden-path delivery ar
   ];
   expect(platformHelmArgs(sharedGatewayOn, "kore-platform-backstage")).toEqual([
     "--set-string",
-    "platformDomain=kore.internal",
+    "backstageHostname=backstage.platform.kore.internal",
     "--set-string",
     "keycloakHostname=keycloak.platform.kore.internal",
-    ...values(""),
+    "--set-string",
+    "sharedGateway.name=kore-gateway",
+    "--set-string",
+    "sharedGateway.namespace=kore-system",
   ]);
   expect(
     platformHelmArgs(sharedGatewayOn, "kore-golden-path-delivery"),
@@ -220,7 +223,7 @@ test("with platform-shared-gateway off or omitted no shared Gateway value is han
   ]) {
     expect(platformHelmArgs(off, "kore-platform-backstage")).toEqual([
       "--set-string",
-      "platformDomain=kore.internal",
+      "backstageHostname=backstage.kore.internal",
       "--set-string",
       "keycloakHostname=keycloak.kore.internal",
     ]);
@@ -247,7 +250,7 @@ const dnsOn = fakeEnvironment({
 test("with platform-dns on the portal is handed the CA bundle its pods trust, and the DNS component the Gateway whose Service it rewrites to", () => {
   expect(platformHelmArgs(dnsOn, "kore-platform-backstage")).toEqual([
     "--set-string",
-    "platformDomain=kore.internal",
+    "backstageHostname=backstage.kore.internal",
     "--set-string",
     "keycloakHostname=keycloak.kore.internal",
     "--set-string",
@@ -270,7 +273,7 @@ test("with platform-dns off or omitted the portal is handed no CA bundle", () =>
   ]) {
     expect(platformHelmArgs(off, "kore-platform-backstage")).toEqual([
       "--set-string",
-      "platformDomain=kore.internal",
+      "backstageHostname=backstage.kore.internal",
       "--set-string",
       "keycloakHostname=keycloak.kore.internal",
     ]);

@@ -65,13 +65,12 @@ const documents = (rendered: string, kind: string): string[] =>
     .split(/^---$/m)
     .filter((part) => new RegExp(`^kind: ${kind}$`, "m").test(part));
 
-test("with the flag on the portal adds one route to the platform Gateway for the organization's host, beside its own, and it reaches only the sign-in proxy", async () => {
+test("with the flag on the portal's one route attaches to the platform Gateway for the organization's host, and it reaches only the sign-in proxy", async () => {
   const rendered = await render(true, "agentgateway");
   const routes = documents(rendered, "HTTPRoute");
-  assert.equal(routes.length, 2);
-  const own = routes.find((r) => /^ {2}name: backstage$/m.test(r))!;
-  const shared = routes.find((r) => /^ {2}name: backstage-shared$/m.test(r))!;
-  assert.match(own, /kind: Gateway\n\s+name: backstage\n/);
+  assert.equal(routes.length, 1);
+  const shared = routes[0]!;
+  assert.match(shared, /^ {2}name: backstage-shared$/m);
   assert.match(
     shared,
     /parentRefs:\n\s+- kind: Gateway\n\s+name: kore-gateway\n\s+namespace: kore-system/,
@@ -83,8 +82,8 @@ test("with the flag on the portal adds one route to the platform Gateway for the
   assert.match(shared, /name: backstage\n\s+port: 80/);
   assert.equal(shared.includes("7007"), false);
   assert.equal(/name: backstage-db/.test(shared), false);
-  assert.equal(documents(rendered, "Gateway").length, 1);
-  assert.equal(documents(rendered, "Certificate").length, 1);
+  assert.equal(documents(rendered, "Gateway").length, 0);
+  assert.equal(documents(rendered, "Certificate").length, 0);
   assert.equal(documents(rendered, "Service").length, 1);
   assert.equal(/kind: (NodePort|LoadBalancer)/.test(rendered), false);
 });
