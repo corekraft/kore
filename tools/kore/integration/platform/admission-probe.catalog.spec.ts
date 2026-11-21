@@ -1,6 +1,6 @@
-import { loadRepository } from "../../src/config/index.js";
+import { loadRepository, type Repository } from "../../src/config/index.js";
 import assert from "node:assert/strict";
-import { test } from "vitest";
+import { test, vi } from "vitest";
 
 import {
   healthyRunner,
@@ -15,6 +15,34 @@ import { CommandError, type Runner } from "../../src/runtime/index.js";
 
 // Docs: docs/decisions/0028-image-trust-authority.md
 // Helpers for the opt-in live admission specs; fast tests fake the runner.
+
+// The name check dials the registry's name, so this spec stubs it: it never
+// resolves the real registry name. Everything else in the path is real.
+const ensureRegistryName = vi.hoisted(() => vi.fn(async () => undefined));
+vi.mock("../../src/images/registry-name.js", async (importOriginal) => ({
+  ...(await importOriginal<
+    typeof import("../../src/images/registry-name.js")
+  >()),
+  ensureRegistryName,
+}));
+
+/**
+ * The local repository with the gateway flags off and registry-by-name on, so
+ * a k3d registry is reached by its name, as it is in local today.
+ */
+async function registryByNameRepository(): Promise<Repository> {
+  const repository = withGatewayFlagsOff(await loadRepository("local"));
+  return {
+    ...repository,
+    environment: {
+      ...repository.environment,
+      features: {
+        ...repository.environment.features,
+        "registry-by-name": true,
+      },
+    },
+  };
+}
 
 const source = `10.96.0.50:5000/reference@sha256:${"c".repeat(64)}`;
 const copiedDigest = `sha256:${"d".repeat(64)}`;
@@ -142,7 +170,7 @@ test("no deployed image fails with the fix instead of probing nothing", async ()
 });
 
 test("untrusted copies are pushed with the push identity and one is signed with a throwaway key", async () => {
-  const repository = withGatewayFlagsOff(await loadRepository("local"));
+  const repository = await registryByNameRepository();
   const calls: Call[] = [];
   const inputs: string[] = [];
   const envs: NodeJS.ProcessEnv[] = [];
@@ -160,7 +188,6 @@ test("untrusted copies are pushed with the push identity and one is signed with 
   };
 
   const copies = await publishUntrustedCopies(repository, runner, source, {
-    registry: { isPortOpen: async () => true },
     digest: async () => copiedDigest,
   });
 
@@ -209,7 +236,7 @@ test("untrusted copies are pushed with the push identity and one is signed with 
 });
 
 test("a signed copy is pushed under its own probe repository and signed with the cluster's local key, never a file key", async () => {
-  const repository = withGatewayFlagsOff(await loadRepository("local"));
+  const repository = await registryByNameRepository();
   const calls: Call[] = [];
   const runner = healthyRunner(calls);
 
@@ -219,7 +246,6 @@ test("a signed copy is pushed under its own probe repository and signed with the
     source,
     "swapped",
     {
-      registry: { isPortOpen: async () => true },
       digest: async () => copiedDigest,
     },
   );
