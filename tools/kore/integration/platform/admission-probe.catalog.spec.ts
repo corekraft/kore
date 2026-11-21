@@ -4,6 +4,7 @@ import { test } from "vitest";
 
 import {
   healthyRunner,
+  withGatewayFlagsOff,
   type Call,
   admissionVerdict,
   deployedImage,
@@ -141,7 +142,7 @@ test("no deployed image fails with the fix instead of probing nothing", async ()
 });
 
 test("untrusted copies are pushed with the push identity and one is signed with a throwaway key", async () => {
-  const repository = await loadRepository("local");
+  const repository = withGatewayFlagsOff(await loadRepository("local"));
   const calls: Call[] = [];
   const inputs: string[] = [];
   const envs: NodeJS.ProcessEnv[] = [];
@@ -208,7 +209,7 @@ test("untrusted copies are pushed with the push identity and one is signed with 
 });
 
 test("a signed copy is pushed under its own probe repository and signed with the cluster's local key, never a file key", async () => {
-  const repository = await loadRepository("local");
+  const repository = withGatewayFlagsOff(await loadRepository("local"));
   const calls: Call[] = [];
   const runner = healthyRunner(calls);
 

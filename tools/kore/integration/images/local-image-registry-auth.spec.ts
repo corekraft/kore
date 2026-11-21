@@ -7,6 +7,7 @@ import { type Repository } from "../../src/config/index.js";
 import {
   encodeBase64,
   imageEntry as entry,
+  withGatewayFlagsOff,
   imageFakeRunner as fakeRunner,
   pushPassword,
   stubRegistry,
@@ -31,10 +32,12 @@ afterEach(async () => {
   );
 });
 
+// The host dials the forward address the digest test expects: with
+// registry-by-name pinned off the registry is reached through its forward.
 async function testRepository(): Promise<Repository> {
   const root = await mkdtemp(join(tmpdir(), "kore-local-image-"));
   roots.push(root);
-  return { ...(await loadRepository("local")), root };
+  return { ...withGatewayFlagsOff(await loadRepository("local")), root };
 }
 
 test("the push credential reaches the node only on stdin and never in an argument", async () => {

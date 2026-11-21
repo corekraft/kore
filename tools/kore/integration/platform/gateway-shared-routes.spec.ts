@@ -4,7 +4,10 @@ import { execFileSync } from "node:child_process";
 import { test } from "vitest";
 import { loadRepository, type Repository } from "../../src/config/index.js";
 import { helmTemplateArgs } from "../../src/platform/index.js";
-import { withAbsoluteChart } from "../../src/testing/index.js";
+import {
+  withAbsoluteChart,
+  withGatewayFlagsOff,
+} from "../../src/testing/index.js";
 
 // With platform-shared-gateway on, the shared Gateway admits routes only from
 // namespaces carrying the platform-owned label, and the platform's own
@@ -48,7 +51,10 @@ const admitLabelled = new RegExp(
 
 test("with platform-shared-gateway off the one HTTPS listener admits routes from every namespace, as before", async () => {
   const output = render(
-    withSharedGateway(await loadRepository("local"), false),
+    withSharedGateway(
+      withGatewayFlagsOff(await loadRepository("local")),
+      false,
+    ),
   );
   assert.equal(output.match(admitAll)?.length, 1);
   assert.doesNotMatch(output, admitLabelled);
@@ -56,19 +62,26 @@ test("with platform-shared-gateway off the one HTTPS listener admits routes from
 
 test("with platform-shared-gateway off the kore-system namespace carries no shared-gateway label", async () => {
   const output = render(
-    withSharedGateway(await loadRepository("local"), false),
+    withSharedGateway(
+      withGatewayFlagsOff(await loadRepository("local")),
+      false,
+    ),
   );
   assert.doesNotMatch(output, new RegExp(label.replaceAll(".", "\\.")));
 });
 
 test("with platform-shared-gateway on both listeners admit routes only from namespaces carrying the label", async () => {
-  const output = render(withSharedGateway(await loadRepository("local"), true));
+  const output = render(
+    withSharedGateway(withGatewayFlagsOff(await loadRepository("local")), true),
+  );
   assert.equal(output.match(admitLabelled)?.length, 2);
   assert.doesNotMatch(output, admitAll);
 });
 
 test("with platform-shared-gateway on the kore-system namespace, where the Gateway lives, carries the label", async () => {
-  const output = render(withSharedGateway(await loadRepository("local"), true));
+  const output = render(
+    withSharedGateway(withGatewayFlagsOff(await loadRepository("local")), true),
+  );
   assert.match(
     output,
     new RegExp(

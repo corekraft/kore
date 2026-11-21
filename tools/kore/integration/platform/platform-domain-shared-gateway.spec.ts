@@ -9,7 +9,10 @@ import {
   type Repository,
 } from "../../src/config/index.js";
 import { helmTemplateArgs, routeHostErrors } from "../../src/platform/index.js";
-import { withAbsoluteChart } from "../../src/testing/index.js";
+import {
+  withAbsoluteChart,
+  withGatewayFlagsOff,
+} from "../../src/testing/index.js";
 import { escapeRegExp } from "../local-platform-support.js";
 
 // With platform-shared-gateway on, the platform Gateway gains a listener for
@@ -20,7 +23,7 @@ import { escapeRegExp } from "../local-platform-support.js";
 const sharedGatewayFlag = "platform-shared-gateway";
 
 async function local(sharedGateway: boolean): Promise<Repository> {
-  const base = await loadRepository("local");
+  const base = withGatewayFlagsOff(await loadRepository("local"));
   return {
     ...base,
     environment: {
