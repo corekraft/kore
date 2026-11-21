@@ -81,18 +81,27 @@ test("a separate job attaches the Backstage lock with only the write-assets scop
   assert.match(attach, /refusing to replace it/);
 });
 
-test("the Backstage image is not in the reference or template locks nor the catalog", async () => {
+test("the Kore Backstage image is in the approved catalog at the release digest, and not in the reference or template locks", async () => {
   const root = await findRoot();
-  for (const file of [
-    "infra/catalog/images.lock.json",
-    "infra/catalog/approved-images.yaml",
-  ]) {
-    assert.doesNotMatch(
-      await readFile(join(root, file), "utf8"),
-      /kore\/backstage/,
-      file,
-    );
-  }
+  const approved = await readFile(
+    join(root, "infra/catalog/approved-images.yaml"),
+    "utf8",
+  );
+  const digest =
+    "sha256:1a2da946e7aed3546dc20eeafc7191aa5b19fc483f5c3e23c489cd7c1fd81b40";
+  assert.match(
+    approved,
+    new RegExp(
+      '"image": "ghcr\\.io/corekraft/kore/backstage@' +
+        digest +
+        '",\\n\\s+"name": "backstage",\\n\\s+"component": "kore-platform-backstage"',
+    ),
+  );
+  assert.equal(approved.split("kore/backstage").length - 1, 1);
+  assert.doesNotMatch(
+    await readFile(join(root, "infra/catalog/images.lock.json"), "utf8"),
+    /kore\/backstage/,
+  );
   const release = job(await workflow(), "release");
   const templates = release.slice(
     release.indexOf("- name: Write the template image lock"),
