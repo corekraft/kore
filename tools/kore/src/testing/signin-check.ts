@@ -4,7 +4,7 @@ import {
   platformPlan,
   type Repository,
 } from "../config/index.js";
-import { pinnedBrowserImage, runHeadlessBrowser } from "../browser/index.js";
+import { pinnedBrowserImage, runHeadlessBrowser } from "./headless-browser.js";
 import type { Runner } from "../runtime/index.js";
 import { KeycloakTestUsers } from "./keycloak-test-user.js";
 import { signInProgram } from "./signin-program.js";

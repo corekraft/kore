@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { live, setup } from "./identity-live.js";
-import { checkSignIn } from "./signin-check.js";
+import { checkSignIn } from "../testing/index.js";
 
 // Docs: docs/decisions/0113-run-a-keycloak-for-the-platform-organization-s-operators.md
 // Live and opt-in; see identity-live.ts. Run: npm run test:live:signin

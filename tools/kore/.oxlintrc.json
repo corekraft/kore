@@ -117,10 +117,6 @@
             "message": "import from the security barrel (security/index.js), not one of its files"
           },
           {
-            "group": ["**/browser/**", "!**/browser/index.js"],
-            "message": "import from the browser barrel (browser/index.js), not one of its files"
-          },
-          {
             "group": ["**/testing/**"],
             "message": "production code must not import the testing domain; only specs and fixtures may"
           }
@@ -202,10 +198,6 @@
               {
                 "group": ["**/security/**", "!**/security/index.js"],
                 "message": "import from the security barrel (security/index.js), not one of its files"
-              },
-              {
-                "group": ["**/browser/**", "!**/browser/index.js"],
-                "message": "import from the browser barrel (browser/index.js), not one of its files"
               },
               {
                 "group": ["**/testing/**", "!**/testing/index.js"],

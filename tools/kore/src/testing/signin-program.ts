@@ -1,4 +1,4 @@
-import { chromiumProgram } from "../browser/index.js";
+import { chromiumProgram } from "./chromium-program.js";
 
 // Docs: docs/decisions/0111-run-a-backstage-and-an-argo-cd-for-the-platform-organization-s-operators.md
 // Docs: docs/decisions/0113-run-a-keycloak-for-the-platform-organization-s-operators.md

@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { Repository } from "../config/index.js";
 import type { Runner } from "../runtime/index.js";
-import { runHeadlessBrowser } from "../browser/index.js";
+import { runHeadlessBrowser } from "./headless-browser.js";
 import { KeycloakTestUsers } from "./keycloak-test-user.js";
 import { checkSignIn } from "./signin-check.js";
 import { signInProgram } from "./signin-program.js";
@@ -13,7 +13,7 @@ vi.mock("../config/index.js", () => ({
     organizationId: "platform",
   })),
 }));
-vi.mock("../browser/index.js", () => ({
+vi.mock("./headless-browser.js", () => ({
   pinnedBrowserImage: "mcr.microsoft.com/playwright:pinned",
   runHeadlessBrowser: vi.fn(),
 }));

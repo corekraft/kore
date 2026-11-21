@@ -266,7 +266,7 @@ The Kore-built Backstage image's dependencies were bumped to the latest patch an
 ## Headless browser for the sign-in check (#1115)
 
 Pinned by digest: `mcr.microsoft.com/playwright:v1.65.1-noble@sha256:1507cbfc550a63a6b7396791ca4f00df17beb56342d2447b3f106c306f525579`
-(the multi-arch index digest, resolved with `crane digest` on 2026-11-21, recorded as `browser-test` in `versions.yaml`).
+(the multi-arch index digest, resolved with `crane digest` on 2026-11-21, held in code as `pinnedBrowserImage` in `tools/kore/src/testing/headless-browser.ts`; it is not in `versions.yaml`, which lists the images the platform deploys).
 
 - **Test tooling only.** It is not a cluster component and not deployed. The sign-in check runs `node -` in a throwaway container (`--rm`, host networking) that drives the image's Chromium over the DevTools protocol.
 - **Contract.** The image carries Node v26.13.1 and the Playwright 1.65.1 headless shell under `/ms-playwright`. Its Playwright npm package is not installed, so the driver uses only Node built-ins (`WebSocket`, `child_process`), and no npm package is added to the CLI or installed at run time.
