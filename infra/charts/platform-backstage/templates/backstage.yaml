@@ -91,15 +91,13 @@ spec:
           env:
             - name: APP_CONFIG_backend_listen
               value: 127.0.0.1:7007
+            # The Kore image's config names localhost as its own URLs. These set
+            # the portal host, which the OIDC callback and Keycloak's registered
+            # redirect use.
             - name: APP_CONFIG_app_baseUrl
               value: https://backstage.{{ .Values.platformDomain }}
             - name: APP_CONFIG_backend_baseUrl
               value: https://backstage.{{ .Values.platformDomain }}
-            # The image's only sign-in is the guest provider, which refuses to
-            # run outside development unless allowed. It is allowed here only
-            # because nothing reaches this container except through the proxy.
-            - name: APP_CONFIG_auth_providers_guest_dangerouslyAllowOutsideDevelopment
-              value: "true"
             # In-app sign-in (ADR 0113). The proxy stays in front until a live
             # run proves it; the client secret is the same Secret reference.
             - name: OIDC_METADATA_URL
@@ -121,16 +119,18 @@ spec:
 {{- else }}
               value: /var/run/secrets/kubernetes.io/serviceaccount/ca.crt
 {{- end }}
-            - name: POSTGRES_HOST
+            # The Kore image's config names no database connection; these set it
+            # from the database the PostgreSQL API claimed (ADR 0111).
+            - name: APP_CONFIG_backend_database_connection_host
               value: backstage-db-rw
-            - name: POSTGRES_PORT
+            - name: APP_CONFIG_backend_database_connection_port
               value: "5432"
-            - name: POSTGRES_USER
+            - name: APP_CONFIG_backend_database_connection_user
               valueFrom:
                 secretKeyRef:
                   name: backstage-db-app
                   key: username
-            - name: POSTGRES_PASSWORD
+            - name: APP_CONFIG_backend_database_connection_password
               valueFrom:
                 secretKeyRef:
                   name: backstage-db-app
@@ -149,11 +149,12 @@ spec:
                   name: backstage-db-connection
                   key: database
           # The port is loopback-only, which the kubelet cannot reach over the
-          # pod address, so readiness runs inside the container.
+          # pod address, so readiness runs inside the container. The distroless
+          # image's PATH has no node: its entrypoint, /nodejs/bin/node, is named.
           readinessProbe:
             exec:
               command:
-                - node
+                - /nodejs/bin/node
                 - -e
                 - fetch("http://127.0.0.1:7007/.backstage/health/v1/readiness").then((r)=>process.exit(r.ok?0:1),()=>process.exit(1))
             periodSeconds: 10
@@ -168,9 +169,9 @@ spec:
             requests: { cpu: 100m, memory: 384Mi }
             limits: { cpu: "1", memory: 768Mi }
           securityContext:
-            # The image's user is node, uid 1000 (its /etc/passwd), so the
-            # kubelet can verify runAsNonRoot against a numeric user.
-            runAsUser: 1000
+            # The Kore-built image runs as the numeric 65532 (its Dockerfile's
+            # USER), so the kubelet can verify runAsNonRoot against it.
+            runAsUser: 65532
             allowPrivilegeEscalation: false
             capabilities:
               drop: [ALL]
