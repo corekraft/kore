@@ -1,0 +1,46 @@
+---
+status: proposed
+summary: Every app workload, and the shared gateway proxy, runs at least two replicas, rolls out with maxUnavailable 0 and maxSurge 1, gates traffic on a readiness endpoint of its own, and keeps a PodDisruptionBudget, enforced at admission whatever tool rendered it, so a change never takes an app down.
+date: 2026-11-20
+last-verified: 2026-11-20
+---
+
+# ADR XXXX: Workloads run two replicas, roll out one surge pod at a time and keep a disruption budget
+
+Source: [`infra/plans/15-next-horizon.md` § Step 3](../../infra/plans/15-next-horizon.md#step-3-autoscaling-defaults)
+
+Refines [ADR 0047](0047-autoscaling-metrics-server-then-keda.md), which promised at least two replicas and a PodDisruptionBudget but whose chart renders neither by default. Builds on [ADR 0142](0142-the-vps-environment-targets-the-persistent-k3s-node-as-a-managed-cluster.md).
+
+Status is `proposed`: it is settled in shape in the grilling of issue #1480 against the owner interview record of #1478 (decisions 3, 8, 11, 14), not accepted by the owner. The record's decisions 1-15 are the owner's; the rest here is open for the owner.
+
+## Context
+
+The owner's promise for kore-vps is that a change never takes an app down (record decision 3); infrastructure events can. The runtime defaults of decision 8 are the mechanism: at least two replicas, `maxUnavailable: 0` and `maxSurge: 1`, readiness gates, and a PodDisruptionBudget.
+
+The code does not deliver them:
+
+- The `golden-path-workload` chart renders `replicas: 1` while autoscaling is off, which is its default, and sets no rollout strategy. The Kubernetes default of 25 percent allows one unavailable pod once the autoscaler reaches four to seven replicas, exactly when load is high.
+- It renders no PodDisruptionBudget. ADR 0047 and the ticked plan 15 step say it does; only the reference app's own chart has one.
+- Readiness, liveness and startup probes share one path, so a pod that is alive but not ready cannot be told apart.
+- The shared gateway proxy is on every app's data path and has the defaults of its upstream chart.
+- Apps live in their own repositories (decision 11), so a default in our chart binds only apps that use it.
+
+## Decision
+
+- **Two replicas, always.** A workload renders at least two replicas whether or not autoscaling is on. The chart renders two, never `replicas: 1`, when autoscaling is off; an autoscaler minimum below two stays refused.
+- **An explicit rollout strategy.** `RollingUpdate` with `maxUnavailable: 0` and `maxSurge: 1`, rendered in the chart, not left to the cluster default.
+- **A PodDisruptionBudget per workload** with `maxUnavailable: 1`. It works at any replica count, where `minAvailable: 1` would allow four evictions at five replicas. It guards evictions, not rollouts, and maintenance never drains (see the rollback and maintenance ADR).
+- **A readiness gate of its own.** Readiness uses an endpoint distinct from liveness (the BFF's readiness and liveness health groups). A workload sets `minReadySeconds` and `progressDeadlineSeconds`, and a `preStop` delay with a termination grace period, so the gateway drops a pod's endpoint before it receives SIGTERM. The exact numbers are implementation defaults, not owner decisions.
+- **The gateway proxy gets the same defaults.** The shared gateway proxy runs two replicas with the same strategy, budget and readiness, because a change to it takes every app down. The policy controller and the registry stay single-replica and fail closed; this is recorded as accepted infrastructure risk, since an event there denies new pods but does not stop running ones.
+- **Admission enforces it, whoever rendered it.** A Gatekeeper constraint refuses an app-namespace workload below these defaults, with no `priorityClassName`, by audit first and enforce after ([ADR 0072](0072-constraint-promotion-procedure.md)). The chart is the default, admission is the guarantee.
+- **The rollout-feasibility check joins the platform workflow's evals.** [ADR 0036](0036-rollout-feasibility-and-container-smoke.md)'s check runs on an app's rendered chart. The vps overlay declares a node count of 1 as a schema field with an exact default for existing overlays (local is one node), replacing "local is treated as one node", so the check, the budget and the capacity ADR read one fact.
+- **A database change is a change.** A platform PostgreSQL gets two CloudNativePG instances by default so a supervised switchover keeps a primary up during an image or configuration change. On one node this gives no node-loss safety, which the record accepts, and it costs a second volume against the capacity budget. Today's `instances: 1` makes a database restart an outage.
+- **Proof.** The promise is measured as zero failed requests through the shared gateway during an app rollout, by a live probe in the style of `golden-path-load`, recorded as an outcome before any flag that depends on it turns on. This measurement is not in the record and is open for the owner.
+
+## Consequences
+
+- The chart, the gateway values and the PostgreSQL composition change behind flags, off until a live run on kore-vps and `harness flag activate`.
+- ADR 0047 and the plan 15 step stay as they are until the PodDisruptionBudget lands; the plan's tick is corrected as missing work.
+- A workload that cannot fit two replicas and a surge pod is refused by the capacity ADR, not silently run at one.
+- Two replicas on one node protect against a crashing pod and a rollout, not against the node; a kernel reboot or a disk fault still takes both, by design.
+- A rollout that misses its progress deadline is a failed release; the rollback ADR says what the platform does then.

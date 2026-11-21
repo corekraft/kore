@@ -110,6 +110,25 @@ A deterministic script that does a step in place of an agent, and may launch
 agents.
 _Avoid_: Helper, utility
 
+## Change safety
+
+**Capacity budget**:
+What one cluster may commit to apps: its declared compute and disk, less the
+platform's own measured reserve and the headroom a rollout needs. An app that
+does not fit is refused before it is delivered.
+_Avoid_: Quota (a quota enforces one suborg's share of the budget, it is not the
+budget), limit
+
+**Maintenance window**:
+The announced time in which the one outage a host needs, a kernel reboot, is
+allowed to happen. Everything else about maintenance leaves apps up.
+_Avoid_: Downtime, outage window
+
+**Soak**:
+The minimum time a release stays active, with no revert and no failed health,
+before a contract step may follow it.
+_Avoid_: Bake time, burn-in
+
 ## Cost
 
 **Main-session cost**:
