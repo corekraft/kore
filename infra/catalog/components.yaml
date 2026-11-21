@@ -850,7 +850,7 @@
         "version": "local",
         "featureFlag": "platform-argocd-delivery",
         "ownsCRDs": [],
-        "dependencies": ["argocd"],
+        "dependencies": ["argocd", "kore-golden-path-delivery"],
         "timeout": "5m",
         "readiness":
           [
