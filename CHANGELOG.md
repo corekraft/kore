@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.20.0](https://github.com/corekraft/kore/compare/v0.19.1...v0.20.0) (2026-11-21)
+
+
+### Features
+
+* **platform:** apply the Service records through a second Argo CD Application ([#1710](https://github.com/corekraft/kore/issues/1710)) ([8728fde](https://github.com/corekraft/kore/commit/8728fde221b4e6712d10e0138b03309e9ae587f6))
+* **platform:** run the Kore-built Backstage image from its release lock ([#1709](https://github.com/corekraft/kore/issues/1709)) ([53bc692](https://github.com/corekraft/kore/commit/53bc69282c91dfe4ea81831cf0e1f82c83d3cb04))
+
+
+### Bug fixes
+
+* **backstage:** set managed-by annotations on every catalog entity ([#1713](https://github.com/corekraft/kore/issues/1713)) ([8a35813](https://github.com/corekraft/kore/commit/8a35813caaf0472cfbab6bcf0d13cb52a1575bbd)), closes [#1712](https://github.com/corekraft/kore/issues/1712) [#1111](https://github.com/corekraft/kore/issues/1111) [#1318](https://github.com/corekraft/kore/issues/1318) [#1708](https://github.com/corekraft/kore/issues/1708)
+
 ## [0.19.1](https://github.com/corekraft/kore/compare/v0.19.0...v0.19.1) (2026-11-21)
 
 
