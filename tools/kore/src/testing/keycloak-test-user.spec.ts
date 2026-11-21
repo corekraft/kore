@@ -132,3 +132,53 @@ describe("KeycloakTestUsers", () => {
     expect(del?.input).toContain('request = "DELETE"');
   });
 });
+
+describe("KeycloakTestUsers removal with an expired admin token", () => {
+  it("retries a removal once with a fresh admin token when Keycloak answers HTTP 401", async () => {
+    const issued: string[] = [];
+    const run = vi.fn(
+      async (
+        command: string,
+        _args: readonly string[],
+        options?: { input?: string },
+      ) => {
+        const input = options?.input ?? "";
+        if (command === "kubectl") {
+          return { stdout: adminSecret, stderr: "", code: 0 };
+        }
+        if (input.includes("openid-connect/token")) {
+          const token = `tok-${issued.length + 1}`;
+          issued.push(token);
+          return { stdout: `{"access_token":"${token}"}`, stderr: "", code: 0 };
+        }
+        const expired = input.includes("Bearer tok-1");
+        return {
+          stdout: expired ? "HTTP/2 401\n\n" : "HTTP/2 204\n\n",
+          stderr: "",
+          code: 0,
+        };
+      },
+    );
+    const users = await KeycloakTestUsers.connect(repository, {
+      run,
+    } as unknown as Runner);
+    await expect(users.remove("u-42")).resolves.toBeUndefined();
+    const deletes = run.mock.calls.filter(
+      ([command, , options]) =>
+        command === "curl" && options?.input?.includes('request = "DELETE"'),
+    );
+    expect(deletes).toHaveLength(2);
+    expect(deletes[1]?.[2]?.input).toContain("Bearer tok-2");
+    expect(issued).toEqual(["tok-1", "tok-2"]);
+  });
+
+  it("fails the removal after one retry when Keycloak still answers HTTP 401", async () => {
+    const { runner, curlCalls } = fakeRunner(() => "HTTP/2 401\n\n");
+    const users = await KeycloakTestUsers.connect(repository, runner);
+    await expect(users.remove("u-42")).rejects.toThrow("HTTP 401");
+    const deletes = curlCalls().filter((call) =>
+      call.input?.includes('request = "DELETE"'),
+    );
+    expect(deletes).toHaveLength(2);
+  });
+});
