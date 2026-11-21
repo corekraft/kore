@@ -38,7 +38,7 @@ function repository(): Repository {
 
 function client(): PublishSession["client"] {
   return {
-    address: "127.0.0.1:30500",
+    address: "registry.platform.kore.local",
     env: {},
     authorization: "Basic a29yZTpwdw==",
     head: vi.fn(),
@@ -62,7 +62,7 @@ beforeEach(() => {
   vi.mocked(localRepositoryPath).mockReturnValue("reference");
 });
 
-test("the registry port-forward is up before the source tag is looked up in the registry", async () => {
+test("the registry is ready before the source tag is looked up in the registry", async () => {
   const { runner } = imageFakeRunner();
 
   await lookUpSource(repository(), runner, "reference", entry, client());

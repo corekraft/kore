@@ -31,9 +31,9 @@ Usage:
 "cluster destroy" refuses while data labeled platform.kore.dev/retention=Retain
 (databases) exists; --purge-data deletes it.
 
-"platform stop|destroy" and "local down" leave the local registry port-forward
-running when another worktree, or another kore process in this one, started it;
---force stops it anyway.
+"platform stop|destroy" and "local down" leave a registry port-forward running when
+another worktree, or another kore process in this one, started it; --force stops
+it anyway. A k3d environment starts none: it reaches the registry by name.
 
 "data export" dumps each retained CloudNativePG database with pg_dump in the
 primary, encrypts the stream with age to every recipient that .sops.yaml names for

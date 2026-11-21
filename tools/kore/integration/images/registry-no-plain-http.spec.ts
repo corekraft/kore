@@ -13,7 +13,7 @@ const platform = await localPlatform();
 
 const ca = "/tmp/kore-registry-x/ca.crt";
 const image = {
-  reference: `${platform.registryForward}/app@sha256:` + "a".repeat(64),
+  reference: `${platform.registryName}/app@sha256:` + "a".repeat(64),
   digest: "sha256:" + "a".repeat(64),
   signer: "local-kore-key",
 };

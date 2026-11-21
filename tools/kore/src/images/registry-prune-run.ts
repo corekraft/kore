@@ -18,7 +18,7 @@ const keepWindowMs = 7 * 24 * 60 * 60 * 1000;
 /**
  * Prunes the cluster's registry for `kore local up`: a no-op unless the
  * `registry-tag-pruning` flag is on. The push identity deletes, through the
- * port-forward; garbage collection runs in the registry container.
+ * registry's name; garbage collection runs in the registry container.
  */
 export async function pruneRegistryTagsInCluster(
   repository: Repository,

@@ -15,7 +15,7 @@ export interface RegistryAdminTransport {
     headers: Record<string, string>,
     ca: string,
   ) => Promise<RegistryResponse>;
-  /** The host[:port] the registry answers at: the port-forward, or its name. */
+  /** The host[:port] the registry answers at: its name, or the tailnet forward. */
   address: string;
   authorization: string;
   ca: string;

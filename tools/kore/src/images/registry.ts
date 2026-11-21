@@ -165,10 +165,11 @@ async function ensurePortForward(
 
 /**
  * Makes the registry answer where host-side callers dial it before any request
- * to it. With registry-by-name on that is its name through the shared Gateway,
- * checked once and never forwarded (a name that cannot be reached fails naming
- * the cause); otherwise a forward already running on 127.0.0.1:30500 is used,
- * or one is started and awaited.
+ * to it. A k3d registry is its name through the shared Gateway, checked once
+ * and never forwarded: a name that cannot be reached fails naming the cause,
+ * and so does a k3d environment with registry-by-name off, since nothing else
+ * reaches it. A managed environment behind the tailnet flag keeps its forward
+ * (ADR 0143), which is started and awaited when it is not already answering.
  */
 export async function ensureRegistryForward(
   repository: Repository,
@@ -186,15 +187,12 @@ export async function ensureRegistryForward(
   if (repository.environment.provider !== "k3d") {
     return;
   }
-  if (registryByName(repository.environment)) {
-    await ensureRegistryName(repository, runner);
-    return;
+  if (!registryByName(repository.environment)) {
+    throw new Error(
+      `environment ${repository.environment.name} reaches the local registry only by name, and registry-by-name is off; turn registry-by-name on in the environment's overlay, then run \`kore local up\``,
+    );
   }
-  await ensurePortForward(
-    repository,
-    dependencies,
-    await loadRegistryCa(repository, runner),
-  );
+  await ensureRegistryName(repository, runner);
 }
 
 export async function localRegistryReference(
@@ -218,7 +216,8 @@ export async function localRegistryReference(
 }
 
 /**
- * Terminates the registry port-forward `ensurePortForward` leaves running,
+ * Terminates the registry port-forward `ensurePortForward` leaves running (the
+ * tailnet forward, ADR 0143, or one an older kore started for a k3d context),
  * matched by its full command line for this environment's kube context. A
  * forward for another context, or any other kubectl, is untouched; with none
  * running this does nothing. A forward another worktree started, and that

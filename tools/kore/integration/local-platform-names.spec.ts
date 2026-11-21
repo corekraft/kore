@@ -48,7 +48,7 @@ test("the names follow the overlay's platform domain and gateway port", async ()
     registryHost: "registry.kore.internal",
     registry: "registry.kore.internal:30500",
     registryPort: 30500,
-    registryForward: "127.0.0.1:30500",
+    registryName: "registry.platform.kore.internal",
     gatewayPort: 443,
     hostPort: environment.k3d?.ports[0]?.hostPort,
   });

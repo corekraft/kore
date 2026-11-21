@@ -10,7 +10,7 @@ import type { Check } from "./doctor.js";
  * Read-only doctor check of the registry's name, only while registry-by-name is
  * on: the name must resolve and answer `/v2/` with the registry's own
  * certificate. It never fails doctor; a name that cannot be reached warns with
- * the cause and the fix, since the port-forward path is still there.
+ * the cause and the fix.
  */
 export async function registryNameCheck(
   repository: Repository,

@@ -76,7 +76,7 @@ export const platformDnsFlag = "platform-dns";
 /** The flag that installs the hostname-ownership constraint and the zone field it reads from the Organization API (ADR 0042, issue 1331). */
 export const platformHostnameOwnershipFlag = "platform-hostname-ownership";
 
-/** The flag that makes host-side digest lookup, cosign and pruning reach the registry by name through a passthrough route, not the port-forward (ADR 0132, issue 1219). */
+/** The flag that makes host-side digest lookup, cosign and pruning reach the registry by name through a passthrough route (ADR 0132, issue 1219); a k3d environment needs it on, since its local port-forward is retired (#1226). */
 export const registryByNameFlag = "registry-by-name";
 
 /** The flag that makes cert-manager create the cluster's own root CA, so the CA key never leaves a managed cluster; k3d environments take theirs from kore trust install (ADR 0142). */

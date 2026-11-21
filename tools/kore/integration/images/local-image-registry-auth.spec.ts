@@ -103,7 +103,7 @@ test("the digest lookup authenticates and a rejected credential is reported acti
     Record<string, string>,
     string,
   ];
-  expect(url.startsWith(`https://${platform.registryForward}/`)).toBe(true);
+  expect(url.startsWith(`https://${platform.registryName}/`)).toBe(true);
   expect(ca).toContain("BEGIN CERTIFICATE");
   expect(headers["Authorization"]).toBe(
     `Basic ${encodeBase64(`kore-push:${pushPassword}`)}`,

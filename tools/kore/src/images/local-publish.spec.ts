@@ -44,7 +44,7 @@ const entry = {
 } as ImageLockEntry;
 
 const client = {
-  address: "127.0.0.1:30500",
+  address: "registry.platform.kore.local",
   authorization: "Basic xyz",
   head: vi.fn(async () => ({ status: 200, digest })),
 } as unknown as RegistryClient;
@@ -57,7 +57,9 @@ beforeEach(() => {
   vi.mocked(loadRegistryCa).mockResolvedValue("CA");
   vi.mocked(verifiedRegistryAddress).mockResolvedValue("10.96.0.50:5000");
   vi.mocked(k3dImagePublishArgs).mockReturnValue(["publish"]);
-  vi.mocked(hostRegistryAddress).mockReturnValue("127.0.0.1:30500");
+  vi.mocked(hostRegistryAddress).mockReturnValue(
+    "registry.platform.kore.local",
+  );
   vi.mocked(withRegistryClient).mockImplementation(
     async (_credential, _ca, action) => action(client),
   );
@@ -118,7 +120,7 @@ test("a publish session loads the push credential and the registry CA, then hand
     credential,
     "CA",
     expect.any(Function),
-    "127.0.0.1:30500",
+    "registry.platform.kore.local",
   );
 });
 
@@ -233,7 +235,7 @@ test("the digest is read back from the tag this run pushed, through the registry
 
   expect(found).toBe(digest);
   expect(client.head).toHaveBeenCalledWith(
-    "https://127.0.0.1:30500/v2/team/reference/manifests/run",
+    "https://registry.platform.kore.local/v2/team/reference/manifests/run",
     {
       Accept: expect.stringContaining(
         "application/vnd.oci.image.index.v1+json",

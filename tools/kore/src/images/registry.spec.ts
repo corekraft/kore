@@ -5,12 +5,10 @@ import { afterEach, beforeEach, expect, test, vi } from "vitest";
 import { registryByName } from "../config/index.js";
 import { listHostProcesses, terminateMatching } from "../runtime/index.js";
 import {
-  asFake,
   connectTo,
   fakeRepository,
   fakeRunner,
   fakeSocket,
-  forwardArgs,
 } from "./images-support.js";
 import {
   clearForwardOwner,
@@ -40,7 +38,9 @@ const owner = { pid: 4242, root: "/worktrees/a", starter: 7 };
 
 beforeEach(() => {
   vi.mocked(registryByName).mockReturnValue(false);
-  vi.mocked(hostRegistryAddress).mockReturnValue("127.0.0.1:30500");
+  vi.mocked(hostRegistryAddress).mockReturnValue(
+    "registry.platform.kore.local",
+  );
   vi.mocked(loadRegistryCa).mockResolvedValue("ca-pem");
   vi.mocked(readForwardOwner).mockResolvedValue(undefined);
   vi.mocked(ownershipConflict).mockReturnValue(undefined);
@@ -64,122 +64,6 @@ test("a non-k3d environment keeps the reference and starts no port forward", asy
   ).resolves.toBe("registry.example.com/reference:dev");
   expect(loadRegistryCa).not.toHaveBeenCalled();
   expect(spawn).not.toHaveBeenCalled();
-});
-
-test("an open forward with no recorded owner is used, and reported as unowned", async () => {
-  const { runner } = fakeRunner();
-  const lines: string[] = [];
-
-  await expect(
-    localRegistryReference(fakeRepository(), runner, reference, {
-      isPortOpen: async () => true,
-      report: (line) => void lines.push(line),
-    }),
-  ).resolves.toBe("127.0.0.1:30500/reference:dev");
-  expect(loadRegistryCa).toHaveBeenCalledWith(fakeRepository(), runner);
-  expect(ensureRegistryName).not.toHaveBeenCalled();
-  expect(recordForwardOwner).not.toHaveBeenCalled();
-  expect(lines).toEqual([
-    "registry port-forward on 127.0.0.1:30500 for context k3d-kore-local is already running with no owner recorded, so this run uses it but does not own it; any worktree's stop can end it mid-build",
-  ]);
-});
-
-test("an open forward with a recorded owner is used without a warning", async () => {
-  vi.mocked(readForwardOwner).mockResolvedValue(owner);
-  const lines: string[] = [];
-
-  await localRegistryReference(
-    fakeRepository(),
-    fakeRunner().runner,
-    reference,
-    {
-      isPortOpen: async () => true,
-      report: (line) => void lines.push(line),
-    },
-  );
-
-  expect(readForwardOwner).toHaveBeenCalledWith("k3d-kore-local");
-  expect(lines).toEqual([]);
-});
-
-test("a closed port starts the forward, records its owner, and waits until it answers", async () => {
-  vi.useFakeTimers();
-  const spawnPortForward = vi.fn(() => 1234);
-  const answers = [false, false, true];
-
-  const pending = localRegistryReference(
-    fakeRepository(),
-    fakeRunner().runner,
-    reference,
-    {
-      isPortOpen: async () => answers.shift() ?? true,
-      spawnPortForward,
-    },
-  );
-  await vi.advanceTimersByTimeAsync(1000);
-
-  await expect(pending).resolves.toBe("127.0.0.1:30500/reference:dev");
-  expect(spawnPortForward).toHaveBeenCalledExactlyOnceWith(fakeRepository());
-  expect(recordForwardOwner).toHaveBeenCalledExactlyOnceWith(
-    fakeRepository(),
-    1234,
-  );
-  expect(answers).toEqual([]);
-});
-
-test("a forward that never answers fails after fifteen seconds, naming the port", async () => {
-  vi.useFakeTimers();
-  const outcome = localRegistryReference(
-    fakeRepository(),
-    fakeRunner().runner,
-    reference,
-    { isPortOpen: async () => false, spawnPortForward: () => 1234 },
-  ).then(
-    () => "ready",
-    (caught: Error) => caught.message,
-  );
-
-  await vi.advanceTimersByTimeAsync(20_000);
-
-  expect(await outcome).toBe(
-    "local OCI registry port-forward did not become ready on 127.0.0.1:30500",
-  );
-});
-
-test("the default start runs kubectl detached with its output ignored, and records the forward it started", async () => {
-  vi.useFakeTimers();
-  const child = { pid: 1234, unref: vi.fn() };
-  vi.mocked(spawn).mockReturnValue(asFake(child));
-  connectTo(
-    fakeSocket({ error: new Error("connection refused") }),
-    fakeSocket({ data: "HTTP/1.1 401 Unauthorized" }),
-  );
-
-  const pending = localRegistryReference(
-    fakeRepository(),
-    fakeRunner().runner,
-    reference,
-  );
-  await vi.advanceTimersByTimeAsync(1000);
-
-  await expect(pending).resolves.toBe("127.0.0.1:30500/reference:dev");
-  expect(spawn).toHaveBeenCalledWith("kubectl", forwardArgs, {
-    detached: true,
-    stdio: "ignore",
-  });
-  expect(child.unref).toHaveBeenCalledOnce();
-  expect(recordForwardOwner).toHaveBeenCalledWith(fakeRepository(), 1234);
-});
-
-test("a kubectl that starts without a process id fails with the start error", async () => {
-  vi.mocked(spawn).mockReturnValue(asFake({ pid: undefined, unref: vi.fn() }));
-
-  await expect(
-    localRegistryReference(fakeRepository(), fakeRunner().runner, reference, {
-      isPortOpen: async () => false,
-    }),
-  ).rejects.toThrow("could not start the local OCI registry port-forward");
-  expect(recordForwardOwner).not.toHaveBeenCalled();
 });
 
 test("the default readiness probe verifies the forward against the registry CA on 127.0.0.1:30500", async () => {
@@ -301,24 +185,41 @@ test("only a kubectl for this context's registry forward matches the stop, and i
   );
 });
 
-const name = "registry.platform.kore.internal";
+const name = "registry.platform.kore.local";
 
-test("with registry-by-name on, a reference is rewritten to the registry's name and no port-forward is started", async () => {
+test("with registry-by-name on, a k3d reference is rewritten to the registry's name, and no port forward is probed or started", async () => {
   vi.mocked(registryByName).mockReturnValue(true);
   vi.mocked(hostRegistryAddress).mockReturnValue(name);
   const { runner } = fakeRunner();
   const isPortOpen = vi.fn(async () => true);
 
   await expect(
-    localRegistryReference(fakeRepository(), runner, reference, {
-      isPortOpen,
-    }),
+    localRegistryReference(fakeRepository(), runner, reference, { isPortOpen }),
   ).resolves.toBe(`${name}/reference:dev`);
 
   expect(ensureRegistryName).toHaveBeenCalledExactlyOnceWith(
     fakeRepository(),
     runner,
   );
+  expect(isPortOpen).not.toHaveBeenCalled();
+  expect(spawn).not.toHaveBeenCalled();
+  expect(recordForwardOwner).not.toHaveBeenCalled();
+});
+
+test("with registry-by-name off, a k3d environment is refused naming the flag, and starts no port forward", async () => {
+  vi.mocked(registryByName).mockReturnValue(false);
+  const { runner } = fakeRunner();
+  const isPortOpen = vi.fn(async () => true);
+
+  await expect(
+    localRegistryReference(fakeRepository(), runner, reference, {
+      isPortOpen,
+      spawnPortForward: () => 1234,
+    }),
+  ).rejects.toThrow(
+    "environment local reaches the local registry only by name, and registry-by-name is off; turn registry-by-name on in the environment's overlay, then run `kore local up`",
+  );
+  expect(loadRegistryCa).not.toHaveBeenCalled();
   expect(isPortOpen).not.toHaveBeenCalled();
   expect(spawn).not.toHaveBeenCalled();
   expect(recordForwardOwner).not.toHaveBeenCalled();
