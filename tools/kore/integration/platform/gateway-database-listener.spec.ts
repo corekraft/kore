@@ -147,15 +147,16 @@ test("the 5432 mapping is declared in the overlay, on loopback, behind the flag,
       },
     ],
   );
-  assert.equal(repository.environment.features?.[databaseRoutesFlag], false);
+  assert.equal(repository.environment.features?.[databaseRoutesFlag], true);
 });
 
-test("database-routes is off in every overlay", async () => {
-  for (const name of ["local", "managed-example"]) {
+test("database-routes is on in local and off in managed-example", async () => {
+  const expected = { local: true, "managed-example": false } as const;
+  for (const name of ["local", "managed-example"] as const) {
     const repository = await loadRepository(name);
     assert.equal(
       repository.environment.features?.[databaseRoutesFlag],
-      false,
+      expected[name],
       name,
     );
   }
