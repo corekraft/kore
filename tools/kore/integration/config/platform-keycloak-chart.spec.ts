@@ -88,7 +88,7 @@ test("the Keycloak reads its database credentials and bootstrap admin from Secre
   assert.match(
     keycloak,
     new RegExp(
-      `hostname: keycloak\\.platform\\.${escapeRegExp(platform.domain)}`,
+      `hostname: https://keycloak\\.platform\\.${escapeRegExp(platform.domain)}`,
     ),
   );
   assert.equal(/password:\s*\S/i.test(keycloak), false);
@@ -97,7 +97,10 @@ test("the Keycloak reads its database credentials and bootstrap admin from Secre
 
 test("managed-example takes the host from its own platform domain", async () => {
   const keycloak = document(await render("managed-example"), "Keycloak");
-  assert.match(keycloak, /hostname: keycloak\.platform\.example\.com/);
+  assert.match(
+    keycloak,
+    /hostname: https:\/\/keycloak\.platform\.example\.com/,
+  );
 });
 
 test("the chart creates no Secret, because kore streams the admin Secret and the platform API creates the database's", async () => {

@@ -3,7 +3,9 @@
 # database credentials and the bootstrap admin are read from Secrets by
 # reference: kore streams the admin Secret (ADR 0034) and the platform API
 # creates the database Secret, so no credential is in git. The host is the one
-# kore hands the portal too; route.yaml serves it on the platform Gateway.
+# kore hands the portal too, and it is advertised as an https URL: the platform
+# Gateway terminates TLS and forwards plain HTTP, so Keycloak's issuer must name
+# https whatever the forwarded headers say (ADR 0133). route.yaml serves the host.
 apiVersion: k8s.keycloak.org/v2beta1
 kind: Keycloak
 metadata:
@@ -26,7 +28,7 @@ spec:
     user:
       secret: keycloak-admin
   hostname:
-    hostname: {{ required "set keycloakHostname, which kore passes from the environment's platform field" .Values.keycloakHostname }}
+    hostname: https://{{ required "set keycloakHostname, which kore passes from the environment's platform field" .Values.keycloakHostname }}
   http:
     httpEnabled: true
   proxy:

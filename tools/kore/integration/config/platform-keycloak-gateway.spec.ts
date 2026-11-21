@@ -93,6 +93,11 @@ test("with platform-shared-gateway on, the Keycloak host is one name in the plat
   );
   const [route] = documents(keycloak, "HTTPRoute");
   const keycloakHostname = keycloak.match(/^ {4}hostname: (\S+)$/m)?.[1];
+  assert.equal(
+    keycloakHostname,
+    `https://${host}`,
+    "Keycloak advertises https, the scheme the platform Gateway terminates",
+  );
   const issuer = portal.match(
     /--oidc-issuer-url=https:\/\/([^/\s]+)\/realms\/platform/,
   )?.[1];
@@ -103,7 +108,7 @@ test("with platform-shared-gateway on, the Keycloak host is one name in the plat
     [
       listenerHostname(gateway, "https-keycloak"),
       route?.match(/hostnames:\n\s+- "([^"]+)"/)?.[1],
-      keycloakHostname,
+      keycloakHostname?.replace("https://", ""),
       issuer,
       metadata,
     ],
@@ -156,7 +161,7 @@ test("with platform-shared-gateway off nothing reaches the Gateway for Keycloak,
   assert.equal(documents(keycloak, "HTTPRoute").length, 0);
   assert.match(
     keycloak,
-    new RegExp(`^ {4}hostname: keycloak\\.${domain}$`, "m"),
+    new RegExp(`^ {4}hostname: https://keycloak\\.${domain}$`, "m"),
   );
   assert.match(
     portal,
