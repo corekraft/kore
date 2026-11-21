@@ -6,6 +6,7 @@ export {
 } from "./alert-email.js";
 export { alertForwardingHelmArgs } from "./alert-forwarding.js";
 export { dashboardSidecarHelmArgs } from "./dashboard-sidecar.js";
+export { prometheusPortalHelmArgs } from "./prometheus-memory.js";
 export { registeredServiceHelmArgs } from "./service-registrations.js";
 export { isLocalProvider } from "./provider.js";
 export {
