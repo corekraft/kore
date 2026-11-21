@@ -397,7 +397,7 @@ The half of an app record that says what runs: the signed digest of each compone
 _Avoid_: Lock, deploy file
 
 **Suborg**:
-An organization one level below the tenant root. It is the namespace, quota and trust boundary of its services, and the second label of their hostnames.
+An organization one level below the tenant root. It is the namespace, quota and trust boundary of its services, the second label of their hostnames, and may be a short-lived sandbox that is torn down whole.
 _Avoid_: Team, project, tenant
 
 **Suborg namespace**:

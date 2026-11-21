@@ -36,7 +36,7 @@ The owner decided on 2026-11-20 that applications live in their own repositories
 
 ## Consequences
 
-- Open for the owner: who reviews a new service or suborg. The recommendation is a human-reviewed pull request, because each creates a namespace, quota and hostnames, with the bot limited to release files. Until decided, treat the review as required.
+- A new service or suborg needs no human approval (owner, 2026-11-20): a new suborg is a sandbox an agent can experiment in. What keeps that safe is the required quota, the checks of `kore validate`, the judge's checks like any change, and a clean teardown path (see the suborg tenancy decision).
 - The two files make the judge's rule simple, but the split is this ADR's design, not part of the interview record.
 - The ApplicationSet, the `service-observability` chart's service list (which also reads the `environments` list) and `service-registrations.ts` read the new per-environment paths; the old directory stays until the contract step. The existing `kore app up` path and the `golden-path-example--local` namespace migrate only on local, after a live outcome.
 - The golden-path workload chart gains a Service named after the service, a ServiceAccount per service and a secret contract; each is additive.
