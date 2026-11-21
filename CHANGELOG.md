@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.19.1](https://github.com/corekraft/kore/compare/v0.19.0...v0.19.1) (2026-11-21)
+
+
+### Bug fixes
+
+* **platform:** divide backstage's database by schema, not by database ([#1702](https://github.com/corekraft/kore/issues/1702)) ([2f1ab33](https://github.com/corekraft/kore/commit/2f1ab33e92fd3ebd32a01006ca71b9b8a0dcaf42)), closes [#1700](https://github.com/corekraft/kore/issues/1700) [#1111](https://github.com/corekraft/kore/issues/1111) [#1318](https://github.com/corekraft/kore/issues/1318)
+* **platform:** give prometheus 2Gi under platform-portal ([#1706](https://github.com/corekraft/kore/issues/1706)) ([072f34a](https://github.com/corekraft/kore/commit/072f34a4b49b647cc4b08f3349969d3ba16b3ffd)), closes [#1705](https://github.com/corekraft/kore/issues/1705) [#1111](https://github.com/corekraft/kore/issues/1111) [#1318](https://github.com/corekraft/kore/issues/1318)
+
 ## [0.19.0](https://github.com/corekraft/kore/compare/v0.18.0...v0.19.0) (2026-11-21)
 
 
