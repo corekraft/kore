@@ -13,11 +13,9 @@ const repositoryWith = (fields: object): Repository => fields as Repository;
 const spawnMock = vi.hoisted(() => vi.fn());
 vi.mock("node:child_process", () => ({ spawn: spawnMock }));
 
-const noRunner = {
-  run: async () => {
-    throw new Error("no command runs in this unit");
-  },
-} as unknown as Runner;
+const noRunner: Runner = {
+  run: () => Promise.reject(new Error("no command runs in this unit")),
+};
 
 test("a managed registry reference passes through without a local port forward", async () => {
   const reference = "registry.example.com/reference@sha256:" + "a".repeat(64);
