@@ -83,6 +83,7 @@ export async function renderStep(
   template: string,
   version: number,
   database?: object,
+  route?: object,
 ) {
   const directory = await mkdtemp(join(tmpdir(), "kore-postgresql-chart-"));
   try {
@@ -107,9 +108,10 @@ export async function renderStep(
           },
         },
       },
-      resources: database
-        ? { database: { resource: { status: database } } }
-        : {},
+      resources: {
+        ...(database ? { database: { resource: { status: database } } } : {}),
+        ...(route ? { "database-route": { resource: { status: route } } } : {}),
+      },
     };
     const values = join(directory, "values.json");
     await writeFile(values, JSON.stringify({ observed }));

@@ -57,6 +57,9 @@ test("Gateway chart does not create its TLS certificate in the same release", as
   assert.doesNotMatch(gateway, /kind: Certificate/);
 });
 
+const allowedPorts =
+  /ports:\s*\[{{ \.Values\.gateway\.port \| quote }}(?:{{ if include "platform-config\.databaseRoutes" \. }}, {{ \.Values\.gateway\.database\.port \| quote }}{{ end }})?\]/;
+
 test("local Gateway uses a non-privileged HTTPS port so no process needs sudo", async () => {
   const repository = await loadRepository("local");
   const values = await readFile(
@@ -83,7 +86,7 @@ test("local Gateway uses a non-privileged HTTPS port so no process needs sudo", 
 
   assert.match(values, /port:\s*8443/);
   assert.match(gateway, /port:\s*{{ \.Values\.gateway\.port }}/);
-  assert.match(policies, /ports:\s*\[{{ \.Values\.gateway\.port \| quote }}\]/);
+  assert.match(policies, allowedPorts);
 });
 
 test("platform authorization allows HTTPS only to the named Gateway", async () => {
@@ -102,7 +105,7 @@ test("platform authorization allows HTTPS only to the named Gateway", async () =
     /gateway\.networking\.k8s\.io\/gateway-name: kore-gateway/,
   );
   assert.match(policies, /action: ALLOW/);
-  assert.match(policies, /ports:\s*\[{{ \.Values\.gateway\.port \| quote }}\]/);
+  assert.match(policies, allowedPorts);
 });
 
 test("reference API L7 authorization is attached to an enrolled ambient waypoint", async () => {
