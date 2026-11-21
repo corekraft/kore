@@ -34,6 +34,9 @@ test("a Service becomes a Component of its Organization's System, linked to its 
         "backstage.io/kubernetes-label-selector":
           "app.kubernetes.io/part-of=shop",
         "argocd/app-selector": "platform.kore.dev/service=shop",
+        "backstage.io/managed-by-location": "kore-platform:component/shop",
+        "backstage.io/managed-by-origin-location":
+          "kore-platform:component/shop",
       },
     },
     spec: {
@@ -43,6 +46,37 @@ test("a Service becomes a Component of its Organization's System, linked to its 
       system: "platform",
     },
   });
+});
+
+test("every entity carries the managed-by location and origin annotations, naming its own kind and name", () => {
+  const entities = entitiesFor({
+    organizations: [org],
+    services: [svc("shop")],
+  });
+  assert.deepEqual(
+    entities.map((e) => [
+      e.kind,
+      e.metadata.annotations?.["backstage.io/managed-by-location"],
+      e.metadata.annotations?.["backstage.io/managed-by-origin-location"],
+    ]),
+    [
+      [
+        "Group",
+        "kore-platform:group/platform-operators",
+        "kore-platform:group/platform-operators",
+      ],
+      [
+        "System",
+        "kore-platform:system/platform",
+        "kore-platform:system/platform",
+      ],
+      [
+        "Component",
+        "kore-platform:component/shop",
+        "kore-platform:component/shop",
+      ],
+    ],
+  );
 });
 
 test("an object whose name Backstage would reject is skipped, not fatal", () => {
