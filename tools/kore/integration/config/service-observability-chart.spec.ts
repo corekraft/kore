@@ -13,6 +13,7 @@ import {
   platformPortalFlag,
   validateRepository,
 } from "../../src/config/index.js";
+import { withGatewayFlagsOff } from "../../src/testing/index.js";
 
 // Docs: docs/decisions/0114-give-the-platform-organization-default-dashboards-notify-only-alerts-and-default-retention.md
 
@@ -54,7 +55,7 @@ const fileBody = (doc: string, key: string): string => {
 
 test("the service observability chart is flag-gated behind platform-portal, so with the flag off nothing reaches a cluster", async () => {
   for (const name of ["local", "managed-example"]) {
-    const repository = await loadRepository(name);
+    const repository = withGatewayFlagsOff(await loadRepository(name));
     await validateRepository(repository);
     const component = repository.catalog.components.find(
       (c) => c.name === "kore-service-observability",

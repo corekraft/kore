@@ -1,7 +1,7 @@
 {
   "backstage":
     {
-      "image": "ghcr.io/backstage/backstage:1.55.2@sha256:68f2025a3f2774e04d58a65a948ccd04a93ddab7b7977be850e9df6d3beae6e3"
+      "image": "ghcr.io/corekraft/kore/backstage@sha256:86ea69871da3e31af13bd1880ae9a96d54577681d1f3bb10b85716ccb5790157"
     },
   "proxy":
     {

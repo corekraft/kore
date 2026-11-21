@@ -14,6 +14,7 @@ import {
   platformPortalFlag,
   validateRepository,
 } from "../../src/config/index.js";
+import { withGatewayFlagsOff } from "../../src/testing/index.js";
 
 // Docs: docs/decisions/0113-run-a-keycloak-for-the-platform-organization-s-operators.md
 // Docs: docs/decisions/0034-registry-authentication-and-authorization.md
@@ -53,7 +54,7 @@ const document = (rendered: string, kind: string): string =>
 
 test("the provider is a flag-gated core chart that installs after Crossplane and the Keycloak operator, so with the flag off nothing reaches a cluster", async () => {
   for (const name of ["local", "managed-example"]) {
-    const repository = await loadRepository(name);
+    const repository = withGatewayFlagsOff(await loadRepository(name));
     await validateRepository(repository);
     const provider = repository.catalog.components.find(
       (c) => c.name === "keycloak-provider",

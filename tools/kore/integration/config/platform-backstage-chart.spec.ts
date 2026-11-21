@@ -15,6 +15,7 @@ import {
   validateRepository,
   type Repository,
 } from "../../src/config/index.js";
+import { withGatewayFlagsOff } from "../../src/testing/index.js";
 import { escapeRegExp, localPlatform } from "../local-platform-support.js";
 
 const platform = await localPlatform();
@@ -78,7 +79,7 @@ const document = (rendered: string, kind: string): string =>
 
 test("the platform Backstage is a flag-gated chart installed after the platform Keycloak and the PostgreSQL API, so with the flag off nothing reaches a cluster", async () => {
   for (const name of ["local", "managed-example"]) {
-    const repository = await loadRepository(name);
+    const repository = withGatewayFlagsOff(await loadRepository(name));
     await validateRepository(repository);
     const backstage = repository.catalog.components.find(
       (c) => c.name === "kore-platform-backstage",
@@ -307,4 +308,24 @@ test("group authorization stays with the platform-operators group, and the route
   );
   assert.ok(subjects.length > 0);
   assert.ok(subjects.every((s) => s === "platform-operators"));
+});
+
+// The pod sets runAsNonRoot, and the kubelet can only verify it when each
+// container names a numeric uid: the Kore-built Backstage image runs as the
+// numeric 65532 (its Dockerfile's USER), and the proxy image's user is 65532.
+test("each Backstage container names the numeric uid of its image's user, so the kubelet can verify non-root", async () => {
+  const deployment = document(await render("local"), "Deployment");
+  assert.match(deployment, /^ {8}runAsNonRoot: true$/m);
+  const containers =
+    deployment.split(/^ {6}containers:$/m)[1]?.split(/^ {6}\S/m)[0] ?? "";
+  const uids = Object.fromEntries(
+    containers
+      .split(/^ {8}- name: /m)
+      .slice(1)
+      .map((part) => [
+        part.split("\n")[0],
+        /^ {12}runAsUser: (\d+)$/m.exec(part)?.[1] ?? null,
+      ]),
+  );
+  assert.deepEqual(uids, { proxy: "65532", backstage: "65532" });
 });

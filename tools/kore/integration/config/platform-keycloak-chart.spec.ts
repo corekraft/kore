@@ -13,6 +13,7 @@ import {
   platformPortalFlag,
   validateRepository,
 } from "../../src/config/index.js";
+import { withGatewayFlagsOff } from "../../src/testing/index.js";
 import { escapeRegExp, localPlatform } from "../local-platform-support.js";
 
 const platform = await localPlatform();
@@ -44,7 +45,7 @@ const document = (rendered: string, kind: string): string =>
 
 test("the platform Keycloak is a flag-gated chart installed after its operator and the PostgreSQL API, so with the flag off nothing reaches a cluster", async () => {
   for (const name of ["local", "managed-example"]) {
-    const repository = await loadRepository(name);
+    const repository = withGatewayFlagsOff(await loadRepository(name));
     await validateRepository(repository);
     const keycloak = repository.catalog.components.find(
       (c) => c.name === "kore-platform-keycloak",
@@ -87,7 +88,9 @@ test("the Keycloak reads its database credentials and bootstrap admin from Secre
   assert.match(keycloak, /secret: keycloak-admin/);
   assert.match(
     keycloak,
-    new RegExp(`hostname: keycloak\\.${escapeRegExp(platform.domain)}`),
+    new RegExp(
+      `hostname: https://keycloak\\.platform\\.${escapeRegExp(platform.domain)}`,
+    ),
   );
   assert.equal(/password:\s*\S/i.test(keycloak), false);
   assert.equal(keycloak.includes("image:"), false, "the operator's digest");
@@ -95,7 +98,10 @@ test("the Keycloak reads its database credentials and bootstrap admin from Secre
 
 test("managed-example takes the host from its own platform domain", async () => {
   const keycloak = document(await render("managed-example"), "Keycloak");
-  assert.match(keycloak, /hostname: keycloak\.platform\.example\.com/);
+  assert.match(
+    keycloak,
+    /hostname: https:\/\/keycloak\.platform\.example\.com/,
+  );
 });
 
 test("the chart creates no Secret, because kore streams the admin Secret and the platform API creates the database's", async () => {

@@ -12,8 +12,22 @@ import {
   startsAfterDelivery,
   validateRepository,
 } from "../../src/config/index.js";
+import { loadLocalGatewayFlagsOff } from "../../src/testing/index.js";
 
-for (const name of ["local", "managed-example"]) {
+test("local declares platform-portal on, after the confirmed run on #1111, so its portal components are installed", async () => {
+  const repository = await loadRepository("local");
+  await validateRepository(repository);
+  assert.equal(repository.environment.features?.[platformPortalFlag], true);
+  const gated = repository.catalog.components.filter(
+    (c) => c.featureFlag === platformPortalFlag,
+  );
+  const installed = new Set(enabledComponents(repository).map((c) => c.name));
+  for (const component of gated) {
+    assert.equal(installed.has(component.name), true, component.name);
+  }
+});
+
+for (const name of ["managed-example"]) {
   test(`${name} declares platform-portal off, so no portal component is ever installed`, async () => {
     const repository = await loadRepository(name);
     await validateRepository(repository);
@@ -45,7 +59,7 @@ test("the Keycloak pins are exact, so no range or tag floats into the install th
 });
 
 test("the Keycloak operator is a flag-gated chart that owns its CRDs, so with the flag off nothing reaches a cluster", async () => {
-  const repository = await loadRepository("local");
+  const repository = await loadLocalGatewayFlagsOff();
   const operator = repository.catalog.components.find(
     (c) => c.name === "keycloak-operator",
   );
