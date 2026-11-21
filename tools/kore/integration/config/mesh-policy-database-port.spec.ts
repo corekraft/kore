@@ -9,7 +9,10 @@ import {
   type Repository,
 } from "../../src/config/index.js";
 import { helmTemplateArgs } from "../../src/platform/index.js";
-import { withAbsoluteChart } from "../../src/testing/index.js";
+import {
+  withAbsoluteChart,
+  withGatewayFlagsOff,
+} from "../../src/testing/index.js";
 import { localPlatform } from "../local-platform-support.js";
 
 // Docs: docs/decisions/0081-agentgateway-replaces-istio-ingress.md
@@ -32,7 +35,7 @@ const enrolled = {
 };
 
 async function overlay(features: Record<string, boolean>): Promise<Repository> {
-  const base = await loadRepository("local");
+  const base = withGatewayFlagsOff(await loadRepository("local"));
   return {
     ...base,
     environment: {

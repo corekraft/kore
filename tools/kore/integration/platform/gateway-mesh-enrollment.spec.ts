@@ -9,7 +9,10 @@ import {
   type Repository,
 } from "../../src/config/index.js";
 import { helmTemplateArgs } from "../../src/platform/index.js";
-import { withAbsoluteChart } from "../../src/testing/index.js";
+import {
+  withAbsoluteChart,
+  withGatewayFlagsOff,
+} from "../../src/testing/index.js";
 import { localPlatform } from "../local-platform-support.js";
 
 const platform = await localPlatform();
@@ -23,7 +26,7 @@ async function overlay(
   name: string,
   features: Record<string, boolean>,
 ): Promise<Repository> {
-  const base = await loadRepository(name);
+  const base = withGatewayFlagsOff(await loadRepository(name));
   return {
     ...base,
     environment: {

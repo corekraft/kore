@@ -1,4 +1,7 @@
-import { loadManagedLocal } from "../../src/testing/index.js";
+import {
+  loadManagedLocal,
+  withGatewayFlagsOff,
+} from "../../src/testing/index.js";
 import assert from "node:assert/strict";
 import { test } from "vitest";
 import { managedCluster } from "../../src/config/index.js";
@@ -82,7 +85,7 @@ test("doctor requires managed credentials and checks no local cluster", async ()
 });
 
 test("doctor reports checks in a fixed order with pass messages for matching tools", async () => {
-  const repository = await loadManagedLocal();
+  const repository = withGatewayFlagsOff(await loadManagedLocal());
   const runner: Runner = {
     async run(command) {
       const pinned = repository.versions.tools[command] ?? "0.0.0";
