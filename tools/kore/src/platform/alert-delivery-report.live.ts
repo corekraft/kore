@@ -1,6 +1,6 @@
 // Docs: docs/decisions/0128-forward-fired-service-alerts-from-the-metrics-store-to-grafana-s-alert-manager.md
 import { alertName } from "./alert-delivery-api.live.js";
-import type { DeliveryReport } from "./alert-delivery.live.js";
+import type { DeliveryReport } from "./alert-delivery-types.live.js";
 
 /** Replaces every secret in the text; the empty ones are skipped. */
 export function redact(text: string, secrets: readonly string[]): string {

@@ -3,62 +3,21 @@
 import { awaitValue } from "./alert-delivery-poll.live.js";
 import {
   alertName,
-  type ClusterApi,
+  callLabels,
   type RuleState,
 } from "./alert-delivery-api.live.js";
-import type { InboxReader } from "./alert-delivery-inbox.live.js";
+import type {
+  DeliveryDeps,
+  DeliveryOptions,
+  DeliveryReport,
+  Stage,
+} from "./alert-delivery-types.live.js";
 
 // The live alert proof: fires the default ServiceUnavailable rule on one delivered Service by scaling its
 // Deployments to zero, follows the alert through the metrics store, Grafana and the contact point, and
 // restores the Deployments. It names the broken stage, and it reports only the contact point's name.
 
 const grafanaDeliveryNote = "Grafana's API offers no delivery state to read";
-
-export type Stage =
-  "rule not loaded" | "alert not forwarded" | "contact point failed";
-
-export interface DeliveryOptions {
-  service: string;
-  /** The Service's namespace, <service>--<environment>. */
-  namespace: string;
-  contactPoint: string;
-  /** Seconds the alert gets to fire and reach Grafana. */
-  alertSeconds: number;
-  /** Seconds the inbox gets to show the alert message. */
-  deliverySeconds: number;
-  pollSeconds: number;
-}
-
-export type InboxCheck =
-  { kind: "read"; reader: InboxReader } | { kind: "skipped"; reason: string };
-
-export interface DeliveryDeps {
-  api: ClusterApi;
-  inbox: InboxCheck;
-  now(): number;
-  sleep(ms: number): Promise<void>;
-}
-
-export interface DeliveryReport {
-  service: string;
-  contactPoint: string;
-  status: "delivered" | "failed" | "not confirmed";
-  stage?: Stage;
-  detail: string;
-  rule: "not loaded" | "loaded" | "firing";
-  inbox: string;
-  /** The Grafana, Prometheus, kubectl and inbox reads used, each once, in order. */
-  calls: string[];
-}
-
-const labels = {
-  rules: "Prometheus GET /api/v1/rules",
-  deployments: "kubectl get deployments",
-  scale: "kubectl scale deployment",
-  alerts: "Grafana GET /api/alertmanager/grafana/api/v2/alerts",
-  contactPoints: "Grafana GET /api/v1/provisioning/contact-points",
-  inbox: "inbox API read",
-};
 
 function messageOf(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
@@ -114,7 +73,7 @@ class Delivery {
 
   /** Refuses to fire when the metrics store has no rule for the service. */
   async preflight(): Promise<DeliveryReport | undefined> {
-    this.note(labels.rules);
+    this.note(callLabels.rules);
     const state = await this.deps.api.ruleState(
       this.options.service,
       alertName,
@@ -143,18 +102,21 @@ class Delivery {
     );
   }
 
-  /** Scales every running Deployment in the namespace to zero, recording each for restore. */
+  /** Records each running Deployment's replica count, then scales it to zero, so a later run can restore it. */
   private async fire(): Promise<void> {
     const { api } = this.deps;
-    this.note(labels.deployments);
-    const original = await api.deployments(this.options.namespace);
+    const { namespace } = this.options;
+    this.note(callLabels.deployments);
+    const original = await api.deployments(namespace);
     this.fired = this.deps.now();
     this.alertDeadline = this.fired + this.options.alertSeconds * 1000;
-    for (const [name, replicas] of Object.entries(original)) {
-      if (replicas > 0) {
-        this.note(labels.scale);
-        await api.scale(this.options.namespace, name, 0);
-        this.scaledDown.push({ name, replicas });
+    for (const [name, state] of Object.entries(original)) {
+      if (state.replicas > 0) {
+        this.note(callLabels.annotate);
+        await api.record(namespace, name, state.replicas);
+        this.scaledDown.push({ name, replicas: state.replicas });
+        this.note(callLabels.scale);
+        await api.scale(namespace, name, 0);
       }
     }
   }
@@ -163,7 +125,7 @@ class Delivery {
   private async watchAlert(): Promise<DeliveryReport | undefined> {
     const { service, contactPoint } = this.options;
     const firing = await this.poll(async () => {
-      this.note(labels.rules);
+      this.note(callLabels.rules);
       const current = await this.deps.api.ruleState(service, alertName);
       this.rule = ruleWord(current);
       return current === "firing" ? true : undefined;
@@ -180,7 +142,7 @@ class Delivery {
       );
     }
     const receivers = await this.poll(async () => {
-      this.note(labels.alerts);
+      this.note(callLabels.alerts);
       return this.deps.api.alertReceivers(alertName, service);
     }, this.alertDeadline);
     if (receivers === undefined) {
@@ -212,7 +174,7 @@ class Delivery {
   }
 
   private async checkContactPoint(): Promise<DeliveryReport | undefined> {
-    this.note(labels.contactPoints);
+    this.note(callLabels.contactPoints);
     const names = await this.deps.api.contactPointNames();
     if (names.includes(this.options.contactPoint)) {
       return undefined;
@@ -242,7 +204,7 @@ class Delivery {
           grafanaDeliveryNote,
       });
     }
-    this.note(labels.inbox);
+    this.note(callLabels.inbox);
     let arrived: true | undefined;
     try {
       arrived = await this.poll(
@@ -288,24 +250,52 @@ class Delivery {
     });
   }
 
-  /** Puts each Deployment back at its replica count; a refused restore names the one to fix by hand. */
+  /** Restores the Deployments a killed run left at zero, from the count each recorded, before anything else. */
+  async recover(): Promise<void> {
+    this.note(callLabels.deployments);
+    const found = await this.deps.api.deployments(this.options.namespace);
+    const leftovers = Object.entries(found).flatMap(([name, state]) =>
+      state.recorded === undefined ? [] : [{ name, replicas: state.recorded }],
+    );
+    await this.restoreEach(leftovers);
+  }
+
+  /** Puts back each Deployment this run scaled to zero, and clears its record. */
   async restore(): Promise<void> {
-    for (const { name, replicas } of this.scaledDown) {
-      this.note(labels.scale);
+    await this.restoreEach(this.scaledDown);
+  }
+
+  /** Tries every Deployment, then throws one error naming each refused restore; a record stays until its restore works. */
+  private async restoreEach(
+    entries: readonly { name: string; replicas: number }[],
+  ): Promise<void> {
+    const { api } = this.deps;
+    const { namespace } = this.options;
+    const refused: string[] = [];
+    for (const { name, replicas } of entries) {
       try {
-        await this.deps.api.scale(this.options.namespace, name, replicas);
+        this.note(callLabels.scale);
+        await api.scale(namespace, name, replicas);
+        this.note(callLabels.annotate);
+        await api.forget(namespace, name);
       } catch (error) {
-        throw new Error(
-          "could not restore " +
-            name +
-            " in " +
-            this.options.namespace +
+        refused.push(
+          name +
             " to " +
             String(replicas) +
-            " replicas; scale it back by hand: " +
-            messageOf(error),
+            " replicas (" +
+            messageOf(error) +
+            ")",
         );
       }
+    }
+    if (refused.length > 0) {
+      throw new Error(
+        "could not restore these Deployments in " +
+          namespace +
+          "; scale them back by hand: " +
+          refused.join("; "),
+      );
     }
   }
 }
@@ -315,6 +305,7 @@ export async function proveAlertDelivery(
   options: DeliveryOptions,
 ): Promise<DeliveryReport> {
   const run = new Delivery(deps, options);
+  await run.recover();
   const early = await run.preflight();
   if (early !== undefined) {
     return early;
@@ -323,7 +314,15 @@ export async function proveAlertDelivery(
   try {
     outcome = await run.fireAndCheck();
   } catch (error) {
-    await run.restore();
+    try {
+      await run.restore();
+    } catch (restoreError) {
+      throw new Error(
+        messageOf(restoreError) +
+          "; the proof stopped first with: " +
+          messageOf(error),
+      );
+    }
     throw error;
   }
   await run.restore();

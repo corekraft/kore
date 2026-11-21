@@ -1,126 +1,35 @@
 // Docs: docs/decisions/0128-forward-fired-service-alerts-from-the-metrics-store-to-grafana-s-alert-manager.md
 // Docs: docs/decisions/0114-give-the-platform-organization-default-dashboards-notify-only-alerts-and-default-retention.md
-import { expect, test } from "vitest";
-import type { ClusterApi, RuleState } from "./alert-delivery-api.live.js";
+import { expect, test, vi } from "vitest";
 import {
-  proveAlertDelivery,
-  type DeliveryOptions,
-  type InboxCheck,
-} from "./alert-delivery.live.js";
-import { renderDelivery } from "./alert-delivery-report.live.js";
+  inboxFailing,
+  inboxReading,
+  prove,
+  proofCalls,
+  proofEvents,
+} from "./alert-delivery-support.js";
 
-const options: DeliveryOptions = {
-  service: "golden-path-example",
-  namespace: "golden-path-example--local",
-  contactPoint: "kore-platform-email",
-  alertSeconds: 900,
-  deliverySeconds: 300,
-  pollSeconds: 15,
-};
-
-interface Plan {
-  rules?: RuleState[];
-  receivers?: (string[] | undefined)[];
-  contactPoints?: string[];
-  deployments?: Record<string, number>;
-  refuseRestore?: boolean;
-}
-
-// The last value repeats once the list runs out, so a poll that never changes is a poll that never ends.
-function sequence<T>(values: readonly T[]): () => T {
-  const entries = values.map((value) => ({ value }));
-  let index = 0;
-  return () => {
-    const entry = entries[Math.min(index, entries.length - 1)];
-    if (entry === undefined) {
-      throw new Error("the fake needs at least one answer");
-    }
-    index += 1;
-    return entry.value;
-  };
-}
-
-function fakeApi(plan: Plan, scaled: string[]): ClusterApi {
-  const rule = sequence<RuleState>(plan.rules ?? ["firing"]);
-  const receivers = sequence<string[] | undefined>(
-    plan.receivers ?? [["kore-platform-email"]],
-  );
-  return {
-    ruleState: async () => rule(),
-    alertReceivers: async () => receivers(),
-    contactPointNames: async () =>
-      plan.contactPoints ?? ["kore-platform-email"],
-    deployments: async () => plan.deployments ?? { "golden-path-example": 2 },
-    scale: async (namespace, name, replicas) => {
-      if (replicas > 0 && plan.refuseRestore === true) {
-        throw new Error("kubectl refused");
+// The poll is a stand-in that reads at most three times and gives up, so no test waits on a real timer.
+vi.mock("./alert-delivery-poll.live.js", () => ({
+  awaitValue: async (read: () => Promise<unknown>) => {
+    for (let attempt = 0; attempt < 3; attempt += 1) {
+      const value = await read();
+      if (value !== undefined) {
+        return value;
       }
-      scaled.push(namespace + "/" + name + "=" + String(replicas));
-    },
-  };
-}
+    }
+    return undefined;
+  },
+}));
 
-function inboxReading(arrived: boolean[], since: number[] = []): InboxCheck {
-  const next = sequence(arrived);
-  return {
-    kind: "read",
-    reader: {
-      arrivedSince: async (time: number) => {
-        since.push(time);
-        return next();
-      },
-    },
-  };
-}
-
-function inboxFailing(message: string): InboxCheck {
-  return {
-    kind: "read",
-    reader: {
-      arrivedSince: async () => {
-        throw new Error(message);
-      },
-    },
-  };
-}
-
-function clock(start = 1_000_000) {
-  let time = start;
-  return {
-    now: () => time,
-    sleep: async (ms: number) => {
-      time += ms;
-    },
-  };
-}
-
-async function prove(plan: Plan, inbox: InboxCheck = inboxReading([true])) {
-  const scaled: string[] = [];
-  const api = fakeApi(plan, scaled);
-  const time = clock();
-  const report = await proveAlertDelivery(
-    { api, inbox, now: time.now, sleep: time.sleep },
-    options,
-  );
-  return { report, scaled };
-}
-
-async function messageOf(work: Promise<unknown>): Promise<string> {
-  try {
-    await work;
-  } catch (error) {
-    return error instanceof Error ? error.message : String(error);
-  }
-  return "no error";
-}
-
-const scaledToZero = [
-  "golden-path-example--local/golden-path-example=0",
-  "golden-path-example--local/golden-path-example=2",
-];
+// The proof renders no text; the rendering and its redaction are tested in alert-delivery-report.spec.ts.
+vi.mock("./alert-delivery-report.live.js", () => ({
+  redact: vi.fn(),
+  renderDelivery: vi.fn(),
+}));
 
 test("fails at rule not loaded, firing nothing, when the metrics store has no rule for the service", async () => {
-  const { report, scaled } = await prove({ rules: ["absent"] });
+  const { report, events } = await prove({ rules: ["absent"] });
   expect(report).toEqual({
     service: "golden-path-example",
     contactPoint: "kore-platform-email",
@@ -130,30 +39,30 @@ test("fails at rule not loaded, firing nothing, when the metrics store has no ru
       "Prometheus has no ServiceUnavailable rule in group kore.service.golden-path-example; check that the service-observability chart is delivered and the metrics store mounts kore-service-rules",
     rule: "not loaded",
     inbox: "not checked",
-    calls: ["Prometheus GET /api/v1/rules"],
+    calls: ["kubectl get deployments", "Prometheus GET /api/v1/rules"],
   });
-  expect(scaled).toEqual([]);
+  expect(events).toEqual([]);
 });
 
 test("fails at rule not loaded when the rule loads but never fires, and restores the Deployments", async () => {
-  const { report, scaled } = await prove({ rules: ["loaded"] });
+  const { report, events } = await prove({ rules: ["loaded"] });
   expect(report.stage).toBe("rule not loaded");
   expect(report.detail).toBe(
     "ServiceUnavailable was loaded but did not fire within 900 s after golden-path-example's Deployments were scaled to zero",
   );
   expect(report.rule).toBe("loaded");
-  expect(scaled).toEqual(scaledToZero);
+  expect(events).toEqual(proofEvents);
 });
 
-test("fails at alert not forwarded when Grafana never shows the alert", async () => {
-  const { report, scaled } = await prove({ receivers: [undefined] });
+test("fails at alert not forwarded when Grafana never shows the alert, and restores the Deployments", async () => {
+  const { report, events } = await prove({ receivers: [undefined] });
   expect(report.status).toBe("failed");
   expect(report.stage).toBe("alert not forwarded");
   expect(report.detail).toBe(
     "Grafana shows no ServiceUnavailable alert for golden-path-example within 900 s; the metrics store did not forward it",
   );
   expect(report.rule).toBe("firing");
-  expect(scaled).toEqual(scaledToZero);
+  expect(events).toEqual(proofEvents);
 });
 
 test("fails at contact point failed when Grafana routes the alert to another receiver", async () => {
@@ -200,14 +109,7 @@ test("reports delivered when the inbox holds the alert message", async () => {
       "Grafana routed ServiceUnavailable to kore-platform-email and the inbox holds its message",
     rule: "firing",
     inbox: "arrived",
-    calls: [
-      "Prometheus GET /api/v1/rules",
-      "kubectl get deployments",
-      "kubectl scale deployment",
-      "Grafana GET /api/alertmanager/grafana/api/v2/alerts",
-      "Grafana GET /api/v1/provisioning/contact-points",
-      "inbox API read",
-    ],
+    calls: proofCalls,
   });
 });
 
@@ -243,61 +145,22 @@ test("counts only messages sent after the Deployments were scaled to zero", asyn
   expect(since).toEqual([1_000_000]);
 });
 
-test("names the Grafana and Prometheus calls used, each once, in order", async () => {
+test("names the Grafana, Prometheus and kubectl calls used, each once, in order", async () => {
   const { report } = await prove({}, inboxReading([true]));
-  expect(report.calls).toEqual([
-    "Prometheus GET /api/v1/rules",
-    "kubectl get deployments",
-    "kubectl scale deployment",
-    "Grafana GET /api/alertmanager/grafana/api/v2/alerts",
-    "Grafana GET /api/v1/provisioning/contact-points",
-    "inbox API read",
-  ]);
+  expect(report.calls).toEqual(proofCalls);
+});
+
+test("records each Deployment's replica count on it before scaling it to zero, then clears the record once it is restored", async () => {
+  const { events } = await prove({}, inboxReading([true]));
+  expect(events).toEqual(proofEvents);
 });
 
 test("scales only the Deployments that run, to zero, then restores each to its own replica count", async () => {
-  const { scaled } = await prove({
-    deployments: { "golden-path-example": 2, "kore-worker": 0 },
-  });
-  expect(scaled).toEqual(scaledToZero);
-});
-
-test("restores the Deployments even when a stage fails", async () => {
-  const { report, scaled } = await prove({ receivers: [undefined] });
-  expect(report.stage).toBe("alert not forwarded");
-  expect(scaled).toEqual(scaledToZero);
-});
-
-test("fails loudly, naming the Deployment to scale back by hand, when a restore is refused", async () => {
-  const scaled: string[] = [];
-  const time = clock();
-  const pending = proveAlertDelivery(
-    {
-      api: fakeApi({ refuseRestore: true }, scaled),
-      inbox: inboxReading([true]),
-      now: time.now,
-      sleep: time.sleep,
+  const { events } = await prove({
+    deployments: {
+      "golden-path-example": { replicas: 2 },
+      "kore-worker": { replicas: 0 },
     },
-    options,
-  );
-  expect(await messageOf(pending)).toBe(
-    "could not restore golden-path-example in golden-path-example--local to 2 replicas; scale it back by hand: kubectl refused",
-  );
-});
-
-test("never prints the inbox URL, its key or the alert address, even inside an error", async () => {
-  const url = "https://inbox.example.invalid/v0/messages";
-  const key = "key-example";
-  const address = "owner@example.invalid";
-  const { report } = await prove(
-    {},
-    inboxFailing("GET " + url + " with " + key + " for " + address + " failed"),
-  );
-  const text = renderDelivery(report, [url, key, address]);
-  expect(text).not.toContain(url);
-  expect(text).not.toContain(key);
-  expect(text).not.toContain(address);
-  expect(text).toContain(
-    "detail: Grafana routed ServiceUnavailable to kore-platform-email; the inbox could not be read: GET [redacted] with [redacted] for [redacted] failed",
-  );
+  });
+  expect(events).toEqual(proofEvents);
 });

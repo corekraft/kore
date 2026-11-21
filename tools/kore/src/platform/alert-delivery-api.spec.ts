@@ -152,8 +152,8 @@ test("lists each Deployment's replicas, one when its spec leaves them unset", as
   );
   const api = clusterApi(runner, { kubeContext, cwd });
   expect(await api.deployments("golden-path-example--local")).toEqual({
-    "golden-path-example": 2,
-    "kore-worker": 1,
+    "golden-path-example": { replicas: 2 },
+    "kore-worker": { replicas: 1 },
   });
   expect(run).toHaveBeenCalledWith(
     "kubectl",

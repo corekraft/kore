@@ -10,6 +10,26 @@ export type RuleState = "absent" | "loaded" | "firing";
 /** The default rule the live proof fires: notify-only, on a Service with no available replica (ADR 0114). */
 export const alertName = "ServiceUnavailable";
 
+/** The annotation a run writes on each Deployment before it scales it to zero: the replica count a later run restores. */
+export const replicasAnnotation = "kore.dev/alert-proof-replicas";
+
+/** The names the proof's report gives each read and write, as an operator reads them. */
+export const callLabels = {
+  rules: "Prometheus GET /api/v1/rules",
+  deployments: "kubectl get deployments",
+  annotate: "kubectl annotate deployment",
+  scale: "kubectl scale deployment",
+  alerts: "Grafana GET /api/alertmanager/grafana/api/v2/alerts",
+  contactPoints: "Grafana GET /api/v1/provisioning/contact-points",
+  inbox: "inbox API read",
+};
+
+export interface DeploymentState {
+  replicas: number;
+  /** The replica count a run recorded before it scaled the Deployment to zero; present only while that run is unfinished. */
+  recorded?: number;
+}
+
 export interface ClusterApi {
   /** Prometheus GET /api/v1/rules: whether the service's group holds the alert, and whether it is firing. */
   ruleState(service: string, alert: string): Promise<RuleState>;
@@ -17,8 +37,12 @@ export interface ClusterApi {
   alertReceivers(alert: string, service: string): Promise<string[] | undefined>;
   /** Grafana GET /api/v1/provisioning/contact-points: the names only, never the settings. */
   contactPointNames(): Promise<string[]>;
-  /** kubectl get deployments in the namespace: each name with its replica count. */
-  deployments(namespace: string): Promise<Record<string, number>>;
+  /** kubectl get deployments in the namespace: each name with its replica count and any recorded count. */
+  deployments(namespace: string): Promise<Record<string, DeploymentState>>;
+  /** kubectl annotate: records the replica count to restore on one Deployment. */
+  record(namespace: string, name: string, replicas: number): Promise<void>;
+  /** kubectl annotate with the key removed: clears the record once the Deployment is restored. */
+  forget(namespace: string, name: string): Promise<void>;
   /** kubectl scale deployment: one Deployment to the given replica count. */
   scale(namespace: string, name: string, replicas: number): Promise<void>;
 }
@@ -107,17 +131,46 @@ export function parseContactPointNames(body: unknown): string[] {
     .filter((name): name is string => typeof name === "string");
 }
 
-export function parseDeployments(body: unknown): Record<string, number> {
-  const replicas: Record<string, number> = {};
+function recordedCount(item: unknown, name: string): number | undefined {
+  const value = field(
+    field(field(item, "metadata"), "annotations"),
+    replicasAnnotation,
+  );
+  if (value === undefined) {
+    return undefined;
+  }
+  if (typeof value !== "string" || !/^\d+$/.test(value)) {
+    throw new Error(
+      "Deployment " +
+        name +
+        " carries " +
+        replicasAnnotation +
+        ", which is not a replica count; correct or remove that annotation by hand",
+    );
+  }
+  return Number(value);
+}
+
+export function parseDeployments(
+  body: unknown,
+): Record<string, DeploymentState> {
+  const found: Record<string, DeploymentState> = {};
   for (const item of listOf(field(body, "items"))) {
     const name = field(field(item, "metadata"), "name");
     if (typeof name !== "string") {
       continue;
     }
     const count = field(field(item, "spec"), "replicas");
-    replicas[name] = typeof count === "number" ? count : 1;
+    const state: DeploymentState = {
+      replicas: typeof count === "number" ? count : 1,
+    };
+    const recorded = recordedCount(item, name);
+    if (recorded !== undefined) {
+      state.recorded = recorded;
+    }
+    found[name] = state;
   }
-  return replicas;
+  return found;
 }
 
 async function readInPod(
@@ -150,18 +203,69 @@ async function readInPod(
   return parseJson(stdout, label);
 }
 
-export function clusterApi(
+function kubernetesApi(
   runner: Runner,
   options: ClusterApiOptions,
-): ClusterApi {
+): Pick<ClusterApi, "deployments" | "record" | "forget" | "scale"> {
   const kubectl = (args: string[]) =>
     runner.run("kubectl", ["--context", options.kubeContext, ...args], {
       capture: true,
       cwd: options.cwd,
     });
+  return {
+    async deployments(namespace) {
+      const { stdout } = await kubectl([
+        "--namespace",
+        namespace,
+        "get",
+        "deployments",
+        "--output",
+        "json",
+      ]);
+      return parseDeployments(parseJson(stdout, "Kubernetes deployments"));
+    },
+    async record(namespace, name, replicas) {
+      await kubectl([
+        "--namespace",
+        namespace,
+        "annotate",
+        "deployment",
+        name,
+        replicasAnnotation + "=" + String(replicas),
+        "--overwrite",
+      ]);
+    },
+    async forget(namespace, name) {
+      await kubectl([
+        "--namespace",
+        namespace,
+        "annotate",
+        "deployment",
+        name,
+        replicasAnnotation + "-",
+      ]);
+    },
+    async scale(namespace, name, replicas) {
+      await kubectl([
+        "--namespace",
+        namespace,
+        "scale",
+        "deployment",
+        name,
+        "--replicas=" + String(replicas),
+      ]);
+    },
+  };
+}
+
+export function clusterApi(
+  runner: Runner,
+  options: ClusterApiOptions,
+): ClusterApi {
   const inPod = (url: string, script: string, label: string) =>
     readInPod(runner, options, url, script, label);
   return {
+    ...kubernetesApi(runner, options),
     async ruleState(service, alert) {
       return parseRuleState(
         await inPod(
@@ -192,27 +296,6 @@ export function clusterApi(
           "Grafana contact points",
         ),
       );
-    },
-    async deployments(namespace) {
-      const { stdout } = await kubectl([
-        "--namespace",
-        namespace,
-        "get",
-        "deployments",
-        "--output",
-        "json",
-      ]);
-      return parseDeployments(parseJson(stdout, "Kubernetes deployments"));
-    },
-    async scale(namespace, name, replicas) {
-      await kubectl([
-        "--namespace",
-        namespace,
-        "scale",
-        "deployment",
-        name,
-        "--replicas=" + String(replicas),
-      ]);
     },
   };
 }
