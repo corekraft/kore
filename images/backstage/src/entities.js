@@ -8,6 +8,16 @@ import { OPERATORS_GROUP } from "./policy.js";
 const NAME = /^[a-zA-Z0-9]([-_.a-zA-Z0-9]{0,61}[a-zA-Z0-9])?$/;
 const API = "backstage.io/v1alpha1";
 
+// The entity provider connection requires both managed-by annotations, each in
+// type:target form, naming the entity's own kind and name.
+function managedBy(kind, name) {
+  const target = `kore-platform:${kind.toLowerCase()}/${name}`;
+  return {
+    "backstage.io/managed-by-location": target,
+    "backstage.io/managed-by-origin-location": target,
+  };
+}
+
 function valid(object) {
   return NAME.test(object?.metadata?.name ?? "");
 }
@@ -21,6 +31,7 @@ function component(service, systems) {
     metadata: {
       name,
       annotations: {
+        ...managedBy("component", name),
         "backstage.io/kubernetes-label-selector": `app.kubernetes.io/part-of=${name}`,
         "argocd/app-selector": `platform.kore.dev/service=${name}`,
       },
@@ -41,13 +52,19 @@ export function entitiesFor({ organizations, services }) {
     {
       apiVersion: API,
       kind: "Group",
-      metadata: { name: OPERATORS_GROUP.split("/")[1] },
+      metadata: {
+        name: OPERATORS_GROUP.split("/")[1],
+        annotations: managedBy("group", OPERATORS_GROUP.split("/")[1]),
+      },
       spec: { type: "team", children: [] },
     },
     ...orgs.map((o) => ({
       apiVersion: API,
       kind: "System",
-      metadata: { name: o.metadata.name },
+      metadata: {
+        name: o.metadata.name,
+        annotations: managedBy("system", o.metadata.name),
+      },
       spec: { owner: OPERATORS_GROUP },
     })),
     ...services.filter(valid).map((s) => component(s, systems)),
