@@ -1,6 +1,6 @@
 ---
 status: proposed
-summary: The platform domain is one Cloudflare zone imported into a person-applied OpenTofu stack with no backend and no token creation; OpenTofu owns the fixed records (apex, CAA, an anti-spoofing mail set), external-dns owns route records by a TXT ownership record, every record is IPv4 with a 300-second TTL, the owner makes the tokens by hand, ADR 0042's delegation model is retired for vps, and any other domain is a foreign domain Kore never writes.
+summary: The platform domain is one Cloudflare zone imported into a person-applied OpenTofu stack with no backend and no token creation; OpenTofu owns DNSSEC and the fixed records (apex, CAA, an anti-spoofing mail set), external-dns owns route records by a TXT ownership record, every record is IPv4 with a 300-second TTL, the owner makes the tokens by hand, ADR 0042's delegation model is retired for vps, and any other domain is a foreign domain Kore never writes.
 date: 2026-11-20
 last-verified: 2026-11-20
 ---
@@ -51,11 +51,11 @@ state, credentials from the environment.
   Losing the state is recovered by `tofu import` from a documented list, never by
   data loss; no state backup is kept, because the zone is the source of truth for
   the records.
-- **Fixed records, owned by OpenTofu.** The apex, CAA and the mail records.
+- **Fixed records, owned by OpenTofu.** DNSSEC for the zone, the apex, CAA and the mail records.
   Until the owner picks a mail provider the mail set is anti-spoofing only: a
   null MX (`0 .`), SPF `v=spf1 -all` and DMARC `p=reject`. A real provider later
-  replaces it by a change to this stack. CAA issue and issuewild name one CA (see
-  Open for the owner) and gain the account binding after the first ACME account
+  replaces it by a change to this stack. CAA issue and issuewild name one CA,
+  Let's Encrypt, and gain the account binding after the first ACME account
   exists. Fixed records may exist before public 443 opens, because they serve
   nothing.
 - **Route records, owned by external-dns.** Records for routes, each with an
@@ -98,20 +98,22 @@ state, credentials from the environment.
   ACME staging proof, production issuer, then external-dns after the external
   Gateway flag.
 
-## Open for the owner
+## Decided by the owner
 
-- The registered domain itself (blocking: nothing Cloudflare-specific is provable
-  before it exists), and the TLD.
-- DNSSEC on for the zone (recommended: yes).
-- The CA named in CAA (recommended: Let's Encrypt, staging first).
-- The real mail provider, later; the anti-spoofing set stands until then.
-- Two in-cluster tokens, one for external-dns and one for cert-manager, rather
-  than the one record 10 names (recommended: two, for separate audit and
-  revocation).
-- Tokens delivered as plain Secrets, outside the ESO `platform-secrets` store the
-  OpenBao decision puts behind OpenBao, so DNS and certificates never wait on an
-  unseal after the weekly reboot (recommended: yes).
-- Hardware-key two-factor on the Cloudflare account (recommended: yes, an owner
-  action nothing verifies).
-- That cookie isolation between suborg subdomains is not a v1 property
-  (recommended: yes).
+On 2026-11-20 the owner accepted every recommendation:
+
+- The owner buys the domain at a Cloudflare-supported registrar and tells the
+  main session only that it exists; the name never appears on GitHub. The
+  Cloudflare-specific proofs wait for it.
+- Let's Encrypt, staging first, is the CA named in CAA and in the issuers.
+- Suborg names may appear publicly; no internal address or service name reaches
+  public DNS.
+- Two zone-scoped tokens, one for external-dns and one for cert-manager.
+- The tokens are plain Secrets outside the OpenBao-backed `platform-secrets`
+  store, applied through stdin, so DNS and certificates never wait on an unseal.
+- DNSSEC is on for the zone, owned by OpenTofu.
+- A full foreign hostname may appear in a public app record.
+- Hardware-key two-factor on the Cloudflare account is an owner action.
+- No cookie isolation between suborg subdomains in v1: no Public Suffix List
+  entry until outside tenants.
+- The mail provider is decided later; the anti-spoofing set stands until then.

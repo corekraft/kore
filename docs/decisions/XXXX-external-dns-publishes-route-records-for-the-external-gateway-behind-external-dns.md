@@ -80,7 +80,9 @@ domain.
   domain purchase.
 - Image enrollment and mirror entries for a new image are part of the change.
 
-## Open for the owner
+## Decided by the owner
 
-- The delete policy beyond `upsert-only` is a recommendation the owner may change.
-- The parked token questions are in the zone-ownership decision.
+On 2026-11-20 the owner accepted every recommendation of the DNS grilling,
+including two separate tokens and tokens kept outside the OpenBao-backed store
+(see the zone-ownership decision). The delete policy beyond `upsert-only` is a
+recommendation the owner may change.

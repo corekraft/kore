@@ -76,7 +76,10 @@ variable override the overlay field and names both in its error.
   domain reaches the cluster without being in git. A domain change is a platform
   rollout run, not a git commit.
 
-## Open for the owner
+## Decided by the owner
 
-- Whether a full foreign hostname may appear in a public app record (recommended:
-  yes, accepted).
+On 2026-11-20 the owner accepted every recommendation:
+
+- A full foreign hostname may appear in a public app record.
+- The owner buys the domain and tells the main session only that it exists; the
+  name never appears on GitHub.

@@ -56,7 +56,7 @@ without approval (#1484).
   `_acme-challenge.<suborg>.internal.<domain>` TXT records into the public zone and
   certificate transparency lists `*.<suborg>.internal.<domain>`. So the rule is
   worded: no internal address or service name reaches public DNS. Suborg names do
-  (see Open for the owner).
+  (the owner accepted this).
 - **CAA and the issuer agree.** OpenTofu's CAA names the same CA, and gains the
   account binding after the first ACME account exists.
 - **Order of the first live run.** Staging proves the internal suborg wildcard, the
@@ -82,11 +82,17 @@ Let's Encrypt staging are proven after the domain exists.
 - The flag needs the external Gateway for production use but the staging proof of
   the internal wildcard does not.
 
-## Open for the owner
+## Decided by the owner
 
-- The CA is Let's Encrypt, staging first (recommended: yes); the record names none.
-- That suborg names become public through the ACME TXT and certificate
-  transparency (recommended: accept, over one internal wildcard that cannot separate
-  suborgs).
-- If port 80 is refused, the fallback for a foreign name is the foreign owner
-  CNAME-delegating `_acme-challenge` to the platform zone (concept 4's choice).
+On 2026-11-20 the owner accepted every recommendation:
+
+- The CA is Let's Encrypt, staging first, named in CAA and in the issuers.
+- Suborg names may appear publicly (the ACME TXT record and certificate
+  transparency list `*.<suborg>.internal.<domain>`); no internal address or
+  service name reaches public DNS.
+- A full foreign hostname may appear in a public app record, so a foreign name
+  is served with an HTTP-01 certificate of its own.
+
+Still open, and concept 4's: if port 80 is refused, the fallback for a foreign
+name is the foreign owner CNAME-delegating `_acme-challenge` to the platform
+zone.
