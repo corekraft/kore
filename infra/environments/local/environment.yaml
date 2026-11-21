@@ -61,7 +61,7 @@
       "k3s-registry-trust": false,
       "platform-hostname-ownership": false,
       "platform-portal": true,
-      "portal-staged-install": false,
+      "portal-staged-install": true,
       "automatic-retro": true,
       "automatic-approval": false,
       "automatic-revert": true,
