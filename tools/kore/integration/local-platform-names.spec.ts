@@ -62,6 +62,15 @@ test("the local overlay's own values are what the specs read", async () => {
   expect(local.hostPort).toBe(environment.k3d?.ports[0]?.hostPort);
 });
 
+test("the local overlay moves the platform to kore.internal and keeps kore.local as the deprecated alias", async () => {
+  const { environment } = await loadRepository("local");
+  expect(environment.platform).toEqual({
+    domain: "kore.internal",
+    organizationId: "platform",
+    deprecatedAlias: "kore.local",
+  });
+});
+
 test("the unit fixtures' default platform domain is the local overlay's platform.domain", async () => {
   const { environment } = await loadRepository("local");
   expect(defaultPlatformDomain).toBe(environment.platform?.domain);

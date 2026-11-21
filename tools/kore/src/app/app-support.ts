@@ -3,13 +3,16 @@
 import { vi } from "vitest";
 import type { LockedImage } from "../images/index.js";
 import type { Repository } from "../config/index.js";
-import { defaultPlatformDomain } from "../platform-domain.fixtures.js";
+import {
+  defaultPlatformDomain,
+  lockRegistryHost,
+} from "../platform-domain.fixtures.js";
 import type { Runner } from "../runtime/index.js";
 
 export type Run = Runner["run"];
 
 export const digest = "sha256:" + "a".repeat(64);
-export const reference = `registry.${defaultPlatformDomain}:30500/reference@${digest}`;
+export const reference = `${lockRegistryHost}/reference@${digest}`;
 
 export function errno(code: string): NodeJS.ErrnoException {
   return Object.assign(new Error(code), { code });

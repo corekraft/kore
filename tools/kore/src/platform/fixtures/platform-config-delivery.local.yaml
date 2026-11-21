@@ -109,7 +109,7 @@ spec:
       releaseName: "kore-local-tls"
       parameters:
         - name: "gateway.hostname"
-          value: "kore.local"
+          value: "kore.internal"
   destination:
     server: https://kubernetes.default.svc
     namespace: "kore-system"
@@ -144,9 +144,9 @@ spec:
         - name: "gateway.className"
           value: "agentgateway"
         - name: "gateway.hostname"
-          value: "kore.local"
+          value: "kore.internal"
         - name: "gateway.platformHostname"
-          value: "*.platform.kore.local"
+          value: "*.platform.kore.internal"
   destination:
     server: https://kubernetes.default.svc
     namespace: "kore-system"

@@ -17,7 +17,7 @@
 # The environment's platform domain (platform.domain), which kore passes in. The
 # delivered kore-platform-config and kore-local-tls take it as gateway.hostname
 # because their charts hold no default. No default.
-# platformDomain: kore.local
+# platformDomain: kore.internal
 
 # The platform organization's wildcard, *.<organizationId>.<platformDomain>,
 # which kore passes in. The delivered kore-platform-config takes it as

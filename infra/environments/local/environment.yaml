@@ -96,7 +96,12 @@
       "kore-dns": "The platform DNS answers before anything else, so enrolling its namespace would make name resolution wait on the image verifier (ADR 0132).",
       "kore-registry": "The registry serves the signatures the verifier needs, so enrolling it would make a registry restart depend on the registry (ADR 0056)."
     },
-  "platform": { "domain": "kore.local", "organizationId": "platform" },
+  "platform":
+    {
+      "domain": "kore.internal",
+      "organizationId": "platform",
+      "deprecatedAlias": "kore.local"
+    },
   "gateway":
     { "namespace": "kore-system", "name": "kore-gateway", "port": 8443 },
   "secrets":

@@ -113,7 +113,7 @@ test("refuses by name before any load when the Service has no published address"
   run.mockResolvedValue(answer({ loadBalancer: {} }));
 
   await expect(goldenPathReach(runner, options)).rejects.toThrow(
-    "the golden-path Service golden-path-example--local/golden-path-example on context k3d-kore-local has no published address (status.loadBalancer.ingress is empty), so the host cannot reach its Gateway; the reference routes at kore.local are unaffected; the shared Gateway attach (#1211) publishes the address",
+    "the golden-path Service golden-path-example--local/golden-path-example on context k3d-kore-local has no published address (status.loadBalancer.ingress is empty), so the host cannot reach its Gateway; the reference routes at kore.internal are unaffected; the shared Gateway attach (#1211) publishes the address",
   );
 });
 

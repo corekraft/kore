@@ -97,6 +97,16 @@ spec:
   gatewayClassName: agentgateway
   listeners:
     - name: https
+      hostname: "kore.internal"
+      port: 8443
+      protocol: HTTPS
+      tls:
+        mode: Terminate
+        certificateRefs:
+          - {kind: Secret, name: kore-local-tls}
+      allowedRoutes:
+        namespaces: {from: All}
+    - name: https-alias
       hostname: "kore.local"
       port: 8443
       protocol: HTTPS

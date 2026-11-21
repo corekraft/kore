@@ -93,7 +93,7 @@ spec:
   gatewayClassName: istio
   listeners:
     - name: https
-      hostname: "kore.local"
+      hostname: "kore.internal"
       port: 8443
       protocol: HTTPS
       tls:

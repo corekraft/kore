@@ -7,7 +7,7 @@ metadata:
 spec:
   secretName: kore-local-tls
   dnsNames:
-    - "kore.local"
+    - "kore.internal"
   issuerRef:
     kind: ClusterIssuer
     name: kore-local-ca
