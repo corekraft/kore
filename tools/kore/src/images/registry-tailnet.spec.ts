@@ -2,7 +2,10 @@
 import { afterEach, beforeEach, expect, test, vi } from "vitest";
 import { featureEnabled, registryPlan } from "../config/index.js";
 import { fakeRepository, fakeRunner } from "./images-support.js";
-import { recordForwardOwner } from "./registry-forward-owner.js";
+import {
+  readForwardOwner,
+  recordForwardOwner,
+} from "./registry-forward-owner.js";
 import { hostRegistryAddress } from "./registry-name.js";
 import {
   localRegistryReference,
@@ -61,6 +64,30 @@ test("with registry-tailnet-forward on, a managed in-cluster registry is reached
     vpsRepository,
     1234,
   );
+});
+
+test("with the tailnet forward on, an open forward with no recorded owner is used and reported as unowned", async () => {
+  vi.mocked(featureEnabled).mockReturnValue(true);
+  vi.mocked(registryPlan).mockReturnValue(inCluster);
+  vi.mocked(readForwardOwner).mockResolvedValue(undefined);
+  const lines: string[] = [];
+
+  await expect(
+    localRegistryReference(
+      vpsRepository,
+      fakeRunner().runner,
+      "10.43.0.50:5000/reference:dev",
+      {
+        isPortOpen: async () => true,
+        report: (line) => void lines.push(line),
+      },
+    ),
+  ).resolves.toBe("127.0.0.1:30500/reference:dev");
+
+  expect(readForwardOwner).toHaveBeenCalledWith("kore-vps");
+  expect(lines).toEqual([
+    "registry port-forward on 127.0.0.1:30500 for context kore-vps is already running with no owner recorded, so this run uses it but does not own it; any worktree's stop can end it mid-build",
+  ]);
 });
 
 test("with registry-tailnet-forward off, a managed in-cluster registry keeps its reference and starts no forward", async () => {

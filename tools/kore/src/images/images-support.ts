@@ -102,17 +102,6 @@ export function fixedPasswords(push: string, read: string): void {
     .mockImplementationOnce(() => asFake<Buffer>({ toString: () => read }));
 }
 
-/** The kubectl arguments of the local registry's port-forward. */
-export const forwardArgs = [
-  "--context",
-  "k3d-kore-local",
-  "--namespace",
-  "kore-registry",
-  "port-forward",
-  "service/oci-registry",
-  "30500:5000",
-];
-
 /** A manifest a registry unit applies, as its stdin carries it. */
 export interface Manifest {
   kind: string;

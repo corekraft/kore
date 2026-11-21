@@ -17,7 +17,7 @@ vi.mock("node:fs/promises");
 vi.mock("node:path");
 vi.mock("../runtime/index.js");
 
-const ownerPath = "/host/.kore/registry-forward/k3d-kore-local.json";
+const ownerPath = "/host/.kore/registry-forward/kore-vps.json";
 const owner = { pid: 4242, root: "/worktrees/a", starter: 7 };
 
 beforeEach(() => {
@@ -28,7 +28,7 @@ beforeEach(() => {
 
 test("recording an owner writes the forward's pid, the worktree and this process as the starter", async () => {
   await recordForwardOwner(
-    fakeRepository({ kubeContext: "k3d-kore-local" }, "/worktrees/a"),
+    fakeRepository({ kubeContext: "kore-vps" }, "/worktrees/a"),
     4242,
   );
 
@@ -44,13 +44,13 @@ test("recording an owner writes the forward's pid, the worktree and this process
 test("a well-formed owner record is read back exactly", async () => {
   vi.mocked(readFile).mockResolvedValue(JSON.stringify(owner));
 
-  await expect(readForwardOwner("k3d-kore-local")).resolves.toEqual(owner);
+  await expect(readForwardOwner("kore-vps")).resolves.toEqual(owner);
   expect(readFile).toHaveBeenCalledWith(ownerPath, "utf8");
 });
 
 test("a record that is missing, unreadable or malformed reads as no owner", async () => {
   vi.mocked(readFile).mockRejectedValueOnce(new Error("ENOENT"));
-  await expect(readForwardOwner("k3d-kore-local")).resolves.toBeUndefined();
+  await expect(readForwardOwner("kore-vps")).resolves.toBeUndefined();
 
   for (const bad of [
     { ...owner, pid: "4242" },
@@ -59,12 +59,12 @@ test("a record that is missing, unreadable or malformed reads as no owner", asyn
     {},
   ]) {
     vi.mocked(readFile).mockResolvedValueOnce(JSON.stringify(bad));
-    await expect(readForwardOwner("k3d-kore-local")).resolves.toBeUndefined();
+    await expect(readForwardOwner("kore-vps")).resolves.toBeUndefined();
   }
 });
 
 test("clearing the owner removes its record and ignores a record that is already gone", async () => {
-  await clearForwardOwner("k3d-kore-local");
+  await clearForwardOwner("kore-vps");
 
   expect(rm).toHaveBeenCalledWith(ownerPath, { force: true });
 });

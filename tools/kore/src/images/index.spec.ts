@@ -63,6 +63,7 @@ test("the images barrel exposes exactly the public surface, each name from the m
     reachedThroughForward: registry.reachedThroughForward,
     tailnetForwardApplies: registry.tailnetForwardApplies,
     registryNameProblem: registryName.registryNameProblem,
+    hostRegistryAddress: registryName.hostRegistryAddress,
     ensureLocalSigningPublicKey: localSigner.ensureLocalSigningPublicKey,
     swapLocalSigningKey: localSigner.swapLocalSigningKey,
     withLocalSigner: localSigner.withLocalSigner,

@@ -5,7 +5,7 @@ import type { RegistryResponse } from "./registry-https.js";
 
 // Docs: docs/decisions/0094-worktrees-sharing-a-cluster-share-its-locks-tags-and-forward.md
 
-const base = "https://127.0.0.1:30500/v2";
+const base = "https://registry.platform.kore.local/v2";
 const digest = `sha256:${"a".repeat(64)}`;
 const reply = (
   status: number,
@@ -27,7 +27,7 @@ function admin(answers: Record<string, RegistryResponse>) {
     request,
     registry: createRegistryAdmin({
       request,
-      address: "127.0.0.1:30500",
+      address: "registry.platform.kore.local",
       authorization: "Basic abc",
       ca: "ca-pem",
     }),

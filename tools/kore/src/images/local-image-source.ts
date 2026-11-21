@@ -82,7 +82,7 @@ export async function lookUpSource(
   const source = await sourceTag(repository, runner, application);
   let digest: string | undefined;
   if (source !== undefined) {
-    // The lookup dials the client's address: the port-forward, or the registry's name.
+    // The lookup dials the client's address: the registry's name, or the tailnet forward.
     await ensureRegistryForward(repository, runner);
     digest = await digestIfPublished(repositoryPath, client, source);
   }

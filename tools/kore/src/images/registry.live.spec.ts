@@ -16,7 +16,7 @@ import { loadRegistryCa } from "./registry-tls.js";
 // Live: needs a running local profile after `kore local up` (a signed,
 // deployed reference image). Run with KORE_RUN_LIVE=1.
 
-const forwardedHost = "127.0.0.1:30500";
+const forwardedHost = "registry.platform.kore.local";
 const forwarded = `https://${forwardedHost}`;
 
 // The PUBLIC CA only, read the way kore reads it; credentials never use a file.
@@ -40,7 +40,7 @@ cleanup(async () => {
 type Repository = Awaited<ReturnType<typeof loadRepository>>;
 
 /**
- * One request through the port-forward. The credential reaches curl as a
+ * One request to the registry by its name. The credential reaches curl as a
  * config on stdin (`-K -`), never in an argument.
  */
 async function status(
@@ -79,7 +79,7 @@ async function status(
   };
 }
 
-/** Retries while the port-forward re-attaches to a new pod. */
+/** Retries while the registry's pod is replaced. */
 async function eventually<T>(
   work: () => Promise<T>,
   done: (value: T) => boolean,
@@ -92,7 +92,7 @@ async function eventually<T>(
     await new Promise((resolve) => setTimeout(resolve, 2000));
     last = await work().catch(() => undefined);
   }
-  assert.fail("the registry never became reachable through the port-forward");
+  assert.fail("the registry never became reachable by its name");
 }
 
 async function inventory(

@@ -7,8 +7,9 @@ import {
 type Environment = Repository["environment"];
 
 /**
- * The host port the local registry port-forward serves. It is not an overlay
- * field: the images domain dials it as a literal, so it stays written once here.
+ * The host port the retired local registry port-forward served. It is not an
+ * overlay field: the legacy stop still matches it as a literal, so it stays
+ * written once here.
  */
 const registryPort = 30500;
 
@@ -20,10 +21,10 @@ export interface LocalPlatform {
   registryHost: string;
   /** The registry's name and forward port, as a pinned reference prefix. */
   registry: string;
-  /** The host port the registry port-forward answers on. */
+  /** The host port the retired registry port-forward served; the legacy stop still matches it. */
   registryPort: number;
-  /** The loopback address the registry port-forward answers on. */
-  registryForward: string;
+  /** The registry's name under the platform organization, which host-side callers dial (ADR 0132). */
+  registryName: string;
   /** gateway.port: the port the platform Gateway serves on. */
   gatewayPort: number;
   /** The first k3d host port the overlay publishes. */
@@ -32,7 +33,7 @@ export interface LocalPlatform {
 
 /** The platform names and ports an environment declares. */
 export function platformOf(environment: Environment): LocalPlatform {
-  const { domain } = platformPlan(environment);
+  const { domain, organizationId } = platformPlan(environment);
   const hostPort = environment.k3d?.ports[0]?.hostPort;
   if (hostPort === undefined) {
     throw new Error(
@@ -44,7 +45,7 @@ export function platformOf(environment: Environment): LocalPlatform {
     registryHost: `registry.${domain}`,
     registry: `registry.${domain}:${registryPort}`,
     registryPort,
-    registryForward: `127.0.0.1:${registryPort}`,
+    registryName: `registry.${organizationId}.${domain}`,
     gatewayPort: environment.gateway.port,
     hostPort,
   };

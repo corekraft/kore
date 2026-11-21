@@ -42,9 +42,16 @@ beforeEach(() => {
   answers(401);
 });
 
-test("the host reaches the registry through the port-forward while registry-by-name is off", () => {
+test("a k3d registry is dialed by its name, with no port, whether or not registry-by-name is on", () => {
   vi.mocked(registryByName).mockReturnValue(false);
-  expect(hostRegistryAddress(repository.environment)).toBe(forwardAddress);
+  expect(hostRegistryAddress(repository.environment)).toBe(name);
+});
+
+test("a managed environment keeps the tailnet forward's address while registry-by-name is off", () => {
+  vi.mocked(registryByName).mockReturnValue(false);
+  expect(
+    hostRegistryAddress({ ...repository.environment, provider: "managed" }),
+  ).toBe(forwardAddress);
   expect(forwardAddress).toBe("127.0.0.1:30500");
 });
 

@@ -33,7 +33,7 @@ function fakeRequest(): FakeRequest {
 function start(req: FakeRequest) {
   vi.mocked(request).mockReturnValue(asFake<ClientRequest>(req));
   const promise = registryHead(
-    "https://127.0.0.1:30500/v2/app/manifests/x",
+    "https://registry.platform.kore.local/v2/app/manifests/x",
     { accept: "application/vnd.oci.image.manifest.v1+json" },
     "ca-pem",
   );
@@ -56,7 +56,7 @@ test("the HEAD goes to the URL with its headers, verified against the CA and nev
   const { onResponse } = start(req);
   onResponse(response(200, {}));
   expect(request).toHaveBeenCalledWith(
-    "https://127.0.0.1:30500/v2/app/manifests/x",
+    "https://registry.platform.kore.local/v2/app/manifests/x",
     {
       method: "HEAD",
       headers: { accept: "application/vnd.oci.image.manifest.v1+json" },
@@ -72,7 +72,12 @@ test("the HEAD goes to the URL with its headers, verified against the CA and nev
 test("the call resolves the status and the docker-content-digest header, and drains the response", async () => {
   const req = fakeRequest();
   const { promise, onResponse } = start(req);
-  const reply = response(200, { "docker-content-digest": "sha256:abc" });
+  const resume = vi.fn();
+  const reply = asFake<IncomingMessage>({
+    statusCode: 200,
+    headers: { "docker-content-digest": "sha256:abc" },
+    resume,
+  });
 
   onResponse(reply);
 
@@ -80,7 +85,7 @@ test("the call resolves the status and the docker-content-digest header, and dra
     status: 200,
     digest: "sha256:abc",
   });
-  expect(reply.resume).toHaveBeenCalledOnce();
+  expect(resume).toHaveBeenCalledOnce();
 });
 
 test("a digest sent as several header values takes the first, and a missing one or status is empty or zero", async () => {

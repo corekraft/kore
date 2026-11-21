@@ -29,9 +29,14 @@ afterEach(() => {
 });
 
 test("the child environment carries the credential and the helper directory, and the helper answers from it", async () => {
-  const env = await withRegistryClient(credential, ca, async (client) => {
-    return client.env;
-  });
+  const env = await withRegistryClient(
+    credential,
+    ca,
+    async (client) => {
+      return client.env;
+    },
+    "registry.platform.kore.local",
+  );
 
   expect(env).toEqual({
     DOCKER_CONFIG: directory,
@@ -42,7 +47,12 @@ test("the child environment carries the credential and the helper directory, and
 });
 
 test("the config and the CA are written mode 0600, and the credential is written to no file", async () => {
-  await withRegistryClient(credential, ca, async () => undefined);
+  await withRegistryClient(
+    credential,
+    ca,
+    async () => undefined,
+    "registry.platform.kore.local",
+  );
 
   expect(writeFile).toHaveBeenNthCalledWith(
     1,
@@ -59,7 +69,12 @@ test("the config and the CA are written mode 0600, and the credential is written
 });
 
 test("the helper script is written and made executable, and only get is answered", async () => {
-  await withRegistryClient(credential, ca, async () => undefined);
+  await withRegistryClient(
+    credential,
+    ca,
+    async () => undefined,
+    "registry.platform.kore.local",
+  );
 
   const script = vi.mocked(writeFile).mock.calls[2]?.[1];
   expect(vi.mocked(writeFile).mock.calls[2]).toEqual([
@@ -81,10 +96,15 @@ test("the CA reaches cosign as the temporary file, and head verifies against the
   let caFile = "";
   let head: Awaited<ReturnType<typeof registryHead>> | undefined;
 
-  await withRegistryClient(credential, ca, async (client) => {
-    caFile = client.caFile;
-    head = await client.head("https://x/v2/", { accept: "a" });
-  });
+  await withRegistryClient(
+    credential,
+    ca,
+    async (client) => {
+      caFile = client.caFile;
+      head = await client.head("https://x/v2/", { accept: "a" });
+    },
+    "registry.platform.kore.local",
+  );
 
   expect(caFile).toBe(`${directory}/ca.crt`);
   expect(registryHead).toHaveBeenCalledWith(
@@ -97,9 +117,14 @@ test("the CA reaches cosign as the temporary file, and head verifies against the
 
 test("the Authorization header is the Basic encoding of the credential for in-process lookups", async () => {
   let authorization = "";
-  await withRegistryClient(credential, ca, async (client) => {
-    authorization = client.authorization;
-  });
+  await withRegistryClient(
+    credential,
+    ca,
+    async (client) => {
+      authorization = client.authorization;
+    },
+    "registry.platform.kore.local",
+  );
 
   expect(authorization).toBe(
     `Basic ${Buffer.from("kore-push:s3cret-Pass_word").toString("base64")}`,
@@ -107,7 +132,12 @@ test("the Authorization header is the Basic encoding of the credential for in-pr
 });
 
 test("the private directory is removed when the action succeeds", async () => {
-  await withRegistryClient(credential, ca, async () => "done");
+  await withRegistryClient(
+    credential,
+    ca,
+    async () => "done",
+    "registry.platform.kore.local",
+  );
 
   expect(rm).toHaveBeenCalledWith(directory, { force: true, recursive: true });
 });
@@ -116,27 +146,26 @@ test("the private directory is removed even when the action fails, and the failu
   const failure = new Error("sign failed");
 
   await expect(
-    withRegistryClient(credential, ca, async () => {
-      throw failure;
-    }),
+    withRegistryClient(
+      credential,
+      ca,
+      async () => {
+        throw failure;
+      },
+      "registry.platform.kore.local",
+    ),
   ).rejects.toBe(failure);
 
   expect(rm).toHaveBeenCalledWith(directory, { force: true, recursive: true });
 });
 
-test("the client carries the address host-side callers dial, the port-forward's unless told otherwise", async () => {
-  const forwarded = await withRegistryClient(
-    credential,
-    ca,
-    async (client) => client.address,
-  );
+test("the client carries the address the caller dials, which is the registry's name", async () => {
   const named = await withRegistryClient(
     credential,
     ca,
     async (client) => client.address,
-    "registry.platform.kore.internal",
+    "registry.platform.kore.local",
   );
 
-  expect(forwarded).toBe("127.0.0.1:30500");
-  expect(named).toBe("registry.platform.kore.internal");
+  expect(named).toBe("registry.platform.kore.local");
 });

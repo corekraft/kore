@@ -15,7 +15,7 @@ export {
   reachedThroughForward,
   tailnetForwardApplies,
 } from "./registry.js";
-export { registryNameProblem } from "./registry-name.js";
+export { hostRegistryAddress, registryNameProblem } from "./registry-name.js";
 export {
   ensureLocalSigningPublicKey,
   swapLocalSigningKey,

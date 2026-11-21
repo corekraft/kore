@@ -11,6 +11,7 @@ import {
   reachedThroughForward,
   withRegistryClient,
   type LockedImage,
+  hostRegistryAddress,
 } from "../images/index.js";
 import { environmentStatePath, type Runner } from "../runtime/index.js";
 
@@ -97,11 +98,16 @@ export async function verifyImage(
   }
   const credential = await loadRegistryCredential(repository, runner, "read");
   const ca = await loadRegistryCa(repository, runner);
-  await withRegistryClient(credential, ca, async (client) => {
-    await runner.run(
-      "cosign",
-      verifyLockedImageArgs(verificationImage, publicKey, client.caFile),
-      { capture: false, env: { ...process.env, ...client.env } },
-    );
-  });
+  await withRegistryClient(
+    credential,
+    ca,
+    async (client) => {
+      await runner.run(
+        "cosign",
+        verifyLockedImageArgs(verificationImage, publicKey, client.caFile),
+        { capture: false, env: { ...process.env, ...client.env } },
+      );
+    },
+    hostRegistryAddress(repository.environment),
+  );
 }

@@ -30,14 +30,14 @@ test("local image build uses the application Dockerfile and context", () => {
   expect(
     localDockerBuildArgs(
       "/repo/apps/reference",
-      `${platform.registryForward}/reference:kore-local`,
+      `${platform.registryName}/reference:kore-local`,
     ),
   ).toEqual([
     "build",
     "--file",
     "/repo/apps/reference/Dockerfile",
     "--tag",
-    `${platform.registryForward}/reference:kore-local`,
+    `${platform.registryName}/reference:kore-local`,
     "/repo/apps/reference",
   ]);
 });

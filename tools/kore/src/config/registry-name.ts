@@ -15,7 +15,7 @@ export function registryHostname(environment: Environment): string {
   return `registry.${organizationId}.${domain}`;
 }
 
-/** Whether host-side callers reach the registry by name instead of the port-forward. */
+/** Whether host-side callers reach the registry by name through the shared Gateway. */
 export function registryByName(environment: Environment): boolean {
   return featureEnabled(environment, registryByNameFlag);
 }

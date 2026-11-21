@@ -11,17 +11,19 @@ import { loadRegistryCa } from "./registry-tls.js";
 
 // Docs: docs/decisions/0132-local-names-resolve-through-platform-dns-and-one-loopback-entry-point.md
 
-/** Where the port-forward serves the registry on the host. */
+/** Where the tailnet forward serves a managed registry on the host (ADR 0143). */
 export const forwardAddress = "127.0.0.1:30500";
 
 /**
- * The address host-side callers (digest lookup, cosign, pruning) dial: the
- * registry's name, which carries no port because the shared Gateway answers on
- * 443, while registry-by-name is on; otherwise the port-forward. Nodes pull
- * from the registry's fixed in-cluster address either way (ADR 0031).
+ * The address host-side callers (digest lookup, cosign, pruning) dial. A k3d
+ * registry is always its name, which carries no port because the shared
+ * Gateway answers on 443 (ADR 0132); the local port-forward is retired (#1226).
+ * A managed environment is its name while registry-by-name is on, and otherwise
+ * the tailnet forward (ADR 0143). Nodes pull from the registry's fixed
+ * in-cluster address either way (ADR 0031).
  */
 export function hostRegistryAddress(environment: Environment): string {
-  return registryByName(environment)
+  return environment.provider === "k3d" || registryByName(environment)
     ? registryHostname(environment)
     : forwardAddress;
 }

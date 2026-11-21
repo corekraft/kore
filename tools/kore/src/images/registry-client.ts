@@ -3,12 +3,11 @@ import { tmpdir } from "node:os";
 import { delimiter, join } from "node:path";
 import type { RegistryCredential } from "./registry-auth.js";
 import { registryHead, type RegistryHead } from "./registry-https.js";
-import { forwardAddress } from "./registry-name.js";
 
 // Docs: docs/decisions/0034-registry-authentication-and-authorization.md
 
 export interface RegistryClient {
-  /** The host[:port] host-side callers dial: the port-forward, or the registry's name. */
+  /** The host[:port] host-side callers dial: the registry's name, or the tailnet forward (ADR 0143). */
   address: string;
   /**
    * Variables to overlay on a child's environment (`{...base, ...client.env}`);
@@ -43,7 +42,7 @@ export async function withRegistryClient<T>(
   credential: RegistryCredential,
   ca: string,
   action: (client: RegistryClient) => Promise<T>,
-  address = forwardAddress,
+  address: string,
 ): Promise<T> {
   const directory = await mkdtemp(join(tmpdir(), "kore-registry-"));
   try {
