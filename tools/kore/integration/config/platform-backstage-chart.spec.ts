@@ -15,6 +15,7 @@ import {
   validateRepository,
   type Repository,
 } from "../../src/config/index.js";
+import { withGatewayFlagsOff } from "../../src/testing/index.js";
 import { escapeRegExp, localPlatform } from "../local-platform-support.js";
 
 const platform = await localPlatform();
@@ -78,7 +79,7 @@ const document = (rendered: string, kind: string): string =>
 
 test("the platform Backstage is a flag-gated chart installed after the platform Keycloak and the PostgreSQL API, so with the flag off nothing reaches a cluster", async () => {
   for (const name of ["local", "managed-example"]) {
-    const repository = await loadRepository(name);
+    const repository = withGatewayFlagsOff(await loadRepository(name));
     await validateRepository(repository);
     const backstage = repository.catalog.components.find(
       (c) => c.name === "kore-platform-backstage",
