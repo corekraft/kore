@@ -396,6 +396,14 @@ _Avoid_: Remote target, cloud target
 The newest backup of a database when its manifest matches the object in the target, it is under 24 hours old, and a restore drill of the mechanism has passed recently. Only a restorable backup satisfies a contract release or a destroy.
 _Avoid_: Fresh backup, valid backup
 
+**Recovery kit**:
+The keys and credentials the owner holds off the box and off the controller so that every backup stays readable and the box can be rebuilt. The repository lists where each is held, never a value.
+_Avoid_: Key backup, escrow
+
+**Canary database**:
+A platform-owned synthetic database with fixed rows, backed up like any other, whose restore is verified weekly without a person. It holds no real data.
+_Avoid_: Test database, drill database
+
 **Recovery hold**:
 The state of a rebuilt environment in which no application is synced until its databases are restored. It is lifted by the restore, never by the application.
 _Avoid_: Maintenance mode, freeze
