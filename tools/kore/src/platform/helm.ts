@@ -11,6 +11,7 @@ import {
   gatewayClassName,
   noMatchPolicy,
   platformHelmArgs,
+  prometheusPortalHelmArgs,
   registeredServiceHelmArgs,
   registryConsumers,
   registryHelmArgs,
@@ -103,6 +104,7 @@ function trailingArgs(repository: Repository, component: Component): string[] {
     ...platformHelmArgs(repository.environment, component.name),
     ...alertAndServiceArgs(repository, component),
     ...dashboardSidecarHelmArgs(repository.environment, component.name),
+    ...prometheusPortalHelmArgs(repository.environment, component.name),
   ];
 }
 

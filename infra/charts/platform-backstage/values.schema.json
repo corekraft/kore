@@ -1,11 +1,17 @@
 {
   "$schema": "https://json-schema.org/draft-07/schema#",
   "type": "object",
-  "required": ["platformDomain", "backstage", "proxy"],
+  "required": ["platformDomain", "keycloakHostname", "backstage", "proxy"],
   "additionalProperties": false,
   "properties": {
     "platformDomain": {
-      "description": "The environment's platform domain (ADR 0042). Backstage is served at backstage.<platformDomain> and signs in against keycloak.<platformDomain> (ADR 0113).",
+      "description": "The environment's platform domain (ADR 0042). Backstage is served at backstage.<platformDomain> and signs in against the Keycloak host kore passes as keycloakHostname (ADR 0113, ADR 0133).",
+      "type": "string",
+      "maxLength": 180,
+      "pattern": "^([a-z0-9]([-a-z0-9]{0,61}[a-z0-9])?\\.)+[a-z0-9]([-a-z0-9]{0,61}[a-z0-9])?$"
+    },
+    "keycloakHostname": {
+      "description": "The Keycloak host the sign-in proxy's OIDC issuer and metadata URL name: the same value the Keycloak chart serves (ADR 0133).",
       "type": "string",
       "maxLength": 180,
       "pattern": "^([a-z0-9]([-a-z0-9]{0,61}[a-z0-9])?\\.)+[a-z0-9]([-a-z0-9]{0,61}[a-z0-9])?$"

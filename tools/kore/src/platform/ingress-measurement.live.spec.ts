@@ -2,7 +2,11 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import { loadavg } from "node:os";
 import test from "node:test";
-import { loadRepository, platformPlan } from "../config/index.js";
+import {
+  gatewayEntryPort,
+  loadRepository,
+  platformPlan,
+} from "../config/index.js";
 import { ProcessRunner, liveEnvironment } from "../runtime/index.js";
 import { HostConditions } from "./ingress-host.js";
 import { mkcertRoot } from "./gateway-cluster.live.js";
@@ -50,7 +54,7 @@ test(
         kubeContext,
         gateway: { namespace: gateway.namespace, name: gateway.name },
         hostname: platformPlan(repository.environment).domain,
-        port: gateway.port,
+        port: gatewayEntryPort,
         caRoot: await mkcertRoot(runner),
       },
       {

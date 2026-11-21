@@ -77,8 +77,8 @@ test("with platform-shared-gateway on every HTTPS listener admits routes only fr
   const output = render(
     withSharedGateway(withGatewayFlagsOff(await loadRepository("local")), true),
   );
-  // The domain and the organization wildcard listeners each admit only labelled namespaces.
-  assert.equal(output.match(admitLabelled)?.length, 2);
+  // The domain, the organization wildcard and Keycloak's listeners each admit only labelled namespaces.
+  assert.equal(output.match(admitLabelled)?.length, 3);
   assert.doesNotMatch(output, admitAll);
 });
 

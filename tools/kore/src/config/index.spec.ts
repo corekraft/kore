@@ -29,6 +29,9 @@ vi.mock("./alert-forwarding.js", () => ({
 vi.mock("./dashboard-sidecar.js", () => ({
   dashboardSidecarHelmArgs: vi.fn(),
 }));
+vi.mock("./prometheus-memory.js", () => ({
+  prometheusPortalHelmArgs: vi.fn(),
+}));
 vi.mock("./approved.js", () => ({ approvedImageList: vi.fn() }));
 vi.mock("./chart-delivery.js", () => ({
   chartDeliveryValues: vi.fn(),
@@ -164,6 +167,7 @@ const entryPoints = [
   "portalStagedInstallFlag",
   "probeFields",
   "probeNames",
+  "prometheusPortalHelmArgs",
   "promoteConstraint",
   "providerCrdGroupErrors",
   "providerOwnsCrd",
