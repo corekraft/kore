@@ -1,0 +1,39 @@
+---
+status: proposed
+summary: After the loss of kore-vps every thing on the box has one protection class (rebuilt from git, rebuilt from elsewhere, regenerated, or backed up); images come back from GHCR by digest, data from the controller-run restore, and a recovery hold keeps every app unsynced until its databases are restored, so a rebuilt box never serves an empty database.
+date: 2026-11-21
+last-verified: 2026-11-21
+---
+
+# ADR XXXX: The box is rebuilt from git, GHCR and backups under a recovery hold
+
+Source: [issue #1481](https://github.com/corekraft/kore/issues/1481), grilled against the owner interview record [#1478](https://github.com/corekraft/kore/issues/1478) (decisions 3 and 4 and the gap "images live only in the in-cluster registry on the same disk").
+
+Refines [ADR 0141](0141-the-vps-host-is-converged-by-an-ansible-playbook-in-the-repository.md) (its README is the rebuild's first steps), [ADR 0142](0142-the-vps-environment-targets-the-persistent-k3s-node-as-a-managed-cluster.md) (the CA key never leaves the cluster) and `docs/operations/registry.md` (the registry holds nothing unique). Builds on the ADR "Retained databases are backed up by a scheduled age-encrypted dump and restored only from the controller".
+
+Status is `proposed`. Items marked **open owner decision** were answered "recommend yes" by the answerer in the owner's place but are not in the record.
+
+## Context
+
+The promise of the record (decision 3) is that a change never takes an app down and infrastructure events recover without a hand. Loss of the whole box is not such an event: the provider OS install and the Tailscale sign-in are by hand ([ADR 0141](0141-the-vps-host-is-converged-by-an-ansible-playbook-in-the-repository.md)). The record asks what comes back, from where, and in what order.
+
+Facts the decision rests on: the in-cluster registry, containerd, local volumes, the Incus thin pool and the agents VM all sit on the same RAID1 disks; the wave 1 decisions copy every app image by digest, signatures included, from a private GHCR package into the vps registry (#1485); the record's gap says signed digests are lost with the box, which that decision contradicts; the stage ledger is an untracked file inside the agents VM; and Argo CD syncs every app from git as soon as the platform is up, whose PreSync expand migration succeeds on an empty database.
+
+## Decision
+
+- **One protection class per thing.** (a) Rebuilt from git: the Ansible host, Argo applications, Crossplane claims, charts and sops files. (b) Rebuilt from elsewhere: images from GHCR, and telemetry, which is lost on purpose because an app-flag outcome carries its own evidence summary. (c) Regenerated and never backed up: cluster-generated keys and credentials (the in-cluster CA key, registry credentials and CA, the Argo CD admin), because the CA key never leaves the cluster (ADR 0142) and the k3s role re-reads the new registry CA. (d) Backed up: app databases (opt-in), the platform's own databases, the OpenBao Raft snapshot and, by an **open owner decision**, the delivery-host ledger. The OpenBao static seal key and recovery shares are custody items, not data. `infra/catalog/recovery.yaml` gets one vps objective per class and replaces the `planned` managed-postgresql line.
+- **Images are a cache; GHCR is the origin.** No off-host registry backup exists. A rebuild re-copies, by digest, every digest a current record names plus the revert targets the retention rule keeps, before any app is admitted. The cost is named: GHCR must keep every version a record or the retention rule names, and a GitHub outage during a rebuild halts it, the same accepted limit as app delivery.
+- **The controller copies the images on a rebuild.** `kore platform up --environment vps --recover`, run on the controller, copies those digests through the registry forward of [ADR 0143](0143-the-controller-reaches-a-managed-registry-through-a-forward-over-the-tailnet.md) with the owner's GHCR read login, so recovery does not wait for the by-hand agents VM logins. The delivery loop on kore-agents resumes afterwards and takes over the copying. The hold below is lifted only after the copy and the restores are both done.
+- **Cluster state is not backed up.** The k3s SQLite datastore, its secrets-encryption key and every Secret in it are derivable: git, a fresh CloudNativePG cluster regenerating its role Secrets, External Secrets re-reading OpenBao. The datastore copy taken before a k3s upgrade stays a local rollback aid on the host, never a recovery class and never restored on a rebuild.
+- **A recovery hold stops apps meeting an empty database.** `kore platform up --environment vps --recover` installs the platform and creates an Argo CD AppProject sync window denying app syncs, the primitive the runtime-safety decisions already use for the reboot. The hold is lifted only when the restore command has finished every backed-up database, or when the owner names a database empty on purpose. It needs `platform-argocd-delivery` to be active.
+- **Restore order.** The Ansible role places the OpenBao static seal key; OpenBao auto-unseals and initialises fresh; the controller restores the snapshot into it before External Secrets resyncs; then the controller restores the databases; the images are copied; the hold is lifted. The OpenBao restore into a self-initialised instance is unproven and is proven in the rebuild drill.
+- **Two drills, each a recorded live-run outcome.** (a) A restore drill: from the controller, restore a real backup from the target into a scratch database next to the live one, check row counts against the manifest, measure the time. (b) A rebuild drill: run the Ansible k3s role and `kore platform up --recover` against a rehearsal k3s in an Incus VM, restore the databases and the OpenBao snapshot, copy the images from GHCR, lift the hold. The provider OS install, the Tailscale console steps and the agents VM logins are listed as untested manual steps and are no part of the claim. Both run before `database-backups` is activated, (a) again before the first service with data goes public, and (b) again after a change to the host roles or the backup path. Quarterly repetition of (a) and sizing the rehearsal VM by shrinking the agents VM are **open owner decisions**.
+- **Objectives.** Whole-box loss: 8 hours from the provider OS install to every app serving, counting the by-hand steps. A database restore: 60 minutes. Both are first-drill ceilings, then the slowest of three drills plus 50 percent, never above the ceiling. **Open owner decision**: the numbers. Whole-box loss is stated plainly as not the "recover without a hand" promise.
+- **The controller is a known single point.** It holds the vps age identity, the kubeconfig, the OpenTofu state for the tailnet and later DNS, and the sops checkout. Its loss is out of this decision beyond the recovery kit list: the kubeconfig is rewritten by Ansible, the identity comes from the kit, the OpenTofu state is re-created by `tofu import`. An encrypted remote state backend is a proposed follow-up, not v1.
+
+## Consequences
+
+- A rebuilt box serves nothing until its data is back; that is slower than syncing at once and it is the only order in which a restore cannot be refused as non-empty.
+- `docs/operations/registry.md` and `docs/operations/backups.md` need a vps section and a pointer here.
+- Certificates on a rebuild are re-issued, so the ingress and DNS decisions must keep a rebuild inside the ACME issuance limits; that belongs to those concepts.
+- The recovery kit (identities, seal key and shares, target credentials, Tailscale and Cloudflare access), a second recovery recipient and the delivery-host ledger copy are the owner's decisions and are parked on #1481; this ADR does not depend on their answers.

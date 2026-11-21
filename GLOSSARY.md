@@ -373,3 +373,29 @@ _Avoid_: Dev lock, snapshot lock
 **Release chart lock**:
 The chart lock that counts for flag activation.
 _Avoid_: Tag lock, final lock
+
+## Backup and recovery
+
+**Protection class**:
+How a thing on the box comes back after the box is lost: rebuilt from git, rebuilt from elsewhere, regenerated, or backed up. Each thing on the box has exactly one.
+_Avoid_: Backup tier, recovery tier
+
+**Backup target**:
+The S3-compatible store that backups are written to, declared once for an environment with a kind, interim or off-host.
+_Avoid_: Backup bucket, backup destination
+
+**Interim target**:
+A backup target that does not survive the loss of the box. Backups written to it prove the mechanics, not the protection, and every report names it as such.
+_Avoid_: Local target, test target
+
+**Off-host target**:
+A backup target that survives the loss of the box. A service with data does not go public until the environment has one.
+_Avoid_: Remote target, cloud target
+
+**Restorable backup**:
+The newest backup of a database when its manifest matches the object in the target, it is under 24 hours old, and a restore drill of the mechanism has passed recently. Only a restorable backup satisfies a contract release or a destroy.
+_Avoid_: Fresh backup, valid backup
+
+**Recovery hold**:
+The state of a rebuilt environment in which no application is synced until its databases are restored. It is lifted by the restore, never by the application.
+_Avoid_: Maintenance mode, freeze
