@@ -373,3 +373,29 @@ _Avoid_: Dev lock, snapshot lock
 **Release chart lock**:
 The chart lock that counts for flag activation.
 _Avoid_: Tag lock, final lock
+
+## Ingress
+
+**Internal Gateway**:
+The Gateway that answers only on the tailnet. Every service is reachable through it by default, and every platform name lives behind it.
+_Avoid_: Private gateway, tailnet gateway
+
+**External Gateway**:
+The Gateway that answers on the public internet. A service reaches it only when its spec says so, and only for the hostnames it claims.
+_Avoid_: Public gateway, edge gateway
+
+**Hostname claim**:
+A hostname a service lists in its spec so the platform serves it. The first claim merged wins and holds the name exclusively until the record or its suborg is removed.
+_Avoid_: Hostname request, domain registration
+
+**Reserved name**:
+A label no service may claim and no suborg may take, kept in one file the owner reviews.
+_Avoid_: Blocked name, protected name
+
+**Foreign name**:
+A claimed hostname under a domain the platform does not own. It is served only on the External Gateway, and only after a certificate authority has proved that its public DNS points at the platform.
+_Avoid_: External domain, custom domain
+
+**Internal name**:
+The name every service has under the internal zone of its suborg. It never reaches public DNS.
+_Avoid_: Private name, tailnet name
