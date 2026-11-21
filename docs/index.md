@@ -294,6 +294,9 @@ decisions; read one only when planning that area, and expect it to change.
 - [`docs/ideas/0066-follow-up-0021-route-the-main-session-s-pane-messages-throug.md`](ideas/0066-follow-up-0021-route-the-main-session-s-pane-messages-throug.md) — Follow up on idea 0021 after a refuted outcome
 - [`docs/ideas/0067-follow-up-0022-guards-read-command-words-not-script-or-body.md`](ideas/0067-follow-up-0022-guards-read-command-words-not-script-or-body.md) — Follow up on idea 0022 after a inconclusive outcome
 - [`docs/ideas/0068-follow-up-0023-bring-a-writer-s-pull-request-up-to-date-with.md`](ideas/0068-follow-up-0023-bring-a-writer-s-pull-request-up-to-date-with.md) — Follow up on idea 0023 after a inconclusive outcome
+- [`docs/ideas/0069-registry-by-name-works-live-in-local.md`](ideas/0069-registry-by-name-works-live-in-local.md) — registry-by-name works live in local
+- [`docs/ideas/0070-database-routes-works-live-in-local.md`](ideas/0070-database-routes-works-live-in-local.md) — database-routes works live in local
+- [`docs/ideas/0071-otlp-route-works-live-in-local.md`](ideas/0071-otlp-route-works-live-in-local.md) — otlp-route works live in local
 
 ## Operations and Guides
 

@@ -54,7 +54,10 @@ Isolating a hostile tenant's build is parked as a later decision.
   existing organization, so a signed digest outlives the box. The platform copies
   the image by digest, signatures included, into the in-cluster registry (the
   ADR 0044 mirror mechanism) before a candidate is deployable on vps. Needing a
-  paid plan or a new account for the package is an owner decision.
+  paid plan or a new account for the package would be an owner decision; the owner
+  accepted a private package with no paid plan for now (2026-11-20), and
+  accepts the in-cluster registry alone as well, at the cost of losing signed
+  digests with the box.
 - **Every candidate is built from main.** A push to an application's main branch
   builds, evaluates, signs and publishes a candidate; there is no human tag. The
   version is the application manifest's semver plus the commit SHA, and the evals
@@ -70,5 +73,6 @@ Isolating a hostile tenant's build is parked as a later decision.
   attestation support, each behind a flag and a live run (ADR 0077).
 - GHCR's copy answers the loss of signed digests with the box that the
   in-cluster registry alone would have.
-- The push transport into the vps registry is still open (ADR 0143); the copy
-  waits on it.
+- The copy is a pinned `crane copy` through the ADR 0143 tailnet forward, run
+  from `kore-agents` (the owner decided this); ADR 0143's open push transport is
+  closed for app images by it.

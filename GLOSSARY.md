@@ -408,6 +408,19 @@ and alone turns it on, from live evidence and a recorded outcome. A flag in an
 environment overlay is a platform flag, not an app flag.
 _Avoid_: Feature toggle, runtime flag
 
+**Rollout**:
+How an **App flag** is exposed in a controlled way: a kind (flag, canary or dark
+launch), the criteria that must hold and a **Soak window**, all declared by the
+app. The platform turns the flag on only when a rollout's criteria hold.
+_Avoid_: Release, launch
+
+**Soak window**:
+The time a rollout must hold its criteria before the platform acts on it, set
+per rollout and as short as hours. It is also the time a release named as
+last-used must have run before a **Contract release** may follow. There is no
+fixed minimum.
+_Avoid_: Bake time, cooldown
+
 **Dark deploy**:
 Rolling a **Candidate** out with every flag it introduces off, so the new code
 runs and the new behaviour does not.
@@ -426,5 +439,17 @@ _Avoid_: Cleanup migration, destructive migration
 **Contract release**:
 A release that carries only a contract step and names the earlier release in
 which the thing was last used: a data contract (contract migrations only) or a
-code contract (a flag and its off path deleted, no migration).
+code contract (a flag and its off path deleted, no migration). It states its
+**Soak window**.
 _Avoid_: Cleanup release
+
+**Shadow migration**:
+A run of a release's migrations, schema or data, against a copy of the database
+restored from a backup, before the real migration runs. The real migration runs
+only when the shadow run passed.
+_Avoid_: Dry run, rehearsal
+
+**Break-glass**:
+The emergency primitive that lets a release skip the **Shadow migration**. Every
+use is recorded and shown to the owner, and it bypasses nothing else.
+_Avoid_: Override, force

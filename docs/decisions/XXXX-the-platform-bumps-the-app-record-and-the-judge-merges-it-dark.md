@@ -42,18 +42,21 @@ record holds no digest, repository or rejected list.
 - **Copy, then bump.** The step copies a candidate by digest with its
   signatures into the vps registry and verifies the copied digest with cosign.
   Only then does it open the bump pull request, so a merged bump is always
-  deployable. The registry push transport is an open owner decision (ADR 0143);
-  the recommended transport is a pinned `crane copy` through the ADR 0143
-  tailnet forward.
+  deployable. The transport is a pinned `crane copy` through the ADR 0143
+  tailnet forward, run from `kore-agents` (the owner decided this, closing the
+  push transport ADR 0143 left open for app images). The image's origin is a
+  private GHCR package, or the in-cluster registry alone if the owner prefers it;
+  with the in-cluster registry alone, a signed digest is lost with the box.
 - **The bump is a pull request from its own identity.** A new `kore-platform`
   GitHub App opens bump and revert pull requests with contents and
   pull_requests write on this repository only. It is not the judge App, whose
   approval must come from another identity (ADR 0122), and not the owner.
-  Creating the App and its keys is the owner's.
-- **The judge's checklist is deterministic, with no agent pane (proposed; an
-  owner decision, since it revises ADR 0109, which defines the judge as an agent
-  role that reviews and then merges).** A bump merges, with no ask of the owner,
-  only when all hold: the diff touches only
+  The owner creates the App and its keys later; until then the vps run waits.
+- **The judge's checklist is deterministic, with no agent pane and no person.**
+  The owner decided this on 2026-11-20; it revises ADR 0109, which defines the
+  judge as an agent role that reviews and then merges, for bump and revert pull
+  requests only. A bump merges, with no ask of the owner, only when all hold: the
+  diff touches only
   the digest and attestation references of one application record; the signer is
   in the trust list; the image signature and all three attestations verify for
   the digest; the attested repository equals the record's repository; the
@@ -117,8 +120,10 @@ record holds no digest, repository or rejected list.
   deploy dark with the PreSync hook run; a flag turned on through its state pull
   request and read by the pod within about 90 seconds, then turned off ahead of the
   queue; a forced failing migration reverted within 15 minutes with the digest on the
-  rejected list; an expand and then a contract release; and a forged or unlisted
-  attestation refused at admission. The outcome records the application, the digests
+  rejected list; an expand and then a contract release, each preceded by a passing
+  shadow migration, and one release shipped through the recorded break-glass bypass
+  of the shadow run; a flag turned on by the platform's own activation under a
+  controlled rollout; and a forged or unlisted attestation refused at admission. The outcome records the application, the digests
   and the chart lock, as an outcome record does for a platform flag.
 
 ## Consequences
