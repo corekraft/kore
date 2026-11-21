@@ -3,7 +3,7 @@ tailscale_version: "1.104.7"
 tailscale_keyring_sha256: "3e03dacf222698c60b8e2f990b809ca1b3e104de127767864284e6c228f1fb39"
 
 # Whether Tailscale SSH answers port 22 on the tailnet. Off where the host's own
-# sshd must check authorized_keys (Moshi pairs by writing a key there).
+# sshd must check authorized_keys.
 tailscale_ssh: true
 
 # A one-off auth key, read from the controller's environment only when a

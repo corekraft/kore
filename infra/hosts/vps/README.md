@@ -29,7 +29,7 @@ rescue mode is the way back in.
 
 The `incus` role creates `kore-agents` (an Incus VM on the private bridge
 `incusbr0`), and the second play converges it through the host. The VM runs
-herdr, Claude Code, gh, mise, mosh, tmux and moshi-hook as the `agent` account,
+herdr, herdr-core (`hc`), Claude Code, gh, mise, mosh and tmux as the `agent` account,
 which has Docker and no sudo. The `agents` role gives it a local mkcert CA in its
 home and trusts that CA in the system store, as root, so `kore local up` never
 asks for a password; the key stays on the VM. It also adds a `kore-dns` link that
@@ -42,16 +42,11 @@ the run stops at the VM's sign-in check: run
 approve the link, then `mise run vps-apply` again.
 
 Tailscale SSH is off on the VM (`tailscale_ssh: false`): its own sshd checks
-`authorized_keys`, where the playbook puts your public keys and Moshi puts the
-phone's. Then as `agent` (`ssh agent@kore-agents`); none of these secrets enter
-the repository:
+`authorized_keys`, where the playbook puts your public keys. Then as `agent`
+(`ssh agent@kore-agents`); none of these secrets enter the repository:
 
 1. `gh auth login` with a fine-grained token limited to `corekraft/kore`.
 2. `claude` and sign in.
-3. Moshi: `ssh -t agent@kore-agents moshi-hook host setup` and scan the QR in
-   the app (it is a temporary access token). The playbook already runs the
-   moshi-hook daemon and adds its Claude Code hooks; `moshi-hook doctor` should
-   show every feature ready.
 
 ## k3s
 

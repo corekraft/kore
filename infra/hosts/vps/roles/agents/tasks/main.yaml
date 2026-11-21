@@ -107,9 +107,8 @@
     mode: "0644"
     create: true
 
-# Moshi resolves herdr from the login PATH and compares it with the binary the
-# herdr server runs. Through the mise shim it reads mise's own version and
-# calls the two installs different, so a real link comes first on the PATH.
+# A real link comes first on the PATH: through the mise shim, `herdr --version`
+# reports mise's own version rather than herdr's.
 - name: Create the agent's local bin directory
   ansible.builtin.file:
     path: "/home/{{ agents_user }}/.local/bin"
@@ -124,6 +123,41 @@
     dest: "/home/{{ agents_user }}/.local/bin/herdr"
     state: link
     force: true
+    follow: false
+    owner: "{{ agents_user }}"
+    group: "{{ agents_user }}"
+
+# The pinned tarball rather than install.sh piped to sh, which installs the
+# latest release. install.sh's own steps for Linux are the same: unpack
+# herdr-core into ~/.local/bin and link hc to it.
+- name: Download the pinned herdr-core
+  register: agents_herdr_core_download
+  ansible.builtin.get_url:
+    url: "https://releases.herdr.dev/core/{{ agents_herdr_core_version }}/herdr-core-linux-x86_64.tar.gz"
+    dest: "/var/cache/herdr-core-{{ agents_herdr_core_version }}.tar.gz"
+    checksum: "sha256:{{ agents_herdr_core_sha256 }}"
+    owner: root
+    group: root
+    mode: "0644"
+
+- name: Install herdr-core
+  ansible.builtin.unarchive:
+    src: "/var/cache/herdr-core-{{ agents_herdr_core_version }}.tar.gz"
+    dest: "/home/{{ agents_user }}/.local/bin"
+    remote_src: true
+    include:
+      - herdr-core
+    owner: "{{ agents_user }}"
+    group: "{{ agents_user }}"
+    mode: "0755"
+  # A check run downloads nothing, so there is no tarball to unpack yet.
+  when: not (ansible_check_mode and agents_herdr_core_download.changed)
+
+- name: Link hc to herdr-core
+  ansible.builtin.file:
+    src: herdr-core
+    dest: "/home/{{ agents_user }}/.local/bin/hc"
+    state: link
     follow: false
     owner: "{{ agents_user }}"
     group: "{{ agents_user }}"
@@ -193,79 +227,6 @@
   args:
     creates: "/var/lib/systemd/linger/{{ agents_user }}"
 
-- name: Download the pinned moshi-hook
-  ansible.builtin.get_url:
-    url: "https://cdn.getmoshi.app/hook/{{ agents_moshi_hook_version }}/moshi-hook_Linux_x86_64.tar.gz"
-    dest: "/var/cache/moshi-hook-{{ agents_moshi_hook_version }}.tar.gz"
-    checksum: "sha256:{{ agents_moshi_hook_sha256 }}"
-    owner: root
-    group: root
-    mode: "0644"
-
-- name: Install moshi-hook
-  ansible.builtin.unarchive:
-    src: "/var/cache/moshi-hook-{{ agents_moshi_hook_version }}.tar.gz"
-    dest: /usr/local/bin
-    remote_src: true
-    include:
-      - moshi-hook
-    owner: root
-    group: root
-
-- name: Read the moshi-hook auto-update setting
-  ansible.builtin.command: /usr/local/bin/moshi-hook set auto-update
-  become: true
-  become_user: "{{ agents_user }}"
-  register: agents_moshi_auto_update
-  changed_when: false
-  check_mode: false
-
-- name: Keep moshi-hook at its pinned version
-  ansible.builtin.command: /usr/local/bin/moshi-hook set auto-update off
-  become: true
-  become_user: "{{ agents_user }}"
-  when: "(agents_moshi_auto_update.stdout_lines | first | trim) != 'auto-update: off'"
-  changed_when: true
-
-- name: Create the moshi-hook service drop-in directory
-  ansible.builtin.file:
-    path: "/home/{{ agents_user }}/.config/systemd/user/moshi-hook.service.d"
-    state: directory
-    owner: "{{ agents_user }}"
-    group: "{{ agents_user }}"
-    mode: "0755"
-
-- name: Give the moshi-hook daemon the agent's tools
-  ansible.builtin.template:
-    src: moshi-hook-path.conf.j2
-    dest: "/home/{{ agents_user }}/.config/systemd/user/moshi-hook.service.d/10-kore-path.conf"
-    owner: "{{ agents_user }}"
-    group: "{{ agents_user }}"
-    mode: "0644"
-  register: agents_moshi_dropin
-
-- name: Install the moshi-hook user service
-  ansible.builtin.command: /usr/local/bin/moshi-hook service install
-  become: true
-  become_user: "{{ agents_user }}"
-  environment:
-    XDG_RUNTIME_DIR: "/run/user/{{ agents_account.uid }}"
-  args:
-    creates: "/home/{{ agents_user }}/.config/systemd/user/moshi-hook.service"
-
-- name: Run the moshi-hook daemon with its current settings
-  ansible.builtin.systemd_service:
-    name: moshi-hook.service
-    scope: user
-    enabled: true
-    state: "{{ 'restarted' if agents_moshi_dropin.changed else 'started' }}"
-    daemon_reload: "{{ agents_moshi_dropin.changed }}"
-  become: true
-  become_user: "{{ agents_user }}"
-  environment:
-    XDG_RUNTIME_DIR: "/run/user/{{ agents_account.uid }}"
-  when: not ansible_check_mode
-
 - name: Create the agent's Claude Code directory
   ansible.builtin.file:
     path: "/home/{{ agents_user }}/.claude"
@@ -274,20 +235,55 @@
     group: "{{ agents_user }}"
     mode: "0700"
 
-- name: Read the agent's Claude Code settings
-  ansible.builtin.slurp:
-    src: "/home/{{ agents_user }}/.claude/settings.json"
-  register: agents_claude_settings
-  failed_when: false
+# Moshi was removed from this VM. These tasks take out what earlier runs
+# installed: its Claude Code hooks, its pairing, its user service, the binary
+# and its state, and the phone's key in authorized_keys.
+- name: Look for moshi-hook
+  ansible.builtin.stat:
+    path: /usr/local/bin/moshi-hook
+  register: agents_moshi_hook
 
-- name: Add Moshi's hooks to Claude Code
-  ansible.builtin.command: /usr/local/bin/moshi-hook install
+- name: Remove Moshi's hooks from Claude Code
+  ansible.builtin.command: /usr/local/bin/moshi-hook uninstall --target claude
+  become: true
+  become_user: "{{ agents_user }}"
+  when: agents_moshi_hook.stat.exists
+  changed_when: true
+
+- name: Remove the Moshi pairing
+  ansible.builtin.command: /usr/local/bin/moshi-hook unpair
+  become: true
+  become_user: "{{ agents_user }}"
+  when: agents_moshi_hook.stat.exists
+  changed_when: true
+
+- name: Stop and remove the moshi-hook user service
+  ansible.builtin.command: /usr/local/bin/moshi-hook service uninstall
   become: true
   become_user: "{{ agents_user }}"
   environment:
-    PATH: "/home/{{ agents_user }}/.local/share/mise/shims:/usr/local/bin:/usr/bin:/bin"
-  when: "'moshi-hook' not in (agents_claude_settings.content | default('') | b64decode)"
+    XDG_RUNTIME_DIR: "/run/user/{{ agents_account.uid }}"
+  when: agents_moshi_hook.stat.exists
   changed_when: true
+
+- name: Remove moshi-hook and its files
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: absent
+  loop:
+    - /usr/local/bin/moshi-hook
+    - /var/cache/moshi-hook-v0.4.60.tar.gz
+    - "/home/{{ agents_user }}/.config/moshi"
+    - "/home/{{ agents_user }}/.local/state/moshi"
+    - "/home/{{ agents_user }}/.config/systemd/user/moshi-hook.service"
+    - "/home/{{ agents_user }}/.config/systemd/user/moshi-hook.service.d"
+    - "/home/{{ agents_user }}/.claude/moshi-plugin"
+
+- name: Remove the Moshi phone's key from the agent account
+  ansible.builtin.lineinfile:
+    path: "/home/{{ agents_user }}/.ssh/authorized_keys"
+    regexp: " moshi-pair:"
+    state: absent
 
 # `gh auth setup-git` writes the helper with gh's versioned install path, which
 # breaks on the next gh upgrade. The shim follows the pinned version. The empty
