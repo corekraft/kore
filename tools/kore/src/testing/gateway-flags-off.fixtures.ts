@@ -1,8 +1,8 @@
 import { loadRepository, type Repository } from "../config/index.js";
 
 // The flags a spec pins off so it does not depend on the committed local
-// overlay: the agentgateway flags, and the three that PR #1574 turned on in
-// local (registry-by-name, database-routes, otlp-route).
+// overlay: the agentgateway flags, the three that PR #1574 turned on in local
+// (registry-by-name, database-routes, otlp-route), and platform-dns (#1682).
 const gatewayFlags = [
   "ingress-agentgateway",
   "gateway-class-change-release",
@@ -11,6 +11,7 @@ const gatewayFlags = [
   "registry-by-name",
   "database-routes",
   "otlp-route",
+  "platform-dns",
 ] as const;
 
 /**
@@ -27,6 +28,21 @@ export function withGatewayFlagsOff(repository: Repository): Repository {
   return {
     ...repository,
     environment: { ...repository.environment, features },
+  };
+}
+
+/**
+ * The repository with platform-dns stated on. The deprecated alias listener
+ * (ADR 0132) is rendered only while it is on, and withGatewayFlagsOff pins it
+ * off, so a render that asserts the alias states the flag here.
+ */
+export function withPlatformDnsOn(repository: Repository): Repository {
+  return {
+    ...repository,
+    environment: {
+      ...repository.environment,
+      features: { ...repository.environment.features, "platform-dns": true },
+    },
   };
 }
 

@@ -38,6 +38,8 @@ function withSharedGateway(repository: Repository, on: boolean): Repository {
       features: {
         ...repository.environment.features,
         "platform-shared-gateway": on,
+        // ADR 0132: the deprecated alias listener is served only while platform-dns is on, and withGatewayFlagsOff pins it off, so these renders state it on.
+        "platform-dns": true,
       },
     },
   };

@@ -38,7 +38,7 @@ agents_gh_helper: "!/home/{{ agents_user }}/.local/share/mise/shims/gh auth git-
 # port mapping in infra/environments/local/environment.yaml). Only names under
 # the zones go there; every other name keeps the host's own resolvers.
 # The zones the platform DNS answers: the local domain, and its deprecated alias until
-# the contract step (ADR 0147). Each gets a routing-only domain on the link.
+# the contract step (ADR 0175). Each gets a routing-only domain on the link.
 agents_platform_dns_zones:
   - platform.kore.internal
   - platform.kore.local

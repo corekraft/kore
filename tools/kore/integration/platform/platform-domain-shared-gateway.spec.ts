@@ -31,6 +31,8 @@ async function local(sharedGateway: boolean): Promise<Repository> {
       features: {
         ...base.environment.features,
         [sharedGatewayFlag]: sharedGateway,
+        // ADR 0132: the deprecated alias listener is served only while platform-dns is on, and withGatewayFlagsOff pins it off, so these renders state it on.
+        "platform-dns": true,
       },
     },
   };

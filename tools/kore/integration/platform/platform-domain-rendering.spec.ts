@@ -21,8 +21,9 @@ import {
   routeHostErrors,
 } from "../../src/platform/index.js";
 import {
+  loadLocalGatewayFlagsOff,
   withAbsoluteChart,
-  withGatewayFlagsOff,
+  withPlatformDnsOn,
 } from "../../src/testing/index.js";
 import { escapeRegExp, localPlatform } from "../local-platform-support.js";
 
@@ -220,10 +221,8 @@ test("every route host on the platform Gateway has a listener hostname that serv
 });
 
 test("a route host the platform Gateway has no listener for fails the check, naming the host", async () => {
-  const repository = withSharedGateway(
-    withGatewayFlagsOff(await loadRepository("local")),
-    false,
-  );
+  const local = withPlatformDnsOn(await loadLocalGatewayFlagsOff());
+  const repository = withSharedGateway(local, false);
   const rendered = [
     render(repository, "kore-platform-config"),
     renderReferenceRoute(repository, "moved.example.test"),

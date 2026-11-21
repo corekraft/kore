@@ -34,6 +34,8 @@ async function overlay(
       features: {
         ...base.environment.features,
         [sharedGatewayFlag]: false,
+        // ADR 0132: the deprecated alias listener is served only while platform-dns is on, and withGatewayFlagsOff pins it off, so these renders state it on.
+        "platform-dns": true,
         ...features,
       },
     },

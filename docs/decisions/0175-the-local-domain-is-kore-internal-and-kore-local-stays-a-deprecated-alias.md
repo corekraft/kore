@@ -5,7 +5,7 @@ date: 2026-11-21
 last-verified: 2026-11-21
 ---
 
-# ADR 0147: The local domain is kore.internal and kore.local stays a deprecated alias
+# ADR 0175: The local domain is kore.internal and kore.local stays a deprecated alias
 
 Source: [`docs/decisions/0132-local-names-resolve-through-platform-dns-and-one-loopback-entry-point.md`](../../docs/decisions/0132-local-names-resolve-through-platform-dns-and-one-loopback-entry-point.md)
 
