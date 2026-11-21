@@ -1,0 +1,30 @@
+# The Service records in git, applied to the cluster (ADR 0166). One Argo CD
+# Application syncs the spec files in recordsPath at the reviewed commit, so each
+# registration's Service object exists and the Service composition runs for it.
+# Kore sets serviceRecords only while platform-portal, platform-organization-service-apis
+# and platform-argocd-delivery are all on. It does not prune: deleting a record must
+# never delete the namespace the composition created, with the data in it, so a
+# removal is an explicit act (ADR 0166, ADR 0003). Only the spec files are
+# synced; the directory holds nothing else.
+{{- if .Values.serviceRecords }}
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: service-records
+  namespace: {{ .Values.namespace }}
+spec:
+  project: {{ .Values.project | quote }}
+  source:
+    repoURL: {{ .Values.repoURL | quote }}
+    targetRevision: {{ .Values.revision | quote }}
+    path: {{ .Values.recordsPath | quote }}
+    directory:
+      recurse: false
+      include: "*.yaml"
+  destination:
+    server: https://kubernetes.default.svc
+  syncPolicy:
+    automated:
+      prune: false
+      selfHeal: true
+{{- end }}

@@ -62,6 +62,15 @@ certificate (ADR 0132). Off, nothing it renders changes.
 {{- end -}}
 
 {{/*
+The name Keycloak answers to under the platform organization, keycloak.<organization>.<domain>:
+the platform wildcard without its leading "*.", under "keycloak.". It is the host the
+Keycloak chart and the portal take from kore, so the listener and the route agree.
+*/}}
+{{- define "platform-config.keycloakHostname" -}}
+{{- printf "keycloak.%s" (trimPrefix "*." (required "set gateway.platformHostname, or render through kore, which derives it from the environment's platform field" .Values.gateway.platformHostname)) -}}
+{{- end -}}
+
+{{/*
 The name the registry answers to, registry.<organization>.<domain>: the platform
 wildcard without its leading "*.", under "registry.". Derived from the one value
 kore passes, so the Helm path and the Argo CD Application agree.

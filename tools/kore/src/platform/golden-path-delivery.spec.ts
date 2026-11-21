@@ -86,6 +86,7 @@ test("the values carry the lock's digests, the checked-out commit and the enviro
     },
     sharedGateway: false,
     autoscaling: false,
+    serviceRecords: false,
   });
 });
 
@@ -194,4 +195,66 @@ test("an origin that is not https is refused with the fix", async () => {
   ).rejects.toThrow(
     "the git origin git@github.com:corekraft/kore.git is not an https URL, which the golden-path ApplicationSet needs; set origin to the https URL of the repository",
   );
+});
+
+test("with platform-portal, platform-organization-service-apis and platform-argocd-delivery all on, the values carry serviceRecords so the sync also applies the Service records", async () => {
+  const all = {
+    ...repository,
+    environment: {
+      ...repository.environment,
+      features: {
+        "platform-portal": true,
+        "platform-organization-service-apis": true,
+        "platform-argocd-delivery": true,
+      },
+    },
+  };
+  const { runner } = git();
+  const composed = await composeGoldenPathDelivery(
+    all,
+    runner,
+    "template.lock.json",
+  );
+  expect(composed.goldenPathDelivery?.serviceRecords).toBe(true);
+});
+
+test("with platform-portal off the values carry serviceRecords false, even with the Service API and Argo CD on, so no environment changes until the portal gate is on", async () => {
+  const portalOff = {
+    ...repository,
+    environment: {
+      ...repository.environment,
+      features: {
+        "platform-portal": false,
+        "platform-organization-service-apis": true,
+        "platform-argocd-delivery": true,
+      },
+    },
+  };
+  const { runner } = git();
+  const composed = await composeGoldenPathDelivery(
+    portalOff,
+    runner,
+    "template.lock.json",
+  );
+  expect(composed.goldenPathDelivery?.serviceRecords).toBe(false);
+});
+
+test("with platform-organization-service-apis off the values carry serviceRecords false, so the sync applies no records", async () => {
+  const apiOff = {
+    ...repository,
+    environment: {
+      ...repository.environment,
+      features: {
+        "platform-organization-service-apis": false,
+        "platform-argocd-delivery": true,
+      },
+    },
+  };
+  const { runner } = git();
+  const composed = await composeGoldenPathDelivery(
+    apiOff,
+    runner,
+    "template.lock.json",
+  );
+  expect(composed.goldenPathDelivery?.serviceRecords).toBe(false);
 });

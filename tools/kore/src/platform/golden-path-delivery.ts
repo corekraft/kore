@@ -3,7 +3,10 @@ import {
   autoscalingFlag,
   gatewayClassName,
   helmInstalledComponents,
+  organizationServiceApisFlag,
+  platformArgocdDeliveryFlag,
   platformPlan,
+  platformPortalFlag,
   type Repository,
 } from "../config/index.js";
 import type { Runner } from "../runtime/index.js";
@@ -114,6 +117,12 @@ export async function composeGoldenPathDelivery(
       sharedGateway:
         repository.environment.features?.["platform-shared-gateway"] === true,
       autoscaling: repository.environment.features?.[autoscalingFlag] === true,
+      // All three flags on: the sync also applies the Service records (ADR 0166).
+      serviceRecords:
+        repository.environment.features?.[platformPortalFlag] === true &&
+        repository.environment.features?.[organizationServiceApisFlag] ===
+          true &&
+        repository.environment.features?.[platformArgocdDeliveryFlag] === true,
     },
   };
 }

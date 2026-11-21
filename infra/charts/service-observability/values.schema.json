@@ -3,6 +3,10 @@
   "type": "object",
   "additionalProperties": false,
   "properties": {
+    "features": {
+      "description": "Kore passes the environment's feature flags here (ADR 0077). This chart reads none of them; the key is declared so the closed schema accepts the map kore passes.",
+      "type": "object"
+    },
     "environment": {
       "type": "string",
       "maxLength": 61,

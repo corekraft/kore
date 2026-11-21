@@ -14,4 +14,19 @@ spec:
   issuerRef:
     kind: ClusterIssuer
     name: {{ .Values.issuer.name }}
+---
+# Keycloak's certificate for its name under the platform organization (ADR 0133).
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: kore-keycloak
+  namespace: kore-system
+  labels: {app.kubernetes.io/managed-by: Helm}
+spec:
+  secretName: {{ .Values.gateway.keycloakCertificateSecret }}
+  dnsNames:
+    - {{ include "platform-config.keycloakHostname" . | quote }}
+  issuerRef:
+    kind: ClusterIssuer
+    name: {{ .Values.issuer.name }}
 {{- end }}

@@ -5,6 +5,10 @@
 # where nothing else has made it, still syncs, and a namespace that already
 # exists is left as it is. Nothing applies a registration's Service to the
 # cluster, so the Service composition creates no namespace for it.
+#
+# With serviceRecords on (ADR 0166) the records Application applies each Service,
+# so the Service composition is the one owner of the namespace and the sync sets
+# no CreateNamespace. The sync still creates nothing else.
 {{- $frontend := index .Values.templateImages "static-frontend" }}
 {{- $bff := index .Values.templateImages "kotlin-bff" }}
 apiVersion: argoproj.io/v1alpha1
@@ -68,8 +72,10 @@ spec:
         automated:
           prune: true
           selfHeal: true
+        {{- if not .Values.serviceRecords }}
         syncOptions:
           - CreateNamespace=true
+        {{- end }}
         {{- if .Values.sharedGateway }}
         managedNamespaceMetadata:
           labels:

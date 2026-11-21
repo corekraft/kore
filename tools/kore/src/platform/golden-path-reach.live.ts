@@ -8,7 +8,7 @@ import type { Runner } from "../runtime/index.js";
 // published address and port or refuse by name before any load is sent. A
 // Service with no Gateway of its own (platform-shared-gateway on) has no
 // Service to read; its HTTPRoute is served by the shared Gateway, which the k3d
-// load balancer maps on loopback at the environment's gateway port. Read-only:
+// load balancer maps on loopback at the entry port (gatewayEntryPort). Read-only:
 // the kubectl reads below change nothing.
 
 export interface GoldenPathReachOptions {

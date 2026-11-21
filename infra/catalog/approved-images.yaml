@@ -485,15 +485,20 @@
           }
       },
       {
-        "image": "ghcr.io/backstage/backstage:1.55.2@sha256:68f2025a3f2774e04d58a65a948ccd04a93ddab7b7977be850e9df6d3beae6e3",
+        "image": "ghcr.io/corekraft/kore/backstage@sha256:1a2da946e7aed3546dc20eeafc7191aa5b19fc483f5c3e23c489cd7c1fd81b40",
         "name": "backstage",
         "component": "kore-platform-backstage",
         "evidence":
           {
             "method": "registry-digest",
-            "source": "crane digest ghcr.io/backstage/backstage:1.55.2 resolves to this index digest. Upstream publishes no cosign signature (cosign verify: no signatures found), so this is recorded unsigned. The image is upstream's evaluation build of a scaffolded app: it carries the guest sign-in only and no OIDC module, which is why the install puts a sign-in proxy in front of it.",
-            "checked": "2026-11-14",
-            "provenance": { "signed": false }
+            "source": "Built, pushed and signed by the release workflow of the v0.19.0 tag (release.yaml, the Backstage image step, tag-ref run 44889146155). backstage-image.lock.json on the v0.19.0 release records this digest and the signer identity, and the release verified it entry by entry before upload. Replaces upstream's evaluation build (ghcr.io/backstage/backstage:1.55.2), which has no OIDC module and no Kore catalog provider (issue 1708).",
+            "checked": "2026-11-21",
+            "provenance":
+              {
+                "signed": true,
+                "issuer": "https://token.actions.githubusercontent.com",
+                "identity": "https://github.com/corekraft/kore/.github/workflows/release.yaml@refs/tags/v0.19.0"
+              }
           }
       },
       {
