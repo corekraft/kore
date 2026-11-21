@@ -4,7 +4,7 @@ import {
   inboxReader,
   inboxSetup,
   type HttpGet,
-} from "./alert-delivery-inbox.js";
+} from "./alert-delivery-inbox.live.js";
 
 const url = "https://inbox.example.invalid/v0/messages";
 const key = "key-example";

@@ -6,7 +6,7 @@ import {
   parseAlertReceivers,
   parseContactPointNames,
   parseRuleState,
-} from "./alert-delivery-api.js";
+} from "./alert-delivery-api.live.js";
 
 const kubeContext = "k3d-kore-local";
 const cwd = "/repo";

@@ -1,13 +1,13 @@
 // Docs: docs/decisions/0128-forward-fired-service-alerts-from-the-metrics-store-to-grafana-s-alert-manager.md
 // Docs: docs/decisions/0114-give-the-platform-organization-default-dashboards-notify-only-alerts-and-default-retention.md
 import { expect, test } from "vitest";
-import type { ClusterApi, RuleState } from "./alert-delivery-api.js";
+import type { ClusterApi, RuleState } from "./alert-delivery-api.live.js";
 import {
   proveAlertDelivery,
   type DeliveryOptions,
   type InboxCheck,
-} from "./alert-delivery.js";
-import { renderDelivery } from "./alert-delivery-report.js";
+} from "./alert-delivery.live.js";
+import { renderDelivery } from "./alert-delivery-report.live.js";
 
 const options: DeliveryOptions = {
   service: "golden-path-example",
@@ -28,11 +28,15 @@ interface Plan {
 
 // The last value repeats once the list runs out, so a poll that never changes is a poll that never ends.
 function sequence<T>(values: readonly T[]): () => T {
+  const entries = values.map((value) => ({ value }));
   let index = 0;
   return () => {
-    const value = values[Math.min(index, values.length - 1)] as T;
+    const entry = entries[Math.min(index, entries.length - 1)];
+    if (entry === undefined) {
+      throw new Error("the fake needs at least one answer");
+    }
     index += 1;
-    return value;
+    return entry.value;
   };
 }
 

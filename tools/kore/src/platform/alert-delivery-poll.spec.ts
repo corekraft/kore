@@ -1,6 +1,6 @@
 // Docs: docs/decisions/0114-give-the-platform-organization-default-dashboards-notify-only-alerts-and-default-retention.md
 import { expect, test, vi } from "vitest";
-import { awaitValue, type Clock } from "./alert-delivery-poll.js";
+import { awaitValue, type Clock } from "./alert-delivery-poll.live.js";
 
 function clock(start = 0) {
   let time = start;

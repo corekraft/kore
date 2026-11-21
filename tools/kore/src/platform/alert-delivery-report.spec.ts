@@ -1,7 +1,7 @@
 // Docs: docs/decisions/0128-forward-fired-service-alerts-from-the-metrics-store-to-grafana-s-alert-manager.md
 import { expect, test } from "vitest";
-import { redact, renderDelivery } from "./alert-delivery-report.js";
-import type { DeliveryReport } from "./alert-delivery.js";
+import { redact, renderDelivery } from "./alert-delivery-report.live.js";
+import type { DeliveryReport } from "./alert-delivery.live.js";
 
 const delivered: DeliveryReport = {
   service: "golden-path-example",

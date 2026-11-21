@@ -1,12 +1,12 @@
 // Docs: docs/decisions/0128-forward-fired-service-alerts-from-the-metrics-store-to-grafana-s-alert-manager.md
 // Docs: docs/decisions/0114-give-the-platform-organization-default-dashboards-notify-only-alerts-and-default-retention.md
-import { awaitValue } from "./alert-delivery-poll.js";
+import { awaitValue } from "./alert-delivery-poll.live.js";
 import {
   alertName,
   type ClusterApi,
   type RuleState,
-} from "./alert-delivery-api.js";
-import type { InboxReader } from "./alert-delivery-inbox.js";
+} from "./alert-delivery-api.live.js";
+import type { InboxReader } from "./alert-delivery-inbox.live.js";
 
 // The live alert proof: fires the default ServiceUnavailable rule on one delivered Service by scaling its
 // Deployments to zero, follows the alert through the metrics store, Grafana and the contact point, and

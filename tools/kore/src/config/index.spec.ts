@@ -19,7 +19,6 @@ import { validateRepository } from "./validate.js";
 // Factories, not automocks: each module exports exactly the names the barrel
 // re-exports, and no real module graph loads here.
 vi.mock("./alert-email.js", () => ({
-  alertContactPoint: vi.fn(),
   alertEmailHelmArgs: vi.fn(),
   smtpSecretName: "grafana-smtp",
   smtpSecretNamespace: "observability",
@@ -115,7 +114,6 @@ vi.mock("./validate.js", () => ({ validateRepository: vi.fn() }));
 const entryPoints = [
   "absolute",
   "agentgatewayMeshEnrollmentFlag",
-  "alertContactPoint",
   "alertEmailHelmArgs",
   "alertForwardingHelmArgs",
   "approvedImageList",

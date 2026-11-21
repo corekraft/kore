@@ -1,15 +1,15 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { alertContactPoint, loadRepository } from "../config/index.js";
+import { alertEmailHelmArgs, loadRepository } from "../config/index.js";
 import { ProcessRunner, liveEnvironment } from "../runtime/index.js";
-import { clusterApi } from "./alert-delivery-api.js";
+import { clusterApi } from "./alert-delivery-api.live.js";
 import {
   type HttpGet,
   inboxReader,
   inboxSetup,
-} from "./alert-delivery-inbox.js";
-import { proveAlertDelivery } from "./alert-delivery.js";
-import { renderDelivery, redact } from "./alert-delivery-report.js";
+} from "./alert-delivery-inbox.live.js";
+import { proveAlertDelivery } from "./alert-delivery.live.js";
+import { renderDelivery, redact } from "./alert-delivery-report.live.js";
 
 // Docs: docs/decisions/0128-forward-fired-service-alerts-from-the-metrics-store-to-grafana-s-alert-manager.md
 // Docs: infra/plans/15-next-horizon.md (Step 6 item 4: the live delivery proof)
@@ -38,6 +38,14 @@ const fetchGet: HttpGet = async (url, headers) => {
   return { status: response.status, body: await response.text() };
 };
 
+const destinationFlag = "alerts.destination=";
+
+/** The contact point the service rules carry: the same name the chart is given, or undefined with no address. */
+function destinationIn(args: string[]): string | undefined {
+  const flag = args.find((arg) => arg.startsWith(destinationFlag));
+  return flag?.slice(destinationFlag.length);
+}
+
 function secretsIn(env: NodeJS.ProcessEnv): string[] {
   const addresses = (env["KORE_ALERT_EMAIL_ADDRESSES"] ?? "").split(/[;,]/);
   return [
@@ -53,7 +61,9 @@ test(
   async () => {
     const repository = await loadRepository(liveEnvironment());
     const { kubeContext, name } = repository.environment;
-    const contactPoint = alertContactPoint(repository.environment);
+    const contactPoint = destinationIn(
+      alertEmailHelmArgs(repository.environment, "kore-service-observability"),
+    );
     assert.ok(
       contactPoint !== undefined,
       "alerts have no contact point: set KORE_ALERT_EMAIL_ADDRESSES and KORE_ALERT_SMTP_HOST, _PORT and _FROM in the shell that runs kore, with platform-portal on",
