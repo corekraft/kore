@@ -333,6 +333,8 @@ export interface GoldenPathDeliveryValues {
   /** True while platform-shared-gateway is on: the sync labels the app namespaces it creates (ADR 0133). */
   sharedGateway?: boolean;
   autoscaling?: boolean;
+  /** True while platform-organization-service-apis and platform-argocd-delivery are both on: the sync also applies the Service records (ADR 0166). */
+  serviceRecords?: boolean;
 }
 
 export interface Repository {

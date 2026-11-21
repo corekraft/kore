@@ -85,6 +85,8 @@ function goldenPathArgs(
     ...(golden.sharedGateway ? ["--set", "sharedGateway=true"] : []),
     // Only while autoscaling-defaults is on, so the flag off passes nothing new.
     ...(golden.autoscaling ? ["--set", "autoscaling=true"] : []),
+    // Only while platform-organization-service-apis and platform-argocd-delivery are both on (ADR 0166), so the flags off pass nothing new.
+    ...(golden.serviceRecords ? ["--set", "serviceRecords=true"] : []),
   ];
 }
 

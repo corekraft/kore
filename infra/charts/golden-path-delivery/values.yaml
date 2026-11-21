@@ -11,6 +11,10 @@ environment: local
 # of kind Service (platform.kore.dev/v1alpha1) from the platform-apis chart.
 registrationsPath: infra/services/*.yaml
 
+# The directory of those same files, which the records Application syncs to the
+# cluster while serviceRecords is on (ADR 0166).
+recordsPath: infra/services
+
 # The chart each Application renders, from the same commit.
 workloadPath: infra/charts/golden-path-workload
 
@@ -23,6 +27,13 @@ project: default
 # sets autoscaling.enabled on each workload, so the workload chart renders its
 # HorizontalPodAutoscaler and no replica count.
 # autoscaling: true
+
+# Set by kore only while platform-organization-service-apis and
+# platform-argocd-delivery are both on (ADR 0166). The sync then also applies each
+# registration's Service record to the cluster, and the Service composition, not
+# the sync, creates each app namespace. Off, the sync creates the namespace itself
+# and applies no records.
+# serviceRecords: true
 
 # Set by kore only while platform-shared-gateway is on. The sync then labels each
 # app namespace it creates with the platform-owned shared-gateway label (ADR
