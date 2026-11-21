@@ -1,7 +1,7 @@
 import { featureEnabled, platformPortalFlag } from "./features.js";
 import type { Environment } from "./types.js";
 
-// Docs: issue #1705 (prometheus-server is OOMKilled at its 1Gi limit with platform-portal installed)
+// Docs: infra/plans/15-next-horizon.md (issue #1705: prometheus-server is OOMKilled at its 1Gi limit with platform-portal installed)
 
 /** The memory the Prometheus server takes, as its request and its limit, while platform-portal is on. */
 const portalPrometheusMemory = "2Gi";
