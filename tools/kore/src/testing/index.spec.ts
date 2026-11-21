@@ -55,6 +55,9 @@ const FORWARDS: Record<string, readonly string[]> = {
   "./registry-tls-fixtures.js": ["registryCaPem", "registryTlsSecret"],
   "./platform-readiness.fixtures.js": ["readyRows"],
   "./platform-resilience.fixtures.js": ["healthyClusterOutput"],
+  "./signin-check.js": ["checkSignIn"],
+  "./chromium-program.js": ["chromiumProgram"],
+  "./headless-browser.js": ["pinnedBrowserImage", "runHeadlessBrowser"],
   "../platform/reconcile.js": [
     "reconcileComponent",
     "recoverUndeployedRelease",

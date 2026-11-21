@@ -50,6 +50,12 @@ export {
 } from "./data-export.fixtures.js";
 export { registryCaPem, registryTlsSecret } from "./registry-tls-fixtures.js";
 export { readyRows } from "./platform-readiness.fixtures.js";
+// The sign-in check and its headless-browser driver (#1115): run by the opt-in live spec, and reusable by the browser token test (#1116).
+export { checkSignIn } from "./signin-check.js";
+export type { SignInAssertion, SignInResult } from "./signin-check.js";
+export { chromiumProgram } from "./chromium-program.js";
+export { pinnedBrowserImage, runHeadlessBrowser } from "./headless-browser.js";
+export type { HeadlessBrowserRun } from "./headless-browser.js";
 export { healthyClusterOutput } from "./platform-resilience.fixtures.js";
 // Test-only surface (#491): the integration specs for readiness, status and
 // probes run the real platform units together through this barrel. Production
