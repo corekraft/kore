@@ -128,6 +128,41 @@
     owner: "{{ agents_user }}"
     group: "{{ agents_user }}"
 
+# The pinned tarball rather than install.sh piped to sh, which installs the
+# latest release. install.sh's own steps for Linux are the same: unpack
+# herdr-core into ~/.local/bin and link hc to it.
+- name: Download the pinned herdr-core
+  register: agents_herdr_core_download
+  ansible.builtin.get_url:
+    url: "https://releases.herdr.dev/core/{{ agents_herdr_core_version }}/herdr-core-linux-x86_64.tar.gz"
+    dest: "/var/cache/herdr-core-{{ agents_herdr_core_version }}.tar.gz"
+    checksum: "sha256:{{ agents_herdr_core_sha256 }}"
+    owner: root
+    group: root
+    mode: "0644"
+
+- name: Install herdr-core
+  ansible.builtin.unarchive:
+    src: "/var/cache/herdr-core-{{ agents_herdr_core_version }}.tar.gz"
+    dest: "/home/{{ agents_user }}/.local/bin"
+    remote_src: true
+    include:
+      - herdr-core
+    owner: "{{ agents_user }}"
+    group: "{{ agents_user }}"
+    mode: "0755"
+  # A check run downloads nothing, so there is no tarball to unpack yet.
+  when: not (ansible_check_mode and agents_herdr_core_download.changed)
+
+- name: Link hc to herdr-core
+  ansible.builtin.file:
+    src: herdr-core
+    dest: "/home/{{ agents_user }}/.local/bin/hc"
+    state: link
+    follow: false
+    owner: "{{ agents_user }}"
+    group: "{{ agents_user }}"
+
 - name: Activate mise in the agent's shells
   ansible.builtin.lineinfile:
     path: "/home/{{ agents_user }}/.bashrc"

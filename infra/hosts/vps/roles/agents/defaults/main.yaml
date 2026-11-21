@@ -24,6 +24,12 @@ agents_tools:
 agents_moshi_hook_version: "v0.4.60"
 agents_moshi_hook_sha256: "5539b750fcdda8277555b0b1e2972bf2c2946c4c29838d06bb8a98963e47f348"
 
+# herdr-core (hc), the newer herdr without the TUI, from its release tarball
+# checked against the checksum in the release's manifest.json. It lives
+# beside herdr, as ~/.local/bin/herdr-core with an `hc` link.
+agents_herdr_core_version: "0.1.21"
+agents_herdr_core_sha256: "78424755c10a40dde38a0bdb55c20ac19706e9ae05ed68fc2acf1fcff0d941c1"
+
 # Public keys allowed to log in as the agent account, read on the controller at
 # run time and never committed. Moshi adds the phone's key when it pairs.
 agents_ssh_pubkey_files:
