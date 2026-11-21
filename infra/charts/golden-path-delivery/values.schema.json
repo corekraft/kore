@@ -38,7 +38,7 @@
       "type": "boolean"
     },
     "serviceRecords": {
-      "description": "Set by kore only while platform-organization-service-apis and platform-argocd-delivery are both on (ADR 0166). The sync then also applies each registration's Service record to the cluster, and the Service composition, not the sync, creates each app namespace. Off, the sync creates the namespace itself and applies no records.",
+      "description": "Set by kore only while platform-portal, platform-organization-service-apis and platform-argocd-delivery are all on (ADR 0166). The sync then also applies each registration's Service record to the cluster, and the Service composition, not the sync, creates each app namespace. Off, the sync creates the namespace itself and applies no records.",
       "type": "boolean"
     },
     "recordsPath": {

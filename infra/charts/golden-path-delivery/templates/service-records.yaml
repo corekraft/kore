@@ -1,8 +1,8 @@
 # The Service records in git, applied to the cluster (ADR 0166). One Argo CD
 # Application syncs the spec files in recordsPath at the reviewed commit, so each
 # registration's Service object exists and the Service composition runs for it.
-# Kore sets serviceRecords only while platform-organization-service-apis and
-# platform-argocd-delivery are both on. It does not prune: deleting a record must
+# Kore sets serviceRecords only while platform-portal, platform-organization-service-apis
+# and platform-argocd-delivery are all on. It does not prune: deleting a record must
 # never delete the namespace the composition created, with the data in it, so a
 # removal is an explicit act (ADR 0166, ADR 0003). Only the spec files are
 # synced; the directory holds nothing else.

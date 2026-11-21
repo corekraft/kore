@@ -19,6 +19,7 @@ import {
   type Repository,
 } from "../config/index.js";
 import type { Runner } from "../runtime/index.js";
+import { goldenPathArgs } from "./golden-path-args.js";
 import { featureFreeCharts } from "./feature-free-charts.js";
 import { applyProbePatches } from "./patches.js";
 
@@ -58,37 +59,6 @@ function helmTarget(component: Component): string {
     return component.repository;
   }
   return component.chart!;
-}
-
-/** The kore-golden-path-delivery chart's composed values as Helm arguments; none for any other component. */
-function goldenPathArgs(
-  repository: Repository,
-  component: Component,
-): string[] {
-  const golden = repository.goldenPathDelivery;
-  if (component.name !== "kore-golden-path-delivery" || !golden) {
-    return [];
-  }
-  return [
-    "--set-string",
-    `repoURL=${golden.repoURL}`,
-    "--set-string",
-    `revision=${golden.revision}`,
-    "--set-string",
-    `environment=${golden.environment}`,
-    "--set-json",
-    `templateImages=${JSON.stringify(golden.templateImages)}`,
-    "--set-string",
-    `ingress.platformDomain=${golden.ingress.platformDomain}`,
-    "--set-string",
-    `ingress.gatewayClassName=${golden.ingress.gatewayClassName}`,
-    // Only while platform-shared-gateway is on, so the flag off passes nothing new.
-    ...(golden.sharedGateway ? ["--set", "sharedGateway=true"] : []),
-    // Only while autoscaling-defaults is on, so the flag off passes nothing new.
-    ...(golden.autoscaling ? ["--set", "autoscaling=true"] : []),
-    // Only while platform-organization-service-apis and platform-argocd-delivery are both on (ADR 0166), so the flags off pass nothing new.
-    ...(golden.serviceRecords ? ["--set", "serviceRecords=true"] : []),
-  ];
 }
 
 /** The chart value each release takes the GatewayClass through. */
