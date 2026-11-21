@@ -16,7 +16,7 @@ import {
 vi.mock("../config/index.js");
 vi.mock("./gated-release.js");
 
-const mirror = "mirror.kore.local/platform";
+const mirror = "mirror.kore.internal/platform";
 const registry = "registry.kore.local:5001";
 const digest = `sha256:${"a".repeat(64)}`;
 const repository = repositoryOf({

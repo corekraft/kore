@@ -15,10 +15,18 @@ export interface PlatformPlan {
 }
 
 /**
- * The field as an overlay may declare it: the plan plus the deprecated alias,
- * which is read only through `deprecatedAliasOf` (ADR 0132).
+ * The field as an overlay may declare it. The deprecated alias is removed (ADR
+ * 0176): it is read only to refuse an overlay that still declares it.
  */
-type DeclaredPlatform = Partial<PlatformPlan> & { deprecatedAlias?: string };
+type DeclaredPlatform = Partial<PlatformPlan> & { deprecatedAlias?: unknown };
+
+/**
+ * The loopback port a host reaches the platform Gateway on (ADR 0132, ADR 0176).
+ * The k3d load balancer publishes it beside the in-cluster listener port
+ * gateway.port, which no host reaches once the 8443 mapping is removed; the
+ * readers of the host entry point take it from here.
+ */
+export const gatewayEntryPort = 443;
 
 /**
  * Longest platform domain: the 253-character name limit less a 63-character
@@ -32,7 +40,7 @@ const domainPattern = new RegExp(`^(?:${label}\\.)+${label}$`);
 const labelPattern = new RegExp(`^${label}$`);
 
 const missing = (environment: Environment) =>
-  `environment ${environment.name} must declare platform.domain and platform.organizationId (for example kore.local and platform)`;
+  `environment ${environment.name} must declare platform.domain and platform.organizationId (for example kore.internal and platform)`;
 
 /** The field as declared, widened because an overlay can omit or half-fill it. */
 function declared(environment: Environment): DeclaredPlatform | undefined {
@@ -49,37 +57,12 @@ export function platformPlan(environment: Environment): PlatformPlan {
 }
 
 /**
- * The deprecated alias the Gateway keeps beside the domain (ADR 0132), or
- * undefined. Dark: it is handed to any chart only while platform-dns is on, so
- * with the flag off no alias listener or certificate name renders, whatever the
- * overlay declares.
+ * The refusal of an overlay that still declares the removed deprecated alias
+ * (ADR 0176). It is refused, not ignored, so the listener cannot come back
+ * unnoticed.
  */
-export function deprecatedAliasOf(
-  environment: Environment,
-): string | undefined {
-  const alias = declared(environment)?.deprecatedAlias;
-  return alias === undefined || !featureEnabled(environment, platformDnsFlag)
-    ? undefined
-    : alias;
-}
-
-/** The alias problems: a bad DNS name, or one equal to the domain it stands beside. */
-function aliasErrors(
-  environment: Environment,
-  domain: unknown,
-  alias: unknown,
-): string[] {
-  const where = `in environment ${environment.name}`;
-  if (typeof alias !== "string" || !domainPattern.test(alias)) {
-    return [
-      `platform.deprecatedAlias must be a lowercase DNS name of at least two labels, for example kore.local, ${where}, got ${JSON.stringify(alias)}`,
-    ];
-  }
-  return alias === domain
-    ? [
-        `platform.deprecatedAlias must differ from platform.domain, ${where}, got ${JSON.stringify(alias)}`,
-      ]
-    : [];
+function removedAliasError(environment: Environment): string {
+  return `platform.deprecatedAlias was removed with the kore.local listener (ADR 0176); delete the field from environment ${environment.name}`;
 }
 
 /**
@@ -98,7 +81,7 @@ export function platformDomainErrors(environment: Environment): string[] {
     ...(domainValid
       ? []
       : [
-          `platform.domain must be a lowercase DNS name of at least two labels, for example kore.local, ${where}, got ${JSON.stringify(domain)}`,
+          `platform.domain must be a lowercase DNS name of at least two labels, for example kore.internal, ${where}, got ${JSON.stringify(domain)}`,
         ]),
     ...(domainValid && domain.length > maxDomainLength
       ? [
@@ -107,7 +90,7 @@ export function platformDomainErrors(environment: Environment): string[] {
       : []),
     ...(field.deprecatedAlias === undefined
       ? []
-      : aliasErrors(environment, domain, field.deprecatedAlias)),
+      : [removedAliasError(environment)]),
     ...(typeof organizationId === "string" && labelPattern.test(organizationId)
       ? []
       : [
@@ -169,15 +152,6 @@ const domainValueKeys: Record<string, string | undefined> = {
   "kore-local-tls": "gateway.hostname",
   "kore-platform-dns": "zone",
 };
-
-/**
- * The components that carry the Gateway's HTTPS listeners and its local
- * certificate: they take the deprecated alias beside the domain (ADR 0132).
- */
-const aliasValueComponents = new Set([
-  "kore-platform-config",
-  "kore-local-tls",
-]);
 
 /**
  * The chart value each component reads the platform organization's wildcard
@@ -326,15 +300,11 @@ export function platformHelmArgs(
     return shared;
   }
   const { domain } = platformPlan(environment);
-  const deprecatedAlias = deprecatedAliasOf(environment);
   return [
     ...(key === undefined ? [] : ["--set-string", `${key}=${domain}`]),
     ...(wildcard === undefined
       ? []
       : ["--set-string", `${wildcard}=${platformWildcard(environment)}`]),
-    ...(deprecatedAlias === undefined || !aliasValueComponents.has(component)
-      ? []
-      : ["--set-string", `gateway.deprecatedAlias=${deprecatedAlias}`]),
     ...shared,
   ];
 }

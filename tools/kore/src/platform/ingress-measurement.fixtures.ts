@@ -72,7 +72,7 @@ export function options(
     kubeContext: "k3d-kore-local",
     gateway: { namespace: "kore-system", name: "kore-gateway" },
     hostname: defaultPlatformDomain,
-    port: 8443,
+    port: 443,
     caRoot: "/ca",
     settleSeconds: 60,
     sampleCount: 2,

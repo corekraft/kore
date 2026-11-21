@@ -82,9 +82,9 @@ if mise exec -- k3d cluster list -o json | grep -q "\"name\": *\"$cluster\""; th
   fail "k3d cluster $cluster already exists; this run would purge data it did not create. Remove it first: k3d cluster delete $cluster && rm -rf ~/.kore/k3d/$cluster"
 fi
 
-# 6. Host port 8443 is shared with the local environment.
-if lsof -nP -iTCP:8443 -sTCP:LISTEN >/dev/null 2>&1; then
-  fail "host port 8443 is in use, most likely by the kore-local cluster (its k3d load balancer). Free it with: kore local down --environment local"
+# 6. Host port 443 is shared with the local environment.
+if lsof -nP -iTCP:443 -sTCP:LISTEN >/dev/null 2>&1; then
+  fail "host port 443 is in use, most likely by the kore-local cluster (its k3d load balancer). Free it with: kore local down --environment local"
 fi
 
 [ -e "$scratch_dir" ] && fail "$scratch_dir already exists; remove it or set KORE_PROOF_ENVIRONMENT"

@@ -55,16 +55,16 @@ test("a port another process holds on the address is reported taken, not thrown,
   const server = fakeServer(
     Object.assign(new Error("address in use"), { code: "EADDRINUSE" }),
   );
-  await expect(bindProbe("127.0.0.1", 8443, "tcp")).resolves.toBe(false);
+  await expect(bindProbe("127.0.0.1", 18443, "tcp")).resolves.toBe(false);
   expect(server.listen).toHaveBeenCalledWith(
-    { host: "127.0.0.1", port: 8443, exclusive: true },
+    { host: "127.0.0.1", port: 18443, exclusive: true },
     expect.any(Function),
   );
 });
 
 test("a port that binds is reported free, and the probe listener is closed before the answer", async () => {
   const server = fakeServer();
-  await expect(bindProbe("127.0.0.1", 8443, "tcp")).resolves.toBe(true);
+  await expect(bindProbe("127.0.0.1", 18443, "tcp")).resolves.toBe(true);
   expect(server.close).toHaveBeenCalledTimes(1);
 });
 

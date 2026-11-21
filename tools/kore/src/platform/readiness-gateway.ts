@@ -1,5 +1,6 @@
 import {
   featureEnabled,
+  gatewayEntryPort,
   ingressFlag,
   type Repository,
 } from "../config/index.js";
@@ -64,10 +65,9 @@ function holds(conditions: Condition[], type: string): string | undefined {
  * `gateway.service.nodePort` must equal (gateway-service.spec.ts).
  */
 function configuredNodePort(repository: Repository): number | undefined {
-  const { k3d, gateway } = repository.environment;
-  return k3d?.ports.find(
+  return repository.environment.k3d?.ports.find(
     ({ hostPort, protocol }) =>
-      hostPort === gateway.port && (protocol ?? "tcp") === "tcp",
+      hostPort === gatewayEntryPort && (protocol ?? "tcp") === "tcp",
   )?.loadBalancerPort;
 }
 

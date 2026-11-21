@@ -31,11 +31,7 @@ export function withGatewayFlagsOff(repository: Repository): Repository {
   };
 }
 
-/**
- * The repository with platform-dns stated on. The deprecated alias listener
- * (ADR 0132) is rendered only while it is on, and withGatewayFlagsOff pins it
- * off, so a render that asserts the alias states the flag here.
- */
+/** The repository with platform-dns stated on, the flag the platform DNS answers under (ADR 0132). */
 export function withPlatformDnsOn(repository: Repository): Repository {
   return {
     ...repository,

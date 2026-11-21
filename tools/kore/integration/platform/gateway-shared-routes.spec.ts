@@ -58,8 +58,8 @@ test("with platform-shared-gateway off the HTTPS listeners admit routes from eve
       false,
     ),
   );
-  // The domain listener and the deprecated alias listener (ADR 0132) both admit every namespace.
-  assert.equal(output.match(admitAll)?.length, 2);
+  // The domain listener admits every namespace; the deprecated alias listener is removed (ADR 0176).
+  assert.equal(output.match(admitAll)?.length, 1);
   assert.doesNotMatch(output, admitLabelled);
 });
 
@@ -77,8 +77,8 @@ test("with platform-shared-gateway on every HTTPS listener admits routes only fr
   const output = render(
     withSharedGateway(withGatewayFlagsOff(await loadRepository("local")), true),
   );
-  // The domain, the alias and the organization wildcard listeners each admit only labelled namespaces.
-  assert.equal(output.match(admitLabelled)?.length, 3);
+  // The domain and the organization wildcard listeners each admit only labelled namespaces.
+  assert.equal(output.match(admitLabelled)?.length, 2);
   assert.doesNotMatch(output, admitAll);
 });
 

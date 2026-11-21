@@ -28,12 +28,6 @@
       "maxLength": 253,
       "pattern": "^\\*\\.([a-z0-9]([-a-z0-9]{0,61}[a-z0-9])?\\.)+[a-z0-9]([-a-z0-9]{0,61}[a-z0-9])?$"
     },
-    "platformDeprecatedAlias": {
-      "description": "The former domain kept as a listener beside platformDomain (ADR 0132), which kore passes from platform.deprecatedAlias only while platform-dns is on; handed to kore-platform-config and kore-local-tls as gateway.deprecatedAlias. Absent, the Applications carry none.",
-      "type": "string",
-      "maxLength": 180,
-      "pattern": "^([a-z0-9]([-a-z0-9]{0,61}[a-z0-9])?\\.)+[a-z0-9]([-a-z0-9]{0,61}[a-z0-9])?$"
-    },
     "databaseRoutes": {
       "description": "Only while database-routes is on, kore passes true, and the PostgreSQL API's Application takes it with the platform domain and organizationId as Helm parameters (ADR 0137). Absent, the Application carries none.",
       "type": "boolean"

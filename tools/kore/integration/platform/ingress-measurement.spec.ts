@@ -1,3 +1,4 @@
+import { gatewayEntryPort } from "../../src/config/index.js";
 import assert from "node:assert/strict";
 import { test } from "vitest";
 import { RecordingRunner, type RunResult } from "../../src/runtime/index.js";
@@ -179,7 +180,7 @@ test("a failing request load fails the measurement with an actionable message", 
   await assert.rejects(
     measurement.measure(),
     new RegExp(
-      `request load to https://${platform.domain}:${platform.gatewayPort} failed: curl failed \\(7\\).*load balancer maps port ${platform.gatewayPort}`,
+      `request load to https://${platform.domain}:${gatewayEntryPort} failed: curl failed \\(7\\).*load balancer maps port ${gatewayEntryPort}`,
     ),
   );
 });

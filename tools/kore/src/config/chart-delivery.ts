@@ -5,11 +5,7 @@ import {
   featureEnabled,
   gatewayClassName,
 } from "./features.js";
-import {
-  deprecatedAliasOf,
-  platformPlan,
-  platformWildcard,
-} from "./platform-domain.js";
+import { platformPlan, platformWildcard } from "./platform-domain.js";
 import type { Repository } from "./types.js";
 
 // Docs: docs/decisions/0043-platform-configuration-through-argo-cd.md (the handover values)
@@ -31,12 +27,6 @@ export interface ChartDeliveryValues {
    * certificate's template requires it and its chart holds no default (ADR 0132).
    */
   platformHostname: string;
-  /**
-   * The environment's deprecated alias of the platform domain, which the
-   * delivered kore-platform-config and kore-local-tls take as
-   * `gateway.deprecatedAlias` only when the environment declares one (ADR 0132).
-   */
-  platformDeprecatedAlias?: string;
   /**
    * Each release's environment values-file text, in the order Helm takes them,
    * so the Argo CD Application renders the chart with the values the Helm path
@@ -150,15 +140,11 @@ export function chartDeliveryValues(
   const entries = entriesOf(lock)!;
   const components = handedOver(repository);
   const { domain, organizationId } = platformPlan(repository.environment);
-  const deprecatedAlias = deprecatedAliasOf(repository.environment);
   const routes = featureEnabled(repository.environment, databaseRoutesFlag);
   return {
     ...(featureEnabled(repository.environment, inClusterCaFlag)
       ? { inClusterCa: true as const }
       : {}),
-    ...(deprecatedAlias === undefined
-      ? {}
-      : { platformDeprecatedAlias: deprecatedAlias }),
     ...(routes
       ? {
           databaseRoutes: true as const,
@@ -207,22 +193,6 @@ export function databaseRoutesDeliveryArgs(
         `gatewayNamespace=${delivery.gatewayNamespace}`,
       ]
     : [];
-}
-
-/**
- * The deprecated alias the kore-config-delivery chart takes beside its domain,
- * only when the environment declares one, so the Argo CD Applications serve the
- * alias name the Helm path serves (ADR 0132).
- */
-export function deprecatedAliasDeliveryArgs(
-  delivery: ChartDeliveryValues,
-): string[] {
-  return delivery.platformDeprecatedAlias === undefined
-    ? []
-    : [
-        "--set-string",
-        `platformDeprecatedAlias=${delivery.platformDeprecatedAlias}`,
-      ];
 }
 
 /** Each distinct registry path that holds a chart, as Argo CD addresses a repository. */

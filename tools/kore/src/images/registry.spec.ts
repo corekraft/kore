@@ -39,7 +39,7 @@ const owner = { pid: 4242, root: "/worktrees/a", starter: 7 };
 beforeEach(() => {
   vi.mocked(registryByName).mockReturnValue(false);
   vi.mocked(hostRegistryAddress).mockReturnValue(
-    "registry.platform.kore.local",
+    "registry.platform.kore.internal",
   );
   vi.mocked(loadRegistryCa).mockResolvedValue("ca-pem");
   vi.mocked(readForwardOwner).mockResolvedValue(undefined);
@@ -185,7 +185,7 @@ test("only a kubectl for this context's registry forward matches the stop, and i
   );
 });
 
-const name = "registry.platform.kore.local";
+const name = "registry.platform.kore.internal";
 
 test("with registry-by-name on, a k3d reference is rewritten to the registry's name, and no port forward is probed or started", async () => {
   vi.mocked(registryByName).mockReturnValue(true);

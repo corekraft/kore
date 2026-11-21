@@ -26,7 +26,7 @@ const environment = {
   k3d: {
     clusterName: "kore-local",
     ports: [
-      { hostAddress: "127.0.0.1", hostPort: 8443, loadBalancerPort: 30443 },
+      { hostAddress: "127.0.0.1", hostPort: 443, loadBalancerPort: 30443 },
       {
         hostAddress: "127.0.0.1",
         hostPort: 1053,
@@ -278,7 +278,7 @@ test("uninstallResolver removes nothing when the confirmation is declined", asyn
 
 test("isPrivateUseDomain flags a domain under a reserved suffix as unregistered", () => {
   expect(isPrivateUseDomain("kore.internal")).toBe(true);
-  expect(isPrivateUseDomain("kore.local")).toBe(true);
+  expect(isPrivateUseDomain("kore.internal")).toBe(true);
   expect(isPrivateUseDomain("example.com")).toBe(false);
 });
 

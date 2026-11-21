@@ -16,7 +16,7 @@ import { loadRegistryCa } from "./registry-tls.js";
 // Live: needs a running local profile after `kore local up` (a signed,
 // deployed reference image). Run with KORE_RUN_LIVE=1.
 
-const forwardedHost = "registry.platform.kore.local";
+const forwardedHost = "registry.platform.kore.internal";
 const forwarded = `https://${forwardedHost}`;
 
 // The PUBLIC CA only, read the way kore reads it; credentials never use a file.

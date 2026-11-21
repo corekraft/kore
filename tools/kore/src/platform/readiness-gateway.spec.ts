@@ -279,7 +279,7 @@ test("a UDP mapping on the Gateway host port does not supply the configured node
         ports: [
           {
             hostAddress: "127.0.0.1",
-            hostPort: 8443,
+            hostPort: 443,
             loadBalancerPort: 31053,
             protocol: "udp",
           },

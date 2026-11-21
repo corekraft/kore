@@ -9,7 +9,7 @@ vi.mock("../config/index.js", () => ({ featureEnabled: vi.fn() }));
 const local: K3dCluster = {
   clusterName: "kore-local",
   serviceCidr: "10.96.0.0/12",
-  ports: [{ hostAddress: "127.0.0.1", hostPort: 8443, loadBalancerPort: 443 }],
+  ports: [{ hostAddress: "127.0.0.1", hostPort: 18443, loadBalancerPort: 443 }],
 };
 
 /** A runner whose every command fails with the given error, as lsof does when it finds nothing or is missing. */
@@ -25,11 +25,11 @@ test("a taken loopback host port is refused before any cluster command, naming t
   const { runner, run } = fakeRunner(() => "p4242\ncnginx\n");
   await expect(checkHostPorts("local", local, runner, probe)).rejects.toThrow(
     new Error(
-      "host port 127.0.0.1:8443 is already in use, so the cluster cannot publish it. The overlay setting that publishes it is k3d.ports[0] (loadBalancerPort 443) in environment local. Holder: nginx (pid 4242). Free the port by stopping the process holding it, or change k3d.ports[0].hostPort, then rerun kore local up --environment local.",
+      "host port 127.0.0.1:18443 is already in use, so the cluster cannot publish it. The overlay setting that publishes it is k3d.ports[0] (loadBalancerPort 443) in environment local. Holder: nginx (pid 4242). Free the port by stopping the process holding it, or change k3d.ports[0].hostPort, then rerun kore local up --environment local.",
     ),
   );
-  expect(probe).toHaveBeenCalledWith("127.0.0.1", 8443, "tcp");
-  expect(commandLines(run)).toEqual(["lsof -nP -iTCP:8443 -sTCP:LISTEN -Fpc"]);
+  expect(probe).toHaveBeenCalledWith("127.0.0.1", 18443, "tcp");
+  expect(commandLines(run)).toEqual(["lsof -nP -iTCP:18443 -sTCP:LISTEN -Fpc"]);
 });
 
 test("a taken UDP mapping is probed and looked up over UDP, so the refusal names /udp and a TCP listener is not the holder", async () => {
@@ -114,7 +114,7 @@ test("a taken host port whose holder lsof cannot name is refused, saying plainly
   );
   await expect(checkHostPorts("local", local, runner, probe)).rejects.toThrow(
     new Error(
-      "host port 127.0.0.1:8443 is already in use, so the cluster cannot publish it. The overlay setting that publishes it is k3d.ports[0] (loadBalancerPort 443) in environment local. The holder could not be identified: lsof reported none or is not installed. Free the port by stopping the process holding it, or change k3d.ports[0].hostPort, then rerun kore local up --environment local.",
+      "host port 127.0.0.1:18443 is already in use, so the cluster cannot publish it. The overlay setting that publishes it is k3d.ports[0] (loadBalancerPort 443) in environment local. The holder could not be identified: lsof reported none or is not installed. Free the port by stopping the process holding it, or change k3d.ports[0].hostPort, then rerun kore local up --environment local.",
     ),
   );
 });
@@ -127,7 +127,7 @@ test("a missing lsof is an unidentified holder, not a raw spawn error", async ()
   const { runner } = failingRunner(missing);
   await expect(checkHostPorts("local", local, runner, probe)).rejects.toThrow(
     new Error(
-      "host port 127.0.0.1:8443 is already in use, so the cluster cannot publish it. The overlay setting that publishes it is k3d.ports[0] (loadBalancerPort 443) in environment local. The holder could not be identified: lsof reported none or is not installed. Free the port by stopping the process holding it, or change k3d.ports[0].hostPort, then rerun kore local up --environment local.",
+      "host port 127.0.0.1:18443 is already in use, so the cluster cannot publish it. The overlay setting that publishes it is k3d.ports[0] (loadBalancerPort 443) in environment local. The holder could not be identified: lsof reported none or is not installed. Free the port by stopping the process holding it, or change k3d.ports[0].hostPort, then rerun kore local up --environment local.",
     ),
   );
 });
@@ -147,7 +147,7 @@ test("a free host port passes with no holder lookup", async () => {
   await expect(
     checkHostPorts("local", local, runner, probe),
   ).resolves.toBeUndefined();
-  expect(probe).toHaveBeenCalledWith("127.0.0.1", 8443, "tcp");
+  expect(probe).toHaveBeenCalledWith("127.0.0.1", 18443, "tcp");
   expect(commandLines(run)).toEqual([]);
 });
 
@@ -178,13 +178,13 @@ test("every taken host port is named in the refusal, not only the first", async 
   await expect(checkHostPorts("local", two, runner, probe)).rejects.toThrow(
     new Error(
       [
-        "host port 127.0.0.1:8443 is already in use, so the cluster cannot publish it. The overlay setting that publishes it is k3d.ports[0] (loadBalancerPort 443) in environment local. Holder: nginx (pid 4242). Free the port by stopping the process holding it, or change k3d.ports[0].hostPort, then rerun kore local up --environment local.",
+        "host port 127.0.0.1:18443 is already in use, so the cluster cannot publish it. The overlay setting that publishes it is k3d.ports[0] (loadBalancerPort 443) in environment local. Holder: nginx (pid 4242). Free the port by stopping the process holding it, or change k3d.ports[0].hostPort, then rerun kore local up --environment local.",
         "host port 127.0.0.2:9000 is already in use, so the cluster cannot publish it. The overlay setting that publishes it is k3d.ports[1] (loadBalancerPort 30000) in environment local. Holder: nginx (pid 4242). Free the port by stopping the process holding it, or change k3d.ports[1].hostPort, then rerun kore local up --environment local.",
       ].join("\n"),
     ),
   );
   expect(commandLines(run)).toEqual([
-    "lsof -nP -iTCP:8443 -sTCP:LISTEN -Fpc",
+    "lsof -nP -iTCP:18443 -sTCP:LISTEN -Fpc",
     "lsof -nP -iTCP:9000 -sTCP:LISTEN -Fpc",
   ]);
 });
@@ -192,7 +192,7 @@ test("every taken host port is named in the refusal, not only the first", async 
 describe("activePorts", () => {
   const gateway = {
     hostAddress: "127.0.0.1",
-    hostPort: 8443,
+    hostPort: 18443,
     loadBalancerPort: 443,
   };
   const dns = {

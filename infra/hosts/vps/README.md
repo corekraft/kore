@@ -33,7 +33,7 @@ herdr, Claude Code, gh, mise, mosh, tmux and moshi-hook as the `agent` account,
 which has Docker and no sudo. The `agents` role gives it a local mkcert CA in its
 home and trusts that CA in the system store, as root, so `kore local up` never
 asks for a password; the key stays on the VM. It also adds a `kore-dns` link that
-sends only `platform.kore.internal` and `platform.kore.local` names to the platform DNS on `127.0.0.1:1053`,
+sends only `platform.kore.internal` names to the platform DNS on `127.0.0.1:1053`,
 so `kore local up` profiles with `platform-dns` resolve, and installs `lsof`.
 
 With `TAILSCALE_AUTH_KEY` set, the playbook signs the VM in too. Without it,

@@ -28,6 +28,7 @@ const fs = vi.hoisted(() => ({
 vi.mock("node:fs/promises", () => fs);
 vi.mock("../cluster/index.js", () => ({ assertExpectedCluster: vi.fn() }));
 vi.mock("../config/index.js", () => ({
+  gatewayEntryPort: 443,
   findRoot: vi.fn(),
   loadRepository: vi.fn(),
   platformPlan: vi.fn(),
@@ -50,7 +51,7 @@ beforeEach(() => {
   vi.mocked(findRoot).mockResolvedValue("/repo");
   vi.mocked(liveEnvironment).mockReturnValue("local");
   vi.mocked(platformPlan).mockReturnValue({
-    domain: "kore.local",
+    domain: "kore.internal",
     organizationId: "platform",
   });
 });
@@ -131,8 +132,8 @@ test("a request through the Gateway resolves the local host and returns the HTTP
       "--write-out",
       "%{http_code}",
       "--resolve",
-      "kore.local:8443:127.0.0.1",
-      "https://kore.local:8443/api/protected",
+      "kore.internal:443:127.0.0.1",
+      "https://kore.internal:443/api/protected",
     ],
     { capture: true },
   );

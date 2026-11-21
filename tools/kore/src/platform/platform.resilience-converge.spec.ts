@@ -32,7 +32,7 @@ const repository = {
     charts: {},
     namespaces: {},
     gatewayClassName: "istio",
-    platformDomain: "kore.local",
+    platformDomain: "kore.internal",
     platformHostname: "*.platform.kore.internal",
   },
   goldenPathDelivery: {
@@ -40,7 +40,7 @@ const repository = {
     revision: "a".repeat(40),
     environment: "local",
     templateImages: {},
-    ingress: { platformDomain: "kore.local", gatewayClassName: "istio" },
+    ingress: { platformDomain: "kore.internal", gatewayClassName: "istio" },
   },
 };
 const ordered = orderedComponents(repository.catalog);

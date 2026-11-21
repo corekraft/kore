@@ -127,7 +127,7 @@ test("the flag alone does nothing under the istio class: the render equals the f
     [agentgatewayMeshEnrollmentFlag]: true,
   });
   const golden = await readFile(
-    `${repository.root}/tools/kore/src/platform/fixtures/platform-config-alias.local.yaml`,
+    `${repository.root}/tools/kore/src/platform/fixtures/platform-config.local.yaml`,
     "utf8",
   );
   assert.equal(render(repository), golden);

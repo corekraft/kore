@@ -284,7 +284,7 @@ test("the same host port on TCP and UDP is two mappings, and the same host port 
     },
     {
       hostAddress: "127.0.0.1",
-      hostPort: 8443,
+      hostPort: 18443,
       loadBalancerPort: 443,
       protocol: "tcp",
     },
@@ -292,7 +292,7 @@ test("the same host port on TCP and UDP is two mappings, and the same host port 
   expect(k3dErrors(withK3d("ports", dns), versions)).toEqual([]);
   const twice = [
     ...dns,
-    { hostAddress: "127.0.0.1", hostPort: 8443, loadBalancerPort: 444 },
+    { hostAddress: "127.0.0.1", hostPort: 18443, loadBalancerPort: 444 },
     {
       hostAddress: "127.0.0.1",
       hostPort: 1053,
@@ -301,7 +301,7 @@ test("the same host port on TCP and UDP is two mappings, and the same host port 
     },
   ];
   expect(k3dErrors(withK3d("ports", twice), versions)).toEqual([
-    "environment.k3d.ports maps host port 8443 twice",
+    "environment.k3d.ports maps host port 18443 twice",
     "environment.k3d.ports maps host port 1053/udp twice",
   ]);
 });

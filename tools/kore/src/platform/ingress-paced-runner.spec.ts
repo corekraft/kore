@@ -3,7 +3,7 @@ import type { Runner } from "../runtime/index.js";
 import { PacedRunner } from "./ingress-paced-runner.js";
 
 const REPLY = { stdout: "200\n", stderr: "", code: 0 };
-const LOAD = ["--parallel", "https://kore.local:8443/livez#[1-10]"];
+const LOAD = ["--parallel", "https://kore.internal:443/livez#[1-10]"];
 const PROBE = ["--write-out", "%{time_total}\\n"];
 
 const inner = { run: vi.fn<Runner["run"]>() };

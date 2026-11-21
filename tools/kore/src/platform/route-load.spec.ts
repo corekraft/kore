@@ -2,8 +2,8 @@ import { expect, test } from "vitest";
 import { countRound, loadArgs } from "./route-load.js";
 
 const target = {
-  hostname: "kore.local",
-  port: 8443,
+  hostname: "kore.internal",
+  port: 443,
   caRoot: "/ca",
   requestsPerRoute: 50,
   concurrency: 4,
@@ -25,11 +25,11 @@ test("loadArgs builds one parallel curl call to the route, verifying the local C
     "--cacert",
     "/ca/rootCA.pem",
     "--resolve",
-    "kore.local:8443:127.0.0.1",
+    "kore.internal:443:127.0.0.1",
     "--parallel",
     "--parallel-max",
     "4",
-    "https://kore.local:8443/api#[1-50]",
+    "https://kore.internal:443/api#[1-50]",
   ]);
 });
 
@@ -54,7 +54,7 @@ test("countRound fails when fewer requests completed than were sent", () => {
 });
 
 const goldenTarget = {
-  hostname: "golden-path-example.platform.kore.local",
+  hostname: "golden-path-example.platform.kore.internal",
   port: 443,
   caRoot: "/ca",
   requestsPerRoute: 50,
@@ -81,11 +81,11 @@ test("a published hostname is reached with --connect-to, never --resolve, since 
     "--cacert",
     "/ca/rootCA.pem",
     "--connect-to",
-    "golden-path-example.platform.kore.local:443:lb.kore.internal:443",
+    "golden-path-example.platform.kore.internal:443:lb.kore.internal:443",
     "--parallel",
     "--parallel-max",
     "4",
-    "https://golden-path-example.platform.kore.local:443/healthz#[1-50]",
+    "https://golden-path-example.platform.kore.internal:443/healthz#[1-50]",
   ]);
 });
 
@@ -106,11 +106,11 @@ test("a published IP keeps --resolve, pointing the hostname at that address and 
     "--cacert",
     "/ca/rootCA.pem",
     "--resolve",
-    "golden-path-example.platform.kore.local:443:10.0.0.5",
+    "golden-path-example.platform.kore.internal:443:10.0.0.5",
     "--parallel",
     "--parallel-max",
     "4",
-    "https://golden-path-example.platform.kore.local:443/healthz#[1-50]",
+    "https://golden-path-example.platform.kore.internal:443/healthz#[1-50]",
   ]);
 });
 
@@ -118,7 +118,7 @@ test("with no published address the hostname resolves to loopback, as the shared
   const args = loadArgs(goldenTarget, "/healthz");
 
   expect(args).toContain(
-    "golden-path-example.platform.kore.local:443:127.0.0.1",
+    "golden-path-example.platform.kore.internal:443:127.0.0.1",
   );
   expect(args).not.toContain("--connect-to");
 });

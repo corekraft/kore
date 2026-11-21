@@ -18,7 +18,7 @@ const values = {
   charts: {},
   namespaces: {},
   gatewayClassName: "istio",
-  platformDomain: "kore.local",
+  platformDomain: "kore.internal",
   platformHostname: "*.platform.kore.internal",
 };
 const delivered = {
@@ -34,7 +34,7 @@ const delivered = {
   },
   namespaces: {},
   gatewayClassName: "istio",
-  platformDomain: "kore.local",
+  platformDomain: "kore.internal",
   platformHostname: "*.platform.kore.internal",
 };
 const lockText = '{"version":1,"entries":{}}';

@@ -41,7 +41,7 @@ const golden = {
       digest: `sha256:${"2".repeat(64)}`,
     },
   },
-  ingress: { platformDomain: "kore.local", gatewayClassName: "istio" },
+  ingress: { platformDomain: "kore.internal", gatewayClassName: "istio" },
 };
 
 test("with sharedGateway on, kore-golden-path-delivery is given it as its last argument, so the sync labels app namespaces", () => {

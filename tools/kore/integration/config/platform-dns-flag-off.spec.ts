@@ -12,41 +12,21 @@ import {
 import { helmTemplateArgs } from "../../src/platform/index.js";
 import { withAbsoluteChart } from "../../src/testing/index.js";
 import { lock, namespaces } from "./platform-config-delivery-chart-support.js";
-import { escapeRegExp, localPlatform } from "../local-platform-support.js";
+import { localPlatform } from "../local-platform-support.js";
 
 // Docs: docs/decisions/0132-local-names-resolve-through-platform-dns-and-one-loopback-entry-point.md
 
 const run = promisify(execFile);
 const platform = await localPlatform();
 
-/**
- * The local overlay with a deprecated alias declared, and platform-dns set as
- * given. With the flag off the domain is the overlay's own and the alias is a
- * valid name of its own, so only the flag keeps the alias out of the render.
- * With the flag on the domain is an activated name and the alias is the overlay's
- * domain, the shape the activation will use.
- */
-async function withAlias(
-  platformDns: boolean,
-): Promise<{ repository: Repository; domain: string; alias: string }> {
+/** The local overlay with platform-dns set as given; the domain is the overlay's own. */
+async function withPlatformDns(platformDns: boolean): Promise<Repository> {
   const base = await loadRepository("local");
-  const own = base.environment.platform.domain;
-  const domain = platformDns ? `activated.${own}` : own;
-  const alias = platformDns ? own : `alias.${own}`;
   return {
-    domain,
-    alias,
-    repository: {
-      ...base,
-      environment: {
-        ...base.environment,
-        platform: {
-          domain,
-          organizationId: "platform",
-          deprecatedAlias: alias,
-        },
-        features: { ...base.environment.features, "platform-dns": platformDns },
-      },
+    ...base,
+    environment: {
+      ...base.environment,
+      features: { ...base.environment.features, "platform-dns": platformDns },
     },
   };
 }
@@ -95,36 +75,33 @@ const golden = async (name: string) =>
     "utf8",
   );
 
-test("with platform-dns off a declared alias leaves the local certificate byte-identical to the golden rendered from main, which carries no alias", async () => {
-  const { repository } = await withAlias(false);
+test("with platform-dns off the local certificate is byte-identical to the golden rendered from main", async () => {
   assert.equal(
-    certificateRender(repository),
+    certificateRender(await withPlatformDns(false)),
     await golden("platform-certificate.local.yaml"),
   );
 });
 
-test("with no alias the delivery render is byte-identical to the golden rendered from main, and with platform-dns off a declared alias is handed to no delivery values", async () => {
+test("the delivery render is byte-identical to the golden rendered from main, and no flag state hands it a deprecated alias (ADR 0176)", async () => {
   const chart = `${await findRoot()}/infra/charts/platform-config-delivery`;
   assert.equal(
     await deliveryRender(chart),
     await golden("platform-config-delivery.local.yaml"),
   );
-  const { repository } = await withAlias(false);
-  assert.equal(
-    "platformDeprecatedAlias" in chartDeliveryValues(repository, lockFile()),
-    false,
-  );
-  const on = await withAlias(true);
-  assert.equal(
-    chartDeliveryValues(on.repository, lockFile()).platformDeprecatedAlias,
-    on.alias,
-  );
+  for (const platformDns of [false, true]) {
+    assert.equal(
+      "platformDeprecatedAlias" in
+        chartDeliveryValues(await withPlatformDns(platformDns), lockFile()),
+      false,
+    );
+  }
 });
 
-test("with platform-dns on the local certificate names the alias beside the domain, so the alias listener is served by the same certificate", async () => {
-  const { repository, domain, alias } = await withAlias(true);
+test("with platform-dns on the local certificate names the platform domain only, so no alias name is served (ADR 0176)", async () => {
   assert.match(
-    certificateRender(repository),
-    new RegExp(`- "${escapeRegExp(domain)}"\\n\\s+- "${escapeRegExp(alias)}"`),
+    certificateRender(await withPlatformDns(true)),
+    new RegExp(
+      `dnsNames:\\n\\s+- "${platform.domain.replaceAll(".", "\\.")}"\\n\\s+issuerRef:`,
+    ),
   );
 });

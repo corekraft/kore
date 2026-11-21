@@ -239,7 +239,6 @@ export interface Environment {
   platform: {
     domain: string;
     organizationId: string;
-    deprecatedAlias?: string;
   };
   gateway: { namespace: string; name: string; port: number };
   secrets: { storeName: string; sourceNamespace: string };

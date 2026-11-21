@@ -45,7 +45,7 @@ export function fakeRepository(
         clusterName: "kore-local",
         serviceCidr: "10.96.0.0/12",
         ports: [
-          { hostAddress: "127.0.0.1", hostPort: 8443, loadBalancerPort: 443 },
+          { hostAddress: "127.0.0.1", hostPort: 443, loadBalancerPort: 443 },
         ],
       },
       ...environment,

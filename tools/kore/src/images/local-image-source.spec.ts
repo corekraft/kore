@@ -38,7 +38,7 @@ function repository(): Repository {
 
 function client(): PublishSession["client"] {
   return {
-    address: "registry.platform.kore.local",
+    address: "registry.platform.kore.internal",
     env: {},
     authorization: "Basic a29yZTpwdw==",
     head: vi.fn(),

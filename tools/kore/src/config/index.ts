@@ -44,6 +44,7 @@ export type {
   PromotionRecord,
 } from "./policy-promotion.js";
 export {
+  gatewayEntryPort,
   localCaConfigMap,
   otlpByName,
   otlpHostname,
@@ -100,7 +101,6 @@ export {
   chartDeliveryValues,
   chartRepositoryUrls,
   databaseRoutesDeliveryArgs,
-  deprecatedAliasDeliveryArgs,
 } from "./chart-delivery.js";
 export type { ChartDeliveryValues } from "./chart-delivery.js";
 export type { GoldenPathDeliveryValues } from "./types.js";

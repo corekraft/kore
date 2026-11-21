@@ -52,7 +52,7 @@ export function createArgs(
     "--k3s-arg",
     "--service-cidr=10.96.0.0/12@server:*",
     "--port",
-    "127.0.0.1:8443:443@loadbalancer",
+    "127.0.0.1:443:443@loadbalancer",
     "--api-port",
     "127.0.0.1:random",
     ...volumes,
@@ -105,8 +105,8 @@ export const MESSAGES = {
   wrongNamespace:
     /did not identify the expected cluster.*set environment\.kubeContext to k3d-kore-local/s,
   overlayServers: /servers: 3 != 1.*kore local down --prune.*kore local up/s,
-  wrongPort: "port 443: 9443 != 8443",
-  unmappedPort: "port 443: unmapped != 8443",
+  wrongPort: "port 443: 9443 != 443",
+  unmappedPort: "port 443: unmapped != 443",
   wrongAddress:
     "k3d cluster kore-local differs from the overlay (port 443 address: 0.0.0.0 != 127.0.0.1); recreate it with `kore local down --prune` then `kore local up`",
   unreadableAddress:

@@ -33,7 +33,7 @@ function fakeRequest(): FakeRequest {
 function start(req: FakeRequest) {
   vi.mocked(request).mockReturnValue(asFake<ClientRequest>(req));
   const promise = registryHead(
-    "https://registry.platform.kore.local/v2/app/manifests/x",
+    "https://registry.platform.kore.internal/v2/app/manifests/x",
     { accept: "application/vnd.oci.image.manifest.v1+json" },
     "ca-pem",
   );
@@ -56,7 +56,7 @@ test("the HEAD goes to the URL with its headers, verified against the CA and nev
   const { onResponse } = start(req);
   onResponse(response(200, {}));
   expect(request).toHaveBeenCalledWith(
-    "https://registry.platform.kore.local/v2/app/manifests/x",
+    "https://registry.platform.kore.internal/v2/app/manifests/x",
     {
       method: "HEAD",
       headers: { accept: "application/vnd.oci.image.manifest.v1+json" },

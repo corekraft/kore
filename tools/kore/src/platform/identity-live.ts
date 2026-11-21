@@ -2,6 +2,7 @@ import { readdir, readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { assertExpectedCluster } from "../cluster/index.js";
 import {
+  gatewayEntryPort,
   loadRepository,
   platformPlan,
   type Repository,
@@ -81,7 +82,7 @@ export async function viaGateway(
   path: string,
   authorization?: string,
 ): Promise<number> {
-  const { port } = repository.environment.gateway;
+  const port = gatewayEntryPort;
   const { domain: hostname } = platformPlan(repository.environment);
   const { stdout } = await runner.run(
     "curl",
