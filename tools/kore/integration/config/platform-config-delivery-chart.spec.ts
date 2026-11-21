@@ -62,7 +62,7 @@ test("one Application per handed-over release plus one AppProject, and never one
   const docs = await render();
   const names = (await applications())
     .map((doc) => /^ {2}name: (.+)$/m.exec(doc)![1])
-    .sort();
+    .sort((a = "", b = "") => a.localeCompare(b));
   assert.deepEqual(names, [...handedOver].sort());
   assert.equal(docs.filter((d) => /^kind: AppProject$/m.test(d)).length, 1);
   assert.equal(docs.length, handedOver.length + 1);
@@ -250,6 +250,25 @@ test("the delivery chart is a gated release owned by kore, installed after Argo 
   assert.ok(helmInstalledComponents(on, false).some((c) => c.name === name));
   const order = orderedComponents(on.catalog).map((c) => c.name);
   assert.ok(order.indexOf("argocd") < order.indexOf(name));
+});
+
+test("kore-config-delivery is reconciled after kore-golden-path-delivery, so its Application gate never waits on an Application the golden-path release re-renders", async () => {
+  const delivery = "kore-config-delivery";
+  const golden = "kore-golden-path-delivery";
+  const repository = await loadRepository("local");
+  await validateRepository(repository);
+  const component = repository.catalog.components.find(
+    (c) => c.name === delivery,
+  )!;
+  assert.ok(
+    component.dependencies.includes(golden),
+    `${delivery} must depend on ${golden}: its readiness waits for every Argo CD Application, and the golden-path Application's hostname only changes once ${golden} is upgraded`,
+  );
+  const order = orderedComponents(repository.catalog).map((c) => c.name);
+  assert.ok(
+    order.indexOf(golden) < order.indexOf(delivery),
+    `${golden} must be upgraded before ${delivery} waits for the Applications; order was ${order.join(", ")}`,
+  );
 });
 
 test("with database-routes on the PostgreSQL API's Application is handed the flag, the platform domain and the organization identifier as Helm parameters; with it off it carries none", async () => {
