@@ -39,6 +39,7 @@ on:
           - registry
           - resilience
           - signer
+          - signin
           - storage
           - telemetry
 
