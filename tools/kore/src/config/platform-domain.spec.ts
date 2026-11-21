@@ -118,11 +118,13 @@ test("each chart that read a hand-set domain is handed it as a derived value", (
   ]);
   expect(platformHelmArgs(local, "kore-platform-keycloak")).toEqual([
     "--set-string",
-    "platformDomain=kore.internal",
+    "keycloakHostname=keycloak.kore.internal",
   ]);
   expect(platformHelmArgs(local, "kore-platform-backstage")).toEqual([
     "--set-string",
     "platformDomain=kore.internal",
+    "--set-string",
+    "keycloakHostname=keycloak.kore.internal",
   ]);
   expect(platformHelmArgs(local, "kore-platform-config")).toEqual([
     "--set-string",
@@ -199,6 +201,8 @@ test("with platform-shared-gateway on the portal and the golden-path delivery ar
   expect(platformHelmArgs(sharedGatewayOn, "kore-platform-backstage")).toEqual([
     "--set-string",
     "platformDomain=kore.internal",
+    "--set-string",
+    "keycloakHostname=keycloak.platform.kore.internal",
     ...values(""),
   ]);
   expect(
@@ -217,6 +221,8 @@ test("with platform-shared-gateway off or omitted no shared Gateway value is han
     expect(platformHelmArgs(off, "kore-platform-backstage")).toEqual([
       "--set-string",
       "platformDomain=kore.internal",
+      "--set-string",
+      "keycloakHostname=keycloak.kore.internal",
     ]);
     expect(platformHelmArgs(off, "kore-golden-path-delivery")).toEqual([]);
   }
@@ -243,6 +249,8 @@ test("with platform-dns on the portal is handed the CA bundle its pods trust, an
     "--set-string",
     "platformDomain=kore.internal",
     "--set-string",
+    "keycloakHostname=keycloak.kore.internal",
+    "--set-string",
     "localCa.configMap=kore-local-ca",
   ]);
   expect(platformHelmArgs(dnsOn, "kore-platform-dns")).toEqual([
@@ -263,6 +271,8 @@ test("with platform-dns off or omitted the portal is handed no CA bundle", () =>
     expect(platformHelmArgs(off, "kore-platform-backstage")).toEqual([
       "--set-string",
       "platformDomain=kore.internal",
+      "--set-string",
+      "keycloakHostname=keycloak.kore.internal",
     ]);
   }
 });
@@ -280,7 +290,7 @@ test("with platform-hostname-ownership on the Organization API is handed the org
   ]);
   expect(platformHelmArgs(on, "kore-platform-keycloak")).toEqual([
     "--set-string",
-    "platformDomain=kore.internal",
+    "keycloakHostname=keycloak.kore.internal",
   ]);
 });
 

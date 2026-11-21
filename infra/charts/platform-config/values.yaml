@@ -5,6 +5,7 @@ gateway:
     certificateSecret: kore-local-tls,
     service: {},
     platformCertificateSecret: kore-platform-wildcard-tls,
+    keycloakCertificateSecret: keycloak-tls,
     sharedServicePort: 443,
     database: { port: 5432, nodePort: null }
   }

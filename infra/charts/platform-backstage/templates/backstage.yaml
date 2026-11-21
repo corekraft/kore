@@ -31,7 +31,7 @@ spec:
           args:
             - --provider=keycloak-oidc
             - --client-id=backstage
-            - --oidc-issuer-url=https://keycloak.{{ .Values.platformDomain }}/realms/platform
+            - --oidc-issuer-url=https://{{ required "set keycloakHostname, which kore passes from the environment's platform field" .Values.keycloakHostname }}/realms/platform
             - --redirect-url=https://backstage.{{ .Values.platformDomain }}/oauth2/callback
             - --upstream=http://127.0.0.1:7007
             - --http-address=0.0.0.0:4180
@@ -100,7 +100,7 @@ spec:
             # In-app sign-in (ADR 0113). The proxy stays in front until a live
             # run proves it; the client secret is the same Secret reference.
             - name: OIDC_METADATA_URL
-              value: https://keycloak.{{ .Values.platformDomain }}/realms/platform/.well-known/openid-configuration
+              value: https://{{ required "set keycloakHostname, which kore passes from the environment's platform field" .Values.keycloakHostname }}/realms/platform/.well-known/openid-configuration
             - name: OIDC_CLIENT_ID
               value: backstage
             - name: OIDC_CLIENT_SECRET

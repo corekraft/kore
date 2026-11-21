@@ -1,14 +1,35 @@
 {
   "$schema": "https://json-schema.org/draft-07/schema#",
   "type": "object",
-  "required": ["platformDomain"],
+  "required": ["keycloakHostname"],
   "additionalProperties": false,
   "properties": {
-    "platformDomain": {
-      "description": "The environment's platform domain (ADR 0042). The Keycloak host is keycloak.<platformDomain>, a host under the platform base (ADR 0113).",
+    "keycloakHostname": {
+      "description": "The Keycloak host kore derives (ADR 0113, ADR 0133): keycloak.<organizationId>.<platformDomain> while platform-shared-gateway is on, keycloak.<platformDomain> otherwise. The portal's OIDC issuer takes the same value.",
       "type": "string",
       "maxLength": 180,
       "pattern": "^([a-z0-9]([-a-z0-9]{0,61}[a-z0-9])?\\.)+[a-z0-9]([-a-z0-9]{0,61}[a-z0-9])?$"
+    },
+    "sharedGateway": {
+      "description": "The shared platform Gateway the Keycloak route attaches to, which kore passes only while platform-shared-gateway is on (ADR 0133). Without it no route renders.",
+      "type": "object",
+      "required": ["name", "namespace", "domain"],
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "namespace": {
+          "type": "string",
+          "minLength": 1
+        },
+        "domain": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 190
+        }
+      }
     },
     "features": {
       "description": "Kore passes the environment's feature flags here (ADR 0077). Only platform-portal is read: on, the Organization composition also owns the realm.",
@@ -22,7 +43,10 @@
           "type": "string",
           "pattern": "^[1-9][0-9]*Gi$"
         },
-        "compatibilityVersion": { "type": "integer", "enum": [16, 17, 18] }
+        "compatibilityVersion": {
+          "type": "integer",
+          "enum": [16, 17, 18]
+        }
       }
     }
   }
