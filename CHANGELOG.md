@@ -1,5 +1,33 @@
 # Changelog
 
+## [0.19.0](https://github.com/corekraft/kore/compare/v0.18.0...v0.19.0) (2026-11-21)
+
+
+### Features
+
+* **platform:** move the local domain to kore.internal and keep kore.local as an alias ([#1684](https://github.com/corekraft/kore/issues/1684)) ([070d4d5](https://github.com/corekraft/kore/commit/070d4d5d30fa1e8a08c5cbe994165d83ff8bc394)), closes [#1217](https://github.com/corekraft/kore/issues/1217) [#1215](https://github.com/corekraft/kore/issues/1215)
+
+
+### Bug fixes
+
+* **platform:** advertise Keycloak's https issuer behind the platform Gateway ([#1697](https://github.com/corekraft/kore/issues/1697)) ([b405ad3](https://github.com/corekraft/kore/commit/b405ad3e0bb0145d909a5c9e59dfe163f065e323)), closes [#1696](https://github.com/corekraft/kore/issues/1696) [#1111](https://github.com/corekraft/kore/issues/1111) [#1318](https://github.com/corekraft/kore/issues/1318)
+* **platform:** declare the features map in the service-observability values schema ([#1693](https://github.com/corekraft/kore/issues/1693)) ([6ec6ada](https://github.com/corekraft/kore/commit/6ec6ada335996ced7f7c790fc8082f6eff204b3d)), closes [#1692](https://github.com/corekraft/kore/issues/1692) [#1318](https://github.com/corekraft/kore/issues/1318) [#1111](https://github.com/corekraft/kore/issues/1111)
+* **platform:** dial the Gateway on the host entry port in live helpers ([#1691](https://github.com/corekraft/kore/issues/1691)) ([aee838f](https://github.com/corekraft/kore/commit/aee838f9b15fdb6cc643169301516286bb870e33))
+* **platform:** give the Backstage containers a numeric runAsUser ([#1699](https://github.com/corekraft/kore/issues/1699)) ([928eef7](https://github.com/corekraft/kore/commit/928eef70f6763debf5f6f980872572d67541e69f))
+* **platform:** route Keycloak on the platform Gateway so Backstage can discover its issuer ([#1695](https://github.com/corekraft/kore/issues/1695)) ([e8479a2](https://github.com/corekraft/kore/commit/e8479a2b589e6d614ecb7f38b0ddcd3a45bd4db3))
+* **platform:** upgrade the golden-path delivery before the Application gate ([#1687](https://github.com/corekraft/kore/issues/1687)) ([79190d0](https://github.com/corekraft/kore/commit/79190d04379faf27c852146d73f61d1d9042255d))
+
+
+### Refactoring
+
+* **platform:** retire the local registry port-forward ([#1589](https://github.com/corekraft/kore/issues/1589)) ([1014289](https://github.com/corekraft/kore/commit/1014289d901a289adc2a08fe36d4d08cca81cf9f))
+* **platform:** retire the OTLP port-forward and send host telemetry by name ([#1681](https://github.com/corekraft/kore/issues/1681)) ([e7346da](https://github.com/corekraft/kore/commit/e7346da8556d3575bcdcbfcbfcac2237b124d227))
+
+
+### Documentation
+
+* **platform:** record the platform v1 decisions as ADRs 0147 to 0174 ([#1488](https://github.com/corekraft/kore/issues/1488)) ([317ca92](https://github.com/corekraft/kore/commit/317ca92400f840a16b0a5ea065414ba91cebe565)), closes [#1478](https://github.com/corekraft/kore/issues/1478)
+
 ## [0.18.0](https://github.com/corekraft/kore/compare/v0.17.0...v0.18.0) (2026-11-20)
 
 
