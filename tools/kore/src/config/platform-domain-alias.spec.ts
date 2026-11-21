@@ -5,11 +5,13 @@ import type { Environment } from "./types.js";
 import { platformDomainErrors, platformHelmArgs } from "./platform-domain.js";
 
 // An overlay written before ADR 0176 still declares the field, which the type no longer carries.
-const stale = {
+const stale: NonNullable<Environment["platform"]> & {
+  deprecatedAlias: string;
+} = {
   domain: "kore.internal",
   organizationId: "platform",
   deprecatedAlias: "kore.local",
-} as unknown as Environment["platform"];
+};
 
 const declaring = fakeEnvironment({
   platform: stale,

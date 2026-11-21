@@ -41,15 +41,18 @@ const delivery = {
   platformHostname: "*.platform.kore.internal",
 };
 
+// A delivery value still carrying the removed alias, as an older render would hand it over.
+const staleDelivery: ChartDeliveryValues & { platformDeprecatedAlias: string } =
+  {
+    ...delivery,
+    platformDeprecatedAlias: "kore.local",
+  };
+
 test("kore-config-delivery is never handed a deprecated alias, even when a stale delivery value still carries one (ADR 0176)", () => {
   const args = helmUpgradeArgs(
     {
       ...repository,
-      // A delivery value still carrying the removed alias, as an older render would hand it over.
-      chartDelivery: {
-        ...delivery,
-        platformDeprecatedAlias: "kore.local",
-      } as ChartDeliveryValues,
+      chartDelivery: staleDelivery,
     },
     fakeComponent({ name: "kore-config-delivery" }),
   );
