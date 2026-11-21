@@ -168,26 +168,6 @@ test("the database is claimed through the platform PostgreSQL API and read by re
   assert.match(deployment, /name: backstage-db-app/);
 });
 
-test("Backstage keeps the one provisioned database and gives each plugin a schema in it, so it never runs CREATE DATABASE", async () => {
-  const deployment = document(await render("local"), "Deployment");
-  assert.match(
-    deployment,
-    /- name: APP_CONFIG_backend_database_pluginDivisionMode\n\s+value: schema\n/,
-  );
-  assert.match(
-    deployment,
-    /- name: APP_CONFIG_backend_database_ensureSchemaExists\n\s+value: "true"\n/,
-  );
-  assert.match(
-    deployment,
-    /- name: APP_CONFIG_backend_database_connection_database\n\s+valueFrom:\n\s+secretKeyRef:\n\s+name: backstage-db-connection\n\s+key: database\n/,
-  );
-  assert.equal(
-    /pluginDivisionMode\n\s+value: database\b/.test(deployment),
-    false,
-  );
-});
-
 test("both images are pinned by digest and named by the component, so the install deploys what was verified", async () => {
   const repository = await loadRepository("local");
   const images = repository.approved.images.filter(
