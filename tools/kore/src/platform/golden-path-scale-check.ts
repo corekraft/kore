@@ -1,4 +1,5 @@
 import type { Runner } from "../runtime/index.js";
+import { type Autoscaler, autoscalerOf } from "./golden-path-autoscaler.js";
 import { goldenPathRouteSet } from "./golden-path-routes.js";
 import type { HostReader, HostSnapshot } from "./ingress-host.js";
 import { countRound, loadArgs } from "./route-load.js";
@@ -41,10 +42,14 @@ export interface ScaleCheckOptions {
   pollIntervalSeconds: number;
 }
 
+/** Seconds past the scale-down window the scale-in waits before it may conclude. */
+export const scaleInMarginSeconds = 60;
+/** Seconds past that for the Pods to terminate, after which the scale-in is given up on. */
+export const scaleInAllowanceSeconds = 120;
+
 /**
- * The fixed method of the recorded baseline. The poll budget covers the
- * autoscaler's scale-down stabilisation window (five minutes by default) plus
- * the time the Pods take to terminate.
+ * The fixed method of the recorded baseline. The start and peak waits read
+ * `maxPolls` times; the scale-in waits for the autoscaler's scale-down window.
  */
 export const scaleCheckDefaults = {
   requestsPerRoute: 50,
@@ -69,8 +74,12 @@ export interface ScaleCheckResult {
     requestsPerRoute: number;
     concurrency: number;
   };
-  /** The HorizontalPodAutoscaler's bounds on the BFF; the run starts and ends at its minimum. */
-  autoscaler: { minReplicas: number; maxReplicas: number };
+  /** The HorizontalPodAutoscaler's bounds and scale-down window on the BFF; the run starts and ends at its minimum. */
+  autoscaler: {
+    minReplicas: number;
+    maxReplicas: number;
+    scaleDownWindowSeconds: number;
+  };
   /** Ready replicas: where the run began, the most it saw under load, and where it ended. */
   replicas: { start: number; peak: number; end: number };
   /** Every request answered its expected status, or the check failed. */
@@ -83,21 +92,6 @@ export interface ScaleCheckResult {
 interface Replicas {
   total: number;
   ready: number;
-}
-
-interface Autoscaler {
-  minReplicas: number;
-  maxReplicas: number;
-}
-
-interface Autoscalers {
-  items?: {
-    spec?: {
-      scaleTargetRef?: { kind?: string; name?: string };
-      minReplicas?: number;
-      maxReplicas?: number;
-    };
-  }[];
 }
 
 const tenth = (value: number): number => Math.round(value * 10) / 10;
@@ -149,8 +143,8 @@ export class GoldenPathScaleCheck {
         `${this.subject()} has ${seen.ready} ready replicas after ${this.options.maxPolls} reads before any load, not its autoscaler's minimum of ${minReplicas}; the autoscaler has not settled at its minimum`,
     );
     const began = this.deps.now();
-    const loading = this.loadUntil(() => running.value);
     const running = { value: true };
+    const loading = this.loadUntil(() => running.value);
     let waited: unknown;
     try {
       await this.waitFor(
@@ -164,17 +158,48 @@ export class GoldenPathScaleCheck {
     }
     running.value = false;
     await loading;
+    const stopped = this.deps.now();
     this.throwFailure();
     if (waited !== undefined) {
       throw waited;
     }
-    const end = await this.waitFor(
-      minReplicas,
-      "settled",
-      (seen) =>
-        `${this.subject()} still has ${seen.ready} ready replicas after ${this.options.maxPolls} reads, not its minimum of ${minReplicas}; the autoscaler has not scaled back in`,
-    );
+    const end = await this.scaleIn(autoscaler, stopped);
     return this.result(autoscaler, start.ready, end, loadAverage, began);
+  }
+
+  /**
+   * Reads the Deployment until the autoscaler has settled it at its minimum. The
+   * scale-in cannot begin before the scale-down window has passed since the load
+   * stopped, so the wait never concludes before the window plus a margin; it fails
+   * once the window, the margin and the termination allowance have all passed.
+   */
+  private async scaleIn(
+    { minReplicas, scaleDownWindowSeconds }: Autoscaler,
+    stopped: number,
+  ): Promise<Replicas> {
+    const { pollIntervalSeconds } = this.options;
+    const earliest =
+      stopped + (scaleDownWindowSeconds + scaleInMarginSeconds) * 1000;
+    const budgetSeconds =
+      scaleDownWindowSeconds + scaleInMarginSeconds + scaleInAllowanceSeconds;
+    let seen = await this.replicas();
+    for (;;) {
+      const now = this.deps.now();
+      if (
+        seen.ready === minReplicas &&
+        seen.total === minReplicas &&
+        now >= earliest
+      ) {
+        return seen;
+      }
+      if (now >= stopped + budgetSeconds * 1000) {
+        throw new Error(
+          `${this.subject()} still has ${seen.ready} ready replicas ${budgetSeconds} seconds after the load stopped, not its minimum of ${minReplicas}; the autoscaler has not scaled back in (its scale-down window is ${scaleDownWindowSeconds} s, plus a ${scaleInMarginSeconds} s margin and a ${scaleInAllowanceSeconds} s allowance for the Pods to terminate)`,
+        );
+      }
+      await this.deps.sleep(pollIntervalSeconds);
+      seen = await this.replicas();
+    }
   }
 
   private result(
@@ -189,6 +214,7 @@ export class GoldenPathScaleCheck {
       autoscaler: {
         minReplicas: autoscaler.minReplicas,
         maxReplicas: autoscaler.maxReplicas,
+        scaleDownWindowSeconds: autoscaler.scaleDownWindowSeconds,
       },
       replicas: { start, peak: this.peak, end: end.ready },
       load: {
@@ -251,21 +277,13 @@ export class GoldenPathScaleCheck {
    */
   private async requireAutoscaler(): Promise<Autoscaler> {
     const { stdout } = await this.kubectl(["get", "hpa", "--output", "json"]);
-    const { items = [] } = JSON.parse(stdout) as Autoscalers;
-    const target = items.find(
-      ({ spec }) =>
-        spec?.scaleTargetRef?.kind === "Deployment" &&
-        spec.scaleTargetRef.name === this.options.deployment,
-    );
-    if (target?.spec === undefined) {
+    const autoscaler = autoscalerOf(stdout, this.options.deployment);
+    if (autoscaler === undefined) {
       throw new Error(
         `${this.subject()} has no HorizontalPodAutoscaler that targets it; the golden-path-workload chart creates one only while autoscaling-defaults is on (ADR 0047), so no scale-out can be measured; turn the flag on, let the sync converge, then rerun`,
       );
     }
-    return {
-      minReplicas: target.spec.minReplicas ?? 1,
-      maxReplicas: target.spec.maxReplicas ?? 1,
-    };
+    return autoscaler;
   }
 
   /** Refuses a peak the autoscaler could never reach, or one that is no scale-out at all. */

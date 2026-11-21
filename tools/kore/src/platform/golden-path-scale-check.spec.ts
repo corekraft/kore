@@ -1,5 +1,6 @@
 import { beforeEach, expect, test, vi } from "vitest";
 import type { Runner } from "../runtime/index.js";
+import { autoscalerOf } from "./golden-path-autoscaler.js";
 import { goldenPathRouteSet } from "./golden-path-routes.js";
 import {
   GoldenPathScaleCheck,
@@ -9,6 +10,7 @@ import {
 import type { HostReader, HostSnapshot } from "./ingress-host.js";
 import { countRound, loadArgs } from "./route-load.js";
 
+vi.mock("./golden-path-autoscaler.js", () => ({ autoscalerOf: vi.fn() }));
 vi.mock("./route-load.js", () => ({ countRound: vi.fn(), loadArgs: vi.fn() }));
 vi.mock("./golden-path-routes.js", () => ({
   goldenPathRouteSet: {
@@ -47,34 +49,48 @@ interface Shape {
   stuckAt?: number;
   /** Ready replicas a scale-in stops at once the Deployment has grown past them, as a stalled scale-in holds it. */
   stallAt?: number;
+  /** The autoscaler's behavior; unset is the Kubernetes default, a 300 s scale-down window. */
+  behavior?: { scaleDown?: { stabilizationWindowSeconds?: number } };
 }
 
 /**
- * A fake cluster with a HorizontalPodAutoscaler: a read after load grows the
- * Deployment by one ready replica up to its maximum, and a read with no load
- * since the last read shrinks it by one down to its minimum. The check itself
- * never writes; every call it makes must be a read.
+ * A fake cluster whose clock the check's sleeps advance. A read after load grows
+ * the Deployment by one replica to its maximum; a read shrinks it by one to its
+ * minimum only once the scale-down window has passed since the last load. Every
+ * call the check makes must be a read.
  */
 function cluster(shape: Shape = {}) {
   const minimum = shape.minReplicas ?? 2;
   const maximum = shape.maxReplicas ?? 5;
-  const state = { ready: minimum, loaded: false };
-  const run = vi.fn<Runner["run"]>(async (_command, args) => {
-    if (args.includes("hpa")) {
-      const items = (shape.autoscaled ?? [options.deployment]).map((name) => ({
-        spec: {
-          scaleTargetRef: { kind: "Deployment", name },
+  const window = shape.behavior?.scaleDown?.stabilizationWindowSeconds ?? 300;
+  const clock = { ms: 0 };
+  const state = {
+    ready: minimum,
+    loaded: false,
+    lastLoadMs: Number.NEGATIVE_INFINITY,
+  };
+  vi.mocked(autoscalerOf).mockImplementation((_listing, deployment) =>
+    (shape.autoscaled ?? [options.deployment]).includes(deployment)
+      ? {
           minReplicas: minimum,
           maxReplicas: maximum,
-        },
-      }));
-      return { stdout: JSON.stringify({ items }), stderr: "", code: 0 };
+          scaleDownWindowSeconds: window,
+        }
+      : undefined,
+  );
+  const run = vi.fn<Runner["run"]>(async (_command, args) => {
+    // The listing is parsed by autoscalerOf, mocked above; the check only reads it.
+    if (args.includes("hpa")) {
+      return { stdout: "{}", stderr: "", code: 0 };
     }
     const ceiling = Math.min(maximum, shape.stuckAt ?? maximum);
     const stallAt = shape.stallAt ?? minimum;
     if (state.loaded) {
       state.ready = Math.min(ceiling, state.ready + 1);
-    } else if (state.ready > stallAt) {
+    } else if (
+      state.ready > stallAt &&
+      clock.ms - state.lastLoadMs >= window * 1000
+    ) {
       state.ready -= 1;
     }
     state.loaded = false;
@@ -86,18 +102,23 @@ function cluster(shape: Shape = {}) {
       code: 0,
     };
   });
-  return { state, runner: { run } satisfies Runner };
+  return { state, clock, runner: { run } satisfies Runner };
 }
 
 type Fake = ReturnType<typeof cluster>;
 
-/** A load round that answers stdout, and marks the cluster as loaded since its last read. */
+/** A load round that answers stdout, and marks the cluster as loaded at the clock's time. */
 function answer(fake: Fake, stdout: string): Runner["run"] {
   return async () => {
     fake.state.loaded = true;
+    fake.state.lastLoadMs = fake.clock.ms;
     return { stdout, stderr: "", code: 0 };
   };
 }
+
+/** Seconds on the fake clock since the last load round, which is since the load stopped. */
+const sinceLoadSeconds = (fake: Fake) =>
+  (fake.clock.ms - fake.state.lastLoadMs) / 1000;
 
 function check(
   fake: Fake,
@@ -109,13 +130,12 @@ function check(
   }: { load?: Runner["run"]; loadAverage?: number; host?: HostReader } = {},
 ) {
   const loadRunner = { run: vi.fn<Runner["run"]>(load) } satisfies Runner;
-  let clock = 0;
   const deps: ScaleCheckDeps = {
     sleep: vi.fn<(seconds: number) => Promise<void>>(async (seconds) => {
-      clock += seconds * 1000;
+      fake.clock.ms += seconds * 1000;
     }),
     loadAverage: vi.fn(() => loadAverage),
-    now: vi.fn(() => clock),
+    now: vi.fn(() => fake.clock.ms),
   };
   return {
     loadRunner,
@@ -155,7 +175,31 @@ test("waits for the autoscaler's minimum, grows the BFF under load to at least t
   expect(result.replicas.peak).toBeGreaterThanOrEqual(4);
   expect(result.replicas.peak).toBeLessThanOrEqual(5);
   expect(result.replicas.end).toBe(2);
-  expect(result.autoscaler).toEqual({ minReplicas: 2, maxReplicas: 5 });
+  expect(result.autoscaler).toEqual({
+    minReplicas: 2,
+    maxReplicas: 5,
+    scaleDownWindowSeconds: 300,
+  });
+});
+
+test("waits the default 300 s scale-down window plus a 60 s margin after the load stops, even where the BFF is back at its minimum sooner", async () => {
+  const fake = cluster();
+
+  await check(fake).scaleCheck.run();
+
+  expect(sinceLoadSeconds(fake)).toBeGreaterThanOrEqual(360);
+});
+
+test("reads the autoscaler's custom scale-down window and waits it out, not the 300 s default", async () => {
+  const fake = cluster({
+    behavior: { scaleDown: { stabilizationWindowSeconds: 600 } },
+  });
+
+  const result = await check(fake).scaleCheck.run();
+
+  expect(result.autoscaler.scaleDownWindowSeconds).toBe(600);
+  expect(result.replicas.end).toBe(2);
+  expect(sinceLoadSeconds(fake)).toBeGreaterThanOrEqual(660);
 });
 
 test("writes nothing to the cluster: every kubectl call the check makes is a read, so the autoscaler alone moves the replica count", async () => {
@@ -220,11 +264,11 @@ test("a deployment that never reaches the peak under load fails naming the count
   expect(writes(fake)).toEqual([]);
 });
 
-test("a deployment whose scale-in stalls above the autoscaler's minimum fails naming the count it holds", async () => {
+test("a deployment whose scale-in stalls above the autoscaler's minimum past its window, margin and termination allowance fails naming the count it holds and the window", async () => {
   const fake = cluster({ stallAt: 3 });
 
   await expect(check(fake).scaleCheck.run()).rejects.toThrow(
-    "golden-path-example--local/golden-path-example-bff still has 3 ready replicas after 5 reads, not its minimum of 2; the autoscaler has not scaled back in",
+    "golden-path-example--local/golden-path-example-bff still has 3 ready replicas 480 seconds after the load stopped, not its minimum of 2; the autoscaler has not scaled back in (its scale-down window is 300 s, plus a 60 s margin and a 120 s allowance for the Pods to terminate)",
   );
 });
 

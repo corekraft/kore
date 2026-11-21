@@ -8,7 +8,7 @@
 {{- fail "autoscaling.maxReplicas must not be below autoscaling.minReplicas; raise maxReplicas" }}
 {{- end }}
 {{- if not ((.Values.resources.requests | default dict).cpu) }}
-{{- fail "autoscaling.enabled needs resources.requests.cpu: the autoscaler computes CPU utilisation against the request; set resources.requests.cpu (for example 25m) or set autoscaling.enabled=false" }}
+{{- fail "autoscaling.enabled needs resources.requests.cpu: the autoscaler computes CPU utilisation against the request; set resources.requests.cpu (for example 100m) or set autoscaling.enabled=false" }}
 {{- end }}
 {{- end }}
 {{- range $name, $path := dict "frontend" "/healthz" "bff" "/actuator/health" }}

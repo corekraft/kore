@@ -5,6 +5,25 @@
 {{- $phase = .phase | default "" }}
 {{- $reason = .phaseReason | default "" }}
 {{- end }}{{ end }}{{ end }}
+{{- $routeEntry := dict }}
+{{- with .observed.resources }}{{ with index . "database-route" }}{{ $routeEntry = . }}{{ end }}{{ end }}
+{{- $route := dig "resource" (dict) $routeEntry }}
+{{- $accepted := dict }}
+{{- $resolved := dict }}
+{{- range dig "status" "parents" (list) $route }}
+{{- if and (eq (dig "parentRef" "name" "" .) $routes.gatewayName) (eq (dig "parentRef" "namespace" "" .) $routes.gatewayNamespace) }}
+{{- range dig "conditions" (list) . }}
+{{- if eq (dig "type" "" .) "Accepted" }}{{ $accepted = . }}{{ end }}
+{{- if eq (dig "type" "" .) "ResolvedRefs" }}{{ $resolved = . }}{{ end }}
+{{- end }}
+{{- end }}
+{{- end }}
+{{- $routeReady := and (eq (dig "status" "" $accepted) "True") (eq (dig "status" "" $resolved) "True") }}
+{{- $refused := $accepted }}
+{{- if eq (dig "status" "" $accepted) "True" }}{{ $refused = $resolved }}{{ end }}
+{{- $routeReason := default "Provisioning" (dig "reason" "" $refused) }}
+{{- $routeMessage := default "the Gateway has not reported on the database route yet" (dig "message" "" $refused) }}
+{{- if $routeReady }}{{ $routeReason = "Routed" }}{{ $routeMessage = "the Gateway accepted the database route" }}{{ end }}
 apiVersion: platform.kore.dev/v1alpha1
 kind: PostgreSQLInstance
 status:
@@ -22,6 +41,13 @@ conditions:
     reason: {{ if eq $phase "Cluster in healthy state" }}Healthy{{ else if $reason }}Failed{{ else }}Provisioning{{ end }}
     message: {{ $reason | default $phase | quote }}
     target: CompositeAndClaim
+{{- if ne $version 16 }}
+  - type: DatabaseRouteReady
+    status: {{ if $routeReady }}"True"{{ else }}"False"{{ end }}
+    reason: {{ $routeReason | quote }}
+    message: {{ $routeMessage | quote }}
+    target: CompositeAndClaim
+{{- end }}
 {{- if eq $version 16 }}
   - type: ReachableByName
     status: "False"

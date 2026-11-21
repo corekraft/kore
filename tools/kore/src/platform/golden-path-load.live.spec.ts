@@ -7,6 +7,7 @@ import { ProcessRunner, liveEnvironment } from "../runtime/index.js";
 import { mkcertRoot } from "./gateway-cluster.live.js";
 import { goldenPathReach } from "./golden-path-reach.live.js";
 import type { GoldenPathReach } from "./golden-path-reach.live.js";
+import { waitForQuietHost } from "./golden-path-quiet-host.js";
 import { goldenPathRouteSet } from "./golden-path-routes.js";
 import {
   GoldenPathScaleCheck,
@@ -26,7 +27,9 @@ import { RatedMeasurement } from "./ingress-rated-measurement.js";
 // - the golden-path p95, p50 and max at the service's own Gateway, read-only
 //   against the cluster, separate from the reference routes' numbers;
 // - the scale check, which writes nothing: the BFF's HorizontalPodAutoscaler
-//   scales it out under load and back to its minimum.
+//   scales it out under load and back to its minimum. It starts only once the
+//   host load has fallen under the check's guard, and its scale-in waits out the
+//   autoscaler's scale-down window.
 // The probes reach the service's own Gateway at its published address, or, when
 // the service has no Gateway of its own, the shared Gateway on loopback. Any other
 // case fails before any load is sent, naming the cause (golden-path-reach.live.ts).
@@ -133,6 +136,8 @@ test(
   live,
   async () => {
     const c = await context();
+    // The p95 test before this one leaves the host busy; wait for it to quiet.
+    await waitForQuietHost(c.deps, scaleCheckDefaults);
     const result = await new GoldenPathScaleCheck(
       c.runner,
       c.runner,
