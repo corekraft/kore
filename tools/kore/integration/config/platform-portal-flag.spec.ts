@@ -156,7 +156,23 @@ test("the chart ships no OpenShift ingress grant, so the operator holds no clust
   assert.equal(text.includes("keycloak-operator-clusterrole"), false);
 });
 
-for (const name of ["local", "vps", "managed-example"]) {
+test("local declares portal-staged-install on, after the confirmed run on #1318, so the portal components start after the Argo CD delivery", async () => {
+  const repository = await loadRepository("local");
+  await validateRepository(repository);
+  assert.equal(
+    repository.environment.features?.[portalStagedInstallFlag],
+    true,
+  );
+  const staged = repository.catalog.components
+    .filter((c) => startsAfterDelivery(repository.environment, c))
+    .map((c) => c.name);
+  assert.deepEqual(staged, [
+    "kore-platform-keycloak",
+    "kore-platform-backstage",
+  ]);
+});
+
+for (const name of ["vps", "managed-example"]) {
   test(`${name} declares portal-staged-install off, so no release is staged until its live proof`, async () => {
     const repository = await loadRepository(name);
     await validateRepository(repository);
