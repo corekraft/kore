@@ -2,7 +2,11 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import { loadavg } from "node:os";
 import test from "node:test";
-import { loadRepository, platformPlan } from "../config/index.js";
+import {
+  gatewayEntryPort,
+  loadRepository,
+  platformPlan,
+} from "../config/index.js";
 import { ProcessRunner, liveEnvironment } from "../runtime/index.js";
 import { mkcertRoot } from "./gateway-cluster.live.js";
 import { goldenPathReach } from "./golden-path-reach.live.js";
@@ -75,7 +79,10 @@ async function context() {
     kubeContext,
     namespace: `${service}--${name}`,
     service,
-    sharedGateway: repository.environment.gateway,
+    sharedGateway: {
+      ...repository.environment.gateway,
+      port: gatewayEntryPort,
+    },
   });
   return {
     runner,
