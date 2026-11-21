@@ -5,10 +5,7 @@ import { KeycloakTestUsers } from "./keycloak-test-user.js";
 
 vi.mock("../config/index.js", () => ({
   gatewayEntryPort: 443,
-  platformPlan: vi.fn(() => ({
-    domain: "kore.internal",
-    organizationId: "platform",
-  })),
+  keycloakHostname: vi.fn(() => "keycloak.platform.kore.internal"),
 }));
 
 const password = "Tq9-pass_w0rd-Zx7";
@@ -74,6 +71,18 @@ describe("KeycloakTestUsers", () => {
       expect(call.args.join(" ")).not.toContain("admin-secret-value");
     }
     expect(curlCalls()[0]?.input).toContain("admin-secret-value");
+  });
+
+  it("reaches Keycloak at the host the platform-domain helper derives, through the gateway", async () => {
+    const { runner, curlCalls } = fakeRunner(() => created);
+    await KeycloakTestUsers.connect(repository, runner);
+    const token = curlCalls()[0];
+    expect(token?.args).toContain(
+      "keycloak.platform.kore.internal:443:127.0.0.1",
+    );
+    expect(token?.input).toContain(
+      'url = "https://keycloak.platform.kore.internal/realms/master/protocol/openid-connect/token"',
+    );
   });
 
   it("creates a user with the password in the request body and returns the id from the Location header", async () => {
