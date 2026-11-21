@@ -15,12 +15,15 @@ const repository = {
       "gateway-class-change-release": true,
       "gateway-rollback-order": true,
       "agentgateway-mesh-enrollment": true,
+      "registry-by-name": true,
+      "database-routes": true,
+      "otlp-route": true,
       "role-tokens": true,
     },
   },
 } as unknown as Repository;
 
-test("the four gateway flags read off, so the istio path is what runs", () => {
+test("the gateway and traffic flags read off, so the istio path and no live-only route run", () => {
   const pinned = withGatewayFlagsOff(repository);
 
   expect(pinned.environment.features).toEqual({
@@ -28,6 +31,9 @@ test("the four gateway flags read off, so the istio path is what runs", () => {
     "gateway-class-change-release": false,
     "gateway-rollback-order": false,
     "agentgateway-mesh-enrollment": false,
+    "registry-by-name": false,
+    "database-routes": false,
+    "otlp-route": false,
     "role-tokens": true,
   });
 });
@@ -38,7 +44,7 @@ test("the repository it is given is left as it was", () => {
   expect(repository.environment.features?.["ingress-agentgateway"]).toBe(true);
 });
 
-test("the local repository loads with the four gateway flags off", async () => {
+test("the local repository loads with the gateway and traffic flags off", async () => {
   loadRepository.mockResolvedValue(repository);
 
   const loaded = await loadLocalGatewayFlagsOff();

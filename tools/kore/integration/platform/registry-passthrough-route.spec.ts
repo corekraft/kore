@@ -8,7 +8,10 @@ import {
   type Repository,
 } from "../../src/config/index.js";
 import { helmTemplateArgs } from "../../src/platform/index.js";
-import { withAbsoluteChart } from "../../src/testing/index.js";
+import {
+  withAbsoluteChart,
+  withGatewayFlagsOff,
+} from "../../src/testing/index.js";
 
 // With registry-by-name on, the shared Gateway holds a TLS passthrough
 // listener for the registry's name on the same port as its HTTPS listeners, and
@@ -32,7 +35,7 @@ function render(repository: Repository, component: string): string {
 async function repositoryWith(
   flags: Record<string, boolean | undefined>,
 ): Promise<Repository> {
-  const base = await loadRepository("local");
+  const base = withGatewayFlagsOff(await loadRepository("local"));
   const features: Record<string, boolean> = {
     ...base.environment.features,
     "platform-dns": false,
