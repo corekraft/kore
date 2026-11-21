@@ -136,8 +136,7 @@ DNS, and services are subdomains inside those zones
 - **One default zone per organization.** Before delegating anything, every
   organization gets `<organization>.<platform domain>`. The platform domain is
   a per-environment setting, separate from any organization's domain and still
-  to be chosen; locally it is `kore.internal`, with `kore.local` kept as a
-  deprecated alias (ADR 0175). It goes on the Public Suffix List,
+  to be chosen; locally it is `kore.internal`, the former alias `kore.local` was removed (ADR 0176). It goes on the Public Suffix List,
   as `github.io` does, before outside tenants arrive, so browsers treat each
   organization as its own site.
 - **A lapsed delegation has a grace period.** No new routes are admitted, the

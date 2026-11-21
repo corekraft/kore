@@ -23,7 +23,7 @@ const repository = {
   ...base,
   environment: {
     ...base.environment,
-    platform: { domain: "kore.local", organizationId: "platform" },
+    platform: { domain: "kore.internal", organizationId: "platform" },
     gateway: { namespace: "g", name: "g", port: 8443 },
   },
 };
@@ -52,7 +52,7 @@ beforeEach(() => {
   ]);
   vi.mocked(gatewayClassName).mockReturnValue("agentgateway");
   vi.mocked(platformPlan).mockReturnValue({
-    domain: "kore.local",
+    domain: "kore.internal",
     organizationId: "platform",
   });
   vi.mocked(readFile).mockResolvedValue(JSON.stringify(lock));
@@ -81,7 +81,7 @@ test("the values carry the lock's digests, the checked-out commit and the enviro
       "kotlin-bff": { image: "ghcr.io/o/bff", digest: digest("2") },
     },
     ingress: {
-      platformDomain: "kore.local",
+      platformDomain: "kore.internal",
       gatewayClassName: "agentgateway",
     },
     sharedGateway: false,

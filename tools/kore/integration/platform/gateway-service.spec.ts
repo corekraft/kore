@@ -5,6 +5,7 @@ import {
   ingressFlag,
   loadRepository,
   type Repository,
+  gatewayEntryPort,
 } from "../../src/config/index.js";
 import {
   generatedPorts,
@@ -36,7 +37,7 @@ test.each([false, true])(
     const output = render(repository);
     assert.match(output, /parametersRef:/);
     assert.match(output, /type: NodePort/);
-    const mapped = k3d?.ports.find((p) => p.hostPort === gateway.port);
+    const mapped = k3d?.ports.find((p) => p.hostPort === gatewayEntryPort);
     assert.ok(mapped, "the k3d block maps the Gateway host port");
     const servicePort = on ? 443 : gateway.port;
     const target = on

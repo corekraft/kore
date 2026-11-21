@@ -35,7 +35,7 @@ test("the child environment carries the credential and the helper directory, and
     async (client) => {
       return client.env;
     },
-    "registry.platform.kore.local",
+    "registry.platform.kore.internal",
   );
 
   expect(env).toEqual({
@@ -51,7 +51,7 @@ test("the config and the CA are written mode 0600, and the credential is written
     credential,
     ca,
     async () => undefined,
-    "registry.platform.kore.local",
+    "registry.platform.kore.internal",
   );
 
   expect(writeFile).toHaveBeenNthCalledWith(
@@ -73,7 +73,7 @@ test("the helper script is written and made executable, and only get is answered
     credential,
     ca,
     async () => undefined,
-    "registry.platform.kore.local",
+    "registry.platform.kore.internal",
   );
 
   const script = vi.mocked(writeFile).mock.calls[2]?.[1];
@@ -103,7 +103,7 @@ test("the CA reaches cosign as the temporary file, and head verifies against the
       caFile = client.caFile;
       head = await client.head("https://x/v2/", { accept: "a" });
     },
-    "registry.platform.kore.local",
+    "registry.platform.kore.internal",
   );
 
   expect(caFile).toBe(`${directory}/ca.crt`);
@@ -123,7 +123,7 @@ test("the Authorization header is the Basic encoding of the credential for in-pr
     async (client) => {
       authorization = client.authorization;
     },
-    "registry.platform.kore.local",
+    "registry.platform.kore.internal",
   );
 
   expect(authorization).toBe(
@@ -136,7 +136,7 @@ test("the private directory is removed when the action succeeds", async () => {
     credential,
     ca,
     async () => "done",
-    "registry.platform.kore.local",
+    "registry.platform.kore.internal",
   );
 
   expect(rm).toHaveBeenCalledWith(directory, { force: true, recursive: true });
@@ -152,7 +152,7 @@ test("the private directory is removed even when the action fails, and the failu
       async () => {
         throw failure;
       },
-      "registry.platform.kore.local",
+      "registry.platform.kore.internal",
     ),
   ).rejects.toBe(failure);
 
@@ -164,8 +164,8 @@ test("the client carries the address the caller dials, which is the registry's n
     credential,
     ca,
     async (client) => client.address,
-    "registry.platform.kore.local",
+    "registry.platform.kore.internal",
   );
 
-  expect(named).toBe("registry.platform.kore.local");
+  expect(named).toBe("registry.platform.kore.internal");
 });

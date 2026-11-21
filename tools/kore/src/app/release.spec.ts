@@ -19,7 +19,7 @@ const repository = fakeRepository();
 beforeEach(() => {
   vi.mocked(isLocalProvider).mockReturnValue(true);
   vi.mocked(platformPlan).mockReturnValue({
-    domain: "kore.local",
+    domain: "kore.internal",
     organizationId: "platform",
   });
   vi.mocked(registryPlan).mockReturnValue({
@@ -52,7 +52,7 @@ test("a release passes the gateway, registry, secret store and telemetry setting
     expect.arrayContaining([
       "platform.gateway.name=kore-gateway",
       "platform.gateway.namespace=kore-system",
-      "platform.gateway.hostname=kore.local",
+      "platform.gateway.hostname=kore.internal",
       "platform.registry.address=registry.kore.local:30500",
       "platform.secretStore=kore-store",
       "platform.otlpEndpoint=http://otel.kore-system:4318",

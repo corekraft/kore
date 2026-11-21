@@ -47,7 +47,7 @@ beforeEach(() => {
 
 const gatewayPort = {
   hostAddress: "127.0.0.1",
-  hostPort: 8443,
+  hostPort: 443,
   loadBalancerPort: 443,
 };
 const postgresPort = {
@@ -129,7 +129,7 @@ test("an environment that opts out drops the 5432 mapping from the drift check, 
       .flatMap((line) =>
         line.split(" --").filter((a) => a.startsWith("port ")),
       ),
-  ).toEqual(["port 127.0.0.1:8443:443@loadbalancer"]);
+  ).toEqual(["port 127.0.0.1:443:443@loadbalancer"]);
 });
 
 test("with the flag on and no opt-out, the create arguments publish 5432 on the loopback address only", async () => {
@@ -148,7 +148,7 @@ test("with the flag on and no opt-out, the create arguments publish 5432 on the 
         line.split(" --").filter((a) => a.startsWith("port ")),
       ),
   ).toEqual([
-    "port 127.0.0.1:8443:443@loadbalancer",
+    "port 127.0.0.1:443:443@loadbalancer",
     "port 127.0.0.1:5432:30432@loadbalancer",
   ]);
 });

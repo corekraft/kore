@@ -27,7 +27,7 @@ const options: ScaleCheckOptions = {
   namespace: "golden-path-example--local",
   deployment: "golden-path-example-bff",
   peakReplicas: 4,
-  hostname: "golden-path-example.platform.kore.local",
+  hostname: "golden-path-example.platform.kore.internal",
   port: 8443,
   caRoot: "/ca",
   requestsPerRoute: 50,

@@ -92,10 +92,10 @@ test("a repository that passes every rule validates without throwing, and each c
 
 test("a platform domain error fails validation before any cluster command, with the fix in the message", async () => {
   vi.mocked(environmentFieldErrors).mockReturnValue([
-    'platform.domain must be a lowercase DNS name of at least two labels, for example kore.local, in environment local, got "kore"',
+    'platform.domain must be a lowercase DNS name of at least two labels, for example kore.internal, in environment local, got "kore"',
   ]);
   expect(await messageOf(repositoryWith({}))).toBe(
-    'platform.domain must be a lowercase DNS name of at least two labels, for example kore.local, in environment local, got "kore"',
+    'platform.domain must be a lowercase DNS name of at least two labels, for example kore.internal, in environment local, got "kore"',
   );
 });
 

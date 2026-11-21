@@ -85,7 +85,7 @@ test("a passing host port check lets the absent cluster be created on its loopba
     line.startsWith("k3d cluster create"),
   );
   expect(creates).toHaveLength(1);
-  expect(creates[0]).toContain("--port 127.0.0.1:8443:443@loadbalancer");
+  expect(creates[0]).toContain("--port 127.0.0.1:443:443@loadbalancer");
 });
 
 test("no host port check runs when the cluster is running or stopped", async () => {
@@ -102,7 +102,7 @@ test("the check receives the effective overlay's own cluster, so a port added to
       clusterName: "kore-local",
       serviceCidr: "10.96.0.0/12",
       ports: [
-        { hostAddress: "127.0.0.1", hostPort: 8443, loadBalancerPort: 443 },
+        { hostAddress: "127.0.0.1", hostPort: 443, loadBalancerPort: 443 },
         { hostAddress: "127.0.0.1", hostPort: 9000, loadBalancerPort: 30000 },
         { hostAddress: "127.0.0.1", hostPort: 9100, loadBalancerPort: 30100 },
       ],
@@ -143,7 +143,7 @@ const dnsPorts = [
 ];
 const gatewayPort = {
   hostAddress: "127.0.0.1",
-  hostPort: 8443,
+  hostPort: 443,
   loadBalancerPort: 443,
 };
 
@@ -197,7 +197,7 @@ test("with the flag off the host port check is not asked about the flagged mappi
   ]);
 });
 
-test("with the flag off the create arguments publish no flagged mapping, and with it on they publish 443 and both 1053 protocols beside 8443", async () => {
+test("with the flag off the create arguments publish no flagged mapping, and with it on they publish 443 and both 1053 protocols", async () => {
   const created = async (platformDns: boolean) => {
     const absent = fakeK3d(undefined);
     await clusterUpK3d(
@@ -213,11 +213,9 @@ test("with the flag off the create arguments publish no flagged mapping, and wit
         line.split(" --").filter((a) => a.startsWith("port ")),
       );
   };
-  expect(await created(false)).toEqual([
-    "port 127.0.0.1:8443:443@loadbalancer",
-  ]);
+  expect(await created(false)).toEqual(["port 127.0.0.1:443:443@loadbalancer"]);
   expect(await created(true)).toEqual([
-    "port 127.0.0.1:8443:443@loadbalancer",
+    "port 127.0.0.1:443:443@loadbalancer",
     "port 127.0.0.1:443:30443@loadbalancer",
     "port 127.0.0.1:1053:31053@loadbalancer",
     "port 127.0.0.1:1053:31053/udp@loadbalancer",

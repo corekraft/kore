@@ -103,19 +103,13 @@
         "domain": {
           "type": "string",
           "maxLength": 180,
-          "description": "A lowercase DNS name of at least two labels, for example kore.local.",
+          "description": "A lowercase DNS name of at least two labels, for example kore.internal.",
           "pattern": "^([a-z0-9]([-a-z0-9]{0,61}[a-z0-9])?\\.)+[a-z0-9]([-a-z0-9]{0,61}[a-z0-9])?$"
         },
         "organizationId": {
           "type": "string",
           "description": "The platform organization's identifier, one lowercase DNS label, for example platform.",
           "pattern": "^[a-z0-9]([-a-z0-9]{0,61}[a-z0-9])?$"
-        },
-        "deprecatedAlias": {
-          "type": "string",
-          "maxLength": 180,
-          "description": "A former platform domain that stays a listener beside the domain, with the same certificate, until a contract ticket removes it (ADR 0132). A lowercase DNS name of at least two labels, different from the domain, for example kore.local. Unset means no alias.",
-          "pattern": "^([a-z0-9]([-a-z0-9]{0,61}[a-z0-9])?\\.)+[a-z0-9]([-a-z0-9]{0,61}[a-z0-9])?$"
         }
       }
     },

@@ -232,7 +232,7 @@ test("a route host the platform Gateway has no listener for fails the check, nam
   assert.match(
     errors[0]!,
     new RegExp(
-      `^HTTPRoute reference host moved\\.example\\.test matches no listener hostname of Gateway kore-system/kore-gateway \\(listeners: ${escapeRegExp(platform.domain)}, ${escapeRegExp(repository.environment.platform?.deprecatedAlias ?? "")}\\)`,
+      `^HTTPRoute reference host moved\\.example\\.test matches no listener hostname of Gateway kore-system/kore-gateway \\(listeners: ${escapeRegExp(platform.domain)}\\)`,
     ),
   );
 });

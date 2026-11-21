@@ -51,7 +51,7 @@ test("every host port is published on the loopback address its overlay entry dec
       clusterName: "kore-local",
       serviceCidr: "10.96.0.0/12",
       ports: [
-        { hostAddress: "127.0.0.1", hostPort: 8443, loadBalancerPort: 443 },
+        { hostAddress: "127.0.0.1", hostPort: 443, loadBalancerPort: 443 },
         { hostAddress: "127.0.0.2", hostPort: 9000, loadBalancerPort: 30000 },
       ],
     },
@@ -59,7 +59,7 @@ test("every host port is published on the loopback address its overlay entry dec
   expect(
     k3dCreateArgs(two, TRUST).filter((arg) => arg.endsWith("@loadbalancer")),
   ).toEqual([
-    "127.0.0.1:8443:443@loadbalancer",
+    "127.0.0.1:443:443@loadbalancer",
     "127.0.0.2:9000:30000@loadbalancer",
   ]);
 });
@@ -71,7 +71,7 @@ test("the API port is published with a random host port on the first declared po
       serviceCidr: "10.96.0.0/12",
       ports: [
         { hostAddress: "127.0.0.2", hostPort: 9000, loadBalancerPort: 30000 },
-        { hostAddress: "127.0.0.1", hostPort: 8443, loadBalancerPort: 443 },
+        { hostAddress: "127.0.0.1", hostPort: 443, loadBalancerPort: 443 },
       ],
     },
   });
@@ -95,7 +95,7 @@ test("a drift verdict on the host address is refused with the recreate path befo
 
 test("a port whose host address neither the listing nor docker inspect reports is refused, naming both commands and not the recreate path", async () => {
   vi.mocked(unreadablePorts).mockReturnValue([
-    { hostAddress: "127.0.0.1", hostPort: 8443, loadBalancerPort: 443 },
+    { hostAddress: "127.0.0.1", hostPort: 443, loadBalancerPort: 443 },
   ]);
   const silent = fakeK3d(1);
   await expect(up(silent.runner)).rejects.toThrow(
@@ -128,7 +128,7 @@ test("a mapping with no protocol is passed as before, and a UDP mapping on the s
         },
         {
           hostAddress: "127.0.0.1",
-          hostPort: 8443,
+          hostPort: 443,
           loadBalancerPort: 443,
           protocol: "tcp",
         },
@@ -140,6 +140,6 @@ test("a mapping with no protocol is passed as before, and a UDP mapping on the s
   ).toEqual([
     "127.0.0.1:1053:1053@loadbalancer",
     "127.0.0.1:1053:1053/udp@loadbalancer",
-    "127.0.0.1:8443:443@loadbalancer",
+    "127.0.0.1:443:443@loadbalancer",
   ]);
 });

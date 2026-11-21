@@ -44,8 +44,8 @@ const statusFor: Record<string, number> = {
 const options: MeasurementOptions = {
   kubeContext: "k3d-kore-local",
   gateway: { namespace: "kore-system", name: "kore-gateway" },
-  hostname: "kore.local",
-  port: 8443,
+  hostname: "kore.internal",
+  port: 443,
   caRoot: "/ca",
   settleSeconds: 60,
   sampleCount: 2,
@@ -149,11 +149,11 @@ test("the request load is the fixed curl call for each route, with the local CA 
       "--cacert",
       "/ca/rootCA.pem",
       "--resolve",
-      "kore.local:8443:127.0.0.1",
+      "kore.internal:443:127.0.0.1",
       "--parallel",
       "--parallel-max",
       "4",
-      "https://kore.local:8443/livez#[1-50]",
+      "https://kore.internal:443/livez#[1-50]",
     ],
     { capture: true },
   ]);
@@ -244,7 +244,7 @@ test("a failing request load fails the measurement with an actionable message", 
   );
 
   await expect(measurement.measure()).rejects.toThrow(
-    "the request load to https://kore.local:8443 failed: curl failed (7): connection refused; check that kore local up converged and the k3d load balancer maps port 8443",
+    "the request load to https://kore.internal:443 failed: curl failed (7): connection refused; check that kore local up converged and the k3d load balancer maps port 443",
   );
 });
 

@@ -46,23 +46,26 @@ function route(
 const join = (...documents: string[]) => documents.join("\n---\n");
 
 test("an exact host matches an exact listener hostname, and a different host does not", () => {
-  expect(hostMatchesListener("kore.local", "kore.local")).toBe(true);
-  expect(hostMatchesListener("kore.example", "kore.local")).toBe(false);
+  expect(hostMatchesListener("kore.internal", "kore.internal")).toBe(true);
+  expect(hostMatchesListener("kore.example", "kore.internal")).toBe(false);
 });
 
 test("matching ignores case", () => {
-  expect(hostMatchesListener("Kore.Local", "kore.local")).toBe(true);
+  expect(hostMatchesListener("Kore.Internal", "kore.internal")).toBe(true);
 });
 
 test("a wildcard listener matches hosts below it, never its own apex", () => {
   expect(
-    hostMatchesListener("web.platform.kore.local", "*.platform.kore.local"),
+    hostMatchesListener(
+      "web.platform.kore.internal",
+      "*.platform.kore.internal",
+    ),
   ).toBe(true);
   expect(
-    hostMatchesListener("platform.kore.local", "*.platform.kore.local"),
+    hostMatchesListener("platform.kore.internal", "*.platform.kore.internal"),
   ).toBe(false);
   expect(
-    hostMatchesListener("web.other.kore.local", "*.platform.kore.local"),
+    hostMatchesListener("web.other.kore.internal", "*.platform.kore.internal"),
   ).toBe(false);
 });
 
@@ -70,8 +73,8 @@ test("a route host the platform Gateway lists produces no error", () => {
   expect(
     routeHostErrors(
       join(
-        platformGateway("kore.local"),
-        route("kore-gateway", ["kore.local"]),
+        platformGateway("kore.internal"),
+        route("kore-gateway", ["kore.internal"]),
       ),
       gateway,
     ),
@@ -82,13 +85,13 @@ test("a route host no listener hostname matches is named with the Gateway's list
   expect(
     routeHostErrors(
       join(
-        platformGateway("kore.local"),
-        route("kore-gateway", ["kore.internal"]),
+        platformGateway("kore.internal"),
+        route("kore-gateway", ["moved.example"]),
       ),
       gateway,
     ),
   ).toEqual([
-    "HTTPRoute reference/reference host kore.internal matches no listener hostname of Gateway kore-system/kore-gateway (listeners: kore.local); add a listener for the host or derive the host from platform.domain",
+    "HTTPRoute reference/reference host moved.example matches no listener hostname of Gateway kore-system/kore-gateway (listeners: kore.internal); add a listener for the host or derive the host from platform.domain",
   ]);
 });
 
@@ -96,8 +99,12 @@ test("each unmatched host of a route is its own error, and a matched one is not 
   expect(
     routeHostErrors(
       join(
-        platformGateway("kore.local"),
-        route("kore-gateway", ["kore.local", "a.kore.local", "b.kore.local"]),
+        platformGateway("kore.internal"),
+        route("kore-gateway", [
+          "kore.internal",
+          "a.kore.internal",
+          "b.kore.internal",
+        ]),
       ),
       gateway,
     ),
@@ -108,8 +115,8 @@ test("a route attached to another Gateway is not held to the platform Gateway's 
   expect(
     routeHostErrors(
       join(
-        platformGateway("kore.local"),
-        route("backstage", ["backstage.kore.local"]),
+        platformGateway("kore.internal"),
+        route("backstage", ["backstage.kore.internal"]),
       ),
       gateway,
     ),
@@ -119,7 +126,7 @@ test("a route attached to another Gateway is not held to the platform Gateway's 
 test("a route that lists no hostnames produces no error", () => {
   const bare = route("kore-gateway", []).replace(/^ {2}hostnames:.*\n/m, "");
   expect(
-    routeHostErrors(join(platformGateway("kore.local"), bare), gateway),
+    routeHostErrors(join(platformGateway("kore.internal"), bare), gateway),
   ).toEqual([]);
 });
 
@@ -140,15 +147,15 @@ test("hostnames written as a block list are read", () => {
     "    - backendRefs: [{name: web, port: 80}]",
   ].join("\n");
   expect(
-    routeHostErrors(join(platformGateway("kore.local"), block), gateway),
+    routeHostErrors(join(platformGateway("kore.internal"), block), gateway),
   ).toEqual([
-    "HTTPRoute portal/portal host portal.kore.internal matches no listener hostname of Gateway kore-system/kore-gateway (listeners: kore.local); add a listener for the host or derive the host from platform.domain",
+    "HTTPRoute portal/portal host portal.kore.internal matches no listener hostname of Gateway kore-system/kore-gateway (listeners: kore.internal); add a listener for the host or derive the host from platform.domain",
   ]);
 });
 
 test("a rendering with no platform Gateway is refused, so a missing Gateway never passes as zero errors", () => {
   expect(
-    routeHostErrors(route("kore-gateway", ["kore.local"]), gateway),
+    routeHostErrors(route("kore-gateway", ["kore.internal"]), gateway),
   ).toEqual([
     "no Gateway kore-system/kore-gateway in the rendered output; render the platform config chart beside the routes",
   ]);
@@ -158,8 +165,8 @@ test("a wildcard listener alongside the apex covers both", () => {
   expect(
     routeHostErrors(
       join(
-        platformGateway("kore.local", "*.platform.kore.local"),
-        route("kore-gateway", ["kore.local", "web.platform.kore.local"]),
+        platformGateway("kore.internal", "*.platform.kore.internal"),
+        route("kore-gateway", ["kore.internal", "web.platform.kore.internal"]),
       ),
       gateway,
     ),
@@ -177,8 +184,8 @@ test("a route whose metadata is written in flow style is still named in the erro
     '  hostnames: ["moved.example"]',
   ].join("\n");
   expect(
-    routeHostErrors(join(platformGateway("kore.local"), flow), gateway),
+    routeHostErrors(join(platformGateway("kore.internal"), flow), gateway),
   ).toEqual([
-    "HTTPRoute reference host moved.example matches no listener hostname of Gateway kore-system/kore-gateway (listeners: kore.local); add a listener for the host or derive the host from platform.domain",
+    "HTTPRoute reference host moved.example matches no listener hostname of Gateway kore-system/kore-gateway (listeners: kore.internal); add a listener for the host or derive the host from platform.domain",
   ]);
 });

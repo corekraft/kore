@@ -11,7 +11,7 @@ import {
 
 const options = {
   namespace: "kore-proof-abc",
-  hostname: "kore.local",
+  hostname: "kore.internal",
   gateway: { name: "kore-gateway", namespace: "kore-system" },
   image: "kore/reference@sha256:" + "a".repeat(64),
   pullPolicy: "Never",
@@ -38,7 +38,7 @@ test("the proof route attaches to the infrastructure Gateway, never creating one
   assert.deepEqual(get(route, "spec.parentRefs"), [
     { name: "kore-gateway", namespace: "kore-system" },
   ]);
-  assert.deepEqual(get(route, "spec.hostnames"), ["kore.local"]);
+  assert.deepEqual(get(route, "spec.hostnames"), ["kore.internal"]);
   assert.equal(get(route, "metadata.namespace"), "kore-proof-abc");
 });
 

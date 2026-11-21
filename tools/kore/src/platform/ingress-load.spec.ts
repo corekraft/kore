@@ -41,7 +41,7 @@ test("the load verifies the local CA, never disables certificate checks, and is 
     assert.ok(args.includes("/ca/rootCA.pem"));
     assert.ok(!args.includes("--insecure"));
     assert.ok(!args.includes("-k"));
-    assert.ok(args.includes("kore.internal:8443:127.0.0.1"));
+    assert.ok(args.includes("kore.internal:443:127.0.0.1"));
     const after = (flag: string) => args[args.indexOf(flag) + 1];
     assert.equal(after("--connect-timeout"), "5");
     assert.equal(after("--max-time"), "60");
@@ -54,7 +54,7 @@ test("every load and latency curl resolves the host to the published address and
   const { measurement } = fixture(
     sampleResponses(2),
     {
-      hostname: "golden-path-example.platform.kore.local",
+      hostname: "golden-path-example.platform.kore.internal",
       port: 443,
       address: "10.0.0.5",
       latencyProbesPerRoute: 2,
@@ -66,11 +66,13 @@ test("every load and latency curl resolves the host to the published address and
   assert.ok(curls.length > 0);
   for (const { args } of curls) {
     assert.ok(
-      args.includes("golden-path-example.platform.kore.local:443:10.0.0.5"),
+      args.includes("golden-path-example.platform.kore.internal:443:10.0.0.5"),
       args.join(" "),
     );
     assert.ok(
-      !args.includes("golden-path-example.platform.kore.local:443:127.0.0.1"),
+      !args.includes(
+        "golden-path-example.platform.kore.internal:443:127.0.0.1",
+      ),
     );
   }
 });
@@ -82,6 +84,6 @@ test("requests carry the route's exact path and no query string", async () => {
   assert.ok(urls.length > 0);
   for (const url of urls) {
     assert.ok(!url.includes("?"), url);
-    assert.match(url, /^https:\/\/kore\.internal:8443\/[a-z/]+#\[1-50\]$/);
+    assert.match(url, /^https:\/\/kore\.internal:443\/[a-z/]+#\[1-50\]$/);
   }
 });

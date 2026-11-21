@@ -2,7 +2,11 @@ import assert from "node:assert/strict";
 import { readdir, readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { test } from "vitest";
-import { loadRepository, validateRepository } from "../../src/config/index.js";
+import {
+  loadRepository,
+  validateRepository,
+  gatewayEntryPort,
+} from "../../src/config/index.js";
 
 test("the real local overlay is a valid k3d overlay with the matching kube context", async () => {
   const repository = await loadRepository("local");
@@ -18,7 +22,7 @@ test("the real local overlay is a valid k3d overlay with the matching kube conte
 
 test("the load balancer maps the Gateway host port to the node port the overlay values publish", async () => {
   const repository = await loadRepository("local");
-  const { gateway, k3d } = repository.environment;
+  const { k3d } = repository.environment;
   const values = await readFile(
     join(
       repository.root,
@@ -28,12 +32,13 @@ test("the load balancer maps the Gateway host port to the node port the overlay 
   );
   const nodePort = Number(/^\s+nodePort:\s*(\d+)/m.exec(values)?.[1]);
   assert.deepEqual(
-    k3d?.ports.filter((port) => port.hostPort === gateway.port),
+    k3d?.ports.filter((port) => port.hostPort === gatewayEntryPort),
     [
       {
         hostAddress: "127.0.0.1",
-        hostPort: gateway.port,
+        hostPort: gatewayEntryPort,
         loadBalancerPort: nodePort,
+        featureFlag: "platform-dns",
       },
     ],
   );

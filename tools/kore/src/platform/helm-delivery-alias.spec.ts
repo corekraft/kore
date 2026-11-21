@@ -1,4 +1,5 @@
 import { beforeEach, expect, test, vi } from "vitest";
+import type { ChartDeliveryValues } from "../config/index.js";
 import { helmUpgradeArgs } from "./helm.js";
 import { configAnswers } from "./helm-support.js";
 import { fakeComponent, fakeRepository } from "./platform-support.js";
@@ -40,28 +41,22 @@ const delivery = {
   platformHostname: "*.platform.kore.internal",
 };
 
-test("kore-config-delivery is handed the deprecated alias beside the domain, so the Argo CD Applications serve it too (ADR 0132)", () => {
+test("kore-config-delivery is never handed a deprecated alias, even when a stale delivery value still carries one (ADR 0176)", () => {
   const args = helmUpgradeArgs(
     {
       ...repository,
-      chartDelivery: { ...delivery, platformDeprecatedAlias: "kore.local" },
+      // A delivery value still carrying the removed alias, as an older render would hand it over.
+      chartDelivery: {
+        ...delivery,
+        platformDeprecatedAlias: "kore.local",
+      } as ChartDeliveryValues,
     },
     fakeComponent({ name: "kore-config-delivery" }),
   );
-  expect(args.slice(-4)).toEqual([
+  expect(args.slice(-2)).toEqual([
     "--set-string",
     "platformHostname=*.platform.kore.internal",
-    "--set-string",
-    "platformDeprecatedAlias=kore.local",
   ]);
-});
-
-test("kore-config-delivery gets no alias argument when the environment declares none", () => {
-  const args = helmUpgradeArgs(
-    { ...repository, chartDelivery: delivery },
-    fakeComponent({ name: "kore-config-delivery" }),
-  );
-  expect(args).not.toContain("platformDeprecatedAlias=kore.local");
   expect(args.some((arg) => arg.startsWith("platformDeprecatedAlias="))).toBe(
     false,
   );

@@ -15,9 +15,10 @@ export const BASE = [
 export const GATEWAY = "gateway/kore";
 
 /**
- * The environment's Gateway port maps to the load balancer's node port 30443.
- * Host 443, the shared Gateway's standard port, maps to that same node port, so
- * readiness must find 30443 from two host mappings to one node port.
+ * The local overlay's Gateway: its in-cluster listener is gateway.port (8443), and
+ * the host reaches it on 443, the entry point (ADR 0132, ADR 0176), which the load
+ * balancer maps to the node port 30443. Readiness reads that node port from the
+ * entry point's mapping.
  */
 export const repository = {
   environment: {
@@ -25,7 +26,6 @@ export const repository = {
     gateway: { port: 8443 },
     k3d: {
       ports: [
-        { hostAddress: "127.0.0.1", hostPort: 8443, loadBalancerPort: 30443 },
         { hostAddress: "127.0.0.1", hostPort: 443, loadBalancerPort: 30443 },
       ],
     },

@@ -94,7 +94,7 @@ test("with the flag on a host outside the platform domain still fails the check,
   assert.match(
     errors[0]!,
     new RegExp(
-      `^HTTPRoute reference host moved\\.example\\.test matches no listener hostname of Gateway kore-system/kore-gateway \\(listeners: ${escapeRegExp(domain)}, ${escapeRegExp(repository.environment.platform?.deprecatedAlias ?? "")}, ${escapeRegExp(`*.${organizationId}.${domain}`)}\\)`,
+      `^HTTPRoute reference host moved\\.example\\.test matches no listener hostname of Gateway kore-system/kore-gateway \\(listeners: ${escapeRegExp(domain)}, ${escapeRegExp(`*.${organizationId}.${domain}`)}\\)`,
     ),
   );
 });
@@ -107,7 +107,7 @@ test("with the flag off a host under the organization has no listener and fails 
   assert.match(
     errors[0]!,
     new RegExp(
-      `^HTTPRoute reference host app\\.${escapeRegExp(`${organizationId}.${domain}`)} matches no listener hostname of Gateway kore-system/kore-gateway \\(listeners: ${escapeRegExp(domain)}, ${escapeRegExp(repository.environment.platform?.deprecatedAlias ?? "")}\\)`,
+      `^HTTPRoute reference host app\\.${escapeRegExp(`${organizationId}.${domain}`)} matches no listener hostname of Gateway kore-system/kore-gateway \\(listeners: ${escapeRegExp(domain)}\\)`,
     ),
   );
 });

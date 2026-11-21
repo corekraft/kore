@@ -48,7 +48,7 @@ function withFakeClient(): void {
 
 beforeEach(() => {
   vi.mocked(hostRegistryAddress).mockReturnValue(
-    "registry.platform.kore.local",
+    "registry.platform.kore.internal",
   );
   vi.mocked(isLocalProvider).mockReturnValue(true);
   vi.mocked(trustedSigners).mockReturnValue([localKey, releaseSigner]);
@@ -149,7 +149,7 @@ test("a managed environment verifies a release image keylessly and loads no regi
 test("cosign verifies the registry-resolved reference, not the cluster-local name in the lock", async () => {
   vi.mocked(isLocalProvider).mockReturnValue(false);
   vi.mocked(localRegistryReference).mockResolvedValue(
-    "registry.platform.kore.local/reference@sha256:" + "a".repeat(64),
+    "registry.platform.kore.internal/reference@sha256:" + "a".repeat(64),
   );
   const { runner, run } = fakeRunner();
   await verifyImage(
@@ -163,7 +163,7 @@ test("cosign verifies the registry-resolved reference, not the cluster-local nam
     fakeImage(releaseSigner).reference,
   );
   expect(run.mock.calls[0]?.[1]).toContain(
-    "registry.platform.kore.local/reference@sha256:" + "a".repeat(64),
+    "registry.platform.kore.internal/reference@sha256:" + "a".repeat(64),
   );
 });
 
@@ -185,7 +185,7 @@ test("a local source build is verified with the generated key and the read-only 
     credential,
     "CA-PEM",
     expect.any(Function),
-    "registry.platform.kore.local",
+    "registry.platform.kore.internal",
   );
   expect(run).toHaveBeenCalledWith(
     "cosign",
@@ -232,7 +232,7 @@ test("a managed environment reached through the tailnet forward verifies over TL
   vi.mocked(loadRegistryCredential).mockResolvedValue(credential);
   vi.mocked(loadRegistryCa).mockResolvedValue("CA-PEM");
   vi.mocked(localRegistryReference).mockResolvedValue(
-    "registry.platform.kore.local/release/app@sha256:abc",
+    "registry.platform.kore.internal/release/app@sha256:abc",
   );
   withFakeClient();
   const { runner, run } = fakeRunner();
@@ -252,14 +252,14 @@ test("a managed environment reached through the tailnet forward verifies over TL
     credential,
     "CA-PEM",
     expect.any(Function),
-    "registry.platform.kore.local",
+    "registry.platform.kore.internal",
   );
   expect(run).toHaveBeenCalledWith(
     "cosign",
     verifyLockedImageArgs(
       {
         ...fakeImage(releaseSigner),
-        reference: "registry.platform.kore.local/release/app@sha256:abc",
+        reference: "registry.platform.kore.internal/release/app@sha256:abc",
       },
       undefined,
       client.caFile,

@@ -5,7 +5,7 @@ import { drift, unreadableMessage, unreadablePorts } from "./k3d-drift.js";
 const overlay: K3dCluster = {
   clusterName: "kore-local",
   serviceCidr: "10.96.0.0/12",
-  ports: [{ hostAddress: "127.0.0.1", hostPort: 8443, loadBalancerPort: 443 }],
+  ports: [{ hostAddress: "127.0.0.1", hostPort: 443, loadBalancerPort: 443 }],
 };
 
 /** A cluster entry as `k3d cluster list` reports it, with the given load balancer mappings. */
@@ -26,26 +26,26 @@ function entry(
 
 test("a port published on the overlay's host port and address is no difference", () => {
   const matching = entry({
-    "443/tcp": [{ HostIp: "127.0.0.1", HostPort: "8443" }],
+    "443/tcp": [{ HostIp: "127.0.0.1", HostPort: "443" }],
   });
   expect(drift(matching, overlay)).toEqual([]);
 });
 
 test("a port published on the overlay's host port at another address names the address", () => {
-  const wide = entry({ "443/tcp": [{ HostIp: "0.0.0.0", HostPort: "8443" }] });
+  const wide = entry({ "443/tcp": [{ HostIp: "0.0.0.0", HostPort: "443" }] });
   expect(drift(wide, overlay)).toEqual([
     "port 443 address: 0.0.0.0 != 127.0.0.1",
   ]);
 });
 
 test("a listed binding that omits its host address is unreadable from the listing, and docker inspect supplies the address that is then compared", () => {
-  const silent = entry({ "443/tcp": [{ HostPort: "8443" }] });
+  const silent = entry({ "443/tcp": [{ HostPort: "443" }] });
   expect(unreadablePorts(silent, overlay)).toEqual(overlay.ports);
-  const inspected = { "443/tcp": [{ HostIp: "127.0.0.1", HostPort: "8443" }] };
+  const inspected = { "443/tcp": [{ HostIp: "127.0.0.1", HostPort: "443" }] };
   expect(unreadablePorts(silent, overlay, inspected)).toEqual([]);
   expect(drift(silent, overlay, inspected)).toEqual([]);
   const wideInspected = {
-    "443/tcp": [{ HostIp: "0.0.0.0", HostPort: "8443" }],
+    "443/tcp": [{ HostIp: "0.0.0.0", HostPort: "443" }],
   };
   expect(drift(silent, overlay, wideInspected)).toEqual([
     "port 443 address: 0.0.0.0 != 127.0.0.1",
@@ -54,47 +54,44 @@ test("a listed binding that omits its host address is unreadable from the listin
 
 test("a listing that reports the host address is readable without docker inspect", () => {
   const listed = entry({
-    "443/tcp": [{ HostIp: "127.0.0.1", HostPort: "8443" }],
+    "443/tcp": [{ HostIp: "127.0.0.1", HostPort: "443" }],
   });
   expect(unreadablePorts(listed, overlay)).toEqual([]);
 });
 
-/** The local overlay's entry point with the platform-dns 443 mapping beside it: both share the node port (ADR 0132). */
-const withPort443: K3dCluster = {
+/** The local overlay's entry point: the platform-dns 443 mapping to the shared node port (ADR 0132, ADR 0176). */
+const entryPoint: K3dCluster = {
   ...overlay,
-  ports: [
-    { hostAddress: "127.0.0.1", hostPort: 8443, loadBalancerPort: 30443 },
-    { hostAddress: "127.0.0.1", hostPort: 443, loadBalancerPort: 30443 },
-  ],
+  ports: [{ hostAddress: "127.0.0.1", hostPort: 443, loadBalancerPort: 30443 }],
 };
 
-test("a cluster created before the 443 mapping, which publishes only 8443, is refused naming the missing host port", () => {
-  const before = entry({
+test("a cluster that still publishes the removed 8443 mapping and no 443 is refused, naming the host port the overlay expects (ADR 0176)", () => {
+  const removed = entry({
     "30443/tcp": [{ HostIp: "127.0.0.1", HostPort: "8443" }],
   });
-  expect(drift(before, withPort443)).toEqual(["port 30443: 8443 != 443"]);
+  expect(drift(removed, entryPoint)).toEqual(["port 30443: 8443 != 443"]);
 });
 
-test("a cluster that publishes 443 and 8443 on the loopback address is no difference", () => {
+test("a cluster that publishes 443 and also a leftover 8443 on the loopback address is no difference", () => {
   const both = entry({
     "30443/tcp": [
-      { HostIp: "127.0.0.1", HostPort: "8443" },
       { HostIp: "127.0.0.1", HostPort: "443" },
+      { HostIp: "127.0.0.1", HostPort: "8443" },
     ],
   });
-  expect(drift(both, withPort443)).toEqual([]);
+  expect(drift(both, entryPoint)).toEqual([]);
 });
 
 test("a port on another host port is named by its port, not by its address", () => {
   const moved = entry({
     "443/tcp": [{ HostIp: "127.0.0.1", HostPort: "9443" }],
   });
-  expect(drift(moved, overlay)).toEqual(["port 443: 9443 != 8443"]);
+  expect(drift(moved, overlay)).toEqual(["port 443: 9443 != 443"]);
 });
 
 test("a container port with no bindings is named unmapped", () => {
   expect(drift(entry({ "443/tcp": [] }), overlay)).toEqual([
-    "port 443: unmapped != 8443",
+    "port 443: unmapped != 443",
   ]);
 });
 
@@ -106,7 +103,7 @@ test("without reported mappings only the counts compare, so a missing mapping li
 
 test("an extra mapping that is not the API port is ignored, even when it is off loopback", () => {
   const extra = entry({
-    "443/tcp": [{ HostIp: "127.0.0.1", HostPort: "8443" }],
+    "443/tcp": [{ HostIp: "127.0.0.1", HostPort: "443" }],
     "9090/tcp": [{ HostIp: "0.0.0.0", HostPort: "51234" }],
   });
   expect(drift(extra, overlay)).toEqual([]);
@@ -114,7 +111,7 @@ test("an extra mapping that is not the API port is ignored, even when it is off 
 
 test("the API port's random host port is not compared, but its address is: on the overlay's address it is no difference", () => {
   const api = entry({
-    "443/tcp": [{ HostIp: "127.0.0.1", HostPort: "8443" }],
+    "443/tcp": [{ HostIp: "127.0.0.1", HostPort: "443" }],
     "6443/tcp": [{ HostIp: "127.0.0.1", HostPort: "51234" }],
   });
   expect(drift(api, overlay)).toEqual([]);
@@ -122,7 +119,7 @@ test("the API port's random host port is not compared, but its address is: on th
 
 test("an API port published on every interface is refused naming its address, whatever host port k3d chose", () => {
   const wide = entry({
-    "443/tcp": [{ HostIp: "127.0.0.1", HostPort: "8443" }],
+    "443/tcp": [{ HostIp: "127.0.0.1", HostPort: "443" }],
     "6443/tcp": [{ HostIp: "0.0.0.0", HostPort: "59290" }],
   });
   expect(drift(wide, overlay)).toEqual([
@@ -132,7 +129,7 @@ test("an API port published on every interface is refused naming its address, wh
 
 test("an API port whose address the listing omits is unreadable until docker inspect supplies it, and then compared", () => {
   const silent = entry({
-    "443/tcp": [{ HostIp: "127.0.0.1", HostPort: "8443" }],
+    "443/tcp": [{ HostIp: "127.0.0.1", HostPort: "443" }],
     "6443/tcp": [{ HostPort: "51234" }],
   });
   expect(unreadablePorts(silent, overlay)).toEqual([
@@ -152,12 +149,12 @@ test("the API address is the first declared port's host address, so every loopba
     ...overlay,
     ports: [
       { hostAddress: "127.0.0.2", hostPort: 9000, loadBalancerPort: 30000 },
-      { hostAddress: "127.0.0.1", hostPort: 8443, loadBalancerPort: 443 },
+      { hostAddress: "127.0.0.1", hostPort: 443, loadBalancerPort: 443 },
     ],
   };
   const api = entry({
     "30000/tcp": [{ HostIp: "127.0.0.2", HostPort: "9000" }],
-    "443/tcp": [{ HostIp: "127.0.0.1", HostPort: "8443" }],
+    "443/tcp": [{ HostIp: "127.0.0.1", HostPort: "443" }],
     "6443/tcp": [{ HostIp: "127.0.0.1", HostPort: "51234" }],
   });
   expect(drift(api, two)).toEqual([

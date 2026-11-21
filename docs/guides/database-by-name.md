@@ -18,7 +18,6 @@ orders-db.platform.kore.internal
 
 The host is `<database>.<organizationId>.<platform domain>`. For the local
 environment the organization is `platform`, and the domain is `kore.internal`.
-`kore.local` is its deprecated alias and names no database.
 The name is unique per organization, so two claims with the same name in
 different namespaces collide.
 

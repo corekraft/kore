@@ -40,7 +40,7 @@ const golden = {
       digest: `sha256:${"2".repeat(64)}`,
     },
   },
-  ingress: { platformDomain: "kore.local", gatewayClassName: "istio" },
+  ingress: { platformDomain: "kore.internal", gatewayClassName: "istio" },
 };
 
 const delivery = fakeComponent({ name: "kore-golden-path-delivery" });

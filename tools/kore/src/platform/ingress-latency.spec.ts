@@ -30,8 +30,8 @@ const LATENCY = { requests: 3, p50Ms: 10, p95Ms: 30, maxMs: 30 };
 const options: MeasurementOptions = {
   kubeContext: "k3d-kore-local",
   gateway: { namespace: "kore-system", name: "kore-gateway" },
-  hostname: "kore.local",
-  port: 8443,
+  hostname: "kore.internal",
+  port: 443,
   caRoot: "/ca",
   settleSeconds: 60,
   sampleCount: 2,
@@ -111,8 +111,8 @@ test("with latencyProbesPerRoute each sample times that many sequential GETs per
       "--cacert",
       "/ca/rootCA.pem",
       "--resolve",
-      "kore.local:8443:127.0.0.1",
-      "https://kore.local:8443/livez#[1-3]",
+      "kore.internal:443:127.0.0.1",
+      "https://kore.internal:443/livez#[1-3]",
     ],
     { capture: true },
   ]);
@@ -140,7 +140,7 @@ test("an unreadable probe time fails naming the route and the fix", async () => 
   );
 
   await expect(measurement.measure()).rejects.toThrow(
-    "latency probe of /livez returned an unreadable time 'not-a-time'; check that curl reached https://kore.local:8443",
+    "latency probe of /livez returned an unreadable time 'not-a-time'; check that curl reached https://kore.internal:443",
   );
 });
 
@@ -181,10 +181,10 @@ test("with a route set the load and the probes use only its routes, each with it
   const urls = load.run.mock.calls.map(([, args]) => String(args.at(-1)));
   expect(new Set(urls)).toEqual(
     new Set([
-      "https://kore.local:8443/#[1-50]",
-      "https://kore.local:8443/api#[1-50]",
-      "https://kore.local:8443/#[1-1]",
-      "https://kore.local:8443/api#[1-1]",
+      "https://kore.internal:443/#[1-50]",
+      "https://kore.internal:443/api#[1-50]",
+      "https://kore.internal:443/#[1-1]",
+      "https://kore.internal:443/api#[1-1]",
     ]),
   );
 });

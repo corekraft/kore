@@ -64,6 +64,9 @@ beforeEach(() => {
   vi.mocked(waitForClusterReady).mockResolvedValue(undefined);
 });
 
+/** The holder check the create runs before it publishes the privileged host port 443 (k3d-ports.ts). */
+const LSOF_443 = "lsof -nP -iTCP:443 -sTCP:LISTEN -Fpc";
+
 test("a k3d create pins the k3s image, disables the bundled ingress and load balancer, and mounts the registry trust", () => {
   expect(k3dCreateArgs(repository, TRUST)).toEqual(createArgs());
   expect(k3dTrustVolumeArgs).toHaveBeenCalledWith(TRUST);
@@ -222,11 +225,12 @@ test("an absent cluster has its registry file written first, is created with the
   );
   expect(commandLines(run)).toEqual([
     LIST,
+    LSOF_443,
     `k3d ${createArgs().join(" ")}`,
     LIST,
     NAMESPACE_CHECK,
   ]);
-  expect(run.mock.calls[1]?.[2]).toEqual({ capture: false, cwd: "/repo" });
+  expect(run.mock.calls[2]?.[2]).toEqual({ capture: false, cwd: "/repo" });
   expect(waitForClusterReady).toHaveBeenCalledWith(
     repository,
     runner,
@@ -234,7 +238,7 @@ test("an absent cluster has its registry file written first, is created with the
   );
   const order = {
     write: vi.mocked(writeK3dRegistriesConfig).mock.invocationCallOrder[0] ?? 0,
-    create: run.mock.invocationCallOrder[1] ?? 0,
+    create: run.mock.invocationCallOrder[2] ?? 0,
     ready: vi.mocked(waitForClusterReady).mock.invocationCallOrder[0] ?? 0,
   };
   expect(order.write).toBeLessThan(order.create);
@@ -263,7 +267,7 @@ test("an external registry creates the cluster with no trust mounts and writes n
   vi.mocked(koreManagesRegistryAuth).mockReturnValue(false);
   const { runner, run } = fakeK3d(undefined);
   await up(runner);
-  expect(commandLines(run)[1]).toBe(`k3d ${createArgs([]).join(" ")}`);
+  expect(commandLines(run)[2]).toBe(`k3d ${createArgs([]).join(" ")}`);
   expect(writeK3dRegistriesConfig).not.toHaveBeenCalled();
 });
 
@@ -272,10 +276,10 @@ test("drift is refused with the recreate path before any start or write, whichev
   const servers = fakeK3d(1, { serversCount: 3, serversRunning: 3 });
   await expect(up(servers.runner)).rejects.toThrow(MESSAGES.overlayServers);
   expect(commandLines(servers.run)).toEqual([LIST]);
-  vi.mocked(drift).mockReturnValueOnce(["port 443: 9443 != 8443"]);
+  vi.mocked(drift).mockReturnValueOnce(["port 443: 9443 != 443"]);
   const wrong = fakeK3d(1);
   await expect(up(wrong.runner)).rejects.toThrow(MESSAGES.wrongPort);
-  vi.mocked(drift).mockReturnValueOnce(["port 443: unmapped != 8443"]);
+  vi.mocked(drift).mockReturnValueOnce(["port 443: unmapped != 443"]);
   const unmapped = fakeK3d(1);
   await expect(up(unmapped.runner)).rejects.toThrow(MESSAGES.unmappedPort);
   expect(writeK3dRegistriesConfig).not.toHaveBeenCalled();
@@ -286,7 +290,11 @@ test("a readiness failure after create is raised as it is, and the identity chec
   vi.mocked(waitForClusterReady).mockRejectedValue(new Error("not ready"));
   const { runner, run } = fakeK3d(undefined);
   await expect(up(runner)).rejects.toThrow("not ready");
-  expect(commandLines(run)).toEqual([LIST, `k3d ${createArgs().join(" ")}`]);
+  expect(commandLines(run)).toEqual([
+    LIST,
+    LSOF_443,
+    `k3d ${createArgs().join(" ")}`,
+  ]);
 });
 
 test("a status reports the cluster, context, environment and state, with only the counts from k3d's entry", async () => {

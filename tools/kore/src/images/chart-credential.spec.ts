@@ -17,7 +17,7 @@ const delivery = {
   charts: {},
   namespaces: {},
   gatewayClassName: "istio",
-  platformDomain: "kore.local",
+  platformDomain: "kore.internal",
   platformHostname: "*.platform.kore.internal",
 };
 const repository = {

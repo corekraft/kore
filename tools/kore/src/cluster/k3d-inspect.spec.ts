@@ -9,11 +9,11 @@ const INSPECT =
 test("the load balancer's port bindings are read by inspecting its container, which k3d names for the cluster", async () => {
   const { runner, run } = fakeRunner(
     () =>
-      '{"443/tcp":[{"HostIp":"127.0.0.1","HostPort":"8443"}],"6443/tcp":null}',
+      '{"443/tcp":[{"HostIp":"127.0.0.1","HostPort":"443"}],"6443/tcp":null}',
   );
   expect(loadBalancerContainer("kore-local")).toBe("k3d-kore-local-serverlb");
   expect(await inspectPortMappings(runner, "kore-local")).toEqual({
-    "443/tcp": [{ HostIp: "127.0.0.1", HostPort: "8443" }],
+    "443/tcp": [{ HostIp: "127.0.0.1", HostPort: "443" }],
     "6443/tcp": null,
   });
   expect(commandLines(run)).toEqual([INSPECT]);

@@ -13,7 +13,6 @@ vi.mock("../config/index.js", () => ({
   componentVersion: vi.fn(),
   dashboardSidecarHelmArgs: vi.fn(),
   databaseRoutesDeliveryArgs: vi.fn(() => []),
-  deprecatedAliasDeliveryArgs: vi.fn(() => []),
   expandVersions: vi.fn(),
   featureHelmArgs: vi.fn(),
   gatewayClassName: vi.fn(),
@@ -31,7 +30,7 @@ const delivery: ChartDeliveryValues = {
   charts: {},
   namespaces: {},
   gatewayClassName: "istio",
-  platformDomain: "kore.local",
+  platformDomain: "kore.internal",
   platformHostname: "*.platform.kore.internal",
 };
 
