@@ -289,7 +289,7 @@ test("the OpenTelemetry operator manager has bounded requests and limits", async
   }
 });
 
-test("the Collector accepts port-forwarded OTLP/HTTP on a loopback-only receiver, leaving the pod-IP receiver as it is", async () => {
+test("the Collector keeps its loopback-only OTLP/HTTP receiver on 127.0.0.1:4319, leaving the pod-IP receiver as it is", async () => {
   const config = (await readJson(gateway)).config;
   assert.deepEqual(config.receivers["otlp/loopback"], {
     protocols: { http: { endpoint: "127.0.0.1:4319" } },

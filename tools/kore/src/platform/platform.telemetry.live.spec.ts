@@ -15,12 +15,11 @@ import { platformStatus } from "./status.js";
 // Live and opt-in: needs a converged local profile. It posts one synthetic
 // OTLP/HTTP trace, log record, and counter to the Collector's documented
 // endpoint, then reads each signal back from its backend. Everything goes
-// through the API server's Service proxy, except the OTLP POST: the proxy cannot
-// set a Content-Type, so a short-lived port-forward to the Collector carries it.
-// With otlp-route on (ADR 0140) the POST goes to the OTLP name through the shared
-// Gateway instead, and only the local CA's public certificate is read. No image or
-// Pod is created. The synthetic signals expire with the backends' bounded
-// retention; there is nothing to delete.
+// through the API server's Service proxy, except the OTLP POST, which goes to
+// the OTLP name through the shared Gateway (ADR 0140) and reads only the local
+// CA's public certificate. No port-forward carries it. With otlp-route off the
+// test is refused before it posts. No image or Pod is created. The synthetic
+// signals expire with the backends' bounded retention; there is nothing to delete.
 
 const namespace = "observability";
 const serviceName = "kore-telemetry-proof";
