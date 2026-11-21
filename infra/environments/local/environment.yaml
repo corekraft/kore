@@ -60,7 +60,7 @@
       "in-cluster-ca": false,
       "k3s-registry-trust": false,
       "platform-hostname-ownership": false,
-      "platform-portal": false,
+      "platform-portal": true,
       "portal-staged-install": false,
       "automatic-retro": true,
       "automatic-approval": false,
