@@ -329,6 +329,7 @@ decisions; read one only when planning that area, and expect it to change.
 - [`docs/ideas/0069-registry-by-name-works-live-in-local.md`](ideas/0069-registry-by-name-works-live-in-local.md) — registry-by-name works live in local
 - [`docs/ideas/0070-database-routes-works-live-in-local.md`](ideas/0070-database-routes-works-live-in-local.md) — database-routes works live in local
 - [`docs/ideas/0071-otlp-route-works-live-in-local.md`](ideas/0071-otlp-route-works-live-in-local.md) — otlp-route works live in local
+- [`docs/ideas/0072-platform-portal-works-live-in-local.md`](ideas/0072-platform-portal-works-live-in-local.md) — platform-portal works live in local
 
 ## Operations and Guides
 
