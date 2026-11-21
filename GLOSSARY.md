@@ -373,3 +373,58 @@ _Avoid_: Dev lock, snapshot lock
 **Release chart lock**:
 The chart lock that counts for flag activation.
 _Avoid_: Tag lock, final lock
+
+## App delivery
+
+**Platform workflow**:
+The reusable workflow the platform owns, which every application repository
+calls pinned by commit SHA. It builds the image, runs the deterministic evals
+and signs the **Attestations**; its identity is the only signer admission
+trusts, so an application can call the evals but cannot fake their result.
+_Avoid_: Pipeline, CI template
+
+**Attestation**:
+A signed statement about one image digest made by the **Platform workflow**: the
+eval result, the declared flags, or the classified migrations. Admission requires
+the image signature and every attestation before a pod runs.
+_Avoid_: Provenance, report
+
+**Candidate**:
+An image digest the **Platform workflow** built, evaluated and signed from an
+application's main branch, not yet deployed anywhere. A newer candidate
+supersedes a queued one.
+_Avoid_: Release candidate, build
+
+**Bump**:
+The platform's change to an application record in git that points it at a
+**Candidate**'s digest. It is a pull request the judge verifies and merges, and
+it touches nothing but the digest and its attestation references.
+_Avoid_: Deploy, promotion
+
+**App flag**:
+A flag an application declares in its own repository (name, default off, owner,
+safety pattern) and reads at run time. The platform alone holds its on/off state
+and alone turns it on, from live evidence and a recorded outcome. A flag in an
+environment overlay is a platform flag, not an app flag.
+_Avoid_: Feature toggle, runtime flag
+
+**Dark deploy**:
+Rolling a **Candidate** out with every flag it introduces off, so the new code
+runs and the new behaviour does not.
+_Avoid_: Silent deploy
+
+**Expand migration**:
+A schema change that the previous release still runs correctly against. A
+normal release carries only these.
+_Avoid_: Additive migration
+
+**Contract migration**:
+A schema change that removes what an earlier release stopped using. It ships
+alone, in a later release, after the soak.
+_Avoid_: Cleanup migration, destructive migration
+
+**Contract release**:
+A release that carries only a contract step and names the earlier release in
+which the thing was last used: a data contract (contract migrations only) or a
+code contract (a flag and its off path deleted, no migration).
+_Avoid_: Cleanup release
