@@ -18,7 +18,19 @@ import {
 const run = promisify(execFile);
 const chartPath = "infra/charts/platform-dns";
 
-for (const name of ["local", "managed-example"]) {
+// Local turns platform-dns on in its committed overlay (#1682); managed-example never may.
+test("local declares platform-dns on, so the platform DNS server is enabled", async () => {
+  const repository = await loadRepository("local");
+  await validateRepository(repository);
+  assert.equal(repository.environment.features?.[platformDnsFlag], true);
+  assert.equal(featureEnabled(repository.environment, platformDnsFlag), true);
+  assert.equal(
+    enabledComponents(repository).some((c) => c.name === "kore-platform-dns"),
+    true,
+  );
+});
+
+for (const name of ["managed-example"]) {
   test(`${name} declares platform-dns off, so no platform DNS server is ever installed`, async () => {
     const repository = await loadRepository(name);
     await validateRepository(repository);
