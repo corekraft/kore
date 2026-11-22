@@ -19,19 +19,6 @@ export const undocumented: readonly string[] = [
   "guardrail request",
   "guardrail activate",
   "guardrail replay",
-  // hook
-  "hook context",
-  "hook delta",
-  "hook feedback",
-  "hook guard",
-  "hook kb-check",
-  "hook record",
-  "hook retro-scan",
-  "hook skill-links",
-  "hook statusline",
-  "hook test-budget",
-  "hook unit-specs",
-  "hook workflow-permissions",
   // idea
   "idea new",
   "idea list",
@@ -53,18 +40,6 @@ export const undocumented: readonly string[] = [
   "ruleset insights",
   // status
   "status",
-  // judge
-  "judge precheck",
-  "judge declaration",
-  "judge diff",
-  "judge approve",
-  "judge merge",
-  "judge send-back",
-  // review
-  "review post",
-  "review run",
-  "review resample",
-  // pr
   // ledger
   "ledger record",
   "ledger list",
@@ -72,13 +47,9 @@ export const undocumented: readonly string[] = [
   "ledger poll-github",
   // flow
   "flow report",
-  // queue
   // retro
   "retro due",
   "retro record",
   // evaluate
   "evaluate",
-  // orchestrate
-  // approve
-  "approve",
 ];

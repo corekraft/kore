@@ -97,7 +97,11 @@ describe("workflow-permissions hook: the workflows it checks", () => {
 
 describe("kb-check hook: the knowledge-base check it runs", () => {
   it("reads no host payload and fails closed with exit 1 when the hook breaks", () => {
-    expect(kbCall[3]).toEqual({ payload: false, faultCode: 1 });
+    expect(kbCall[3]).toEqual({
+      payload: false,
+      faultCode: 1,
+      help: expect.objectContaining({ purpose: expect.any(String) }),
+    });
   });
 
   it("passes strict through when --strict is given, and false otherwise", async () => {
