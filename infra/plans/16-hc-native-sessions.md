@@ -645,7 +645,7 @@ finished children from the listing; `hcFailure` reads stdout.
 
 ## Next
 
-**Steps 1 to 4 merged (2026-11-22).** Every ticket through #1782 is merged and closed. Left, all behind a gate: Step 5, the live proof on kore-agents (#1783), waits for the recorded outcomes of ideas 0009, 0010, 0012, 0019, 0020, 0021 and 0023 (due 2026-11-30); the owner decides flag activation. Step 6 waits for it: the flip (#1784) needs no live herdr session on either host and both hosts' `hc --version` matching the pin; #1785 and #1786 follow it; #1787 waits for the owner's approval of #1786's list. Owed from Step 2: a core restart keeps its terminals. Live checks owed to #1783: a finished terminal frees its name for the ledger-watch restart. Full state: #1765.
+**Step 5 in progress (2026-11-22).** Steps 1 to 4 are merged. The first live runs on kore-agents found and fixed five defects (#1867, #1868, #1872, #1874, #1876), each merged; comments on #1783 list the items proven and the ones not yet run: `harness wait --pr` on hc, the small-split read, the removed store item, the worktree-settings loosen attempt, a permission-prompt `blocked`, and the GH_TOKEN identity (the endpoint in the plan cannot show it). The flag stays off. Left behind gates: the ideas' outcomes due 2026-11-30, claude 2.1.330 on the Mac (it runs 2.1.329), then Step 6: #1784 (no live herdr session on either host, matching hc pins), #1785 and #1786 after it, #1787 after the owner approves #1786's list. Full state: #1765.
 
 ## Done When
 

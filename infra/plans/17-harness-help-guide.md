@@ -1,5 +1,5 @@
 ---
-status: active
+status: done
 summary: Give every harness command a layered --help guide (root, domain, command), enforced by specs, and shrink summaries and hints to point at it. Split from plan 16, which no longer depends on it.
 last-verified: 2026-11-22
 ---
@@ -47,7 +47,7 @@ or `ledger/`.
 
 ## Next
 
-**Step 1 merged (2026-11-22).** The help record is required on every command, each domain has its guide, the three levels render as text and JSON, the registry specs and kb-check read the real command table, and the exemption list is gone. Left: #1807, verify the guide on the merged bundle and record it on the spec. It needs the built harness to run, which this delivery was told not to do. Full state: #1789.
+**Done (2026-11-22).** The help record is required on every command, each domain has its guide, the three levels render as text and JSON, the registry specs and kb-check read the real command table, and the exemption list is gone. #1807 verified the guide on the merged bundle and recorded it on #1789, which the owner closes.
 
 ## Done When
 
