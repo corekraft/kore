@@ -9,6 +9,10 @@ import {
   loadRepository,
   platformHelmArgs,
 } from "../../src/config/index.js";
+import { escapeRegExp, localPlatform } from "../local-platform-support.js";
+
+const platform = await localPlatform();
+const domain = escapeRegExp(platform.domain);
 
 // Docs: docs/decisions/0111-run-a-backstage-and-an-argo-cd-for-the-platform-organization-s-operators.md
 
@@ -96,7 +100,38 @@ test("the sign-in proxy and its fail-closed gating stay until a live run proves 
   assert.match(deployment, /containerPort: 4180/);
 });
 
-test("the Keycloak client also accepts the in-app sign-in callback, beside the proxy's", async () => {
+test("the Backstage client is a Crossplane-managed Keycloak client in the platform realm, with its secret by reference and no operator client", async () => {
+  const rendered = await render();
+  const client = document(rendered, "Client");
+  assert.match(
+    client,
+    /^apiVersion: openidclient\.keycloak\.m\.crossplane\.io\/v1alpha1$/m,
+  );
+  assert.match(client, /^  name: backstage\n  namespace: backstage$/m);
+  assert.match(
+    client,
+    /providerConfigRef:\n\s+kind: ClusterProviderConfig\n\s+name: keycloak/,
+  );
+  assert.match(client, /clientId: backstage/);
+  assert.match(client, /realmId: platform/);
+  assert.match(client, /accessType: CONFIDENTIAL/);
+  assert.match(client, /standardFlowEnabled: true/);
+  assert.match(client, /implicitFlowEnabled: false/);
+  assert.match(client, /directAccessGrantsEnabled: false/);
+  assert.match(
+    client,
+    new RegExp(
+      `validRedirectUris:\\n\\s+- https://backstage\\.platform\\.${domain}/oauth2/callback\\n`,
+    ),
+  );
+  assert.match(
+    client,
+    /clientSecretSecretRef:\n\s+name: backstage-oidc\n\s+key: client-secret/,
+  );
+  assert.equal(document(rendered, "KeycloakOIDCClient"), "");
+});
+
+test("the Backstage client accepts only the sign-in proxy's callback, so no other redirect is registered", async () => {
   const root = await findRoot();
   const client = await readFile(
     join(root, "infra/charts/platform-backstage/templates/oidc-client.yaml"),
@@ -104,12 +139,9 @@ test("the Keycloak client also accepts the in-app sign-in callback, beside the p
   );
   assert.match(
     client,
-    /\{\{ \.Values\.backstageHostname \}\}\/oauth2\/callback/,
+    /validRedirectUris:\n\s+- https:\/\/\{\{ \.Values\.backstageHostname \}\}\/oauth2\/callback\n/,
   );
-  assert.match(
-    client,
-    /\{\{ \.Values\.backstageHostname \}\}\/api\/auth\/oidc\/handler\/frame/,
-  );
+  assert.equal(client.includes("oidc/handler/frame"), false);
 });
 
 test("the Kubernetes plugin shows each service's Argo CD Application beside its workload, read as the user", async () => {
