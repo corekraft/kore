@@ -61,7 +61,8 @@
       "signed-main-sends": false,
       "main-session-wait": false,
       "golden-path-signin": false,
-      "decision-advisor": false
+      "decision-advisor": false,
+      "hc-sessions": false
     },
   "secrets": { "storeName": "platform-secrets", "sourceNamespace": "external" },
   "telemetry":
