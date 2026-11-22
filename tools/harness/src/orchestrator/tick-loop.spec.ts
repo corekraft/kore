@@ -58,6 +58,37 @@ beforeEach(() => {
   vi.clearAllMocks();
 });
 
+describe("tick loop: the ledger watch", () => {
+  it("starts the ledger watch after the update and before each pass, so a watch that ended is started again", async () => {
+    const f = fakes([OK]);
+    const update = vi.fn(async () => {
+      f.calls.push("update");
+    });
+    const ensureWatch = vi.fn(async () => {
+      f.calls.push("watch");
+    });
+
+    await new TickLoop({ ...f.ports, update, ensureWatch }).run(1);
+
+    expect(f.calls).toEqual([
+      "flag",
+      "update",
+      "watch",
+      "heartbeat",
+      "pass",
+      "stopped",
+    ]);
+  });
+
+  it("runs a loop with no watch port exactly as before, with no watch step", async () => {
+    const f = fakes([OK]);
+
+    await new TickLoop(f.ports).run(1);
+
+    expect(f.calls).toEqual(["flag", "heartbeat", "pass", "stopped"]);
+  });
+});
+
 describe("tick loop", () => {
   it("runs each pass as its own step and sleeps the interval between passes", async () => {
     const f = fakes([OK, OK]);

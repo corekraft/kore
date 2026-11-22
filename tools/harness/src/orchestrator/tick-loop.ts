@@ -11,6 +11,8 @@ export interface LoopPorts {
   update?(): Promise<void>;
   /** Reports an expected update failure and returns, so the loop goes on to the pass with the bundle it has; rethrows any other error, which ends the loop. */
   updateFailed(error: unknown): void;
+  /** Starts the ledger watch under this loop's terminal; a watch that runs is a name conflict, so only one that ended starts again. Absent means the loop starts no watch. */
+  ensureWatch?(): Promise<void>;
   /** Writes the heartbeat (tick.started) before a pass starts. */
   heartbeat(): Promise<void>;
   /** Writes tick.stopped once the loop has ended. */
@@ -49,6 +51,7 @@ export class TickLoop {
         } catch (error) {
           this.ports.updateFailed(error);
         }
+        await this.ports.ensureWatch?.();
         await this.ports.heartbeat();
         started = true;
         const result = await this.ports.pass();
