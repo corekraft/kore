@@ -14,6 +14,10 @@ import { hostLocksDirectory, mainRoot } from "../runtime/index.js";
 import type { CommandContext } from "../runtime/index.js";
 import { tickCommand } from "./orchestrate-tick.js";
 
+vi.mock("../session/index.js", async () => ({
+  ...(await vi.importActual<object>("../session/index.js")),
+  hcSessionsOn: vi.fn().mockResolvedValue(false),
+}));
 vi.mock("./orchestrate-tick-install.js", () => ({ installTickJob: vi.fn() }));
 vi.mock("./orchestrate-tick-loop.js", () => ({ runTickLoop: vi.fn() }));
 
