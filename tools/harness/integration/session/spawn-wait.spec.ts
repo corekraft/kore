@@ -196,8 +196,16 @@ describe("session spawn record safety", () => {
 describe("session usage", () => {
   it("documents --no-wait plus a background `session wait` as the way to run sessions in parallel", async () => {
     const h = testHarness();
-    await run(["--help"], h.deps);
-    expect(h.out()).toMatch(/session spawn .*--no-wait.*session wait/s);
+    await run(["session", "--help"], h.deps);
+    expect(h.out()).toMatch(/session spawn with --no-wait.*session wait/s);
     expect(h.out()).toContain("session close");
+  });
+
+  it("lists spawn, wait, close in order as a common flow in the root guide", async () => {
+    const h = testHarness();
+    await run(["--help"], h.deps);
+    expect(h.out()).toMatch(
+      /harness session spawn.*harness session wait.*harness session close/s,
+    );
   });
 });

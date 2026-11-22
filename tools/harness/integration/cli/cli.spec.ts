@@ -6,21 +6,21 @@ const harness = testHarness;
 
 describe("harness dispatch", () => {
   it.each([[["--help"]], [["-h"]], [[]]])(
-    "lists domains and commands for %j and exits 0",
+    "prints the root guide, with the domains, for %j and exits 0",
     async (argv) => {
       const h = harness();
       expect(await run(argv, h.deps)).toBe(0);
-      expect(h.out()).toContain("Usage: harness <domain> <command> [--json]");
-      expect(h.out()).toContain("harness version");
+      expect(h.out()).toContain("Domains:");
+      expect(h.out()).toContain("Going deeper:");
       expect(h.err()).toBe("");
     },
   );
 
-  it("rejects an unknown domain, names it, and shows usage", async () => {
+  it("rejects an unknown domain, names it, and prints the root guide", async () => {
     const h = harness();
     expect(await run(["nope", "x"], h.deps)).toBe(2);
     expect(h.err()).toContain('Unknown domain "nope"');
-    expect(h.err()).toContain("Usage: harness");
+    expect(h.err()).toContain("Domains:");
     expect(h.out()).toBe("");
   });
 
@@ -41,7 +41,7 @@ describe("harness dispatch", () => {
     const h = harness();
     expect(await run(["harness", "version", "--bogus"], h.deps)).toBe(2);
     expect(h.err()).toContain('Unknown flag "--bogus"');
-    expect(h.err()).toContain("Usage: harness");
+    expect(h.err()).toContain("Usage:\n  harness harness version");
     expect(h.out()).toBe("");
   });
 
@@ -88,7 +88,7 @@ describe("harness dispatch hardening", () => {
     const h = harness();
     expect(await run(["harness", "version", "extra"], h.deps)).toBe(2);
     expect(h.err()).toContain('Unexpected argument "extra"');
-    expect(h.err()).toContain("Usage: harness");
+    expect(h.err()).toContain("Usage:\n  harness harness version");
     expect(h.out()).toBe("");
   });
 
@@ -101,7 +101,7 @@ describe("harness dispatch hardening", () => {
         /^Unknown domain "nope"\. Domains: harness(, \w+)*\.$/,
       ) as unknown,
     });
-    expect(h.err()).toContain("Usage: harness");
+    expect(h.err()).toContain("Domains:");
   });
 
   it("without --json, usage errors print no JSON", async () => {

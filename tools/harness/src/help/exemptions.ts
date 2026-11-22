@@ -5,9 +5,6 @@
  * A domain's only command is named by the domain alone.
  */
 export const undocumented: readonly string[] = [
-  // harness
-  "harness version",
-  "harness wait",
   // plan
   "plan active",
   "plan tick",
