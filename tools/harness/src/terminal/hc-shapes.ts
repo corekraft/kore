@@ -1,10 +1,16 @@
+/**
+ * hc's status for a terminal: a bare string in the listing (ls), and in get an object whose state is
+ * the status, with app naming the agent that reports it.
+ */
+type HcStatus = string | { app?: string; state?: string | null } | null;
+
 /** The fields of hc's JSON for one terminal that this adapter reads. */
 export interface HcTerminal {
   address: string;
   name?: string | null;
   parent?: string | null;
   state: "live" | "finished";
-  status?: string | null;
+  status?: HcStatus;
   turn?: number;
   exit_code?: number | null;
   /** The listing leaves labels out; get carries them. Every reply that names a terminal has its cwd. */

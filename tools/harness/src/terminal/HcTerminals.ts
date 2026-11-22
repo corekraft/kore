@@ -49,7 +49,14 @@ function labelPairs(labels: Readonly<Record<string, string>>): string[] {
   return Object.entries(labels).map(([key, value]) => key + "=" + value);
 }
 
+/** A string status is read as is; get's object by its state. Anything else is no status. */
+function statusOf(raw: HcTerminal["status"]): Status | undefined {
+  const state = typeof raw === "object" && raw !== null ? raw.state : raw;
+  return typeof state === "string" ? (state as Status) : undefined;
+}
+
 function toTerminal(raw: HcTerminal): Terminal {
+  const status = statusOf(raw.status);
   return {
     id: raw.address,
     state: raw.state,
@@ -57,7 +64,7 @@ function toTerminal(raw: HcTerminal): Terminal {
     cwd: raw.cwd,
     ...(typeof raw.name === "string" ? { name: raw.name } : {}),
     ...(typeof raw.parent === "string" ? { parent: raw.parent } : {}),
-    ...(typeof raw.status === "string" ? { status: raw.status as Status } : {}),
+    ...(status === undefined ? {} : { status }),
     ...(typeof raw.turn === "number" ? { turn: raw.turn } : {}),
     ...(typeof raw.exit_code === "number" ? { exitCode: raw.exit_code } : {}),
   };
