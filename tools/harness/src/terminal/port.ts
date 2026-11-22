@@ -23,7 +23,9 @@ export type TerminalErrorKind =
   | "still-live"
   | "name-taken"
   | "status-mismatch"
-  | "timeout";
+  | "timeout"
+  | "invalid-spec"
+  | "unavailable";
 
 /** The structured error every port method returns in place of a result. */
 export interface TerminalError {

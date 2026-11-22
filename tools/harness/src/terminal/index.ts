@@ -18,3 +18,4 @@ export type {
   WaitTarget,
 } from "./port.js";
 export { FakeTerminals } from "./FakeTerminals.js";
+export { HcTerminals, type HcTerminalsOptions } from "./HcTerminals.js";
