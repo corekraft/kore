@@ -144,7 +144,11 @@ export class SessionRegistry {
     return parsed;
   }
 
-  /** Every record in the state directory; none when the directory does not exist yet. */
+  /**
+   * Every readable record in the state directory; none when the directory does not exist yet. A record
+   * this harness cannot read (corrupt, or written by a newer version) is skipped, so it never hides the
+   * records of other sessions: the one it would name is then not found, and that hook keeps its payload role.
+   */
   async all(): Promise<SessionRecord[]> {
     if (!(await this.fs.exists(this.dir))) {
       return [];
@@ -152,9 +156,15 @@ export class SessionRegistry {
     const records: SessionRecord[] = [];
     for (const file of await this.fs.readdir(this.dir)) {
       if (file.endsWith(".json")) {
-        const record = await this.read(file.slice(0, -".json".length));
-        if (record !== undefined) {
-          records.push(record);
+        try {
+          const record = await this.read(file.slice(0, -".json".length));
+          if (record !== undefined) {
+            records.push(record);
+          }
+        } catch (error) {
+          if (!(error instanceof CommandError)) {
+            throw error;
+          }
         }
       }
     }

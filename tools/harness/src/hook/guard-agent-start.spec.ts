@@ -101,7 +101,7 @@ describe("checkAgentStart: a bare hc launch of claude (plan 16, Step 4)", () => 
         "brief",
       ]),
     ).toBe(BLOCKED);
-    expect(block).toHaveBeenCalledWith("bare-agent-start", HC_BLOCKED);
+    expect(block).toHaveBeenCalledWith("bare-agent-start-hc", HC_BLOCKED);
   });
 
   it("blocks a claude launch behind the harness exec wrapper, too", () => {
@@ -134,5 +134,46 @@ describe("checkAgentStart: a bare hc launch of claude (plan 16, Step 4)", () => 
       expect(checkAgentStart("hc", args)).toBeNull();
     }
     expect(block).not.toHaveBeenCalled();
+  });
+});
+
+describe("checkAgentStart: the argument forms of an hc launch", () => {
+  beforeEach(() => {
+    vi.mocked(block).mockReset();
+    vi.mocked(block).mockReturnValue(BLOCKED);
+  });
+
+  it.each([
+    [
+      "the path to claude",
+      ["run", "--bg", "--", "/usr/local/bin/claude", "--agent", "reader"],
+    ],
+    [
+      "claude named inside a shell script",
+      ["run", "--bg", "--", "sh", "-c", "exec claude --agent reader"],
+    ],
+    [
+      "claude named inside a bash -c string",
+      ["run", "--bg", "--", "bash", "-c", "'cd x && claude'"],
+    ],
+  ])(
+    "blocks an hc run that starts claude by %s, under bare-agent-start-hc",
+    (_form, args) => {
+      expect(checkAgentStart("hc", args)).toBe(BLOCKED);
+      expect(block).toHaveBeenCalledWith("bare-agent-start-hc", HC_BLOCKED);
+    },
+  );
+
+  it("lets an hc run name a word that only contains claude", () => {
+    expect(
+      checkAgentStart("hc", [
+        "run",
+        "--bg",
+        "--",
+        "echo",
+        "claude-code",
+        "/usr/bin/claudette",
+      ]),
+    ).toBeNull();
   });
 });

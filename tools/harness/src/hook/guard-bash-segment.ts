@@ -10,6 +10,7 @@ import { checkAppendOnly } from "./guard-append-only.js";
 import {
   checkAgentStart,
   checkContext,
+  checkHcWrite,
   checkDestructive,
   checkIdeaIssueBody,
   checkIdeaIssueClose,
@@ -51,8 +52,9 @@ export async function checkBashSegment(
   ctx: GuardContext,
 ): Promise<Finding[]> {
   const { name, args } = commandOf(segment);
+  const hcWrite = checkHcWrite(segment, ctx.role);
   if (!name) {
-    return [];
+    return hcWrite === null ? [] : [hcWrite];
   }
   const text = segment.join(" ");
 
@@ -66,6 +68,7 @@ export async function checkBashSegment(
 
   // Every check runs: each finding takes its own rule's mode, so a promoted rule can block past an audit one.
   return [
+    hcWrite,
     await sopsWrite(name, segment, text, ctx),
     checkDestructive(name, args),
     checkContext(name, args),

@@ -50,6 +50,7 @@ describe("module surface", () => {
       "checkAgentStart",
       "checkContext",
       "checkDestructive",
+      "checkHcWrite",
       "checkIdeaIssueBody",
       "checkIdeaIssueClose",
       "checkNoVerify",

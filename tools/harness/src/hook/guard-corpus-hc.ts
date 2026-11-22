@@ -1,6 +1,6 @@
 // The hc cases (plan 16, Step 4). The read-only roles and the judge may not drive a terminal: the allowlist
 // refuses a raw hc send, label, run or exec and an HC_TERMINAL_ID prefix under role-read-only, and the
-// read-only roles keep the hc reads. A bare hc launch of claude is refused under bare-agent-start. The
+// read-only roles keep the hc reads. A bare hc launch of claude is audited under bare-agent-start-hc. The
 // writer's raw hc writes are not listed here: their refusal awaits the owner's approval of a new rule.
 // guard-corpus.ts runs these through the hook.
 import type { CorpusCase, OrdinaryCase } from "./guard-corpus.js";
@@ -50,25 +50,44 @@ const OTHER_VERBS = forRoles(NO_TERMINAL, "role-read-only", [
   "hc --version",
 ]);
 
-/** A bare hc launch of claude starts a session outside harness session spawn, for the person's session and the writer. */
-const LAUNCH: CorpusCase[] = [
+/**
+ * A bare hc launch of claude starts a session outside harness session spawn, for the person's session and
+ * the writer. Audit mode (ADR 0080): the guard warns, since the owner's approval covers the herdr form only.
+ * The path and shell-script forms are the same launch; a word that only contains claude is not one.
+ */
+export const HC_LAUNCH_AUDIT: readonly CorpusCase[] = [
   {
     tool: "Bash",
     input: "hc run --json --bg --cwd . -- claude --agent reader brief",
-    rule: "bare-agent-start",
+    rule: "bare-agent-start-hc",
   },
-  { tool: "Bash", input: "hc run --bg -- claude", rule: "bare-agent-start" },
+  { tool: "Bash", input: "hc run --bg -- claude", rule: "bare-agent-start-hc" },
   {
     tool: "Bash",
     input:
       "hc run --bg --name x -- harness session exec --role reader -- claude",
-    rule: "bare-agent-start",
+    rule: "bare-agent-start-hc",
+  },
+  {
+    tool: "Bash",
+    input: "hc run --bg -- /usr/local/bin/claude --agent x brief",
+    rule: "bare-agent-start-hc",
+  },
+  {
+    tool: "Bash",
+    input: 'hc run --bg -- sh -c "exec claude --agent x"',
+    rule: "bare-agent-start-hc",
+  },
+  {
+    tool: "Bash",
+    input: 'hc run --bg -- bash -c "cd x && claude"',
+    rule: "bare-agent-start-hc",
   },
   {
     role: "writer",
     tool: "Bash",
     input: "hc run --bg -- claude --agent writer brief",
-    rule: "bare-agent-start",
+    rule: "bare-agent-start-hc",
   },
 ];
 
@@ -77,7 +96,6 @@ export const HC_REFUSED: readonly CorpusCase[] = [
   ...DRIVING,
   ...JUDGE_READS,
   ...OTHER_VERBS,
-  ...LAUNCH,
 ];
 
 /** The hc reads and the harness reports the three read-only roles keep (plan 16, Step 4). */
@@ -92,4 +110,21 @@ export const HC_ORDINARY: readonly OrdinaryCase[] = READ_ONLY.flatMap((role) =>
     "node skills/bin/harness.mjs session report",
     "node skills/bin/harness.mjs session send t3 --message hi",
   ].map((input): OrdinaryCase => ({ role, tool: "Bash", input })),
+);
+
+/** The writer's raw hc writes. Their rule is in audit mode (ADR 0080), so the guard warns rather than blocks: the integration spec checks the warning. */
+export const HC_AUDIT: readonly CorpusCase[] = forRoles(
+  ["writer"],
+  "role-hc-raw",
+  [
+    "hc send t1 hi",
+    "hc send --json t1 hi",
+    "hc label t1 kore-role=writer",
+    "hc run --bg --cwd . -- ls",
+    "hc exec t1 -- ls",
+    "HC_TERMINAL_ID=t1 hc get t1",
+    "env HC_TERMINAL_ID=t1 hc ls",
+    "HC_TERMINAL_ID=t1",
+    "cat docs/index.md && hc send t1 hi",
+  ],
 );

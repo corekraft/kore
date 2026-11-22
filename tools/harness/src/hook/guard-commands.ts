@@ -6,6 +6,7 @@ import { block, warn, type Finding } from "./guard-verdict.js";
 
 // The agent-start rule is a command rule too; guard-bash-segment reads every command rule from here.
 export { checkAgentStart } from "./guard-agent-start.js";
+export { checkHcWrite } from "./guard-role-hc.js";
 
 const KUBECTL_OFFLINE = new Set([
   "config",
