@@ -58,3 +58,28 @@ describe("the command registry over the real command table", () => {
     ]);
   });
 });
+
+// The nine commands whose summaries this change shortens: one line each, the detail in help.
+const shortened: [domain: string, name: string][] = [
+  ["guardrail", "status"],
+  ["guardrail", "deny"],
+  ["guardrail", "request"],
+  ["guardrail", "activate"],
+  ["guardrail", "replay"],
+  ["ruleset", "sync"],
+  ["ruleset", "insights"],
+  ["flag", "activate"],
+  ["flag", "audit"],
+];
+
+describe("the summaries of the guardrail, ruleset and flag commands", () => {
+  it("are one line of at most 100 characters each, with the detail in each command's help", () => {
+    const longer = shortened.flatMap(([domain, name]) => {
+      const summary = domains[domain]?.[name]?.summary ?? "";
+      return summary.length > 100
+        ? [`${domain} ${name}: summary is ${summary.length} characters, over 100`]
+        : [];
+    });
+    expect(longer).toEqual([]);
+  });
+});

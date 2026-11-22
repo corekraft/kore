@@ -16,7 +16,7 @@ import {
 } from "../guardrail/index.js";
 import { IdeaError, IdeaRepository } from "../idea/index.js";
 import { JudgeError } from "../judge/index.js";
-import type { Command, CommandContext } from "../runtime/index.js";
+import type { Command, CommandContext, CommandHelp } from "../runtime/index.js";
 import { activate } from "./guardrail-activate-commands.js";
 import { repoOf } from "./judge-shared.js";
 import { openLedger } from "./ledger-commands.js";
@@ -167,9 +167,67 @@ async function requestMode(context: CommandContext): Promise<number> {
   return 0;
 }
 
+/** The help record for `guardrail request`: asks a person to approve a mode change, and changes none. */
+const requestHelp: CommandHelp = {
+  purpose:
+    "Asks a person to approve changing a guardrail's mode: posts one comment on the idea's issue with the idea link and four figures from a retro-scan report (fired, heeded, overridden and false positives), and records a guardrail.requested ledger event. It never changes a mode; guardrail activate applies the change after the approval. --json gives rule, from, to, idea, issue, evidence, posted, recorded and commentUrl.",
+  when: "When a guardrail should move between audit and enforce, or be removed, and the idea has an issue to ask on; run it with the retro-scan report of the rule's warnings and blocks. Tightening, loosening and removal are requested the same way.",
+  whenNot:
+    "When you only want to see the modes or the waiting requests: use guardrail status. When the owner has already approved the change on the issue: run guardrail activate. A rerun of a request already posted posts nothing, so there is no need to repeat it.",
+  flags: {
+    to: "The mode the rule moves to: enforce (tighten), audit (loosen) or removed. It must differ from the rule's current mode.",
+    idea: "The number of the idea whose issue carries the request; the idea must have an issue.",
+    scan: "The retro-scan report, as JSON, from harness hook retro-scan --strict, read relative to the working directory.",
+    "false-positives":
+      "How many of the rule's warnings or blocks the retro judged to hit legitimate work: a whole number, zero or more.",
+    ledger:
+      "The ledger file the request is recorded in, relative to the working directory; by default the shared ledger of the main checkout.",
+  },
+  operand:
+    "The guardrail rule to change, as named in .claude/guardrails.yaml, such as flag-activation.",
+  examples: [
+    {
+      command:
+        "harness guardrail request flag-activation --to enforce --idea 1500 --scan retro-scan.json --false-positives 0",
+      shows:
+        "the request posted on idea 1500's issue and recorded; the mode stays audit until the owner approves",
+    },
+    {
+      command:
+        "harness guardrail request flag-activation --to enforce --idea 1500 --scan retro-scan.json",
+      shows:
+        "--false-positives is missing, so the usage line prints and the command exits 2 without posting",
+    },
+  ],
+  exits: [
+    {
+      code: 0,
+      meaning:
+        "the request is posted and recorded, or it was already requested and nothing was posted",
+    },
+    {
+      code: 1,
+      meaning:
+        "refused with nothing posted: no such rule, an unknown --to, the rule already in that mode, an idea with no issue, a scan that is not JSON or lacks the evidence, or a gh call failed; also when the ledger event is rejected after the comment was posted, and a rerun then records it without posting again",
+    },
+    {
+      code: 2,
+      meaning:
+        "the rule, --to, --idea, --scan or --false-positives is missing, --false-positives is not a whole number, or a flag the command does not declare",
+    },
+  ],
+  effects: {
+    kind: "mutates",
+    detail:
+      "posts one comment on the idea's issue through gh and appends one guardrail.requested event to the ledger; it changes no mode, no inventory file and no settings",
+  },
+  seeAlso: ["guardrail status", "guardrail activate", "hook retro-scan"],
+};
+
 const request: Command = {
+  help: requestHelp,
   summary:
-    "ask a person to approve changing a guardrail's mode: posts one comment on the idea's issue with the idea link and four figures (fired, heeded, overridden, false positives, read from a retro-scan report; --false-positives is the retro's count of warnings or blocks that hit legitimate work), and records a guardrail.requested ledger event; tightening (audit to enforce), loosening (enforce to audit) and removal are requested the same way; the comment is posted once per change, a rerun posts nothing; a request never changes a mode, and is refused with nothing posted when the evidence is missing or the idea has no issue (<rule> --to enforce|audit|removed --idea <number> --scan <retro-scan.json> --false-positives <n> [--json: rule, from, to, idea, issue, evidence, posted, recorded, commentUrl] [--ledger])",
+    "ask a person to approve a guardrail's mode change on its idea's issue; changes no mode",
   operand: "rule",
   options: {
     to: "string",

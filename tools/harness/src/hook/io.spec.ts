@@ -132,3 +132,26 @@ describe("hook I/O faults", () => {
     );
   });
 });
+
+describe("hook I/O help", () => {
+  const help = {
+    purpose: "Demo purpose.",
+    when: "When a demo runs.",
+    whenNot: "When a real hook runs.",
+    flags: { strict: "Exit 1 on a fault." },
+    examples: [{ command: "harness hook demo --strict", shows: "nothing" }],
+    exits: [{ code: 0, meaning: "clean" }],
+    effects: { kind: "read-only" as const, detail: "reads nothing" },
+    seeAlso: [],
+  };
+
+  it("carries the help record it is given to the command, and none when it has none", () => {
+    expect(
+      hookCommand("demo", "demo hook", () => Promise.resolve({}), { help })
+        .help,
+    ).toEqual(help);
+    expect(
+      hookCommand("demo", "demo hook", () => Promise.resolve({})).help,
+    ).toBeUndefined();
+  });
+});
