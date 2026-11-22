@@ -165,6 +165,10 @@
             "message": "import from the skill barrel (skill/index.js), not one of its files"
           },
           {
+            "group": ["**/terminal/**", "!**/terminal/index.js"],
+            "message": "import from the terminal barrel (terminal/index.js), not one of its files"
+          },
+          {
             "group": ["**/testing/**"],
             "message": "production code must not import the testing domain; only specs, fixtures and test support may"
           }
@@ -294,6 +298,10 @@
               {
                 "group": ["**/skill/**", "!**/skill/index.js"],
                 "message": "import from the skill barrel (skill/index.js), not one of its files"
+              },
+              {
+                "group": ["**/terminal/**", "!**/terminal/index.js"],
+                "message": "import from the terminal barrel (terminal/index.js), not one of its files"
               },
               {
                 "group": ["**/testing/**", "!**/testing/index.js"],
