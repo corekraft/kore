@@ -93,7 +93,7 @@ export async function check(context: CommandContext): Promise<number> {
 
 export const checkHelp: CommandHelp = {
   purpose:
-    "Reports each writer or judge pane in Herdr that session spawn did not start, since such a pane runs without its role token and sandbox. It reports nothing when the role-tokens flag is off.",
+    "Reports each writer or judge pane in Herdr that session spawn did not start, since such a pane runs without its role token and sandbox. With the role-tokens flag off it prints that no role pane was checked and exits 0; with --json it prints an object with an empty unmanaged list and checked set to false, and exits 0.",
   when: "With the role-tokens flag on, to find a writer or judge pane that must be closed and started again with session spawn.",
   whenNot:
     "To start a pane, use session spawn. To close a pane this tool spawned, use session close; a pane that spawn did not start is closed with herdr pane close, as the report says. This command changes nothing.",

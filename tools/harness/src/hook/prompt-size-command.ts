@@ -130,7 +130,7 @@ const promptSizeHelp: CommandHelp = {
 
 export const promptSizeCommand: Command = {
   summary:
-    "print a session's latest prompt size, the compaction cap and over or not over, from its transcript (read-only; no name reads this checkout's newest session and prints its id, a name is a Claude session id of this repository; a missing cap prints not set; --json prints the same fields)",
+    "print a session's latest prompt size against the compaction cap, read from its transcript (read-only)",
   operand: "session",
   help: promptSizeHelp,
   run: promptSizeRun,
