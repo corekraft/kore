@@ -118,140 +118,108 @@ test("each registered Service gets its own dashboard ConfigMap labelled for Graf
   assert.equal(dashboard.title, "Service shop");
 });
 
-test("each registered Service gets one Grafana-managed alert group over the Prometheus datasource, with its three notify-only rules", async () => {
-  const file = alertFileOf(await render('services=["shop"]'));
-  const group = {
-    orgId: 1,
-    name: "kore.service.shop",
-    folder: "Kore",
-    interval: "1m",
-    rules: [
+/** One of the Service alerts the chart renders, as the Grafana rule it becomes for the shop Service. */
+interface ShopAlert {
+  name: string;
+  expr: string;
+  threshold: "lt" | "gt";
+  limit: number;
+  for: string;
+  severity: string;
+  summary: string;
+}
+
+const shopAlerts: ShopAlert[] = [
+  {
+    name: "ServiceUnavailable",
+    expr: 'sum(kube_deployment_status_replicas_available{namespace="shop--local"})',
+    threshold: "lt",
+    limit: 1,
+    for: "5m",
+    severity: "critical",
+    summary: "Service shop has no available replica",
+  },
+  {
+    name: "ServiceHighErrorRatio",
+    expr: 'sum(rate(istio_requests_total{destination_service_namespace="shop--local",response_code=~"5.."}[5m])) / sum(rate(istio_requests_total{destination_service_namespace="shop--local"}[5m]))',
+    threshold: "gt",
+    limit: 0.05,
+    for: "10m",
+    severity: "warning",
+    summary:
+      "Service shop answers more than 5 percent of requests with a server error",
+  },
+  {
+    name: "ServiceRestartLoop",
+    expr: 'sum(increase(kube_pod_container_status_restarts_total{namespace="shop--local"}[15m]))',
+    threshold: "gt",
+    limit: 3,
+    for: "5m",
+    severity: "warning",
+    summary:
+      "Containers of service shop restarted more than 3 times in 15 minutes",
+  },
+];
+
+/** The Grafana rule the chart must render for one shop alert: a query, then a threshold on it. */
+function shopRule(alert: ShopAlert) {
+  return {
+    uid: alertUid("shop", alert.name),
+    title: alert.name,
+    condition: "C",
+    data: [
       {
-        uid: alertUid("shop", "ServiceUnavailable"),
-        title: "ServiceUnavailable",
-        condition: "C",
-        data: [
-          {
-            refId: "A",
-            relativeTimeRange: { from: 600, to: 0 },
-            datasourceUid: "prometheus",
-            model: {
-              refId: "A",
-              expr: 'sum(kube_deployment_status_replicas_available{namespace="shop--local"})',
-              instant: true,
-              intervalMs: 1000,
-              maxDataPoints: 43200,
-            },
-          },
-          {
-            refId: "C",
-            relativeTimeRange: { from: 0, to: 0 },
-            datasourceUid: "__expr__",
-            model: {
-              refId: "C",
-              type: "threshold",
-              expression: "A",
-              conditions: [{ evaluator: { type: "lt", params: [1] } }],
-            },
-          },
-        ],
-        noDataState: "OK",
-        execErrState: "Error",
-        for: "5m",
-        labels: {
-          severity: "critical",
-          service: "shop",
-          enforcement: "notify-only",
-        },
-        annotations: { summary: "Service shop has no available replica" },
-      },
-      {
-        uid: alertUid("shop", "ServiceHighErrorRatio"),
-        title: "ServiceHighErrorRatio",
-        condition: "C",
-        data: [
-          {
-            refId: "A",
-            relativeTimeRange: { from: 600, to: 0 },
-            datasourceUid: "prometheus",
-            model: {
-              refId: "A",
-              expr: 'sum(rate(istio_requests_total{destination_service_namespace="shop--local",response_code=~"5.."}[5m])) / sum(rate(istio_requests_total{destination_service_namespace="shop--local"}[5m]))',
-              instant: true,
-              intervalMs: 1000,
-              maxDataPoints: 43200,
-            },
-          },
-          {
-            refId: "C",
-            relativeTimeRange: { from: 0, to: 0 },
-            datasourceUid: "__expr__",
-            model: {
-              refId: "C",
-              type: "threshold",
-              expression: "A",
-              conditions: [{ evaluator: { type: "gt", params: [0.05] } }],
-            },
-          },
-        ],
-        noDataState: "OK",
-        execErrState: "Error",
-        for: "10m",
-        labels: {
-          severity: "warning",
-          service: "shop",
-          enforcement: "notify-only",
-        },
-        annotations: {
-          summary:
-            "Service shop answers more than 5 percent of requests with a server error",
+        refId: "A",
+        relativeTimeRange: { from: 600, to: 0 },
+        datasourceUid: "prometheus",
+        model: {
+          refId: "A",
+          expr: alert.expr,
+          instant: true,
+          intervalMs: 1000,
+          maxDataPoints: 43200,
         },
       },
       {
-        uid: alertUid("shop", "ServiceRestartLoop"),
-        title: "ServiceRestartLoop",
-        condition: "C",
-        data: [
-          {
-            refId: "A",
-            relativeTimeRange: { from: 600, to: 0 },
-            datasourceUid: "prometheus",
-            model: {
-              refId: "A",
-              expr: 'sum(increase(kube_pod_container_status_restarts_total{namespace="shop--local"}[15m]))',
-              instant: true,
-              intervalMs: 1000,
-              maxDataPoints: 43200,
-            },
-          },
-          {
-            refId: "C",
-            relativeTimeRange: { from: 0, to: 0 },
-            datasourceUid: "__expr__",
-            model: {
-              refId: "C",
-              type: "threshold",
-              expression: "A",
-              conditions: [{ evaluator: { type: "gt", params: [3] } }],
-            },
-          },
-        ],
-        noDataState: "OK",
-        execErrState: "Error",
-        for: "5m",
-        labels: {
-          severity: "warning",
-          service: "shop",
-          enforcement: "notify-only",
-        },
-        annotations: {
-          summary:
-            "Containers of service shop restarted more than 3 times in 15 minutes",
+        refId: "C",
+        relativeTimeRange: { from: 0, to: 0 },
+        datasourceUid: "__expr__",
+        model: {
+          refId: "C",
+          type: "threshold",
+          expression: "A",
+          conditions: [
+            { evaluator: { type: alert.threshold, params: [alert.limit] } },
+          ],
         },
       },
     ],
+    noDataState: "OK",
+    execErrState: "Error",
+    for: alert.for,
+    labels: {
+      severity: alert.severity,
+      service: "shop",
+      enforcement: "notify-only",
+    },
+    annotations: { summary: alert.summary },
   };
-  assert.deepEqual(file, { apiVersion: 1, groups: [group] });
+}
+
+test("each registered Service gets one Grafana-managed alert group over the Prometheus datasource, with its three notify-only rules", async () => {
+  const file = alertFileOf(await render('services=["shop"]'));
+  assert.deepEqual(file, {
+    apiVersion: 1,
+    groups: [
+      {
+        orgId: 1,
+        name: "kore.service.shop",
+        folder: "Kore",
+        interval: "1m",
+        rules: shopAlerts.map(shopRule),
+      },
+    ],
+  });
 });
 
 test("a configured alert destination is carried as a contact_point label on every rule, since Grafana's one policy routes every alert to the contact point", async () => {
