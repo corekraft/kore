@@ -12,6 +12,8 @@ Source: [`infra/plans/11-agent-delivery-loop.md` § Current Limits](../../infra/
 
 Refines: [ADR 0095](0095-writer-panes-run-under-macos-sandbox-exec-with-a-writer-token-over-https.md)
 
+> Superseded by [ADR 0179](0179-a-session-s-token-is-made-inside-its-launch-wrapper-from-the-identity-store.md). The FIFO path stays in force until the hc-sessions flip, as in ADR 0123.
+
 ## Context
 
 ADR 0091 gives writers and the judge their own GitHub identities, and ADR 0095

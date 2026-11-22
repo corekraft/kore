@@ -11,6 +11,10 @@ Source: [`infra/plans/16-hc-native-sessions.md` § Step 1](../../infra/plans/16-
 
 Supersedes: [ADR 0096](0096-role-tokens-reach-panes-through-a-fifo-handoff.md)
 
+## Status
+
+Accepted on 2026-11-22 by the owner's decisions in plan 16 (Decisions, 2026-11-22), under spec #1765.
+
 ## Context
 
 ADR 0096 gave writer and judge panes their GitHub token through a 0600 FIFO, because herdr had no argv-free channel. Its `pane split --env`, `send-text`, `run` and `agent prompt` all take their text as argv.

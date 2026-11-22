@@ -11,6 +11,10 @@ Source: [`infra/plans/16-hc-native-sessions.md` § Step 1](../../infra/plans/16-
 
 Refines: [ADR 0078](0078-agent-roles-run-as-herdr-panes.md) and [ADR 0123](0123-the-main-session-waits-and-sends-through-harness-tools-not-guards.md), and the AGENTS.md sender-line rule.
 
+## Status
+
+Accepted on 2026-11-22 by the owner's decisions in plan 16 (Decisions, 2026-11-22), under spec #1765.
+
 ## Context
 
 The harness drives agent panes by calling `herdr` directly, about twenty calls in roughly fifteen files. Herdr's limits shaped the session tools. Delivery is confirmed by counting lines read back from the screen, briefs are pasted after start with a retry for the paste race, the result is scraped from a `RESULT` line, status comes from a polled agent list, and panes are split and resized to stay visible.
