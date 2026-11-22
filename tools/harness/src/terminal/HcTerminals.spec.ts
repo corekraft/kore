@@ -72,6 +72,7 @@ describe("HcTerminals: run builds the argv", () => {
       labels: { role: "writer", "kore-session": "s1" },
       parent: "t1",
       outliveParent: true,
+      notify: false,
     });
     expect(argvs(runner)).toEqual([["get", "--json", "t1"], RUN_ARGV]);
   });
