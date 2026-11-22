@@ -327,7 +327,7 @@ Safety pattern: `no-behaviour-change` (records only).
 
 ### Work
 
-- [ ] Record the per-stage delivery time from a merged `Service` change with a
+- [x] Record the per-stage delivery time from a merged `Service` change with a
       signed digest to a working HTTPS address, over several runs: namespace,
       sync, admission, certificate, rollout, readiness. Exclude the tenant's
       own build, and report cold services separately from redeploys.
