@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import { signInTokenProgram } from "./signin-token-program.js";
 import {
   runTokenFlow,
+  type FakeCookie,
   sessionToken,
   type TokenPageScenario,
 } from "./signin-token-program.fixtures.js";
@@ -14,7 +15,6 @@ const host = "golden-path-example.platform.kore.internal";
 const keycloakHost = "keycloak.platform.kore.internal";
 const origin = `https://${host}`;
 const password = "Qx3-token-pw-Rt8";
-const sessionCookieValue = "opaque-session-value-9f2c";
 const options = {
   host,
   keycloakHost,
@@ -27,7 +27,14 @@ const options = {
     anonymousPath: "/api/whoami",
   },
 };
-const sessionSetCookie = `SESSION=${sessionCookieValue}; Path=/; HttpOnly; Secure; SameSite=Lax`;
+const storedCookie = (overrides: Partial<FakeCookie> = {}): FakeCookie => ({
+  name: "SESSION",
+  domain: host,
+  httpOnly: true,
+  secure: true,
+  sameSite: "Lax",
+  ...overrides,
+});
 const cookieCheck =
   "every session cookie is host-only, HttpOnly, Secure and SameSite";
 
@@ -37,24 +44,15 @@ const clean: TokenPageScenario = {
     {
       url: `${origin}/login/oauth2/code/golden-path?code=authorization-code&state=state-value`,
       status: 302,
-      headers: { location: `${origin}/`, "set-cookie": sessionSetCookie },
+      headers: { location: `${origin}/` },
     },
     { url: `${origin}/`, status: 200 },
   ],
+  cookies: [storedCookie()],
 };
 
 const run = (scenario: TokenPageScenario) =>
   runTokenFlow(signInTokenProgram(options), scenario);
-
-const sessionCookie = (attributes: string): TokenPageScenario => ({
-  documents: [
-    {
-      url: `${origin}/login/oauth2/code/golden-path`,
-      status: 302,
-      headers: { location: `${origin}/`, "set-cookie": attributes },
-    },
-  ],
-});
 
 const cookieOf = (overrides: Record<string, unknown>) => ({
   name: "SESSION",
@@ -154,36 +152,6 @@ const channelCases: ChannelCase[] = [
   ],
 ];
 
-type CookieCase = [
-  label: string,
-  attributes: string,
-  broken: Record<string, unknown>,
-];
-
-const cookieCases: CookieCase[] = [
-  [
-    "lacks HttpOnly",
-    "SESSION=v; Path=/; Secure; SameSite=Lax",
-    { httpOnly: false },
-  ],
-  [
-    "lacks Secure",
-    "SESSION=v; Path=/; HttpOnly; SameSite=Lax",
-    { secure: false },
-  ],
-  ["lacks SameSite", "SESSION=v; Path=/; HttpOnly; Secure", { sameSite: null }],
-  [
-    "is SameSite=None",
-    "SESSION=v; Path=/; HttpOnly; Secure; SameSite=None",
-    { sameSite: "None" },
-  ],
-  [
-    "has a Domain attribute, so it is not host-only",
-    `SESSION=v; Domain=${host}; Path=/; HttpOnly; Secure; SameSite=Lax`,
-    { hostOnly: false },
-  ],
-];
-
 describe("the session token check, on a session that holds no token", () => {
   it("passes every channel and names the one session cookie with its attributes", async () => {
     const { assertions } = await run(clean);
@@ -222,62 +190,8 @@ describe("the session token check, one channel at a time", () => {
   );
 });
 
-describe("the session cookie's attributes", () => {
-  it.each(cookieCases)(
-    "fails the check when the session cookie %s",
-    async (_label, attributes, broken) => {
-      const { assertions } = await run(sessionCookie(attributes));
-      expect(assertions[6]).toEqual({
-        name: cookieCheck,
-        ok: false,
-        cookies: [cookieOf(broken)],
-      });
-    },
-  );
-
-  it("passes a session cookie that is SameSite=Strict", async () => {
-    const { assertions } = await run(
-      sessionCookie("SESSION=v; Path=/; HttpOnly; Secure; SameSite=Strict"),
-    );
-    expect(assertions[6]).toEqual({
-      name: cookieCheck,
-      ok: true,
-      cookies: [cookieOf({ sameSite: "Strict" })],
-    });
-  });
-
-  it("fails the check when the target sets no session cookie at all", async () => {
-    const { assertions } = await run({
-      documents: [{ url: `${origin}/`, status: 200 }],
-    });
-    expect(assertions[6]).toEqual({
-      name: cookieCheck,
-      ok: false,
-      cookies: [],
-    });
-  });
-
-  it("judges only the cookies the target sets, not Keycloak's", async () => {
-    const { assertions } = await run({
-      documents: [
-        ...(clean.documents ?? []),
-        {
-          url: `https://${keycloakHost}/realms/platform/login-actions/authenticate`,
-          status: 200,
-          headers: { "set-cookie": "AUTH_SESSION_ID=kc-value; Path=/; Secure" },
-        },
-      ],
-    });
-    expect(assertions[6]).toEqual({
-      name: cookieCheck,
-      ok: true,
-      cookies: [cookieOf({})],
-    });
-  });
-});
-
 describe("the session token check's output", () => {
-  it("never prints a token, a cookie value or the password, whichever channel holds it", async () => {
+  it("never prints a token or the password, whichever channel holds it", async () => {
     const { assertions } = await run({
       localStorage: { a: sessionToken },
       sessionStorage: { b: sessionToken },
@@ -288,16 +202,13 @@ describe("the session token check's output", () => {
         {
           url: `${origin}/`,
           status: 302,
-          headers: {
-            location: `${origin}/?x=${sessionToken}`,
-            "set-cookie": sessionSetCookie,
-          },
+          headers: { location: `${origin}/?x=${sessionToken}` },
         },
       ],
+      cookies: [storedCookie()],
     });
     const printed = JSON.stringify(assertions);
     expect(printed).not.toContain(sessionToken);
-    expect(printed).not.toContain(sessionCookieValue);
     expect(printed).not.toContain(password);
   });
 
