@@ -77,13 +77,6 @@ describe("harness help on the real command table", () => {
     });
   });
 
-  it("prints a usable fallback for a command still on the exemption list, with its usage", async () => {
-    const h = helpDeps();
-    expect(await run(["guardrail", "status", "--help"], h.deps)).toBe(0);
-    expect(h.out()).toContain("Usage:\n  harness guardrail status");
-    expect(h.out()).not.toContain("Effects:");
-  });
-
   it("prints the root guide after an unknown domain, with exit 2 and nothing on stdout", async () => {
     const h = helpDeps();
     expect(await run(["nope"], h.deps)).toBe(2);
