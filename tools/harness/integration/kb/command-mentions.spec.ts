@@ -126,3 +126,66 @@ describe("which documents the check reads", () => {
     ).toEqual([]);
   });
 });
+
+describe("a harness command a harness source file names in a string must exist", () => {
+  const SOURCE = "tools/harness/src/kb/x.ts";
+
+  it("a real command in a hint string is clean", () => {
+    expect(
+      check(
+        cleanTree({
+          [SOURCE]:
+            'export const hint = "Run `harness pr open --title t`.";\n',
+        }),
+      ),
+    ).toEqual([]);
+  });
+
+  it("an unknown command in an error text is reported with its file, line, the reference and the nearest real command", () => {
+    expect(
+      check(
+        cleanTree({
+          [SOURCE]:
+            'export const a = 1;\nthrow new Error("Run `harness pr opne`.");\n',
+        }),
+      ),
+    ).toEqual([
+      {
+        file: SOURCE,
+        line: 2,
+        message: "harness pr opne is not a harness command",
+        fix: "use harness pr open, the nearest real command",
+      },
+    ]);
+  });
+
+  it("an unknown flag in an error text is reported with the nearest flag the command declares", () => {
+    expect(
+      check(
+        cleanTree({
+          [SOURCE]: 'throw new Error("Run `harness pr open --titel t`.");\n',
+        }),
+      ),
+    ).toEqual([
+      {
+        file: SOURCE,
+        line: 1,
+        message: "harness pr open has no --titel flag",
+        fix: "use --title, a flag it declares",
+      },
+    ]);
+  });
+
+  it("a command named in a comment, a spec file, or plain prose of a string is not checked", () => {
+    expect(
+      check(
+        cleanTree({
+          [SOURCE]:
+            '// Run `harness pr opne`.\nthrow new Error("such as harness pr opne");\n',
+          "tools/harness/src/kb/x.spec.ts":
+            'const s = "Run `harness pr opne`.";\n',
+        }),
+      ),
+    ).toEqual([]);
+  });
+});

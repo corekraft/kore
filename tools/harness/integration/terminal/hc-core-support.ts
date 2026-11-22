@@ -6,7 +6,9 @@ import { randomBytes } from "node:crypto";
 import { mkdir, mkdtemp, rm } from "node:fs/promises";
 import { join } from "node:path";
 import {
+  ProcessLineStream,
   ProcessRunner,
+  type LineStream,
   type Runner,
   type RunResult,
 } from "../../src/runtime/index.js";
@@ -157,7 +159,12 @@ export async function scratchCore(): Promise<ScratchCore> {
     run: (command, args, options = {}) =>
       new ProcessRunner().run(command, args, { ...options, env }),
   };
-  const terminals = new HcTerminals({ runner, env: {} });
+  // The scratch environment reaches hc events too: a line stream that gives each command the same env as the runner.
+  const lines: LineStream = {
+    lines: (command, args, options = {}) =>
+      new ProcessLineStream().lines(command, args, { ...options, env }),
+  };
+  const terminals = new HcTerminals({ runner, env: {}, lines });
   let started = false;
 
   const hc = (args: readonly string[]) => runner.run("hc", [...args]);

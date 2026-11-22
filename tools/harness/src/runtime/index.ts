@@ -16,6 +16,11 @@ export {
   type RunResult,
   type Runner,
 } from "./runner.js";
+export {
+  ProcessLineStream,
+  type LineStream,
+  type LineStreamOptions,
+} from "./line-stream.js";
 export { hostLocksDirectory } from "./host-root.js";
 export type {
   CliDeps,
