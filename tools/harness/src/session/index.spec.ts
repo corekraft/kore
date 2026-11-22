@@ -6,6 +6,7 @@ import { close, closeHelp } from "./close.js";
 import { equalize, equalizeHelp, type EqualizeResult } from "./equalize.js";
 import { resolveTier as exported, session } from "./index.js";
 import { notify, notifyHelp } from "./notify.js";
+import { report, reportHelp } from "./report.js";
 import { send, sendHelp } from "./send.js";
 import { spawn, spawnHelp } from "./spawn.js";
 import { tier, tierHelp } from "./tier.js";
@@ -25,6 +26,10 @@ vi.mock("./close.js", () => ({
 vi.mock("./equalize.js", () => ({
   equalize: vi.fn(),
   equalizeHelp: { purpose: "equalize help" },
+}));
+vi.mock("./report.js", () => ({
+  report: vi.fn(),
+  reportHelp: { purpose: "report help" },
 }));
 vi.mock("./notify.js", () => ({
   notify: vi.fn(),
@@ -74,13 +79,14 @@ beforeEach(() => {
 });
 
 describe("the session domain's command set", () => {
-  it("exposes spawn, wait, notify, send, check, close, tier and equalize, and no other command", () => {
+  it("exposes spawn, wait, notify, report, send, check, close, tier and equalize, and no other command", () => {
     expect(Object.keys(session).sort()).toEqual([
       "check",
       "close",
       "equalize",
       "exec",
       "notify",
+      "report",
       "send",
       "spawn",
       "tier",
@@ -96,6 +102,7 @@ describe("the session domain's command set", () => {
     ["spawn", spawn],
     ["wait", wait],
     ["notify", notify],
+    ["report", report],
     ["send", send],
     ["check", check],
     ["close", close],
@@ -111,6 +118,7 @@ describe("the session domain's command set", () => {
     ["spawn", spawnHelp],
     ["wait", waitHelp],
     ["notify", notifyHelp],
+    ["report", reportHelp],
     ["send", sendHelp],
     ["check", checkHelp],
     ["close", closeHelp],
@@ -145,6 +153,11 @@ describe("the session domain's operands and flags", () => {
     ["notify", "pane", { outcome: "string" }],
     ["send", "name", { message: "string" }],
     ["close", "name", { "remove-worktree": "boolean" }],
+    [
+      "report",
+      undefined,
+      { outcome: "string", summary: "string", file: "string", plan: "string" },
+    ],
     ["tier", "role", undefined],
   ])("takes the operand and flags %s declares", (name, operand, options) => {
     expect(session[name]?.operand).toBe(operand);

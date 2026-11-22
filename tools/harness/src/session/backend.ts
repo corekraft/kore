@@ -1,6 +1,11 @@
 // Routes a session tool to the backend its record names. The record decides, never a flag:
 // a record with no backend is herdr, so every record written before the field keeps its path.
-import type { Terminals } from "../terminal/index.js";
+import type { CliDeps } from "../runtime/index.js";
+import {
+  HcTerminals,
+  type TerminalError,
+  type Terminals,
+} from "../terminal/index.js";
 import type { Backend, SessionRecord } from "./registry.js";
 
 export type Routed =
@@ -30,4 +35,15 @@ export function routeSession(
     };
   }
   return { backend: "hc", terminals: hc };
+}
+
+/** The one place a session tool gets its hc adapter: the hc CLI over the caller's runner and environment. */
+export function terminalsFor(deps: Pick<CliDeps, "runner" | "env">): Terminals {
+  return new HcTerminals({ runner: deps.runner, env: deps.env });
+}
+
+/** hc's message for an error: its message, with its hint in brackets when hc gives one. */
+export function hcMessage(error: TerminalError): string {
+  const { message, hint } = error.error;
+  return hint === undefined ? message : `${message} (${hint})`;
 }

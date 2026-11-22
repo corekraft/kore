@@ -11,6 +11,7 @@ import {
 import { describeFailure } from "./equalize.js";
 import { recordFinish } from "./finish-record.js";
 import { sessionNameError } from "./names.js";
+import { routeSession } from "./backend.js";
 import { FAILED, USAGE_ERROR, fail } from "./output.js";
 import type { SessionRecord, SessionRegistry } from "./registry.js";
 import {
@@ -30,6 +31,7 @@ vi.mock("./registry.js", () => ({ SessionRegistry: opener }));
 vi.mock("./equalize.js");
 vi.mock("./finish-record.js", () => ({ recordFinish: vi.fn() }));
 vi.mock("./names.js");
+vi.mock("./backend.js");
 vi.mock("./output.js", async (importOriginal) => ({
   ...(await importOriginal<typeof import("./output.js")>()),
   fail: vi.fn(),
@@ -55,6 +57,7 @@ beforeEach(() => {
   registry = fakeRegistry();
   opener.open.mockResolvedValue(asRegistry(registry));
   vi.mocked(fail).mockImplementation((_deps, _json, code) => code);
+  vi.mocked(routeSession).mockReturnValue({ backend: "herdr" });
 });
 
 /** The pane's screen as herdr shows it, one answer per poll. */
