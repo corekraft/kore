@@ -37,7 +37,7 @@ const declarationHelp: CommandHelp = {
 
 const declaration: Command = {
   summary:
-    "read-only; audit a PR body read from stdin: exactly one valid `Safety pattern: <pattern>` line, and it is the last line; exits 1 and names the fix when it is not (the CI audit job pipes the body in)",
+    "audit a PR body on stdin for one valid Safety pattern line, as its last line",
   help: declarationHelp,
   run: async ({ deps }) => {
     const result = auditDeclaration(await deps.stdin());

@@ -245,7 +245,7 @@ async function runApprove(context: CommandContext): Promise<number> {
 export const approveCommands: Record<string, Command> = {
   approve: {
     summary:
-      "mutates; re-runs the precheck and approves the verified head commit as the pane's own gh identity only when it passes; refuses a moved head and the caller's own PR, and posts nothing twice (<pr> [--json] [--reviewer <login>[,<login>]])",
+      "approve a PR's verified head as this pane's identity, if the precheck passes",
     operand: "pr",
     options: { reviewer: "string" },
     help: approveHelp,

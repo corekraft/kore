@@ -267,8 +267,7 @@ async function runSendBack(context: CommandContext): Promise<number> {
 
 export const mergeCommands: Record<string, Command> = {
   merge: {
-    summary:
-      'mutates; re-runs the precheck and squash-merges the verified head commit only when it passes; with no declared pattern, a mismatching diff or a failing enforce gate it merges nothing; a PR that GitHub refuses because it is behind main is refused naming the PR, "behind main" and the next step; each gate reads its mode from .claude/guardrails.yaml (rule judge-<item>, kind checklist): a failing audit gate is listed (audited in --json), writes one guard.audit ledger event per item and head, and never blocks the merge; an unreadable inventory or a mode other than audit or enforce is refused (<pr> [--json] [--reviewer <login>[,<login>]])',
+    summary: "squash-merge a PR's verified head, if the precheck passes",
     operand: "pr",
     options: { reviewer: "string" },
     help: mergeHelp,
@@ -276,9 +275,7 @@ export const mergeCommands: Record<string, Command> = {
   },
   "send-back": {
     summary:
-      "posts the reason as a comment on the PR, the orchestrator's queue, and records a send-back event at the shared ledger with its category (<pr> (--reason <why> | --reason-file <path>) --category <category>; a reason given by file is read from that path, and giving both flags is refused; category one of: " +
-      SEND_BACK_CATEGORIES.join(", ") +
-      ")",
+      "post the reason on a PR for its writer and record a send-back event",
     operand: "pr",
     options: { reason: "string", "reason-file": "string", category: "string" },
     help: sendBackHelp,

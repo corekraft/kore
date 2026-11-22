@@ -101,7 +101,7 @@ const diffHelp: CommandHelp = {
 export const diffCommands: Record<string, Command> = {
   diff: {
     summary:
-      "read-only on GitHub; print a PR's diff through gh, limited to the files matching --path globs (comma-separated; * stays in one folder, ** crosses folders), or with --stat only each file's added and removed line counts; fails when no file matches (<pr> [--path <glob>[,<glob>]] [--stat] [--json])",
+      "print a PR's diff, or with --stat its per-file line counts, limited to --path globs",
     operand: "pr",
     options: { path: "string", stat: "boolean" },
     help: diffHelp,

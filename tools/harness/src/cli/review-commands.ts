@@ -161,12 +161,12 @@ const runHelp: CommandHelp = {
 
 const resampleHelp: CommandHelp = {
   purpose:
-    "Re-reviews a sample of passed reviews of merged PRs, to check that the principles review passed them rightly. It draws up to --size heads that no re-review has taken yet and runs one Sonnet reader per head through session spawn. Each reader's result is recorded as a review.run event; nothing is posted to GitHub.",
+    "Re-reviews a sample of passed reviews of merged PRs, to check that the principles review passed them rightly. It draws up to --size heads that no re-review has taken yet and runs one Sonnet reader per head through session spawn, on the override tier that session spawn records with its reason. Each reader's result is recorded as a review.run event; nothing is posted to GitHub.",
   when: "For a periodic check of review quality, once several PRs have merged, so the flow report's re-review ratio has fresh data.",
   whenNot:
     "When a PR itself needs a review, use review run, which posts a verdict. When no passed review is waiting, this starts no reader and says so.",
   flags: {
-    size: "How many heads to re-review: a whole number of 1 or more; without it, 5.",
+    size: "How many heads to re-review: a whole number of 1 or more; without it, 5, a placeholder sample size.",
   },
   examples: [
     {
@@ -208,22 +208,21 @@ const resampleHelp: CommandHelp = {
 export const reviewCommands: Record<string, Command> = {
   post: {
     summary:
-      "mutates; formats the principles-review verdict for the PR's head in the format the precheck reads and posts it as a comment, unless the identical verdict is already on that head, and records a review.run event for a verdict it posted, with the PR, the head, the violation count and the cited rule labels and no verdict text, so a repost writes no second event (<pr> [--none] [--dry-run] [--json]; findings one per line on stdin)",
+      "post a principles-review verdict on a PR's head, in the precheck's format",
     operand: "pr",
     help: postHelp,
     options: { none: "boolean", "dry-run": "boolean" },
     run: (context) => reviewPostRun(context, () => ghReviewIo(context)),
   },
   run: {
-    summary:
-      "mutates; reads the PR's head once, spawns the principles-review Reviewer through `session spawn` at its declared tier, collects its verdict with `session wait`, and posts it through `review post`'s code for that same head, so a tool, not a model, posts the verdict; a head that moved during the review discards the verdict and reviews again (up to 3 reviews, then fails); a pane that ends blocked or with no parsable verdict records a review.run failure event and posts nothing (<pr> [--json])",
+    summary: "review a PR's head with a Reviewer pane and post its verdict",
     operand: "pr",
     help: runHelp,
     run: reviewRunRun,
   },
   resample: {
     summary:
-      "mutates; draws a sample of the passed reviews of merged PRs that no re-review has taken yet, and re-reviews each sampled head with a Sonnet reader on the override tier, which `session spawn` records with its reason, collecting its verdict with `session wait`; records each re-review as a review.run labelled resample:<head> with its findings, or resample-failed:<head> when the reader ends blocked or with no verdict, and posts nothing to GitHub, so the re-reviews are counted in the flow report beside the ratio (--size n, default 5, a placeholder; [--json])",
+      "re-review a sample of passed reviews of merged PRs and post nothing",
     help: resampleHelp,
     options: { size: "string" },
     run: (context) =>

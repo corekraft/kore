@@ -80,7 +80,7 @@ async function approverFor(context: CommandContext): Promise<Approver> {
 
 const approveHelp: CommandHelp = {
   purpose:
-    "Applies ready-for-agent to a harness idea whose change is reversible and whose hypothesis metric has enough history in the flow report, and otherwise leaves the idea for a person and says why. It is off until the automatic-approval flag is on in the local overlay: with the flag off it writes nothing.",
+    "Applies ready-for-agent to a harness idea whose change is reversible and whose hypothesis metric has enough history in the flow report, and otherwise leaves the idea for a person and says why. It warns, and never refuses, when the idea's primary metric is a guard metric or another open idea's primary (ADR 0119). It is off until the automatic-approval flag is on in the local overlay: with the flag off it writes nothing.",
   when: "When an idea is ready to be taken by an agent and its verdict is wanted. Nothing runs it unprompted.",
   whenNot:
     "When you want a person's approval: an agent's label is never a person's approval. When the idea has no issue, run idea sync first.",
@@ -127,7 +127,8 @@ const approveHelp: CommandHelp = {
 };
 
 export const approveCommand: Command = {
-  summary: `apply ready-for-agent to a harness idea only when its change is reversible (no-behaviour-change, feature-flagged, dark-launched or branch-by-abstraction, and not moving a guardrail to enforce) and its hypothesis metric is in the flow report with enough history for a trailing average; otherwise leave it for a person and say why; the reason is posted as a comment on the idea's issue and an auto-approved event is recorded in the ledger, each once, so a rerun changes nothing; it warns, and never refuses, when the idea's primary metric is a guard metric or another open idea's primary (ADR 0119), and records a qualifier.warned event per warning; nothing runs it unprompted, and with the ${APPROVE_FLAG} flag off in the local overlay it writes nothing and only reports the verdict; an agent's label is never a person's approval (--idea <number or slug> [--json: idea, issue, status approved|already-approved|left-for-person|flag-off, reason, warnings] [--ledger])`,
+  summary:
+    "apply ready-for-agent to an idea whose change is reversible and measurable, else leave it",
   help: approveHelp,
   options: { idea: "string", ledger: "string" },
   async run(context) {

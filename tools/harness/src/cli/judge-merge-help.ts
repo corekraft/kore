@@ -2,7 +2,7 @@ import type { CommandHelp } from "../runtime/index.js";
 
 export const mergeHelp: CommandHelp = {
   purpose:
-    "Squash-merges a PR's head commit on GitHub, but only after it re-runs the precheck and every enforced result passes on that same commit. It is the one merge a judge pane may run, and it refuses a head that moved after the verdict.",
+    "Squash-merges a PR's head commit on GitHub, but only after it re-runs the precheck and every enforced result passes on that same commit. It is the one merge a judge pane may run, and it refuses a head that moved after the verdict. A failing audit gate is logged and never blocks the merge.",
   when: "For the judge, as the last step on a passing PR, after judge approve.",
   whenNot:
     "When the precheck does not pass, send the change back with judge send-back. When the PR is behind main the command refuses it and names the next step. Do not run gh pr merge by hand: a role-bound pane is refused it.",
@@ -28,7 +28,7 @@ export const mergeHelp: CommandHelp = {
     {
       code: 1,
       meaning:
-        "not merged: the precheck did not pass, the PR is behind main, gh refused the merge, or the verdict could not be recorded; stderr names the next step",
+        "not merged: the precheck did not pass, the PR is behind main, gh refused the merge, the verdict could not be recorded, or the guardrail inventory is unreadable; stderr names the next step",
     },
     {
       code: 2,
