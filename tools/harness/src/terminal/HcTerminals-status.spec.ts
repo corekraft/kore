@@ -3,7 +3,7 @@ import type { Runner } from "../runtime/index.js";
 import type { Terminal, Status } from "./port.js";
 import { HcTerminals } from "./HcTerminals.js";
 import { HC_0_1_21, RECORDED_CWD } from "./hc-0.1.21.fixtures.js";
-import { ok, scripted } from "./hc-terminals-support.js";
+import { WRITER_LIVE, ok, scripted } from "./hc-terminals-support.js";
 
 // The unit is the adapter's get, read through its status mapping. Its dependencies are doubles here
 // (ADR 0098): the version check, the shape guards, the argv refusals, the error mapping and the port's
@@ -65,14 +65,19 @@ function replyWith(status: unknown): string {
 }
 
 describe("HcTerminals: get maps a status in either shape hc prints", () => {
-  it.each([
-    [
-      "get's object, whose state is the status",
-      { app: "claude-code", state: "working" },
-      "working",
-    ],
-    ["ls's bare string, which is the status as is", "idle", "idle"],
-  ])(
+  it("maps hc 0.1.21's live get reply, whose status is an object, to the state the object names", async () => {
+    const runner = scripted(ok(HC_0_1_21.getObjectStatus));
+    expect(await hc(runner).get("t3f")).toStrictEqual({
+      id: "t3f",
+      state: "live",
+      labels: { where: "tools / 1" },
+      cwd: "/home/x/kore",
+      status: "working",
+      turn: 2,
+    });
+  });
+
+  it.each([["ls's bare string, which is the status as is", "idle", "idle"]])(
     "maps a status given as %s to the status it names",
     async (_name, status, expected) => {
       const runner = scripted(ok(replyWith(status)));
@@ -84,8 +89,7 @@ describe("HcTerminals: get maps a status in either shape hc prints", () => {
 
   it("maps a real get reply with no status to a terminal with no status", async () => {
     const runner = scripted(ok(HC_0_1_21.get));
-    const terminal = await hc(runner).get("t2");
-    expect(terminal).not.toHaveProperty("status");
+    expect(await hc(runner).get("t2")).toStrictEqual(WRITER_LIVE);
   });
 
   it.each([

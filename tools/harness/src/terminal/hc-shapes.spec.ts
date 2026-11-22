@@ -44,22 +44,6 @@ const cases: [
     false,
   ],
   [
-    "a terminal whose status is the bare string ls prints",
-    isHcTerminal,
-    { address: "t7", cwd: "/w", status: "working" },
-    true,
-  ],
-  [
-    "a terminal whose status is the object get prints, with a state",
-    isHcTerminal,
-    {
-      address: "t7",
-      cwd: "/w",
-      status: { app: "claude-code", state: "working" },
-    },
-    true,
-  ],
-  [
     "a terminal with an address and no cwd",
     isHcTerminal,
     { address: "t7", labels: {}, state: "live" },

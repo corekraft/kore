@@ -14,6 +14,10 @@ export const HC_0_1_21 = {
   runLiveChild:
     '{"address":"t5","agent":"sh","cwd":"/tmp/kore-rec-sIzhnv/work","name":"s4","parent":"t1","state":"live","turn":0}',
   get: '{"address":"t2","argv":["sh"],"cols":200,"created_ms":1795349489426,"cwd":"/tmp/kore-rec-sIzhnv/work","die_with_parent":true,"exit_code":null,"finished_ms":null,"foreground":{"argv":["sh"],"cwd":"/tmp/kore-rec-sIzhnv/work","name":"sh","pid":4041572},"identity":"ghostty","keep":false,"labels":{"kore-session":"s1","role":"writer"},"name":"s1","notify":true,"parent":"t1","pid":4041572,"reason":null,"reported":false,"rm":false,"rows":120,"screen":"exact","signal":null,"state":"live","status":null,"status_ms":null,"template":null,"title":"","turn":0}',
+  // A live terminal an agent app reports on: get's status is an object whose state is the status
+  // (#1874). A scrubbed copy of hc 0.1.21's live reply, with cwd, where and ids replaced.
+  getObjectStatus:
+    '{"address":"t3f","argv":["/bin/bash"],"cols":360,"cwd":"/home/x/kore","foreground":{"argv":["claude"],"cwd":"/home/x/kore","name":"claude","pid":1},"labels":{"where":"tools / 1"},"name":null,"parent":null,"records":{"r1":{"app":"claude-code","state":"working","title":"started by Claude"}},"reported":true,"state":"live","status":{"app":"claude-code","state":"working"},"status_ms":1,"title":"x","turn":2}',
   getFinished:
     '{"address":"t2","argv":["sh"],"cols":200,"created_ms":1795349489426,"cwd":"/tmp/kore-rec-sIzhnv/work","die_with_parent":true,"exit_code":0,"finished_ms":1795349500230,"identity":"ghostty","keep":false,"labels":{"kore-session":"s1","model":"sonnet","role":"writer"},"name":"s1","notify":true,"parent":"t1","pid":4041572,"reason":"exited","reported":false,"rm":false,"rows":120,"screen":"exact","signal":null,"state":"finished","status":null,"status_ms":null,"template":null,"title":"","turn":0}',
   getParentLive:
