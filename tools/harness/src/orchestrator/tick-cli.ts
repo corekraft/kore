@@ -1,6 +1,7 @@
 import type { FileSystem, Runner } from "../runtime/index.js";
 import { signedBody } from "../sender/index.js";
 import type { WorkPiece } from "./judgment-check.js";
+import { readReport, reportPath } from "../session/index.js";
 import { HarnessCli, HarnessCliError } from "./harness-cli.js";
 import { TickPlanStore, type StoredPlan } from "./tick-plan-store.js";
 import type { IdeaPane, PaneState } from "./tick.js";
@@ -32,17 +33,46 @@ function checksState(stdout: string): string | undefined {
 }
 
 /** The tick's ports over the real tools: the stage tools of HarnessCli plus three read-only reads. */
+export interface TickCliPaths {
+  /** The main checkout's session registry, one JSON file per spawned pane. */
+  sessions: string;
+  /** The main checkout's persisted work plans, one JSON file per idea (ADR 0121). */
+  plans: string;
+  /** The checkout hc sessions run in, where their reports are written: the main checkout. */
+  checkout: string;
+}
+
 export class TickCli extends HarnessCli {
+  private readonly sessions: string;
+  private readonly plans: string;
+  private readonly checkout: string;
+
   constructor(
     runner: Runner,
     private readonly repo: string,
     private readonly fs: FileSystem,
-    /** The main checkout's session registry, one JSON file per spawned pane. */
-    private readonly sessions: string,
-    /** The main checkout's persisted work plans, one JSON file per idea (ADR 0121). */
-    private readonly plans: string,
+    paths: TickCliPaths,
+    /** The backend this tick writes its briefs for: hc when the hc-sessions flag is on. */
+    readonly backend: "herdr" | "hc" = "herdr",
   ) {
     super(runner, repo);
+    this.sessions = paths.sessions;
+    this.plans = paths.plans;
+    this.checkout = paths.checkout;
+  }
+
+  /** The report a finished hc session wrote in the checkout, read without consuming it; undefined when it wrote none. */
+  async reportOf(
+    name: string,
+  ): Promise<{ summary: string; plan?: string } | undefined> {
+    const report = await readReport(this.fs, reportPath(this.checkout, name));
+    if (report === undefined) {
+      return undefined;
+    }
+    return {
+      summary: report.summary,
+      ...(report.plan === undefined ? {} : { plan: report.plan }),
+    };
   }
 
   /** `gh issue comment`: posts the body as one comment on the issue; the error text when gh refuses, or undefined once posted (#1431). */

@@ -47,7 +47,7 @@ describe("the review run ports start and read the Reviewer through the session t
   it("reads and comments the PR through the review port", async () => {
     io.view.mockResolvedValue({ headSha: "h" } as PrView);
     io.comment.mockResolvedValue("URL");
-    const ports = await sessionReviewPorts(context);
+    const ports = await sessionReviewPorts(context, "herdr");
     expect((await ports.view(42)).headSha).toBe("h");
     expect(await ports.comment(42, "B")).toBe("URL");
     expect(io.view).toHaveBeenCalledWith(42);
@@ -56,7 +56,9 @@ describe("the review run ports start and read the Reviewer through the session t
 
   it("spawns the principles-review role with its own tier and no wait, with no model flag", async () => {
     run.mockReturnValue(result(""));
-    await (await sessionReviewPorts(context)).spawn("pr42-reviewer", "BRIEF");
+    await (
+      await sessionReviewPorts(context, "herdr")
+    ).spawn("pr42-reviewer", "BRIEF");
     expect(run).toHaveBeenCalledExactlyOnceWith(
       "node",
       [
@@ -78,7 +80,7 @@ describe("the review run ports start and read the Reviewer through the session t
   it("names the failed spawn and the fix", async () => {
     run.mockReturnValue(result("", 1, "no herdr"));
     await expect(
-      (await sessionReviewPorts(context)).spawn("pr42-reviewer", "B"),
+      (await sessionReviewPorts(context, "herdr")).spawn("pr42-reviewer", "B"),
     ).rejects.toThrow(/session spawn.*failed: no herdr/s);
   });
 
@@ -94,7 +96,7 @@ describe("the review run ports start and read the Reviewer through the session t
       ),
     );
     expect(
-      await (await sessionReviewPorts(context)).wait("pr42-reviewer"),
+      await (await sessionReviewPorts(context, "herdr")).wait("pr42-reviewer"),
     ).toEqual({ outcome: "done" });
     expect(run.mock.calls[0]?.[1]).toEqual([
       "skills/bin/harness.mjs",
@@ -108,7 +110,7 @@ describe("the review run ports start and read the Reviewer through the session t
 
 describe("the review run ports read and close the Reviewer's pane", () => {
   it("refuses to read a Reviewer's session it has not waited for", async () => {
-    const ports = await sessionReviewPorts(context);
+    const ports = await sessionReviewPorts(context, "herdr");
 
     await expect(ports.read("pr42-reviewer")).rejects.toThrow(
       /has not settled, so its text is not read/,
@@ -122,7 +124,7 @@ describe("the review run ports read and close the Reviewer's pane", () => {
         result(JSON.stringify({ outcome: "done", paneId: "p1" })),
       )
       .mockReturnValueOnce(result("TEXT"));
-    const ports = await sessionReviewPorts(context);
+    const ports = await sessionReviewPorts(context, "herdr");
     await ports.wait("pr42-reviewer");
     expect(await ports.read("pr42-reviewer")).toBe("TEXT");
     expect(run).toHaveBeenLastCalledWith(
@@ -134,7 +136,7 @@ describe("the review run ports read and close the Reviewer's pane", () => {
 
   it("closes the session through session close", async () => {
     run.mockReturnValue(result(""));
-    await (await sessionReviewPorts(context)).close("pr42-reviewer");
+    await (await sessionReviewPorts(context, "herdr")).close("pr42-reviewer");
     expect(run.mock.calls[0]?.[1]).toEqual([
       "skills/bin/harness.mjs",
       "session",
@@ -147,7 +149,9 @@ describe("the review run ports read and close the Reviewer's pane", () => {
 describe("the review run port records its events in the ledger", () => {
   it("records a review.run event for the PR in the review stage", async () => {
     record.mockResolvedValue({ ok: true } as never);
-    await (await sessionReviewPorts(context)).record(42, "posted:abc1234d");
+    await (
+      await sessionReviewPorts(context, "herdr")
+    ).record(42, "posted:abc1234d");
     expect(record).toHaveBeenCalledExactlyOnceWith({
       source: "claude",
       kind: "review.run",
@@ -160,7 +164,9 @@ describe("the review run port records its events in the ledger", () => {
 
   it("records the findings count on the event when the verdict gave one", async () => {
     record.mockResolvedValue({ ok: true } as never);
-    await (await sessionReviewPorts(context)).record(42, "posted:abc1234d", 2);
+    await (
+      await sessionReviewPorts(context, "herdr")
+    ).record(42, "posted:abc1234d", 2);
     expect(record).toHaveBeenCalledExactlyOnceWith({
       source: "claude",
       kind: "review.run",
@@ -175,7 +181,32 @@ describe("the review run port records its events in the ledger", () => {
   it("refuses a rejected ledger event with the reason", async () => {
     record.mockResolvedValue({ ok: false, message: "bad label" } as never);
     await expect(
-      (await sessionReviewPorts(context)).record(42, "x"),
+      (await sessionReviewPorts(context, "herdr")).record(42, "x"),
     ).rejects.toThrow(JudgeError);
+  });
+});
+
+describe("the review run ports read an hc Reviewer's verdict from its wait, never a pane", () => {
+  it("returns the summary its wait printed, and runs no pane read through herdr", async () => {
+    run.mockReturnValueOnce(
+      result(
+        JSON.stringify({
+          name: "pr42-reviewer",
+          model: "m",
+          outcome: "done",
+          summary: "VERDICT: none",
+          seq: 1,
+        }),
+      ),
+    );
+    const ports = await sessionReviewPorts(context, "hc");
+    await ports.wait("pr42-reviewer");
+
+    expect(await ports.read("pr42-reviewer")).toBe("VERDICT: none");
+    expect(run).toHaveBeenCalledExactlyOnceWith(
+      "node",
+      ["skills/bin/harness.mjs", "session", "wait", "pr42-reviewer", "--json"],
+      { cwd: ROOT },
+    );
   });
 });

@@ -27,6 +27,7 @@ function ports(
     report?: RetroReport;
     appended?: boolean;
     recordFails?: boolean;
+    backend?: "herdr" | "hc";
   } = {},
 ) {
   const calls: string[] = [];
@@ -54,6 +55,7 @@ function ports(
       panes.push(pane);
       return Promise.resolve();
     },
+    backend: () => Promise.resolve(script.backend ?? "herdr"),
   };
   return { fake, calls, panes };
 }
@@ -121,9 +123,9 @@ describe("RetroLaunch pane", () => {
   });
 
   it("briefs an hc pane to finish with a report file, never a RESULT line", async () => {
-    const { fake, panes } = ports();
+    const { fake, panes } = ports({ backend: "hc" });
 
-    await new RetroLaunch(fake, "hc").run();
+    await new RetroLaunch(fake).run();
 
     const brief = panes[0]?.brief ?? "";
     expect(brief).toContain(

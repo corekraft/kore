@@ -1,5 +1,11 @@
 import type { PlanRead } from "./judgment-plan.js";
 
+/** What a finished hc session wrote: its summary, and the plan its report carries when it named one. */
+export interface SessionReport {
+  summary: string;
+  plan?: string;
+}
+
 /**
  * The plan a judgment session stored with its report (session report --plan), parsed as the tick parses a pane's
  * plan. The report's plan is the plan file's text, so the object comes back exactly as the judgment wrote it.

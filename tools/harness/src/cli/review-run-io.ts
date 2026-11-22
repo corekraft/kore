@@ -3,6 +3,7 @@ import type { Ledger } from "../ledger/index.js";
 import type { CommandContext, RunResult } from "../runtime/index.js";
 import { openJudgeLedger } from "./judge-shared.js";
 import { ghReviewIo } from "./review-gh.js";
+import { settledReads, type Backend } from "./review-settled.js";
 
 const HARNESS = "skills/bin/harness.mjs";
 const ROLE = "principles-review";
@@ -32,12 +33,13 @@ async function recordReviewRun(
 }
 
 /**
- * The real ports of `review run`: the PR through gh, the Reviewer pane through the
- * `session` tools (so its launch records its tier source), its text through herdr, and the
- * review.run events through the judge's ledger.
+ * The real ports of `review run`: the PR through gh, the Reviewer pane through the `session` tools
+ * (so its launch records its tier source), its text through herdr on herdr or from its report's summary
+ * on hc, and the review.run events through the judge's ledger.
  */
 export async function sessionReviewPorts(
   context: CommandContext,
+  backend: Backend,
 ): Promise<ReviewPorts> {
   const { deps } = context;
   const root = await deps.root();
@@ -56,8 +58,6 @@ export async function sessionReviewPorts(
     }
     return done.stdout;
   };
-  /** The pane each settled Reviewer's session ran in, kept here so the run reads by session name only. */
-  const panes = new Map<string, string>();
   const harness = (...args: string[]) =>
     tool("node", [HARNESS, ...args], `harness ${args.slice(0, 2).join(" ")}`);
   return {
@@ -76,28 +76,7 @@ export async function sessionReviewPorts(
         "--no-wait",
       );
     },
-    wait: async (name) => {
-      const out = await harness("session", "wait", name, "--json");
-      const waited = JSON.parse(out) as {
-        outcome: "done" | "blocked";
-        paneId: string;
-      };
-      panes.set(name, waited.paneId);
-      return { outcome: waited.outcome };
-    },
-    read: async (name) => {
-      const paneId = panes.get(name);
-      if (paneId === undefined) {
-        throw new JudgeError(
-          `The Reviewer's session ${name} has not settled, so its text is not read. Wait for it first with \`harness session wait ${name}\`.`,
-        );
-      }
-      return tool(
-        "herdr",
-        ["pane", "read", paneId, "--source", "recent-unwrapped"],
-        `herdr pane read of session ${name}`,
-      );
-    },
+    ...settledReads(harness, tool, backend),
     close: async (name) => {
       await harness("session", "close", name);
     },

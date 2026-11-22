@@ -27,9 +27,23 @@ function ports(over: Partial<BranchPorts> = {}): BranchPorts {
     sent: vi.fn().mockResolvedValue(false),
     send: vi.fn().mockResolvedValue(undefined),
     record: vi.fn().mockResolvedValue(undefined),
+    backend: "herdr",
     ...over,
   };
 }
+
+describe("BranchNotice.check: the notice follows the backend its writer runs on", () => {
+  it("sends an hc writer the report form of the pinned reply, never the RESULT line", async () => {
+    const p = ports({ backend: "hc" });
+
+    await new BranchNotice(p).check(IDEA, 34);
+
+    expect(p.send).toHaveBeenCalledWith(
+      WRITER,
+      branchNoticeBody("conflict", PR, "hc"),
+    );
+  });
+});
 
 describe("BranchNotice.check: which PRs get a notice", () => {
   it("sends one follow-up to the live writer of a PR that conflicts with main, and records it", async () => {

@@ -57,6 +57,8 @@ export interface RetroPorts {
   record(reason: string): Promise<{ recordedAt: string; appended: boolean }>;
   /** `session spawn --no-wait`. */
   spawn(pane: RetroPane): Promise<void>;
+  /** The backend the retro pane's brief is written for: hc when the hc-sessions flag is on. */
+  backend(): Promise<BriefBackend>;
 }
 
 export type RetroLaunchResult =
@@ -70,10 +72,7 @@ export type RetroLaunchResult =
  * that already fired never starts a second pane. It never waits for the pane.
  */
 export class RetroLaunch {
-  constructor(
-    private readonly ports: RetroPorts,
-    private readonly backend: BriefBackend = "herdr",
-  ) {}
+  constructor(private readonly ports: RetroPorts) {}
 
   async run(): Promise<RetroLaunchResult> {
     if (!(await this.ports.flagOn())) {
@@ -99,7 +98,7 @@ export class RetroLaunch {
       model: RETRO_MODEL,
       effort: RETRO_EFFORT,
       reason: RETRO_REASON,
-      brief: retroBrief(reason, this.backend),
+      brief: retroBrief(reason, await this.ports.backend()),
     });
     return { status: "launched", reason, name };
   }

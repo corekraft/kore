@@ -4,6 +4,7 @@ import { decide, type Next } from "./judgment-flow.js";
 import {
   judgmentBrief,
   readerBrief,
+  type BriefBackend,
   type ReaderSummary,
 } from "./judgment-briefs.js";
 import {
@@ -18,13 +19,12 @@ import {
   type FlowPane,
   type ReadRound,
 } from "./judgment-panes.js";
+import { checkNames, checkPlan, type ReadRequest } from "./judgment-plan.js";
 import {
-  checkNames,
-  checkPlan,
-  readPlan,
-  type ReadRequest,
-} from "./judgment-plan.js";
-import { readSummary } from "./judgment-summary.js";
+  readPlanOf,
+  readSummaryOf,
+  type AnswerReads,
+} from "./judgment-read.js";
 import type { BoundName } from "./tick-bounds.js";
 
 /** What a judgment step did for an idea: the pane it started, the bound that held it, or nothing. */
@@ -49,8 +49,12 @@ export type Admit = () => Promise<BoundName | undefined>;
 export interface JudgmentPorts {
   spawn: (launch: Launch) => Promise<void>;
   close: (name: string) => Promise<void>;
+  /** The backend the briefs are written for: hc when the hc-sessions flag is on, else herdr. */
+  backend: BriefBackend;
   /** The finished pane's text, which carries its plan or its summary; read-only. */
   paneText: (name: string) => Promise<string>;
+  /** The report a finished hc session wrote, read-only; undefined when it wrote none, as a herdr pane never does. */
+  reportOf: AnswerReads["reportOf"];
   /** The idea's pull request, read-only, so a brief can name it. */
   delivery: (issue: number) => Promise<Delivery>;
   /** Labels the issue `needs-info` with the reason, and says why in a comment. */
@@ -99,7 +103,13 @@ export class TickJudgment {
       role: "judgment",
       name,
       issue,
-      brief: judgmentBrief(idea, issue, pr, { kind: "start", sendBacks }),
+      brief: judgmentBrief(
+        idea,
+        issue,
+        pr,
+        { kind: "start", sendBacks },
+        this.ports.backend,
+      ),
     });
     return { step: "spawn-judgment", pane: name };
   }
@@ -133,7 +143,7 @@ export class TickJudgment {
     flow: Flow,
     latest: Decision,
   ): Promise<JudgmentOutcome | undefined> {
-    const read = readPlan(await this.ports.paneText(latest.pane.name));
+    const read = await readPlanOf(this.ports, latest.pane.name);
     const checked: PlanCheck = checkNames(
       ctx.idea,
       read.ok ? checkPlan(read.raw) : { ok: false, error: read.error },
@@ -197,7 +207,7 @@ export class TickJudgment {
           role: "reader",
           name,
           issue: ctx.issue,
-          brief: readerBrief(ctx.idea, ctx.issue, read),
+          brief: readerBrief(ctx.idea, ctx.issue, read, this.ports.backend),
         });
       }
     }
@@ -221,7 +231,13 @@ export class TickJudgment {
       role: "judgment",
       name,
       issue: ctx.issue,
-      brief: judgmentBrief(ctx.idea, ctx.issue, pr, { kind: "retry", reason }),
+      brief: judgmentBrief(
+        ctx.idea,
+        ctx.issue,
+        pr,
+        { kind: "retry", reason },
+        this.ports.backend,
+      ),
     });
     await this.ports.close(latest.pane.name);
     return { step: "retry-judgment", pane: name };
@@ -245,7 +261,7 @@ export class TickJudgment {
     for (const reader of open) {
       summaries.push({
         name: reader.name,
-        text: readSummary(await this.ports.paneText(reader.name)),
+        text: await readSummaryOf(this.ports, reader.name),
       });
     }
     const { pr } = await this.ports.delivery(ctx.issue);
@@ -254,10 +270,13 @@ export class TickJudgment {
       role: "judgment",
       name,
       issue: ctx.issue,
-      brief: judgmentBrief(ctx.idea, ctx.issue, pr, {
-        kind: "after-reads",
-        summaries,
-      }),
+      brief: judgmentBrief(
+        ctx.idea,
+        ctx.issue,
+        pr,
+        { kind: "after-reads", summaries },
+        this.ports.backend,
+      ),
     });
     for (const reader of open) {
       await this.ports.close(reader.name);

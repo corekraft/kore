@@ -3,6 +3,7 @@ import type { Ledger } from "../ledger/index.js";
 import type { CommandContext, RunResult } from "../runtime/index.js";
 import { openJudgeLedger } from "./judge-shared.js";
 import type { ResampleIo } from "./review-resample-command.js";
+import { settledReads, type Backend } from "./review-settled.js";
 
 const HARNESS = "skills/bin/harness.mjs";
 
@@ -33,10 +34,12 @@ async function recordResample(
 /**
  * The real ports and events of `review resample`: the shared ledger's events, the reader
  * pane through the `session` tools (so its launch records its tier and reason), its text
- * through herdr, and the re-review events through the judge's ledger.
+ * through herdr on herdr or from its report's summary on hc, and the re-review events
+ * through the judge's ledger.
  */
 export async function sessionResampleIo(
   context: CommandContext,
+  backend: Backend,
 ): Promise<ResampleIo> {
   const { deps } = context;
   const root = await deps.root();
@@ -79,7 +82,7 @@ export async function sessionResampleIo(
           "--no-wait",
         );
       },
-      ...paneReads(harness, tool),
+      ...settledReads(harness, tool, backend),
       close: async (name) => {
         await harness("session", "close", name);
       },
@@ -91,40 +94,6 @@ export async function sessionResampleIo(
           label,
           findings,
         ),
-    },
-  };
-}
-type Tool = (command: string, args: string[], what: string) => Promise<string>;
-
-/**
- * The wait and read ports: a settled reader's pane is kept under its session name, so the run reads by name only,
- * and read refuses a session it has not waited for.
- */
-function paneReads(
-  harness: (...args: string[]) => Promise<string>,
-  tool: Tool,
-): Pick<ResampleIo["ports"], "wait" | "read"> {
-  const panes = new Map<string, string>();
-  return {
-    wait: async (name) => {
-      const waited = JSON.parse(
-        await harness("session", "wait", name, "--json"),
-      ) as { outcome: "done" | "blocked"; paneId: string };
-      panes.set(name, waited.paneId);
-      return { outcome: waited.outcome };
-    },
-    read: async (name) => {
-      const paneId = panes.get(name);
-      if (paneId === undefined) {
-        throw new JudgeError(
-          `The reader's session ${name} has not settled, so its text is not read. Wait for it first with \`harness session wait ${name}\`.`,
-        );
-      }
-      return tool(
-        "herdr",
-        ["pane", "read", paneId, "--source", "recent-unwrapped"],
-        `herdr pane read of session ${name}`,
-      );
     },
   };
 }

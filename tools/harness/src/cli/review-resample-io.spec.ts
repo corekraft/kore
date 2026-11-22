@@ -47,7 +47,7 @@ beforeEach(() => {
 describe("the resample ports start a Sonnet reader on the override tier (#852)", () => {
   it("spawns a reader on the re-review tier, with its override reason, and no wait", async () => {
     run.mockReturnValue(result(""));
-    const io = await sessionResampleIo(context);
+    const io = await sessionResampleIo(context, "herdr");
 
     await io.ports.spawn({
       name: "resample-pr42-aaaaaaaa",
@@ -84,7 +84,7 @@ describe("the resample ports start a Sonnet reader on the override tier (#852)",
 
   it("names the failed spawn and the fix", async () => {
     run.mockReturnValue(result("", 1, "no herdr"));
-    const io = await sessionResampleIo(context);
+    const io = await sessionResampleIo(context, "herdr");
 
     await expect(
       io.ports.spawn({
@@ -104,7 +104,7 @@ describe("the resample ports wait for, read and close the reader's pane (#852)",
     run.mockReturnValue(
       result(JSON.stringify({ name: "n", paneId: "p1", outcome: "blocked" })),
     );
-    const io = await sessionResampleIo(context);
+    const io = await sessionResampleIo(context, "herdr");
 
     expect(await io.ports.wait("resample-pr42-aaaaaaaa")).toEqual({
       outcome: "blocked",
@@ -124,7 +124,7 @@ describe("the resample ports wait for, read and close the reader's pane (#852)",
         result(JSON.stringify({ name: "n", paneId: "p1", outcome: "done" })),
       )
       .mockReturnValueOnce(result("TEXT"));
-    const io = await sessionResampleIo(context);
+    const io = await sessionResampleIo(context, "herdr");
     await expect(io.ports.read("resample-pr42-aaaaaaaa")).rejects.toThrow(
       /has not settled/,
     );
@@ -140,7 +140,7 @@ describe("the resample ports wait for, read and close the reader's pane (#852)",
 
   it("closes the reader's session through session close", async () => {
     run.mockReturnValue(result(""));
-    const io = await sessionResampleIo(context);
+    const io = await sessionResampleIo(context, "herdr");
 
     await io.ports.close("resample-pr42-aaaaaaaa");
 
@@ -154,7 +154,7 @@ describe("the resample ports wait for, read and close the reader's pane (#852)",
 
 describe("the resample ports record and read the ledger (#852)", () => {
   it("records a re-review as a review.run with its label and findings", async () => {
-    const io = await sessionResampleIo(context);
+    const io = await sessionResampleIo(context, "herdr");
 
     await io.ports.record(42, "resample:aaaaaaaa", 2);
 
@@ -170,7 +170,7 @@ describe("the resample ports record and read the ledger (#852)", () => {
   });
 
   it("records a failed re-review without findings, so no count is read from it", async () => {
-    const io = await sessionResampleIo(context);
+    const io = await sessionResampleIo(context, "herdr");
 
     await io.ports.record(42, "resample-failed:aaaaaaaa");
 
@@ -182,9 +182,40 @@ describe("the resample ports record and read the ledger (#852)", () => {
     const events = [{ kind: "pr.merged", number: 42 }] as LedgerEvent[];
     list.mockResolvedValue({ events, skipped: 0 });
 
-    const io = await sessionResampleIo(context);
+    const io = await sessionResampleIo(context, "herdr");
 
     expect(list).toHaveBeenCalledWith({});
     expect(io.events).toBe(events);
+  });
+});
+
+describe("the resample ports read an hc reader's verdict from its wait, never a pane (#852)", () => {
+  it("returns the summary its wait printed, and runs no pane read through herdr", async () => {
+    run.mockReturnValueOnce(
+      result(
+        JSON.stringify({
+          name: "resample-pr42-aaaaaaaa",
+          model: "m",
+          outcome: "done",
+          summary: "VERDICT: none",
+          seq: 1,
+        }),
+      ),
+    );
+    const io = await sessionResampleIo(context, "hc");
+    await io.ports.wait("resample-pr42-aaaaaaaa");
+
+    expect(await io.ports.read("resample-pr42-aaaaaaaa")).toBe("VERDICT: none");
+    expect(run).toHaveBeenCalledExactlyOnceWith(
+      "node",
+      [
+        "skills/bin/harness.mjs",
+        "session",
+        "wait",
+        "resample-pr42-aaaaaaaa",
+        "--json",
+      ],
+      { cwd: ROOT },
+    );
   });
 });

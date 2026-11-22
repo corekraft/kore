@@ -92,6 +92,20 @@ function boundGate(deps: CliDeps, main: string): PassGate {
   };
 }
 
+function tickCliFor(deps: CliDeps, root: string, main: string, hc: boolean) {
+  return new TickCli(
+    deps.runner,
+    root,
+    deps.fs,
+    {
+      sessions: join(main, SESSIONS),
+      plans: join(main, PLANS_DIRECTORY),
+      checkout: main,
+    },
+    hc ? "hc" : "herdr",
+  );
+}
+
 /** The tick, the lease it runs under and the tools it drives, wired to the machine's real files. */
 async function build(
   deps: CliDeps,
@@ -99,13 +113,8 @@ async function build(
   outcomes: ReadonlyMap<string, Measured>,
 ): Promise<{ tick: Pick<Tick, "pass">; lease: TickLease; cli: TickCli }> {
   const main = (await mainRoot(deps)) ?? root;
-  const cli = new TickCli(
-    deps.runner,
-    root,
-    deps.fs,
-    join(main, SESSIONS),
-    join(main, PLANS_DIRECTORY),
-  );
+  const hc = await hcSessionsOn(deps);
+  const cli = tickCliFor(deps, root, main, hc);
   const lease = new TickLease(
     new FileLeaseStore(deps.fs, join(hostLocksDirectory(deps.env), LEASE_FILE)),
     () => deps.clock.now(),
@@ -118,7 +127,6 @@ async function build(
     () => deps.clock.now().toISOString(),
   );
   // With hc-sessions on, the notice goes to the one attended agent terminal and the pass reconciles first (plan 16, Step 4).
-  const hc = await hcSessionsOn(deps);
   const herdr = {
     attendedPane: (idea: string) => cli.attendedPane(idea),
     send: async (pane: string, body: string) =>
@@ -180,6 +188,7 @@ function branchNotice(deps: CliDeps, cli: TickCli, main: string): BranchNotice {
     ),
   );
   return new BranchNotice({
+    backend: cli.backend,
     delivery: (issue) => cli.delivery(issue),
     panes: (idea) => cli.panes(idea),
     mergeState: (pr) => cli.mergeState(pr),

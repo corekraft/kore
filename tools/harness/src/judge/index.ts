@@ -18,6 +18,7 @@ export { postReview, type ReviewPosted } from "./review-post.js";
 export { ruleLabels } from "./review-rules.js";
 export { reviewBody } from "./review-verdict.js";
 export {
+  MAX_REVIEW_RUNS,
   ReviewRun,
   type ReviewPorts,
   type ReviewRunResult,

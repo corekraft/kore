@@ -40,7 +40,11 @@ function setup(
     readFile: () => Promise.resolve(""),
     exists: () => Promise.resolve(false),
   } as unknown as FileSystem;
-  const cli = new TickCli(runner, "/repo", fs, SESSIONS, PLANS);
+  const cli = new TickCli(runner, "/repo", fs, {
+    sessions: SESSIONS,
+    plans: PLANS,
+    checkout: "/repo",
+  });
   return { cli, calls };
 }
 

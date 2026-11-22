@@ -60,6 +60,8 @@ export interface BranchPorts {
   sent: (idea: string, key: string) => Promise<boolean>;
   /** Sends the notice to the writer session through `session send`; an error message, or undefined once delivered. */
   send: (writer: string, body: string) => Promise<string | undefined>;
+  /** The backend the notice's pinned reply is written for: hc when the hc-sessions flag is on. */
+  backend: "herdr" | "hc";
   /** Records the sent notice under its key, so a restart sends nothing twice. */
   record: (event: {
     idea: string;
@@ -164,7 +166,7 @@ export class BranchNotice {
     }
     const error = await this.ports.send(
       writer.name,
-      branchNoticeBody(trigger, pr),
+      branchNoticeBody(trigger, pr, this.ports.backend),
     );
     if (error !== undefined) {
       return `PR #${pr}: the notice to ${writer.name} was not sent: ${error}`;

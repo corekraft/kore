@@ -6,6 +6,13 @@ export const HC_SESSIONS_FLAG = "hc-sessions";
 
 const ENVIRONMENT = "local";
 
+/** The backend a brief is written for: hc when the flag is on, herdr otherwise. */
+export async function briefBackend(
+  deps: Pick<CliDeps, "fs" | "root">,
+): Promise<"herdr" | "hc"> {
+  return (await hcSessionsOn(deps)) ? "hc" : "herdr";
+}
+
 /** Whether the local overlay turns hc-sessions on. No local environment means off. */
 export async function hcSessionsOn(
   deps: Pick<CliDeps, "fs" | "root">,

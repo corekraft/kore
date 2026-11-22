@@ -7,13 +7,11 @@ function cli(code: number, stderr = "") {
   const run = vi.fn().mockResolvedValue({ code, stdout: "", stderr });
   return {
     run,
-    tick: new TickCli(
-      { run } as never,
-      REPO,
-      {} as never,
-      "/sessions",
-      "/plans",
-    ),
+    tick: new TickCli({ run } as never, REPO, {} as never, {
+      sessions: "/sessions",
+      plans: "/plans",
+      checkout: REPO,
+    }),
   };
 }
 
