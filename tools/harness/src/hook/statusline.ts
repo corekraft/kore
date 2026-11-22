@@ -135,7 +135,7 @@ const statuslineHelp: CommandHelp = {
 
 export const statusline = hookCommand(
   "statusline",
-  "print one status line from the host's JSON: context use, the active plan, its Next: step and open items",
+  "print one status line: context use, the active plan and its Next: step",
   async ({ deps, payload }) => {
     if (typeof payload !== "object" || payload === null) {
       return {};

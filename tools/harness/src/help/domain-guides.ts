@@ -26,7 +26,7 @@ export const domainGuides: Record<string, DomainGuide> = {
   hook: {
     purpose:
       "The commands the agent host runs on session, prompt and tool events, and the repository checks mise runs; a usage error here exits 1, so a typo cannot block a tool call.",
-    flow: "Each host event names its command in .claude/settings.json: SessionStart runs context and record session-start, PreToolUse runs guard, and PostToolUse, PostToolUseFailure and Stop run feedback; run one by hand with stdin from /dev/null to see its output.",
+    flow: "Each host event names its command in .claude/settings.json: SessionStart runs context and record session-start, UserPromptSubmit runs delta, PreToolUse runs guard, and PostToolUse, PostToolUseFailure and Stop run feedback; run one by hand with stdin from /dev/null to see its output.",
     seeAlso: ["guardrail status", "retro due"],
   },
   session: {

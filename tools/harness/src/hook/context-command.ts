@@ -49,7 +49,7 @@ const contextHelp: CommandHelp = {
  */
 export const context = hookCommand(
   "context",
-  "restate the rules and open plan items after compaction, or brief a fresh session (SessionStart)",
+  "brief a session at SessionStart, or restate its rules after compaction",
   async ({ deps, payload }) => {
     if (typeof payload !== "object" || payload === null) {
       return {};

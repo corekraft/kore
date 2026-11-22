@@ -64,7 +64,7 @@ const feedbackHelp: CommandHelp = {
 
 const feedbackHook = hookCommand(
   "feedback",
-  "run the post-edit, stop or tool-failure feedback checks and record ledger events",
+  "run the post-edit, stop or tool-failure feedback checks",
   ({ deps, payload, operand }) => feedback(operand, payload, deps),
   { operand: "mode", help: feedbackHelp },
 );
@@ -112,7 +112,7 @@ const guardHelp: CommandHelp = {
 
 const guardHook = hookCommand(
   "guard",
-  "block or warn on tool calls that break mechanically checkable rules (PreToolUse)",
+  "block or warn on tool calls that break a mechanical rule (PreToolUse)",
   ({ deps, payload }) => guard(payload, deps),
   { faultCode: 1, help: guardHelp },
 );

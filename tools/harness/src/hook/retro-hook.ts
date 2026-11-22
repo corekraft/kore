@@ -176,7 +176,7 @@ const retroScanHelp: CommandHelp = {
 
 export const retroScan = hookCommand(
   "retro-scan",
-  "count guard blocks, failures, skills and repeated corrections over session transcripts (retro skill input)",
+  "count guard blocks, failures and repeated corrections in transcripts",
   async ({ deps, options }) => {
     const since = options["since"];
     if (typeof since === "string" && !Number.isFinite(markerInstant(since))) {

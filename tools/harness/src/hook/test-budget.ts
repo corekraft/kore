@@ -286,7 +286,7 @@ const testBudgetHelp: CommandHelp = {
 
 export const testBudgetHook = hookCommand(
   "test-budget",
-  "fail a unit run whose converted tests, spec files or package run break the speed budget; reads the report the unit run writes",
+  "fail a unit run that breaks the speed budget",
   ({ deps, options }) => {
     const packageDir = options["package"];
     const report = options["report"];

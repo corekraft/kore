@@ -111,7 +111,7 @@ const recordHelp: CommandHelp = {
 
 export const record = hookCommand(
   "record",
-  "record a ledger event for the session; modes: session-start (SessionStart, no matcher; a startup, clear or resume start records session.start and starts ledger poll-github and ledger poll-herdr in the background; a compact start records one session.compacted reading, the compaction's number, once per compaction), turn-end (Stop; records owner.asked when the final message asks the owner), owner-asked (PreToolUse on AskUserQuestion; records owner.asked)",
+  "append a session start, compaction or owner question to the ledger",
   async ({ deps, payload, operand }) => {
     if (typeof payload !== "object" || payload === null) {
       return {};

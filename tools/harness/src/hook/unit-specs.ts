@@ -119,7 +119,7 @@ const unitSpecsHelp: CommandHelp = {
 
 export const unitSpecsHook = hookCommand(
   "unit-specs",
-  "fail a converted source file that has no spec beside it, or more than one; reads the unconverted lists the budget reads",
+  "fail a converted source file with no spec beside it, or with two",
   ({ deps, options }) => {
     const packageDir = options["package"];
     if (typeof packageDir !== "string") {
