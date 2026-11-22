@@ -355,6 +355,7 @@ describe("SessionRegistry.read refuses a record whose fields are the wrong type"
     ["a terminal that is not a string", { ...HC_RECORD, terminal: 7 }],
     ["an idea that is not a string", { ...HC_RECORD, idea: 338 }],
     ["a reportSeq that is not a number", { ...HC_RECORD, reportSeq: "3" }],
+    ["a closeEventAt that is not a string", { ...HC_RECORD, closeEventAt: 5 }],
   ])("refuses %s", async (_, record) => {
     await expect(readText(JSON.stringify(record))).rejects.toThrow(
       new CommandError(INVALID),
