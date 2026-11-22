@@ -50,6 +50,15 @@
       "description": "Labels each app namespace the sync creates with the platform-owned shared-gateway label, so the shared Gateway admits its routes (ADR 0133). Off, the sync sets no namespace metadata.",
       "type": "boolean"
     },
+    "signin": {
+      "description": "Set by kore only while golden-path-signin is on (issue 1746). The sync then passes signin.enabled and this issuer to each workload, which renders its Keycloak client and the BFF's sign-in variables. Off, the sync sets no such parameter.",
+      "type": "object",
+      "required": ["issuerUri"],
+      "additionalProperties": false,
+      "properties": {
+        "issuerUri": { "type": "string", "minLength": 1 }
+      }
+    },
     "templateImages": {
       "type": "object",
       "required": ["static-frontend", "kotlin-bff"],

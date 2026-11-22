@@ -1,0 +1,73 @@
+---
+# Source: golden-path-delivery/templates/service-records.yaml
+# The Service records in git, applied to the cluster (ADR 0166). One Argo CD
+# Application syncs the spec files in recordsPath at the reviewed commit, so each
+# registration's Service object exists and the Service composition runs for it.
+# Kore sets serviceRecords only while platform-portal, platform-organization-service-apis
+# and platform-argocd-delivery are all on. It does not prune: deleting a record must
+# never delete the namespace the composition created, with the data in it, so a
+# removal is an explicit act (ADR 0166, ADR 0003). Only the spec files are
+# synced; the directory holds nothing else.
+
+---
+# Source: golden-path-delivery/templates/applicationset.yaml
+# One Application per Service registration in git (ADR 0043). The sync owns the
+# workload: kore installs this ApplicationSet and never applies what it
+# generates. The namespace has one owner: Argo CD, through CreateNamespace,
+# creates <service>--<environment> only when it is absent, so a fresh profile,
+# where nothing else has made it, still syncs, and a namespace that already
+# exists is left as it is. Nothing applies a registration's Service to the
+# cluster, so the Service composition creates no namespace for it.
+#
+# With serviceRecords on (ADR 0166) the records Application applies each Service,
+# so the Service composition is the one owner of the namespace and the sync sets
+# no CreateNamespace. The sync still creates nothing else.
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata:
+  name: golden-path-services
+  namespace: argocd
+spec:
+  goTemplate: true
+  goTemplateOptions: ["missingkey=error"]
+  generators:
+    - git:
+        repoURL: "https://github.com/corekraft/kore.git"
+        revision: "cccccccccccccccccccccccccccccccccccccccc"
+        files:
+          - path: "infra/services/*.yaml"
+  template:
+    metadata:
+      name: 'golden-path-{{ .metadata.name }}'
+      labels:
+        platform.kore.dev/service: '{{ .metadata.name }}'
+        app.kubernetes.io/part-of: '{{ .metadata.name }}'
+    spec:
+      project: "default"
+      source:
+        repoURL: "https://github.com/corekraft/kore.git"
+        targetRevision: "cccccccccccccccccccccccccccccccccccccccc"
+        path: "infra/charts/golden-path-workload"
+        helm:
+          parameters:
+            - name: service
+              value: '{{ .metadata.name }}'
+            - name: frontend.image
+              value: "ghcr.io/corekraft/kore/static-frontend-template@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+            - name: bff.image
+              value: "ghcr.io/corekraft/kore/kotlin-bff-template@sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+            - name: ingress.host
+              value: '{{ .metadata.name }}.{{ .spec.organization }}.kore.internal'
+            - name: ingress.gatewayClassName
+              value: "agentgateway"
+            - name: ingress.issuer
+              value: "kore-local-ca"
+      destination:
+        server: https://kubernetes.default.svc
+        namespace: '{{ .metadata.name }}--local'
+      syncPolicy:
+        automated:
+          prune: true
+          selfHeal: true
+        syncOptions:
+          - CreateNamespace=true

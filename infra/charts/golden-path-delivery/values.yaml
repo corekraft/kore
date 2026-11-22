@@ -58,3 +58,9 @@ project: default
 #     name: kore-gateway
 #     namespace: kore-system
 #     domain: platform.kore.internal   # <organizationId>.<platformDomain>
+
+# Set by kore only while golden-path-signin is on (issue 1746). The sync then
+# passes each workload signin.enabled and this issuer, the platform realm's OIDC
+# issuer. The workload needs the ingress parameters above for its redirect URI.
+# signin:
+#   issuerUri: https://keycloak.kore.internal/realms/platform
