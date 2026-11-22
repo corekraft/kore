@@ -2,9 +2,14 @@
 import { beforeEach, expect, test, vi } from "vitest";
 import { harnessMentions } from "../help/index.js";
 import { checkedLines } from "./command-scope.js";
-import { commandFindings, commandProblems } from "./command-checks.js";
+import {
+  commandFindings,
+  commandProblems,
+  sourceProblems,
+} from "./command-checks.js";
 import { finding, type Finding } from "./markdown.js";
 import { nearest } from "./nearest.js";
+import { sourceTexts } from "./source-texts.js";
 import { PROBLEM } from "./kb-support.js";
 import type { CommandTable } from "../runtime/index.js";
 
@@ -12,6 +17,7 @@ vi.mock("../help/index.js", () => ({ harnessMentions: vi.fn() }));
 vi.mock("./command-scope.js", () => ({ checkedLines: vi.fn() }));
 vi.mock("./markdown.js", () => ({ finding: vi.fn() }));
 vi.mock("./nearest.js", () => ({ nearest: vi.fn() }));
+vi.mock("./source-texts.js", () => ({ sourceTexts: vi.fn() }));
 
 const FILE = "docs/guides/x.md";
 const COMMANDS: CommandTable = {
@@ -27,6 +33,7 @@ beforeEach(() => {
   vi.mocked(checkedLines).mockReturnValue(() => true);
   vi.mocked(nearest).mockReturnValue(undefined);
   vi.mocked(harnessMentions).mockReturnValue([]);
+  vi.mocked(sourceTexts).mockReturnValue([]);
 });
 
 test("a mention of a real command with a real flag is clean", () => {
@@ -133,4 +140,49 @@ test("the command check reads nothing when the tree gives no command table", () 
   const tree = { read: () => "text", commands: () => undefined };
   expect(commandFindings(tree, ["docs/a.md"])).toEqual([]);
   expect(harnessMentions).not.toHaveBeenCalled();
+});
+
+test("a harness command in a string literal is reported at the line the literal starts on, plus the mention's own line", () => {
+  vi.mocked(sourceTexts).mockReturnValue([{ line: 10, text: "first\nsecond" }]);
+  vi.mocked(harnessMentions).mockImplementation((text) =>
+    text === "first\nsecond"
+      ? [{ line: 2, words: ["pr", "opne"], flags: [] }]
+      : [],
+  );
+  vi.mocked(nearest).mockReturnValue("pr open");
+  sourceProblems("tools/harness/src/x.ts", "text", COMMANDS);
+  expect(messages()).toEqual([
+    [
+      11,
+      "harness pr opne is not a harness command",
+      "use harness pr open, the nearest real command",
+    ],
+  ]);
+});
+
+test("a string literal that names no harness command reports nothing", () => {
+  vi.mocked(sourceTexts).mockReturnValue([{ line: 3, text: "plain text" }]);
+  expect(sourceProblems("tools/harness/src/x.ts", "text", COMMANDS)).toEqual(
+    [],
+  );
+  expect(finding).not.toHaveBeenCalled();
+});
+
+test("the command check reads a harness source file's literals, but not its specs or a file outside the harness source", () => {
+  vi.mocked(harnessMentions).mockReturnValue([]);
+  vi.mocked(sourceTexts).mockReturnValue([]);
+  const texts: Record<string, string> = {
+    "tools/harness/src/a.ts": "code a",
+    "tools/harness/src/a.spec.ts": "code spec",
+    "tools/kore/src/b.ts": "code b",
+    "docs/c.md": "text c",
+  };
+  const read = vi.fn((path: string) => texts[path] ?? null);
+  commandFindings({ read, commands: () => COMMANDS }, Object.keys(texts));
+  expect(read.mock.calls.map(([path]) => path)).toEqual([
+    "tools/harness/src/a.ts",
+    "docs/c.md",
+  ]);
+  expect(sourceTexts).toHaveBeenCalledWith("code a");
+  expect(harnessMentions).toHaveBeenCalledWith("text c");
 });
