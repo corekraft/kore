@@ -13,6 +13,7 @@ import type { Ledger } from "../ledger/index.js";
 import type { Command, CommandContext } from "../runtime/index.js";
 import { openLedger } from "./ledger-commands.js";
 import { readTextOption } from "./text-option.js";
+import * as help from "./decision-help.js";
 
 const FAILED = 1;
 const USAGE = 2;
@@ -108,8 +109,7 @@ function ports(context: CommandContext, root: string, ledger: Ledger) {
 }
 
 const ask: Command = {
-  summary:
-    "post a reserved question on the idea's issue under the sender line with the needs-info label, and record decision.routed to the owner with the idea, the category, the route, the signal, the issue number and the posting pane, so a pane waiting on the answer is not reported stalled (never the question or the action); refused with nothing posted while the decision-advisor flag is off in the local overlay, for a consent prompt (a destructive action, which stays inline with its gate), and for a question the advisor decides (--idea <number or slug> --category <name> (--question <text> | --question-file <path>) (--action <text> | --action-file <path>) [--json: idea, category, issue, commentUrl, signal] [--ledger]); a question or action given by file is read from that path, and giving a flag and its file together is refused",
+  summary: "post a reserved question to the owner on the idea's issue",
   options: {
     idea: "string",
     category: "string",
@@ -119,6 +119,7 @@ const ask: Command = {
     "action-file": "string",
     ledger: "string",
   },
+  help: help.askHelp,
   async run(context) {
     const { options, deps, json } = context;
     if (text(options, "idea") === "") {

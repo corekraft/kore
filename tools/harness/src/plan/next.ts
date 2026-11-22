@@ -107,9 +107,58 @@ async function write(
 }
 
 export const planNext: Command = {
-  summary:
-    'set the single Next: line under the current step (--text "<line>" [--plan N] [--dry-run]) and remove any other, reporting every changed line',
+  summary: "set the Next: line under the current step",
   options: { plan: "string", text: "string", "dry-run": "boolean" },
+  help: {
+    purpose:
+      "Sets the single Next: line under the current step: the first concrete action, and any state the files cannot show. The current step is the one the Next: line already names while that step has open items, else the first step with open items. Any other Next: line in the plan is removed.",
+    when: "When the next session needs a concrete first action, with any state the files do not show, such as what is running or waiting.",
+    whenNot:
+      "When the line should go altogether: use plan clear-next. To read the line, use plan active. The plan needs an open item under a step, or there is no step to hold the line.",
+    flags: {
+      plan: "The number of the plan to change, such as 17, needed only when more than one plan is active; otherwise the single active plan is used.",
+      text: "The line's text, in quotes. Whitespace is collapsed to single spaces, and a blank text is refused.",
+      "dry-run":
+        "Reports the changed lines under Would set and writes nothing.",
+    },
+    examples: [
+      {
+        command:
+          'harness plan next --plan 17 --text "Write the adr help records, then run the registry specs"',
+        shows:
+          "the Next: line placed under the current step, any older Next: line removed, and each changed line printed under Set",
+      },
+      {
+        command:
+          'harness plan next --plan 17 --text "Write the adr help records, then run the registry specs" --dry-run',
+        shows:
+          "the same changes under Would set, with the plan file left as it was",
+      },
+    ],
+    exits: [
+      {
+        code: 0,
+        meaning:
+          "the line is set, or it already reads that way and nothing is written; with --dry-run, the changes are reported only",
+      },
+      {
+        code: 1,
+        meaning:
+          "no --text, the plan number is unknown or shared, no single plan is active, or the plan has no open item to hold the line; stderr names the fix",
+      },
+      {
+        code: 2,
+        meaning:
+          "a usage error: a flag the command does not declare, or a flag with no value",
+      },
+    ],
+    effects: {
+      kind: "mutates",
+      detail:
+        "rewrites the chosen plan file: one Next: line under the current step, and every other Next: line removed; nothing is written when the line already reads that way or with --dry-run",
+    },
+    seeAlso: ["plan clear-next", "plan tick", "plan active"],
+  },
   async run({ json, deps, options }) {
     const raw = options["text"];
     const plan = options["plan"];
@@ -135,9 +184,55 @@ export const planNext: Command = {
 };
 
 export const planClearNext: Command = {
-  summary:
-    "remove the Next: line ([--plan N] [--dry-run]) and report every changed line",
+  summary: "remove the Next: line from the plan",
   options: { plan: "string", "dry-run": "boolean" },
+  help: {
+    purpose:
+      "Removes every Next: line from the chosen plan, with the blank line after it when one precedes it, and reports each changed line.",
+    when: "When the step the Next: line named is finished, or the line no longer holds, so the plan does not show a stale action.",
+    whenNot:
+      "When a new line should replace the old one: use plan next, which removes the old line itself. To read the line, use plan active.",
+    flags: {
+      plan: "The number of the plan to change, such as 17, needed only when more than one plan is active; otherwise the single active plan is used.",
+      "dry-run":
+        "Reports the lines that would be removed under Would clear and writes nothing.",
+    },
+    examples: [
+      {
+        command: "harness plan clear-next --plan 17",
+        shows:
+          "the Next: line removed and its line numbers printed under Cleared, or No Next: line to clear when the plan has none",
+      },
+      {
+        command: "harness plan clear-next --plan 17 --dry-run",
+        shows:
+          "the lines that would go under Would clear, with the plan file left as it was",
+      },
+    ],
+    exits: [
+      {
+        code: 0,
+        meaning:
+          "the Next: line is removed, or there was none to clear and nothing is written",
+      },
+      {
+        code: 1,
+        meaning:
+          "the plan number is unknown or shared, or no single plan is active; stderr names the fix",
+      },
+      {
+        code: 2,
+        meaning:
+          "a usage error: a flag the command does not declare, or a flag with no value",
+      },
+    ],
+    effects: {
+      kind: "mutates",
+      detail:
+        "removes the Next: line from the chosen plan file; nothing is written when there is none or with --dry-run",
+    },
+    seeAlso: ["plan next", "plan active"],
+  },
   async run({ json, deps, options }) {
     const plan = options["plan"];
     return await write(deps, json, {

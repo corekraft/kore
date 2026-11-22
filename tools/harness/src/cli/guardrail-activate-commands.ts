@@ -16,7 +16,7 @@ import {
 import { IdeaError, IdeaRepository } from "../idea/index.js";
 import type { Ledger } from "../ledger/index.js";
 import { JudgeError } from "../judge/index.js";
-import type { Command, CommandContext } from "../runtime/index.js";
+import type { Command, CommandContext, CommandHelp } from "../runtime/index.js";
 import { repoOf } from "./judge-shared.js";
 import { openLedger } from "./ledger-commands.js";
 import { ownerLogin } from "./poll-helpers.js";
@@ -208,9 +208,63 @@ function report({ deps, json }: CommandContext, done: ActivateResult): number {
   return 0;
 }
 
+/** The help record for `guardrail activate`: changes a mode only on a person's recorded approval. */
+const activateHelp: CommandHelp = {
+  purpose:
+    "Changes a guardrail's mode, or removes it, only when a person has approved that change on the idea's issue. The approval is a comment from the owner login, made after the request, with the line approve <rule>:<from>><to>. The owner login is ownerLogin in .claude/harness.json, else the repository's owner. On approval it rewrites the rule in .claude/guardrails.yaml, regenerates the settings deny list for a deny rule, and records a guardrail.activated event. An approving comment that carries a sender line still approves, but the change warns on stderr and in the JSON warning field, and also records a guardrail.approval-warned event.",
+  when: "After guardrail request has posted the request and the owner has commented the approval line on the idea's issue, to apply exactly that change.",
+  whenNot:
+    "Before the approval is on the issue: the command refuses and posts a refusal comment instead, and an agent-applied label never counts as approval. To ask for the change, run guardrail request first.",
+  flags: {
+    to: "The mode to move to: enforce, audit or removed; removed deletes the rule's line from the inventory. It must differ from the rule's current mode.",
+    idea: "The number of the idea whose issue carries the request and the approval; the idea must have an issue.",
+    ledger:
+      "The ledger file the change is recorded in, relative to the working directory; by default the shared ledger of the main checkout.",
+  },
+  operand: "The guardrail rule to change, as named in .claude/guardrails.yaml.",
+  examples: [
+    {
+      command:
+        "harness guardrail activate flag-activation --to enforce --idea 1500",
+      shows:
+        "with the owner's approval on the issue, the rule is in enforce mode and the change is recorded; without it, the command refuses, leaves the mode unchanged and posts one refusal comment",
+    },
+    {
+      command:
+        "harness guardrail activate flag-activation --to enforce --idea 1500 --json",
+      shows:
+        "the result as one JSON object: rule, from, to, idea, issue, activated, reason, refusalPosted and commentUrl when refused, or warning when the approving comment carries a sender line",
+    },
+  ],
+  exits: [
+    {
+      code: 0,
+      meaning:
+        "the change is applied: the mode changed, or the rule was removed; stderr carries a warning when the approving comment carries a sender line",
+    },
+    {
+      code: 1,
+      meaning:
+        "refused and the mode is unchanged: no request on record, no approval comment from the owner (a label does not count), an unknown --to, the rule already in that mode, or an idea with no issue; also a gh call that failed, or a ledger event rejected after the change, which stays in place and whose message names the command to record it",
+    },
+    {
+      code: 2,
+      meaning:
+        "the rule, --to or --idea is missing, or a flag the command does not declare",
+    },
+  ],
+  effects: {
+    kind: "mutates",
+    detail:
+      "on approval, rewrites the rule's line in .claude/guardrails.yaml, regenerates .claude/settings.json for a deny rule, and appends a guardrail.activated event (guardrail.approval-warned as well when the approval carries a sender line); a refusal changes no mode and posts one refusal comment on the idea's issue",
+  },
+  seeAlso: ["guardrail request", "guardrail status", "guardrail deny"],
+};
+
 export const activate: Command = {
+  help: activateHelp,
   summary:
-    "change a guardrail's mode, or remove it, only when a person has approved that change on the idea's issue: a comment from the owner login (ownerLogin in .claude/harness.json, else the repository's owner) made after the request comment, with the line `approve <rule>:<from>><to>`; an agent-applied label never counts; enforcing, loosening and removing need the same approval, requested first with `guardrail request`; on approval it edits .claude/guardrails.yaml (and regenerates the settings deny list for a deny rule) and records a guardrail.activated ledger event; an approving comment that carries a sender line (a session wrote it, not the owner) still approves, but the change warns on stderr and in the JSON `warning` field and records a guardrail.approval-warned ledger event; with no request, no approval or only a label it refuses (exit 1), leaves the mode as it is and posts one refusal comment on the idea's issue (<rule> --to enforce|audit|removed --idea <number> [--json: rule, from, to, idea, issue, activated, reason, refusalPosted, commentUrl, warning] [--ledger])",
+    "change a guardrail's mode or remove it, only on the owner's approval of that change",
   operand: "rule",
   options: { to: "string", idea: "string", ledger: "string" },
   async run(context) {

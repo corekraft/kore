@@ -148,9 +148,19 @@ test("with golden-path-signin on only the bff container gets JAVA_TOOL_OPTIONS p
   expect(bffDeployment.match(/JAVA_TOOL_OPTIONS/g)).toHaveLength(1);
 });
 
+test("with golden-path-signin on only the bff container honours the forwarded protocol, so its redirect URI is https behind the TLS-terminating Gateway", async () => {
+  const docs = await signinDocs();
+  expect(deploymentOf(docs, "auth-bff")).toContain(
+    `            - name: SERVER_FORWARD_HEADERS_STRATEGY\n              value: framework\n`,
+  );
+  expect(deploymentOf(docs, "auth-frontend")).not.toContain(
+    "SERVER_FORWARD_HEADERS_STRATEGY",
+  );
+});
+
 test("with golden-path-signin off the workload renders no truststore, no BFF CA Certificate and no JAVA_TOOL_OPTIONS", async () => {
   const rendered = await render(...workload, ...workloadIngress);
   expect(rendered).not.toMatch(
-    /initContainers|truststore|bff-ca|JAVA_TOOL_OPTIONS|trustStore/,
+    /initContainers|truststore|bff-ca|JAVA_TOOL_OPTIONS|trustStore|SERVER_FORWARD_HEADERS_STRATEGY/,
   );
 });

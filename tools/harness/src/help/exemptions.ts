@@ -5,63 +5,7 @@
  * A domain's only command is named by the domain alone.
  */
 export const undocumented: readonly string[] = [
-  // plan
-  "plan active",
-  "plan tick",
-  "plan next",
-  "plan clear-next",
-  // adr
-  "adr new",
-  "adr supersede",
   // guardrail
-  "guardrail status",
-  "guardrail deny",
-  "guardrail request",
-  "guardrail activate",
-  "guardrail replay",
-  // idea
-  "idea new",
-  "idea list",
-  "idea show",
-  "idea sync",
-  // outcome
-  "outcome record",
-  "outcome close",
-  // decision
-  "decision make",
-  "decision route",
-  "decision ask",
-  "decision digest",
   // flag
-  "flag activate",
-  "flag audit",
   // ruleset
-  "ruleset sync",
-  "ruleset insights",
-  // status
-  "status",
-  // pr
-  "pr checks",
-  "pr check",
-  "pr open",
-  // ledger
-  "ledger record",
-  "ledger list",
-  "ledger poll-herdr",
-  "ledger poll-github",
-  // flow
-  "flow report",
-  // queue
-  "queue next",
-  "queue send-backs",
-  "queue escalate",
-  // retro
-  "retro due",
-  "retro record",
-  // evaluate
-  "evaluate",
-  // orchestrate
-  "orchestrate run",
-  "orchestrate tick",
-  "orchestrate plan",
 ];

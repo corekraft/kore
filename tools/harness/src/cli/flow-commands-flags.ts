@@ -2,6 +2,8 @@
 // what is wrong and the values that are allowed.
 
 import { EFFORTS, isTimestamp, type Effort } from "../ledger/index.js";
+
+export type { Effort };
 import type { CommandContext } from "../runtime/index.js";
 
 function parseTime(

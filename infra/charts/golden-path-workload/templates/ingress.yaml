@@ -4,7 +4,9 @@
   the host, cert-manager issues its Secret into the same namespace, and the
   route sends the BFF path to the BFF and the rest to the frontend. While
   golden-path-signin is on (signin.enabled), the BFF also gets /oauth2 and
-  /login/oauth2, the paths its sign-in flow uses. The
+  /login/oauth2, the paths its sign-in flow uses, and the route sets
+  X-Forwarded-Proto to https, because the Gateway terminates TLS and the BFF
+  builds its redirect URI from that header. The
 
   platform owns the Gateway in kore-system, its listeners and its certificate
   (ADR 0133). Nothing renders without ingress.host, which only the
@@ -82,6 +84,13 @@ spec:
         - path: {type: PathPrefix, value: /oauth2}
         - path: {type: PathPrefix, value: /login/oauth2}
         {{- end }}
+      {{- if $signinRoutes }}
+      filters:
+        - type: RequestHeaderModifier
+          requestHeaderModifier:
+            set:
+              - {name: X-Forwarded-Proto, value: https}
+      {{- end }}
       backendRefs:
         - {name: {{ $.Values.service }}-bff, port: 80}
     - backendRefs:
@@ -110,6 +119,13 @@ spec:
         - path: {type: PathPrefix, value: /oauth2}
         - path: {type: PathPrefix, value: /login/oauth2}
         {{- end }}
+      {{- if $signinRoutes }}
+      filters:
+        - type: RequestHeaderModifier
+          requestHeaderModifier:
+            set:
+              - {name: X-Forwarded-Proto, value: https}
+      {{- end }}
       backendRefs:
         - {name: {{ $.Values.service }}-bff, port: 80}
     - backendRefs:
