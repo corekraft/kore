@@ -22,6 +22,7 @@ export {
   type UnreadableRecord,
 } from "./registry.js";
 export { recordsOfTerminal, type TerminalRecords } from "./terminal-record.js";
+export { terminalsFor } from "./backend.js";
 import { check, checkHelp } from "./check.js";
 import { close, closeHelp } from "./close.js";
 import { execCommand } from "./exec.js";

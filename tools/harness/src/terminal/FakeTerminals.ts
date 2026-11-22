@@ -16,6 +16,7 @@ import {
   type Waited,
   type WaitTarget,
 } from "./port.js";
+import { keeps } from "./fake-filter.js";
 
 /** A terminal as the fake models it: everything get reports, plus its output and input. */
 interface Model {
@@ -238,10 +239,10 @@ export class FakeTerminals implements Terminals {
     return { id };
   }
 
-  /** Replays the events recorded so far, in order, then ends. */
+  /** Replays the events recorded so far, in order, then ends; a label filter keeps the terminals carrying every label. */
   async *events(filter: EventFilter = {}): AsyncGenerator<TerminalEvent> {
     for (const event of this.#events.slice()) {
-      if (filter.terminal === undefined || event.terminal === filter.terminal) {
+      if (keeps(event, this.#models.get(event.terminal)?.labels, filter)) {
         yield event;
       }
     }
@@ -261,6 +262,7 @@ export class FakeTerminals implements Terminals {
   /** Sets the status a terminal reports. */
   setStatus(id: string, status: Status): void {
     this.#existing(id).status = status;
+    this.#events.push({ kind: "changed", terminal: id });
   }
 
   /** The texts sent to a terminal, in order. */

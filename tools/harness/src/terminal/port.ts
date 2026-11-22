@@ -81,10 +81,13 @@ export interface ListFilter {
 
 export interface EventFilter {
   terminal?: string;
+  /** Only events for terminals carrying all of these labels. */
+  labels?: Record<string, string>;
 }
 
 export interface TerminalEvent {
-  kind: "started" | "labelled" | "finished" | "removed";
+  /** "changed" is any change that is not a finish: a foreground change, a status, a turn. */
+  kind: "started" | "labelled" | "changed" | "finished" | "removed";
   terminal: string;
 }
 
