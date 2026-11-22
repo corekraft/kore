@@ -9,6 +9,7 @@ import {
 import {
   parseContainerStats,
   parseOomKilledPods,
+  parseSwapTotalMiB,
   parseSwapUsedMiB,
   parseVmMemoryInUseMiB,
   parseVmMemoryMiB,
@@ -21,6 +22,7 @@ import { summarizeFootprint } from "./footprint-summary.js";
 vi.mock("./footprint-parse.js", () => ({
   parseContainerStats: vi.fn(),
   parseOomKilledPods: vi.fn(),
+  parseSwapTotalMiB: vi.fn(),
   parseSwapUsedMiB: vi.fn(),
   parseVmMemoryInUseMiB: vi.fn(),
   parseVmMemoryMiB: vi.fn(),
@@ -71,6 +73,8 @@ function measurementWith(load = 1) {
     loadAverage: vi.fn(() => load),
     now: vi.fn(() => 0),
     epochMilliseconds: vi.fn(() => 5000),
+    platform: "darwin",
+    readFile: vi.fn(async () => "MEMINFO"),
   };
   return {
     run,
@@ -82,6 +86,7 @@ function measurementWith(load = 1) {
 beforeEach(function stubParsers() {
   vi.mocked(parseVmMemoryMiB).mockReturnValue(10000);
   vi.mocked(parseSwapUsedMiB).mockReturnValue(100);
+  vi.mocked(parseSwapTotalMiB).mockReturnValue(6144);
   vi.mocked(parseContainerStats).mockReturnValue({
     cpuMillicores: 300,
     memoryMiB: 3000,
@@ -315,7 +320,7 @@ test("fails with the cause named when a read is unparseable", async () => {
   });
 
   await expect(measurement.measure()).rejects.toThrow(
-    "reading the macOS swap usage failed: unreadable swap usage report; this measurement needs macOS",
+    "reading the macOS swap usage failed: unreadable swap usage report; check that sysctl vm.swapusage runs on this Mac",
   );
 });
 
