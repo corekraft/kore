@@ -13,7 +13,7 @@ import {
 import { FAILED, fail } from "./output.js";
 import type { SessionRecord, SessionRegistry } from "./registry.js";
 import { DEFAULT_TIMEOUT_MS, wait } from "./wait.js";
-import { waitForReport } from "./wait-hc.js";
+import { formatReportWait, waitForReport } from "./wait-hc.js";
 
 const opener = vi.hoisted(() => ({
   open: vi.fn<(deps: CliDeps) => Promise<SessionRegistry>>(),
@@ -28,10 +28,7 @@ vi.mock("./backend.js");
 vi.mock("./equalize.js");
 vi.mock("./finish-record.js");
 vi.mock("./names.js");
-vi.mock("./wait-hc.js", async (importOriginal) => ({
-  ...(await importOriginal<typeof import("./wait-hc.js")>()),
-  waitForReport: vi.fn(),
-}));
+vi.mock("./wait-hc.js");
 
 const HC_RECORD: SessionRecord = {
   version: 1,
@@ -67,6 +64,7 @@ describe("wait on an hc session waits through hc and reads its report, never a h
     };
     vi.mocked(routeSession).mockReturnValue({ backend: "hc", terminals: hc });
     vi.mocked(waitForReport).mockResolvedValue(result);
+    vi.mocked(formatReportWait).mockReturnValue("<report wait line>\n");
     registry.read.mockResolvedValue(HC_RECORD);
 
     const code = await wait(contextOf(deps, { operand: "image-trust-writer" }));
@@ -80,9 +78,8 @@ describe("wait on an hc session waits through hc and reads its report, never a h
       DEFAULT_TIMEOUT_MS,
     );
     expect(deps.runner.run).not.toHaveBeenCalled();
-    expect(deps.stdout).toHaveBeenCalledWith(
-      "image-trust-writer (claude-opus-5-5) done: Opened PR #5.\n",
-    );
+    expect(formatReportWait).toHaveBeenCalledWith(result);
+    expect(deps.stdout).toHaveBeenCalledWith("<report wait line>\n");
   });
 
   it("fails with hc's message when the report wait cannot answer", async () => {

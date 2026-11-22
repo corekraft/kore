@@ -234,7 +234,7 @@ export const waitHelp: CommandHelp = {
     "When the session was started without --no-wait, since session spawn already waited for it. To watch several targets at once, use harness wait. To see what a pane shows now, read the pane with herdr: this command only settles on the RESULT line.",
   flags: {
     timeout:
-      "The bound in milliseconds, a positive whole number; the default is one hour. When it passes with no RESULT line, the command exits 1 and the session keeps running.",
+      "The bound in milliseconds, a positive whole number; the default is one hour. When it passes with no RESULT line, the command exits 1 and the session keeps running. For an hc session the bound applies to waiting for its terminal to stop: when it passes with no report, the command exits 1 and the session keeps running, unless the terminal turned blocked or errored meanwhile, which settles as blocked and exits 0.",
   },
   operand:
     "The spawned session's name, as session spawn recorded it, such as image-trust-reader. A name this tool did not spawn is refused.",
@@ -254,12 +254,12 @@ export const waitHelp: CommandHelp = {
     {
       code: 0,
       meaning:
-        "the RESULT line showed and its outcome is printed; a blocked outcome also exits 0",
+        "the RESULT line showed and its outcome is printed; a blocked outcome also exits 0. For an hc session: its report showed, or it settled as blocked (blocked or errored status, or its terminal stopped without a report), and the outcome is printed",
     },
     {
       code: 1,
       meaning:
-        "no session of this tool has that name, its pane could not be read, or no RESULT line came within the timeout",
+        "no session of this tool has that name, its pane could not be read, or no RESULT line came within the timeout. For an hc session: it has no terminal recorded, its terminal could not be read, or it was still working with no report when the timeout passed",
     },
     {
       code: 2,
@@ -270,7 +270,7 @@ export const waitHelp: CommandHelp = {
   effects: {
     kind: "mutates",
     detail:
-      "once a RESULT line shows, records the outcome and its summary on the session's registry entry and appends a pane.finished ledger event; until then it only reads the pane",
+      "once a RESULT line shows, records the outcome and its summary on the session's registry entry and appends a pane.finished ledger event; until then it only reads the pane. An hc session records no RESULT line and no pane.finished event: the wait reads the report file in its terminal's checkout, and when it consumes a report it writes that report's seq to reportSeq on the registry entry, so a later wait settles only on a newer report",
   },
   seeAlso: ["session spawn", "harness wait", "session close"],
 };
