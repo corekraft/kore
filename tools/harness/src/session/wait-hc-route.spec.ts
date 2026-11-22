@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { CliDeps } from "../runtime/index.js";
 import { FakeTerminals } from "../terminal/index.js";
-import { terminalsFor } from "./backend.js";
+import { routeSession } from "./backend.js";
 import {
   asRegistry,
   contextOf,
@@ -24,10 +24,10 @@ vi.mock("./output.js", async (importOriginal) => ({
   ...(await importOriginal<typeof import("./output.js")>()),
   fail: vi.fn(),
 }));
-vi.mock("./backend.js", async (importOriginal) => ({
-  ...(await importOriginal<typeof import("./backend.js")>()),
-  terminalsFor: vi.fn(),
-}));
+vi.mock("./backend.js");
+vi.mock("./equalize.js");
+vi.mock("./finish-record.js");
+vi.mock("./names.js");
 vi.mock("./wait-hc.js", async (importOriginal) => ({
   ...(await importOriginal<typeof import("./wait-hc.js")>()),
   waitForReport: vi.fn(),
@@ -65,7 +65,7 @@ describe("wait on an hc session waits through hc and reads its report, never a h
       summary: "Opened PR #5.",
       seq: 1,
     };
-    vi.mocked(terminalsFor).mockReturnValue(hc);
+    vi.mocked(routeSession).mockReturnValue({ backend: "hc", terminals: hc });
     vi.mocked(waitForReport).mockResolvedValue(result);
     registry.read.mockResolvedValue(HC_RECORD);
 
@@ -86,7 +86,10 @@ describe("wait on an hc session waits through hc and reads its report, never a h
   });
 
   it("fails with hc's message when the report wait cannot answer", async () => {
-    vi.mocked(terminalsFor).mockReturnValue(new FakeTerminals());
+    vi.mocked(routeSession).mockReturnValue({
+      backend: "hc",
+      terminals: new FakeTerminals(),
+    });
     vi.mocked(waitForReport).mockResolvedValue({
       error: "Session image-trust-writer: no terminal t2",
     });

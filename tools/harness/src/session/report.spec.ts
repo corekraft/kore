@@ -10,6 +10,7 @@ import {
   type FakeDeps,
   type FakeRegistry,
 } from "./deps-support.js";
+import { FAILED, USAGE_ERROR, fail } from "./output.js";
 import { report } from "./report.js";
 import {
   isInsideReportDir,
@@ -27,6 +28,10 @@ const opener = vi.hoisted(() => ({
 vi.mock("./registry.js", () => ({ SessionRegistry: opener }));
 vi.mock("./backend.js");
 vi.mock("./report-file.js");
+vi.mock("./output.js", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("./output.js")>()),
+  fail: vi.fn(),
+}));
 
 const RECORD: SessionRecord = {
   version: 1,
@@ -78,6 +83,7 @@ beforeEach(async () => {
   vi.mocked(isInsideReportDir).mockResolvedValue(true);
   vi.mocked(readReport).mockResolvedValue(undefined);
   vi.mocked(noticeLine).mockReturnValue(NOTICE);
+  vi.mocked(fail).mockImplementation((_deps, _json, code) => code);
   await setUpTerminals("t2");
 });
 
@@ -104,7 +110,7 @@ describe("report refuses a bad usage before it touches a terminal", () => {
     const code = await report(contextOf(deps, { options: values }));
 
     expect(code).toBe(2);
-    expect(deps.stderr).toHaveBeenCalledWith(`${message}\n`);
+    expect(fail).toHaveBeenCalledWith(deps, false, USAGE_ERROR, `${message}`);
     expect(opener.open).not.toHaveBeenCalled();
   });
 });
@@ -116,8 +122,11 @@ describe("report refuses when it is not an open hc session", () => {
     const code = await report(contextOf(deps, { options: DONE }));
 
     expect(code).toBe(1);
-    expect(deps.stderr).toHaveBeenCalledWith(
-      "Not inside an hc terminal (HC_TERMINAL_ID is unset). session report runs in the session's own terminal, which session spawn starts.\n",
+    expect(fail).toHaveBeenCalledWith(
+      deps,
+      false,
+      FAILED,
+      "Not inside an hc terminal (HC_TERMINAL_ID is unset). session report runs in the session's own terminal, which session spawn starts.",
     );
     expect(deps.fs.writeFile).not.toHaveBeenCalled();
   });
@@ -129,8 +138,11 @@ describe("report refuses when it is not an open hc session", () => {
 
     expect(code).toBe(1);
     expect(registry.findByTerminal).toHaveBeenCalledWith("t2");
-    expect(deps.stderr).toHaveBeenCalledWith(
-      "No open session record matches terminal t2. session report writes only for a session that session spawn started; nothing was written.\n",
+    expect(fail).toHaveBeenCalledWith(
+      deps,
+      false,
+      FAILED,
+      "No open session record matches terminal t2. session report writes only for a session that session spawn started; nothing was written.",
     );
     expect(deps.fs.writeFile).not.toHaveBeenCalled();
   });
@@ -141,8 +153,11 @@ describe("report refuses when it is not an open hc session", () => {
     const code = await report(contextOf(deps, { options: DONE }));
 
     expect(code).toBe(1);
-    expect(deps.stderr).toHaveBeenCalledWith(
-      "Session image-trust-writer runs on herdr; session report is for hc sessions only.\n",
+    expect(fail).toHaveBeenCalledWith(
+      deps,
+      false,
+      FAILED,
+      "Session image-trust-writer runs on herdr; session report is for hc sessions only.",
     );
     expect(deps.fs.writeFile).not.toHaveBeenCalled();
   });
@@ -155,7 +170,12 @@ describe("report refuses when it is not an open hc session", () => {
     const code = await report(contextOf(deps, { options: DONE }));
 
     expect(code).toBe(1);
-    expect(deps.stderr).toHaveBeenCalledWith("hc is not available here\n");
+    expect(fail).toHaveBeenCalledWith(
+      deps,
+      false,
+      FAILED,
+      "hc is not available here",
+    );
     expect(deps.fs.writeFile).not.toHaveBeenCalled();
   });
 });
@@ -177,8 +197,11 @@ describe("report reads a --file only from inside the report directory", () => {
       "/work/writer",
       "/secret.md",
     );
-    expect(deps.stderr).toHaveBeenCalledWith(
-      "--file ../../secret.md is outside /work/writer/.kore/report; a report reads its summary only from there. Write the summary file in that directory and pass it again.\n",
+    expect(fail).toHaveBeenCalledWith(
+      deps,
+      false,
+      FAILED,
+      "--file ../../secret.md is outside /work/writer/.kore/report; a report reads its summary only from there. Write the summary file in that directory and pass it again.",
     );
     expect(deps.fs.readFile).not.toHaveBeenCalled();
     expect(deps.fs.writeFile).not.toHaveBeenCalled();
@@ -194,8 +217,11 @@ describe("report reads a --file only from inside the report directory", () => {
     );
 
     expect(code).toBe(1);
-    expect(deps.stderr).toHaveBeenCalledWith(
-      "--file .kore/report/missing.md does not exist.\n",
+    expect(fail).toHaveBeenCalledWith(
+      deps,
+      false,
+      FAILED,
+      "--file .kore/report/missing.md does not exist.",
     );
     expect(deps.fs.writeFile).not.toHaveBeenCalled();
   });
@@ -215,8 +241,11 @@ describe("report reads a --file only from inside the report directory", () => {
 
     expect(code).toBe(1);
     expect(hcMessage).toHaveBeenCalledWith(error);
-    expect(deps.stderr).toHaveBeenCalledWith(
-      "Session image-trust-writer: hc get printed nothing (check hc --version)\n",
+    expect(fail).toHaveBeenCalledWith(
+      deps,
+      false,
+      FAILED,
+      "Session image-trust-writer: hc get printed nothing (check hc --version)",
     );
     expect(deps.fs.writeFile).not.toHaveBeenCalled();
   });

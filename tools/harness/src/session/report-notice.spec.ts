@@ -10,6 +10,7 @@ import {
   type FakeDeps,
   type FakeRegistry,
 } from "./deps-support.js";
+import { FAILED, fail } from "./output.js";
 import { report } from "./report.js";
 import {
   isInsideReportDir,
@@ -27,6 +28,10 @@ const opener = vi.hoisted(() => ({
 vi.mock("./registry.js", () => ({ SessionRegistry: opener }));
 vi.mock("./backend.js");
 vi.mock("./report-file.js");
+vi.mock("./output.js", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("./output.js")>()),
+  fail: vi.fn(),
+}));
 
 const RECORD: SessionRecord = {
   version: 1,
@@ -73,6 +78,7 @@ beforeEach(async () => {
   vi.mocked(isInsideReportDir).mockResolvedValue(true);
   vi.mocked(readReport).mockResolvedValue(undefined);
   vi.mocked(noticeLine).mockReturnValue(NOTICE);
+  vi.mocked(fail).mockImplementation((_deps, _json, code) => code);
   await setUpTerminals("t2");
 });
 
@@ -140,8 +146,11 @@ describe("report tells the parent in one fixed line, and only an agent parent", 
     expect(code).toBe(1);
     expect(hcMessage).toHaveBeenCalledWith(error);
     expect(deps.fs.writeFile).toHaveBeenCalledWith(REPORT, expect.any(String));
-    expect(deps.stderr).toHaveBeenCalledWith(
-      `The report is written at ${REPORT}, but the notice to t1 failed: hc send printed nothing (check hc --version).\n`,
+    expect(fail).toHaveBeenCalledWith(
+      deps,
+      false,
+      FAILED,
+      `The report is written at ${REPORT}, but the notice to t1 failed: hc send printed nothing (check hc --version).`,
     );
   });
 });
