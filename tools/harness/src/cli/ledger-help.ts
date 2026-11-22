@@ -214,7 +214,7 @@ export const pollGithubHelp: CommandHelp = {
 export const watchHelp: CommandHelp = {
   purpose:
     "Follows hc's terminals and appends each session terminal's reading to the ledger when it changes: pane.busy for working, pane.waiting for idle or done, pane.stalled for blocked or error, pane.spawned while nothing is reported, and pane.finished when it ends. It first records the terminals that changed while it was not running, then follows every hc event and reads each event's terminal, recording only the terminals that carry a kore-session label. hc's events take one K=V label at most, so the labels are read here, not in hc.",
-  when: "When the ledger should hold the sessions' statuses as they happen, without a poll. Run it by hand, or let session spawn start it under the name ledger-watch once the hc-sessions flag is on.",
+  when: "When the ledger should hold the sessions' statuses as they happen, without a poll. Run it by hand; session spawn will start it in a later step.",
   whenNot:
     "When you want one terminal's status now: use session wait, or hc get. This command follows the stream and never sends anything to a terminal.",
   flags: {
@@ -243,7 +243,7 @@ export const watchHelp: CommandHelp = {
   effects: {
     kind: "mutates",
     detail:
-      "appends terminal events to the ledger, which is append-only and written only here. It starts no terminal and sends nothing to one.",
+      "appends terminal events to the ledger, which is append-only. It starts no terminal and sends nothing to one.",
   },
   seeAlso: ["ledger list", "session wait"],
 };
