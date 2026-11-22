@@ -56,6 +56,8 @@ export async function sessionReviewPorts(
     }
     return done.stdout;
   };
+  /** The pane each settled Reviewer's session ran in, kept here so the run reads by session name only. */
+  const panes = new Map<string, string>();
   const harness = (...args: string[]) =>
     tool("node", [HARNESS, ...args], `harness ${args.slice(0, 2).join(" ")}`);
   return {
@@ -80,14 +82,22 @@ export async function sessionReviewPorts(
         outcome: "done" | "blocked";
         paneId: string;
       };
-      return { outcome: waited.outcome, paneId: waited.paneId };
+      panes.set(name, waited.paneId);
+      return { outcome: waited.outcome };
     },
-    read: (paneId) =>
-      tool(
+    read: async (name) => {
+      const paneId = panes.get(name);
+      if (paneId === undefined) {
+        throw new JudgeError(
+          `The Reviewer's session ${name} has not settled, so its text is not read. Wait for it first with \`harness session wait ${name}\`.`,
+        );
+      }
+      return tool(
         "herdr",
         ["pane", "read", paneId, "--source", "recent-unwrapped"],
-        `herdr pane read ${paneId}`,
-      ),
+        `herdr pane read of session ${name}`,
+      );
+    },
     close: async (name) => {
       await harness("session", "close", name);
     },

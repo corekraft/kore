@@ -1,5 +1,8 @@
 import type { ReadRequest, WorkPiece } from "./judgment-check.js";
 
+/** The backend a brief is written for: a herdr pane answers in marker lines, an hc session through its report. */
+export type BriefBackend = "herdr" | "hc";
+
 /** One reader's summary, named by the pane that printed it, for a judgment pane's next brief. */
 export interface ReaderSummary {
   name: string;
@@ -25,6 +28,14 @@ const quoted = (text: string): string =>
     .filter((line) => !/PLAN-JSON|RESULT\s*:/.test(line))
     .join("\n");
 
+/** The hc plan: the object goes to a file that session report carries as the report's plan. */
+const HC_PLAN =
+  'End with one JSON object that is your plan, with exactly one of reads, work or stop. Reads is a list of objects with question and paths; work is a list of objects with role (writer or reader), name, brief, files and after; stop is an object with reason. Write that object to the file .kore/report/<your session name>.plan.json, then run `harness session report --outcome done --summary "plan written" --plan .kore/report/<your session name>.plan.json` as your last action.';
+
+/** The hc answer: the reader writes it to a file that session report carries as its summary. */
+const HC_ANSWER =
+  "Write your answer to the file .kore/report/<your session name>.md, then run `harness session report --outcome done --file .kore/report/<your session name>.md` as your last action.";
+
 function contextLines(decision: JudgmentContext): string {
   if (decision.kind === "start") {
     return `The writer was sent back ${decision.sendBacks} times on this idea's pull request, so decide the next step: split the work, re-brief the writer, or stop and send the idea to the owner.`;
@@ -47,6 +58,7 @@ export function judgmentBrief(
   issue: number,
   pr: number | undefined,
   decision: JudgmentContext,
+  backend: BriefBackend = "herdr",
 ): string {
   const who =
     pr === undefined
@@ -55,7 +67,7 @@ export function judgmentBrief(
   return [
     `You are the judgment pane for idea ${idea} (issue #${issue}, ${who}).`,
     RULES,
-    PLAN,
+    backend === "hc" ? HC_PLAN : PLAN,
     contextLines(decision),
   ].join("\n");
 }
@@ -88,10 +100,16 @@ export function pieceBrief(
   idea: string,
   issue: number,
   piece: WorkPiece,
+  backend: BriefBackend = "herdr",
 ): string {
   return piece.role === "writer"
     ? rebriefBrief(idea, issue, { brief: piece.brief, files: piece.files })
-    : readerBrief(idea, issue, { question: piece.brief, paths: piece.files });
+    : readerBrief(
+        idea,
+        issue,
+        { question: piece.brief, paths: piece.files },
+        backend,
+      );
 }
 
 /** The brief of a reader pane: one question, the only paths it may read, and where its answer goes. */
@@ -99,11 +117,14 @@ export function readerBrief(
   idea: string,
   issue: number,
   read: ReadRequest,
+  backend: BriefBackend = "herdr",
 ): string {
   return [
     `You answer one question for idea ${idea} (issue #${issue}). Question: ${read.question}`,
     `You may read only these paths: ${read.paths.join(", ")}.`,
     "You change no file and start no pane. Answer in structured bullets, starting with the line Question: and the question's text.",
-    "Print your answer between a line that reads SUMMARY-BEGIN and a line that reads SUMMARY-END. Then print RESULT: done as the last line.",
+    backend === "hc"
+      ? HC_ANSWER
+      : "Print your answer between a line that reads SUMMARY-BEGIN and a line that reads SUMMARY-END. Then print RESULT: done as the last line.",
   ].join("\n");
 }

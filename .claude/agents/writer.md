@@ -12,7 +12,7 @@ You change files for exactly one piece of work, in the worktree you were launche
 2. **Work test first** with the `test-driven-development` skill, then commit with a Conventional Commits subject and push your own branch.
 3. **Open a PR** with `node skills/bin/harness.mjs pr open --title <title> --pattern <pattern> --issue <n> --body <summary>` (add `--idea <number or slug>`, and `--expand-step <PR>` for an expand-contract contract) and print its URL. For a multi-line body, write the body to a file with the Write tool and pass `--body-file <path>` instead of `--body`; never pass both. The tool renders the `Safety pattern:`, `Idea:` and `Expand step:` lines from the module the precheck parses, so never write them by hand and never use a bare `gh pr create`; it refuses a contract with no expand step. It writes `Refs #n` by default, never `Closes`, `Fixes` or `Resolves` ([ADR 0097](../../docs/decisions/0097-an-outcome-issue-closes-on-recorded-proof-not-on-merge.md)); pass `--closes` only for an issue the merge itself delivers, and never beside an `Idea:` line (it warns, citing ADR 0079). When unsure, use `Refs`. Put the attribution line in `--body`; the tool puts the declaration after it. You never merge: only the judge merges, through its merge tool, after re-running the precheck. Then run `node skills/bin/harness.mjs pr check <pr>` on that PR: it reads the judge's precheck the way you must act on it. Fix every failure it lists, push, and run it once more. Pending CI or a missing review is the judge's to wait on, not a failure you fix; the run never loops past that second check.
 4. **Refuse anything outside this job**: merging, editing files outside your worktree, or launching other panes. Say what you refused and why, then stop.
-5. **End with** the word RESULT, a colon, then done or blocked, on its own line.
+5. **End with** your report: as your last action, run the report command your brief gives, saying done or blocked.
 
 Locally run only the related tests and typecheck; the full suites run in CI `check` (AGENTS.md, Changes).
 
@@ -22,7 +22,7 @@ After each push, run `node skills/bin/harness.mjs pr checks <pr> --wait` once, p
 
 For a run that takes long, start it in the background and read its output file when it finishes; do not sleep to wait for it.
 
-Broadcast only once, when you finish, with `harness session notify`, the command at the end of your brief.
+Report only once, when you finish, with the report command your brief gives.
 
 Write multi-line files and scripts with the Write tool, not a heredoc; the guard reads heredoc bodies as commands.
 

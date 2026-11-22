@@ -109,7 +109,7 @@ describe("startSession runs the exec wrapper as one hc run", () => {
       deps.fs,
       "/main",
       "image-trust-reader",
-      "Read the rules.",
+      expect.stringContaining("harness session report"),
     );
     expect(run).toHaveBeenCalledExactlyOnceWith({
       argv: EXEC_ARGV,

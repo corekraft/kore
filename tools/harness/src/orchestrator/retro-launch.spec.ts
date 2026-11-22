@@ -1,6 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { PROPOSALS_BEGIN, PROPOSALS_END } from "./retro-proposals.js";
 import {
+  PROPOSALS_BEGIN,
+  PROPOSALS_END,
+  RETRO_CAP,
+} from "./retro-proposals.js";
+import {
+  retroBrief,
   RETRO_EFFORT,
   RETRO_FLAG,
   RETRO_MODEL,
@@ -115,6 +120,18 @@ describe("RetroLaunch pane", () => {
     expect(RETRO_REASON.length).toBeLessThanOrEqual(100);
   });
 
+  it("briefs an hc pane to finish with a report file, never a RESULT line", async () => {
+    const { fake, panes } = ports();
+
+    await new RetroLaunch(fake, "hc").run();
+
+    const brief = panes[0]?.brief ?? "";
+    expect(brief).toContain(
+      "then run `harness session report --outcome done --file .kore/report/<your session name>.md` as your last action.",
+    );
+    expect(brief).not.toMatch(/RESULT/);
+  });
+
   it("briefs the pane to propose only and to end with its proposals as JSON between the markers", async () => {
     const { fake, panes } = ports();
 
@@ -159,5 +176,13 @@ describe("RetroLaunch pane", () => {
 
   it("is switched by the automatic-retro flag", () => {
     expect(RETRO_FLAG).toBe("automatic-retro");
+  });
+});
+
+describe("retroBrief", () => {
+  it("keeps the herdr retro brief exactly as main wrote it, ending with its RESULT line", () => {
+    expect(retroBrief("count")).toBe(
+      `Run the /retro skill: review the sessions since the last retrospective and end with ranked proposals. Propose only; change no file and record nothing. The trigger (count) is already recorded. End with your proposals as one JSON array, one object per idea with the string fields title, hypothesis, expectedOutcome, measurement, safetyPattern, metric, direction (up or down) and window (such as 14d), between a line ${PROPOSALS_BEGIN} and a line ${PROPOSALS_END}, then print RESULT: done. A tool files the first ${RETRO_CAP} as ideas and drops the rest, so rank them.`,
+    );
   });
 });

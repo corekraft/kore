@@ -1,6 +1,7 @@
 // oxlint-disable import/max-dependencies -- the session domain is one command per module, so its barrel imports each of them
 import type { Command } from "../runtime/index.js";
 export { handOff } from "./handoff.js";
+export { buildBrief } from "./brief.js";
 export { FOLLOW_UP_PREFIX } from "./follow-up-prefix.js";
 export { findResult, parseTimeout } from "./wait.js";
 export {

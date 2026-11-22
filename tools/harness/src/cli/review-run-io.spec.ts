@@ -82,7 +82,7 @@ describe("the review run ports start and read the Reviewer through the session t
     ).rejects.toThrow(/session spawn.*failed: no herdr/s);
   });
 
-  it("waits through session wait and returns the outcome and the pane", async () => {
+  it("waits through session wait and returns the outcome, with no pane", async () => {
     run.mockReturnValue(
       result(
         JSON.stringify({
@@ -95,7 +95,7 @@ describe("the review run ports start and read the Reviewer through the session t
     );
     expect(
       await (await sessionReviewPorts(context)).wait("pr42-reviewer"),
-    ).toEqual({ outcome: "done", paneId: "p1" });
+    ).toEqual({ outcome: "done" });
     expect(run.mock.calls[0]?.[1]).toEqual([
       "skills/bin/harness.mjs",
       "session",
@@ -107,10 +107,25 @@ describe("the review run ports start and read the Reviewer through the session t
 });
 
 describe("the review run ports read and close the Reviewer's pane", () => {
-  it("reads the pane's unwrapped text through herdr", async () => {
-    run.mockReturnValue(result("TEXT"));
-    expect(await (await sessionReviewPorts(context)).read("p1")).toBe("TEXT");
-    expect(run).toHaveBeenCalledWith(
+  it("refuses to read a Reviewer's session it has not waited for", async () => {
+    const ports = await sessionReviewPorts(context);
+
+    await expect(ports.read("pr42-reviewer")).rejects.toThrow(
+      /has not settled, so its text is not read/,
+    );
+    expect(run).not.toHaveBeenCalled();
+  });
+
+  it("reads the unwrapped text of the pane its session settled in, through herdr, by session name", async () => {
+    run
+      .mockReturnValueOnce(
+        result(JSON.stringify({ outcome: "done", paneId: "p1" })),
+      )
+      .mockReturnValueOnce(result("TEXT"));
+    const ports = await sessionReviewPorts(context);
+    await ports.wait("pr42-reviewer");
+    expect(await ports.read("pr42-reviewer")).toBe("TEXT");
+    expect(run).toHaveBeenLastCalledWith(
       "herdr",
       ["pane", "read", "p1", "--source", "recent-unwrapped"],
       { cwd: ROOT },

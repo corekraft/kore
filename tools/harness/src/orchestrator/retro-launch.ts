@@ -1,3 +1,4 @@
+import type { BriefBackend } from "./judgment-briefs.js";
 import {
   PROPOSALS_BEGIN,
   PROPOSALS_END,
@@ -16,6 +17,22 @@ export const RETRO_ROLE = "reader";
 
 /** The feature flag (ADR 0077) that lets the orchestrator start a retro; off unless an overlay turns it on. */
 export const RETRO_FLAG = "automatic-retro";
+
+/**
+ * The retro pane's brief. An hc pane writes its proposals to its report file and finishes with session report; a
+ * herdr pane prints them and its RESULT line, as it always has.
+ */
+export function retroBrief(
+  reason: string,
+  backend: BriefBackend = "herdr",
+): string {
+  const proposals = `End with your proposals as one JSON array, one object per idea with the string fields title, hypothesis, expectedOutcome, measurement, safetyPattern, metric, direction (up or down) and window (such as 14d), between a line ${PROPOSALS_BEGIN} and a line ${PROPOSALS_END}`;
+  const finish =
+    backend === "hc"
+      ? ", written to the file .kore/report/<your session name>.md, then run `harness session report --outcome done --file .kore/report/<your session name>.md` as your last action."
+      : ", then print RESULT: done.";
+  return `Run the /retro skill: review the sessions since the last retrospective and end with ranked proposals. Propose only; change no file and record nothing. The trigger (${reason}) is already recorded. ${proposals}${finish} A tool files the first ${RETRO_CAP} as ideas and drops the rest, so rank them.`;
+}
 
 /** `retro due --json`, reduced to what the launch reads. */
 export type RetroReport =
@@ -53,7 +70,10 @@ export type RetroLaunchResult =
  * that already fired never starts a second pane. It never waits for the pane.
  */
 export class RetroLaunch {
-  constructor(private readonly ports: RetroPorts) {}
+  constructor(
+    private readonly ports: RetroPorts,
+    private readonly backend: BriefBackend = "herdr",
+  ) {}
 
   async run(): Promise<RetroLaunchResult> {
     if (!(await this.ports.flagOn())) {
@@ -79,7 +99,7 @@ export class RetroLaunch {
       model: RETRO_MODEL,
       effort: RETRO_EFFORT,
       reason: RETRO_REASON,
-      brief: `Run the /retro skill: review the sessions since the last retrospective and end with ranked proposals. Propose only; change no file and record nothing. The trigger (${reason}) is already recorded. End with your proposals as one JSON array, one object per idea with the string fields title, hypothesis, expectedOutcome, measurement, safetyPattern, metric, direction (up or down) and window (such as 14d), between a line ${PROPOSALS_BEGIN} and a line ${PROPOSALS_END}, then print RESULT: done. A tool files the first ${RETRO_CAP} as ideas and drops the rest, so rank them.`,
+      brief: retroBrief(reason, this.backend),
     });
     return { status: "launched", reason, name };
   }

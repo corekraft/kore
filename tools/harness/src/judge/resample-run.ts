@@ -23,10 +23,10 @@ export interface ResampleLaunch {
 export interface ResamplePorts {
   /** `session spawn --no-wait` with the launch's tier and reason. */
   spawn(launch: ResampleLaunch): Promise<void>;
-  /** `session wait`: the pane's outcome and the pane its text is in. */
-  wait(name: string): Promise<{ outcome: "done" | "blocked"; paneId: string }>;
-  /** The unwrapped text of the pane. */
-  read(paneId: string): Promise<string>;
+  /** `session wait`: the reader's outcome. */
+  wait(name: string): Promise<{ outcome: "done" | "blocked" }>;
+  /** The text the reader answered with, read by its session name. */
+  read(name: string): Promise<string>;
   /** `session close`. */
   close(name: string): Promise<void>;
   /** Appends a review.run event for the PR; with findings only for a verdict that was read. */
@@ -46,13 +46,22 @@ type Outcome = { findings: number } | { reason: string };
  * The re-review brief, one line, so no line of it is only a verdict marker, which the
  * reader would take for its own answer.
  */
-function briefFor(pr: number, head: string): string {
+export function resamplerBrief(
+  pr: number,
+  head: string,
+  backend: "herdr" | "hc" = "herdr",
+): string {
+  const finish =
+    backend === "hc"
+      ? "Then write those lines to the file .kore/report/<your session name>.md and run `harness session report --outcome done --file .kore/report/<your session name>.md` as your last action, or with --outcome blocked when you cannot review."
+      : "Then end with the word RESULT, a colon, then done or blocked.";
   return (
     `Re-review PR #${pr} at head ${head} against AGENTS.md, reading the change with \`gh pr diff ${pr}\` and the files at that head. ` +
     "Do not post anything. This is an independent check of a review that passed: report every rule break you find. " +
     'End your final report with the verdict on lines of their own: either a line that is only "VERDICT: none" when you found no violations, ' +
     'or a line that is only "VERDICT: findings", then each finding on its own line as `file:line | rule | what is wrong | smallest fix`, ' +
-    'then a line that is only "END VERDICT". Then end with the word RESULT, a colon, then done or blocked.'
+    'then a line that is only "END VERDICT". ' +
+    finish
   );
 }
 
@@ -62,7 +71,10 @@ function briefFor(pr: number, head: string): string {
  * bad pane does not stop the sample. Each pane is closed whatever happens to it.
  */
 export class ResampleRun {
-  constructor(private readonly ports: ResamplePorts) {}
+  constructor(
+    private readonly ports: ResamplePorts,
+    private readonly backend: "herdr" | "hc" = "herdr",
+  ) {}
 
   async run(sample: readonly ResampleCandidate[]): Promise<ResampleResult> {
     const result: ResampleResult = { reviewed: [], failed: [] };
@@ -82,7 +94,7 @@ export class ResampleRun {
     await this.ports.spawn({
       name,
       role: ROLE,
-      brief: briefFor(pr, head),
+      brief: resamplerBrief(pr, head, this.backend),
       model: RESAMPLE_MODEL,
       effort: RESAMPLE_EFFORT,
       reason: RESAMPLE_REASON,
@@ -94,7 +106,7 @@ export class ResampleRun {
         await this.ports.record(pr, `resample-failed:${head}`);
         return { reason: "blocked" };
       }
-      text = await this.ports.read(waited.paneId);
+      text = await this.ports.read(name);
     } finally {
       await this.ports.close(name);
     }

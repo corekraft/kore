@@ -1,4 +1,5 @@
 import { HarnessCliError } from "./harness-cli.js";
+import type { BriefBackend } from "./judgment-briefs.js";
 import type { TickNotifier } from "./tick-notify.js";
 import type { IdeaPane, IdeaStep } from "./tick.js";
 
@@ -18,8 +19,16 @@ const REASON: Record<BranchTrigger, string> = {
  * rule, never rebase or force-push, and asks for the pinned reply as the RESULT line when a live proof
  * is pinned to the head. It is one line, since `session send` refuses a message that spans lines.
  */
-export function branchNoticeBody(trigger: BranchTrigger, pr: number): string {
-  return `Branch update notice: PR #${pr} ${REASON[trigger]}. Merge origin/main into your branch and push it; never rebase or force-push. If your brief pins a live proof to your head, reply with exactly \`pinned: no change\` as your RESULT line and stop.`;
+export function branchNoticeBody(
+  trigger: BranchTrigger,
+  pr: number,
+  backend: BriefBackend = "herdr",
+): string {
+  const pinned =
+    backend === "hc"
+      ? 'run `harness session report --outcome done --summary "pinned: no change"` and stop'
+      : "reply with exactly `pinned: no change` as your RESULT line and stop";
+  return `Branch update notice: PR #${pr} ${REASON[trigger]}. Merge origin/main into your branch and push it; never rebase or force-push. If your brief pins a live proof to your head, ${pinned}.`;
 }
 
 /** The dedupe key of a notice: the PR, its head and main's head, so one head pair is noticed once. */

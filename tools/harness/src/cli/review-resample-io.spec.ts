@@ -100,7 +100,7 @@ describe("the resample ports start a Sonnet reader on the override tier (#852)",
 });
 
 describe("the resample ports wait for, read and close the reader's pane (#852)", () => {
-  it("waits through session wait and returns the outcome and the pane", async () => {
+  it("waits through session wait and returns the outcome, with no pane", async () => {
     run.mockReturnValue(
       result(JSON.stringify({ name: "n", paneId: "p1", outcome: "blocked" })),
     );
@@ -108,7 +108,6 @@ describe("the resample ports wait for, read and close the reader's pane (#852)",
 
     expect(await io.ports.wait("resample-pr42-aaaaaaaa")).toEqual({
       outcome: "blocked",
-      paneId: "p1",
     });
     expect(run.mock.calls[0]?.[1]).toEqual([
       "skills/bin/harness.mjs",
@@ -119,12 +118,20 @@ describe("the resample ports wait for, read and close the reader's pane (#852)",
     ]);
   });
 
-  it("reads the pane's unwrapped text through herdr", async () => {
-    run.mockReturnValue(result("TEXT"));
+  it("reads the unwrapped text of the pane its session settled in, by session name, and refuses an unsettled session", async () => {
+    run
+      .mockReturnValueOnce(
+        result(JSON.stringify({ name: "n", paneId: "p1", outcome: "done" })),
+      )
+      .mockReturnValueOnce(result("TEXT"));
     const io = await sessionResampleIo(context);
+    await expect(io.ports.read("resample-pr42-aaaaaaaa")).rejects.toThrow(
+      /has not settled/,
+    );
+    await io.ports.wait("resample-pr42-aaaaaaaa");
 
-    expect(await io.ports.read("p1")).toBe("TEXT");
-    expect(run).toHaveBeenCalledWith(
+    expect(await io.ports.read("resample-pr42-aaaaaaaa")).toBe("TEXT");
+    expect(run).toHaveBeenLastCalledWith(
       "herdr",
       ["pane", "read", "p1", "--source", "recent-unwrapped"],
       { cwd: ROOT },

@@ -214,6 +214,21 @@ describe("branchNoticeBody", () => {
     );
   });
 
+  it("asks an hc writer to report its pinned reply, one line, and names no RESULT line", () => {
+    const body = branchNoticeBody("conflict", PR, "hc");
+
+    expect(body).toBe(
+      'Branch update notice: PR #1234 conflicts with main. Merge origin/main into your branch and push it; never rebase or force-push. If your brief pins a live proof to your head, run `harness session report --outcome done --summary "pinned: no change"` and stop.',
+    );
+    expect(body).not.toMatch(/RESULT|\n/);
+  });
+
+  it("keeps the herdr notice unchanged when no backend is given", () => {
+    expect(branchNoticeBody("conflict", PR)).toBe(
+      branchNoticeBody("conflict", PR, "herdr"),
+    );
+  });
+
   it("says a PR ready but behind is behind main, for the behind-and-ready trigger", () => {
     expect(branchNoticeBody("behind-and-ready", PR)).toContain(
       "PR #1234 is ready to merge but is behind main",

@@ -1,5 +1,6 @@
 import { join } from "node:path";
 import type { CliDeps } from "../runtime/index.js";
+import { buildBrief } from "./brief.js";
 import { hcMessage } from "./backend.js";
 import type { Admitted } from "./spawn-hc-admit.js";
 import { briefOperand } from "./spawn-hc-brief.js";
@@ -88,7 +89,14 @@ export async function startSession(
   const createdAt = deps.clock.now().toISOString();
   const base = startingRecord(admitted, createdAt);
   await registry.create({ ...base, starting: true });
-  const operand = await briefOperand(deps.fs, main, values.name, values.brief);
+  const brief = buildBrief({
+    backend: "hc",
+    task: values.brief,
+    name: values.name,
+    role: values.role,
+    ...(group === undefined ? {} : { group }),
+  });
+  const operand = await briefOperand(deps.fs, main, values.name, brief);
   const started = await terminals.run({
     argv: execArgv(
       join(main, "skills", "bin", "harness.mjs"),

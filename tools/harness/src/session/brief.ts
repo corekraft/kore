@@ -1,13 +1,22 @@
 import { extractPaths, skillsForPaths } from "./skill-lookup.js";
 
-export interface BriefInput {
+interface BriefBase {
   task: string;
   name: string;
-  /** The caller's pane id, read fresh from its own environment. */
-  callerPane: string;
   /** The session's role; only the roles that push code get the live-proof section. */
   role?: string;
 }
+
+/**
+ * The brief's backend decides how the session finishes: a herdr pane prints its RESULT line and runs the notify
+ * command, which names the caller's pane; an hc session runs session report, and a paired one messages its partner
+ * by name. The herdr form is unchanged until the hc-sessions flag is retired (plan 16, Step 6).
+ */
+export type BriefInput = BriefBase &
+  (
+    | { backend?: "herdr"; callerPane: string }
+    | { backend: "hc"; group?: string }
+  );
 
 /** The roles that push code, so they follow the review rules; read-only roles never do. */
 const PUSHING_ROLES: ReadonlySet<string> = new Set(["writer", "fixer"]);
@@ -15,6 +24,16 @@ const PUSHING_ROLES: ReadonlySet<string> = new Set(["writer", "fixer"]);
 /** The exact completion command, filled in: the session runs it from its own pane, which reads its name and pane from its environment. */
 export function notifyCommand(callerPane: string): string {
   return `node skills/bin/harness.mjs session notify ${callerPane} --outcome <done|blocked>`;
+}
+
+/** The hc finish: the report is the session's only result, so the brief names session report and no address. */
+const HC_FINISH = [
+  "When you finish, print your summary, then as your very last action run `harness session report --outcome <done|blocked> --summary <your summary>`, quoting the summary as one argument. For a long summary, write it under .kore/report and pass `--file <path>` in place of `--summary`. Use blocked only when you cannot go on without a person. Each report takes the next seq, so a rework reports again.",
+].join("\n");
+
+/** The line a paired session gets: its partner is reached by name, never by an address. */
+function groupLine(group: string): string {
+  return `Your group is ${group}: a partner session shares it. To message a session you are paired with, run \`harness session send <peer name>\`, where <peer name> is that session's name, given in your task.`;
 }
 
 /**
@@ -48,16 +67,25 @@ function skillSection(task: string): string {
 }
 
 /** The task, the session name, the skills and live-proof sections for pushing roles, and the finish instructions. */
-export function buildBrief({
-  task,
-  name,
-  callerPane,
-  role,
-}: BriefInput): string {
+export function buildBrief(input: BriefInput): string {
+  const { task, name, role } = input;
   const followUp =
     role !== undefined && PUSHING_ROLES.has(role)
       ? [skillSection(task), "", LIVE_PROOF, ""]
       : [];
+  if (input.backend === "hc") {
+    const group = input.group === undefined ? [] : [groupLine(input.group), ""];
+    return [
+      task,
+      "",
+      `You are ${name}; your session name is ${name}.`,
+      "",
+      ...followUp,
+      ...group,
+      HC_FINISH,
+    ].join("\n");
+  }
+  const { callerPane } = input;
   return [
     task,
     "",

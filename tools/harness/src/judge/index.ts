@@ -28,6 +28,8 @@ export {
   resampleCandidates,
   type ResampleCandidate,
 } from "./resample.js";
+export { reviewerBrief } from "./review-run.js";
+export { resamplerBrief } from "./resample-run.js";
 export {
   ResampleRun,
   type ResampleLaunch,
