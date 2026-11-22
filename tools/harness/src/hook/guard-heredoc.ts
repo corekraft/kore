@@ -1,111 +1,25 @@
-// A heredoc's body is data when its delimiter is quoted. The guards read the shell
-// around it, so a body that holds backticks or `$(` text is not refused as a command.
-
-// A heredoc opener at one position: `<<WORD` or `<<-WORD`; a quoted delimiter makes the body literal.
-const HEREDOC_OPENER = /<<(-?)\s*(['"]?)([A-Za-z_][A-Za-z0-9_]*)\2/y;
-
-interface Open {
-  delimiter: string;
-  indented: boolean;
-  quoted: boolean;
-}
-
-/** What the scan carries from one line to the next: a quoted string or a parenthesis can span lines. */
-interface Scan {
-  single: boolean;
-  double: boolean;
-  depth: number;
-  /** Set once the shell reads `${`, `$[` or `[[`: it is not modelled, so no later opener is trusted. */
-  opaque: boolean;
-}
-
-/** True where the shell reads `${`, `$[` or `[[`, whose insides this scan does not model. */
-function startsUnmodelled(line: string, i: number): boolean {
-  return (
-    (line[i] === "$" && "{[".includes(line[i + 1] ?? "")) ||
-    line.startsWith("[[", i)
-  );
-}
-
-/** True where a # starts a comment: at a word start, which a $# or a mid-word # is not. */
-function startsComment(line: string, i: number): boolean {
-  return line[i] === "#" && /[\s;&|(]/.test(line[i - 1] ?? " ");
-}
-
-/** The opener at position i, when the shell would read the <<WORD there as a heredoc. */
-function openerAt(line: string, i: number): Open | undefined {
-  HEREDOC_OPENER.lastIndex = i;
-  const match = HEREDOC_OPENER.exec(line);
-  if (match === null) {
-    return undefined;
-  }
-  return {
-    delimiter: match[3] as string,
-    indented: match[1] === "-",
-    quoted: match[2] !== "",
-  };
-}
+// A heredoc's body is data only for the one command that carries it: a session report or send. Every other
+// heredoc is left whole, so its body is read as shell and refused when it holds a write. The guard models no
+// bash: one strict line shape is allowed, and anything else strips nothing.
 
 /**
- * The opener a line holds, if the shell reads one: outside quotes, comments and parentheses (which cover
- * arithmetic and subshells), and not a here-string. A <<WORD that the shell reads as text drops no body.
+ * The only first line whose heredoc body is dropped: `node skills/bin/harness.mjs session report|send`, plain
+ * word arguments (no quotes, `$`, backticks, operators or redirections) and a quoted `<<'TAG'` opener at the end.
  */
-function openerIn(line: string, scan: Scan): Open | undefined {
-  for (let i = 0; i < line.length; i += 1) {
-    const char = line[i] as string;
-    if (scan.single) {
-      scan.single = char !== "'";
-    } else if (char === "\\") {
-      i += 1;
-    } else if (startsUnmodelled(line, i)) {
-      scan.opaque = true;
-    } else if (scan.double) {
-      scan.double = char !== '"';
-    } else if (char === "'" || char === '"') {
-      scan.single = char === "'";
-      scan.double = char === '"';
-    } else if (char === "(" || char === ")") {
-      scan.depth = Math.max(0, scan.depth + (char === "(" ? 1 : -1));
-    } else if (startsComment(line, i)) {
-      return undefined;
-    } else if (line.startsWith("<<<", i)) {
-      i += 2;
-    } else if (line.startsWith("<<", i) && scan.depth === 0 && !scan.opaque) {
-      const open = openerAt(line, i);
-      if (open !== undefined) {
-        return open;
-      }
-      i += 1;
-    }
-  }
-  return undefined;
-}
+const ALLOWED_OPENER =
+  /^node skills\/bin\/harness\.mjs session (?:report|send)(?: [A-Za-z0-9_./:=@+,-]+)* <<'([A-Za-z_][A-Za-z0-9_]*)'$/;
 
 /**
- * The shell a command runs, with each quoted heredoc's body removed. An unquoted body expands, so it stays.
- * The lines after a body stay too, so a command placed after the terminator is still checked (shellText cuts them).
- * Only an opener the shell itself reads counts: one inside a string, a comment or arithmetic hides nothing. A command
- * with `${`, `$[` or `[[` is not modelled further, so it fails closed: every later line is checked.
+ * The shell a command runs, with the body of an allowed session report or send heredoc removed. A command whose
+ * first line is anything else is returned whole. The lines after the terminator stay, so a command placed after it
+ * is still checked (shellText cuts them).
  */
 export function shellOutsideBodies(command: string): string {
-  const kept: string[] = [];
-  const scan: Scan = { single: false, double: false, depth: 0, opaque: false };
-  let open: Open | undefined;
-  for (const line of command.split("\n")) {
-    if (open === undefined) {
-      kept.push(line);
-      open = openerIn(line, scan);
-      continue;
-    }
-    const ends = open.indented
-      ? line.trim() === open.delimiter
-      : line === open.delimiter;
-    if (!open.quoted) {
-      kept.push(line);
-    }
-    if (ends) {
-      open = undefined;
-    }
+  const lines = command.split("\n");
+  const tag = ALLOWED_OPENER.exec(lines[0] as string)?.[1];
+  if (tag === undefined) {
+    return command;
   }
-  return kept.join("\n");
+  const end = lines.indexOf(tag, 1);
+  return [lines[0], ...(end === -1 ? [] : lines.slice(end + 1))].join("\n");
 }

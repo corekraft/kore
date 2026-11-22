@@ -39,29 +39,47 @@ describe("a read-only role's session report heredoc is data, not shell", () => {
     ).toMatchObject(SUBSTITUTION);
   });
 
-  it("refuses a write hidden after a quoted opener that sits inside a string", () => {
-    expect(bash("reader", "cat \"<<'EOF'\"\ntee out\nEOF")).toMatchObject({
-      action: "block",
-      rule: "role-read-only",
-    });
+  it("allows a quoted session send heredoc, whose body is data", () => {
+    expect(
+      bash(
+        "reader",
+        "node skills/bin/harness.mjs session send peer-1 <<'EOF'\nrun `ls` and $(x)\nEOF",
+      ),
+    ).toBeNull();
   });
+});
+
+describe("a read-only role's heredoc hides no write unless it is an allowed session report", () => {
+  const REPORT = "node skills/bin/harness.mjs session report --summary -";
 
   it.each([
+    ["a quoted opener inside a string", "cat \"<<'EOF'\"\ntee out\nEOF"],
     ["a parameter expansion", "echo ${x:-<<'EOF'}\ntee out\nEOF"],
     ["a legacy arithmetic expansion", "echo $[1<<'EOF']\ntee out\nEOF"],
     ["a conditional expression", "[[ a <<'EOF' ]]\ntee out\nEOF"],
-  ])(
-    "refuses a write hidden after a quoted opener inside %s",
-    (_name, command) => {
-      expect(bash("reader", command)).toMatchObject({
-        action: "block",
-        rule: "role-read-only",
-      });
-    },
-  );
-
-  it("refuses a write hidden after a quoted opener inside arithmetic", () => {
-    expect(bash("reader", "echo $((1<<'EOF'))\ntee out\nEOF")).toMatchObject({
+    ["arithmetic", "echo $((1<<'EOF'))\ntee out\nEOF"],
+    ["an ANSI-C quoted string", "echo $'x'<<'EOF'\ntee out\nEOF"],
+    ["a ;-chained opener", "ls; cat <<'EOF'\ntee out\nEOF"],
+    ["a command that reads the body", "bash <<'EOF'\ntee out\nEOF"],
+    [
+      "a report segment chained to another command",
+      `${REPORT} <<'EOF'; ls\ntee out\nEOF`,
+    ],
+    [
+      "a report segment preceded by another command",
+      `ls; ${REPORT} <<'EOF'\ntee out\nEOF`,
+    ],
+    ["a report segment on a later line", `ls\n${REPORT} <<'EOF'\ntee out\nEOF`],
+    [
+      "a second opener on the report line",
+      `${REPORT} <<'EOF' <<'END'\ntee out\nEOF`,
+    ],
+    [
+      "a redirection on the report line",
+      `${REPORT} > out <<'EOF'\nx\nEOF\ntee out`,
+    ],
+  ])("refuses a write hidden after %s", (_name, command) => {
+    expect(bash("reader", command)).toMatchObject({
       action: "block",
       rule: "role-read-only",
     });
