@@ -33,6 +33,14 @@ const DONE_RESULT = {
   summary: "Opened PR #5.",
   at: "2026-01-02T03:04:05.000Z",
 };
+const STOPPED = {
+  ...RECORD,
+  result: {
+    outcome: "blocked",
+    summary: "stopped without a report",
+    at: "2026-01-02T03:04:05.000Z",
+  },
+};
 const FIRST_WRITE = { ...RECORD, reportSeq: 1, result: DONE_RESULT };
 const REWORK_RESULT = {
   outcome: "done",
@@ -186,7 +194,7 @@ describe("waitForReport never reports done without a report", () => {
       outcome: "blocked",
       summary: "stopped without a report\nRan the tests.\nNo PR was opened.",
     });
-    expect(registry.write).not.toHaveBeenCalled();
+    expect(registry.write).toHaveBeenCalledExactlyOnceWith(STOPPED);
   });
 
   it("returns blocked, stopped without a report and no lines, when the terminal printed nothing", async () => {
@@ -198,6 +206,7 @@ describe("waitForReport never reports done without a report", () => {
       outcome: "blocked",
       summary: "stopped without a report",
     });
+    expect(registry.write).toHaveBeenCalledExactlyOnceWith(STOPPED);
   });
 
   it("fails as still working on a timeout with no report and no stop, naming the command to run again", async () => {

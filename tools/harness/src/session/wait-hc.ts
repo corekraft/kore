@@ -17,7 +17,7 @@ export interface ReportWait {
   seq?: number;
 }
 
-type WaitDeps = Pick<CliDeps, "fs">;
+type WaitDeps = Pick<CliDeps, "fs" | "clock">;
 
 function isBlocked(status: Status | undefined): status is "blocked" | "error" {
   return status === "blocked" || status === "error";
@@ -66,6 +66,28 @@ async function consume(
     summary: report.summary,
     seq: report.seq,
   };
+}
+
+/**
+ * A stop with no report ever consumed is an outcome: blocked, kept as the record's result so the record settles and
+ * close can accept it. A record that already consumed a report keeps the outcome it has.
+ */
+async function settleStopped(
+  deps: WaitDeps,
+  registry: Pick<SessionRegistry, "write">,
+  record: SessionRecord,
+): Promise<void> {
+  if (record.result !== undefined || record.reportSeq !== undefined) {
+    return;
+  }
+  await registry.write({
+    ...record,
+    result: {
+      outcome: "blocked",
+      summary: "stopped without a report",
+      at: deps.clock.now().toISOString(),
+    },
+  });
 }
 
 /** After a wait that ran out: blocked when the terminal turned blocked meanwhile, else still working. */
@@ -132,6 +154,7 @@ export async function waitForReport(
   if ("error" in last) {
     return failure(name, last);
   }
+  await settleStopped(deps, registry, record);
   return blocked(
     record,
     last.text === ""

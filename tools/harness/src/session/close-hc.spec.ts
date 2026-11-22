@@ -232,6 +232,22 @@ describe("closeOnHc refuses a session with no recorded result or report, and kil
     expect(registry.write).not.toHaveBeenCalled();
   });
 
+  it("accepts a session that stopped without a report, which wait recorded as blocked", async () => {
+    const terminals = await world("t1");
+    const { result: _result, ...unrecorded } = RECORD;
+
+    const result = await close(terminals, {
+      ...unrecorded,
+      result: {
+        outcome: "blocked",
+        summary: "stopped without a report",
+        at: CLOSED_AT,
+      },
+    });
+
+    expect(result).toStrictEqual({ closedAt: CLOSED_AT });
+  });
+
   it("accepts a session whose report the wait has consumed", async () => {
     const terminals = await world("t1");
     const { result: _result, ...unrecorded } = RECORD;
