@@ -4,7 +4,7 @@ import { promisify } from "node:util";
 import { expect, test } from "vitest";
 import { findRoot } from "../../src/config/index.js";
 
-// Docs: issue #1824 (for #1747). With golden-path-signin on, the BFF's JVM must
+// Context: issue #1824 (for #1747). With golden-path-signin on, the BFF's JVM must
 // trust the local cluster CA, or Spring's discovery of the Keycloak issuer fails
 // PKIX path building. The workload renders a Certificate whose Secret carries
 // ca.crt and a truststore init container; with the flag off none of it renders.
