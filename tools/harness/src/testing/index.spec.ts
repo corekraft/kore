@@ -16,6 +16,7 @@ vi.mock("./adr-support.js", () =>
   stubs("ANCHOR", "PLAN", "MemoryFs", "adrFile", "fixture", "INDEX", "NEW"),
 );
 vi.mock("./cli-support.js", () => stubs("testHarness"));
+vi.mock("../terminal/contract-support.js", () => stubs("terminalContract"));
 vi.mock("./delta-support.js", () => stubs("entry", "fakeDeps", "planText"));
 vi.mock("./filesystem-support.js", () => stubs("MemoryFileSystem"));
 vi.mock("./flag-support.js", () =>
@@ -211,6 +212,7 @@ const EXPORTS = [
   "scan",
   "statusLine",
   "stubHelp",
+  "terminalContract",
   "summarizeError",
   "windowStart",
 ];

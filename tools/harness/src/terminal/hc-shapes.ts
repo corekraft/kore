@@ -6,7 +6,8 @@ export interface HcTerminal {
   state: "live" | "finished";
   status?: string | null;
   exit_code?: number | null;
-  labels: Record<string, string>;
+  /** The listing leaves labels out; get carries them. Every reply that names a terminal has its cwd. */
+  labels?: Record<string, string>;
   cwd: string;
 }
 
@@ -24,7 +25,6 @@ export interface HcList {
 
 export interface HcRead {
   text: string;
-  complete: boolean;
 }
 
 export interface HcRemoved {
@@ -41,7 +41,11 @@ export function isJsonObject(value: unknown): value is Record<string, unknown> {
 }
 
 export function isHcTerminal(value: unknown): value is HcTerminal {
-  return isRecord(value) && typeof value.address === "string";
+  return (
+    isRecord(value) &&
+    typeof value.address === "string" &&
+    typeof value.cwd === "string"
+  );
 }
 
 export function isHcList(value: unknown): value is HcList {
@@ -69,11 +73,7 @@ export function isHcWait(value: unknown): value is HcWait {
 }
 
 export function isHcRead(value: unknown): value is HcRead {
-  return (
-    isRecord(value) &&
-    typeof value.text === "string" &&
-    typeof value.complete === "boolean"
-  );
+  return isRecord(value) && typeof value.text === "string";
 }
 
 export function isHcRemoved(value: unknown): value is HcRemoved {

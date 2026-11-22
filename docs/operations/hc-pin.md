@@ -42,9 +42,8 @@ Recorded per the [pin-upgrade skill](../../skills/pin-upgrade/SKILL.md):
   documents at 0.1.21. Plan 16 lists them: terminals with parents,
   `hc wait`, reported status, labels, `hc send` to a parent, and structured
   errors. Those are the 0.1.21 facts the plan relies on.
-- Step 2 settles three behaviors against the real core under a scratch
-  `HC_SESSION`: a parent's exit ends its child, a core restart or update keeps
-  the terminals, and the state after a holder crash or host reboot.
+- Step 2 settled against the real core under a scratch `HC_SESSION` (`tools/harness/integration/terminal/`): a parent's exit ends its child (confirmed); a holder crash ends a live terminal as `finished` with reason `holder_lost` and no exit code (confirmed); `hc server stop` ends a live terminal with reason `server_stop`. **Not settled:** a core restart keeps the terminals (the brief barred `hc server restart`, so it was not run), a reboot, and the notes and agent status that need a real claude parent. Plan 16's Step 2 findings list each.
+- The recorded replies to each method, named with `hc 0.1.21`, are `tools/harness/src/terminal/hc-0.1.21.fixtures.ts`.
 - **Not done:** the upstream release notes for 0.1.21 were not read, because
   the release source is not settled (below). Compatibility rests on the
   documented 0.1.21 contract, not on release notes.

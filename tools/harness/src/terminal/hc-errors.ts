@@ -47,8 +47,10 @@ function parseStructured(stderr: string): StructuredError | undefined {
   }
 }
 
+/** hc 0.1.21 prints its structured error on stdout; stderr is read too, for a build that prints it there. */
 export function hcFailure(verb: string, result: RunResult): TerminalError {
-  const structured = parseStructured(result.stderr);
+  const structured =
+    parseStructured(result.stdout) ?? parseStructured(result.stderr);
   if (structured !== undefined) {
     return terminalError(
       KINDS.get(structured.kind) ?? "unavailable",
