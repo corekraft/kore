@@ -223,7 +223,7 @@ export class HarnessCli implements Harness {
     if (this.sessionBackend === "hc") {
       if (waited.summary === undefined) {
         throw new HarnessCliError(
-          `The retro session ${name} settled without a report, so its proposals are not read. Rerun the retro; its last action must be \`harness session report\`.`,
+          `The retro session ${name} settled without a report, so its proposals are not read. Rerun the retro; its last action must be \`node skills/bin/harness.mjs session report\`.`,
         );
       }
       return { outcome: waited.outcome, text: waited.summary };

@@ -26,7 +26,7 @@ export function branchNoticeBody(
 ): string {
   const pinned =
     backend === "hc"
-      ? 'run `harness session report --outcome done --summary "pinned: no change"` and stop'
+      ? 'run `node skills/bin/harness.mjs session report --outcome done --summary "pinned: no change"` and stop'
       : "reply with exactly `pinned: no change` as your RESULT line and stop";
   return `Branch update notice: PR #${pr} ${REASON[trigger]}. Merge origin/main into your branch and push it; never rebase or force-push. If your brief pins a live proof to your head, ${pinned}.`;
 }

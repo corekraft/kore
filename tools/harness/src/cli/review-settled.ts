@@ -36,7 +36,7 @@ async function textOf(
   if (backend === "hc") {
     if (waited.summary === undefined) {
       throw new JudgeError(
-        `The session ${name} settled without a report, so its text is not read. Rerun it; its last action must be \`harness session report\`.`,
+        `The session ${name} settled without a report, so its text is not read. Rerun it; its last action must be \`node skills/bin/harness.mjs session report\`.`,
       );
     }
     return waited.summary;

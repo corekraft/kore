@@ -28,7 +28,7 @@ export function notifyCommand(callerPane: string): string {
 
 /** The finish of a writer, which may write a file: its summary as an argument, or a file under .kore/report for a long one. */
 const HC_FINISH_WRITER = [
-  "When you finish, print your summary, then as your very last action run `harness session report --outcome <done|blocked> --summary <your summary>`, quoting the summary as one argument. For a long summary, write it under .kore/report and pass `--file <path>` in place of `--summary`. Use blocked only when you cannot go on without a person. Each report takes the next seq, so a rework reports again.",
+  "When you finish, print your summary, then as your very last action run `node skills/bin/harness.mjs session report --outcome <done|blocked> --summary <your summary>`, quoting the summary as one argument. For a long summary, write it under .kore/report and pass `--file <path>` in place of `--summary`. Use blocked only when you cannot go on without a person. Each report takes the next seq, so a rework reports again.",
 ].join("\n");
 
 /** The finish of a read-only role, which writes no file: its summary goes to session report on stdin, as a heredoc. */
@@ -37,11 +37,11 @@ const HC_FINISH_READ =
 
 /** A task that already names its own session report is finished by it, so no second finish is added. */
 const namesOwnFinish = (task: string): boolean =>
-  /harness\.mjs session report\b|harness session report\b/.test(task);
+  /harness\.mjs session report\b/.test(task);
 
 /** The line a paired session gets: its partner is reached by name, never by an address. */
 function groupLine(group: string): string {
-  return `Your group is ${group}: a partner session shares it. To message a session you are paired with, run \`harness session send <peer name>\`, where <peer name> is that session's name, given in your task.`;
+  return `Your group is ${group}: a partner session shares it. To message a session you are paired with, run \`node skills/bin/harness.mjs session send <peer name>\`, where <peer name> is that session's name, given in your task.`;
 }
 
 /**

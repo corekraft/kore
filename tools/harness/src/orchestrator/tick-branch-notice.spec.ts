@@ -232,7 +232,7 @@ describe("branchNoticeBody", () => {
     const body = branchNoticeBody("conflict", PR, "hc");
 
     expect(body).toBe(
-      'Branch update notice: PR #1234 conflicts with main. Merge origin/main into your branch and push it; never rebase or force-push. If your brief pins a live proof to your head, run `harness session report --outcome done --summary "pinned: no change"` and stop.',
+      'Branch update notice: PR #1234 conflicts with main. Merge origin/main into your branch and push it; never rebase or force-push. If your brief pins a live proof to your head, run `node skills/bin/harness.mjs session report --outcome done --summary "pinned: no change"` and stop.',
     );
     expect(body).not.toMatch(/RESULT|\n/);
   });

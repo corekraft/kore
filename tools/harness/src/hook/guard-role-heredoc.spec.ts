@@ -39,6 +39,20 @@ describe("a read-only role's session report heredoc is data, not shell", () => {
     ).toMatchObject(SUBSTITUTION);
   });
 
+  it("refuses a write hidden after a quoted opener that sits inside a string", () => {
+    expect(bash("reader", "cat \"<<'EOF'\"\ntee out\nEOF")).toMatchObject({
+      action: "block",
+      rule: "role-read-only",
+    });
+  });
+
+  it("refuses a write hidden after a quoted opener inside arithmetic", () => {
+    expect(bash("reader", "echo $((1<<'EOF'))\ntee out\nEOF")).toMatchObject({
+      action: "block",
+      rule: "role-read-only",
+    });
+  });
+
   it("refuses a write placed after a heredoc's terminator", () => {
     expect(
       bash(

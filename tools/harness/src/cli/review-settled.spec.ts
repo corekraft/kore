@@ -85,7 +85,7 @@ describe("settledReads on hc reads the summary its wait printed, never a pane", 
     await reads.wait("s1");
 
     await expect(reads.read("s1")).rejects.toThrow(
-      /settled without a report, so its text is not read/,
+      /settled without a report, so its text is not read\. Rerun it; its last action must be `node skills\/bin\/harness\.mjs session report`\./,
     );
     expect(tool).not.toHaveBeenCalled();
   });

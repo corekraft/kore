@@ -59,7 +59,7 @@ describe("HarnessCli collects an hc retro from its report, never a pane", () => 
 
     await expect(cli.collect("retro-1")).rejects.toThrow(
       new HarnessCliError(
-        "The retro session retro-1 settled without a report, so its proposals are not read. Rerun the retro; its last action must be `harness session report`.",
+        "The retro session retro-1 settled without a report, so its proposals are not read. Rerun the retro; its last action must be `node skills/bin/harness.mjs session report`.",
       ),
     );
   });

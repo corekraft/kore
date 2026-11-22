@@ -22,6 +22,30 @@ describe("shellOutsideBodies drops only a quoted heredoc's body, which is data",
     );
   });
 
+  it("still drops a quoted body after an opener that follows a closed quote", () => {
+    expect(shellOutsideBodies("echo \"it's\" <<'EOF'\nrm x\nEOF\nls")).toBe(
+      "echo \"it's\" <<'EOF'\nls",
+    );
+  });
+
+  describe("an opener the shell does not read as one drops nothing", () => {
+    it.each([
+      ["inside double quotes", "cat \"<<'EOF'\"\ntee out\nEOF"],
+      ["inside single quotes", "echo '<<EOF' '<<\"EOF\"'\ntee out"],
+      [
+        "inside a double-quoted string that spans lines",
+        "echo \"a\n<<'EOF'\n\"\ntee out\nEOF",
+      ],
+      ["inside arithmetic", "echo $((1<<'EOF'))\ntee out\nEOF"],
+      ["inside a subshell", "(cat <<'EOF'\ntee out\nEOF"],
+      ["after a backslash", "cat \\<<'EOF'\ntee out\nEOF"],
+      ["in a comment", "ls # <<'EOF'\ntee out\nEOF"],
+      ["as a here-string", "cat <<<'EOF'\ntee out\nEOF"],
+    ])("%s", (_name, command) => {
+      expect(shellOutsideBodies(command)).toBe(command);
+    });
+  });
+
   it("returns a command with no heredoc unchanged", () => {
     expect(shellOutsideBodies("ls -la")).toBe("ls -la");
   });
