@@ -136,6 +136,13 @@ export const rows: Row[] = [
     { id: "t1" },
   ],
   [
+    "run with rm: --rm before the argv, so the child is removed when it ends",
+    (t) => t.run({ argv: ["gh"], cwd: "/w", rm: true }),
+    ["run", "--json", "--bg", "--cwd", "/w", "--rm", "--", "gh"],
+    HC_0_1_21.run,
+    { id: "t1" },
+  ],
+  [
     "read",
     (t) => t.read("t2", 2),
     ["read", "--json", "--lines", "2", "t2"],

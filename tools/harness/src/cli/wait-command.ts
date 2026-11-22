@@ -13,7 +13,8 @@ import {
   type SessionWaitTarget,
 } from "../session/index.js";
 import { failed, repoOf } from "./judge-shared.js";
-import { CHECKS_POLL_MS, readChecks } from "./pr-checks.js";
+import { readChecks } from "./pr-checks.js";
+import { withPause, type Pause } from "./wait-hc-children.js";
 import {
   ideaWaits,
   readIdeaTarget,
@@ -251,14 +252,15 @@ function passBound(
 
 /**
  * Checks every target once per poll, in the order given, and returns on the first to settle.
- * Between polls it sleeps the pr checks interval on the injected clock, and it passes the
- * bound when the next poll would run past it, so the last read is at the bound.
+ * Between polls the pause waits (the checks interval on the injected clock, or the caller's children on hc),
+ * and it passes the bound when the next poll would run past it, so the last read is at the bound.
  */
 async function poll(
   context: CommandContext,
   targets: readonly Target[],
   scope: Scope,
   boundMs: number,
+  pause: Pause,
 ): Promise<number> {
   const { deps } = context;
   const start = deps.clock.now().getTime();
@@ -274,18 +276,19 @@ async function poll(
         return settle(context, target, read, rest);
       }
     }
-    if (deps.clock.now().getTime() - start + CHECKS_POLL_MS > boundMs) {
+    if (await pause(boundMs - (deps.clock.now().getTime() - start))) {
       return passBound(context, targets, boundMs);
     }
-    await deps.clock.sleep(CHECKS_POLL_MS);
   }
 }
 
 async function waitRun(context: CommandContext): Promise<number> {
   const { deps, options, lists } = context;
-  const prs = lists?.["pr"] ?? [];
-  const names = lists?.["session"] ?? [];
-  const ideas = lists?.["idea"] ?? [];
+  const {
+    pr: prs = [],
+    session: names = [],
+    idea: ideas = [],
+  }: Partial<Record<string, string[]>> = lists ?? {};
   const anyIdea = options["any-idea"] === true;
   if (
     prs.length === 0 &&
@@ -318,11 +321,12 @@ async function waitRun(context: CommandContext): Promise<number> {
       return refuse(context, sessions.code, sessions.message);
     }
     const scope = { root: await deps.root(), repo: await repoOf(context) };
-    return await poll(
-      context,
-      [...pulls, ...sessions, ...ideaTargets],
+    const targets = [...pulls, ...sessions, ...ideaTargets];
+    return await withPause(
+      deps,
+      { prs: prs.map(Number), ideas: ideaTargets.length },
       scope,
-      timeout,
+      (pause: Pause) => poll(context, targets, scope, timeout, pause),
     );
   } catch (error) {
     return failed(context, error);
