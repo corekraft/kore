@@ -21,7 +21,18 @@ export interface FakeDocument {
   headers?: Record<string, string>;
 }
 
+/** A cookie as the chromium api's cookies(page) returns it: attributes only, never a value. */
+export interface FakeCookie {
+  name: string;
+  domain: string;
+  httpOnly: boolean;
+  secure: boolean;
+  sameSite: string | null;
+}
+
 export interface TokenPageScenario {
+  /** The browser's stored cookies for the page. */
+  cookies?: FakeCookie[];
   /** The signed-in page's network log of document responses. */
   documents?: FakeDocument[];
   localStorage?: Record<string, string>;
@@ -103,6 +114,7 @@ export async function runTokenFlow(
       navigations.push({ url });
       return Promise.resolve();
     },
+    cookies: () => Promise.resolve(scenario.cookies ?? []),
     waitFor: () => Promise.resolve(),
     type: () => Promise.resolve(),
     evaluate: (_page: unknown, expression: string) =>
