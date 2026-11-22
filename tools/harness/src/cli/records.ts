@@ -8,7 +8,7 @@ import { decisionCommands } from "./decision-commands.js";
 import { outcomeCommands } from "./outcome-commands.js";
 
 /** The delivery loop's records: ideas, the outcomes that close them, the flags those outcomes prove, and the judge's precheck. */
-export const records: Record<string, Record<string, Command>> = {
+export const records = {
   idea: ideaRecordCommands,
   outcome: outcomeCommands,
   decision: decisionCommands,
@@ -19,4 +19,4 @@ export const records: Record<string, Record<string, Command>> = {
   judge: judgeCommands,
   review: reviewCommands,
   pr: prCommands,
-};
+} satisfies Record<string, Record<string, Command>>;

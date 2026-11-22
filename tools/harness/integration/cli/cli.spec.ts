@@ -97,9 +97,7 @@ describe("harness dispatch hardening", () => {
     expect(await run(["nope", "--json"], h.deps)).toBe(2);
     const line = h.err().split("\n")[0] ?? "";
     expect(JSON.parse(line)).toEqual({
-      error: expect.stringMatching(
-        /^Unknown domain "nope"\. Domains: harness(, \w+)*\.$/,
-      ) as unknown,
+      error: expect.stringMatching(/^Unknown domain "nope"\.$/) as unknown,
     });
     expect(h.err()).toContain("Domains:");
   });

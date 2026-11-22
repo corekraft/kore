@@ -194,7 +194,7 @@ describe("hook dispatcher", () => {
       code: 1,
       out: "",
       err: expect.stringMatching(
-        /Unknown command "nope" for domain "hook"\. Commands: .*skill-links/,
+        /Unknown command "nope" for domain "hook"\.\n[\s\S]*harness hook skill-links/,
       ),
     });
   });

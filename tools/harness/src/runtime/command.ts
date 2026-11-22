@@ -104,10 +104,7 @@ export interface Command {
   options?: Record<string, "string" | "boolean" | "list">;
   /** Names the one positional argument the command takes, such as "name". */
   operand?: string;
-  /**
-   * The command's help record. Optional until every command carries one; the commands
-   * the registry exempts (help/exemptions.ts) are the ones that do not yet.
-   */
-  help?: CommandHelp;
+  /** The command's help record, read by `--help`; every command carries one. */
+  help: CommandHelp;
   run(context: CommandContext): Promise<number>;
 }

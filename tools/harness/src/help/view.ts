@@ -45,8 +45,7 @@ export interface CommandView {
   operand?: { name: string; description: string };
   examples: CommandExample[];
   exits: CommandExit[];
-  /** Absent for a command with no help record: nothing says what it changes. */
-  effects?: CommandEffects;
+  effects: CommandEffects;
   seeAlso: string[];
 }
 
@@ -107,38 +106,37 @@ export function domainView(
 
 /**
  * The command view: the declared flags and operand, with the descriptions from the command's
- * help record. A command with no help record (still on the exemption list) gets the plain
- * fallback: its summary, its usage, and the names of its flags and operand.
+ * help record.
  */
 export function commandView(
   path: string,
   command: Command,
-  help?: CommandHelp,
+  help: CommandHelp,
 ): CommandView {
   return {
     level: "command",
     path,
     summary: command.summary,
-    purpose: help?.purpose ?? "",
-    when: help?.when ?? "",
-    whenNot: help?.whenNot ?? "",
+    purpose: help.purpose,
+    when: help.when,
+    whenNot: help.whenNot,
     usage: usageOf(path, command),
     flags: Object.entries(command.options ?? {}).map(([name, kind]) => ({
       name,
       kind,
-      description: help?.flags[name] ?? "",
+      description: help.flags[name] ?? "",
     })),
     ...(command.operand === undefined
       ? {}
       : {
           operand: {
             name: command.operand,
-            description: help?.operand ?? "",
+            description: help.operand ?? "",
           },
         }),
-    examples: help?.examples ?? [],
-    exits: help?.exits ?? [],
-    ...(help === undefined ? {} : { effects: help.effects }),
-    seeAlso: help?.seeAlso ?? [],
+    examples: help.examples,
+    exits: help.exits,
+    effects: help.effects,
+    seeAlso: help.seeAlso,
   };
 }

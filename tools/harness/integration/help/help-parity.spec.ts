@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { domains } from "../../src/cli/index.js";
+import type { Command } from "../../src/runtime/index.js";
 import {
   commandView,
   domainGuides,
@@ -14,13 +15,7 @@ import {
 // The prose and the JSON are built from one structure. Each level's facts must
 // appear in both, and the JSON must read back as the same object.
 
-// Only the harness domain's commands carry help so far, so the command level uses a
-// hand-built command that carries a full record.
-const sample = {
-  summary: "set the Next: line",
-  options: { plan: "string" as const, "dry-run": "boolean" as const },
-  run: () => Promise.resolve(0),
-};
+// The command level uses a hand-built command that carries a full record.
 const sampleHelp = {
   purpose: "Sets the one Next: line under the current step.",
   when: "When the next step of a plan changes.",
@@ -38,6 +33,12 @@ const sampleHelp = {
     detail: "rewrites the Next: line of one plan file",
   },
   seeAlso: ["plan active"],
+};
+const sample: Command = {
+  summary: "set the Next: line",
+  options: { plan: "string", "dry-run": "boolean" },
+  help: sampleHelp,
+  run: () => Promise.resolve(0),
 };
 
 // Every string a view carries, except the enum-like tags the prose shows as words.

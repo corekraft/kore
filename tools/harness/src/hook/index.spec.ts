@@ -3,10 +3,33 @@
 // Docs: infra/plans/14-test-tiers.md#step-1-foundations
 
 import { describe, expect, it, vi } from "vitest";
-import type { Command } from "../runtime/index.js";
+import type { Command, CommandHelp } from "../runtime/index.js";
 
-const budget: Command = { summary: "budget", options: {}, run: vi.fn() };
-const specs: Command = { summary: "specs", options: {}, run: vi.fn() };
+const { budget, specs } = vi.hoisted(() => {
+  const HELP: CommandHelp = {
+    purpose: "A stub command.",
+    when: "In a test.",
+    whenNot: "Outside a test.",
+    flags: {},
+    examples: [{ command: "harness stub", shows: "nothing" }],
+    exits: [{ code: 0, meaning: "always" }],
+    effects: { kind: "read-only", detail: "nothing" },
+    seeAlso: [],
+  };
+  const budgetCommand: Command = {
+    help: HELP,
+    summary: "budget",
+    options: {},
+    run: vi.fn(),
+  };
+  const specsCommand: Command = {
+    help: HELP,
+    summary: "specs",
+    options: {},
+    run: vi.fn(),
+  };
+  return { budget: budgetCommand, specs: specsCommand };
+});
 
 vi.mock("./test-hooks.js", () => ({
   testHooks: { "test-budget": budget, "unit-specs": specs },

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { testHarness } from "../testing/index.js";
+import { stubHelp, testHarness } from "../testing/index.js";
 import { CommandError } from "../runtime/index.js";
 import { hookCommand, readPayload } from "./io.js";
 
@@ -10,7 +10,9 @@ async function runHook(
 ) {
   const h = testHarness();
   h.deps.stdin = () => Promise.resolve(stdin);
-  const code = await hookCommand("demo", "demo hook", handler).run({
+  const code = await hookCommand("demo", "demo hook", handler, {
+    help: stubHelp,
+  }).run({
     json: false,
     options,
     deps: h.deps,
@@ -39,9 +41,7 @@ describe("hook I/O", () => {
       "demo",
       "demo hook",
       () => Promise.resolve({}),
-      {
-        payload: false,
-      },
+      { help: stubHelp, payload: false },
     );
     await command.run({ json: false, options: {}, deps: h.deps });
     expect(read).toBe(false);
@@ -124,7 +124,7 @@ describe("hook I/O faults", () => {
       "demo",
       "demo hook",
       () => Promise.reject(new Error("boom")),
-      { faultCode: 1 },
+      { help: stubHelp, faultCode: 1 },
     ).run({ json: false, options: {}, deps: h.deps });
     expect(code).toBe(1);
     expect(h.err()).toBe(
@@ -145,13 +145,10 @@ describe("hook I/O help", () => {
     seeAlso: [],
   };
 
-  it("carries the help record it is given to the command, and none when it has none", () => {
+  it("carries the help record it is given to the command", () => {
     expect(
       hookCommand("demo", "demo hook", () => Promise.resolve({}), { help })
         .help,
     ).toEqual(help);
-    expect(
-      hookCommand("demo", "demo hook", () => Promise.resolve({})).help,
-    ).toBeUndefined();
   });
 });

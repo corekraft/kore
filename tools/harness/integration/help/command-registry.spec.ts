@@ -9,9 +9,9 @@ import {
   domainGuides,
   registryProblems,
   rootGuide,
-  undocumented,
   type RegistryInput,
 } from "../../src/help/index.js";
+import type { Command } from "../../src/runtime/index.js";
 
 // The registry specs read the real command table. They run in the integration
 // tier because importing every domain costs more than a unit test's budget.
@@ -19,34 +19,35 @@ const real: RegistryInput = {
   domains,
   guides: domainGuides,
   root: rootGuide,
-  undocumented,
 };
 
+// A command with no help record cannot compile, so these cast one past the type to show
+// the registry also reports it at run time.
+const bareCommand = (summary: string): Command =>
+  ({ summary, run: () => Promise.resolve(0) }) as unknown as Command;
+
 describe("the command registry over the real command table", () => {
-  it("passes every check: each command is documented or exempt, each domain has a guide, each root flow step is a command", () => {
+  it("passes every check: each command has help and passes its checks, each domain has a guide, each root flow step is a command", () => {
     expect(registryProblems(real)).toEqual([]);
   });
 
-  it("fails a command added after the rollout that carries no help and is not on the exemption list", () => {
+  it("fails a command added after the rollout that carries no help", () => {
     const added = {
       ...domains,
-      plan: {
-        ...domains.plan,
-        scratch: { summary: "a new command", run: () => Promise.resolve(0) },
-      },
+      plan: { ...domains.plan, scratch: bareCommand("a new command") },
     };
     expect(registryProblems({ ...real, domains: added })).toEqual([
-      "plan scratch: has no help; write it beside the command or list it in help/exemptions.ts",
+      "plan scratch: has no help; write it beside the command",
     ]);
   });
 
   it("fails a domain added with no guide", () => {
     const added = {
       ...domains,
-      scratch: { run: { summary: "x", run: () => Promise.resolve(0) } },
+      scratch: { run: bareCommand("x") },
     };
     expect(registryProblems({ ...real, domains: added })).toEqual([
-      "scratch run: has no help; write it beside the command or list it in help/exemptions.ts",
+      "scratch run: has no help; write it beside the command",
       "scratch: domain has no guide in help/domain-guides.ts",
     ]);
   });
@@ -94,9 +95,10 @@ describe("the session hints point at the help guide", () => {
   });
 
   it("resolves each help pointer to a command that has help", () => {
+    const table: Record<string, Record<string, Command>> = domains;
     const unresolved = sessionHints
       .flatMap(pointersIn)
-      .filter(([domain, name]) => domains[domain]?.[name]?.help === undefined)
+      .filter(([domain, name]) => table[domain]?.[name]?.help === undefined)
       .map(([domain, name]) => `${domain} ${name}`);
     expect(unresolved).toEqual([]);
   });
@@ -117,8 +119,9 @@ const shortened: [domain: string, name: string][] = [
 
 describe("the summaries of the guardrail, ruleset and flag commands", () => {
   it("are one line of at most 100 characters each, with the detail in each command's help", () => {
+    const table: Record<string, Record<string, Command>> = domains;
     const longer = shortened.flatMap(([domain, name]) => {
-      const summary = domains[domain]?.[name]?.summary ?? "";
+      const summary = table[domain]?.[name]?.summary ?? "";
       return summary.length > 100
         ? [
             `${domain} ${name}: summary is ${summary.length} characters, over 100`,

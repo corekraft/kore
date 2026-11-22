@@ -156,3 +156,4 @@ export {
   type Modes,
   type Scene,
 } from "./ruleset-support.js";
+export { stubHelp } from "./help-support.js";

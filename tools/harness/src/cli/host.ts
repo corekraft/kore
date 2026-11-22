@@ -8,8 +8,8 @@ import type { Command } from "../runtime/index.js";
  * is composed here: the command reads transcripts through the hook domain, which already
  * depends on the session barrel, so the session barrel must not import it.
  */
-export const hostDomains: Record<string, Record<string, Command>> = {
+export const hostDomains = {
   hook,
   session: { ...session, "prompt-size": promptSizeCommand },
   skill,
-};
+} satisfies Record<string, Record<string, Command>>;

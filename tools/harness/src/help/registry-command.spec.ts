@@ -1,3 +1,4 @@
+import { stubHelp } from "../testing/index.js";
 import { describe, expect, it } from "vitest";
 import type { Command, CommandEffects, CommandHelp } from "../runtime/index.js";
 import { commandProblems, type Lookup } from "./registry-command.js";
@@ -5,13 +6,22 @@ import { commandProblems, type Lookup } from "./registry-command.js";
 const none = () => Promise.resolve(0);
 
 const next: Command = {
+  help: stubHelp,
   summary: "set the Next: line",
   options: { plan: "string", "dry-run": "boolean" },
   run: none,
 };
 
-const active: Command = { summary: "list the active plans", run: none };
-const status: Command = { summary: "report the work", run: none };
+const active: Command = {
+  help: stubHelp,
+  summary: "list the active plans",
+  run: none,
+};
+const status: Command = {
+  help: stubHelp,
+  summary: "report the work",
+  run: none,
+};
 
 const commands = new Map<string, Command>([
   ["plan next", next],

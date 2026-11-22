@@ -1,7 +1,6 @@
 export type { DomainGuide, RootFlow, RootGuide } from "./guide.js";
 export { domainGuides } from "./domain-guides.js";
 export { rootGuide } from "./root-guide.js";
-export { undocumented } from "./exemptions.js";
 export {
   commandView,
   domainView,

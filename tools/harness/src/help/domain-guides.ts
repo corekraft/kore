@@ -1,7 +1,8 @@
+import type { DomainName } from "../cli/index.js";
 import type { DomainGuide } from "./guide.js";
 
 /** The guide for each domain of the command table: its purpose in one line, and its usual flow in one line. */
-export const domainGuides: Record<string, DomainGuide> = {
+export const domainGuides: Record<DomainName, DomainGuide> = {
   harness: {
     purpose:
       "The harness itself: its version, and the one background wait over pull requests, panes and idea state.",

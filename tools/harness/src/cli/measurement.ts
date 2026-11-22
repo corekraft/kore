@@ -8,7 +8,7 @@ import { queueDomain } from "./queue-help.js";
 import { retroCommands } from "./retro-commands.js";
 
 /** The domains that read or write the stage ledger (retro writes only its own retro-triggered events, approve only its auto-approved ones). */
-export const measurement: Record<string, Record<string, Command>> = {
+export const measurement = {
   ledger: ledgerCommands,
   flow: flowCommands,
   queue: queueDomain,
@@ -18,4 +18,4 @@ export const measurement: Record<string, Record<string, Command>> = {
   orchestrate: orchestrateCommands,
   // `harness approve`: the one command of its domain, so it takes no command word.
   approve: { "": approveCommand },
-};
+} satisfies Record<string, Record<string, Command>>;

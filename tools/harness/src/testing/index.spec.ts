@@ -210,6 +210,7 @@ const EXPORTS = [
   "repoTranscriptDirs",
   "scan",
   "statusLine",
+  "stubHelp",
   "summarizeError",
   "windowStart",
 ];

@@ -1,3 +1,4 @@
+import { stubHelp } from "../testing/index.js";
 import { describe, expect, it } from "vitest";
 import type { Command, CommandHelp } from "../runtime/index.js";
 import type { DomainGuide, RootGuide } from "./guide.js";
@@ -51,8 +52,8 @@ describe("the root view", () => {
 describe("the domain view", () => {
   it("lists each command by its full path and summary, and a domain's own command by the domain alone", () => {
     const commands: Record<string, Command> = {
-      active: { summary: "list the active plans", run: none },
-      tick: { summary: "tick one open item", run: none },
+      active: { help: stubHelp, summary: "list the active plans", run: none },
+      tick: { help: stubHelp, summary: "tick one open item", run: none },
     };
     expect(domainView("plan", commands, guides.plan!)).toEqual({
       level: "domain",
@@ -70,7 +71,7 @@ describe("the domain view", () => {
   it("names a domain-only command by the domain alone, and gives no related commands when the guide has none", () => {
     const view = domainView(
       "status",
-      { "": { summary: "report the work", run: none } },
+      { "": { help: stubHelp, summary: "report the work", run: none } },
       guides.status!,
     );
     expect(view.commands).toEqual([
@@ -81,6 +82,7 @@ describe("the domain view", () => {
 });
 
 const next: Command = {
+  help: stubHelp,
   summary: "set the Next: line",
   options: { plan: "string", text: "string", "dry-run": "boolean" },
   run: none,
@@ -145,6 +147,7 @@ describe("the command view", () => {
 
   it("names a declared operand in the usage line and gives it its description, and has no operand otherwise", () => {
     const wait: Command = {
+      help: stubHelp,
       summary: "wait for a session",
       options: { timeout: "string" },
       operand: "name",
@@ -167,39 +170,21 @@ describe("the command view", () => {
   });
 
   it("prints a domain-only command by the domain alone, in its usage line", () => {
-    const status: Command = { summary: "report the work", run: none };
+    const status: Command = {
+      help: stubHelp,
+      summary: "report the work",
+      run: none,
+    };
     expect(commandView("status", status, nextHelp).usage).toBe(
       "harness status",
     );
   });
 });
 
-describe("the command view of a command with no help record", () => {
-  it("is the plain fallback: the summary, the usage, and each flag and the operand by name, with no examples, exits or effects", () => {
-    const tick: Command = {
-      summary: "tick one open item",
-      options: { note: "string", force: "boolean" },
-      operand: "step",
-      run: none,
-    };
-    const view = commandView("plan tick", tick);
-    expect(view).toEqual({
-      level: "command",
-      path: "plan tick",
-      summary: "tick one open item",
-      purpose: "",
-      when: "",
-      whenNot: "",
-      usage: "harness plan tick <step> [--note <value>] [--force]",
-      flags: [
-        { name: "note", kind: "string", description: "" },
-        { name: "force", kind: "boolean", description: "" },
-      ],
-      operand: { name: "step", description: "" },
-      examples: [],
-      exits: [],
-      seeAlso: [],
-    });
-    expect(view).not.toHaveProperty("effects");
+describe("the help record", () => {
+  it("is required on every command: a command with none is a compile error", () => {
+    // @ts-expect-error help is required on Command, so a command with no help record does not compile
+    const bare: Command = { summary: "tick one open item", run: none };
+    expect(bare.summary).toBe("tick one open item");
   });
 });

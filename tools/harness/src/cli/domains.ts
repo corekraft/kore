@@ -13,7 +13,7 @@ import { harnessCommands } from "./harness-commands.js";
 import type { Command } from "../runtime/index.js";
 
 /** Domains arrive here as they are built; each is a map of command name to command. */
-export const domains: Record<string, Record<string, Command>> = {
+export const domains = {
   harness: harnessCommands,
   plan: {
     active: planActive,
@@ -26,4 +26,7 @@ export const domains: Record<string, Record<string, Command>> = {
   ...hostDomains,
   ...records,
   ...measurement,
-};
+} satisfies Record<string, Record<string, Command>>;
+
+/** The name of each domain of the table; the help guides hold one guide per name. */
+export type DomainName = keyof typeof domains;

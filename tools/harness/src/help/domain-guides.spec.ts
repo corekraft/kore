@@ -10,4 +10,10 @@ describe("the domain guides", () => {
       expect(guide.flow, domain).not.toContain("\n");
     }
   });
+
+  it("holds a guide for every domain of the table: a record with none is a compile error", () => {
+    // @ts-expect-error the guides are keyed by the table's domains, so an empty record misses every one
+    const none: typeof domainGuides = {};
+    expect(Object.keys(none)).toEqual([]);
+  });
 });
