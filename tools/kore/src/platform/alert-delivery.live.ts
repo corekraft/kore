@@ -84,11 +84,11 @@ class Delivery {
     }
     return this.failed(
       "rule not loaded",
-      "Prometheus has no " +
+      "Grafana has no " +
         alertName +
         " rule in group kore.service." +
         this.options.service +
-        "; check that the service-observability chart is delivered and the metrics store mounts kore-service-rules",
+        "; check that the service-observability chart is delivered and Grafana loads kore-service-rules",
     );
   }
 

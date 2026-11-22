@@ -33,7 +33,7 @@ export const proofEvents = [
 
 export const proofCalls = [
   "kubectl get deployments",
-  "Prometheus GET /api/v1/rules",
+  "Grafana GET /api/prometheus/grafana/api/v1/rules",
   "kubectl annotate deployment",
   "kubectl scale deployment",
   "Grafana GET /api/alertmanager/grafana/api/v2/alerts",

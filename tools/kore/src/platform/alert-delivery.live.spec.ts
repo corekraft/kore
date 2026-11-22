@@ -15,8 +15,8 @@ import { renderDelivery, redact } from "./alert-delivery-report.live.js";
 // Docs: infra/plans/15-next-horizon.md (Step 6 item 4: the live delivery proof)
 // Live and opt-in: needs a converged local profile with platform-portal on and the alert address set at
 // run time (KORE_ALERT_EMAIL_ADDRESSES and KORE_ALERT_SMTP_*). It fires the default ServiceUnavailable rule
-// on one delivered Service by scaling its Deployments to zero, then restores them. It reads Prometheus and
-// Grafana from inside the prometheus-server pod, and reads the owner's inbox through its API only when
+// on one delivered Service by scaling its Deployments to zero, then restores them. It reads Grafana's rules
+// and alerts from inside the grafana pod, and reads the owner's inbox through its API only when
 // KORE_ALERT_INBOX_API_URL and KORE_ALERT_INBOX_API_KEY are both set; otherwise the inbox check is skipped
 // and reported as such. It prints the contact point's name and the status, and no address, key or message
 // body. ONE RUN AT A TIME on an idle host: stop writer and challenger panes first. Run with KORE_RUN_LIVE=1
