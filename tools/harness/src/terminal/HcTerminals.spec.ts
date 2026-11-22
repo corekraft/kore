@@ -36,7 +36,8 @@ vi.mock("./hc-shapes.js", () => ({
   isJsonObject: vi.fn(() => true),
 }));
 vi.mock("./hc-argv.js", () => ({ refuseRun: vi.fn(() => undefined) }));
-vi.mock("./hc-errors.js", () => ({
+vi.mock("./hc-errors.js", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("./hc-errors.js")>()),
   hcFailure: vi.fn((verb: string, result: RunResult) => ({
     error: {
       kind: "unavailable",
@@ -256,12 +257,12 @@ describe("HcTerminals: wait", () => {
     });
   });
 
-  it("reports a wait that a message ended as unavailable, never as a timeout", async () => {
+  it("reports a wait that a message woke as woke, never as a timeout or a failure", async () => {
     const runner = scripted(ok(MESSAGE_WAIT));
     expect(await hc(runner).wait({ terminal: "t1" }, 5000)).toEqual({
       error: {
-        kind: "unavailable",
-        message: "wait stopped without a finished terminal (reason message)",
+        kind: "woke",
+        message: "a message woke the wait before a finish",
       },
     });
   });

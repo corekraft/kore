@@ -1,6 +1,6 @@
 import type { LineStream, Runner } from "../runtime/index.js";
 import { refuseRun } from "./hc-argv.js";
-import { hcFailure } from "./hc-errors.js";
+import { hcFailure, unfinishedWait } from "./hc-errors.js";
 import { parseEventLine } from "./hc-events.js";
 import {
   isHcList,
@@ -192,18 +192,7 @@ export class HcTerminals implements Terminals {
       return raw;
     }
     if (!raw.ended) {
-      return raw.reason === "timeout"
-        ? terminalError(
-            "timeout",
-            "nothing has finished within " + timeoutMs + " ms",
-            "wait longer, or check the terminal with get()",
-          )
-        : terminalError(
-            "unavailable",
-            "wait stopped without a finished terminal (reason " +
-              raw.reason +
-              ")",
-          );
+      return unfinishedWait(raw.reason, timeoutMs);
     }
     if ("terminal" in target) {
       const finished = await this.#terminals([raw.terminal]);

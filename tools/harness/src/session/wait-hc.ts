@@ -103,32 +103,81 @@ async function blockedByStatus(
   return blocked(record, summary);
 }
 
-/** After a wait that ran out: blocked when the terminal turned blocked meanwhile, else still working. */
-async function afterTimeout(
-  deps: WaitDeps,
-  terminals: Terminals,
-  registry: Pick<SessionRegistry, "write">,
-  record: SessionRecord,
+/** The error a wait that ran out of bound gives: still working, with the commands that look again. */
+function stillWorking(
+  name: string,
+  terminal: string,
   timeoutMs: number,
-): Promise<ReportWait | { error: string }> {
-  const { name } = record;
-  const terminal = record.terminal ?? "";
-  const now = await terminals.get(terminal);
-  if ("error" in now) {
-    return failure(name, now);
-  }
-  if (isBlocked(now.status)) {
-    return await blockedByStatus(deps, registry, record, now.status);
-  }
+): { error: string } {
   return {
     error: `Session ${name} is still working: no report and no stop within ${timeoutMs / 1000} seconds. Run session wait ${name} again, or read the terminal with hc read ${terminal}.`,
   };
 }
 
+/** What one wait on an hc session reads and settles through, passed to its steps as one value. */
+interface Settling {
+  deps: WaitDeps;
+  terminals: Terminals;
+  registry: Pick<SessionRegistry, "write">;
+  record: SessionRecord;
+  /** The terminal's checkout, where its report file is. */
+  cwd: string;
+  terminal: string;
+}
+
+/**
+ * Settles the wait when a report is there or the terminal is blocked, at any point before it finishes:
+ * before the first wait, after a wake, or after an early timeout. Otherwise undefined, and the wait goes on.
+ */
+async function settleWoken(
+  s: Settling,
+): Promise<ReportWait | { error: string } | undefined> {
+  const fresh = await unread(s.deps, s.cwd, s.record);
+  if (fresh !== undefined) {
+    return consume(s.registry, s.record, fresh);
+  }
+  const now = await s.terminals.get(s.terminal);
+  if ("error" in now) {
+    return failure(s.record.name, now);
+  }
+  return isBlocked(now.status)
+    ? await blockedByStatus(s.deps, s.registry, s.record, now.status)
+    : undefined;
+}
+
+/**
+ * Waits for the terminal to finish. A message's wake, or an hc timeout that came before the bound, is
+ * not the finish: the wait settles on a report or a blocked status, else waits again on the bound left.
+ * Returns undefined once the terminal finished, or how the wait settled.
+ */
+async function waitForFinish(
+  s: Settling,
+  timeoutMs: number,
+): Promise<ReportWait | { error: string } | undefined> {
+  const deadline = s.deps.clock.now().getTime() + timeoutMs;
+  let waited = await s.terminals.wait({ terminal: s.terminal }, timeoutMs);
+  while (
+    "error" in waited &&
+    (waited.error.kind === "woke" || waited.error.kind === "timeout")
+  ) {
+    const settled = await settleWoken(s);
+    if (settled !== undefined) {
+      return settled;
+    }
+    const left = deadline - s.deps.clock.now().getTime();
+    if (left <= 0) {
+      return stillWorking(s.record.name, s.terminal, timeoutMs);
+    }
+    waited = await s.terminals.wait({ terminal: s.terminal }, left);
+  }
+  return "error" in waited ? failure(s.record.name, waited) : undefined;
+}
+
 /**
  * Settles an hc session by its report, never by the pane. A report with a new seq is done or blocked
  * as it says. Blocked or error status is blocked at once. A stopped terminal with no unread report is
- * blocked, stopped without a report. Only a report makes done.
+ * blocked, stopped without a report. Only a report makes done. A message wakes hc's wait without a
+ * finish, and a timeout can come early: either one waits again on the bound left, and the bound ends it.
  */
 export async function waitForReport(
   deps: WaitDeps,
@@ -148,18 +197,21 @@ export async function waitForReport(
   if ("error" in view) {
     return failure(name, view);
   }
-  const fresh = await unread(deps, view.cwd, record);
-  if (fresh !== undefined) {
-    return consume(registry, record, fresh);
+  const s: Settling = {
+    deps,
+    terminals,
+    registry,
+    record,
+    cwd: view.cwd,
+    terminal,
+  };
+  const early = await settleWoken(s);
+  if (early !== undefined) {
+    return early;
   }
-  if (isBlocked(view.status)) {
-    return await blockedByStatus(deps, registry, record, view.status);
-  }
-  const waited = await terminals.wait({ terminal }, timeoutMs);
-  if ("error" in waited) {
-    return waited.error.kind === "timeout"
-      ? afterTimeout(deps, terminals, registry, record, timeoutMs)
-      : failure(name, waited);
+  const settled = await waitForFinish(s, timeoutMs);
+  if (settled !== undefined) {
+    return settled;
   }
   const after = await unread(deps, view.cwd, record);
   if (after !== undefined) {

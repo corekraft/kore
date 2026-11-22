@@ -47,6 +47,31 @@ function parseStructured(stderr: string): StructuredError | undefined {
   }
 }
 
+/**
+ * The port's error for a wait hc ended with nothing finished: its timeout, a message's wake (every wait
+ * of the caller wakes on a message, not only on the awaited finish, so the caller waits again), or any
+ * other reason, which is unavailable.
+ */
+export function unfinishedWait(
+  reason: string,
+  timeoutMs: number,
+): TerminalError {
+  if (reason === "timeout") {
+    return terminalError(
+      "timeout",
+      "nothing has finished within " + timeoutMs + " ms",
+      "wait longer, or check the terminal with get()",
+    );
+  }
+  if (reason === "message") {
+    return terminalError("woke", "a message woke the wait before a finish");
+  }
+  return terminalError(
+    "unavailable",
+    "wait stopped without a finished terminal (reason " + reason + ")",
+  );
+}
+
 /** hc 0.1.21 prints its structured error on stdout; stderr is read too, for a build that prints it there. */
 export function hcFailure(verb: string, result: RunResult): TerminalError {
   const structured =
