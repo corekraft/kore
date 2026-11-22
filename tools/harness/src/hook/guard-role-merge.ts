@@ -8,6 +8,7 @@
 // that actually stops an unreviewed change reaching main is the `main` ruleset without
 // owner bypass, which the owner decides separately.
 import { basename } from "node:path";
+import { harnessHelp } from "./guard-role-allow.js";
 import { commandOf, splitSegments } from "./guard-shell.js";
 
 const WRAPPERS = new Set(["sudo", "env", "time", "command", "nohup", "exec"]);
@@ -156,7 +157,7 @@ function ghMerges(line: readonly string[]): boolean {
 export const mergesPr = (segment: readonly string[]): boolean =>
   expand(segment).some(ghMerges);
 
-/** Whether a segment runs the judge's merge, approve or send-back tool, through its wrappers. */
+/** Whether a segment runs the judge's merge, approve or send-back tool, through its wrappers. A help request for one of them runs nothing (#1802). */
 export const runsJudgeTool = (
   segment: readonly string[],
   harness: RegExp,
@@ -167,6 +168,7 @@ export const runsJudgeTool = (
       name === "node" &&
       harness.test(args[0] ?? "") &&
       args[1] === "judge" &&
-      ["merge", "send-back", "approve"].includes(args[2] ?? "")
+      ["merge", "send-back", "approve"].includes(args[2] ?? "") &&
+      !harnessHelp(name, args)
     );
   });

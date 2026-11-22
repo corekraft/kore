@@ -61,14 +61,36 @@ describe("readMayRun: the seven reads (#847) are decided by guard-role-reads.ts"
   });
 });
 
-describe("harnessHelp: node harness.mjs --help and nothing else", () => {
+describe("harnessHelp: a help request at the root, domain or command level (#1802)", () => {
   it.each([
     ["node", ["skills/bin/harness.mjs", "--help"], true],
     ["node", ["./skills/bin/harness.mjs", "--help"], true],
     ["node", ["skills/bin/harness.mjs"], false],
     ["node", ["skills/bin/harness.mjs", "--version"], false],
     ["node", ["skills/bin/harness.mjs", "--help", "x"], false],
-    ["node", ["skills/bin/harness.mjs", "flag", "--help"], false],
+    ["node", ["skills/bin/harness.mjs", "flag", "--help"], true],
+    ["node", ["skills/bin/harness.mjs", "--help", "--json"], true],
+    ["node", ["skills/bin/harness.mjs", "flag", "activate", "--help"], true],
+    [
+      "node",
+      ["skills/bin/harness.mjs", "flag", "activate", "-h", "--json"],
+      true,
+    ],
+    ["node", ["skills/bin/harness.mjs", "--json"], false],
+    ["node", ["skills/bin/harness.mjs", "flag", "--json"], false],
+    ["node", ["skills/bin/harness.mjs", "flag", "--help", "activate"], false],
+    ["node", ["skills/bin/harness.mjs", "--help", "flag", "activate"], false],
+    [
+      "node",
+      ["skills/bin/harness.mjs", "flag", "activate", "x", "--help"],
+      false,
+    ],
+    [
+      "node",
+      ["skills/bin/harness.mjs", "flag", "activate", "--help", "x"],
+      false,
+    ],
+    ["node", ["skills/bin/harness.mjs", "--help", "--json", "--json"], false],
     ["node", ["other.mjs", "--help"], false],
     ["node", ["--eval", "x", "skills/bin/harness.mjs", "--help"], false],
     ["bash", ["skills/bin/harness.mjs", "--help"], false],
@@ -79,6 +101,19 @@ describe("harnessHelp: node harness.mjs --help and nothing else", () => {
   it("lets readMayRun run it as a read", () => {
     expect(mayRun(["node", "skills/bin/harness.mjs", "--help"])).toBe(true);
     expect(mayRun(["node", "skills/bin/harness.mjs", "--version"])).toBe(false);
+    expect(
+      mayRun([
+        "node",
+        "skills/bin/harness.mjs",
+        "flag",
+        "activate",
+        "--help",
+        "--json",
+      ]),
+    ).toBe(true);
+    expect(
+      mayRun(["node", "skills/bin/harness.mjs", "flag", "--help", "activate"]),
+    ).toBe(false);
   });
 });
 
