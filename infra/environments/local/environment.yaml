@@ -76,8 +76,8 @@
       "pane-result-summary": true,
       "signed-main-sends": true,
       "main-session-wait": true,
-      "decision-advisor": true,
-      "golden-path-signin": false
+      "golden-path-signin": false,
+      "decision-advisor": true
     },
   "imageInventory": "audit",
   "exemptionCheck": "audit",

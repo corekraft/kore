@@ -16,6 +16,22 @@ async function read(path: string): Promise<string> {
   return readFile(join(await findRoot(), path), "utf8");
 }
 
+/** The value a flag holds in an overlay's features map, or undefined when the map omits it. */
+function flagIn(overlay: unknown, flag: string): unknown {
+  if (
+    typeof overlay !== "object" ||
+    overlay === null ||
+    !("features" in overlay)
+  ) {
+    return undefined;
+  }
+  const features = overlay.features;
+  if (typeof features !== "object" || features === null) {
+    return undefined;
+  }
+  return Object.entries(features).find(([name]) => name === flag)?.[1];
+}
+
 async function kotlinSources(dir: string): Promise<string[]> {
   const entries = await readdir(join(await findRoot(), dir), {
     withFileTypes: true,
@@ -34,11 +50,11 @@ async function kotlinSources(dir: string): Promise<string[]> {
 
 test("golden-path-signin is declared off in every environment overlay", async () => {
   for (const environment of environments) {
-    const overlay = JSON.parse(
+    const overlay: unknown = JSON.parse(
       await read(`infra/environments/${environment}/environment.yaml`),
-    ) as { features?: Record<string, unknown> };
+    );
     assert.equal(
-      overlay.features?.["golden-path-signin"],
+      flagIn(overlay, "golden-path-signin"),
       false,
       `${environment} must declare golden-path-signin as false`,
     );
