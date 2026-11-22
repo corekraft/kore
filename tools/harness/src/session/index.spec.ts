@@ -6,6 +6,7 @@ import { close } from "./close.js";
 import { equalize, type EqualizeResult } from "./equalize.js";
 import { resolveTier as exported, session } from "./index.js";
 import { notify } from "./notify.js";
+import { report } from "./report.js";
 import { send } from "./send.js";
 import { spawn } from "./spawn.js";
 import { tier } from "./tier.js";
@@ -16,6 +17,7 @@ vi.mock("./check.js", () => ({ check: vi.fn() }));
 vi.mock("./close.js", () => ({ close: vi.fn() }));
 vi.mock("./equalize.js", () => ({ equalize: vi.fn() }));
 vi.mock("./notify.js", () => ({ notify: vi.fn() }));
+vi.mock("./report.js", () => ({ report: vi.fn() }));
 vi.mock("./send.js", () => ({ send: vi.fn() }));
 vi.mock("./spawn.js", () => ({ spawn: vi.fn() }));
 vi.mock("./tier.js", () => ({ tier: vi.fn() }));
@@ -48,13 +50,14 @@ beforeEach(() => {
 });
 
 describe("the session domain's command set", () => {
-  it("exposes spawn, wait, notify, send, check, close, tier and equalize, and no other command", () => {
+  it("exposes spawn, wait, notify, report, send, check, close, tier and equalize, and no other command", () => {
     expect(Object.keys(session).sort()).toEqual([
       "check",
       "close",
       "equalize",
       "exec",
       "notify",
+      "report",
       "send",
       "spawn",
       "tier",
@@ -70,6 +73,7 @@ describe("the session domain's command set", () => {
     ["spawn", spawn],
     ["wait", wait],
     ["notify", notify],
+    ["report", report],
     ["send", send],
     ["check", check],
     ["close", close],
@@ -134,6 +138,11 @@ describe("the session domain's spawn usage and flags", () => {
     ["notify", "pane", { outcome: "string" }],
     ["send", "name", { message: "string" }],
     ["close", "name", { "remove-worktree": "boolean" }],
+    [
+      "report",
+      undefined,
+      { outcome: "string", summary: "string", file: "string", plan: "string" },
+    ],
     ["tier", "role", undefined],
   ])("takes the operand and flags %s declares", (name, operand, options) => {
     expect(session[name]?.operand).toBe(operand);

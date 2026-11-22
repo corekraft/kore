@@ -1,7 +1,17 @@
-import { describe, expect, it } from "vitest";
-import { FakeTerminals } from "../terminal/index.js";
+import { describe, expect, it, vi } from "vitest";
+import {
+  FakeTerminals,
+  HcTerminals,
+  terminalError,
+} from "../terminal/index.js";
+import { fakeDeps } from "./deps-support.js";
 import type { SessionRecord } from "./registry.js";
-import { routeSession } from "./backend.js";
+import { hcMessage, routeSession, terminalsFor } from "./backend.js";
+
+vi.mock("../terminal/index.js", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("../terminal/index.js")>()),
+  HcTerminals: vi.fn(),
+}));
 
 const HERDR_RECORD: SessionRecord = {
   name: "image-trust-writer",
@@ -54,5 +64,41 @@ describe("routeSession sends a record to the backend it names", () => {
       error:
         "Session image-trust-writer runs on hc, but hc is not available here, so it is not routed to herdr. Install the pinned hc (plan 16, step 1), then retry.",
     });
+  });
+});
+
+describe("terminalsFor builds the hc adapter over the caller's runner and environment", () => {
+  it("constructs HcTerminals over the injected runner and environment, and nothing else", () => {
+    const deps = fakeDeps();
+    deps.env = { HC_TERMINAL_ID: "t7" };
+
+    terminalsFor(deps);
+
+    expect(HcTerminals).toHaveBeenCalledWith({
+      runner: deps.runner,
+      env: deps.env,
+    });
+  });
+});
+
+describe("hcMessage gives hc's message, with its hint in brackets when hc gives one", () => {
+  it("adds the hint in brackets", () => {
+    expect(
+      hcMessage(
+        terminalError(
+          "not-found",
+          "no terminal t2",
+          "check the id with list()",
+        ),
+      ),
+    ).toBe("no terminal t2 (check the id with list())");
+  });
+
+  it("gives the message alone when hc gives no hint", () => {
+    expect(
+      hcMessage(
+        terminalError("timeout", "nothing has finished within 60000 ms"),
+      ),
+    ).toBe("nothing has finished within 60000 ms");
   });
 });

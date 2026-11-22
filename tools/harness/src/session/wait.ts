@@ -1,3 +1,4 @@
+// oxlint-disable import/max-dependencies -- wait settles a session by its pane (herdr) or its report (hc), so it imports both paths
 import type { CliDeps, CommandContext } from "../runtime/index.js";
 import { plain } from "./ansi.js";
 import { describeFailure } from "./equalize.js";
@@ -5,7 +6,10 @@ import { recordFinish } from "./finish-record.js";
 import { sessionNameError } from "./names.js";
 import { FAILED, USAGE_ERROR, fail } from "./output.js";
 import { PROMPT } from "./prompt.js";
+import { routeSession, terminalsFor } from "./backend.js";
+import type { Terminals } from "../terminal/index.js";
 import { SessionRegistry, type SessionRecord } from "./registry.js";
+import { formatReportWait, waitForReport } from "./wait-hc.js";
 
 export const DEFAULT_TIMEOUT_MS = 60 * 60 * 1000;
 const POLL_MS = 2000;
@@ -152,6 +156,31 @@ export function formatWait(result: Omit<WaitResult, "result">): string {
   return `${result.name} (${result.model}) finished: RESULT ${result.outcome}; summary in ${result.summary}.\n`;
 }
 
+/** Settles an hc session by its report, and prints the outcome it settles on. */
+async function settleOnReport(
+  context: CommandContext,
+  terminals: Terminals,
+  registry: SessionRegistry,
+  record: SessionRecord,
+  timeout: number,
+): Promise<number> {
+  const { json, deps } = context;
+  const reported = await waitForReport(
+    deps,
+    terminals,
+    registry,
+    record,
+    timeout,
+  );
+  if ("error" in reported) {
+    return fail(deps, json, FAILED, reported.error);
+  }
+  deps.stdout(
+    json ? `${JSON.stringify(reported)}\n` : formatReportWait(reported),
+  );
+  return 0;
+}
+
 /** `session wait <name>`: wait for a spawned session's anchored result marker. */
 export async function wait(context: CommandContext): Promise<number> {
   const { json, deps, options } = context;
@@ -181,6 +210,13 @@ export async function wait(context: CommandContext): Promise<number> {
       FAILED,
       `No session named ${name} was spawned by this tool; start it with \`session spawn\`.`,
     );
+  }
+  const routed = routeSession(record, terminalsFor(deps));
+  if ("error" in routed) {
+    return fail(deps, json, FAILED, routed.error);
+  }
+  if (routed.backend === "hc") {
+    return settleOnReport(context, routed.terminals, registry, record, timeout);
   }
   const result = await waitForResult(deps, registry, record, timeout);
   if ("error" in result) {

@@ -20,6 +20,7 @@ import { close } from "./close.js";
 import { execCommand } from "./exec.js";
 import { equalize } from "./equalize.js";
 import { notify } from "./notify.js";
+import { report } from "./report.js";
 import { send } from "./send.js";
 import { spawn } from "./spawn.js";
 import { tier } from "./tier.js";
@@ -60,6 +61,70 @@ const notifyCommand: Command = {
   operand: "pane",
   options: { outcome: "string" },
   run: notify,
+};
+
+const reportCommand: Command = {
+  summary:
+    "record this hc session's outcome: writes .kore/report/<session>.json with the next seq, then sends the parent one notice line (--outcome done|blocked, and exactly one of --summary <text> or --file <path>, a file under .kore/report; --plan <file> stores its text with the report); the last action of a session that session spawn started on hc",
+  options: {
+    outcome: "string",
+    summary: "string",
+    file: "string",
+    plan: "string",
+  },
+  help: {
+    purpose:
+      "Records how a spawned hc session finished as a numbered report file, which the waiting parent reads, then tells the parent in one fixed line that the report is there.",
+    when: "As the last action of a session that session spawn started on hc, once its work is finished or it is blocked.",
+    whenNot:
+      "Outside a session's own terminal, which it refuses, and for a herdr pane, which reports through its RESULT line. After a rework, report again: each report takes the next seq, and the parent reads the new one.",
+    flags: {
+      outcome:
+        "done when the work is finished, blocked when it cannot go on without a person.",
+      summary:
+        "The summary text. It is kept in the report file and is never sent to the parent.",
+      file: "A file that holds the summary, under .kore/report in the session's checkout. Use it for a long answer.",
+      plan: "A file whose text is stored with the report as its plan, such as a judgment's plan JSON.",
+    },
+    examples: [
+      {
+        command:
+          'harness session report --outcome done --summary "Opened PR #1775."',
+        shows:
+          "the report file is written with seq 1, and the parent gets one line naming it",
+      },
+      {
+        command:
+          "harness session report --outcome blocked --file .kore/report/why.md",
+        shows:
+          "a blocked report whose summary is read from a file under .kore/report",
+      },
+    ],
+    exits: [
+      {
+        code: 0,
+        meaning:
+          "the report is written; the parent got its notice, or is not an agent terminal",
+      },
+      {
+        code: 1,
+        meaning:
+          "refused or failed: no open hc session for this terminal, a --file outside .kore/report, or hc or the notice failed; a report already written is kept",
+      },
+      {
+        code: 2,
+        meaning:
+          "a usage error: --outcome, or exactly one of --summary and --file, is missing or wrong",
+      },
+    ],
+    effects: {
+      kind: "mutates",
+      detail:
+        "Writes .kore/report/<session>.json in the session's checkout, then sends one notice line to the parent when it is an agent terminal.",
+    },
+    seeAlso: ["session wait", "session close"],
+  },
+  run: report,
 };
 
 const sendCommand: Command = {
@@ -118,6 +183,7 @@ export const session: Record<string, Command> = {
   spawn: spawnCommand,
   wait: waitCommand,
   notify: notifyCommand,
+  report: reportCommand,
   send: sendCommand,
   check: checkCommand,
   close: closeCommand,

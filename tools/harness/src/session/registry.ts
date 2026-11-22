@@ -144,6 +144,20 @@ export class SessionRegistry {
     return parsed;
   }
 
+  /** The open record (not closed) whose hc terminal is `terminal`; undefined when none names it, or no state exists yet. */
+  async findByTerminal(terminal: string): Promise<SessionRecord | undefined> {
+    if (!(await this.fs.exists(this.dir))) {
+      return undefined;
+    }
+    for (const entry of await this.fs.readdir(this.dir)) {
+      const record = await this.read(entry.replace(/\.json$/, ""));
+      if (record?.terminal === terminal && record.closedAt === undefined) {
+        return record;
+      }
+    }
+    return undefined;
+  }
+
   async write(record: SessionRecord): Promise<void> {
     await this.fs.writeFile(
       this.file(record.name),
