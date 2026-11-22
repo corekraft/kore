@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { environments, FlagError, readOverlay } from "../flag/index.js";
 import type { RunResult } from "../runtime/index.js";
 import { fakeDeps, type FakeDeps } from "./deps-support.js";
-import { roleToken } from "./role-token.js";
+import { hasIdentity, roleToken } from "./role-token.js";
 
 interface Signer {
   update(data: string): Signer;
@@ -341,5 +341,17 @@ describe("roleToken gives the orchestrator its own App token, and no other role 
 
     await expect(roleToken(deps, "principles-review")).resolves.toBeUndefined();
     expect(deps.runner.run).not.toHaveBeenCalled();
+  });
+});
+
+describe("hasIdentity: which roles have a GitHub identity of their own", () => {
+  it("is true for each role that gets a token, and false for a role with none", () => {
+    expect(
+      ["writer", "judge", "principles-review", "orchestrator", "advisor"].map(
+        (role) => hasIdentity(role),
+      ),
+    ).toEqual([true, true, true, true, true]);
+    expect(hasIdentity("reader")).toBe(false);
+    expect(hasIdentity("writr")).toBe(false);
   });
 });

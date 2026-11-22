@@ -1,8 +1,8 @@
-import { join, dirname, resolve } from "node:path";
+import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import type { Command, CliDeps } from "../runtime/index.js";
+import type { Command, CliDeps, Runner } from "../runtime/index.js";
 import { bundleMainRoot } from "../runtime/index.js";
-import { roleToken } from "./role-token.js";
+import { hasIdentity, roleToken } from "./role-token.js";
 
 /** One session's launch: the role, its model and effort, and the brief that is claude's first prompt. */
 export interface LaunchInput {
@@ -43,14 +43,21 @@ function scrubbed(
   );
 }
 
-/** Whether `claude --help` names the flag as a whole word, so --settings is not --setting-sources. */
+/** Whether `claude --help` names the flag: as a whole token, or with a value after `=`, so --settings is not --setting-sources. */
 export const namesFlag = (help: string, flag: string): boolean =>
-  new RegExp("(^|[\\s,|])" + flag + "(?![\\w-])", "m").test(help);
+  help
+    .split(/[\s,|[\]()<>]+/)
+    .some((token) => token === flag || token.startsWith(`${flag}=`));
 
-/**
- * Why this bundle may not start the session, or undefined when it is the main checkout's
- * own. Its root is the checkout two directories above skills/bin/harness.mjs.
- */
+/** A runner whose calls get the scrubbed environment unless the call names its own, so the token helpers never inherit a GitHub token. */
+function withEnv(runner: Runner, env: Record<string, string>): Runner {
+  return {
+    run: (command, args, options = {}) =>
+      runner.run(command, args, { ...options, env: options.env ?? env }),
+  };
+}
+
+/** Why this bundle may not start the session, or undefined when it is the main checkout's own. */
 function bundleRefusal(bundleUrl: string, main: string): string | undefined {
   const checkout = resolve(dirname(fileURLToPath(bundleUrl)), "../..");
   return checkout === main
@@ -73,9 +80,42 @@ async function claudeRefusal(
     : `The installed claude lacks ${missing.join(", ")}, which session exec passes. Upgrade claude, then rerun.\n`;
 }
 
+/** The role's token outcome: ok with its token (none for a role with no identity), or a refusal to print. */
+type TokenOutcome =
+  | { readonly ok: true; readonly token?: string }
+  | { readonly ok: false; readonly message: string };
+
+/** The role's token, minted or read from the main checkout's identity store with every call scrubbed. */
+async function tokenFor(
+  deps: CliDeps,
+  main: string,
+  env: Record<string, string>,
+  role: string,
+): Promise<TokenOutcome> {
+  const minted = await roleToken(
+    {
+      ...deps,
+      root: () => Promise.resolve(main),
+      runner: withEnv(deps.runner, env),
+    },
+    role,
+  );
+  if (minted === undefined) {
+    return hasIdentity(role)
+      ? {
+          ok: false,
+          message: `The ${role} role needs its GitHub identity, but no token was minted: the role-tokens flag is off in the local overlay of the main checkout. Turn it on, then rerun. Nothing was started.\n`,
+        }
+      : { ok: true };
+  }
+  return "error" in minted
+    ? { ok: false, message: `${minted.error.replace(PANE_SUFFIX, "")}\n` }
+    : { ok: true, token: minted.token };
+}
+
 /**
  * Starts claude as one role's session, in place of the wrapper: refuses unless the
- * bundle is the main checkout's own and claude names every flag it passes, mints the
+ * bundle is the main checkout's own and claude names every flag it passes, gets the
  * role's token from the main checkout's identity store, and runs claude with only that
  * token and the main bundle added to the scrubbed environment. Returns claude's exit code.
  */
@@ -98,12 +138,9 @@ export async function launchClaude(
     deps.stderr(flagRefusal);
     return 1;
   }
-  const minted = await roleToken(
-    { ...deps, root: () => Promise.resolve(main) },
-    input.role,
-  );
-  if (minted !== undefined && "error" in minted) {
-    deps.stderr(`${minted.error.replace(PANE_SUFFIX, "")}\n`);
+  const token = await tokenFor(deps, main, env, input.role);
+  if (!token.ok) {
+    deps.stderr(token.message);
     return 1;
   }
   const result = await deps.runner.run(
@@ -127,7 +164,7 @@ export async function launchClaude(
       env: {
         ...env,
         KORE_HARNESS_BUNDLE: join(main, "skills", "bin", "harness.mjs"),
-        ...(minted === undefined ? {} : { GH_TOKEN: minted.token }),
+        ...(token.token === undefined ? {} : { GH_TOKEN: token.token }),
       },
       inherit: true,
     },
