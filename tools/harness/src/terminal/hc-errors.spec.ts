@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { HC_0_1_21 } from "./hc-0.1.21.fixtures.js";
-import { hcFailure } from "./hc-errors.js";
+import { hcFailure, unfinishedWait } from "./hc-errors.js";
 import { failed } from "./hc-terminals-support.js";
 
 // terminalError is a function with behaviour, so it is a double (ADR 0098).
@@ -113,6 +113,36 @@ describe("hcFailure", () => {
       error: {
         kind: "unavailable",
         message: 'hc get exited with code 2: {"ok":true}',
+      },
+    });
+  });
+});
+
+describe("unfinishedWait maps a wait hc ended with nothing finished to the port's error", () => {
+  it("reports a timeout with the bound and the command to run instead", () => {
+    expect(unfinishedWait("timeout", 5000)).toEqual({
+      error: {
+        kind: "timeout",
+        message: "nothing has finished within 5000 ms",
+        hint: "wait longer, or check the terminal with get()",
+      },
+    });
+  });
+
+  it("reports a message's wake as woke, never as a timeout or a failure", () => {
+    expect(unfinishedWait("message", 5000)).toEqual({
+      error: {
+        kind: "woke",
+        message: "a message woke the wait before a finish",
+      },
+    });
+  });
+
+  it("reports a reason it does not know as unavailable, naming the reason", () => {
+    expect(unfinishedWait("shutdown", 5000)).toEqual({
+      error: {
+        kind: "unavailable",
+        message: "wait stopped without a finished terminal (reason shutdown)",
       },
     });
   });

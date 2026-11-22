@@ -40,7 +40,8 @@ export function childrenPause(deps: {
         Math.min(left, CHECKS_POLL_MS),
       );
       if ("error" in waited) {
-        if (waited.error.kind === "timeout") {
+        // A timeout or a message wake is not news: the wait returns to re-read the checks, and passes the bound only when it has passed.
+        if (waited.error.kind === "timeout" || waited.error.kind === "woke") {
           return deps.clock.now().getTime() - start >= remainingMs;
         }
         throw new Error(messageOf(waited));

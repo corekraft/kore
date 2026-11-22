@@ -26,6 +26,8 @@ export type TerminalErrorKind =
   | "name-taken"
   | "status-mismatch"
   | "timeout"
+  /** A message woke a wait before anything it waits for finished: the wait ended, nothing failed; wait again. */
+  | "woke"
   | "invalid-spec"
   | "unavailable";
 

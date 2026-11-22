@@ -209,13 +209,14 @@ describe("waitForReport never reports done without a report", () => {
   });
 
   it("fails as still working on a timeout with no report and no stop, naming the command to run again", async () => {
-    vi.spyOn(terminals, "wait").mockResolvedValue(
-      terminalError(
+    vi.spyOn(terminals, "wait").mockImplementation(async () => {
+      await deps.clock.sleep(TIMEOUT_MS);
+      return terminalError(
         "timeout",
         "nothing has finished within 60000 ms",
         "wait longer, or check the terminal with get()",
-      ),
-    );
+      );
+    });
 
     expect(await waitFor()).toStrictEqual({
       error:

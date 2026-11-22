@@ -149,6 +149,45 @@ describe("childrenPause: each wait is capped at one checks interval, so a child 
   });
 });
 
+describe("childrenPause: a message wake is not final, so the wait re-reads and carries on within the bound", () => {
+  const woke = {
+    error: {
+      kind: "woke",
+      message: "a message woke the wait before a finish",
+    },
+  };
+
+  it("returns to re-read the checks, without throwing, when a message wakes the wait before the bound", async () => {
+    const terminals = terminalsMock();
+    terminals.wait.mockResolvedValueOnce(woke);
+
+    expect(await pauseOf(terminals)(900_000)).toBe(false);
+    expect(terminals.wait).toHaveBeenCalledExactlyOnceWith(
+      { children: "any", of: "t1" },
+      CHECKS_POLL_MS,
+    );
+  });
+
+  it("carries on waiting within the bound after a message wake, and passes the bound when the rest of it has passed", async () => {
+    const { clock, advance } = clockAt();
+    const terminals = terminalsMock();
+    terminals.wait
+      .mockImplementationOnce(async () => {
+        advance(CHECKS_POLL_MS);
+        return woke;
+      })
+      .mockImplementationOnce(async () => {
+        advance(1_000);
+        return woke;
+      });
+    const pause = pauseOf(terminals, clock);
+
+    expect(await pause(CHECKS_POLL_MS + 1_000)).toBe(false);
+    expect(await pause(1_000)).toBe(true);
+    expect(terminals.wait).toHaveBeenCalledTimes(2);
+  });
+});
+
 describe("pollPause: the default pause sleeps one poll interval, and passes the bound when less than one remains", () => {
   it("sleeps one poll interval and keeps polling while the bound has more than one left", async () => {
     const { clock, sleep } = clockAt();
