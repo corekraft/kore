@@ -185,6 +185,7 @@ const entryPoints = [
   "releaseOwner",
   "renderedCrdNames",
   "rollbackConstraint",
+  "serviceHostname",
   "sessionCookieViolations",
   "smtpSecretName",
   "smtpSecretNamespace",

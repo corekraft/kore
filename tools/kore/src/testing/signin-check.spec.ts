@@ -3,8 +3,14 @@ import { keycloakHostname, type Repository } from "../config/index.js";
 import type { Runner } from "../runtime/index.js";
 import { runHeadlessBrowser } from "./headless-browser.js";
 import { KeycloakTestUsers } from "./keycloak-test-user.js";
-import { checkSignIn } from "./signin-check.js";
-import { signInProgram } from "./signin-program.js";
+import {
+  backstageSignInTarget,
+  checkSignIn,
+  type SignInTarget,
+} from "./signin-check.js";
+import { backstageSignInPaths, signInProgram } from "./signin-program.js";
+
+const { connect } = vi.hoisted(() => ({ connect: vi.fn() }));
 
 vi.mock("../config/index.js", () => ({
   gatewayEntryPort: 443,
@@ -16,9 +22,11 @@ vi.mock("./headless-browser.js", () => ({
   runHeadlessBrowser: vi.fn(),
 }));
 vi.mock("./keycloak-test-user.js", () => ({
-  KeycloakTestUsers: { connect: vi.fn() },
+  KeycloakTestUsers: { connect },
+  defaultRealm: "platform",
 }));
-vi.mock("./signin-program.js", () => ({
+vi.mock("./signin-program.js", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("./signin-program.js")>()),
   signInProgram: vi.fn(() => "program"),
 }));
 
@@ -44,9 +52,7 @@ const bothHold = [
 
 beforeEach(() => {
   vi.clearAllMocks();
-  vi.mocked(KeycloakTestUsers).connect.mockResolvedValue(
-    users as unknown as KeycloakTestUsers,
-  );
+  connect.mockResolvedValue(users as unknown as KeycloakTestUsers);
   vi.mocked(signInProgram).mockReturnValue("program");
   browserSays(bothHold);
 });
@@ -138,9 +144,85 @@ describe("checkSignIn hosts", () => {
     expect(keycloakHostname).toHaveBeenCalledWith(repository.environment);
     expect(signInProgram).toHaveBeenCalledWith(
       expect.objectContaining({
-        backstageHost: "backstage.kore.internal",
+        host: "backstage.kore.internal",
         keycloakHost: "keycloak.platform.kore.internal",
       }),
     );
+  });
+
+  it("checks Backstage when no target is given: Backstage's host and paths, and the platform realm", async () => {
+    await checkSignIn(repository, runner);
+    expect(signInProgram).toHaveBeenCalledWith(
+      expect.objectContaining({
+        host: "backstage.kore.internal",
+        paths: backstageSignInPaths,
+      }),
+    );
+    expect(connect).toHaveBeenCalledWith(repository, runner, "platform");
+  });
+
+  it("names Backstage's target from the environment, with the platform realm", () => {
+    expect(backstageSignInTarget(repository)).toEqual({
+      host: "backstage.kore.internal",
+      realm: "platform",
+      paths: backstageSignInPaths,
+    });
+  });
+});
+
+const goldenPath: SignInTarget = {
+  host: "golden-path-example.platform.kore.internal",
+  realm: "golden",
+  paths: {
+    startPath: "/oauth2/authorization/golden-path",
+    signedInCallPath: "/api/whoami",
+    anonymousPath: "/api/whoami",
+  },
+};
+
+describe("checkSignIn for a golden-path target", () => {
+  it("hands the browser program the Service's host and paths, not Backstage's", async () => {
+    await checkSignIn(repository, runner, goldenPath);
+    expect(signInProgram).toHaveBeenCalledWith(
+      expect.objectContaining({
+        host: "golden-path-example.platform.kore.internal",
+        keycloakHost: "keycloak.platform.kore.internal",
+        paths: goldenPath.paths,
+      }),
+    );
+  });
+
+  it("creates and removes the throwaway user in the target's realm", async () => {
+    await checkSignIn(repository, runner, goldenPath);
+    expect(connect).toHaveBeenCalledWith(repository, runner, "golden");
+    expect(users.remove).toHaveBeenCalledWith("u-42");
+  });
+
+  it("passes only when both assertions hold, and fails by name when its request with no sign-in is not refused", async () => {
+    browserSays([
+      { name: "signed-in call succeeds", ok: true },
+      { name: "request with no sign-in is refused", ok: false },
+    ]);
+    const result = await checkSignIn(repository, runner, goldenPath);
+    expect(result.passed).toBe(false);
+    expect(result.assertions.filter((a) => !a.ok).map((a) => a.name)).toEqual([
+      "request with no sign-in is refused",
+    ]);
+  });
+
+  it("removes the golden-path test user after a failed browser run, and rethrows its error", async () => {
+    vi.mocked(runHeadlessBrowser).mockRejectedValue(
+      new Error("the sign-in redirect timed out"),
+    );
+    await expect(checkSignIn(repository, runner, goldenPath)).rejects.toThrow(
+      "the sign-in redirect timed out",
+    );
+    expect(users.remove).toHaveBeenCalledWith("u-42");
+  });
+
+  it("never puts the password it generated in the result", async () => {
+    const result = await checkSignIn(repository, runner, goldenPath);
+    expect(passwordGiven()).not.toBe("");
+    expect(JSON.stringify(result)).not.toContain(passwordGiven());
   });
 });

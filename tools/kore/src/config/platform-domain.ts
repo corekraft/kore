@@ -57,6 +57,19 @@ export function platformPlan(environment: Environment): PlatformPlan {
 }
 
 /**
+ * The HTTPS host of a Service in the platform organization's default zone,
+ * <service>.<organizationId>.<domain> (ADR 0042). The Service name is one DNS
+ * label; the caller checks that before it reaches a host.
+ */
+export function serviceHostname(
+  environment: Environment,
+  service: string,
+): string {
+  const { domain, organizationId } = platformPlan(environment);
+  return `${service}.${organizationId}.${domain}`;
+}
+
+/**
  * The refusal of an overlay that still declares the removed deprecated alias
  * (ADR 0176). It is refused, not ignored, so the listener cannot come back
  * unnoticed.

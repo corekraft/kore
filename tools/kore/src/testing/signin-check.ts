@@ -7,8 +7,12 @@ import {
 } from "../config/index.js";
 import { pinnedBrowserImage, runHeadlessBrowser } from "./headless-browser.js";
 import type { Runner } from "../runtime/index.js";
-import { KeycloakTestUsers } from "./keycloak-test-user.js";
-import { signInProgram } from "./signin-program.js";
+import { defaultRealm, KeycloakTestUsers } from "./keycloak-test-user.js";
+import {
+  backstageSignInPaths,
+  signInProgram,
+  type SignInPaths,
+} from "./signin-program.js";
 
 // Docs: docs/decisions/0111-run-a-backstage-and-an-argo-cd-for-the-platform-organization-s-operators.md
 // Docs: docs/decisions/0113-run-a-keycloak-for-the-platform-organization-s-operators.md
@@ -36,19 +40,43 @@ function assertionsOf(reply: unknown): SignInAssertion[] {
 }
 
 /**
- * Signs in to Backstage through the platform Keycloak as a throwaway operator
- * and checks the two assertions of the sign-in check. The user is created for
- * this run, added to platform-operators, and removed whether the check passes or
- * fails. The password is generated in memory, streamed to the browser on stdin,
- * and never returned or printed.
+ * Where the check signs in: the HTTPS host the sign-in lands on, the Keycloak
+ * realm the throwaway user is created in, and the paths the browser uses.
+ */
+export interface SignInTarget {
+  host: string;
+  realm: string;
+  paths: SignInPaths;
+}
+
+/** Backstage's target from the environment: its host, the platform realm, and Backstage's paths. */
+export function backstageSignInTarget(repository: Repository): SignInTarget {
+  return {
+    host: backstageHostname(repository.environment),
+    realm: defaultRealm,
+    paths: backstageSignInPaths,
+  };
+}
+
+/**
+ * Signs in through the platform Keycloak as a throwaway operator and checks the
+ * two assertions of the sign-in check, on the target (Backstage when none is
+ * given). The user is created for this run, added to platform-operators, and
+ * removed whether the check passes or fails. The password is generated in
+ * memory, streamed to the browser on stdin, and never returned or printed.
  */
 export async function checkSignIn(
   repository: Repository,
   runner: Runner,
+  target: SignInTarget = backstageSignInTarget(repository),
 ): Promise<SignInResult> {
   const password = randomBytes(24).toString("base64url");
   const username = `kore-signin-check-${randomBytes(4).toString("hex")}`;
-  const users = await KeycloakTestUsers.connect(repository, runner);
+  const users = await KeycloakTestUsers.connect(
+    repository,
+    runner,
+    target.realm,
+  );
   const id = await users.create(username, password);
   let outcome: SignInResult;
   try {
@@ -56,11 +84,12 @@ export async function checkSignIn(
     const reply = await runHeadlessBrowser(runner, {
       image: pinnedBrowserImage,
       program: signInProgram({
-        backstageHost: backstageHostname(repository.environment),
+        host: target.host,
         keycloakHost: keycloakHostname(repository.environment),
         port: gatewayEntryPort,
         username,
         password,
+        paths: target.paths,
       }),
       secrets: [password],
     });
