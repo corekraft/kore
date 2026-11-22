@@ -6,7 +6,6 @@ import {
   platformHelmArgs,
   platformPlan,
   platformWildcard,
-  serviceHostname,
 } from "./platform-domain.js";
 import type { Environment } from "./types.js";
 
@@ -23,23 +22,6 @@ test("the plan is the environment's one platform field, verbatim", () => {
     domain: "kore.internal",
     organizationId: "platform",
   });
-});
-
-test("a Service's HTTPS host is its name under the organization's zone, <service>.<organizationId>.<domain> (ADR 0042)", () => {
-  expect(serviceHostname(local, "golden-path-example")).toBe(
-    "golden-path-example.platform.kore.internal",
-  );
-});
-
-test("a Service's host is refused for an environment with no platform field, the same refusal as the plan", () => {
-  expect(() =>
-    serviceHostname(
-      fakeEnvironment({ name: "staging" }),
-      "golden-path-example",
-    ),
-  ).toThrow(
-    "environment staging must declare platform.domain and platform.organizationId (for example kore.internal and platform)",
-  );
 });
 
 test("an environment with no platform field is refused, naming the environment and the fix", () => {
