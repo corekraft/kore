@@ -110,3 +110,6 @@ export const databaseRoutesFlag = "database-routes";
 
 /** The flag that routes OTLP by name through the shared Gateway to the standard collector receiver on 4318 (ADR 0140, issue 1224). */
 export const otlpRouteFlag = "otlp-route";
+
+/** The flag that turns on the golden-path sign-in flow in the Kotlin BFF template: an OIDC sign-in behind a server-side session, off in every overlay until a live run proves it (plan 15 Step 7, issue 1745). */
+export const goldenPathSigninFlag = "golden-path-signin";

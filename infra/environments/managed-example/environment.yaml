@@ -60,7 +60,8 @@
       "pane-result-summary": false,
       "signed-main-sends": false,
       "main-session-wait": false,
-      "decision-advisor": false
+      "decision-advisor": false,
+      "golden-path-signin": false
     },
   "secrets": { "storeName": "platform-secrets", "sourceNamespace": "external" },
   "telemetry":

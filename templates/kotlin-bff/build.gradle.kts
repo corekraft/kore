@@ -22,6 +22,13 @@ dependencies {
     implementation("org.springframework.boot:spring-boot-starter-web")
     implementation("org.springframework.boot:spring-boot-starter-actuator")
     implementation("org.jetbrains.kotlin:kotlin-reflect")
+    implementation("org.springframework.boot:spring-boot-starter-security:4.1.2")
+    implementation("org.springframework.boot:spring-boot-starter-oauth2-client:4.1.2")
+    testImplementation("org.springframework.boot:spring-boot-starter-test:4.1.2")
+}
+
+tasks.test {
+    useJUnitPlatform()
 }
 
 // The 25.0.2 base on Oracle Linux 9 (ADR 0144). The default 25.0.2 image is built
