@@ -347,6 +347,7 @@ decisions; read one only when planning that area, and expect it to change.
 - [`docs/ideas/0076-the-golden-path-bff-scales-out-and-back-and-keeps-its-p95-li.md`](ideas/0076-the-golden-path-bff-scales-out-and-back-and-keeps-its-p95-li.md) — The golden-path BFF scales out and back and keeps its p95 live in local
 - [`docs/ideas/0077-the-delivery-stage-timer-times-a-service-through-six-stages.md`](ideas/0077-the-delivery-stage-timer-times-a-service-through-six-stages.md) — The delivery-stage timer times a Service through six stages live in local
 - [`docs/ideas/0078-writer-sandbox-denies-the-hc-socket-and-credentials.md`](ideas/0078-writer-sandbox-denies-the-hc-socket-and-credentials.md) — The writer sandbox denies the hc socket and credentials once it is wired into spawn
+- [`docs/ideas/0080-the-golden-path-sign-in-passes-live-a-signed-in-call-succeed.md`](ideas/0080-the-golden-path-sign-in-passes-live-a-signed-in-call-succeed.md) — The golden-path sign-in passes live: a signed-in call succeeds and an anonymous call is refused
 
 ## Operations and Guides
 
