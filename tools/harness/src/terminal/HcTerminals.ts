@@ -103,6 +103,7 @@ export class HcTerminals implements Terminals {
         ...(spec.parent === undefined ? [] : ["--parent", spec.parent]),
         ...(spec.outliveParent === true ? ["--outlive-parent"] : []),
         ...(spec.notify === false ? ["--no-notify"] : []),
+        ...(spec.rm === true ? ["--rm"] : []),
         "--",
         ...spec.argv,
       ],

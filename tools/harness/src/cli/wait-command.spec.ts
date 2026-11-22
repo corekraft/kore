@@ -8,6 +8,7 @@ import {
 import { failed, repoOf } from "./judge-shared.js";
 import { readChecks, type ChecksReport } from "./pr-checks.js";
 import { harnessWait } from "./wait-command.js";
+import { pollPause, withPause } from "./wait-hc-children.js";
 
 vi.mock("../session/index.js", () => ({
   openSessionTarget: vi.fn(),
@@ -21,6 +22,10 @@ vi.mock("./judge-shared.js", () => ({
 vi.mock("./pr-checks.js", () => ({
   CHECKS_POLL_MS: 15_000,
   readChecks: vi.fn(),
+}));
+vi.mock("./wait-hc-children.js", () => ({
+  pollPause: vi.fn(),
+  withPause: vi.fn(),
 }));
 
 interface Fixture {
@@ -72,6 +77,16 @@ const TARGET = { name: "image-trust-writer" } as never;
 
 beforeEach(() => {
   vi.resetAllMocks();
+  vi.mocked(pollPause).mockImplementation((clock) => async (remainingMs) => {
+    if (remainingMs < 15_000) {
+      return true;
+    }
+    await clock.sleep(15_000);
+    return false;
+  });
+  vi.mocked(withPause).mockImplementation((deps, _targets, _scope, run) =>
+    run(pollPause(deps.clock)),
+  );
   vi.mocked(repoOf).mockResolvedValue("corekraft/kore");
   vi.mocked(failed).mockReturnValue(1);
   vi.mocked(parseTimeout).mockReturnValue(3_600_000);
@@ -269,5 +284,28 @@ describe("harness wait treats a failed read as a failure, not a result", () => {
       "herdr pane read w3:p9 failed: no pane\n",
     );
     expect(f.stdout).not.toHaveBeenCalled();
+  });
+});
+
+describe("harness wait on hc children: a pull request wait runs under the pause withPause hands it", () => {
+  it("settles on the first read that is not pending, with the pause the children wait gives", async () => {
+    const f = fixture({ pr: ["5"] });
+    vi.mocked(withPause).mockImplementation(
+      async (_deps, _targets, _scope, run) => run(async () => false),
+    );
+    vi.mocked(readChecks)
+      .mockResolvedValueOnce(report("pending"))
+      .mockResolvedValueOnce(report("green"));
+
+    expect(await harnessWait.run(f.context)).toBe(0);
+    expect(withPause).toHaveBeenCalledExactlyOnceWith(
+      f.context.deps,
+      { prs: [5], ideas: 0 },
+      { root: "/repo", repo: "corekraft/kore" },
+      expect.any(Function),
+    );
+    expect(f.stdout).toHaveBeenCalledExactlyOnceWith(
+      "settled: PR #5 is green.\n",
+    );
   });
 });
