@@ -1,7 +1,9 @@
 import type { Runner } from "../runtime/index.js";
 import {
   parseContainerStats,
+  parseLinuxSwapMiB,
   parseOomKilledPods,
+  parseSwapTotalMiB,
   parseSwapUsedMiB,
   parseVmMemoryInUseMiB,
   parseVmMemoryMiB,
@@ -15,8 +17,10 @@ import { judgeFootprint, type FootprintVerdict } from "./footprint-verdict.js";
 // The platform footprint measurement (#614): CPU and memory of the k3d server
 // container, the Docker VM's total memory, and the host's swap and load, sampled
 // on a clock once the settled platform has idled. It is read-only: `docker
-// stats`, `docker info`, `sysctl` and `kubectl get pods`. The method is the same
-// for Now, Next and Then, so everything that could vary is a stated option. A
+// stats`, `docker info`, `kubectl get pods` and the host's swap, from
+// `sysctl vm.swapusage` on macOS or `/proc/meminfo` on Linux. The method is
+// the same for Now, Next and Then, so everything that could vary is a stated
+// option. A
 // run also carries its breach verdict (#1107), so an overloaded run reads as
 // inconclusive rather than as a pass.
 
@@ -48,11 +52,19 @@ export interface FootprintDeps {
   now: () => number;
   /** Milliseconds since the epoch, to compare with pod termination times. */
   epochMilliseconds: () => number;
+  /** The host's platform: linux reads swap from /proc/meminfo, darwin from sysctl; any other is refused. */
+  platform: NodeJS.Platform;
+  /** Reads a text file of the host, such as /proc/meminfo on Linux. */
+  readFile: (path: string) => Promise<string>;
 }
 
 export interface FootprintRun extends FootprintSummary {
   method: FootprintOptions;
+  /** The host's platform, which chose how its swap was read. */
+  platform: NodeJS.Platform;
   vmMemoryMiB: number;
+  /** The host's swap total (MiB): the largest read across the samples. */
+  swapTotalMiB: number;
   elapsedSeconds: number;
   loadAverage: { start: number; max: number };
   /** The loads at or above the ceiling during the run; empty for an untainted run. */
@@ -64,6 +76,9 @@ export interface FootprintRun extends FootprintSummary {
   verdict: FootprintVerdict;
 }
 
+/** The host's meminfo, read on Linux, where the host runs Docker itself. */
+const hostMeminfo = "/proc/meminfo";
+
 export class FootprintMeasurement {
   constructor(
     private readonly runner: Runner,
@@ -74,6 +89,12 @@ export class FootprintMeasurement {
   /** Settles, then samples the server container and the host. */
   async measure(): Promise<FootprintRun> {
     const { maxLoadAverage, sampleCount } = this.options;
+    const { platform } = this.deps;
+    if (platform !== "linux" && platform !== "darwin") {
+      throw new Error(
+        `host platform ${platform} is not supported; the footprint measurement reads swap on linux and darwin`,
+      );
+    }
     const start = this.deps.loadAverage();
     if (start >= maxLoadAverage) {
       throw new Error(
@@ -92,18 +113,22 @@ export class FootprintMeasurement {
     const began = this.deps.now();
     const samples: FootprintSample[] = [];
     const vmMemoryInUseMiB: number[] = [];
+    const swapTotalsMiB: number[] = [];
     for (let index = 0; index < sampleCount; index++) {
       await this.deps.sleep(this.options.sampleIntervalSeconds);
       const taken = await this.sample();
       samples.push(taken.sample);
       vmMemoryInUseMiB.push(taken.vmMemoryInUseMiB);
+      swapTotalsMiB.push(taken.swapTotalMiB);
     }
     const oomKilledPods = await this.oomKilledPods(runStarted);
     const summarized = summarizeFootprint(samples, vmMemoryMiB);
     const loads = samples.map((sample) => sample.loadAverage);
     return {
       method: this.options,
+      platform,
       vmMemoryMiB,
+      swapTotalMiB: Math.max(...swapTotalsMiB),
       elapsedSeconds: Math.round((this.deps.now() - began) / 100) / 10,
       loadAverage: { start, max: Math.max(start, ...loads) },
       overCeiling: loads.filter((load) => load >= maxLoadAverage),
@@ -140,6 +165,7 @@ export class FootprintMeasurement {
   private async sample(): Promise<{
     sample: FootprintSample;
     vmMemoryInUseMiB: number;
+    swapTotalMiB: number;
   }> {
     const loadAverage = this.deps.loadAverage();
     const usage = await this.read(
@@ -162,32 +188,66 @@ export class FootprintMeasurement {
       ["stats", "--no-stream", "--format", "{{json .}}"],
       parseVmMemoryInUseMiB,
     );
-    const swapMiB = await this.read(
-      "the macOS swap usage",
-      "this measurement needs macOS",
-      "sysctl",
-      ["vm.swapusage"],
-      parseSwapUsedMiB,
-    );
+    const swap = await this.readSwap();
     return {
-      sample: { ...usage, swapMiB, loadAverage },
+      sample: { ...usage, swapMiB: swap.usedMiB, loadAverage },
       vmMemoryInUseMiB,
+      swapTotalMiB: swap.totalMiB,
     };
   }
 
-  /** Runs one read; any failure names what was being read and how to fix it. */
-  private async read<T>(
+  /** The host's swap: `/proc/meminfo` on Linux, `sysctl vm.swapusage` on macOS. */
+  private readSwap(): Promise<{ totalMiB: number; usedMiB: number }> {
+    if (this.deps.platform === "linux") {
+      return this.readWith(
+        "the host's swap in /proc/meminfo",
+        "check that /proc/meminfo is readable on this host",
+        () => this.deps.readFile(hostMeminfo),
+        parseLinuxSwapMiB,
+      );
+    }
+    return this.readWith(
+      "the macOS swap usage",
+      "check that sysctl vm.swapusage runs on this Mac",
+      () => this.capture("sysctl", ["vm.swapusage"]),
+      (stdout) => ({
+        totalMiB: parseSwapTotalMiB(stdout),
+        usedMiB: parseSwapUsedMiB(stdout),
+      }),
+    );
+  }
+
+  /** Runs one read-only process; any failure names what was being read and how to fix it. */
+  private read<T>(
     subject: string,
     hint: string,
     command: string,
     args: string[],
     parse: (stdout: string) => T,
   ): Promise<T> {
+    return this.readWith(
+      subject,
+      hint,
+      () => this.capture(command, args),
+      parse,
+    );
+  }
+
+  /** The stdout of one read-only process. */
+  private async capture(command: string, args: string[]): Promise<string> {
+    const { stdout } = await this.runner.run(command, args, { capture: true });
+    return stdout;
+  }
+
+  /** Runs one read and parses it; any failure names what was being read and how to fix it. */
+  private async readWith<T>(
+    subject: string,
+    hint: string,
+    fetch: () => Promise<string>,
+    parse: (stdout: string) => T,
+  ): Promise<T> {
     try {
-      const { stdout } = await this.runner.run(command, args, {
-        capture: true,
-      });
-      return parse(stdout);
+      return parse(await fetch());
     } catch (error) {
       const cause = error instanceof Error ? error.message : String(error);
       throw new Error(`reading ${subject} failed: ${cause}; ${hint}`);

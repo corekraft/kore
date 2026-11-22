@@ -1575,8 +1575,10 @@ against Now. Precondition: a converged `kore local up` profile with nothing else
 driving load. Method (`footprintMeasurementDefaults`): refuse to start at a host
 1-minute load average of 10 or more, settle 120 s, then 12 samples 20 s apart.
 Each sample reads the k3d server container's CPU and memory (`docker stats`), the
-macOS swap used (`sysctl vm.swapusage`) and the host load; the Docker VM's total
-memory is read once. A run reports the median and peak per metric, the VM
+host's swap used and total (`sysctl vm.swapusage` on macOS; SwapTotal and
+SwapTotal less SwapFree in `/proc/meminfo` on Linux) and the host load; the
+Docker VM's total memory is read once. A run names its platform, `linux` or
+`darwin`, and any other platform is refused before anything is read. A run reports the median and peak per metric, the VM
 headroom at the median and peak memory, and any load at or above the ceiling
 during the run. `footprintBaseline` is the mean of the run medians with the
 spread (gap between run medians as a percentage of the baseline, as in plan 13).
