@@ -7,6 +7,7 @@ import {
   type LedgerEvent,
 } from "../ledger/index.js";
 import { mainRoot, type CliDeps } from "../runtime/index.js";
+import { hcTerminalId, sessionIdentity } from "./guard-identity.js";
 
 /** What a ledger event takes from the host's payload. */
 export interface EventCall {
@@ -29,6 +30,35 @@ function ledgerRoot(deps: CliDeps): Promise<string | undefined> {
 async function holds(ledger: Ledger, kind: Kind, id: string): Promise<boolean> {
   const { events } = await ledger.list({ kind });
   return events.some((e) => e.id === id);
+}
+
+/** A herdr stamp: the pane's environment value, when the ledger accepts it as a name. `session spawn` sets these. */
+function stamp(
+  deps: CliDeps,
+  field: "idea" | "agent",
+  name: string,
+): Partial<LedgerEvent> {
+  const value = deps.env[name];
+  return isName(value) ? { [field]: value } : {};
+}
+
+/** The session and idea an event names. Outside an hc terminal, the herdr stamps; inside one, only the record hc confirmed, and never the environment. */
+async function identityOf(deps: CliDeps): Promise<Partial<LedgerEvent>> {
+  if (hcTerminalId(deps) === undefined) {
+    return {
+      ...stamp(deps, "idea", "KORE_IDEA"),
+      ...stamp(deps, "agent", "KORE_AGENT"),
+    };
+  }
+  const identity = await sessionIdentity(deps);
+  if (identity?.checked !== true || !isName(identity.name)) {
+    return {};
+  }
+  const idea = identity.idea;
+  return {
+    agent: identity.name,
+    ...(idea !== undefined && isName(idea) ? { idea } : {}),
+  };
 }
 
 /**
@@ -54,19 +84,13 @@ export async function recordEvent(
       return;
     }
     const pane = deps.env["HERDR_PANE_ID"];
-    // Stamped into the pane by `session spawn`; a value the ledger would refuse is left out.
-    const stamp = (field: "idea" | "agent", name: string) => {
-      const value = deps.env[name];
-      return isName(value) ? { [field]: value } : {};
-    };
     const event: Partial<LedgerEvent> = {
       source: "claude",
       kind,
       occurredAt: deps.clock.now().toISOString(),
       session,
       ...(typeof pane === "string" && pane !== "" ? { pane } : {}),
-      ...stamp("idea", "KORE_IDEA"),
-      ...stamp("agent", "KORE_AGENT"),
+      ...(await identityOf(deps)),
       ...(kind.startsWith("tool.") && typeof call.tool_name === "string"
         ? { tool: call.tool_name }
         : {}),

@@ -17,7 +17,12 @@ import {
   findInventory,
   type Inventory,
 } from "../guardrail/index.js";
-import { helpExemptOn, hostFacts } from "./guard-host-shell.js";
+import {
+  helpExemptOn,
+  hostFacts,
+  terminalNotice,
+  terminalRoleFacts,
+} from "./guard-host-shell.js";
 import { launchRoot } from "./guard-launch-root.js";
 import { recordEvent } from "./ledger-event.js";
 import type { CliDeps } from "../runtime/index.js";
@@ -53,6 +58,31 @@ function backgroundMark(call: GuardCall): { background?: true } {
     : {};
 }
 
+/** Records one guard.audit event for each audit-mode rule that fired on the call. */
+async function recordAudits(
+  deps: CliDeps,
+  call: GuardCall,
+  rules: readonly string[],
+): Promise<void> {
+  for (const rule of rules) {
+    await recordEvent(deps, "guard.audit", call, undefined, { label: rule });
+  }
+}
+
+/** The host's output for a call that is not blocked: the text as additional context, or nothing when there is none. */
+function contextOutput(text: string): HookResult {
+  return text === ""
+    ? {}
+    : {
+        stdout: JSON.stringify({
+          hookSpecificOutput: {
+            hookEventName: "PreToolUse",
+            additionalContext: text,
+          },
+        }),
+      };
+}
+
 export async function guard(
   payload: unknown,
   deps: CliDeps,
@@ -82,7 +112,10 @@ export async function guard(
     }
     problem = `\n[guard] Every rule is enforcing because ${error.message}`;
   }
+  // A notice names an hc terminal whose own session record cannot be read: the call still gets its verdict.
+  const notice = await terminalNotice(deps);
   const verdict = await evaluate(payload, {
+    ...(await terminalRoleFacts(deps)),
     root,
     cwd: callDirectory(call, root),
     // The home a leading ~ expands to, and whether the hook's own environment names bash (the zsh rules skip only then).
@@ -107,21 +140,12 @@ export async function guard(
       label: verdict.rule,
       id: blockId(call, verdict.rule),
     });
-    return { code: 2, stderr: `${verdict.message}${problem}\n` };
+    return { code: 2, stderr: `${verdict.message}${problem}${notice}\n` };
   }
   if (verdict.action === "warn") {
     // A warning is an audit-mode rule firing; the ledger counts it for the retro.
-    for (const rule of verdict.rules ?? [verdict.rule]) {
-      await recordEvent(deps, "guard.audit", call, undefined, { label: rule });
-    }
-    return {
-      stdout: JSON.stringify({
-        hookSpecificOutput: {
-          hookEventName: "PreToolUse",
-          additionalContext: verdict.message,
-        },
-      }),
-    };
+    await recordAudits(deps, call, verdict.rules ?? [verdict.rule]);
+    return contextOutput(`${verdict.message}${notice}`);
   }
-  return {};
+  return contextOutput(notice.trimStart());
 }

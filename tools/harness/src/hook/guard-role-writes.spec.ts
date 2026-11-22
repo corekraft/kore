@@ -103,6 +103,10 @@ describe("redirectTargets and withoutRedirects: the files a segment writes", () 
 });
 
 describe("bareAssignment: a plain NAME=value and nothing else", () => {
+  it("is not a bare assignment for HC_TERMINAL_ID, which steers the terminal hc commands see", () => {
+    expect(bareAssignment(["HC_TERMINAL_ID=t1"])).toBe(false);
+  });
+
   it("accepts a lone variable assignment", () => {
     expect(bareAssignment(["T=/a/b"])).toBe(true);
   });

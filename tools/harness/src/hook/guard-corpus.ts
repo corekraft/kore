@@ -9,6 +9,8 @@
 // here first, as a failing case, and then closed.
 
 import { READS_ALLOWED, READS_REFUSED } from "./guard-corpus-reads.js";
+import { GLOB_CASES } from "./guard-corpus-glob.js";
+import { HC_ORDINARY, HC_REFUSED } from "./guard-corpus-hc.js";
 import { JUDGMENT_ALLOWED, JUDGMENT_REFUSED } from "./guard-corpus-judgment.js";
 
 export interface CorpusCase {
@@ -47,37 +49,6 @@ const GLUED_REDIRECTS = eachRole(
   "cat a>out",
   "echo x >| file",
   "echo x>|file",
-);
-
-/** A zsh glob qualifier runs code in `e:'...':`, and `+func` calls a function. */
-const GLOB_QUALIFIERS = [undefined, "writer", "reader", "judge"].flatMap(
-  (role) =>
-    [
-      "ls *(e:'touch pwned':)",
-      "echo *(.e:'id':)",
-      "cat ?(e:'id':)",
-      "ls **/*(+evil)",
-      "ls *(N.e:'id':)",
-      "echo a(e:'touch p':)",
-      "echo {a,b}(e:'touch p':)",
-    ].map((input): CorpusCase => {
-      const base = {
-        tool: "Bash" as const,
-        input,
-        rule: "unquoted-glob",
-      };
-      return role === undefined ? base : { ...base, role };
-    }),
-);
-
-/** A shell given the qualifier as a script: only the sessions with a full shell reach it. */
-const GLOB_IN_SCRIPT = [undefined, "writer"].flatMap((role) =>
-  [`zsh -c "ls *(e:'id':)"`, `bash -c "ls *(+evil)"`].map(
-    (input): CorpusCase => {
-      const base = { tool: "Bash" as const, input, rule: "unquoted-glob" };
-      return role === undefined ? base : { ...base, role };
-    },
-  ),
 );
 
 const SECRET_PATHS = [
@@ -227,8 +198,8 @@ const GATED = bash(
 export const CORPUS: readonly CorpusCase[] = [
   ...GLUED_REDIRECTS,
   ...JUDGMENT_REFUSED,
-  ...GLOB_QUALIFIERS,
-  ...GLOB_IN_SCRIPT,
+  ...GLOB_CASES,
+  ...HC_REFUSED,
   ...SECRETS,
   ...eachRole(ROLES, "role-read-only", ...READS_REFUSED),
   ...GUARD_FILES,
@@ -258,6 +229,7 @@ const ordinary = (role: string | undefined, ...commands: string[]) =>
 
 /** Calls the fixes must not catch: reads, null redirects, quoted `>`, harmless globs and the writer's ordinary work. */
 export const ORDINARY: readonly OrdinaryCase[] = [
+  ...HC_ORDINARY,
   ...ROLES.flatMap((role) =>
     ordinary(
       role,

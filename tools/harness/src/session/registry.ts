@@ -49,6 +49,19 @@ export interface SessionRecord {
   closedAt?: string;
 }
 
+/** A record file this harness cannot read: its path, why, and the terminal its text names, if any. */
+export interface UnreadableRecord {
+  file: string;
+  reason: string;
+  terminal?: string;
+}
+
+/** Every record in the state directory, and every file in it that cannot be read. */
+export interface SessionRecords {
+  records: SessionRecord[];
+  unreadable: UnreadableRecord[];
+}
+
 const STATE_DIR = ".kore/state/sessions";
 
 /** The optional fields a record may carry, when present, have the type the harness writes. */
@@ -142,6 +155,49 @@ export class SessionRegistry {
       );
     }
     return parsed;
+  }
+
+  /**
+   * Every record in the state directory: the ones that read, and each file that does not, with why and the
+   * terminal its text names. None before the directory exists. A file this harness cannot read (corrupt, or
+   * written by a newer version) never hides the records of other sessions; the caller decides what it means.
+   */
+  async all(): Promise<SessionRecords> {
+    const records: SessionRecord[] = [];
+    const unreadable: UnreadableRecord[] = [];
+    if (!(await this.fs.exists(this.dir))) {
+      return { records, unreadable };
+    }
+    for (const file of await this.fs.readdir(this.dir)) {
+      if (file.endsWith(".json")) {
+        const name = file.slice(0, -".json".length);
+        try {
+          const record = await this.read(name);
+          if (record !== undefined) {
+            records.push(record);
+          }
+        } catch (error) {
+          if (!(error instanceof CommandError)) {
+            throw error;
+          }
+          unreadable.push(await this.unreadableRecord(name, error.message));
+        }
+      }
+    }
+    return { records, unreadable };
+  }
+
+  /** Describes a record file this harness cannot read; the terminal is read from its text, since the text cannot be parsed. */
+  private async unreadableRecord(
+    name: string,
+    reason: string,
+  ): Promise<UnreadableRecord> {
+    const file = this.file(name);
+    const text = await this.fs.readFile(file).catch(() => "");
+    const terminal = /"terminal"\s*:\s*"([^"]*)"/.exec(text)?.[1];
+    return terminal === undefined
+      ? { file, reason }
+      : { file, reason, terminal };
   }
 
   /** The open record (not closed) whose hc terminal is `terminal`; undefined when none names it, or no state exists yet. */

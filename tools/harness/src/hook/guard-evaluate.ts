@@ -24,7 +24,7 @@ export async function evaluate(
 
   const bounded =
     typeof tool === "string"
-      ? checkRole(call.agent_type, tool, input, ctx.root, {
+      ? checkRole(ctx.role ?? call.agent_type, tool, input, ctx.root, {
           cwd: ctx.cwd,
           helpExempt: ctx.helpExempt === true,
         })
