@@ -117,11 +117,22 @@ export class KeycloakTestUsers {
     return new KeycloakTestUsers(runner, host, await renew(), renew);
   }
 
-  /** Creates an enabled user with a password, and returns its id. */
+  /**
+   * Creates an enabled user with a password, and returns its id. The user has a
+   * name, a verified email and no required actions, so Keycloak's VERIFY_PROFILE
+   * and UPDATE_PASSWORD actions cannot stop the sign-in. The realm's default
+   * required actions stay as they are; only this user is shaped. The email uses
+   * the reserved .invalid domain, so no mail is ever sent.
+   */
   async create(username: string, password: string): Promise<string> {
     const reply = await this.send("POST", `/admin/realms/${realm}/users`, {
       username,
       enabled: true,
+      firstName: "Sign-in",
+      lastName: "Check",
+      email: `${username}@example.invalid`,
+      emailVerified: true,
+      requiredActions: [],
       credentials: [{ type: "password", value: password, temporary: false }],
     });
     expectStatus(reply, 201, `create the test user ${username}`);

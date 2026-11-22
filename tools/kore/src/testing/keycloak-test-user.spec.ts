@@ -63,6 +63,15 @@ function fakeRunner(answer: (curlConfig: string) => string) {
 const created =
   "HTTP/2 201\nlocation: https://keycloak.kore.internal/admin/realms/platform/users/u-42\n\n";
 
+/** The JSON body of the request's curl config, which line() writes as a JSON-quoted string. */
+function sentBody(input: string | undefined): Record<string, unknown> {
+  const quoted = /^data-binary = (.*)$/m.exec(input ?? "")?.[1];
+  if (quoted === undefined) {
+    throw new Error("the request carries no body in its curl config");
+  }
+  return JSON.parse(JSON.parse(quoted) as string) as Record<string, unknown>;
+}
+
 describe("KeycloakTestUsers", () => {
   it("reads the admin password from the Secret and sends it only on curl's stdin", async () => {
     const { runner, calls, curlCalls } = fakeRunner(() => created);
@@ -130,6 +139,24 @@ describe("KeycloakTestUsers", () => {
     const del = curlCalls().at(-1);
     expect(del?.input).toContain("/admin/realms/platform/users/u-42");
     expect(del?.input).toContain('request = "DELETE"');
+  });
+});
+
+describe("KeycloakTestUsers check user", () => {
+  it("creates the check user with a verified email, a name, a permanent password and no required actions, so no Keycloak required action can stop sign-in", async () => {
+    const { runner, curlCalls } = fakeRunner(() => created);
+    const users = await KeycloakTestUsers.connect(repository, runner);
+    await users.create("kore-signin-check-a1", password);
+    expect(sentBody(curlCalls().at(-1)?.input)).toEqual({
+      username: "kore-signin-check-a1",
+      enabled: true,
+      firstName: "Sign-in",
+      lastName: "Check",
+      email: "kore-signin-check-a1@example.invalid",
+      emailVerified: true,
+      requiredActions: [],
+      credentials: [{ type: "password", value: password, temporary: false }],
+    });
   });
 });
 
