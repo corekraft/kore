@@ -36,6 +36,8 @@ describe("harness judge declaration", () => {
 
   it("is read-only and takes no operand", () => {
     expect(declarationCommands.declaration?.operand).toBeUndefined();
-    expect(declarationCommands.declaration?.summary).toContain("read-only");
+    expect(declarationCommands.declaration?.help?.effects.kind).toBe(
+      "read-only",
+    );
   });
 });

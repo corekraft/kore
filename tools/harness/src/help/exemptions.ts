@@ -40,17 +40,6 @@ export const undocumented: readonly string[] = [
   "ruleset insights",
   // status
   "status",
-  // judge
-  "judge precheck",
-  "judge declaration",
-  "judge diff",
-  "judge approve",
-  "judge merge",
-  "judge send-back",
-  // review
-  "review post",
-  "review run",
-  "review resample",
   // pr
   "pr checks",
   "pr check",
@@ -75,6 +64,4 @@ export const undocumented: readonly string[] = [
   "orchestrate run",
   "orchestrate tick",
   "orchestrate plan",
-  // approve
-  "approve",
 ];
