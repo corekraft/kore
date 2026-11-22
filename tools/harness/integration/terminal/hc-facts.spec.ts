@@ -247,10 +247,10 @@ if (missing !== undefined) {
   });
 
   describe("a core stop, on its own scratch core", () => {
-    it("a stop ends a live terminal with reason server_stop, unless it was kept", async () => {
+    it("a stop ends a live terminal with reason server_stop", async () => {
       const own = await scratchCore();
-      await own.start();
       try {
+        await own.start();
         const live = json(
           await own.hc(["run", "--json", "--bg", "--cwd", own.dir, "--", "sh"]),
         ).address as string;

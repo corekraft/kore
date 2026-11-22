@@ -191,16 +191,22 @@ export async function scratchCore(): Promise<ScratchCore> {
       }
     },
     async dispose() {
+      // Every step runs even when an earlier one failed, so the core is always stopped
+      // and the root always removed. The first failure is the one rethrown.
       let failure: unknown;
+      const keep = (error: unknown) => {
+        failure ??= error;
+      };
       try {
         if (started) {
-          const holder = await holderOf(hc);
-          await resetUnder(hc);
+          const holder = await holderOf(hc).catch((error: unknown) => {
+            keep(error);
+            return undefined;
+          });
+          await resetUnder(hc).catch(keep);
           started = false;
-          await stopUnder(hc, session, holder);
+          await stopUnder(hc, session, holder).catch(keep);
         }
-      } catch (error) {
-        failure = error;
       } finally {
         await rm(root, { recursive: true, force: true });
       }
