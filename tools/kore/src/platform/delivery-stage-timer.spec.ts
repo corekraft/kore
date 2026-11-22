@@ -6,7 +6,7 @@ import {
   MERGED_MS,
   STAGES,
   timerWith,
-} from "./delivery-stage-timer-support.js";
+} from "./delivery-stage-timer-fixtures.js";
 
 // The merge check and the stage arithmetic are same-domain pure helpers, so they
 // are stubs here (ADR 0098). Their own spec proves the arithmetic; the constants
