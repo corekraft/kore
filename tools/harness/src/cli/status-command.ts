@@ -8,6 +8,7 @@ import {
   CommandError,
   type Command,
   type CommandContext,
+  type CommandHelp,
 } from "../runtime/index.js";
 import { openLedger } from "./ledger-commands.js";
 
@@ -79,9 +80,45 @@ async function ideas({ deps }: CommandContext) {
   return { byState, items };
 }
 
+const statusHelp: CommandHelp = {
+  purpose:
+    "Reports where the work stands in one read: the open plan items, the ideas by state, the open owner questions with the blocking ones first, the recent GitHub stages in the ledger, and the orchestrator tick's heartbeat: none, running, stopped, or gap when the tick is not running.",
+  when: "When the person's main session needs the picture before it acts: what is open, what waits on the owner, and whether the tick is running.",
+  whenNot:
+    "When you need one event or one idea: use ledger list for events, or idea show for an idea. status summarises all of them, and changes nothing.",
+  flags: {},
+  examples: [
+    {
+      command: "harness status",
+      shows:
+        "the plan lines, the idea counts by state, any open owner questions, a line when the tick is not running, and the recent GitHub stages",
+    },
+    {
+      command: "harness status --json",
+      shows:
+        "the same report as one object, with the plans, ideas, ledger, tick and ownerQuestions keys",
+    },
+  ],
+  exits: [
+    { code: 0, meaning: "the report is printed" },
+    {
+      code: 1,
+      meaning:
+        "no shared ledger root can be found, so the ledger cannot be read; stderr names the fix",
+    },
+  ],
+  effects: {
+    kind: "read-only",
+    detail:
+      "reads the active plans, the idea records and the ledger, then prints the report. It writes nothing.",
+  },
+  seeAlso: ["ledger list", "idea show", "decision digest"],
+};
+
 export const statusCommand: Command = {
   summary:
-    "report open plan items, ideas by state, the open owner questions (ADR 0120, blocking first), recent ledger stages and the orchestrator tick's heartbeat (tick: none, running, stopped, or gap, which prints 'the tick is not running' when its latest heartbeat is older than the gap with no stop after it); read-only, for the person's main session",
+    "report the plans, ideas, owner questions, stages and tick in one read",
+  help: statusHelp,
   async run(context) {
     const opened = await openLedger(context);
     if ("error" in opened) {

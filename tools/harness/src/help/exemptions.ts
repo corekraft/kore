@@ -24,22 +24,10 @@ export const undocumented: readonly string[] = [
   "idea list",
   "idea show",
   "idea sync",
-  // decision
-  "decision make",
-  "decision route",
-  "decision ask",
-  "decision digest",
   // flag
   "flag activate",
   "flag audit",
   // ruleset
   "ruleset sync",
   "ruleset insights",
-  // status
-  "status",
-  // ledger
-  "ledger record",
-  "ledger list",
-  "ledger poll-herdr",
-  "ledger poll-github",
 ];
