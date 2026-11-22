@@ -1,9 +1,10 @@
 // Docs: docs/decisions/0128-forward-fired-service-alerts-from-the-metrics-store-to-grafana-s-alert-manager.md
 import type { Runner } from "../runtime/index.js";
 
-// The reads and the scale-down behind the live alert proof. Prometheus and Grafana are read from inside
-// the prometheus-server pod, which mounts the Grafana admin password (ADR 0128): the password is read there
-// and never crosses into an argument, an output or this process. Kubernetes is read and scaled with kubectl.
+// The reads and the scale-down behind the live alert proof. Grafana is read from inside the grafana pod,
+// which holds the admin password in its environment (ADR 0177 moved the Service rules into Grafana): the
+// password is read there and never crosses into an argument, an output or this process. Kubernetes is read
+// and scaled with kubectl.
 
 export type RuleState = "absent" | "loaded" | "firing";
 
@@ -15,7 +16,7 @@ export const replicasAnnotation = "kore.dev/alert-proof-replicas";
 
 /** The names the proof's report gives each read and write, as an operator reads them. */
 export const callLabels = {
-  rules: "Prometheus GET /api/v1/rules",
+  rules: "Grafana GET /api/prometheus/grafana/api/v1/rules",
   deployments: "kubectl get deployments",
   annotate: "kubectl annotate deployment",
   scale: "kubectl scale deployment",
@@ -31,7 +32,7 @@ export interface DeploymentState {
 }
 
 export interface ClusterApi {
-  /** Prometheus GET /api/v1/rules: whether the service's group holds the alert, and whether it is firing. */
+  /** Grafana GET /api/prometheus/grafana/api/v1/rules: whether the service's group holds the alert, and whether it is firing. */
   ruleState(service: string, alert: string): Promise<RuleState>;
   /** Grafana GET /api/alertmanager/grafana/api/v2/alerts: the receivers of the alert for the service, once it is there. */
   alertReceivers(alert: string, service: string): Promise<string[] | undefined>;
@@ -53,16 +54,11 @@ export interface ClusterApiOptions {
 }
 
 const observabilityNamespace = "observability";
-const prometheusPod = "deploy/prometheus-server";
-const prometheusContainer = "prometheus-server";
-const prometheusUrl = "http://127.0.0.1:9090";
+const grafanaPod = "deploy/grafana";
+const grafanaContainer = "grafana";
 const grafanaUrl = "http://grafana.observability.svc:80";
-const grafanaPasswordFile = "/etc/kore/grafana-admin/admin-password";
-const plainScript = 'wget -q -O - "$1"';
 const authorisedScript =
-  "wget -q -O - --header=\"Authorization: Basic $(printf '%s' \"admin:$(cat " +
-  grafanaPasswordFile +
-  ')" | base64 | tr -d \'\\n\')" "$1"';
+  'wget -q -O - --header="Authorization: Basic $(printf \'%s\' "admin:$GF_SECURITY_ADMIN_PASSWORD" | base64 | tr -d \'\\n\')" "$1"';
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
@@ -91,7 +87,7 @@ export function parseRuleState(
 ): RuleState {
   const groups = field(field(body, "data"), "groups");
   if (!Array.isArray(groups)) {
-    throw new Error("Prometheus rules answer holds no rule groups");
+    throw new Error("Grafana rules answer holds no rule groups");
   }
   const group = groups.find(
     (item) => field(item, "name") === "kore.service." + service,
@@ -188,9 +184,9 @@ async function readInPod(
       "--namespace",
       observabilityNamespace,
       "exec",
-      prometheusPod,
+      grafanaPod,
       "--container",
-      prometheusContainer,
+      grafanaContainer,
       "--",
       "sh",
       "-c",
@@ -269,9 +265,9 @@ export function clusterApi(
     async ruleState(service, alert) {
       return parseRuleState(
         await inPod(
-          prometheusUrl + "/api/v1/rules",
-          plainScript,
-          "Prometheus rules",
+          grafanaUrl + "/api/prometheus/grafana/api/v1/rules",
+          authorisedScript,
+          "Grafana rules",
         ),
         service,
         alert,
