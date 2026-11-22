@@ -22,6 +22,8 @@
 {{- end }}
 {{- range $name, $path := dict "frontend" "/healthz" "bff" "/actuator/health" }}
 {{- $workload := index $.Values $name }}
+{{- /* The BFF keeps its sign-in session in memory, so a callback that lands on another pod loses it. While sign-in is on the BFF runs as one pod with no autoscaler, until a shared session store lands; the frontend keeps its autoscaling. */}}
+{{- $singleBff := and $signin.enabled (eq $name "bff") }}
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -31,7 +33,7 @@ metadata:
     app.kubernetes.io/name: {{ $.Values.service }}-{{ $name }}
     app.kubernetes.io/part-of: {{ $.Values.service }}
 spec:
-  {{- if not $autoscaling.enabled }}
+  {{- if or (not $autoscaling.enabled) $singleBff }}
   replicas: 1
   {{- end }}
   selector:
@@ -135,7 +137,7 @@ spec:
     - name: http
       port: 80
       targetPort: http
-{{- if $autoscaling.enabled }}
+{{- if and $autoscaling.enabled (not $singleBff) }}
 ---
 apiVersion: autoscaling/v2
 kind: HorizontalPodAutoscaler
