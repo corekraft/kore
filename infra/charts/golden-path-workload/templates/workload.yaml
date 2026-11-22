@@ -47,6 +47,27 @@ spec:
         runAsNonRoot: true
         seccompProfile:
           type: RuntimeDefault
+      {{- if and $signin.enabled (eq $name "bff") }}
+      {{- /* The JVM does not trust the cluster's local CA, so Spring's discovery of the Keycloak issuer fails PKIX path building. A same-image init container builds a truststore of the JDK roots plus the CA into an emptyDir; only ca.crt is mounted, never tls.key. */}}
+      initContainers:
+        - name: truststore
+          image: {{ $workload.image | quote }}
+          command:
+            - sh
+            - -c
+            - |
+              set -eu
+              cp "$JAVA_HOME/lib/security/cacerts" /truststore/cacerts
+              chmod u+w /truststore/cacerts
+              keytool -importcert -noprompt -alias kore-local-ca -file /ca/ca.crt -keystore /truststore/cacerts -storepass changeit
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: [ALL]
+          volumeMounts:
+            - {name: truststore, mountPath: /truststore}
+            - {name: bff-ca, mountPath: /ca, readOnly: true}
+      {{- end }}
       containers:
         - name: {{ $name }}
           image: {{ $workload.image | quote }}
@@ -66,6 +87,10 @@ spec:
                 secretKeyRef:
                   name: {{ printf "%s-oidc" $.Values.service }}
                   key: clientSecret
+            - name: JAVA_TOOL_OPTIONS
+              value: "-Djavax.net.ssl.trustStore=/truststore/cacerts -Djavax.net.ssl.trustStorePassword=changeit"
+          volumeMounts:
+            - {name: truststore, mountPath: /truststore, readOnly: true}
           {{- end }}
           {{- if $autoscaling.enabled }}
           resources:
@@ -84,6 +109,16 @@ spec:
             allowPrivilegeEscalation: false
             capabilities:
               drop: [ALL]
+      {{- if and $signin.enabled (eq $name "bff") }}
+      volumes:
+        - name: truststore
+          emptyDir: {}
+        - name: bff-ca
+          secret:
+            secretName: {{ $.Values.service }}-bff-ca
+            items:
+              - {key: ca.crt, path: ca.crt}
+      {{- end }}
 ---
 apiVersion: v1
 kind: Service
@@ -119,6 +154,20 @@ spec:
 {{- end }}
 {{- end }}
 {{- if $signin.enabled }}
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: {{ $.Values.service }}-bff-ca
+  labels:
+    app.kubernetes.io/part-of: {{ $.Values.service }}
+spec:
+  secretName: {{ $.Values.service }}-bff-ca
+  dnsNames:
+    - {{ $.Values.ingress.host | quote }}
+  issuerRef:
+    kind: ClusterIssuer
+    name: {{ $.Values.ingress.issuer | default "kore-local-ca" }}
 ---
 apiVersion: openidclient.keycloak.m.crossplane.io/v1alpha1
 kind: Client

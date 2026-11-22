@@ -1,4 +1,4 @@
-import type { RunResult, Runner } from "../runtime/index.js";
+import type { CommandHelp, RunResult, Runner } from "../runtime/index.js";
 
 interface Rect {
   x: number;
@@ -141,3 +141,42 @@ export async function equalize(
   }
   return { status: "equalized" };
 }
+
+export const equalizeHelp: CommandHelp = {
+  purpose:
+    "Rebalances the heights of the spawned panes in the column to the right of the caller's pane, so each takes an equal share of that column.",
+  when: "After a spawned pane was closed some other way, such as herdr pane close, leaving the column unequal.",
+  whenNot:
+    "After session spawn or session close: both already equalize the column. Outside Herdr it refuses, so run it from a pane.",
+  flags: {},
+  examples: [
+    {
+      command: "harness session equalize",
+      shows:
+        "Equalized. when the column was resized, or Skipped with the reason when there was nothing to resize; exit 0",
+    },
+    {
+      command: "harness session equalize --json",
+      shows:
+        "the same result as one JSON object, with its status, such as equalized",
+    },
+  ],
+  exits: [
+    {
+      code: 0,
+      meaning:
+        "the column is equalized, or skipped with a reason, such as no spawned column right of the caller",
+    },
+    {
+      code: 1,
+      meaning:
+        "not inside Herdr (HERDR_ENV is not 1, or HERDR_PANE_ID is unset), or herdr could not read the layout or resize a pane",
+    },
+  ],
+  effects: {
+    kind: "mutates",
+    detail:
+      "resizes the panes of the spawned column in Herdr; changes no registry entry and no ledger event",
+  },
+  seeAlso: ["session close", "session spawn"],
+};
