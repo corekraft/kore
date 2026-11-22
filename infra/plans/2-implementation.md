@@ -1621,19 +1621,21 @@ the overlay, never committed. `platform-shared-gateway`, `registry-by-name` and
 `otlp-route` stay on: local reaches its registry only by name and that needs the
 shared Gateway. Method as above (settle 120 s, 12 samples 20 s apart, ceiling 10).
 
-| Metric                    | Run 1 ([#1756](https://github.com/corekraft/kore/issues/1756)) | Run 2 (not clean)   | Baseline (mean of medians) | Spread |
-| ------------------------- | -------------------------------------------------------------- | ------------------- | -------------------------- | ------ |
-| CPU median / max          | 711.5 / 944 mCPU                                               | 672.5 / 1437 mCPU   | 692.0 mCPU                 | 5.6%   |
-| Memory median / max       | 5862.9 / 5884.9 MiB                                            | 5872.1 / 6019.1 MiB | 5867.5 MiB                 | 0.2%   |
-| Swap median / max         | 0 / 0 MiB                                                      | 0 / 0 MiB           | 0 MiB                      | n/a    |
-| VM headroom median / peak | 85.4% / 85.3%                                                  | 85.4% / 85.0%       | 85.4% at the median        | 0 pt   |
+| Metric                    | Run 1               | Run 3               | Baseline (mean of medians) | Spread |
+| ------------------------- | ------------------- | ------------------- | -------------------------- | ------ |
+| CPU median / max          | 711.5 / 944 mCPU    | 688 / 1820 mCPU     | 699.75 mCPU                | 3.4%   |
+| Memory median / max       | 5862.9 / 5884.9 MiB | 5506.6 / 5530.6 MiB | 5684.75 MiB                | 6.3%   |
+| Swap median / max         | 0 / 0 MiB           | 0 / 0 MiB           | 0 MiB                      | n/a    |
+| VM headroom median / peak | 85.4% / 85.3%       | 86.3% / 86.2%       | 85.85% at the median       | 0.9 pt |
 
-Run 1 is clean (no load sample at or above 10; load median 4.5). Run 2 is not:
-three samples read 10.15, 10.27 and 10.56 because another session's panes ran on
-the shared host and could not be paused. The owner accepted run 2 as the second
-run on 2026-11-22 (memory within 0.2% of run 1, no breach). Neither run breached
-the #1107 rule. This is not comparable with the Mac figures above: different
-host, VM size and swap.
+Both runs are clean (no load sample at or above 10; maximum 9.57 in run 1 and
+4.53 in run 3) and are recorded on [#1756](https://github.com/corekraft/kore/issues/1756).
+A run 2 on the same cluster was not clean (three samples at 10.15 to 10.56 from
+another session's panes); it is recorded there and left out of the baseline, and
+the owner asked for run 3 in its place on 2026-11-22. Neither run breached the
+#1107 rule. Run 3 followed a `platform stop` and a second `kore local up` on the
+same cluster, which is the likely reason its memory is 6% under run 1. This is not
+comparable with the Mac figures above: different host, VM size and swap.
 
 ## Progress Record
 
