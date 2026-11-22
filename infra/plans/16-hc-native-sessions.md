@@ -1,6 +1,6 @@
 ---
 status: active
-summary: Rebuild the harness's session tools on hc's model (terminals with parents and children, labels, reported status, hc wait, tagged reports, events) behind one Terminals port. hc is the adapter and an in-memory fake the second implementation. The token is minted inside each session's launch wrapper. Every harness command explains itself with a layered --help guide. What hc makes unnecessary is deleted, and the rest is pruned from usage evidence.
+summary: Rebuild the harness's session tools on hc's model (terminals with parents and children, labels, reported status, hc wait, tagged reports, events) behind one Terminals port. hc is the adapter and an in-memory fake the second implementation. The token is minted inside each session's launch wrapper. A child's report is a file the parent's wait reads, announced by a one-line notice. The switch is the hc-sessions flag. What hc makes unnecessary is deleted, and the rest is pruned from usage evidence. The layered --help guide moved to plan 17.
 last-verified: 2026-11-22
 ---
 
@@ -21,6 +21,8 @@ hc terminal. This plan does not translate herdr calls into hc calls. It
 adopts hc's principles and deletes the workarounds those principles make
 unnecessary. One port, shaped after hc's model, keeps the next switch to a
 single adapter. Terms follow [`GLOSSARY.md`](../../GLOSSARY.md).
+The layered `--help` guide, once Step 3 of this plan, is
+[plan 17](17-harness-help-guide.md).
 
 ## hc Principles This Plan Adopts
 
@@ -70,7 +72,7 @@ interface Terminal { id: string; name?: string; parent?: string; state: "live" |
 
 interface Terminals {
   self(): string | undefined;                                   // HC_TERMINAL_ID
-  run(spec: RunSpec): Promise<Started | TerminalError>;          // argv, name, cwd, labels, env, parent, outliveParent
+  run(spec: RunSpec): Promise<Started | TerminalError>;          // argv, name, cwd, labels, env, parent (hc run --parent), outliveParent
   get(t: string): Promise<Terminal | TerminalError>;
   list(filter?: { labels?: Record<string, string>; childrenOf?: string }): Promise<Terminal[] | TerminalError>;
   read(t: string, lines: number): Promise<{ text: string; complete: boolean } | TerminalError>;
@@ -98,7 +100,7 @@ through a `commands` descriptor that each adapter exports.
   the second implementation that keeps the port honest.
 - **herdr.** Gets no adapter. Emulating parents, reported status and tagged
   reports on herdr would rebuild the workarounds this plan deletes. herdr
-  keeps working on the old code path until Step 6 proves hc, and Step 7
+  keeps working on the old code path until Step 5 proves hc, and Step 6
   deletes it (expand and contract). A future backend gets an adapter written
   against the port and run through the shared contract spec.
 
@@ -108,11 +110,11 @@ through a `commands` descriptor that each adapter exports.
 | ----------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `session spawn`               | split pane → `pane run` the token export → `agent start` with retries → `agent prompt` with paste-race retry                                                         | one `hc run --bg --name <name> --cwd <worktree> --label kore-session=<name> --label role=<role> --label model=<model> harness session exec --role <role> -- claude --agent <role> --model <model> --effort <effort> "<brief>"`. The brief is claude's own first-prompt argument, so there is no paste and no race. The wrapper makes the role's token inside the terminal (see Decisions 6), so no secret crosses between processes |
 | Role definitions              | `.claude/agents/<role>.md` → `claude --agent`                                                                                                                        | unchanged: `.claude/agents/` stays the only definition, and claude reads it through `--agent`. No hc templates (decided 2026-11-22)                                                                                                                                                                                                                                                                                                 |
-| `session send`                | `send-text` + `send-keys` + count lines read back                                                                                                                    | `hc send` (it waits out the person's draft). If not confirmed, `read`, never resend blind                                                                                                                                                                                                                                                                                                                                           |
+| `session send`                | `send-text` + `send-keys` + count lines read back                                                                                                                    | `hc send` (it waits out the person's draft). If not confirmed, `read`, never resend blind. Allowed to the caller's parent, its own children and its siblings that share a `group=<name>` label set at spawn (a grilling pair), never to another terminal: hc has no access control, so the harness guard is the limit. Read-only roles may run `session send` under that rule; a raw `hc send` stays refused                        |
 | Sender line                   | the harness types `sender: <role> <session> (<command>)`                                                                                                             | hc's `<hc from="t7 name">` tag is the provenance (decided 2026-11-22). The harness adds no sender line; a role is looked up from the `role=` label                                                                                                                                                                                                                                                                                  |
-| `session wait` / result       | poll and scrape the `RESULT` line                                                                                                                                    | `wait` until `done`, `blocked` or `error`, then take the child's report (`hc send $parent`). A long result goes to a file named in the report. The brief tells every role how to report                                                                                                                                                                                                                                             |
+| `session wait` / result       | poll and scrape the `RESULT` line                                                                                                                                    | `hc wait <terminal>`, then read the child's report file (`.kore/report/<session>.json`, written by `session report`, Step 3). The `hc send` to the parent is a one-line notice only. No report means `blocked`, "stopped without a report". The brief tells every role how to report                                                                                                                                                |
 | `harness wait --pr --session` | a background job plus polling                                                                                                                                        | `gh run watch` in an hc terminal (`--bg --rm --no-notify`), then `wait --children any` across the PR watcher and the session                                                                                                                                                                                                                                                                                                        |
-| Ledger events                 | `herdr-poll` + `herdr-stall` on a schedule                                                                                                                           | `harness ledger watch` runs in its own hc terminal and turns `hc events --label kore-session` into ledger events. Stalls are `blocked` or `error` events, not timing guesses                                                                                                                                                                                                                                                        |
+| Ledger events                 | `herdr-poll` + `herdr-stall` on a schedule                                                                                                                           | `harness ledger watch` runs in its own hc terminal (`--name ledger-watch --outlive-parent`; `session spawn` starts it and a name conflict means it already runs) and turns `hc events --label kore-session` into ledger events. Stalls are `blocked` or `error` events, not timing guesses                                                                                                                                          |
 | `session check`               | role from the pane title                                                                                                                                             | role from the `role=` label. An agent terminal with no `kore-session` label is unmanaged                                                                                                                                                                                                                                                                                                                                            |
 | `session close`               | `pane close`, refused for others' panes                                                                                                                              | `kill` + `remove`, refused unless the terminal is the caller's child (hc's `parent` field)                                                                                                                                                                                                                                                                                                                                          |
 | Model check                   | screen scrape after launch                                                                                                                                           | deleted: the model is set explicitly in the launch argv and recorded in the `model=` label and the launch event (decided 2026-11-22)                                                                                                                                                                                                                                                                                                |
@@ -135,7 +137,7 @@ through a `commands` descriptor that each adapter exports.
 The plan already touches most of the session code. It removes what hc makes
 unnecessary, and it reviews the rest from evidence, not from memory.
 
-**Removed by the switch** (Step 7, after the live proof):
+**Removed by the switch** (Step 6, after the live proof):
 
 - `session equalize` and `equalize.ts`; pane splitting and placement in
   `spawn-pane.ts`
@@ -154,7 +156,7 @@ unnecessary, and it reviews the rest from evidence, not from memory.
 - the retro's herdr transcript recognizers, once no transcript inside the
   retro window has herdr lines (30 days after the flip)
 
-**Reviewed from evidence** (Step 7). A judgment session counts how often each
+**Reviewed from evidence** (Step 6). A judgment session counts how often each
 of the 77 commands was actually run over 30 days. It counts Bash tool calls in
 session transcripts and the ledger, not mentions in briefs or usage text. Each
 command or module then lands in one of three lists: keep, merge into another
@@ -171,8 +173,23 @@ dropping.
 
 ### Step 1: Pin and decide
 
-- [ ] Pin `hc` in mise (0.1.21 sits unpinned in `~/.local/bin`), with its
-      compatibility evidence (pin-upgrade skill).
+- [ ] Pin `hc` without mise (it is not in the mise registry): `hc update`
+      downloads "the latest release" from a source it does not print, and
+      `--version X.Y.Z` is a floor, not an exact pin, so the pin is the exact
+      `hc --version` check below plus a host-setup note (`hc update --version
+    X.Y.Z` as the floor, `hc update --from <file>` for an exact binary or
+      signed app). Say in the pin record that mise cannot pin the macOS bundle.
+      Compatibility evidence follows the pin-upgrade skill. Both hosts run
+      0.1.21 today. `HcTerminals` compares `hc --version` exactly once per
+      process and fails closed, naming the pinned version and the install
+      command, on a mismatch or a missing binary. Both hosts must run the same
+      hc: the core protocol differs by version. Keep the herdr pin
+      (`.mise.toml`) until the flip PR. Where releases are published, and
+      whether checksums exist, is an Open Question.
+- [ ] File the writer sandbox as its own idea (through the idea command),
+      citing #337, which is closed while ADR 0095 says wiring is pending.
+- [ ] Declare the `hc-sessions` flag in the flag manifest, off in every
+      overlay. Step 5 is its proof run; Step 6 retires it after a soak.
 - [ ] ADR "Agent sessions follow hc's model behind a Terminals port".
       It supersedes ADR 0078's herdr pane mechanics and refines
       ADR 0123 (wait through `hc wait`; the result
@@ -180,82 +197,164 @@ dropping.
       tag carries provenance).
 - [ ] ADR "A session's token is made inside its launch wrapper from the
       identity store". It supersedes ADR 0096: the FIFO handoff is removed.
-- [ ] Fold the Findings into the ADR: labels for identity, the launch wrapper for the token, and no API `env` for secrets.
+- [ ] Fold the Findings and the Grilled Decisions into the ADR: labels for
+      identity, the launch wrapper for the token, no API `env` for secrets, the
+      report file, the delivery terminal and the group label.
 
 ### Step 2: Port, fake, contract
 
-- [ ] `terminal/` with the port, `TerminalError`, `FakeTerminals` and a
-      shared contract spec.
-- [ ] `HcTerminals`, passing the contract spec against recorded `--json`
-      fixtures in unit tests.
+- [ ] `terminal/` with the port, `TerminalError`, `FakeTerminals` and
+      `terminal/contract-support.ts` (not a spec file, so each source keeps its
+      one spec): `terminalContract(make)`, the stateful contract (run, wait,
+      read, kill, remove, parent and child, labels). `FakeTerminals.spec.ts`
+      runs it, because the fake is shipped code and has nothing to mock.
+- [ ] `HcTerminals.spec.ts`: a unit over a mocked `Runner` and per-method
+      recorded `--json` fixtures, each named with the hc version: argv built,
+      JSON parsed, errors mapped. The stateful contract cannot run on a
+      scripted runner, so it runs against the real `HcTerminals` below.
 - [ ] An integration test that drives a real `hc` core under a scratch
       `HC_SESSION` and XDG: run a plain program, wait, read, kill, remove,
-      and a parent/child report. It never touches the user's core.
+      and a parent/child report, running `terminalContract` against the real
+      `HcTerminals`. It never touches the user's core. It also asserts that
+      `--no-notify` keeps a child's exit note out of its parent's input and
+      that a non-agent parent is told apart (status is null, `reported` false).
+      It also
+      proves `hc run --parent` from a caller that is not a terminal, and that
+      the reconcile read (`hc ls --all`) shows a terminal that finished while
+      no one was watching. It also settles three facts this plan relies on: a
+      parent's exit ends its child (`die_with_parent`), a core restart or
+      update keeps the terminals, and what state a terminal shows after a
+      holder crash or a host reboot (finished with an exit code, or gone).
 
-### Step 3: Help guide
+### Step 3: Reporting
 
-- [ ] Extend `Command` (`runtime/command.ts`) with a `help` record:
-      `purpose`, `when`, a description for every declared flag and operand,
-      `examples` (each a command and what it shows), `exits`, `effects`
-      (`read-only` or `mutates`, and what), and `seeAlso`. Each domain gets
-      a short guide too: its purpose and its usual flow.
-- [ ] `cli.ts` renders three levels, always to stdout, exit 0, with no root,
-      no ledger write and no side effect: - `harness --help`: what the harness is, the domains in one line
-      each, the common flows (spawn → wait → close; pr open → checks;
-      flag audit → activate), and how to go deeper. - `harness <domain> --help`: the domain guide and its commands. - `harness <domain> <command> --help`: usage, purpose, flags,
-      examples, exit codes, effects and related commands.
-
-      `--help --json` gives the same content as one object for agents. A
-      usage error prints the closest level's guide, not all 77 commands.
-
-- [ ] Specs fail a command with no help, with a declared flag that has no
-      description, or with no example. Flags therefore cannot drift from
-      their help.
-- [ ] Shrink each `summary` to one line, moving today's paragraph-long
-      summaries into `help`. Point skills, session-start hints and
-      `hook/context.ts` at `harness <domain> --help` instead of restating
-      usage. kb-check fails a doc that names a command or flag that does not
-      exist.
-
-### Step 4: Reporting
+An `hc send` report reaches the parent as its next input, never as the output
+of `hc wait` (`hc --skill`), so the report is a file and the send is only a
+notice (Grilled Decisions 1).
 
 - [ ] `harness session report --outcome done|blocked (--summary <text> |
-    --file <path>)` finds the parent with `hc get "$HC_TERMINAL_ID"`
-      (`.parent`) and runs `hc send <parent> "RESULT …"`. Every role's brief
-      ends with it. It replaces `session notify`, and the role guard allows it
-      for every role, while a raw `hc send` stays refused. A report never
-      carries a secret: `hc send`'s text is visible in `ps` while it runs.
-- [ ] `session wait` takes the report from the wait. `hc read` is only a
-      fallback, for a child that exited without reporting.
+  --file <path>)` writes `.kore/report/<session>.json` (`seq`, `outcome`,
+      `summary`, `at`), then runs `hc send <parent> "<name> <outcome> seq <n>:
+  <path>"`, in that order, so a notice never names a missing file. The
+      parent comes from `hc get "$HC_TERMINAL_ID"` (`.parent`). The file lives
+      under the `cwd` the terminal was launched with (`hc get`, `.cwd`): the
+      worktree for a writer, the main checkout for a reader or judge. Every
+      role's brief ends with the command. It replaces `session notify`, and the
+      role guard allows it for every role, while a raw `hc send` stays refused.
+      The notice has a fixed shape and never carries the summary, so a child
+      puts no free text into the parent's prompt and nothing reaches `ps`.
+- [ ] `session wait` is `hc wait <terminal>`, then reads the report with a
+      `seq` above the last one it consumed. A wait that ends on `timeout` means
+      still working. A terminal that stopped (done, idle or exit) with no unread
+      report returns `blocked`, "stopped without a report", with the last
+      `hc read` lines; `blocked` and `error` status return `blocked` at once.
+      Only a report makes `done`. `session close` reads the file before it
+      removes the worktree.
 
-### Step 5: Rebuild the tools (behind `KORE_TERMINAL=hc`)
+### Step 4: Rebuild the tools (behind the `hc-sessions` flag)
 
 One PR per tool, each test-first against `FakeTerminals`:
 
-- [ ] (0) `harness session exec`: scrub, mint from the store, fail closed, exec. Specs cover a missing store item, an undecryptable store, a failed mint and an inherited `GH_TOKEN`, and check that none of them prints a value.
-- [ ] (a) spawn; (b) send; (c) wait and result, including orchestrator
-      `collect` and review IO; (d) close and check.
-- [ ] (e) `ledger watch` from events; (f) `harness wait` on hc children.
-- [ ] Neutral ledger source; hook recognizers; context hints.
+- [ ] (0) `harness session exec`: scrub, mint from the store, fail closed, exec. Specs cover a missing store item, an undecryptable store, a failed mint and an inherited `GH_TOKEN`, and check that none of them prints a value. It lists the exact claude argv: `--agent`, `--model`, `--effort`, `--permission-mode bypassPermissions`, `--setting-sources user` with `--settings <main checkout>/.claude/settings.json` (`--settings` alone is additive, so the writer-editable worktree settings would still load), and the brief as the positional prompt. At start it fails closed, naming any flag that `claude --help` lacks; an integration spec (it runs the real claude) fails the same way. claude has no pin (2.1.329 on the Mac, 2.1.330 on kore-agents): the launch event records its version.
+- [ ] `session report` derives the file from the session record matched by
+      `HC_TERMINAL_ID`, never from an argument, and refuses when no record
+      matches. The guard refuses an `HC_TERMINAL_ID=` prefix. `session close`
+      reads the report, then deletes a main-checkout file after its ledger
+      event; a writer's file goes with its worktree. `session check` lists a
+      report file with no open record; no new cleanup command. This is
+      correctness, not a security boundary, until the sandbox idea lands:
+      merge decisions already come from pull request state, never from a
+      report.
+- [ ] The tick's "needs a person" and reserved-question lines
+      (`orchestrator/tick-notify.ts`, `tick-cli.ts` `attendedPane`) go to the
+      one live local agent terminal labelled `kore-attended=1`, which the owner
+      or main session sets with `hc label`, never to the idea's latest
+      `callerPane` (today that is whichever pane spawned the idea's latest
+      session, sometimes the tick's own shell). With none live nothing is typed
+      and nothing is recorded, so the next pass tries again, as it does today
+      with no pane; the dedupe stays keyed on idea and state, not on the
+      terminal, so a relabelled or restarted terminal is not told twice. The
+      owner digest lists reserved questions only, so it is not a fallback.
+      `callerPane` is deleted from the record.
+- [ ] No brief names a terminal address. `session/brief.ts` stops naming
+      `callerPane` and the notify command; a brief says "run `harness session
+    report`", and for a pair "run `harness session send <peer name>`", the
+      peer's session name being a name and not an address. The RESULT spec
+      also fails a shipped brief that contains `t\d+`, `kore-agents/t\d+` or
+      `wN:pN`. `judge/review-run.ts` stops printing a pane id and passing it
+      from wait to read.
+- [ ] A report file also holds an optional `plan` (the judgment briefs' PLAN-JSON), so one file per session carries the summary and the plan.
+- [ ] Replace every shipped mention of the `RESULT` line with `session report`: `.claude/agents/writer.md` and `principles-review.md` (check the other agent definitions' reporting text), `session/brief.ts`, `orchestrator/judgment-briefs.ts` (including its PLAN-JSON and SUMMARY markers), `retro-launch.ts`, `tick-branch-notice.ts`, `judge/review-run.ts` and `resample-run.ts`, `hook/context.ts` and `context-deps.ts`. A spec fails if a shipped brief or agent definition still names a `RESULT` line. Docs, ideas and retros are history and stay.
+- [ ] The notice goes only to a parent that is an agent terminal (`hc get`:
+      `status` is not null; `agent` is null for both kinds, so it is not the
+      test). A parent that has not reported yet looks like a shell and gets the
+      file alone, which fails safe. A non-agent parent (the delivery shell) gets the file alone, because `hc send` types into the foreground program or, once it exits, into the shell. Children of the delivery terminal start with `--no-notify` for the same reason, and the tick reads the report files.
+- [ ] (a) spawn: parent is `HC_TERMINAL_ID`, else the one live local terminal
+      labelled `kore-delivery=1` (none or two is an error with a hint, never
+      `--outlive-parent` or `--no-parent`); a `group=<name>` label for a pair;
+      names kept to hc's charset (the current session names already fit). A
+      brief over 128 KiB goes to a file and the argv names its path. It also
+      starts `ledger watch` (see (e)). The session record is written, in the
+      main checkout, before the terminal starts (Grilled Decisions 5). Every
+      tool routes by the record's `backend`, in one place: the Terminals
+      factory (Grilled Decisions 6).
+      (b) send, to the parent, children and group siblings only; (c) wait and
+      result, including orchestrator `collect` and review IO, and the
+      `callerPane` readers in `orchestrator/tick-cli.ts`, which move to
+      `hc get` `.parent`. The tick's `state()` also reconciles on start: an
+      unclosed record whose terminal is `finished` or absent (`hc ls --all`) is
+      recorded `blocked`, "lost with its parent", the worktree is reused and
+      nothing is respawned; a terminal that is only `error` is not lost. Today
+      a gone pane makes the tick throw "Could not read the result". (d) close
+      and check. `session close` writes its own
+      ledger event before it removes a terminal.
+- [ ] (e) `ledger watch` from events: on start and reconnect it reconciles
+      from `hc ls --all` (a terminal that finished in the gap still has its
+      final status), writing an event for each terminal whose status differs
+      from the last recorded one (key: terminal id, status, turn), then follows
+      `hc events --label kore-session`. (f) `harness wait` on hc children.
+- [ ] Neutral ledger source; hook recognizers; context hints. The role
+      guard refuses raw `hc label`, `hc run` and `hc exec` beside raw
+      `hc send`, because a label is mutable and an agent could rewrite its own
+      role; the guard corpus gains each form.
 
-Without the variable, today's herdr path runs unchanged. That makes this a
+With the `hc-sessions` flag off (it is off in every overlay), today's herdr path runs unchanged. That makes this a
 dark launch.
 
-### Step 6: Live proof on hc
+### Step 5: Live proof on hc
+
+Step 5 does not start before the outcomes of ideas 0009, 0010, 0012, 0019,
+0020, 0021 and 0023 are recorded (due 2026-11-30): their measurements read
+`session wait`, `pane.finished`, the `RESULT` line, the `KORE_*` stamps and
+signed sends, and the loop's ledger has fed them since 2026-11-20. Steps 1 to
+4 add code behind a flag that is off, so they change none of those events.
+Before Step 5 the flow report splits every figure that reads these events by
+ledger `source` (`herdr` or `terminal`) and never compares across.
+
+The loop on any host reads `infra/environments/local/environment.yaml`
+(`orchestrator/local-flag.ts` fixes the environment to `local`), so
+activation is a merged change to that file, after which kore-agents pulls and
+rebuilds. The proof runs on kore-agents; its outcome is recorded from the Mac
+session, because kore-agents never records outcomes, and `harness flag
+activate` runs once afterwards. The Mac needs only `session check` and the
+small-split read.
 
 - [ ] From an hc terminal: spawn a writer in a worktree, send, then wait
       for its report. Run check, `ledger watch`, close, and `harness wait
-  --pr`. Record the outcome on the tracking issue (Refs until green).
+--pr`. Record the outcome on the tracking issue (Refs until green).
 - [ ] Read a writer while herdr-app shows it in a small split, to prove that
       reads and reports do not depend on the view.
 - [ ] With a decoy `GH_TOKEN` in the core's login environment, a spawned
       writer's `gh api /installation/repositories` shows the kore-writer App
       (with `owner-writer` off), never the decoy. A removed store item ends
       the terminal with a message naming the item, and no claude starts.
+- [ ] A writer's guard hooks still fire under `--setting-sources user` and the
+      main checkout's `--settings`, and its worktree `.claude/settings.json`
+      cannot loosen them.
 - [ ] Three writers at once, with one forced `blocked` (a permission
       prompt), to prove that hc announces it and the ledger records it.
 
-### Step 7: Flip, contract and prune
+### Step 6: Flip, contract and prune
 
 - [ ] Make hc the only path. Delete the herdr call sites, `equalize`,
       `spawn-pane` splitting, the paste-race retries, `herdr-poll` and
@@ -264,10 +363,30 @@ dark launch.
       removal list, then remove, one PR each.
 - [ ] Add a guard test: nothing outside `terminal/` names a backend
       binary or reads its environment.
+- [ ] Update `GLOSSARY.md`. New terms: Terminal, Report, Delivery terminal,
+      Group. Rewrite Pane result (Session result, with Pane result under
+      Avoid), Rework, Unmapped event (a terminal with no role label), Silent
+      session ("no report since", "its terminal"), Finish detection and
+      Follow-up (hc's tag, not "always carrying a sender line"), and Branch
+      update notice ("signed"). Meanings change with the source: finish
+      detection from `hc events` notices almost at once and `pane.stalled`
+      becomes a `blocked` or `error` event, so the terms say they are read per
+      source. Ledger event names (`pane.finished`, `pane.stalled`) stay.
 - [ ] Update AGENTS.md (role panes start through `session spawn`; read
       `hc --skill`), `skills/spawn-session`, the session hints, and the
       memories "panes in a new tab" and "grilling pairs get their own tab",
-      which were workarounds for herdr reads.
+      which were workarounds for herdr reads. Fix the AGENTS.md line "hands
+      them their token and sandbox" to name only the token until the sandbox
+      idea lands. Document that the Mac main session reaches the delivery
+      terminal with `hc send kore-agents/<id>`, replacing the ssh and herdr
+      relay.
+- [ ] The flip PR merges only when `session check` on the Mac and on
+      kore-agents reports no live herdr session and `hc --version` on both
+      hosts matches the pin; the run is recorded on the tracking issue. A live
+      record with no terminal id after the flip is an error naming
+      `session close --force-record`, which this step adds and which only
+      removes the file and is refused while the record's terminal is live in
+      hc. Closed old records stay readable.
 
 ## Decisions (owner, 2026-11-22)
 
@@ -277,7 +396,7 @@ dark launch.
    parent's crash.
 2. **Provenance: hc's tag.** `<hc from="t7 name">` replaces the typed
    `sender:` line. The AGENTS.md rule _Every agent message names its sender_
-   is rewritten in Step 7 to point at hc's tag.
+   is rewritten in Step 6 to point at hc's tag.
 3. **No templates.** Roles launch as `hc run claude --agent <role> --model
 <model> --effort <effort> "<brief>"` (`hc run` takes a program and its
    arguments as well as a template name). `.claude/agents/` stays the only
@@ -305,12 +424,67 @@ dark launch.
    with no identity of its own gets no token, and the inherited ones are
    still scrubbed.
 
+## Grilled Decisions (2026-11-22)
+
+Settled in the grilling of this plan. They bind the plan once the owner has
+read it; none is an owner-reserved decision.
+
+1. **A report is a file, the send is a notice.** An `hc send` to the parent
+   arrives as the parent's next input and never ends or feeds an `hc wait`, so
+   `session wait` cannot receive it. `session report` writes
+   `.kore/report/<session>.json` with a rising `seq` first, then sends the one
+   line `<name> <outcome> seq <n>: <path>`. The harness builds the path from
+   the session name and rejects a `--file` outside the report directory, so
+   the notice carries no free text. A report is the only thing that makes
+   `done`; a stopped terminal with no unread report is `blocked`.
+2. **Parent for a caller that is not a terminal.** `session spawn` uses
+   `HC_TERMINAL_ID`, else the one live local terminal labelled
+   `kore-delivery=1`, else it fails with a hint. The delivery loop
+   (`orchestrate tick --loop`) is a plain shell terminal with that label and
+   runs the tick inside it, so the tick has `HC_TERMINAL_ID` itself. A crash of
+   the delivery terminal ends every session it started; worktrees survive.
+3. **Pairs talk through a group label.** `session spawn` sets `group=<name>`;
+   `session send` reaches the parent, children and siblings with the same
+   group, nothing else.
+4. **The help guide is plan 17,** not part of this plan.
+5. **The session record** (main checkout, written before the terminal starts)
+   holds worktree and branch, creation and close times, the terminal id, the
+   `backend` (`herdr` when absent, so every old record routes to herdr), a
+   schema `version`, the role, name and idea, and the last report `seq`
+   consumed. Liveness, status, parent and model come from hc. A hook finds its
+   role by `HC_TERMINAL_ID` in the record and cross-checks it with
+   `hc get`; a guard still has its role when hc is down, because a writer's
+   sandbox cannot write the main checkout and a hook cannot create a cache
+   there. Identity is never read from the environment.
+6. **Every tool routes by the record's `backend`,** never by the flag, in the
+   one Terminals factory. A close, wait or check of an hc record with hc
+   unreachable fails with a hint and never falls back to herdr. New spawns
+   follow the flag at spawn time only.
+7. **The switch is the `hc-sessions` flag,** off in every overlay, activated
+   only after the Step 5 outcome and retired in Step 6.
+8. **`ledger watch` is one terminal per core,** started by `session spawn`
+   under the fixed name `ledger-watch`; a name conflict means it runs.
+9. **No cross-machine spawn.** `Terminal.id` is opaque and may carry a machine
+   prefix; spawn always runs on the caller's machine.
+10. **A session lost with its parent is `blocked`.** hc ends a child with its
+    parent (`die_with_parent`); a core restart or update keeps terminals, a
+    reboot or holder crash does not. The tick records a finished or absent
+    terminal as `blocked`, "lost with its parent", reuses the worktree and
+    never respawns. The briefs must not say a session is never lost.
+
+## Open Questions
+
+1. **Where hc releases are published, and whether checksums exist.** `hc
+update` names no source and its `--version` is a floor. Settle it with the
+   hc vendor. Step 1 does not wait: it pins by the exact version check.
+
 ## Findings (2026-11-22)
 
 - **Labels.** `hc run` takes `--label` more than once, and `hc get` returns all
   of them. Labels replace the `KORE_AGENT`, `KORE_ROLE` and `KORE_IDEA` stamps.
-  The ledger hook and the sender code read them once per session, from
-  `hc get $HC_TERMINAL_ID`. Pane messages carry hc's tag. GitHub text keeps a
+  The ledger hook and the sender code read the role, name and idea from the
+  session record by `HC_TERMINAL_ID` and cross-check with `hc get` (Grilled
+  Decisions 5). Pane messages carry hc's tag. GitHub text keeps a
   sender line, filled from the labels.
 - **Environment.** A caller prefix (`K=V hc run …`) does not reach the
   terminal: hc gives it the core's login environment plus `HC_TERMINAL_ID`,
@@ -327,7 +501,7 @@ dark launch.
   None of these is used. The token is made inside the terminal instead (Decisions 6). The API `env` breaks
   _Secrets never touch disk_.
 
-- **Sandbox.** No writer sandbox is in force today, on macOS or on Linux. The
+- **Sandbox.** (Its own idea, citing the closed #337, is filed in Step 1.) No writer sandbox is in force today, on macOS or on Linux. The
   profile lives only in `tools/harness/tests/writer-sandbox-support.ts`, and
   ADR 0095 says wiring it into spawn is pending. So the switch to hc loses no
   sandbox. It does need these changes:
@@ -337,7 +511,8 @@ dark launch.
   3. `session check` lists hc terminals. Otherwise it reports clean while hc
      writers run unmanaged.
   4. The read-only role guard allows hc's read commands (`hc get`, `ls`,
-     `read`, `wait`) and `hc send` to the parent. Today it refuses
+     `read`, `wait`) and `session report` and `session send`; a raw `hc send`,
+     `hc label`, `hc run` and `hc exec` stay refused. Today it refuses
      `hc --help`, so a reader cannot report back.
   5. When the sandbox is built (separately, on both platforms), it denies the
      hc socket (`HC_SOCKET`). Otherwise a sandboxed writer can escape with
@@ -346,7 +521,7 @@ dark launch.
 - **Launch.** The investigation flagged hc's `invalid_template` check on shell
   characters. Plain argv launches worked in every test here
   (`claude --agent reader --model … "<brief>"`). Confirm a brief with quotes
-  and newlines in Step 6.
+  and newlines in Step 5.
 
 ### Research round 2 (2026-11-22: Haiku researchers in hc terminals on kore-agents, and a session on the owner's Mac)
 
@@ -411,20 +586,12 @@ dark launch.
   mise tasks, and against whether it backs an approved but not yet activated
   mechanism (for example `guardrail activate` and `queue escalate`).
 
-## Open Questions
-
-1. **Building the writer sandbox** is real, new work on both platforms. It
-   does not block this plan, but the AGENTS.md line "hands them their token
-   and sandbox" is not true today. Track it as its own idea?
-
 ## Done When
 
 From an hc terminal, `session spawn` starts a role with `hc run claude --agent <role>`.
 The writer reports back through hc, and `session wait` returns that report.
 The ledger records the writer's statuses from events. `session close`
-removes only the caller's own children. `harness --help`, `harness <domain>
---help` and `harness <domain> <command> --help` guide a person or an agent
-from where they ran it, and every flag is documented. The evidence-based
+removes only the caller's own children. The evidence-based
 removal list is applied. The harness does no window layout.
 No harness code polls, sleeps,
 scrapes a status from the screen, or names a backend binary outside

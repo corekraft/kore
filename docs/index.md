@@ -80,9 +80,12 @@ repository root; `mise run kb-check` keeps this list complete.
   Backstage.
 - [`infra/plans/16-hc-native-sessions.md`](../infra/plans/16-hc-native-sessions.md) —
   active: rebuild the harness session tools on hc behind a Terminals port,
-  mint each session's token in its launch wrapper, give every harness command a
-  layered `--help` guide, and prune what hc makes unnecessary. Read before
-  changing session spawn, send, wait or close, or the harness CLI's help.
+  mint each session's token in its launch wrapper, report through a file the
+  parent's wait reads, and prune what hc makes unnecessary. Read before
+  changing session spawn, send, wait or close.
+- [`infra/plans/17-harness-help-guide.md`](../infra/plans/17-harness-help-guide.md) —
+  proposed: give every harness command a layered `--help` guide enforced by
+  specs, split from plan 16. Read before changing the harness CLI's help.
 
 ## Decisions
 
