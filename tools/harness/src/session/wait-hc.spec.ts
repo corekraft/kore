@@ -28,6 +28,17 @@ const RECORD: SessionRecord = {
 };
 const REPORT = "/work/writer/.kore/report/image-trust-writer.json";
 const TIMEOUT_MS = 60_000;
+const DONE_RESULT = {
+  outcome: "done",
+  summary: "Opened PR #5.",
+  at: "2026-01-02T03:04:05.000Z",
+};
+const FIRST_WRITE = { ...RECORD, reportSeq: 1, result: DONE_RESULT };
+const REWORK_RESULT = {
+  outcome: "done",
+  summary: "Fixed the review.",
+  at: "2026-01-02T03:04:05.000Z",
+};
 
 let deps: FakeDeps;
 let registry: FakeRegistry;
@@ -87,7 +98,7 @@ describe("waitForReport reads a report the session has not consumed", () => {
       summary: "Opened PR #5.",
       seq: 1,
     });
-    expect(registry.write).toHaveBeenCalledWith({ ...RECORD, reportSeq: 1 });
+    expect(registry.write).toHaveBeenCalledWith(FIRST_WRITE);
     expect(waitSpy).not.toHaveBeenCalled();
   });
 
@@ -108,7 +119,7 @@ describe("waitForReport reads a report the session has not consumed", () => {
       summary: "Opened PR #5.",
       seq: 1,
     });
-    expect(registry.write).toHaveBeenCalledWith({ ...RECORD, reportSeq: 1 });
+    expect(registry.write).toHaveBeenCalledWith(FIRST_WRITE);
   });
 
   it("takes a second report after rework by its higher seq, and ignores one already consumed", async () => {
@@ -122,7 +133,11 @@ describe("waitForReport reads a report the session has not consumed", () => {
       summary: "Fixed the review.",
       seq: 2,
     });
-    expect(registry.write).toHaveBeenCalledWith({ ...consumed, reportSeq: 2 });
+    expect(registry.write).toHaveBeenCalledWith({
+      ...consumed,
+      reportSeq: 2,
+      result: REWORK_RESULT,
+    });
 
     vi.clearAllMocks();
     vi.mocked(reportPath).mockReturnValue(REPORT);

@@ -82,10 +82,6 @@ export async function send(context: CommandContext): Promise<number> {
       `Missing session name, or the message is missing, blank or spans lines: ${USAGE}, with one line of text.`,
     );
   }
-  const signed = signedMessage(deps.env, "session send", message.trim());
-  if ("error" in signed) {
-    return fail(deps, json, FAILED, signed.error);
-  }
   const record = await (await SessionRegistry.open(deps)).read(name);
   if (record === undefined) {
     return fail(
@@ -114,6 +110,10 @@ export async function send(context: CommandContext): Promise<number> {
       record,
       message.trim(),
     );
+  }
+  const signed = signedMessage(deps.env, "session send", message.trim());
+  if ("error" in signed) {
+    return fail(deps, json, FAILED, signed.error);
   }
   return await sendToHerdr(context, record, signed);
 }

@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { CliDeps } from "../runtime/index.js";
 import { close } from "./close.js";
-import { closeHcSession } from "./close-hc.js";
+import { closeHcSession } from "./close-hc-command.js";
 import { removeMergedWorktree } from "./close-worktree.js";
 import {
   SPAWNED,
@@ -22,7 +22,7 @@ import { closeHint } from "./worktree.js";
 vi.mock("./close-worktree.js", () => ({
   removeMergedWorktree: vi.fn(),
 }));
-vi.mock("./close-hc.js", () => ({
+vi.mock("./close-hc-command.js", () => ({
   closeHcSession: vi.fn(),
 }));
 vi.mock("./equalize.js", () => ({

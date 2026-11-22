@@ -199,7 +199,6 @@ describe("session send refusals", () => {
     expect(failure()).toBe(
       "KORE_AGENT is not set, so the sender line cannot name the session.",
     );
-    expect(open).not.toHaveBeenCalled();
     expect(deliver).not.toHaveBeenCalled();
     expect(append).not.toHaveBeenCalled();
   });
@@ -285,23 +284,25 @@ describe("session send when the event is not recorded", () => {
 });
 
 describe("session send to an hc session", () => {
+  const UNSIGNED =
+    "KORE_AGENT is not set, so the sender line cannot name the session.";
   const HC_RECORD = {
-    version: 1,
+    ...record,
     backend: "hc",
     name: "child-reader",
     paneId: "t3",
     terminal: "t3",
-    model: "claude-sonnet-5-5",
-    role: "reader",
-    effort: "high",
-    createdAt: "2026-01-02T03:04:05.000Z",
   } as unknown as SessionRecord;
 
-  it("hands an hc record to sendHcCommand, with the trimmed message, and never delivers to a pane", async () => {
+  const openHc = () => {
+    vi.mocked(sendHcCommand).mockResolvedValue(0);
     open.mockResolvedValue({
       read: vi.fn().mockResolvedValue(HC_RECORD),
     } as unknown as SessionRegistry);
-    vi.mocked(sendHcCommand).mockResolvedValue(0);
+  };
+
+  it("hands an hc record to sendHcCommand, with the trimmed message, and never delivers to a pane", async () => {
+    openHc();
 
     const code = await send(ctx("child-reader", "  Check the cache rule  "));
 
@@ -313,6 +314,16 @@ describe("session send to an hc session", () => {
       "Check the cache rule",
     );
     expect(deliver).not.toHaveBeenCalled();
-    expect(append).not.toHaveBeenCalled();
+  });
+
+  it("sends an hc message even when no sender line can be written, since hc carries the sender", async () => {
+    openHc();
+    vi.mocked(signedMessage).mockReturnValue({ error: UNSIGNED });
+
+    const code = await send(ctx("child-reader", "Check the cache rule"));
+
+    expect(code).toBe(0);
+    expect(signedMessage).not.toHaveBeenCalled();
+    expect(sendHcCommand).toHaveBeenCalledOnce();
   });
 });

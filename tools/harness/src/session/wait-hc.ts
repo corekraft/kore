@@ -54,7 +54,11 @@ async function consume(
   record: SessionRecord,
   report: Report,
 ): Promise<ReportWait> {
-  await registry.write({ ...record, reportSeq: report.seq });
+  await registry.write({
+    ...record,
+    reportSeq: report.seq,
+    result: { outcome: report.outcome, summary: report.summary, at: report.at },
+  });
   return {
     name: record.name,
     model: record.model,

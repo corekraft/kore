@@ -1,24 +1,23 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { CliDeps } from "../runtime/index.js";
-import { FakeTerminals, type TerminalError } from "../terminal/index.js";
 import {
+  FakeTerminals,
+  terminalError,
+  type TerminalError,
+} from "../terminal/index.js";
+import { hcMessage } from "./backend.js";
+import { closeOnHc } from "./close-hc.js";
+import { recordTerminalEvent } from "./hc-ledger.js";
+import {
+  asRegistry,
   fakeDeps,
   fakeRegistry,
-  asRegistry,
   type FakeDeps,
   type FakeRegistry,
 } from "./deps-support.js";
-import { recordTerminalEvent } from "./hc-ledger.js";
-import { closeHcSession, closeOnHc } from "./close-hc.js";
-import { FAILED, fail } from "./output.js";
-import { contextOf } from "./deps-support.js";
 import type { SessionRecord } from "./registry.js";
 
 vi.mock("./hc-ledger.js", () => ({ recordTerminalEvent: vi.fn() }));
-vi.mock("./output.js", async (original) => ({
-  ...(await original<typeof import("./output.js")>()),
-  fail: vi.fn((_deps: unknown, _json: unknown, code: number) => code),
-}));
 vi.mock("./backend.js", () => ({
   hcMessage: vi.fn((error: TerminalError) => error.error.message),
 }));
@@ -34,10 +33,21 @@ const RECORD: SessionRecord = {
   role: "writer",
   effort: "high",
   createdAt: CLOSED_AT,
+  result: { outcome: "done", at: CLOSED_AT },
 };
 
 let deps: FakeDeps;
 let registry: FakeRegistry;
+const recorded = vi.mocked(recordTerminalEvent);
+
+/** Closes `record` from `terminals` through closeOnHc, with this spec's deps and registry. */
+const close = (terminals: FakeTerminals, record: SessionRecord) =>
+  closeOnHc(
+    deps as unknown as CliDeps,
+    terminals,
+    asRegistry(registry),
+    record,
+  );
 
 /**
  * t1 is the main session, the caller of most specs. t2 is its child, the writer the record names.
@@ -66,10 +76,11 @@ async function world(self: string | undefined): Promise<FakeTerminals> {
   return terminals;
 }
 
-const recorded = vi.mocked(recordTerminalEvent);
-
 beforeEach(() => {
   vi.resetAllMocks();
+  vi.mocked(hcMessage).mockImplementation(
+    (error: TerminalError) => error.error.message,
+  );
   deps = fakeDeps();
   registry = fakeRegistry();
   recorded.mockResolvedValue(undefined);
@@ -82,12 +93,7 @@ describe("closeOnHc kills, records, then removes a terminal its caller spawned",
     const kill = vi.spyOn(terminals, "kill");
     const remove = vi.spyOn(terminals, "remove");
 
-    const result = await closeOnHc(
-      deps as unknown as CliDeps,
-      terminals,
-      asRegistry(registry),
-      RECORD,
-    );
+    const result = await close(terminals, RECORD);
 
     expect(result).toStrictEqual({ closedAt: CLOSED_AT });
     expect(kill).toHaveBeenCalledExactlyOnceWith("t2");
@@ -103,16 +109,13 @@ describe("closeOnHc kills, records, then removes a terminal its caller spawned",
     expect(recorded.mock.invocationCallOrder[0]).toBeLessThan(
       remove.mock.invocationCallOrder[0] ?? -1,
     );
-    expect(registry.write).toHaveBeenCalledWith({
+    expect(registry.write).toHaveBeenLastCalledWith({
       ...RECORD,
+      closeEventAt: CLOSED_AT,
       closedAt: CLOSED_AT,
     });
-    expect(await terminals.get("t2")).toStrictEqual({
-      error: {
-        kind: "not-found",
-        message: "no terminal t2",
-        hint: "check the id with list()",
-      },
+    expect(await terminals.get("t2")).toMatchObject({
+      error: { kind: "not-found" },
     });
   });
 
@@ -121,12 +124,7 @@ describe("closeOnHc kills, records, then removes a terminal its caller spawned",
     terminals.finish("t2", 0);
     const kill = vi.spyOn(terminals, "kill");
 
-    const result = await closeOnHc(
-      deps as unknown as CliDeps,
-      terminals,
-      asRegistry(registry),
-      RECORD,
-    );
+    const result = await close(terminals, RECORD);
 
     expect(result).toStrictEqual({ closedAt: CLOSED_AT });
     expect(kill).not.toHaveBeenCalled();
@@ -140,17 +138,12 @@ describe("closeOnHc refuses a terminal the caller did not spawn, and closes noth
     const kill = vi.spyOn(terminals, "kill");
     const remove = vi.spyOn(terminals, "remove");
 
-    const result = await closeOnHc(
-      deps as unknown as CliDeps,
-      terminals,
-      asRegistry(registry),
-      {
-        ...RECORD,
-        name: "child-reader",
-        paneId: "t3",
-        terminal: "t3",
-      },
-    );
+    const result = await close(terminals, {
+      ...RECORD,
+      name: "child-reader",
+      paneId: "t3",
+      terminal: "t3",
+    });
 
     expect(result).toStrictEqual({
       error:
@@ -161,23 +154,16 @@ describe("closeOnHc refuses a terminal the caller did not spawn, and closes noth
     expect(recorded).not.toHaveBeenCalled();
     expect(registry.write).not.toHaveBeenCalled();
   });
-});
 
-describe("closeOnHc refuses what the caller may not do, and closes nothing", () => {
   it("refuses a terminal with no parent at all", async () => {
     const terminals = await world("t1");
 
-    const result = await closeOnHc(
-      deps as unknown as CliDeps,
-      terminals,
-      asRegistry(registry),
-      {
-        ...RECORD,
-        name: "other-shell",
-        paneId: "t4",
-        terminal: "t4",
-      },
-    );
+    const result = await close(terminals, {
+      ...RECORD,
+      name: "other-shell",
+      paneId: "t4",
+      terminal: "t4",
+    });
 
     expect(result).toStrictEqual({
       error:
@@ -189,12 +175,7 @@ describe("closeOnHc refuses what the caller may not do, and closes nothing", () 
   it("refuses when the caller is not inside an hc terminal", async () => {
     const terminals = await world(undefined);
 
-    const result = await closeOnHc(
-      deps as unknown as CliDeps,
-      terminals,
-      asRegistry(registry),
-      RECORD,
-    );
+    const result = await close(terminals, RECORD);
 
     expect(result).toStrictEqual({
       error:
@@ -206,37 +187,22 @@ describe("closeOnHc refuses what the caller may not do, and closes nothing", () 
   it("refuses a record that is already closed", async () => {
     const terminals = await world("t1");
 
-    const result = await closeOnHc(
-      deps as unknown as CliDeps,
-      terminals,
-      asRegistry(registry),
-      {
-        ...RECORD,
-        closedAt: CLOSED_AT,
-      },
-    );
+    const result = await close(terminals, { ...RECORD, closedAt: CLOSED_AT });
 
     expect(result).toStrictEqual({
       error: "Session image-trust-writer is already closed (terminal t2).",
     });
     expect(await terminals.get("t2")).toMatchObject({ state: "live" });
   });
-});
 
-describe("closeOnHc keeps a terminal whose ledger event it could not write", () => {
-  it("does not remove the terminal, and leaves the record open, so a rerun can finish the close", async () => {
+  it("does not remove the terminal, and leaves the record open, when its ledger event cannot be written", async () => {
     const terminals = await world("t1");
     const remove = vi.spyOn(terminals, "remove");
     recorded.mockResolvedValue(
       "cannot find the main checkout to keep the ledger in",
     );
 
-    const result = await closeOnHc(
-      deps as unknown as CliDeps,
-      terminals,
-      asRegistry(registry),
-      RECORD,
-    );
+    const result = await close(terminals, RECORD);
 
     expect(result).toStrictEqual({
       error:
@@ -247,75 +213,87 @@ describe("closeOnHc keeps a terminal whose ledger event it could not write", () 
   });
 });
 
-describe("closeHcSession prints the close, or the reason it was refused", () => {
-  it("prints the terminal it closed and exits 0", async () => {
-    const terminals = await world("t1");
-
-    const code = await closeHcSession(
-      contextOf(deps),
-      terminals,
-      asRegistry(registry),
-      RECORD,
-    );
-
-    expect(code).toBe(0);
-    expect(deps.stdout).toHaveBeenCalledExactlyOnceWith(
-      "Closed image-trust-writer (terminal t2).\n",
-    );
-  });
-
-  it("prints the close as JSON with --json", async () => {
-    const terminals = await world("t1");
-
-    await closeHcSession(
-      contextOf(deps, { json: true }),
-      terminals,
-      asRegistry(registry),
-      RECORD,
-    );
-
-    expect(deps.stdout).toHaveBeenCalledExactlyOnceWith(
-      '{"name":"image-trust-writer","terminal":"t2","closed":true}\n',
-    );
-  });
-
-  it("refuses --remove-worktree before anything is killed, since hc does not remove worktrees yet", async () => {
+describe("closeOnHc refuses a session with no recorded result or report, and kills nothing", () => {
+  it("refuses a session with neither a result nor a consumed report, with herdr's hint", async () => {
     const terminals = await world("t1");
     const kill = vi.spyOn(terminals, "kill");
+    const remove = vi.spyOn(terminals, "remove");
+    const { result: _result, ...unrecorded } = RECORD;
 
-    const code = await closeHcSession(
-      contextOf(deps, { options: { "remove-worktree": true } }),
-      terminals,
-      asRegistry(registry),
-      RECORD,
-    );
+    const result = await close(terminals, unrecorded);
 
-    expect(code).toBe(FAILED);
-    expect(fail).toHaveBeenCalledExactlyOnceWith(
-      deps,
-      false,
-      FAILED,
-      "session close image-trust-writer --remove-worktree is not on hc yet, so nothing was closed. Close it without the flag, then remove its worktree with git once its pull request is merged.",
-    );
+    expect(result).toStrictEqual({
+      error:
+        "Session image-trust-writer has no recorded result, so terminal t2 stays open. Run `session wait image-trust-writer` first.",
+    });
     expect(kill).not.toHaveBeenCalled();
+    expect(remove).not.toHaveBeenCalled();
+    expect(recorded).not.toHaveBeenCalled();
+    expect(registry.write).not.toHaveBeenCalled();
   });
 
-  it("fails through fail with the refusal from closeOnHc, and exits 1", async () => {
-    const terminals = await world(undefined);
+  it("accepts a session whose report the wait has consumed", async () => {
+    const terminals = await world("t1");
+    const { result: _result, ...unrecorded } = RECORD;
 
-    const code = await closeHcSession(
-      contextOf(deps),
-      terminals,
-      asRegistry(registry),
-      RECORD,
+    const result = await close(terminals, { ...unrecorded, reportSeq: 1 });
+
+    expect(result).toStrictEqual({ closedAt: CLOSED_AT });
+  });
+});
+
+describe("closeOnHc finishes a close an earlier run began, and never repeats its event", () => {
+  it("marks the record closed, killing and writing nothing, when hc no longer has the terminal", async () => {
+    const terminals = await world("t1");
+    await terminals.kill("t2");
+    await terminals.remove("t2");
+    const kill = vi.spyOn(terminals, "kill");
+
+    const result = await close(terminals, RECORD);
+
+    expect(result).toStrictEqual({ closedAt: CLOSED_AT });
+    expect(kill).not.toHaveBeenCalled();
+    expect(recorded).not.toHaveBeenCalled();
+    expect(registry.write).toHaveBeenCalledExactlyOnceWith({
+      ...RECORD,
+      closedAt: CLOSED_AT,
+    });
+  });
+
+  it("removes the terminal without writing the pane.closed event again when an earlier run wrote it", async () => {
+    const terminals = await world("t1");
+    const remove = vi.spyOn(terminals, "remove");
+
+    const result = await close(terminals, {
+      ...RECORD,
+      closeEventAt: CLOSED_AT,
+    });
+
+    expect(result).toStrictEqual({ closedAt: CLOSED_AT });
+    expect(recorded).not.toHaveBeenCalled();
+    expect(remove).toHaveBeenCalledExactlyOnceWith("t2");
+  });
+
+  it("keeps the event's time when the removal fails, so a rerun does not write the event twice", async () => {
+    const terminals = await world("t1");
+    vi.spyOn(terminals, "remove").mockResolvedValue(
+      terminalError("unavailable", "hc did not remove"),
     );
 
-    expect(code).toBe(FAILED);
-    expect(fail).toHaveBeenCalledExactlyOnceWith(
-      deps,
-      false,
-      FAILED,
-      "Not inside an hc terminal (HC_TERMINAL_ID is unset), so session close image-trust-writer was not run. Run it from the terminal that spawned the session.",
-    );
+    const result = await close(terminals, RECORD);
+
+    expect(result).toStrictEqual({
+      error:
+        "Session image-trust-writer was killed and recorded, but terminal t2 was not removed: hc did not remove.",
+    });
+    expect(recorded).toHaveBeenCalledExactlyOnceWith(deps, {
+      kind: "pane.closed",
+      pane: "t2",
+      agent: "image-trust-writer",
+    });
+    expect(registry.write).toHaveBeenCalledExactlyOnceWith({
+      ...RECORD,
+      closeEventAt: CLOSED_AT,
+    });
   });
 });

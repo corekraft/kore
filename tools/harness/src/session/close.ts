@@ -2,7 +2,7 @@
 import type { CommandContext, CommandHelp } from "../runtime/index.js";
 import { removeMergedWorktree, type Removal } from "./close-worktree.js";
 import { routeSession, terminalsFor } from "./backend.js";
-import { closeHcSession } from "./close-hc.js";
+import { closeHcSession } from "./close-hc-command.js";
 import { describeFailure, equalize } from "./equalize.js";
 import { sessionNameError } from "./names.js";
 import { FAILED, USAGE_ERROR, fail } from "./output.js";
