@@ -3,12 +3,15 @@ import type { CliDeps } from "../runtime/index.js";
 import { mainRoot } from "../runtime/index.js";
 import { failed, fakeRunner, ok } from "./close-support.js";
 import { describeFailure } from "./equalize.js";
+import type { SessionRecord } from "./registry.js";
 import { closeHint, place, removeHint } from "./worktree.js";
 
 vi.mock("../runtime/index.js", async (original) => ({
   ...(await original<typeof import("../runtime/index.js")>()),
   mainRoot: vi.fn(),
 }));
+const open = vi.hoisted(() => vi.fn());
+vi.mock("./registry.js", () => ({ SessionRegistry: { open } }));
 vi.mock("./equalize.js", () => ({
   describeFailure: vi.fn(() => "npm said no"),
 }));
@@ -49,13 +52,23 @@ const lines = (run: { mock: { calls: unknown[][] } }) =>
 const ADD = "git worktree add -b x /main/.claude/worktrees/x HEAD";
 const BUILD = "npm run build --silent";
 
+const exists = vi.fn<(path: string) => Promise<boolean>>();
+const read = vi.fn<(name: string) => Promise<SessionRecord | undefined>>();
+
 function deps(runner: ReturnType<typeof runnerFailing>): CliDeps {
-  return { runner: runner.runner, cwd: "/main/caller" } as unknown as CliDeps;
+  return {
+    runner: runner.runner,
+    cwd: "/main/caller",
+    fs: { exists },
+  } as unknown as CliDeps;
 }
 
 beforeEach(() => {
+  vi.resetAllMocks();
   vi.mocked(mainRoot).mockResolvedValue("/main");
   vi.mocked(describeFailure).mockReturnValue("npm said no");
+  exists.mockResolvedValue(false);
+  open.mockResolvedValue({ read });
 });
 
 describe("closeHint and removeHint", () => {
@@ -152,5 +165,160 @@ describe("place with --worktree", () => {
       error: `Building the harness bundle failed in the new worktree: npm said no. The pane's guard hook would block every tool call. No pane was split. ${removeHint(CREATED)}`,
     });
     expect(lines(fake.run)).toEqual([ADD, "npm ci", "npm ci", BUILD]);
+  });
+});
+
+/** A session record for x, recorded lost with its parent in the worktree place makes for it. */
+function lostRecord(overrides: Partial<SessionRecord> = {}): SessionRecord {
+  return {
+    name: "x",
+    paneId: "t7",
+    model: "m",
+    role: "writer",
+    effort: "high",
+    createdAt: "2026-11-22T09:00:00.000Z",
+    worktree: CREATED,
+    result: {
+      outcome: "blocked",
+      at: "2026-11-22T10:00:00.000Z",
+      summary: "lost with its parent: terminal t7 has finished",
+    },
+    ...overrides,
+  };
+}
+
+const HEAD = "git rev-parse --abbrev-ref HEAD";
+
+/** A runner whose branch check answers with the branch the existing worktree is on. */
+function runnerOnBranch(branch: string) {
+  return fakeRunner((command, args) =>
+    command === "git" && args[0] === "rev-parse" ? ok(`${branch}\n`) : ok(),
+  );
+}
+
+describe("place with --worktree over an existing path", () => {
+  beforeEach(() => {
+    exists.mockResolvedValue(true);
+  });
+
+  it("reuses the worktree of a session recorded lost with its parent: no git worktree add, then installs and builds", async () => {
+    read.mockResolvedValue(lostRecord());
+    const fake = runnerOnBranch("x");
+    expect(await place(deps(fake), { worktree: true }, "x")).toEqual({
+      worktree: CREATED,
+      cwd: CREATED.path,
+      left: ` ${removeHint(CREATED)}`,
+    });
+    expect(read).toHaveBeenCalledWith("x");
+    expect(lines(fake.run)).toEqual([HEAD, "npm ci", "npm ci", BUILD]);
+    expect(fake.run.mock.calls[0]?.[2]).toEqual({ cwd: CREATED.path });
+  });
+
+  it("refuses a path that no record names, and touches nothing", async () => {
+    read.mockResolvedValue(undefined);
+    const fake = runnerOnBranch("x");
+    const result = await place(deps(fake), { worktree: true }, "x");
+    expect(result).toEqual({
+      error: expect.stringContaining(
+        "/main/.claude/worktrees/x already exists and is not the worktree of a session recorded lost with its parent",
+      ) as string,
+    });
+    expect((result as { error: string }).error).toContain("No pane was split.");
+    expect(fake.run).not.toHaveBeenCalled();
+  });
+
+  it("refuses a session recorded blocked for another reason", async () => {
+    read.mockResolvedValue(
+      lostRecord({
+        result: {
+          outcome: "blocked",
+          at: "2026-11-22T10:00:00.000Z",
+          summary: "waiting on the owner",
+        },
+      }),
+    );
+    const fake = runnerOnBranch("x");
+    expect(await place(deps(fake), { worktree: true }, "x")).toEqual({
+      error: expect.stringContaining("already exists") as string,
+    });
+    expect(fake.run).not.toHaveBeenCalled();
+  });
+
+  it("refuses a session that finished done, even when its summary starts the same", async () => {
+    read.mockResolvedValue(
+      lostRecord({
+        result: {
+          outcome: "done",
+          at: "2026-11-22T10:00:00.000Z",
+          summary: "lost with its parent",
+        },
+      }),
+    );
+    const fake = runnerOnBranch("x");
+    expect(await place(deps(fake), { worktree: true }, "x")).toEqual({
+      error: expect.stringContaining("already exists") as string,
+    });
+    expect(fake.run).not.toHaveBeenCalled();
+  });
+});
+
+describe("place with --worktree over a path another session owns", () => {
+  beforeEach(() => {
+    exists.mockResolvedValue(true);
+  });
+
+  it("refuses a lost session whose record names another worktree path", async () => {
+    read.mockResolvedValue(
+      lostRecord({ worktree: { path: "/elsewhere/x", branch: "x" } }),
+    );
+    const fake = runnerOnBranch("x");
+    expect(await place(deps(fake), { worktree: true }, "x")).toEqual({
+      error: expect.stringContaining("already exists") as string,
+    });
+    expect(fake.run).not.toHaveBeenCalled();
+  });
+
+  it("refuses a lost session recorded on a different branch than the one asked for", async () => {
+    read.mockResolvedValue(lostRecord());
+    const fake = runnerOnBranch("x");
+    expect(
+      await place(deps(fake), { worktree: true, branch: "feat/y" }, "x"),
+    ).toEqual({ error: expect.stringContaining("already exists") as string });
+    expect(fake.run).not.toHaveBeenCalled();
+  });
+
+  it("refuses when the existing worktree is on another branch than the record names, and resets nothing", async () => {
+    read.mockResolvedValue(lostRecord());
+    const fake = runnerOnBranch("other");
+    const result = await place(deps(fake), { worktree: true }, "x");
+    expect(result).toEqual({
+      error: expect.stringContaining(
+        "/main/.claude/worktrees/x is on other, not x",
+      ) as string,
+    });
+    expect(lines(fake.run)).toEqual([HEAD]);
+  });
+
+  it("refuses when git cannot read the existing worktree's branch, saying why", async () => {
+    read.mockResolvedValue(lostRecord());
+    const fake = runnerFailing({ line: HEAD });
+    const result = await place(deps(fake), { worktree: true }, "x");
+    expect(result).toEqual({
+      error: expect.stringContaining("npm said no") as string,
+    });
+    expect(lines(fake.run)).toEqual([HEAD]);
+  });
+
+  it("stops at a failed install in a reused worktree, with the removal hint", async () => {
+    read.mockResolvedValue(lostRecord());
+    const fake = fakeRunner((command, args, options) => {
+      if (command === "npm" && options?.cwd === KORE) {
+        return failed("boom");
+      }
+      return args[0] === "rev-parse" ? ok("x\n") : ok();
+    });
+    expect(await place(deps(fake), { worktree: true }, "x")).toEqual({
+      error: `npm ci failed in the new worktree: npm said no. No pane was split. ${removeHint(CREATED)}`,
+    });
   });
 });
