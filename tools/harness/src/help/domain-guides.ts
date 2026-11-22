@@ -98,7 +98,7 @@ export const domainGuides: Record<string, DomainGuide> = {
   queue: {
     purpose:
       "The work queue: approved ideas and pending judge send-backs, and the escalation that relaunches a writer on a stronger model.",
-    flow: "Run queue next to list what to work on, oldest first; queue send-backs to count a PR's send-backs and name the writer model; queue escalate to record the escalation at two send-backs.",
+    flow: "Run queue next to list what to work on, oldest first (the whole ticket frontier behind tick-ticket-queue); queue send-backs to count a PR's send-backs and name the writer model; queue escalate to record the escalation at two send-backs.",
   },
   retro: {
     purpose:
@@ -113,7 +113,7 @@ export const domainGuides: Record<string, DomainGuide> = {
   orchestrate: {
     purpose:
       "Drives approved ideas to a recorded outcome through the writer, the judge and the send-back loop.",
-    flow: "Run orchestrate run for one idea to take it through writer and judge; orchestrate tick advances each queued idea one step per pass behind its flag; orchestrate plan persists a work plan for a tick.",
+    flow: "Run orchestrate run for one idea to take it through writer and judge; orchestrate tick advances each approved idea one step per pass behind the orchestrator-tick flag; orchestrate plan records a work plan for a tick.",
   },
   approve: {
     purpose:

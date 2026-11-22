@@ -40,10 +40,6 @@ export const undocumented: readonly string[] = [
   "ruleset insights",
   // status
   "status",
-  // pr
-  "pr checks",
-  "pr check",
-  "pr open",
   // ledger
   "ledger record",
   "ledger list",
@@ -51,17 +47,9 @@ export const undocumented: readonly string[] = [
   "ledger poll-github",
   // flow
   "flow report",
-  // queue
-  "queue next",
-  "queue send-backs",
-  "queue escalate",
   // retro
   "retro due",
   "retro record",
   // evaluate
   "evaluate",
-  // orchestrate
-  "orchestrate run",
-  "orchestrate tick",
-  "orchestrate plan",
 ];
