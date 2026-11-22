@@ -4,7 +4,7 @@ import type { CommandHelp } from "../runtime/index.js";
 
 export const reportHelp: CommandHelp = {
   purpose:
-    "Reads the ledger and prints the flow report over a window: each stage's active, waiting and toil time, work in progress, the lead time from first event to outcome, tokens and sessions per closed idea against a trailing average, and the bottleneck. It writes nothing.",
+    "Reads the ledger and prints the flow report over a window: per stage the active and waiting time, event counts, toil split into starting, stopping, waiting and retrying, and work in progress (peak and average ideas open); the lead time from first event to outcome; tokens and sessions per closed idea against a trailing average, with a worsened flag; the bottleneck; and the attribution, outcome, host-pressure and cost figures. It writes nothing.",
   when: "When you want to see where the time goes over a span, or read one of the trailing metrics an idea's evaluate will judge.",
   whenNot:
     "For the state of the work right now rather than its flow over time: use status. For one idea's verdict: use evaluate.",

@@ -159,7 +159,7 @@ function fail(
 
 const evaluateHelp: CommandHelp = {
   purpose:
-    "Judges a harness idea once its measurement window has passed: compares its hypothesis metric over the window after its merged change with the equal window before it, and records the result as confirmed, refuted or inconclusive through the same path as outcome record. A model-tier idea is also held against judge send-backs.",
+    "Judges a harness idea once its measurement window has passed: compares its hypothesis metric over the window after its merged change with the equal window before it, and records the result through the same path as outcome record. Confirmed needs a move in the expected direction of at least the threshold, refuted the opposite move by at least the threshold, and anything within noise or without history is inconclusive. A model-tier idea is also held against judge send-backs: its tokens per idea falling is confirmed only while send-backs do not rise past the threshold, and refuted when they do.",
   when: "When a harness idea's window has passed since its change merged, and the idea has no outcome yet.",
   whenNot:
     "Inside the window it refuses and prints when it can run. For an idea that is not a harness idea, or whose change is not merged, nothing is judged: use outcome record with a result you measured.",
@@ -205,7 +205,7 @@ const evaluateHelp: CommandHelp = {
   effects: {
     kind: "mutates",
     detail:
-      "when it records: writes the outcome into the idea, comments on its issue, sets the outcome label, closes the issue and appends the outcome to the ledger; a refuted or inconclusive result opens a follow-up idea. A refuted change gets a revert PR only when the automatic-revert flag is on in the local overlay: prepared on a branch off main, declaring no-behaviour-change, and never merged (the judge merges it); a change that edited the guardrail inventory is left to guardrail request. Inside the window, or on an idea with an outcome, nothing is written",
+      "when it records: writes the outcome into the idea, comments on its issue, sets the outcome label, closes the issue and appends the outcome to the ledger; a refuted or inconclusive result opens a follow-up idea. An inconclusive change stays in place, flagged outcome:inconclusive, with no revert. A refuted change gets a revert PR, once per idea and recorded as a harness-change-reverted ledger event, only when the automatic-revert flag is on in the local overlay: prepared on a branch off main, declaring no-behaviour-change, and never merged (the judge merges it); a change that edited the guardrail inventory is left to guardrail request. Inside the window, or on an idea with an outcome, nothing is written",
   },
   seeAlso: ["outcome record", "flow report", "guardrail request"],
 };
@@ -213,7 +213,7 @@ const evaluateHelp: CommandHelp = {
 export const evaluateCommand: Command = {
   help: evaluateHelp,
   summary:
-    "after a harness idea's measurement window, compare its hypothesis metric (a flow report metric, read from the ledger, never set by an agent) over the window after its merged change with the equal window before, and record confirmed, refuted or inconclusive through the outcome tool: moved the expected direction by at least the threshold is confirmed, the opposite refuted, anything within noise or without history inconclusive; an inconclusive change stays in place and is flagged by its label and follow-up idea; a refuted one is recorded and, when the automatic-revert flag is on in the local overlay, its merged PR is reverted on a branch off main and the revert PR is opened declaring no-behaviour-change but never merged (the judge merges it), once per idea, with a harness-change-reverted ledger event, and a change that edited the guardrail inventory is left to `guardrail request`; a model-tier idea (tier-change and guard-metric in its frontmatter) is judged on both metrics: tokens per idea falling is confirmed only while judge send-backs (rework.sendBacksPerIdea) do not rise past the threshold, and refuted, so reverted, when they do; refused inside the window with the time it can run; an idea with an outcome is left as recorded (--idea <number or slug> [--threshold <fraction>, default 0.1] [--changed-by-pr <number>, when the ledger ties no merged PR to the idea's issue] [--ledger]; --json prints status recorded|too-early|already-recorded with idea, result, before, after, guard (metric, before, after) for a tier idea, the outcome and, once recorded, revert: status not-refuted|flag-off|already-reverted|already-prepared|guardrail|prepared with number and url)",
+    "judge a harness idea after its measurement window and record it confirmed, refuted or inconclusive",
   options: {
     idea: "string",
     threshold: "string",

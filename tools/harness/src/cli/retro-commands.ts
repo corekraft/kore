@@ -103,7 +103,7 @@ const dueHelp: CommandHelp = {
 const due: Command = {
   help: dueHelp,
   summary:
-    "read-only; say whether a retro is due from the ledger and the Last retrospective marker: reason count at the fifth idea closed since the last retro, or metric naming a trailing metric that worsened on an idea closed since; a reason already recorded in the window is not due again; starts no retro and writes nothing ([--json: due, reason, metric, closedIdeas, threshold, alreadyTriggered, lastRetrospective] [--ledger])",
+    "say whether a retro is due, from the ledger and the Last retrospective marker; writes nothing",
   options: { ledger: "string" },
   async run(context) {
     const made = await retroFor(context);
@@ -179,7 +179,7 @@ const recordHelp: CommandHelp = {
 const record: Command = {
   help: recordHelp,
   summary:
-    "append a retro-triggered event to the ledger and move the Last retrospective marker to its second, once per reason and window; refuses a malformed reason with nothing written; the retro itself is run by /retro, never by this command (--reason count|manual|metric:<name> [--json: reason, recordedAt, appended] [--ledger])",
+    "log that a retro ran for a reason, and move the Last retrospective marker to now",
   options: { reason: "string", ledger: "string" },
   async run(context) {
     const reason = context.options["reason"];

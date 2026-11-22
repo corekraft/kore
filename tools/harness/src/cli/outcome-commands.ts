@@ -2,10 +2,7 @@ import { IdeaError, IdeaRepository } from "../idea/index.js";
 import {
   closeOutcome,
   labelFor,
-  OUTCOME_KINDS,
-  OUTCOME_SOURCES,
   parseOutcome,
-  RESULTS,
   recordOutcome,
   type Concluded,
 } from "../outcome/index.js";
@@ -144,7 +141,7 @@ const recordHelp: CommandHelp = {
       "What was observed against the idea's expected outcome. It must not contain an HTML comment, start a line with a # heading, or start a line with a - Name: field.",
     flag: "The feature flag a live verification proves: lowercase letters, digits and hyphens. It needs environment, and kind verification from live-run or owner-waiver.",
     environment: "The environment the flag was proved in. It needs flag.",
-    lock: "The chart lock the proof ran on: main or release. It needs flag, environment, live-run as the source, and charts.",
+    lock: "The chart lock the proof ran on: main or release. It needs flag, environment, live-run as the source, and charts, so activation can compare a main lock with the release lock.",
     charts:
       "The charts the proof ran on, as name=version@sha256:<64 hex digits>, separated by semicolons. It needs lock.",
     ledger:
@@ -186,7 +183,8 @@ const recordHelp: CommandHelp = {
 
 const record: Command = {
   help: recordHelp,
-  summary: `record an idea's measured outcome in its markdown, post it to the issue with one outcome:* label, close the issue, and open a follow-up idea when refuted or inconclusive (--idea --kind ${OUTCOME_KINDS.join("|")} --source ${OUTCOME_SOURCES.join("|")} --evidence <reference> --result ${RESULTS.join("|")} --summary <text> [--flag <name> --environment <env>, only on a live-run or owner-waiver verification; owner-waiver needs --kind verification and --evidence a GitHub comment URL] [--lock main|release --charts '<name>=<version>@sha256:<digest>; ...', the chart lock a live flag proof ran on and its charts, so activation can compare a main lock with the release lock] [--ledger])`,
+  summary:
+    "record an idea's measured outcome, publish it to the issue and close it; a refuted or inconclusive result opens a follow-up idea",
   options: {
     idea: "string",
     kind: "string",
@@ -250,7 +248,7 @@ const closeHelp: CommandHelp = {
 const close: Command = {
   help: closeHelp,
   summary:
-    "finish closing an idea whose outcome is recorded (comment, one outcome:* label, close); refused with no gh call when no outcome is recorded (--idea [--ledger])",
+    "finish publishing an idea's recorded outcome: comment, outcome label and closed issue",
   options: { idea: "string", ledger: "string" },
   run(context) {
     return guarded(context, () => conclusion(context, "close"));
