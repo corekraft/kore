@@ -51,6 +51,18 @@ export interface SessionRecord {
 
 const STATE_DIR = ".kore/state/sessions";
 
+/** The optional fields a record may carry, when present, have the type the harness writes. */
+function optionalFieldsTyped(record: Record<string, unknown>): boolean {
+  return (
+    (record.callerPane === undefined ||
+      typeof record.callerPane === "string") &&
+    (record.version === undefined || Number.isInteger(record.version)) &&
+    (record.terminal === undefined || typeof record.terminal === "string") &&
+    (record.idea === undefined || typeof record.idea === "string") &&
+    (record.reportSeq === undefined || typeof record.reportSeq === "number")
+  );
+}
+
 function isRecord(value: unknown): value is SessionRecord {
   if (typeof value !== "object" || value === null) {
     return false;
@@ -59,12 +71,24 @@ function isRecord(value: unknown): value is SessionRecord {
   return (
     typeof record.name === "string" &&
     typeof record.paneId === "string" &&
-    (record.callerPane === undefined ||
-      typeof record.callerPane === "string") &&
     typeof record.model === "string" &&
-    (record.version === undefined || typeof record.version === "number") &&
-    (record.backend === undefined || isBackend(record.backend))
+    (record.backend === undefined || isBackend(record.backend)) &&
+    (record.backend !== "hc" || typeof record.terminal === "string") &&
+    optionalFieldsTyped(record)
   );
+}
+
+/** The version a value names when that version is newer than this harness reads; undefined otherwise. */
+function newerVersion(value: unknown): number | undefined {
+  if (typeof value !== "object" || value === null || !("version" in value)) {
+    return undefined;
+  }
+  const { version } = value;
+  return typeof version === "number" &&
+    Number.isInteger(version) &&
+    version > SESSION_RECORD_VERSION
+    ? version
+    : undefined;
 }
 
 /**
@@ -106,17 +130,15 @@ export class SessionRegistry {
       }
       parsed = undefined;
     }
+    const newer = newerVersion(parsed);
+    if (newer !== undefined) {
+      throw new CommandError(
+        `Session state ${path} was written by a newer harness (record version ${newer}; this harness reads version ${SESSION_RECORD_VERSION}). Update the harness, then retry.`,
+      );
+    }
     if (!isRecord(parsed)) {
       throw new CommandError(
         `Session state ${path} is not a valid session record; delete it and spawn the session again.`,
-      );
-    }
-    if (
-      parsed.version !== undefined &&
-      parsed.version > SESSION_RECORD_VERSION
-    ) {
-      throw new CommandError(
-        `Session state ${path} was written by a newer harness (record version ${parsed.version}; this harness reads version ${SESSION_RECORD_VERSION}). Update the harness, then retry.`,
       );
     }
     return parsed;
