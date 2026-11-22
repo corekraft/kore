@@ -8,10 +8,11 @@ import { CommandError, type CliDeps } from "../runtime/index.js";
 import {
   recordsOfTerminal,
   SessionRegistry,
+  terminalsFor,
   type TerminalRecords,
   type UnreadableRecord,
 } from "../session/index.js";
-import { HcTerminals, type Terminals } from "../terminal/index.js";
+import type { Terminals } from "../terminal/index.js";
 
 export interface SessionIdentity {
   name: string;
@@ -48,10 +49,7 @@ function resolutionOf(deps: CliDeps, terminals: Terminals): Promise<Resolved> {
 /** The identity of this run's hc terminal, looked up once per run so a guard and a recording hook share it. */
 export function sessionIdentity(
   deps: CliDeps,
-  terminals: Terminals = new HcTerminals({
-    runner: deps.runner,
-    env: deps.env,
-  }),
+  terminals: Terminals = terminalsFor(deps),
 ): Promise<SessionIdentity | undefined> {
   return resolutionOf(deps, terminals).then((found) => found.identity);
 }
@@ -59,10 +57,7 @@ export function sessionIdentity(
 /** The notice for this run's hc terminal when its own session record cannot be read; undefined otherwise. */
 export function sessionNotice(
   deps: CliDeps,
-  terminals: Terminals = new HcTerminals({
-    runner: deps.runner,
-    env: deps.env,
-  }),
+  terminals: Terminals = terminalsFor(deps),
 ): Promise<string | undefined> {
   return resolutionOf(deps, terminals).then((found) => found.notice);
 }

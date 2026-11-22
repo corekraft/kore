@@ -11,7 +11,7 @@ export const recordHelp: CommandHelp = {
   flags: {
     id: "The event's id, a name of letters, digits and . _ : / # @ - up to 128 characters. Without it the ledger assigns one.",
     source:
-      "Where the event came from: claude, herdr or github. Required; github is refused, as only ledger poll-github writes GitHub's records.",
+      "Where the event came from: claude, herdr, terminal or github. Required; github is refused, as only ledger poll-github writes GitHub's records. terminal is what the ledger watch writes for hc terminals.",
     kind: "The event's kind, one of the ledger's kinds, such as session.start or tool.end. Required; a kind only the poller writes is refused.",
     "occurred-at":
       "When the event happened, as an ISO 8601 UTC time such as 2026-01-02T03:04:05.000Z. Required; the ledger does not stamp it.",
@@ -84,7 +84,7 @@ export const listHelp: CommandHelp = {
     pane: "Only the events of this herdr pane.",
     idea: "Only the events about this idea.",
     source:
-      "Only the events from this source: claude, herdr or github. Any other value is refused with exit 2.",
+      "Only the events from this source: claude, herdr, terminal or github. Any other value is refused with exit 2.",
     kind: "Only the events of this kind. A kind the ledger does not know is refused with exit 2.",
     since:
       "The earliest occurredAt to keep, inclusive, as an ISO 8601 UTC time such as 2026-01-02T03:04:05Z. A malformed time is refused with exit 2.",

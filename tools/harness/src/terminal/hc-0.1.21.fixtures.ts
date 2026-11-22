@@ -58,3 +58,13 @@ export const HC_0_1_21 = {
       '{"error":{"hint":"run it inside a terminal, or name the parent","kind":"needs_target","message":"whose children?"}}',
   },
 };
+
+/** The lines hc events --json printed from a scratch core on 2026-11-22: the snapshot it opens with, a foreground change, and an exit. */
+export const HC_EVENTS_0_1_21 = {
+  snapshot:
+    '{"channel":null,"seq":0,"terminals":[{"address":"t2","argv":["sh","-c","sleep 60"],"cols":200,"created_ms":1795352324085,"cwd":"/tmp/kore-ev-6c245b/work","die_with_parent":true,"exit_code":null,"finished_ms":1795352332106,"identity":"ghostty","keep":false,"labels":{"kore-session":"s1","role":"writer"},"name":"s1","notify":true,"parent":"t1","pid":124559,"reason":"killed","reported":false,"rm":false,"rows":120,"screen":"exact","signal":1,"state":"finished","status":null,"status_ms":null,"template":null,"title":"","turn":0}]}',
+  foreground:
+    '{"jsonrpc":"2.0","method":"event","params":{"data":{"argv":["sh","-c","sleep 60"],"cwd":"/tmp/kore-ev-b449dd/work","name":"sh","pid":128353},"seq":5,"terminal":"t2","type":"foreground"}}',
+  finished:
+    '{"jsonrpc":"2.0","method":"event","params":{"data":{"exit_code":3,"finished_ms":1795352357525,"reason":"exited","signal":null},"seq":7,"terminal":"t2","type":"finished"}}',
+} as const;

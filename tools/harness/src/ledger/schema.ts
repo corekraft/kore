@@ -7,10 +7,12 @@ import {
   NUMBER_KINDS,
   COMPACTION_RULES,
   SPLIT_RULES,
+  TERMINAL_RULES,
   type CompactionOrigin,
   type DecisionRouteOrigin,
   type Kind,
   type SplitOrigin,
+  type TerminalOrigin,
 } from "./schema-kinds.js";
 import { BACKGROUND_RULES, RESULT_RULES } from "./schema-result.js";
 import { SENDER_RULES, type HandoverReason } from "./schema-sender.js";
@@ -66,7 +68,8 @@ export interface EventInput
     Partial<MergedOrigin>,
     Partial<DecisionRouteOrigin>,
     Partial<SplitOrigin>,
-    Partial<CompactionOrigin> {
+    Partial<CompactionOrigin>,
+    Partial<TerminalOrigin> {
   id?: string;
   source: Source;
   kind: Kind;
@@ -168,6 +171,7 @@ const ALLOWED = new Set<string>([
   ...DECISION_ROUTE_RULES.map((rule) => rule.field),
   ...SPLIT_RULES.map((rule) => rule.field),
   ...COMPACTION_RULES.map((rule) => rule.field),
+  ...TERMINAL_RULES.map((rule) => rule.field),
   "load",
   "memory",
   "swap",
@@ -268,6 +272,7 @@ const RULES: readonly Rule[] = [
   ...DECISION_ROUTE_RULES,
   ...SPLIT_RULES,
   ...COMPACTION_RULES,
+  ...TERMINAL_RULES,
 ];
 
 function checkShape(input: unknown, mode: ParseMode): Failure | undefined {

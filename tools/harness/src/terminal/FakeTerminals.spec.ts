@@ -142,3 +142,35 @@ describe("FakeTerminals control and send", () => {
     );
   });
 });
+
+describe("FakeTerminals: events follow the port's filters", () => {
+  it("follows only the events of terminals carrying every label given", async () => {
+    const fake = new FakeTerminals();
+    const mine = (await fake.run({
+      argv: ["a"],
+      cwd: "/w",
+      labels: { "kore-session": "s1" },
+    })) as { id: string };
+    const other = (await fake.run({
+      argv: ["b"],
+      cwd: "/w",
+      labels: { "kore-session": "s2" },
+    })) as { id: string };
+    fake.finish(other.id, 0);
+    expect(
+      await collect(fake.events({ labels: { "kore-session": "s1" } })),
+    ).toEqual([{ kind: "started", terminal: mine.id }]);
+  });
+
+  it("reports a status change as changed, so a follow sees what hc would report", async () => {
+    const fake = new FakeTerminals();
+    const started = (await fake.run({ argv: ["a"], cwd: "/w" })) as {
+      id: string;
+    };
+    fake.setStatus(started.id, "working");
+    expect(await collect(fake.events({ terminal: started.id }))).toEqual([
+      { kind: "started", terminal: started.id },
+      { kind: "changed", terminal: started.id },
+    ]);
+  });
+});

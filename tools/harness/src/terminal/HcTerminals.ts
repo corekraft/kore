@@ -1,6 +1,7 @@
-import type { Runner } from "../runtime/index.js";
+import type { LineStream, Runner } from "../runtime/index.js";
 import { refuseRun } from "./hc-argv.js";
 import { hcFailure } from "./hc-errors.js";
+import { parseEventLine } from "./hc-events.js";
 import {
   isHcList,
   isHcRead,
@@ -13,6 +14,7 @@ import {
 import { checkHcVersion } from "./hc-version.js";
 import {
   terminalError,
+  type EventFilter,
   type ListFilter,
   type RunSpec,
   type SendOptions,
@@ -35,6 +37,8 @@ export interface HcTerminalsOptions {
   runner: Runner;
   /** The caller's environment. HC_TERMINAL_ID is read from it, and nothing else. */
   env: Readonly<Record<string, string | undefined>>;
+  /** Follows hc events, which never ends, so a Runner (which returns only at its end) cannot. */
+  lines: LineStream;
 }
 
 function isError(value: unknown): value is TerminalError {
@@ -65,10 +69,12 @@ function toTerminal(raw: HcTerminal): Terminal {
 export class HcTerminals implements Terminals {
   readonly #runner: Runner;
   readonly #env: Readonly<Record<string, string | undefined>>;
+  readonly #lines: LineStream;
 
   constructor(options: HcTerminalsOptions) {
     this.#runner = options.runner;
     this.#env = options.env;
+    this.#lines = options.lines;
   }
 
   self(): string | undefined {
@@ -229,11 +235,33 @@ export class HcTerminals implements Terminals {
     return isError(raw) ? raw : { id };
   }
 
-  /** hc events never ends, and a Runner returns only when its command ends, so this cannot stream. */
-  events(): AsyncIterable<TerminalEvent> {
-    throw new Error(
-      "HcTerminals cannot follow events: a Runner returns only when its command ends, and hc events never ends. The ledger watch terminal reads them (plan 16, Step 4)",
-    );
+  /**
+   * Follows hc events --json until the stream ends, one event per parsed line. The version is checked
+   * before the stream starts, and a line that is no hc event ends the stream with an error naming the pin.
+   */
+  async *events(filter: EventFilter = {}): AsyncGenerator<TerminalEvent> {
+    const pinned = await checkHcVersion(this.#runner);
+    if (pinned !== undefined) {
+      const { message, hint } = pinned.error;
+      throw new Error(
+        hint === undefined ? message : message + " (" + hint + ")",
+      );
+    }
+    const args = [
+      "events",
+      "--json",
+      ...(filter.terminal === undefined ? [] : ["--terminal", filter.terminal]),
+      ...labelPairs(filter.labels ?? {}).flatMap((pair) => ["--label", pair]),
+    ];
+    for await (const line of this.#lines.lines("hc", args)) {
+      const events = parseEventLine(line);
+      if (events === undefined) {
+        throw new Error(
+          "hc events printed a line that is not an event (" + SHAPE_HINT + ")",
+        );
+      }
+      yield* events;
+    }
   }
 
   /** hc starts a child of a finished parent live, and never ends it, so the parent must be live first. */
