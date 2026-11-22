@@ -82,6 +82,11 @@ const signinRules = `  rules:
         - path: {type: PathPrefix, value: /api}
         - path: {type: PathPrefix, value: /oauth2}
         - path: {type: PathPrefix, value: /login/oauth2}
+      filters:
+        - type: RequestHeaderModifier
+          requestHeaderModifier:
+            set:
+              - {name: X-Forwarded-Proto, value: https}
       backendRefs:
         - {name: auth-bff, port: 80}
     - backendRefs:
