@@ -1,5 +1,9 @@
 import type { Clock } from "../runtime/index.js";
-import type { TerminalError, Terminals } from "../terminal/index.js";
+import type {
+  TerminalError,
+  TerminalEvent,
+  Terminals,
+} from "../terminal/index.js";
 import type { Ledger } from "./ledger.js";
 import { reconcileTerminals } from "./terminal-reconcile.js";
 import { lastReadings, planTerminals } from "./terminal-watch.js";
@@ -31,9 +35,17 @@ export async function followTerminals(deps: {
   let last = lastReadings(
     (await deps.ledger.list({ source: "terminal" })).events,
   );
+  const stream = deps.terminals.events()[Symbol.asyncIterator]();
   try {
-    for await (const event of deps.terminals.events()) {
-      const terminal = await deps.terminals.get(event.terminal);
+    for (;;) {
+      const pulled = await pull(stream);
+      if ("ended" in pulled) {
+        return { ok: true };
+      }
+      if ("failed" in pulled) {
+        return { ok: false, message: pulled.failed };
+      }
+      const terminal = await deps.terminals.get(pulled.event.terminal);
       if ("error" in terminal) {
         if (terminal.error.kind === "not-found") {
           continue;
@@ -53,11 +65,22 @@ export async function followTerminals(deps: {
         }
       }
     }
+  } finally {
+    await stream.return?.(undefined);
+  }
+}
+
+/** One step of the stream: its event, its end, or the stream's own failure as a message. Anything else is rethrown. */
+async function pull(
+  stream: AsyncIterator<TerminalEvent>,
+): Promise<{ event: TerminalEvent } | { ended: true } | { failed: string }> {
+  try {
+    const step = await stream.next();
+    return step.done === true ? { ended: true } : { event: step.value };
   } catch (error) {
     if (!(error instanceof Error)) {
       throw error;
     }
-    return { ok: false, message: error.message };
+    return { failed: error.message };
   }
-  return { ok: true };
 }

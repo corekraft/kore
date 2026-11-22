@@ -146,6 +146,28 @@ describe("followTerminals: each event", () => {
   });
 });
 
+describe("followTerminals: errors that are not the stream's", () => {
+  it("rethrows an error from recording a reading, since only the stream's own failure is reported as a message", async () => {
+    vi.mocked(planTerminals).mockReturnValueOnce({
+      events: [RECORD],
+      last: new Map(),
+    });
+    const { fake, run } = setup(() =>
+      streamOf([{ kind: "changed", terminal: "t2" }]),
+    );
+    fake.record.mockRejectedValueOnce(new Error("EACCES: ledger is read-only"));
+    await expect(run()).rejects.toThrow("EACCES: ledger is read-only");
+  });
+
+  it("rethrows an error from reading a terminal, since get is not the stream", async () => {
+    const { get, run } = setup(() =>
+      streamOf([{ kind: "changed", terminal: "t2" }]),
+    );
+    get.mockRejectedValueOnce(new Error("socket reset"));
+    await expect(run()).rejects.toThrow("socket reset");
+  });
+});
+
 describe("followTerminals: the end of the stream", () => {
   it("ends ok when hc's stream ends, so the watch can be started again", async () => {
     const { run } = setup(() => streamOf([]));
