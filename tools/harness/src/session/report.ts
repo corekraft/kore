@@ -1,33 +1,26 @@
-import { resolve } from "node:path";
 import type { CliDeps, CommandContext, CommandHelp } from "../runtime/index.js";
 import type { TerminalError, Terminals } from "../terminal/index.js";
 import { hcMessage, routeSession, terminalsFor } from "./backend.js";
 import { FAILED, USAGE_ERROR, fail } from "./output.js";
 import { SessionRegistry, type SessionRecord } from "./registry.js";
 import {
-  isInsideReportDir,
+  STDIN,
+  USAGE,
+  bothStdinError,
+  contentOf,
+  type Failed,
+  type Input,
+  type Summary,
+} from "./report-input.js";
+import {
   noticeLine,
   readReport,
-  reportDirOf,
   reportPath,
   type Report,
 } from "./report-file.js";
 
-const USAGE =
-  "session report --outcome done|blocked (--summary <text> | --file <path>) [--plan <file>]";
 const NOT_IN_TERMINAL =
   "Not inside an hc terminal (HC_TERMINAL_ID is unset). session report runs in the session's own terminal, which session spawn starts.";
-
-/** The summary as the flags gave it: the text itself, or the file that holds it. */
-type Summary = { text: string } | { file: string };
-
-interface Input {
-  outcome: Report["outcome"];
-  summary: Summary;
-  plan?: string;
-}
-
-type Failed = { error: string };
 
 function textOption(value: string | boolean | undefined): string | undefined {
   return typeof value === "string" ? value : undefined;
@@ -39,6 +32,9 @@ function summaryOption(
   file: string | undefined,
 ): Summary | Failed {
   if (text !== undefined && file === undefined) {
+    if (text === STDIN) {
+      return { stdin: true };
+    }
     return text.trim() === ""
       ? { error: `--summary must not be empty: ${USAGE}.` }
       : { text };
@@ -68,37 +64,12 @@ function inputOf(options: CommandContext["options"]): Input | Failed {
     return { error: `--plan needs a file path: ${USAGE}.` };
   }
   const plan = textOption(options["plan"]);
-  return { outcome, summary, ...(plan === undefined ? {} : { plan }) };
-}
-
-/** A file's text, or why it cannot be read. */
-async function readText(
-  deps: CliDeps,
-  label: string,
-  path: string,
-): Promise<{ text: string } | Failed> {
-  if (!(await deps.fs.exists(path))) {
-    return { error: `${label} does not exist.` };
-  }
-  return { text: await deps.fs.readFile(path) };
-}
-
-/** The summary text: the flag's own text, or a file that must sit under the report directory. */
-async function summaryText(
-  deps: CliDeps,
-  cwd: string,
-  summary: Summary,
-): Promise<{ text: string } | Failed> {
-  if ("text" in summary) {
-    return summary;
-  }
-  const path = resolve(deps.cwd, summary.file);
-  if (!(await isInsideReportDir(deps.fs, deps.links, cwd, path))) {
+  if (plan === STDIN && "stdin" in summary) {
     return {
-      error: `--file ${summary.file} is outside ${reportDirOf(cwd)}; a report reads its summary only from there. Write the summary file in that directory and pass it again.`,
+      error: bothStdinError(USAGE),
     };
   }
-  return readText(deps, `--file ${summary.file}`, path);
+  return { outcome, summary, ...(plan === undefined ? {} : { plan }) };
 }
 
 /** The open hc record the terminal runs, or why this terminal may not report for one. */
@@ -124,27 +95,6 @@ async function openRecord(
     };
   }
   return record;
-}
-
-/** The summary, and the plan's text when the flags name one, or why either cannot be read. */
-async function contentOf(
-  deps: CliDeps,
-  cwd: string,
-  input: Input,
-): Promise<{ summary: string; plan?: string } | Failed> {
-  const summary = await summaryText(deps, cwd, input.summary);
-  if ("error" in summary) {
-    return summary;
-  }
-  if (input.plan === undefined) {
-    return { summary: summary.text };
-  }
-  const plan = await readText(
-    deps,
-    `--plan ${input.plan}`,
-    resolve(deps.cwd, input.plan),
-  );
-  return "error" in plan ? plan : { summary: summary.text, plan: plan.text };
 }
 
 /** Sends the parent the notice when it is an agent terminal; the parent it names when it is not. */
@@ -265,9 +215,9 @@ export const reportHelp: CommandHelp = {
     outcome:
       "done when the work is finished, blocked when it cannot go on without a person.",
     summary:
-      "The summary text. It is kept in the report file and is never sent to the parent.",
+      "The summary text, or - to read it from stdin, as a heredoc gives it. It is kept in the report file and is never sent to the parent.",
     file: "A file that holds the summary, under .kore/report in the session's checkout. Use it for a long answer.",
-    plan: "A file whose text is stored with the report as its plan, such as a judgment's plan JSON.",
+    plan: "A file whose text is stored with the report as its plan, such as a judgment's plan JSON, or - to read that text from stdin.",
   },
   examples: [
     {

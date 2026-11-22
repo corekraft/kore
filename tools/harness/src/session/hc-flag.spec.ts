@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { environments, readOverlay } from "../flag/index.js";
 import { fakeDeps, type FakeDeps } from "./deps-support.js";
-import { HC_SESSIONS_FLAG, hcSessionsOn } from "./hc-flag.js";
+import { HC_SESSIONS_FLAG, briefBackend, hcSessionsOn } from "./hc-flag.js";
 
 vi.mock("../flag/index.js");
 
@@ -52,6 +52,14 @@ describe("hcSessionsOn reads the hc-sessions flag from the local overlay", () =>
 
     expect(environments).toHaveBeenCalledWith(deps.fs, "/repo");
     expect(readOverlay).toHaveBeenCalledWith(deps.fs, "/repo", "local");
+  });
+
+  it("gives the brief backend hc when the flag is on, and herdr when it is off", async () => {
+    localOverlay({ [HC_SESSIONS_FLAG]: true });
+    await expect(briefBackend(deps)).resolves.toBe("hc");
+
+    localOverlay({ [HC_SESSIONS_FLAG]: false });
+    await expect(briefBackend(deps)).resolves.toBe("herdr");
   });
 
   it("names the flag hc-sessions, as the overlays declare it", () => {

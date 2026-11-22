@@ -36,7 +36,14 @@ function setup(
     readFile: (path: string) => Promise.resolve(files[path] ?? ""),
     exists: (path: string) => Promise.resolve(path in files),
   } as unknown as FileSystem;
-  return { cli: new TickCli(runner, "/repo", fs, SESSIONS, PLANS), calls };
+  return {
+    cli: new TickCli(runner, "/repo", fs, {
+      sessions: SESSIONS,
+      plans: PLANS,
+      checkout: "/repo",
+    }),
+    calls,
+  };
 }
 
 const WORK = [
@@ -258,8 +265,7 @@ describe("TickCli with no session directory", () => {
           readdir: () =>
             Promise.reject(Object.assign(new Error("x"), { code: "ENOENT" })),
         } as unknown as FileSystem,
-        SESSIONS,
-        PLANS,
+        { sessions: SESSIONS, plans: PLANS, checkout: "/repo" },
       ).panes("0001"),
     ).toEqual([]);
     expect(cli).toBeDefined();

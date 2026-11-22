@@ -1,6 +1,7 @@
 // oxlint-disable import/max-dependencies -- the session domain is one command per module, so its barrel imports each of them
 import type { Command } from "../runtime/index.js";
 export { handOff } from "./handoff.js";
+export { buildBrief } from "./brief.js";
 export { FOLLOW_UP_PREFIX } from "./follow-up-prefix.js";
 export { findResult, parseTimeout } from "./wait.js";
 export {
@@ -23,7 +24,7 @@ export {
 } from "./registry.js";
 export { recordsOfTerminal, type TerminalRecords } from "./terminal-record.js";
 export { terminalsFor } from "./backend.js";
-export { hcSessionsOn } from "./hc-flag.js";
+export { briefBackend, hcSessionsOn } from "./hc-flag.js";
 export { startLedgerWatch } from "./spawn-hc-watch.js";
 export { readReport, reportPath } from "./report-file.js";
 import { check, checkHelp } from "./check.js";
@@ -81,7 +82,7 @@ const notifyCommand: Command = {
 
 const reportCommand: Command = {
   summary:
-    "record this hc session's outcome: writes .kore/report/<session>.json with the next seq, then sends the parent one notice line (--outcome done|blocked, and exactly one of --summary <text> or --file <path>, a file under .kore/report; --plan <file> stores its text with the report); the last action of a session that session spawn started on hc",
+    "record this hc session's outcome: writes .kore/report/<session>.json with the next seq, then sends the parent one notice line (--outcome done|blocked, and exactly one of --summary <text> (or - for stdin) or --file <path>, a file under .kore/report; --plan <file> (or - for stdin) stores its text with the report); the last action of a session that session spawn started on hc",
   options: {
     outcome: "string",
     summary: "string",

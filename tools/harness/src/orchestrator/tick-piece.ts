@@ -1,5 +1,5 @@
 import type { Launch } from "./idea-run.js";
-import { pieceBrief } from "./judgment-briefs.js";
+import { pieceBrief, type BriefBackend } from "./judgment-briefs.js";
 import type { WorkPiece } from "./judgment-check.js";
 import { sessionNameError } from "../session/index.js";
 
@@ -20,12 +20,13 @@ export function pieceLaunch(
   issue: number,
   piece: WorkPiece,
   name: string,
+  backend: BriefBackend,
 ): Launch {
   return {
     role: piece.role,
     name,
     issue,
-    brief: pieceBrief(idea, issue, piece),
+    brief: pieceBrief(idea, issue, piece, backend),
     ...(piece.role === "writer" ? { worktree: true as const } : {}),
   };
 }

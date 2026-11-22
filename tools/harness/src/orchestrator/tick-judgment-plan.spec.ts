@@ -115,3 +115,22 @@ describe("TickJudgment.consume: persisting the work plan", () => {
     expect(p.close).not.toHaveBeenCalled();
   });
 });
+
+describe("TickJudgment.consume: an hc judgment's plan comes from its report", () => {
+  it("checks the plan its report carries, and reads no pane", async () => {
+    const plan = { stop: { reason: "owner decides" } };
+    const p = ports({
+      backend: "hc",
+      reportOf: vi.fn(async () => ({
+        summary: "plan written",
+        plan: JSON.stringify(plan, null, 2),
+      })),
+    });
+
+    await new TickJudgment(p).consume(IDEA, ISSUE, [], admitted());
+
+    expect(readPlan).not.toHaveBeenCalled();
+    expect(p.paneText).not.toHaveBeenCalled();
+    expect(checkPlan).toHaveBeenCalledWith(plan);
+  });
+});

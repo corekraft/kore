@@ -34,7 +34,7 @@ export const RESULT_SUMMARY_LINE =
  * loops (ADR 0123).
  */
 export const MAIN_SESSION_WAIT_LINE =
-  "Wait for CI or a pane's RESULT with `harness harness wait` in the background, not with sleep, until or seq loops: it returns when the first settles; see `harness harness wait --help` for its flags.";
+  "Wait for CI or a session's result with `harness harness wait` in the background, not with sleep, until or seq loops: it returns when the first settles; see `harness harness wait --help` for its flags.";
 
 /**
  * The line the main session gets while signed-main-sends is on: `session send`

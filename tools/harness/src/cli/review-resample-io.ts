@@ -3,6 +3,7 @@ import type { Ledger } from "../ledger/index.js";
 import type { CommandContext, RunResult } from "../runtime/index.js";
 import { openJudgeLedger } from "./judge-shared.js";
 import type { ResampleIo } from "./review-resample-command.js";
+import { settledReads, type Backend } from "./review-settled.js";
 
 const HARNESS = "skills/bin/harness.mjs";
 
@@ -33,10 +34,12 @@ async function recordResample(
 /**
  * The real ports and events of `review resample`: the shared ledger's events, the reader
  * pane through the `session` tools (so its launch records its tier and reason), its text
- * through herdr, and the re-review events through the judge's ledger.
+ * through herdr on herdr or from its report's summary on hc, and the re-review events
+ * through the judge's ledger.
  */
 export async function sessionResampleIo(
   context: CommandContext,
+  backend: Backend,
 ): Promise<ResampleIo> {
   const { deps } = context;
   const root = await deps.root();
@@ -79,18 +82,7 @@ export async function sessionResampleIo(
           "--no-wait",
         );
       },
-      wait: async (name) => {
-        const waited = JSON.parse(
-          await harness("session", "wait", name, "--json"),
-        ) as { outcome: "done" | "blocked"; paneId: string };
-        return { outcome: waited.outcome, paneId: waited.paneId };
-      },
-      read: (paneId) =>
-        tool(
-          "herdr",
-          ["pane", "read", paneId, "--source", "recent-unwrapped"],
-          `herdr pane read ${paneId}`,
-        ),
+      ...settledReads(harness, tool, backend),
       close: async (name) => {
         await harness("session", "close", name);
       },

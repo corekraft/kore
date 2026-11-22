@@ -31,8 +31,8 @@ const STANDING_RULES: Record<string, string> = {
     "After each push, run `node skills/bin/harness.mjs pr checks <pr> --wait` once, print the new head SHA in your summary, and fix a red run; never loop on the wait.",
   "read a long run's output file instead of sleeping":
     "For a run that takes long, start it in the background and read its output file when it finishes; do not sleep to wait for it.",
-  "broadcast only once, at the finish":
-    "Broadcast only once, when you finish, with `harness session notify`, the command at the end of your brief.",
+  "report only once, at the finish":
+    "Report only once, when you finish, with the report command your brief gives.",
   "run only the related tests locally":
     "Locally run only the related tests and typecheck; the full suites run in CI `check` (AGENTS.md, Changes).",
   "never merge, only the judge merges":

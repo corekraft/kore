@@ -18,7 +18,11 @@ describe("TickCli livePanes", () => {
       readFile: (path: string) =>
         Promise.resolve(files[path.slice(SESSIONS.length + 1)] ?? ""),
     } as unknown as FileSystem;
-    const cli = new TickCli({} as Runner, "/repo", fs, SESSIONS, "/plans");
+    const cli = new TickCli({} as Runner, "/repo", fs, {
+      sessions: SESSIONS,
+      plans: "/plans",
+      checkout: "/repo",
+    });
 
     expect(await cli.livePanes()).toEqual([
       { name: "live-proof-8", state: "closed" },

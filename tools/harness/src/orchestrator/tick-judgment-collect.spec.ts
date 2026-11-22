@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { decide } from "./judgment-flow.js";
 import { judgmentBrief } from "./judgment-briefs.js";
 import { flowOf } from "./judgment-panes.js";
+import { readSummary } from "./judgment-summary.js";
 import {
   IDEA,
   ISSUE,
@@ -75,19 +76,25 @@ describe("TickJudgment.consume: collecting the readers", () => {
       admitted(),
     );
 
-    expect(judgmentBrief).toHaveBeenCalledWith(IDEA, ISSUE, PR, {
-      kind: "after-reads",
-      summaries: [
-        {
-          name: "idea-0007-read-r1-q1",
-          text: "S(text of idea-0007-read-r1-q1)",
-        },
-        {
-          name: "idea-0007-read-r1-q2",
-          text: "S(text of idea-0007-read-r1-q2)",
-        },
-      ],
-    });
+    expect(judgmentBrief).toHaveBeenCalledWith(
+      IDEA,
+      ISSUE,
+      PR,
+      {
+        kind: "after-reads",
+        summaries: [
+          {
+            name: "idea-0007-read-r1-q1",
+            text: "S(text of idea-0007-read-r1-q1)",
+          },
+          {
+            name: "idea-0007-read-r1-q2",
+            text: "S(text of idea-0007-read-r1-q2)",
+          },
+        ],
+      },
+      "herdr",
+    );
     expect(p.spawn).toHaveBeenCalledWith({
       role: "judgment",
       name: "idea-0007-judgment-r2",
@@ -198,5 +205,54 @@ describe("TickJudgment.consume: holds and crash recovery", () => {
     await new TickJudgment(p).consume(IDEA, ISSUE, [], admitted());
 
     expect(p.close).toHaveBeenCalledWith("idea-0007-judgment-r1");
+  });
+});
+
+describe("TickJudgment.consume: an hc judgment reads its readers from their reports", () => {
+  it("takes each reader's answer from its report, with no summary markers, and briefs the judgment for hc", async () => {
+    const p = ports({
+      backend: "hc",
+      reportOf: vi.fn(async (name: string) => ({
+        summary: `answer of ${name}`,
+      })),
+    });
+    vi.mocked(flowOf).mockReturnValue(
+      flow({
+        decisions: [
+          {
+            ord: 1,
+            retry: false,
+            pane: pane("idea-0007-judgment-r1", "closed"),
+          },
+        ],
+        rounds: [{ ord: 1, readers: ROUND }],
+        readRounds: 1,
+        nextOrd: 2,
+      }),
+    );
+
+    await new TickJudgment(p).consume(IDEA, ISSUE, [], admitted());
+
+    expect(readSummary).not.toHaveBeenCalled();
+    expect(p.paneText).not.toHaveBeenCalled();
+    expect(judgmentBrief).toHaveBeenCalledWith(
+      IDEA,
+      ISSUE,
+      PR,
+      {
+        kind: "after-reads",
+        summaries: [
+          {
+            name: "idea-0007-read-r1-q1",
+            text: "answer of idea-0007-read-r1-q1",
+          },
+          {
+            name: "idea-0007-read-r1-q2",
+            text: "answer of idea-0007-read-r1-q2",
+          },
+        ],
+      },
+      "hc",
+    );
   });
 });

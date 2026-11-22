@@ -59,7 +59,13 @@ describe("TickJudgment.consume: starting readers", () => {
     );
 
     expect(outcome).toEqual({ step: "spawn-readers" });
-    expect(readerBrief).toHaveBeenNthCalledWith(1, IDEA, ISSUE, READS[0]);
+    expect(readerBrief).toHaveBeenNthCalledWith(
+      1,
+      IDEA,
+      ISSUE,
+      READS[0],
+      "herdr",
+    );
     expect(p.spawn).toHaveBeenNthCalledWith(1, {
       role: "reader",
       name: "idea-0007-read-r1-q1",
@@ -168,10 +174,13 @@ describe("TickJudgment.consume: retry, needs-info and work", () => {
       admitted(),
     );
 
-    expect(judgmentBrief).toHaveBeenCalledWith(IDEA, ISSUE, PR, {
-      kind: "retry",
-      reason: "bad item",
-    });
+    expect(judgmentBrief).toHaveBeenCalledWith(
+      IDEA,
+      ISSUE,
+      PR,
+      { kind: "retry", reason: "bad item" },
+      "herdr",
+    );
     expect(p.spawn).toHaveBeenCalledWith({
       role: "judgment",
       name: "idea-0007-retry-r2",

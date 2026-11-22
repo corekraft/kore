@@ -14,6 +14,7 @@ vi.mock("./retro-launch.js", () => ({
   RETRO_MODEL: "m",
   RETRO_ROLE: "r",
   RetroLaunch: vi.fn(),
+  retroBrief: vi.fn(),
 }));
 vi.mock("./retro-filing.js", () => ({ RetroFiling: vi.fn() }));
 vi.mock("./retro-filing-cli.js", () => ({ RetroFilingCli: vi.fn() }));
@@ -102,14 +103,19 @@ const EXPORTED = [
   "WaitingLedger",
   "WaitingStepNotifier",
   "WaitingTicketNotice",
+  "branchNoticeBody",
   "branchNoticeFlagOn",
   "checkPlan",
+  "judgmentBrief",
   "leasedPass",
   "liveProofsOn",
   "pieceNameProblem",
+  "readerBrief",
+  "rebriefBrief",
   "reconcilingPass",
   "restartJobPath",
   "restartJobPlist",
+  "retroBrief",
   "retroFlagOn",
   "runTicks",
   "tickFlagOn",

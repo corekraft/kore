@@ -29,7 +29,7 @@ function fakes(overrides: Partial<ResamplePorts> = {}): Fakes {
   const record = vi.fn(async () => undefined);
   const ports: ResamplePorts = {
     spawn,
-    wait: async () => ({ outcome: "done", paneId: "p-1" }),
+    wait: async () => ({ outcome: "done" }),
     read: async () => "some text",
     close,
     record,
@@ -55,6 +55,19 @@ describe("ResampleRun launch (#852)", () => {
       reason: RESAMPLE_REASON,
       brief: expect.stringContaining("PR #10 at head aaaaaaaa"),
     });
+  });
+
+  it("asks an hc reader for its verdict on the stdin of session report, on one line, and never for a RESULT line", async () => {
+    const f = fakes();
+    vi.mocked(readVerdict).mockReturnValue([]);
+    await new ResampleRun(f.ports, "hc").run([A]);
+
+    const brief = f.spawn.mock.calls[0]?.[0].brief as string;
+    expect(brief).not.toContain("\n");
+    expect(brief).toContain(
+      "run `node skills/bin/harness.mjs session report --outcome done --summary - <<'EOF'`, with your verdict lines on the lines after it",
+    );
+    expect(brief).not.toMatch(/RESULT/);
   });
 
   it("sends a one-line brief, so no line of it can read as a verdict marker", async () => {
@@ -95,17 +108,17 @@ describe("ResampleRun verdict (#852)", () => {
     ]);
   });
 
-  it("reads the pane text it was waited on, so the verdict comes from that pane", async () => {
+  it("reads the text of the session it waited on, by its name, so the verdict comes from that session", async () => {
     vi.mocked(readVerdict).mockReturnValue([]);
     const read = vi.fn(async () => "pane text");
     const f = fakes({
-      wait: async () => ({ outcome: "done", paneId: "p-9" }),
+      wait: async () => ({ outcome: "done" }),
       read,
     });
 
     await new ResampleRun(f.ports).run([A]);
 
-    expect(read).toHaveBeenCalledWith("p-9");
+    expect(read).toHaveBeenCalledWith("resample-pr10-aaaaaaaa");
     expect(readVerdict).toHaveBeenCalledWith("pane text");
   });
 });
@@ -117,9 +130,7 @@ describe("ResampleRun failures (#852)", () => {
     const f = fakes({
       wait: async () => {
         calls++;
-        return calls === 1
-          ? { outcome: "blocked", paneId: "p-1" }
-          : { outcome: "done", paneId: "p-2" };
+        return calls === 1 ? { outcome: "blocked" } : { outcome: "done" };
       },
     });
 

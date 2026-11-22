@@ -16,10 +16,10 @@ export interface ReviewPorts {
   comment(pr: number, body: string): Promise<string>;
   /** `session spawn --role principles-review --no-wait`. */
   spawn(name: string, brief: string): Promise<void>;
-  /** `session wait`: the Reviewer's outcome and the pane its text is in. */
-  wait(name: string): Promise<{ outcome: "done" | "blocked"; paneId: string }>;
-  /** The unwrapped text of the pane. */
-  read(paneId: string): Promise<string>;
+  /** `session wait`: the Reviewer's outcome. */
+  wait(name: string): Promise<{ outcome: "done" | "blocked" }>;
+  /** The text the Reviewer answered with, read by its session name. */
+  read(name: string): Promise<string>;
   /** `session close`. */
   close(name: string): Promise<void>;
   /** Appends a review.run event for the PR, with the findings a verdict gave; a failed event is an error. */
@@ -42,7 +42,15 @@ const short = (head: string): string => head.slice(0, VERDICT_HEAD_LENGTH);
  * The Reviewer's brief. One line, so no line of it is only a verdict marker, which the
  * reader would take for the Reviewer's own answer.
  */
-function briefFor(pr: number, head: string): string {
+export function reviewerBrief(
+  pr: number,
+  head: string,
+  backend: "herdr" | "hc" = "herdr",
+): string {
+  const finish =
+    backend === "hc"
+      ? "Then, as your last action, run `node skills/bin/harness.mjs session report --outcome done --summary - <<'EOF'`, with your verdict lines on the lines after it, then a line that reads EOF; or use --outcome blocked when you cannot review."
+      : "Then end with the word RESULT, a colon, then done or blocked.";
   return (
     `Review PR #${pr} at head ${short(head)} against AGENTS.md as your definition says, ` +
     `reading the change with \`gh pr diff ${pr}\` and the files at that head. ` +
@@ -50,7 +58,8 @@ function briefFor(pr: number, head: string): string {
     "End your final report with the verdict on lines of their own: either a line that is only " +
     '"VERDICT: none" when you found no violations, or a line that is only "VERDICT: findings", ' +
     "then each finding on its own line as `file:line | rule | what is wrong | smallest fix`, " +
-    'then a line that is only "END VERDICT". Then end with the word RESULT, a colon, then done or blocked.'
+    'then a line that is only "END VERDICT". ' +
+    finish
   );
 }
 
@@ -64,6 +73,7 @@ export class ReviewRun {
   constructor(
     private readonly ports: ReviewPorts,
     private readonly maxRuns: number = MAX_REVIEW_RUNS,
+    private readonly backend: "herdr" | "hc" = "herdr",
   ) {}
 
   async run(pr: number, sender: Sender): Promise<ReviewRunResult> {
@@ -96,17 +106,17 @@ export class ReviewRun {
   /** One Reviewer pane on one head; its findings, or a recorded failure. The pane is always closed. */
   private async review(pr: number, head: string): Promise<string[]> {
     const name = `pr${pr}-reviewer`;
-    await this.ports.spawn(name, briefFor(pr, head));
+    await this.ports.spawn(name, reviewerBrief(pr, head, this.backend));
     let text: string;
     try {
       const waited = await this.ports.wait(name);
       if (waited.outcome === "blocked") {
         await this.ports.record(pr, "failed:blocked");
         throw new JudgeError(
-          `The Reviewer for PR #${pr} ended blocked, so no verdict was posted. Read its pane ${waited.paneId}, fix what blocked it, then rerun \`harness review run ${pr}\`.`,
+          `The Reviewer for PR #${pr} ended blocked, so no verdict was posted. Read its session ${name}, fix what blocked it, then rerun \`harness review run ${pr}\`.`,
         );
       }
-      text = await this.ports.read(waited.paneId);
+      text = await this.ports.read(name);
     } finally {
       await this.ports.close(name);
     }

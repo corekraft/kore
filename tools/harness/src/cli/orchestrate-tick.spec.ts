@@ -125,8 +125,12 @@ describe("orchestrate tick with the flag on", () => {
       context.deps.runner,
       "/repo",
       context.deps.fs,
-      "/main/.kore/state/sessions",
-      "/main/.kore/state/tick-plans",
+      {
+        sessions: "/main/.kore/state/sessions",
+        plans: "/main/.kore/state/tick-plans",
+        checkout: "/main",
+      },
+      "herdr",
     );
     expect(TickLease).toHaveBeenCalledWith(
       expect.anything(),

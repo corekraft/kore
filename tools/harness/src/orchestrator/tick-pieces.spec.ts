@@ -67,6 +67,7 @@ function ports(over: Partial<TickPorts> = {}): TickPorts {
       .fn()
       .mockResolvedValue({ count: 1, model: "haiku", escalate: false }),
     workPlan: vi.fn().mockResolvedValue(PLAN),
+    backend: "herdr",
     ...over,
   } as unknown as TickPorts;
 }
@@ -103,7 +104,7 @@ describe("Tick starts the pieces of a persisted work plan", () => {
         pane: "idea-0001-piece-docs",
       },
     ]);
-    expect(pieceBrief).toHaveBeenCalledWith("0001", 11, DOCS);
+    expect(pieceBrief).toHaveBeenCalledWith("0001", 11, DOCS, "herdr");
     expect(p.spawn).toHaveBeenCalledWith({
       role: "writer",
       name: "idea-0001-piece-docs",
@@ -111,6 +112,14 @@ describe("Tick starts the pieces of a persisted work plan", () => {
       brief: "PIECE BRIEF",
       worktree: true,
     });
+  });
+
+  it("briefs the piece for the hc backend the ports name, so it finishes with a report", async () => {
+    const p = ports({ backend: "hc" });
+
+    await new Tick(p).pass();
+
+    expect(pieceBrief).toHaveBeenCalledWith("0001", 11, DOCS, "hc");
   });
 
   it("starts a reader piece without a worktree once the piece it waits for is closed", async () => {

@@ -18,7 +18,11 @@ function cliWith(files: Record<string, string>): TickCli {
         : Promise.reject(Object.assign(new Error("gone"), { code: "ENOENT" })),
     readFile: (path: string) => Promise.resolve(files[path] ?? ""),
   } as unknown as FileSystem;
-  return new TickCli(runner, "/repo", fs, SESSIONS, PLANS);
+  return new TickCli(runner, "/repo", fs, {
+    sessions: SESSIONS,
+    plans: PLANS,
+    checkout: "/repo",
+  });
 }
 
 const file = (name: string) => `${SESSIONS}/${name}.json`;

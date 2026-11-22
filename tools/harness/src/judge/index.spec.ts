@@ -40,6 +40,7 @@ vi.mock("./send-back.js");
 it("the judge barrel exposes exactly the names its callers import", () => {
   expect(Object.keys(judge).sort()).toEqual([
     "JudgeError",
+    "MAX_REVIEW_RUNS",
     "PATTERNS",
     "RESAMPLE_SIZE",
     "ResampleRun",
@@ -59,8 +60,10 @@ it("the judge barrel exposes exactly the names its callers import", () => {
     "readPr",
     "renderPrBody",
     "resampleCandidates",
+    "resamplerBrief",
     "reviewBody",
     "reviewCheck",
+    "reviewerBrief",
     "reviewersFor",
     "ruleLabels",
     "selectDiff",

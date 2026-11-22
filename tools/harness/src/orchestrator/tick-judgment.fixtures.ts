@@ -38,6 +38,8 @@ export function ports(over: Partial<JudgmentPorts> = {}): JudgmentPorts {
     spawn: vi.fn().mockResolvedValue(undefined),
     close: vi.fn().mockResolvedValue(undefined),
     paneText: vi.fn().mockResolvedValue(""),
+    backend: "herdr",
+    reportOf: vi.fn().mockResolvedValue(undefined),
     delivery: vi.fn().mockResolvedValue({ merged: false, pr: PR }),
     needsInfo: vi.fn().mockResolvedValue(undefined),
     persistPlan: vi.fn().mockResolvedValue(undefined),

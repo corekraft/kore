@@ -1,11 +1,13 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
+  MAX_REVIEW_RUNS,
   ReviewRun,
   type ReviewPorts,
   type ReviewRunResult,
 } from "../judge/index.js";
 import type { CommandContext } from "../runtime/index.js";
 import { senderFrom, type Sender } from "../sender/index.js";
+import { briefBackend } from "../session/index.js";
 import { failed, prNumber } from "./judge-shared.js";
 import { reviewRunRun } from "./review-run-command.js";
 import { sessionReviewPorts } from "./review-run-io.js";
@@ -26,6 +28,9 @@ vi.mock("../sender/index.js", () => ({
 vi.mock("./judge-shared.js", () => ({
   prNumber: vi.fn<(operand: string | undefined, usage: string) => number>(),
   failed: vi.fn<(context: CommandContext, error: unknown) => number>(),
+}));
+vi.mock("../session/index.js", () => ({
+  briefBackend: vi.fn<(deps: unknown) => Promise<"herdr" | "hc">>(),
 }));
 vi.mock("./review-run-io.js", () => ({
   sessionReviewPorts:
@@ -61,6 +66,7 @@ beforeEach(() => {
   vi.mocked(senderFrom).mockReturnValue(SENDER);
   vi.mocked(prNumber).mockReturnValue(42);
   vi.mocked(sessionReviewPorts).mockResolvedValue({} as ReviewPorts);
+  vi.mocked(briefBackend).mockResolvedValue("herdr");
   vi.mocked(ReviewRun).mockImplementation(function () {
     return { run };
   } as never);
@@ -132,5 +138,22 @@ describe("review run reviews the PR and prints what it posted", () => {
     vi.mocked(failed).mockReturnValue(1);
     expect(await reviewRunRun(contextOf())).toBe(1);
     expect(sessionReviewPorts).not.toHaveBeenCalled();
+  });
+});
+
+describe("review run takes the brief backend the hc-sessions flag names", () => {
+  it("builds the ports and the run for hc when the flag is on, with the same review cap", async () => {
+    vi.mocked(briefBackend).mockResolvedValue("hc");
+    run.mockResolvedValue(done());
+    const context = contextOf();
+
+    await reviewRunRun(context);
+
+    expect(sessionReviewPorts).toHaveBeenCalledExactlyOnceWith(context, "hc");
+    expect(ReviewRun).toHaveBeenCalledExactlyOnceWith(
+      expect.anything(),
+      MAX_REVIEW_RUNS,
+      "hc",
+    );
   });
 });

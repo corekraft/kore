@@ -57,7 +57,7 @@ let io: ReturnType<typeof ports>;
 beforeEach(() => {
   vi.resetAllMocks();
   io = ports();
-  io.wait.mockResolvedValue({ outcome: "done", paneId: "p1" });
+  io.wait.mockResolvedValue({ outcome: "done" });
   io.read.mockResolvedValue("PANE");
   vi.mocked(readVerdict).mockReturnValue([]);
   vi.mocked(postReview).mockResolvedValue(posted(HEAD_A));
@@ -72,7 +72,7 @@ describe("ReviewRun reviews one PR head and posts the verdict for it", () => {
       expect.stringContaining("42"),
     );
     expect(io.wait).toHaveBeenCalledWith("pr42-reviewer");
-    expect(io.read).toHaveBeenCalledWith("p1");
+    expect(io.read).toHaveBeenCalledWith("pr42-reviewer");
     expect(io.close).toHaveBeenCalledWith("pr42-reviewer");
     expect(postReview).toHaveBeenCalledExactlyOnceWith(
       { pr: 42, findings: [], dryRun: false, sender: WHO },
@@ -186,11 +186,28 @@ describe("ReviewRun records a failure and posts nothing when there is no verdict
   });
 
   it("fails when the Reviewer ends blocked, without reading a verdict from its pane", async () => {
-    io.wait.mockResolvedValue({ outcome: "blocked", paneId: "p1" });
-    await expect(new ReviewRun(io).run(42, WHO)).rejects.toThrow(/blocked/);
+    io.wait.mockResolvedValue({ outcome: "blocked" });
+    await expect(new ReviewRun(io).run(42, WHO)).rejects.toThrow(
+      /ended blocked.*Read its session pr42-reviewer/,
+    );
     expect(postReview).not.toHaveBeenCalled();
     expect(io.record).toHaveBeenCalledWith(42, "failed:blocked");
     expect(io.close).toHaveBeenCalledWith("pr42-reviewer");
+  });
+
+  it("asks an hc Reviewer for its verdict on the stdin of session report, and a herdr one for its RESULT line", async () => {
+    io.view.mockResolvedValue(view(HEAD_A));
+    await new ReviewRun(io, 3, "hc").run(42, WHO);
+    await new ReviewRun(io).run(42, WHO);
+
+    const [hc, herdr] = io.spawn.mock.calls.map((call) => call[1]);
+    expect(hc).toContain(
+      "run `node skills/bin/harness.mjs session report --outcome done --summary - <<'EOF'`, with your verdict lines on the lines after it",
+    );
+    expect(hc).not.toMatch(/RESULT/);
+    expect(herdr).toContain(
+      "Then end with the word RESULT, a colon, then done or blocked.",
+    );
   });
 
   it("closes the pane even when reading it fails", async () => {
