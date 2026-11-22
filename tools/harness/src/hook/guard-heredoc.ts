@@ -15,6 +15,35 @@ interface Scan {
   single: boolean;
   double: boolean;
   depth: number;
+  /** Set once the shell reads `${`, `$[` or `[[`: it is not modelled, so no later opener is trusted. */
+  opaque: boolean;
+}
+
+/** True where the shell reads `${`, `$[` or `[[`, whose insides this scan does not model. */
+function startsUnmodelled(line: string, i: number): boolean {
+  return (
+    (line[i] === "$" && "{[".includes(line[i + 1] ?? "")) ||
+    line.startsWith("[[", i)
+  );
+}
+
+/** True where a # starts a comment: at a word start, which a $# or a mid-word # is not. */
+function startsComment(line: string, i: number): boolean {
+  return line[i] === "#" && /[\s;&|(]/.test(line[i - 1] ?? " ");
+}
+
+/** The opener at position i, when the shell would read the <<WORD there as a heredoc. */
+function openerAt(line: string, i: number): Open | undefined {
+  HEREDOC_OPENER.lastIndex = i;
+  const match = HEREDOC_OPENER.exec(line);
+  if (match === null) {
+    return undefined;
+  }
+  return {
+    delimiter: match[3] as string,
+    indented: match[1] === "-",
+    quoted: match[2] !== "",
+  };
 }
 
 /**
@@ -28,29 +57,23 @@ function openerIn(line: string, scan: Scan): Open | undefined {
       scan.single = char !== "'";
     } else if (char === "\\") {
       i += 1;
+    } else if (startsUnmodelled(line, i)) {
+      scan.opaque = true;
     } else if (scan.double) {
       scan.double = char !== '"';
-    } else if (char === "'") {
-      scan.single = true;
-    } else if (char === '"') {
-      scan.double = true;
-    } else if (char === "(") {
-      scan.depth += 1;
-    } else if (char === ")") {
-      scan.depth = Math.max(0, scan.depth - 1);
-    } else if (char === "#" && /[\s;&|(]/.test(line[i - 1] ?? " ")) {
+    } else if (char === "'" || char === '"') {
+      scan.single = char === "'";
+      scan.double = char === '"';
+    } else if (char === "(" || char === ")") {
+      scan.depth = Math.max(0, scan.depth + (char === "(" ? 1 : -1));
+    } else if (startsComment(line, i)) {
       return undefined;
     } else if (line.startsWith("<<<", i)) {
       i += 2;
-    } else if (char === "<" && line[i + 1] === "<" && scan.depth === 0) {
-      HEREDOC_OPENER.lastIndex = i;
-      const match = HEREDOC_OPENER.exec(line);
-      if (match !== null) {
-        return {
-          delimiter: match[3] as string,
-          indented: match[1] === "-",
-          quoted: match[2] !== "",
-        };
+    } else if (line.startsWith("<<", i) && scan.depth === 0 && !scan.opaque) {
+      const open = openerAt(line, i);
+      if (open !== undefined) {
+        return open;
       }
       i += 1;
     }
@@ -61,11 +84,12 @@ function openerIn(line: string, scan: Scan): Open | undefined {
 /**
  * The shell a command runs, with each quoted heredoc's body removed. An unquoted body expands, so it stays.
  * The lines after a body stay too, so a command placed after the terminator is still checked (shellText cuts them).
- * Only an opener the shell itself reads counts: one inside a string, a comment or arithmetic hides nothing.
+ * Only an opener the shell itself reads counts: one inside a string, a comment or arithmetic hides nothing. A command
+ * with `${`, `$[` or `[[` is not modelled further, so it fails closed: every later line is checked.
  */
 export function shellOutsideBodies(command: string): string {
   const kept: string[] = [];
-  const scan: Scan = { single: false, double: false, depth: 0 };
+  const scan: Scan = { single: false, double: false, depth: 0, opaque: false };
   let open: Open | undefined;
   for (const line of command.split("\n")) {
     if (open === undefined) {

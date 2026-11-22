@@ -41,6 +41,16 @@ describe("shellOutsideBodies drops only a quoted heredoc's body, which is data",
       ["after a backslash", "cat \\<<'EOF'\ntee out\nEOF"],
       ["in a comment", "ls # <<'EOF'\ntee out\nEOF"],
       ["as a here-string", "cat <<<'EOF'\ntee out\nEOF"],
+      ["inside a parameter expansion", "echo ${x:-<<'EOF'}\ntee out\nEOF"],
+      [
+        "inside a parameter expansion in a string",
+        'echo "${x:-"<<\'EOF\'"}"\ntee out\nEOF',
+      ],
+      [
+        "inside a legacy arithmetic expansion",
+        "echo $[1<<'EOF']\ntee out\nEOF",
+      ],
+      ["inside a conditional expression", "[[ a <<'EOF' ]]\ntee out\nEOF"],
     ])("%s", (_name, command) => {
       expect(shellOutsideBodies(command)).toBe(command);
     });

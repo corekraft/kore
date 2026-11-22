@@ -46,6 +46,20 @@ describe("a read-only role's session report heredoc is data, not shell", () => {
     });
   });
 
+  it.each([
+    ["a parameter expansion", "echo ${x:-<<'EOF'}\ntee out\nEOF"],
+    ["a legacy arithmetic expansion", "echo $[1<<'EOF']\ntee out\nEOF"],
+    ["a conditional expression", "[[ a <<'EOF' ]]\ntee out\nEOF"],
+  ])(
+    "refuses a write hidden after a quoted opener inside %s",
+    (_name, command) => {
+      expect(bash("reader", command)).toMatchObject({
+        action: "block",
+        rule: "role-read-only",
+      });
+    },
+  );
+
   it("refuses a write hidden after a quoted opener inside arithmetic", () => {
     expect(bash("reader", "echo $((1<<'EOF'))\ntee out\nEOF")).toMatchObject({
       action: "block",
