@@ -1,27 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { domainGuides, rootGuide } from "../help/index.js";
 import { run } from "./cli.js";
-import { depsOf, outputOf, table } from "./cli-fakes-support.js";
-
-// The renderers and the view builders are mocked: the renderers print their view's level,
-// and the builders return a view tagged with the arguments run gave them, so a spec shows
-// which level the dispatcher chose and what it built each view from.
-const views = vi.hoisted(() => ({
-  rootView: vi.fn((..._args: unknown[]) => ({ level: "root" })),
-  domainView: vi.fn((domain: string, ..._rest: unknown[]) => ({
-    level: "domain",
-    domain,
-  })),
-  commandView: vi.fn((path: string, ..._rest: unknown[]) => ({
-    level: "command",
-    path,
-  })),
-}));
-
-const renderers = vi.hoisted(() => ({
-  renderText: vi.fn((view: { level: string }) => `text ${view.level}\n`),
-  renderJson: vi.fn((view: { level: string }) => `json ${view.level}\n`),
-}));
+import { depsOf, help, outputOf, table } from "./cli-fakes-support.js";
 
 vi.mock("./domains.js", async () => ({
   domains: (await import("./cli-fakes-support.js")).table,
@@ -29,11 +9,7 @@ vi.mock("./domains.js", async () => ({
 
 vi.mock("../help/index.js", async (importOriginal) => ({
   ...(await importOriginal<typeof import("../help/index.js")>()),
-  rootView: views.rootView,
-  domainView: views.domainView,
-  commandView: views.commandView,
-  renderText: renderers.renderText,
-  renderJson: renderers.renderJson,
+  ...(await import("./cli-fakes-support.js")).help,
 }));
 
 beforeEach(() => {
@@ -47,7 +23,7 @@ describe("harness dispatch: help at the three levels", () => {
       const deps = depsOf();
       expect(await run(argv, deps)).toBe(0);
       expect(outputOf()).toEqual({ out: "text root\n", err: "" });
-      expect(renderers.renderText).toHaveBeenLastCalledWith(
+      expect(help.renderText).toHaveBeenLastCalledWith(
         expect.objectContaining({ level: "root" }),
       );
     },
@@ -60,7 +36,7 @@ describe("harness dispatch: help at the three levels", () => {
     const command = depsOf();
     expect(await run(["plan", "tick", "--help"], command)).toBe(0);
     expect(outputOf()).toEqual({ out: "text command\n", err: "" });
-    expect(renderers.renderText).toHaveBeenLastCalledWith(
+    expect(help.renderText).toHaveBeenLastCalledWith(
       expect.objectContaining({ level: "command", path: "plan tick" }),
     );
   });
@@ -69,7 +45,7 @@ describe("harness dispatch: help at the three levels", () => {
     const deps = depsOf();
     expect(await run(["lone", "--help"], deps)).toBe(0);
     expect(outputOf().out).toBe("text command\n");
-    expect(renderers.renderText).toHaveBeenLastCalledWith(
+    expect(help.renderText).toHaveBeenLastCalledWith(
       expect.objectContaining({ level: "command", path: "lone" }),
     );
   });
@@ -91,7 +67,7 @@ describe("harness dispatch: help at the three levels", () => {
     const deps = depsOf();
     expect(await run(["plan", "tick", "--help", "--json"], deps)).toBe(0);
     expect(outputOf()).toEqual({ out: "json command\n", err: "" });
-    expect(renderers.renderText).not.toHaveBeenCalled();
+    expect(help.renderText).not.toHaveBeenCalled();
   });
 });
 
@@ -145,23 +121,23 @@ describe("harness dispatch: a usage error prints the guide of the closest level"
 describe("harness dispatch: the views it builds", () => {
   it("builds the root view from the root guide and the domain guides, for a usage error too", async () => {
     expect(await run(["--help"], depsOf())).toBe(0);
-    expect(views.rootView).toHaveBeenCalledExactlyOnceWith(
+    expect(help.rootView).toHaveBeenCalledExactlyOnceWith(
       rootGuide,
       domainGuides,
     );
     vi.clearAllMocks();
     expect(await run(["nope", "x"], depsOf())).toBe(2);
-    expect(views.rootView).toHaveBeenCalledExactlyOnceWith(
+    expect(help.rootView).toHaveBeenCalledExactlyOnceWith(
       rootGuide,
       domainGuides,
     );
-    expect(views.domainView).not.toHaveBeenCalled();
-    expect(views.commandView).not.toHaveBeenCalled();
+    expect(help.domainView).not.toHaveBeenCalled();
+    expect(help.commandView).not.toHaveBeenCalled();
   });
 
   it("builds a domain's view from the domain's commands and its guide", async () => {
     expect(await run(["plan", "--help"], depsOf())).toBe(0);
-    expect(views.domainView).toHaveBeenCalledExactlyOnceWith(
+    expect(help.domainView).toHaveBeenCalledExactlyOnceWith(
       "plan",
       table.plan,
       domainGuides["plan"],
@@ -170,7 +146,7 @@ describe("harness dispatch: the views it builds", () => {
 
   it("builds a command's view from its path, the command and its help record", async () => {
     expect(await run(["harness", "version", "--help"], depsOf())).toBe(0);
-    expect(views.commandView).toHaveBeenCalledExactlyOnceWith(
+    expect(help.commandView).toHaveBeenCalledExactlyOnceWith(
       "harness version",
       table.harness.version,
       { purpose: "print the version" },
@@ -179,7 +155,7 @@ describe("harness dispatch: the views it builds", () => {
 
   it("passes no help record for a command that has none, so the view is the fallback", async () => {
     expect(await run(["plan", "tick", "--help"], depsOf())).toBe(0);
-    expect(views.commandView).toHaveBeenCalledExactlyOnceWith(
+    expect(help.commandView).toHaveBeenCalledExactlyOnceWith(
       "plan tick",
       table.plan.tick,
       undefined,
@@ -188,11 +164,11 @@ describe("harness dispatch: the views it builds", () => {
 
   it("builds the command's view for a flag error, the closest level the words reach", async () => {
     expect(await run(["plan", "tick", "A1", "--bogus"], depsOf())).toBe(2);
-    expect(views.commandView).toHaveBeenCalledExactlyOnceWith(
+    expect(help.commandView).toHaveBeenCalledExactlyOnceWith(
       "plan tick",
       table.plan.tick,
       undefined,
     );
-    expect(views.domainView).not.toHaveBeenCalled();
+    expect(help.domainView).not.toHaveBeenCalled();
   });
 });

@@ -31,6 +31,23 @@ export const table = (() => {
   };
 })();
 
+// The help renderers and view builders, mocked in the dispatcher's specs. A renderer prints its
+// view's level, and a builder tags its view with the path or domain it was given, so a spec sees
+// which level was rendered and what each view was built from.
+export const help = {
+  rootView: vi.fn((..._args: unknown[]) => ({ level: "root" })),
+  domainView: vi.fn((domain: string, ..._rest: unknown[]) => ({
+    level: "domain",
+    domain,
+  })),
+  commandView: vi.fn((path: string, ..._rest: unknown[]) => ({
+    level: "command",
+    path,
+  })),
+  renderText: vi.fn((view: { level: string }) => `text ${view.level}\n`),
+  renderJson: vi.fn((view: { level: string }) => `json ${view.level}\n`),
+};
+
 // The output of the most recent depsOf(): what its stdout and stderr received.
 let captured = { out: "", err: "" };
 
