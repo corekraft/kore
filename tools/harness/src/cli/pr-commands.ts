@@ -1,5 +1,10 @@
 import { JudgeError, renderPrBody } from "../judge/index.js";
-import type { CliDeps, Command, CommandContext } from "../runtime/index.js";
+import type {
+  CliDeps,
+  Command,
+  CommandContext,
+  CommandHelp,
+} from "../runtime/index.js";
 import { signedBody } from "../sender/index.js";
 import { failed, repoOf } from "./judge-shared.js";
 import { prCheckCommand } from "./pr-check-command.js";
@@ -131,12 +136,118 @@ export async function prOpenRun(context: CommandContext): Promise<number> {
   }
 }
 
+const checksHelp: CommandHelp = {
+  purpose:
+    "Reads the check runs on a pull request through gh and says whether they are green, red or pending. With --wait it polls on a clock until the checks settle or about nine minutes pass.",
+  when: "When you need a PR's CI state now, or need to wait for it before the next step.",
+  whenNot:
+    "When you need the writer's view of what to fix, with the judge's precheck applied: use pr check. To wait on several things at once, use harness wait.",
+  flags: {
+    wait: "Polls the checks every 15 seconds until they settle or about nine minutes pass; without it, reads them once.",
+  },
+  operand: "The pull request number, such as 746.",
+  examples: [
+    {
+      command: "harness pr checks 746",
+      shows:
+        "PR 746's checks read once: green when all pass, red naming the failed checks, pending while they run",
+    },
+    {
+      command: "harness pr checks 746 --wait",
+      shows: "the same, polled until the checks settle or the bound passes",
+    },
+    {
+      command: "harness pr checks 746 --json",
+      shows:
+        "the state, the failed and pending check names and each check, as one object",
+    },
+  ],
+  exits: [
+    { code: 0, meaning: "every check passed" },
+    {
+      code: 1,
+      meaning:
+        "a check failed, or the PR could not be read: no PR number, or gh failed or returned unreadable output",
+    },
+    {
+      code: 2,
+      meaning:
+        "checks are still pending: after one read, or at the bound with --wait; poll again with ledger poll-github",
+    },
+  ],
+  effects: {
+    kind: "read-only",
+    detail:
+      "reads the PR's check runs through gh and writes nothing; --wait only sleeps between reads",
+  },
+  seeAlso: ["pr check", "harness wait", "ledger poll-github"],
+};
+
+const openHelp: CommandHelp = {
+  purpose:
+    "Opens a pull request whose body ends with the declaration the judge's precheck reads, rendered from the same module that parses it, and refuses before gh is reached any title, pattern or body it cannot use.",
+  when: "When a writer's branch is pushed and its change is ready for the judge.",
+  whenNot:
+    "When a PR for the branch is already open: gh refuses a second one, so check the open PR with pr check. To see the body without opening anything, add --dry-run.",
+  flags: {
+    title: "The pull request title, passed to gh. Required.",
+    pattern:
+      "The safety pattern the change declares: no-behaviour-change, feature-flagged, dark-launched, branch-by-abstraction or expand-contract. Required.",
+    body: "The body summary, given inline. Cannot be given with --body-file.",
+    "body-file":
+      "A path, relative to the working directory, to read the body from exactly as the file holds it. Cannot be given with --body.",
+    issue:
+      "The issue number the PR refs, written as Refs #n, or as Closes with --closes.",
+    closes:
+      "Writes Closes instead of Refs. Beside --idea it warns, citing ADR 0079; it is never refused.",
+    idea: "The idea the PR serves, by number or slug, written as an Idea: line. none, the default, writes no Idea line and records none on the link.",
+    "expand-step":
+      "The merged expand PR's number. Required for expand-contract, and refused for any other pattern.",
+    base: "The base branch, passed to gh pr create.",
+    head: "The head branch, passed to gh pr create.",
+    "dry-run": "Prints the body that would be posted and creates nothing.",
+  },
+  examples: [
+    {
+      command:
+        "harness pr open --title 'Document the pr domain' --pattern no-behaviour-change --issue 1797 --body 'Help records for the pr commands.'",
+      shows:
+        "the PR URL printed once gh has opened it, with the body's Refs line and sender line",
+    },
+    {
+      command:
+        "harness pr open --title 'Split the flag work' --pattern expand-contract --expand-step 812 --body-file summary.md --dry-run",
+      shows:
+        "the body that would be posted, ending with its Safety pattern line, and nothing opened",
+    },
+  ],
+  exits: [
+    {
+      code: 0,
+      meaning:
+        "the PR is open and its URL printed; with --dry-run, the body printed and nothing created",
+    },
+    {
+      code: 1,
+      meaning:
+        "refused before gh was reached, or gh failed: a missing --title or --pattern, a number that is not a whole number of at least one, an expand-contract PR without --expand-step (or --expand-step on another pattern), both body flags, a body file that cannot be read, a body with approval syntax, or no sender the environment can name; or gh pr create failed",
+    },
+  ],
+  effects: {
+    kind: "mutates",
+    detail:
+      "opens a PR through gh in the repository, its body led by the sender line; when this pane is a writer, appends one pr.linked ledger event (PR number, session, idea), and a failed link is only a warning on stderr. --dry-run and every refusal change nothing",
+  },
+  seeAlso: ["pr check", "pr checks", "session spawn"],
+};
+
 export const prCommands: Record<string, Command> = {
   checks: {
     summary:
       "read-only; reads the check runs on a pull request through gh and prints them: `pr checks <pr>` reads once, `--wait` polls on a clock until the checks settle or a bound passes, with no sleep of the caller's; exits 0 when every check passes, 1 when one fails (naming the failed checks and their URLs), and 2 while checks are still pending at the bound (the driver then polls with `ledger poll-github`); --json prints the state, the failed and pending names and each check",
     operand: "pr",
     options: { wait: "boolean" },
+    help: checksHelp,
     run: prChecksRun,
   },
   check: prCheckCommand,
@@ -156,6 +267,7 @@ export const prCommands: Record<string, Command> = {
       head: "string",
       "dry-run": "boolean",
     },
+    help: openHelp,
     run: prOpenRun,
   },
 };

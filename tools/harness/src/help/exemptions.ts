@@ -77,9 +77,6 @@ export const undocumented: readonly string[] = [
   "review run",
   "review resample",
   // pr
-  "pr checks",
-  "pr check",
-  "pr open",
   // ledger
   "ledger record",
   "ledger list",
@@ -88,18 +85,12 @@ export const undocumented: readonly string[] = [
   // flow
   "flow report",
   // queue
-  "queue next",
-  "queue send-backs",
-  "queue escalate",
   // retro
   "retro due",
   "retro record",
   // evaluate
   "evaluate",
   // orchestrate
-  "orchestrate run",
-  "orchestrate tick",
-  "orchestrate plan",
   // approve
   "approve",
 ];
