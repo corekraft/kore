@@ -46,7 +46,7 @@ export const domainGuides: Record<string, DomainGuide> = {
   outcome: {
     purpose:
       "Records an idea's measured outcome on its record and its issue, and closes the issue once the outcome is recorded.",
-    flow: "Run outcome record with the result (confirmed, refuted or inconclusive) and its evidence, then outcome close to close the issue.",
+    flow: "Run outcome record with the result (confirmed, refuted or inconclusive), its evidence and its summary; it publishes the outcome and closes the issue, and outcome close finishes publishing when a run stopped partway.",
   },
   decision: {
     purpose:
@@ -101,7 +101,7 @@ export const domainGuides: Record<string, DomainGuide> = {
   retro: {
     purpose:
       "The retrospective: says when a retro is due, and records the trigger for one.",
-    flow: "Run retro due to see whether one is due, and retro record to log the trigger once per reason and window.",
+    flow: "Run retro due to see whether one is due, and after the retro runs, retro record to log its trigger and move the Last retrospective marker.",
   },
   evaluate: {
     purpose:

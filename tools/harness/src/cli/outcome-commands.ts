@@ -10,7 +10,7 @@ import {
   type Concluded,
 } from "../outcome/index.js";
 import type { Ledger } from "../ledger/index.js";
-import type { Command, CommandContext } from "../runtime/index.js";
+import type { Command, CommandContext, CommandHelp } from "../runtime/index.js";
 import { senderFrom } from "../sender/index.js";
 import { openLedger } from "./ledger-commands.js";
 
@@ -126,7 +126,66 @@ async function conclusion(context: CommandContext, verb: "record" | "close") {
   );
 }
 
+const recordHelp: CommandHelp = {
+  purpose:
+    "Records an idea's measured outcome: writes it into the idea's Outcome section, publishes it to the idea's issue as one comment with one outcome label, closes the issue, and logs the outcome to the ledger. A refuted or inconclusive result also opens a follow-up idea.",
+  when: "When an idea has a measured result and no outcome yet: a live run, a journal entry, an eval record, a comparison, or an owner waiver.",
+  whenNot:
+    "For a harness idea whose measurement window has passed: evaluate measures it and records the outcome itself. An outcome is recorded once; to finish publishing one already recorded, use outcome close.",
+  flags: {
+    idea: "The idea's number or slug, as harness idea list shows it.",
+    kind: "The kind of measurement: experiment, usage or verification. A flag outcome needs verification.",
+    source:
+      "Where the measurement came from: live-run, journal, eval-history, comparison or owner-waiver. An owner-waiver needs kind verification and an evidence that is the owner's GitHub comment URL.",
+    evidence:
+      "The run, journal entry, eval record or comparison the result was measured on, on one line. It must not contain an HTML comment.",
+    result: "The result: confirmed, refuted or inconclusive.",
+    summary:
+      "What was observed against the idea's expected outcome. It must not contain an HTML comment, start a line with a # heading, or start a line with a - Name: field.",
+    flag: "The feature flag a live verification proves: lowercase letters, digits and hyphens. It needs environment, and kind verification from live-run or owner-waiver.",
+    environment: "The environment the flag was proved in. It needs flag.",
+    lock: "The chart lock the proof ran on: main or release. It needs flag, environment, live-run as the source, and charts.",
+    charts:
+      "The charts the proof ran on, as name=version@sha256:<64 hex digits>, separated by semicolons. It needs lock.",
+    ledger:
+      "A ledger file to append the outcome event to, relative to the working directory; by default the shared ledger in the main checkout.",
+  },
+  examples: [
+    {
+      command:
+        'harness outcome record --idea 412 --kind experiment --source comparison --result confirmed --evidence "flow report, 14 days either side of the change" --summary "tokens per idea fell 22%, past the 10% threshold"',
+      shows:
+        "the outcome written into the idea, its issue commented, labelled outcome:confirmed and closed, and the result printed with the issue URL",
+    },
+    {
+      command:
+        'harness outcome record --idea 412 --kind verification --source live-run --result confirmed --evidence "nightly run 1204" --summary "the flag ran live in the local environment" --flag automatic-revert --environment local',
+      shows:
+        "a flag proof recorded for automatic-revert in local, the record a later flag activate reads",
+    },
+  ],
+  exits: [
+    {
+      code: 0,
+      meaning:
+        "the outcome is recorded and published; the output names the result and the issue",
+    },
+    {
+      code: 1,
+      meaning:
+        "refused: a flag is missing or not valid, the idea has no issue or already has an outcome, a gh call failed, or the ledger rejected the event; the message names the fix",
+    },
+  ],
+  effects: {
+    kind: "mutates",
+    detail:
+      "writes the Outcome section into the idea's file, and creates the follow-up idea for a refuted or inconclusive result; comments on the issue (the comment opens with the sender's line), sets one outcome label in place of any other, closes the issue; appends one outcome event to the ledger unless the idea has one. A refusal before the write changes nothing; a failed publish leaves the outcome recorded for outcome close",
+  },
+  seeAlso: ["outcome close", "evaluate", "idea list"],
+};
+
 const record: Command = {
+  help: recordHelp,
   summary: `record an idea's measured outcome in its markdown, post it to the issue with one outcome:* label, close the issue, and open a follow-up idea when refuted or inconclusive (--idea --kind ${OUTCOME_KINDS.join("|")} --source ${OUTCOME_SOURCES.join("|")} --evidence <reference> --result ${RESULTS.join("|")} --summary <text> [--flag <name> --environment <env>, only on a live-run or owner-waiver verification; owner-waiver needs --kind verification and --evidence a GitHub comment URL] [--lock main|release --charts '<name>=<version>@sha256:<digest>; ...', the chart lock a live flag proof ran on and its charts, so activation can compare a main lock with the release lock] [--ledger])`,
   options: {
     idea: "string",
@@ -146,7 +205,50 @@ const record: Command = {
   },
 };
 
+const closeHelp: CommandHelp = {
+  purpose:
+    "Finishes publishing an idea's recorded outcome: its comment, its one outcome label and the closed issue, each step skipped when it is already done. It records no new result.",
+  when: "When outcome record stopped partway, because a gh call or the ledger write failed, or when an issue with a recorded outcome is still open.",
+  whenNot:
+    "When no outcome is recorded yet: it refuses with no gh call, so record one with outcome record first.",
+  flags: {
+    idea: "The idea's number or slug, as harness idea list shows it.",
+    ledger:
+      "A ledger file to append the outcome event to when it is missing, relative to the working directory; by default the shared ledger in the main checkout.",
+  },
+  examples: [
+    {
+      command: "harness outcome close --idea 412",
+      shows:
+        "the result and the issue URL once the issue is closed; a rerun on a finished issue makes no gh write",
+    },
+    {
+      command: "harness outcome close --idea 412 --json",
+      shows:
+        "the same as one object: idea, result, issue, followUp when there is one, and published, naming which of commented, labelled and closed this run did",
+    },
+  ],
+  exits: [
+    {
+      code: 0,
+      meaning: "the issue is brought in line with the recorded outcome",
+    },
+    {
+      code: 1,
+      meaning:
+        "refused: no outcome is recorded, the recorded line is not one the outcome tool wrote, the idea has no issue, or a gh call failed; the message names the fix",
+    },
+  ],
+  effects: {
+    kind: "mutates",
+    detail:
+      "posts the outcome comment, sets the outcome label and closes the issue, each only when not already done; creates the follow-up idea for a refuted or inconclusive result when it does not exist yet, else reuses it; appends the outcome event to the ledger when the idea has none. It never changes the recorded result",
+  },
+  seeAlso: ["outcome record", "idea list"],
+};
+
 const close: Command = {
+  help: closeHelp,
   summary:
     "finish closing an idea whose outcome is recorded (comment, one outcome:* label, close); refused with no gh call when no outcome is recorded (--idea [--ledger])",
   options: { idea: "string", ledger: "string" },
