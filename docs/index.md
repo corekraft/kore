@@ -333,6 +333,7 @@ decisions; read one only when planning that area, and expect it to change.
 - [`docs/ideas/0072-platform-portal-works-live-in-local.md`](ideas/0072-platform-portal-works-live-in-local.md) — platform-portal works live in local
 - [`docs/ideas/0073-portal-staged-install-works-live-in-local.md`](ideas/0073-portal-staged-install-works-live-in-local.md) — portal-staged-install works live in local
 - [`docs/ideas/0074-the-sign-in-and-refused-request-check-passes-live-in-local.md`](ideas/0074-the-sign-in-and-refused-request-check-passes-live-in-local.md) — The sign-in and refused-request check passes live in local
+- [`docs/ideas/0075-a-service-alert-reaches-the-platform-contact-point-live-in-l.md`](ideas/0075-a-service-alert-reaches-the-platform-contact-point-live-in-l.md) — A service alert reaches the platform contact point live in local
 
 ## Operations and Guides
 
