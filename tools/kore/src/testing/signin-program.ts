@@ -34,17 +34,22 @@ const refusedPageFacts =
  * no sign-in and asserts the sign-in proxy refuses it: a 401, a redirect to
  * /oauth2/ or Keycloak, or a 403 that is the proxy's sign-in page with no Backstage
  * app content. Its output is two assertions and no credential, and no page body.
+ * The signed-in call asks Backstage's readiness route on its own host: the sign-in
+ * lands on /, which the Kore backend has no route for and answers with a 404.
  */
 export function signInProgram(options: SignInProgramOptions): string {
   const { backstageHost, keycloakHost } = options;
   const backstageOrigin = origin(backstageHost, options.port);
   const backstageUrl = `${backstageOrigin}/`;
   const signInStartUrl = `${backstageOrigin}/oauth2/start?rd=/`;
+  // Backstage's readiness route is the one it serves on its backend. The sign-in lands on /, which the backend answers with 404.
+  const signedInCallUrl = `${backstageOrigin}/.backstage/health/v1/readiness`;
   const keycloakOrigin = origin(keycloakHost, options.port);
   const flow = line(
     `const credentials = ${JSON.stringify({ username: options.username, password: options.password })};`,
     `const backstageUrl = ${JSON.stringify(backstageUrl)};`,
     `const signInStartUrl = ${JSON.stringify(signInStartUrl)};`,
+    `const signedInCallUrl = ${JSON.stringify(signedInCallUrl)};`,
     `const backstageHost = ${JSON.stringify(backstageHost)};`,
     `const keycloakHost = ${JSON.stringify(keycloakHost)};`,
     `const keycloakOrigin = ${JSON.stringify(keycloakOrigin)};`,
@@ -57,7 +62,7 @@ export function signInProgram(options: SignInProgramOptions): string {
     "await chromium.type(signedIn, '#password', credentials.password);",
     "await chromium.evaluate(signedIn, 'document.querySelector(\"#kc-login\").click(), true');",
     "await chromium.waitFor(signedIn, hostIs(backstageHost) + ' && document.readyState === \"complete\"', 'Backstage after sign-in');",
-    "const call = await chromium.evaluate(signedIn, 'fetch(location.href).then((reply) => ({ status: reply.status, host: new URL(reply.url).hostname }))');",
+    "const call = await chromium.evaluate(signedIn, 'fetch(' + JSON.stringify(signedInCallUrl) + ').then((reply) => ({ status: reply.status, host: new URL(reply.url).hostname }))');",
     "const anonymous = await chromium.newPage();",
     "await chromium.go(anonymous, backstageUrl);",
     "const answered = () => anonymous.documents.some((response) => response.url.indexOf(backstageUrl) === 0);",
