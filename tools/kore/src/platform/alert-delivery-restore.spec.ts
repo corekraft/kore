@@ -25,7 +25,7 @@ test("restores from the record a killed run left, before it checks the rule, and
     "kubectl get deployments",
     "kubectl scale deployment",
     "kubectl annotate deployment",
-    "Prometheus GET /api/v1/rules",
+    "Grafana GET /api/prometheus/grafana/api/v1/rules",
   ]);
   expect(events).toEqual([
     "scale golden-path-example--local/golden-path-example=2",

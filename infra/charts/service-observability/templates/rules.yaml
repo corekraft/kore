@@ -1,63 +1,39 @@
 {{- /*
-Default alerts for every registered Service, as one Prometheus rule file. This
-chart is the only owner of these rules (ADR 0128). They are notify-only (ADR
-0114): the thresholds are not measured yet, so each rule carries
-enforcement: notify-only, which means the alert only tells an operator and never
-blocks, rolls back or scales anything. The label does not decide delivery: the
-metrics store forwards every fired alert to Grafana, and Grafana's root policy
-emails it to the platform contact point when an address is set at run time.
-Set, the contact point name is carried as a contact_point label for the reader.
+Default alerts for every registered Service, as one Grafana alerting provisioning
+file (ADR 0177). This chart is the only owner of these rules. Grafana evaluates
+each rule over the Prometheus datasource and routes what fires to its one contact
+point. They are notify-only (ADR 0114): the thresholds are not measured yet, so
+each rule carries enforcement: notify-only, which means the alert only tells an
+operator and never blocks, rolls back or scales anything. Set, the contact point
+name is carried as a contact_point label for the reader. The file is JSON, which
+Grafana reads as YAML, so the document is built as a value and never hand-quoted.
 */}}
+{{- $groups := list }}
+{{- range .Values.services }}
+{{- $service := . }}
+{{- $namespace := printf "%s--%s" . $.Values.environment }}
+{{- $alerts := list }}
+{{- $alerts = append $alerts (dict "name" "ServiceUnavailable" "severity" "critical" "for" "5m" "type" "lt" "params" (list 1) "expr" (printf "sum(kube_deployment_status_replicas_available{namespace=\"%s\"})" $namespace) "summary" (printf "Service %s has no available replica" $service)) }}
+{{- $alerts = append $alerts (dict "name" "ServiceHighErrorRatio" "severity" "warning" "for" "10m" "type" "gt" "params" (list 0.05) "expr" (printf "sum(rate(istio_requests_total{destination_service_namespace=\"%s\",response_code=~\"5..\"}[5m])) / sum(rate(istio_requests_total{destination_service_namespace=\"%s\"}[5m]))" $namespace $namespace) "summary" (printf "Service %s answers more than 5 percent of requests with a server error" $service)) }}
+{{- $alerts = append $alerts (dict "name" "ServiceRestartLoop" "severity" "warning" "for" "5m" "type" "gt" "params" (list 3) "expr" (printf "sum(increase(kube_pod_container_status_restarts_total{namespace=\"%s\"}[15m]))" $namespace) "summary" (printf "Containers of service %s restarted more than 3 times in 15 minutes" $service)) }}
+{{- $rules := list }}
+{{- range $alerts }}
+{{- $labels := dict "severity" .severity "service" $service "enforcement" "notify-only" }}
+{{- with $.Values.alerts }}{{- with .destination }}{{- $_ := set $labels "contact_point" . }}{{- end }}{{- end }}
+{{- $uid := printf "kore-%s" (printf "%s/%s" $service .name | sha256sum | trunc 32) }}
+{{- $query := dict "refId" "A" "relativeTimeRange" (dict "from" 600 "to" 0) "datasourceUid" "prometheus" "model" (dict "refId" "A" "expr" .expr "instant" true "intervalMs" 1000 "maxDataPoints" 43200) }}
+{{- $threshold := dict "refId" "C" "relativeTimeRange" (dict "from" 0 "to" 0) "datasourceUid" "__expr__" "model" (dict "refId" "C" "type" "threshold" "expression" "A" "conditions" (list (dict "evaluator" (dict "type" .type "params" .params)))) }}
+{{- $rules = append $rules (dict "uid" $uid "title" .name "condition" "C" "data" (list $query $threshold) "noDataState" "OK" "execErrState" "Error" "for" .for "labels" $labels "annotations" (dict "summary" .summary)) }}
+{{- end }}
+{{- $groups = append $groups (dict "orgId" 1 "name" (printf "kore.service.%s" $service) "folder" "Kore" "interval" "1m" "rules" $rules) }}
+{{- end }}
 apiVersion: v1
 kind: ConfigMap
 metadata:
   name: kore-service-rules
   namespace: {{ .Release.Namespace }}
+  labels:
+    grafana_alert: "1"
 data:
   services.yaml: |
-{{- if not .Values.services }}
-    groups: []
-{{- else }}
-    groups:
-{{- range .Values.services }}
-{{- $namespace := printf "%s--%s" . $.Values.environment }}
-      - name: kore.service.{{ . }}
-        rules:
-          - alert: ServiceUnavailable
-            expr: sum(kube_deployment_status_replicas_available{namespace="{{ $namespace }}"}) == 0
-            for: 5m
-            labels:
-              severity: critical
-              service: {{ . }}
-              enforcement: notify-only
-              {{- with $.Values.alerts }}{{ with .destination }}
-              contact_point: {{ . }}
-              {{- end }}{{ end }}
-            annotations:
-              summary: Service {{ . }} has no available replica
-          - alert: ServiceHighErrorRatio
-            expr: sum(rate(istio_requests_total{destination_service_namespace="{{ $namespace }}",response_code=~"5.."}[5m])) / sum(rate(istio_requests_total{destination_service_namespace="{{ $namespace }}"}[5m])) > 0.05
-            for: 10m
-            labels:
-              severity: warning
-              service: {{ . }}
-              enforcement: notify-only
-              {{- with $.Values.alerts }}{{ with .destination }}
-              contact_point: {{ . }}
-              {{- end }}{{ end }}
-            annotations:
-              summary: Service {{ . }} answers more than 5 percent of requests with a server error
-          - alert: ServiceRestartLoop
-            expr: sum(increase(kube_pod_container_status_restarts_total{namespace="{{ $namespace }}"}[15m])) > 3
-            for: 5m
-            labels:
-              severity: warning
-              service: {{ . }}
-              enforcement: notify-only
-              {{- with $.Values.alerts }}{{ with .destination }}
-              contact_point: {{ . }}
-              {{- end }}{{ end }}
-            annotations:
-              summary: Containers of service {{ . }} restarted more than 3 times in 15 minutes
-{{- end }}
-{{- end }}
+{{ dict "apiVersion" 1 "groups" $groups | toPrettyJson | indent 4 }}

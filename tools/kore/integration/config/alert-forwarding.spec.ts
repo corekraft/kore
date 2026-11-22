@@ -14,7 +14,7 @@ import {
   withAbsoluteChart,
 } from "../../src/platform/index.js";
 
-// Docs: docs/decisions/0128-forward-fired-service-alerts-from-the-metrics-store-to-grafana-s-alert-manager.md
+// Docs: docs/decisions/0177-service-alert-rules-are-grafana-managed-rules-over-the-prometheus-datasource.md
 
 const run = promisify(execFile);
 const address = "ops@example.invalid";
@@ -42,8 +42,9 @@ function withAddress(present: boolean): void {
   }
 }
 
-async function renderPrometheus(
+async function renderComponent(
   repository: Repository,
+  name: string,
   portal: boolean,
 ): Promise<string> {
   const flagged: Repository = {
@@ -56,9 +57,7 @@ async function renderPrometheus(
       },
     },
   };
-  const component = flagged.catalog.components.find(
-    (c) => c.name === "prometheus",
-  )!;
+  const component = flagged.catalog.components.find((c) => c.name === name)!;
   const { stdout } = await run(
     "helm",
     withAbsoluteChart(flagged, component, helmTemplateArgs(flagged, component)),
@@ -75,7 +74,7 @@ test("the forwarding arguments hold no address, whatever the operator supplies, 
       ...repository.environment,
       features: { ...repository.environment.features, "platform-portal": true },
     },
-    "prometheus",
+    "grafana",
   );
   assert.ok(args.length > 0, "the flag and an address give arguments");
   const text = args.join("\n");
@@ -83,7 +82,7 @@ test("the forwarding arguments hold no address, whatever the operator supplies, 
   assert.equal(/@/.test(text), false);
 });
 
-test("the forwarding arguments exist exactly when platform-portal is on and an address is set, in every shipped environment", async () => {
+test("the alerting sidecar arguments exist only for Grafana, exactly when platform-portal is on and an address is set, in every shipped environment", async () => {
   for (const name of ["local", "managed-example"]) {
     const { environment } = await loadRepository(name);
     const on = {
@@ -95,58 +94,55 @@ test("the forwarding arguments exist exactly when platform-portal is on and an a
       features: { ...environment.features, "platform-portal": false },
     };
     withAddress(true);
-    assert.deepEqual(alertForwardingHelmArgs(off, "prometheus"), [], name);
-    assert.notEqual(alertForwardingHelmArgs(on, "prometheus").length, 0, name);
-    withAddress(false);
+    assert.deepEqual(alertForwardingHelmArgs(off, "grafana"), [], name);
+    assert.notEqual(alertForwardingHelmArgs(on, "grafana").length, 0, name);
     assert.deepEqual(alertForwardingHelmArgs(on, "prometheus"), [], name);
-    assert.deepEqual(alertForwardingHelmArgs(off, "prometheus"), [], name);
+    withAddress(false);
+    assert.deepEqual(alertForwardingHelmArgs(on, "grafana"), [], name);
+    assert.deepEqual(alertForwardingHelmArgs(off, "grafana"), [], name);
   }
 });
 
-// Opt-in: it pulls the pinned Prometheus chart, and fast tests run offline
-// (AGENTS.md). Run with `npm run test:upstream-charts` when bumping Prometheus.
+// Opt-in: it pulls the pinned Prometheus and Grafana charts, and fast tests run
+// offline (AGENTS.md). Run with `npm run test:upstream-charts` when bumping them.
 const upstream = process.env["KORE_CHECK_UPSTREAM_CHARTS"] === "1";
 
 test.runIf(upstream)(
-  "the metrics store mounts the Service rules and forwards to Grafana only when platform-portal is on and an address is set, and is otherwise exactly as before",
+  "the metrics store renders exactly as before with platform-portal on and an address set: it loads no Service rules, lists no Alertmanager and mounts no Grafana credential",
   async () => {
     const repository = await loadRepository("local");
     withAddress(false);
-    const baseline = await renderPrometheus(repository, false);
+    const baseline = await renderComponent(repository, "prometheus", false);
     assert.equal(baseline.includes("kore-service-rules"), false);
     assert.equal(baseline.includes("alertmanager/grafana"), false);
+    assert.equal(baseline.includes("grafana-admin"), false);
     assert.match(baseline, /\/etc\/kore\/rules\/platform\.yaml/);
 
-    // The flag alone, with no address, changes nothing.
-    assert.equal(await renderPrometheus(repository, true), baseline);
-
-    // An address alone, with the flag off, changes nothing.
     withAddress(true);
-    assert.equal(await renderPrometheus(repository, false), baseline);
+    assert.equal(
+      await renderComponent(repository, "prometheus", true),
+      baseline,
+    );
+  },
+);
 
-    const on = await renderPrometheus(repository, true);
+test.runIf(upstream)(
+  "Grafana loads the Service alert rules through its alerting sidecar only when platform-portal is on and an address is set",
+  async () => {
+    const repository = await loadRepository("local");
+    withAddress(false);
+    const portalOnly = await renderComponent(repository, "grafana", true);
+    assert.equal(portalOnly.includes("grafana_alert"), false);
+
+    withAddress(true);
+    const on = await renderComponent(repository, "grafana", true);
     assert.equal(on.includes(address), false);
     for (const needle of [
-      "/etc/kore/service-rules/*.yaml",
-      "--watched-dir=/etc/kore/service-rules",
-      "name: kore-service-rules",
-      "path_prefix: /api/alertmanager/grafana",
-      "password_file: /etc/kore/grafana-admin/admin-password",
-      "- grafana.observability.svc:80",
+      "grafana_alert",
+      "/etc/grafana/provisioning/alerting",
     ]) {
       assert.ok(on.includes(needle), `renders ${needle}`);
     }
-    // The ConfigMap and the Secret are optional, so the metrics store, which
-    // installs before Grafana and the rules chart, still becomes ready.
-    assert.equal((on.match(/optional: true/g) ?? []).length, 2);
-    // The platform rules and the chart's own files stay loaded.
-    for (const file of [
-      "/etc/config/recording_rules.yml",
-      "/etc/config/alerting_rules.yml",
-      "/etc/kore/rules/platform.yaml",
-    ]) {
-      assert.ok(on.includes(`- ${file}`), `keeps ${file}`);
-    }
+    assert.equal(on.includes("/etc/kore/grafana-admin"), false);
   },
-  120_000,
 );

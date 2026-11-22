@@ -36,10 +36,13 @@ test("fails at rule not loaded, firing nothing, when the metrics store has no ru
     status: "failed",
     stage: "rule not loaded",
     detail:
-      "Prometheus has no ServiceUnavailable rule in group kore.service.golden-path-example; check that the service-observability chart is delivered and the metrics store mounts kore-service-rules",
+      "Grafana has no ServiceUnavailable rule in group kore.service.golden-path-example; check that the service-observability chart is delivered and Grafana loads kore-service-rules",
     rule: "not loaded",
     inbox: "not checked",
-    calls: ["kubectl get deployments", "Prometheus GET /api/v1/rules"],
+    calls: [
+      "kubectl get deployments",
+      "Grafana GET /api/prometheus/grafana/api/v1/rules",
+    ],
   });
   expect(events).toEqual([]);
 });

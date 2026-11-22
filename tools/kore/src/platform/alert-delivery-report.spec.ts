@@ -12,7 +12,7 @@ const delivered: DeliveryReport = {
   rule: "firing",
   inbox: "arrived",
   calls: [
-    "Prometheus GET /api/v1/rules",
+    "Grafana GET /api/prometheus/grafana/api/v1/rules",
     "kubectl get deployments",
     "kubectl scale deployment",
     "Grafana GET /api/alertmanager/grafana/api/v2/alerts",
@@ -36,7 +36,7 @@ test("renders a delivered report as exact lines naming the contact point, never 
       "status: delivered",
       "detail: Grafana routed ServiceUnavailable to kore-platform-email and the inbox holds its message",
       "inbox: arrived",
-      "calls: Prometheus GET /api/v1/rules; kubectl get deployments; kubectl scale deployment; Grafana GET /api/alertmanager/grafana/api/v2/alerts; Grafana GET /api/v1/provisioning/contact-points; inbox API read",
+      "calls: Grafana GET /api/prometheus/grafana/api/v1/rules; kubectl get deployments; kubectl scale deployment; Grafana GET /api/alertmanager/grafana/api/v2/alerts; Grafana GET /api/v1/provisioning/contact-points; inbox API read",
     ].join("\n"),
   );
 });
@@ -93,7 +93,7 @@ test("redacts the inbox URL, its key and the alert address from every line of a 
       "status: failed at contact point failed",
       "detail: the inbox could not be read: GET [redacted] with [redacted] for [redacted] failed",
       "inbox: not checked",
-      "calls: Prometheus GET /api/v1/rules; kubectl get deployments; kubectl scale deployment; Grafana GET /api/alertmanager/grafana/api/v2/alerts; Grafana GET /api/v1/provisioning/contact-points; inbox API read",
+      "calls: Grafana GET /api/prometheus/grafana/api/v1/rules; kubectl get deployments; kubectl scale deployment; Grafana GET /api/alertmanager/grafana/api/v2/alerts; Grafana GET /api/v1/provisioning/contact-points; inbox API read",
     ].join("\n"),
   );
   expect(text).not.toContain(url);

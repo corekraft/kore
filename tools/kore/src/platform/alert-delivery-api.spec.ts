@@ -16,14 +16,13 @@ const inPod = [
   "--namespace",
   "observability",
   "exec",
-  "deploy/prometheus-server",
+  "deploy/grafana",
   "--container",
-  "prometheus-server",
+  "grafana",
   "--",
 ];
-const plainScript = 'wget -q -O - "$1"';
 const authorisedScript =
-  'wget -q -O - --header="Authorization: Basic $(printf \'%s\' "admin:$(cat /etc/kore/grafana-admin/admin-password)" | base64 | tr -d \'\\n\')" "$1"';
+  'wget -q -O - --header="Authorization: Basic $(printf \'%s\' "admin:$GF_SECURITY_ADMIN_PASSWORD" | base64 | tr -d \'\\n\')" "$1"';
 
 const rulesBody = {
   status: "success",
@@ -71,7 +70,7 @@ async function messageOf(work: Promise<unknown>): Promise<string> {
   return "no error";
 }
 
-test("reads the Prometheus rules from inside the prometheus-server pod, with no secret in the arguments", async () => {
+test("reads the Service rules from Grafana's rules API inside the grafana pod, with no secret in the arguments", async () => {
   const { run, runner } = runnerReturning(JSON.stringify(rulesBody));
   const api = clusterApi(runner, { kubeContext, cwd });
   expect(await api.ruleState("golden-path-example", "ServiceUnavailable")).toBe(
@@ -83,9 +82,9 @@ test("reads the Prometheus rules from inside the prometheus-server pod, with no 
       ...inPod,
       "sh",
       "-c",
-      plainScript,
+      authorisedScript,
       "sh",
-      "http://127.0.0.1:9090/api/v1/rules",
+      "http://grafana.observability.svc:80/api/prometheus/grafana/api/v1/rules",
     ],
     { capture: true, cwd },
   );
@@ -218,7 +217,7 @@ test("reads the rule as firing, loaded when pending, and absent for another serv
 test("refuses a rules answer with no rule groups", () => {
   expect(() =>
     parseRuleState({}, "golden-path-example", "ServiceUnavailable"),
-  ).toThrow("Prometheus rules answer holds no rule groups");
+  ).toThrow("Grafana rules answer holds no rule groups");
 });
 
 test("names the receivers of the alert for its service, and none for an absent alert", () => {
