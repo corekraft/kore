@@ -244,7 +244,7 @@ const openHelp: CommandHelp = {
 export const prCommands: Record<string, Command> = {
   checks: {
     summary:
-      "read-only; reads the check runs on a pull request through gh and prints them: `pr checks <pr>` reads once, `--wait` polls on a clock until the checks settle or a bound passes, with no sleep of the caller's; exits 0 when every check passes, 1 when one fails (naming the failed checks and their URLs), and 2 while checks are still pending at the bound (the driver then polls with `ledger poll-github`); --json prints the state, the failed and pending names and each check",
+      "Reads a pull request's check runs and says whether they are green, red or pending.",
     operand: "pr",
     options: { wait: "boolean" },
     help: checksHelp,
@@ -253,7 +253,7 @@ export const prCommands: Record<string, Command> = {
   check: prCheckCommand,
   open: {
     summary:
-      "mutates; opens a pull request whose body ends with the declaration the precheck reads, rendered from the same module that parses it: `Refs #<issue>` (or `Closes` under --closes, which warns and cites ADR 0079 beside --idea, and never refuses), `Idea:`, `Expand step: #<pr>`, then `Safety pattern:` last; `--idea none` (or no --idea) writes no `Idea:` line and records `none` on the link; refuses an expand-contract PR with no --expand-step, and a pattern or number it would not accept, before gh is reached; --body-file <path> reads the body from that file instead of --body, with the same checks, and the two together are refused; --dry-run prints the body and creates nothing; once gh opens the PR, a writer's spawn links it to that writer as a pr.linked ledger event (the PR number, the session name and the idea, no text), and a failed link is a warning on stderr; gh runs through the runner in this pane's environment (--title <title> --pattern <pattern> [--body <summary> | --body-file <path>] [--issue <n>] [--closes] [--idea <number or slug, or none>] [--expand-step <pr>] [--base <branch>] [--head <branch>] [--dry-run])",
+      "Opens a pull request with its declared safety pattern and the body the judge's precheck reads.",
     options: {
       title: "string",
       pattern: "string",

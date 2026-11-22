@@ -260,8 +260,8 @@ describe("harness pr check records nothing when the judge's report cannot be rea
 
 describe("harness pr check is declared as a mutating command on a pr operand", () => {
   it("says it appends one event, takes a pr operand and no options beyond --json", () => {
-    expect(prCheckCommand.summary).toMatch(/^mutates;/);
-    expect(prCheckCommand.summary).toContain("pr.checked");
+    expect(prCheckCommand.help?.effects.kind).toBe("mutates");
+    expect(prCheckCommand.help?.effects.detail).toContain("pr.checked");
     expect(prCheckCommand.operand).toBe("pr");
     expect(prCheckCommand.options ?? {}).toEqual({});
   });

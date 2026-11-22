@@ -211,20 +211,22 @@ async function escalateWriter(context: CommandContext): Promise<void> {
 
 export const nextCommand: Command = {
   summary:
-    "read-only; list approved ideas without an outcome and pending judge send-backs, oldest first ([--json] [--ledger]); with the local tick-ticket-queue flag on, the whole frontier instead: send-backs, then every open ready-for-agent issue the exclusion rules keep, one line each with kind, lane and horizon ([--json adds excluded] [--explain <issue>] places one issue or names why it is excluded, and a ticket whose PR has merged is listed as waiting on it; the tick takes idea items in this order and does not start plain tickets yet)",
+    "Lists the approved ideas and judge send-backs the orchestrator takes next, oldest first.",
   options: { ledger: "string", explain: "string" },
   run: (context) => guarded(context, () => next(context)),
 };
 
 export const sendBacksCommand: Command = {
-  summary: `read-only; count a PR's judge send-backs and name the writer model to launch: Sonnet from ${ESCALATION_THRESHOLD}, else the writer's default (<pr> [--json] [--ledger])`,
+  summary:
+    "Counts a pull request's judge send-backs and names the writer model to relaunch it on.",
   operand: "pr",
   options: { ledger: "string" },
   run: (context) => guarded(context, () => sendBacks(context)),
 };
 
 export const escalateCommand: Command = {
-  summary: `append an escalation event to the ledger once a PR has ${ESCALATION_THRESHOLD} send-backs, one per PR; then relaunch the writer with \`session spawn --model --pr\`, which logs it as an escalation (<pr> [--json] [--ledger])`,
+  summary:
+    "Records a writer's escalation after two send-backs and prints the spawn line that relaunches it.",
   operand: "pr",
   options: { ledger: "string" },
   run: (context) => guarded(context, () => escalateWriter(context)),

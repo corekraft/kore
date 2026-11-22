@@ -49,7 +49,7 @@ export const tickHelp: CommandHelp = {
   effects: {
     kind: "mutates",
     detail:
-      "with the flag on, starts, closes and messages panes, appends tick events to the ledger, and takes a per-machine lease in the host lock directory; a start held back by power, load or a live run is a tick.bound event. --install writes a launchd plist under the home LaunchAgents folder and starts nothing. Never pushes, updates or merges a branch. With the flag off it writes nothing",
+      "with the flag on, starts, closes and messages panes, appends tick events to the ledger, and takes a per-machine lease in the host lock directory; a start held back by power, load or a live run is a tick.bound event. With --loop and the tick-self-update flag on, each pass first fast-forwards a clean main to origin/main (git fetch, then git pull --ff-only) and rebuilds the harness bundle; a refusal keeps the bundle it has. --install writes a launchd plist under the home LaunchAgents folder and starts nothing. It never pushes or merges a branch. With the flag off it writes nothing",
   },
   seeAlso: ["orchestrate run", "orchestrate plan", "queue next", "status"],
 };

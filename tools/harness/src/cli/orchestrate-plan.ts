@@ -67,7 +67,7 @@ const planHelp: CommandHelp = {
  */
 export const planCommand: Command = {
   summary:
-    "behind the local orchestrator-tick flag (off): reads one work plan as JSON on stdin, an object with a work list as the judgment pane prints it, checks it whole with the same checker the judgment flow uses, and refuses it with the item and field named when it does not check, when a piece's pane name would be refused by session spawn, or when another plan for the idea is already persisted; writes the checked plan to .kore/state/tick-plans/<idea>.json in the main checkout once, and appends one tick.plan ledger event carrying the piece count, so a rerun of the same plan writes and records nothing twice; requires --idea (for example 0007) and --issue (the idea's issue number); with the flag off it records nothing and exits 1; --json prints the idea, the piece count, and whether the plan was written or already there and whether the event was recorded or already there",
+    "Records an idea's work plan from JSON on stdin, so the tick can start its pieces in order.",
   options: { idea: "string", issue: "string" },
   help: planHelp,
   run: runPlan,

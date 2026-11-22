@@ -136,7 +136,7 @@ const checkHelp: CommandHelp = {
 
 export const prCheckCommand: Command = {
   summary:
-    "mutates; checks a pull request the way its writer must act on the judge's precheck: prints the failures the writer owns to fix (each with its category and detail) and the pending items the judge waits on (CI still running, a review not yet posted), exits 0 when no failure the writer owns remains and 1 when one does, and appends one pr.checked event at the shared ledger naming the failure categories (never a send-back); --json prints the result as one object (<pr> [--json])",
+    "Shows the failures a pull request's writer must fix, and what the judge still waits on.",
   operand: "pr",
   help: checkHelp,
   run: prCheckRun,
