@@ -1,5 +1,5 @@
 import { diffStat, JudgeError, selectDiff } from "../judge/index.js";
-import type { Command, CommandContext } from "../runtime/index.js";
+import type { Command, CommandContext, CommandHelp } from "../runtime/index.js";
 import { failed, prNumber, repoOf } from "./judge-shared.js";
 
 const DIFF_USAGE =
@@ -56,12 +56,55 @@ async function runDiff(context: CommandContext): Promise<number> {
   }
 }
 
+const diffHelp: CommandHelp = {
+  purpose:
+    "Prints a PR's diff through gh, limited to the files its --path globs match; with --stat it prints each file's added and removed line counts instead.",
+  when: "When the judge reads the change itself, for example to check it against its declared pattern before approving or merging it.",
+  whenNot:
+    "When the verdict is what you need, use judge precheck. This reads the diff only and says nothing about checks; for a PR's checks use pr checks.",
+  flags: {
+    path: "Comma-separated globs of the files to keep: * stays in one folder and ** crosses folders. Without it every changed file is kept; a glob that matches no file fails the command.",
+    stat: "Print each changed file's added and removed line counts and the number of files changed, instead of the diff.",
+  },
+  operand: "The pull request number, a positive whole number.",
+  examples: [
+    {
+      command: 'harness judge diff 942 --path "skills/**"',
+      shows: "PR 942's diff, only for the files under skills/",
+    },
+    {
+      command: "harness judge diff 942 --stat",
+      shows:
+        "each changed file's added and removed lines, then the number of files changed",
+    },
+  ],
+  exits: [
+    { code: 0, meaning: "the diff, or its stat, is printed" },
+    {
+      code: 1,
+      meaning:
+        "gh could not read the PR, or no file matches --path; stderr names the fix",
+    },
+    {
+      code: 2,
+      meaning:
+        "a usage error: a flag the command does not declare, a second operand, or a flag with no value",
+    },
+  ],
+  effects: {
+    kind: "read-only",
+    detail: "reads the PR's diff through gh and prints it; changes nothing",
+  },
+  seeAlso: ["judge precheck", "pr checks"],
+};
+
 export const diffCommands: Record<string, Command> = {
   diff: {
     summary:
       "read-only on GitHub; print a PR's diff through gh, limited to the files matching --path globs (comma-separated; * stays in one folder, ** crosses folders), or with --stat only each file's added and removed line counts; fails when no file matches (<pr> [--path <glob>[,<glob>]] [--stat] [--json])",
     operand: "pr",
     options: { path: "string", stat: "boolean" },
+    help: diffHelp,
     run: runDiff,
   },
 };

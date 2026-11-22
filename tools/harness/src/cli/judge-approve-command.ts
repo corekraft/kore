@@ -1,6 +1,7 @@
 import { JudgeError, summary, type Report } from "../judge/index.js";
 import type { Command, CommandContext } from "../runtime/index.js";
 import { signedBody } from "../sender/index.js";
+import { approveHelp } from "./judge-approve-help.js";
 import {
   FAILED,
   failed,
@@ -247,6 +248,7 @@ export const approveCommands: Record<string, Command> = {
       "mutates; re-runs the precheck and approves the verified head commit as the pane's own gh identity only when it passes; refuses a moved head and the caller's own PR, and posts nothing twice (<pr> [--json] [--reviewer <login>[,<login>]])",
     operand: "pr",
     options: { reviewer: "string" },
+    help: approveHelp,
     run: runApprove,
   },
 };

@@ -23,6 +23,7 @@ import {
   checkedPrecheck,
 } from "./judge-shared.js";
 import { readTextOption } from "./text-option.js";
+import { mergeHelp, sendBackHelp } from "./judge-merge-help.js";
 
 const MERGE_USAGE =
   "Run `harness judge merge <pr> [--json] [--reviewer <login>[,<login>]]`.";
@@ -270,6 +271,7 @@ export const mergeCommands: Record<string, Command> = {
       'mutates; re-runs the precheck and squash-merges the verified head commit only when it passes; with no declared pattern, a mismatching diff or a failing enforce gate it merges nothing; a PR that GitHub refuses because it is behind main is refused naming the PR, "behind main" and the next step; each gate reads its mode from .claude/guardrails.yaml (rule judge-<item>, kind checklist): a failing audit gate is listed (audited in --json), writes one guard.audit ledger event per item and head, and never blocks the merge; an unreadable inventory or a mode other than audit or enforce is refused (<pr> [--json] [--reviewer <login>[,<login>]])',
     operand: "pr",
     options: { reviewer: "string" },
+    help: mergeHelp,
     run: runMerge,
   },
   "send-back": {
@@ -279,6 +281,7 @@ export const mergeCommands: Record<string, Command> = {
       ")",
     operand: "pr",
     options: { reason: "string", "reason-file": "string", category: "string" },
+    help: sendBackHelp,
     run: runSendBack,
   },
 };

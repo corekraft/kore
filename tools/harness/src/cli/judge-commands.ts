@@ -1,4 +1,4 @@
-import type { Command, CommandContext } from "../runtime/index.js";
+import type { Command, CommandContext, CommandHelp } from "../runtime/index.js";
 import { summary } from "../judge/index.js";
 import {
   FAILED,
@@ -46,11 +46,65 @@ async function runPrecheck(context: CommandContext): Promise<number> {
   }
 }
 
+const precheckHelp: CommandHelp = {
+  purpose:
+    "Reads a PR's verdict for the judge: its declared safety pattern, the pattern hints from its diff, and its CI, scan, coverage and principles-review results, each checklist item under the mode its rule sets in .claude/guardrails.yaml. It fails when no single valid pattern is declared or a check is not passing.",
+  when: "The judge pane runs it on a PR before approving or merging it, and again after each new push to the head, since a verdict is for one head.",
+  whenNot:
+    "When you need the change itself, use judge diff; when only the PR body is to be checked, use judge declaration; when you are the writer checking your own gates, use pr check.",
+  flags: {
+    reviewer:
+      "A login, or several separated by commas, whose principles-review verdicts count; it replaces the reviewerLogins of .claude/harness.json, and without it those logins, else the repository owner's, are used.",
+  },
+  operand: "The pull request number, a positive whole number.",
+  examples: [
+    {
+      command: "harness judge precheck 942",
+      shows:
+        "PR 942's pattern, hints and each gate's result, with ok when every enforced gate passes",
+    },
+    {
+      command: "harness judge precheck 942 --json",
+      shows: "the same verdict as one JSON object, for a script to read",
+    },
+  ],
+  exits: [
+    {
+      code: 0,
+      meaning:
+        "the verdict passed: one valid pattern is declared and every enforced gate passes",
+    },
+    {
+      code: 1,
+      meaning:
+        "the verdict did not pass, or the command was refused: a missing or invalid PR number, a harness bundle behind origin/main, an unreadable guardrail inventory or harness config, or a rejected ledger event; stderr names the fix",
+    },
+    {
+      code: 2,
+      meaning:
+        "a usage error: a flag the command does not declare, a second operand, or a flag with no value",
+    },
+  ],
+  effects: {
+    kind: "mutates",
+    detail:
+      "reads GitHub and the checkout only, and appends to the shared ledger: one precheck event when the PR's verdict differs from its newest, and one guard.audit event per failing audit item at each head; nothing on GitHub changes",
+  },
+  seeAlso: [
+    "judge diff",
+    "judge declaration",
+    "judge approve",
+    "judge merge",
+    "judge send-back",
+  ],
+};
+
 const precheckCommand: Command = {
   summary:
     "read-only on GitHub; report a PR's declared safety pattern, pattern hints from its diff, and its CI, scan, coverage and principles-review results; fails when no single valid pattern is declared or a check is not passing; fails fast, naming the fix, when this harness bundle is behind origin/main for tools/harness (compared through the GitHub compare API; only a warning when the comparison is impossible); records a precheck ledger event at the shared ledger; each checklist item reads its mode from .claude/guardrails.yaml (rule judge-<item>, kind checklist; ci, scan, coverage, principles-review, expand-step, pattern-match): an audit item that fails is listed under audited in --json and never makes the report not ready, and writes one guard.audit ledger event per item and head, while an enforce item that fails does; an unreadable inventory or a mode other than audit or enforce is refused; principles-review counts only from the reviewers it names (reviewerLogins in .claude/harness.json, else the owner login; --reviewer <login>[,<login>] overrides both), made after the head commit (<pr> [--reviewer <login>[,<login>]])",
   operand: "pr",
   options: { reviewer: "string" },
+  help: precheckHelp,
   run: runPrecheck,
 };
 
