@@ -22,8 +22,11 @@ const FILES = [
   "docs/vision.md",
 ];
 
-/** Agent definitions keep the flags they name until #1802 widens the guard: a writer or judge cannot read deeper help yet. */
-const FLAGS_KEPT_UNTIL_1802 = ".claude/agents/";
+/**
+ * Agent definitions and the write-adr skill keep the flags they name until #1802 widens the guard: a writer
+ * or judge cannot read deeper help yet, so they would be left unable to act.
+ */
+const FLAGS_KEPT_UNTIL_1802 = [".claude/agents/", "skills/write-adr/"];
 
 function currentDocuments(): string[] {
   const inDirectories = DIRECTORIES.flatMap((dir) =>
@@ -70,7 +73,9 @@ describe("the current documents point at help instead of listing flags", () => {
   it("lists no flag of a harness command, outside the agent definitions that wait on #1802", () => {
     const listings = mentions
       .filter((m) => m.flags.length > 0)
-      .filter((m) => !m.file.startsWith(FLAGS_KEPT_UNTIL_1802))
+      .filter(
+        (m) => !FLAGS_KEPT_UNTIL_1802.some((dir) => m.file.startsWith(dir)),
+      )
       .map(
         (m) =>
           `${m.file}:${m.line} lists --${m.flags.join(" --")} after harness ${m.words.join(" ")}`,

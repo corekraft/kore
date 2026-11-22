@@ -275,8 +275,8 @@ Dark launch means on only in `local`.
    `no-behaviour-change` needs before merge.
    A proof that ran on a main chart lock also names the main lock and each
    handed-over chart with its version and digest, copied from that lock (`harness outcome record --help` gives the form; [ADR 0138](../decisions/0138-publish-signed-configuration-charts-from-main-for-local-proofs.md)).
-3. `node skills/bin/harness.mjs flag activate <name>` edits
-   the overlay only when that confirmed outcome exists (`harness flag activate --help` names its environment), and records a
+3. `node skills/bin/harness.mjs flag activate <name>` for one environment, which `harness flag activate --help` names, edits
+   the overlay only when that confirmed outcome exists, and records a
    `flag.activated` ledger event. Without proof it refuses and changes nothing.
    A main-lock proof counts only when the release's lock, given to activate,
    has the same version and digest for every recorded
@@ -329,12 +329,12 @@ all waiting. Its options, with their defaults, are in `harness flow report --hel
 
 Scope narrows a report so two periods or two sets of ideas compare field by
 field; the shape is the same and `scope` states what was covered (`since`,
-`until`, `ideas`, each `null` when not given). the lower bound is inclusive and the upper
+`until`, `ideas`, each `null` when not given). The lower bound is inclusive and the upper
 exclusive, as in `ledger list`. Waiting, active and toil time are
 clipped at the range edges, events count only inside it, and `wip` is measured
 over the range itself. An idea is covered when its events, or an open issue or PR
 wait, reach into the range; it is `completed`, and in `leadTime`, only when its
-`issue.closed` falls inside, and its lead time is whole, not clipped. the idea option
+`issue.closed` falls inside, and its lead time is whole, not clipped. The idea option
 takes issue numbers (`12` or `#12`) and covers only those ideas; with it,
 unattributed events are not counted as unmapped. Both options together cover the
 named ideas inside the range.
@@ -348,7 +348,7 @@ Host pressure comes from the `host-sample` events each session spawn records.
 `hostPressure` in the JSON form (and one short section in the human report) gives, per
 live-session count and split by whether the local platform was up, the sample
 count and the median and peak of swap (bytes) and load. Each median is compared
-with the median of the same level over the `--host-days N` days before the range
+with the median of the same level over the days before the range (`harness flow report --help` names the window)
 (default 7; before the as-of time when the range has no start), and `worsened` is set
 when it is above that median by more than the spread (population standard
 deviation). Fewer than three baseline samples give `insufficient history`. A
@@ -1077,7 +1077,7 @@ the writer named it (ADR 0126). An idea of `none`, or no idea, writes no `Idea:`
 line and records `none`, so a bug fix or a docs change needs no idea. The tool
 renders the `Idea:` line, never the writer by hand.
 
-`decision make` (`harness decision make --help` names its options) is the advisor's tool, given the idea or, for a plain ticket with no idea record, the issue, ([ADR 0120](../decisions/0120-recommended-decisions-go-to-an-advisor-reserved-decisions-to-the-owner.md)).
+`decision make` (`harness decision make --help` names its options) is the advisor's tool, given the idea or, for a plain ticket with no idea record, the issue ([ADR 0120](../decisions/0120-recommended-decisions-go-to-an-advisor-reserved-decisions-to-the-owner.md)).
 It posts the decision on the idea's issue (or the plain ticket's issue) and records
 `decision.made` with the idea (or the issue number) and the category only; the question and the reasoning stay on the issue. It
 does nothing while the `decision-advisor` flag is off in the local overlay, and it
