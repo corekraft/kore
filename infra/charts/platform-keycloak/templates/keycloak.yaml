@@ -33,5 +33,13 @@ spec:
     httpEnabled: true
   proxy:
     headers: xforwarded
+{{- $features := .Values.features | default dict }}
+{{- if index $features "platform-portal" }}
+  # client-admin-api:v2 is a preview feature in Keycloak 26.8.2. The operator
+  # needs it to create the Backstage KeycloakOIDCClient (ADR 0113, issue 1730).
+  features:
+    enabled:
+      - client-admin-api:v2
+{{- end }}
   ingress:
     enabled: false
