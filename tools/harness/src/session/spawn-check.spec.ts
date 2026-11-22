@@ -6,7 +6,7 @@ import { hostLeaseRefusal } from "./host-lease.js";
 import { sessionNameError } from "./names.js";
 import { FAILED, USAGE_ERROR } from "./output.js";
 import { spawnLoadRefusal } from "./spawn-load.js";
-import { check } from "./spawn-check.js";
+import { check, checkRequest } from "./spawn-check.js";
 import { tierInputError, tierOf } from "./tier-source.js";
 import { findResult, parseTimeout } from "./wait.js";
 
@@ -247,5 +247,34 @@ describe("check resolves the tier and returns the checked request", () => {
     await expect(check(request({ idea: "#338" }))).resolves.toMatchObject({
       idea: "#338",
     });
+  });
+});
+
+describe("checkRequest checks a request without Herdr", () => {
+  it("returns the checked values, and runs nothing, outside Herdr", async () => {
+    deps.env = {};
+
+    await expect(
+      checkRequest(
+        contextOf(deps, {
+          options: {
+            role: "reader",
+            name: "image-trust-reader",
+            brief: "Do it.",
+          },
+        }),
+      ),
+    ).resolves.toEqual({
+      values: {
+        role: "reader",
+        name: "image-trust-reader",
+        brief: "Do it.",
+        model: "claude-sonnet-5-5",
+        effort: "high",
+      },
+      timeoutMs: 60_000,
+      tier: { tierSource: "definition" },
+    });
+    expect(deps.runner.run).not.toHaveBeenCalled();
   });
 });

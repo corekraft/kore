@@ -29,7 +29,8 @@ import { equalize, equalizeHelp } from "./equalize.js";
 import { notify, notifyHelp } from "./notify.js";
 import { report, reportHelp } from "./report.js";
 import { send, sendHelp } from "./send.js";
-import { spawn, spawnHelp } from "./spawn.js";
+import { spawnHelp } from "./spawn.js";
+import { spawnRouted } from "./spawn-route.js";
 import { tier, tierHelp } from "./tier.js";
 import { wait, waitHelp } from "./wait.js";
 
@@ -50,9 +51,10 @@ const spawnCommand: Command = {
     pr: "string",
     reason: "string",
     timeout: "string",
+    group: "string",
   },
   help: spawnHelp,
-  run: spawn,
+  run: spawnRouted,
 };
 
 const waitCommand: Command = {

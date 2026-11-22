@@ -8,7 +8,8 @@ import { resolveTier as exported, session } from "./index.js";
 import { notify, notifyHelp } from "./notify.js";
 import { report, reportHelp } from "./report.js";
 import { send, sendHelp } from "./send.js";
-import { spawn, spawnHelp } from "./spawn.js";
+import { spawnHelp } from "./spawn.js";
+import { spawnRouted } from "./spawn-route.js";
 import { tier, tierHelp } from "./tier.js";
 import { wait, waitHelp } from "./wait.js";
 
@@ -39,6 +40,7 @@ vi.mock("./send.js", () => ({
   send: vi.fn(),
   sendHelp: { purpose: "send help" },
 }));
+vi.mock("./spawn-route.js", () => ({ spawnRouted: vi.fn() }));
 vi.mock("./spawn.js", () => ({
   spawn: vi.fn(),
   spawnHelp: { purpose: "spawn help" },
@@ -99,7 +101,7 @@ describe("the session domain's command set", () => {
   });
 
   it.each([
-    ["spawn", spawn],
+    ["spawn", spawnRouted],
     ["wait", wait],
     ["notify", notify],
     ["report", report],
@@ -145,6 +147,7 @@ describe("the session domain's operands and flags", () => {
       pr: "string",
       reason: "string",
       timeout: "string",
+      group: "string",
     });
   });
 

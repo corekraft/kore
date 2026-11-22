@@ -29,6 +29,11 @@ export function routeSession(
   if (backendOf(record) === "herdr") {
     return { backend: "herdr" };
   }
+  if (record.starting === true && record.terminal === undefined) {
+    return {
+      error: `Session ${record.name} never started a terminal, so it is blocked, not live: it was lost before its start was recorded. Run session close ${record.name} to clear it.`,
+    };
+  }
   if (hc === undefined) {
     return {
       error: `Session ${record.name} runs on hc, but hc is not available here, so it is not routed to herdr. Install the pinned hc (plan 16, step 1), then retry.`,

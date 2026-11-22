@@ -235,6 +235,7 @@ export const execCommand: Command = {
     const { role, model, effort } = options;
     if (
       typeof role !== "string" ||
+      role === "" ||
       typeof model !== "string" ||
       typeof effort !== "string" ||
       operand === undefined ||

@@ -250,6 +250,14 @@ const HC_RECORD = {
 };
 
 describe("SessionRegistry.read keeps every record version and backend readable", () => {
+  it("reads an hc record that has not started yet: no terminal, and a starting marker", async () => {
+    await expect(
+      readText(
+        JSON.stringify({ ...HC_RECORD, terminal: undefined, starting: true }),
+      ),
+    ).resolves.toEqual({ ...HC_RECORD, terminal: undefined, starting: true });
+  });
+
   it("reads an hc record that carries no callerPane", async () => {
     const deps = fakeDeps();
     deps.fs.exists.mockResolvedValue(true);
