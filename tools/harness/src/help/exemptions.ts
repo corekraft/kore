@@ -5,20 +5,7 @@
  * A domain's only command is named by the domain alone.
  */
 export const undocumented: readonly string[] = [
-  // plan
-  "plan active",
-  "plan tick",
-  "plan next",
-  "plan clear-next",
-  // adr
-  "adr new",
-  "adr supersede",
   // guardrail
-  // idea
-  "idea new",
-  "idea list",
-  "idea show",
-  "idea sync",
   // flag
   // ruleset
 ];

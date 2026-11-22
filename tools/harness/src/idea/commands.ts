@@ -1,5 +1,6 @@
 import { flowMetricNames } from "../flow/index.js";
 import type { Command, CommandContext } from "../runtime/index.js";
+import { createHelp, listHelp, showHelp, syncHelp } from "./commands-help.js";
 import {
   IdeaError,
   harnessHypothesis,
@@ -137,8 +138,7 @@ function parseNewIdea(options: CommandContext["options"]): {
 }
 
 const create: Command = {
-  summary:
-    "create the next numbered idea record and index it (--title --hypothesis --expected-outcome --measurement --safety-pattern [--slug] [--summary] [--issue] [--parent] [--kind harness --metric <flow report metric> --direction up|down --window <days>d [--tier-change model|effort|model,effort --guard-metric rework.sendBacksPerIdea: a model-tier idea edits only those agent frontmatter fields, its hypothesis is metrics.tokensPerIdea down, and judge send-backs guard it]])",
+  summary: "create the next numbered idea record and index it",
   options: {
     title: "string",
     slug: "string",
@@ -156,6 +156,7 @@ const create: Command = {
     "tier-change": "string",
     "guard-metric": "string",
   },
+  help: createHelp,
   run(context) {
     return guarded(context, async () => {
       const { slug, idea } = parseNewIdea(context.options);
@@ -172,8 +173,9 @@ const create: Command = {
 };
 
 const show: Command = {
-  summary: "print one idea record (--idea <number or slug>)",
+  summary: "print one idea record",
   options: { idea: "string" },
+  help: showHelp,
   run(context) {
     return guarded(context, async () => {
       const ref = text(context.options, "idea");
@@ -192,6 +194,7 @@ const show: Command = {
 
 const list: Command = {
   summary: "list every idea record in number order",
+  help: listHelp,
   run(context) {
     return guarded(context, async () => {
       const records = await (await repository(context)).list();
@@ -214,9 +217,9 @@ const list: Command = {
 export type HarnessLabelFlag = (context: CommandContext) => Promise<boolean>;
 
 const syncCommand = (harnessLabel: HarnessLabelFlag): Command => ({
-  summary:
-    "mirror one idea to its GitHub issue, creating it when missing and editing only when the body changed (--idea <number or slug>); with the local tick-ticket-queue flag on, a harness idea's issue also gets the harness label when created or edited, and no label is ever removed",
+  summary: "mirror one idea to its GitHub issue",
   options: { idea: "string" },
+  help: syncHelp,
   run(context) {
     return guarded(context, async () => {
       const ref = text(context.options, "idea");
