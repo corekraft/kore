@@ -14,8 +14,8 @@ import {
 // The prose and the JSON are built from one structure. Each level's facts must
 // appear in both, and the JSON must read back as the same object.
 
-// No command in the real table has help yet (the exemption list holds them all),
-// so the command level uses a hand-built command that carries a full record.
+// Only the harness domain's commands carry help so far, so the command level uses a
+// hand-built command that carries a full record.
 const sample = {
   summary: "set the Next: line",
   options: { plan: "string" as const, "dry-run": "boolean" as const },

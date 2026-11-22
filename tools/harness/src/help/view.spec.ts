@@ -173,3 +173,33 @@ describe("the command view", () => {
     );
   });
 });
+
+describe("the command view of a command with no help record", () => {
+  it("is the plain fallback: the summary, the usage, and each flag and the operand by name, with no examples, exits or effects", () => {
+    const tick: Command = {
+      summary: "tick one open item",
+      options: { note: "string", force: "boolean" },
+      operand: "step",
+      run: none,
+    };
+    const view = commandView("plan tick", tick);
+    expect(view).toEqual({
+      level: "command",
+      path: "plan tick",
+      summary: "tick one open item",
+      purpose: "",
+      when: "",
+      whenNot: "",
+      usage: "harness plan tick <step> [--note <value>] [--force]",
+      flags: [
+        { name: "note", kind: "string", description: "" },
+        { name: "force", kind: "boolean", description: "" },
+      ],
+      operand: { name: "step", description: "" },
+      examples: [],
+      exits: [],
+      seeAlso: [],
+    });
+    expect(view).not.toHaveProperty("effects");
+  });
+});

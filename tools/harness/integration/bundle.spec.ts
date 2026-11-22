@@ -54,13 +54,11 @@ function node(file: string, ...args: string[]) {
 describe("bundled harness", () => {
   it("runs --help from a directory with no node_modules", () => {
     expect(readdirSync(temp)).not.toContain("node_modules");
-    expect(node(join(temp, "harness.mjs"), "--help")).toContain(
-      "Usage: harness",
-    );
+    expect(node(join(temp, "harness.mjs"), "--help")).toContain("Domains:");
   });
 
   it("the built skills/bin/harness.mjs runs --help from a temp directory", () => {
-    expect(node(bundle, "--help")).toContain("Usage: harness");
+    expect(node(bundle, "--help")).toContain("Domains:");
     expect(
       JSON.parse(node(bundle, "harness", "version", "--json")),
     ).toHaveProperty("version");
