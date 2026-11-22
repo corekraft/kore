@@ -15,14 +15,16 @@ import { HcTerminals, type Terminals } from "../../src/terminal/index.js";
 /** The exit code ProcessRunner gives when a command cannot start. */
 const CANNOT_START = 127;
 
+/** Both hc specs print this as their skip title. It runs on hosts with hc, not on CI, which has none. */
+export const SKIP_REASON =
+  "SKIPPED, NOT RUN: hc is not on PATH, so the hc integration gate did not run on this host; it runs on hosts with the pinned hc 0.1.21 (docs/operations/hc-pin.md)";
+
 /** Why this tier cannot run here, or undefined when hc is on PATH. */
 export async function hcMissingReason(): Promise<string | undefined> {
   const probe = await new ProcessRunner().run("hc", ["--version"], {
     env: { PATH: process.env.PATH ?? "" },
   });
-  return probe.code === CANNOT_START
-    ? "hc is not on PATH, so the hc integration specs are skipped: install the pinned hc 0.1.21 (docs/operations/hc-pin.md) to run them"
-    : undefined;
+  return probe.code === CANNOT_START ? SKIP_REASON : undefined;
 }
 
 export interface ScratchCore {
@@ -38,15 +40,17 @@ export interface ScratchCore {
   readonly terminals: Terminals;
   /** Runs hc under the scratch environment, and returns what it printed. */
   hc(args: readonly string[]): Promise<RunResult>;
-  /** Starts the scratch core. A failed start throws with hc's own words. */
-  start(): Promise<void>;
   /** Kills the live terminals and removes the finished ones on the scratch core. */
   reset(): Promise<void>;
-  /** Ends the live terminals, stops the scratch core, and removes the temp root. */
+  /** Starts the scratch core. A failed start throws with hc's own words. */
+  start(): Promise<void>;
+  /** Stops the scratch core. Throws when hc stop exits non-zero, or when its holder process is still running. */
+  stop(): Promise<void>;
+  /** Resets, stops, and removes the temp root. Rethrows a failed stop after the root is gone. */
   dispose(): Promise<void>;
 }
 
-/** The scratch environment: its own session and XDG dirs under root, and nothing of the caller's hc. */
+/** The environment that scratch core runs under: its own session and XDG dirs under root, and nothing of the caller's hc. */
 async function environmentUnder(root: string, session: string) {
   for (const sub of [
     "home",
@@ -71,6 +75,78 @@ async function environmentUnder(root: string, session: string) {
   } satisfies Record<string, string>;
 }
 
+/** The holder process hc reports for the live terminals, or undefined when it reports none. */
+async function holderOf(hc: ScratchCore["hc"]): Promise<number | undefined> {
+  const status = await hc(["server", "status", "--json"]);
+  const holder = (
+    JSON.parse(status.stdout || "{}") as { holder?: { pid?: number } | null }
+  ).holder;
+  return holder?.pid;
+}
+
+/** True while a process with this pid exists. EPERM means it exists under another user. */
+function stillRunning(pid: number): boolean {
+  try {
+    process.kill(pid, 0);
+    return true;
+  } catch (error) {
+    return (error as NodeJS.ErrnoException).code === "EPERM";
+  }
+}
+
+/** Polls for a few seconds, since a holder exits a moment after its core stops. */
+async function holderGone(pid: number): Promise<boolean> {
+  for (let attempt = 0; attempt < 40; attempt++) {
+    if (!stillRunning(pid)) {
+      return true;
+    }
+    await new Promise((resolve) => setTimeout(resolve, 50));
+  }
+  return false;
+}
+
+/** Kills each live terminal and removes each one that is finished, so no test sees another's. */
+async function resetUnder(hc: ScratchCore["hc"]): Promise<void> {
+  const listed = await hc(["ls", "--json", "--all"]);
+  const all = JSON.parse(listed.stdout || "{}") as {
+    terminals?: { address: string; state: string }[];
+  };
+  for (const terminal of all.terminals ?? []) {
+    if (terminal.state === "live") {
+      await hc(["kill", "--json", terminal.address]);
+    }
+    await hc(["rm", "--json", terminal.address]);
+  }
+}
+
+/** Stops the core, then checks that the holder it reported before the stop is gone. */
+async function stopUnder(
+  hc: ScratchCore["hc"],
+  session: string,
+  holder: number | undefined,
+): Promise<void> {
+  const stopped = await hc(["server", "stop", "--json"]);
+  if (stopped.code !== 0) {
+    throw new Error(
+      "hc server stop under " +
+        session +
+        " exited " +
+        stopped.code +
+        ": " +
+        stopped.stderr +
+        stopped.stdout,
+    );
+  }
+  if (holder !== undefined && !(await holderGone(holder))) {
+    throw new Error(
+      "holder pid " +
+        holder +
+        " is still running after hc server stop under " +
+        session,
+    );
+  }
+}
+
 /** A scratch core that is not started yet. Its temp root is /tmp, short enough for hc's socket path. */
 export async function scratchCore(): Promise<ScratchCore> {
   const root = await mkdtemp("/tmp/kore-hc-");
@@ -86,20 +162,6 @@ export async function scratchCore(): Promise<ScratchCore> {
 
   const hc = (args: readonly string[]) => runner.run("hc", [...args]);
 
-  /** Kills each live terminal and removes each one that is finished, so no test sees another's. */
-  async function reset(): Promise<void> {
-    const listed = await hc(["ls", "--json", "--all"]);
-    const all = JSON.parse(listed.stdout || "{}") as {
-      terminals?: { address: string; state: string }[];
-    };
-    for (const terminal of all.terminals ?? []) {
-      if (terminal.state === "live") {
-        await hc(["kill", "--json", terminal.address]);
-      }
-      await hc(["rm", "--json", terminal.address]);
-    }
-  }
-
   return {
     session,
     dir,
@@ -107,7 +169,7 @@ export async function scratchCore(): Promise<ScratchCore> {
     runner,
     terminals,
     hc,
-    reset,
+    reset: () => resetUnder(hc),
     async start() {
       const result = await hc(["server", "start", "--json"]);
       if (result.code !== 0) {
@@ -121,15 +183,29 @@ export async function scratchCore(): Promise<ScratchCore> {
       }
       started = true;
     },
+    async stop() {
+      if (started) {
+        const holder = await holderOf(hc);
+        started = false;
+        await stopUnder(hc, session, holder);
+      }
+    },
     async dispose() {
+      let failure: unknown;
       try {
         if (started) {
-          await reset();
-          await hc(["server", "stop", "--json"]);
+          const holder = await holderOf(hc);
+          await resetUnder(hc);
           started = false;
+          await stopUnder(hc, session, holder);
         }
+      } catch (error) {
+        failure = error;
       } finally {
         await rm(root, { recursive: true, force: true });
+      }
+      if (failure !== undefined) {
+        throw failure;
       }
     },
   };

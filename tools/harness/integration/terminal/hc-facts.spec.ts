@@ -115,34 +115,30 @@ if (missing !== undefined) {
       ).toBe(parent.address);
     });
 
-    it("a child's exit leaves a plain shell parent's screen as it was, with notify on or off", async () => {
+    it("a plain shell parent receives no exit note from its child", async () => {
+      // No positive control here: a note needs an agent parent, which only a live claude run gives (see the todos).
       const parent = json(
         await core.hc(["run", "--json", "--bg", "--cwd", core.dir, "--", "sh"]),
       ).address as string;
       const before = json(await core.hc(["read", "--json", parent])).text;
-      for (const flags of [[], ["--no-notify"]]) {
-        const child = json(
-          await core.hc([
-            "run",
-            "--json",
-            "--bg",
-            "--cwd",
-            core.dir,
-            "--parent",
-            parent,
-            ...flags,
-            "--",
-            "sh",
-            "-c",
-            "exit 0",
-          ]),
-        ).address as string;
-        await until(core, child, ended);
-        await new Promise((resolve) => setTimeout(resolve, 300));
-        expect(json(await core.hc(["read", "--json", parent])).text).toBe(
-          before,
-        );
-      }
+      const child = json(
+        await core.hc([
+          "run",
+          "--json",
+          "--bg",
+          "--cwd",
+          core.dir,
+          "--parent",
+          parent,
+          "--",
+          "sh",
+          "-c",
+          "exit 0",
+        ]),
+      ).address as string;
+      await until(core, child, ended);
+      await new Promise((resolve) => setTimeout(resolve, 300));
+      expect(json(await core.hc(["read", "--json", parent])).text).toBe(before);
     });
   });
 
@@ -258,7 +254,7 @@ if (missing !== undefined) {
         const live = json(
           await own.hc(["run", "--json", "--bg", "--cwd", own.dir, "--", "sh"]),
         ).address as string;
-        await own.hc(["server", "stop", "--json"]);
+        await own.stop();
         expect(json(await own.hc(["get", "--json", live]))).toMatchObject({
           state: "finished",
           reason: "server_stop",

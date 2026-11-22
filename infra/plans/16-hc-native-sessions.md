@@ -212,19 +212,21 @@ X.Y.Z` as the floor, `hc update --from <file>` for an exact binary or
       recorded `--json` fixtures, each named with the hc version: argv built,
       JSON parsed, errors mapped. The stateful contract cannot run on a
       scripted runner, so it runs against the real `HcTerminals` below.
-- [x] An integration test that drives a real `hc` core under a scratch
-      `HC_SESSION` and XDG: run a plain program, wait, read, kill, remove,
-      and a parent/child report, running `terminalContract` against the real
-      `HcTerminals`. It never touches the user's core. It also asserts that
-      `--no-notify` keeps a child's exit note out of its parent's input and
-      that a non-agent parent is told apart (status is null, `reported` false).
-      It also
-      proves `hc run --parent` from a caller that is not a terminal, and that
-      the reconcile read (`hc ls --all`) shows a terminal that finished while
-      no one was watching. It also settles three facts this plan relies on: a
-      parent's exit ends its child (`die_with_parent`), a core restart or
-      update keeps the terminals, and what state a terminal shows after a
-      holder crash or a host reboot (finished with an exit code, or gone).
+- [x] An integration tier over a real `hc` core under a scratch `HC_SESSION`
+      and XDG dirs (`tools/harness/integration/terminal/`). `terminalContract`
+      runs against the real `HcTerminals`, and each settled fact is asserted:
+      a parent's exit ends its child (`die_with_parent`); `run --parent` from a
+      caller that is not a terminal; `hc ls --all` lists a terminal that finished
+      while nobody watched; a plain shell parent reports `status` null and
+      `reported` false; a holder crash ends a live terminal as `finished` with
+      reason `holder_lost` and no exit code. The tier never touches the owner's
+      core. It skips, naming the reason, on a host without hc: CI has no hc, so
+      the gate runs on hosts with the pinned hc (the Step 5 live proof).
+- [ ] Owed, not settled by Step 2: a core restart keeps its terminals (the brief
+      barred `hc server restart`, and `hc server stop` ends live terminals); an
+      exit note reaches an agent parent and `--no-notify` keeps it out (needs a
+      real claude parent); an agent parent reports a status object where a shell
+      reports null (needs a real claude parent). Step 5 runs these on a host with hc.
 
 ### Step 3: Reporting
 
