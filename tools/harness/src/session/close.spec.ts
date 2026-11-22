@@ -138,6 +138,19 @@ describe("session close refusals, touching nothing", () => {
   });
 });
 
+describe("session close refuses a record with no herdr caller pane", () => {
+  it("refuses a record with no caller pane, naming its backend instead of an undefined pane", async () => {
+    const { callerPane: _callerPane, ...withoutCaller } = SPAWNED;
+    registryOf({ ...withoutCaller, backend: "hc", terminal: "t7" });
+    const s = scene();
+    expect(await close(s.context)).toBe(1);
+    expect(failures()[0]?.[3]).toBe(
+      "Session image-trust-writer runs on the hc backend and has no caller pane, so herdr close cannot tell who may close it. Close it on its own backend.",
+    );
+    expect(s.runner.run).not.toHaveBeenCalled();
+  });
+});
+
 describe("session close closes the pane and records it", () => {
   it("closes the caller's child pane, records closedAt, equalizes from the caller pane, and prints the hint", async () => {
     const registry = registryOf(SPAWNED);

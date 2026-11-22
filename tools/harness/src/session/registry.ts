@@ -13,12 +13,32 @@ export interface SessionResult {
   summary?: string;
 }
 
-/** What `session spawn` knows about a pane it created, kept so wait and close can find it. */
+/** The record version this harness writes and reads. A record with no version predates versioning. */
+export const SESSION_RECORD_VERSION = 1;
+
+/** The backends a session can run on. A record with no backend is herdr: every record written before the field. */
+export const BACKENDS = ["herdr", "hc"] as const;
+export type Backend = (typeof BACKENDS)[number];
+
+const isBackend = (value: unknown): value is Backend =>
+  BACKENDS.some((backend) => backend === value);
+
+/** What `session spawn` knows about a session it started, kept so wait and close can find it. */
 export interface SessionRecord {
+  /** Absent on a record written before versioning. The herdr path writes none. */
+  version?: number;
+  /** Absent means herdr. */
+  backend?: Backend;
   name: string;
   paneId: string;
-  /** The pane that spawned it; only that pane may close it. */
-  callerPane: string;
+  /** hc only: the terminal the session runs in (its id, such as `t7`). */
+  terminal?: string;
+  /** Herdr only: the pane that spawned it, and the only pane that may close it. hc records have a parent instead. */
+  callerPane?: string;
+  /** The idea the session works, as the ledger keys it (`#338`). */
+  idea?: string;
+  /** The sequence number of the last report wait consumed. */
+  reportSeq?: number;
   model: string;
   role: string;
   effort: string;
@@ -31,6 +51,18 @@ export interface SessionRecord {
 
 const STATE_DIR = ".kore/state/sessions";
 
+/** The optional fields a record may carry, when present, have the type the harness writes. */
+function optionalFieldsTyped(record: Record<string, unknown>): boolean {
+  return (
+    (record.callerPane === undefined ||
+      typeof record.callerPane === "string") &&
+    (record.version === undefined || Number.isInteger(record.version)) &&
+    (record.terminal === undefined || typeof record.terminal === "string") &&
+    (record.idea === undefined || typeof record.idea === "string") &&
+    (record.reportSeq === undefined || typeof record.reportSeq === "number")
+  );
+}
+
 function isRecord(value: unknown): value is SessionRecord {
   if (typeof value !== "object" || value === null) {
     return false;
@@ -39,9 +71,24 @@ function isRecord(value: unknown): value is SessionRecord {
   return (
     typeof record.name === "string" &&
     typeof record.paneId === "string" &&
-    typeof record.callerPane === "string" &&
-    typeof record.model === "string"
+    typeof record.model === "string" &&
+    (record.backend === undefined || isBackend(record.backend)) &&
+    (record.backend !== "hc" || typeof record.terminal === "string") &&
+    optionalFieldsTyped(record)
   );
+}
+
+/** The version a value names when that version is newer than this harness reads; undefined otherwise. */
+function newerVersion(value: unknown): number | undefined {
+  if (typeof value !== "object" || value === null || !("version" in value)) {
+    return undefined;
+  }
+  const { version } = value;
+  return typeof version === "number" &&
+    Number.isInteger(version) &&
+    version > SESSION_RECORD_VERSION
+    ? version
+    : undefined;
 }
 
 /**
@@ -82,6 +129,12 @@ export class SessionRegistry {
         throw error;
       }
       parsed = undefined;
+    }
+    const newer = newerVersion(parsed);
+    if (newer !== undefined) {
+      throw new CommandError(
+        `Session state ${path} was written by a newer harness (record version ${newer}; this harness reads version ${SESSION_RECORD_VERSION}). Update the harness, then retry.`,
+      );
     }
     if (!isRecord(parsed)) {
       throw new CommandError(

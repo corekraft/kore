@@ -237,3 +237,119 @@ describe("SessionRegistry.create", () => {
     expect(deps.fs.writeFile).not.toHaveBeenCalled();
   });
 });
+const HC_RECORD = {
+  version: 1,
+  backend: "hc",
+  terminal: "t7",
+  name: "image-trust-writer",
+  paneId: "t7",
+  model: "claude-sonnet-5-5",
+  role: "writer",
+  effort: "high",
+  createdAt: "2026-01-02T03:04:05.000Z",
+};
+
+describe("SessionRegistry.read keeps every record version and backend readable", () => {
+  it("reads an hc record that carries no callerPane", async () => {
+    const deps = fakeDeps();
+    deps.fs.exists.mockResolvedValue(true);
+    deps.fs.readFile.mockResolvedValue(JSON.stringify(HC_RECORD));
+
+    const registry = await openWith(deps);
+
+    await expect(registry.read("image-trust-writer")).resolves.toStrictEqual(
+      HC_RECORD,
+    );
+  });
+
+  it("reads a record written before versioning, with no version or backend, unchanged", async () => {
+    const deps = fakeDeps();
+    deps.fs.exists.mockResolvedValue(true);
+    deps.fs.readFile.mockResolvedValue(JSON.stringify(RECORD));
+
+    const registry = await openWith(deps);
+
+    await expect(registry.read("image-trust-writer")).resolves.toStrictEqual(
+      RECORD,
+    );
+  });
+
+  it("refuses a record written by a newer harness, naming both versions and the fix", async () => {
+    const deps = fakeDeps();
+    deps.fs.exists.mockResolvedValue(true);
+    deps.fs.readFile.mockResolvedValue(
+      JSON.stringify({ ...HC_RECORD, version: 2 }),
+    );
+
+    const registry = await openWith(deps);
+
+    await expect(registry.read("image-trust-writer")).rejects.toThrow(
+      new CommandError(
+        `Session state ${FILE} was written by a newer harness (record version 2; this harness reads version 1). Update the harness, then retry.`,
+      ),
+    );
+  });
+
+  it("refuses a backend it does not know, rather than routing the record to herdr", async () => {
+    const deps = fakeDeps();
+    deps.fs.exists.mockResolvedValue(true);
+    deps.fs.readFile.mockResolvedValue(
+      JSON.stringify({ ...HC_RECORD, backend: "tmux" }),
+    );
+
+    const registry = await openWith(deps);
+
+    await expect(registry.read("image-trust-writer")).rejects.toThrow(
+      new CommandError(
+        `Session state ${FILE} is not a valid session record; delete it and spawn the session again.`,
+      ),
+    );
+  });
+});
+
+const NEWER = (version: number) =>
+  `Session state ${FILE} was written by a newer harness (record version ${version}; this harness reads version 1). Update the harness, then retry.`;
+const INVALID = `Session state ${FILE} is not a valid session record; delete it and spawn the session again.`;
+
+/** Reads a file holding `text` through a fresh registry. */
+async function readText(text: string) {
+  const deps = fakeDeps();
+  deps.fs.exists.mockResolvedValue(true);
+  deps.fs.readFile.mockResolvedValue(text);
+  const registry = await openWith(deps);
+  return registry.read("image-trust-writer");
+}
+
+describe("SessionRegistry.read checks the version before the record's shape", () => {
+  it.each([
+    ["an unknown backend", { ...HC_RECORD, version: 2, backend: "tmux" }],
+    [
+      "a changed shape",
+      { version: 2, name: "image-trust-writer", reshaped: true },
+    ],
+  ])(
+    "names the newer harness for a version 2 record with %s",
+    async (_, record) => {
+      await expect(readText(JSON.stringify(record))).rejects.toThrow(
+        new CommandError(NEWER(2)),
+      );
+    },
+  );
+});
+
+describe("SessionRegistry.read refuses a record whose fields are the wrong type", () => {
+  it.each([
+    ["a version that is not a whole number", { ...HC_RECORD, version: 1.5 }],
+    [
+      "an hc record that names no terminal",
+      { ...HC_RECORD, terminal: undefined },
+    ],
+    ["a terminal that is not a string", { ...HC_RECORD, terminal: 7 }],
+    ["an idea that is not a string", { ...HC_RECORD, idea: 338 }],
+    ["a reportSeq that is not a number", { ...HC_RECORD, reportSeq: "3" }],
+  ])("refuses %s", async (_, record) => {
+    await expect(readText(JSON.stringify(record))).rejects.toThrow(
+      new CommandError(INVALID),
+    );
+  });
+});

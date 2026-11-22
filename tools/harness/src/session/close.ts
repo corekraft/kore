@@ -23,6 +23,9 @@ function refuse(
   if (record.closedAt !== undefined && !retry) {
     return `Session ${name} is already closed (pane ${paneId}).`;
   }
+  if (record.callerPane === undefined) {
+    return `Session ${name} runs on the ${record.backend ?? "herdr"} backend and has no caller pane, so herdr close cannot tell who may close it. Close it on its own backend.`;
+  }
   if (record.callerPane !== callerPane) {
     return `Session ${name} was spawned from pane ${record.callerPane}, not ${callerPane}; only that pane may close it.`;
   }
