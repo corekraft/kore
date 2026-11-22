@@ -5,6 +5,7 @@ export { checkDeliveryBash } from "./guard-role-delivery.js";
 export { evaluate } from "./guard.js";
 // The secret-path pattern: the decision router reuses it as a guard library entry (ADR 0120, ADR 0091).
 export { SECRET_PATH } from "./guard-secrets.js";
+export { HC_AUDIT, HC_LAUNCH_AUDIT } from "./guard-corpus-hc.js";
 import { feedback } from "./feedback.js";
 import { guard } from "./guard.js";
 import { hookCommand } from "./io.js";
@@ -131,6 +132,12 @@ export const hook: Record<string, Command> = {
   ...testHooks,
   "workflow-permissions": workflowPermissions,
 };
+// The session hint lines the context hook prints (#1803); the help check reads their help pointers.
+export {
+  MAIN_SESSION_WAIT_LINE,
+  RESULT_SUMMARY_LINE,
+  SIGNED_SEND_LINE,
+} from "./context.js";
 export { lastRetrospective, markerInstant } from "./retro-scan.js";
 // The guard replay: the calls a rule's change allows, judged by each ref's own built guard.
 export {

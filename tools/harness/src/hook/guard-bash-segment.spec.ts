@@ -14,6 +14,7 @@ import {
   checkIdeaIssueBody,
   checkIdeaIssueClose,
   checkNoVerify,
+  checkHcWrite,
 } from "./guard-commands.js";
 import { checkBashSegment } from "./guard-bash-segment.js";
 import {
@@ -37,6 +38,7 @@ vi.mock("./guard-ruleset.js", () => ({ checkRulesetSyncBash: vi.fn() }));
 vi.mock("./guard-commands.js", () => ({
   checkAgentStart: vi.fn(),
   checkContext: vi.fn(),
+  checkHcWrite: vi.fn(),
   checkDestructive: vi.fn(),
   checkIdeaIssueBody: vi.fn(),
   checkIdeaIssueClose: vi.fn(),
@@ -73,6 +75,7 @@ beforeEach(() => {
   }));
   vi.mocked(isKore).mockReturnValue(false);
   vi.mocked(readsKoreKeychain).mockReturnValue(false);
+  vi.mocked(checkHcWrite).mockReturnValue(null);
   vi.mocked(secretBlock).mockReturnValue(hit("secret-path"));
   vi.mocked(keychainBlock).mockReturnValue(hit("secret-path"));
   vi.mocked(sopsBlock).mockImplementation((path) => hit(`sops:${path}`));

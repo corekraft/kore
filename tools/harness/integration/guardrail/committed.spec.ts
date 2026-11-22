@@ -89,6 +89,8 @@ describe("the committed inventory", () => {
   it("keeps today's warn rules in audit and the rest enforced", () => {
     expect(auditRuleNames(inventory)).toEqual([
       "append-only",
+      // New in plan 16, Step 4 (#1776): audit until a person activates them.
+      "bare-agent-start-hc",
       "bare-glob",
       "flag-activation",
       "idea-issue-body",
@@ -97,6 +99,7 @@ describe("the committed inventory", () => {
       "image-digest",
       // New in plan 12 Step 4: starts in audit until a person activates it.
       "judge-guardrail-activation",
+      "role-hc-raw",
     ]);
   });
 });

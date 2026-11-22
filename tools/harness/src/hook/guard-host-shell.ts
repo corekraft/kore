@@ -10,7 +10,8 @@
 // is not a clear yes is not verified, so the rules keep guarding (fail closed).
 import { homedir } from "node:os";
 import { localFlagOn } from "./guard-local-flag.js";
-import type { FileSystem } from "../runtime/index.js";
+import type { CliDeps, FileSystem } from "../runtime/index.js";
+import { sessionIdentity, sessionNotice } from "./guard-identity.js";
 
 // The help exemption (#973) is read from the same local overlay, so the guard's flag reads sit in one place.
 export { helpExemptOn } from "./guard-help.js";
@@ -42,4 +43,18 @@ export async function hostFacts(
     // The overlay is read only once the shell names bash, so every other call pays nothing.
     verifiedBash: verifiedBash(env) && (await flagOn(fs, root)),
   };
+}
+
+/** The role the session record of the hc terminal this hook runs in names; empty outside one, or when no record names it. */
+export async function terminalRoleFacts(
+  deps: CliDeps,
+): Promise<{ role?: string }> {
+  const identity = await sessionIdentity(deps);
+  return identity === undefined ? {} : { role: identity.role };
+}
+
+/** The notice for the hc terminal this hook runs in when its own session record cannot be read: a leading newline, then the notice; empty when there is none. */
+export async function terminalNotice(deps: CliDeps): Promise<string> {
+  const notice = await sessionNotice(deps);
+  return notice === undefined ? "" : `\n${notice}`;
 }

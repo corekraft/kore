@@ -1,6 +1,11 @@
 import { describe, expect, it } from "vitest";
 import { domains } from "../../src/cli/index.js";
 import {
+  MAIN_SESSION_WAIT_LINE,
+  RESULT_SUMMARY_LINE,
+  SIGNED_SEND_LINE,
+} from "../../src/hook/index.js";
+import {
   domainGuides,
   registryProblems,
   rootGuide,
@@ -57,6 +62,44 @@ describe("the command registry over the real command table", () => {
     expect(registryProblems({ ...real, root })).toEqual([
       'root flow "spawn, wait, close" step "session fly" is not a command',
     ]);
+  });
+});
+
+// The session hints (#1803) name one command each and send the reader to its help for flags:
+// no hint lists a flag, and each help pointer names a command that has help.
+const sessionHints = [
+  MAIN_SESSION_WAIT_LINE,
+  RESULT_SUMMARY_LINE,
+  SIGNED_SEND_LINE,
+];
+
+/** The [domain, command] of each `harness <domain> <command> --help` pointer in a line. */
+const pointersIn = (line: string): [string, string][] =>
+  [...line.matchAll(/harness ([a-z-]+) ([a-z-]+) --help/g)].map((match) => [
+    match[1] ?? "",
+    match[2] ?? "",
+  ]);
+
+describe("the session hints point at the help guide", () => {
+  it("names one help pointer per hint, and lists no flag but --help", () => {
+    expect(sessionHints.map(pointersIn)).toEqual([
+      [["harness", "wait"]],
+      [["session", "wait"]],
+      [["session", "send"]],
+    ]);
+    expect(sessionHints.map((line) => line.match(/--[a-z-]+/g))).toEqual([
+      ["--help"],
+      ["--help"],
+      ["--help"],
+    ]);
+  });
+
+  it("resolves each help pointer to a command that has help", () => {
+    const unresolved = sessionHints
+      .flatMap(pointersIn)
+      .filter(([domain, name]) => domains[domain]?.[name]?.help === undefined)
+      .map(([domain, name]) => `${domain} ${name}`);
+    expect(unresolved).toEqual([]);
   });
 });
 

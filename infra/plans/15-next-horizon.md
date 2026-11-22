@@ -206,8 +206,6 @@ dark launched. With the flag off the render adds nothing to a cluster.
 
 ## Step 3: Autoscaling Defaults
 
-Next: First: the owner deletes namespace delivery-probe--local (guard blocks the agent) so run A of #1113 can start: cluster is converged on main 18497319 (lock fresh, template lock v0.20.0 in the scratchpad); run npm run test:live:delivery-stage in tools/kore of worktree live-1113c with KORE_DELIVERY_SERVICE=delivery-probe, KORE_DELIVERY_HOST=delivery-probe.platform.kore.internal, KORE_DELIVERY_MERGED_AT=2026-11-22T06:23:30Z and the alert env sourced from ~/.config/kore/alert-run.env (never print it), record it on #1113, then merge a small Service change for the redeploy run; ask the owner to approve each outcome. Merged this thread: #1749 timer fix, #1750 and #1751 (sign-in flow and per-Service client behind golden-path-signin, off). Owed: release PR #1721 is the owner's to merge, then #1747 (live sign-in on a throwaway overlay copy), then #1116's browser token test. #1748 (footprint) cannot run on kore-agents (needs macOS): the owner's Mac. Open asks: approve recording #1114, close #1708; housekeeping left on #1399, #1441, #1354, #1355, #1216.
-
 Safety pattern: `feature-flagged` (`autoscaling-defaults`, off in `local`).
 
 ### Work
@@ -227,6 +225,8 @@ Safety pattern: `feature-flagged` (`autoscaling-defaults`, off in `local`).
 - The reference workload scales out and back in on a live run, recorded.
 
 ## Step 4: Golden-Path Templates
+
+Next: Plan 15 live proofs: #1747 (sign-in, passed one-replica; record on #1747 comment 7078559209) and #1116 (token test passed; comment 7078678167) await the owner's outcome approval; BFF shared-session ticket 1841 filed (one-replica interim merged in #1837); #1756 Now footprint baseline needs the owner to run the cluster destroy (guard), then kore local up with every Next flag off and the footprint run on kore-agents; then rewrite the Step 7 Outcome Record and tick the remaining items. Throwaway overlay edit sits uncommitted in .claude/worktrees/live-v022 (revert, never commit); the cluster kore-local is running with golden-path-signin on; run kore platform stop --environment local after the burst.
 
 Safety pattern: `expand-contract`. The templates are new files and images; the
 existing reference app keeps working until a service moves to them.

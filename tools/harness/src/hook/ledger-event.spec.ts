@@ -1,12 +1,14 @@
 import { join } from "node:path";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { DEFAULT_LEDGER, Ledger, isName } from "../ledger/index.js";
 import { mainRoot, type CliDeps } from "../runtime/index.js";
+import { hcTerminalId, sessionIdentity } from "./guard-identity.js";
 import { recordEvent } from "./ledger-event.js";
 
 vi.mock("node:path");
 vi.mock("../ledger/index.js");
 vi.mock("../runtime/index.js");
+vi.mock("./guard-identity.js");
 
 const MAIN = "/repo";
 const LEDGER_PATH = "/repo/.kore/ledger.jsonl";
@@ -191,5 +193,73 @@ describe("recordEvent: the ledger root", () => {
 
     expect(mainRoot).toHaveBeenCalledTimes(1);
     expect(recorded()).toHaveBeenCalledTimes(2);
+  });
+});
+
+describe("recordEvent: identity in an hc terminal (plan 16, Grilled Decisions 5)", () => {
+  beforeEach(() => {
+    vi.mocked(hcTerminalId).mockReturnValue("t7");
+  });
+  afterEach(() => {
+    vi.mocked(hcTerminalId).mockReset();
+    vi.mocked(sessionIdentity).mockReset();
+  });
+
+  it("stamps the session name and idea its record names, and never the environment's", async () => {
+    vi.mocked(sessionIdentity).mockResolvedValue({
+      name: "hc-writer",
+      role: "writer",
+      idea: "#1776",
+      checked: true,
+    });
+
+    await recordEvent(
+      depsWith({ KORE_AGENT: "env-name", KORE_IDEA: "#9" }),
+      "session.start",
+      { session_id: "s1" },
+    );
+
+    expect(recorded()).toHaveBeenCalledWith({
+      source: "claude",
+      kind: "session.start",
+      occurredAt: NOW.toISOString(),
+      session: "s1",
+      agent: "hc-writer",
+      idea: "#1776",
+    });
+  });
+
+  it("records no identity when hc does not confirm the record, even with environment stamps", async () => {
+    vi.mocked(sessionIdentity).mockResolvedValue({
+      name: "hc-writer",
+      role: "writer",
+      checked: false,
+    });
+
+    await recordEvent(depsWith({ KORE_AGENT: "env-name" }), "session.start", {
+      session_id: "s1",
+    });
+
+    expect(recorded()).toHaveBeenCalledWith({
+      source: "claude",
+      kind: "session.start",
+      occurredAt: NOW.toISOString(),
+      session: "s1",
+    });
+  });
+
+  it("records no identity when no record names the terminal", async () => {
+    vi.mocked(sessionIdentity).mockResolvedValue(undefined);
+
+    await recordEvent(depsWith({ KORE_AGENT: "env-name" }), "session.start", {
+      session_id: "s1",
+    });
+
+    expect(recorded()).toHaveBeenCalledWith({
+      source: "claude",
+      kind: "session.start",
+      occurredAt: NOW.toISOString(),
+      session: "s1",
+    });
   });
 });

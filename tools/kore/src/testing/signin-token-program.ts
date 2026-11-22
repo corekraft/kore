@@ -69,29 +69,14 @@ const pageChecks = line(
 /*
  * The Node-side helpers and the flow itself. The flow signs in as the test user,
  * runs the page-side checks after the sign-in, reads the signed-in page's network
- * log for Set-Cookie and redirects, and returns the seven assertions.
+ * log for redirects and the browser's stored cookies, and returns the seven assertions.
  */
 const flowBody = line(
   "const shape = new RegExp(patterns.shape);",
   "const name = new RegExp(patterns.name, 'i');",
   "const parameter = new RegExp(patterns.parameter, 'i');",
-  "const newline = String.fromCharCode(10);",
   "const hostIs = (host) => 'location.hostname === ' + JSON.stringify(host);",
-  "const hostOf = (url) => { try { return new URL(url).hostname; } catch { return ''; } };",
   "const headersOf = (response) => Object.fromEntries(Object.entries(response.headers || {}).map(([header, value]) => [header.toLowerCase(), String(value)]));",
-  "const cookieAttributes = (cookie) => {",
-  "  const [pair, ...attributes] = cookie.split(';').map((part) => part.trim());",
-  "  const eq = pair.indexOf('=');",
-  "  const lowered = attributes.map((part) => part.toLowerCase());",
-  "  const sameSite = attributes.find((part) => part.toLowerCase().indexOf('samesite=') === 0);",
-  "  return {",
-  "    name: eq < 0 ? pair : pair.slice(0, eq),",
-  "    hostOnly: !lowered.some((part) => part.indexOf('domain=') === 0),",
-  "    httpOnly: lowered.includes('httponly'),",
-  "    secure: lowered.includes('secure'),",
-  "    sameSite: sameSite === undefined ? null : sameSite.slice('samesite='.length),",
-  "  };",
-  "};",
   "const signedIn = await chromium.newPage();",
   "await chromium.go(signedIn, signInStartUrl);",
   "await chromium.waitFor(signedIn, hostIs(keycloakHost) + ' && !!document.querySelector(\"#kc-login\")', 'the Keycloak sign-in form');",
@@ -105,10 +90,9 @@ const flowBody = line(
   "const documents = signedIn.documents;",
   "const urls = [where].concat(documents.flatMap((response) => [response.url, headersOf(response).location || '']));",
   "const leaking = urls.filter((url) => shape.test(url) || parameter.test(url)).length;",
-  "const sessionCookies = documents",
-  "  .filter((response) => hostOf(response.url) === targetHost)",
-  "  .flatMap((response) => String(headersOf(response)['set-cookie'] || '').split(newline).filter((cookie) => cookie !== ''))",
-  "  .map(cookieAttributes);",
+  "const sessionCookies = (await chromium.cookies(signedIn))",
+  "  .filter((cookie) => cookie.domain.replace(/^[.]/, '') === targetHost)",
+  "  .map((cookie) => ({ name: cookie.name, hostOnly: cookie.domain.charAt(0) !== '.', httpOnly: cookie.httpOnly, secure: cookie.secure, sameSite: cookie.sameSite }));",
   "return { assertions: [",
   "  { name: 'signed-in call succeeds', ok: call.status === 200 && call.host === targetHost, status: call.status, host: call.host },",
   "  { name: 'no token in localStorage', ok: stores.localStorage === 0, tokens: stores.localStorage },",
@@ -139,5 +123,6 @@ export function signInTokenProgram(options: SignInTokenProgramOptions): string {
   return chromiumProgram(
     [options.host, options.keycloakHost],
     line(constants, pageChecks, flowBody),
+    { cookies: true },
   );
 }
