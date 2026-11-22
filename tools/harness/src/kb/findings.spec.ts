@@ -2,6 +2,7 @@
 // Docs: infra/plans/4-knowledge.md#step-3-knowledge-health-check
 
 import { beforeEach, expect, test, vi } from "vitest";
+import { commandFindings } from "./command-checks.js";
 import { checkFrontmatter } from "./document-checks.js";
 import { findings } from "./findings.js";
 import { checkIdea } from "./idea-checks.js";
@@ -18,6 +19,7 @@ vi.mock("./document-checks.js", () => ({ checkFrontmatter: vi.fn() }));
 vi.mock("../flow/index.js", () => ({
   flowMetricNames: vi.fn(() => ["friction.total"]),
 }));
+vi.mock("./command-checks.js", () => ({ commandFindings: vi.fn(() => []) }));
 vi.mock("./idea-checks.js", async (importOriginal) => ({
   ...(await importOriginal<typeof import("./idea-checks.js")>()),
   checkIdea: vi.fn(),
@@ -300,4 +302,16 @@ test("the CLI usage text's commands must each appear in README.md, once each", (
       "document it in README.md",
     ],
   ]);
+});
+
+test("the tree's command table goes to the command check with the tree's files and reads", () => {
+  const table = { plan: { tick: {} } };
+  findings({
+    files: () => ["docs/a.md"],
+    read: (path) => (path === "docs/a.md" ? "text" : null),
+    commands: () => table,
+  });
+  const [tree, files] = vi.mocked(commandFindings).mock.calls.at(-1) ?? [];
+  expect(tree?.commands?.()).toBe(table);
+  expect(files).toEqual(["docs/a.md"]);
 });

@@ -314,7 +314,7 @@ report`", and for a pair "run `harness session send <peer name>`", the
       from `hc ls --all` (a terminal that finished in the gap still has its
       final status), writing an event for each terminal whose status differs
       from the last recorded one (key: terminal id, status, turn), then follows
-      `hc events --label kore-session`. (f) `harness wait` on hc children.
+      `hc events --label kore-session`. (f) `harness harness wait` on hc children.
 - [ ] Neutral ledger source; hook recognizers; context hints. The role
       guard refuses raw `hc label`, `hc run` and `hc exec` beside raw
       `hc send`, because a label is mutable and an agent could rewrite its own

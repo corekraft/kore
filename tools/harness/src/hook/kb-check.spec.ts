@@ -271,3 +271,12 @@ describe("kbCheck: the repository's own git config", () => {
     );
   });
 });
+
+describe("kbCheck: the harness commands a document may name", () => {
+  it("hands the command table to the knowledge check, so it can resolve each command a document names", async () => {
+    const commands = { plan: { tick: {} } };
+    await kbCheck(false, asCliDeps({ ...deps, commands }));
+
+    expect(kbDepsOf().commands?.()).toBe(commands);
+  });
+});

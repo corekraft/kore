@@ -146,4 +146,15 @@ describe("harness hook kb-check core.bare", () => {
     ]);
     expect(config[0]?.options?.cwd).toBe("/repo");
   });
+
+  it("names a harness command that does not exist, with the nearest real one, through the hook", async () => {
+    const h = repository({
+      ...CLEAN,
+      "docs/guides/x.md": "# X\n\nRun `harness flag activat`.\n",
+    });
+    expect(await run(["hook", "kb-check"], h.deps)).toBe(0);
+    expect(h.out()).toContain(
+      "docs/guides/x.md:3: harness flag activat is not a harness command; use harness flag activate, the nearest real command",
+    );
+  });
 });

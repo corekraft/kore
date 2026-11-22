@@ -3,8 +3,9 @@
 // Docs: infra/plans/4-knowledge.md#step-3-knowledge-health-check
 
 import { flowMetricNames } from "../flow/index.js";
+import { commandFindings, type CommandDeps } from "./command-checks.js";
 import { checkFrontmatter } from "./document-checks.js";
-import { IDEA_NAME, checkIdea } from "./idea-checks.js";
+import { checkIdea, ideaNumbers } from "./idea-checks.js";
 import {
   LINK,
   anchors,
@@ -26,7 +27,7 @@ export const MARKER =
   /^\s*(?:\/\/|#|\*|--|<!--)\s*(Docs|Plan|ADR):\s+([^\s#]+)(?:#(\S+))?/;
 
 /** The tree the checks read: tracked paths and their contents (null when unreadable). */
-export interface TreeDeps {
+export interface TreeDeps extends CommandDeps {
   files(): readonly string[];
   read(path: string): string | null;
 }
@@ -84,35 +85,6 @@ function openTree(deps: TreeDeps): Tree {
       );
     },
   };
-}
-
-/** Idea files by number, and a problem for each file that reuses a number. */
-function ideaNumbers(files: string[]): {
-  ideas: Map<string, string>;
-  problems: Finding[];
-} {
-  const ideas = new Map<string, string>();
-  const problems: Finding[] = [];
-  for (const file of files) {
-    const number = IDEA_NAME.exec(file)?.[1];
-    if (number === undefined) {
-      continue;
-    }
-    const first = ideas.get(number);
-    if (first === undefined) {
-      ideas.set(number, file);
-    } else {
-      problems.push(
-        finding(
-          file,
-          1,
-          `idea number ${number} is also used by ${first}`,
-          "renumber it to the next free number",
-        ),
-      );
-    }
-  }
-  return { ideas, problems };
 }
 
 /** Problems with the relative links in one Markdown file. */
@@ -318,6 +290,7 @@ export function findings(deps: TreeDeps): Finding[] {
   return [
     ...problems,
     ...markdownProblems(tree, ideas),
+    ...commandFindings(tree.deps, tree.files),
     ...indexProblems(tree),
     ...markerProblems(tree),
     ...readmeProblems(tree),
