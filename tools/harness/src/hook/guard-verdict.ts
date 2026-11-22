@@ -42,6 +42,8 @@ export interface GuardContext {
   readonly verifiedBash?: boolean;
   /** True only while gated-help-exempt is on in the local overlay, so a writer's help request on a gated command passes; absent means off. */
   readonly helpExempt?: boolean;
+  /** The role the session record of this hc terminal names; absent means the payload's agent_type decides. */
+  readonly role?: string;
   readFile(path: string): Promise<string>;
   /** Whether any path under a directory (the cwd by default) matches a shell glob; the bare-glob rule reads it. */
   globMatches(pattern: string, directory?: string): Promise<boolean>;

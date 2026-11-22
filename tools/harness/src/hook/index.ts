@@ -5,6 +5,7 @@ export { checkDeliveryBash } from "./guard-role-delivery.js";
 export { evaluate } from "./guard.js";
 // The secret-path pattern: the decision router reuses it as a guard library entry (ADR 0120, ADR 0091).
 export { SECRET_PATH } from "./guard-secrets.js";
+export { HC_AUDIT, HC_LAUNCH_AUDIT } from "./guard-corpus-hc.js";
 import { feedback } from "./feedback.js";
 import { guard } from "./guard.js";
 import { hookCommand } from "./io.js";

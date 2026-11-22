@@ -129,3 +129,27 @@ describe("evaluate", () => {
     expect(checkRole).not.toHaveBeenCalled();
   });
 });
+
+describe("evaluate: the role the context names", () => {
+  const write = {
+    tool_name: "Write",
+    agent_type: "writer",
+    tool_input: { file_path: "a.md" },
+  };
+
+  it("checks the role its session record names, over the payload's agent_type", async () => {
+    vi.mocked(checkRole).mockReturnValue(null);
+
+    await evaluate(write, { ...ctx, role: "reader" });
+
+    expect(vi.mocked(checkRole).mock.calls[0]?.[0]).toBe("reader");
+  });
+
+  it("checks the payload's agent_type when the context names no role", async () => {
+    vi.mocked(checkRole).mockReturnValue(null);
+
+    await evaluate(write, ctx);
+
+    expect(vi.mocked(checkRole).mock.calls[0]?.[0]).toBe("writer");
+  });
+});
