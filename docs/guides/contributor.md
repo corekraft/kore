@@ -339,6 +339,20 @@ takes issue numbers (`12` or `#12`) and covers only those ideas; with it,
 unattributed events are not counted as unmapped. Both options together cover the
 named ideas inside the range.
 
+The pane figures read per ledger source (#1782). `finishDetection`, `stalledPanes` and
+`leadTime` at the top level read the herdr source: every event a herdr line wrote, and any pane or session
+no terminal event names. A ledger with no `source: "terminal"` event reads as herdr alone, and `terminal`
+is `null`. Once one is present, `terminal` holds the same readings over the terminal source (`finishDetection`,
+`stalledPanes`, `leadTime` and `mainSession`), and the text prints each figure once per source, labelled
+and never blended. A pane or session is read as terminal when the ledger records a terminal event on it; an
+idea reads under the source of its first pane or session event. The retro scan counts herdr pane reads and
+does not split its sends by source, so `mainSession.paneReadsPerFinishedPane` reads the herdr source only,
+and `mainSession.signedSendShare` is insufficient once a terminal source is present; the terminal reading of
+both is insufficient with its reason. Merged-change figures, tokens and the other figures are not split. A
+terminal's finish is noticed almost at once and its stall is a blocked or error event, so compare each source
+with its own history. The `terminal` key is not a hypothesis metric until an idea names one. Report version 41
+added `terminal`.
+
 `tierShares` in the JSON form (report version 9) gives, per role, the launches by
 `tierSource`, with launches from before it was recorded as their own `unknown`
 group, and the override share over the launches that know their source, so tier

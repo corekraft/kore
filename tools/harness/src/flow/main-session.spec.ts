@@ -4,7 +4,11 @@
 
 import { describe, expect, it } from "vitest";
 import type { Kind, LedgerEvent, RetroOrigin } from "../ledger/index.js";
-import { mainSessionFigures, MIN_FINISHED_PANES } from "./main-session.js";
+import {
+  mainSessionFigures,
+  MIN_FINISHED_PANES,
+  terminalMainSession,
+} from "./main-session.js";
 import type { Span } from "./scope.js";
 
 const DAY = 86_400_000;
@@ -193,5 +197,79 @@ describe("a window with too little to read reports insufficient, never zero", ()
       reason: "no pane sends in the window",
     });
     expect(figures.paneReadsPerFinishedPane).toMatchObject({ status: "ok" });
+  });
+});
+
+describe("the main session's pane figures read the herdr source once a terminal source is in the ledger", () => {
+  /** A herdr pane finished inside the window, on pane w<i>. */
+  const herdrFinish = (i: number) =>
+    event(10 * DAY + i * 1000, "pane.finished", {
+      source: "herdr",
+      pane: `w${i}`,
+      session: `h${i}`,
+    });
+  const herdrPanes = () =>
+    Array.from({ length: MIN_FINISHED_PANES }, (_, i) => herdrFinish(i));
+  /** A terminal pane finished inside the window: the scan does not read it. */
+  const terminalFinish = event(10 * DAY + 5000, "pane.finished", {
+    source: "terminal",
+    pane: "t9",
+    session: "s9",
+  });
+
+  it("counts the finished panes of the herdr source only, and says the signed share does not split by source", () => {
+    const figures = figuresOf([
+      scan(11 * DAY, 10 * DAY, 11 * DAY, {
+        pollMinutes: 6,
+        paneReads: 3,
+        signedSends: 1,
+        rawSends: 3,
+      }),
+      merged(10 * DAY + 2 * 3600_000),
+      ...herdrPanes(),
+      terminalFinish,
+    ]);
+    expect(figures.paneReadsPerFinishedPane).toEqual({
+      status: "ok",
+      reads: 3,
+      finished: MIN_FINISHED_PANES,
+      perFinished: 3 / MIN_FINISHED_PANES,
+    });
+    expect(figures.signedSendShare).toEqual({
+      status: "insufficient",
+      reason: "the retro scan does not split its sends by source",
+    });
+  });
+
+  it("keeps the signed share as before when the ledger holds no terminal event", () => {
+    const figures = figuresOf([
+      scan(11 * DAY, 10 * DAY, 11 * DAY, {
+        pollMinutes: 6,
+        paneReads: 3,
+        signedSends: 1,
+        rawSends: 3,
+      }),
+      merged(10 * DAY + 2 * 3600_000),
+      ...herdrPanes(),
+    ]);
+    expect(figures.signedSendShare).toEqual({
+      status: "ok",
+      signed: 1,
+      raw: 3,
+      share: 0.25,
+    });
+  });
+
+  it("reads the terminal source's pane figures as insufficient, since the scan records herdr reads only", () => {
+    expect(terminalMainSession()).toEqual({
+      paneReadsPerFinishedPane: {
+        status: "insufficient",
+        reason: "the retro scan counts herdr pane reads only",
+      },
+      signedSendShare: {
+        status: "insufficient",
+        reason: "the retro scan does not split its sends by source",
+      },
+    });
   });
 });

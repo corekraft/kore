@@ -6,6 +6,7 @@ import type { FlowReport } from "../flow/index.js";
  * with nothing read.
  */
 export const EMPTY_REPORT_FIELDS = {
+  terminal: null,
   finishDetection: {
     windowSeconds: 300,
     results: 0,

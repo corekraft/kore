@@ -61,7 +61,7 @@ describe("buildReport owner questions (#859)", () => {
     expect(questionFigures).toHaveBeenCalledWith(named, WINDOW, ASOF);
   });
 
-  it("versions the report to 40, the current version, with the advisor figures in it", () => {
+  it("versions the report to 41, the current version, with the advisor figures in it", () => {
     fakeTally();
     vi.mocked(questionFigures).mockReturnValue({
       ownerQuestions: NO_QUESTIONS,
@@ -73,6 +73,6 @@ describe("buildReport owner questions (#859)", () => {
     });
 
     expect(report.ownerQuestions.perMerged).toBeNull();
-    expect(report.version).toBe(40);
+    expect(report.version).toBe(41);
   });
 });

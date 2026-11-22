@@ -7,10 +7,22 @@
 import type { LedgerEvent, RetroOrigin } from "../ledger/index.js";
 import { DEFAULT_COST, type CostOptions } from "./cost.js";
 import { time } from "./github-waits.js";
+import { sourceSplit } from "./ledger-source.js";
 import { inWindow, type Span } from "./scope.js";
 
 /** The window the figures are read over: the same span the per-merged figures use. */
 export type { Span };
+/** A figure a window cannot read: the reason is named, and no value is given. */
+const insufficient = (reason: string): Insufficient => ({
+  status: "insufficient",
+  reason,
+});
+
+/** The reason a terminal source's pane figures are not read: the scan counts herdr reads only (#1782). */
+const TERMINAL_READS_REASON = "the retro scan counts herdr pane reads only";
+/** The reason the signed share is not read once a terminal source is in the ledger: the scan's sends do not split (#1782). */
+const SENDS_SPLIT_REASON = "the retro scan does not split its sends by source";
+
 /** The main session's handover count (#1036), read beside its three figures. */
 export { handoverCount, type HandoverCount } from "./handover-count.js";
 /** The compaction count (#1037), read beside them. */
@@ -132,22 +144,20 @@ export function mainSessionFigures(
   cost: Partial<CostOptions> = {},
 ): MainSessionFigures {
   const scans = scansIn(events, window);
+  const split = sourceSplit(events);
+  const herdr = split.view(events, "herdr");
   const spans: Span[] = scans.map((scan) => [
     Date.parse(scan.windowStart),
     Date.parse(scan.windowEnd),
   ]);
   const merged = countIn(events, "pr.merged", spans);
-  const finished = countIn(events, "pane.finished", spans);
+  const finished = countIn(herdr, "pane.finished", spans);
   const gate = insufficientReason(
     scans.length,
     merged,
     finished,
     { ...DEFAULT_COST, ...cost }.minMergedChanges,
   );
-  const insufficient = (reason: string): Insufficient => ({
-    status: "insufficient",
-    reason,
-  });
   const sum = (pick: (scan: Scan) => number) =>
     scans.reduce((total, scan) => total + pick(scan), 0);
   const pollMinutes = sum((scan) => scan.pollMinutes);
@@ -174,14 +184,38 @@ export function mainSessionFigures(
       finished,
       perFinished: round(reads / finished),
     },
-    signedSendShare:
-      signed + raw === 0
-        ? insufficient("no pane sends in the window")
-        : {
-            status: "ok",
-            signed,
-            raw,
-            share: round(signed / (signed + raw)),
-          },
+    signedSendShare: signedShare(signed, raw, split.terminal),
+  };
+}
+
+/** The signed share, or why it is not read: a terminal source's sends do not split, and no send is no share. */
+function signedShare(
+  signed: number,
+  raw: number,
+  terminal: boolean,
+): ShareFigure {
+  if (terminal) {
+    return insufficient(SENDS_SPLIT_REASON);
+  }
+  if (signed + raw === 0) {
+    return insufficient("no pane sends in the window");
+  }
+  return { status: "ok", signed, raw, share: round(signed / (signed + raw)) };
+}
+
+/**
+ * The terminal source's reading of the main session's pane figures (#1782): the scan
+ * counts herdr reads and sends only, so neither is read for a terminal pane.
+ */
+export function terminalMainSession(): Pick<
+  MainSessionFigures,
+  "paneReadsPerFinishedPane" | "signedSendShare"
+> {
+  return {
+    paneReadsPerFinishedPane: {
+      status: "insufficient",
+      reason: TERMINAL_READS_REASON,
+    },
+    signedSendShare: { status: "insufficient", reason: SENDS_SPLIT_REASON },
   };
 }

@@ -59,7 +59,10 @@ export const firstClosed = (own: LedgerEvent[]) =>
   firstTime(own, (e) => e.kind === "issue.closed");
 
 /** Each idea completed in the range, from its first event to its first issue.closed, with median and maximum. */
-function leadTime(byIdea: Map<string, LedgerEvent[]>, window: Span): LeadTime {
+export function leadTime(
+  byIdea: Map<string, LedgerEvent[]>,
+  window: Span,
+): LeadTime {
   const ideas: LeadTime["ideas"] = [];
   for (const [idea, own] of byIdea) {
     const outcome = firstClosed(own);

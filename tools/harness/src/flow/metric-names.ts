@@ -7,6 +7,8 @@ const NOT_METRICS = new Set([
   "scope",
   "minCompletedIdeas",
   "bottleneck",
+  // The terminal source's readings are a second reading of the same figures; no idea names one yet.
+  "terminal",
 ]);
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
