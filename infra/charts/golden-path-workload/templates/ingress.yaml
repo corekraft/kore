@@ -2,7 +2,10 @@
   HTTPS for the service's default host (ADR 0042). The sync owns all three
   resources, in the service namespace: the Gateway holds the one listener for
   the host, cert-manager issues its Secret into the same namespace, and the
-  route sends the BFF path to the BFF and the rest to the frontend. The
+  route sends the BFF path to the BFF and the rest to the frontend. While
+  golden-path-signin is on (signin.enabled), the BFF also gets /oauth2 and
+  /login/oauth2, the paths its sign-in flow uses. The
+
   platform owns the Gateway in kore-system, its listeners and its certificate
   (ADR 0133). Nothing renders without ingress.host, which only the
   ApplicationSet sets.
@@ -15,6 +18,7 @@
   its own Gateway, certificate and route. Off, the chart renders what it
   rendered before.
 */ -}}
+{{- $signinRoutes := .Values.signin.enabled }}
 {{- with .Values.ingress }}
 {{- $ingress := . }}
 {{- $sharedRoute := false }}
@@ -74,6 +78,10 @@ spec:
   rules:
     - matches:
         - path: {type: PathPrefix, value: /api}
+        {{- if $signinRoutes }}
+        - path: {type: PathPrefix, value: /oauth2}
+        - path: {type: PathPrefix, value: /login/oauth2}
+        {{- end }}
       backendRefs:
         - {name: {{ $.Values.service }}-bff, port: 80}
     - backendRefs:
@@ -98,6 +106,10 @@ spec:
   rules:
     - matches:
         - path: {type: PathPrefix, value: /api}
+        {{- if $signinRoutes }}
+        - path: {type: PathPrefix, value: /oauth2}
+        - path: {type: PathPrefix, value: /login/oauth2}
+        {{- end }}
       backendRefs:
         - {name: {{ $.Values.service }}-bff, port: 80}
     - backendRefs:

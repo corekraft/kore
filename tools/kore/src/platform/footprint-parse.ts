@@ -79,6 +79,35 @@ export function parseVmMemoryInUseMiB(stdout: string): number {
   }, 0);
 }
 
+/** Swap total (MiB) from `sysctl vm.swapusage`. */
+export function parseSwapTotalMiB(stdout: string): number {
+  const total = /total = (\d+(?:\.\d+)?)([MG])/.exec(stdout);
+  if (!total) {
+    throw new Error(
+      `unreadable swap usage report ${JSON.stringify(stdout.trim())}`,
+    );
+  }
+  return Number(total[1]) * (total[2] === "G" ? 1024 : 1);
+}
+
+/** Swap total and swap in use (MiB) on Linux: SwapTotal, and SwapTotal less SwapFree, from `/proc/meminfo`. */
+export function parseLinuxSwapMiB(meminfo: string): {
+  totalMiB: number;
+  usedMiB: number;
+} {
+  const total = /^SwapTotal:\s+(\d+)\s*kB/m.exec(meminfo);
+  const free = /^SwapFree:\s+(\d+)\s*kB/m.exec(meminfo);
+  if (!total || !free) {
+    throw new Error(
+      `unreadable host swap report ${JSON.stringify(meminfo.trim())}`,
+    );
+  }
+  return {
+    totalMiB: Math.round(Number(total[1]) / 1024),
+    usedMiB: Math.round((Number(total[1]) - Number(free[1])) / 1024),
+  };
+}
+
 /** Swap in use (MiB) from `sysctl vm.swapusage`. */
 export function parseSwapUsedMiB(stdout: string): number {
   const used = /used = (\d+(?:\.\d+)?)([MG])/.exec(stdout);

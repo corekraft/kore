@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { readFile } from "node:fs/promises";
 import { loadavg } from "node:os";
 import test from "node:test";
 import { loadRepository } from "../config/index.js";
@@ -10,8 +11,9 @@ import {
 
 // Docs: infra/plans/2-implementation.md#step-7-bootstrap-registry-image-trust-controllers-and-crd-ownership
 // Live: needs a converged local k3d platform with nothing else driving load.
-// Read-only: `docker stats`, `docker info`, `sysctl` and `kubectl get pods`; it
-// changes no resource. Prints one run as JSON, verdict included; the person
+// Read-only: `docker stats`, `docker info`, `kubectl get pods`, and swap from
+// `sysctl vm.swapusage` on macOS or `/proc/meminfo` on Linux; it changes no
+// resource. Prints one run as JSON, verdict included; the person
 // recording the Now baseline repeats it and takes the mean of the run medians
 // (footprintBaseline). Run with KORE_RUN_LIVE=1 (`npm run test:live:footprint`).
 
@@ -42,6 +44,8 @@ test(
         loadAverage: () => loadavg()[0] ?? Number.POSITIVE_INFINITY,
         now: () => performance.now(),
         epochMilliseconds: () => Date.now(),
+        platform: process.platform,
+        readFile: (path) => readFile(path, "utf8"),
       },
     );
     const result = await measurement.measure();
