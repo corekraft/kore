@@ -1,7 +1,7 @@
 import { describe, expect, it, vi, type Mock } from "vitest";
 import type { RunResult, Runner } from "../runtime/index.js";
 import { refuseRun } from "./hc-argv.js";
-import { hcFailure } from "./hc-errors.js";
+import { hcFailure, unfinishedWait } from "./hc-errors.js";
 import { HC_0_1_21, RECORDED_CWD } from "./hc-0.1.21.fixtures.js";
 import { HcTerminals } from "./HcTerminals.js";
 import {
@@ -36,12 +36,17 @@ vi.mock("./hc-shapes.js", () => ({
   isJsonObject: vi.fn(() => true),
 }));
 vi.mock("./hc-argv.js", () => ({ refuseRun: vi.fn(() => undefined) }));
-vi.mock("./hc-errors.js", async (importOriginal) => ({
-  ...(await importOriginal<typeof import("./hc-errors.js")>()),
+vi.mock("./hc-errors.js", () => ({
   hcFailure: vi.fn((verb: string, result: RunResult) => ({
     error: {
       kind: "unavailable",
       message: "hc " + verb + " exited with code " + result.code,
+    },
+  })),
+  unfinishedWait: vi.fn((reason: string, timeoutMs: number) => ({
+    error: {
+      kind: reason === "message" ? "woke" : "timeout",
+      message: "unfinished " + reason + " after " + timeoutMs + " ms",
     },
   })),
 }));
@@ -246,25 +251,20 @@ describe("HcTerminals: wait", () => {
     ]);
   });
 
-  it("reports a timeout as the port's timeout error, with the port's message and hint", async () => {
+  it("maps a timeout reply through the unfinished-wait mapping, with hc's reason and the bound", async () => {
     const runner = scripted(ok(HC_0_1_21.waitTimeout));
     expect(await hc(runner).wait({ terminal: "t2" }, 5000)).toEqual({
-      error: {
-        kind: "timeout",
-        message: "nothing has finished within 5000 ms",
-        hint: "wait longer, or check the terminal with get()",
-      },
+      error: { kind: "timeout", message: "unfinished timeout after 5000 ms" },
     });
+    expect(unfinishedWait).toHaveBeenCalledWith("timeout", 5000);
   });
 
-  it("reports a wait that a message woke as woke, never as a timeout or a failure", async () => {
+  it("maps a message-ended wait through the unfinished-wait mapping, as woke and never a failure", async () => {
     const runner = scripted(ok(MESSAGE_WAIT));
     expect(await hc(runner).wait({ terminal: "t1" }, 5000)).toEqual({
-      error: {
-        kind: "woke",
-        message: "a message woke the wait before a finish",
-      },
+      error: { kind: "woke", message: "unfinished message after 5000 ms" },
     });
+    expect(unfinishedWait).toHaveBeenCalledWith("message", 5000);
   });
 });
 
