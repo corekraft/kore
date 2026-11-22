@@ -4,18 +4,15 @@
 // guard keeps its role; a recording hook takes an identity only when hc confirmed it. HC_TERMINAL_ID is the one
 // value read from the environment, and it only finds the record. When the terminal's own record cannot be read,
 // the run carries a notice that names the file and the fix, and the guard keeps the role from the payload.
-import {
-  CommandError,
-  ProcessLineStream,
-  type CliDeps,
-} from "../runtime/index.js";
+import { CommandError, type CliDeps } from "../runtime/index.js";
 import {
   recordsOfTerminal,
   SessionRegistry,
+  terminalsFor,
   type TerminalRecords,
   type UnreadableRecord,
 } from "../session/index.js";
-import { HcTerminals, type Terminals } from "../terminal/index.js";
+import type { Terminals } from "../terminal/index.js";
 
 export interface SessionIdentity {
   name: string;
@@ -52,11 +49,7 @@ function resolutionOf(deps: CliDeps, terminals: Terminals): Promise<Resolved> {
 /** The identity of this run's hc terminal, looked up once per run so a guard and a recording hook share it. */
 export function sessionIdentity(
   deps: CliDeps,
-  terminals: Terminals = new HcTerminals({
-    runner: deps.runner,
-    env: deps.env,
-    lines: new ProcessLineStream(),
-  }),
+  terminals: Terminals = terminalsFor(deps),
 ): Promise<SessionIdentity | undefined> {
   return resolutionOf(deps, terminals).then((found) => found.identity);
 }
@@ -64,11 +57,7 @@ export function sessionIdentity(
 /** The notice for this run's hc terminal when its own session record cannot be read; undefined otherwise. */
 export function sessionNotice(
   deps: CliDeps,
-  terminals: Terminals = new HcTerminals({
-    runner: deps.runner,
-    env: deps.env,
-    lines: new ProcessLineStream(),
-  }),
+  terminals: Terminals = terminalsFor(deps),
 ): Promise<string | undefined> {
   return resolutionOf(deps, terminals).then((found) => found.notice);
 }

@@ -83,6 +83,21 @@ describe("terminalsFor builds the hc adapter over the caller's runner and enviro
   });
 });
 
+describe("terminalsFor takes the line stream it is given, so a test can stand in for hc events", () => {
+  it("builds the adapter over the line stream passed to it", () => {
+    const deps = fakeDeps();
+    const lines = { lines: vi.fn() };
+
+    terminalsFor(deps, lines);
+
+    expect(HcTerminals).toHaveBeenCalledWith({
+      runner: deps.runner,
+      env: deps.env,
+      lines,
+    });
+  });
+});
+
 describe("hcMessage gives hc's message, with its hint in brackets when hc gives one", () => {
   it("adds the hint in brackets", () => {
     expect(
