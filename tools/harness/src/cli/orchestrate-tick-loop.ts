@@ -11,6 +11,7 @@ import {
   tickSelfUpdateOn,
 } from "../orchestrator/index.js";
 import { mainRoot, type CliDeps } from "../runtime/index.js";
+import { ensureLedgerWatch } from "./orchestrate-tick-watch.js";
 
 const HARNESS = "skills/bin/harness.mjs";
 
@@ -55,6 +56,7 @@ export async function runTickLoop(
   ];
   const loop = new TickLoop({
     flagOn: () => tickFlagOn(deps.fs, root),
+    ensureWatch: () => ensureLedgerWatch(deps, main),
     update: async () => {
       if (await tickSelfUpdateOn(deps.fs, root)) {
         await updater.run();
