@@ -1,5 +1,22 @@
 # Changelog
 
+## [0.22.0](https://github.com/corekraft/kore/compare/v0.21.0...v0.22.0) (2026-11-22)
+
+
+### Features
+
+* **charts:** route the sign-in paths to the BFF behind golden-path-signin ([#1762](https://github.com/corekraft/kore/issues/1762)) ([bfa2cc3](https://github.com/corekraft/kore/commit/bfa2cc3fcc3f65d2787d4c36df131cc3f2d2d762)), closes [#1761](https://github.com/corekraft/kore/issues/1761)
+* **platform:** read footprint swap on linux from /proc/meminfo ([#1759](https://github.com/corekraft/kore/issues/1759)) ([de4e70e](https://github.com/corekraft/kore/commit/de4e70ee6f4921f9bd5302ca5c8f848240ccbc64)), closes [#1755](https://github.com/corekraft/kore/issues/1755)
+* **templates:** add the whoami probe route to the kotlin bff behind golden-path-signin ([#1763](https://github.com/corekraft/kore/issues/1763)) ([acf1d29](https://github.com/corekraft/kore/commit/acf1d293c516344c5966645a256d1de6ac812169)), closes [#1760](https://github.com/corekraft/kore/issues/1760)
+* **testing:** run the sign-in check against a delivered golden-path Service ([#1764](https://github.com/corekraft/kore/issues/1764)) ([5c7e556](https://github.com/corekraft/kore/commit/5c7e55684176a75bc618e8ce1cbd995b7fd4a9f9))
+
+
+### Documentation
+
+* **ideas:** record the golden-path scale and p95 outcome for [#1114](https://github.com/corekraft/kore/issues/1114) ([#1753](https://github.com/corekraft/kore/issues/1753)) ([95b0490](https://github.com/corekraft/kore/commit/95b04902720b397f267885c91c0833ca7d47747d))
+* **plans:** grill plan 16 and split the help guide into plan 17 ([#1766](https://github.com/corekraft/kore/issues/1766)) ([410b6b5](https://github.com/corekraft/kore/commit/410b6b571d7aed6729583b22324885fb70519a76))
+* **plans:** plan hc-native harness sessions ([#1757](https://github.com/corekraft/kore/issues/1757)) ([bd13639](https://github.com/corekraft/kore/commit/bd136394897fb6c8b91ba57b80dcfd9ffadef199))
+
 ## [0.21.0](https://github.com/corekraft/kore/compare/v0.20.0...v0.21.0) (2026-11-22)
 
 
