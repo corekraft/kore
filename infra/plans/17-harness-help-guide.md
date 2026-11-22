@@ -19,12 +19,12 @@ or `ledger/`.
 
 ### Step 1: Help guide
 
-- [ ] Extend `Command` (`runtime/command.ts`) with a `help` record:
+- [x] Extend `Command` (`runtime/command.ts`) with a `help` record:
       `purpose`, `when`, a description for every declared flag and operand,
       `examples` (each a command and what it shows), `exits`, `effects`
       (`read-only` or `mutates`, and what), and `seeAlso`. Each domain gets
       a short guide too: its purpose and its usual flow.
-- [ ] `cli.ts` renders three levels, always to stdout, exit 0, with no root,
+- [x] `cli.ts` renders three levels, always to stdout, exit 0, with no root,
       no ledger write and no side effect:
   - `harness --help`: what the harness is, the domains in one line each, the
     common flows (spawn → wait → close; pr open → checks; flag audit →
@@ -36,10 +36,10 @@ or `ledger/`.
   `--help --json` gives the same content as one object for agents. A usage
   error prints the closest level's guide, not all the commands.
 
-- [ ] Specs fail a command with no help, with a declared flag that has no
+- [x] Specs fail a command with no help, with a declared flag that has no
       description, or with no example. Flags therefore cannot drift from their
       help.
-- [ ] Shrink each `summary` to one line, moving today's paragraph-long
+- [x] Shrink each `summary` to one line, moving today's paragraph-long
       summaries into `help`. Point skills, session-start hints and
       `hook/context.ts` at `harness <domain> --help` instead of restating
       usage. kb-check fails a doc that names a command or flag that does not
@@ -47,7 +47,7 @@ or `ledger/`.
 
 ## Next
 
-**Step 1 (2026-11-22).** #1814 (help record, domain guides, renderers and registry specs, #1791) is open and reviewed clean. `check` and `integration` pass; `scan` fails on a JWT fixture in origin/browser-token-test-1116, not in this PR. After it merges, the dispatcher and per-domain tickets under #1789 unblock. Full state: #1789.
+**Step 1 merged (2026-11-22).** The help record is required on every command, each domain has its guide, the three levels render as text and JSON, the registry specs and kb-check read the real command table, and the exemption list is gone. Left: #1807, verify the guide on the merged bundle and record it on the spec. It needs the built harness to run, which this delivery was told not to do. Full state: #1789.
 
 ## Done When
 
