@@ -144,10 +144,7 @@ export class FakeTerminals implements Terminals {
     }
     const rows =
       model.output === "" ? [] : model.output.replace(/\n$/, "").split("\n");
-    return {
-      text: rows.slice(Math.max(0, rows.length - lines)).join("\n"),
-      complete: rows.length <= lines,
-    };
+    return { text: rows.slice(Math.max(0, rows.length - lines)).join("\n") };
   }
 
   async send(

@@ -16,6 +16,7 @@ import {
   type ListFilter,
   type RunSpec,
   type SendOptions,
+  type Output,
   type Started,
   type Status,
   type Terminal,
@@ -79,6 +80,10 @@ export class HcTerminals implements Terminals {
     if (refusal !== undefined) {
       return refusal;
     }
+    const parent = await this.#parentLive(spec.parent);
+    if (parent !== undefined) {
+      return parent;
+    }
     const raw = await this.#json(
       [
         "run",
@@ -103,6 +108,7 @@ export class HcTerminals implements Terminals {
     return isError(raw) ? raw : toTerminal(raw);
   }
 
+  /** The listing carries no labels, so each terminal it names is read with get. */
   async list(filter: ListFilter = {}): Promise<Terminal[] | TerminalError> {
     const raw = await this.#json(
       [
@@ -116,23 +122,25 @@ export class HcTerminals implements Terminals {
     if (isError(raw)) {
       return raw;
     }
-    return raw.terminals
-      .filter(
-        (t) =>
-          filter.childrenOf === undefined || t.parent === filter.childrenOf,
-      )
-      .map(toTerminal);
+    const found: Terminal[] = [];
+    for (const row of raw.terminals) {
+      if (filter.childrenOf === undefined || row.parent === filter.childrenOf) {
+        const terminal = await this.get(row.address);
+        if (isError(terminal)) {
+          return terminal;
+        }
+        found.push(terminal);
+      }
+    }
+    return found;
   }
 
-  async read(
-    id: string,
-    lines: number,
-  ): Promise<{ text: string; complete: boolean } | TerminalError> {
+  async read(id: string, lines: number): Promise<Output | TerminalError> {
     const raw = await this.#json(
       ["read", "--json", "--lines", String(lines), id],
       isHcRead,
     );
-    return isError(raw) ? raw : { text: raw.text, complete: raw.complete };
+    return isError(raw) ? raw : { text: raw.text };
   }
 
   async send(
@@ -181,21 +189,17 @@ export class HcTerminals implements Terminals {
               ")",
           );
     }
-    const stopped =
-      "terminal" in target
-        ? [raw.terminal]
-        : raw.children
-            .filter((c) => c.reason !== "running")
-            .map((c) => c.terminal);
-    const finished: Terminal[] = [];
-    for (const id of stopped) {
-      const terminal = await this.get(id);
-      if (isError(terminal)) {
-        return terminal;
-      }
-      finished.push(terminal);
+    if ("terminal" in target) {
+      const finished = await this.#terminals([raw.terminal]);
+      return isError(finished) ? finished : { finished };
     }
-    return { finished };
+    // hc names a child in its reply only when the news arrives while the wait runs,
+    // so the stopped children are read from the listing (finished ones, not news).
+    const children = await this.list({ childrenOf: target.of });
+    if (isError(children)) {
+      return children;
+    }
+    return { finished: children.filter((c) => c.state === "finished") };
   }
 
   async interrupt(id: string): Promise<{ id: string } | TerminalError> {
@@ -229,6 +233,38 @@ export class HcTerminals implements Terminals {
     throw new Error(
       "HcTerminals cannot follow events: a Runner returns only when its command ends, and hc events never ends. The ledger watch terminal reads them (plan 16, Step 4)",
     );
+  }
+
+  /** hc starts a child of a finished parent live, and never ends it, so the parent must be live first. */
+  async #parentLive(
+    parent: string | undefined,
+  ): Promise<TerminalError | undefined> {
+    if (parent === undefined) {
+      return undefined;
+    }
+    const found = await this.get(parent);
+    if (isError(found)) {
+      return found;
+    }
+    return found.state === "live"
+      ? undefined
+      : terminalError(
+          "not-live",
+          parent + " has finished",
+          "a finished terminal takes no children; start the child under a live parent",
+        );
+  }
+
+  async #terminals(ids: string[]): Promise<Terminal[] | TerminalError> {
+    const found: Terminal[] = [];
+    for (const id of ids) {
+      const terminal = await this.get(id);
+      if (isError(terminal)) {
+        return terminal;
+      }
+      found.push(terminal);
+    }
+    return found;
   }
 
   /**

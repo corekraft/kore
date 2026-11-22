@@ -28,6 +28,7 @@ describe("FakeTerminals", () => {
     const fake = new FakeTerminals();
     return {
       terminals: fake,
+      dir: "/w",
       emit: (id, text) => fake.emit(id, text),
       finish: (id, exitCode) => fake.finish(id, exitCode),
     };

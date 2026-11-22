@@ -157,3 +157,8 @@ export {
   type Scene,
 } from "./ruleset-support.js";
 export { stubHelp } from "./help-support.js";
+// The Terminals contract: the fake's spec and the integration spec over a real hc core both run it.
+export {
+  terminalContract,
+  type ContractSubject,
+} from "../terminal/contract-support.js";

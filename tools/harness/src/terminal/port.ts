@@ -55,10 +55,9 @@ export interface Sent {
   id: string;
 }
 
+/** The screen and the history above it, as hc reads them: at least the last lines asked for. */
 export interface Output {
   text: string;
-  /** True when text is all the output the terminal has produced. */
-  complete: boolean;
 }
 
 export interface SendOptions {

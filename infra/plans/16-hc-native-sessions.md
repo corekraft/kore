@@ -177,7 +177,7 @@ dropping.
       downloads "the latest release" from a source it does not print, and
       `--version X.Y.Z` is a floor, not an exact pin, so the pin is the exact
       `hc --version` check below plus a host-setup note (`hc update --version
-  X.Y.Z` as the floor, `hc update --from <file>` for an exact binary or
+X.Y.Z` as the floor, `hc update --from <file>` for an exact binary or
       signed app). Say in the pin record that mise cannot pin the macOS bundle.
       Compatibility evidence follows the pin-upgrade skill. Both hosts run
       0.1.21 today. `HcTerminals` compares `hc --version` exactly once per
@@ -203,28 +203,30 @@ dropping.
 
 ### Step 2: Port, fake, contract
 
-- [ ] `terminal/` with the port, `TerminalError`, `FakeTerminals` and
+- [x] `terminal/` with the port, `TerminalError`, `FakeTerminals` and
       `terminal/contract-support.ts` (not a spec file, so each source keeps its
       one spec): `terminalContract(make)`, the stateful contract (run, wait,
       read, kill, remove, parent and child, labels). `FakeTerminals.spec.ts`
       runs it, because the fake is shipped code and has nothing to mock.
-- [ ] `HcTerminals.spec.ts`: a unit over a mocked `Runner` and per-method
+- [x] `HcTerminals.spec.ts`: a unit over a mocked `Runner` and per-method
       recorded `--json` fixtures, each named with the hc version: argv built,
       JSON parsed, errors mapped. The stateful contract cannot run on a
       scripted runner, so it runs against the real `HcTerminals` below.
-- [ ] An integration test that drives a real `hc` core under a scratch
-      `HC_SESSION` and XDG: run a plain program, wait, read, kill, remove,
-      and a parent/child report, running `terminalContract` against the real
-      `HcTerminals`. It never touches the user's core. It also asserts that
-      `--no-notify` keeps a child's exit note out of its parent's input and
-      that a non-agent parent is told apart (status is null, `reported` false).
-      It also
-      proves `hc run --parent` from a caller that is not a terminal, and that
-      the reconcile read (`hc ls --all`) shows a terminal that finished while
-      no one was watching. It also settles three facts this plan relies on: a
-      parent's exit ends its child (`die_with_parent`), a core restart or
-      update keeps the terminals, and what state a terminal shows after a
-      holder crash or a host reboot (finished with an exit code, or gone).
+- [x] An integration tier over a real `hc` core under a scratch `HC_SESSION`
+      and XDG dirs (`tools/harness/integration/terminal/`). `terminalContract`
+      runs against the real `HcTerminals`, and each settled fact is asserted:
+      a parent's exit ends its child (`die_with_parent`); `run --parent` from a
+      caller that is not a terminal; `hc ls --all` lists a terminal that finished
+      while nobody watched; a plain shell parent reports `status` null and
+      `reported` false; a holder crash ends a live terminal as `finished` with
+      reason `holder_lost` and no exit code. The tier never touches the owner's
+      core. It skips, naming the reason, on a host without hc: CI has no hc, so
+      the gate runs on hosts with the pinned hc (the Step 5 live proof).
+- [ ] Owed, not settled by Step 2: a core restart keeps its terminals (the brief
+      barred `hc server restart`, and `hc server stop` ends live terminals); an
+      exit note reaches an agent parent and `--no-notify` keeps it out (needs a
+      real claude parent); an agent parent reports a status object where a shell
+      reports null (needs a real claude parent). Step 5 runs these on a host with hc.
 
 ### Step 3: Reporting
 
@@ -278,7 +280,7 @@ One PR per tool, each test-first against `FakeTerminals`:
       `callerPane` is deleted from the record.
 - [ ] No brief names a terminal address. `session/brief.ts` stops naming
       `callerPane` and the notify command; a brief says "run `harness session
-  report`", and for a pair "run `harness session send <peer name>`", the
+report`", and for a pair "run `harness session send <peer name>`", the
       peer's session name being a name and not an address. The RESULT spec
       also fails a shipped brief that contains `t\d+`, `kore-agents/t\d+` or
       `wN:pN`. `judge/review-run.ts` stops printing a pane id and passing it
@@ -585,6 +587,60 @@ update` names no source and its `--version` is a floor. Settle it with the
   only. The review also checks it against the workflows, settings hooks and
   mise tasks, and against whether it backs an approved but not yet activated
   mechanism (for example `guardrail activate` and `queue escalate`).
+
+### Step 2 facts (2026-11-22: real hc 0.1.21 under a scratch HC_SESSION)
+
+Settled by `tools/harness/integration/terminal/` (`hc-core.spec.ts` runs
+`terminalContract` over the real `HcTerminals`; `hc-facts.spec.ts` asserts each
+fact). The fixtures in `hc-0.1.21.fixtures.ts` are hc's own replies, recorded from
+the same core. Where hc differed from this plan, the port or the adapter changed:
+
+- **Parent exit ends the child.** `die_with_parent` is true for a child, and its
+  parent's exit (or kill) ends it. Confirmed.
+- **`run --parent` from a caller that is not a terminal** works; the scratch
+  environment has no `HC_TERMINAL_ID`. Confirmed.
+- **Errors are printed on stdout** with exit codes 1, 3, 7 and 11, not on stderr.
+  `hcFailure` reads stdout first (the adapter read stderr only).
+- **The listing carries no labels or exit codes** beyond `exit_code` on exited
+  rows. `list` reads each terminal with `get` for its labels.
+- **`read` returns the screen plus the history above it**, with `how`. Its
+  `complete` flag is true for a 300-line output asked for 2 lines, so it does
+  not mean "all the output". The port drops `complete`; `read` is "at least the
+  lines asked for".
+- **`run --parent` accepts a finished parent**, and the child starts live and is
+  never ended. The adapter refuses first (`not-live`).
+- **`wait --children any` reports only news that arrives while it waits.** A child
+  that stopped before the call is not news, and the reply can name no child (empty
+  `children`, reason `children`). The adapter reads the finished children from the
+  listing, so the contract starts the wait before the child finishes.
+- **`hc ls --all` lists a child that finished while nobody watched it**, with its
+  exit code and reason. `hc ls` lists only live terminals. Confirmed.
+- **A plain shell parent reports `status` null and `reported` false**, and its
+  listing row has `agent: "sh"`. Confirmed.
+- **A holder crash ends a live terminal** with `state: finished`, `reason:
+holder_lost` and no exit code. A finished one keeps its exit code. The core
+  survives. Confirmed.
+- **`hc server stop` ends a live terminal** with `reason: server_stop`, unless it
+  is kept. **Not settled:** "a core restart keeps terminals" (this plan, Decisions
+  and Step 2). The brief for this step barred `hc server restart`, so it was not
+  run; stop is not restart. It is owed to a run that may restart, and the plan
+  must not claim it until then. A reboot is not tested either.
+- **Exit notes.** No note reached a plain shell parent, with `--no-notify` or
+  without it, and none reached a stand-in agent named `claude`. The positive
+  control (a note that `--no-notify` suppresses) needs a real claude parent, so
+  the `--no-notify` claim is **owed to Step 5**, and the spec asserts only the
+  plain-shell case.
+- **Agent status object** (against null) needs a real claude parent. A stand-in
+  named `claude` reports status null too, so the status test cannot yet tell an
+  agent from a shell by `status`. **Owed to Step 5.**
+- **Launch caution.** A bare program name resolved on the core's PATH, which the
+  core inherits at start, so a stand-in named `claude` was not used on one run.
+  The wrapper (Step 4) starts by absolute path, so this matters only for tests that
+  name a program; the integration spec names only `sh`.
+
+Port changes that follow from these: `Output` is `{ text }`; `list` reads labels
+per terminal; `run` refuses a finished parent; `wait` on children reads the
+finished children from the listing; `hcFailure` reads stdout.
 
 ## Next
 

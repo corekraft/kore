@@ -2,26 +2,23 @@ import { describe, expect, it, vi, type Mock } from "vitest";
 import type { RunResult, Runner } from "../runtime/index.js";
 import { refuseRun } from "./hc-argv.js";
 import { hcFailure } from "./hc-errors.js";
-import { HC_0_1_21 } from "./hc-0.1.21.fixtures.js";
-import {
-  isHcList,
-  isHcRead,
-  isHcRemoved,
-  isHcTerminal,
-  isHcWait,
-  isJsonObject,
-} from "./hc-shapes.js";
+import { HC_0_1_21, RECORDED_CWD } from "./hc-0.1.21.fixtures.js";
 import { HcTerminals } from "./HcTerminals.js";
 import {
-  rows,
+  KILLED_CHILD,
+  KILLED_SIBLING,
+  MESSAGE_WAIT,
+  RUN_ARGV,
+  RUN_CLAUDE,
   SIBLING_FINISHED,
   WRITER_FINISHED,
   WRITER_LIVE,
   failed,
   ok,
+  rows,
+  SHAPE_CHECKS,
   scripted,
 } from "./hc-terminals-support.js";
-import type { Terminals } from "./port.js";
 
 // Doubles for the units this one composes (ADR 0098). Each has its own spec:
 // the version check, the argv refusals and the error mapping. This spec checks
@@ -53,53 +50,30 @@ vi.mock("./port.js", () => ({
   })),
 }));
 
+/** The argv of each call the Runner made, without the program name. */
+const argvs = (runner: { run: Mock }) =>
+  runner.run.mock.calls.map((call) => call[1] as string[]);
+
 describe("HcTerminals: each method builds its argv, parses hc's JSON and maps it", () => {
   it.each(rows)("%s", async (_name, call, argv, stdout, expected) => {
     const runner = scripted(ok(stdout));
     expect(await call(new HcTerminals({ runner, env: {} }))).toEqual(expected);
-    expect(runner.run.mock.calls).toEqual([["hc", argv]]);
+    expect(argvs(runner)).toEqual([argv]);
   });
 });
 
-describe("HcTerminals: run", () => {
+describe("HcTerminals: run builds the argv", () => {
   it("passes the argv as separate elements after --, with every option as its own flag", async () => {
-    const runner = scripted(ok(HC_0_1_21.run));
+    const runner = scripted(ok(HC_0_1_21.getParentLive), ok(HC_0_1_21.run));
     await new HcTerminals({ runner, env: {} }).run({
-      argv: ["claude", "--agent", "writer", "--model", "sonnet", "brief text"],
+      argv: RUN_CLAUDE,
       name: "s1",
-      cwd: "/work/kore",
+      cwd: RECORDED_CWD,
       labels: { role: "writer", "kore-session": "s1" },
-      parent: "t3",
+      parent: "t1",
       outliveParent: true,
     });
-    expect(runner.run.mock.calls).toEqual([
-      [
-        "hc",
-        [
-          "run",
-          "--json",
-          "--bg",
-          "--name",
-          "s1",
-          "--cwd",
-          "/work/kore",
-          "--label",
-          "role=writer",
-          "--label",
-          "kore-session=s1",
-          "--parent",
-          "t3",
-          "--outlive-parent",
-          "--",
-          "claude",
-          "--agent",
-          "writer",
-          "--model",
-          "sonnet",
-          "brief text",
-        ],
-      ],
-    ]);
+    expect(argvs(runner)).toEqual([["get", "--json", "t1"], RUN_ARGV]);
   });
 
   it("returns what the argv check refuses, and runs hc not at all", async () => {
@@ -112,89 +86,160 @@ describe("HcTerminals: run", () => {
         argv: ["claude"],
         cwd: "/w",
       }),
-    ).toEqual({
-      error: { kind: "invalid-spec", message: "refused" },
-    });
+    ).toEqual({ error: { kind: "invalid-spec", message: "refused" } });
     expect(runner.run).not.toHaveBeenCalled();
   });
 });
 
-describe("HcTerminals: get, list and status", () => {
-  it("maps a live terminal's reported status, and leaves out an exit code it does not have", async () => {
-    const runner = scripted(ok(HC_0_1_21.run));
-    expect(await new HcTerminals({ runner, env: {} }).get("t7")).toEqual(
+describe("HcTerminals: run and its parent", () => {
+  it("refuses a parent that has finished, since hc would start the child live under it, and starts nothing", async () => {
+    const runner = scripted(ok(HC_0_1_21.getParentFinished));
+    expect(
+      await new HcTerminals({ runner, env: {} }).run({
+        argv: ["sh"],
+        cwd: RECORDED_CWD,
+        parent: "t1",
+      }),
+    ).toEqual({
+      error: {
+        kind: "not-live",
+        message: "t1 has finished",
+        hint: "a finished terminal takes no children; start the child under a live parent",
+      },
+    });
+    expect(argvs(runner)).toEqual([["get", "--json", "t1"]]);
+  });
+
+  it("returns an unknown parent's error from the lookup, and starts nothing", async () => {
+    const runner = scripted(failed(3, HC_0_1_21.errors.notFound));
+    expect(
+      await new HcTerminals({ runner, env: {} }).run({
+        argv: ["sh"],
+        cwd: RECORDED_CWD,
+        parent: "nope",
+      }),
+    ).toEqual({
+      error: { kind: "unavailable", message: "hc get exited with code 3" },
+    });
+    expect(argvs(runner)).toEqual([["get", "--json", "nope"]]);
+  });
+});
+
+describe("HcTerminals: get and list", () => {
+  it("maps a live terminal, and leaves out a name, parent or exit code it does not have", async () => {
+    const runner = scripted(ok(HC_0_1_21.get));
+    expect(await new HcTerminals({ runner, env: {} }).get("t2")).toEqual(
       WRITER_LIVE,
     );
   });
 
   it("hands a failed command to the error mapping with its verb, and returns what it gives", async () => {
-    const result = failed(3, HC_0_1_21.errors.notFound);
+    const result = { stdout: HC_0_1_21.errors.notFound, stderr: "", code: 3 };
     const runner = scripted(result);
-    expect(await new HcTerminals({ runner, env: {} }).get("t9")).toEqual({
+    expect(await new HcTerminals({ runner, env: {} }).get("nope")).toEqual({
       error: { kind: "unavailable", message: "hc get exited with code 3" },
     });
     expect(hcFailure).toHaveBeenCalledWith("get", result);
   });
 
-  it("passes the labels to hc, and keeps only the children of the parent asked for", async () => {
-    const runner = scripted(ok(HC_0_1_21.list));
-    const listed = await new HcTerminals({ runner, env: {} }).list({
-      labels: { role: "writer" },
-      childrenOf: "t3",
-    });
-    expect(runner.run.mock.calls).toEqual([
-      ["hc", ["ls", "--json", "--all", "--label", "role=writer"]],
+  it("lists by label, and reads each terminal for its labels, which the listing does not carry", async () => {
+    const runner = scripted(
+      ok(HC_0_1_21.listLabel),
+      ok(HC_0_1_21.get),
+      ok(HC_0_1_21.getSibling),
+    );
+    expect(
+      await new HcTerminals({ runner, env: {} }).list({
+        labels: { role: "writer" },
+      }),
+    ).toEqual([WRITER_LIVE, SIBLING_FINISHED]);
+    expect(argvs(runner)).toEqual([
+      ["ls", "--json", "--all", "--label", "role=writer"],
+      ["get", "--json", "t2"],
+      ["get", "--json", "t3"],
     ]);
-    expect(listed).toEqual([WRITER_LIVE, SIBLING_FINISHED]);
+  });
+
+  it("keeps only the children of the parent asked for", async () => {
+    const runner = scripted(
+      ok(HC_0_1_21.list),
+      ok(HC_0_1_21.get),
+      ok(HC_0_1_21.getSibling),
+      ok(HC_0_1_21.kill),
+    );
+    expect(
+      await new HcTerminals({ runner, env: {} }).list({ childrenOf: "t1" }),
+    ).toEqual([WRITER_LIVE, SIBLING_FINISHED, KILLED_SIBLING]);
+    expect(argvs(runner).map((argv) => argv[0] + " " + argv.at(-1))).toEqual([
+      "ls --all",
+      "get t2",
+      "get t3",
+      "get t4",
+    ]);
   });
 
   it("lists every terminal, finished ones included, when given no filter", async () => {
-    const runner = scripted(ok(HC_0_1_21.list));
-    expect(await new HcTerminals({ runner, env: {} }).list()).toHaveLength(3);
-    expect(runner.run.mock.calls).toEqual([["hc", ["ls", "--json", "--all"]]]);
+    const runner = scripted(
+      ok(HC_0_1_21.list),
+      ok(HC_0_1_21.getParentLive),
+      ok(HC_0_1_21.get),
+      ok(HC_0_1_21.getSibling),
+      ok(HC_0_1_21.kill),
+    );
+    expect(await new HcTerminals({ runner, env: {} }).list()).toHaveLength(4);
+    expect(argvs(runner)[0]).toEqual(["ls", "--json", "--all"]);
   });
 
   it("sends only when the status is exactly ifStatus", async () => {
     const runner = scripted(ok(HC_0_1_21.send));
-    await new HcTerminals({ runner, env: {} }).send("t7", "hello", {
+    await new HcTerminals({ runner, env: {} }).send("t2", "hello", {
       ifStatus: "idle",
     });
-    expect(runner.run.mock.calls).toEqual([
-      ["hc", ["send", "--json", "--if", "idle", "--", "t7", "hello"]],
+    expect(argvs(runner)).toEqual([
+      ["send", "--json", "--if", "idle", "--", "t2", "hello"],
     ]);
   });
 });
 
 describe("HcTerminals: wait", () => {
   it("waits on one terminal in hc's seconds, then returns it as finished", async () => {
-    const runner = scripted(ok(HC_0_1_21.waitTerminal), ok(HC_0_1_21.get));
+    const runner = scripted(
+      ok(HC_0_1_21.waitTerminal),
+      ok(HC_0_1_21.getFinished),
+    );
     expect(
-      await new HcTerminals({ runner, env: {} }).wait({ terminal: "t7" }, 5000),
+      await new HcTerminals({ runner, env: {} }).wait({ terminal: "t2" }, 5000),
     ).toEqual({ finished: [WRITER_FINISHED] });
-    expect(runner.run.mock.calls).toEqual([
-      ["hc", ["wait", "--json", "--timeout", "5", "t7"]],
-      ["hc", ["get", "--json", "t7"]],
+    expect(argvs(runner)).toEqual([
+      ["wait", "--json", "--timeout", "5", "t2"],
+      ["get", "--json", "t2"],
     ]);
   });
 
-  it("waits on a parent's children, and returns only the children that have stopped", async () => {
-    const runner = scripted(ok(HC_0_1_21.waitChildren), ok(HC_0_1_21.get));
+  it("waits on a parent's children, then returns every child that has stopped, read from the listing", async () => {
+    const runner = scripted(
+      ok(HC_0_1_21.waitChildrenAny),
+      ok(HC_0_1_21.listLate),
+      ok(HC_0_1_21.getFinished),
+      ok(HC_0_1_21.getSibling),
+      ok(HC_0_1_21.getKilledChild),
+    );
     expect(
       await new HcTerminals({ runner, env: {} }).wait(
-        { children: "any", of: "t3" },
+        { children: "any", of: "t1" },
         5000,
       ),
-    ).toEqual({ finished: [WRITER_FINISHED] });
-    expect(runner.run.mock.calls).toEqual([
-      ["hc", ["wait", "--json", "--children", "any", "--timeout", "5", "t3"]],
-      ["hc", ["get", "--json", "t7"]],
+    ).toEqual({ finished: [WRITER_FINISHED, SIBLING_FINISHED, KILLED_CHILD] });
+    expect(argvs(runner).slice(0, 2)).toEqual([
+      ["wait", "--json", "--children", "any", "--timeout", "5", "t1"],
+      ["ls", "--json", "--all"],
     ]);
   });
 
   it("reports a timeout as the port's timeout error, with the port's message and hint", async () => {
     const runner = scripted(ok(HC_0_1_21.waitTimeout));
     expect(
-      await new HcTerminals({ runner, env: {} }).wait({ terminal: "t7" }, 5000),
+      await new HcTerminals({ runner, env: {} }).wait({ terminal: "t2" }, 5000),
     ).toEqual({
       error: {
         kind: "timeout",
@@ -204,13 +249,10 @@ describe("HcTerminals: wait", () => {
     });
   });
 
-  it("does not report a wait that a message ended as a timeout", async () => {
-    const runner = scripted(ok(HC_0_1_21.waitMessage));
+  it("reports a wait that a message ended as unavailable, never as a timeout", async () => {
+    const runner = scripted(ok(MESSAGE_WAIT));
     expect(
-      await new HcTerminals({ runner, env: {} }).wait(
-        { children: "any", of: "t3" },
-        5000,
-      ),
+      await new HcTerminals({ runner, env: {} }).wait({ terminal: "t1" }, 5000),
     ).toEqual({
       error: {
         kind: "unavailable",
@@ -223,7 +265,7 @@ describe("HcTerminals: wait", () => {
 describe("HcTerminals: output and events", () => {
   it("reports output that is not JSON as unavailable, and does not throw", async () => {
     const runner = scripted(ok("not json"));
-    expect(await new HcTerminals({ runner, env: {} }).read("t7", 1)).toEqual({
+    expect(await new HcTerminals({ runner, env: {} }).read("t2", 1)).toEqual({
       error: {
         kind: "unavailable",
         message: "hc read printed output that is not JSON",
@@ -241,21 +283,7 @@ describe("HcTerminals: output and events", () => {
 });
 
 describe("HcTerminals: each method checks the shape it reads", () => {
-  const checks: [
-    verb: string,
-    call: (t: Terminals) => Promise<unknown>,
-    predicate: unknown,
-  ][] = [
-    ["run", (t) => t.run({ argv: ["bash"], cwd: "/w" }), isHcTerminal],
-    ["get", (t) => t.get("t7"), isHcTerminal],
-    ["ls", (t) => t.list(), isHcList],
-    ["read", (t) => t.read("t7", 1), isHcRead],
-    ["wait", (t) => t.wait({ terminal: "t7" }, 1000), isHcWait],
-    ["rm", (t) => t.remove("t7"), isHcRemoved],
-    ["kill", (t) => t.kill("t7"), isJsonObject],
-  ];
-
-  it.each(checks)(
+  it.each(SHAPE_CHECKS)(
     "reports a %s reply its shape check refuses as unavailable, naming the shape",
     async (verb, call, predicate) => {
       (predicate as Mock).mockReturnValueOnce(false);
@@ -289,8 +317,8 @@ describe("HcTerminals: self and secrets", () => {
       env: { GH_TOKEN: "ghs_secret" },
     });
     await terminals.run({ argv: ["claude"], cwd: "/w" });
-    await terminals.send("t7", "hello");
-    await terminals.label("t7", { model: "sonnet" });
+    await terminals.send("t2", "hello");
+    await terminals.label("t2", { model: "sonnet" });
     expect(runner.run.mock.calls.every((call) => call.length === 2)).toBe(true);
     expect(JSON.stringify(runner.run.mock.calls)).not.toContain("ghs_secret");
   });

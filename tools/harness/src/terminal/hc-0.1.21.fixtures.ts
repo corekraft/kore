@@ -1,162 +1,60 @@
-// hc 0.1.21's `--json` output for each Terminals method, and the structured
-// errors it writes to stderr. Shaped from hc 0.1.21's schema (`hc schema`) and
-// its `hc <command> --help`, not yet recorded from a live core: the recorded
-// replacement comes from the integration test (plan 16, Step 2). The names
-// carry the version, so a new hc means a new set.
+// hc 0.1.21's replies to each Terminals method, recorded from a real core
+// (plan 16, Step 2) on 2026-11-22. `hc --version` printed "hc 0.1.21". Each
+// reply is hc's own --json output, byte for byte, from a scratch HC_SESSION
+// (kore-record) with its XDG dirs under a temp dir, so the cwd is that temp dir.
+// The names carry the version: a new hc means a new set, recorded again.
 
-const writer = {
-  address: "t7",
-  name: "s1",
-  parent: "t3",
-  argv: ["claude", "--agent", "writer", "--model", "sonnet", "brief text"],
-  cwd: "/work/kore",
-  labels: { "kore-session": "s1", role: "writer" },
-  state: "live",
-  status: "working",
-  reported: true,
-  notify: true,
-  created_ms: 1763800000000,
-  screen: "exact",
-  cols: 120,
-  rows: 40,
-  exit_code: null,
-  finished_ms: null,
-};
-
-const writerFinished = {
-  ...writer,
-  state: "finished",
-  status: null,
-  exit_code: 0,
-  finished_ms: 1763800600000,
-  reason: "exited",
-};
-
-const sibling = {
-  ...writerFinished,
-  address: "t8",
-  name: "s2",
-  exit_code: 0,
-};
-
-const otherParent = { ...writer, address: "t9", name: "s3", parent: "t4" };
+export const RECORDED_CWD = "/tmp/kore-rec-sIzhnv/work";
 
 export const HC_0_1_21 = {
-  version: "hc 0.1.21\n",
-  run: JSON.stringify(writer),
-  get: JSON.stringify(writerFinished),
-  list: JSON.stringify({
-    terminals: [writer, sibling, otherParent],
-    hidden_finished: 0,
-    machines: [],
-  }),
-  read: JSON.stringify({
-    text: "ready\n> ",
-    complete: true,
-    how: "screen",
-    why: null,
-  }),
-  send: JSON.stringify({ turn: 4, started: true, status: "working" }),
-  waitTerminal: JSON.stringify({
-    terminal: "t7",
-    ended: true,
-    reason: "exit",
-    turn: 4,
-    children: [],
-    exit_code: 0,
-    status: null,
-    signal: null,
-  }),
-  waitChildren: JSON.stringify({
-    terminal: "t3",
-    ended: true,
-    reason: "children",
-    turn: 0,
-    children: [
-      {
-        terminal: "t7",
-        ended: true,
-        reason: "exit",
-        turn: 4,
-        children: [],
-        exit_code: 0,
-      },
-      {
-        terminal: "t8",
-        ended: false,
-        reason: "running",
-        turn: 1,
-        children: [],
-      },
-    ],
-  }),
-  waitTimeout: JSON.stringify({
-    terminal: "t7",
-    ended: false,
-    reason: "timeout",
-    turn: 4,
-    children: [],
-  }),
-  waitMessage: JSON.stringify({
-    terminal: "t3",
-    ended: false,
-    reason: "message",
-    turn: 0,
-    children: [],
-  }),
-  interrupt: JSON.stringify({ key: "esc", outcome: "stopped" }),
-  kill: JSON.stringify({
-    ...writerFinished,
-    exit_code: null,
-    reason: "killed",
-  }),
-  remove: JSON.stringify({ removed: "t7" }),
-  label: JSON.stringify({
-    ...writer,
-    labels: { ...writer.labels, model: "sonnet" },
-  }),
+  version: "hc 0.1.21",
+  run: '{"address":"t1","agent":"sh","cwd":"/tmp/kore-rec-sIzhnv/work","name":"p","state":"live","turn":0}',
+  runChild:
+    '{"address":"t2","agent":"sh","cwd":"/tmp/kore-rec-sIzhnv/work","name":"s1","parent":"t1","state":"live","turn":0}',
+  runLiveChild:
+    '{"address":"t5","agent":"sh","cwd":"/tmp/kore-rec-sIzhnv/work","name":"s4","parent":"t1","state":"live","turn":0}',
+  get: '{"address":"t2","argv":["sh"],"cols":200,"created_ms":1795349489426,"cwd":"/tmp/kore-rec-sIzhnv/work","die_with_parent":true,"exit_code":null,"finished_ms":null,"foreground":{"argv":["sh"],"cwd":"/tmp/kore-rec-sIzhnv/work","name":"sh","pid":4041572},"identity":"ghostty","keep":false,"labels":{"kore-session":"s1","role":"writer"},"name":"s1","notify":true,"parent":"t1","pid":4041572,"reason":null,"reported":false,"rm":false,"rows":120,"screen":"exact","signal":null,"state":"live","status":null,"status_ms":null,"template":null,"title":"","turn":0}',
+  getFinished:
+    '{"address":"t2","argv":["sh"],"cols":200,"created_ms":1795349489426,"cwd":"/tmp/kore-rec-sIzhnv/work","die_with_parent":true,"exit_code":0,"finished_ms":1795349500230,"identity":"ghostty","keep":false,"labels":{"kore-session":"s1","model":"sonnet","role":"writer"},"name":"s1","notify":true,"parent":"t1","pid":4041572,"reason":"exited","reported":false,"rm":false,"rows":120,"screen":"exact","signal":null,"state":"finished","status":null,"status_ms":null,"template":null,"title":"","turn":0}',
+  getParentLive:
+    '{"address":"t1","argv":["sh"],"cols":200,"created_ms":1795349487626,"cwd":"/tmp/kore-rec-sIzhnv/work","die_with_parent":false,"exit_code":null,"finished_ms":null,"foreground":{"argv":["sh"],"cwd":"/tmp/kore-rec-sIzhnv/work","name":"sh","pid":4041430},"identity":"ghostty","keep":false,"labels":{},"name":"p","notify":true,"parent":null,"pid":4041430,"reason":null,"reported":false,"rm":false,"rows":120,"screen":"exact","signal":null,"state":"live","status":null,"status_ms":null,"template":null,"title":"","turn":0}',
+  getParentFinished:
+    '{"address":"t1","argv":["sh"],"cols":200,"created_ms":1795349487626,"cwd":"/tmp/kore-rec-sIzhnv/work","die_with_parent":false,"exit_code":null,"finished_ms":1795349616980,"identity":"ghostty","keep":false,"labels":{},"name":"p","notify":true,"parent":null,"pid":4041430,"reason":"killed","reported":false,"rm":false,"rows":120,"screen":"exact","signal":1,"state":"finished","status":null,"status_ms":null,"template":null,"title":"","turn":0}',
+  getLiveChild:
+    '{"address":"t5","argv":["sh"],"cols":200,"created_ms":1795349613431,"cwd":"/tmp/kore-rec-sIzhnv/work","die_with_parent":true,"exit_code":null,"finished_ms":null,"foreground":{"argv":["sh"],"cwd":"/tmp/kore-rec-sIzhnv/work","name":"sh","pid":4056432},"identity":"ghostty","keep":false,"labels":{},"name":"s4","notify":true,"parent":"t1","pid":4056432,"reason":null,"reported":false,"rm":false,"rows":120,"screen":"exact","signal":null,"state":"live","status":null,"status_ms":null,"template":null,"title":"","turn":0}',
+  getSibling:
+    '{"address":"t3","argv":["sh"],"cols":200,"created_ms":1795349490703,"cwd":"/tmp/kore-rec-sIzhnv/work","die_with_parent":true,"exit_code":2,"finished_ms":1795349503167,"identity":"ghostty","keep":false,"labels":{"kore-session":"s2","role":"writer"},"name":"s2","notify":true,"parent":"t1","pid":4041631,"reason":"exited","reported":false,"rm":false,"rows":120,"screen":"exact","signal":null,"state":"finished","status":null,"status_ms":null,"template":null,"title":"","turn":0}',
+  listLate:
+    '{"hidden_finished":0,"terminals":[{"address":"t1","agent":"sh","cwd":"/tmp/kore-rec-sIzhnv/work","name":"p","reason":"killed","signal":1,"state":"finished","turn":0},{"address":"t2","agent":"sh","cwd":"/tmp/kore-rec-sIzhnv/work","exit_code":0,"name":"s1","parent":"t1","reason":"exited","state":"finished","turn":0},{"address":"t3","agent":"sh","cwd":"/tmp/kore-rec-sIzhnv/work","exit_code":2,"name":"s2","parent":"t1","reason":"exited","state":"finished","turn":0},{"address":"t5","agent":"sh","cwd":"/tmp/kore-rec-sIzhnv/work","name":"s4","parent":"t1","reason":"killed","signal":1,"state":"finished","turn":0}]}',
+  getKilledChild:
+    '{"address":"t5","argv":["sh"],"cols":200,"created_ms":1795349613431,"cwd":"/tmp/kore-rec-sIzhnv/work","die_with_parent":true,"exit_code":null,"finished_ms":1795349616983,"identity":"ghostty","keep":false,"labels":{},"name":"s4","notify":true,"parent":"t1","pid":4056432,"reason":"killed","reported":false,"rm":false,"rows":120,"screen":"exact","signal":1,"state":"finished","status":null,"status_ms":null,"template":null,"title":"","turn":0}',
+  list: '{"hidden_finished":0,"terminals":[{"address":"t1","agent":"sh","cwd":"/tmp/kore-rec-sIzhnv/work","name":"p","state":"live","turn":0},{"address":"t2","agent":"sh","cwd":"/tmp/kore-rec-sIzhnv/work","name":"s1","parent":"t1","state":"live","turn":0},{"address":"t3","agent":"sh","cwd":"/tmp/kore-rec-sIzhnv/work","name":"s2","parent":"t1","state":"live","turn":0},{"address":"t4","agent":"sh","cwd":"/tmp/kore-rec-sIzhnv/work","name":"s3","parent":"t1","state":"live","turn":0}]}',
+  listLabel:
+    '{"hidden_finished":0,"terminals":[{"address":"t2","agent":"sh","cwd":"/tmp/kore-rec-sIzhnv/work","name":"s1","parent":"t1","state":"live","turn":0},{"address":"t3","agent":"sh","cwd":"/tmp/kore-rec-sIzhnv/work","name":"s2","parent":"t1","state":"live","turn":0}]}',
+  read: '{"complete":true,"how":"history","text":"$ printf \'%b\' \'one\\\\ntwo\\\\nthree\\\\n\'\\none\\ntwo\\nthree\\n$"}',
+  send: '{"started":null,"status":null,"turn":0}',
+  label:
+    '{"address":"t2","argv":["sh"],"cols":200,"created_ms":1795349489426,"cwd":"/tmp/kore-rec-sIzhnv/work","die_with_parent":true,"exit_code":null,"finished_ms":null,"foreground":{"argv":["sh"],"cwd":"/tmp/kore-rec-sIzhnv/work","name":"sh","pid":4041572},"identity":"ghostty","keep":false,"labels":{"kore-session":"s1","model":"sonnet","role":"writer"},"name":"s1","notify":true,"parent":"t1","pid":4041572,"reason":null,"reported":false,"rm":false,"rows":120,"screen":"exact","signal":null,"state":"live","status":null,"status_ms":null,"template":null,"title":"","turn":0}',
+  waitTimeout:
+    '{"children":[],"ended":false,"exit_code":null,"reason":"timeout","signal":null,"status":null,"terminal":"t2","turn":0}',
+  waitTerminal:
+    '{"children":[],"ended":true,"exit_code":0,"reason":"exit","signal":null,"status":null,"terminal":"t2","turn":0}',
+  waitChildrenAny:
+    '{"children":[{"children":[],"ended":true,"exit_code":2,"reason":"exit","signal":null,"status":null,"terminal":"t3","turn":0}],"ended":true,"exit_code":null,"reason":"children","signal":null,"status":null,"terminal":"t1","turn":0}',
+  waitChildrenAll:
+    '{"children":[{"children":[],"ended":false,"exit_code":null,"reason":"running","signal":null,"status":null,"terminal":"t4","turn":0}],"ended":false,"exit_code":null,"reason":"timeout","signal":null,"status":null,"terminal":"t1","turn":0}',
+  interrupt: '{"key":"ctrl+c","outcome":"unknown"}',
+  kill: '{"address":"t4","argv":["sh"],"cols":200,"created_ms":1795349491719,"cwd":"/tmp/kore-rec-sIzhnv/work","die_with_parent":true,"exit_code":null,"finished_ms":1795349518875,"identity":"ghostty","keep":false,"labels":{},"name":"s3","notify":true,"parent":"t1","pid":4041696,"reason":"killed","reported":false,"rm":false,"rows":120,"screen":"exact","signal":1,"state":"finished","status":null,"status_ms":null,"template":null,"title":"","turn":0}',
+  remove: '{"removed":"t4"}',
   errors: {
-    notFound: JSON.stringify({
-      error: {
-        kind: "not_found",
-        message: "no terminal t9",
-        hint: "list the terminals with hc ls --all",
-      },
-    }),
-    finished: JSON.stringify({
-      error: {
-        kind: "finished",
-        message: "t7 has finished",
-        hint: "start a new terminal instead",
-      },
-    }),
-    live: JSON.stringify({
-      error: {
-        kind: "live",
-        message: "t7 is still live",
-        hint: "end it first with hc kill t7",
-      },
-    }),
-    nameTaken: JSON.stringify({
-      error: {
-        kind: "name_taken",
-        message: "a live terminal is already named s1",
-        hint: "pick another name",
-      },
-    }),
-    statusMismatch: JSON.stringify({
-      error: {
-        kind: "status_mismatch",
-        message: "t7 is working, not idle",
-        hint: "wait until it is idle, then send",
-      },
-    }),
-    blocked: JSON.stringify({
-      error: {
-        kind: "blocked",
-        message: "t7 is blocked on a permission",
-        hint: "read it with hc read t7",
-      },
-    }),
+    notFound:
+      '{"error":{"hint":"see `hc ls --all`","kind":"not_found","message":"no terminal \\"nope\\""}}',
+    nameTaken:
+      '{"error":{"hint":"pick another name, or kill the one holding it","kind":"name_taken","message":"a live terminal is already named \\"s3\\""}}',
+    live: '{"error":{"hint":"kill it first: hc kill t4","kind":"live","message":"t4 is still running"}}',
+    finished:
+      '{"error":{"hint":"hc read t3","kind":"finished","message":"t3 has finished"}}',
+    needsTarget:
+      '{"error":{"hint":"run it inside a terminal, or name the parent","kind":"needs_target","message":"whose children?"}}',
   },
 };

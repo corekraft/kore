@@ -10,101 +10,94 @@ vi.mock("./port.js", () => ({
   })),
 }));
 
-const structured: [name: string, stderr: string, expected: unknown][] = [
+// hc 0.1.21 prints its structured error on stdout, with exit code 1, 3, 7 or 11.
+const printed: [
+  name: string,
+  stdout: string,
+  code: number,
+  expected: unknown,
+][] = [
   [
     "not_found",
     HC_0_1_21.errors.notFound,
+    3,
     {
       error: {
         kind: "not-found",
-        message: "no terminal t9",
-        hint: "list the terminals with hc ls --all",
-      },
-    },
-  ],
-  [
-    "status_mismatch",
-    HC_0_1_21.errors.statusMismatch,
-    {
-      error: {
-        kind: "status-mismatch",
-        message: "t7 is working, not idle",
-        hint: "wait until it is idle, then send",
-      },
-    },
-  ],
-  [
-    "live",
-    HC_0_1_21.errors.live,
-    {
-      error: {
-        kind: "still-live",
-        message: "t7 is still live",
-        hint: "end it first with hc kill t7",
-      },
-    },
-  ],
-  [
-    "finished",
-    HC_0_1_21.errors.finished,
-    {
-      error: {
-        kind: "not-live",
-        message: "t7 has finished",
-        hint: "start a new terminal instead",
+        message: 'no terminal "nope"',
+        hint: "see `hc ls --all`",
       },
     },
   ],
   [
     "name_taken",
     HC_0_1_21.errors.nameTaken,
+    1,
     {
       error: {
         kind: "name-taken",
-        message: "a live terminal is already named s1",
-        hint: "pick another name",
+        message: 'a live terminal is already named "s3"',
+        hint: "pick another name, or kill the one holding it",
       },
     },
   ],
   [
-    "invalid_params",
-    JSON.stringify({
-      error: {
-        kind: "invalid_params",
-        message: "bad flag",
-        hint: "see hc run --help",
-      },
-    }),
+    "live",
+    HC_0_1_21.errors.live,
+    1,
     {
       error: {
-        kind: "invalid-spec",
-        message: "bad flag",
-        hint: "see hc run --help",
+        kind: "still-live",
+        message: "t4 is still running",
+        hint: "kill it first: hc kill t4",
       },
     },
   ],
   [
-    "blocked, which the port does not name",
-    HC_0_1_21.errors.blocked,
+    "finished",
+    HC_0_1_21.errors.finished,
+    11,
+    {
+      error: {
+        kind: "not-live",
+        message: "t3 has finished",
+        hint: "hc read t3",
+      },
+    },
+  ],
+  [
+    "needs_target, which the port does not name",
+    HC_0_1_21.errors.needsTarget,
+    7,
     {
       error: {
         kind: "unavailable",
-        message: "t7 is blocked on a permission",
-        hint: "read it with hc read t7",
+        message: "whose children?",
+        hint: "run it inside a terminal, or name the parent",
       },
     },
   ],
 ];
 
 describe("hcFailure", () => {
-  it.each(structured)(
-    "maps hc's %s error to the port's kind, with hc's message and hint",
-    (_name, stderr, expected) => {
-      expect(hcFailure("get", failed(3, stderr))).toEqual(expected);
+  it.each(printed)(
+    "maps hc's %s error, printed on stdout, to the port's kind, with hc's message and hint",
+    (_name, stdout, code, expected) => {
+      expect(hcFailure("get", { stdout, stderr: "", code })).toEqual(expected);
     },
   );
 
-  it("names the command and exit code when stderr has no structured error, in hc's own words", () => {
+  it("still reads a structured error that hc printed on stderr", () => {
+    expect(hcFailure("get", failed(3, HC_0_1_21.errors.notFound))).toEqual({
+      error: {
+        kind: "not-found",
+        message: 'no terminal "nope"',
+        hint: "see `hc ls --all`",
+      },
+    });
+  });
+
+  it("names the command and exit code when no structured error is printed, in hc's own words", () => {
     expect(hcFailure("get", failed(2, "boom\n"))).toEqual({
       error: {
         kind: "unavailable",
@@ -113,8 +106,10 @@ describe("hcFailure", () => {
     });
   });
 
-  it("does not read JSON on stderr that has no error as a structured error", () => {
-    expect(hcFailure("get", failed(2, '{"ok":true}'))).toEqual({
+  it("does not read JSON that has no error as a structured error", () => {
+    expect(
+      hcFailure("get", { stdout: "", stderr: '{"ok":true}', code: 2 }),
+    ).toEqual({
       error: {
         kind: "unavailable",
         message: 'hc get exited with code 2: {"ok":true}',

@@ -13,11 +13,16 @@ import type {
 /** A backend under test, plus the two ways a test drives its programs. */
 export interface ContractSubject {
   terminals: Terminals;
-  /** Prints text to a terminal's output, as its program would. */
+  /** A directory that exists, for a terminal to start in. */
+  dir: string;
+  /** Prints text to a terminal's output, as its program would. The call returns once the text is there. */
   emit: (id: string, text: string) => void | Promise<void>;
-  /** Ends a terminal's program with an exit code, as the program exiting would. */
+  /** Ends a terminal's program with an exit code, as the program exiting would. The call returns once it has ended. */
   finish: (id: string, exitCode: number) => void | Promise<void>;
 }
+
+/** A shell is the one program every backend runs, so the contract starts one for every terminal. */
+const PROGRAM = ["sh"];
 
 type Make = () => ContractSubject | Promise<ContractSubject>;
 
@@ -45,12 +50,12 @@ function idsOf(terminals: readonly Terminal[]): string[] {
 
 function runsAndGets(make: Make): void {
   it("run starts a live terminal that get reports with its name, cwd and labels", async () => {
-    const { terminals } = await make();
+    const { terminals, dir } = await make();
     const { id } = ok(
       await terminals.run({
-        argv: ["worker"],
+        argv: PROGRAM,
         name: "alpha",
-        cwd: "/work/alpha",
+        cwd: dir,
         labels: { role: "writer" },
       }),
     );
@@ -58,7 +63,7 @@ function runsAndGets(make: Make): void {
       id,
       name: "alpha",
       state: "live",
-      cwd: "/work/alpha",
+      cwd: dir,
       labels: { role: "writer" },
     });
   });
@@ -69,35 +74,35 @@ function runsAndGets(make: Make): void {
   });
 
   it("run refuses a name a live terminal holds, and allows it once that terminal finished", async () => {
-    const { terminals, finish } = await make();
+    const { terminals, finish, dir } = await make();
     const first = ok(
-      await terminals.run({ argv: ["a"], name: "alpha", cwd: "/w" }),
+      await terminals.run({ argv: PROGRAM, name: "alpha", cwd: dir }),
     );
     expectKind(
-      await terminals.run({ argv: ["b"], name: "alpha", cwd: "/w" }),
+      await terminals.run({ argv: PROGRAM, name: "alpha", cwd: dir }),
       "name-taken",
     );
     await finish(first.id, 0);
     expect(
       "error" in
-        (await terminals.run({ argv: ["b"], name: "alpha", cwd: "/w" })),
+        (await terminals.run({ argv: PROGRAM, name: "alpha", cwd: dir })),
     ).toBe(false);
   });
 
   it("run with an unknown parent is not-found, and with a finished parent is not-live", async () => {
-    const { terminals, finish } = await make();
+    const { terminals, finish, dir } = await make();
     expectKind(
       await terminals.run({
-        argv: ["c"],
-        cwd: "/w",
+        argv: PROGRAM,
+        cwd: dir,
         parent: "no-such-terminal",
       }),
       "not-found",
     );
-    const parent = ok(await terminals.run({ argv: ["p"], cwd: "/w" }));
+    const parent = ok(await terminals.run({ argv: PROGRAM, cwd: dir }));
     await finish(parent.id, 0);
     expectKind(
-      await terminals.run({ argv: ["c"], cwd: "/w", parent: parent.id }),
+      await terminals.run({ argv: PROGRAM, cwd: dir, parent: parent.id }),
       "not-live",
     );
   });
@@ -105,42 +110,36 @@ function runsAndGets(make: Make): void {
 
 function waitsAndEnds(make: Make): void {
   it("wait with a 0 ms timeout is a timeout for a live terminal, and finished ones are returned at once", async () => {
-    const { terminals, finish } = await make();
-    const { id } = ok(await terminals.run({ argv: ["w"], cwd: "/w" }));
+    const { terminals, finish, dir } = await make();
+    const { id } = ok(await terminals.run({ argv: PROGRAM, cwd: dir }));
     expectKind(await terminals.wait({ terminal: id }, 0), "timeout");
     await finish(id, 3);
     expect(ok(await terminals.wait({ terminal: id }, 0))).toEqual({
-      finished: [{ id, state: "finished", exitCode: 3, labels: {}, cwd: "/w" }],
+      finished: [{ id, state: "finished", exitCode: 3, labels: {}, cwd: dir }],
     });
   });
 
   it("a pending wait resolves with the terminal when it finishes", async () => {
-    const { terminals, finish } = await make();
-    const { id } = ok(await terminals.run({ argv: ["w"], cwd: "/w" }));
+    const { terminals, finish, dir } = await make();
+    const { id } = ok(await terminals.run({ argv: PROGRAM, cwd: dir }));
     const waiting = terminals.wait({ terminal: id }, 60_000);
     await finish(id, 0);
     expect(ok(await waiting)).toEqual({
-      finished: [{ id, state: "finished", exitCode: 0, labels: {}, cwd: "/w" }],
+      finished: [{ id, state: "finished", exitCode: 0, labels: {}, cwd: dir }],
     });
   });
 
-  it("read returns the last lines printed so far, and says when that is all of them", async () => {
-    const { terminals, emit } = await make();
-    const { id } = ok(await terminals.run({ argv: ["r"], cwd: "/w" }));
+  it("read returns the output printed so far, with at least the last lines asked for", async () => {
+    const { terminals, emit, dir } = await make();
+    const { id } = ok(await terminals.run({ argv: PROGRAM, cwd: dir }));
     await emit(id, "one\ntwo\nthree\n");
-    expect(ok(await terminals.read(id, 2))).toEqual({
-      text: "two\nthree",
-      complete: false,
-    });
-    expect(ok(await terminals.read(id, 5))).toEqual({
-      text: "one\ntwo\nthree",
-      complete: true,
-    });
+    expect(ok(await terminals.read(id, 2)).text).toContain("two\nthree");
+    expect(ok(await terminals.read(id, 5)).text).toContain("one\ntwo\nthree");
   });
 
   it("kill ends a live terminal, and remove deletes only a finished one", async () => {
-    const { terminals } = await make();
-    const { id } = ok(await terminals.run({ argv: ["k"], cwd: "/w" }));
+    const { terminals, dir } = await make();
+    const { id } = ok(await terminals.run({ argv: PROGRAM, cwd: dir }));
     expectKind(await terminals.remove(id), "still-live");
     ok(await terminals.kill(id));
     expect(ok(await terminals.get(id))).toMatchObject({
@@ -154,15 +153,15 @@ function waitsAndEnds(make: Make): void {
 
 function parentsAndLabels(make: Make): void {
   it("a child ends with its parent unless it outlives it, and list finds children by parent", async () => {
-    const { terminals, finish } = await make();
-    const parent = ok(await terminals.run({ argv: ["lead"], cwd: "/w" })).id;
+    const { terminals, finish, dir } = await make();
+    const parent = ok(await terminals.run({ argv: PROGRAM, cwd: dir })).id;
     const child = ok(
-      await terminals.run({ argv: ["helper"], cwd: "/w", parent }),
+      await terminals.run({ argv: PROGRAM, cwd: dir, parent }),
     ).id;
     const orphan = ok(
       await terminals.run({
-        argv: ["keep"],
-        cwd: "/w",
+        argv: PROGRAM,
+        cwd: dir,
         parent,
         outliveParent: true,
       }),
@@ -177,16 +176,13 @@ function parentsAndLabels(make: Make): void {
   });
 
   it("wait on children resolves for any one finished child, or for all of them", async () => {
-    const { terminals, finish } = await make();
-    const parent = ok(await terminals.run({ argv: ["lead"], cwd: "/w" })).id;
-    const a = ok(await terminals.run({ argv: ["a"], cwd: "/w", parent })).id;
-    const b = ok(await terminals.run({ argv: ["b"], cwd: "/w", parent })).id;
+    const { terminals, finish, dir } = await make();
+    const parent = ok(await terminals.run({ argv: PROGRAM, cwd: dir })).id;
+    const a = ok(await terminals.run({ argv: PROGRAM, cwd: dir, parent })).id;
+    const b = ok(await terminals.run({ argv: PROGRAM, cwd: dir, parent })).id;
+    const news = terminals.wait({ children: "any", of: parent }, 60_000);
     await finish(a, 0);
-    expect(
-      idsOf(
-        ok(await terminals.wait({ children: "any", of: parent }, 0)).finished,
-      ),
-    ).toEqual([a]);
+    expect(idsOf(ok(await news).finished)).toEqual([a]);
     expectKind(
       await terminals.wait({ children: "all", of: parent }, 0),
       "timeout",
@@ -202,18 +198,18 @@ function parentsAndLabels(make: Make): void {
 
 function labelsAndFilters(make: Make): void {
   it("list filters by labels, and label merges new labels into the ones a terminal has", async () => {
-    const { terminals } = await make();
+    const { terminals, dir } = await make();
     const writer = ok(
       await terminals.run({
-        argv: ["w"],
-        cwd: "/w",
+        argv: PROGRAM,
+        cwd: dir,
         labels: { role: "writer", group: "pair" },
       }),
     ).id;
     const reviewer = ok(
       await terminals.run({
-        argv: ["r"],
-        cwd: "/w",
+        argv: PROGRAM,
+        cwd: dir,
         labels: { role: "reviewer", group: "pair" },
       }),
     ).id;
