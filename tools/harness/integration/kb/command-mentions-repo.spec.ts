@@ -12,6 +12,13 @@ import { cleanGitEnv } from "../../src/testing/index.js";
 
 const repo = resolve(dirname(fileURLToPath(import.meta.url)), "../../../..");
 
+/** The files the check reads: Markdown, and the string literals of harness source (its specs excluded). */
+const isChecked = (path: string) =>
+  path.endsWith(".md") ||
+  (path.startsWith("tools/harness/src/") &&
+    path.endsWith(".ts") &&
+    !path.endsWith(".spec.ts"));
+
 it("the repository's current documents name only harness commands and flags that exist", () => {
   const listed = spawnSync(
     "git",
@@ -22,7 +29,7 @@ it("the repository's current documents name only harness commands and flags that
   const problems = findings({
     files: () => files,
     read: (path) =>
-      path.endsWith(".md") ? readFileSync(resolve(repo, path), "utf8") : null,
+      isChecked(path) ? readFileSync(resolve(repo, path), "utf8") : null,
     commands: () => domains,
   })
     .map(format)
