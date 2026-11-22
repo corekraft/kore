@@ -71,8 +71,7 @@ function announce(result: DigestResult): string {
 }
 
 const digest: Command = {
-  summary:
-    "post the owner digest at most once a day to the one issue pinned on the repository: the open reserved questions, blocking first, and whether the tick is not running; posts nothing when no question is open and the tick runs; refused with nothing posted while the decision-advisor flag is off in the local overlay, or when no issue or several are pinned ([--json: posted, commentUrl, open, blocking, tickGap, or posted false with reason and nextAt] [--ledger])",
+  summary: "post the owner digest to the pinned issue, at most once a day",
   options: {
     ledger: "string",
   },

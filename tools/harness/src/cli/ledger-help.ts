@@ -132,7 +132,7 @@ export const listHelp: CommandHelp = {
 export const pollHerdrHelp: CommandHelp = {
   purpose:
     "Reads herdr's agent panes once and appends to the ledger only what changed since the last poll: pane.spawned, pane.busy, pane.waiting and pane.closed, and pane.stalled for a spawned pane that is idle or gone past 300 seconds with no result. pane.closed means the pane no longer hosts an agent.",
-  when: "When the panes' state should be in the ledger now, before status or a flow report, or from a wait loop. A session start already runs it in the background.",
+  when: "When the panes' state should be in the ledger now, before status or a flow report, or from a wait loop. A session start already runs it in the background, and the poll is safe to repeat from a wait loop.",
   whenNot:
     "When you want to act on a pane: this command only reads herdr, and never closes, restarts or messages a pane. To read one session's result, use session wait.",
   flags: {
@@ -168,7 +168,7 @@ export const pollHerdrHelp: CommandHelp = {
 
 export const pollGithubHelp: CommandHelp = {
   purpose:
-    "Reads GitHub through gh and appends what it finds: issue.opened, issue.labelled, pr.opened and pr.merged from the issues and pull requests; then the outcome signals agents cannot write: ci.main and ci.nightly from workflow runs, main.revert from commits on main, and advisor.overturned, owner.action and owner.replied from the owner login's comments, events and reviews. It records numbers, labels, conclusions and GitHub times only, never titles, bodies, messages or logins.",
+    "Reads GitHub through gh and appends what it finds: issue.opened, issue.labelled, pr.opened and pr.merged from the issues and pull requests; then the outcome signals agents cannot write: ci.main and ci.nightly from workflow runs, main.revert from commits on main, and advisor.overturned, owner.action and owner.replied from the owner login's comments, events and reviews. It records numbers, labels, conclusions and GitHub times only, never titles, bodies, messages or logins. A run counts by its first attempt, so a failure later re-run to success still shows.",
   when: "When the ledger needs GitHub's records, such as a merged pull request for evaluate or an owner's reply to a reserved question. A session start already runs it in the background.",
   whenNot:
     "When you need one pull request's checks: use pr checks. This command only reads GitHub: it never comments, labels or merges.",

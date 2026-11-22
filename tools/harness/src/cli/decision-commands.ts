@@ -131,8 +131,7 @@ const makeHelp: CommandHelp = {
 };
 
 const make: Command = {
-  summary:
-    "post an advisor's decision on the issue under the sender line and record decision.made with the idea (or, for a plain ticket, the issue number) and the category (never the question or the reasoning); give exactly one of --idea (an idea's number or slug) and --issue (a plain ticket's issue number); refused with nothing posted while the decision-advisor flag is off in the local overlay, when the question matches the reserved list of ADR 0120, or when the category is a reserved one (--idea <number or slug> | --issue <number> --category <name> --question <text> --decision <text> [--json: idea, category, issue, commentUrl])",
+  summary: "post an advisor's decision on an issue and record it",
   options: {
     idea: "string",
     issue: "string",
