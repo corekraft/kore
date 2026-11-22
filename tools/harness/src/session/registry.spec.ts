@@ -353,15 +353,3 @@ describe("SessionRegistry.read refuses a record whose fields are the wrong type"
     );
   });
 });
-
-it("lists each readable record, skipping one it cannot read, and none before the directory exists", async () => {
-  const deps = fakeDeps();
-  vi.mocked(deps.fs.exists).mockResolvedValueOnce(false);
-  expect(await (await openWith(deps)).all()).toEqual([]);
-  vi.mocked(deps.fs.exists).mockResolvedValue(true);
-  vi.mocked(deps.fs.readdir).mockResolvedValue(["a.json", "b.json", "c.txt"]);
-  vi.mocked(deps.fs.readFile).mockImplementation(async (path) =>
-    path.endsWith("a.json") ? "not json" : JSON.stringify(RECORD),
-  );
-  expect(await (await openWith(deps)).all()).toEqual([RECORD]);
-});

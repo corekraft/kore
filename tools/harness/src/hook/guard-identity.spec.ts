@@ -1,18 +1,22 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { CommandError, type CliDeps } from "../runtime/index.js";
 import {
-  recordOfTerminal,
+  recordsOfTerminal,
   SessionRegistry,
   type SessionRecord,
 } from "../session/index.js";
 import type { Terminal, TerminalError, Terminals } from "../terminal/index.js";
-import { hcTerminalId, sessionIdentity } from "./guard-identity.js";
+import {
+  hcTerminalId,
+  sessionIdentity,
+  sessionNotice,
+} from "./guard-identity.js";
 
 const openRegistry = vi.hoisted(() => vi.fn());
 
 vi.mock("../session/index.js", () => ({
   SessionRegistry: { open: openRegistry },
-  recordOfTerminal: vi.fn(),
+  recordsOfTerminal: vi.fn(),
 }));
 
 /** The one assertion: the unit reads only the env, and the runner it hands its terminals. */
@@ -43,6 +47,12 @@ const NO_IDEA: SessionRecord = {
   effort: "high",
   createdAt: "2026-01-02T03:04:05.000Z",
 };
+const UNREADABLE = {
+  file: "/main/.kore/state/sessions/hc-writer.json",
+  reason:
+    "is not a valid session record; delete it and spawn the session again.",
+  terminal: "t7",
+};
 const named = (name: string): Terminal => ({
   id: "t7",
   name,
@@ -66,7 +76,10 @@ const hcDeps = (env: Record<string, string> = { HC_TERMINAL_ID: "t7" }) =>
 beforeEach(() => {
   vi.resetAllMocks();
   vi.mocked(openRegistry).mockResolvedValue(asRegistry({}));
-  vi.mocked(recordOfTerminal).mockResolvedValue(RECORD);
+  vi.mocked(recordsOfTerminal).mockResolvedValue({
+    record: RECORD,
+    unreadable: [],
+  });
   get.mockResolvedValue(named("hc-writer"));
 });
 
@@ -100,7 +113,7 @@ describe("sessionIdentity in an hc terminal", () => {
       idea: "#1776",
       checked: true,
     });
-    expect(recordOfTerminal).toHaveBeenCalledWith(expect.anything(), "t7");
+    expect(recordsOfTerminal).toHaveBeenCalledWith(expect.anything(), "t7");
     expect(get).toHaveBeenCalledWith("t7");
   });
 
@@ -116,7 +129,10 @@ describe("sessionIdentity in an hc terminal", () => {
   });
 
   it("omits the idea when the record names none", async () => {
-    vi.mocked(recordOfTerminal).mockResolvedValue(NO_IDEA);
+    vi.mocked(recordsOfTerminal).mockResolvedValue({
+      record: NO_IDEA,
+      unreadable: [],
+    });
 
     expect(await sessionIdentity(hcDeps(), terminals())).toStrictEqual({
       name: "hc-writer",
@@ -138,7 +154,10 @@ describe("sessionIdentity in an hc terminal", () => {
   });
 
   it("names no identity, and asks hc nothing, when no record names the terminal", async () => {
-    vi.mocked(recordOfTerminal).mockResolvedValue(undefined);
+    vi.mocked(recordsOfTerminal).mockResolvedValue({
+      record: undefined,
+      unreadable: [],
+    });
 
     expect(await sessionIdentity(hcDeps(), terminals())).toBeUndefined();
     expect(get).not.toHaveBeenCalled();
@@ -169,5 +188,39 @@ describe("sessionIdentity in an hc terminal", () => {
 
     expect(openRegistry).toHaveBeenCalledTimes(1);
     expect(get).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("sessionNotice: the terminal's own record cannot be read", () => {
+  it("names the unreadable file and the fix, and no identity, when it is the terminal's own record", async () => {
+    vi.mocked(recordsOfTerminal).mockResolvedValue({
+      record: undefined,
+      unreadable: [UNREADABLE],
+    });
+
+    expect(await sessionIdentity(hcDeps(), terminals())).toBeUndefined();
+    expect(await sessionNotice(hcDeps(), terminals())).toBe(
+      "[guard] The session record /main/.kore/state/sessions/hc-writer.json for hc terminal t7 cannot be read (is not a valid session record; delete it and spawn the session again.), so the guard keeps the role from the call's payload. Fix it: remove that file, or spawn the session again with `harness session spawn`.",
+    );
+    expect(get).not.toHaveBeenCalled();
+  });
+
+  it("names no notice when no unreadable file names the terminal", async () => {
+    vi.mocked(recordsOfTerminal).mockResolvedValue({
+      record: undefined,
+      unreadable: [],
+    });
+
+    expect(await sessionNotice(hcDeps(), terminals())).toBeUndefined();
+  });
+
+  it("names no notice when the terminal's record reads", async () => {
+    expect(await sessionNotice(hcDeps(), terminals())).toBeUndefined();
+  });
+
+  it("names no notice outside an hc terminal", async () => {
+    expect(
+      await sessionNotice(asCliDeps({ env: {} }), terminals()),
+    ).toBeUndefined();
   });
 });

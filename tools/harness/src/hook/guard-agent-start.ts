@@ -18,9 +18,15 @@ const namesClaude = (word: string): boolean =>
 const claudeArgument = (arg: string): boolean =>
   arg.split(/[\s;&|()<>"'`]+/).some(namesClaude);
 
+/** The verb `run` among hc's words before the `--` that ends its options, wherever it stands (`hc --json run`). */
+const hcRunVerb = (args: string[]): boolean => {
+  const end = args.indexOf("--");
+  return (end === -1 ? args : args.slice(0, end)).includes("run");
+};
+
 export function checkAgentStart(name: string, args: string[]): Finding {
   if (name === "hc") {
-    return args[0] === "run" && args.some(claudeArgument)
+    return hcRunVerb(args) && args.some(claudeArgument)
       ? block("bare-agent-start-hc", HC_MESSAGE)
       : null;
   }

@@ -15,8 +15,13 @@ export { signedMainSendsOn } from "./signed-sends.js";
 export { sessionNameError } from "./names.js";
 export { spawnLoadRefusal } from "./spawn-load.js";
 export { PASSED_FLAGS, namesFlag } from "./exec.js";
-export { SessionRegistry, type SessionRecord } from "./registry.js";
-export { recordOfTerminal } from "./terminal-record.js";
+export {
+  SessionRegistry,
+  type SessionRecord,
+  type SessionRecords,
+  type UnreadableRecord,
+} from "./registry.js";
+export { recordsOfTerminal, type TerminalRecords } from "./terminal-record.js";
 import { check, checkHelp } from "./check.js";
 import { close, closeHelp } from "./close.js";
 import { execCommand } from "./exec.js";

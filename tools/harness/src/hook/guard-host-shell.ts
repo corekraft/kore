@@ -11,7 +11,7 @@
 import { homedir } from "node:os";
 import { localFlagOn } from "./guard-local-flag.js";
 import type { CliDeps, FileSystem } from "../runtime/index.js";
-import { sessionIdentity } from "./guard-identity.js";
+import { sessionIdentity, sessionNotice } from "./guard-identity.js";
 
 // The help exemption (#973) is read from the same local overlay, so the guard's flag reads sit in one place.
 export { helpExemptOn } from "./guard-help.js";
@@ -51,4 +51,10 @@ export async function terminalRoleFacts(
 ): Promise<{ role?: string }> {
   const identity = await sessionIdentity(deps);
   return identity === undefined ? {} : { role: identity.role };
+}
+
+/** The notice for the hc terminal this hook runs in when its own session record cannot be read: a leading newline, then the notice; empty when there is none. */
+export async function terminalNotice(deps: CliDeps): Promise<string> {
+  const notice = await sessionNotice(deps);
+  return notice === undefined ? "" : `\n${notice}`;
 }

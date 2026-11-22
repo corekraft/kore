@@ -4,9 +4,10 @@ import { homedir } from "node:os";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { environments, FlagError, readOverlay } from "../flag/index.js";
 import type { CliDeps, FileSystem } from "../runtime/index.js";
-import { sessionIdentity } from "./guard-identity.js";
+import { sessionIdentity, sessionNotice } from "./guard-identity.js";
 import {
   hostFacts,
+  terminalNotice,
   terminalRoleFacts,
   verifiedBash,
 } from "./guard-host-shell.js";
@@ -160,5 +161,25 @@ describe("terminalRoleFacts: the role of the hc terminal this hook runs in", () 
     vi.mocked(sessionIdentity).mockResolvedValue(undefined);
 
     expect(await terminalRoleFacts(deps({ env: {} }))).toStrictEqual({});
+  });
+});
+
+describe("terminalNotice: the notice when the terminal's own record cannot be read", () => {
+  const deps = (parts: object) => parts as CliDeps;
+
+  it("names the notice on its own line", async () => {
+    vi.mocked(sessionNotice).mockResolvedValue(
+      "[guard] The session record a.json cannot be read",
+    );
+
+    expect(await terminalNotice(deps({ env: {} }))).toBe(
+      "\n[guard] The session record a.json cannot be read",
+    );
+  });
+
+  it("names no notice when there is none", async () => {
+    vi.mocked(sessionNotice).mockResolvedValue(undefined);
+
+    expect(await terminalNotice(deps({ env: {} }))).toBe("");
   });
 });

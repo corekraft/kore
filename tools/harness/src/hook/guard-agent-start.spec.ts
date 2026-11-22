@@ -164,6 +164,13 @@ describe("checkAgentStart: the argument forms of an hc launch", () => {
     },
   );
 
+  it("finds the run verb after hc's own leading flags, as in hc --json run", () => {
+    expect(
+      checkAgentStart("hc", ["--json", "run", "--bg", "--", "claude"]),
+    ).toBe(BLOCKED);
+    expect(block).toHaveBeenCalledWith("bare-agent-start-hc", HC_BLOCKED);
+  });
+
   it("lets an hc run name a word that only contains claude", () => {
     expect(
       checkAgentStart("hc", [
