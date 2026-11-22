@@ -110,8 +110,10 @@ export async function startSession(
   });
   if ("error" in started) {
     const message = hcMessage(started);
+    // It never got a terminal, so it keeps the starting mark: a record with neither terminal nor mark is unreadable.
     await registry.write({
       ...base,
+      starting: true,
       closedAt: createdAt,
       result: {
         outcome: "blocked",

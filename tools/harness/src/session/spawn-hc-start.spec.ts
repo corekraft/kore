@@ -7,6 +7,7 @@ import {
   type FakeDeps,
 } from "./deps-support.js";
 import { hcMessage } from "./backend.js";
+import { SessionRegistry } from "./registry.js";
 import type { Admitted } from "./spawn-hc-admit.js";
 import { briefOperand } from "./spawn-hc-brief.js";
 import { startSession } from "./spawn-hc-start.js";
@@ -238,6 +239,7 @@ describe("startSession closes a session hc does not start", () => {
       role: "reader",
       effort: "high",
       createdAt: CREATED_AT,
+      starting: true,
       closedAt: CREATED_AT,
       result: {
         outcome: "blocked",
@@ -248,5 +250,78 @@ describe("startSession closes a session hc does not start", () => {
     });
     expect(recordLaunch).not.toHaveBeenCalled();
     expect(hcMessage).toHaveBeenCalled();
+  });
+});
+
+/** Keeps the files of a fake file system in memory, so a record one call writes is read back by the next. */
+function memoryFs(target: FakeDeps): void {
+  const files = new Map<string, string>();
+  const under = (dir: string) => (path: string) => path.startsWith(`${dir}/`);
+  target.fs.exists.mockImplementation(
+    async (path) => files.has(path) || [...files.keys()].some(under(path)),
+  );
+  target.fs.readFile.mockImplementation(async (path) => {
+    const text = files.get(path);
+    if (text === undefined) {
+      throw new Error(`ENOENT ${path}`);
+    }
+    return text;
+  });
+  target.fs.writeFile.mockImplementation(async (path, content) => {
+    files.set(path, content);
+  });
+  target.fs.createFile.mockImplementation(async (path, content) => {
+    if (files.has(path)) {
+      throw Object.assign(new Error(`EEXIST ${path}`), { code: "EEXIST" });
+    }
+    files.set(path, content);
+  });
+  target.fs.readdir.mockImplementation(async (dir) =>
+    [...files.keys()]
+      .filter(
+        (path) => under(dir)(path) && !path.slice(dir.length + 1).includes("/"),
+      )
+      .map((path) => path.slice(dir.length + 1)),
+  );
+}
+
+describe("a refused start leaves a record a later read accepts, and its name free", () => {
+  it("reads the closed blocked record back through a real registry, and frees the name", async () => {
+    memoryFs(deps);
+    deps.env = { KORE_ROOT: "/main" };
+    const real = await SessionRegistry.open(deps);
+    await terminals.run({
+      argv: ["bash"],
+      cwd: "/w",
+      name: "image-trust-reader",
+    });
+
+    await startSession(deps, {
+      ...admitted,
+      reserved: { ...admitted.reserved, registry: real },
+    });
+
+    const reopened = await SessionRegistry.open(deps);
+    await expect(reopened.read("image-trust-reader")).resolves.toEqual({
+      version: 1,
+      backend: "hc",
+      name: "image-trust-reader",
+      paneId: "",
+      model: "claude-sonnet-5-5",
+      role: "reader",
+      effort: "high",
+      createdAt: CREATED_AT,
+      starting: true,
+      closedAt: CREATED_AT,
+      result: {
+        outcome: "blocked",
+        at: CREATED_AT,
+        summary:
+          "hc did not start the session: hc: a live terminal is already named image-trust-reader",
+      },
+    });
+    await expect(
+      reopened.unavailable("image-trust-reader"),
+    ).resolves.toBeUndefined();
   });
 });
