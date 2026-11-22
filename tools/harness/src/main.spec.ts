@@ -12,6 +12,7 @@ const runtime = vi.hoisted(() => {
     fs: { tag: "fs" },
     ids: { tag: "ids" },
     hostLoad: { tag: "hostLoad" },
+    links: { tag: "links" },
   };
 });
 
@@ -19,6 +20,7 @@ vi.mock("./cli/index.js", () => ({ run: vi.fn() }));
 vi.mock("./runtime/index.js", () => ({
   ProcessRunner: runtime.ProcessRunnerDouble,
   nodeFileSystem: runtime.fs,
+  nodeLinks: runtime.links,
   readStdin: vi.fn(),
   resolveRoot: vi.fn(),
   systemClock: runtime.clock,
@@ -68,6 +70,7 @@ test("the entry point wires the real runtime adapters, the environment and the w
       fs: runtime.fs,
       ids: runtime.ids,
       hostLoad: runtime.hostLoad,
+      links: runtime.links,
       bundleUrl: expect.stringMatching(/\/main\.ts$/),
       env: process.env,
       cwd: process.cwd(),

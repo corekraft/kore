@@ -1,3 +1,4 @@
+import { tickHelp } from "./orchestrate-tick-help.js";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
   HarnessCli,
@@ -140,7 +141,10 @@ describe("orchestrate run with the orchestrator-tick flag", () => {
   });
 
   it("registers the tick command beside run", () => {
-    expect(orchestrateCommands["tick"]).toBe(tickCommand);
+    expect(orchestrateCommands["tick"]).toEqual({
+      ...tickCommand,
+      help: tickHelp,
+    });
   });
 
   it("registers the plan command beside tick, so the tick's judgment flow can persist a work plan", () => {
@@ -166,28 +170,28 @@ describe("orchestrate run between pieces of work", () => {
   });
 });
 
-describe("orchestrate run usage text", () => {
-  const summary = orchestrateCommands["run"]?.summary ?? "";
+describe("orchestrate run help text", () => {
+  const detail = orchestrateCommands["run"]?.help?.effects.detail ?? "";
 
   it("says the retro pane runs on Sonnet and its proposals are filed through a checked, capped, idempotent path", () => {
-    expect(summary).toContain("starts a retro pane on Sonnet at high effort");
-    expect(summary).toContain("files nothing when one item is malformed");
-    expect(summary).toContain("files at most 5");
-    expect(summary).toContain("trigger id plus a content hash");
-    expect(summary).not.toContain("Opus");
+    expect(detail).toContain("starts a retro pane on Sonnet at high effort");
+    expect(detail).toContain("files nothing when one item is malformed");
+    expect(detail).toContain("files at most 5");
+    expect(detail).toContain("trigger id plus a content hash");
+    expect(detail).not.toContain("Opus");
   });
 
   it("says a failing precheck is sent back to the writer before any judge pane", () => {
-    expect(summary).toContain(
-      "runs `judge precheck` before it launches any judge pane",
+    expect(detail).toContain(
+      "runs judge precheck before it launches any judge pane",
     );
-    expect(summary).toContain(
-      "sends a failing change back to its writer with the precheck's reason and category through `judge send-back`",
+    expect(detail).toContain(
+      "sends the change back to its writer through judge send-back with the precheck's reason and category",
     );
-    expect(summary).toContain("launching no judge pane");
+    expect(detail).toContain("launching no judge pane");
   });
 
   it("says a send-back counts once per PR head toward the writer's escalation", () => {
-    expect(summary).toContain("counted once per PR head");
+    expect(detail).toContain("counted once per PR head");
   });
 });

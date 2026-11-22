@@ -1,5 +1,5 @@
 import { authorCheck, JudgeError, type AuthorCheck } from "../judge/index.js";
-import type { Command, CommandContext } from "../runtime/index.js";
+import type { Command, CommandContext, CommandHelp } from "../runtime/index.js";
 import {
   checkedPrecheck,
   FAILED,
@@ -94,9 +94,50 @@ export async function prCheckRun(context: CommandContext): Promise<number> {
   }
 }
 
+const checkHelp: CommandHelp = {
+  purpose:
+    "Checks a pull request the way its writer must act on the judge's precheck: prints the failures the writer owns to fix and the pending items the judge waits on, and records one pr.checked event.",
+  when: "After a push to a PR you opened, once its checks have run, to see which failures are yours to fix.",
+  whenNot:
+    "When you only need the CI state: use pr checks. This check never sends a change back.",
+  flags: {},
+  operand: "The pull request number, such as 746.",
+  examples: [
+    {
+      command: "harness pr check 746",
+      shows:
+        "either that the PR is ready for the judge, that nothing is for the writer while CI or review is pending, or the failures to fix with their categories",
+    },
+    {
+      command: "harness pr check 746 --json",
+      shows:
+        "the same result as one object, with the failures and the pending items",
+    },
+  ],
+  exits: [
+    {
+      code: 0,
+      meaning:
+        "no failure the writer owns remains; pending CI or review is listed, not failed",
+    },
+    {
+      code: 1,
+      meaning:
+        "a failure the writer owns remains, or the check could not run: no PR number, a gh read failed, or the ledger event was rejected",
+    },
+  ],
+  effects: {
+    kind: "mutates",
+    detail:
+      "appends one pr.checked event to the shared ledger naming the failure categories, or none; it never records a send-back and changes nothing on the PR",
+  },
+  seeAlso: ["pr checks", "pr open", "judge precheck"],
+};
+
 export const prCheckCommand: Command = {
   summary:
-    "mutates; checks a pull request the way its writer must act on the judge's precheck: prints the failures the writer owns to fix (each with its category and detail) and the pending items the judge waits on (CI still running, a review not yet posted), exits 0 when no failure the writer owns remains and 1 when one does, and appends one pr.checked event at the shared ledger naming the failure categories (never a send-back); --json prints the result as one object (<pr> [--json])",
+    "Shows the failures a pull request's writer must fix, and what the judge still waits on.",
   operand: "pr",
+  help: checkHelp,
   run: prCheckRun,
 };

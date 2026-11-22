@@ -7,6 +7,7 @@ import * as errors from "./errors.js";
 import * as filesystem from "./filesystem.js";
 import * as hostRoot from "./host-root.js";
 import * as hostLoad from "./host-load.js";
+import * as links from "./links.js";
 import * as ids from "./ids.js";
 import * as mainRoot from "./main-root.js";
 import * as root from "./root.js";
@@ -16,6 +17,7 @@ import * as stdin from "./stdin.js";
 vi.mock("./clock.js");
 vi.mock("./errors.js");
 vi.mock("./filesystem.js");
+vi.mock("./links.js");
 vi.mock("./host-root.js");
 vi.mock("./host-load.js");
 vi.mock("./ids.js");
@@ -33,6 +35,7 @@ it("exposes exactly the runtime entry points", () => {
     "localDate",
     "mainRoot",
     "nodeFileSystem",
+    "nodeLinks",
     "readPower",
     "readStdin",
     "resolveRoot",
@@ -49,6 +52,7 @@ it("re-exports each entry point from the unit that defines it, unchanged", () =>
   expect(runtime.systemHostLoad).toBe(hostLoad.systemHostLoad);
   expect(runtime.systemIds).toBe(ids.systemIds);
   expect(runtime.nodeFileSystem).toBe(filesystem.nodeFileSystem);
+  expect(runtime.nodeLinks).toBe(links.nodeLinks);
   expect(runtime.ProcessRunner).toBe(runner.ProcessRunner);
   expect(runtime.hostLocksDirectory).toBe(hostRoot.hostLocksDirectory);
   expect(runtime.mainRoot).toBe(mainRoot.mainRoot);

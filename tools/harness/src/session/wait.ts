@@ -1,3 +1,4 @@
+// oxlint-disable import/max-dependencies -- wait settles a session by its pane (herdr) or its report (hc), so it imports both paths
 import type { CliDeps, CommandContext, CommandHelp } from "../runtime/index.js";
 import { plain } from "./ansi.js";
 import { describeFailure } from "./equalize.js";
@@ -5,7 +6,10 @@ import { recordFinish } from "./finish-record.js";
 import { sessionNameError } from "./names.js";
 import { FAILED, USAGE_ERROR, fail } from "./output.js";
 import { PROMPT } from "./prompt.js";
+import { routeSession, terminalsFor } from "./backend.js";
+import type { Terminals } from "../terminal/index.js";
 import { SessionRegistry, type SessionRecord } from "./registry.js";
+import { formatReportWait, waitForReport } from "./wait-hc.js";
 
 export const DEFAULT_TIMEOUT_MS = 60 * 60 * 1000;
 const POLL_MS = 2000;
@@ -152,6 +156,31 @@ export function formatWait(result: Omit<WaitResult, "result">): string {
   return `${result.name} (${result.model}) finished: RESULT ${result.outcome}; summary in ${result.summary}.\n`;
 }
 
+/** Settles an hc session by its report, and prints the outcome it settles on. */
+async function settleOnReport(
+  context: CommandContext,
+  terminals: Terminals,
+  registry: SessionRegistry,
+  record: SessionRecord,
+  timeout: number,
+): Promise<number> {
+  const { json, deps } = context;
+  const reported = await waitForReport(
+    deps,
+    terminals,
+    registry,
+    record,
+    timeout,
+  );
+  if ("error" in reported) {
+    return fail(deps, json, FAILED, reported.error);
+  }
+  deps.stdout(
+    json ? `${JSON.stringify(reported)}\n` : formatReportWait(reported),
+  );
+  return 0;
+}
+
 /** `session wait <name>`: wait for a spawned session's anchored result marker. */
 export async function wait(context: CommandContext): Promise<number> {
   const { json, deps, options } = context;
@@ -182,6 +211,13 @@ export async function wait(context: CommandContext): Promise<number> {
       `No session named ${name} was spawned by this tool; start it with \`session spawn\`.`,
     );
   }
+  const routed = routeSession(record, terminalsFor(deps));
+  if ("error" in routed) {
+    return fail(deps, json, FAILED, routed.error);
+  }
+  if (routed.backend === "hc") {
+    return settleOnReport(context, routed.terminals, registry, record, timeout);
+  }
   const result = await waitForResult(deps, registry, record, timeout);
   if ("error" in result) {
     return fail(deps, json, FAILED, result.error);
@@ -192,13 +228,13 @@ export async function wait(context: CommandContext): Promise<number> {
 
 export const waitHelp: CommandHelp = {
   purpose:
-    "Waits for one spawned session's RESULT line in its own pane, then prints its outcome, done or blocked, with its name, model and where the summary is. With --json it adds the summary text the pane printed before that line.",
+    "Waits for one spawned session to settle, then prints its outcome, done or blocked, with its name and model. A herdr session settles on its RESULT line in its own pane, and --json adds the summary text the pane printed before that line. An hc session settles on its report file instead: done or blocked as the report says, or blocked, stopped without a report, when its terminal stops with none; --json then prints {name, model, outcome, summary, seq}, with seq absent when it settled without a report.",
   when: "When a session started with --no-wait must be collected, typically in the background, so the main session hears when it settles.",
   whenNot:
     "When the session was started without --no-wait, since session spawn already waited for it. To watch several targets at once, use harness wait. To see what a pane shows now, read the pane with herdr: this command only settles on the RESULT line.",
   flags: {
     timeout:
-      "The bound in milliseconds, a positive whole number; the default is one hour. When it passes with no RESULT line, the command exits 1 and the session keeps running.",
+      "The bound in milliseconds, a positive whole number; the default is one hour. When it passes with no RESULT line, the command exits 1 and the session keeps running. For an hc session the bound applies to waiting for its terminal to stop: when it passes with no report, the command exits 1 and the session keeps running, unless the terminal turned blocked or errored meanwhile, which settles as blocked and exits 0.",
   },
   operand:
     "The spawned session's name, as session spawn recorded it, such as image-trust-reader. A name this tool did not spawn is refused.",
@@ -218,12 +254,12 @@ export const waitHelp: CommandHelp = {
     {
       code: 0,
       meaning:
-        "the RESULT line showed and its outcome is printed; a blocked outcome also exits 0",
+        "the RESULT line showed and its outcome is printed; a blocked outcome also exits 0. For an hc session: its report showed, or it settled as blocked (blocked or errored status, or its terminal stopped without a report), and the outcome is printed",
     },
     {
       code: 1,
       meaning:
-        "no session of this tool has that name, its pane could not be read, or no RESULT line came within the timeout",
+        "no session of this tool has that name, its pane could not be read, or no RESULT line came within the timeout. For an hc session: it has no terminal recorded, its terminal could not be read, or it was still working with no report when the timeout passed",
     },
     {
       code: 2,
@@ -234,7 +270,7 @@ export const waitHelp: CommandHelp = {
   effects: {
     kind: "mutates",
     detail:
-      "once a RESULT line shows, records the outcome and its summary on the session's registry entry and appends a pane.finished ledger event; until then it only reads the pane",
+      "once a RESULT line shows, records the outcome and its summary on the session's registry entry and appends a pane.finished ledger event; until then it only reads the pane. An hc session records no RESULT line and no pane.finished event: the wait reads the report file in its terminal's checkout, and when it consumes a report it writes that report's seq to reportSeq on the registry entry, so a later wait settles only on a newer report",
   },
   seeAlso: ["session spawn", "harness wait", "session close"],
 };

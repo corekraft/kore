@@ -109,6 +109,9 @@ export interface FakeRegistry {
   write: Mock<(record: SessionRecord) => Promise<void>>;
   unavailable: Mock<(name: string) => Promise<string | undefined>>;
   create: Mock<(record: SessionRecord) => Promise<void>>;
+  findByTerminal: Mock<
+    (terminal: string) => Promise<SessionRecord | undefined>
+  >;
 }
 
 export function fakeRegistry(): FakeRegistry {
@@ -117,6 +120,7 @@ export function fakeRegistry(): FakeRegistry {
     write: vi.fn<FakeRegistry["write"]>(),
     unavailable: vi.fn<FakeRegistry["unavailable"]>(),
     create: vi.fn<FakeRegistry["create"]>(),
+    findByTerminal: vi.fn<FakeRegistry["findByTerminal"]>(),
   };
 }
 
@@ -126,7 +130,10 @@ export function fakeRegistry(): FakeRegistry {
  * the whole of its type, and the one assertion narrows to the class from them.
  */
 export function asRegistry(
-  fake: Pick<SessionRegistry, "read" | "write" | "unavailable" | "create">,
+  fake: Pick<
+    SessionRegistry,
+    "read" | "write" | "unavailable" | "create" | "findByTerminal"
+  >,
 ): SessionRegistry {
   return fake as SessionRegistry;
 }

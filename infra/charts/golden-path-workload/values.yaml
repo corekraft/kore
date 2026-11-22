@@ -20,6 +20,8 @@ resources:
 # connection Secret that client writes. It also renders a cert-manager
 # Certificate whose Secret carries the local CA and a truststore init container,
 # so the BFF's JVM trusts the Keycloak issuer (issue 1824). Off, nothing of it
-# renders.
+# renders. The BFF's sign-in session is in memory, so while sign-in is on the BFF
+# runs as one pod with no autoscaler (it gives up its high availability and
+# scale-out) until a shared session store lands; the frontend keeps autoscaling.
 signin:
   enabled: false

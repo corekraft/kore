@@ -22,6 +22,7 @@ import { close, closeHelp } from "./close.js";
 import { execCommand } from "./exec.js";
 import { equalize, equalizeHelp } from "./equalize.js";
 import { notify, notifyHelp } from "./notify.js";
+import { report, reportHelp } from "./report.js";
 import { send, sendHelp } from "./send.js";
 import { spawn, spawnHelp } from "./spawn.js";
 import { tier, tierHelp } from "./tier.js";
@@ -51,7 +52,7 @@ const spawnCommand: Command = {
 
 const waitCommand: Command = {
   summary:
-    "wait for a spawned session's RESULT line and print its outcome; --json adds result.summary, the text the pane printed before it",
+    "wait for a spawned session to finish and print its outcome. An hc session settles on its report file, and --json prints {name, model, outcome, summary, seq}, with seq absent when it settled without a report; a herdr session waits for its RESULT line, and --json adds result.summary, the text the pane printed before it",
   operand: "name",
   options: { timeout: "string" },
   help: waitHelp,
@@ -65,6 +66,19 @@ const notifyCommand: Command = {
   options: { outcome: "string" },
   help: notifyHelp,
   run: notify,
+};
+
+const reportCommand: Command = {
+  summary:
+    "record this hc session's outcome: writes .kore/report/<session>.json with the next seq, then sends the parent one notice line (--outcome done|blocked, and exactly one of --summary <text> or --file <path>, a file under .kore/report; --plan <file> stores its text with the report); the last action of a session that session spawn started on hc",
+  options: {
+    outcome: "string",
+    summary: "string",
+    file: "string",
+    plan: "string",
+  },
+  help: reportHelp,
+  run: report,
 };
 
 const sendCommand: Command = {
@@ -129,6 +143,7 @@ export const session: Record<string, Command> = {
   spawn: spawnCommand,
   wait: waitCommand,
   notify: notifyCommand,
+  report: reportCommand,
   send: sendCommand,
   check: checkCommand,
   close: closeCommand,

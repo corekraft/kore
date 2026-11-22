@@ -2,6 +2,7 @@ import type { Clock } from "./clock.js";
 import type { FileSystem } from "./filesystem.js";
 import type { HostLoad } from "./host-load.js";
 import type { IdSource } from "./ids.js";
+import type { Links } from "./links.js";
 import type { Runner } from "./runner.js";
 
 /** Everything a command may touch; real adapters in main.ts, fakes in specs. */
@@ -20,6 +21,8 @@ export interface CliDeps {
   random?: () => number;
   /** The host load average; absent in fakes that no load check reads. */
   hostLoad?: HostLoad;
+  /** Resolves links to real locations; absent in fakes that resolve none, so a command that needs one fails closed. */
+  links?: Links;
   /**
    * `import.meta.url` of the running bundle. A command that must not be steered by the
    * environment finds the checkout from it instead of from KORE_ROOT or CLAUDE_PROJECT_DIR.

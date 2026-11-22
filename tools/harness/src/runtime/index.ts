@@ -9,6 +9,7 @@ export {
 } from "./host-load.js";
 export { readPower, type Power } from "./host-power.js";
 export { nodeFileSystem, type FileSystem } from "./filesystem.js";
+export { nodeLinks, type Links } from "./links.js";
 export {
   ProcessRunner,
   type RunOptions,
