@@ -58,6 +58,7 @@ export type {
   SignInTarget,
 } from "./signin-check.js";
 export type { SignInPaths } from "./signin-program.js";
+export { goldenPathSignInTarget } from "./golden-path-signin-target.js";
 export { chromiumProgram } from "./chromium-program.js";
 export { pinnedBrowserImage, runHeadlessBrowser } from "./headless-browser.js";
 export type { HeadlessBrowserRun } from "./headless-browser.js";

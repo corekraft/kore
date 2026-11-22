@@ -1,9 +1,8 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { gatewayEntryPort } from "../config/index.js";
-import { checkSignIn } from "../testing/index.js";
+import { checkSignIn, goldenPathSignInTarget } from "../testing/index.js";
 import { goldenPathReach } from "./golden-path-reach.live.js";
-import { goldenPathSignInTarget } from "./golden-path-signin-target.js";
 import { live, setup } from "./identity-live.js";
 
 // Docs: docs/decisions/0113-run-a-keycloak-for-the-platform-organization-s-operators.md

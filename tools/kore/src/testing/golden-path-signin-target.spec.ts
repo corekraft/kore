@@ -1,9 +1,12 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { serviceHostname, type Environment } from "../config/index.js";
+import { platformPlan, type Environment } from "../config/index.js";
 import { goldenPathSignInTarget } from "./golden-path-signin-target.js";
 
 vi.mock("../config/index.js", () => ({
-  serviceHostname: vi.fn(() => "golden-path-example.platform.kore.internal"),
+  platformPlan: vi.fn(() => ({
+    domain: "kore.internal",
+    organizationId: "platform",
+  })),
 }));
 
 const environment = { name: "local" } as unknown as Environment;
@@ -13,7 +16,7 @@ beforeEach(() => {
 });
 
 describe("goldenPathSignInTarget", () => {
-  it("targets the Service's host from the environment, in the platform realm, on the golden-path sign-in paths", () => {
+  it("targets the Service's host in the platform organization's zone, in the platform realm, on the golden-path sign-in paths", () => {
     expect(goldenPathSignInTarget(environment, "golden-path-example")).toEqual({
       host: "golden-path-example.platform.kore.internal",
       realm: "platform",
@@ -23,10 +26,7 @@ describe("goldenPathSignInTarget", () => {
         anonymousPath: "/api/whoami",
       },
     });
-    expect(serviceHostname).toHaveBeenCalledWith(
-      environment,
-      "golden-path-example",
-    );
+    expect(platformPlan).toHaveBeenCalledWith(environment);
   });
 
   it.each([
@@ -45,13 +45,14 @@ describe("goldenPathSignInTarget", () => {
       expect(() => goldenPathSignInTarget(environment, service)).toThrow(
         "KORE_SIGNIN_SERVICE must be one DNS label",
       );
-      expect(serviceHostname).not.toHaveBeenCalled();
+      expect(platformPlan).not.toHaveBeenCalled();
     },
   );
 
   it("accepts a one-label name of 63 characters, the longest a DNS label may be", () => {
     const name = "a".repeat(63);
-    expect(goldenPathSignInTarget(environment, name).realm).toBe("platform");
-    expect(serviceHostname).toHaveBeenCalledWith(environment, name);
+    expect(goldenPathSignInTarget(environment, name).host).toBe(
+      `${name}.platform.kore.internal`,
+    );
   });
 });
