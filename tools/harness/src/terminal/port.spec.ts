@@ -4,12 +4,12 @@ import { terminalError } from "./port.js";
 describe("terminalError", () => {
   it("builds the structured error, with its hint, that a port method returns", () => {
     expect(
-      terminalError("not-found", "no terminal t9", "run hc ls --all"),
+      terminalError("not-found", "no terminal t9", "check the id with list()"),
     ).toEqual({
       error: {
         kind: "not-found",
         message: "no terminal t9",
-        hint: "run hc ls --all",
+        hint: "check the id with list()",
       },
     });
   });

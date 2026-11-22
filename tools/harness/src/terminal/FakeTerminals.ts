@@ -1,4 +1,3 @@
-import { type Model, labelsMatch, notFound, viewOf } from "./fake-support.js";
 import {
   terminalError,
   type Done,
@@ -18,14 +17,47 @@ import {
   type WaitTarget,
 } from "./port.js";
 
-interface Waiter {
-  /** Returns true once it has resolved its wait, so the fake drops it. */
-  check(): boolean;
+/** A terminal as the fake models it: everything get reports, plus its output and input. */
+interface Model {
+  id: string;
+  name?: string;
+  parent?: string;
+  state: "live" | "finished";
+  status?: Status;
+  exitCode?: number;
+  labels: Record<string, string>;
+  cwd: string;
+  outliveParent: boolean;
+  output: string;
+  sent: string[];
 }
 
-export interface FakeOptions {
-  /** What self() returns: the caller's own terminal, as HC_TERMINAL_ID would give it. */
-  self?: string;
+/** Re-checks one pending wait; returns true once it has resolved, so the fake drops it. */
+type Waiter = () => boolean;
+
+function viewOf(model: Model): Terminal {
+  return {
+    id: model.id,
+    state: model.state,
+    labels: { ...model.labels },
+    cwd: model.cwd,
+    ...(model.name === undefined ? {} : { name: model.name }),
+    ...(model.parent === undefined ? {} : { parent: model.parent }),
+    ...(model.status === undefined ? {} : { status: model.status }),
+    ...(model.exitCode === undefined ? {} : { exitCode: model.exitCode }),
+  };
+}
+
+function notFound(id: string): TerminalError {
+  return terminalError(
+    "not-found",
+    `no terminal ${id}`,
+    "check the id with list()",
+  );
+}
+
+function notLive(id: string, hint: string): TerminalError {
+  return terminalError("not-live", `terminal ${id} has finished`, hint);
 }
 
 /**
@@ -41,7 +73,8 @@ export class FakeTerminals implements Terminals {
   readonly #waiters: Waiter[] = [];
   #next = 1;
 
-  constructor(options: FakeOptions = {}) {
+  /** The `self` option is what self() returns: the caller's own terminal, as HC_TERMINAL_ID would give it. */
+  constructor(options: { self?: string } = {}) {
     this.#self = options.self;
   }
 
@@ -50,7 +83,10 @@ export class FakeTerminals implements Terminals {
   }
 
   async run(spec: RunSpec): Promise<Started | TerminalError> {
-    if (spec.name !== undefined && this.#liveNamed(spec.name)) {
+    const taken = [...this.#models.values()].some(
+      (model) => model.state === "live" && model.name === spec.name,
+    );
+    if (spec.name !== undefined && taken) {
       return terminalError(
         "name-taken",
         `a live terminal is already named ${spec.name}`,
@@ -63,10 +99,7 @@ export class FakeTerminals implements Terminals {
         return notFound(spec.parent);
       }
       if (parent.state !== "live") {
-        return terminalError(
-          "not-live",
-          `terminal ${spec.parent} has finished`,
-        );
+        return notLive(spec.parent, "start the child under a live parent");
       }
     }
     const id = `t${this.#next++}`;
@@ -96,7 +129,11 @@ export class FakeTerminals implements Terminals {
         (model) =>
           filter.childrenOf === undefined || model.parent === filter.childrenOf,
       )
-      .filter((model) => labelsMatch(model.labels, filter.labels))
+      .filter((model) =>
+        Object.entries(filter.labels ?? {}).every(
+          ([key, value]) => model.labels[key] === value,
+        ),
+      )
       .map(viewOf);
   }
 
@@ -123,12 +160,13 @@ export class FakeTerminals implements Terminals {
       return notFound(id);
     }
     if (model.state !== "live") {
-      return terminalError("not-live", `terminal ${id} has finished`);
+      return notLive(id, "a finished terminal takes no input; start a new one");
     }
     if (opts.ifStatus !== undefined && model.status !== opts.ifStatus) {
       return terminalError(
         "status-mismatch",
         `terminal ${id} is ${model.status ?? "unreported"}, not ${opts.ifStatus}`,
+        "wait until the terminal reports the status you named, then send",
       );
     }
     model.sent.push(text);
@@ -143,37 +181,34 @@ export class FakeTerminals implements Terminals {
     if (now !== undefined) {
       return now;
     }
-    const waitable = this.#waitable(target);
-    if (
-      timeoutMs <= 0 ||
-      (waitable !== undefined && waitable.any && waitable.watched.length === 0)
-    ) {
+    if (timeoutMs <= 0) {
       return terminalError(
         "timeout",
         `nothing has finished within ${timeoutMs} ms`,
-        "wait longer, or check with hc get",
+        "wait longer, or check the terminal with get()",
       );
     }
     return await new Promise<Waited | TerminalError>((resolve) => {
-      this.#waiters.push({
-        check: () => {
-          const settled = this.#settle(target);
-          if (settled === undefined) {
-            return false;
-          }
+      this.#waiters.push(() => {
+        const settled = this.#settle(target);
+        if (settled !== undefined) {
           resolve(settled);
-          return true;
-        },
+        }
+        return settled !== undefined;
       });
     });
   }
 
   async interrupt(id: string): Promise<Done | TerminalError> {
-    return this.#changeLive(id, () => undefined);
+    return this.#liveError(id) ?? { id };
   }
 
   async kill(id: string): Promise<Done | TerminalError> {
-    return this.#changeLive(id, () => this.#end(id, undefined));
+    const error = this.#liveError(id);
+    if (error === undefined) {
+      this.#end(id, undefined);
+    }
+    return error ?? { id };
   }
 
   async remove(id: string): Promise<Done | TerminalError> {
@@ -206,18 +241,13 @@ export class FakeTerminals implements Terminals {
     return { id };
   }
 
-  events(filter: EventFilter = {}): AsyncIterable<TerminalEvent> {
-    const recorded = this.#events.slice();
-    return (async function* replay(): AsyncGenerator<TerminalEvent> {
-      for (const event of recorded) {
-        if (
-          filter.terminal === undefined ||
-          event.terminal === filter.terminal
-        ) {
-          yield event;
-        }
+  /** Replays the events recorded so far, in order, then ends. */
+  async *events(filter: EventFilter = {}): AsyncGenerator<TerminalEvent> {
+    for (const event of this.#events.slice()) {
+      if (filter.terminal === undefined || event.terminal === filter.terminal) {
+        yield event;
       }
-    })();
+    }
   }
 
   /** Prints text to a terminal's output, as its program would. */
@@ -249,22 +279,15 @@ export class FakeTerminals implements Terminals {
     return model;
   }
 
-  #liveNamed(name: string): boolean {
-    return [...this.#models.values()].some(
-      (model) => model.state === "live" && model.name === name,
-    );
-  }
-
-  #changeLive(id: string, change: () => void): Done | TerminalError {
+  /** The error for a terminal that is missing or finished, or undefined while it is live. */
+  #liveError(id: string): TerminalError | undefined {
     const model = this.#models.get(id);
     if (model === undefined) {
       return notFound(id);
     }
-    if (model.state !== "live") {
-      return terminalError("not-live", `terminal ${id} has finished`);
-    }
-    change();
-    return { id };
+    return model.state === "live"
+      ? undefined
+      : notLive(id, "a finished terminal takes no signals; start a new one");
   }
 
   /** Ends a terminal, then ends the children that do not outlive it, and wakes the waiters. */
@@ -283,44 +306,39 @@ export class FakeTerminals implements Terminals {
         this.#end(child.id, undefined);
       }
     }
-    this.#wake();
-  }
-
-  #wake(): void {
-    const pending = this.#waiters.filter((waiter) => !waiter.check());
+    const pending = this.#waiters.filter((waiter) => !waiter());
     this.#waiters.splice(0, this.#waiters.length, ...pending);
-  }
-
-  #waitable(
-    target: WaitTarget,
-  ): { watched: Model[]; any: boolean } | undefined {
-    if ("terminal" in target) {
-      const model = this.#models.get(target.terminal);
-      return model === undefined ? undefined : { watched: [model], any: true };
-    }
-    if (!this.#models.has(target.of)) {
-      return undefined;
-    }
-    const watched = [...this.#models.values()].filter(
-      (model) => model.parent === target.of,
-    );
-    return { watched, any: target.children === "any" };
   }
 
   /** The result of a wait that can be answered now, or undefined while it must still wait. */
   #settle(target: WaitTarget): Waited | TerminalError | undefined {
-    const waitable = this.#waitable(target);
-    if (waitable === undefined) {
-      return "terminal" in target
-        ? notFound(target.terminal)
-        : notFound(target.of);
+    if ("terminal" in target) {
+      const model = this.#models.get(target.terminal);
+      if (model === undefined) {
+        return notFound(target.terminal);
+      }
+      return model.state === "finished"
+        ? { finished: [viewOf(model)] }
+        : undefined;
     }
-    const finished = waitable.watched.filter(
-      (model) => model.state === "finished",
+    if (!this.#models.has(target.of)) {
+      return notFound(target.of);
+    }
+    const children = [...this.#models.values()].filter(
+      (model) => model.parent === target.of,
     );
-    const done = waitable.any
-      ? finished.length > 0
-      : finished.length === waitable.watched.length;
+    if (target.children === "any" && children.length === 0) {
+      return terminalError(
+        "timeout",
+        "no child can finish: it has none",
+        "start a child first, or wait on a terminal",
+      );
+    }
+    const finished = children.filter((model) => model.state === "finished");
+    const done =
+      target.children === "any"
+        ? finished.length > 0
+        : finished.length === children.length;
     return done ? { finished: finished.map(viewOf) } : undefined;
   }
 }
