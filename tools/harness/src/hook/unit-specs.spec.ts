@@ -65,11 +65,14 @@ async function run(
 describe("harness hook unit-specs: registration", () => {
   it("registers as unit-specs with its package flag, ignoring stdin, and failing the run when the check itself breaks", () => {
     expect(name).toBe("unit-specs");
-    expect(summary).toMatch(/^fail a converted source file/);
+    expect(summary).toBe(
+      "fail a converted source file with no spec beside it, or with two",
+    );
     expect(shape).toEqual({
       flags: { package: "string" },
       payload: false,
       faultCode: 1,
+      help: expect.objectContaining({ purpose: expect.any(String) }),
     });
   });
 

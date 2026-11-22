@@ -19,31 +19,6 @@ export const undocumented: readonly string[] = [
   "guardrail request",
   "guardrail activate",
   "guardrail replay",
-  // hook
-  "hook context",
-  "hook delta",
-  "hook feedback",
-  "hook guard",
-  "hook kb-check",
-  "hook record",
-  "hook retro-scan",
-  "hook skill-links",
-  "hook statusline",
-  "hook test-budget",
-  "hook unit-specs",
-  "hook workflow-permissions",
-  // session
-  "session spawn",
-  "session wait",
-  "session notify",
-  "session send",
-  "session check",
-  "session close",
-  "session tier",
-  "session equalize",
-  "session prompt-size",
-  // skill
-  "skill audit",
   // idea
   "idea new",
   "idea list",
@@ -65,17 +40,6 @@ export const undocumented: readonly string[] = [
   "ruleset insights",
   // status
   "status",
-  // judge
-  "judge precheck",
-  "judge declaration",
-  "judge diff",
-  "judge approve",
-  "judge merge",
-  "judge send-back",
-  // review
-  "review post",
-  "review run",
-  "review resample",
   // pr
   "pr checks",
   "pr check",
@@ -100,6 +64,4 @@ export const undocumented: readonly string[] = [
   "orchestrate run",
   "orchestrate tick",
   "orchestrate plan",
-  // approve
-  "approve",
 ];
