@@ -42,6 +42,7 @@ describe("harness hook test-budget: registration", () => {
       flags: { package: "string", report: "string" },
       payload: false,
       faultCode: 1,
+      help: expect.objectContaining({ purpose: expect.any(String) }),
     });
   });
 });

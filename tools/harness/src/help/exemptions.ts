@@ -14,19 +14,6 @@ export const undocumented: readonly string[] = [
   "adr new",
   "adr supersede",
   // guardrail
-  // hook
-  "hook context",
-  "hook delta",
-  "hook feedback",
-  "hook guard",
-  "hook kb-check",
-  "hook record",
-  "hook retro-scan",
-  "hook skill-links",
-  "hook statusline",
-  "hook test-budget",
-  "hook unit-specs",
-  "hook workflow-permissions",
   // idea
   "idea new",
   "idea list",
