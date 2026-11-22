@@ -31,7 +31,7 @@ export const PASSED_FLAGS = [
 export const CODE_MODE_SWITCH = "CLAUDE_CODE_EXPERIMENTAL_CODE_MODE";
 /** The value that turns Code Mode off, so the role's session runs the Bash tool the role guard reads. */
 const CODE_MODE_OFF = "0";
-/** The oldest claude session exec has checked turns Code Mode off with CODE_MODE_SWITCH=0 (2.1.330 on kore-agents). */
+/** The oldest claude session exec accepts: 2.1.330, the only version tested (kore-agents). The Mac's 2.1.329 must update before hc-sessions is on. */
 const MIN_CLAUDE = [2, 1, 330] as const;
 
 /** roleToken's messages end with the pane wording; a terminal has no pane to split. */

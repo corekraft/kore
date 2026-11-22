@@ -11,6 +11,11 @@
 import { READS_ALLOWED, READS_REFUSED } from "./guard-corpus-reads.js";
 import { GLOB_CASES } from "./guard-corpus-glob.js";
 import { HC_ORDINARY, HC_REFUSED } from "./guard-corpus-hc.js";
+import {
+  REPL_REFUSED,
+  REPORT_ORDINARY,
+  REPORT_WRITE_REFUSED,
+} from "./guard-corpus-repl.js";
 import { JUDGMENT_ALLOWED, JUDGMENT_REFUSED } from "./guard-corpus-judgment.js";
 import {
   HELP_LEVELS_ORDINARY,
@@ -20,7 +25,7 @@ import {
 export interface CorpusCase {
   /** The role the session runs as, or none for the person's own session. */
   role?: string;
-  tool: "Bash" | "Write" | "Edit" | "Read" | "Grep" | "Glob";
+  tool: "Bash" | "Write" | "Edit" | "Read" | "Grep" | "Glob" | "REPL";
   /** A Glob's pattern, when it is not the same as the path. */
   pattern?: string;
   /** A command for Bash; a path for the file tools. */
@@ -204,6 +209,8 @@ export const CORPUS: readonly CorpusCase[] = [
   ...JUDGMENT_REFUSED,
   ...GLOB_CASES,
   ...HC_REFUSED,
+  ...REPL_REFUSED,
+  ...REPORT_WRITE_REFUSED,
   ...SECRETS,
   ...eachRole(ROLES, "role-read-only", ...READS_REFUSED),
   ...GUARD_FILES,
@@ -235,6 +242,7 @@ const ordinary = (role: string | undefined, ...commands: string[]) =>
 /** Calls the fixes must not catch: reads, null redirects, quoted `>`, harmless globs and the writer's ordinary work. */
 export const ORDINARY: readonly OrdinaryCase[] = [
   ...HC_ORDINARY,
+  ...REPORT_ORDINARY,
   ...ROLES.flatMap((role) =>
     ordinary(
       role,

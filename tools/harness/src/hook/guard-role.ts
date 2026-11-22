@@ -19,6 +19,7 @@ import {
   notifiesFinish,
   notRead,
   readOnly,
+  replNotRead,
   sendsToPane,
   setsEnvironment,
   useNotify,
@@ -118,6 +119,9 @@ export function checkRole(
   }
   if (WRITE_TOOLS.has(tool)) {
     return readOnly(`${tool}`);
+  }
+  if (tool === "REPL") {
+    return replNotRead();
   }
   if (tool === "Bash" && typeof input["command"] === "string") {
     return checkBash(agentType, input["command"]);
