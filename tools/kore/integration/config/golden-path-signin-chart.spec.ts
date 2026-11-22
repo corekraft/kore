@@ -50,7 +50,10 @@ async function failure(promise: Promise<unknown>): Promise<string> {
   try {
     await promise;
   } catch (error) {
-    return String((error as { stderr?: string }).stderr);
+    if (error instanceof Error && "stderr" in error) {
+      return String(error.stderr);
+    }
+    throw error;
   }
   throw new Error("the render was expected to fail");
 }
