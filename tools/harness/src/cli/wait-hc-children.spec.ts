@@ -1,12 +1,10 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { CliDeps } from "../runtime/index.js";
 import { hcSessionsOn, terminalsFor } from "../session/index.js";
-import type { Terminals } from "../terminal/index.js";
+import type { Terminal, Terminals } from "../terminal/index.js";
 import { CHECKS_POLL_MS } from "./pr-checks.js";
 import {
-  childrenPause,
   hcChildrenFor,
-  pollPause,
   startPrWatchers,
   stopWatchers,
   watchOnChildren,
@@ -22,20 +20,20 @@ vi.mock("../session/index.js", () => ({
 const T0 = Date.parse("2026-01-02T03:04:05.000Z");
 const PLACE = { root: "/repo", repo: "corekraft/kore" };
 
-/** A clock that moves only when the wait or the sleep moves it, so the bound is measured without a timer. */
+/** A clock that moves only when the sleep moves it, so a wait is measured without a timer. */
 function clockAt() {
   let elapsed = 0;
   const sleep = vi.fn((ms: number) => {
     elapsed += ms;
     return Promise.resolve();
   });
-  const clock = { now: () => new Date(T0 + elapsed), sleep };
-  return { clock, sleep, advance: (ms: number) => (elapsed += ms) };
+  return { clock: { now: () => new Date(T0 + elapsed), sleep }, sleep };
 }
 
 function terminalsMock() {
   return {
     self: vi.fn((): string | undefined => "t1"),
+    list: vi.fn(async (): Promise<Terminal[]> => []),
     run: vi.fn(),
     wait: vi.fn(),
     kill: vi.fn(),
@@ -46,21 +44,18 @@ type TerminalsMock = ReturnType<typeof terminalsMock>;
 const asTerminals = (terminals: TerminalsMock) =>
   terminals as unknown as Terminals;
 
-/** The caller as hc-sessions and the terminal see it: whether hc is on, and the caller's own terminal id. */
+/** A listed child of the caller, by its id, name and state. */
+function child(id: string, name: string, state: "live" | "finished"): Terminal {
+  return { id, name, state, labels: {}, cwd: "/repo" };
+}
+
+/** The caller as hc-sessions and the terminal see it: whether hc is on, and the caller's own terminal. */
 function hcCaller(on: boolean): TerminalsMock {
   vi.mocked(hcSessionsOn).mockResolvedValue(on);
   const terminals = terminalsMock();
   vi.mocked(terminalsFor).mockReturnValue(asTerminals(terminals));
   return terminals;
 }
-
-/** A pause on the caller's children, for a terminal whose wait the test sets. */
-const pauseOf = (terminals: TerminalsMock) =>
-  childrenPause({
-    terminals: asTerminals(terminals),
-    self: "t1",
-    clock: clockAt().clock,
-  });
 
 beforeEach(() => {
   vi.resetAllMocks();
@@ -89,7 +84,8 @@ describe("hcChildrenFor: the children wait runs only for a --pr target on hc-ses
   });
 
   it("is absent when the caller is not an hc terminal, since no child can be started", async () => {
-    hcCaller(true).self.mockReturnValue(undefined);
+    const terminals = hcCaller(true);
+    terminals.self.mockReturnValue(undefined);
     expect(await hcChildrenFor({} as CliDeps, { prs: [5], ideas: 0 })).toBe(
       undefined,
     );
@@ -118,7 +114,7 @@ describe("withPause: the wait runs on the caller's children on hc, and on the ch
     expect(terminals.run).not.toHaveBeenCalled();
   });
 
-  it("runs with the children pause, under the watchers of the caller's children, on hc", async () => {
+  it("runs under the watchers of the caller's children on hc, and stops them when the wait returns", async () => {
     const terminals = hcCaller(true);
     terminals.run.mockResolvedValue({ id: "t7" });
     terminals.kill.mockResolvedValue({ id: "t7" });
@@ -143,8 +139,11 @@ describe("startPrWatchers: one gh watcher per pull request, a child of the calle
     terminals.run.mockResolvedValue({ id: "t7" });
 
     expect(
-      await startPrWatchers(asTerminals(terminals), "t1", PLACE, [5]),
+      await startPrWatchers(asTerminals(terminals), "t1", PLACE, [5], vi.fn()),
     ).toEqual(["t7"]);
+    expect(terminals.list).toHaveBeenCalledExactlyOnceWith({
+      childrenOf: "t1",
+    });
     expect(terminals.run).toHaveBeenCalledExactlyOnceWith({
       argv: [
         "gh",
@@ -164,101 +163,56 @@ describe("startPrWatchers: one gh watcher per pull request, a child of the calle
     });
   });
 
-  it("stops the watchers already started, and names the pull request that could not start", async () => {
+  it("reuses a live watcher already running for a pull request, and starts only the others", async () => {
+    const terminals = terminalsMock();
+    terminals.list.mockResolvedValue([child("t5", "pr-watch-5", "live")]);
+    terminals.run.mockResolvedValue({ id: "t7" });
+
+    expect(
+      await startPrWatchers(
+        asTerminals(terminals),
+        "t1",
+        PLACE,
+        [5, 6],
+        vi.fn(),
+      ),
+    ).toEqual(["t7"]);
+    expect(terminals.run).toHaveBeenCalledExactlyOnceWith(
+      expect.objectContaining({ name: "pr-watch-6" }),
+    );
+  });
+});
+
+describe("startPrWatchers: every name is checked before any watcher starts, and a failed start stops the rest", () => {
+  it("refuses before starting any watcher when a watch of a pull request has ended but is still listed, naming the terminal to remove", async () => {
+    const terminals = terminalsMock();
+    terminals.list.mockResolvedValue([child("t5", "pr-watch-5", "finished")]);
+
+    await expect(
+      startPrWatchers(asTerminals(terminals), "t1", PLACE, [6, 5], vi.fn()),
+    ).rejects.toThrow(
+      "PR #5 has a watch that already ended, pr-watch-5 (terminal t5): remove it with hc rm t5, then wait again",
+    );
+    expect(terminals.run).not.toHaveBeenCalled();
+  });
+
+  it("stops the watchers already started, reporting a failure to stop on stderr, and names the pull request that could not start", async () => {
     const terminals = terminalsMock();
     terminals.run.mockResolvedValueOnce({ id: "t7" }).mockResolvedValueOnce({
       error: { kind: "name-taken", message: "name pr-watch-6 is taken" },
     });
-    terminals.kill.mockResolvedValue({ id: "t7" });
+    terminals.kill.mockResolvedValue({
+      error: { kind: "unavailable", message: "kill refused" },
+    });
+    const stderr = vi.fn();
 
     await expect(
-      startPrWatchers(asTerminals(terminals), "t1", PLACE, [5, 6]),
+      startPrWatchers(asTerminals(terminals), "t1", PLACE, [5, 6], stderr),
     ).rejects.toThrow("could not watch PR #6 on hc: name pr-watch-6 is taken");
     expect(terminals.kill).toHaveBeenCalledExactlyOnceWith("t7");
-  });
-});
-
-describe("childrenPause: the wait on the caller's children runs for the rest of the bound", () => {
-  it("passes the bound when hc's wait times out", async () => {
-    const terminals = terminalsMock();
-    terminals.wait.mockResolvedValue({
-      error: { kind: "timeout", message: "nothing has finished" },
-    });
-
-    expect(await pauseOf(terminals)(900_000)).toBe(true);
-    expect(terminals.wait).toHaveBeenCalledWith(
-      { children: "any", of: "t1" },
-      900_000,
+    expect(stderr).toHaveBeenCalledExactlyOnceWith(
+      "could not stop the watch t7: kill refused\n",
     );
-  });
-
-  it("does not sleep after a wake that came after a long wait, so the checks are read at once", async () => {
-    const { clock, sleep, advance } = clockAt();
-    const terminals = terminalsMock();
-    terminals.wait.mockImplementation(async () => {
-      advance(CHECKS_POLL_MS * 4);
-      return { finished: [] };
-    });
-    const pause = childrenPause({
-      terminals: asTerminals(terminals),
-      self: "t1",
-      clock,
-    });
-
-    expect(await pause(900_000)).toBe(false);
-    expect(sleep).not.toHaveBeenCalled();
-  });
-
-  it("sleeps out the rest of the poll interval after a wake that came at once, so a finished child that stays listed cannot spin the loop", async () => {
-    const { clock, sleep } = clockAt();
-    const terminals = terminalsMock();
-    terminals.wait.mockResolvedValue({ finished: [] });
-    const pause = childrenPause({
-      terminals: asTerminals(terminals),
-      self: "t1",
-      clock,
-    });
-
-    expect(await pause(900_000)).toBe(false);
-    expect(sleep).toHaveBeenCalledExactlyOnceWith(CHECKS_POLL_MS);
-  });
-
-  it("passes the bound without waiting when no time remains", async () => {
-    const terminals = terminalsMock();
-
-    expect(await pauseOf(terminals)(0)).toBe(true);
-    expect(terminals.wait).not.toHaveBeenCalled();
-  });
-
-  it("throws hc's message when the wait fails for another reason, so the command fails rather than reads on", async () => {
-    const terminals = terminalsMock();
-    terminals.wait.mockResolvedValue({
-      error: {
-        kind: "unavailable",
-        message: "hc wait broke",
-        hint: "try again",
-      },
-    });
-
-    await expect(pauseOf(terminals)(900_000)).rejects.toThrow(
-      "hc wait broke (try again)",
-    );
-  });
-});
-
-describe("pollPause: the default pause sleeps one poll interval, and passes the bound when less than one remains", () => {
-  it("sleeps one poll interval and keeps polling while the bound has more than one left", async () => {
-    const { clock, sleep } = clockAt();
-
-    expect(await pollPause(clock)(CHECKS_POLL_MS + 1)).toBe(false);
-    expect(sleep).toHaveBeenCalledExactlyOnceWith(CHECKS_POLL_MS);
-  });
-
-  it("passes the bound without sleeping when less than one poll interval remains", async () => {
-    const { clock, sleep } = clockAt();
-
-    expect(await pollPause(clock)(CHECKS_POLL_MS - 1)).toBe(true);
-    expect(sleep).not.toHaveBeenCalled();
   });
 });
 

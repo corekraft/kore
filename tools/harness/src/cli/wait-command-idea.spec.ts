@@ -24,8 +24,8 @@ vi.mock("./pr-checks.js", () => ({
   CHECKS_POLL_MS: 15_000,
   readChecks: vi.fn(),
 }));
-vi.mock("./wait-hc-children.js", async (importOriginal) => ({
-  ...(await importOriginal<Record<string, unknown>>()),
+vi.mock("./wait-hc-children.js", () => ({
+  pollPause: vi.fn(),
   withPause: vi.fn(),
 }));
 
@@ -68,6 +68,13 @@ function report(state: ChecksReport["state"]): ChecksReport {
 
 beforeEach(() => {
   vi.resetAllMocks();
+  vi.mocked(pollPause).mockImplementation((clock) => async (remainingMs) => {
+    if (remainingMs < 15_000) {
+      return true;
+    }
+    await clock.sleep(15_000);
+    return false;
+  });
   vi.mocked(withPause).mockImplementation((deps, _targets, _scope, run) =>
     run(pollPause(deps.clock)),
   );

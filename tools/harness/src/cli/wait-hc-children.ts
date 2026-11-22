@@ -4,19 +4,23 @@
 // watcher still running when the wait ends is killed. Only a --pr target on hc-sessions from an hc terminal takes this path.
 // Docs: infra/plans/16-hc-native-sessions.md
 
-import type { CliDeps, Clock } from "../runtime/index.js";
+import type { CliDeps } from "../runtime/index.js";
 import { hcSessionsOn, terminalsFor } from "../session/index.js";
-import type { TerminalError, Terminals } from "../terminal/index.js";
-import { CHECKS_POLL_MS } from "./pr-checks.js";
+import type { Terminal, Terminals } from "../terminal/index.js";
+import {
+  childrenPause,
+  messageOf,
+  pollPause,
+  type Pause,
+} from "./wait-pause.js";
+
+export { pollPause, type Pause } from "./wait-pause.js";
 
 /** The caller's terminals and its own terminal id, the parent the watchers start under. */
 export interface HcChildren {
   terminals: Terminals;
   self: string;
 }
-
-/** Waits for the next news, for at most the remaining milliseconds: resolves true when the bound passed with nothing new. */
-export type Pause = (remainingMs: number) => Promise<boolean>;
 
 /** Where a pull request's checks are read: the checkout root and the repository. */
 interface Place {
@@ -26,12 +30,6 @@ interface Place {
 
 /** hc's listing of hc errors that mean a watcher already ended and was removed, which is no failure to stop it. */
 const ENDED: readonly string[] = ["not-found", "not-live"];
-
-/** hc's message for an error: its message, with its hint in brackets when hc gives one. */
-function messageOf(error: TerminalError): string {
-  const { message, hint } = error.error;
-  return hint === undefined ? message : `${message} (${hint})`;
-}
 
 /**
  * The caller's children when this wait can run on them: a --pr target, no idea target, hc-sessions on, and the caller is
@@ -55,6 +53,8 @@ export async function hcChildrenFor(
 
 /**
  * Starts one watcher per pull request as a child of the caller, removed when it ends and with no notice to the caller.
+ * Every name is checked before any watcher starts: a live watch of the same pull request is reused, since it is a child
+ * of the caller too, and a watch that has ended but is still listed is refused with the command that removes it.
  * A watcher that cannot start stops the ones already started and fails the wait, naming its pull request.
  */
 export async function startPrWatchers(
@@ -62,9 +62,33 @@ export async function startPrWatchers(
   self: string,
   place: Place,
   prs: readonly number[],
+  stderr: (text: string) => void,
 ): Promise<string[]> {
-  const ids: string[] = [];
+  const listed = await terminals.list({ childrenOf: self });
+  if ("error" in listed) {
+    throw new Error(
+      `could not list the caller's watches on hc: ${messageOf(listed)}`,
+    );
+  }
+  const named = new Map<string, Terminal>();
+  for (const terminal of listed) {
+    if (terminal.name !== undefined) {
+      named.set(terminal.name, terminal);
+    }
+  }
+  const starting: number[] = [];
   for (const pr of prs) {
+    const holder = named.get(`pr-watch-${pr}`);
+    if (holder === undefined) {
+      starting.push(pr);
+    } else if (holder.state !== "live") {
+      throw new Error(
+        `PR #${pr} has a watch that already ended, pr-watch-${pr} (terminal ${holder.id}): remove it with hc rm ${holder.id}, then wait again`,
+      );
+    }
+  }
+  const ids: string[] = [];
+  for (const pr of starting) {
     const started = await terminals.run({
       argv: [
         "gh",
@@ -83,52 +107,12 @@ export async function startPrWatchers(
       rm: true,
     });
     if ("error" in started) {
-      await stopWatchers(terminals, ids, () => undefined);
+      await stopWatchers(terminals, ids, stderr);
       throw new Error(`could not watch PR #${pr} on hc: ${messageOf(started)}`);
     }
     ids.push(started.id);
   }
   return ids;
-}
-
-/** The pause that waits on the caller's children. A wake that came at once is followed by the rest of a poll interval, so a finished child that stays listed cannot spin the loop. */
-export function childrenPause(deps: {
-  terminals: Terminals;
-  self: string;
-  clock: Clock;
-}): Pause {
-  return async (remainingMs) => {
-    if (remainingMs <= 0) {
-      return true;
-    }
-    const before = deps.clock.now().getTime();
-    const waited = await deps.terminals.wait(
-      { children: "any", of: deps.self },
-      remainingMs,
-    );
-    if ("error" in waited) {
-      if (waited.error.kind === "timeout") {
-        return true;
-      }
-      throw new Error(messageOf(waited));
-    }
-    const rest = CHECKS_POLL_MS - (deps.clock.now().getTime() - before);
-    if (rest > 0) {
-      await deps.clock.sleep(rest);
-    }
-    return false;
-  };
-}
-
-/** The pause that sleeps one poll interval, and passes the bound when less than one interval remains. */
-export function pollPause(clock: Clock): Pause {
-  return async (remainingMs) => {
-    if (remainingMs < CHECKS_POLL_MS) {
-      return true;
-    }
-    await clock.sleep(CHECKS_POLL_MS);
-    return false;
-  };
 }
 
 /** Kills each watcher still running. One that already ended is not an error; another failure is named on stderr. */
@@ -171,7 +155,7 @@ export async function watchOnChildren(
   run: (pause: Pause) => Promise<number>,
 ): Promise<number> {
   const { terminals, self } = children;
-  const ids = await startPrWatchers(terminals, self, place, prs);
+  const ids = await startPrWatchers(terminals, self, place, prs, deps.stderr);
   try {
     return await run(childrenPause({ terminals, self, clock: deps.clock }));
   } finally {
