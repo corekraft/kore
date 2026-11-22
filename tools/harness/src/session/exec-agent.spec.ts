@@ -35,6 +35,18 @@ describe("parseAgentEntry: the frontmatter and the body", () => {
     });
   });
 
+  it("keeps regex metacharacters in a value as plain text, not as a pattern", () => {
+    expect(
+      parseAgentEntry(
+        '---\ndescription: "Matches (a|b)+ [x] $ ^end.* and {n}+?"\ntools: Bash, Edit\n---\nYou read.\n',
+      ),
+    ).toStrictEqual({
+      description: "Matches (a|b)+ [x] $ ^end.* and {n}+?",
+      prompt: "You read.",
+      tools: ["Bash", "Edit"],
+    });
+  });
+
   it("refuses a definition with no description, so no entry is built", () => {
     expect(parseAgentEntry("---\nmodel: m\n---\nYou read.\n")).toBeUndefined();
   });

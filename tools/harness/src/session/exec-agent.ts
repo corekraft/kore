@@ -20,9 +20,11 @@ const ROLE = /^[a-z][a-z0-9-]*$/;
 
 /** A frontmatter line's value, without surrounding quotes; undefined when the key is absent or empty. */
 function scalar(frontmatter: string, key: string): string | undefined {
-  const value = new RegExp(`^${key}:[ \\t]*(.*?)[ \\t]*$`, "m").exec(
-    frontmatter,
-  )?.[1];
+  const prefix = `${key}:`;
+  const line = frontmatter
+    .split("\n")
+    .find((candidate) => candidate.startsWith(prefix));
+  const value = line?.slice(prefix.length).trim();
   return value === undefined || value === ""
     ? undefined
     : value.replace(/^(["'])(.*)\1$/, "$2");
