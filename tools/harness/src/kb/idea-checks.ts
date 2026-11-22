@@ -278,3 +278,32 @@ export function checkIdea(
   }
   return problems;
 }
+
+/** Idea files by number, and a problem for each file that reuses a number. */
+export function ideaNumbers(files: string[]): {
+  ideas: Map<string, string>;
+  problems: Finding[];
+} {
+  const ideas = new Map<string, string>();
+  const problems: Finding[] = [];
+  for (const file of files) {
+    const number = IDEA_NAME.exec(file)?.[1];
+    if (number === undefined) {
+      continue;
+    }
+    const first = ideas.get(number);
+    if (first === undefined) {
+      ideas.set(number, file);
+    } else {
+      problems.push(
+        finding(
+          file,
+          1,
+          `idea number ${number} is also used by ${first}`,
+          "renumber it to the next free number",
+        ),
+      );
+    }
+  }
+  return { ideas, problems };
+}

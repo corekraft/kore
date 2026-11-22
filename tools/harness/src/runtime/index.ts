@@ -19,6 +19,7 @@ export {
 export { hostLocksDirectory } from "./host-root.js";
 export type {
   CliDeps,
+  CommandTable,
   Command,
   CommandContext,
   CommandEffects,

@@ -2,12 +2,17 @@
 // Docs: infra/plans/4-knowledge.md#step-3-knowledge-health-check
 
 import { findings, format, type TreeDeps } from "../kb/index.js";
+import { HARNESS_COMMANDS } from "./command-table-support.js";
 
 export type Tree = Record<string, string | null>;
 
 export function fakeDeps(tree: Tree): TreeDeps {
   const files = Object.keys(tree).filter((path) => tree[path] !== null);
-  return { files: () => files, read: (path) => tree[path] ?? null };
+  return {
+    files: () => files,
+    read: (path) => tree[path] ?? null,
+    commands: () => HARNESS_COMMANDS,
+  };
 }
 
 export const planFrontmatter = [

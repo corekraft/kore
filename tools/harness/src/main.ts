@@ -1,4 +1,4 @@
-import { run } from "./cli/index.js";
+import { domains, run } from "./cli/index.js";
 import {
   ProcessRunner,
   nodeFileSystem,
@@ -24,6 +24,8 @@ try {
     hostLoad: systemHostLoad,
     links: nodeLinks,
     bundleUrl: import.meta.url,
+    // The command table the knowledge check resolves the commands a document names against (plan 17).
+    commands: domains,
     env: process.env,
     platform: process.platform,
     cwd: process.cwd(),
