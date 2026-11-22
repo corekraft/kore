@@ -1,4 +1,9 @@
-import { CommandError, type Command, type CliDeps } from "../runtime/index.js";
+import {
+  CommandError,
+  type Command,
+  type CliDeps,
+  type CommandHelp,
+} from "../runtime/index.js";
 
 /** What a hook did: text for the host and the exit code it signals with. */
 export interface HookResult {
@@ -41,6 +46,8 @@ export interface HookShape {
    * non-blocking but shows, so a broken enforcer is never silent.
    */
   faultCode?: number;
+  /** The help record `--help` reads for the command; a command with none stays exempt (help/exemptions.ts). */
+  help?: CommandHelp;
 }
 
 /**
@@ -56,12 +63,13 @@ export function hookCommand(
   name: string,
   summary: string,
   handler: (context: HookContext) => Promise<HookResult>,
-  { flags = {}, payload = true, operand, faultCode = 0 }: HookShape = {},
+  { flags = {}, payload = true, operand, faultCode = 0, help }: HookShape = {},
 ): Command {
   return {
     summary,
     options: { ...flags, strict: "boolean" },
     ...(operand === undefined ? {} : { operand }),
+    ...(help === undefined ? {} : { help }),
     async run({ deps, options, operand: given }) {
       let result: HookResult;
       try {

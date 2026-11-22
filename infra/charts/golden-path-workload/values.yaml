@@ -17,6 +17,9 @@ resources:
 # Set by the golden-path ApplicationSet only while golden-path-signin is on
 # (issue 1746). Then the BFF gets its sign-in variables, the workload renders one
 # Keycloak client for its Service, and the client secret is read from the
-# connection Secret that client writes. Off, nothing of it renders.
+# connection Secret that client writes. It also renders a cert-manager
+# Certificate whose Secret carries the local CA and a truststore init container,
+# so the BFF's JVM trusts the Keycloak issuer (issue 1824). Off, nothing of it
+# renders.
 signin:
   enabled: false
