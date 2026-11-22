@@ -21,7 +21,7 @@ import { MERGED_RULES, isTimestamp, type MergedOrigin } from "./schema-time.js";
 
 export { isTimestamp };
 
-export const SOURCES = ["claude", "herdr", "github"] as const;
+export const SOURCES = ["claude", "herdr", "github", "terminal"] as const;
 export type Source = (typeof SOURCES)[number];
 
 export { KINDS, type Kind };

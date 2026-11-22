@@ -90,7 +90,7 @@ const reportCommand: Command = {
 
 const sendCommand: Command = {
   summary:
-    "send a one-line follow-up to a spawned session's pane, signed with its sender line and recorded as a session.send event",
+    "send a one-line follow-up to a spawned session: to its herdr pane (signed and recorded), or on hc to its terminal when the caller may reach it (parent, child or group sibling)",
   operand: "name",
   options: { message: "string" },
   help: sendHelp,
@@ -99,14 +99,14 @@ const sendCommand: Command = {
 
 const checkCommand: Command = {
   summary:
-    "report each writer or judge pane that session spawn did not start, since it runs without its role token (read-only)",
+    "report each writer or judge pane (herdr) or each agent terminal (hc-sessions on) that session spawn did not start, and on hc each report with no open record (read-only)",
   help: checkHelp,
   run: check,
 };
 
 const closeCommand: Command = {
   summary:
-    "close a spawned session's pane once its result is recorded; --remove-worktree also removes its merged worktree and branch",
+    "close a spawned session: its herdr pane once its result is recorded, or on hc its terminal from the parent terminal; --remove-worktree also removes its merged worktree and branch (herdr only)",
   operand: "name",
   options: { "remove-worktree": "boolean" },
   help: closeHelp,

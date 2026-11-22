@@ -1,5 +1,8 @@
+// oxlint-disable import/max-dependencies -- close routes between two backends, so it reads the record's backend and both paths' modules
 import type { CommandContext, CommandHelp } from "../runtime/index.js";
 import { removeMergedWorktree, type Removal } from "./close-worktree.js";
+import { routeSession, terminalsFor } from "./backend.js";
+import { closeHcSession } from "./close-hc.js";
 import { describeFailure, equalize } from "./equalize.js";
 import { sessionNameError } from "./names.js";
 import { FAILED, USAGE_ERROR, fail } from "./output.js";
@@ -114,7 +117,7 @@ async function finishClose(
   return kept ? FAILED : 0;
 }
 
-/** `session close <name>`: close a pane only if this caller created it and its result is recorded. */
+/** `session close <name>`: close a pane only if this caller created it and its result is recorded; an hc session closes its terminal instead. */
 export async function close(context: CommandContext): Promise<number> {
   const { json, deps } = context;
   const name = context.operand;
@@ -130,12 +133,39 @@ export async function close(context: CommandContext): Promise<number> {
   if (nameError !== undefined) {
     return fail(deps, json, USAGE_ERROR, nameError);
   }
+  const terminals = terminalsFor(deps);
   const callerPane = deps.env.HERDR_PANE_ID;
-  if (deps.env.HERDR_ENV !== "1" || !callerPane) {
+  if (
+    (deps.env.HERDR_ENV !== "1" || !callerPane) &&
+    terminals.self() === undefined
+  ) {
     return fail(deps, json, FAILED, NOT_IN_HERDR);
   }
   const registry = await SessionRegistry.open(deps);
-  const record = await registry.read(name);
+  const found = await registry.read(name);
+  const routed =
+    found === undefined ? undefined : routeSession(found, terminals);
+  if (routed !== undefined && "error" in routed) {
+    return fail(deps, json, FAILED, routed.error);
+  }
+  if (routed?.backend === "hc" && found !== undefined) {
+    return await closeHcSession(context, routed.terminals, registry, found);
+  }
+  return await closeHerdr(context, registry, found, name, callerPane);
+}
+
+/** The herdr path: closes a pane this herdr pane spawned, once its result is recorded. */
+async function closeHerdr(
+  context: CommandContext,
+  registry: SessionRegistry,
+  record: SessionRecord | undefined,
+  name: string,
+  callerPane: string | undefined,
+): Promise<number> {
+  const { json, deps } = context;
+  if (deps.env.HERDR_ENV !== "1" || !callerPane) {
+    return fail(deps, json, FAILED, NOT_IN_HERDR);
+  }
   if (record === undefined) {
     return fail(
       deps,
@@ -173,13 +203,13 @@ export async function close(context: CommandContext): Promise<number> {
 
 export const closeHelp: CommandHelp = {
   purpose:
-    "Closes a spawned session's Herdr pane once its result is recorded, marks the session closed and rebalances its column. With --remove-worktree it also removes the session's worktree and deletes its branch, but only when a merged pull request has that branch at the worktree's HEAD and the worktree is clean.",
+    "Closes a spawned session's Herdr pane once its result is recorded, marks the session closed and rebalances its column. On hc it kills the session's terminal and removes it, from the terminal that spawned the session, after writing a pane.closed ledger event; it refuses a terminal the caller did not spawn. With --remove-worktree it also removes the session's worktree and deletes its branch (herdr only), but only when a merged pull request has that branch at the worktree's HEAD and the worktree is clean.",
   when: "Last, once session wait has recorded the session's RESULT and the pane is no longer needed, from the pane that spawned the session.",
   whenNot:
     "When no result is recorded yet, which this refuses: run session wait first. When the pane was started by hand, or from a pane other than the spawning one, which this also refuses. To list unmanaged writer and judge panes, use session check. To rebalance a column after a pane was closed another way, use session equalize.",
   flags: {
     "remove-worktree":
-      "Also removes the worktree and deletes its branch, only when a merged pull request has that branch at the worktree's HEAD and the worktree is clean. Otherwise both are kept, the reason is printed, and the command exits 1.",
+      "Herdr only: also removes the worktree and deletes its branch, only when a merged pull request has that branch at the worktree's HEAD and the worktree is clean. Otherwise both are kept, the reason is printed, and the command exits 1. An hc session refuses it, before anything is killed.",
   },
   operand:
     "The spawned session's name, such as image-trust-reader. Only the pane that spawned the session may close it.",
@@ -204,7 +234,7 @@ export const closeHelp: CommandHelp = {
     {
       code: 1,
       meaning:
-        "refused: already closed, spawned from another pane, no recorded result, not a session of this tool, or not inside Herdr; or herdr pane close failed; or --remove-worktree kept the worktree and branch",
+        "refused: already closed, spawned from another pane, no recorded result, not a session of this tool, or not inside Herdr or an hc terminal; or (hc) the terminal is not the caller's child, or --remove-worktree was given; or herdr pane close failed; or --remove-worktree kept the worktree and branch",
     },
     {
       code: 2,
@@ -214,7 +244,7 @@ export const closeHelp: CommandHelp = {
   effects: {
     kind: "mutates",
     detail:
-      "closes the Herdr pane, records closedAt on the session's registry entry and equalizes the column. With --remove-worktree it removes the git worktree and force-deletes its branch, after gh and git checks; a refused removal keeps both",
+      "herdr: closes the Herdr pane, records closedAt on the session's registry entry and equalizes the column. hc: kills the terminal, appends a pane.closed ledger event, removes the terminal and records closedAt. With --remove-worktree (herdr) it removes the git worktree and force-deletes its branch, after gh and git checks; a refused removal keeps both",
   },
   seeAlso: ["session wait", "session check", "session equalize"],
 };

@@ -1,3 +1,4 @@
+// oxlint-disable import/max-dependencies -- send routes between two backends, so it reads the record's backend and both paths' modules
 import { join } from "node:path";
 import { DEFAULT_LEDGER, Ledger } from "../ledger/index.js";
 import {
@@ -7,9 +8,11 @@ import {
   type CommandHelp,
 } from "../runtime/index.js";
 import { signedMessage, type Sender } from "../sender/index.js";
+import { routeSession, terminalsFor } from "./backend.js";
 import { deliver } from "./notify.js";
 import { FAILED, USAGE_ERROR, fail } from "./output.js";
-import { SessionRegistry } from "./registry.js";
+import { SessionRegistry, type SessionRecord } from "./registry.js";
+import { sendHcCommand } from "./send-hc.js";
 import { signedMainSendsOn } from "./signed-sends.js";
 
 const USAGE = "session send <name> --message <text>";
@@ -59,9 +62,9 @@ async function recordSend(
 }
 
 /**
- * `session send <name> --message <text>`: a follow-up to a spawned session's pane.
- * The message goes out as one line that starts with the sender line, is confirmed in the pane,
- * then is recorded as a stage event naming the sender.
+ * `session send <name> --message <text>`: a follow-up to a spawned session. A herdr session's message goes out as one
+ * line that starts with the sender line, is confirmed in the pane, then is recorded as a stage event naming the sender.
+ * An hc session's message goes to its terminal, when the caller may reach it, and hc carries the sender.
  */
 export async function send(context: CommandContext): Promise<number> {
   const { json, deps, operand: name, options } = context;
@@ -100,17 +103,44 @@ export async function send(context: CommandContext): Promise<number> {
       `Session ${name} is closed (pane ${record.paneId}); nothing was sent.`,
     );
   }
+  const routed = routeSession(record, terminalsFor(deps));
+  if ("error" in routed) {
+    return fail(deps, json, FAILED, routed.error);
+  }
+  if (routed.backend === "hc") {
+    return await sendHcCommand(
+      context,
+      routed.terminals,
+      record,
+      message.trim(),
+    );
+  }
+  return await sendToHerdr(context, record, signed);
+}
+
+/** The herdr path: the signed line goes to the session's pane, is confirmed, then is recorded. */
+async function sendToHerdr(
+  context: CommandContext,
+  record: SessionRecord,
+  signed: Extract<ReturnType<typeof signedMessage>, { body: string }>,
+): Promise<number> {
+  const { json, deps, operand: name } = context;
   const error = await deliver(deps, record.paneId, signed.body, {
     rejoinWrapped: await signedMainSendsOn(deps),
   });
   if (error !== undefined) {
     return fail(deps, json, FAILED, error);
   }
-  const unrecorded = await recordSend(deps, record.paneId, name, signed.sender);
+  const unrecorded = await recordSend(
+    deps,
+    record.paneId,
+    record.name,
+    signed.sender,
+  );
   if (unrecorded !== undefined) {
     // Delivery happened, so the exit code stays 0; the missing event is said, not hidden.
     deps.stderr(
-      `Sent, but the session.send event was not recorded: ${unrecorded}. Record it with \`harness ledger record --source herdr --kind session.send --pane ${record.paneId} --agent ${name}\`.\n`,
+      `Sent, but the session.send event was not recorded: ${unrecorded}. Record it with \`harness ledger record --source herdr --kind session.send --pane ${record.paneId} --agent ${record.name}\`.\n`,
     );
   }
   deps.stdout(
@@ -123,10 +153,10 @@ export async function send(context: CommandContext): Promise<number> {
 
 export const sendHelp: CommandHelp = {
   purpose:
-    "Sends a one-line follow-up to a spawned session's pane. The line starts with a sender line that names who sent it, is confirmed to show in the pane, and is then recorded as a session.send ledger event that names the sender.",
+    "Sends a one-line follow-up to a spawned session. On herdr the line goes to its pane, starts with a sender line that names who sent it, is confirmed to show in the pane, and is recorded as a session.send ledger event. On hc it goes to the session's terminal, and only when the caller is that terminal's parent, one of its children, or a sibling in its group; hc carries the sender, and a send hc does not confirm is never resent.",
   when: "When a session that is still running needs a correction, a fact or a question in its own pane, and this tool spawned it.",
   whenNot:
-    "When the session is closed, which this refuses; read a finished session's result with session wait. To start new work rather than message a running session, use session spawn. For the session's own message to its caller, use session notify.",
+    "When the session is closed, which this refuses; read a finished session's result with session wait. To start new work rather than message a running session, use session spawn. For a finished hc session's report to its parent, the session uses session report. On hc, a terminal the caller cannot reach is refused, never sent to instead.",
   flags: {
     message:
       "The text to send: one line, not blank, with no line break. It goes out after the sender line.",
@@ -154,7 +184,7 @@ export const sendHelp: CommandHelp = {
     {
       code: 1,
       meaning:
-        "no session of this tool has that name, the session is closed, the message cannot be signed, or delivery failed or was not confirmed",
+        "no session of this tool has that name, the session is closed, the message cannot be signed, delivery failed or was not confirmed, or (hc) the caller may not reach the session's terminal, or it is a parent that is a shell",
     },
     {
       code: 2,
@@ -165,7 +195,7 @@ export const sendHelp: CommandHelp = {
   effects: {
     kind: "mutates",
     detail:
-      "types and submits one line into the session's pane, then appends a session.send ledger event that names the sender's role and session; the session registry is not changed",
+      "herdr: types and submits one line into the session's pane, then appends a session.send ledger event that names the sender's role and session. hc: sends one line to the session's terminal and appends a session.send event with source terminal; the session registry is not changed",
   },
   seeAlso: ["session notify", "session wait", "session spawn"],
 };

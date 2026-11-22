@@ -10,9 +10,11 @@ import { deliver } from "./notify.js";
 import { fail } from "./output.js";
 import { SessionRegistry, type SessionRecord } from "./registry.js";
 import { send } from "./send.js";
+import { sendHcCommand } from "./send-hc.js";
 import { signedMainSendsOn } from "./signed-sends.js";
 
 vi.mock("./notify.js", () => ({ deliver: vi.fn() }));
+vi.mock("./send-hc.js", () => ({ sendHcCommand: vi.fn() }));
 vi.mock("./signed-sends.js", () => ({ signedMainSendsOn: vi.fn() }));
 const open = vi.hoisted(() => vi.fn());
 vi.mock("./registry.js", () => ({ SessionRegistry: { open } }));
@@ -279,5 +281,38 @@ describe("session send when the event is not recorded", () => {
     await expect(send(ctx("image-trust-writer", "Rebase"))).rejects.toThrow(
       "bug",
     );
+  });
+});
+
+describe("session send to an hc session", () => {
+  const HC_RECORD = {
+    version: 1,
+    backend: "hc",
+    name: "child-reader",
+    paneId: "t3",
+    terminal: "t3",
+    model: "claude-sonnet-5-5",
+    role: "reader",
+    effort: "high",
+    createdAt: "2026-01-02T03:04:05.000Z",
+  } as unknown as SessionRecord;
+
+  it("hands an hc record to sendHcCommand, with the trimmed message, and never delivers to a pane", async () => {
+    open.mockResolvedValue({
+      read: vi.fn().mockResolvedValue(HC_RECORD),
+    } as unknown as SessionRegistry);
+    vi.mocked(sendHcCommand).mockResolvedValue(0);
+
+    const code = await send(ctx("child-reader", "  Check the cache rule  "));
+
+    expect(code).toBe(0);
+    expect(sendHcCommand).toHaveBeenCalledExactlyOnceWith(
+      ctx("child-reader", "  Check the cache rule  "),
+      expect.anything(),
+      HC_RECORD,
+      "Check the cache rule",
+    );
+    expect(deliver).not.toHaveBeenCalled();
+    expect(append).not.toHaveBeenCalled();
   });
 });
