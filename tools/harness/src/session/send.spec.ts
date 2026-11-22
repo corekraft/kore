@@ -10,9 +10,11 @@ import { deliver } from "./notify.js";
 import { fail } from "./output.js";
 import { SessionRegistry, type SessionRecord } from "./registry.js";
 import { send } from "./send.js";
+import { sendHcCommand } from "./send-hc.js";
 import { signedMainSendsOn } from "./signed-sends.js";
 
 vi.mock("./notify.js", () => ({ deliver: vi.fn() }));
+vi.mock("./send-hc.js", () => ({ sendHcCommand: vi.fn() }));
 vi.mock("./signed-sends.js", () => ({ signedMainSendsOn: vi.fn() }));
 const open = vi.hoisted(() => vi.fn());
 vi.mock("./registry.js", () => ({ SessionRegistry: { open } }));
@@ -197,7 +199,6 @@ describe("session send refusals", () => {
     expect(failure()).toBe(
       "KORE_AGENT is not set, so the sender line cannot name the session.",
     );
-    expect(open).not.toHaveBeenCalled();
     expect(deliver).not.toHaveBeenCalled();
     expect(append).not.toHaveBeenCalled();
   });
@@ -279,5 +280,50 @@ describe("session send when the event is not recorded", () => {
     await expect(send(ctx("image-trust-writer", "Rebase"))).rejects.toThrow(
       "bug",
     );
+  });
+});
+
+describe("session send to an hc session", () => {
+  const UNSIGNED =
+    "KORE_AGENT is not set, so the sender line cannot name the session.";
+  const HC_RECORD = {
+    ...record,
+    backend: "hc",
+    name: "child-reader",
+    paneId: "t3",
+    terminal: "t3",
+  } as unknown as SessionRecord;
+
+  const openHc = () => {
+    vi.mocked(sendHcCommand).mockResolvedValue(0);
+    open.mockResolvedValue({
+      read: vi.fn().mockResolvedValue(HC_RECORD),
+    } as unknown as SessionRegistry);
+  };
+
+  it("hands an hc record to sendHcCommand, with the trimmed message, and never delivers to a pane", async () => {
+    openHc();
+
+    const code = await send(ctx("child-reader", "  Check the cache rule  "));
+
+    expect(code).toBe(0);
+    expect(sendHcCommand).toHaveBeenCalledExactlyOnceWith(
+      ctx("child-reader", "  Check the cache rule  "),
+      expect.anything(),
+      HC_RECORD,
+      "Check the cache rule",
+    );
+    expect(deliver).not.toHaveBeenCalled();
+  });
+
+  it("sends an hc message even when no sender line can be written, since hc carries the sender", async () => {
+    openHc();
+    vi.mocked(signedMessage).mockReturnValue({ error: UNSIGNED });
+
+    const code = await send(ctx("child-reader", "Check the cache rule"));
+
+    expect(code).toBe(0);
+    expect(signedMessage).not.toHaveBeenCalled();
+    expect(sendHcCommand).toHaveBeenCalledOnce();
   });
 });

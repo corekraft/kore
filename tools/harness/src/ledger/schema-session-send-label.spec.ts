@@ -36,3 +36,37 @@ describe("session send events for a tick notice", () => {
     ).toMatchObject({ ok: false, field: "label" });
   });
 });
+
+describe("session events an hc terminal writes", () => {
+  const fromTerminal = {
+    source: "terminal",
+    occurredAt: "2026-11-22T10:00:00.000Z",
+  };
+
+  it("accepts a session.send from a terminal, and a pane.closed that closes one", () => {
+    expect(
+      parseEvent(
+        {
+          ...fromTerminal,
+          kind: "session.send",
+          pane: "t3",
+          agent: "image-trust-writer",
+          senderRole: "writer",
+          senderName: "pair-a-reader",
+        },
+        "input",
+      ),
+    ).toMatchObject({ ok: true });
+    expect(
+      parseEvent(
+        {
+          ...fromTerminal,
+          kind: "pane.closed",
+          pane: "t3",
+          agent: "image-trust-writer",
+        },
+        "input",
+      ),
+    ).toMatchObject({ ok: true });
+  });
+});

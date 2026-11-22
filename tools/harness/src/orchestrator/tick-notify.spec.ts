@@ -202,3 +202,17 @@ describe("TickNotifier.notify for a reserved question (#1058)", () => {
     );
   });
 });
+
+describe("TickNotifier.notify for a relabelled attended terminal", () => {
+  it("tells nobody twice: an idea and state already sent are not sent again to the terminal now labelled", async () => {
+    const p = ports({
+      attendedPane: vi.fn().mockResolvedValue("t10"),
+      sent: vi.fn().mockResolvedValue(true),
+    });
+    await new TickNotifier(p, TICK_ENV, COMMAND).notify(step("needs-info"));
+
+    expect(p.sent).toHaveBeenCalledWith("0034", "needs-info");
+    expect(p.send).not.toHaveBeenCalled();
+    expect(p.record).not.toHaveBeenCalled();
+  });
+});

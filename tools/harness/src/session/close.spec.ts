@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { CliDeps } from "../runtime/index.js";
 import { close } from "./close.js";
+import { closeHcSession } from "./close-hc-command.js";
 import { removeMergedWorktree } from "./close-worktree.js";
 import {
   SPAWNED,
@@ -15,11 +16,14 @@ import {
 import { describeFailure, equalize } from "./equalize.js";
 import { sessionNameError } from "./names.js";
 import { fail } from "./output.js";
-import type { SessionRegistry } from "./registry.js";
+import type { SessionRecord, SessionRegistry } from "./registry.js";
 import { closeHint } from "./worktree.js";
 
 vi.mock("./close-worktree.js", () => ({
   removeMergedWorktree: vi.fn(),
+}));
+vi.mock("./close-hc-command.js", () => ({
+  closeHcSession: vi.fn(),
 }));
 vi.mock("./equalize.js", () => ({
   equalize: vi.fn(),
@@ -138,14 +142,22 @@ describe("session close refusals, touching nothing", () => {
   });
 });
 
-describe("session close refuses a record with no herdr caller pane", () => {
-  it("refuses a record with no caller pane, naming its backend instead of an undefined pane", async () => {
-    const { callerPane: _callerPane, ...withoutCaller } = SPAWNED;
-    registryOf({ ...withoutCaller, backend: "hc", terminal: "t7" });
+describe("session close routes an hc record to hc, never to herdr", () => {
+  it("hands an hc record to closeHcSession, and touches no herdr pane", async () => {
+    const hcRecord = {
+      ...WITHOUT_WORKTREE,
+      backend: "hc",
+      terminal: "t7",
+    } as unknown as SessionRecord;
+    registryOf(hcRecord);
+    vi.mocked(closeHcSession).mockResolvedValue(0);
     const s = scene();
-    expect(await close(s.context)).toBe(1);
-    expect(failures()[0]?.[3]).toBe(
-      "Session image-trust-writer runs on the hc backend and has no caller pane, so herdr close cannot tell who may close it. Close it on its own backend.",
+    expect(await close(s.context)).toBe(0);
+    expect(closeHcSession).toHaveBeenCalledExactlyOnceWith(
+      s.context,
+      expect.anything(),
+      expect.anything(),
+      hcRecord,
     );
     expect(s.runner.run).not.toHaveBeenCalled();
   });
