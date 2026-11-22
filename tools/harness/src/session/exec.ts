@@ -2,6 +2,7 @@ import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import type { Command, CliDeps, Runner } from "../runtime/index.js";
 import { bundleMainRoot } from "../runtime/index.js";
+import { readRoleAgent } from "./exec-agent.js";
 import { hasIdentity, roleToken } from "./role-token.js";
 
 /** One session's launch: the role, its model and effort, and the brief that is claude's first prompt. */
@@ -15,6 +16,7 @@ export interface LaunchInput {
 /** The claude flags this wrapper passes. Each must appear in `claude --help`, or the wrapper refuses to start. */
 export const PASSED_FLAGS = [
   "--agent",
+  "--agents",
   "--model",
   "--effort",
   "--permission-mode",
@@ -132,6 +134,11 @@ export async function launchClaude(
     deps.stderr(refusal ?? "");
     return 1;
   }
+  const definition = await readRoleAgent(deps, main, input.role);
+  if (!definition.ok) {
+    deps.stderr(definition.message);
+    return 1;
+  }
   const env = scrubbed(deps.env);
   const flagRefusal = await claudeRefusal(deps, env);
   if (flagRefusal !== undefined) {
@@ -148,6 +155,8 @@ export async function launchClaude(
     [
       "--agent",
       input.role,
+      "--agents",
+      definition.json,
       "--model",
       input.model,
       "--effort",
@@ -180,12 +189,12 @@ const USAGE =
 
 export const execCommand: Command = {
   summary:
-    "start one role's claude session as the wrapper for an hc terminal (`session exec --role <role> --model <model> --effort <effort> <brief>`): run from the main checkout's bundle only, it checks that `claude --help` names every flag it passes, mints the role's token from the identity store with any inherited GitHub token and herdr variable scrubbed, and runs claude in place with the fixed argv and the brief as its first prompt",
+    "start one role's claude session as the wrapper for an hc terminal (`session exec --role <role> --model <model> --effort <effort> <brief>`): run from the main checkout's bundle only, it reads the role's agent definition from the main checkout as --agents, checks that `claude --help` names every flag it passes, mints the role's token from the identity store with any inherited GitHub token and herdr variable scrubbed, and runs claude in place with the fixed argv and the brief as its first prompt",
   operand: "brief",
   options: { role: "string", model: "string", effort: "string" },
   help: {
     purpose:
-      "Starts one role's claude session as the wrapper for an hc terminal. It checks that the installed claude names every flag the wrapper passes, mints the role's GitHub token from the main checkout's identity store with any inherited GitHub token and herdr variable scrubbed, and runs claude with the fixed argv and the brief as its first prompt.",
+      "Starts one role's claude session as the wrapper for an hc terminal. It reads the role's agent definition from the main checkout's .claude/agents/<role>.md and passes it as --agents, since --setting-sources user loads no project agent; a role with no definition, or one with no description, is refused. It checks that the installed claude names every flag the wrapper passes, mints the role's GitHub token from the main checkout's identity store with any inherited GitHub token and herdr variable scrubbed, and runs claude with the fixed argv and the brief as its first prompt.",
     when: "When an hc terminal starts a role's session and needs the command that launches it, run from the main checkout's skills/bin/harness.mjs by absolute path.",
     whenNot:
       "When starting a role's session in a herdr pane from the main session: run session spawn, which starts the pane and records the launch. To read the model and effort a role launches at, run session tier.",
