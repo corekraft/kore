@@ -106,4 +106,18 @@ describe("parseEventLine: the captured hc 0.1.21 shapes", () => {
   it("refuses an hc error line printed on stdout, rather than reading it as an event", () => {
     expect(parseEventLine(HC_ERROR_LINE)).toBe(undefined);
   });
+
+  it("reads a heartbeat line hc prints every ~20 s as no events, not as a refusal", () => {
+    expect(
+      parseEventLine(
+        '{"jsonrpc":"2.0","method":"heartbeat","params":{"seq":8946}}',
+      ),
+    ).toEqual([]);
+  });
+
+  it("keeps refusing a JSON-RPC method hc does not print as an event or a heartbeat", () => {
+    expect(
+      parseEventLine('{"jsonrpc":"2.0","method":"other","params":{"seq":1}}'),
+    ).toBe(undefined);
+  });
 });
