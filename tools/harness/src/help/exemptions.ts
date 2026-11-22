@@ -24,18 +24,6 @@ export const undocumented: readonly string[] = [
   "hook test-budget",
   "hook unit-specs",
   "hook workflow-permissions",
-  // session
-  "session spawn",
-  "session wait",
-  "session notify",
-  "session send",
-  "session check",
-  "session close",
-  "session tier",
-  "session equalize",
-  "session prompt-size",
-  // skill
-  "skill audit",
   // outcome
   "outcome record",
   "outcome close",
