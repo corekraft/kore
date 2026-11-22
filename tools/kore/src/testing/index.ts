@@ -52,7 +52,13 @@ export { registryCaPem, registryTlsSecret } from "./registry-tls-fixtures.js";
 export { readyRows } from "./platform-readiness.fixtures.js";
 // The sign-in check and its headless-browser driver (#1115): run by the opt-in live spec, and reusable by the browser token test (#1116).
 export { checkSignIn } from "./signin-check.js";
-export type { SignInAssertion, SignInResult } from "./signin-check.js";
+export type {
+  SignInAssertion,
+  SignInResult,
+  SignInTarget,
+} from "./signin-check.js";
+export type { SignInPaths } from "./signin-program.js";
+export { goldenPathSignInTarget } from "./golden-path-signin-target.js";
 export { chromiumProgram } from "./chromium-program.js";
 export { pinnedBrowserImage, runHeadlessBrowser } from "./headless-browser.js";
 export type { HeadlessBrowserRun } from "./headless-browser.js";

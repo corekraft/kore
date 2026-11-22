@@ -267,9 +267,11 @@ destructive_suites=(test:live:signer test:live:lifecycle)
 # a delivered golden-path service under load on an idle host, and the night
 # delivers none. Add a future measurement suite here deliberately; each one found
 # is named in the summary.
+# The golden-path sign-in check needs the one delivered Service's name at run
+# time (KORE_SIGNIN_SERVICE), and the night delivers none, so it runs by hand.
 # The alert delivery proof fires an alert on a delivered Service and needs the owner
 # address at run time; the night delivers none, so it runs by hand.
-excluded_suites=(test:live:footprint test:live:golden-path-load test:live:delivery-stage test:live:alert-delivery)
+excluded_suites=(test:live:footprint test:live:golden-path-load test:live:delivery-stage test:live:alert-delivery test:live:golden-path-signin)
 suites_all="$suites"
 for excluded in "${excluded_suites[@]}"; do
   if printf '%s\n' "$suites_all" | grep -qxF "$excluded"; then

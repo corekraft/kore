@@ -72,6 +72,37 @@ function sentBody(input: string | undefined): Record<string, unknown> {
   return JSON.parse(JSON.parse(quoted) as string) as Record<string, unknown>;
 }
 
+describe("KeycloakTestUsers in the realm it is given", () => {
+  it("creates, groups and removes the user in the realm it is given, and sends no admin request to the platform realm", async () => {
+    const { runner, curlCalls } = fakeRunner((config) => {
+      if (config.includes("group-by-path")) {
+        return 'HTTP/2 200\n\n{"id":"g-9","name":"platform-operators"}';
+      }
+      if (config.includes('request = "PUT"')) {
+        return "HTTP/2 204\n\n";
+      }
+      if (config.includes('request = "DELETE"')) {
+        return "HTTP/2 204\n\n";
+      }
+      return created;
+    });
+    const users = await KeycloakTestUsers.connect(repository, runner, "golden");
+    const id = await users.create("kore-signin-check-a1", password);
+    await users.addToOperators(id);
+    await users.remove(id);
+    const adminRequests = curlCalls()
+      .map((call) => call.input ?? "")
+      .filter((input) => !input.includes("openid-connect/token"));
+    expect(adminRequests).toHaveLength(4);
+    expect(
+      adminRequests.every((input) => input.includes("/admin/realms/golden/")),
+    ).toBe(true);
+    expect(
+      adminRequests.some((input) => input.includes("/admin/realms/platform/")),
+    ).toBe(false);
+  });
+});
+
 describe("KeycloakTestUsers", () => {
   it("reads the admin password from the Secret and sends it only on curl's stdin", async () => {
     const { runner, calls, curlCalls } = fakeRunner(() => created);

@@ -56,6 +56,7 @@ const FORWARDS: Record<string, readonly string[]> = {
   "./platform-readiness.fixtures.js": ["readyRows"],
   "./platform-resilience.fixtures.js": ["healthyClusterOutput"],
   "./signin-check.js": ["checkSignIn"],
+  "./golden-path-signin-target.js": ["goldenPathSignInTarget"],
   "./chromium-program.js": ["chromiumProgram"],
   "./headless-browser.js": ["pinnedBrowserImage", "runHeadlessBrowser"],
   "../platform/reconcile.js": [

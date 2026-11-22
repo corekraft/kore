@@ -7,7 +7,8 @@ import type { Runner } from "../runtime/index.js";
 
 const namespace = "keycloak";
 const adminSecretName = "keycloak-admin";
-const realm = "platform";
+/** The realm the throwaway users are created in unless the caller names another: the platform realm, where the golden-path clients are rendered. */
+export const defaultRealm = "platform";
 const operatorsGroupPath = "platform/platform-operators";
 
 interface Reply {
@@ -105,16 +106,22 @@ export class KeycloakTestUsers {
     private readonly host: string,
     private token: string,
     private readonly renew: () => Promise<string>,
+    private readonly realm: string,
   ) {}
 
-  /** Signs in as the bootstrap admin, which the platform Keycloak keeps for the life of the install. */
+  /**
+   * Signs in as the bootstrap admin, which the platform Keycloak keeps for the life of the install.
+   * The users go to `realm`; the platform-operators group sits in the platform realm, so another
+   * realm must hold its own group at that path or adding a user to it is refused.
+   */
   static async connect(
     repository: Repository,
     runner: Runner,
+    realm: string = defaultRealm,
   ): Promise<KeycloakTestUsers> {
     const host = keycloakHostname(repository.environment);
     const renew = () => adminToken(repository, runner, host);
-    return new KeycloakTestUsers(runner, host, await renew(), renew);
+    return new KeycloakTestUsers(runner, host, await renew(), renew, realm);
   }
 
   /**
@@ -125,7 +132,7 @@ export class KeycloakTestUsers {
    * the reserved .invalid domain, so no mail is ever sent.
    */
   async create(username: string, password: string): Promise<string> {
-    const reply = await this.send("POST", `/admin/realms/${realm}/users`, {
+    const reply = await this.send("POST", `/admin/realms/${this.realm}/users`, {
       username,
       enabled: true,
       firstName: "Sign-in",
@@ -149,7 +156,7 @@ export class KeycloakTestUsers {
   async addToOperators(userId: string): Promise<void> {
     const group = await this.send(
       "GET",
-      `/admin/realms/${realm}/group-by-path/${operatorsGroupPath}`,
+      `/admin/realms/${this.realm}/group-by-path/${operatorsGroupPath}`,
     );
     expectStatus(group, 200, "find the platform-operators group");
     const groupId = (JSON.parse(group.body) as { id?: string }).id;
@@ -158,7 +165,7 @@ export class KeycloakTestUsers {
     }
     const put = await this.send(
       "PUT",
-      `/admin/realms/${realm}/users/${userId}/groups/${groupId}`,
+      `/admin/realms/${this.realm}/users/${userId}/groups/${groupId}`,
     );
     expectStatus(put, 204, `add user ${userId} to platform-operators`);
   }
@@ -169,7 +176,7 @@ export class KeycloakTestUsers {
    * because a leftover user is a finding.
    */
   async remove(userId: string): Promise<void> {
-    const path = `/admin/realms/${realm}/users/${userId}`;
+    const path = `/admin/realms/${this.realm}/users/${userId}`;
     let reply = await this.send("DELETE", path);
     if (reply.status === 401) {
       this.token = await this.renew();
