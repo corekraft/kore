@@ -202,7 +202,7 @@ describe("ReviewRun records a failure and posts nothing when there is no verdict
 
     const [hc, herdr] = io.spawn.mock.calls.map((call) => call[1]);
     expect(hc).toContain(
-      "run `harness session report --outcome done --summary - <<'EOF'`, with your verdict lines on the lines after it",
+      "run `node skills/bin/harness.mjs session report --outcome done --summary - <<'EOF'`, with your verdict lines on the lines after it",
     );
     expect(hc).not.toMatch(/RESULT/);
     expect(herdr).toContain(

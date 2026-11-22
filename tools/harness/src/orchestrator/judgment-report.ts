@@ -8,14 +8,14 @@ export interface SessionReport {
 
 /**
  * The plan a judgment session stored with its report (session report --plan), parsed as the tick parses a pane's
- * plan. The report's plan is the plan file's text, so the object comes back exactly as the judgment wrote it.
+ * plan. The report's plan is the text its session put on stdin, so the object comes back exactly as the judgment wrote it.
  */
 export function readPlanFromReport(plan: string | undefined): PlanRead {
   if (plan === undefined) {
     return {
       ok: false,
       error:
-        "The judgment session's report carries no plan; it must run session report with --plan naming a file that holds one JSON object. Nothing was started; rerun the judgment session.",
+        "The judgment session's report carries no plan; its brief must end with node skills/bin/harness.mjs session report --plan - and the plan on its stdin. Nothing was started; rerun the judgment session.",
     };
   }
   try {
@@ -24,7 +24,7 @@ export function readPlanFromReport(plan: string | undefined): PlanRead {
     return {
       ok: false,
       error:
-        "The judgment session's stored plan is not valid JSON; it must be one JSON object in the plan file. Nothing was started.",
+        "The judgment session's stored plan is not valid JSON; it must be one JSON object on the stdin of node skills/bin/harness.mjs session report --plan -. Nothing was started.",
     };
   }
 }

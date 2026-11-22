@@ -10,8 +10,8 @@ import {
 const bareLines = (brief: string) =>
   brief.split("\n").filter((line) => /^\s*(?:[●⏺]\s+)?[A-Z-]+\s*$/.test(line));
 
-const HC_PLAN = `End with one JSON object that is your plan, with exactly one of reads, work or stop. Reads is a list of objects with question and paths; work is a list of objects with role (writer or reader), name, brief, files and after; stop is an object with reason. Then, as your last action, run \`harness session report --outcome done --summary "plan written" --plan - <<'EOF'\`, with that object on the lines after it, then a line that reads EOF.`;
-const HC_ANSWER = `Then, as your last action, run \`harness session report --outcome done --summary - <<'EOF'\`, with your answer on the lines after it, then a line that reads EOF. Use --outcome blocked only when you cannot answer.`;
+const HC_PLAN = `End with one JSON object that is your plan, with exactly one of reads, work or stop. Reads is a list of objects with question and paths; work is a list of objects with role (writer or reader), name, brief, files and after; stop is an object with reason. Then, as your last action, run \`node skills/bin/harness.mjs session report --outcome done --summary "plan written" --plan - <<'EOF'\`, with that object on the lines after it, then a line that reads EOF.`;
+const HC_ANSWER = `Then, as your last action, run \`node skills/bin/harness.mjs session report --outcome done --summary - <<'EOF'\`, with your answer on the lines after it, then a line that reads EOF. Use --outcome blocked only when you cannot answer.`;
 
 describe("judgmentBrief on hc", () => {
   it("ends with a plan file that session report carries, never a PLAN-JSON marker or RESULT line", () => {

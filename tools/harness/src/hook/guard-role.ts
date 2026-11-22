@@ -26,6 +26,7 @@ import {
   WRITE_TOOLS,
 } from "./guard-role-writes.js";
 import { splitSegments } from "./guard-shell.js";
+import { shellOutsideBodies } from "./guard-heredoc.js";
 import { type Finding } from "./guard-verdict.js";
 
 const READ_ONLY_ROLE_SET = new Set<string>(READ_ONLY_ROLES);
@@ -46,11 +47,13 @@ const finishes = (role: string, segment: readonly string[]): boolean =>
   SPAWNED_ROLE_SET.has(role) && notifiesFinish(segment);
 
 function checkBash(role: string, command: string): Finding {
+  // A quoted heredoc's body is data, so the shell is read without it; an unquoted body still expands.
+  const shell = shellOutsideBodies(command);
   // A substitution runs a command the segment check never sees.
-  if (/\$\(|`|<\(|>\(/.test(command)) {
+  if (/\$\(|`|<\(|>\(/.test(shell)) {
     return notRead("A command substitution");
   }
-  const segments = splitSegments(command);
+  const segments = splitSegments(shell);
   const prefixed = segments.find(setsEnvironment);
   if (prefixed !== undefined) {
     const what = `\`${prefixed.join(" ")}\`, which sets an environment variable or changes shell state,`;

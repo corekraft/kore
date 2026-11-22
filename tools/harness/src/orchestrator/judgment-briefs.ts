@@ -29,10 +29,10 @@ const quoted = (text: string): string =>
     .join("\n");
 
 /** The hc plan: the object goes to session report on its standard input, which stores it as the report's plan. */
-const HC_PLAN = `End with one JSON object that is your plan, with exactly one of reads, work or stop. Reads is a list of objects with question and paths; work is a list of objects with role (writer or reader), name, brief, files and after; stop is an object with reason. Then, as your last action, run \`harness session report --outcome done --summary "plan written" --plan - <<'EOF'\`, with that object on the lines after it, then a line that reads EOF.`;
+const HC_PLAN = `End with one JSON object that is your plan, with exactly one of reads, work or stop. Reads is a list of objects with question and paths; work is a list of objects with role (writer or reader), name, brief, files and after; stop is an object with reason. Then, as your last action, run \`node skills/bin/harness.mjs session report --outcome done --summary "plan written" --plan - <<'EOF'\`, with that object on the lines after it, then a line that reads EOF.`;
 
 /** The hc answer: the answer goes to session report on its standard input, which stores it as the report's summary. */
-const HC_ANSWER = `Then, as your last action, run \`harness session report --outcome done --summary - <<'EOF'\`, with your answer on the lines after it, then a line that reads EOF. Use --outcome blocked only when you cannot answer.`;
+const HC_ANSWER = `Then, as your last action, run \`node skills/bin/harness.mjs session report --outcome done --summary - <<'EOF'\`, with your answer on the lines after it, then a line that reads EOF. Use --outcome blocked only when you cannot answer.`;
 
 function contextLines(decision: JudgmentContext): string {
   if (decision.kind === "start") {

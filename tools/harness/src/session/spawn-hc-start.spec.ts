@@ -109,7 +109,9 @@ describe("startSession runs the exec wrapper as one hc run", () => {
       deps.fs,
       "/main",
       "image-trust-reader",
-      expect.stringContaining("harness session report"),
+      expect.stringContaining(
+        "node skills/bin/harness.mjs session report --outcome <done|blocked> --summary - <<'EOF'",
+      ),
     );
     expect(run).toHaveBeenCalledExactlyOnceWith({
       argv: EXEC_ARGV,

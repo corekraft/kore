@@ -26,10 +26,18 @@ export function notifyCommand(callerPane: string): string {
   return `node skills/bin/harness.mjs session notify ${callerPane} --outcome <done|blocked>`;
 }
 
-/** The hc finish: the report is the session's only result, so the brief names session report and no address. */
-const HC_FINISH = [
+/** The finish of a writer, which may write a file: its summary as an argument, or a file under .kore/report for a long one. */
+const HC_FINISH_WRITER = [
   "When you finish, print your summary, then as your very last action run `harness session report --outcome <done|blocked> --summary <your summary>`, quoting the summary as one argument. For a long summary, write it under .kore/report and pass `--file <path>` in place of `--summary`. Use blocked only when you cannot go on without a person. Each report takes the next seq, so a rework reports again.",
 ].join("\n");
+
+/** The finish of a read-only role, which writes no file: its summary goes to session report on stdin, as a heredoc. */
+const HC_FINISH_READ =
+  "When you finish, print your summary, then as your very last action run `node skills/bin/harness.mjs session report --outcome <done|blocked> --summary - <<'EOF'`, with your summary on the lines after it, then a line that reads EOF. Use blocked only when you cannot go on without a person. Each report takes the next seq, so a rework reports again.";
+
+/** A task that already names its own session report is finished by it, so no second finish is added. */
+const namesOwnFinish = (task: string): boolean =>
+  /harness\.mjs session report\b|harness session report\b/.test(task);
 
 /** The line a paired session gets: its partner is reached by name, never by an address. */
 function groupLine(group: string): string {
@@ -75,6 +83,13 @@ export function buildBrief(input: BriefInput): string {
       : [];
   if (input.backend === "hc") {
     const group = input.group === undefined ? [] : [groupLine(input.group), ""];
+    const finish = namesOwnFinish(task)
+      ? []
+      : [
+          role !== undefined && PUSHING_ROLES.has(role)
+            ? HC_FINISH_WRITER
+            : HC_FINISH_READ,
+        ];
     return [
       task,
       "",
@@ -82,8 +97,10 @@ export function buildBrief(input: BriefInput): string {
       "",
       ...followUp,
       ...group,
-      HC_FINISH,
-    ].join("\n");
+      ...finish,
+    ]
+      .join("\n")
+      .trimEnd();
   }
   const { callerPane } = input;
   return [

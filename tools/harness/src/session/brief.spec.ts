@@ -108,6 +108,10 @@ const HC_FINISH = [
   "When you finish, print your summary, then as your very last action run `harness session report --outcome <done|blocked> --summary <your summary>`, quoting the summary as one argument. For a long summary, write it under .kore/report and pass `--file <path>` in place of `--summary`. Use blocked only when you cannot go on without a person. Each report takes the next seq, so a rework reports again.",
 ].join("\n");
 
+const HC_FINISH_READ = [
+  "When you finish, print your summary, then as your very last action run `node skills/bin/harness.mjs session report --outcome <done|blocked> --summary - <<'EOF'`, with your summary on the lines after it, then a line that reads EOF. Use blocked only when you cannot go on without a person. Each report takes the next seq, so a rework reports again.",
+].join("\n");
+
 const HC_GROUP = [
   "Your group is pair-a: a partner session shares it. To message a session you are paired with, run `harness session send <peer name>`, where <peer name> is that session's name, given in your task.",
 ].join("\n");
@@ -127,13 +131,13 @@ describe("buildBrief on hc", () => {
 
   it("tells a read-only role to finish with session report, without the pushing-role sections", () => {
     expect(buildBrief({ ...HC_INPUT, role: "reader" })).toBe(
-      [HEAD, HC_FINISH].join("\n"),
+      [HEAD, HC_FINISH_READ].join("\n"),
     );
   });
 
   it("tells a paired session to message its partner with session send <peer name>, never by address", () => {
     expect(buildBrief({ ...HC_INPUT, role: "reader", group: "pair-a" })).toBe(
-      [HEAD, HC_GROUP, "", HC_FINISH].join("\n"),
+      [HEAD, HC_GROUP, "", HC_FINISH_READ].join("\n"),
     );
   });
 
@@ -142,5 +146,29 @@ describe("buildBrief on hc", () => {
     expect(brief).not.toMatch(
       /session notify|RESULT|t\d+|kore-agents|w\d+:p\d+/,
     );
+  });
+});
+
+describe("buildBrief on hc: the finish a read-only role gets, and when none is added", () => {
+  it("names --summary - and no file for a read-only role, so no file is written", () => {
+    const brief = buildBrief({ ...HC_INPUT, role: "judgment" });
+    expect(brief).toContain("--summary - <<'EOF'");
+    expect(brief).not.toMatch(/--file|\.kore\/report/);
+  });
+
+  it("keeps the file form for a writer, which can write one", () => {
+    expect(buildBrief({ ...HC_INPUT, role: "writer" })).toContain(
+      "--file <path>",
+    );
+  });
+
+  it("adds no second finish when the task already names its own session report", () => {
+    const task =
+      "Answer the question.\nRun `node skills/bin/harness.mjs session report --outcome done --summary - <<'EOF'` with your answer.";
+    const brief = buildBrief({ ...HC_INPUT, task, role: "reader" });
+
+    expect(brief).not.toContain("When you finish");
+    expect(brief.startsWith(task)).toBe(true);
+    expect(brief.endsWith("\n")).toBe(false);
   });
 });

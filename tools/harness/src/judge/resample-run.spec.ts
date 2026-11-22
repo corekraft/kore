@@ -65,7 +65,7 @@ describe("ResampleRun launch (#852)", () => {
     const brief = f.spawn.mock.calls[0]?.[0].brief as string;
     expect(brief).not.toContain("\n");
     expect(brief).toContain(
-      "run `harness session report --outcome done --summary - <<'EOF'`, with your verdict lines on the lines after it",
+      "run `node skills/bin/harness.mjs session report --outcome done --summary - <<'EOF'`, with your verdict lines on the lines after it",
     );
     expect(brief).not.toMatch(/RESULT/);
   });

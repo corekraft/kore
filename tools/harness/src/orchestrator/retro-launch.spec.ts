@@ -129,7 +129,7 @@ describe("RetroLaunch pane", () => {
 
     const brief = panes[0]?.brief ?? "";
     expect(brief).toContain(
-      "then, as your last action, run `harness session report --outcome done --summary - <<'EOF'` with your proposals on the lines after it, then a line that reads EOF.",
+      "then, as your last action, run `node skills/bin/harness.mjs session report --outcome done --summary - <<'EOF'` with your proposals on the lines after it, then a line that reads EOF.",
     );
     expect(brief).not.toMatch(/RESULT/);
   });
