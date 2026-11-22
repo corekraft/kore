@@ -43,6 +43,7 @@ vi.mock("../session/index.js", () => ({
   hostLeaseRefusal: vi.fn(),
   signedMainSendsOn: vi.fn(),
   spawnLoadRefusal: vi.fn(),
+  hcSessionsOn: vi.fn().mockResolvedValue(false),
 }));
 
 const NOW = new Date("2026-11-16T12:00:00.000Z");

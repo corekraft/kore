@@ -17,6 +17,10 @@ import { installTickJob } from "./orchestrate-tick-install.js";
 import { runTickLoop } from "./orchestrate-tick-loop.js";
 
 vi.mock("./orchestrate-tick-install.js", () => ({ installTickJob: vi.fn() }));
+vi.mock("../session/index.js", async () => ({
+  ...(await vi.importActual<object>("../session/index.js")),
+  hcSessionsOn: vi.fn().mockResolvedValue(false),
+}));
 vi.mock("./orchestrate-tick-loop.js", () => ({ runTickLoop: vi.fn() }));
 
 vi.mock("../orchestrator/index.js", async () => ({
