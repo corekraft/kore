@@ -8,8 +8,9 @@ function isRecord(value: unknown): value is Record<string, unknown> {
  * The events one line of `hc events --json` stands for (plan 16, Step 4 (e)). The first line hc prints is a
  * snapshot of the terminals that match, each read as changed, so a change between the listing and the follow
  * is not lost. Each later line is a notification: a finish is finished, and any other change is changed.
- * A line that is neither, or a terminal that names no address, is undefined: the caller refuses the stream
- * rather than guess what it means.
+ * hc also prints a heartbeat every ~20 s (a JSON-RPC "heartbeat" with no terminal); it is no event, so it is an
+ * empty list. A line that is neither, or a terminal that names no address, is undefined: the caller refuses the
+ * stream rather than guess what it means.
  */
 export function parseEventLine(line: string): TerminalEvent[] | undefined {
   let value: unknown;
@@ -31,6 +32,9 @@ export function parseEventLine(line: string): TerminalEvent[] | undefined {
       events.push({ kind: "changed", terminal: address });
     }
     return events;
+  }
+  if (value["method"] === "heartbeat") {
+    return [];
   }
   const params = value["params"];
   if (

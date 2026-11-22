@@ -53,6 +53,19 @@ describe("HcTerminals: events follows hc events --json, one event per line it re
     ]);
   });
 
+  it("reads a heartbeat line as no event and keeps following the stream, rather than ending it", async () => {
+    const finish: TerminalEvent[] = [{ kind: "finished", terminal: "t2" }];
+    vi.mocked(parseEventLine).mockImplementation((line) =>
+      line === "heartbeat" ? [] : finish,
+    );
+    const lines = streamOf("heartbeat", "finish");
+    expect(
+      await collect(
+        new HcTerminals({ runner: scripted(), env: {}, lines }).events(),
+      ),
+    ).toEqual(finish);
+  });
+
   it("follows the terminal and label filters as separate hc events flags, after --json", async () => {
     const lines = streamOf();
     await collect(
