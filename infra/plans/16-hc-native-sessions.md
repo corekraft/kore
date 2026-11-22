@@ -615,7 +615,7 @@ the same core. Where hc differed from this plan, the port or the adapter changed
   listing, so the contract starts the wait before the child finishes.
 - **`hc ls --all` lists a child that finished while nobody watched it**, with its
   exit code and reason. `hc ls` lists only live terminals. Confirmed.
-- **Event types.** `hc events --json` opens with a snapshot line (`channel`, `seq`, `terminals`, no JSON-RPC wrapper), then one JSON-RPC `event` notification per change, typed by `params.type`: `created`, `foreground`, `labels`, `status`, `finished` and `removed` (captured 2026-11-22 on hc 0.1.21). The ledger watch reads each of them as changed, except `finished`, and reads the event's terminal with `get`.
+- **Event types.** `hc events --json` opens with a snapshot line (`channel`, `seq`, `terminals`, no JSON-RPC wrapper), then one JSON-RPC `event` notification per change, typed by `params.type`, and a `{"jsonrpc":"2.0","method":"heartbeat","params":{"seq":N}}` line about every 20 s (no terminal, read as no events; its absence from the first capture is why the live watch died, see #1868): `created`, `foreground`, `labels`, `status`, `finished` and `removed` (captured 2026-11-22 on hc 0.1.21). The ledger watch reads each of them as changed, except `finished`, and reads the event's terminal with `get`.
 - **A plain shell parent reports `status` null and `reported` false**, and its
   listing row has `agent: "sh"`. Confirmed.
 - **A holder crash ends a live terminal** with `state: finished`, `reason:
