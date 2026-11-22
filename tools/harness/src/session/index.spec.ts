@@ -53,6 +53,7 @@ describe("the session domain's command set", () => {
       "check",
       "close",
       "equalize",
+      "exec",
       "notify",
       "send",
       "spawn",

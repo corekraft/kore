@@ -25,7 +25,7 @@ export interface SignInResult {
   assertions: SignInAssertion[];
 }
 
-function assertionsOf(reply: unknown): SignInAssertion[] {
+export function assertionsOf(reply: unknown): SignInAssertion[] {
   const assertions = (reply as { assertions?: unknown }).assertions;
   if (!Array.isArray(assertions)) {
     throw new Error(
@@ -66,31 +66,51 @@ export async function checkSignIn(
   runner: Runner,
   target: SignInTarget = backstageSignInTarget(repository),
 ): Promise<SignInResult> {
-  const password = randomBytes(24).toString("base64url");
-  const username = `kore-signin-check-${randomBytes(4).toString("hex")}`;
-  const users = await KeycloakTestUsers.connect(
+  return withSignInTestUser(
     repository,
     runner,
     target.realm,
+    async (username, password) => {
+      const reply = await runHeadlessBrowser(runner, {
+        image: pinnedBrowserImage,
+        program: signInProgram({
+          host: target.host,
+          keycloakHost: keycloakHostname(repository.environment),
+          port: gatewayEntryPort,
+          username,
+          password,
+          paths: target.paths,
+        }),
+        secrets: [password],
+      });
+      const assertions = assertionsOf(reply);
+      return {
+        passed: assertions.every((assertion) => assertion.ok),
+        assertions,
+      };
+    },
   );
+}
+
+/**
+ * Generates a throwaway password and user name, creates the user in the realm,
+ * adds it to the operators group, and runs `run` with them. The user is removed
+ * whether `run` returns or throws. The password is never returned or printed.
+ */
+export async function withSignInTestUser<T>(
+  repository: Repository,
+  runner: Runner,
+  realm: string,
+  run: (username: string, password: string) => Promise<T>,
+): Promise<T> {
+  const password = randomBytes(24).toString("base64url");
+  const username = `kore-signin-check-${randomBytes(4).toString("hex")}`;
+  const users = await KeycloakTestUsers.connect(repository, runner, realm);
   const id = await users.create(username, password);
-  let outcome: SignInResult;
+  let outcome: T;
   try {
     await users.addToOperators(id);
-    const reply = await runHeadlessBrowser(runner, {
-      image: pinnedBrowserImage,
-      program: signInProgram({
-        host: target.host,
-        keycloakHost: keycloakHostname(repository.environment),
-        port: gatewayEntryPort,
-        username,
-        password,
-        paths: target.paths,
-      }),
-      secrets: [password],
-    });
-    const assertions = assertionsOf(reply);
-    outcome = { passed: assertions.every((a) => a.ok), assertions };
+    outcome = await run(username, password);
   } catch (error) {
     await removeOrReport(users, id, username, error);
     throw error;

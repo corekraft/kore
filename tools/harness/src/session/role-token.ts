@@ -115,6 +115,10 @@ const IDENTITY_OF_ROLE: ReadonlyMap<string, keyof typeof APPS> = new Map([
 
 export type { RoleToken };
 
+/** Whether a role has a GitHub identity of its own, so it gets a token when the role-tokens flag is on. */
+export const hasIdentity = (role: string): boolean =>
+  IDENTITY_OF_ROLE.has(role);
+
 const base64url = (value: string | Buffer): string =>
   Buffer.from(value).toString("base64url");
 

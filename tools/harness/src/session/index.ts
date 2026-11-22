@@ -14,8 +14,10 @@ export { deliver } from "./notify.js";
 export { signedMainSendsOn } from "./signed-sends.js";
 export { sessionNameError } from "./names.js";
 export { spawnLoadRefusal } from "./spawn-load.js";
+export { PASSED_FLAGS, namesFlag } from "./exec.js";
 import { check } from "./check.js";
 import { close } from "./close.js";
+import { execCommand } from "./exec.js";
 import { equalize } from "./equalize.js";
 import { notify } from "./notify.js";
 import { send } from "./send.js";
@@ -121,5 +123,6 @@ export const session: Record<string, Command> = {
   close: closeCommand,
   tier: tierCommand,
   equalize: equalizeCommand,
+  exec: execCommand,
 };
 export { resolveTier } from "./agent-definition.js";

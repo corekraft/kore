@@ -101,6 +101,10 @@
             "message": "import from the guardrail barrel (guardrail/index.js), not one of its files"
           },
           {
+            "group": ["**/help/**", "!**/help/index.js"],
+            "message": "import from the help barrel (help/index.js), not one of its files"
+          },
+          {
             "group": ["**/hook/**", "!**/hook/index.js"],
             "message": "import from the hook barrel (hook/index.js), not one of its files"
           },
@@ -163,6 +167,10 @@
           {
             "group": ["**/skill/**", "!**/skill/index.js"],
             "message": "import from the skill barrel (skill/index.js), not one of its files"
+          },
+          {
+            "group": ["**/terminal/**", "!**/terminal/index.js"],
+            "message": "import from the terminal barrel (terminal/index.js), not one of its files"
           },
           {
             "group": ["**/testing/**"],
@@ -232,6 +240,10 @@
                 "message": "import from the guardrail barrel (guardrail/index.js), not one of its files"
               },
               {
+                "group": ["**/help/**", "!**/help/index.js"],
+                "message": "import from the help barrel (help/index.js), not one of its files"
+              },
+              {
                 "group": ["**/hook/**", "!**/hook/index.js"],
                 "message": "import from the hook barrel (hook/index.js), not one of its files"
               },
@@ -294,6 +306,10 @@
               {
                 "group": ["**/skill/**", "!**/skill/index.js"],
                 "message": "import from the skill barrel (skill/index.js), not one of its files"
+              },
+              {
+                "group": ["**/terminal/**", "!**/terminal/index.js"],
+                "message": "import from the terminal barrel (terminal/index.js), not one of its files"
               },
               {
                 "group": ["**/testing/**", "!**/testing/index.js"],

@@ -182,3 +182,18 @@ describe("ProcessRunner: a detached start", () => {
     expect(() => child.emit("error", new Error("ENOENT"))).not.toThrow();
   });
 });
+
+describe("ProcessRunner: an inherited start", () => {
+  it("spawns the child on the parent's standard streams, and resolves with its code and no output", async () => {
+    const pending = new ProcessRunner().run("claude", ["--agent", "writer"], {
+      env: { HC_TERMINAL_ID: "t7" },
+      inherit: true,
+    });
+    child.emit("close", 4);
+    await expect(pending).resolves.toEqual({ stdout: "", stderr: "", code: 4 });
+    expect(spawn).toHaveBeenCalledWith("claude", ["--agent", "writer"], {
+      env: { HC_TERMINAL_ID: "t7" },
+      stdio: "inherit",
+    });
+  });
+});

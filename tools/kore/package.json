@@ -33,6 +33,7 @@
     "test:live:identity": "npm run build --silent && KORE_RUN_LIVE=1 node --import ./dist/src/runtime/live-lock-setup.js --test --test-concurrency=1 dist/src/platform/identity.live.spec.js dist/src/platform/authorizer.live.spec.js",
     "test:live:signin": "npm run build --silent && KORE_RUN_LIVE=1 node --import ./dist/src/runtime/live-lock-setup.js --test --test-concurrency=1 dist/src/platform/signin-check.live.spec.js",
     "test:live:golden-path-signin": "npm run build --silent && KORE_RUN_LIVE=1 node --import ./dist/src/runtime/live-lock-setup.js --test --test-concurrency=1 dist/src/platform/golden-path-signin.live.spec.js",
+    "test:live:golden-path-token": "npm run build --silent && KORE_RUN_LIVE=1 node --import ./dist/src/runtime/live-lock-setup.js --test --test-concurrency=1 dist/src/platform/golden-path-token.live.spec.js",
     "test:live:policy": "npm run build --silent && KORE_RUN_LIVE=1 node --import ./dist/src/runtime/live-lock-setup.js --test --test-concurrency=1 dist/src/platform/policy-promotion.live.spec.js",
     "test:live:ops": "npm run build --silent && KORE_RUN_LIVE=1 node --import ./dist/src/runtime/live-lock-setup.js --test --test-concurrency=1 dist/src/ops/*.live.spec.js",
     "test:live:registry": "npm run build --silent && KORE_RUN_LIVE=1 node --import ./dist/src/runtime/live-lock-setup.js --test --test-concurrency=1 dist/src/images/registry.live.spec.js",
