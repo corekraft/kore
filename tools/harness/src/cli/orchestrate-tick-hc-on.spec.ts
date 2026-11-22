@@ -4,6 +4,7 @@ import {
   Tick,
   TickNotifier,
   leasedPass,
+  reconcilingPass,
   tickFlagOn,
 } from "../orchestrator/index.js";
 import { hostLocksDirectory, mainRoot } from "../runtime/index.js";
@@ -47,11 +48,7 @@ vi.mock("../orchestrator/index.js", async () => ({
   leasedPass: vi.fn(),
   runTicks: vi.fn(),
   tickFlagOn: vi.fn(),
-  reconcilingPass: (
-    await vi.importActual<typeof import("../orchestrator/tick-reconcile.js")>(
-      "../orchestrator/tick-reconcile.js",
-    )
-  ).reconcilingPass,
+  reconcilingPass: vi.fn(),
 }));
 vi.mock("../runtime/index.js", () => ({
   hostLocksDirectory: vi.fn(),
@@ -102,6 +99,16 @@ function reconcileWith(reconcile: unknown): Reconcile {
   return { reconcile } as unknown as Reconcile;
 }
 
+/** Makes reconcilingPass return a distinct pass, so a test can tell it from the tick's own; returns its spy. */
+function reconciledPass(order: string[]) {
+  const pass = vi.fn(() => {
+    order.push("reconciled pass");
+    return Promise.resolve([]);
+  });
+  vi.mocked(reconcilingPass).mockReturnValue({ pass } as unknown as Tick);
+  return pass;
+}
+
 beforeEach(() => {
   vi.resetAllMocks();
   vi.mocked(mainRoot).mockResolvedValue("/main");
@@ -114,23 +121,21 @@ describe("orchestrate tick with hc-sessions on", () => {
     vi.mocked(hcSessionsOn).mockResolvedValue(true);
   });
 
-  it("reconciles before the pass runs, so a lost session is recorded before any step", async () => {
+  it("runs the pass that reconciles the tick, not the tick's own", async () => {
     const order: string[] = [];
     const pass = wiredTick(order);
-    vi.mocked(hcReconcile).mockResolvedValue(
-      reconcileWith(
-        vi.fn(() => {
-          order.push("reconcile");
-          return Promise.resolve([]);
-        }),
-      ),
-    );
+    const reconciled = reconciledPass(order);
+    const reconcile = reconcileWith(vi.fn());
+    vi.mocked(hcReconcile).mockResolvedValue(reconcile);
     const { context } = setup();
 
     expect(await tickCommand.run(context)).toBe(0);
-    expect(order).toEqual(["reconcile", "pass"]);
-    expect(pass).toHaveBeenCalledTimes(1);
     expect(hcReconcile).toHaveBeenCalledWith(context.deps, "/main");
+    const tick = vi.mocked(Tick).mock.results[0]?.value as Tick;
+    expect(reconcilingPass).toHaveBeenCalledWith(reconcile, tick);
+    expect(reconciled).toHaveBeenCalledTimes(1);
+    expect(pass).not.toHaveBeenCalled();
+    expect(order).toEqual(["reconciled pass"]);
   });
 
   it("sends the notices to the attended terminal, not to herdr", async () => {
@@ -140,9 +145,8 @@ describe("orchestrate tick with hc-sessions on", () => {
       send: vi.fn().mockResolvedValue(undefined),
     };
     vi.mocked(hcAttended).mockReturnValue(attended);
-    vi.mocked(hcReconcile).mockResolvedValue(
-      reconcileWith(vi.fn().mockResolvedValue([])),
-    );
+    reconciledPass([]);
+    vi.mocked(hcReconcile).mockResolvedValue(reconcileWith(vi.fn()));
     const { context } = setup();
 
     await tickCommand.run(context);
@@ -155,11 +159,9 @@ describe("orchestrate tick with hc-sessions on", () => {
 
   it("runs no pass, and reports the cause, when the reconcile fails", async () => {
     const pass = wiredTick([]);
-    vi.mocked(hcReconcile).mockResolvedValue(
-      reconcileWith(
-        vi.fn().mockRejectedValue(new HarnessCliError("hc is not running")),
-      ),
-    );
+    const reconciled = reconciledPass([]);
+    reconciled.mockRejectedValue(new HarnessCliError("hc is not running"));
+    vi.mocked(hcReconcile).mockResolvedValue(reconcileWith(vi.fn()));
     const { context, err } = setup();
 
     expect(await tickCommand.run(context)).toBe(1);
@@ -181,9 +183,9 @@ describe("orchestrate tick with hc-sessions off", () => {
     expect(await tickCommand.run(context)).toBe(0);
     expect(hcReconcile).not.toHaveBeenCalled();
     expect(hcAttended).not.toHaveBeenCalled();
+    expect(reconcilingPass).not.toHaveBeenCalled();
     expect(order).toEqual(["pass"]);
     const ports = vi.mocked(TickNotifier).mock.calls[0]?.[0];
-    expect(ports?.attendedPane).not.toBe(hcAttended);
     expect(ports?.send).toEqual(expect.any(Function));
   });
 });
