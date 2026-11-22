@@ -24,7 +24,7 @@ const secret = (
 
 /**
  * Gives the platform Backstage its Keycloak sign-in: the OIDC client secret,
- * which Keycloak's `KeycloakOIDCClient` and the sign-in proxy must share (one
+ * which the Crossplane Keycloak client (ADR 0113) and the sign-in proxy must share (one
  * copy per namespace), and the proxy's cookie secret. Both are generated in
  * memory and reach the cluster only on kubectl's stdin, never to disk, an
  * argument or git. Complete Secrets are never rotated, so a registered client

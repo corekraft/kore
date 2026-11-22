@@ -106,3 +106,19 @@ waits until the Organization must exist without the portal.
 
 The live proof is still owed: the realm and its sign-in are proven by the live run that
 gates `platform-portal` (issue 1111).
+
+## Refinement 2026-11-22: the Crossplane provider owns the Backstage client (issue 1730)
+
+The Backstage client in the `platform` realm is a Crossplane managed `Client`
+(`openidclient.keycloak.m.crossplane.io/v1alpha1`) of the Keycloak provider, not a
+`KeycloakOIDCClient` of the Keycloak operator. The operator path needed the
+`client-admin-api:v2` preview feature on the Keycloak server and an operator-owned
+label on the Secret, and the realm and groups already have one owner, the provider.
+The Keycloak server keeps the operator install; it sets no preview feature.
+
+- The Client reads its secret by reference from the Secret `backstage-oidc` in the
+  `backstage` namespace, which kore streams (ADR 0034). No credential is in git.
+- The platform-backstage release is ready only when the Client's Ready condition is
+  True, and a missing client ends the wait with the reason Crossplane reports.
+- Rejected: keeping the operator client with the preview feature, which left one
+  client owned by two tools and failed on the operator's own internals.

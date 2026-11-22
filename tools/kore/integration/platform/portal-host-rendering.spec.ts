@@ -62,7 +62,7 @@ test("with platform-shared-gateway on the portal serves the organization's host 
     rendered.includes(`--redirect-url=https://${host}/oauth2/callback`),
     "the sign-in proxy redirects to the shared host",
   );
-  assert.ok(rendered.includes(`appUrl: https://${host}`));
+  assert.ok(rendered.includes(`baseUrl: https://${host}`));
   assert.ok(rendered.includes(`- https://${host}/oauth2/callback`));
   assert.ok(
     rendered.includes(`- "${host}"`),

@@ -1,5 +1,6 @@
 import { beforeEach, expect, test, vi } from "vitest";
 import type { Runner } from "../runtime/index.js";
+import { clientCheck } from "./readiness-client.js";
 import { customCheck } from "./readiness-custom.js";
 import { argocdApplicationsCheck } from "./readiness-argocd.js";
 import { existenceCheck } from "./readiness-existence.js";
@@ -7,6 +8,7 @@ import { gatewayCheck } from "./readiness-gateway.js";
 import { organizationCheck } from "./readiness-organization.js";
 
 vi.mock("./readiness-argocd.js");
+vi.mock("./readiness-client.js");
 vi.mock("./readiness-existence.js");
 vi.mock("./readiness-gateway.js");
 vi.mock("./readiness-organization.js");
@@ -21,6 +23,7 @@ beforeEach(() => {
   vi.mocked(gatewayCheck).mockReturnValue(undefined);
   vi.mocked(existenceCheck).mockReturnValue(undefined);
   vi.mocked(organizationCheck).mockReturnValue(undefined);
+  vi.mocked(clientCheck).mockReturnValue(undefined);
 });
 
 test("an operator-created resource gets the existence check, asked with the context and the resource", () => {
@@ -76,4 +79,16 @@ test("the platform Organization gets the Organization check, asked with the cont
 
 test("any other resource has no custom check", () => {
   expect(customCheck(context, "deployment/web")).toBeUndefined();
+});
+
+test("the Backstage client gets the client check, so a missing client is named rather than timed out", () => {
+  const client = { condition: "Ready", run: vi.fn() };
+  vi.mocked(clientCheck).mockReturnValue(client);
+
+  expect(
+    customCheck(
+      context,
+      "client.openidclient.keycloak.m.crossplane.io/backstage",
+    ),
+  ).toBe(client);
 });

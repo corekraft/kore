@@ -818,12 +818,17 @@
         "dependencies":
           [
             "kore-platform-keycloak",
+            "keycloak-provider",
             "kore-postgresql-api",
             "kore-crossplane-functions"
           ],
         "timeout": "10m",
         "values": ["infra/environments/common/values/platform-backstage.yaml"],
-        "readiness": ["deployment/backstage"]
+        "readiness":
+          [
+            "client.openidclient.keycloak.m.crossplane.io/backstage",
+            "deployment/backstage"
+          ]
       },
       {
         "name": "kore-golden-path-delivery",

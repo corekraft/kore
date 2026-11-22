@@ -1,4 +1,5 @@
 import { argocdApplicationsCheck } from "./readiness-argocd.js";
+import { clientCheck } from "./readiness-client.js";
 import { existenceCheck } from "./readiness-existence.js";
 import { gatewayCheck, type GatewayContext } from "./readiness-gateway.js";
 import { organizationCheck } from "./readiness-organization.js";
@@ -17,6 +18,7 @@ export function customCheck(
     argocdApplicationsCheck(context, resource) ??
     gatewayCheck(context, resource) ??
     organizationCheck(context, resource) ??
+    clientCheck(context, resource) ??
     existenceCheck(context, resource)
   );
 }

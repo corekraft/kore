@@ -90,7 +90,11 @@ test("the platform Backstage is a flag-gated chart installed after the platform 
     assert.deepEqual(backstage?.ownsCRDs, []);
     assert.ok(backstage?.dependencies.includes("kore-platform-keycloak"));
     assert.ok(backstage?.dependencies.includes("kore-postgresql-api"));
-    assert.deepEqual(backstage?.readiness, ["deployment/backstage"]);
+    assert.deepEqual(backstage?.readiness, [
+      "client.openidclient.keycloak.m.crossplane.io/backstage",
+      "deployment/backstage",
+    ]);
+    assert.ok(backstage?.dependencies.includes("keycloak-provider"));
     const installed = enabledComponents(repository).map((c) => c.name);
     assert.equal(installed.includes("kore-platform-backstage"), false);
     const order = orderedComponents(repository.catalog).map((c) => c.name);
@@ -143,20 +147,6 @@ test("the proxy holds its client and cookie secrets by Secret reference, so no c
     /(secret|password):\s*[A-Za-z0-9]{16,}/i.test(deployment),
     false,
   );
-});
-
-test("the Keycloak client is registered for the callback under the platform domain, with its secret by reference", async () => {
-  const client = document(await render("local"), "KeycloakOIDCClient");
-  assert.match(client, /apiVersion: k8s\.keycloak\.org\/v2alpha1/);
-  assert.match(client, /namespace: keycloak/);
-  assert.match(client, /keycloakCRName: keycloak/);
-  assert.match(client, /realm: platform/);
-  assert.match(
-    client,
-    new RegExp(`https://backstage\\.${domain}/oauth2/callback`),
-  );
-  assert.match(client, /name: backstage-oidc/);
-  assert.match(client, /key: client-secret/);
 });
 
 test("the database is claimed through the platform PostgreSQL API and read by reference", async () => {
