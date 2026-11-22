@@ -162,7 +162,7 @@ export const showHelp: CommandHelp = {
 /** Help for `idea sync`: the issue it creates or edits, and the label and link it records. */
 export const syncHelp: CommandHelp = {
   purpose:
-    "Mirrors one idea to its GitHub issue. With no issue recorded it creates one from the idea's title and a body rendered from its markdown, and records the new issue's link in the idea's issue: line. With one recorded, it reads the issue and edits its title and body only when they differ.",
+    "Mirrors one idea to its GitHub issue. With no issue recorded it creates one from the idea's title and a body rendered from its markdown, and records the new issue's link in the idea's issue: line. With one recorded, it reads the issue and edits its title and body only when they differ. When the recorded issue no longer exists on GitHub, a new issue is created and its link replaces the recorded one.",
   when: "When an idea is ready to be tracked on GitHub, or its markdown has changed and its issue should follow it.",
   whenNot:
     "When you want to change the issue by hand: its body is generated from the idea's file, so edits made on GitHub are overwritten by the next sync. To read the idea, use idea show.",
@@ -200,7 +200,7 @@ export const syncHelp: CommandHelp = {
   effects: {
     kind: "mutates",
     detail:
-      "calls gh to create the issue, or to edit its title and body when they differ, and writes a new issue's link to the idea's issue: line. With the local tick-ticket-queue flag on, a harness idea's issue also gets the harness label when it is created or edited. No label is removed and assignees are never changed.",
+      "calls gh to create the issue, or to edit its title and body when they differ, and writes a new issue's link to the idea's issue: line, replacing a recorded link when the old issue no longer exists. With the local tick-ticket-queue flag on, a harness idea's issue also gets the harness label when it is created or edited. No label is removed and assignees are never changed.",
   },
   seeAlso: ["idea show", "idea new", "outcome record"],
 };

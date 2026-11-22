@@ -100,8 +100,7 @@ async function tick(
 }
 
 export const planTick: Command = {
-  summary:
-    'tick one open item (--item "<text>" [--plan N] [--dry-run]), update the open-item lists and counts, and report every changed line',
+  summary: "tick one open item and recount its list entry",
   options: { plan: "string", item: "string", "dry-run": "boolean" },
   help: {
     purpose:

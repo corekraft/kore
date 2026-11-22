@@ -107,8 +107,7 @@ async function write(
 }
 
 export const planNext: Command = {
-  summary:
-    'set the single Next: line under the current step (--text "<line>" [--plan N] [--dry-run]) and remove any other, reporting every changed line',
+  summary: "set the Next: line under the current step",
   options: { plan: "string", text: "string", "dry-run": "boolean" },
   help: {
     purpose:
@@ -185,8 +184,7 @@ export const planNext: Command = {
 };
 
 export const planClearNext: Command = {
-  summary:
-    "remove the Next: line ([--plan N] [--dry-run]) and report every changed line",
+  summary: "remove the Next: line from the plan",
   options: { plan: "string", "dry-run": "boolean" },
   help: {
     purpose:

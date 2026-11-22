@@ -48,7 +48,7 @@ export async function readActivePlans(deps: CliDeps): Promise<ActivePlan[]> {
 }
 
 export const planActive: Command = {
-  summary: "list the active plans, flagging the default (highest-numbered)",
+  summary: "list the active plans and their open items",
   help: {
     purpose:
       "Lists the active plans: each file under infra/plans whose frontmatter says status: active, highest-numbered first. Each shows its open items per step, its Next: line and its upcoming steps. The first is the default that the plan commands use when no --plan is given.",

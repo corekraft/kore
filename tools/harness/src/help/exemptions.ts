@@ -5,8 +5,6 @@
  * A domain's only command is named by the domain alone.
  */
 export const undocumented: readonly string[] = [
-  // plan
-  // adr
   // guardrail
   "guardrail status",
   "guardrail deny",
@@ -38,7 +36,6 @@ export const undocumented: readonly string[] = [
   "session prompt-size",
   // skill
   "skill audit",
-  // idea
   // outcome
   "outcome record",
   "outcome close",

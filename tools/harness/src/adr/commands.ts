@@ -56,8 +56,7 @@ async function withAdrErrors(
 }
 
 const newAdr: Command = {
-  summary:
-    "create the next ADR and its index entry (--title --summary --status --source [--refines] [--dry-run])",
+  summary: "create the next numbered ADR and its index entry",
   options: {
     title: "string",
     summary: "string",
@@ -143,7 +142,7 @@ const newAdr: Command = {
 };
 
 const supersede: Command = {
-  summary: "mark an ADR superseded by another (--old N --new M [--dry-run])",
+  summary: "mark one ADR superseded by a newer one",
   options: { old: "string", new: "string", "dry-run": "boolean" },
   help: {
     purpose:
