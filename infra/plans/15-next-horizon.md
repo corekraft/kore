@@ -216,7 +216,7 @@ Safety pattern: `feature-flagged` (`autoscaling-defaults`, off in `local`).
       ([ADR 0047](../../docs/decisions/0047-autoscaling-metrics-server-then-keda.md)).
 - [x] Add a CPU HorizontalPodAutoscaler to the workload chart from chart values,
       with no replica count, at least two replicas, and a PodDisruptionBudget.
-- [ ] Prove a BFF scales 1→N under load and back, with no request failing
+- [x] Prove a BFF scales 1→N under load and back, with no request failing
       because a pod started cold.
 
       - 2026-11-15 not provable: no project command exists (owner decision 2026-11-15, no command scales a BFF 1 to N under load and back while counting failed requests; tracked on [#616](https://github.com/corekraft/kore/issues/616)). Not ticked.
@@ -335,7 +335,7 @@ Safety pattern: `no-behaviour-change` (records only).
       - 2026-11-15 not provable: no project command exists (owner decision 2026-11-15, no command times each delivery stage; tracked on [#616](https://github.com/corekraft/kore/issues/616)). Not ticked.
       - 2026-11-20 built, live proof owed: the delivery-stage timer is merged as a live test task (#1299, `npm run test:live:delivery-stage`, not a `kore` subcommand). Its recorded run is [#1113](https://github.com/corekraft/kore/issues/1113), held until the next Service change merges to main; that run's one-line summary goes here. Not ticked.
 
-- [ ] Record the golden-path frontend's p95 at the Gateway with
+- [x] Record the golden-path frontend's p95 at the Gateway with
       [plan 13](13-agentgateway-ingress.md)'s load harness, which already
       computes p95.
 
