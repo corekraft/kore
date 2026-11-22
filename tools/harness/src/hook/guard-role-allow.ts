@@ -86,6 +86,16 @@ function utilityMayRun(name: string, args: readonly string[]): boolean {
   }
 }
 
+/** A `session send` aimed at a pane (--pane) writes into that pane, so no read-only role may run it. */
+const sendsToPane = (args: readonly string[]): boolean => {
+  const at = args.indexOf("session");
+  return (
+    at !== -1 &&
+    args[at + 1] === "send" &&
+    args.some((arg) => arg === "--pane" || arg.startsWith("--pane="))
+  );
+};
+
 /** Options that make a read-only `git` verb write a file or run a program. */
 const gitWrites = (args: readonly string[]): boolean =>
   args.some(
@@ -201,6 +211,24 @@ const lookupMayRun = (
   (name === "which" && whichMayRun(args)) ||
   harnessHelp(name, args);
 
+/** The read-only commands the checks above do not cover: lookups, allowlisted harness and hc reads, read utilities, and the cd, sed and awk forms. */
+const otherReadMayRun = (
+  segment: readonly string[],
+  name: string,
+  args: readonly string[],
+  harness: readonly string[],
+  hc: readonly string[],
+): boolean =>
+  lookupMayRun(segment, name, args) ||
+  harnessAllowed(name, args, harness) ||
+  hcMayRun(name, args, hc) ||
+  retroScanMayRun(name, args) ||
+  (name === "gh" && ghMayRun(args, true)) ||
+  (READ_UTILITIES.has(name) && utilityMayRun(name, args)) ||
+  (name === "cd" && cdMayRun(args)) ||
+  (name === "sed" && sedMayRun(args)) ||
+  (name === "awk" && awkMayRun(args));
+
 /** What a read-only role's shell may run (the reader and judge share it): read utilities, queries and allowlisted harness commands; find may not delete, execute or write. */
 export function readMayRun(
   segment: readonly string[],
@@ -231,14 +259,6 @@ export function readMayRun(
     return gitMayRun(args);
   }
   return (
-    lookupMayRun(segment, name, args) ||
-    harnessAllowed(name, args, harness) ||
-    hcMayRun(name, args, hc) ||
-    retroScanMayRun(name, args) ||
-    (name === "gh" && ghMayRun(args, true)) ||
-    (READ_UTILITIES.has(name) && utilityMayRun(name, args)) ||
-    (name === "cd" && cdMayRun(args)) ||
-    (name === "sed" && sedMayRun(args)) ||
-    (name === "awk" && awkMayRun(args))
+    !sendsToPane(args) && otherReadMayRun(segment, name, args, harness, hc)
   );
 }
