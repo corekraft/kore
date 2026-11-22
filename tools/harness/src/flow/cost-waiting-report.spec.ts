@@ -41,8 +41,8 @@ describe("flow report: token cost beside waiting time", () => {
       weeklyTokenCeiling: 30 * MILLION,
     });
 
-    expect(report.version).toBe(40);
-    expect(REPORT_VERSION).toBe(40);
+    expect(report.version).toBe(41);
+    expect(REPORT_VERSION).toBe(41);
     expect(report.costWaiting.agents.writer).toMatchObject({
       status: "measured",
       sessions: 1,

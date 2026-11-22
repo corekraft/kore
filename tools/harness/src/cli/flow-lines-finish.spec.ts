@@ -2,7 +2,11 @@ import { describe, expect, it } from "vitest";
 import type { FlowReport } from "../flow/index.js";
 import { finishLines } from "./flow-lines-finish.js";
 
-type Figures = Pick<FlowReport, "finishDetection" | "stalledPanes">;
+type Figures = Pick<
+  FlowReport,
+  "finishDetection" | "stalledPanes" | "terminal"
+>;
+type Terminal = NonNullable<FlowReport["terminal"]>;
 
 const noFinish = {
   windowSeconds: 300,
@@ -37,6 +41,7 @@ describe("flow report text: finish detection and silent sessions (#1090)", () =>
         lagMinutes: { samples: 2, median: 10.25, p90: 20 },
       },
       stalledPanes: { ...noStall, recorded: 1 },
+      terminal: null,
     };
     expect(finishLines(figures)).toEqual([
       "Finish detection: 1 of 3 results noticed (a pane.finished recorded by session wait on the result's pane within the 300s placeholder window); never noticed 1, late 1",
@@ -47,11 +52,63 @@ describe("flow report text: finish detection and silent sessions (#1090)", () =>
 
   it("says no result and no lag were read when the range holds none, instead of a median of zero", () => {
     expect(
-      finishLines({ finishDetection: noFinish, stalledPanes: noStall }),
+      finishLines({
+        finishDetection: noFinish,
+        stalledPanes: noStall,
+        terminal: null,
+      }),
     ).toEqual([
       "Finish detection: no results with a pane in this range",
       "Finish lag in minutes, detected and late: no finish with a lag",
       "Silent sessions: 0 (last token usage more than 900s earlier and no RESULT since; background-command excluded 0, open-question excluded 0); recorded pane.stalled: 0",
+    ]);
+  });
+});
+
+describe("flow report text: finish lines per source (#1782)", () => {
+  it("prints each figure once per source when a terminal event is in the ledger, with the watch's wording and the source's meaning stated", () => {
+    const herdr: Pick<FlowReport, "finishDetection" | "stalledPanes"> = {
+      finishDetection: {
+        ...noFinish,
+        results: 3,
+        detected: 1,
+        undetected: 2,
+        neverNoticed: 1,
+        late: 1,
+        medianLagSeconds: 30,
+        lagMinutes: { samples: 2, median: 10.25, p90: 20 },
+      },
+      stalledPanes: { ...noStall, recorded: 1 },
+    };
+    const terminal: Terminal = {
+      finishDetection: {
+        ...noFinish,
+        results: 1,
+        detected: 1,
+        medianLagSeconds: 0,
+        lagMinutes: { samples: 1, median: 0.5, p90: 0.5 },
+      },
+      stalledPanes: { ...noStall, recorded: 2, silentSessions: 1 },
+      leadTime: { ideas: [], medianSeconds: null, maxSeconds: null },
+      mainSession: {
+        paneReadsPerFinishedPane: {
+          status: "insufficient",
+          reason: "the retro scan counts herdr pane reads only",
+        },
+        signedSendShare: {
+          status: "insufficient",
+          reason: "the retro scan counts no raw terminal sends",
+        },
+      },
+    };
+    expect(finishLines({ ...herdr, terminal })).toEqual([
+      "Finish detection and stalls read per ledger source: a terminal's finish is noticed almost at once and its stall is a blocked or error event, so compare each source with its own history.",
+      "Finish detection (herdr): 1 of 3 results noticed (a pane.finished recorded by session wait on the result's pane within the 300s placeholder window); never noticed 1, late 1",
+      "Finish lag in minutes, detected and late (herdr): median 10.25, p90 20, over 2 finishes. Not a merge delay.",
+      "Silent sessions (herdr): 0 (last token usage more than 900s earlier and no RESULT since; background-command excluded 0, open-question excluded 0); recorded pane.stalled: 1",
+      "Finish detection (terminal): 1 of 1 results noticed (a pane.finished recorded by the terminal watch on the result's pane within the 300s placeholder window); never noticed 0, late 0",
+      "Finish lag in minutes, detected and late (terminal): median 0.5, p90 0.5, over 1 finishes. Not a merge delay.",
+      "Silent sessions (terminal): 1 (last token usage more than 900s earlier and no RESULT since; background-command excluded 0, open-question excluded 0); recorded pane.stalled: 2",
     ]);
   });
 });

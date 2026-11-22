@@ -56,9 +56,9 @@ describe("buildReport review misses (#851)", () => {
     expect(reviewMisses).toHaveBeenCalledWith(named, WINDOW, { asOf: ASOF });
   });
 
-  it("versions the report to 40, the current version, with the review figures in it", () => {
+  it("versions the report to 41, the current version, with the review figures in it", () => {
     fakeTally();
     const report = buildReport([], { asOf: ASOF, minCompletedIdeas: 1 });
-    expect(report.version).toBe(40);
+    expect(report.version).toBe(41);
   });
 });

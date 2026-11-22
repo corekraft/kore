@@ -39,6 +39,11 @@ test("metric paths are the numeric and null leaves of the report, dotted, with a
   ]);
 });
 
+test("the terminal source's readings are not hypothesis metrics until an idea names one", () => {
+  const withTerminal: FlowReport = { ...REPORT, terminal: null };
+  expect(metricPaths(withTerminal)).not.toContain("terminal");
+});
+
 test("metric paths leave out the version, dates, scope and per-row lists, which are not measurements", () => {
   const paths = metricPaths(REPORT);
   for (const left of [

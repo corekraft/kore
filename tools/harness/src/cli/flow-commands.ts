@@ -21,6 +21,8 @@ import {
   perMergedChangeLines,
   costWaitingLines,
   finishLines,
+  leadLines,
+  seconds,
   sendBackCategoryLines,
 } from "./flow-lines.js";
 import { writerTierReportLines } from "./flow-lines-tiers.js";
@@ -95,8 +97,6 @@ function parseFlags({ options, deps }: CommandContext): Parsed {
   };
 }
 
-const seconds = (value: number) => `${Math.round(value)}s`;
-
 function scopeLine({ since, until, ideas }: Scope): string {
   const range = [
     since === null ? undefined : `from ${since}`,
@@ -108,15 +108,6 @@ function scopeLine({ since, until, ideas }: Scope): string {
     ? "Covering the whole ledger"
     : `Covering ${parts.join(", ")}`;
 }
-
-const leadLine = ({
-  ideas,
-  medianSeconds,
-  maxSeconds,
-}: FlowReport["leadTime"]) =>
-  medianSeconds === null || maxSeconds === null
-    ? "Lead time: no completed ideas"
-    : `Lead time: ${ideas.length} ideas, median ${seconds(medianSeconds)}, max ${seconds(maxSeconds)}`;
 
 const percent = (rate: number) => `${Math.round(rate * 100)}%`;
 
@@ -189,7 +180,7 @@ function text(report: Printed): string {
     `Flow report as of ${report.asOf}: ${report.ideas.completed} of ${report.ideas.total} ideas completed`,
     scopeLine(report.scope),
     ...rows,
-    leadLine(report.leadTime),
+    ...leadLines(report),
     metricLine(
       "Tokens per idea",
       report.metrics.tokensPerIdea,
