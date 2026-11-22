@@ -208,6 +208,8 @@ interface Rule {
   omittableOn?: readonly Kind[];
   /** Kinds on which the field must be present; every other kind may omit it. */
   requiredOn?: readonly Kind[];
+  /** The field may be omitted on its kind when this holds for the whole event, such as a terminal's finish with no RESULT line. */
+  omittableWhen?: (raw: Raw) => boolean;
 }
 
 const RULES: readonly Rule[] = [
@@ -325,7 +327,7 @@ function checkRule(rule: Rule, raw: Raw, mode: ParseMode): Failure | undefined {
       (rule.kinds !== undefined &&
         applies &&
         rule.optional !== true &&
-        !rule.omittableOn?.includes(kind)) ||
+        !(rule.omittableOn?.includes(kind) || rule.omittableWhen?.(raw))) ||
       rule.requiredOn?.includes(kind) === true ||
       (rule.field === "id" && mode === "stored");
     return needed
