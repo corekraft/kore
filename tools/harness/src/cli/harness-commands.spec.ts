@@ -21,7 +21,16 @@ function versionCommand(): Command {
 describe("the harness domain's commands", () => {
   it("holds the version and the background wait, and nothing else", () => {
     expect(Object.keys(harnessCommands)).toEqual(["version", "wait"]);
-    expect(harnessCommands["wait"]).toBe(harnessWait);
+    expect(harnessCommands["wait"]?.run).toBe(harnessWait.run);
+  });
+
+  it("carries a help record for each command, and the wait names each exit code it returns", () => {
+    expect(harnessCommands["version"]?.help?.exits).toEqual([
+      { code: 0, meaning: expect.any(String) },
+    ]);
+    expect(
+      harnessCommands["wait"]?.help?.exits.map((exit) => exit.code),
+    ).toEqual([0, 1, 2, 3]);
   });
 
   it("prints the package version as text, and exits 0", async () => {

@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { CommandError, type CliDeps } from "../runtime/index.js";
 import { depsWith } from "./command-support.js";
 import { run } from "./cli.js";
@@ -27,20 +27,44 @@ const table = vi.hoisted(() => {
   };
 });
 
+const renderers = vi.hoisted(() => ({
+  renderText: vi.fn((view: { level: string }) => `text ${view.level}\n`),
+  renderJson: vi.fn((view: { level: string }) => `json ${view.level}\n`),
+}));
+
 vi.mock("./domains.js", () => ({ domains: table }));
+
+// The renderers print their view's level, so a spec shows which level the dispatcher chose;
+// the views are the real builders over the fake table.
+vi.mock("../help/index.js", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("../help/index.js")>()),
+  renderText: renderers.renderText,
+  renderJson: renderers.renderJson,
+}));
+
+beforeEach(() => {
+  vi.clearAllMocks();
+});
 
 // The output of the most recent depsOf(): what its stdout and stderr received.
 let captured = { out: "", err: "" };
 
+/** A throwing stand-in: a dispatch touches none of these, since a help request reads no root, file, process or clock. */
+function untouched(what: string): () => never {
+  return () => {
+    throw new Error(`a dispatch touched ${what}`);
+  };
+}
+
 function depsOf(): CliDeps {
   captured = { out: "", err: "" };
   return depsWith({
-    stdout: (text: string) => {
-      captured.out += text;
-    },
-    stderr: (text: string) => {
-      captured.err += text;
-    },
+    root: untouched("the repository root"),
+    runner: { run: untouched("the runner") },
+    clock: { now: untouched("the clock"), sleep: untouched("the clock") },
+    fs: new Proxy({}, { get: untouched("the file system") }),
+    stdout: (text: string) => (captured.out += text),
+    stderr: (text: string) => (captured.err += text),
   });
 }
 
@@ -48,58 +72,109 @@ function outputOf() {
   return captured;
 }
 
-describe("harness dispatch: usage", () => {
-  it.each([[["--help"]], [["-h"]], [[]]])(
-    "prints the usage listing every domain's commands for %j and exits 0",
+describe("harness dispatch: help at the three levels", () => {
+  it.each([[[]], [["--help"]], [["-h"]]])(
+    "prints the root guide to stdout for %j, exits 0 and touches nothing",
     async (argv) => {
       const deps = depsOf();
       expect(await run(argv, deps)).toBe(0);
-      const { out, err } = outputOf();
-      expect(out).toContain("Usage: harness <domain> <command> [--json]");
-      expect(out).toContain(
-        "  harness harness version  print the harness version",
+      expect(outputOf()).toEqual({ out: "text root\n", err: "" });
+      expect(renderers.renderText).toHaveBeenLastCalledWith(
+        expect.objectContaining({ level: "root" }),
       );
-      expect(out).toContain("  harness plan tick  tick a step");
-      expect(out).toContain("  harness hook guard  guard a tool call");
-      expect(err).toBe("");
     },
   );
 
-  it("shows only the domain's commands for `<domain> --help` and exits 0", async () => {
-    const deps = depsOf();
-    expect(await run(["plan", "--help"], deps)).toBe(0);
-    expect(outputOf().out).toContain("tick a step");
+  it("renders a domain's guide for <domain> --help, and a command's for <domain> <command> --help", async () => {
+    const domain = depsOf();
+    expect(await run(["plan", "--help"], domain)).toBe(0);
+    expect(outputOf()).toEqual({ out: "text domain\n", err: "" });
+    const command = depsOf();
+    expect(await run(["plan", "tick", "--help"], command)).toBe(0);
+    expect(outputOf()).toEqual({ out: "text command\n", err: "" });
+    expect(renderers.renderText).toHaveBeenLastCalledWith(
+      expect.objectContaining({ level: "command", path: "plan tick" }),
+    );
   });
 
-  it("rejects an unknown domain, names the known ones, and shows usage with exit 2", async () => {
+  it("collapses a domain whose only command is unnamed, so its --help renders that command's guide", async () => {
+    const deps = depsOf();
+    expect(await run(["lone", "--help"], deps)).toBe(0);
+    expect(outputOf().out).toBe("text command\n");
+    expect(renderers.renderText).toHaveBeenLastCalledWith(
+      expect.objectContaining({ level: "command", path: "lone" }),
+    );
+  });
+
+  it("lets --help and -h win over every other flag and operand on the line, and runs no command", async () => {
+    const deps = depsOf();
+    expect(
+      await run(
+        ["plan", "tick", "A1", "--note", "why", "--force", "--help"],
+        deps,
+      ),
+    ).toBe(0);
+    expect(await run(["plan", "tick", "--bogus", "-h"], deps)).toBe(0);
+    expect(table.plan.tick.run).not.toHaveBeenCalled();
+    expect(outputOf().err).toBe("");
+  });
+
+  it("prints the same level as one JSON object under --help --json, and no prose", async () => {
+    const deps = depsOf();
+    expect(await run(["plan", "tick", "--help", "--json"], deps)).toBe(0);
+    expect(outputOf()).toEqual({ out: "json command\n", err: "" });
+    expect(renderers.renderText).not.toHaveBeenCalled();
+  });
+});
+
+describe("harness dispatch: a usage error prints the guide of the closest level", () => {
+  it("prints the root guide after an unknown domain's error, with exit 2 and nothing on stdout", async () => {
     const deps = depsOf();
     expect(await run(["nope", "x"], deps)).toBe(2);
-    const { out, err } = outputOf();
-    expect(err).toContain(
-      'Unknown domain "nope". Domains: harness, plan, hook, lone.',
+    expect(outputOf()).toEqual({
+      out: "",
+      err: 'Unknown domain "nope". Domains: harness, plan, hook, lone.\n\ntext root\n',
+    });
+  });
+
+  it("prints the domain's guide after an unknown command, and after a missing one", async () => {
+    const unknown = depsOf();
+    expect(await run(["harness", "nope"], unknown)).toBe(2);
+    expect(outputOf().err).toBe(
+      'Unknown command "nope" for domain "harness". Commands: version.\n\ntext domain\n',
     );
-    expect(err).toContain("Usage: harness");
-    expect(out).toBe("");
+    const missing = depsOf();
+    expect(await run(["plan"], missing)).toBe(2);
+    expect(outputOf().err).toBe(
+      'Missing command for domain "plan". Commands: tick.\n\ntext domain\n',
+    );
+  });
+
+  it("prints the command's guide after a flag error, and after an operand error", async () => {
+    const flag = depsOf();
+    expect(await run(["plan", "tick", "A1", "--bogus"], flag)).toBe(2);
+    expect(outputOf().err).toBe('Unknown flag "--bogus".\n\ntext command\n');
+    const operand = depsOf();
+    expect(await run(["harness", "version", "stray"], operand)).toBe(2);
+    expect(outputOf().err).toBe(
+      'Unexpected argument "stray".\n\ntext command\n',
+    );
+  });
+
+  it("prints the JSON error object first under --json, then the same prose guide", async () => {
+    const deps = depsOf();
+    expect(await run(["plan", "tick", "--bogus", "--json"], deps)).toBe(2);
+    const message = 'Unknown flag "--bogus".';
+    expect(outputOf().err).toBe(
+      JSON.stringify({ error: message }) +
+        "\n" +
+        message +
+        "\n\ntext command\n",
+    );
   });
 });
 
 describe("harness dispatch: resolving the command", () => {
-  it("rejects an unknown command and lists the domain's commands", async () => {
-    const deps = depsOf();
-    expect(await run(["harness", "nope"], deps)).toBe(2);
-    expect(outputOf().err).toContain(
-      'Unknown command "nope" for domain "harness". Commands: version.',
-    );
-  });
-
-  it("rejects a domain without a command when it has several", async () => {
-    const deps = depsOf();
-    expect(await run(["plan"], deps)).toBe(2);
-    expect(outputOf().err).toContain(
-      'Missing command for domain "plan". Commands: tick.',
-    );
-  });
-
   it("runs a domain's only command when no command name is given", async () => {
     const deps = depsOf();
     expect(await run(["lone"], deps)).toBe(0);

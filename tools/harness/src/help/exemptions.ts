@@ -5,9 +5,6 @@
  * A domain's only command is named by the domain alone.
  */
 export const undocumented: readonly string[] = [
-  // harness
-  "harness version",
-  "harness wait",
   // plan
   "plan active",
   "plan tick",
@@ -45,6 +42,7 @@ export const undocumented: readonly string[] = [
   "session tier",
   "session equalize",
   "session prompt-size",
+  "session exec",
   // skill
   "skill audit",
   // idea

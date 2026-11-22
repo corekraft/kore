@@ -170,3 +170,37 @@ describe("the prose renderer over every level", () => {
     }
   });
 });
+
+describe("the prose help of a command with no help record", () => {
+  it("prints its summary, usage, flags and operand, and leaves out each section it has no text for", () => {
+    const fallback: CommandView = {
+      level: "command",
+      path: "plan tick",
+      summary: "tick one open item",
+      purpose: "",
+      when: "",
+      whenNot: "",
+      usage: "harness plan tick <step> [--note <value>] [--force]",
+      flags: [
+        { name: "note", kind: "string", description: "" },
+        { name: "force", kind: "boolean", description: "" },
+      ],
+      operand: { name: "step", description: "" },
+      examples: [],
+      exits: [],
+      seeAlso: [],
+    };
+    expect(renderText(fallback)).toBe(`harness plan tick: tick one open item
+
+Usage:
+  harness plan tick <step> [--note <value>] [--force]
+
+Flags:
+  --note <value>
+  --force
+
+Operand:
+  <step>
+`);
+  });
+});
