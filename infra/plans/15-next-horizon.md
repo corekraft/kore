@@ -341,7 +341,7 @@ Safety pattern: `no-behaviour-change` (records only).
 
       - 2026-11-18 route set added ([#1114](https://github.com/corekraft/kore/issues/1114)): the same `npm run test:live:golden-path-load` run reports the golden-path p95, p50 and max under its own route set, apart from the reference routes ([plan 13](13-agentgateway-ingress.md#golden-path-route-set)). The baseline is owed from one live run. Not ticked.
 
-- [ ] Run the end-user token test: a browser finds no access or refresh token
+- [x] Run the end-user token test: a browser finds no access or refresh token
       readable by script, and every session cookie is host-only, `HttpOnly`,
       `Secure` and `SameSite`.
 
