@@ -48,6 +48,7 @@ Recorded per the [pin-upgrade skill](../../skills/pin-upgrade/SKILL.md):
 - **Not done:** the upstream release notes for 0.1.21 were not read, because
   the release source is not settled (below). Compatibility rests on the
   documented 0.1.21 contract, not on release notes.
+- **Row:** the hc 0.1.21 row in [`infra/catalog/compatibility.md`](../../infra/catalog/compatibility.md) records the date, the contract, and the same two gaps.
 
 ## Open
 
