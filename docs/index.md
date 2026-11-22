@@ -79,7 +79,7 @@ repository root; `mise run kb-check` keeps this list complete.
   golden-path templates, platform Argo CD delivery, or the platform Keycloak and
   Backstage.
 - [`infra/plans/16-hc-native-sessions.md`](../infra/plans/16-hc-native-sessions.md) —
-  proposed: rebuild the harness session tools on hc behind a Terminals port,
+  active: rebuild the harness session tools on hc behind a Terminals port,
   mint each session's token in its launch wrapper, give every harness command a
   layered `--help` guide, and prune what hc makes unnecessary. Read before
   changing session spawn, send, wait or close, or the harness CLI's help.

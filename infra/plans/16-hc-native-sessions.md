@@ -1,5 +1,5 @@
 ---
-status: proposed
+status: active
 summary: Rebuild the harness's session tools on hc's model (terminals with parents and children, labels, reported status, hc wait, tagged reports, events) behind one Terminals port. hc is the adapter and an in-memory fake the second implementation. The token is minted inside each session's launch wrapper. Every harness command explains itself with a layered --help guide. What hc makes unnecessary is deleted, and the rest is pruned from usage evidence.
 last-verified: 2026-11-22
 ---
