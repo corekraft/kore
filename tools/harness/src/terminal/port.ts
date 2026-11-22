@@ -41,6 +41,8 @@ export interface RunSpec {
   /** hc run --parent: the child ends with its parent unless outliveParent is set. */
   parent?: string;
   outliveParent?: boolean;
+  /** false passes hc run --no-notify: the parent gets no note when this child exits (plan 16, Step 4). */
+  notify?: boolean;
 }
 
 export interface Started {

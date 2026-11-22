@@ -37,6 +37,8 @@ export interface SessionRecord {
   callerPane?: string;
   /** The idea the session works, as the ledger keys it (`#338`). */
   idea?: string;
+  /** An hc record written before its terminal starts: it names no terminal yet, so it is lost, not live, if nothing settles it (plan 16, Grilled Decisions 5). */
+  starting?: boolean;
   /** The sequence number of the last report wait consumed. */
   reportSeq?: number;
   model: string;
@@ -72,7 +74,8 @@ function optionalFieldsTyped(record: Record<string, unknown>): boolean {
     (record.version === undefined || Number.isInteger(record.version)) &&
     (record.terminal === undefined || typeof record.terminal === "string") &&
     (record.idea === undefined || typeof record.idea === "string") &&
-    (record.reportSeq === undefined || typeof record.reportSeq === "number")
+    (record.reportSeq === undefined || typeof record.reportSeq === "number") &&
+    (record.starting === undefined || typeof record.starting === "boolean")
   );
 }
 
@@ -86,7 +89,9 @@ function isRecord(value: unknown): value is SessionRecord {
     typeof record.paneId === "string" &&
     typeof record.model === "string" &&
     (record.backend === undefined || isBackend(record.backend)) &&
-    (record.backend !== "hc" || typeof record.terminal === "string") &&
+    (record.backend !== "hc" ||
+      typeof record.terminal === "string" ||
+      record.starting === true) &&
     optionalFieldsTyped(record)
   );
 }

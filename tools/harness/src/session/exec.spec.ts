@@ -172,3 +172,20 @@ describe("execCommand: its operands", () => {
     expect(deps.runner.run).not.toHaveBeenCalled();
   });
 });
+
+describe("session exec refuses an empty role before it starts claude", () => {
+  it("prints the usage line, exits 1 and runs no claude", async () => {
+    const code = await execCommand.run(
+      contextOf(deps, {
+        operand: "Do it.",
+        options: { role: "", model: "claude-opus-5-5", effort: "high" },
+      }),
+    );
+
+    expect(code).toBe(1);
+    expect(deps.stderr).toHaveBeenCalledWith(
+      "session exec needs --role, --model and --effort, and one brief operand. Rerun with all of them.\n",
+    );
+    expect(claudeRuns(deps)).toStrictEqual([]);
+  });
+});

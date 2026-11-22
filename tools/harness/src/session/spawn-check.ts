@@ -22,10 +22,10 @@ export type Values = Record<
   (typeof REQUIRED)[number] | (typeof TIER)[number],
   string
 >;
-export type Checked =
+/** A request checked for everything but its caller: the values it runs with and the ledger marks. */
+export type Requested =
   | {
       values: Values;
-      callerPane: string;
       timeoutMs: number;
       /** The idea the session works, as the ledger keys it (`#338`). */
       idea?: string;
@@ -38,6 +38,13 @@ export type Checked =
     }
   | { error: string; code: number };
 
+/** A refusal: the message and the exit code it gets. */
+type Refusal = { error: string; code: number };
+
+/** A request checked for Herdr too: its values, and the pane that broadcasts back to it. */
+export type Checked =
+  (Exclude<Requested, Refusal> & { callerPane: string }) | Refusal;
+
 /**
  * The pane to broadcast back to, or the refusal when not run from a Herdr
  * pane, or when a writer would start while a live run holds the host lease or the host load is above KORE_SPAWN_MAX_LOAD.
@@ -45,7 +52,7 @@ export type Checked =
 async function herdrCaller(
   deps: CommandContext["deps"],
   role: string,
-): Promise<string | Checked> {
+): Promise<string | Refusal> {
   const callerPane = deps.env.HERDR_PANE_ID;
   if (deps.env.HERDR_ENV !== "1") {
     return {
@@ -151,12 +158,12 @@ function unstampedOf(
   return IDEA_ROLES.includes(role) ? {} : undefined;
 }
 
-/** Everything that can be refused is refused here, before any herdr call. */
-export async function check({
+/** Everything a request can be refused for, except its caller: usage, names, the brief, the timeout and the tier. */
+export async function checkRequest({
   deps,
   options,
-}: CommandContext): Promise<Checked> {
-  const usage = (error: string): Checked => ({ error, code: USAGE_ERROR });
+}: CommandContext): Promise<Requested> {
+  const usage = (error: string): Refusal => ({ error, code: USAGE_ERROR });
   const missing = REQUIRED.find((flag) => typeof options[flag] !== "string");
   if (missing !== undefined) {
     return usage(`Missing --${missing}.`);
@@ -174,10 +181,6 @@ export async function check({
   if (typeof timeoutMs !== "number") {
     return usage(timeoutMs.error);
   }
-  const callerPane = await herdrCaller(deps, given.role);
-  if (typeof callerPane !== "string") {
-    return callerPane;
-  }
   const launch = await launchOf(deps, given.role, options);
   if ("error" in launch) {
     return usage(launch.error);
@@ -192,10 +195,22 @@ export async function check({
   return {
     values: { ...given, model: launch.model, effort: launch.effort },
     tier: launch.origin,
-    callerPane,
     timeoutMs,
     ...(idea === undefined ? {} : { idea }),
     ...(stage === undefined ? {} : { stage }),
     ...(unstamped === undefined ? {} : { unstamped }),
   };
+}
+
+/** Everything that can be refused is refused here, before any herdr call. */
+export async function check(context: CommandContext): Promise<Checked> {
+  const requested = await checkRequest(context);
+  if ("error" in requested) {
+    return requested;
+  }
+  const callerPane = await herdrCaller(context.deps, requested.values.role);
+  if (typeof callerPane !== "string") {
+    return callerPane;
+  }
+  return { ...requested, callerPane };
 }
