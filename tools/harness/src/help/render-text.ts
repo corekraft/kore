@@ -16,12 +16,13 @@ function columns(rows: readonly (readonly [string, string])[]): string[] {
   );
 }
 
-/** A fixed heading, then its lines indented; nothing at all when there are no lines. */
+/** A fixed heading, then its non-blank lines indented; nothing at all when no line has text. */
 function section(heading: string, lines: readonly string[]): string[] {
-  if (lines.length === 0) {
+  const kept = lines.filter((line) => line.trim() !== "");
+  if (kept.length === 0) {
     return [];
   }
-  return [`${heading}:`, ...lines.map((line) => `${INDENT}${line}`), ""];
+  return [heading + ":", ...kept.map((line) => INDENT + line), ""];
 }
 
 function flagLabel(flag: FlagView): string {
@@ -72,8 +73,7 @@ function commandLines(view: CommandView): string[] {
   return [
     `harness ${view.path}: ${view.summary}`,
     "",
-    view.purpose,
-    "",
+    ...(view.purpose.trim() === "" ? [] : [view.purpose, ""]),
     ...section("Usage", [view.usage]),
     ...section("When to use", [view.when]),
     ...section("When not to use", [view.whenNot]),
@@ -93,14 +93,19 @@ function commandLines(view: CommandView): string[] {
       "Examples",
       view.examples.flatMap((example) => [
         example.command,
-        `${INDENT}${example.shows}`,
+        INDENT + example.shows,
       ]),
     ),
     ...section(
       "Exit codes",
       columns(view.exits.map((exit) => [String(exit.code), exit.meaning])),
     ),
-    ...section("Effects", [`${view.effects.kind}: ${view.effects.detail}`]),
+    ...section(
+      "Effects",
+      view.effects === undefined
+        ? []
+        : [`${view.effects.kind}: ${view.effects.detail}`],
+    ),
     ...section(
       "See also",
       view.seeAlso.map((ref) => `harness ${ref}`),
