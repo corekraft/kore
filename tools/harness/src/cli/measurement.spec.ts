@@ -5,7 +5,7 @@ import { measurement } from "./measurement.js";
 const {
   ledgerCommands,
   flowCommands,
-  queueCommands,
+  queueDomain,
   retroCommands,
   orchestrateCommands,
   approveCommand,
@@ -15,7 +15,7 @@ const {
   return {
     ledgerCommands: { record: command },
     flowCommands: { report: command },
-    queueCommands: { next: command },
+    queueDomain: { next: command },
     retroCommands: { due: command },
     orchestrateCommands: { run: command },
     approveCommand: command,
@@ -25,7 +25,7 @@ const {
 
 vi.mock("./ledger-commands.js", () => ({ ledgerCommands }));
 vi.mock("./flow-commands.js", () => ({ flowCommands }));
-vi.mock("./queue-commands.js", () => ({ queueCommands }));
+vi.mock("./queue-help.js", () => ({ queueDomain }));
 vi.mock("./retro-commands.js", () => ({ retroCommands }));
 vi.mock("./approve-commands.js", () => ({ approveCommand }));
 vi.mock("./evaluate-commands.js", () => ({ evaluateCommand }));
@@ -36,7 +36,7 @@ describe("measurement command map", () => {
     expect(measurement).toEqual({
       ledger: ledgerCommands,
       flow: flowCommands,
-      queue: queueCommands,
+      queue: queueDomain,
       retro: retroCommands,
       orchestrate: orchestrateCommands,
       approve: { "": approveCommand },
@@ -47,7 +47,7 @@ describe("measurement command map", () => {
   it("maps each domain word to the same command map object, not a copy", () => {
     expect(measurement.ledger).toBe(ledgerCommands);
     expect(measurement.flow).toBe(flowCommands);
-    expect(measurement.queue).toBe(queueCommands);
+    expect(measurement.queue).toBe(queueDomain);
     expect(measurement.retro).toBe(retroCommands);
     expect(measurement.orchestrate).toBe(orchestrateCommands);
   });

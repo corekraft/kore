@@ -37,34 +37,9 @@ export const undocumented: readonly string[] = [
   "ruleset insights",
   // status
   "status",
-  // judge
-  "judge precheck",
-  "judge declaration",
-  "judge diff",
-  "judge approve",
-  "judge merge",
-  "judge send-back",
-  // review
-  "review post",
-  "review run",
-  "review resample",
-  // pr
-  "pr checks",
-  "pr check",
-  "pr open",
   // ledger
   "ledger record",
   "ledger list",
   "ledger poll-herdr",
   "ledger poll-github",
-  // queue
-  "queue next",
-  "queue send-backs",
-  "queue escalate",
-  // orchestrate
-  "orchestrate run",
-  "orchestrate tick",
-  "orchestrate plan",
-  // approve
-  "approve",
 ];
