@@ -224,7 +224,7 @@ test("with golden-path-signin on only the BFF gets the sign-in variables, and it
               valueFrom:
                 secretKeyRef:
                   name: auth-oidc
-                  key: client_secret
+                  key: clientSecret
 `);
   expect(deployment("auth-frontend")).not.toMatch(
     /env:|GOLDEN_PATH_SIGNIN|OIDC_/,

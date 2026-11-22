@@ -183,6 +183,54 @@ export const execCommand: Command = {
     "start one role's claude session as the wrapper for an hc terminal (`session exec --role <role> --model <model> --effort <effort> <brief>`): run from the main checkout's bundle only, it checks that `claude --help` names every flag it passes, mints the role's token from the identity store with any inherited GitHub token and herdr variable scrubbed, and runs claude in place with the fixed argv and the brief as its first prompt",
   operand: "brief",
   options: { role: "string", model: "string", effort: "string" },
+  help: {
+    purpose:
+      "Starts one role's claude session as the wrapper for an hc terminal. It checks that the installed claude names every flag the wrapper passes, mints the role's GitHub token from the main checkout's identity store with any inherited GitHub token and herdr variable scrubbed, and runs claude with the fixed argv and the brief as its first prompt.",
+    when: "When an hc terminal starts a role's session and needs the command that launches it, run from the main checkout's skills/bin/harness.mjs by absolute path.",
+    whenNot:
+      "When starting a role's session in a herdr pane from the main session: run session spawn, which starts the pane and records the launch. To read the model and effort a role launches at, run session tier.",
+    flags: {
+      role: "The role whose agent definition claude starts with, such as writer; the role's GitHub identity is minted for the session when it has one.",
+      model:
+        "The claude model the session runs on, passed as --model; required.",
+      effort:
+        "The effort level the session runs at, passed as --effort, such as medium or high; required.",
+    },
+    operand:
+      "The brief claude receives as its first prompt; one non-empty argument, quoted when it has spaces.",
+    examples: [
+      {
+        command:
+          'harness session exec --role writer --model claude-haiku-5-5 --effort medium "Work the brief for issue 1773"',
+        shows:
+          "claude starts as the writer role on the model and effort named, with the brief as its first prompt",
+      },
+      {
+        command:
+          "harness session exec --role writer --model claude-haiku-5-5 --effort medium",
+        shows:
+          "the brief is missing, so the usage line prints and the command exits 1 without starting claude",
+      },
+    ],
+    exits: [
+      {
+        code: 0,
+        meaning:
+          "claude ran and exited 0; any other code is claude's own exit code, passed through",
+      },
+      {
+        code: 1,
+        meaning:
+          "refused before claude started: a flag or the brief is missing, the bundle is not the main checkout's, claude is absent or lacks a flag the wrapper passes, or the role's token could not be minted; stderr names the fix",
+      },
+    ],
+    effects: {
+      kind: "mutates",
+      detail:
+        "the wrapper writes no file: it reads the identity store, mints the role's token, then runs claude as a child process, which may change files, pull requests and issues within the role's GitHub grant",
+    },
+    seeAlso: ["session spawn", "session tier", "session check"],
+  },
   async run({ options, operand, deps }) {
     const { role, model, effort } = options;
     if (
