@@ -21,7 +21,7 @@ export const domainGuides: Record<string, DomainGuide> = {
   guardrail: {
     purpose:
       "Reads, requests changes to and activates the guardrails that block or warn on tool calls, and generates the settings deny list.",
-    flow: "Run guardrail status to read each guardrail, guardrail request to ask a person to approve a mode change, and guardrail activate to apply it only after that approval; guardrail replay checks a rule change against recorded calls first.",
+    flow: "Run guardrail status to read each guardrail, guardrail request to ask a person to approve a mode change, and guardrail activate to apply it only after that approval; guardrail replay checks a rule change against recorded calls first, and guardrail deny keeps the settings deny list in step with the inventory.",
   },
   hook: {
     purpose:
@@ -56,12 +56,12 @@ export const domainGuides: Record<string, DomainGuide> = {
   flag: {
     purpose:
       "The feature flags: an audit of each flag's proof, and activation, which turns a flag on only after its outcome is recorded.",
-    flow: "Run flag audit to list each flag and whether its proof is recorded, then flag activate for a flag whose live-run outcome is recorded for that environment.",
+    flow: "Run flag audit to fail on any flag that is on without a recorded proof, then flag activate for a flag whose verification outcome (a live run, or an owner waiver) is recorded for that environment.",
   },
   ruleset: {
     purpose:
       "Syncs the repository's GitHub rulesets from .github/rulesets and summarizes what a candidate ruleset would block.",
-    flow: "Run ruleset sync to apply a ruleset file, and ruleset insights to see what an evaluate-mode candidate would have blocked before it is activated.",
+    flow: "Run ruleset sync --dry-run to plan a ruleset file, ruleset sync --confirm to apply it once the operator agrees, and ruleset insights to see what the evaluate-mode candidate would have blocked before it is activated.",
   },
   status: {
     purpose:

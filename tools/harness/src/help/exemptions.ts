@@ -14,11 +14,6 @@ export const undocumented: readonly string[] = [
   "adr new",
   "adr supersede",
   // guardrail
-  "guardrail status",
-  "guardrail deny",
-  "guardrail request",
-  "guardrail activate",
-  "guardrail replay",
   // hook
   "hook context",
   "hook delta",
@@ -58,11 +53,7 @@ export const undocumented: readonly string[] = [
   "decision ask",
   "decision digest",
   // flag
-  "flag activate",
-  "flag audit",
   // ruleset
-  "ruleset sync",
-  "ruleset insights",
   // status
   "status",
   // judge

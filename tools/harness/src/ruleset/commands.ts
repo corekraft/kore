@@ -1,4 +1,4 @@
-import type { Command, CommandContext } from "../runtime/index.js";
+import type { Command, CommandContext, CommandHelp } from "../runtime/index.js";
 import { RulesetError, candidateName } from "./declared.js";
 import { GitHubRulesets } from "./github.js";
 import { PERIODS, summarize } from "./insights.js";
@@ -40,6 +40,62 @@ async function ruleInsights(context: CommandContext): Promise<number> {
   return 0;
 }
 
+/** The help record for `ruleset sync`: makes the live rulesets match the declared file, once confirmed. */
+const syncHelp: CommandHelp = {
+  purpose:
+    "Makes the repository's GitHub rulesets match the declared file .github/rulesets/<target>.json. The enforce rules go to the live ruleset <target>, which stays active; the audit rules go to <target>-candidate in evaluate mode, so GitHub reports what they would block. It refuses a change that would weaken main unless --allow-removal is given.",
+  when: "After you edit .github/rulesets/<target>.json: preview with --dry-run, then apply with --confirm once the operator agrees to the plan.",
+  whenNot:
+    "To see what the candidate would have blocked: use ruleset insights. To move a rule from audit to enforce: a person approves it through guardrail request and guardrail activate, which edit the inventory; then sync.",
+  flags: {
+    repo: "The repository, as owner/name, such as corekraft/kore: the environment the ruleset is changed in. Required; never defaulted.",
+    target:
+      "The ruleset's name, which is also its file's name under .github/rulesets without .json, such as main. Required.",
+    "dry-run":
+      "Plans the change and prints the plan, sending nothing and taking no lock.",
+    confirm:
+      "Applies the planned change to GitHub. Without it a change is refused and nothing is sent.",
+    "allow-removal":
+      "Lets the change remove a rule from main or weaken one. Without it such a change is refused; use it only after the operator agrees.",
+  },
+  examples: [
+    {
+      command:
+        "harness ruleset sync --repo corekraft/kore --target main --dry-run",
+      shows:
+        "the plan for main and main-candidate, what is added, changed or pending, with nothing sent; or no change when both already match",
+    },
+    {
+      command:
+        "harness ruleset sync --repo corekraft/kore --target main --confirm",
+      shows:
+        "the planned change sent to GitHub, then the plan that was applied; without --confirm the same change is refused",
+    },
+  ],
+  exits: [
+    {
+      code: 0,
+      meaning:
+        "no change is needed, the dry run's plan is printed, or the change was applied with --confirm",
+    },
+    {
+      code: 1,
+      meaning:
+        "refused and nothing was sent: a required flag is missing, the repository declares no such ruleset, the file names another ruleset, the change would weaken or remove a rule without --allow-removal, the change lacks --confirm, GitHub refuses evaluate on this plan, a gh call failed, or another sync holds the lock",
+    },
+    {
+      code: 2,
+      meaning: "a flag the command does not declare, or a flag with no value",
+    },
+  ],
+  effects: {
+    kind: "mutates",
+    detail:
+      "with --confirm, creates or updates the rulesets <target> and <target>-candidate on GitHub through gh api, under a lock file in .kore/state/locks; the candidate is saved before main, so a refused evaluate leaves main untouched. Without --confirm, or with --dry-run, it changes nothing",
+  },
+  seeAlso: ["ruleset insights", "guardrail activate"],
+};
+
 const sync: Command = {
   summary:
     "sync a repository ruleset from .github/rulesets/<target>.json: main stays active with the enforce rules (one main-ruleset-<rule> inventory entry each), audit rules sync into <target>-candidate in evaluate; --dry-run shows the plan and mutates nothing; a live change needs --confirm after the operator agrees, and removing a rule from main needs --allow-removal (--repo <owner/name> --target <name> [--dry-run] [--confirm] [--allow-removal])",
@@ -50,13 +106,67 @@ const sync: Command = {
     confirm: "boolean",
     "allow-removal": "boolean",
   },
+  help: syncHelp,
   run: (context) => guarded(context, () => syncRuleset(context)),
+};
+
+/** The help record for `ruleset insights`: what the evaluate-mode candidate would have blocked. */
+const insightsHelp: CommandHelp = {
+  purpose:
+    "Summarizes what the evaluate-mode candidate ruleset, <target>-candidate, would have blocked over a time period: the rule suites that fired, the rule types that fired and the actors. It reads GitHub's rule-suite insights and changes nothing.",
+  when: "Before a guardrail request that moves a ruleset rule from audit to enforce, to read what the candidate blocked over the period.",
+  whenNot:
+    "To change a ruleset: use ruleset sync. To judge a guardrail rule over transcripts: use guardrail replay.",
+  flags: {
+    repo: "The repository, as owner/name, such as corekraft/kore. Required; never defaulted.",
+    target:
+      "The ruleset's name, such as main; the candidate read is <target>-candidate. Required.",
+    "time-period":
+      "The period GitHub summarizes: hour, day, week or month. Defaults to week.",
+  },
+  examples: [
+    {
+      command:
+        "harness ruleset insights --repo corekraft/kore --target main --time-period week",
+      shows:
+        "a headline with the evaluate firings and rule suites for the week, then one line per rule type that fired, and the actors",
+    },
+    {
+      command:
+        "harness ruleset insights --repo corekraft/kore --target main --json",
+      shows:
+        "the same summary as one JSON object: repo, target, ruleset, timePeriod, suites, firings, byRule, actors and truncated",
+    },
+  ],
+  exits: [
+    {
+      code: 0,
+      meaning:
+        "the summary is printed; when the period holds more suites than one page the counts are a floor, and the output says so",
+    },
+    {
+      code: 1,
+      meaning:
+        "refused: a required flag is missing, --time-period is not hour, day, week or month, or a GitHub read failed; stderr names the fix",
+    },
+    {
+      code: 2,
+      meaning: "a flag the command does not declare, or a flag with no value",
+    },
+  ],
+  effects: {
+    kind: "read-only",
+    detail:
+      "reads the candidate ruleset and its rule suites from GitHub through gh api; writes nothing",
+  },
+  seeAlso: ["ruleset sync", "guardrail request"],
 };
 
 const insights: Command = {
   summary:
     "summarize what the evaluate-mode candidate ruleset would have blocked, by rule, from GitHub's rule-suite insights; read-only, for the activation request (--repo <owner/name> --target <name> [--time-period hour|day|week|month])",
   options: { repo: "string", target: "string", "time-period": "string" },
+  help: insightsHelp,
   run: (context) => guarded(context, () => ruleInsights(context)),
 };
 
