@@ -1,5 +1,38 @@
 # Changelog
 
+## [0.21.0](https://github.com/corekraft/kore/compare/v0.20.0...v0.21.0) (2026-11-22)
+
+
+### Features
+
+* **infra:** add herdr-core and remove moshi from the agents vm ([#1725](https://github.com/corekraft/kore/issues/1725)) ([5d3ddcf](https://github.com/corekraft/kore/commit/5d3ddcf0dbfd5277bcf59cff171dd4d257298fc6))
+* **platform:** add the live check that a service alert reaches the contact point ([#1719](https://github.com/corekraft/kore/issues/1719)) ([28d8e48](https://github.com/corekraft/kore/commit/28d8e487c9fb8c1d2d2e865ec6ea91f4502c8810))
+* **platform:** give each golden-path Service a Keycloak client behind golden-path-signin ([#1751](https://github.com/corekraft/kore/issues/1751)) ([65d0c90](https://github.com/corekraft/kore/commit/65d0c90f9d01ec138feae9d052b164a301dfb755))
+* **platform:** label a new Service's namespace for the shared Gateway ([#1740](https://github.com/corekraft/kore/issues/1740)) ([c5d1d2a](https://github.com/corekraft/kore/commit/c5d1d2ae092222cfdf63977eb958d65064a2f2a6)), closes [#1739](https://github.com/corekraft/kore/issues/1739) [#1113](https://github.com/corekraft/kore/issues/1113)
+* **platform:** register the delivery-probe Service ([#1737](https://github.com/corekraft/kore/issues/1737)) ([d4c5cfc](https://github.com/corekraft/kore/commit/d4c5cfcdf3bbe6b5235371057e25de8d862f1ebe)), closes [#1113](https://github.com/corekraft/kore/issues/1113)
+* **platform:** run the Backstage client through the Crossplane Keycloak provider ([#1733](https://github.com/corekraft/kore/issues/1733)) ([aa20a13](https://github.com/corekraft/kore/commit/aa20a13dbf9b303e46a612480c7739f1f8712376)), closes [#1730](https://github.com/corekraft/kore/issues/1730) [#1115](https://github.com/corekraft/kore/issues/1115) [#1111](https://github.com/corekraft/kore/issues/1111)
+* **templates:** add the golden-path sign-in flow to the kotlin bff ([#1750](https://github.com/corekraft/kore/issues/1750)) ([52c99f9](https://github.com/corekraft/kore/commit/52c99f99ee9e1ea9fa1fd74f76537162d3890ec5))
+
+
+### Bug fixes
+
+* **platform:** derive the sign-in check's hosts from the platform-domain helpers ([#1722](https://github.com/corekraft/kore/issues/1722)) ([8c34040](https://github.com/corekraft/kore/commit/8c34040e61756091262149b45d00747a88bd3942)), closes [#1720](https://github.com/corekraft/kore/issues/1720) [#1115](https://github.com/corekraft/kore/issues/1115)
+* **platform:** enable client-admin-api:v2 on the platform Keycloak behind platform-portal ([#1731](https://github.com/corekraft/kore/issues/1731)) ([27a1a83](https://github.com/corekraft/kore/commit/27a1a830ce2610d3fb282521c88e7da9a9e29687))
+* **platform:** evaluate service alert rules in grafana, not through pushed alerts ([#1738](https://github.com/corekraft/kore/issues/1738)) ([1fc3612](https://github.com/corekraft/kore/commit/1fc36125c5de877e7921b895cb304d3d527a056f))
+* **platform:** read the shared route's Accepted time for the certificate stage ([#1749](https://github.com/corekraft/kore/issues/1749)) ([1849731](https://github.com/corekraft/kore/commit/1849731905cf83711e8b84c32a33ccbb57ba4874))
+* **platform:** retry the sign-in check's user removal with a fresh admin token ([#1726](https://github.com/corekraft/kore/issues/1726)) ([f8a1958](https://github.com/corekraft/kore/commit/f8a1958d64919e40cfb6354f437f1338ed37050b)), closes [#1724](https://github.com/corekraft/kore/issues/1724) [#1115](https://github.com/corekraft/kore/issues/1115)
+* **platform:** serve the portal at the host the shared gateway answers ([#1727](https://github.com/corekraft/kore/issues/1727)) ([eae2db3](https://github.com/corekraft/kore/commit/eae2db3aab1158144a6c7123894e3af912b9927c))
+* **platform:** start the sign-in check at the proxy and accept its sign-in page refusal ([#1729](https://github.com/corekraft/kore/issues/1729)) ([2a22e84](https://github.com/corekraft/kore/commit/2a22e84b20aef7ce26b2c46bb176818ceb1d3e4b)), closes [#1728](https://github.com/corekraft/kore/issues/1728) [#1115](https://github.com/corekraft/kore/issues/1115)
+* **testing:** ask the sign-in check Backstage's readiness route ([#1735](https://github.com/corekraft/kore/issues/1735)) ([c046051](https://github.com/corekraft/kore/commit/c046051e1813260ec13c2de68dd4dd7be9898580)), closes [#1115](https://github.com/corekraft/kore/issues/1115) [#1111](https://github.com/corekraft/kore/issues/1111)
+* **testing:** create the sign-in check user with no required actions ([#1734](https://github.com/corekraft/kore/issues/1734)) ([a4e61fa](https://github.com/corekraft/kore/commit/a4e61fa63c677437870c024eaf9f98eae35f2e0e)), closes [#1115](https://github.com/corekraft/kore/issues/1115) [#1111](https://github.com/corekraft/kore/issues/1111)
+
+
+### Documentation
+
+* **ideas:** record the alert delivery outcome for [#1118](https://github.com/corekraft/kore/issues/1118) ([#1743](https://github.com/corekraft/kore/issues/1743)) ([bf14522](https://github.com/corekraft/kore/commit/bf14522afe6caf6023b20149a83403f131d907c0))
+* **ideas:** record the sign-in check outcome for [#1115](https://github.com/corekraft/kore/issues/1115) ([#1736](https://github.com/corekraft/kore/issues/1736)) ([a3af759](https://github.com/corekraft/kore/commit/a3af7594e6f8907c3859100a0796043d3c59c04a)), closes [#1111](https://github.com/corekraft/kore/issues/1111)
+* **plans:** hand off the delivery timer and sign-in work ([#1752](https://github.com/corekraft/kore/issues/1752)) ([f125307](https://github.com/corekraft/kore/commit/f12530763f0a9cf74c4ae4f5a9bec61cb54ef5e2))
+
 ## [0.20.0](https://github.com/corekraft/kore/compare/v0.19.1...v0.20.0) (2026-11-21)
 
 
