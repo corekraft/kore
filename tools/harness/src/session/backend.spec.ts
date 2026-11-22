@@ -102,3 +102,26 @@ describe("hcMessage gives hc's message, with its hint in brackets when hc gives 
     ).toBe("nothing has finished within 60000 ms");
   });
 });
+
+const STARTING: SessionRecord = {
+  version: 1,
+  backend: "hc",
+  name: "image-trust-writer",
+  paneId: "",
+  model: "claude-sonnet-5-5",
+  role: "writer",
+  effort: "high",
+  createdAt: "2026-01-02T03:04:05.000Z",
+  starting: true,
+};
+
+describe("routeSession refuses a starting record that never got a terminal", () => {
+  it("refuses it as blocked, not live, and never sends it to a terminal", () => {
+    const hc = new FakeTerminals();
+
+    expect(routeSession(STARTING, hc)).toStrictEqual({
+      error:
+        "Session image-trust-writer never started a terminal, so it is blocked, not live: it was lost before its start was recorded. Run session close image-trust-writer to clear it.",
+    });
+  });
+});
