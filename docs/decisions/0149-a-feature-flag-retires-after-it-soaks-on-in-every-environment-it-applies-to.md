@@ -19,7 +19,7 @@ Flags that stay on everywhere keep their off path, its tests and the conditional
 
 - **Eligibility** is read from the flag manifest ([ADR 0148](0148-a-flag-manifest-declares-each-flags-kind-environments-and-prerequisites.md)). A feature flag is eligible when it is on in every environment its entry lists, each with its own recorded outcome, for the soak after the latest of those activations, with no revert and no flag-off event for it in the ledger in that window. Environment and harness flags are never eligible.
 - **Retirement is one contract-step pull request.** Its expand steps are the activations (ADR 0107). It deletes the flag from every overlay and from the manifest, the code constant and its off path, the chart conditionals, the off-path tests, and any spec that lists the flag.
-- **`harness flag retire <flag>` owns the write.** It refuses an ineligible flag, removes the overlay and manifest entries, records a `flag.retired` ledger event and prints every remaining reference to the name for the writer to delete. Recorded outcomes stay: ledgers are append-only.
+- **The planned `flag retire` command owns the write.** It refuses an ineligible flag, removes the overlay and manifest entries, records a `flag.retired` ledger event and prints every remaining reference to the name for the writer to delete. Recorded outcomes stay: ledgers are append-only.
 - **Build it later.** The tool is built at `horizon:then`; this ADR fixes the rule now so no flag is added without an entry the rule can read.
 
 ## Consequences

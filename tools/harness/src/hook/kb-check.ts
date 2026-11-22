@@ -120,6 +120,7 @@ export async function kbCheck(
     audit: () => skillAudit(deps.fs, root),
     flagAudit: () => flagAudit(deps, root),
     repositoryProblems: () => repositoryProblems(deps, root),
+    commands: () => deps.commands,
   };
   const code = await run(strict ? ["--strict"] : [], kbDeps, (line) =>
     lines.push(line),
