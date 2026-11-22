@@ -2,6 +2,8 @@ import { expect, test } from "vitest";
 import {
   parseContainerStats,
   parseOomKilledPods,
+  parseLinuxSwapMiB,
+  parseSwapTotalMiB,
   parseSwapUsedMiB,
   parseVmMemoryInUseMiB,
   parseVmMemoryMiB,
@@ -179,5 +181,39 @@ test("fails naming the pod when its OOMKilled termination has no readable finish
   );
   expect(() => parseOomKilledPods(text, RUN_STARTED)).toThrow(
     "unreadable finishedAt for platform/keycloak-0",
+  );
+});
+
+test("reads macOS swap total in MiB from the sysctl report", () => {
+  const report =
+    "vm.swapusage: total = 6144.00M  used = 4096.50M  free = 2047.50M  (encrypted)";
+  expect(parseSwapTotalMiB(report)).toBe(6144);
+  expect(parseSwapTotalMiB(report.replace("6144.00M", "2.00G"))).toBe(2048);
+});
+
+test("fails with the cause when the swap report has no total figure", () => {
+  expect(() => parseSwapTotalMiB("sysctl: unknown oid")).toThrow(
+    "unreadable swap usage report",
+  );
+});
+
+test("reads Linux swap total in MiB and swap used as SwapTotal less SwapFree from /proc/meminfo", () => {
+  const meminfo =
+    "MemTotal:       12251864 kB\nSwapTotal:      2097152 kB\nSwapFree:       1048576 kB\n";
+  expect(parseLinuxSwapMiB(meminfo)).toEqual({ totalMiB: 2048, usedMiB: 1024 });
+});
+
+test("reads a host with no swap as zero total and zero used", () => {
+  const meminfo =
+    "MemTotal:       12251864 kB\nSwapTotal:             0 kB\nSwapFree:              0 kB\n";
+  expect(parseLinuxSwapMiB(meminfo)).toEqual({ totalMiB: 0, usedMiB: 0 });
+});
+
+test("fails with the cause when /proc/meminfo has no swap total or no swap free figure", () => {
+  expect(() => parseLinuxSwapMiB("MemTotal: 1 kB\nSwapFree: 1 kB")).toThrow(
+    "unreadable host swap report",
+  );
+  expect(() => parseLinuxSwapMiB("MemTotal: 1 kB\nSwapTotal: 1 kB")).toThrow(
+    "unreadable host swap report",
   );
 });
