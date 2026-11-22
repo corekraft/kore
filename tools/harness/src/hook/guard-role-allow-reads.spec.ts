@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { harnessHelp, readMayRun } from "./guard-role-allow.js";
+import { HC_READS, harnessHelp, readMayRun } from "./guard-role-allow.js";
 import {
   commandLookup,
   gitReadMayRun,
@@ -79,5 +79,45 @@ describe("harnessHelp: node harness.mjs --help and nothing else", () => {
   it("lets readMayRun run it as a read", () => {
     expect(mayRun(["node", "skills/bin/harness.mjs", "--help"])).toBe(true);
     expect(mayRun(["node", "skills/bin/harness.mjs", "--version"])).toBe(false);
+  });
+});
+
+describe("readMayRun: the hc reads a read-only role may run (plan 16, Step 4)", () => {
+  const hcMayRun = (
+    words: string[],
+    reads: readonly string[] = HC_READS,
+  ): boolean => readMayRun(words, [], reads);
+
+  it.each([
+    ["hc", "get", "t1", "--json"],
+    ["hc", "ls", "--json"],
+    ["hc", "read", "--json", "--lines", "20", "t1"],
+    ["hc", "wait", "--json", "--timeout", "5", "t1"],
+    ["hc", "get", "--help"],
+    ["hc", "--help"],
+    ["hc", "-h"],
+  ])(
+    "allows %j, an hc read, to a role that names the hc reads",
+    (...words: string[]) => {
+      expect(hcMayRun(words)).toBe(true);
+    },
+  );
+
+  it.each([
+    ["hc", "send", "t1", "hi"],
+    ["hc", "label", "t1", "kore-role=writer"],
+    ["hc", "run", "--bg", "--", "ls"],
+    ["hc", "exec", "t1", "--", "ls"],
+    ["hc", "kill", "t1"],
+    ["hc", "--version"],
+    ["hc", "run", "--help"],
+    ["hc", "--help", "run"],
+  ])("refuses %j, which no hc read is", (...words: string[]) => {
+    expect(hcMayRun(words)).toBe(false);
+  });
+
+  it("gives the judge no hc read, so every hc command is refused with an empty list", () => {
+    expect(hcMayRun(["hc", "get", "t1"], [])).toBe(false);
+    expect(hcMayRun(["hc", "--help"], [])).toBe(false);
   });
 });

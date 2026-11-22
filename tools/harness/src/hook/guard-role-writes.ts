@@ -177,7 +177,7 @@ export const changesShell = (segment: readonly string[]): boolean =>
 const ASSIGNMENT = /^([A-Za-z_][A-Za-z0-9_]*)=/;
 /** Names a shell or program reads when it runs: a bare assignment to one would steer git, the shell or the harness, so it stays refused. */
 const STEERING =
-  /^(?:GIT_|PATH$|IFS$|HOME$|XDG_|ENV$|BASH|SHELL|ZDOTDIR$|PAGER$|MANPAGER$|LESS|EDITOR$|VISUAL$|CDPATH$|PROMPT_COMMAND$|PS4$|KORE_|LD_|DYLD_|NODE_|PERL|PYTHON|RUBY)/;
+  /^(?:GIT_|PATH$|IFS$|HOME$|XDG_|ENV$|BASH|SHELL|ZDOTDIR$|PAGER$|MANPAGER$|LESS|EDITOR$|VISUAL$|CDPATH$|PROMPT_COMMAND$|PS4$|KORE_|HC_|LD_|DYLD_|NODE_|PERL|PYTHON|RUBY)/;
 
 /** A segment that is one plain `NAME=value` and nothing else: no command follows it, and it is not a steering name. A redirect on it is still a write, which writes() flags. */
 export const bareAssignment = (segment: readonly string[]): boolean => {

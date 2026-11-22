@@ -12,7 +12,11 @@ import {
 } from "../guardrail/index.js";
 import { asCall, evaluate, type GuardCall } from "./guard-evaluate.js";
 import { guard } from "./guard.js";
-import { hostFacts } from "./guard-host-shell.js";
+import {
+  hostFacts,
+  terminalNotice,
+  terminalRoleFacts,
+} from "./guard-host-shell.js";
 import { launchRoot } from "./guard-launch-root.js";
 import { recordEvent } from "./ledger-event.js";
 import { allow, block, type Verdict } from "./guard-verdict.js";
@@ -28,6 +32,8 @@ vi.mock("./guard-evaluate.js", () => ({ asCall: vi.fn(), evaluate: vi.fn() }));
 vi.mock("./guard-host-shell.js", () => ({
   helpExemptOn: vi.fn(),
   hostFacts: vi.fn(),
+  terminalNotice: vi.fn(),
+  terminalRoleFacts: vi.fn(),
 }));
 vi.mock("./guard-launch-root.js", () => ({ launchRoot: vi.fn() }));
 vi.mock("./ledger-event.js", () => ({ recordEvent: vi.fn() }));
@@ -72,6 +78,8 @@ beforeEach(() => {
   vi.mocked(modeOf).mockReturnValue("enforce");
   vi.mocked(denyRules).mockReturnValue([]);
   vi.mocked(recordEvent).mockResolvedValue(undefined);
+  vi.mocked(terminalRoleFacts).mockResolvedValue({});
+  vi.mocked(terminalNotice).mockResolvedValue("");
   vi.mocked(launchRoot).mockResolvedValue("/repo");
   vi.mocked(hostFacts).mockResolvedValue({
     home: "/home/test",

@@ -6,7 +6,7 @@
 // These rules enforce from the start, not in audit mode: the owner approved
 // enforcing the plan 11 role guards on 2026-11-12, which ADR 0080 requires a
 // person to do. A new capability for a role needs a guard case first.
-import { readMayRun } from "./guard-role-allow.js";
+import { HC_READS, readMayRun } from "./guard-role-allow.js";
 import { checkDelivery } from "./guard-role-delivery.js";
 import {
   DELIVERY_ROLES,
@@ -38,6 +38,8 @@ const HARNESS_READS = [
   "idea show",
   "flow report",
   "ledger list",
+  "session report",
+  "session send",
 ];
 
 const finishes = (role: string, segment: readonly string[]): boolean =>
@@ -67,7 +69,7 @@ function checkBash(role: string, command: string): Finding {
   }
   const unknown = segments.find(
     (segment) =>
-      !finishes(role, segment) && !readMayRun(segment, HARNESS_READS),
+      !finishes(role, segment) && !readMayRun(segment, HARNESS_READS, HC_READS),
   );
   return unknown === undefined
     ? null
