@@ -501,7 +501,7 @@ update` names no source and its `--version` is a floor. Settle it with the
   None of these is used. The token is made inside the terminal instead (Decisions 6). The API `env` breaks
   _Secrets never touch disk_.
 
-- **Sandbox.** (Its own idea, citing the closed #337, is filed in Step 1.) No writer sandbox is in force today, on macOS or on Linux. The
+- **Sandbox.** ([idea 0078](../../docs/ideas/0078-writer-sandbox-denies-the-hc-socket-and-credentials.md), citing the closed #337, is filed in Step 1.) No writer sandbox is in force today, on macOS or on Linux. The
   profile lives only in `tools/harness/tests/writer-sandbox-support.ts`, and
   ADR 0095 says wiring it into spawn is pending. So the switch to hc loses no
   sandbox. It does need these changes:
