@@ -13,6 +13,7 @@ import { mainRoot } from "../runtime/index.js";
 import type { CliDeps } from "../runtime/index.js";
 import { runTickLoop } from "./orchestrate-tick-loop.js";
 
+vi.mock("./orchestrate-tick-watch.js", () => ({ ensureLedgerWatch: vi.fn() }));
 vi.mock("../ledger/index.js", () => ({
   DEFAULT_LEDGER: ".kore/state/ledger.jsonl",
   Ledger: vi.fn(),
