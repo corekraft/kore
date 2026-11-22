@@ -1,6 +1,15 @@
 import type { Runner } from "../runtime/index.js";
 import { refuseRun } from "./hc-argv.js";
 import { hcFailure } from "./hc-errors.js";
+import {
+  isHcList,
+  isHcRead,
+  isHcRemoved,
+  isHcTerminal,
+  isHcWait,
+  isJsonObject,
+  type HcTerminal,
+} from "./hc-shapes.js";
 import { checkHcVersion } from "./hc-version.js";
 import {
   terminalError,
@@ -17,25 +26,9 @@ import {
   type WaitTarget,
 } from "./port.js";
 
-/** The fields of hc's JSON for one terminal that this adapter reads. */
-interface HcTerminal {
-  address: string;
-  name?: string | null;
-  parent?: string | null;
-  state: "live" | "finished";
-  status?: string | null;
-  exit_code?: number | null;
-  labels: Record<string, string>;
-  cwd: string;
-}
-
-/** The fields of hc's wait JSON that this adapter reads. */
-interface HcWait {
-  terminal: string;
-  ended: boolean;
-  reason: string;
-  children: { terminal: string; reason: string }[];
-}
+/** What to check when hc prints a reply the adapter does not read. */
+const SHAPE_HINT =
+  "check hc --version against the pin in docs/operations/hc-pin.md";
 
 export interface HcTerminalsOptions {
   runner: Runner;
@@ -86,34 +79,40 @@ export class HcTerminals implements Terminals {
     if (refusal !== undefined) {
       return refusal;
     }
-    const raw = await this.#json<HcTerminal>([
-      "run",
-      "--json",
-      "--bg",
-      ...(spec.name === undefined ? [] : ["--name", spec.name]),
-      "--cwd",
-      spec.cwd,
-      ...labelPairs(spec.labels ?? {}).flatMap((pair) => ["--label", pair]),
-      ...(spec.parent === undefined ? [] : ["--parent", spec.parent]),
-      ...(spec.outliveParent === true ? ["--outlive-parent"] : []),
-      "--",
-      ...spec.argv,
-    ]);
+    const raw = await this.#json(
+      [
+        "run",
+        "--json",
+        "--bg",
+        ...(spec.name === undefined ? [] : ["--name", spec.name]),
+        "--cwd",
+        spec.cwd,
+        ...labelPairs(spec.labels ?? {}).flatMap((pair) => ["--label", pair]),
+        ...(spec.parent === undefined ? [] : ["--parent", spec.parent]),
+        ...(spec.outliveParent === true ? ["--outlive-parent"] : []),
+        "--",
+        ...spec.argv,
+      ],
+      isHcTerminal,
+    );
     return isError(raw) ? raw : { id: raw.address };
   }
 
   async get(id: string): Promise<Terminal | TerminalError> {
-    const raw = await this.#json<HcTerminal>(["get", "--json", id]);
+    const raw = await this.#json(["get", "--json", id], isHcTerminal);
     return isError(raw) ? raw : toTerminal(raw);
   }
 
   async list(filter: ListFilter = {}): Promise<Terminal[] | TerminalError> {
-    const raw = await this.#json<{ terminals: HcTerminal[] }>([
-      "ls",
-      "--json",
-      "--all",
-      ...labelPairs(filter.labels ?? {}).flatMap((pair) => ["--label", pair]),
-    ]);
+    const raw = await this.#json(
+      [
+        "ls",
+        "--json",
+        "--all",
+        ...labelPairs(filter.labels ?? {}).flatMap((pair) => ["--label", pair]),
+      ],
+      isHcList,
+    );
     if (isError(raw)) {
       return raw;
     }
@@ -129,13 +128,10 @@ export class HcTerminals implements Terminals {
     id: string,
     lines: number,
   ): Promise<{ text: string; complete: boolean } | TerminalError> {
-    const raw = await this.#json<{ text: string; complete: boolean }>([
-      "read",
-      "--json",
-      "--lines",
-      String(lines),
-      id,
-    ]);
+    const raw = await this.#json(
+      ["read", "--json", "--lines", String(lines), id],
+      isHcRead,
+    );
     return isError(raw) ? raw : { text: raw.text, complete: raw.complete };
   }
 
@@ -144,14 +140,17 @@ export class HcTerminals implements Terminals {
     text: string,
     opts: SendOptions = {},
   ): Promise<{ id: string } | TerminalError> {
-    const raw = await this.#json<object>([
-      "send",
-      "--json",
-      ...(opts.ifStatus === undefined ? [] : ["--if", opts.ifStatus]),
-      "--",
-      id,
-      text,
-    ]);
+    const raw = await this.#json(
+      [
+        "send",
+        "--json",
+        ...(opts.ifStatus === undefined ? [] : ["--if", opts.ifStatus]),
+        "--",
+        id,
+        text,
+      ],
+      isJsonObject,
+    );
     return isError(raw) ? raw : { id };
   }
 
@@ -164,7 +163,7 @@ export class HcTerminals implements Terminals {
       "terminal" in target
         ? ["--timeout", seconds, target.terminal]
         : ["--children", target.children, "--timeout", seconds, target.of];
-    const raw = await this.#json<HcWait>(["wait", "--json", ...scope]);
+    const raw = await this.#json(["wait", "--json", ...scope], isHcWait);
     if (isError(raw)) {
       return raw;
     }
@@ -200,17 +199,17 @@ export class HcTerminals implements Terminals {
   }
 
   async interrupt(id: string): Promise<{ id: string } | TerminalError> {
-    const raw = await this.#json<object>(["interrupt", "--json", id]);
+    const raw = await this.#json(["interrupt", "--json", id], isJsonObject);
     return isError(raw) ? raw : { id };
   }
 
   async kill(id: string): Promise<{ id: string } | TerminalError> {
-    const raw = await this.#json<object>(["kill", "--json", id]);
+    const raw = await this.#json(["kill", "--json", id], isJsonObject);
     return isError(raw) ? raw : { id };
   }
 
   async remove(id: string): Promise<{ id: string } | TerminalError> {
-    const raw = await this.#json<{ removed: string }>(["rm", "--json", id]);
+    const raw = await this.#json(["rm", "--json", id], isHcRemoved);
     return isError(raw) ? raw : { id: raw.removed };
   }
 
@@ -218,12 +217,10 @@ export class HcTerminals implements Terminals {
     id: string,
     labels: Record<string, string>,
   ): Promise<{ id: string } | TerminalError> {
-    const raw = await this.#json<object>([
-      "label",
-      "--json",
-      id,
-      ...labelPairs(labels),
-    ]);
+    const raw = await this.#json(
+      ["label", "--json", id, ...labelPairs(labels)],
+      isJsonObject,
+    );
     return isError(raw) ? raw : { id };
   }
 
@@ -234,8 +231,14 @@ export class HcTerminals implements Terminals {
     );
   }
 
-  /** Runs one hc command with --json, after the version check, and parses its output. */
-  async #json<T>(args: string[]): Promise<T | TerminalError> {
+  /**
+   * Runs one hc command with --json, after the version check. The reply must
+   * parse and have the shape the adapter reads, or the error names the shape.
+   */
+  async #json<T>(
+    args: string[],
+    shape: (value: unknown) => value is T,
+  ): Promise<T | TerminalError> {
     const pinned = await checkHcVersion(this.#runner);
     if (pinned !== undefined) {
       return pinned;
@@ -245,13 +248,22 @@ export class HcTerminals implements Terminals {
     if (result.code !== 0) {
       return hcFailure(verb, result);
     }
+    let parsed: unknown;
     try {
-      return JSON.parse(result.stdout) as T;
+      parsed = JSON.parse(result.stdout);
     } catch {
       return terminalError(
         "unavailable",
         "hc " + verb + " printed output that is not JSON",
       );
     }
+    if (!shape(parsed)) {
+      return terminalError(
+        "unavailable",
+        "hc " + verb + " printed JSON of an unexpected shape",
+        SHAPE_HINT,
+      );
+    }
+    return parsed;
   }
 }

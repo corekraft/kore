@@ -1,5 +1,11 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { PIN_INSTALL, failed, ok, scripted } from "./hc-terminals-support.js";
+import {
+  PIN_DOC_HINT,
+  PIN_INSTALL,
+  failed,
+  ok,
+  scripted,
+} from "./hc-terminals-support.js";
 
 // terminalError is a function with behaviour, so it is a double (ADR 0098).
 vi.mock("./port.js", () => ({
@@ -33,7 +39,7 @@ describe("checkHcVersion", () => {
     });
   });
 
-  it("fails closed when hc is missing, naming the pin and the install command", async () => {
+  it("reports a missing binary as not installed, and points at the pin doc rather than hc update", async () => {
     expect(
       await checkHcVersion(scripted(failed(127, "spawn hc ENOENT"))),
     ).toEqual({
@@ -41,7 +47,17 @@ describe("checkHcVersion", () => {
         kind: "unavailable",
         message:
           "hc is not installed or not on PATH: hc --version exited with code 127",
-        hint: PIN_INSTALL,
+        hint: PIN_DOC_HINT,
+      },
+    });
+  });
+
+  it("reports any other failing exit as exited with its code, with stderr, and not as not installed", async () => {
+    expect(await checkHcVersion(scripted(failed(2, "boom\n")))).toEqual({
+      error: {
+        kind: "unavailable",
+        message: "hc --version exited with code 2: boom",
+        hint: PIN_DOC_HINT,
       },
     });
   });

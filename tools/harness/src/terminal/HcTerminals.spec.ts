@@ -1,10 +1,19 @@
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it, vi, type Mock } from "vitest";
 import type { RunResult, Runner } from "../runtime/index.js";
 import { refuseRun } from "./hc-argv.js";
 import { hcFailure } from "./hc-errors.js";
 import { HC_0_1_21 } from "./hc-0.1.21.fixtures.js";
+import {
+  isHcList,
+  isHcRead,
+  isHcRemoved,
+  isHcTerminal,
+  isHcWait,
+  isJsonObject,
+} from "./hc-shapes.js";
 import { HcTerminals } from "./HcTerminals.js";
 import {
+  rows,
   SIBLING_FINISHED,
   WRITER_FINISHED,
   WRITER_LIVE,
@@ -20,6 +29,15 @@ import type { Terminals } from "./port.js";
 vi.mock("./hc-version.js", () => ({
   checkHcVersion: vi.fn(async () => undefined),
 }));
+// Each shape check passes unless a test makes it refuse (its own spec covers the shapes).
+vi.mock("./hc-shapes.js", () => ({
+  isHcList: vi.fn(() => true),
+  isHcRead: vi.fn(() => true),
+  isHcRemoved: vi.fn(() => true),
+  isHcTerminal: vi.fn(() => true),
+  isHcWait: vi.fn(() => true),
+  isJsonObject: vi.fn(() => true),
+}));
 vi.mock("./hc-argv.js", () => ({ refuseRun: vi.fn(() => undefined) }));
 vi.mock("./hc-errors.js", () => ({
   hcFailure: vi.fn((verb: string, result: RunResult) => ({
@@ -34,73 +52,6 @@ vi.mock("./port.js", () => ({
     error: { kind, message, hint },
   })),
 }));
-
-type Row = [
-  name: string,
-  call: (terminals: Terminals) => Promise<unknown>,
-  argv: string[],
-  stdout: string,
-  expected: unknown,
-];
-
-const rows: Row[] = [
-  [
-    "get",
-    (t) => t.get("t7"),
-    ["get", "--json", "t7"],
-    HC_0_1_21.get,
-    WRITER_FINISHED,
-  ],
-  [
-    "run",
-    (t) => t.run({ argv: ["bash"], cwd: "/w", env: {} }),
-    ["run", "--json", "--bg", "--cwd", "/w", "--", "bash"],
-    HC_0_1_21.run,
-    { id: "t7" },
-  ],
-  [
-    "read",
-    (t) => t.read("t7", 40),
-    ["read", "--json", "--lines", "40", "t7"],
-    HC_0_1_21.read,
-    { text: "ready\n> ", complete: true },
-  ],
-  [
-    "send",
-    (t) => t.send("t7", "-- continue"),
-    ["send", "--json", "--", "t7", "-- continue"],
-    HC_0_1_21.send,
-    { id: "t7" },
-  ],
-  [
-    "interrupt",
-    (t) => t.interrupt("t7"),
-    ["interrupt", "--json", "t7"],
-    HC_0_1_21.interrupt,
-    { id: "t7" },
-  ],
-  [
-    "kill",
-    (t) => t.kill("t7"),
-    ["kill", "--json", "t7"],
-    HC_0_1_21.kill,
-    { id: "t7" },
-  ],
-  [
-    "remove",
-    (t) => t.remove("t7"),
-    ["rm", "--json", "t7"],
-    HC_0_1_21.remove,
-    { id: "t7" },
-  ],
-  [
-    "label",
-    (t) => t.label("t7", { model: "sonnet" }),
-    ["label", "--json", "t7", "model=sonnet"],
-    HC_0_1_21.label,
-    { id: "t7" },
-  ],
-];
 
 describe("HcTerminals: each method builds its argv, parses hc's JSON and maps it", () => {
   it.each(rows)("%s", async (_name, call, argv, stdout, expected) => {
@@ -287,6 +238,37 @@ describe("HcTerminals: output and events", () => {
     );
     expect(runner.run).not.toHaveBeenCalled();
   });
+});
+
+describe("HcTerminals: each method checks the shape it reads", () => {
+  const checks: [
+    verb: string,
+    call: (t: Terminals) => Promise<unknown>,
+    predicate: unknown,
+  ][] = [
+    ["run", (t) => t.run({ argv: ["bash"], cwd: "/w" }), isHcTerminal],
+    ["get", (t) => t.get("t7"), isHcTerminal],
+    ["ls", (t) => t.list(), isHcList],
+    ["read", (t) => t.read("t7", 1), isHcRead],
+    ["wait", (t) => t.wait({ terminal: "t7" }, 1000), isHcWait],
+    ["rm", (t) => t.remove("t7"), isHcRemoved],
+    ["kill", (t) => t.kill("t7"), isJsonObject],
+  ];
+
+  it.each(checks)(
+    "reports a %s reply its shape check refuses as unavailable, naming the shape",
+    async (verb, call, predicate) => {
+      (predicate as Mock).mockReturnValueOnce(false);
+      const runner = scripted(ok("{}"));
+      expect(await call(new HcTerminals({ runner, env: {} }))).toEqual({
+        error: {
+          kind: "unavailable",
+          message: "hc " + verb + " printed JSON of an unexpected shape",
+          hint: "check hc --version against the pin in docs/operations/hc-pin.md",
+        },
+      });
+    },
+  );
 });
 
 describe("HcTerminals: self and secrets", () => {
