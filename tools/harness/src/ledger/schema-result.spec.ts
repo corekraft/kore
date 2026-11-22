@@ -80,3 +80,33 @@ describe("pane.finished records the RESULT line a session wait saw", () => {
     });
   });
 });
+
+describe("pane.finished from the terminal source", () => {
+  const finished = {
+    source: "terminal",
+    kind: "pane.finished",
+    occurredAt: OCCURRED,
+    pane: "t2",
+    session: "s1",
+    status: "finished",
+    turn: 0,
+  };
+
+  it("accepts a finish with no result, since hc reports no RESULT line", () => {
+    expect(parseEvent(finished, "input")).toEqual({
+      ok: true,
+      event: finished,
+    });
+  });
+
+  it("still takes the outcome word when one is given", () => {
+    expect(parseEvent({ ...finished, result: "done" }, "input").ok).toBe(true);
+  });
+
+  it("refuses a herdr pane.finished with no result, which finish-record always writes", () => {
+    const herdr = { ...finished, source: "herdr", agent: "claude" };
+    delete (herdr as { status?: string }).status;
+    delete (herdr as { turn?: number }).turn;
+    expect(rejected(herdr)).toMatchObject({ field: "result" });
+  });
+});

@@ -12,6 +12,8 @@ export interface Terminal {
   parent?: string;
   state: "live" | "finished";
   status?: Status;
+  /** hc's turn counter: it advances with each delivery to the terminal. Absent from a reply that does not name it. */
+  turn?: number;
   exitCode?: number;
   labels: Record<string, string>;
   cwd: string;

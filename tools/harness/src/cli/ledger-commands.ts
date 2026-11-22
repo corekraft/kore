@@ -19,6 +19,7 @@ import {
   type CommandContext,
 } from "../runtime/index.js";
 import * as help from "./ledger-help.js";
+import { watchCommand } from "./ledger-watch-command.js";
 
 const EVENT_FLAGS = [
   "id",
@@ -320,4 +321,5 @@ export const ledgerCommands: Record<string, Command> = {
   list,
   "poll-herdr": pollHerdrCommand,
   "poll-github": pollGithubCommand,
+  watch: watchCommand(openLedger),
 };

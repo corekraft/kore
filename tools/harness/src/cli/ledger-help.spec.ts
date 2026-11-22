@@ -9,9 +9,10 @@ const records: [string, CommandHelp][] = [
   ["list", help.listHelp],
   ["poll-herdr", help.pollHerdrHelp],
   ["poll-github", help.pollGithubHelp],
+  ["watch", help.watchHelp],
 ];
 
-const writers = ["record", "poll-herdr", "poll-github"];
+const writers = ["record", "poll-herdr", "poll-github", "watch"];
 
 describe("the ledger help records", () => {
   it.each(records)(
