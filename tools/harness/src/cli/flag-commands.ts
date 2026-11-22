@@ -1,7 +1,7 @@
 import { IdeaRepository } from "../idea/index.js";
 import { Ledger } from "../ledger/index.js";
 import { openLedger } from "./ledger-commands.js";
-import type { Command, CommandContext } from "../runtime/index.js";
+import type { Command, CommandContext, CommandHelp } from "../runtime/index.js";
 import {
   FlagError,
   activationProof,
@@ -197,17 +197,117 @@ async function auditFlags(context: CommandContext): Promise<number> {
   return FAILED;
 }
 
+/** The help record for `flag activate`: turns a flag on only after its verification outcome is recorded. */
+const activateHelp: CommandHelp = {
+  purpose:
+    "Turns a feature flag on in an environment overlay (infra/environments/<environment>/environment.yaml) and records a flag.activated ledger event. It turns the flag on only when a confirmed verification outcome for that flag and environment is recorded, from a live run or an owner waiver; without one it changes nothing.",
+  when: "After a live run of the flag in the environment has been recorded with harness outcome record, to turn the flag on in that environment.",
+  whenNot:
+    "To see which flags that are on lack proof: use flag audit. To record a live run or a waiver: use outcome record, then return here. Do not edit the overlay by hand to turn a flag on: a flag the overlay does not declare is refused; declare it as false first.",
+  flags: {
+    environment:
+      "The environment whose overlay turns the flag on, such as local. Required: the command never picks one for you.",
+    ledger:
+      "The ledger file the flag.activated event is recorded in, relative to the working directory; by default the shared ledger of the main checkout.",
+    "chart-lock":
+      "The release's platform-charts.lock.json, for a live run that recorded a main chart lock: the run counts only when its charts equal this release lock. A relative path is read from the repository root.",
+  },
+  operand:
+    "The feature flag to turn on, as declared in the environment overlay.",
+  examples: [
+    {
+      command: "harness flag activate hc-sessions --environment local",
+      shows:
+        "with no confirmed verification outcome for hc-sessions in local, the overlay is unchanged and the command exits 1, naming the outcome to record",
+    },
+    {
+      command:
+        "harness flag activate hc-sessions --environment local --chart-lock platform-charts.lock.json",
+      shows:
+        "the flag on in the local overlay and its proof named, when a live run's charts equal the release lock",
+    },
+  ],
+  exits: [
+    {
+      code: 0,
+      meaning:
+        "the flag is on in the overlay and its proof is named; a rerun on a flag already on only repairs a missing ledger event",
+    },
+    {
+      code: 1,
+      meaning:
+        "refused and the overlay is unchanged: a missing operand or --environment, an environment with no overlay, a flag the overlay does not declare, no confirmed verification outcome, a live run whose charts differ from --chart-lock, an unreadable chart lock, or a ledger that cannot be opened. Also when the flag is on but its ledger event is rejected: the flag stays on, and a rerun records the event",
+    },
+    {
+      code: 2,
+      meaning: "a flag the command does not declare, or a flag with no value",
+    },
+  ],
+  effects: {
+    kind: "mutates",
+    detail:
+      "when the flag is off, rewrites its false entry to true in infra/environments/<environment>/environment.yaml and appends one flag.activated event to the ledger; a refused run writes nothing",
+  },
+  seeAlso: ["flag audit", "outcome record"],
+};
+
 const activate: Command = {
+  help: activateHelp,
   summary:
-    "turn a flag on in an environment overlay, only when a confirmed verification outcome from a live run or an owner waiver names that flag and environment; a live run that records a main chart lock counts only when its charts equal the release chart lock given by --chart-lock; records a flag.activated ledger event (<flag> --environment <env> [--chart-lock <platform-charts.lock.json>] [--ledger])",
+    "turn a flag on in an environment overlay, only after a recorded verification outcome",
   operand: "flag",
   options: { environment: "string", ledger: "string", "chart-lock": "string" },
   run: (context) => guarded(context, () => activateFlag(context)),
 };
 
+/** The help record for `flag audit`: fails on any flag that is on without recorded proof. */
+const auditHelp: CommandHelp = {
+  purpose:
+    "Checks every flag that is on in any environment overlay for its recorded proof. It fails when a flag is on with no confirmed verification outcome, from a live run or an owner waiver, and names each flag that rests on a waiver rather than a live run. kb-check reports the same flags as warnings (ADR 0080).",
+  when: "Before a release, or when kb-check warns about a flag, to find flags that are on without proof.",
+  whenNot:
+    "To turn a flag on: use flag activate, which refuses without proof. To read the recorded outcome itself: use idea show for the idea that holds it.",
+  flags: {},
+  examples: [
+    {
+      command: "harness flag audit",
+      shows:
+        "Flag audit passed: no flag is on without proof, with a line for each flag that rests on an owner waiver",
+    },
+    {
+      command: "harness flag audit --json",
+      shows:
+        "unproven and waived as one JSON object: on stdout when the audit passes, on stderr with exit 1 when it fails",
+    },
+  ],
+  exits: [
+    {
+      code: 0,
+      meaning:
+        "no flag is on without proof; a flag under an owner waiver is listed and does not fail",
+    },
+    {
+      code: 1,
+      meaning:
+        "at least one flag is on with no verification outcome; each is named on stderr with the step to fix it",
+    },
+    {
+      code: 2,
+      meaning: "a flag the command does not declare",
+    },
+  ],
+  effects: {
+    kind: "read-only",
+    detail:
+      "reads each environment overlay and the idea records; writes nothing",
+  },
+  seeAlso: ["flag activate", "idea show"],
+};
+
 const audit: Command = {
+  help: auditHelp,
   summary:
-    "fail when any flag in any environment overlay is on without a confirmed verification outcome from a live run or an owner waiver, and names each flag that rests on a waiver; kb-check reports it as a warning (audit mode, ADR 0080)",
+    "fail when a flag is on in any environment overlay without a recorded verification outcome",
   run: (context) => guarded(context, () => auditFlags(context)),
 };
 

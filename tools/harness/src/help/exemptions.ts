@@ -14,20 +14,11 @@ export const undocumented: readonly string[] = [
   "adr new",
   "adr supersede",
   // guardrail
-  "guardrail status",
-  "guardrail deny",
-  "guardrail request",
-  "guardrail activate",
-  "guardrail replay",
   // idea
   "idea new",
   "idea list",
   "idea show",
   "idea sync",
   // flag
-  "flag activate",
-  "flag audit",
   // ruleset
-  "ruleset sync",
-  "ruleset insights",
 ];

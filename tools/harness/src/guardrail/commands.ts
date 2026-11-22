@@ -1,4 +1,4 @@
-import type { Command, CommandContext } from "../runtime/index.js";
+import type { Command, CommandContext, CommandHelp } from "../runtime/index.js";
 import {
   denyDrift,
   denyList,
@@ -17,12 +17,60 @@ export type LoadPending = (
   inventory: Inventory,
 ) => Promise<PendingRequest[]>;
 
+/** The help record for `guardrail status`: the guardrails, and the requests waiting for approval. */
+const statusHelp: CommandHelp = {
+  purpose:
+    "Lists each guardrail with its kind, mode and owner, and the requests still waiting for a person's approval, read from the ledger. It reads the inventory and the ledger and changes nothing.",
+  when: "When you need the current mode of each guardrail, or which mode changes are waiting for approval before you request or activate one.",
+  whenNot:
+    "When you need a rule's firings over past calls: use guardrail replay, which judges a rule change over the transcripts. To read the settings deny list, use guardrail deny.",
+  flags: {
+    ledger:
+      "The ledger file the pending requests are read from, relative to the working directory; by default the shared ledger of the main checkout.",
+  },
+  examples: [
+    {
+      command: "harness guardrail status",
+      shows:
+        "one line per guardrail: its rule, kind, mode and owner, with pending and the proposed mode when a request is waiting",
+    },
+    {
+      command: "harness guardrail status --json",
+      shows:
+        "the guardrails and the pending requests (rule, from, to, idea) as one JSON object",
+    },
+  ],
+  exits: [
+    {
+      code: 0,
+      meaning:
+        "the guardrails are listed; a ledger that cannot be opened lists no pending requests and says why on stderr",
+    },
+    {
+      code: 1,
+      meaning:
+        "the inventory .claude/guardrails.yaml is missing or invalid; stderr names the fix",
+    },
+    {
+      code: 2,
+      meaning: "a flag the command does not declare, or a flag with no value",
+    },
+  ],
+  effects: {
+    kind: "read-only",
+    detail:
+      "reads .claude/guardrails.yaml and the guardrail.requested events in the ledger; writes nothing",
+  },
+  seeAlso: ["guardrail request", "guardrail activate", "guardrail replay"],
+};
+
 /** The `status` command over a source of pending requests. */
 export function statusWith(loadPending: LoadPending): Command {
   return {
     summary:
-      "list each guardrail with its kind, mode and owner, and the requests waiting for a person's approval, read from the ledger (--json: guardrails, pending: rule, from, to, idea) [--ledger]",
+      "list each guardrail's mode, and the mode changes awaiting a person's approval",
     options: { ledger: "string" },
+    help: statusHelp,
     async run(context) {
       const { json, deps } = context;
       try {
@@ -83,14 +131,71 @@ async function writeDeny(
   await deps.fs.writeFile(path, settingsWithDeny(current, list));
 }
 
+/** The help record for `guardrail deny`: the settings deny list the inventory generates. */
+const denyHelp: CommandHelp = {
+  purpose:
+    "Prints the settings deny list that the enforced deny rules in the inventory generate. With --check it fails when .claude/settings.json differs from that list; with --write it regenerates the list in the settings. The inventory owns the list, so a hand edit of the settings is drift.",
+  when: "When a deny rule in .claude/guardrails.yaml has changed and the settings must follow it, or in a check that the settings still match the inventory.",
+  whenNot:
+    "When you want something denied or allowed again: edit the deny rule in the inventory, then write the list; never edit .claude/settings.json by hand. When you want a rule's mode changed: use guardrail request.",
+  flags: {
+    check:
+      "Fails when .claude/settings.json differs from the list the inventory generates, and names the drift; it prints nothing and changes nothing when they match.",
+    write:
+      "Regenerates the deny list in .claude/settings.json from the inventory, then prints the list it wrote.",
+    "allow-removal":
+      "Lets --write drop a pattern the settings held that the inventory no longer lists. Without it such a write is refused, because removing a pattern weakens the guard; use it only after the owner approves the removal.",
+  },
+  examples: [
+    {
+      command: "harness guardrail deny",
+      shows:
+        "the patterns of every enforced deny rule, one per line in inventory order; nothing is written",
+    },
+    {
+      command: "harness guardrail deny --check",
+      shows:
+        "nothing and exit 0 when the settings match the inventory; otherwise the drift, and exit 1",
+    },
+    {
+      command: "harness guardrail deny --write",
+      shows:
+        "the settings rewritten from the inventory, then the list that was written",
+    },
+  ],
+  exits: [
+    {
+      code: 0,
+      meaning:
+        "the list is printed; with --check the settings match; with --write the settings were regenerated",
+    },
+    {
+      code: 1,
+      meaning:
+        "--check and --write were given together, the settings drift under --check, --write would drop a pattern without --allow-removal, the inventory is invalid, or .claude/settings.json is missing; stderr names the fix, and --json adds the problems as one object",
+    },
+    {
+      code: 2,
+      meaning: "a flag the command does not declare, or a flag with no value",
+    },
+  ],
+  effects: {
+    kind: "mutates",
+    detail:
+      "read-only with no flag and with --check; --write rewrites the deny list in .claude/settings.json and changes nothing else",
+  },
+  seeAlso: ["guardrail activate", "guardrail status"],
+};
+
 const deny: Command = {
   summary:
-    "print the settings deny list generated from the enforced deny rules; --check fails when settings differ, --write regenerates them",
+    "print, check or regenerate the settings deny list the inventory generates",
   options: {
     check: "boolean",
     write: "boolean",
     "allow-removal": "boolean",
   },
+  help: denyHelp,
   async run({ json, options, deps }) {
     const report = (problems: string[], message: string): number => {
       deps.stdout(json ? `${JSON.stringify({ problems })}\n` : "");
