@@ -1,8 +1,8 @@
 ---
 summary: The writer sandbox denies the hc socket and, on Linux, the credential directories once it is wired into session spawn
 hypothesis: Once the writer sandbox is wired into session spawn and built for Linux, a probe writer started inside it reaches none of the three denied targets, the hc socket (HC_SOCKET), ~/.config/kore and ~/.config/sops
-expected-outcome: The sandbox probe reports 0 of 3 denied targets reachable from a spawned writer on macOS and on Linux, and the spawned writer still completes a commit inside its worktree
-measurement: The sandbox probe in tools/harness/tests/writer-sandbox-support.ts, run from inside a writer spawned by session spawn on each host, counts denied targets it can open (the hc socket, ~/.config/kore, ~/.config/sops); target 0 of 3 on each host
+expected-outcome: The probe, once written, reports 0 of 3 denied targets reachable from a spawned writer on macOS and on Linux, and the spawned writer still completes a commit inside its worktree
+measurement: A probe, still to be written beside tools/harness/tests/writer-sandbox-support.ts (that file only builds the profile and has no probe yet), run from inside a writer spawned by session spawn on each host, counts denied targets it can open (the hc socket, ~/.config/kore, ~/.config/sops); target 0 of 3 on each host
 safety-pattern: no-behaviour-change
 date: 2026-11-22
 ---
@@ -36,9 +36,11 @@ measurement, so the build has a test to pass.
 ## Hypothesis and measurement
 
 The hypothesis is measurable: a probe writer spawned under the sandbox reaches
-none of the three targets. The sandbox probe counts, from inside a spawned
-writer on each host, how many of the three it can open. The target is 0 of 3
-on macOS and on Linux, and a commit inside the worktree still succeeds.
+none of the three targets. The probe does not exist yet. It is still to be
+written beside `tools/harness/tests/writer-sandbox-support.ts`, which only builds
+the profile, and it counts, from inside a spawned writer on each host, how many of
+the three it can open. The target is 0 of 3 on macOS and on Linux, and a commit
+inside the worktree still succeeds.
 
 ## Owner-held
 
