@@ -72,13 +72,13 @@ export const domainGuides: Record<string, DomainGuide> = {
   },
   judge: {
     purpose:
-      "The judge's gate on a pull request: its precheck, declaration, diff and send-back, and the approve and merge only the judge runs.",
-    flow: "Run judge precheck to read a PR's pattern and results, judge declaration to audit its body, and judge send-back to return a failing change to its writer; judge approve or judge merge runs once the precheck passes on the verified head.",
+      "The judge's gate on a pull request: its verdict, its diff and its body audit, and the approve, merge and send-back that only the judge pane runs.",
+    flow: "Run judge precheck to read a PR's verdict, judge diff to read its change and judge declaration to audit a body on stdin; once the precheck passes, judge approve then judge merge, and judge send-back returns a failing change to its writer.",
   },
   review: {
     purpose:
-      "The principles review of a pull request: running the Reviewer, posting its verdict, and resampling passed reviews of merged PRs.",
-    flow: "Run review run to spawn the principles-review Reviewer on a PR head and collect its verdict; review post posts a verdict in the format the precheck reads; review resample re-reviews a sample of merged PRs.",
+      "The principles review of a pull request: running the Reviewer, posting a verdict, and re-reviewing a sample of passed reviews of merged PRs.",
+    flow: "Run review run to have a principles-review Reviewer read a PR's head and post its verdict; review post posts findings a Reviewer reported, in the format the precheck reads; review resample re-reviews a sample of merged PRs and posts nothing.",
   },
   pr: {
     purpose:
@@ -118,6 +118,6 @@ export const domainGuides: Record<string, DomainGuide> = {
   approve: {
     purpose:
       "Applies ready-for-agent to a harness idea whose change is reversible and whose metric has history, and leaves any other for a person.",
-    flow: "Run approve for an idea to get its verdict; it writes nothing and only reports the verdict while the automatic-approval flag is off.",
+    flow: "Run approve --idea for an idea to get its verdict; with the automatic-approval flag off it writes nothing and only reports the verdict.",
   },
 };
