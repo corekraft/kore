@@ -47,6 +47,7 @@ export const KEYS = [
   "unstampedSpawns",
   "finishDetection",
   "stalledPanes",
+  "terminal",
   "skippedLines",
 ];
 
