@@ -31,6 +31,7 @@ describe("the ledger barrel", () => {
       "SEND_BACK_CATEGORIES",
       "SOURCES",
       "firstIdeaStateChange",
+      "followTerminals",
       "hasOpenBackground",
       "hasOpenQuestion",
       "ideaStates",
