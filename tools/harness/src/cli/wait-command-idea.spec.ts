@@ -5,6 +5,7 @@ import { failed, repoOf } from "./judge-shared.js";
 import { readChecks, type ChecksReport } from "./pr-checks.js";
 import { harnessWait } from "./wait-command.js";
 import { ideaWaits, readIdeaTarget } from "./wait-idea-target.js";
+import { pollPause, withPause } from "./wait-hc-children.js";
 
 vi.mock("./wait-idea-target.js", () => ({
   ideaWaits: vi.fn(),
@@ -22,6 +23,10 @@ vi.mock("./judge-shared.js", () => ({
 vi.mock("./pr-checks.js", () => ({
   CHECKS_POLL_MS: 15_000,
   readChecks: vi.fn(),
+}));
+vi.mock("./wait-hc-children.js", async (importOriginal) => ({
+  ...(await importOriginal<Record<string, unknown>>()),
+  withPause: vi.fn(),
 }));
 
 const SINCE = "2026-01-02T03:04:05.000Z";
@@ -63,6 +68,9 @@ function report(state: ChecksReport["state"]): ChecksReport {
 
 beforeEach(() => {
   vi.resetAllMocks();
+  vi.mocked(withPause).mockImplementation((deps, _targets, _scope, run) =>
+    run(pollPause(deps.clock)),
+  );
   vi.mocked(repoOf).mockResolvedValue("corekraft/kore");
   vi.mocked(failed).mockReturnValue(1);
   vi.mocked(parseTimeout).mockReturnValue(3_600_000);
