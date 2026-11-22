@@ -16,7 +16,7 @@ function ports(over: Partial<ReconcilePorts> = {}): ReconcilePorts {
     unsettled: vi.fn().mockResolvedValue([]),
     list: vi.fn().mockResolvedValue([]),
     reported: vi.fn().mockResolvedValue(false),
-    block: vi.fn().mockResolvedValue(undefined),
+    block: vi.fn().mockResolvedValue(true),
     ...over,
   };
 }
@@ -148,6 +148,29 @@ describe("TickReconcile: reports and the listing", () => {
       new HarnessCliError("hc is not running (start the core)"),
     );
     expect(p.block).not.toHaveBeenCalled();
+  });
+});
+
+describe("TickReconcile: settled sessions", () => {
+  it("leaves a session alone once its report was consumed, even when its terminal has finished", async () => {
+    const p = ports({
+      unsettled: vi.fn().mockResolvedValue([session({ reportSeq: 2 })]),
+      list: vi.fn().mockResolvedValue([terminal("t7", "finished")]),
+    });
+
+    expect(await new TickReconcile(p, MAIN).reconcile()).toEqual([]);
+    expect(p.block).not.toHaveBeenCalled();
+  });
+
+  it("names only the sessions it recorded: one that settled meanwhile is not named", async () => {
+    const p = ports({
+      unsettled: vi.fn().mockResolvedValue([session()]),
+      list: vi.fn().mockResolvedValue([terminal("t7", "finished")]),
+      block: vi.fn().mockResolvedValue(false),
+    });
+
+    expect(await new TickReconcile(p, MAIN).reconcile()).toEqual([]);
+    expect(p.block).toHaveBeenCalledTimes(1);
   });
 });
 

@@ -43,16 +43,24 @@ export async function hcReconcile(
       },
       block: async (name, summary) => {
         const record = await registry.read(name);
-        if (record !== undefined) {
-          await registry.write({
-            ...record,
-            result: {
-              outcome: "blocked",
-              at: deps.clock.now().toISOString(),
-              summary,
-            },
-          });
+        // Re-read, so a session that settled since the listing is left as it is.
+        if (
+          record === undefined ||
+          record.result !== undefined ||
+          record.closedAt !== undefined ||
+          (record.reportSeq ?? 0) > 0
+        ) {
+          return false;
         }
+        await registry.write({
+          ...record,
+          result: {
+            outcome: "blocked",
+            at: deps.clock.now().toISOString(),
+            summary,
+          },
+        });
+        return true;
       },
     },
     main,

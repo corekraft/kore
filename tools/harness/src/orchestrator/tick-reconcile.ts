@@ -14,8 +14,8 @@ export interface ReconcilePorts {
   list: () => Promise<Terminal[] | TerminalError>;
   /** Whether an unread report from the session sits under `cwd`, the checkout its terminal ran in. */
   reported: (session: Unsettled, cwd: string) => Promise<boolean>;
-  /** Records the session as blocked, with the reason as its result. */
-  block: (name: string, reason: string) => Promise<void>;
+  /** Records the session as blocked, with the reason as its result; false when it settled meanwhile, so nothing was recorded. */
+  block: (name: string, reason: string) => Promise<boolean>;
 }
 
 /** hc's message for an error: its message, with its hint in brackets when hc gives one. */
@@ -55,6 +55,10 @@ export class TickReconcile {
     }
     const recorded: string[] = [];
     for (const session of open) {
+      // A report a wait consumed settled the session, whatever its terminal did since.
+      if (session.reportSeq > 0) {
+        continue;
+      }
       const terminal = listed.find((t) => t.id === session.terminal);
       if (terminal?.state === "live") {
         continue;
@@ -63,11 +67,13 @@ export class TickReconcile {
       if (await this.ports.reported(session, cwd)) {
         continue;
       }
-      await this.ports.block(
+      const blocked = await this.ports.block(
         session.name,
         reasonOf(session.terminal, terminal),
       );
-      recorded.push(session.name);
+      if (blocked) {
+        recorded.push(session.name);
+      }
     }
     return recorded;
   }

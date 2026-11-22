@@ -39,7 +39,6 @@ const record = {
   createdAt: "t",
   backend: "hc",
   terminal: "t7",
-  reportSeq: 1,
 };
 
 interface Fake {
@@ -172,6 +171,32 @@ describe("hcReconcile: reads and writes", () => {
       },
     });
   });
+});
+
+describe("hcReconcile: a record that settled meanwhile", () => {
+  it.each([
+    [
+      "has a result already",
+      { result: { outcome: "done", at: "t", summary: "s" } },
+    ],
+    ["is closed", { closedAt: "t" }],
+    ["consumed a report meanwhile", { reportSeq: 2 }],
+  ])(
+    "does not block a record that settled meanwhile: it %s",
+    async (_why, settled) => {
+      const own = wire();
+      own.registry.read.mockResolvedValue({ ...record, ...settled });
+      const p = await portsOf();
+
+      expect(
+        await p.block(
+          "idea-0001-writer",
+          "lost with its parent: terminal t7 has finished",
+        ),
+      ).toBe(false);
+      expect(own.registry.write).not.toHaveBeenCalled();
+    },
+  );
 });
 
 describe("hcAttended", () => {
