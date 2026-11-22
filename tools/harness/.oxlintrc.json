@@ -101,6 +101,10 @@
             "message": "import from the guardrail barrel (guardrail/index.js), not one of its files"
           },
           {
+            "group": ["**/help/**", "!**/help/index.js"],
+            "message": "import from the help barrel (help/index.js), not one of its files"
+          },
+          {
             "group": ["**/hook/**", "!**/hook/index.js"],
             "message": "import from the hook barrel (hook/index.js), not one of its files"
           },
@@ -234,6 +238,10 @@
               {
                 "group": ["**/guardrail/**", "!**/guardrail/index.js"],
                 "message": "import from the guardrail barrel (guardrail/index.js), not one of its files"
+              },
+              {
+                "group": ["**/help/**", "!**/help/index.js"],
+                "message": "import from the help barrel (help/index.js), not one of its files"
               },
               {
                 "group": ["**/hook/**", "!**/hook/index.js"],
