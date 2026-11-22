@@ -6,7 +6,7 @@
 // names it. The 120 s limit applies once every list is empty (ADR 0098).
 // Docs: infra/plans/14-test-tiers.md#step-1-foundations
 
-import type { CliDeps } from "../runtime/index.js";
+import type { CliDeps, CommandHelp } from "../runtime/index.js";
 import { hookCommand, type HookResult } from "./io.js";
 import type { BudgetReport } from "./test-budget-reporter.js";
 
@@ -242,9 +242,51 @@ async function check(
   };
 }
 
+const testBudgetHelp: CommandHelp = {
+  purpose:
+    "Checks the speed budget of a unit run. A converted test over 100 ms, a converted spec file over 1 s, or the package's unit run over 120 s (once every unconverted list is empty) fails and names what was slow. It prints the ten slowest tests on stdout whether it passes or fails.",
+  when: "The package's test:budget script runs it after npm run test:unit writes the report; run it by hand after a unit run to see the slowest tests.",
+  whenNot:
+    "To check that each converted source file has its spec, use harness hook unit-specs; to run the tests, use the package's npm run test:unit.",
+  flags: {
+    package:
+      "The package directory from the repository root, such as tools/kore. Required: without it the hook exits 1.",
+    report:
+      "The JSON report the unit run writes, such as test-results/unit.json; a relative path is read from the working directory. Required: without it the hook exits 1.",
+    strict:
+      "Accepted for uniformity: a fault already exits 1 here, so --strict changes nothing.",
+  },
+  examples: [
+    {
+      command:
+        "harness hook test-budget --package tools/kore --report test-results/unit.json",
+      shows:
+        "the ten slowest tests, then exit 0 when every converted test, spec file and the package run is within its budget",
+    },
+    {
+      command: "harness hook test-budget --package tools/kore",
+      shows: "exit 1 with a usage line, since --report is missing",
+    },
+  ],
+  exits: [
+    { code: 0, meaning: "every checked speed is within its budget" },
+    {
+      code: 1,
+      meaning:
+        "a test, spec file or package run over budget, a stale unconverted-list entry, a report that is missing or holds other paths, a missing --package or --report, or a fault; stderr names each",
+    },
+  ],
+  effects: {
+    kind: "read-only",
+    detail:
+      "reads the report, the unconverted lists and the spec files; it writes nothing",
+  },
+  seeAlso: ["hook unit-specs"],
+};
+
 export const testBudgetHook = hookCommand(
   "test-budget",
-  "fail a unit run whose converted tests, spec files or package run break the speed budget; reads the report the unit run writes",
+  "fail a unit run that breaks the speed budget",
   ({ deps, options }) => {
     const packageDir = options["package"];
     const report = options["report"];
@@ -262,5 +304,6 @@ export const testBudgetHook = hookCommand(
     flags: { package: "string", report: "string" },
     payload: false,
     faultCode: 1,
+    help: testBudgetHelp,
   },
 );
