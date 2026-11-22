@@ -50,6 +50,48 @@ export interface CommandContext {
   deps: CliDeps;
 }
 
+/** One worked example: a full command line, and what its output shows. */
+export interface CommandExample {
+  /** A full command line, starting `harness <domain> <command>`. */
+  command: string;
+  /** What the example's output shows, in one line. */
+  shows: string;
+}
+
+/** One exit code the command returns, and what it means. */
+export interface CommandExit {
+  code: number;
+  meaning: string;
+}
+
+/** What running the command changes: `read-only` or `mutates`, with a line that says what. */
+export interface CommandEffects {
+  kind: "read-only" | "mutates";
+  detail: string;
+}
+
+/**
+ * A command's help, read by `--help` at three levels (plan 17). The registry specs fail a
+ * declared flag with no description, an example that names an undeclared flag, and so on.
+ */
+export interface CommandHelp {
+  /** What the command does, in a sentence or two. */
+  purpose: string;
+  /** When to run it. */
+  when: string;
+  /** When not to run it, and what to run instead. */
+  whenNot: string;
+  /** A description for every declared flag, keyed by the flag's name without `--`. */
+  flags: Record<string, string>;
+  /** A description for the operand; present exactly when the command declares one. */
+  operand?: string;
+  examples: CommandExample[];
+  exits: CommandExit[];
+  effects: CommandEffects;
+  /** Related commands, each as `<domain> <command>`; a domain's only command is named by the domain alone. */
+  seeAlso: string[];
+}
+
 export interface Command {
   summary: string;
   /**
@@ -59,5 +101,10 @@ export interface Command {
   options?: Record<string, "string" | "boolean" | "list">;
   /** Names the one positional argument the command takes, such as "name". */
   operand?: string;
+  /**
+   * The command's help record. Optional until every command carries one; the commands
+   * the registry exempts (help/exemptions.ts) are the ones that do not yet.
+   */
+  help?: CommandHelp;
   run(context: CommandContext): Promise<number>;
 }
