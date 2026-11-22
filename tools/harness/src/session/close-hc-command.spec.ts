@@ -40,6 +40,25 @@ beforeEach(() => {
   deps = fakeDeps();
 });
 
+describe("closeHcSession closes a starting record that has no terminal", () => {
+  it("says the session never started a terminal, instead of naming one", async () => {
+    vi.mocked(closeOnHc).mockResolvedValue({ closedAt: CLOSED_AT });
+    const { terminal: _terminal, ...starting } = RECORD;
+
+    const code = await closeHcSession(
+      contextOf(deps),
+      new FakeTerminals(),
+      asRegistry(registry),
+      { ...starting, paneId: "", starting: true },
+    );
+
+    expect(code).toBe(0);
+    expect(deps.stdout).toHaveBeenCalledExactlyOnceWith(
+      "Closed image-trust-writer (it never started a terminal).\n",
+    );
+  });
+});
+
 describe("closeHcSession prints the close, or the reason it was refused", () => {
   it("prints the terminal it closed and exits 0", async () => {
     vi.mocked(closeOnHc).mockResolvedValue({ closedAt: CLOSED_AT });

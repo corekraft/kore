@@ -117,6 +117,15 @@ async function finishClose(
   return kept ? FAILED : 0;
 }
 
+/** An hc record whose start was lost before it got a terminal: routing would refuse it with this command, so close settles it itself. */
+function neverStarted(record: SessionRecord): boolean {
+  return (
+    record.backend === "hc" &&
+    record.starting === true &&
+    record.terminal === undefined
+  );
+}
+
 /** `session close <name>`: close a pane only if this caller created it and its result is recorded; an hc session closes its terminal instead. */
 export async function close(context: CommandContext): Promise<number> {
   const { json, deps } = context;
@@ -143,6 +152,9 @@ export async function close(context: CommandContext): Promise<number> {
   }
   const registry = await SessionRegistry.open(deps);
   const found = await registry.read(name);
+  if (found !== undefined && neverStarted(found)) {
+    return await closeHcSession(context, terminals, registry, found);
+  }
   const routed =
     found === undefined ? undefined : routeSession(found, terminals);
   if (routed !== undefined && "error" in routed) {

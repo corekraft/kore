@@ -31,7 +31,7 @@ export async function closeHcSession(
   deps.stdout(
     json
       ? `${JSON.stringify({ name, terminal: record.terminal, closed: true })}\n`
-      : `Closed ${name} (terminal ${record.terminal}).\n`,
+      : `Closed ${name} (${record.terminal === undefined ? "it never started a terminal" : `terminal ${record.terminal}`}).\n`,
   );
   return 0;
 }

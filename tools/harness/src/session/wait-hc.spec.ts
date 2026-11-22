@@ -180,7 +180,6 @@ describe("waitForReport never reports done without a report", () => {
         summary: `reported ${status} and wrote no report`,
       });
       expect(waitSpy).not.toHaveBeenCalled();
-      expect(registry.write).not.toHaveBeenCalled();
     },
   );
 
@@ -236,6 +235,55 @@ describe("waitForReport never reports done without a report", () => {
       outcome: "blocked",
       summary: "reported blocked and wrote no report",
     });
+  });
+});
+
+describe("waitForReport records a blocked terminal's outcome so close can settle it", () => {
+  const blockedResult = (status: string): SessionRecord => ({
+    ...RECORD,
+    result: {
+      outcome: "blocked",
+      summary: `reported ${status} and wrote no report`,
+      at: "2026-01-02T03:04:05.000Z",
+    },
+  });
+
+  it.each(["blocked", "error"] as const)(
+    "records the result when the terminal reports %s at once",
+    async (status) => {
+      terminals.setStatus("t2", status);
+
+      await waitFor();
+
+      expect(registry.write).toHaveBeenCalledExactlyOnceWith(
+        blockedResult(status),
+      );
+    },
+  );
+
+  it("records the result when the terminal turns blocked while the wait runs out", async () => {
+    vi.spyOn(terminals, "wait").mockImplementation(async () => {
+      terminals.setStatus("t2", "blocked");
+      return terminalError("timeout", "nothing has finished within 60000 ms");
+    });
+
+    await waitFor();
+
+    expect(registry.write).toHaveBeenCalledExactlyOnceWith(
+      blockedResult("blocked"),
+    );
+  });
+
+  it("keeps a result a consumed report already recorded", async () => {
+    terminals.setStatus("t2", "blocked");
+
+    await waitFor({
+      ...RECORD,
+      reportSeq: 1,
+      result: { ...DONE_RESULT, outcome: "done" },
+    });
+
+    expect(registry.write).not.toHaveBeenCalled();
   });
 });
 
