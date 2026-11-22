@@ -48,8 +48,8 @@ see [The harness bundle](#the-harness-bundle).
    `mise run test-related <files>`; it runs every step and reports each failure. The
    full suites with coverage thresholds run in CI `check`, which the `main`
    ruleset requires before merge (changes to that ruleset go through
-   `harness ruleset sync --dry-run`, then `--confirm` after the operator
-   agrees; a changed rule starts in the `main-candidate` ruleset, ADR 0090); run them locally with `mise run test`. The
+   `harness ruleset sync`, previewed first and confirmed once the operator
+   agrees (`harness ruleset sync --help` names the steps); a changed rule starts in the `main-candidate` ruleset, ADR 0090); run them locally with `mise run test`. The
    Stop hook only typechecks.
 
    Staged `.ts`, `.mjs` and `.js` source also runs the Semgrep rules
@@ -136,7 +136,7 @@ see [The harness bundle](#the-harness-bundle).
   beside it is not budgeted.
 - Each converted source file needs exactly one unit spec beside it, named
   `<name>.spec.ts`. The `unit-specs` hook (`test:specs` after `test:budget`,
-  `harness hook unit-specs --package <dir>`) fails a converted file that has no
+  `harness hook unit-specs`, its package named in `harness hook unit-specs --help`) fails a converted file that has no
   such spec, and one that also has a `<name>.test.ts` beside it, and names the
   file. It reads the same unconverted lists as the budget, so a listed file is
   not checked. Live and docker specs (`*.live.spec.ts`, `*.docker.spec.ts`) are
@@ -219,7 +219,7 @@ importOriginal()), fn: vi.fn() }))`.
   `timeout` (`gtimeout` from coreutils on macOS); a self-hosted runner is the
   fallback ([ADR 0093](../decisions/0093-the-nightly-live-proof-runs-on-a-hosted-linux-runner-under-bounded-timeouts.md)).
   `ProcessRunner` kills a command past its timeout (helm mutations get twice
-  their `--timeout` plus a margin) and names it; kubectl reads carry
+  their timeout plus a margin) and names it; kubectl reads carry
   `--request-timeout`.
 - Upstream chart and container checks are opt-in too (`test:upstream-charts`,
   `test:container-smoke`). They are integration specs in `tools/kore/integration/`
@@ -253,7 +253,7 @@ so harness PRs conflict only when a source file does. Hooks run it through
   a read-only copy. It never falls back to the worktree copy.
 - A worktree made by hand with `git worktree add` runs no git hook. Run
   `npm ci --prefix tools/kore`, `npm ci --prefix tools/harness` and
-  `mise run harness-build` in it; `session spawn --worktree` does this itself.
+  `mise run harness-build` in it; `session spawn` does this itself for a worktree (`harness session spawn --help` names its options).
 - A branch that committed a rebuilt bundle hits a one-time modify/delete
   conflict when it rebases onto the change that stopped tracking it. Resolve it
   with `git rm --cached skills/bin/harness.mjs`, then `git rebase --continue`.
@@ -267,36 +267,34 @@ Dark launch means on only in `local`.
 
 1. Merge the change with its flag `false`.
 2. Prove it live, then record the proof:
-   `node skills/bin/harness.mjs outcome record --idea <n> --kind verification --source live-run --result confirmed --flag <name> --environment <env> --evidence <run> --summary <text>`.
-   When the owner has waived the live run in a GitHub comment, record that
-   instead, with `--source owner-waiver --evidence <comment url>` (verification
+   `node skills/bin/harness.mjs outcome record`, with the idea, the verification kind, the live-run source, the result, the flag, its environment, the evidence and a summary (`harness outcome record --help` names each option).
+   When the owner has waived the live run in a GitHub comment, record the waiver
+   instead, with the owner-waiver source and the comment as evidence (verification
    only, [ADR 0127](../decisions/0127-an-owner-waiver-recorded-in-an-outcome-counts-as-proof-for-a-flag.md));
    a waiver never stands in for the live run a cluster-facing
    `no-behaviour-change` needs before merge.
-   A proof that ran on a main chart lock also passes
-   `--lock main --charts '<name>=<version>@sha256:<digest>; ...'` for each
-   handed-over chart, copied from that lock ([ADR 0138](../decisions/0138-publish-signed-configuration-charts-from-main-for-local-proofs.md)).
-3. `node skills/bin/harness.mjs flag activate <name> --environment <env>` edits
-   the overlay only when that confirmed outcome exists, and records a
+   A proof that ran on a main chart lock also names the main lock and each
+   handed-over chart with its version and digest, copied from that lock (`harness outcome record --help` gives the form; [ADR 0138](../decisions/0138-publish-signed-configuration-charts-from-main-for-local-proofs.md)).
+3. `node skills/bin/harness.mjs flag activate <name>` edits
+   the overlay only when that confirmed outcome exists (`harness flag activate --help` names its environment), and records a
    `flag.activated` ledger event. Without proof it refuses and changes nothing.
-   A main-lock proof counts only when `--chart-lock <platform-charts.lock.json>`,
-   the release's lock, has the same version and digest for every recorded
+   A main-lock proof counts only when the release's lock, given to activate,
+   has the same version and digest for every recorded
    chart; otherwise it refuses, names the charts that differ and says to
    re-prove. A proof with no lock, a release lock or an owner waiver is not
    compared.
 4. `flag audit` exits 1 when any flag is on without proof, and lists each flag
    that rests on an owner waiver rather than a live run. `kb-check` runs it
-   and reports a warning, which never fails `--strict` (ADR 0080: audit before
+   and reports a warning, which never fails a strict run (ADR 0080: audit before
    enforce); the `flag-activation` guard also warns on a hand edit.
 5. Removing the flag, its overlay entries and its gated code is the contract step of
    expand-contract, after the outcome is confirmed.
 
 ## Evaluating a harness idea
 
-`node skills/bin/harness.mjs evaluate --idea <n> [--threshold 0.1] [--changed-by-pr <n>] [--json]`
-closes the loop on a `kind: harness` idea ([plan 12](../../infra/plans/12-self-improving-loop.md), Step 3).
+`node skills/bin/harness.mjs evaluate` closes the loop on a `kind: harness` idea, named by its number; `harness evaluate --help` names its options ([plan 12](../../infra/plans/12-self-improving-loop.md), Step 3).
 The change date is the idea's first `pr.merged` ledger event (the PR whose `idea` is
-`#<issue>`, or the PR named by `--changed-by-pr` when the ledger ties none). Once
+`#<issue>`, or the PR the command is told is the change, when the ledger ties none). Once
 the hypothesis `window` has elapsed, it reads the hypothesis metric from the flow
 report over that window after the change and over the equal window before it, so no
 agent supplies the figure. A move in the expected direction of at least the
@@ -315,45 +313,43 @@ one `harness-change-reverted` ledger event (the revert PR's number), and the out
 tool has already opened the follow-up idea. A rerun prepares nothing more: the ledger
 event, or a PR already on that branch, stops it. A change that edited
 `.claude/guardrails.yaml` is not reverted this way, because a guardrail must never go
-straight back to enforce; request the mode change with `harness guardrail request
---to audit`. With the flag off it prints that no revert was prepared. Before the window ends it exits 1
+straight back to enforce; request the mode change with `harness guardrail request` (`harness guardrail request --help` names its options). With the flag off it prints that no revert was prepared. Before the window ends it exits 1
 and prints when it can run; an idea with an outcome is left as recorded, so reruns
-never overwrite. `--json` prints `status` (`recorded`, `too-early` or
+never overwrite. Its JSON form, in `harness evaluate --help`, prints `status` (`recorded`, `too-early` or
 `already-recorded`) with `idea`, `result`, `before`, `after`, the outcome and, once
 recorded, `revert` (`status` and, when a PR exists, `number` and `url`).
 
 ## Flow report
 
-`node skills/bin/harness.mjs flow report [--json]` reads the stage ledger
+`node skills/bin/harness.mjs flow report` reads the stage ledger
 (`.kore/state/ledger.jsonl`, shared by every worktree) and reports, per stage of
 the delivery loop, active seconds, waiting seconds (waiting on a person counts),
 event count, toil, work in progress and lead time, then names the bottleneck: the stage with the largest share of
-all waiting. Flags: `--min-ideas N` (default 3), `--as-of TIME`, `--since TIME`,
-`--until TIME`, `--split-at TIME`, `--idea N[,N...]`, `--ledger PATH`.
+all waiting. Its options, with their defaults, are in `harness flow report --help`.
 
 Scope narrows a report so two periods or two sets of ideas compare field by
 field; the shape is the same and `scope` states what was covered (`since`,
-`until`, `ideas`, each `null` when not given). `--since` is inclusive and
-`--until` exclusive, as in `ledger list`. Waiting, active and toil time are
+`until`, `ideas`, each `null` when not given). the lower bound is inclusive and the upper
+exclusive, as in `ledger list`. Waiting, active and toil time are
 clipped at the range edges, events count only inside it, and `wip` is measured
 over the range itself. An idea is covered when its events, or an open issue or PR
 wait, reach into the range; it is `completed`, and in `leadTime`, only when its
-`issue.closed` falls inside, and its lead time is whole, not clipped. `--idea`
+`issue.closed` falls inside, and its lead time is whole, not clipped. the idea option
 takes issue numbers (`12` or `#12`) and covers only those ideas; with it,
-unattributed events are not counted as unmapped. Both flags together cover the
+unattributed events are not counted as unmapped. Both options together cover the
 named ideas inside the range.
 
-`tierShares` in `--json` (report version 9) gives, per role, the launches by
+`tierShares` in the JSON form (report version 9) gives, per role, the launches by
 `tierSource`, with launches from before it was recorded as their own `unknown`
 group, and the override share over the launches that know their source, so tier
 tuning can read only definition and escalation launches.
 
 Host pressure comes from the `host-sample` events each session spawn records.
-`hostPressure` in `--json` (and one short section in the human report) gives, per
+`hostPressure` in the JSON form (and one short section in the human report) gives, per
 live-session count and split by whether the local platform was up, the sample
 count and the median and peak of swap (bytes) and load. Each median is compared
 with the median of the same level over the `--host-days N` days before the range
-(default 7; before `--as-of` when the range has no start), and `worsened` is set
+(default 7; before the as-of time when the range has no start), and `worsened` is set
 when it is above that median by more than the spread (population standard
 deviation). Fewer than three baseline samples give `insufficient history`. A
 reading a host could not give is left out of the figures, and a range with no
@@ -361,13 +357,13 @@ samples says so (`samples` 0, no levels).
 
 The advisor's figures ([ADR 0120](../decisions/0120-recommended-decisions-go-to-an-advisor-reserved-decisions-to-the-owner.md),
 #862) read `decision.made`, `decision.routed` and `advisor.overturned` events.
-`advisorQuality` in `--json` gives the decisions made and overturned in the range,
+`advisorQuality` in the JSON form gives the decisions made and overturned in the range,
 `perMade` (overturned over made, to four places, `null` when none was made), the
 `refutingShare` (a placeholder, 0.07) and `refuted`. `ownerRoutes` gives the owner
 and advisor route counts and the owner-routed questions per signal, every owner
 signal present. `waitingOnPerson` gives the seconds questions waited on a person,
 apart from every stage's waiting: a question waits from its `owner.asked` until
-the same pane or session next acts, or until the range's end or `--as-of` when it
+the same pane or session next acts, or until the range's end or the as-of time when it
 never does. `ledger poll-github` records an overturn as the owner login's first
 untagged comment after each advisor decision on that issue; a tagged comment, and
 the harness's approval markers, are never one. A `decision.made` event records the
@@ -380,7 +376,7 @@ reason: why it passed a case to the stronger session by a pane message. The reas
 are a fixed list (`reserved-item`, `needs-info-idea`, `third-send-back`,
 `owner-request`, `flag-activation`, `unmapped-message`); a reason outside it is
 refused, so no message text reaches the ledger. Only sends with no sender role
-count. `handovers` in `--json` gives the count over the range, `merged` and
+count. `handovers` in the JSON form gives the count over the range, `merged` and
 `byReason`, every reason a key, zero where none. It is a reading, not a guard:
 nothing blocks a send. A range with no send that names a reason, or with fewer
 merged changes than `cost.minMergedChanges`, is `insufficient` with its reason,
@@ -395,7 +391,7 @@ startup, clear or resume start writes none. The number is the count of compact
 summary lines the session's transcript holds, and the event's id names session and
 number, so replaying the same start record writes nothing a second time. A start
 whose transcript cannot be read, or holds no compact summary yet, writes nothing.
-`compactions` in `--json` gives `compactions` over the range, `sessions` seen in it
+`compactions` in the JSON form gives `compactions` over the range, `sessions` seen in it
 and `perSession`, every session seen a key, zero where it never compacted. A range
 with no session is `insufficient`, never zero.
 
@@ -412,13 +408,13 @@ whatever its model, Haiku included. With a cap, a model that is neither reads
 `insufficient` with a `reason`. A session with token totals and no reading (whose
 `model` and `largestPrompt` are `null`) reads `insufficient` with a `reason`
 whatever the cap. `mainSessionSetups`
-in `--json` gives `status`, `compactionCap` (`null` when not set) and `stretches`;
+in the JSON form gives `status`, `compactionCap` (`null` when not set) and `stretches`;
 a range with no main-session reading is `insufficient` with its `reason`. The text
 prints a `Main-session setups` line with the cap, then one line per stretch. The
 cap's value is the owner's to set; the report never guesses one.
 
 The person's main session answers "how is the loop doing?" from this report alone
-(`flow report --json`, no code or transcripts read, no file written): it leads
+(the JSON form of `flow report`, no code or transcripts read, no file written): it leads
 with every metric whose `worsened` is true, names current against trailing
 average, and reports `insufficient history` or an absent field as such, never a
 figure the report did not print. A boundary eval case with
@@ -435,8 +431,8 @@ events count only after the PR merged); a claude session no agent name reaches i
 session, `orchestrate`; a PR is in `merge` from open until merged; a closed issue
 is `outcome`. A pane is active from `pane.spawned` or `pane.busy` and waiting from
 `pane.waiting` until its next event. An open issue or PR is waiting, minus any
-time a refine, write, review, judge or verify pane was alive, up to `--as-of`
-(default now).
+time a refine, write, review, judge or verify pane was alive, up to the as-of
+time (default now).
 
 Toil is time an agent spent not advancing work, per stage, in seconds under
 each stage's `toil`: `startingSeconds` (a session or pane start to its first
@@ -464,7 +460,7 @@ idea, from ledger events only: `token.usage` (recorded by the Stop hook from the
 session transcript, as the session's cumulative input, output and cache-creation
 tokens so far; cache reads are left out and a session counts its latest value
 once) and `session.launch` (recorded by `session spawn` with the `role` and the
-model `tier`, and, since the tier source was recorded, `tierSource` (definition, escalation or override) and, for an override given with `--reason`, `tierReason`; older launches have neither and read as unknown). The hook reads the transcript incrementally: it keeps the byte
+model `tier`, and, since the tier source was recorded, `tierSource` (definition, escalation or override) and, for an override given with a reason, `tierReason`; older launches have neither and read as unknown). The hook reads the transcript incrementally: it keeps the byte
 offset it reached, with the running total, in a per-session state file in the
 temp directory, reads only what was added since, leaves a half-written last
 line for the next stop, and records a `token.usage` only when the total grew.
@@ -483,8 +479,7 @@ share of total, `swap` in bytes, the `sessions` live in herdr, and whether the
 local `platform` was up (the local journal's last operation is not a stop, down
 or destroy and did not fail). A reading the host cannot give (no load, a failing
 `memory_pressure`, `sysctl` or `free`) is left out of the event, never stored as
-zero. A failed reading or append never blocks the spawn. `harness ledger list
---kind host-sample` shows them.
+zero. A failed reading or append never blocks the spawn. `harness ledger list` shows them, filtered as its help (`harness ledger list --help`) describes.
 
 Each of `tokensPerIdea` and `sessionsPerIdea` gives `currentIdea` and `current`
 (the most recently closed idea), `trailingAverage` over the N closed ideas
@@ -495,8 +490,8 @@ before the latest, so with fewer than N+1 closed, a metric is
 `{"status": "insufficient history", "closedIdeas", "needed"}` (`needed` is N+1),
 never zero. An idea with no `token.usage` is not measured, so it is left out of
 the tokens metric rather than counted as zero. Cost events are neither stage
-time nor unmapped. Only ideas inside `--since`/`--until`/`--idea` count, so a
-narrow scope shortens the history. N is `--trailing N`, else
+time nor unmapped. Only ideas inside the since and until bounds, or the idea option, count, so a
+narrow scope shortens the history. N is the trailing option's value, else
 `cost.trailingIdeas` in `.claude/harness.json`, else 5. The file is committed
 with the defaults, optional if removed, and checked before any report; its keys
 are `cost.trailingIdeas`, `cost.minMergedChanges` (a placeholder, default 5),
@@ -511,7 +506,7 @@ the file, the key and the fix. The human report prints the same numbers. Read `s
 places. Each session's `token.usage` is cumulative, so its spend in the range is
 its last count before the range's end less its last count before the range's
 start. `trailingAverage` is the same figure over the 7 days before the range, or
-before `--as-of` when the range has no start. A span with fewer merged changes
+before the as-of time when the range has no start. A span with fewer merged changes
 than `cost.minMergedChanges` is `{"status": "insufficient merged changes",
 "merged", "needed"}`, never zero, and the trailing average is read the same way.
 That minimum defaults to 5, a placeholder until it is re-checked from data
@@ -584,7 +579,7 @@ reader, judgment, advisor, the main session as `orchestrate`, and any other name
 session as `other`, each with its sessions' dollars, tokens, active and waiting seconds
 as median and p90); `mergedChanges` (the text
 prints one summary line of the joined count with the median and p90 of all-in dollars
-and tokens; `--json` adds one row per merged pull request, with its all-in dollars and
+and tokens; The JSON form adds one row per merged pull request, with its all-in dollars and
 tokens by the same attribution, its seconds from the first writer launch to merge, and
 its seconds from opening to merge); `ideas` (the
 dollars and tokens of the sessions stamped with each idea to the window's end, plus the
@@ -698,7 +693,7 @@ names no winner, margin or verdict: the deciding rule is the owner's, recorded o
 before the window opens. Only randomized launches at the window effort are in an arm (#1069,
 spec #1065): a launch whose tier reason is `experiment` (the drawn Sonnet) or `experiment-control`
 (the Haiku control), recorded at the window effort, read by `randomized-launches.ts`. The window
-effort is `--window-effort` (one of `low`, `medium`, `high`, `xhigh`, `max`); without it, the most
+effort is set by the window-effort option (one of `low`, `medium`, `high`, `xhigh`, `max`); without it, the most
 common effort among randomized launches, and `writerArms.windowEffort` says which (`from` is
 `setting`, `most common` or `none`). `writerArms.excluded` counts the merged changes whose first
 launch is left out, each once, by a fixed name: `missingEffort` (no recorded effort, including
@@ -798,7 +793,7 @@ it is `not read` when Sonnet's median is below it. The figure names no winner. T
 violation lines, with Haiku's `rework` per merged change from `reviewRounds` beside it and the three
 medians with their counts. The report moved to `version` 40 when the two joined it.
 
-`--split-at TIME` (#1047, #1050, spec #1024) reads the `sendBackTiers`, `reviewRounds`, `violationsByRule` and `breakEven` figures a
+The split-at option (#1047, #1050, spec #1024) reads the `sendBackTiers`, `reviewRounds`, `violationsByRule` and `breakEven` figures a
 second time, once over the time before TIME and once over the time from TIME on, so a reader
 compares the changes before and after a fix. It adds four keys, `sendBackTiersSplit`,
 `reviewRoundsSplit`, `violationsByRuleSplit` and `breakEvenSplit`, each with `at` (TIME as an ISO time), `before` and `after`, each side the same
@@ -810,9 +805,9 @@ under `Failed review rounds and review coverage by writer tier, before TIME:` an
 `Haiku-Sonnet break-even by writer tier, before TIME:` and `on or after TIME:`.
 Merged changes are placed by their merge time, so a change merged exactly at TIME is on the after
 side; send-backs, failed review rounds, rework and violations are placed by the time each was
-recorded, as in the unsplit figures. TIME must lie inside `--since` and `--until` when they are given (equal to a
+recorded, as in the unsplit figures. TIME must lie inside the since and until bounds when they are given (equal to a
 bound is allowed and leaves one side empty); the bounds still clip both sides, so a change merged
-before `--since` is on neither. Without `--split-at` the report has neither key and prints no such
+before the since bound is on neither. Without the split-at option the report has neither key and prints no such
 lines. `version` moved to 39 when `reviewRounds` joined the report and to 40 when `violationsByRule` and
 `breakEven` did; the split keys do not move it.
 The cut itself is `splitSpanAt` and `splitFiguresAt` in `tools/harness/src/flow/date-split.ts`: a
@@ -822,10 +817,10 @@ figure that reads a span can be read on either side of a date by passing it to `
 `review.run` event that posted or left unchanged a verdict, counted once per PR
 head by its first verdict; a review with `findings` 0 passed, and one with more
 found a violation. `passedRuleBreak` counts the passed reviews whose PR a
-`rule-break` send-back followed later (and not after `--as-of`), and its `ratio`
+`rule-break` send-back followed later (and not after the as-of time), and its `ratio`
 is that count over every review in the range. `foundViolation` counts the
 reviews that found at least one violation, as its `share` of every review. Each
-has a `trailingAverage` over the 7 days before the range (or before `--as-of`
+has a `trailingAverage` over the 7 days before the range (or before the as-of time
 when the range has no start), and `passedRuleBreak.worsened` is true when its
 ratio is above that average. A review from before `findings` was recorded is
 `unrecorded` and left out of every figure. A range or trailing span with no
@@ -833,7 +828,7 @@ review gives null, never zero, and the first window's null trailing average is a
 baseline, not a comparison.
 
 `review resample` re-reviews a sample of the passed reviews (#852). It draws
-`--size` (default 5, a placeholder) from the passed reviews of merged PRs whose
+a sample (five by default, a placeholder; `harness review resample --help` names the option) from the passed reviews of merged PRs whose
 head no re-review has taken yet, passed or failed, one Sonnet reader per head on
 the override tier, which `session spawn` records with its reason. Each re-review
 writes a `review.run` labelled `resample:<head>` with its `findings`, or
@@ -893,7 +888,7 @@ completed ideas and the report says "Not enough data". A label other than
 last event is charged no time past it. Equal waiting ties go to the earlier
 stage.
 
-`--json` prints one object, `version` 13; any field change bumps `version`:
+The JSON form is one object, `version` 13; any field change bumps `version`:
 
 | Field               | Meaning                                                                                                                                                        |
 | ------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -949,15 +944,15 @@ checks that.
 
 ### Attribution and outcome metrics
 
-A writer, judge or principles-review spawn with no `--idea` prints a warning
+A writer, judge or principles-review spawn with no idea prints a warning
 and still starts, and records a `spawn.unstamped` event with its role and name.
-`--no-idea <reason>` says why a session serves no idea: it records the reason
-as the event's label, prints no warning, and is refused together with `--idea`.
-A reader's spawn with no idea records nothing unless it passes `--no-idea`. The
+A no-idea reason says why a session serves no idea (`harness session spawn --help` names the option): it records the reason
+as the event's label, prints no warning, and is refused together with an idea.
+A reader's spawn with no idea records nothing unless it gives a no-idea reason. The
 flow report counts these spawns as `unstampedSpawns` (`total`, and `withReason`
 for those given a reason). They are neither friction nor stage time.
 
-`session spawn --idea N` stamps `KORE_IDEA=#N`, and always `KORE_AGENT=<name>`,
+`session spawn` with an idea stamps `KORE_IDEA=#N`, and always `KORE_AGENT=<name>`,
 into the new pane's environment (`herdr pane split --env`). Every event a hook
 records in that pane carries them as `idea` and `agent`, so the report maps the
 pane's events to a stage by its role suffix and to its idea. The stamp is set
@@ -1011,7 +1006,7 @@ reviewer logins they name: `reviewerLogins` in `.claude/harness.json` when set,
 else the owner login (`ownerLogin`, else the repository's owner). A verdict from
 any other login is unverified. A GitHub App's login is written `app/<slug>`, such
 as `app/kore-reviewer` for the Reviewer App; the owner names it in `reviewerLogins`
-once the App posts (the owner's step). `--reviewer <login>[,<login>]` overrides both, and
+once the App posts (the owner's step). A reviewer login given to `harness judge precheck` (`harness judge precheck --help` names the option) overrides both, and
 `harness judge precheck` prints the reviewers it used in its text and JSON output.
 
 `harness review run <pr>` posts that verdict itself. It reads the PR head once,
@@ -1023,15 +1018,13 @@ no verdict records a `review.run` failure event and posts nothing. A posted or
 unchanged verdict's event records its `findings` count, 0 for a clean review.
 `orchestrate run` calls it before each precheck.
 
-`harness wait` is the main session's one background wait (ADR 0123). Its
-`--pr <n>` and `--session <name>` flags repeat, and it checks each target once,
+`harness harness wait` is the main session's one background wait (ADR 0123). Its help (`harness harness wait --help`) names the targets, each a pull request or a session, which may repeat; it checks each target once,
 then returns on the first to settle: CI green or red for a pull request (as
 `pr checks` reads it), or a RESULT line for a spawned session (recorded as
-`session wait` records it). `--idea <name>` (repeatable) waits on one idea's
-state, and `--any-idea` on any idea; both give the ledger's idea states, and
-`--idea` and `--any-idea` do not combine. Settled exits 0 and names the target,
+`session wait` records it). An idea can be waited on by name, repeatably, or any idea can be waited on; both give the ledger's idea states, and
+the two idea waits do not combine. Settled exits 0 and names the target,
 its kind and state (for an idea, the idea that moved), with the targets left to
-restart with. `--json` gives the same as one object. The bound (`--timeout` in
+restart with. Its JSON form gives the same as one object. The bound (the timeout, in
 milliseconds, one hour by default) exits 3 and names what is still pending and
 the next step, never just a timeout. The
 `main-session-wait` flag, off in every overlay, adds one line to the main
@@ -1057,7 +1050,7 @@ idea is already in is not a change:
 
 The PR's idea is the `idea` its `pr.opened` event names. `session.result` sets
 no state: a session event names no idea. An idea is keyed as the ledger records
-it, so `--idea 0007` and `--idea #7` are different waits. The mapping is
+it, so idea `0007` and idea `#7` are different waits. The mapping is
 `tools/harness/src/ledger/idea-state.ts`, the one place the rule is written.
 `main-session-wait` flag, off in every overlay, adds one line to the main
 session's SessionStart brief that names it, in place of sleep, until and seq
@@ -1078,14 +1071,13 @@ The module also refuses a body with a line of guardrail approval syntax,
 `approve <rule>:...`. That is validation of the harness's own posts, not
 containment: a bare `gh` comment never passes through it.
 
-`harness pr open --idea <number or slug>` writes the `Idea:` line and records the
+`harness pr open` writes the `Idea:` line for the idea it is given (`harness pr open --help` names the option) and records the
 same idea on the `pr.linked` event that links the pull request to its writer, as
-the writer named it (ADR 0126). `--idea none`, or no `--idea`, writes no `Idea:`
+the writer named it (ADR 0126). An idea of `none`, or no idea, writes no `Idea:`
 line and records `none`, so a bug fix or a docs change needs no idea. The tool
 renders the `Idea:` line, never the writer by hand.
 
-`decision make --idea <n> --category <name> --question <text> --decision <text>`, or
-`decision make --issue <n> ...` for a plain ticket with no idea record, is the advisor's tool ([ADR 0120](../decisions/0120-recommended-decisions-go-to-an-advisor-reserved-decisions-to-the-owner.md)).
+`decision make` (`harness decision make --help` names its options) is the advisor's tool, given the idea or, for a plain ticket with no idea record, the issue, ([ADR 0120](../decisions/0120-recommended-decisions-go-to-an-advisor-reserved-decisions-to-the-owner.md)).
 It posts the decision on the idea's issue (or the plain ticket's issue) and records
 `decision.made` with the idea (or the issue number) and the category only; the question and the reasoning stay on the issue. It
 does nothing while the `decision-advisor` flag is off in the local overlay, and it
@@ -1094,7 +1086,7 @@ refuses, posting nothing, a question that matches the reserved list in
 The patterns there are a backstop for a fail-closed router, not the boundary, and
 changing the list is itself a reserved decision.
 
-`decision route --idea <n> --category <name> --question <text> --action <text> [--escalate]`
+`decision route` (`harness decision route --help` names its options)
 is how a pane raises a question ([ADR 0120](../decisions/0120-recommended-decisions-go-to-an-advisor-reserved-decisions-to-the-owner.md)).
 It answers `advisor` or `owner` and records `decision.routed` with the idea, the
 category, the route and the signal; the question and the action stay out of the
@@ -1102,11 +1094,11 @@ ledger. The owner gets any question whose category is reserved, whose question o
 action matches the reserved list or the guard's secret-path pattern, that names the
 advisor's own files, whose category or question is unreadable, or that is escalated.
 The advisor gets one only when the declared category and the matcher both agree. An
-escalation with `--escalate` writes `owner` and no input moves an owner route to the
+escalation writes `owner`, and no input moves an owner route to the
 advisor. It is refused, with nothing recorded, while the `decision-advisor` flag is
 off, and a pane that gets no route acts as if the question were the owner's.
 
-`decision ask --idea <n> --category <name> (--question <text> | --question-file <path>) (--action <text> | --action-file <path>)` posts a
+`decision ask` (`harness decision ask --help` names its options) posts a
 reserved question on the idea's issue, under the sender line, with the `needs-info`
 label, and records `decision.routed` to the owner ([ADR 0120](../decisions/0120-recommended-decisions-go-to-an-advisor-reserved-decisions-to-the-owner.md)).
 A question or action of more than a line is written to a file with the Write tool and
@@ -1129,13 +1121,13 @@ It holds every open `ready-for-agent` issue that no exclusion keeps out: an assi
 (a body that starts `Filed by `), or an idea issue whose idea record has an outcome or no
 record. It orders the queue: pending send-backs first, then issues without the `harness`
 label before those with it, `horizon:next` before `horizon:then` before neither, oldest
-first, lowest number on a tie. `--json` adds `excluded` with each reason, and `--explain
-<issue>` places one issue or names why it is out. `harness idea sync` adds the `harness`
+first, lowest number on a tie. The JSON form adds `excluded` with each reason, and the explain option
+places one issue or names why it is out (`harness queue next --help`). `harness idea sync` adds the `harness`
 label to a harness idea's issue when it creates or edits it, with the flag on, and never
 removes one. The tick takes the items in that order; it starts a plain ticket only with the
 `tick-ticket-queue` flag on (see `orchestrate tick`). A ticket labelled `live-proof` is not worked as a plain ticket: with the `tick-live-proofs` flag on too, the tick starts one `live-proof-<issue>` pane for the first such ticket, one at a time on the host. A held host lease or a running live-proof pane starts none and is reported as held (`live-run`, `live-proof`). The pane records a verification outcome and a comment, and never activates a flag.
 
-`orchestrate tick [--idea <n>]` ([ADR 0121](../decisions/0121-the-orchestrator-is-a-tick-with-judgment-panes.md))
+`orchestrate tick`, scoped to an idea when given (`harness orchestrate tick --help` names the option) ([ADR 0121](../decisions/0121-the-orchestrator-is-a-tick-with-judgment-panes.md))
 is one pass over the queue that advances each approved idea by at most one step,
 then exits, and calls no model. It does nothing, and exits 0, while the
 `orchestrator-tick` flag is off in the local overlay. It runs under a
@@ -1143,13 +1135,13 @@ per-machine lease, one file in the host lock directory, that a tick holds for it
 pass and the next tick recovers once it is 30 minutes old. A pane it starts is
 named for its idea and the PR head it works at (`idea-<idea>-judge-<head>`), so
 a rerun finds the pane and starts nothing twice. With the flag on, `orchestrate
-run --idea <n>` runs ticks scoped to that idea until it ends, instead of its own
+run`, given an idea (`harness orchestrate run --help`), runs ticks scoped to that idea until it ends, instead of its own
 loop. The standing loop and the heartbeat are later steps. A third send-back starts
 a judgment pane (ADR 0121) that decides once: its plan is checked whole, a refused
 plan is retried once, then the idea is labelled `needs-info`. A later third send-back
 is reported as `needs-judgment` and nothing is started for it.
 
-A judgment's work plan is persisted once through `orchestrate plan --idea <n> --issue <n>`,
+A judgment's work plan is persisted once through `orchestrate plan` (`harness orchestrate plan --help` names the idea and issue options),
 which reads the plan as JSON on stdin (`{"work": [...]}`), checks it with the same checker,
 refuses a piece whose pane name `session spawn` would refuse, and writes it to
 `.kore/state/tick-plans/<idea>.json` in the main checkout. It appends one `tick.plan` ledger
@@ -1189,7 +1181,7 @@ power, load and live-run bounds. A ticket labelled `live-proof` is skipped. A ti
 outcome after the judge merges (its `Refs` or `Closes` decides whether GitHub closes the issue),
 and a third send-back reports `needs-judgment` with nothing started.
 
-With the `tick-self-update` flag on too (off in every overlay), `orchestrate tick --loop` runs a step before each pass: on a clean checkout of `main` that is behind `origin/main` as a fast-forward, it runs `git pull --ff-only` and then `mise run harness-build`, so a merged harness change runs on the host with no SSH. A dirty tree, another branch, a non-fast-forward, or a failed fetch or pull is reported and the old bundle keeps running. A failed build is recorded as a `tick.self-update-failed` event, and the step waits until `origin/main` moves. A pull that changes the loop's own files prints one line: restart `orchestrate tick --loop`, since the running loop is not reloaded.
+With the `tick-self-update` flag on too (off in every overlay), `orchestrate tick` in loop mode (`harness orchestrate tick --help`) runs a step before each pass: on a clean checkout of `main` that is behind `origin/main` as a fast-forward, it runs `git pull --ff-only` and then `mise run harness-build`, so a merged harness change runs on the host with no SSH. A dirty tree, another branch, a non-fast-forward, or a failed fetch or pull is reported and the old bundle keeps running. A failed build is recorded as a `tick.self-update-failed` event, and the step waits until `origin/main` moves. A pull that changes the loop's own files prints one line: restart the loop (`harness orchestrate tick --help`), since the running loop is not reloaded.
 
 With the `behind-main-notice` flag on too (off in every overlay; detection runs only when both
 flags are on), a pass checks each idea's open pull request. A PR that conflicts with main
@@ -1213,7 +1205,7 @@ Each checklist item of the precheck (`ci`, `scan`, `coverage`,
 guardrail inventory, `.claude/guardrails.yaml`, as the rule `judge-<item>` of kind
 `checklist`; every item is in `enforce` today except `guardrail-activation`, which starts in `audit`. A failing `enforce` item makes the
 report not ready, so the change goes back. A failing `audit` item is listed in the
-report (`audited` in `--json`, an `audit:` line in the text) and never makes it
+report (`audited` in the JSON form, an `audit:` line in the text) and never makes it
 not ready; each audit firing writes one `guard.audit` ledger event labelled with
 the rule, once per item and head. An unreadable inventory or a mode other than
 `audit` or `enforce` is refused with the fix named. Moving an item to `enforce`
@@ -1222,7 +1214,7 @@ needs a person's approval (ADR 0080).
 `harness judge merge` re-runs the same precheck, so these items are the merge
 tool's gates and read the same modes. A failing `enforce` gate blocks the merge;
 a failing `audit` gate never does: the merge goes ahead, lists the gate (an
-`audit:` line, or `audited` in `--json`) and the precheck's ledger write records
+`audit:` line, or `audited` in the JSON form) and the precheck's ledger write records
 its one `guard.audit` event. An unreadable inventory or an unknown mode refuses
 the merge before anything is read or merged.
 
@@ -1246,17 +1238,17 @@ PR must merge before the contract's head commit. Without all three, the
 precheck refuses and says what to add.
 
 A listing too long to page through (200 runs or PRs, or 300 comments, events or
-commits) fails the poll instead of recording part of it: pass `--since` to bound
+commits) fails the poll instead of recording part of it: pass a since time to bound
 a first poll. Later polls start a day before the latest recorded signal, and
-`--since` can only reach back past that, never later, so it cannot step over a
+the since time can only reach back past that, never later, so it cannot step over a
 failed run.
 Each rate is `null`, never zero, when nothing was measured, and each counts only
-events inside `--since`/`--until`. Only counts, conclusions and times are
+events inside the since and until bounds. Only counts, conclusions and times are
 stored, never a title, body or login.
 
 ## Retro due and record
 
-`harness retro due [--json] [--ledger PATH]` says whether a retro is due, from
+`harness retro due` says whether a retro is due, from
 recorded data only, and writes nothing. It is due with reason `count` once five
 distinct ideas have an `outcome` event after the `Last retrospective:` marker
 (the latest across `infra/plans`, the one the session brief reads), or early
@@ -1264,12 +1256,12 @@ with reason `metric`, naming a trailing flow metric (`tokensPerIdea`,
 `sessionsPerIdea` or a `rework` metric) that `worsened` on an idea closed after
 the marker. A metric with `insufficient history` never triggers. A reason
 already recorded after the marker does not fire again: the answer is not due
-with `alreadyTriggered`. `--json` is one object: `due`, `reason`, `metric`,
+with `alreadyTriggered`. Its JSON form (`harness retro due --help`) is one object: `due`, `reason`, `metric`,
 `closedIdeas`, `threshold`, `alreadyTriggered`, `lastRetrospective`. It exits 0
 whether or not a retro is due, and never starts one; running `/retro` stays a
 separate step.
 
-`harness retro record --reason count|manual|metric:<name> [--json]` appends one
+`harness retro record`, given its reason (`count`, `manual` or `metric:<name>`; `harness retro record --help` names the option), appends one
 `retro-triggered` event (the reason as `label`) and moves the marker. The marker
 is the `Last retrospective:` line of the `## Retrospective marker` section the
 command keeps at the end of `infra/plans/3-agent-harness.md`; the event and the
@@ -1281,7 +1273,7 @@ yet (plan 12, Step 2 follow-ups).
 
 ## Approve a harness idea
 
-`harness approve --idea <number or slug> [--json] [--ledger PATH]` applies the
+`harness approve`, given the idea's number or slug (`harness approve --help` names its options), applies the
 `ready-for-agent` label to a harness idea (`kind: harness`, a metric, direction
 and window) only when both hold. The change is reversible: safety pattern
 `no-behaviour-change`, `feature-flagged`, `dark-launched` or
@@ -1297,7 +1289,7 @@ marker, `<!-- harness:auto-approved -->` or `<!-- harness:left-for-person -->`)
 and an `auto-approved` event (the metric as `label`, the issue as `number`) is
 recorded in the ledger. Each write happens once: a rerun posts, labels and
 records nothing twice, and finishes a half-done run. A label already on the
-issue is a person's and gets no event. `--json` is one object: `idea`, `issue`,
+issue is a person's and gets no event. Its JSON form (`harness approve --help`) is one object: `idea`, `issue`,
 `status` (`approved`, `already-approved`, `left-for-person` or `flag-off`),
 `reason` and `warnings`.
 
@@ -1338,8 +1330,7 @@ tier-change: model, effort
 guard-metric: rework.sendBacksPerIdea
 ```
 
-`harness idea new` takes `--tier-change model|effort|model,effort` and
-`--guard-metric rework.sendBacksPerIdea` beside the `--kind harness` flags.
+`harness idea new` takes a tier change and a guard metric beside the `kind: harness` fields (`harness idea new --help` names both options).
 `kb-check` refuses a tier idea that declares only cost (no `guard-metric`), a
 cost metric other than tokens per idea falling, a guard other than judge
 send-backs, and a `tier-change` field beyond `model` or `effort`.
@@ -1355,17 +1346,15 @@ falling by at least the threshold while send-backs do not rise past it (or from
 none) is `confirmed`. Cost falling while send-backs rise past the threshold, or
 rise from none, is `refuted`, and the existing revert prepares the PR when its
 flag is on. Cost that did not fall keeps its own result; no send-backs figure
-before or after makes it `inconclusive`. `--json` adds `guard`
+before or after makes it `inconclusive`. The JSON form adds `guard`
 (`metric`, `before`, `after`). A rerun leaves a recorded outcome as it is.
 
 ## Guardrail approval requests
 
-`harness guardrail request <rule> --to enforce|audit|removed --idea <number>
---scan <retro-scan.json> --false-positives <n> [--json] [--ledger PATH]` asks a
-person to approve changing one guardrail's mode. Run `harness hook retro-scan
---strict` first and keep its JSON; the request reads only counts from it: how
+`harness guardrail request` (`harness guardrail request --help` names its options) asks a
+person to approve changing one guardrail's mode. Run `harness hook retro-scan` first, in strict mode (`harness hook retro-scan --help`), and keep its JSON; the request reads only counts from it: how
 often the rule fired, heeded, overridden, and the false positives you state
-(`--false-positives` is the retro's count of warnings or blocks that hit
+(the false-positives count is the retro's count of warnings or blocks that hit
 legitimate work). An audit rule needs its `rules.audit` row, and its
 classification (`promotable`, `insufficient-evidence`, `not-promotable`) is the
 scan's own, from one shared function. An enforced rule is measured by its
@@ -1388,14 +1377,13 @@ issue on the idea, an unknown rule or a mode the rule already has, it refuses
 with the fix and posts nothing. A request never changes `.claude/guardrails.yaml`;
 `guardrail activate` is the separate step below.
 
-`harness guardrail status --json` adds `pending`: `{ rule, from, to, idea }` for
+`harness guardrail status`, in its JSON form (`harness guardrail status --help`), adds `pending`: `{ rule, from, to, idea }` for
 each latest request whose rule still has the mode it would change. The person's main session
 answers "what is waiting for approval?" from it.
 
 ## Guardrail activation
 
-`harness guardrail activate <rule> --to enforce|audit|removed --idea <number>
-[--json] [--ledger PATH]` is the only way a guardrail's mode changes or an entry
+`harness guardrail activate` (`harness guardrail activate --help` names its options) is the only way a guardrail's mode changes or an entry
 leaves `.claude/guardrails.yaml`. It acts after `guardrail request`, and only on a
 person's approval: a comment on the idea's issue from the owner login
 (`ownerLogin` in `.claude/harness.json`, else the repository's owner), made after
@@ -1417,7 +1405,7 @@ settings deny list for a deny rule, and appends a `guardrail.activated` ledger
 event labelled `<rule>:<from>><to>`. A ruleset rule still needs `ruleset sync` to
 reach GitHub. Without a recorded request, an approval or with only a label, it
 exits 1, leaves the file untouched, and posts one refusal comment on the idea's
-issue (a rerun with the same refusal posts nothing). `--json` prints
+issue (a rerun with the same refusal posts nothing). The JSON form prints
 `{ rule, from, to, idea, issue, activated, reason?, refusalPosted?, commentUrl?, warning? }`.
 
 Two checks hold the line elsewhere. The guard blocks an Edit or Write of the
@@ -1433,8 +1421,7 @@ steps.
 
 ## Guard replay
 
-`harness guardrail replay --rule <rule> --old <ref> --new <ref> --since <date|UTC
-timestamp> [--until <date|UTC timestamp>]` lists the recorded Bash, Read, Write and
+`harness guardrail replay` (`harness guardrail replay --help` names its options) lists the recorded Bash, Read, Write and
 Edit calls in the window that the rule refused under the old git ref and the new
 ref's guard allows, as JSON. Each ref is checked out in a detached worktree in a
 worktrees folder under `.claude`, its harness is built there, and each call is sent to that
@@ -1461,8 +1448,8 @@ An idea that changes what a guard blocks is confirmed on this checklist (ADR 011
 
 ## Status
 
-`node skills/bin/harness.mjs status --json` is the one read-only status call for the
-person's main session. It never writes, and prints `{ plans, ideas, ledger }`: `plans`
+`node skills/bin/harness.mjs status` is the one read-only status call for the
+person's main session. It never writes; its JSON form (`harness status --help`) prints `{ plans, ideas, ledger }`: `plans`
 is the `plan active` list with open items per step; `ideas` is
 `{ byState, items }`, where a state is `open` until an outcome closes the idea
 as `success` or `failure`; `ledger` is `{ recent, skipped }`, the ten latest
@@ -1471,7 +1458,7 @@ No bounded role may run it.
 
 ## Prompt size
 
-`node skills/bin/harness.mjs session prompt-size [<session-id>] [--json]` prints a
+`node skills/bin/harness.mjs session prompt-size [<session-id>]` prints a
 session's latest request prompt (input plus cache writes plus cache reads) against the
 `compactionCap` in `.claude/harness.json`. It is read-only and never writes. With no
 name it reads the newest transcript of this checkout's own Claude project directory and
@@ -1482,7 +1469,7 @@ digits, `-` and `_`.
 
 The text line is `session <id>: prompt <n>, cap <n>, over` or `..., cap <n>, not over`;
 a prompt equal to the cap is not over. With no cap set it prints `cap not set` and exits
-0, never under the cap. `--json` prints `{"session","prompt","cap","over"}`, with `cap` and
+0, never under the cap. Its JSON form (`harness session prompt-size --help`) prints `{"session","prompt","cap","over"}`, with `cap` and
 `over` null when no cap is set. A malformed config, a missing transcript, and a transcript
 with no request yet each exit 1 with the reason, never a size of zero. The command is in
 the hook domain (`hook/prompt-size-command.ts`) and the host composes it into the session
