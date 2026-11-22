@@ -13,6 +13,11 @@ export interface RunOptions {
    * child, and nothing of it is read back. A command that cannot start is dropped.
    */
   detached?: boolean;
+  /**
+   * The child takes the parent's standard input, output and error, so it can read and draw
+   * the terminal itself. Nothing is captured: the result has no output, only the exit code.
+   */
+  inherit?: boolean;
 }
 export interface RunResult {
   stdout: string;
@@ -49,11 +54,10 @@ export class ProcessRunner implements Runner {
       const child = spawn(command, [...args], {
         ...(options.cwd === undefined ? {} : { cwd: options.cwd }),
         ...(options.env === undefined ? {} : { env: options.env }),
-        stdio: [
-          options.input === undefined ? "ignore" : "pipe",
-          "pipe",
-          "pipe",
-        ],
+        stdio:
+          options.inherit === true
+            ? "inherit"
+            : [options.input === undefined ? "ignore" : "pipe", "pipe", "pipe"],
       });
       let stdout = "";
       let stderr = "";
