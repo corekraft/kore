@@ -55,7 +55,9 @@ function unknownReason(words: readonly string[]): string | undefined {
   if (!Object.hasOwn(domains, domain)) {
     return `no domain \`${domain}\``;
   }
-  const commands = domains[domain] ?? {};
+  const byDomain: Readonly<Record<string, Readonly<Record<string, unknown>>>> =
+    domains;
+  const commands = byDomain[domain] ?? {};
   if (command === undefined || Object.hasOwn(commands, command)) {
     return undefined;
   }
