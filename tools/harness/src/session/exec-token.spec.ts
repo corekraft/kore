@@ -7,6 +7,7 @@ import {
   AGE_KEY,
   ARGV,
   BUNDLE_URL,
+  argvFor,
   INHERITED,
   INPUT,
   MAIN,
@@ -134,17 +135,13 @@ describe("launchClaude: the owner token, and roles without one", () => {
     });
 
     expect(code).toBe(0);
-    expect(deps.runner.run).toHaveBeenCalledWith(
-      "claude",
-      ARGV.map((arg, index) => (index === 1 ? "reader" : arg)),
-      {
-        env: {
-          ...SCRUBBED,
-          KORE_HARNESS_BUNDLE: "/repo/skills/bin/harness.mjs",
-        },
-        inherit: true,
+    expect(deps.runner.run).toHaveBeenCalledWith("claude", argvFor("reader"), {
+      env: {
+        ...SCRUBBED,
+        KORE_HARNESS_BUNDLE: "/repo/skills/bin/harness.mjs",
       },
-    );
+      inherit: true,
+    });
     expect(deps.fs.exists).not.toHaveBeenCalled();
   });
 

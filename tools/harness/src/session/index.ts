@@ -16,6 +16,7 @@ export { signedMainSendsOn } from "./signed-sends.js";
 export { sessionNameError } from "./names.js";
 export { spawnLoadRefusal } from "./spawn-load.js";
 export { PASSED_FLAGS, namesFlag } from "./exec.js";
+export { readRoleAgent } from "./exec-agent.js";
 export {
   SessionRegistry,
   type SessionRecord,

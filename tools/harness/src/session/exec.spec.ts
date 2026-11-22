@@ -3,7 +3,9 @@ import { bundleMainRoot } from "../runtime/index.js";
 import { contextOf, fakeDeps, type FakeDeps } from "./deps-support.js";
 import { execCommand, launchClaude } from "./exec.js";
 import {
+  AGENT_JSON,
   ARGV,
+  argvFor,
   BUNDLE_URL,
   HELP,
   INPUT,
@@ -44,6 +46,10 @@ const HELP_WITHOUT_EFFORT = HELP.replace(
 );
 const HELP_WITHOUT_SETTINGS = HELP.replace(
   "  --settings <file>  Settings file",
+  "",
+);
+const HELP_WITHOUT_AGENTS = HELP.replace(
+  "  --agents <json-or-file>  Agent definitions\n",
   "",
 );
 
@@ -187,5 +193,61 @@ describe("session exec refuses an empty role before it starts claude", () => {
       "session exec needs --role, --model and --effort, and one brief operand. Rerun with all of them.\n",
     );
     expect(claudeRuns(deps)).toStrictEqual([]);
+  });
+});
+
+describe("launchClaude: the role's agent definition", () => {
+  it("reads the role's definition from the main checkout and passes it as --agents, with --setting-sources user kept", async () => {
+    const code = await launchClaude(from(deps, BUNDLE_URL), INPUT);
+
+    expect(code).toBe(0);
+    expect(deps.fs.readFile.mock.calls).toEqual([
+      ["/repo/.claude/agents/writer.md"],
+    ]);
+    expect(claudeRuns(deps)).toEqual([
+      ["claude", ARGV, expect.objectContaining({ inherit: true })],
+    ]);
+  });
+
+  it("passes a reader its own definition as its --agents value", async () => {
+    await launchClaude(from(deps, BUNDLE_URL), { ...INPUT, role: "reader" });
+
+    expect(claudeRuns(deps)).toEqual([
+      ["claude", argvFor("reader"), expect.objectContaining({ inherit: true })],
+    ]);
+    expect(claudeRuns(deps)[0]?.[1]).toContain(AGENT_JSON.reader);
+  });
+
+  it("never reads the worktree's .claude/agents, and refuses the worktree's bundle before reading anything", async () => {
+    await launchClaude(from(deps, WORKTREE_BUNDLE_URL), INPUT);
+
+    expect(deps.fs.readFile).not.toHaveBeenCalled();
+  });
+
+  it("refuses a role with no definition under the main checkout, naming the role and the file, and starts nothing", async () => {
+    const code = await launchClaude(from(deps, BUNDLE_URL), {
+      ...INPUT,
+      role: "ghost",
+    });
+
+    expect(code).toBe(1);
+    expect(deps.stderr).toHaveBeenCalledWith(
+      "The ghost role has no agent definition: /repo/.claude/agents/ghost.md was not found in the main checkout /repo. Add it there, then rerun. Nothing was started.\n",
+    );
+    expect(deps.runner.run).not.toHaveBeenCalled();
+  });
+
+  it("refuses a claude whose --help lacks --agents, naming it, since --agent alone does not load a definition", async () => {
+    answer(deps, {
+      help: { stdout: HELP_WITHOUT_AGENTS, stderr: "", code: 0 },
+    });
+
+    const code = await launchClaude(from(deps, BUNDLE_URL), INPUT);
+
+    expect(code).toBe(1);
+    expect(deps.stderr).toHaveBeenCalledWith(
+      "The installed claude lacks --agents, which session exec passes. Upgrade claude, then rerun.\n",
+    );
+    expect(claudeRuns(deps)).toEqual([]);
   });
 });

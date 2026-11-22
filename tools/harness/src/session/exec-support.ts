@@ -30,9 +30,58 @@ export const INPUT = {
   effort: "high",
   brief: "Fix the bug.\nThen report.",
 };
+/** The agent definition each role's --agents value carries, as exec-agent builds it from the main checkout. */
+export const AGENT_JSON: Record<string, string> = {
+  writer:
+    '{"writer":{"description":"Changes files.","prompt":"You change files.","tools":["Bash","Edit"],"model":"claude-haiku-5-5","effort":"medium"}}',
+  reader:
+    '{"reader":{"description":"Reads files.","prompt":"You read files.","model":"claude-haiku-5-5","effort":"low"}}',
+};
+/** The definition file each role has under the main checkout's .claude/agents. */
+export const DEFINITIONS: Record<string, string> = {
+  writer: `---
+name: writer
+description: Changes files.
+model: claude-haiku-5-5
+effort: medium
+tools: Bash, Edit
+---
+
+You change files.
+`,
+  reader: `---
+name: reader
+description: Reads files.
+model: claude-haiku-5-5
+effort: low
+---
+
+You read files.
+`,
+};
+/** The argv session exec passes for a role, with the writer's launch settings. */
+export const argvFor = (role: string): string[] => [
+  "--agent",
+  role,
+  "--agents",
+  AGENT_JSON[role] ?? "",
+  "--model",
+  "claude-opus-5-5",
+  "--effort",
+  "high",
+  "--permission-mode",
+  "bypassPermissions",
+  "--setting-sources",
+  "user",
+  "--settings",
+  "/repo/.claude/settings.json",
+  "Fix the bug.\nThen report.",
+];
 export const ARGV = [
   "--agent",
   "writer",
+  "--agents",
+  AGENT_JSON.writer ?? "",
   "--model",
   "claude-opus-5-5",
   "--effort",
@@ -48,6 +97,7 @@ export const ARGV = [
 /** claude --help as the installed claude prints it, with every flag the wrapper passes. */
 export const HELP = [
   "  --agent <agent>  Agent for the session",
+  "  --agents <json-or-file>  Agent definitions",
   "  --model <model>  Model for the session",
   "  --effort <level>  Effort level",
   "  --permission-mode <mode>  Permission mode",
@@ -152,4 +202,12 @@ export function defaults(deps: FakeDeps): void {
   deps.platform = "linux";
   deps.env = { ...SCRUBBED };
   deps.fs.exists.mockResolvedValue(true);
+  deps.fs.readFile.mockImplementation((path) => {
+    const role = Object.keys(DEFINITIONS).find(
+      (name) => path === `${MAIN}/.claude/agents/${name}.md`,
+    );
+    return role === undefined
+      ? Promise.reject(Object.assign(new Error(path), { code: "ENOENT" }))
+      : Promise.resolve(DEFINITIONS[role] ?? "");
+  });
 }
