@@ -45,6 +45,10 @@ or `ledger/`.
       usage. kb-check fails a doc that names a command or flag that does not
       exist.
 
+## Next
+
+**Step 1 (2026-11-22).** #1814 (help record, domain guides, renderers and registry specs, #1791) is open and reviewed clean. `check` and `integration` pass; `scan` fails on a JWT fixture in origin/browser-token-test-1116, not in this PR. After it merges, the dispatcher and per-domain tickets under #1789 unblock. Full state: #1789.
+
 ## Done When
 
 `harness --help`, `harness <domain> --help` and `harness <domain> <command>
