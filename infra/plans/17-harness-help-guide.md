@@ -1,5 +1,5 @@
 ---
-status: proposed
+status: active
 summary: Give every harness command a layered --help guide (root, domain, command), enforced by specs, and shrink summaries and hints to point at it. Split from plan 16, which no longer depends on it.
 last-verified: 2026-11-22
 ---
