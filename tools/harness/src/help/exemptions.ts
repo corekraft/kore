@@ -19,18 +19,6 @@ export const undocumented: readonly string[] = [
   "guardrail request",
   "guardrail activate",
   "guardrail replay",
-  // session
-  "session spawn",
-  "session wait",
-  "session notify",
-  "session send",
-  "session check",
-  "session close",
-  "session tier",
-  "session equalize",
-  "session prompt-size",
-  // skill
-  "skill audit",
   // idea
   "idea new",
   "idea list",

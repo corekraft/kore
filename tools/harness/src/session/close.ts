@@ -1,4 +1,4 @@
-import type { CommandContext } from "../runtime/index.js";
+import type { CommandContext, CommandHelp } from "../runtime/index.js";
 import { removeMergedWorktree, type Removal } from "./close-worktree.js";
 import { describeFailure, equalize } from "./equalize.js";
 import { sessionNameError } from "./names.js";
@@ -170,3 +170,51 @@ export async function close(context: CommandContext): Promise<number> {
   }
   return await finishClose(context, registry, record, callerPane, retry);
 }
+
+export const closeHelp: CommandHelp = {
+  purpose:
+    "Closes a spawned session's Herdr pane once its result is recorded, marks the session closed and rebalances its column. With --remove-worktree it also removes the session's worktree and deletes its branch, but only when a merged pull request has that branch at the worktree's HEAD and the worktree is clean.",
+  when: "Last, once session wait has recorded the session's RESULT and the pane is no longer needed, from the pane that spawned the session.",
+  whenNot:
+    "When no result is recorded yet, which this refuses: run session wait first. When the pane was started by hand, or from a pane other than the spawning one, which this also refuses. To list unmanaged writer and judge panes, use session check. To rebalance a column after a pane was closed another way, use session equalize.",
+  flags: {
+    "remove-worktree":
+      "Also removes the worktree and deletes its branch, only when a merged pull request has that branch at the worktree's HEAD and the worktree is clean. Otherwise both are kept, the reason is printed, and the command exits 1.",
+  },
+  operand:
+    "The spawned session's name, such as image-trust-reader. Only the pane that spawned the session may close it.",
+  examples: [
+    {
+      command: "harness session close image-trust-reader",
+      shows:
+        "the pane closes and the command prints Closed image-trust-reader, with the hint to remove its worktree once merged when it has one; exit 0",
+    },
+    {
+      command: "harness session close image-trust-reader --remove-worktree",
+      shows:
+        "the pane closes, and the worktree and its branch are removed when their PR is merged; otherwise both are kept and the command exits 1",
+    },
+  ],
+  exits: [
+    {
+      code: 0,
+      meaning:
+        "the pane is closed and recorded; a retry that removes a kept worktree from a closed session also exits 0",
+    },
+    {
+      code: 1,
+      meaning:
+        "refused: already closed, spawned from another pane, no recorded result, not a session of this tool, or not inside Herdr; or herdr pane close failed; or --remove-worktree kept the worktree and branch",
+    },
+    {
+      code: 2,
+      meaning: "a usage error: no name, or an invalid name",
+    },
+  ],
+  effects: {
+    kind: "mutates",
+    detail:
+      "closes the Herdr pane, records closedAt on the session's registry entry and equalizes the column. With --remove-worktree it removes the git worktree and force-deletes its branch, after gh and git checks; a refused removal keeps both",
+  },
+  seeAlso: ["session wait", "session check", "session equalize"],
+};

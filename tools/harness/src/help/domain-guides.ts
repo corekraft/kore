@@ -31,12 +31,13 @@ export const domainGuides: Record<string, DomainGuide> = {
   },
   session: {
     purpose:
-      "Starts, waits for, messages and closes the Claude sessions that run in Herdr panes, and reports their tier and prompt size.",
+      "Starts, waits for, messages and closes the Claude sessions that run in Herdr panes, checks the role panes, and reports a role's tier and a session's prompt size.",
     flow: "Run session spawn with --no-wait, then session wait for its name in the background to collect its RESULT line, and session close once the result is recorded.",
+    seeAlso: ["harness wait"],
   },
   skill: {
     purpose:
-      "Audits the skills under .claude against their description and body budgets.",
+      "Audits the skills under skills/ against their description and body budgets.",
     flow: "Run skill audit after editing a skill to see whether its description or its body is over budget.",
   },
   idea: {
