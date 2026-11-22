@@ -2,6 +2,7 @@ import { run } from "./cli/index.js";
 import {
   ProcessRunner,
   nodeFileSystem,
+  nodeLinks,
   readStdin,
   resolveRoot,
   systemClock,
@@ -21,6 +22,7 @@ try {
     ids: systemIds,
     random: Math.random,
     hostLoad: systemHostLoad,
+    links: nodeLinks,
     bundleUrl: import.meta.url,
     env: process.env,
     platform: process.platform,

@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { FakeTerminals, terminalError } from "../terminal/index.js";
+import { hcMessage } from "./backend.js";
 import {
   asRegistry,
   fakeDeps,
@@ -7,8 +8,12 @@ import {
   type FakeDeps,
   type FakeRegistry,
 } from "./deps-support.js";
-import { formatReportWait, waitForReport } from "./wait-hc.js";
 import type { SessionRecord } from "./registry.js";
+import { readReport, reportPath, type Report } from "./report-file.js";
+import { formatReportWait, waitForReport } from "./wait-hc.js";
+
+vi.mock("./backend.js");
+vi.mock("./report-file.js");
 
 const RECORD: SessionRecord = {
   version: 1,
@@ -27,26 +32,15 @@ const TIMEOUT_MS = 60_000;
 let deps: FakeDeps;
 let registry: FakeRegistry;
 let terminals: FakeTerminals;
-
-/** The report file as the child left it: absent, or holding this text. */
-function reportFile(text?: string): void {
-  deps.fs.exists.mockImplementation((path: string) =>
-    Promise.resolve(path === REPORT && text !== undefined),
-  );
-  deps.fs.readFile.mockResolvedValue(text ?? "");
-}
+/** What the report file holds now: undefined when the session has not written one. */
+let onDisk: Report | undefined;
 
 function report(
   seq: number,
   outcome: "done" | "blocked",
   summary: string,
-): string {
-  return JSON.stringify({
-    seq,
-    outcome,
-    summary,
-    at: "2026-01-02T03:04:05.000Z",
-  });
+): Report {
+  return { seq, outcome, summary, at: "2026-01-02T03:04:05.000Z" };
 }
 
 function waitFor(record: SessionRecord = RECORD, timeoutMs = TIMEOUT_MS) {
@@ -70,16 +64,22 @@ beforeEach(async () => {
     name: "image-trust-writer",
     parent: "t1",
   });
-  reportFile();
+  onDisk = undefined;
+  vi.mocked(reportPath).mockReturnValue(REPORT);
+  vi.mocked(readReport).mockImplementation(async () => onDisk);
 });
 
 describe("waitForReport reads a report the session has not consumed", () => {
   it("returns it, records its seq as consumed, and never waits when it is already there", async () => {
-    reportFile(report(1, "done", "Opened PR #5."));
+    onDisk = report(1, "done", "Opened PR #5.");
     const waitSpy = vi.spyOn(terminals, "wait");
 
     const result = await waitFor();
 
+    expect(reportPath).toHaveBeenCalledWith(
+      "/work/writer",
+      "image-trust-writer",
+    );
     expect(result).toStrictEqual({
       name: "image-trust-writer",
       model: "claude-sonnet-5-5",
@@ -98,7 +98,7 @@ describe("waitForReport reads a report the session has not consumed", () => {
     await vi.waitFor(() => {
       expect(waitSpy).toHaveBeenCalledWith({ terminal: "t2" }, TIMEOUT_MS);
     });
-    reportFile(report(1, "done", "Opened PR #5."));
+    onDisk = report(1, "done", "Opened PR #5.");
     terminals.finish("t2", 0);
 
     expect(await pending).toStrictEqual({
@@ -113,7 +113,7 @@ describe("waitForReport reads a report the session has not consumed", () => {
 
   it("takes a second report after rework by its higher seq, and ignores one already consumed", async () => {
     const consumed = { ...RECORD, reportSeq: 1 };
-    reportFile(report(2, "done", "Fixed the review."));
+    onDisk = report(2, "done", "Fixed the review.");
 
     const second = await waitFor(consumed);
 
@@ -125,7 +125,9 @@ describe("waitForReport reads a report the session has not consumed", () => {
     expect(registry.write).toHaveBeenCalledWith({ ...consumed, reportSeq: 2 });
 
     vi.clearAllMocks();
-    reportFile(report(1, "done", "Opened PR #5."));
+    vi.mocked(reportPath).mockReturnValue(REPORT);
+    vi.mocked(readReport).mockImplementation(async () => onDisk);
+    onDisk = report(1, "done", "Opened PR #5.");
     terminals.emit("t2", "Ran the tests.\n");
     terminals.finish("t2", 0);
 
@@ -152,7 +154,7 @@ describe("waitForReport never reports done without a report", () => {
         name: "image-trust-writer",
         model: "claude-sonnet-5-5",
         outcome: "blocked",
-        summary: "reported " + status + " and wrote no report",
+        summary: `reported ${status} and wrote no report`,
       });
       expect(waitSpy).not.toHaveBeenCalled();
       expect(registry.write).not.toHaveBeenCalled();
@@ -170,6 +172,17 @@ describe("waitForReport never reports done without a report", () => {
       summary: "stopped without a report\nRan the tests.\nNo PR was opened.",
     });
     expect(registry.write).not.toHaveBeenCalled();
+  });
+
+  it("returns blocked, stopped without a report and no lines, when the terminal printed nothing", async () => {
+    terminals.finish("t2", 0);
+
+    expect(await waitFor()).toStrictEqual({
+      name: "image-trust-writer",
+      model: "claude-sonnet-5-5",
+      outcome: "blocked",
+      summary: "stopped without a report",
+    });
   });
 
   it("fails as still working on a timeout with no report and no stop, naming the command to run again", async () => {
@@ -203,24 +216,33 @@ describe("waitForReport never reports done without a report", () => {
 });
 
 describe("waitForReport fails, with hc's error, when hc cannot answer", () => {
-  it("names the session and hc's message and hint when hc cannot read the terminal", async () => {
-    vi.spyOn(terminals, "get").mockResolvedValue(
-      terminalError("not-found", "no terminal t2", "check the id with list()"),
+  it("names the session and hc's message when hc cannot read the terminal", async () => {
+    const error = terminalError(
+      "not-found",
+      "no terminal t2",
+      "check the id with list()",
+    );
+    vi.spyOn(terminals, "get").mockResolvedValue(error);
+    vi.mocked(hcMessage).mockReturnValue(
+      "no terminal t2 (check the id with list())",
     );
 
     expect(await waitFor()).toStrictEqual({
       error:
         "Session image-trust-writer: no terminal t2 (check the id with list())",
     });
-    expect(deps.fs.exists).not.toHaveBeenCalled();
+    expect(hcMessage).toHaveBeenCalledWith(error);
+    expect(readReport).not.toHaveBeenCalled();
   });
 
   it("names the session and hc's message when hc's wait fails for another reason", async () => {
-    vi.spyOn(terminals, "wait").mockResolvedValue(
-      terminalError(
-        "unavailable",
-        "hc wait printed JSON of an unexpected shape",
-      ),
+    const error = terminalError(
+      "unavailable",
+      "hc wait printed JSON of an unexpected shape",
+    );
+    vi.spyOn(terminals, "wait").mockResolvedValue(error);
+    vi.mocked(hcMessage).mockReturnValue(
+      "hc wait printed JSON of an unexpected shape",
     );
 
     expect(await waitFor()).toStrictEqual({

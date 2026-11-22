@@ -93,7 +93,7 @@ async function summaryText(
     return summary;
   }
   const path = resolve(deps.cwd, summary.file);
-  if (!isInsideReportDir(cwd, path)) {
+  if (!(await isInsideReportDir(deps.fs, deps.links, cwd, path))) {
     return {
       error: `--file ${summary.file} is outside ${reportDirOf(cwd)}; a report reads its summary only from there. Write the summary file in that directory and pass it again.`,
     };

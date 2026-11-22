@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { CliDeps } from "../runtime/index.js";
 import { FakeTerminals, terminalError } from "../terminal/index.js";
-import { terminalsFor } from "./backend.js";
+import { hcMessage, routeSession, terminalsFor } from "./backend.js";
 import {
   asRegistry,
   contextOf,
@@ -11,6 +11,13 @@ import {
   type FakeRegistry,
 } from "./deps-support.js";
 import { report } from "./report.js";
+import {
+  isInsideReportDir,
+  noticeLine,
+  readReport,
+  reportDirOf,
+  reportPath,
+} from "./report-file.js";
 import type { SessionRecord, SessionRegistry } from "./registry.js";
 
 const opener = vi.hoisted(() => ({
@@ -18,10 +25,8 @@ const opener = vi.hoisted(() => ({
 }));
 
 vi.mock("./registry.js", () => ({ SessionRegistry: opener }));
-vi.mock("./backend.js", async (importOriginal) => ({
-  ...(await importOriginal<typeof import("./backend.js")>()),
-  terminalsFor: vi.fn(),
-}));
+vi.mock("./backend.js");
+vi.mock("./report-file.js");
 
 const RECORD: SessionRecord = {
   version: 1,
@@ -34,18 +39,21 @@ const RECORD: SessionRecord = {
   effort: "high",
   createdAt: "2026-01-02T03:04:05.000Z",
 };
+const REPORT_DIR = "/work/writer/.kore/report";
 const REPORT = "/work/writer/.kore/report/image-trust-writer.json";
 const SUMMARY = "/work/writer/.kore/report/summary.md";
+const NOTICE = `image-trust-writer done seq 1: ${REPORT}`;
 const USAGE =
   "session report --outcome done|blocked (--summary <text> | --file <path>) [--plan <file>]";
 const OUTCOME_MESSAGE = `--outcome must be done or blocked: ${USAGE}.`;
 const ONE_OF_MESSAGE = `Give exactly one of --summary <text> or --file <path>: ${USAGE}.`;
+const DONE = { outcome: "done", summary: "Opened PR #5." };
 
 let deps: FakeDeps;
 let registry: FakeRegistry;
 let terminals: FakeTerminals;
 
-/** A parent t1 in the main checkout, and the writer t2 in its worktree, a child of t1. */
+/** Routes the record to hc over these terminals: a parent t1 in the main checkout, and the writer t2 in its worktree. */
 async function setUpTerminals(self: string | undefined): Promise<void> {
   terminals = new FakeTerminals(self === undefined ? {} : { self });
   await terminals.run({ argv: ["claude"], cwd: "/main" });
@@ -56,10 +64,8 @@ async function setUpTerminals(self: string | undefined): Promise<void> {
     parent: "t1",
   });
   vi.mocked(terminalsFor).mockReturnValue(terminals);
+  vi.mocked(routeSession).mockReturnValue({ backend: "hc", terminals });
 }
-
-/** The flags a writer passes for a finished report, with the summary text. */
-const DONE = { outcome: "done", summary: "Opened PR #5." };
 
 beforeEach(async () => {
   deps = fakeDeps();
@@ -67,6 +73,11 @@ beforeEach(async () => {
   registry = fakeRegistry();
   opener.open.mockResolvedValue(asRegistry(registry));
   registry.findByTerminal.mockResolvedValue(RECORD);
+  vi.mocked(reportPath).mockReturnValue(REPORT);
+  vi.mocked(reportDirOf).mockReturnValue(REPORT_DIR);
+  vi.mocked(isInsideReportDir).mockResolvedValue(true);
+  vi.mocked(readReport).mockResolvedValue(undefined);
+  vi.mocked(noticeLine).mockReturnValue(NOTICE);
   await setUpTerminals("t2");
 });
 
@@ -124,7 +135,35 @@ describe("report refuses when it is not an open hc session", () => {
     expect(deps.fs.writeFile).not.toHaveBeenCalled();
   });
 
-  it("refuses a --file outside the report directory, and reads nothing", async () => {
+  it("refuses a record that runs on herdr, since report is for hc sessions only", async () => {
+    vi.mocked(routeSession).mockReturnValue({ backend: "herdr" });
+
+    const code = await report(contextOf(deps, { options: DONE }));
+
+    expect(code).toBe(1);
+    expect(deps.stderr).toHaveBeenCalledWith(
+      "Session image-trust-writer runs on herdr; session report is for hc sessions only.\n",
+    );
+    expect(deps.fs.writeFile).not.toHaveBeenCalled();
+  });
+
+  it("refuses with the routing error when the record cannot be routed", async () => {
+    vi.mocked(routeSession).mockReturnValue({
+      error: "hc is not available here",
+    });
+
+    const code = await report(contextOf(deps, { options: DONE }));
+
+    expect(code).toBe(1);
+    expect(deps.stderr).toHaveBeenCalledWith("hc is not available here\n");
+    expect(deps.fs.writeFile).not.toHaveBeenCalled();
+  });
+});
+
+describe("report reads a --file only from inside the report directory", () => {
+  it("refuses a --file outside the report directory, resolved from the process directory, and reads nothing", async () => {
+    vi.mocked(isInsideReportDir).mockResolvedValue(false);
+
     const code = await report(
       contextOf(deps, {
         options: { outcome: "done", file: "../../secret.md" },
@@ -132,6 +171,12 @@ describe("report refuses when it is not an open hc session", () => {
     );
 
     expect(code).toBe(1);
+    expect(isInsideReportDir).toHaveBeenCalledWith(
+      deps.fs,
+      undefined,
+      "/work/writer",
+      "/secret.md",
+    );
     expect(deps.stderr).toHaveBeenCalledWith(
       "--file ../../secret.md is outside /work/writer/.kore/report; a report reads its summary only from there. Write the summary file in that directory and pass it again.\n",
     );
@@ -155,18 +200,21 @@ describe("report refuses when it is not an open hc session", () => {
     expect(deps.fs.writeFile).not.toHaveBeenCalled();
   });
 
-  it("fails naming the session and hc's error when hc cannot read the terminal", async () => {
-    vi.spyOn(terminals, "get").mockResolvedValue(
-      terminalError(
-        "unavailable",
-        "hc get printed nothing",
-        "check hc --version",
-      ),
+  it("fails naming the session and hc's message when hc cannot read the terminal", async () => {
+    const error = terminalError(
+      "unavailable",
+      "hc get printed nothing",
+      "check hc --version",
+    );
+    vi.spyOn(terminals, "get").mockResolvedValue(error);
+    vi.mocked(hcMessage).mockReturnValue(
+      "hc get printed nothing (check hc --version)",
     );
 
     const code = await report(contextOf(deps, { options: DONE }));
 
     expect(code).toBe(1);
+    expect(hcMessage).toHaveBeenCalledWith(error);
     expect(deps.stderr).toHaveBeenCalledWith(
       "Session image-trust-writer: hc get printed nothing (check hc --version)\n",
     );
@@ -195,19 +243,17 @@ describe("report writes the report file under the terminal's checkout", () => {
     );
   });
 
-  it("takes the next seq after the one the file holds", async () => {
-    deps.fs.exists.mockResolvedValue(true);
-    deps.fs.readFile.mockResolvedValue(
-      JSON.stringify({
-        seq: 2,
-        outcome: "blocked",
-        summary: "Earlier.",
-        at: "2026-01-02T03:00:00.000Z",
-      }),
-    );
+  it("takes the next seq after the one the report file holds", async () => {
+    vi.mocked(readReport).mockResolvedValue({
+      seq: 2,
+      outcome: "blocked",
+      summary: "Earlier.",
+      at: "2026-01-02T03:00:00.000Z",
+    });
 
     await report(contextOf(deps, { options: DONE }));
 
+    expect(readReport).toHaveBeenCalledWith(deps.fs, REPORT);
     const [, content] = deps.fs.writeFile.mock.calls[0] ?? [];
     expect(JSON.parse(content ?? "")).toMatchObject({
       seq: 3,
@@ -229,7 +275,7 @@ describe("report writes the report file under the terminal's checkout", () => {
     expect(JSON.parse(content ?? "")).toMatchObject({ plan: '{"steps":[]}' });
   });
 
-  it("reads a --file inside the report directory as the summary", async () => {
+  it("reads a --file the containment check accepts as the summary", async () => {
     deps.fs.exists.mockImplementation((path: string) =>
       Promise.resolve(path === SUMMARY),
     );
@@ -243,69 +289,15 @@ describe("report writes the report file under the terminal's checkout", () => {
       }),
     );
 
+    expect(isInsideReportDir).toHaveBeenCalledWith(
+      deps.fs,
+      undefined,
+      "/work/writer",
+      SUMMARY,
+    );
     const [, content] = deps.fs.writeFile.mock.calls[0] ?? [];
     expect(JSON.parse(content ?? "")).toMatchObject({
       summary: "Long answer.",
     });
-  });
-});
-
-describe("report tells the parent in one fixed line, and only an agent parent", () => {
-  it("sends the parent one line that names the file and never the summary", async () => {
-    terminals.setStatus("t1", "working");
-
-    const code = await report(contextOf(deps, { options: DONE }));
-
-    expect(code).toBe(0);
-    expect(terminals.sent("t1")).toStrictEqual([
-      `image-trust-writer done seq 1: ${REPORT}`,
-    ]);
-    expect(deps.stdout).toHaveBeenCalledWith(
-      `Wrote ${REPORT} (seq 1, done). Notified t1.\n`,
-    );
-  });
-
-  it("sends no notice to a parent that is not an agent terminal, and keeps the file", async () => {
-    const code = await report(contextOf(deps, { options: DONE }));
-
-    expect(code).toBe(0);
-    expect(terminals.sent("t1")).toStrictEqual([]);
-    expect(deps.fs.writeFile).toHaveBeenCalledWith(REPORT, expect.any(String));
-    expect(deps.stdout).toHaveBeenCalledWith(
-      `Wrote ${REPORT} (seq 1, done). No notice sent.\n`,
-    );
-  });
-
-  it("sends no notice when the session has no parent", async () => {
-    terminals = new FakeTerminals({ self: "t1" });
-    await terminals.run({ argv: ["claude"], cwd: "/work/writer" });
-    vi.mocked(terminalsFor).mockReturnValue(terminals);
-
-    const code = await report(contextOf(deps, { options: DONE }));
-
-    expect(code).toBe(0);
-    expect(deps.fs.writeFile).toHaveBeenCalledWith(REPORT, expect.any(String));
-    expect(deps.stdout).toHaveBeenCalledWith(
-      `Wrote ${REPORT} (seq 1, done). No notice sent.\n`,
-    );
-  });
-
-  it("fails naming the notice when the send fails, and keeps the report it already wrote", async () => {
-    terminals.setStatus("t1", "working");
-    vi.spyOn(terminals, "send").mockResolvedValue(
-      terminalError(
-        "unavailable",
-        "hc send printed nothing",
-        "check hc --version",
-      ),
-    );
-
-    const code = await report(contextOf(deps, { options: DONE }));
-
-    expect(code).toBe(1);
-    expect(deps.fs.writeFile).toHaveBeenCalledWith(REPORT, expect.any(String));
-    expect(deps.stderr).toHaveBeenCalledWith(
-      `The report is written at ${REPORT}, but the notice to t1 failed: hc send printed nothing (check hc --version).\n`,
-    );
   });
 });

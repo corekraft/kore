@@ -49,7 +49,7 @@ const spawnCommand: Command = {
 
 const waitCommand: Command = {
   summary:
-    "wait for a spawned session's RESULT line and print its outcome; --json adds result.summary, the text the pane printed before that line (<name> --timeout ms)",
+    "wait for a spawned session to finish and print its outcome (<name> --timeout ms). An hc session settles on its report file: done or blocked as the report says, blocked at once on a blocked or error status, and blocked, stopped without a report, when its terminal stops with none; a still-running session fails as still working; --json prints {name, model, outcome, summary, seq}, with seq absent when it settled without a report. A herdr session waits for its RESULT line; --json adds result.summary, the text the pane printed before that line",
   operand: "name",
   options: { timeout: "string" },
   run: wait,

@@ -1,6 +1,6 @@
 import { isAbsolute, join, relative, sep } from "node:path";
 import { CommandError } from "../runtime/index.js";
-import type { FileSystem } from "../runtime/index.js";
+import type { FileSystem, Links } from "../runtime/index.js";
 
 /** Where a session's report lives: under the checkout its terminal was launched in. */
 export const REPORT_DIR = ".kore/report";
@@ -23,10 +23,38 @@ export function reportPath(cwd: string, name: string): string {
   return join(reportDirOf(cwd), `${name}.json`);
 }
 
-/** True for a path (already absolute) that is a file inside the report directory. */
-export function isInsideReportDir(cwd: string, path: string): boolean {
-  const rel = relative(reportDirOf(cwd), path);
+/** True when an absolute path is strictly inside `dir`, judged by its text alone. */
+function isStrictlyInside(dir: string, path: string): boolean {
+  const rel = relative(dir, path);
   return rel !== "" && rel.split(sep)[0] !== ".." && !isAbsolute(rel);
+}
+
+/**
+ * True for an absolute path that is a file inside the report directory. The path must sit inside the
+ * directory as written, and, when it exists, its real location (every link followed) must sit inside the
+ * directory's real location, so a link in the report directory cannot reach outside it.
+ */
+export async function isInsideReportDir(
+  fs: Pick<FileSystem, "exists">,
+  links: Links | undefined,
+  cwd: string,
+  path: string,
+): Promise<boolean> {
+  const dir = reportDirOf(cwd);
+  if (!isStrictlyInside(dir, path)) {
+    return false;
+  }
+  if (!(await fs.exists(path))) {
+    return true;
+  }
+  if (links === undefined) {
+    return false;
+  }
+  const [realDir, realPath] = await Promise.all([
+    links.realpath(dir),
+    links.realpath(path),
+  ]);
+  return isStrictlyInside(realDir, realPath);
 }
 
 function isReport(value: unknown): value is Report {
