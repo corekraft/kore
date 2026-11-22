@@ -57,6 +57,16 @@ describe("harness help on the real command table", () => {
     expect(h.out()).toContain("Effects:\n  mutates: ");
   });
 
+  it.each([["new"], ["list"], ["show"], ["sync"]])(
+    "wires the idea %s help record into its command, so its --help prints the effects",
+    async (name) => {
+      const h = helpDeps();
+      expect(await run(["idea", name, "--help"], h.deps)).toBe(0);
+      expect(h.out()).toContain("Effects:\n  ");
+      expect(h.out()).toContain("Exit codes:");
+    },
+  );
+
   it("prints the same command as one JSON object under --help --json", async () => {
     const h = helpDeps();
     expect(await run(["harness", "wait", "--help", "--json"], h.deps)).toBe(0);
