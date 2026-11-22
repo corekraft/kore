@@ -1,4 +1,4 @@
-// The harness commands and flags a current document names must exist, read against the command table.
+// The harness commands and flags a current document, or a harness source file's string literal, names must exist, read against the command table.
 // Docs: infra/plans/17-harness-help-guide.md#step-1-help-guide
 
 import { harnessMentions, type HarnessMention } from "../help/index.js";
@@ -6,6 +6,7 @@ import type { CommandTable } from "../runtime/index.js";
 import { checkedLines } from "./command-scope.js";
 import { finding, type Finding } from "./markdown.js";
 import { nearest } from "./nearest.js";
+import { sourceTexts } from "./source-texts.js";
 
 /** Flags every harness command takes, so a document may name them after any command. */
 const GLOBAL_FLAGS = ["json"];
@@ -85,6 +86,32 @@ export function commandProblems(
     .flatMap((mention) => mentionProblems(file, mention, commands, names));
 }
 
+/** A harness source file, whose string literals are read; its specs are not. */
+function isHarnessSource(file: string): boolean {
+  return (
+    file.startsWith("tools/harness/src/") &&
+    file.endsWith(".ts") &&
+    !file.endsWith(".spec.ts")
+  );
+}
+
+/**
+ * Every harness command or flag a harness source file's string literals name that the command table does not have.
+ * Only code spans count, as in a Markdown file, so plain prose and comments are never read.
+ */
+export function sourceProblems(
+  file: string,
+  text: string,
+  commands: CommandTable,
+): Finding[] {
+  const names = namesOf(commands);
+  return sourceTexts(text).flatMap((literal) =>
+    harnessMentions(literal.text)
+      .map((mention) => ({ ...mention, line: mention.line + literal.line - 1 }))
+      .flatMap((mention) => mentionProblems(file, mention, commands, names)),
+  );
+}
+
 /** The command table a tree gives; absent, no harness command is checked. */
 export interface CommandDeps {
   commands?(): CommandTable | undefined;
@@ -95,7 +122,7 @@ export interface CommandTree extends CommandDeps {
   read(path: string): string | null;
 }
 
-/** The command problems of every Markdown file the tree gives; none when it gives no command table. */
+/** The command problems of every Markdown file and harness source file the tree gives; none when it gives no command table. */
 export function commandFindings(
   tree: CommandTree,
   files: readonly string[],
@@ -105,9 +132,14 @@ export function commandFindings(
     return [];
   }
   return files
-    .filter((name) => name.endsWith(".md"))
+    .filter((name) => name.endsWith(".md") || isHarnessSource(name))
     .flatMap((file) => {
       const text = tree.read(file);
-      return text === null ? [] : commandProblems(file, text, commands);
+      if (text === null) {
+        return [];
+      }
+      return file.endsWith(".md")
+        ? commandProblems(file, text, commands)
+        : sourceProblems(file, text, commands);
     });
 }
