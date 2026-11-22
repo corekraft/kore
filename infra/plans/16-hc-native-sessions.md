@@ -143,7 +143,7 @@ unnecessary, and it reviews the rest from evidence, not from memory.
 - the start retries in `agent-start.ts` and `checkModel`; the paste-race
   retry in `launch.ts`
 - the read-back counting in `notify.ts` and `ansi.ts`; `session notify`,
-  since the child reports with `hc send`
+  replaced by `session report`
 - the `RESULT` scraping in `wait.ts`, the orchestrator's `collect` and the
   review IO
 - the pane-title parsing in `check.ts`; `live-sessions.ts`
@@ -219,11 +219,14 @@ dropping.
 
 ### Step 4: Reporting
 
-- [ ] Every role's brief ends with the report contract: `hc send <parent>
-    "RESULT <outcome> <summary or file path>"` when done or stuck. The parent
-      address is passed in the brief (`$HC_TERMINAL_ID` of the spawner).
-- [ ] `session wait` takes the report from the wait, and `hc read` is only a
-      fallback for a child that exited without reporting.
+- [ ] `harness session report --outcome done|blocked (--summary <text> |
+    --file <path>)` finds the parent with `hc get "$HC_TERMINAL_ID"`
+      (`.parent`) and runs `hc send <parent> "RESULT …"`. Every role's brief
+      ends with it. It replaces `session notify`, and the role guard allows it
+      for every role, while a raw `hc send` stays refused. A report never
+      carries a secret: `hc send`'s text is visible in `ps` while it runs.
+- [ ] `session wait` takes the report from the wait. `hc read` is only a
+      fallback, for a child that exited without reporting.
 
 ### Step 5: Rebuild the tools (behind `KORE_TERMINAL=hc`)
 
@@ -242,7 +245,7 @@ dark launch.
 
 - [ ] From an hc terminal: spawn a writer in a worktree, send, then wait
       for its report. Run check, `ledger watch`, close, and `harness wait
-    --pr`. Record the outcome on the tracking issue (Refs until green).
+  --pr`. Record the outcome on the tracking issue (Refs until green).
 - [ ] Read a writer while herdr-app shows it in a small split, to prove that
       reads and reports do not depend on the view.
 - [ ] With a decoy `GH_TOKEN` in the core's login environment, a spawned
@@ -344,6 +347,69 @@ dark launch.
   characters. Plain argv launches worked in every test here
   (`claude --agent reader --model … "<brief>"`). Confirm a brief with quotes
   and newlines in Step 6.
+
+### Research round 2 (2026-11-22: Haiku researchers in hc terminals on kore-agents, and a session on the owner's Mac)
+
+- **Launch argv.** `hc run` passes a multi-element argv byte for byte:
+  quotes, newlines, `$VAR`, backticks, `;` and unicode all arrive unchanged,
+  and nothing is expanded. A single element containing whitespace or a shell
+  sign becomes `sh -c <line>`, so the adapter always passes separate
+  elements. The kernel caps one argument at 128 KiB, so a longer brief goes to
+  a file and the argv names its path.
+- **Parent address.** On both hosts a child gets `HC_TERMINAL_ID`,
+  `HC_TERMINAL_SOCKET` and `HC_SCOPE`, but no parent variable. It learns its
+  parent from `hc get "$HC_TERMINAL_ID" --json`, field `.parent`.
+- **Inherited herdr variables.** On the Mac, hc terminals inherit
+  `HERDR_ENV`, `HERDR_PANE_ID` and the other `HERDR_*` variables from the
+  core's start environment, so an hc terminal can look like a herdr pane. The
+  adapter detects hc by `HC_TERMINAL_ID` alone, and the launch wrapper unsets
+  every `HERDR_*` variable.
+- **Secrets, confirmed on macOS.** The FIFO leaves no trace. The API `env`
+  value is written to `terminals.json` (`restart_env`, mode 0644, so
+  readable by every local user) for as long as the terminal exists.
+  `hc send <t> <secret>` shows the value in `ps` while it runs.
+- **Failed launch.** A program that prints a message and exits 3 shows up as
+  `exit_code: 3` in `hc wait --json` and `hc get --json`, and its message is
+  in `hc read`. The spawner can report a wrapper failure verbatim.
+- **Permission mode.** On both hosts bypass mode comes only from
+  `~/.claude/settings.json` (`defaultMode: bypassPermissions`). The wrapper
+  pins it in claude's argv.
+- **Trusted bundle.** Hooks in a writer's worktree run the worktree's own
+  `.claude/hooks/harness.sh` and `skills/bin/harness.mjs`, both editable by
+  the writer, and nothing sets `KORE_HARNESS_BUNDLE`. The wrapper is started
+  by absolute path from the main checkout's bundle and finds the main root the
+  way `bundleMainRoot` does (`runtime/main-root.ts`). It sets
+  `KORE_HARNESS_BUNDLE` to the main bundle for claude, refuses a bundle path
+  inside the worktree, and passes claude a settings file from the main
+  checkout (check that the pinned Claude Code supports this).
+- **Role guard.** The read allowlist is `readMayRun`
+  (`hook/guard-role-allow.ts`), and hc is in no branch of it. The reader,
+  principles-review and judgment roles get an `HC_READS` list: `hc get`,
+  `ls`, `read`, `wait` and `--help`. The judge gets none. A raw `hc send`
+  stays refused, and reports go through `session report`.
+  `guard-agent-start` and the guard corpus gain the hc form of a bare role
+  launch.
+- **Identities.** On the Mac all twelve `kore.<role>.*` App items are in the
+  keychain and `kore.judge.pat` is absent. With `owner-writer` on, the judge
+  uses the minted kore-judge token, so the PAT matters only if the flag goes
+  off. Both flags are on in local.
+- **Command usage, 30 days.** These are Bash calls only; hooks, CI and
+  background starts are not counted.
+  - **kore-agents:** 39 of 76 commands ran.
+  - **Mac:** 61 of 74 commands ran (2,334 transcripts). The delivery loop moved
+    to kore-agents around 2026-11-20.
+  - **Run on neither host:** `decision digest`, `decision route`,
+    `guardrail activate`, `orchestrate plan`, `orchestrate run`,
+    `queue escalate`, `queue send-backs`, `review resample` and
+    `session check`.
+  - **Run but obsolete under hc:** `session equalize` (38 runs on the Mac)
+    and `ledger poll-herdr` (2).
+
+  `hook feedback`, `hook record` and `hook statusline` run as hooks, and
+  `orchestrate tick` ran twice. A command that has not run is a candidate
+  only. The review also checks it against the workflows, settings hooks and
+  mise tasks, and against whether it backs an approved but not yet activated
+  mechanism (for example `guardrail activate` and `queue escalate`).
 
 ## Open Questions
 
