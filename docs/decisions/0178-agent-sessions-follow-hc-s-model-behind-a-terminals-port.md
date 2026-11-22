@@ -1,5 +1,5 @@
 ---
-status: proposed
+status: accepted
 summary: Agent sessions follow hc's model behind one Terminals port: hc is the adapter, an in-memory fake the second implementation, and a child's result is its report file read through hc wait.
 date: 2026-11-22
 last-verified: 2026-11-22

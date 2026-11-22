@@ -1,5 +1,5 @@
 ---
-status: proposed
+status: accepted
 summary: A session's GitHub token is minted inside its launch wrapper from the identity store and never passes through a FIFO, an API environment or a message, so the wrapper fails closed and the agent never holds the store.
 date: 2026-11-22
 last-verified: 2026-11-22
