@@ -8,6 +8,7 @@ import * as filesystem from "./filesystem.js";
 import * as hostRoot from "./host-root.js";
 import * as hostLoad from "./host-load.js";
 import * as links from "./links.js";
+import * as lineStream from "./line-stream.js";
 import * as ids from "./ids.js";
 import * as mainRoot from "./main-root.js";
 import * as root from "./root.js";
@@ -18,6 +19,7 @@ vi.mock("./clock.js");
 vi.mock("./errors.js");
 vi.mock("./filesystem.js");
 vi.mock("./links.js");
+vi.mock("./line-stream.js");
 vi.mock("./host-root.js");
 vi.mock("./host-load.js");
 vi.mock("./ids.js");
@@ -29,6 +31,7 @@ vi.mock("./stdin.js");
 it("exposes exactly the runtime entry points", () => {
   expect(Object.keys(runtime).sort()).toEqual([
     "CommandError",
+    "ProcessLineStream",
     "ProcessRunner",
     "bundleMainRoot",
     "hostLocksDirectory",
@@ -54,6 +57,7 @@ it("re-exports each entry point from the unit that defines it, unchanged", () =>
   expect(runtime.nodeFileSystem).toBe(filesystem.nodeFileSystem);
   expect(runtime.nodeLinks).toBe(links.nodeLinks);
   expect(runtime.ProcessRunner).toBe(runner.ProcessRunner);
+  expect(runtime.ProcessLineStream).toBe(lineStream.ProcessLineStream);
   expect(runtime.hostLocksDirectory).toBe(hostRoot.hostLocksDirectory);
   expect(runtime.mainRoot).toBe(mainRoot.mainRoot);
   expect(runtime.bundleMainRoot).toBe(mainRoot.bundleMainRoot);

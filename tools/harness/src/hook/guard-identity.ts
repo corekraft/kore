@@ -4,7 +4,11 @@
 // guard keeps its role; a recording hook takes an identity only when hc confirmed it. HC_TERMINAL_ID is the one
 // value read from the environment, and it only finds the record. When the terminal's own record cannot be read,
 // the run carries a notice that names the file and the fix, and the guard keeps the role from the payload.
-import { CommandError, type CliDeps } from "../runtime/index.js";
+import {
+  CommandError,
+  ProcessLineStream,
+  type CliDeps,
+} from "../runtime/index.js";
 import {
   recordsOfTerminal,
   SessionRegistry,
@@ -51,6 +55,7 @@ export function sessionIdentity(
   terminals: Terminals = new HcTerminals({
     runner: deps.runner,
     env: deps.env,
+    lines: new ProcessLineStream(),
   }),
 ): Promise<SessionIdentity | undefined> {
   return resolutionOf(deps, terminals).then((found) => found.identity);
@@ -62,6 +67,7 @@ export function sessionNotice(
   terminals: Terminals = new HcTerminals({
     runner: deps.runner,
     env: deps.env,
+    lines: new ProcessLineStream(),
   }),
 ): Promise<string | undefined> {
   return resolutionOf(deps, terminals).then((found) => found.notice);

@@ -4,6 +4,7 @@ import {
   HcTerminals,
   terminalError,
 } from "../terminal/index.js";
+import { ProcessLineStream } from "../runtime/index.js";
 import { fakeDeps } from "./deps-support.js";
 import type { SessionRecord } from "./registry.js";
 import { hcMessage, routeSession, terminalsFor } from "./backend.js";
@@ -68,7 +69,7 @@ describe("routeSession sends a record to the backend it names", () => {
 });
 
 describe("terminalsFor builds the hc adapter over the caller's runner and environment", () => {
-  it("constructs HcTerminals over the injected runner and environment, and nothing else", () => {
+  it("constructs HcTerminals over the injected runner and environment, and a process line stream to follow events", () => {
     const deps = fakeDeps();
     deps.env = { HC_TERMINAL_ID: "t7" };
 
@@ -77,6 +78,7 @@ describe("terminalsFor builds the hc adapter over the caller's runner and enviro
     expect(HcTerminals).toHaveBeenCalledWith({
       runner: deps.runner,
       env: deps.env,
+      lines: expect.any(ProcessLineStream),
     });
   });
 });

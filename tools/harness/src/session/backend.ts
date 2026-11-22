@@ -1,6 +1,6 @@
 // Routes a session tool to the backend its record names. The record decides, never a flag:
 // a record with no backend is herdr, so every record written before the field keeps its path.
-import type { CliDeps } from "../runtime/index.js";
+import { ProcessLineStream, type CliDeps } from "../runtime/index.js";
 import {
   HcTerminals,
   type TerminalError,
@@ -44,7 +44,11 @@ export function routeSession(
 
 /** The one place a session tool gets its hc adapter: the hc CLI over the caller's runner and environment. */
 export function terminalsFor(deps: Pick<CliDeps, "runner" | "env">): Terminals {
-  return new HcTerminals({ runner: deps.runner, env: deps.env });
+  return new HcTerminals({
+    runner: deps.runner,
+    env: deps.env,
+    lines: new ProcessLineStream(),
+  });
 }
 
 /** hc's message for an error: its message, with its hint in brackets when hc gives one. */
