@@ -158,6 +158,13 @@ export {
 } from "./schema-split.js";
 
 export {
+  TERMINAL_RULES,
+  TERMINAL_STATUSES,
+  type TerminalOrigin,
+  type TerminalStatus,
+} from "./schema-terminal.js";
+
+export {
   DECISION_ROUTE_RULES,
   DECISION_ROUTES,
   DECISION_ROUTE_SIGNALS,
