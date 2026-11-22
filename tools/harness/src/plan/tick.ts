@@ -103,6 +103,54 @@ export const planTick: Command = {
   summary:
     'tick one open item (--item "<text>" [--plan N] [--dry-run]), update the open-item lists and counts, and report every changed line',
   options: { plan: "string", item: "string", "dry-run": "boolean" },
+  help: {
+    purpose:
+      "Ticks one open item of the chosen plan: its checkbox becomes [x]. When the plan keeps the open-item lists under Where each open item can be done, the item also leaves its list entry, that entry's count drops by one, and the class totals are recounted as of today. Every changed line is reported.",
+    when: "When an open item of the active plan is finished, so the plan stops showing it as open.",
+    whenNot:
+      "When the item is not finished yet: leave it open. To set the Next: line for the next session, use plan next. The item text must match exactly one open item, so an item already ticked, or text that matches several, is refused.",
+    flags: {
+      plan: "The number of the plan to tick, such as 17, needed only when more than one plan is active; otherwise the single active plan is used.",
+      item: "A part of the open item's text, in quotes, that matches exactly one open item; a longer part narrows the match.",
+      "dry-run":
+        "Reports the changed lines under Would tick and writes nothing.",
+    },
+    examples: [
+      {
+        command: 'harness plan tick --plan 17 --item "Shrink each"',
+        shows:
+          "the matched item ticked, its list entry recounted, and each changed line printed under Ticked",
+      },
+      {
+        command: 'harness plan tick --plan 17 --item "Shrink each" --dry-run',
+        shows:
+          "the same changed lines under Would tick, with the plan file left as it was",
+      },
+    ],
+    exits: [
+      {
+        code: 0,
+        meaning:
+          "the item is ticked, or with --dry-run its changes are reported",
+      },
+      {
+        code: 1,
+        meaning:
+          "no --item, the item matches no open item or more than one, the plan number is unknown or shared, no single plan is active, or the open-item lists cannot be recounted; stderr names the fix",
+      },
+      {
+        code: 2,
+        meaning:
+          "a usage error: a flag the command does not declare, or a flag with no value",
+      },
+    ],
+    effects: {
+      kind: "mutates",
+      detail:
+        "rewrites the chosen plan file under infra/plans: ticks the item, drops it from its list entry and recounts the totals; with --dry-run it writes nothing",
+    },
+    seeAlso: ["plan active", "plan next"],
+  },
   async run({ json, deps, options }) {
     const item = options["item"];
     const plan = options["plan"];

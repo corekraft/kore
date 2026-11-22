@@ -49,6 +49,42 @@ export async function readActivePlans(deps: CliDeps): Promise<ActivePlan[]> {
 
 export const planActive: Command = {
   summary: "list the active plans, flagging the default (highest-numbered)",
+  help: {
+    purpose:
+      "Lists the active plans: each file under infra/plans whose frontmatter says status: active, highest-numbered first. Each shows its open items per step, its Next: line and its upcoming steps. The first is the default that the plan commands use when no --plan is given.",
+    when: "When you need to know which plan is the default, or what is still open in the active plans before you tick an item or set a Next: line.",
+    whenNot:
+      "When you need one plan's full text rather than its open items: read the file under infra/plans. To change a plan, use plan tick, plan next or plan clear-next.",
+    flags: {},
+    examples: [
+      {
+        command: "harness plan active",
+        shows:
+          "each active plan with (default) on the first, its open items per step and its Next: line when it has one",
+      },
+      {
+        command: "harness plan active --json",
+        shows:
+          "one object: default, the file name of the default plan, and plans, each with its open items and Next: line",
+      },
+    ],
+    exits: [
+      {
+        code: 0,
+        meaning:
+          "the active plans are listed; with none, a line says that no plan is active",
+      },
+      {
+        code: 2,
+        meaning: "a usage error: a flag or argument the command does not take",
+      },
+    ],
+    effects: {
+      kind: "read-only",
+      detail: "reads each plan file under infra/plans and writes nothing",
+    },
+    seeAlso: ["plan tick", "plan next", "plan clear-next"],
+  },
   async run({ json, deps }) {
     const listed = await readActivePlans(deps);
     const names = listed.map((plan) => plan.name);

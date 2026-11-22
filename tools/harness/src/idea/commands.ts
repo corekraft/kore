@@ -1,5 +1,6 @@
 import { flowMetricNames } from "../flow/index.js";
 import type { Command, CommandContext } from "../runtime/index.js";
+import { createHelp, listHelp, showHelp, syncHelp } from "./commands-help.js";
 import {
   IdeaError,
   harnessHypothesis,
@@ -156,6 +157,7 @@ const create: Command = {
     "tier-change": "string",
     "guard-metric": "string",
   },
+  help: createHelp,
   run(context) {
     return guarded(context, async () => {
       const { slug, idea } = parseNewIdea(context.options);
@@ -174,6 +176,7 @@ const create: Command = {
 const show: Command = {
   summary: "print one idea record (--idea <number or slug>)",
   options: { idea: "string" },
+  help: showHelp,
   run(context) {
     return guarded(context, async () => {
       const ref = text(context.options, "idea");
@@ -192,6 +195,7 @@ const show: Command = {
 
 const list: Command = {
   summary: "list every idea record in number order",
+  help: listHelp,
   run(context) {
     return guarded(context, async () => {
       const records = await (await repository(context)).list();
@@ -217,6 +221,7 @@ const syncCommand = (harnessLabel: HarnessLabelFlag): Command => ({
   summary:
     "mirror one idea to its GitHub issue, creating it when missing and editing only when the body changed (--idea <number or slug>); with the local tick-ticket-queue flag on, a harness idea's issue also gets the harness label when created or edited, and no label is ever removed",
   options: { idea: "string" },
+  help: syncHelp,
   run(context) {
     return guarded(context, async () => {
       const ref = text(context.options, "idea");

@@ -6,13 +6,7 @@
  */
 export const undocumented: readonly string[] = [
   // plan
-  "plan active",
-  "plan tick",
-  "plan next",
-  "plan clear-next",
   // adr
-  "adr new",
-  "adr supersede",
   // guardrail
   "guardrail status",
   "guardrail deny",
@@ -45,10 +39,6 @@ export const undocumented: readonly string[] = [
   // skill
   "skill audit",
   // idea
-  "idea new",
-  "idea list",
-  "idea show",
-  "idea sync",
   // outcome
   "outcome record",
   "outcome close",
