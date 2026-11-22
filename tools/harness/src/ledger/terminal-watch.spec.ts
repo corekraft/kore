@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { EventInput } from "./schema.js";
-import type { Terminal } from "../terminal/index.js";
+import type { Status, Terminal } from "../terminal/index.js";
 import { lastReadings, planTerminals } from "./terminal-watch.js";
 
 const AT = "2026-11-22T10:00:00.000Z";
@@ -30,9 +30,11 @@ describe("planTerminals: a status becomes the kind it is recorded as", () => {
     ["error", "pane.stalled"],
     ["unreported", "pane.spawned"],
   ])("records a live %s terminal as %s", (status, kind) => {
-    const status_ =
-      status === "unreported" ? undefined : (status as Terminal["status"]);
-    expect(planned([terminal({ status: status_ })]).events).toEqual([
+    const current =
+      status === "unreported"
+        ? terminal()
+        : terminal({ status: status as Status });
+    expect(planned([current]).events).toEqual([
       {
         source: "terminal",
         kind,

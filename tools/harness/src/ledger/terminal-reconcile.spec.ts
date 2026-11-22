@@ -8,6 +8,7 @@ import {
 import type { Terminal, Terminals } from "../terminal/index.js";
 import { reconcileTerminals } from "./terminal-reconcile.js";
 import { lastReadings, planTerminals } from "./terminal-watch.js";
+import type { EventInput } from "./schema.js";
 
 // The planner is a double here: its own spec reads what it plans (ADR 0098).
 vi.mock("./terminal-watch.js", () => ({
@@ -18,17 +19,16 @@ vi.mock("./terminal-watch.js", () => ({
 const LISTED: Terminal[] = [
   { id: "t2", state: "live", labels: { "kore-session": "s1" }, cwd: "/w" },
 ];
-const PLANNED = [
-  {
-    source: "terminal" as const,
-    kind: "pane.busy" as const,
-    occurredAt: NOW,
-    pane: "t2",
-    session: "s1",
-    status: "working" as const,
-    turn: 0,
-  },
-];
+const FIRST: EventInput = {
+  source: "terminal",
+  kind: "pane.busy",
+  occurredAt: NOW,
+  pane: "t2",
+  session: "s1",
+  status: "working",
+  turn: 0,
+};
+const SECOND: EventInput = { ...FIRST, pane: "t3" };
 
 function setup() {
   const fake = fakeLedger();
@@ -50,7 +50,7 @@ beforeEach(() => {
 describe("reconcileTerminals: what it reads", () => {
   it("reads hc's listing of every terminal, and the ledger's terminal events, then plans from both", async () => {
     const { fake, list, run } = setup();
-    const past = [PLANNED[0]];
+    const past = [FIRST];
     fake.list.mockResolvedValue({ events: past as never, skipped: 0 });
     await run();
     expect(list).toHaveBeenCalledWith();
@@ -64,14 +64,11 @@ describe("reconcileTerminals: what it records", () => {
   it("records each planned event, in order, and reports how many it recorded", async () => {
     const { fake, run } = setup();
     vi.mocked(planTerminals).mockReturnValue({
-      events: [...PLANNED, { ...PLANNED[0], pane: "t3" }],
+      events: [FIRST, SECOND],
       last: new Map(),
     });
     expect(await run()).toEqual({ ok: true, recorded: 2 });
-    expect(fake.record.mock.calls).toEqual([
-      [PLANNED[0]],
-      [{ ...PLANNED[0], pane: "t3" }],
-    ]);
+    expect(fake.record.mock.calls).toEqual([[FIRST], [SECOND]]);
   });
 
   it("records nothing and reports zero when the plan is empty", async () => {
@@ -83,7 +80,7 @@ describe("reconcileTerminals: what it records", () => {
   it("stops at the first record the ledger refuses, and names its message", async () => {
     const { fake, run } = setup();
     vi.mocked(planTerminals).mockReturnValue({
-      events: [...PLANNED, PLANNED[0]],
+      events: [FIRST, FIRST],
       last: new Map(),
     });
     fake.record.mockResolvedValueOnce({
