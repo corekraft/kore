@@ -1609,6 +1609,34 @@ swap sits near 4.8 GiB during the runs. No headroom threshold is set here: that
 is the owner's call (plan 15, Parked Owner Questions). The Next footprint (plan
 15 Step 7) is measured against this baseline.
 
+#### kore-agents (Linux) baseline, recorded 2026-11-22 on #1756
+
+A Linux host, `kore-agents`: 6 CPU, VM memory 40099 MiB, no swap. Code SHA
+`8bca961d`, charts from the `charts-main` lock of that commit, no template lock.
+The cluster was destroyed with `--purge-data` by the owner and rebuilt by
+`kore local up` (converged first run). Profile: `autoscaling-defaults`,
+`platform-organization-service-apis`, `platform-argocd-delivery`,
+`platform-portal` and `golden-path-signin` off in a throwaway worktree copy of
+the overlay, never committed. `platform-shared-gateway`, `registry-by-name` and
+`otlp-route` stay on: local reaches its registry only by name and that needs the
+shared Gateway. Method as above (settle 120 s, 12 samples 20 s apart, ceiling 10).
+
+| Metric                    | Run 1               | Run 3               | Baseline (mean of medians) | Spread |
+| ------------------------- | ------------------- | ------------------- | -------------------------- | ------ |
+| CPU median / max          | 711.5 / 944 mCPU    | 688 / 1820 mCPU     | 699.75 mCPU                | 3.4%   |
+| Memory median / max       | 5862.9 / 5884.9 MiB | 5506.6 / 5530.6 MiB | 5684.75 MiB                | 6.3%   |
+| Swap median / max         | 0 / 0 MiB           | 0 / 0 MiB           | 0 MiB                      | n/a    |
+| VM headroom median / peak | 85.4% / 85.3%       | 86.3% / 86.2%       | 85.85% at the median       | 0.9 pt |
+
+Both runs are clean (no load sample at or above 10; maximum 9.57 in run 1 and
+4.53 in run 3) and are recorded on [#1756](https://github.com/corekraft/kore/issues/1756).
+A run 2 on the same cluster was not clean (three samples at 10.15 to 10.56 from
+another session's panes); it is recorded there and left out of the baseline, and
+the owner asked for run 3 in its place on 2026-11-22. Neither run breached the
+#1107 rule. Run 3 followed a `platform stop` and a second `kore local up` on the
+same cluster, which is the likely reason its memory is 6% under run 1. This is not
+comparable with the Mac figures above: different host, VM size and swap.
+
 ## Progress Record
 
 Update this table when a step begins or completes. Link implementation commits,

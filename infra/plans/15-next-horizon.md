@@ -347,7 +347,10 @@ Safety pattern: `no-behaviour-change` (records only).
 
       - 2026-11-15 not provable: no project command exists (owner decision 2026-11-15, no command drives a browser to look for script-readable tokens; tracked on [#616](https://github.com/corekraft/kore/issues/616)). Not ticked.
 
-- [ ] Record Next's footprint against the Now baseline.
+- [x] Record Next's footprint against the Now baseline.
+
+      - 2026-11-22 on kore-agents (Linux, 6 CPU, 40099 MiB), code SHA `8bca961d`, [#1756](https://github.com/corekraft/kore/issues/1756) and [#1748](https://github.com/corekraft/kore/issues/1748): the Now baseline is in [plan 2](2-implementation.md#kore-agents-linux-baseline-recorded-2026-11-22-on-1756) (two clean runs, memory 5684.75 MiB, headroom 85.85%). Next, two runs on the same host: memory 13932 and 13911 MiB, CPU 1565 and 1257 mCPU, headroom 65.3%. Neither profile breached the #1107 rule. Owner approved the tick on 2026-11-22.
+
 - [x] Check every Next "Done when" clause in the vision against a recorded run,
       and record the outcome as confirmed, refuted or inconclusive.
 
