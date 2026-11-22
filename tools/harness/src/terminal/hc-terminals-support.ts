@@ -125,21 +125,10 @@ export const rows: Row[] = [
   ],
   [
     "run with notify false: --no-notify before the argv",
-    (t) => t.run({ argv: ["bash"], cwd: "/w", parent: "t3", notify: false }),
-    [
-      "run",
-      "--json",
-      "--bg",
-      "--cwd",
-      "/w",
-      "--parent",
-      "t3",
-      "--no-notify",
-      "--",
-      "bash",
-    ],
+    (t) => t.run({ argv: ["bash"], cwd: "/w", notify: false }),
+    ["run", "--json", "--bg", "--cwd", "/w", "--no-notify", "--", "bash"],
     HC_0_1_21.run,
-    { id: "t7" },
+    { id: "t1" },
   ],
   [
     "read",
@@ -209,6 +198,7 @@ export const RUN_ARGV = [
   "--parent",
   "t1",
   "--outlive-parent",
+  "--no-notify",
   "--",
   ...RUN_CLAUDE,
 ];
