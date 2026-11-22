@@ -23,6 +23,7 @@ class RoutePolicyTest {
         val protectedPaths = listOf(
             "/",
             "/api/orders",
+            "/api/whoami",
             "/actuator/env",
             "/actuator/healthz",
             "/actuator/health-admin",

@@ -40,6 +40,13 @@ class SigninOffFlowTest {
     private var port: Int = 0
 
     @Test
+    fun `with sign-in off the whoami route is not registered and answers 404, with no body`() {
+        val response = Http("http://localhost:$port").get("/api/whoami")
+        assertEquals(404, response.statusCode())
+        assertFalse(response.body().contains("signedIn"), response.body())
+    }
+
+    @Test
     fun `with sign-in off the health probe and the existing route answer as before, with no session cookie`() {
         val http = Http("http://localhost:$port")
         assertEquals(200, http.get("/actuator/health").statusCode())
@@ -77,6 +84,15 @@ class SigninOnFlowTest {
         val location = response.headers().firstValue("Location").orElse("")
         assertEquals("/oauth2/authorization/golden-path", URI.create(location).path)
         assertFalse(response.body().contains("pong"))
+    }
+
+    @Test
+    fun `an unauthenticated request to the whoami route is sent to sign-in and never answered 200`() {
+        val response = Http("http://localhost:$port").get("/api/whoami")
+        assertEquals(302, response.statusCode())
+        val location = response.headers().firstValue("Location").orElse("")
+        assertEquals("/oauth2/authorization/golden-path", URI.create(location).path)
+        assertFalse(response.body().contains("signedIn"), response.body())
     }
 
     @Test

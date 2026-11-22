@@ -25,6 +25,12 @@ value that is neither `true` nor `false` refuses to start.
 With the flag off, every route answers as it did before sign-in existed, and no
 session is created.
 
+The flow adds one authenticated probe, `GET /api/whoami`, under `/api` so the
+delivered route reaches it. With sign-in on, a signed-in session gets 200 and
+`{"signedIn":true}`, with no token, claim, name or session id in it. Without a
+session the request is redirected to `/oauth2/authorization/golden-path`, never
+answered 200. With the flag off it answers 404.
+
 With the flag on, set these three environment variables at run time. They are
 never committed, and the client secret is never logged or printed:
 
