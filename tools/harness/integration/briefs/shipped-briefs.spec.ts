@@ -101,7 +101,9 @@ describe("the shipped briefs an hc session is given", () => {
     },
   );
 
-  it("tells an hc writer to finish with harness session report", () => {
-    expect(HC_BRIEFS[0]?.[1]).toContain("harness session report");
+  it("tells an hc writer to finish with the full session report command", () => {
+    expect(HC_BRIEFS[0]?.[1]).toContain(
+      "run `node skills/bin/harness.mjs session report --outcome <done|blocked> --summary <your summary>`",
+    );
   });
 });
