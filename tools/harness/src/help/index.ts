@@ -14,4 +14,5 @@ export {
 } from "./view.js";
 export { renderJson } from "./render-json.js";
 export { renderText } from "./render-text.js";
+export { harnessMentions, type HarnessMention } from "./current-docs.js";
 export { registryProblems, type RegistryInput } from "./registry.js";
