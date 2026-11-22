@@ -95,9 +95,10 @@ describe("the session hints point at the help guide", () => {
   });
 
   it("resolves each help pointer to a command that has help", () => {
+    const table: Record<string, Record<string, Command>> = domains;
     const unresolved = sessionHints
       .flatMap(pointersIn)
-      .filter(([domain, name]) => domains[domain]?.[name]?.help === undefined)
+      .filter(([domain, name]) => table[domain]?.[name]?.help === undefined)
       .map(([domain, name]) => `${domain} ${name}`);
     expect(unresolved).toEqual([]);
   });
