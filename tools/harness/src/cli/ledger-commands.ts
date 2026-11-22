@@ -18,6 +18,7 @@ import {
   type Command,
   type CommandContext,
 } from "../runtime/index.js";
+import * as help from "./ledger-help.js";
 
 const EVENT_FLAGS = [
   "id",
@@ -124,6 +125,7 @@ const record: Command = {
   summary:
     "append one validated event, from flags or JSON on stdin, to the stage ledger",
   options: STRING_FLAGS([...EVENT_FLAGS, "ledger"]),
+  help: help.recordHelp,
   async run(context) {
     const given = await eventInput(context);
     if ("error" in given) {
@@ -214,6 +216,7 @@ const list: Command = {
     "until",
     "ledger",
   ]),
+  help: help.listHelp,
   async run(context) {
     const parsed = filterFrom(context.options);
     if ("error" in parsed) {
@@ -240,6 +243,7 @@ const pollHerdrCommand: Command = {
   summary:
     "read herdr's agent panes once and append only the changes (pane.spawned, pane.busy, pane.waiting, pane.closed, and pane.stalled for a spawned pane idle or gone past 300 seconds with no result) to the ledger; pane.closed means the pane no longer hosts an agent; each session start runs it in the background; it only reads herdr and never closes, restarts or messages a pane; safe to repeat from a wait loop, and one poll runs at a time",
   options: STRING_FLAGS(["ledger"]),
+  help: help.pollHerdrHelp,
   async run(context) {
     const opened = await openLedger(context);
     if ("error" in opened) {
@@ -268,6 +272,7 @@ const pollGithubCommand: Command = {
   summary:
     "list issues, label events and PRs through gh and append issue.opened, issue.labelled, pr.opened and pr.merged, then the outcome signals agents do not write: ci.main (check runs on main), ci.nightly (nightly runs), main.revert (commits on main whose subject starts Revert + a quote or whose body says This reverts commit), advisor.overturned (the owner login's first untagged comment after each advisor decision on its issue, ADR 0120) and owner.action (comments, issue events and PR reviews by the login in ownerLogin of .claude/harness.json, else the repository's owner) and owner.replied (the same login's comments with no role line, on their issue: the reply that closes a reserved question, #854) (numbers, labels, conclusions and GitHub times only, no titles, bodies, messages or logins); a run's result is its first attempt, and a listing too long to page through fails the poll, so pass --since; --since (default: the latest recorded GitHub event, and for the signals a day before the latest one, which --since can reach back past but never step over) only bounds what gh is asked for, since ids decide what is new; --repo to corekraft/kore; re-polling appends nothing, one poll runs at a time, and a rate limit is reported with its retry time",
   options: STRING_FLAGS(["ledger", "since", "repo"]),
+  help: help.pollGithubHelp,
   async run(context) {
     const since = context.options["since"];
     if (typeof since === "string" && !isTimestamp(since)) {

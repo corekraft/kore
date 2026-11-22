@@ -52,19 +52,12 @@ export const undocumented: readonly string[] = [
   // outcome
   "outcome record",
   "outcome close",
-  // decision
-  "decision make",
-  "decision route",
-  "decision ask",
-  "decision digest",
   // flag
   "flag activate",
   "flag audit",
   // ruleset
   "ruleset sync",
   "ruleset insights",
-  // status
-  "status",
   // judge
   "judge precheck",
   "judge declaration",
@@ -80,11 +73,6 @@ export const undocumented: readonly string[] = [
   "pr checks",
   "pr check",
   "pr open",
-  // ledger
-  "ledger record",
-  "ledger list",
-  "ledger poll-herdr",
-  "ledger poll-github",
   // flow
   "flow report",
   // queue

@@ -13,6 +13,7 @@ import { FlagError } from "../flag/index.js";
 import type { Ledger } from "../ledger/index.js";
 import type { Command, CommandContext } from "../runtime/index.js";
 import { openLedger } from "./ledger-commands.js";
+import * as help from "./decision-help.js";
 
 const FAILED = 1;
 
@@ -75,6 +76,7 @@ const digest: Command = {
   options: {
     ledger: "string",
   },
+  help: help.digestHelp,
   async run(context) {
     const { deps, json } = context;
     try {

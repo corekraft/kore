@@ -51,7 +51,13 @@ export const domainGuides: Record<string, DomainGuide> = {
   decision: {
     purpose:
       "Routes the questions the panes raise: the advisor decides what it may, and reserved questions go to the owner.",
-    flow: "Run decision route to send a question to the advisor or the owner; decision make posts the advisor's decision, decision ask posts a reserved question, and decision digest posts the daily digest.",
+    flow: "Run decision route to send a question to the advisor or the owner; decision make posts the advisor's decision, decision ask posts a reserved question, and decision digest posts the daily digest. All four are refused while the decision-advisor flag is off.",
+    seeAlso: [
+      "decision route",
+      "decision make",
+      "decision ask",
+      "decision digest",
+    ],
   },
   flag: {
     purpose:
@@ -66,7 +72,8 @@ export const domainGuides: Record<string, DomainGuide> = {
   status: {
     purpose:
       "One read-only report of where the work stands: plan items, ideas by state, open owner questions, recent stages and the tick's heartbeat.",
-    flow: "Run the status command whenever you need the picture; it changes nothing.",
+    flow: "Run harness status whenever you need the picture; it changes nothing.",
+    seeAlso: ["ledger list", "decision digest"],
   },
   judge: {
     purpose:
@@ -87,6 +94,7 @@ export const domainGuides: Record<string, DomainGuide> = {
     purpose:
       "The stage ledger, the record of what happened, read and appended only through these commands.",
     flow: "Run ledger record to append one validated event, ledger list to read events by session, idea, kind or time, and ledger poll-herdr or ledger poll-github to append what the panes and GitHub show.",
+    seeAlso: ["ledger list", "flow report"],
   },
   flow: {
     purpose:

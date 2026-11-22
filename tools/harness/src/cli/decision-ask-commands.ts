@@ -13,6 +13,7 @@ import type { Ledger } from "../ledger/index.js";
 import type { Command, CommandContext } from "../runtime/index.js";
 import { openLedger } from "./ledger-commands.js";
 import { readTextOption } from "./text-option.js";
+import * as help from "./decision-help.js";
 
 const FAILED = 1;
 const USAGE = 2;
@@ -119,6 +120,7 @@ const ask: Command = {
     "action-file": "string",
     ledger: "string",
   },
+  help: help.askHelp,
   async run(context) {
     const { options, deps, json } = context;
     if (text(options, "idea") === "") {

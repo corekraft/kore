@@ -14,7 +14,7 @@ import {
   numberedIssue,
 } from "../idea/index.js";
 import type { Ledger } from "../ledger/index.js";
-import type { Command, CommandContext } from "../runtime/index.js";
+import type { Command, CommandContext, CommandHelp } from "../runtime/index.js";
 import { ownerCommands } from "./decision-owner-commands.js";
 import { routeCommands } from "./decision-route-commands.js";
 import { openLedger } from "./ledger-commands.js";
@@ -84,6 +84,52 @@ function ports(context: CommandContext, root: string, ledger: Ledger) {
   return result;
 }
 
+const makeHelp: CommandHelp = {
+  purpose:
+    "Records one advisor decision: posts it as a comment on an idea's issue, or a plain ticket's issue, under the sender line, then appends decision.made with the category. The question and the decision are posted in the comment and never stored in the ledger. Refused with nothing posted or recorded while the decision-advisor flag is off in the local overlay.",
+  when: "When the advisor has decided a question a pane raised, and the question is one the advisor may decide, so the decision belongs on its issue.",
+  whenNot:
+    "When the question is the owner's: the reserved list of ADR 0120 refuses it, so use decision ask to put it to the owner. When the question has yet to be routed, use decision route first. Nothing is posted in those cases.",
+  flags: {
+    idea: "The idea whose issue the decision is posted on, by its number or slug. Give this or --issue, not both.",
+    issue:
+      "A plain ticket's issue number, for a ticket with no idea record. Give this or --idea, not both.",
+    category:
+      "The category the question belongs to: lowercase letters, digits and -, starting with a letter, at most 64 characters, such as naming. A reserved category is refused.",
+    question: "What was asked, as text. It must not be empty.",
+    decision: "What was decided, as text. It must not be empty.",
+    ledger:
+      "The ledger file to append to, resolved from the working directory. Default: the shared ledger under the main checkout root (.kore/state/ledger.jsonl), where KORE_ROOT overrides the root.",
+  },
+  examples: [
+    {
+      command:
+        'harness decision make --idea 0042 --category naming --question "Is the flow command named report?" --decision "Keep the name report."',
+      shows:
+        "the decision posted on idea 0042's issue, and the line Recorded a naming decision for idea 0042, with the comment's URL",
+    },
+  ],
+  exits: [
+    {
+      code: 0,
+      meaning:
+        "the decision is posted and recorded; its comment's URL is printed, or the result as one object under --json",
+    },
+    {
+      code: 1,
+      meaning:
+        "refused with nothing posted: the flag is off, both --idea and --issue are given, a field is empty or malformed, the question or category is reserved, the idea is unknown, the sender line cannot be written, or the text carries a guardrail approval line. Also when the comment was posted but its ledger event was rejected; the message says not to post it again",
+    },
+    { code: 2, meaning: "neither --idea nor --issue is given" },
+  ],
+  effects: {
+    kind: "mutates",
+    detail:
+      "posts one comment on the idea's or the issue's GitHub issue, under the sender line, then appends one decision.made event carrying the idea or issue number and the category. The ledger is append-only and written only here.",
+  },
+  seeAlso: ["decision route", "decision ask", "decision digest"],
+};
+
 const make: Command = {
   summary:
     "post an advisor's decision on the issue under the sender line and record decision.made with the idea (or, for a plain ticket, the issue number) and the category (never the question or the reasoning); give exactly one of --idea (an idea's number or slug) and --issue (a plain ticket's issue number); refused with nothing posted while the decision-advisor flag is off in the local overlay, when the question matches the reserved list of ADR 0120, or when the category is a reserved one (--idea <number or slug> | --issue <number> --category <name> --question <text> --decision <text> [--json: idea, category, issue, commentUrl])",
@@ -95,6 +141,7 @@ const make: Command = {
     decision: "string",
     ledger: "string",
   },
+  help: makeHelp,
   async run(context) {
     const { options, deps, json } = context;
     const idea = text(options, "idea");
