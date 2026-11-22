@@ -1,27 +1,56 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { CliDeps, CommandContext, Runner } from "../runtime/index.js";
 import { resolveTier } from "./agent-definition.js";
-import { check } from "./check.js";
-import { close } from "./close.js";
-import { equalize, type EqualizeResult } from "./equalize.js";
+import { check, checkHelp } from "./check.js";
+import { close, closeHelp } from "./close.js";
+import { equalize, equalizeHelp, type EqualizeResult } from "./equalize.js";
 import { resolveTier as exported, session } from "./index.js";
-import { notify } from "./notify.js";
-import { report } from "./report.js";
-import { send } from "./send.js";
-import { spawn } from "./spawn.js";
-import { tier } from "./tier.js";
-import { wait } from "./wait.js";
+import { notify, notifyHelp } from "./notify.js";
+import { report, reportHelp } from "./report.js";
+import { send, sendHelp } from "./send.js";
+import { spawn, spawnHelp } from "./spawn.js";
+import { tier, tierHelp } from "./tier.js";
+import { wait, waitHelp } from "./wait.js";
 
+// Each command module's factory exports its handler and its help record, so the barrel
+// can wire both without loading the real modules.
 vi.mock("./agent-definition.js", () => ({ resolveTier: vi.fn() }));
-vi.mock("./check.js", () => ({ check: vi.fn() }));
-vi.mock("./close.js", () => ({ close: vi.fn() }));
-vi.mock("./equalize.js", () => ({ equalize: vi.fn() }));
-vi.mock("./notify.js", () => ({ notify: vi.fn() }));
-vi.mock("./report.js", () => ({ report: vi.fn() }));
-vi.mock("./send.js", () => ({ send: vi.fn() }));
-vi.mock("./spawn.js", () => ({ spawn: vi.fn() }));
-vi.mock("./tier.js", () => ({ tier: vi.fn() }));
-vi.mock("./wait.js", () => ({ wait: vi.fn() }));
+vi.mock("./check.js", () => ({
+  check: vi.fn(),
+  checkHelp: { purpose: "check help" },
+}));
+vi.mock("./close.js", () => ({
+  close: vi.fn(),
+  closeHelp: { purpose: "close help" },
+}));
+vi.mock("./equalize.js", () => ({
+  equalize: vi.fn(),
+  equalizeHelp: { purpose: "equalize help" },
+}));
+vi.mock("./report.js", () => ({
+  report: vi.fn(),
+  reportHelp: { purpose: "report help" },
+}));
+vi.mock("./notify.js", () => ({
+  notify: vi.fn(),
+  notifyHelp: { purpose: "notify help" },
+}));
+vi.mock("./send.js", () => ({
+  send: vi.fn(),
+  sendHelp: { purpose: "send help" },
+}));
+vi.mock("./spawn.js", () => ({
+  spawn: vi.fn(),
+  spawnHelp: { purpose: "spawn help" },
+}));
+vi.mock("./tier.js", () => ({
+  tier: vi.fn(),
+  tierHelp: { purpose: "tier help" },
+}));
+vi.mock("./wait.js", () => ({
+  wait: vi.fn(),
+  waitHelp: { purpose: "wait help" },
+}));
 
 const HERDR = { HERDR_ENV: "1", HERDR_PANE_ID: "w3:p1" };
 const NOT_IN_HERDR =
@@ -84,31 +113,24 @@ describe("the session domain's command set", () => {
     expect(await session[name]?.run(context)).toBe(7);
     expect(module).toHaveBeenCalledWith(context);
   });
-});
 
-describe("the session domain's check usage", () => {
-  it("says check is read-only and names session spawn as the fix", () => {
-    const summary = session.check?.summary ?? "";
-    expect(summary).toContain("role-tokens");
-    expect(summary).toContain("session spawn");
-    expect(summary).toContain("read-only");
+  it.each([
+    ["spawn", spawnHelp],
+    ["wait", waitHelp],
+    ["notify", notifyHelp],
+    ["report", reportHelp],
+    ["send", sendHelp],
+    ["check", checkHelp],
+    ["close", closeHelp],
+    ["tier", tierHelp],
+    ["equalize", equalizeHelp],
+  ] as const)("takes %s's help record from its own module", (name, help) => {
+    expect(session[name]?.help).toBe(help);
   });
 });
 
-describe("the session domain's spawn usage and flags", () => {
-  it("says in spawn's usage that a pane is named for its subject and an undefined role is refused", () => {
-    const summary = session.spawn?.summary ?? "";
-    expect(summary).toContain("named after its subject");
-    expect(summary).toContain(
-      "a name with a letter, ordinal or step number is refused",
-    );
-    expect(summary).toContain("a role with an agent definition");
-    expect(summary).toContain(
-      "brief a verifier or fixer as a reader or a writer",
-    );
-  });
-
-  it("declares spawn's flags, and its --no-wait pattern in its summary", () => {
+describe("the session domain's operands and flags", () => {
+  it("declares spawn's flags, which its --no-wait pattern and its idea flags rely on", () => {
     expect(session["spawn"]?.options).toEqual({
       role: "string",
       model: "string",
@@ -124,13 +146,6 @@ describe("the session domain's spawn usage and flags", () => {
       reason: "string",
       timeout: "string",
     });
-    expect(session["spawn"]?.summary).toContain("--no-wait");
-  });
-
-  it("names --no-idea and its warning in spawn's summary, so a spawn with no idea is explained", () => {
-    expect(session["spawn"]?.summary).toContain(
-      "--no-idea <reason> (1 to 100 characters) says why a session serves no idea, and is refused with --idea; a writer, judge or principles-review spawn with neither warns and still starts",
-    );
   });
 
   it.each([
@@ -204,28 +219,5 @@ describe("session equalize runs only inside Herdr", () => {
     expect(await session["equalize"]?.run(context)).toBe(1);
     expect(err.join("")).toBe("herdr pane resize failed: too small\n");
     expect(out.join("")).toBe("");
-  });
-});
-
-describe("the session domain's spawn usage", () => {
-  it("describes the owner-writer flag's writer and judge identities", () => {
-    const summary = session.spawn?.summary ?? "";
-    expect(summary).toContain(
-      "with the owner-writer flag also on (off by default), a writer pane gets the owner's own gh login token, read with gh auth token at spawn (a failure refuses and says to run gh auth login), and a judge pane a minted kore-judge installation token instead of the judge PAT",
-    );
-  });
-
-  it("names the window effort variable and the eligibility rule for a writer that names no model", () => {
-    const summary = session.spawn?.summary ?? "";
-    expect(summary).toContain(
-      "a writer that names no --model is eligible: the window samples a share of them onto Sonnet, recorded as an override with the reason experiment, and keeps the rest on their definition's model as the control, recorded with the reason experiment-control; every eligible writer runs at the window effort whatever --effort it names; a writer that names a --model is never sampled; KORE_WRITER_EXPERIMENT_EFFORT sets the window effort, one of low, medium, high, xhigh or max, required while KORE_WRITER_EXPERIMENT_START is a UTC date and ignored while it is unset",
-    );
-  });
-
-  it("tells the main session to name no --model for a writer while the window is open, since an explicit model overrides the sampling", () => {
-    const summary = session.spawn?.summary ?? "";
-    expect(summary).toContain(
-      "while KORE_WRITER_EXPERIMENT_START is a UTC date, the main session names no --model for a writer, because an explicit --model overrides the sampling, and names no --effort or the window effort",
-    );
   });
 });

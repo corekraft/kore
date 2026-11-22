@@ -1,5 +1,5 @@
 // oxlint-disable import/max-dependencies -- wait settles a session by its pane (herdr) or its report (hc), so it imports both paths
-import type { CliDeps, CommandContext } from "../runtime/index.js";
+import type { CliDeps, CommandContext, CommandHelp } from "../runtime/index.js";
 import { plain } from "./ansi.js";
 import { describeFailure } from "./equalize.js";
 import { recordFinish } from "./finish-record.js";
@@ -225,3 +225,52 @@ export async function wait(context: CommandContext): Promise<number> {
   deps.stdout(json ? `${JSON.stringify(result)}\n` : formatWait(result));
   return 0;
 }
+
+export const waitHelp: CommandHelp = {
+  purpose:
+    "Waits for one spawned session to settle, then prints its outcome, done or blocked, with its name and model. A herdr session settles on its RESULT line in its own pane, and --json adds the summary text the pane printed before that line. An hc session settles on its report file instead: done or blocked as the report says, or blocked, stopped without a report, when its terminal stops with none; --json then prints {name, model, outcome, summary, seq}, with seq absent when it settled without a report.",
+  when: "When a session started with --no-wait must be collected, typically in the background, so the main session hears when it settles.",
+  whenNot:
+    "When the session was started without --no-wait, since session spawn already waited for it. To watch several targets at once, use harness wait. To see what a pane shows now, read the pane with herdr: this command only settles on the RESULT line.",
+  flags: {
+    timeout:
+      "The bound in milliseconds, a positive whole number; the default is one hour. When it passes with no RESULT line, the command exits 1 and the session keeps running.",
+  },
+  operand:
+    "The spawned session's name, as session spawn recorded it, such as image-trust-reader. A name this tool did not spawn is refused.",
+  examples: [
+    {
+      command: "harness session wait image-trust-reader --timeout 600000",
+      shows:
+        "the session's RESULT line and outcome once it prints one, or exit 1 after ten minutes with no line",
+    },
+    {
+      command: "harness session wait image-trust-reader --json",
+      shows:
+        "the same outcome as one JSON object, with the summary the pane printed before its RESULT line",
+    },
+  ],
+  exits: [
+    {
+      code: 0,
+      meaning:
+        "the RESULT line showed and its outcome is printed; a blocked outcome also exits 0",
+    },
+    {
+      code: 1,
+      meaning:
+        "no session of this tool has that name, its pane could not be read, or no RESULT line came within the timeout",
+    },
+    {
+      code: 2,
+      meaning:
+        "a usage error: no name, an invalid name, or a timeout that is not a positive whole number of milliseconds",
+    },
+  ],
+  effects: {
+    kind: "mutates",
+    detail:
+      "once a RESULT line shows, records the outcome and its summary on the session's registry entry and appends a pane.finished ledger event; until then it only reads the pane",
+  },
+  seeAlso: ["session spawn", "harness wait", "session close"],
+};
