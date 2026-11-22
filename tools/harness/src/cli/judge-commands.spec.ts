@@ -160,8 +160,11 @@ describe("judge command table", () => {
   it("declares the precheck's operand and its reviewer flag", () => {
     expect(judgeCommands.precheck?.operand).toBe("pr");
     expect(judgeCommands.precheck?.options).toEqual({ reviewer: "string" });
-    expect(judgeCommands.precheck?.summary).toContain(
-      "principles-review counts only from the reviewers it names",
+    expect(judgeCommands.precheck?.summary).toBe(
+      "read a PR's verdict: its declared pattern and every gate's result",
+    );
+    expect(judgeCommands.precheck?.help?.flags["reviewer"]).toContain(
+      "it replaces the reviewerLogins of .claude/harness.json",
     );
   });
 });

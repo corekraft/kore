@@ -7,7 +7,7 @@ import {
   metricsOf,
   type DueReport,
 } from "../retro/index.js";
-import type { Command, CommandContext } from "../runtime/index.js";
+import type { Command, CommandContext, CommandHelp } from "../runtime/index.js";
 import { loadCost } from "./flow-commands.js";
 import { openLedger } from "./ledger-commands.js";
 
@@ -59,9 +59,51 @@ function describeDue(report: DueReport): string {
   return `Retro due: ${why} (${progress}). Run /retro, then \`harness retro record --reason ${reason}\`.\n`;
 }
 
+const dueHelp: CommandHelp = {
+  purpose:
+    "Says whether a retro is due, and why: the closed ideas since the last retro reached five, or a trailing metric worsened on an idea closed since then. A reason already recorded in the window is not due again.",
+  when: "Before a session runs a retro, or when a brief asks whether one is due.",
+  whenNot:
+    "To log that a retro ran: use retro record. To read the flow figures the answer is drawn from: use flow report.",
+  flags: {
+    ledger:
+      "A ledger file to read, relative to the working directory; by default the shared ledger in the main checkout.",
+  },
+  examples: [
+    {
+      command: "harness retro due",
+      shows:
+        "whether a retro is due, the reason if so, and the closed ideas counted since the last retro",
+    },
+    {
+      command: "harness retro due --json",
+      shows:
+        "the same answer as one object: due, closedIdeas, threshold and lastRetrospective, with reason and metric when a retro is due, and alreadyTriggered when a reason is already recorded in the window",
+    },
+  ],
+  exits: [
+    {
+      code: 0,
+      meaning: "the answer is printed, whether a retro is due or not",
+    },
+    {
+      code: 1,
+      meaning:
+        "the ledger cannot be opened or the harness config is invalid; the message names the fix",
+    },
+  ],
+  effects: {
+    kind: "read-only",
+    detail:
+      "reads the ledger, the plans and the harness config; writes nothing",
+  },
+  seeAlso: ["retro record", "flow report"],
+};
+
 const due: Command = {
+  help: dueHelp,
   summary:
-    "read-only; say whether a retro is due from the ledger and the Last retrospective marker: reason count at the fifth idea closed since the last retro, or metric naming a trailing metric that worsened on an idea closed since; a reason already recorded in the window is not due again; starts no retro and writes nothing ([--json: due, reason, metric, closedIdeas, threshold, alreadyTriggered, lastRetrospective] [--ledger])",
+    "say whether a retro is due, from the ledger and the Last retrospective marker; writes nothing",
   options: { ledger: "string" },
   async run(context) {
     const made = await retroFor(context);
@@ -86,9 +128,58 @@ const due: Command = {
   },
 };
 
+const recordHelp: CommandHelp = {
+  purpose:
+    "Logs that a retro ran for a reason: appends a retro-triggered event to the ledger, once per reason in a window, and moves the Last retrospective marker in the harness plan to now, so the next window opens there.",
+  when: "Right after a retro has run for a reason that retro due named: count, or a metric that worsened.",
+  whenNot:
+    "To ask whether a retro is due: use retro due. The retro itself is run by the /retro skill, never by this command.",
+  flags: {
+    reason:
+      "The trigger: count, manual, or metric:<name> with the metric's name, such as metric:tokensPerIdea.",
+    ledger:
+      "A ledger file to append to, relative to the working directory; by default the shared ledger in the main checkout.",
+  },
+  examples: [
+    {
+      command: "harness retro record --reason count",
+      shows:
+        "the retro logged for the count reason, the time it was recorded, and that the marker moved",
+    },
+    {
+      command: "harness retro record --reason metric:tokensPerIdea --json",
+      shows:
+        "the same record as one object: reason, recordedAt and appended, which is false when the window already held this reason",
+    },
+  ],
+  exits: [
+    {
+      code: 0,
+      meaning:
+        "the marker moved to now; the event was appended unless the window already held this reason",
+    },
+    {
+      code: 1,
+      meaning:
+        "the reason is not count, manual or metric:<name>, the plan file is missing, or the ledger rejects the event; nothing is written when the reason or the plan is at fault",
+    },
+    {
+      code: 2,
+      meaning: "--reason is missing",
+    },
+  ],
+  effects: {
+    kind: "mutates",
+    detail:
+      "appends a retro-triggered event to the ledger unless the window already holds this reason, then rewrites the Last retrospective line in the Retrospective marker section of infra/plans/3-agent-harness.md (adding the section when absent) on every run",
+  },
+  seeAlso: ["retro due", "flow report"],
+};
+
 const record: Command = {
+  help: recordHelp,
   summary:
-    "append a retro-triggered event to the ledger and move the Last retrospective marker to its second, once per reason and window; refuses a malformed reason with nothing written; the retro itself is run by /retro, never by this command (--reason count|manual|metric:<name> [--json: reason, recordedAt, appended] [--ledger])",
+    "log that a retro ran for a reason, and move the Last retrospective marker to now",
   options: { reason: "string", ledger: "string" },
   async run(context) {
     const reason = context.options["reason"];

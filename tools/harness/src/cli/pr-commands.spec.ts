@@ -266,11 +266,11 @@ describe("harness pr open creates nothing a sender line or approval check refuse
 });
 
 describe("harness pr open is declared as a mutating command", () => {
-  it("names its options and --body-file in the usage text", () => {
+  it("documents its options, --body-file and the pr.linked event in its help", () => {
     const open = prCommands["open"];
-    expect(open?.summary).toMatch(/^mutates;/);
-    expect(open?.summary).toContain("--body-file <path>");
-    expect(open?.summary).toContain("pr.linked");
+    expect(open?.help?.effects.kind).toBe("mutates");
+    expect(open?.help?.flags["body-file"]).toContain("--body");
+    expect(open?.help?.effects.detail).toContain("pr.linked");
     expect(Object.keys(open?.options ?? {}).sort()).toEqual([
       "base",
       "body",
@@ -286,11 +286,10 @@ describe("harness pr open is declared as a mutating command", () => {
     ]);
   });
 
-  it("says in the usage text that --idea none writes no Idea line and records none", () => {
+  it("says in its help that --idea none writes no Idea line and records none", () => {
     const open = prCommands["open"];
-    expect(open?.summary).toContain("--idea <number or slug, or none>");
-    expect(open?.summary).toContain(
-      "`--idea none` (or no --idea) writes no `Idea:` line and records `none` on the link",
-    );
+    expect(open?.help?.flags.idea).toContain("by number or slug");
+    expect(open?.help?.flags.idea).toContain("writes no Idea line");
+    expect(open?.help?.flags.idea).toContain("records none on the link");
   });
 });

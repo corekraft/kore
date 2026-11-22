@@ -12,6 +12,7 @@ import { IdeaError, IdeaRepository } from "../idea/index.js";
 import type { Ledger } from "../ledger/index.js";
 import type { Command, CommandContext } from "../runtime/index.js";
 import { openLedger } from "./ledger-commands.js";
+import * as help from "./decision-help.js";
 
 const FAILED = 1;
 const USAGE = 2;
@@ -70,7 +71,7 @@ function announce(routed: Routed): string {
 
 const route: Command = {
   summary:
-    "route a pane's question to the advisor or to the owner and record decision.routed with the route, the category, the idea and the signal (never the question or the action); the owner gets any reserved, matched, unreadable or escalated question, and the advisor only a question whose category and matcher both agree; refused with nothing recorded while the decision-advisor flag is off in the local overlay (--idea <number or slug> --category <name> --question <text> --action <text> [--escalate] [--json] [--ledger])",
+    "route a pane's question to the advisor or the owner and record the route",
   options: {
     idea: "string",
     category: "string",
@@ -79,6 +80,7 @@ const route: Command = {
     escalate: "boolean",
     ledger: "string",
   },
+  help: help.routeHelp,
   async run(context) {
     const { options, deps, json } = context;
     if (text(options, "idea") === "") {
