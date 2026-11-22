@@ -1,4 +1,4 @@
-import type { CommandContext } from "../runtime/index.js";
+import type { CommandContext, CommandHelp } from "../runtime/index.js";
 import { FAILED, fail } from "./output.js";
 import { SessionRegistry } from "./registry.js";
 import { roleTokensOn } from "./role-token.js";
@@ -90,3 +90,41 @@ export async function check(context: CommandContext): Promise<number> {
   }
   return unmanaged.length === 0 ? 0 : FAILED;
 }
+
+export const checkHelp: CommandHelp = {
+  purpose:
+    "Reports each writer or judge pane in Herdr that session spawn did not start, since such a pane runs without its role token and sandbox. It reports nothing when the role-tokens flag is off.",
+  when: "With the role-tokens flag on, to find a writer or judge pane that must be closed and started again with session spawn.",
+  whenNot:
+    "To start a pane, use session spawn. To close a pane this tool spawned, use session close; a pane that spawn did not start is closed with herdr pane close, as the report says. This command changes nothing.",
+  flags: {},
+  examples: [
+    {
+      command: "harness session check",
+      shows:
+        "every writer and judge pane was started by session spawn, or role-tokens is off and no pane was checked; exit 0",
+    },
+    {
+      command: "harness session check --json",
+      shows:
+        "the unmanaged panes as one object with an unmanaged list, empty when there are none",
+    },
+  ],
+  exits: [
+    {
+      code: 0,
+      meaning: "no unmanaged pane was found, or the role-tokens flag is off",
+    },
+    {
+      code: 1,
+      meaning:
+        "a writer or judge pane was not started by session spawn, or herdr could not list its agents",
+    },
+  ],
+  effects: {
+    kind: "read-only",
+    detail:
+      "reads the role-tokens flag, the herdr agent list and the session registry; changes nothing",
+  },
+  seeAlso: ["session spawn", "session close"],
+};

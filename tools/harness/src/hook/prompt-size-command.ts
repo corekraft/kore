@@ -5,7 +5,12 @@
 
 import { join } from "node:path";
 import { HARNESS_CONFIG, parseHarnessConfig } from "../flow/index.js";
-import type { Command, CommandContext, CliDeps } from "../runtime/index.js";
+import type {
+  Command,
+  CommandContext,
+  CommandHelp,
+  CliDeps,
+} from "../runtime/index.js";
 import { promptJsonOf, promptLineOf, promptSizeOf } from "./prompt-size.js";
 import { locateDefault, locateNamed } from "./prompt-size-read.js";
 
@@ -80,9 +85,53 @@ async function promptSizeRun({
   return 0;
 }
 
+const promptSizeHelp: CommandHelp = {
+  purpose:
+    "Prints a session's latest prompt size, read from its transcript, with the compaction cap from the harness config and whether the prompt is over it. It writes nothing and prints no transcript text or path.",
+  when: "When a session's context is growing and you need to know whether its latest prompt is over the compaction cap.",
+  whenNot:
+    "When the session has not yet made a request that carries usage, since no size exists then; run it again after the session makes a request. To read a session's result rather than its size, use session wait.",
+  flags: {},
+  operand:
+    "The Claude session id of a session of this repository, of letters, digits, - and _. Omitted, this checkout's newest session is read and its id is printed.",
+  examples: [
+    {
+      command: "harness session prompt-size",
+      shows:
+        "the newest session of this checkout: its id, prompt, cap and over or not over; or cap not set when the config sets no cap",
+    },
+    {
+      command:
+        "harness session prompt-size 3c9f0e2a-7b1d-4f60-9a1e-2d5b8c7e4f10 --json",
+      shows:
+        "the same fields as one object: session, prompt, cap and over, with cap and over null when no cap is set",
+    },
+  ],
+  exits: [
+    { code: 0, meaning: "the prompt size is printed" },
+    {
+      code: 1,
+      meaning:
+        "the harness config is malformed, this checkout or the named session has no transcript, or no request in it carries usage yet",
+    },
+    {
+      code: 2,
+      meaning:
+        "a usage error: the session id has a character other than a letter, digit, - or _",
+    },
+  ],
+  effects: {
+    kind: "read-only",
+    detail:
+      "reads the harness config and one transcript; writes nothing and prints no transcript text or path",
+  },
+  seeAlso: ["session spawn", "session wait"],
+};
+
 export const promptSizeCommand: Command = {
   summary:
     "print a session's latest prompt size, the compaction cap and over or not over, from its transcript (read-only; no name reads this checkout's newest session and prints its id, a name is a Claude session id of this repository; a missing cap prints not set; --json prints the same fields)",
   operand: "session",
+  help: promptSizeHelp,
   run: promptSizeRun,
 };

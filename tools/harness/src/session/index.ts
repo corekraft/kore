@@ -15,15 +15,15 @@ export { signedMainSendsOn } from "./signed-sends.js";
 export { sessionNameError } from "./names.js";
 export { spawnLoadRefusal } from "./spawn-load.js";
 export { PASSED_FLAGS, namesFlag } from "./exec.js";
-import { check } from "./check.js";
-import { close } from "./close.js";
+import { check, checkHelp } from "./check.js";
+import { close, closeHelp } from "./close.js";
 import { execCommand } from "./exec.js";
-import { equalize } from "./equalize.js";
-import { notify } from "./notify.js";
-import { send } from "./send.js";
-import { spawn } from "./spawn.js";
-import { tier } from "./tier.js";
-import { wait } from "./wait.js";
+import { equalize, equalizeHelp } from "./equalize.js";
+import { notify, notifyHelp } from "./notify.js";
+import { send, sendHelp } from "./send.js";
+import { spawn, spawnHelp } from "./spawn.js";
+import { tier, tierHelp } from "./tier.js";
+import { wait, waitHelp } from "./wait.js";
 
 const spawnCommand: Command = {
   summary:
@@ -43,6 +43,7 @@ const spawnCommand: Command = {
     reason: "string",
     timeout: "string",
   },
+  help: spawnHelp,
   run: spawn,
 };
 
@@ -51,6 +52,7 @@ const waitCommand: Command = {
     "wait for a spawned session's RESULT line and print its outcome; --json adds result.summary, the text the pane printed before that line (<name> --timeout ms)",
   operand: "name",
   options: { timeout: "string" },
+  help: waitHelp,
   run: wait,
 };
 
@@ -59,6 +61,7 @@ const notifyCommand: Command = {
     "tell the caller pane this session finished: sends `sender: <role> <name> (session notify): finished: RESULT <outcome>; summary in pane <this pane>` to <pane> and submits it, then confirms it shows there (<pane> --outcome done|blocked; a spawned session runs it as its last action, from the brief)",
   operand: "pane",
   options: { outcome: "string" },
+  help: notifyHelp,
   run: notify,
 };
 
@@ -67,12 +70,14 @@ const sendCommand: Command = {
     "send a follow-up to a spawned session's pane: writes the sender line first, from this session's spawn environment (`sender: <role> <name> (session send): <message>`, or `the main session` with no role), so the retro scan never counts it as an owner correction; submits it, confirms it shows in the pane, and records a session.send event naming the sender (<name> --message <one line of text>)",
   operand: "name",
   options: { message: "string" },
+  help: sendHelp,
   run: send,
 };
 
 const checkCommand: Command = {
   summary:
     "with the role-tokens flag on, report each writer or judge pane that session spawn did not start, because it runs without its token and sandbox; start it with session spawn instead (read-only, exits 1 when it finds one)",
+  help: checkHelp,
   run: check,
 };
 
@@ -81,6 +86,7 @@ const closeCommand: Command = {
     "close a spawned pane once its result is recorded (<name>; only the pane that spawned it); --remove-worktree also removes its worktree and deletes its branch, only when a merged PR has that branch as its head and the worktree is clean, otherwise it keeps both and exits 1",
   operand: "name",
   options: { "remove-worktree": "boolean" },
+  help: closeHelp,
   run: close,
 };
 
@@ -88,11 +94,13 @@ const tierCommand: Command = {
   summary:
     "print the model and effort a role launches at, from .claude/agents/<role>.md (<role>; read-only)",
   operand: "role",
+  help: tierHelp,
   run: tier,
 };
 
 const equalizeCommand: Command = {
   summary: "equalize the heights of the spawned panes (run after closing one)",
+  help: equalizeHelp,
   async run({ json, deps }) {
     const callerPane = deps.env.HERDR_PANE_ID;
     if (deps.env.HERDR_ENV !== "1" || !callerPane) {
