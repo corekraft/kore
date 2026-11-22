@@ -164,6 +164,20 @@ const retroScanMayRun = (name: string, args: readonly string[]): boolean =>
   args[2] === "retro-scan" &&
   !args.some((arg) => arg === "--ledger" || arg.startsWith("--ledger="));
 
+/** The hc reads a read-only role may run (plan 16, Step 4): none changes a terminal. The judge is given none. */
+export const HC_READS: readonly string[] = ["get", "ls", "read", "wait"];
+
+/** `hc --help` and `hc <read> ...`: an hc read from the list the role is given. Any other hc command, a write included, is refused. */
+const hcMayRun = (
+  name: string,
+  args: readonly string[],
+  reads: readonly string[],
+): boolean =>
+  name === "hc" &&
+  reads.length > 0 &&
+  (reads.includes(args[0] ?? "") ||
+    (args.length === 1 && (args[0] === "--help" || args[0] === "-h")));
+
 /** `harness --help` prints the usage and nothing else: the bundle and that one option. */
 export const harnessHelp = (name: string, args: readonly string[]): boolean =>
   name === "node" &&
@@ -191,6 +205,7 @@ const lookupMayRun = (
 export function readMayRun(
   segment: readonly string[],
   harness: readonly string[],
+  hc: readonly string[] = [],
 ): boolean {
   // A lone NAME=value runs no command; a write on the same line is refused by writes(), not here.
   if (bareAssignment(segment)) {
@@ -218,6 +233,7 @@ export function readMayRun(
   return (
     lookupMayRun(segment, name, args) ||
     harnessAllowed(name, args, harness) ||
+    hcMayRun(name, args, hc) ||
     retroScanMayRun(name, args) ||
     (name === "gh" && ghMayRun(args, true)) ||
     (READ_UTILITIES.has(name) && utilityMayRun(name, args)) ||

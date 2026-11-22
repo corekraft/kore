@@ -3,10 +3,16 @@
 import { homedir } from "node:os";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { environments, FlagError, readOverlay } from "../flag/index.js";
-import type { FileSystem } from "../runtime/index.js";
-import { hostFacts, verifiedBash } from "./guard-host-shell.js";
+import type { CliDeps, FileSystem } from "../runtime/index.js";
+import { sessionIdentity } from "./guard-identity.js";
+import {
+  hostFacts,
+  terminalRoleFacts,
+  verifiedBash,
+} from "./guard-host-shell.js";
 
 vi.mock("node:os", () => ({ homedir: vi.fn(() => "/os/home") }));
+vi.mock("./guard-identity.js");
 vi.mock("../flag/index.js", async (importOriginal) => ({
   ...(await importOriginal<typeof import("../flag/index.js")>()),
   environments: vi.fn(),
@@ -132,4 +138,27 @@ describe("hostFacts", () => {
       expect(readOverlay).not.toHaveBeenCalled();
     },
   );
+});
+
+describe("terminalRoleFacts: the role of the hc terminal this hook runs in", () => {
+  // The one assertion: the unit reads the identity it is handed, and nothing else of the deps.
+  const deps = (parts: object) => parts as CliDeps;
+
+  it("names the role the terminal's identity names", async () => {
+    vi.mocked(sessionIdentity).mockResolvedValue({
+      name: "reader-one",
+      role: "reader",
+      checked: false,
+    });
+
+    expect(await terminalRoleFacts(deps({ env: {} }))).toStrictEqual({
+      role: "reader",
+    });
+  });
+
+  it("names no role when no identity is found", async () => {
+    vi.mocked(sessionIdentity).mockResolvedValue(undefined);
+
+    expect(await terminalRoleFacts(deps({ env: {} }))).toStrictEqual({});
+  });
 });

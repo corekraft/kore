@@ -17,7 +17,11 @@ import {
   findInventory,
   type Inventory,
 } from "../guardrail/index.js";
-import { helpExemptOn, hostFacts } from "./guard-host-shell.js";
+import {
+  helpExemptOn,
+  hostFacts,
+  terminalRoleFacts,
+} from "./guard-host-shell.js";
 import { launchRoot } from "./guard-launch-root.js";
 import { recordEvent } from "./ledger-event.js";
 import type { CliDeps } from "../runtime/index.js";
@@ -83,6 +87,7 @@ export async function guard(
     problem = `\n[guard] Every rule is enforcing because ${error.message}`;
   }
   const verdict = await evaluate(payload, {
+    ...(await terminalRoleFacts(deps)),
     root,
     cwd: callDirectory(call, root),
     // The home a leading ~ expands to, and whether the hook's own environment names bash (the zsh rules skip only then).

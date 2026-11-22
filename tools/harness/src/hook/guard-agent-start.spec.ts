@@ -76,3 +76,63 @@ describe("checkAgentStart", () => {
     expect(block).not.toHaveBeenCalled();
   });
 });
+
+const HC_BLOCKED =
+  'hc run starts a claude session without the role guards, the writer host-lease refusal or the role tokens, which only harness session spawn applies. Instead, launch the session with `harness session spawn --role <role> --name <name> --brief "<brief>"`.';
+
+describe("checkAgentStart: a bare hc launch of claude (plan 16, Step 4)", () => {
+  beforeEach(() => {
+    vi.mocked(block).mockReset();
+    vi.mocked(block).mockReturnValue(BLOCKED);
+  });
+
+  it("blocks an hc run that starts claude, and names harness session spawn as the fix", () => {
+    expect(
+      checkAgentStart("hc", [
+        "run",
+        "--json",
+        "--bg",
+        "--cwd",
+        ".",
+        "--",
+        "claude",
+        "--agent",
+        "reader",
+        "brief",
+      ]),
+    ).toBe(BLOCKED);
+    expect(block).toHaveBeenCalledWith("bare-agent-start", HC_BLOCKED);
+  });
+
+  it("blocks a claude launch behind the harness exec wrapper, too", () => {
+    expect(
+      checkAgentStart("hc", [
+        "run",
+        "--bg",
+        "--name",
+        "x",
+        "--",
+        "harness",
+        "session",
+        "exec",
+        "--role",
+        "reader",
+        "--",
+        "claude",
+      ]),
+    ).toBe(BLOCKED);
+  });
+
+  it("lets hc help and every other hc command through", () => {
+    for (const args of [
+      ["run", "--help"],
+      ["--help"],
+      ["get", "t1"],
+      ["run", "--bg", "--", "ls"],
+      ["read", "t1", "--json"],
+    ]) {
+      expect(checkAgentStart("hc", args)).toBeNull();
+    }
+    expect(block).not.toHaveBeenCalled();
+  });
+});

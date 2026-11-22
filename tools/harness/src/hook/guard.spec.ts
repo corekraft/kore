@@ -12,7 +12,7 @@ import {
 } from "../guardrail/index.js";
 import { asCall, evaluate, type GuardCall } from "./guard-evaluate.js";
 import { guard } from "./guard.js";
-import { hostFacts } from "./guard-host-shell.js";
+import { hostFacts, terminalRoleFacts } from "./guard-host-shell.js";
 import { launchRoot } from "./guard-launch-root.js";
 import { recordEvent } from "./ledger-event.js";
 import { allow, block, type Verdict } from "./guard-verdict.js";
@@ -28,6 +28,7 @@ vi.mock("./guard-evaluate.js", () => ({ asCall: vi.fn(), evaluate: vi.fn() }));
 vi.mock("./guard-host-shell.js", () => ({
   helpExemptOn: vi.fn(),
   hostFacts: vi.fn(),
+  terminalRoleFacts: vi.fn(),
 }));
 vi.mock("./guard-launch-root.js", () => ({ launchRoot: vi.fn() }));
 vi.mock("./ledger-event.js", () => ({ recordEvent: vi.fn() }));
@@ -72,6 +73,7 @@ beforeEach(() => {
   vi.mocked(modeOf).mockReturnValue("enforce");
   vi.mocked(denyRules).mockReturnValue([]);
   vi.mocked(recordEvent).mockResolvedValue(undefined);
+  vi.mocked(terminalRoleFacts).mockResolvedValue({});
   vi.mocked(launchRoot).mockResolvedValue("/repo");
   vi.mocked(hostFacts).mockResolvedValue({
     home: "/home/test",
@@ -305,5 +307,22 @@ describe("guard inventory", () => {
     expect(fs.hasGlobMatch).toHaveBeenLastCalledWith("/work/sub", "*.md");
     await ctx?.globMatches("*.md");
     expect(fs.hasGlobMatch).toHaveBeenLastCalledWith("/work", "*.md");
+  });
+});
+
+describe("guard: the role its session record names", () => {
+  it("hands the evaluator the role an hc terminal's record names", async () => {
+    const { deps } = fakeDeps({
+      CLAUDE_PROJECT_DIR: "/repo",
+      HOME: "/home/test",
+      HC_TERMINAL_ID: "t7",
+    });
+    vi.mocked(terminalRoleFacts).mockResolvedValue({ role: "reader" });
+
+    await guard({}, deps);
+
+    expect(vi.mocked(evaluate).mock.calls[0]?.[1]).toMatchObject({
+      role: "reader",
+    });
   });
 });

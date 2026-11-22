@@ -144,6 +144,23 @@ export class SessionRegistry {
     return parsed;
   }
 
+  /** Every record in the state directory; none when the directory does not exist yet. */
+  async all(): Promise<SessionRecord[]> {
+    if (!(await this.fs.exists(this.dir))) {
+      return [];
+    }
+    const records: SessionRecord[] = [];
+    for (const file of await this.fs.readdir(this.dir)) {
+      if (file.endsWith(".json")) {
+        const record = await this.read(file.slice(0, -".json".length));
+        if (record !== undefined) {
+          records.push(record);
+        }
+      }
+    }
+    return records;
+  }
+
   async write(record: SessionRecord): Promise<void> {
     await this.fs.writeFile(
       this.file(record.name),
