@@ -181,6 +181,25 @@ describe("startPrWatchers: one gh watcher per pull request, a child of the calle
       expect.objectContaining({ name: "pr-watch-6" }),
     );
   });
+
+  it("does not stop a reused watcher that another wait owns, and stops only the one this wait started", async () => {
+    const terminals = terminalsMock();
+    terminals.list.mockResolvedValue([child("t5", "pr-watch-5", "live")]);
+    terminals.run.mockResolvedValue({ id: "t7" });
+    terminals.kill.mockResolvedValue({ id: "t7" });
+
+    expect(
+      await watchOnChildren(
+        { terminals: asTerminals(terminals), self: "t1" },
+        { clock: clockAt().clock, stderr: vi.fn() } as never,
+        PLACE,
+        [5, 6],
+        async () => 0,
+      ),
+    ).toBe(0);
+    expect(terminals.kill).toHaveBeenCalledExactlyOnceWith("t7");
+    expect(terminals.kill).not.toHaveBeenCalledWith("t5");
+  });
 });
 
 describe("startPrWatchers: every name is checked before any watcher starts, and a failed start stops the rest", () => {

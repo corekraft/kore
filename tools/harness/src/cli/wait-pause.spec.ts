@@ -63,19 +63,6 @@ describe("childrenPause: a wait on the caller's children returns on news, and ne
 });
 
 describe("childrenPause: the bound is the most it waits, and failures are not read as news", () => {
-  it("passes the bound when hc's wait times out", async () => {
-    const terminals = terminalsMock();
-    terminals.wait.mockResolvedValue({
-      error: { kind: "timeout", message: "nothing has finished" },
-    });
-
-    expect(await pauseOf(terminals)(900_000)).toBe(true);
-    expect(terminals.wait).toHaveBeenCalledWith(
-      { children: "any", of: "t1" },
-      900_000,
-    );
-  });
-
   it("passes the bound when the only wakes are of children already reported and the rest of the bound has passed", async () => {
     const { clock, advance } = clockAt();
     const terminals = terminalsMock();
@@ -112,6 +99,53 @@ describe("childrenPause: the bound is the most it waits, and failures are not re
     await expect(pauseOf(terminals)(900_000)).rejects.toThrow(
       "hc wait broke (try again)",
     );
+  });
+});
+
+describe("childrenPause: each wait is capped at one checks interval, so a child that finished in the gap is read", () => {
+  it("caps each children wait at one checks interval, and re-reads when it times out before the bound", async () => {
+    const terminals = terminalsMock();
+    terminals.wait.mockResolvedValue({
+      error: { kind: "timeout", message: "nothing has finished" },
+    });
+
+    expect(await pauseOf(terminals)(900_000)).toBe(false);
+    expect(terminals.wait).toHaveBeenCalledWith(
+      { children: "any", of: "t1" },
+      CHECKS_POLL_MS,
+    );
+  });
+
+  it("reads a child that finished in the gap before the next wait within one checks interval, not at the bound", async () => {
+    const { clock, advance } = clockAt();
+    const terminals = terminalsMock();
+    terminals.wait
+      .mockImplementationOnce(async () => {
+        advance(CHECKS_POLL_MS);
+        return { error: { kind: "timeout", message: "nothing has finished" } };
+      })
+      .mockResolvedValueOnce({ finished: [finished("t7", "pr-watch-5")] });
+    const pause = pauseOf(terminals, clock);
+
+    expect(await pause(900_000)).toBe(false);
+    expect(terminals.wait).toHaveBeenNthCalledWith(
+      1,
+      { children: "any", of: "t1" },
+      CHECKS_POLL_MS,
+    );
+    expect(await pause(900_000 - CHECKS_POLL_MS)).toBe(false);
+    expect(terminals.wait).toHaveBeenCalledTimes(2);
+  });
+
+  it("passes the bound when the capped wait times out at the bound", async () => {
+    const { clock, advance } = clockAt();
+    const terminals = terminalsMock();
+    terminals.wait.mockImplementationOnce(async () => {
+      advance(CHECKS_POLL_MS);
+      return { error: { kind: "timeout", message: "nothing has finished" } };
+    });
+
+    expect(await pauseOf(terminals, clock)(CHECKS_POLL_MS)).toBe(true);
   });
 });
 

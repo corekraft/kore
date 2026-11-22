@@ -16,8 +16,11 @@ export function messageOf(error: TerminalError): string {
 }
 
 /**
- * The pause that waits on the caller's children for news: a child that finished and was not reported before. A wake
- * that names only children already reported waits again for the rest of the bound, without a read and without a sleep.
+ * The pause that waits on the caller's children for news: a child that finished and was not reported before. hc reports
+ * only news that arrives while a wait runs, so a child that finished between two reads is never reported by a wait that
+ * starts after it. Each wait is therefore capped at one checks interval: a capped timeout before the bound returns to
+ * re-read the checks, and only the bound ends the wait. This is a bounded wake, not a sleep. A wake that names only
+ * children already reported waits again for the rest of the cap, without a read.
  */
 export function childrenPause(deps: {
   terminals: Terminals;
@@ -34,11 +37,11 @@ export function childrenPause(deps: {
       }
       const waited = await deps.terminals.wait(
         { children: "any", of: deps.self },
-        left,
+        Math.min(left, CHECKS_POLL_MS),
       );
       if ("error" in waited) {
         if (waited.error.kind === "timeout") {
-          return true;
+          return deps.clock.now().getTime() - start >= remainingMs;
         }
         throw new Error(messageOf(waited));
       }
