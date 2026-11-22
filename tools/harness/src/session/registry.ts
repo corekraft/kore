@@ -13,12 +13,32 @@ export interface SessionResult {
   summary?: string;
 }
 
-/** What `session spawn` knows about a pane it created, kept so wait and close can find it. */
+/** The record version this harness writes and reads. A record with no version predates versioning. */
+export const SESSION_RECORD_VERSION = 1;
+
+/** The backends a session can run on. A record with no backend is herdr: every record written before the field. */
+export const BACKENDS = ["herdr", "hc"] as const;
+export type Backend = (typeof BACKENDS)[number];
+
+const isBackend = (value: unknown): value is Backend =>
+  BACKENDS.some((backend) => backend === value);
+
+/** What `session spawn` knows about a session it started, kept so wait and close can find it. */
 export interface SessionRecord {
+  /** Absent on a record written before versioning. The herdr path writes none. */
+  version?: number;
+  /** Absent means herdr. */
+  backend?: Backend;
   name: string;
   paneId: string;
-  /** The pane that spawned it; only that pane may close it. */
-  callerPane: string;
+  /** hc only: the terminal the session runs in (its id, such as `t7`). */
+  terminal?: string;
+  /** Herdr only: the pane that spawned it, and the only pane that may close it. hc records have a parent instead. */
+  callerPane?: string;
+  /** The idea the session works, as the ledger keys it (`#338`). */
+  idea?: string;
+  /** The sequence number of the last report wait consumed. */
+  reportSeq?: number;
   model: string;
   role: string;
   effort: string;
@@ -39,8 +59,11 @@ function isRecord(value: unknown): value is SessionRecord {
   return (
     typeof record.name === "string" &&
     typeof record.paneId === "string" &&
-    typeof record.callerPane === "string" &&
-    typeof record.model === "string"
+    (record.callerPane === undefined ||
+      typeof record.callerPane === "string") &&
+    typeof record.model === "string" &&
+    (record.version === undefined || typeof record.version === "number") &&
+    (record.backend === undefined || isBackend(record.backend))
   );
 }
 
@@ -86,6 +109,14 @@ export class SessionRegistry {
     if (!isRecord(parsed)) {
       throw new CommandError(
         `Session state ${path} is not a valid session record; delete it and spawn the session again.`,
+      );
+    }
+    if (
+      parsed.version !== undefined &&
+      parsed.version > SESSION_RECORD_VERSION
+    ) {
+      throw new CommandError(
+        `Session state ${path} was written by a newer harness (record version ${parsed.version}; this harness reads version ${SESSION_RECORD_VERSION}). Update the harness, then retry.`,
       );
     }
     return parsed;

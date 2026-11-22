@@ -237,3 +237,72 @@ describe("SessionRegistry.create", () => {
     expect(deps.fs.writeFile).not.toHaveBeenCalled();
   });
 });
+const HC_RECORD = {
+  version: 1,
+  backend: "hc",
+  terminal: "t7",
+  name: "image-trust-writer",
+  paneId: "t7",
+  model: "claude-sonnet-5-5",
+  role: "writer",
+  effort: "high",
+  createdAt: "2026-01-02T03:04:05.000Z",
+};
+
+describe("SessionRegistry.read keeps every record version and backend readable", () => {
+  it("reads an hc record that carries no callerPane", async () => {
+    const deps = fakeDeps();
+    deps.fs.exists.mockResolvedValue(true);
+    deps.fs.readFile.mockResolvedValue(JSON.stringify(HC_RECORD));
+
+    const registry = await openWith(deps);
+
+    await expect(registry.read("image-trust-writer")).resolves.toStrictEqual(
+      HC_RECORD,
+    );
+  });
+
+  it("reads a record written before versioning, with no version or backend, unchanged", async () => {
+    const deps = fakeDeps();
+    deps.fs.exists.mockResolvedValue(true);
+    deps.fs.readFile.mockResolvedValue(JSON.stringify(RECORD));
+
+    const registry = await openWith(deps);
+
+    await expect(registry.read("image-trust-writer")).resolves.toStrictEqual(
+      RECORD,
+    );
+  });
+
+  it("refuses a record written by a newer harness, naming both versions and the fix", async () => {
+    const deps = fakeDeps();
+    deps.fs.exists.mockResolvedValue(true);
+    deps.fs.readFile.mockResolvedValue(
+      JSON.stringify({ ...HC_RECORD, version: 2 }),
+    );
+
+    const registry = await openWith(deps);
+
+    await expect(registry.read("image-trust-writer")).rejects.toThrow(
+      new CommandError(
+        `Session state ${FILE} was written by a newer harness (record version 2; this harness reads version 1). Update the harness, then retry.`,
+      ),
+    );
+  });
+
+  it("refuses a backend it does not know, rather than routing the record to herdr", async () => {
+    const deps = fakeDeps();
+    deps.fs.exists.mockResolvedValue(true);
+    deps.fs.readFile.mockResolvedValue(
+      JSON.stringify({ ...HC_RECORD, backend: "tmux" }),
+    );
+
+    const registry = await openWith(deps);
+
+    await expect(registry.read("image-trust-writer")).rejects.toThrow(
+      new CommandError(
+        `Session state ${FILE} is not a valid session record; delete it and spawn the session again.`,
+      ),
+    );
+  });
+});
