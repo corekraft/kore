@@ -208,6 +208,19 @@ describe("runsJudgeTool: the judge's merge, approve or send-back", () => {
     expect(runsJudgeTool(judge("judge", "status", "12"), HARNESS)).toBe(false);
   });
 
+  it.each([
+    ["a root help request for judge merge", ["judge", "merge", "--help"]],
+    ["a short help request with --json", ["judge", "approve", "-h", "--json"]],
+  ])("is false for %s, which runs nothing (#1802)", (_name, args) => {
+    expect(runsJudgeTool(judge(...args), HARNESS)).toBe(false);
+  });
+
+  it("is true for a judge command with an operand before its help flag, which is no help request", () => {
+    expect(
+      runsJudgeTool(judge("judge", "merge", "12", "--help"), HARNESS),
+    ).toBe(true);
+  });
+
   it("is false when the script is not the harness the caller names", () => {
     expect(
       runsJudgeTool(["node", "other.mjs", "judge", "merge"], HARNESS),

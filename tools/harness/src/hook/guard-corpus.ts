@@ -12,6 +12,10 @@ import { READS_ALLOWED, READS_REFUSED } from "./guard-corpus-reads.js";
 import { GLOB_CASES } from "./guard-corpus-glob.js";
 import { HC_ORDINARY, HC_REFUSED } from "./guard-corpus-hc.js";
 import { JUDGMENT_ALLOWED, JUDGMENT_REFUSED } from "./guard-corpus-judgment.js";
+import {
+  HELP_LEVELS_ORDINARY,
+  HELP_NEAR_MISS_REFUSED,
+} from "./guard-corpus-help.js";
 
 export interface CorpusCase {
   /** The role the session runs as, or none for the person's own session. */
@@ -205,6 +209,7 @@ export const CORPUS: readonly CorpusCase[] = [
   ...GUARD_FILES,
   ...GUARD_PATH_VARIANTS,
   ...GATED,
+  ...HELP_NEAR_MISS_REFUSED,
   {
     tool: "Bash",
     input: "herdr agent start w3:p2 --permission-mode bypassPermissions",
@@ -279,6 +284,7 @@ export const ORDINARY: readonly OrdinaryCase[] = [
     "grep -r token ~/Development",
   ),
   ...JUDGMENT_ALLOWED,
+  ...HELP_LEVELS_ORDINARY,
   ...ordinary(
     "reader",
     "grep -rn '.kube/config' docs",

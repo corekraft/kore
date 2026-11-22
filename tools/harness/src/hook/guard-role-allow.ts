@@ -188,12 +188,31 @@ const hcMayRun = (
   (reads.includes(args[0] ?? "") ||
     (args.length === 1 && (args[0] === "--help" || args[0] === "-h")));
 
-/** `harness --help` prints the usage and nothing else: the bundle and that one option. */
-export const harnessHelp = (name: string, args: readonly string[]): boolean =>
-  name === "node" &&
-  args.length === 2 &&
-  HARNESS.test(args[0] ?? "") &&
-  args[1] === "--help";
+const HELP_FLAG = new Set(["--help", "-h"]);
+/** A domain or command word: lowercase, with no option, path or quote. */
+const HELP_WORD = /^[a-z][\w-]*$/;
+
+/**
+ * `harness [<domain> [<command>]] --help|-h [--json]`: the bundle, at most two plain words, then one help flag, and
+ * `--json` only after it. Help reads nothing and writes nothing, so every role may ask for it at each level (#1802).
+ * Any other word after the help flag, or a second flag, is not a help request.
+ */
+export const harnessHelp = (name: string, args: readonly string[]): boolean => {
+  if (name !== "node" || !HARNESS.test(args[0] ?? "")) {
+    return false;
+  }
+  const tail = args.slice(1);
+  const end =
+    tail[tail.length - 1] === "--json" ? tail.length - 1 : tail.length;
+  const words = tail.slice(0, end);
+  const help = words[words.length - 1] ?? "";
+  const plain = words.slice(0, -1);
+  return (
+    HELP_FLAG.has(help) &&
+    plain.length <= 2 &&
+    plain.every((word) => HELP_WORD.test(word))
+  );
+};
 
 /** A read-only git verb, or one of the four git reads of the seven, with no option that writes or runs code. */
 const gitMayRun = (args: readonly string[]): boolean =>
