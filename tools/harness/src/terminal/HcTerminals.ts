@@ -58,6 +58,7 @@ function toTerminal(raw: HcTerminal): Terminal {
     ...(typeof raw.name === "string" ? { name: raw.name } : {}),
     ...(typeof raw.parent === "string" ? { parent: raw.parent } : {}),
     ...(typeof raw.status === "string" ? { status: raw.status as Status } : {}),
+    ...(typeof raw.turn === "number" ? { turn: raw.turn } : {}),
     ...(typeof raw.exit_code === "number" ? { exitCode: raw.exit_code } : {}),
   };
 }

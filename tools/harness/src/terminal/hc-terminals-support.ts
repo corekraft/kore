@@ -56,6 +56,7 @@ export const WRITER_LIVE: Terminal = {
   state: "live",
   labels: { "kore-session": "s1", role: "writer" },
   cwd: RECORDED_CWD,
+  turn: 0,
 };
 
 /** s1 after it exited with 0, labelled model=sonnet, as the recorded get reports it. */
@@ -66,6 +67,7 @@ export const WRITER_FINISHED: Terminal = {
   state: "finished",
   labels: { "kore-session": "s1", role: "writer", model: "sonnet" },
   cwd: RECORDED_CWD,
+  turn: 0,
   exitCode: 0,
 };
 
@@ -77,6 +79,7 @@ export const SIBLING_FINISHED: Terminal = {
   state: "finished",
   labels: { "kore-session": "s2", role: "writer" },
   cwd: RECORDED_CWD,
+  turn: 0,
   exitCode: 2,
 };
 
@@ -88,6 +91,7 @@ export const KILLED_SIBLING: Terminal = {
   state: "finished",
   labels: {},
   cwd: RECORDED_CWD,
+  turn: 0,
 };
 
 /** s4, the child that hc killed when its parent was killed. */
@@ -98,6 +102,7 @@ export const KILLED_CHILD: Terminal = {
   state: "finished",
   labels: {},
   cwd: RECORDED_CWD,
+  turn: 0,
 };
 
 export type Row = [

@@ -5,6 +5,7 @@ export interface HcTerminal {
   parent?: string | null;
   state: "live" | "finished";
   status?: string | null;
+  turn?: number;
   exit_code?: number | null;
   /** The listing leaves labels out; get carries them. Every reply that names a terminal has its cwd. */
   labels?: Record<string, string>;
