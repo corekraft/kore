@@ -54,7 +54,8 @@ vi.mock("./tick-run.js", () => ({
   runTicks: vi.fn(),
 }));
 
-const PUBLIC_NAMES = [
+const EXPORTED = [
+  "AttendedTerminal",
   "BOUND_LABELS",
   "BRANCH_NOTICE_FLAG",
   "BranchLedger",
@@ -96,6 +97,7 @@ const PUBLIC_NAMES = [
   "TickLoop",
   "TickNotifier",
   "TickPlanStore",
+  "TickReconcile",
   "TickSelfUpdate",
   "WAITING_KIND",
   "WaitingLedger",
@@ -110,6 +112,7 @@ const PUBLIC_NAMES = [
   "pieceNameProblem",
   "readerBrief",
   "rebriefBrief",
+  "reconcilingPass",
   "restartJobPath",
   "restartJobPlist",
   "retroBrief",
@@ -118,11 +121,12 @@ const PUBLIC_NAMES = [
   "tickFlagOn",
   "tickHeartbeat",
   "tickSelfUpdateOn",
+  "unsettledOf",
 ];
 
 describe("the orchestrator barrel", () => {
   it("exposes the domain's public names, and no file's internals", () => {
-    expect(Object.keys(barrel).sort()).toEqual(PUBLIC_NAMES);
+    expect(Object.keys(barrel).sort()).toEqual(EXPORTED);
   });
 
   it("re-exports the unit's own class, not a copy", () => {

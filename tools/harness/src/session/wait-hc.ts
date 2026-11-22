@@ -17,7 +17,7 @@ export interface ReportWait {
   seq?: number;
 }
 
-type WaitDeps = Pick<CliDeps, "fs">;
+type WaitDeps = Pick<CliDeps, "fs" | "clock">;
 
 function isBlocked(status: Status | undefined): status is "blocked" | "error" {
   return status === "blocked" || status === "error";
@@ -54,7 +54,11 @@ async function consume(
   record: SessionRecord,
   report: Report,
 ): Promise<ReportWait> {
-  await registry.write({ ...record, reportSeq: report.seq });
+  await registry.write({
+    ...record,
+    reportSeq: report.seq,
+    result: { outcome: report.outcome, summary: report.summary, at: report.at },
+  });
   return {
     name: record.name,
     model: record.model,
@@ -64,9 +68,46 @@ async function consume(
   };
 }
 
+/**
+ * A stop with no report ever consumed is an outcome: blocked, kept as the record's result so the record settles and
+ * close can accept it. A record that already consumed a report keeps the outcome it has.
+ */
+async function settleStopped(
+  deps: WaitDeps,
+  registry: Pick<SessionRegistry, "write">,
+  record: SessionRecord,
+  summary = "stopped without a report",
+): Promise<void> {
+  if (record.result !== undefined || record.reportSeq !== undefined) {
+    return;
+  }
+  await registry.write({
+    ...record,
+    result: {
+      outcome: "blocked",
+      summary,
+      at: deps.clock.now().toISOString(),
+    },
+  });
+}
+
+/** Blocked or error status is an outcome: it settles blocked and is recorded, so close accepts it as it does a stop. */
+async function blockedByStatus(
+  deps: WaitDeps,
+  registry: Pick<SessionRegistry, "write">,
+  record: SessionRecord,
+  status: "blocked" | "error",
+): Promise<ReportWait> {
+  const summary = `reported ${status} and wrote no report`;
+  await settleStopped(deps, registry, record, summary);
+  return blocked(record, summary);
+}
+
 /** After a wait that ran out: blocked when the terminal turned blocked meanwhile, else still working. */
 async function afterTimeout(
+  deps: WaitDeps,
   terminals: Terminals,
+  registry: Pick<SessionRegistry, "write">,
   record: SessionRecord,
   timeoutMs: number,
 ): Promise<ReportWait | { error: string }> {
@@ -77,7 +118,7 @@ async function afterTimeout(
     return failure(name, now);
   }
   if (isBlocked(now.status)) {
-    return blocked(record, `reported ${now.status} and wrote no report`);
+    return await blockedByStatus(deps, registry, record, now.status);
   }
   return {
     error: `Session ${name} is still working: no report and no stop within ${timeoutMs / 1000} seconds. Run session wait ${name} again, or read the terminal with hc read ${terminal}.`,
@@ -112,12 +153,12 @@ export async function waitForReport(
     return consume(registry, record, fresh);
   }
   if (isBlocked(view.status)) {
-    return blocked(record, `reported ${view.status} and wrote no report`);
+    return await blockedByStatus(deps, registry, record, view.status);
   }
   const waited = await terminals.wait({ terminal }, timeoutMs);
   if ("error" in waited) {
     return waited.error.kind === "timeout"
-      ? afterTimeout(terminals, record, timeoutMs)
+      ? afterTimeout(deps, terminals, registry, record, timeoutMs)
       : failure(name, waited);
   }
   const after = await unread(deps, view.cwd, record);
@@ -128,6 +169,7 @@ export async function waitForReport(
   if ("error" in last) {
     return failure(name, last);
   }
+  await settleStopped(deps, registry, record);
   return blocked(
     record,
     last.text === ""

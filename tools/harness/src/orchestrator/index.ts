@@ -40,6 +40,9 @@ export {
   type PassGate,
 } from "./tick-bounds.js";
 export { Tick } from "./tick.js";
+export { AttendedTerminal } from "./tick-attended.js";
+export { TickReconcile, reconcilingPass } from "./tick-reconcile.js";
+export { unsettledOf } from "./tick-unsettled.js";
 export { checkPlan } from "./judgment-plan.js";
 export type { WorkPiece } from "./judgment-check.js";
 export {
