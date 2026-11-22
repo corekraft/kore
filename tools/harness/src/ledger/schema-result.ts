@@ -42,6 +42,9 @@ export const RESULT_RULES = [
     check: (v: unknown) => v === "done" || v === "blocked",
     hint: "must be one of done, blocked",
     kinds: RESULT_KINDS,
+    // hc reports no RESULT line, so a terminal's finish carries no outcome word; herdr's finish always does.
+    omittableWhen: (raw: Record<string, unknown>) =>
+      raw["kind"] === "pane.finished" && raw["source"] === "terminal",
   },
   // A retro scan's main-session figures (#940): its window and five numbers, never command text.
   {
