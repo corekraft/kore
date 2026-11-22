@@ -14,10 +14,12 @@ agents_tools:
   herdr: "0.9.5"
   gh: "2.105.0"
   # The native release binary through aqua, which checks its checksum.
-  claude: "2.1.329"
+  claude: "2.1.330"
   neovim: "0.12.6"
   # The CA tool kore local up uses; the agent's mkcert is installed from this pin.
   mkcert: "1.4.4"
+  # The Pi coding agent CLI (the `pi` command), from npm, pinned exactly.
+  "npm:@earendil-works/pi-coding-agent": "1.6.0"
 
 # herdr-core (hc), the newer herdr without the TUI, from its release tarball
 # checked against the checksum in the release's manifest.json. It lives
