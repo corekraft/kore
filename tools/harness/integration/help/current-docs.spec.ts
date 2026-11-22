@@ -1,7 +1,7 @@
 import { readdirSync, readFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { describe, expect, it } from "vitest";
-import { domains } from "../../src/cli/index.js";
+import { domains, type DomainName } from "../../src/cli/index.js";
 import { harnessMentions } from "../../src/help/index.js";
 
 // The current documents: the skills, the agent definitions and the guides a person reads now. History
@@ -46,18 +46,20 @@ const mentions = documents.flatMap((file) =>
   })),
 );
 
+function isDomainName(name: string): name is DomainName {
+  return Object.hasOwn(domains, name);
+}
+
 /** Why a mention names no command that exists, or undefined when it names one that does. */
 function unknownReason(words: readonly string[]): string | undefined {
   const [domain, command] = words;
   if (domain === undefined) {
     return undefined;
   }
-  const table: Readonly<Record<string, Readonly<Record<string, unknown>>>> =
-    domains;
-  if (!Object.hasOwn(table, domain)) {
+  if (!isDomainName(domain)) {
     return `no domain \`${domain}\``;
   }
-  const commands = table[domain] ?? {};
+  const commands = domains[domain];
   if (command === undefined || Object.hasOwn(commands, command)) {
     return undefined;
   }

@@ -6,11 +6,17 @@ import { findRoot } from "../../src/config/index.js";
 
 // Docs: infra/plans/15-next-horizon.md (Step 7, item 3); parent issue #1116.
 // The sign-in flow in the Kotlin BFF template sits behind the golden-path-signin
-// flag, off in every environment overlay. Its issuer, client id and client
-// secret come from environment variables supplied at run time.
+// flag. It is on in local, the activation recorded for #1747, and off in every
+// other environment overlay. Its issuer, client id and client secret come from
+// environment variables supplied at run time.
 
 const template = "templates/kotlin-bff";
-const environments = ["local", "managed-example", "vps"];
+/** The value golden-path-signin must hold in each environment overlay. */
+const expectedSigninFlag: Record<string, boolean> = {
+  local: true,
+  "managed-example": false,
+  vps: false,
+};
 
 async function read(path: string): Promise<string> {
   return readFile(join(await findRoot(), path), "utf8");
@@ -48,15 +54,15 @@ async function kotlinSources(dir: string): Promise<string[]> {
   return files;
 }
 
-test("golden-path-signin is declared off in every environment overlay", async () => {
-  for (const environment of environments) {
+test("golden-path-signin is declared in every environment overlay, on only in local", async () => {
+  for (const [environment, expected] of Object.entries(expectedSigninFlag)) {
     const overlay: unknown = JSON.parse(
       await read(`infra/environments/${environment}/environment.yaml`),
     );
     assert.equal(
       flagIn(overlay, "golden-path-signin"),
-      false,
-      `${environment} must declare golden-path-signin as false`,
+      expected,
+      `${environment} must declare golden-path-signin as ${expected}`,
     );
   }
 });
