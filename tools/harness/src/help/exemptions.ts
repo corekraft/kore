@@ -24,45 +24,10 @@ export const undocumented: readonly string[] = [
   "idea list",
   "idea show",
   "idea sync",
-  // outcome
-  "outcome record",
-  "outcome close",
   // flag
   "flag activate",
   "flag audit",
   // ruleset
   "ruleset sync",
   "ruleset insights",
-  // judge
-  "judge precheck",
-  "judge declaration",
-  "judge diff",
-  "judge approve",
-  "judge merge",
-  "judge send-back",
-  // review
-  "review post",
-  "review run",
-  "review resample",
-  // pr
-  "pr checks",
-  "pr check",
-  "pr open",
-  // flow
-  "flow report",
-  // queue
-  "queue next",
-  "queue send-backs",
-  "queue escalate",
-  // retro
-  "retro due",
-  "retro record",
-  // evaluate
-  "evaluate",
-  // orchestrate
-  "orchestrate run",
-  "orchestrate tick",
-  "orchestrate plan",
-  // approve
-  "approve",
 ];
