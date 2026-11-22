@@ -52,6 +52,7 @@ export { registryCaPem, registryTlsSecret } from "./registry-tls-fixtures.js";
 export { readyRows } from "./platform-readiness.fixtures.js";
 // The sign-in check and its headless-browser driver (#1115): run by the opt-in live spec, and reusable by the browser token test (#1116).
 export { checkSignIn } from "./signin-check.js";
+export { checkSessionTokens } from "./signin-token-check.js";
 export type {
   SignInAssertion,
   SignInResult,
