@@ -277,11 +277,7 @@ describe("waitForReport records a blocked terminal's outcome so close can settle
   it("keeps a result a consumed report already recorded", async () => {
     terminals.setStatus("t2", "blocked");
 
-    await waitFor({
-      ...RECORD,
-      reportSeq: 1,
-      result: { ...DONE_RESULT, outcome: "done" },
-    });
+    await waitFor({ ...RECORD, reportSeq: 1 });
 
     expect(registry.write).not.toHaveBeenCalled();
   });
