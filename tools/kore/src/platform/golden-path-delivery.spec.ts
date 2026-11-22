@@ -4,6 +4,7 @@ import { beforeEach, expect, test, vi } from "vitest";
 import {
   gatewayClassName,
   helmInstalledComponents,
+  keycloakHostname,
   platformPlan,
 } from "../config/index.js";
 import { composeGoldenPathDelivery } from "./golden-path-delivery.js";
@@ -51,6 +52,7 @@ beforeEach(() => {
     fakeComponent({ name: "kore-golden-path-delivery" }),
   ]);
   vi.mocked(gatewayClassName).mockReturnValue("agentgateway");
+  vi.mocked(keycloakHostname).mockReturnValue("keycloak.kore.internal");
   vi.mocked(platformPlan).mockReturnValue({
     domain: "kore.internal",
     organizationId: "platform",
@@ -257,4 +259,34 @@ test("with platform-organization-service-apis off the values carry serviceRecord
     "template.lock.json",
   );
   expect(composed.goldenPathDelivery?.serviceRecords).toBe(false);
+});
+
+test("with golden-path-signin on the values carry the platform realm's issuer, so each workload's sign-in names it", async () => {
+  const signin = {
+    ...repository,
+    environment: {
+      ...repository.environment,
+      features: { "golden-path-signin": true },
+    },
+  };
+  const { runner } = git();
+  const composed = await composeGoldenPathDelivery(
+    signin,
+    runner,
+    "template.lock.json",
+  );
+  expect(keycloakHostname).toHaveBeenCalledWith(signin.environment);
+  expect(composed.goldenPathDelivery?.signin).toEqual({
+    issuerUri: "https://keycloak.kore.internal/realms/platform",
+  });
+});
+
+test("with golden-path-signin off the values carry no signin key, so the flag-off render is unchanged", async () => {
+  const { runner } = git();
+  const composed = await composeGoldenPathDelivery(
+    repository,
+    runner,
+    "template.lock.json",
+  );
+  expect(composed.goldenPathDelivery).not.toHaveProperty("signin");
 });

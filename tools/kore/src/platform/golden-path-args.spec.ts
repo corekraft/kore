@@ -54,3 +54,28 @@ test("a component other than kore-golden-path-delivery gets no golden-path argum
   );
   expect(args).toEqual([]);
 });
+
+test("with golden-path-signin on, the arguments end with the issuer under signin, so the sync passes it to each workload", () => {
+  const args = goldenPathArgs(
+    {
+      ...fakeRepository(),
+      goldenPathDelivery: {
+        ...golden,
+        signin: { issuerUri: "https://keycloak.kore.internal/realms/platform" },
+      },
+    },
+    goldenComponent,
+  );
+  expect(args.slice(-2)).toEqual([
+    "--set-string",
+    "signin.issuerUri=https://keycloak.kore.internal/realms/platform",
+  ]);
+});
+
+test("with golden-path-signin off, the arguments carry no signin argument, so the flag-off render is unchanged", () => {
+  const args = goldenPathArgs(
+    { ...fakeRepository(), goldenPathDelivery: { ...golden } },
+    goldenComponent,
+  );
+  expect(args.some((arg) => arg.includes("signin"))).toBe(false);
+});

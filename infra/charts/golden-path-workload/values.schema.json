@@ -28,6 +28,15 @@
         }
       }
     },
+    "signin": {
+      "description": "Set by the golden-path ApplicationSet only while golden-path-signin is on (issue 1746). With it on, the BFF gets its sign-in variables and the workload renders its Keycloak client; the redirect URI is the ingress host, so ingress is required.",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "enabled": { "type": "boolean" },
+        "issuerUri": { "type": "string", "minLength": 1 }
+      }
+    },
     "resources": {
       "type": "object",
       "properties": {

@@ -11,6 +11,9 @@
 # no CreateNamespace. The sync still creates nothing else.
 {{- $frontend := index .Values.templateImages "static-frontend" }}
 {{- $bff := index .Values.templateImages "kotlin-bff" }}
+{{- if and .Values.signin (not .Values.ingress) }}
+{{- fail "signin needs ingress: the Keycloak client's redirect URI is the Service's HTTPS host, which the ingress parameters set" }}
+{{- end }}
 apiVersion: argoproj.io/v1alpha1
 kind: ApplicationSet
 metadata:
@@ -64,6 +67,12 @@ spec:
             - name: ingress.sharedGateway.domain
               value: {{ .domain | quote }}
             {{- end }}
+            {{- end }}
+            {{- with .Values.signin }}
+            - name: signin.enabled
+              value: "true"
+            - name: signin.issuerUri
+              value: {{ .issuerUri | quote }}
             {{- end }}
       destination:
         server: https://kubernetes.default.svc

@@ -335,6 +335,8 @@ export interface GoldenPathDeliveryValues {
   autoscaling?: boolean;
   /** True while platform-portal, platform-organization-service-apis and platform-argocd-delivery are all on: the sync also applies the Service records (ADR 0166). */
   serviceRecords?: boolean;
+  /** Set only while golden-path-signin is on: the platform realm's OIDC issuer each Service's workload signs in against (issue 1746). */
+  signin?: { issuerUri: string } | undefined;
 }
 
 export interface Repository {

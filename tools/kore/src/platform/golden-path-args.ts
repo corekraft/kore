@@ -29,5 +29,9 @@ export function goldenPathArgs(
     // Only while platform-portal, platform-organization-service-apis and
     // platform-argocd-delivery are all on, so the flags off pass nothing new.
     ...(golden.serviceRecords ? ["--set", "serviceRecords=true"] : []),
+    // Only while golden-path-signin is on, so the flag off passes nothing new.
+    ...(golden.signin
+      ? ["--set-string", `signin.issuerUri=${golden.signin.issuerUri}`]
+      : []),
   ];
 }

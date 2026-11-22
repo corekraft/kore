@@ -3,6 +3,7 @@ import {
   autoscalingFlag,
   gatewayClassName,
   helmInstalledComponents,
+  keycloakHostname,
   organizationServiceApisFlag,
   platformArgocdDeliveryFlag,
   platformPlan,
@@ -123,6 +124,14 @@ export async function composeGoldenPathDelivery(
         repository.environment.features?.[organizationServiceApisFlag] ===
           true &&
         repository.environment.features?.[platformArgocdDeliveryFlag] === true,
+      // Only while golden-path-signin is on: the platform realm's issuer, which each workload signs in against (issue 1746).
+      ...(repository.environment.features?.["golden-path-signin"] === true
+        ? {
+            signin: {
+              issuerUri: `https://${keycloakHostname(repository.environment)}/realms/platform`,
+            },
+          }
+        : {}),
     },
   };
 }

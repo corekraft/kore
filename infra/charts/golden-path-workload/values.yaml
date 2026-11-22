@@ -13,3 +13,10 @@ autoscaling:
 resources:
   requests:
     cpu: 100m
+
+# Set by the golden-path ApplicationSet only while golden-path-signin is on
+# (issue 1746). Then the BFF gets its sign-in variables, the workload renders one
+# Keycloak client for its Service, and the client secret is read from the
+# connection Secret that client writes. Off, nothing of it renders.
+signin:
+  enabled: false

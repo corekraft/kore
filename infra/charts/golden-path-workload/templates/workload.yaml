@@ -1,5 +1,14 @@
 {{- /* Probe paths: the frontend's /healthz (templates/static-frontend/nginx.conf) and the BFF's actuator health. Both listen on 8080. The startupProbe allows up to 5 minutes (periodSeconds 5 x failureThreshold 60) for a slow JVM start, so liveness cannot restart a container that has not yet started. */}}
 {{- $autoscaling := .Values.autoscaling }}
+{{- $signin := .Values.signin }}
+{{- if $signin.enabled }}
+{{- if not .Values.ingress }}
+{{- fail "signin.enabled needs ingress.host: the Keycloak client's redirect URI is the Service's HTTPS host; the golden-path ApplicationSet sets it from the registration" }}
+{{- end }}
+{{- if not $signin.issuerUri }}
+{{- fail "signin.enabled needs signin.issuerUri, the platform realm's OIDC issuer; kore passes it while golden-path-signin is on" }}
+{{- end }}
+{{- end }}
 {{- if $autoscaling.enabled }}
 {{- if lt (int $autoscaling.minReplicas) 2 }}
 {{- fail "autoscaling.minReplicas must be at least 2 so one pod can be lost or drained without an outage; raise it or set autoscaling.enabled=false" }}
@@ -44,6 +53,20 @@ spec:
           ports:
             - name: http
               containerPort: 8080
+          {{- if and $signin.enabled (eq $name "bff") }}
+          env:
+            - name: GOLDEN_PATH_SIGNIN
+              value: "true"
+            - name: OIDC_ISSUER_URI
+              value: {{ $signin.issuerUri | quote }}
+            - name: OIDC_CLIENT_ID
+              value: {{ printf "golden-path-%s" $.Values.service | quote }}
+            - name: OIDC_CLIENT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: {{ printf "%s-oidc" $.Values.service }}
+                  key: client_secret
+          {{- end }}
           {{- if $autoscaling.enabled }}
           resources:
             requests:
@@ -94,4 +117,33 @@ spec:
         name: cpu
         target: {type: Utilization, averageUtilization: {{ $autoscaling.targetCPUUtilizationPercentage }}}
 {{- end }}
+{{- end }}
+{{- if $signin.enabled }}
+---
+apiVersion: openidclient.keycloak.m.crossplane.io/v1alpha1
+kind: Client
+metadata:
+  name: {{ printf "golden-path-%s" $.Values.service }}
+  labels:
+    app.kubernetes.io/part-of: {{ $.Values.service }}
+spec:
+  providerConfigRef:
+    kind: ClusterProviderConfig
+    name: keycloak
+  forProvider:
+    realmId: platform
+    clientId: {{ printf "golden-path-%s" $.Values.service }}
+    name: {{ printf "%s golden path" $.Values.service | quote }}
+    enabled: true
+    accessType: CONFIDENTIAL
+    standardFlowEnabled: true
+    implicitFlowEnabled: false
+    directAccessGrantsEnabled: false
+    serviceAccountsEnabled: false
+    rootUrl: {{ printf "https://%s" $.Values.ingress.host }}
+    baseUrl: {{ printf "https://%s" $.Values.ingress.host }}
+    validRedirectUris:
+      - {{ printf "https://%s/login/oauth2/code/golden-path" $.Values.ingress.host }}
+  writeConnectionSecretToRef:
+    name: {{ printf "%s-oidc" $.Values.service }}
 {{- end }}
