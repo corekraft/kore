@@ -2,6 +2,7 @@ import { join } from "node:path";
 import { mainRoot } from "../runtime/index.js";
 import type { CliDeps } from "../runtime/index.js";
 import { describeFailure } from "./equalize.js";
+import { SessionRegistry } from "./registry.js";
 
 export interface Worktree {
   path: string;
@@ -19,9 +20,55 @@ export const removeHint = (worktree: Worktree): string =>
 export const closeHint = (worktree: Worktree): string =>
   `Remove its worktree once its branch is merged: ${removeCommands(worktree)}.`;
 
+/** How the tick records a session whose terminal ended with its parent (plan 16, Grilled Decisions 10). */
+const LOST = "lost with its parent";
+
+/** Whether the session's record says it was lost with its parent in this very worktree, on this branch. */
+async function lostHere(
+  deps: CliDeps,
+  name: string,
+  worktree: Worktree,
+): Promise<boolean> {
+  const record = await (await SessionRegistry.open(deps)).read(name);
+  return (
+    record?.result?.outcome === "blocked" &&
+    record.result.summary?.startsWith(LOST) === true &&
+    record.worktree?.path === worktree.path &&
+    record.worktree.branch === worktree.branch
+  );
+}
+
+/**
+ * Decides what to do with a worktree path that already exists: only the one a session was lost in, on the
+ * branch it was recorded on, is reused as it is. Any other path is left alone, never recreated or reset.
+ * Returns why it cannot be reused, or undefined when it can.
+ */
+async function reuse(
+  deps: CliDeps,
+  name: string,
+  worktree: Worktree,
+): Promise<string | undefined> {
+  if (!(await lostHere(deps, name, worktree))) {
+    return `${worktree.path} already exists and is not the worktree of a session recorded lost with its parent, so it was not reused, recreated or reset. No pane was split. Pick another session name, or remove it yourself once nothing there is needed.`;
+  }
+  const head = await deps.runner.run(
+    "git",
+    ["rev-parse", "--abbrev-ref", "HEAD"],
+    { cwd: worktree.path },
+  );
+  if (head.code !== 0) {
+    return `Cannot read the branch of the existing worktree ${worktree.path}: ${describeFailure(head)}. It was not reused. No pane was split.`;
+  }
+  const on = head.stdout.trim();
+  return on === worktree.branch
+    ? undefined
+    : `The existing worktree ${worktree.path} is on ${on}, not ${worktree.branch}, so it was not reused or reset. No pane was split. Check out ${worktree.branch} there, or pass --branch ${on}.`;
+}
+
 /**
  * Creates a worktree on a new branch under the main checkout's
- * .claude/worktrees/<name> and installs the CLI's dependencies in it, so a
+ * .claude/worktrees/<name> (or reuses the one a session of that name was lost
+ * with its parent in, on the same branch) and installs the CLI's dependencies in it, so a
  * parallel writer's builds and edits never collide with the caller's. The
  * path lives under the main checkout, but the branch starts from the HEAD of
  * the caller's own directory.
@@ -39,12 +86,19 @@ async function create(
     };
   }
   const worktree = { path: join(main, ".claude", "worktrees", name), branch };
-  const add = await deps.runner.run(
-    "git",
-    ["worktree", "add", "-b", branch, worktree.path, "HEAD"],
-    { cwd: deps.cwd },
-  );
-  if (add.code !== 0) {
+  const existing = await deps.fs.exists(worktree.path);
+  const refusal = existing ? await reuse(deps, name, worktree) : undefined;
+  if (refusal !== undefined) {
+    return { error: refusal };
+  }
+  const add = existing
+    ? undefined
+    : await deps.runner.run(
+        "git",
+        ["worktree", "add", "-b", branch, worktree.path, "HEAD"],
+        { cwd: deps.cwd },
+      );
+  if (add !== undefined && add.code !== 0) {
     return {
       error: `git worktree add failed: ${describeFailure(add)}. No pane was split. A previous spawn may have left the worktree or branch: run ${removeCommands(worktree)}, or pass --branch <other>.`,
     };

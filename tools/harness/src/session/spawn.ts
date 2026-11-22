@@ -77,7 +77,7 @@ export const spawnHelp: CommandHelp = {
     "no-wait":
       "Returns once the session is started and recorded, without waiting for its RESULT line; collect the result later with session wait.",
     worktree:
-      "Runs the session in a new git worktree under .claude/worktrees, on a new branch, after its dependencies are installed and the harness bundle is built there. A writer must have it.",
+      "Runs the session in a git worktree under .claude/worktrees, on a new branch, after its dependencies are installed and the harness bundle is built there. A writer must have it. When that path already exists and the session's record says it was lost with its parent, on the same branch, that worktree is reused as it is; any other existing path is refused and left untouched.",
     branch:
       "The name of the new branch the worktree is created on; it defaults to the session's name. Valid only with --worktree.",
     idea: "The idea the session serves, as an issue number such as 338 or #338, stamped into the pane's environment for the ledger. A writer's spawn with one also records each label of that issue as a session.labelled event; a failed lookup records none. Refused with --no-idea.",
