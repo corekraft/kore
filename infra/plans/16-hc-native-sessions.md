@@ -177,7 +177,7 @@ dropping.
       downloads "the latest release" from a source it does not print, and
       `--version X.Y.Z` is a floor, not an exact pin, so the pin is the exact
       `hc --version` check below plus a host-setup note (`hc update --version
-    X.Y.Z` as the floor, `hc update --from <file>` for an exact binary or
+  X.Y.Z` as the floor, `hc update --from <file>` for an exact binary or
       signed app). Say in the pin record that mise cannot pin the macOS bundle.
       Compatibility evidence follows the pin-upgrade skill. Both hosts run
       0.1.21 today. `HcTerminals` compares `hc --version` exactly once per
@@ -233,9 +233,9 @@ of `hc wait` (`hc --skill`), so the report is a file and the send is only a
 notice (Grilled Decisions 1).
 
 - [ ] `harness session report --outcome done|blocked (--summary <text> |
-  --file <path>)` writes `.kore/report/<session>.json` (`seq`, `outcome`,
+--file <path>)` writes `.kore/report/<session>.json` (`seq`, `outcome`,
       `summary`, `at`), then runs `hc send <parent> "<name> <outcome> seq <n>:
-  <path>"`, in that order, so a notice never names a missing file. The
+<path>"`, in that order, so a notice never names a missing file. The
       parent comes from `hc get "$HC_TERMINAL_ID"` (`.parent`). The file lives
       under the `cwd` the terminal was launched with (`hc get`, `.cwd`): the
       worktree for a writer, the main checkout for a reader or judge. Every
@@ -278,7 +278,7 @@ One PR per tool, each test-first against `FakeTerminals`:
       `callerPane` is deleted from the record.
 - [ ] No brief names a terminal address. `session/brief.ts` stops naming
       `callerPane` and the notify command; a brief says "run `harness session
-    report`", and for a pair "run `harness session send <peer name>`", the
+  report`", and for a pair "run `harness session send <peer name>`", the
       peer's session name being a name and not an address. The RESULT spec
       also fails a shipped brief that contains `t\d+`, `kore-agents/t\d+` or
       `wN:pN`. `judge/review-run.ts` stops printing a pane id and passing it
@@ -585,6 +585,10 @@ update` names no source and its `--version` is a floor. Settle it with the
   only. The review also checks it against the workflows, settings hooks and
   mise tasks, and against whether it backs an approved but not yet activated
   mechanism (for example `guardrail activate` and `queue escalate`).
+
+## Next
+
+**Step 1 to 4 (2026-11-22).** Open PRs, none merged: #1808 (sandbox idea 0078), #1810 (the two ADRs), #1811 (hc pin and `hc-sessions` flag), #1812 (`session exec`), #1813 (Terminals port). First: the owner approves #1808, #1810 and #1811 (branch protection needs an approving review); the secret scan fails #1812 on a JWT fixture in origin/browser-token-test-1116 and needs an allowlist or fix there; #1813 must register `terminal/` in `.oxlintrc.json` and the domain list (as #1814 did for `help/`). Then the next tickets under #1765 unblock. Step 5 waits for the recorded outcomes of ideas 0009, 0010, 0012, 0019, 0020, 0021 and 0023 (due 2026-11-30). Full state: #1765.
 
 ## Done When
 
