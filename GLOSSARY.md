@@ -349,6 +349,17 @@ _Avoid_: Shipped, delivered idea
 An idea whose issue has closed, which is its outcome. The flow report names a
 bottleneck only once enough ideas have completed.
 
+## Harness commands
+
+**Help guide**:
+The `--help` output of the `harness` command, in three layers: the root guide
+(`harness --help`), a domain guide (`harness <domain> --help`) and a command
+guide (`harness <domain> <command> --help`). The root and domain guides are
+declared in the help domain. Each command guide and its flags come from the
+command's help record, kept beside the command, so a flag cannot drift from its
+description.
+_Avoid_: Usage text, man page
+
 ## Testing
 
 **Unit**:

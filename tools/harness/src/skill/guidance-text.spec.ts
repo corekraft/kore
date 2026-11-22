@@ -113,6 +113,51 @@ describe("the test-driven-development skill", () => {
   });
 });
 
+describe("the add-command skill", () => {
+  const skill = read("skills/add-command/SKILL.md");
+  const helpStep =
+    skill.split("\n").find((line) => line.includes("Declare its help")) ?? "";
+
+  it("covers harness commands as well as kore commands in its description", () => {
+    const description =
+      skill.split("\n").find((line) => line.startsWith("description:")) ?? "";
+    expect(description).toContain("tools/kore");
+    expect(description).toContain("tools/harness");
+  });
+
+  it("tells a contributor to declare the help record of a harness command, pointing at harness <domain> --help", () => {
+    expect(helpStep).toContain("Declare its help");
+    expect(helpStep).toContain("`help` record");
+    expect(helpStep).toContain("`harness <domain> --help`");
+  });
+
+  it("names the registry spec that fails a harness command with no help", () => {
+    expect(helpStep).toContain("integration/help/command-registry.spec.ts");
+  });
+
+  it("says a new command is never added to the exemption list", () => {
+    expect(skill).toContain(
+      "A new command is never added to `help/exemptions.ts`",
+    );
+  });
+});
+
+describe("the glossary", () => {
+  const glossary = read("GLOSSARY.md");
+  const entry =
+    glossary
+      .split("\n\n")
+      .find((block) => block.startsWith("**Help guide**:")) ?? "";
+
+  it("defines Help guide with its three layers, root, domain and command, and the help record", () => {
+    expect(entry).not.toBe("");
+    expect(entry).toContain("root");
+    expect(entry).toContain("domain");
+    expect(entry).toContain("command");
+    expect(entry).toContain("help record");
+  });
+});
+
 describe("the judge definition", () => {
   const judge = read(".claude/agents/judge.md");
 
