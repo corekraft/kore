@@ -131,6 +131,12 @@ export const hook: Record<string, Command> = {
   ...testHooks,
   "workflow-permissions": workflowPermissions,
 };
+// The session hint lines the context hook prints (#1803); the help check reads their help pointers.
+export {
+  MAIN_SESSION_WAIT_LINE,
+  RESULT_SUMMARY_LINE,
+  SIGNED_SEND_LINE,
+} from "./context.js";
 export { lastRetrospective, markerInstant } from "./retro-scan.js";
 // The guard replay: the calls a rule's change allows, judged by each ref's own built guard.
 export {

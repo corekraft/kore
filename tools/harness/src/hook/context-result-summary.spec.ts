@@ -1,4 +1,4 @@
-// The context hook's one line for the main session, naming `session wait --json`
+// The context hook's one line for the main session, naming `harness session wait`
 // as the place a finished pane's result summary is read (ADR 0123). It shows only
 // while pane-result-summary is on, never in a role pane's brief, and a flag that
 // cannot be read becomes a warning in its place.
@@ -37,7 +37,7 @@ vi.mock("./retro-scan.js", async (importOriginal) => {
 });
 
 const LINE =
-  "A finished pane's result is in `session wait <name> --json`, as result.summary: read it there, not with `herdr agent read`.";
+  "A finished pane's result summary is read with `harness session wait <name>`, not `herdr agent read`; see `harness session wait --help` for how to print it.";
 const SESSION = { source: "startup", session_id: "s1" };
 
 beforeEach(() => {
@@ -46,7 +46,7 @@ beforeEach(() => {
 });
 
 describe("context brief line for the main session", () => {
-  it("names session wait --json and result.summary when pane-result-summary is on", async () => {
+  it("names harness session wait and its help when pane-result-summary is on", async () => {
     expect(
       await brief(
         SESSION,

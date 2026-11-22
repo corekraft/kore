@@ -34,7 +34,7 @@ vi.mock("./retro-scan.js", async (importOriginal) => {
 });
 
 const LINE =
-  "Wait for CI or a pane's RESULT with `harness wait --pr <n> --session <name>`, run in the background, not with sleep, until or seq loops: it returns when the first settles.";
+  "Wait for CI or a pane's RESULT with `harness harness wait` in the background, not with sleep, until or seq loops: it returns when the first settles; see `harness harness wait --help` for its flags.";
 const SESSION = { source: "startup", session_id: "s1" };
 
 beforeEach(() => {
