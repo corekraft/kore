@@ -343,6 +343,7 @@ decisions; read one only when planning that area, and expect it to change.
 - [`docs/ideas/0074-the-sign-in-and-refused-request-check-passes-live-in-local.md`](ideas/0074-the-sign-in-and-refused-request-check-passes-live-in-local.md) — The sign-in and refused-request check passes live in local
 - [`docs/ideas/0075-a-service-alert-reaches-the-platform-contact-point-live-in-l.md`](ideas/0075-a-service-alert-reaches-the-platform-contact-point-live-in-l.md) — A service alert reaches the platform contact point live in local
 - [`docs/ideas/0076-the-golden-path-bff-scales-out-and-back-and-keeps-its-p95-li.md`](ideas/0076-the-golden-path-bff-scales-out-and-back-and-keeps-its-p95-li.md) — The golden-path BFF scales out and back and keeps its p95 live in local
+- [`docs/ideas/0077-the-delivery-stage-timer-times-a-service-through-six-stages.md`](ideas/0077-the-delivery-stage-timer-times-a-service-through-six-stages.md) — The delivery-stage timer times a Service through six stages live in local
 
 ## Operations and Guides
 
