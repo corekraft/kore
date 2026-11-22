@@ -24,6 +24,16 @@ export const PASSED_FLAGS = [
   "--settings",
 ] as const;
 
+/**
+ * The environment switch that turns Code Mode off. A 0 in the launched process's environment is an
+ * off that claude reports before it reads the user settings' env block, which sets the switch to 1.
+ */
+export const CODE_MODE_SWITCH = "CLAUDE_CODE_EXPERIMENTAL_CODE_MODE";
+/** The value that turns Code Mode off, so the role's session runs the Bash tool the role guard reads. */
+const CODE_MODE_OFF = "0";
+/** The oldest claude session exec has checked turns Code Mode off with CODE_MODE_SWITCH=0 (2.1.330 on kore-agents). */
+const MIN_CLAUDE = [2, 1, 330] as const;
+
 /** roleToken's messages end with the pane wording; a terminal has no pane to split. */
 const PANE_SUFFIX = / No pane was split\.$/;
 
@@ -67,7 +77,40 @@ function bundleRefusal(bundleUrl: string, main: string): string | undefined {
     : `session exec refuses to run from the bundle at ${checkout}, which is not the main checkout ${main}. ${BUNDLE_HINT}\n`;
 }
 
-/** Why claude cannot be started, or undefined when `claude --help` names every flag the wrapper passes. */
+/** claude's version parts from `claude --version`'s first line, or undefined when it prints none. */
+export function claudeVersion(output: string): readonly number[] | undefined {
+  const match = /^(\d+)\.(\d+)\.(\d+)\b/.exec(output.trim());
+  return match === null ? undefined : match.slice(1).map(Number);
+}
+
+/** Whether a version is at least the floor, comparing each part as a number, so 2.1.1000 is above 2.1.330. */
+function atLeast(
+  version: readonly number[],
+  floor: readonly number[],
+): boolean {
+  const gap = floor
+    .map((part, index) => (version[index] ?? 0) - part)
+    .find((difference) => difference !== 0);
+  return gap === undefined || gap > 0;
+}
+
+/** Why this claude cannot turn Code Mode off, or undefined when its version reaches the minimum that can. */
+async function versionRefusal(
+  deps: CliDeps,
+  env: Record<string, string>,
+): Promise<string | undefined> {
+  const probe = await deps.runner.run("claude", ["--version"], { env });
+  const version = probe.code === 0 ? claudeVersion(probe.stdout) : undefined;
+  const floor = MIN_CLAUDE.join(".");
+  if (version === undefined) {
+    return `session exec cannot read claude's version, so it cannot check that claude turns Code Mode off with ${CODE_MODE_SWITCH}=0. Install claude ${floor} or later, then rerun.\n`;
+  }
+  return atLeast(version, MIN_CLAUDE)
+    ? undefined
+    : `The installed claude is ${version.join(".")}, but session exec turns Code Mode off with ${CODE_MODE_SWITCH}=0, which needs claude ${floor} or later. Upgrade claude, then rerun.\n`;
+}
+
+/** Why claude cannot be started, or undefined when `claude --help` names every flag the wrapper passes and its version can turn Code Mode off. */
 async function claudeRefusal(
   deps: CliDeps,
   env: Record<string, string>,
@@ -77,9 +120,10 @@ async function claudeRefusal(
     return "Could not run `claude --help`, so session exec cannot check claude's flags. Install claude, then rerun.\n";
   }
   const missing = PASSED_FLAGS.filter((flag) => !namesFlag(help.stdout, flag));
-  return missing.length === 0
-    ? undefined
-    : `The installed claude lacks ${missing.join(", ")}, which session exec passes. Upgrade claude, then rerun.\n`;
+  if (missing.length > 0) {
+    return `The installed claude lacks ${missing.join(", ")}, which session exec passes. Upgrade claude, then rerun.\n`;
+  }
+  return versionRefusal(deps, env);
 }
 
 /** The role's token outcome: ok with its token (none for a role with no identity), or a refusal to print. */
@@ -117,7 +161,7 @@ async function tokenFor(
 
 /**
  * Starts claude as one role's session, in place of the wrapper: refuses unless the
- * bundle is the main checkout's own and claude names every flag it passes, gets the
+ * bundle is the main checkout's own and claude names every flag it passes and is at least 2.1.330, gets the
  * role's token from the main checkout's identity store, and runs claude with only that
  * token and the main bundle added to the scrubbed environment. Returns claude's exit code.
  */
@@ -172,6 +216,7 @@ export async function launchClaude(
     {
       env: {
         ...env,
+        [CODE_MODE_SWITCH]: CODE_MODE_OFF,
         KORE_HARNESS_BUNDLE: join(main, "skills", "bin", "harness.mjs"),
         ...(token.token === undefined ? {} : { GH_TOKEN: token.token }),
       },
@@ -189,12 +234,12 @@ const USAGE =
 
 export const execCommand: Command = {
   summary:
-    "start one role's claude session as the wrapper for an hc terminal (`session exec --role <role> --model <model> --effort <effort> <brief>`): run from the main checkout's bundle only, it reads the role's agent definition from the main checkout as --agents, checks that `claude --help` names every flag it passes, mints the role's token from the identity store with any inherited GitHub token and herdr variable scrubbed, and runs claude in place with the fixed argv and the brief as its first prompt",
+    "start one role's claude session as the wrapper for an hc terminal (`session exec --role <role> --model <model> --effort <effort> <brief>`): run from the main checkout's bundle only, it reads the role's agent definition from the main checkout as --agents, checks that `claude --help` names every flag it passes and that claude is at least 2.1.330, mints the role's token from the identity store with any inherited GitHub token and herdr variable scrubbed, and runs claude in place with Code Mode off, the fixed argv and the brief as its first prompt",
   operand: "brief",
   options: { role: "string", model: "string", effort: "string" },
   help: {
     purpose:
-      "Starts one role's claude session as the wrapper for an hc terminal. It reads the role's agent definition from the main checkout's .claude/agents/<role>.md and passes it as --agents, since --setting-sources user loads no project agent; a role with no definition, or one with no description, is refused. It checks that the installed claude names every flag the wrapper passes, mints the role's GitHub token from the main checkout's identity store with any inherited GitHub token and herdr variable scrubbed, and runs claude with the fixed argv and the brief as its first prompt.",
+      "Starts one role's claude session as the wrapper for an hc terminal. It reads the role's agent definition from the main checkout's .claude/agents/<role>.md and passes it as --agents, since --setting-sources user loads no project agent; a role with no definition, or one with no description, is refused. It checks that the installed claude names every flag the wrapper passes and is at least 2.1.330, the oldest that turns Code Mode off with CLAUDE_CODE_EXPERIMENTAL_CODE_MODE=0, and mints the role's GitHub token from the main checkout's identity store with any inherited GitHub token and herdr variable scrubbed, and runs claude with Code Mode off (CLAUDE_CODE_EXPERIMENTAL_CODE_MODE=0), the fixed argv and the brief as its first prompt.",
     when: "When an hc terminal starts a role's session and needs the command that launches it, run from the main checkout's skills/bin/harness.mjs by absolute path.",
     whenNot:
       "When starting a role's session in a herdr pane from the main session: run session spawn, which starts the pane and records the launch. To read the model and effort a role launches at, run session tier.",
@@ -230,7 +275,7 @@ export const execCommand: Command = {
       {
         code: 1,
         meaning:
-          "refused before claude started: a flag or the brief is missing, the bundle is not the main checkout's, claude is absent or lacks a flag the wrapper passes, or the role's token could not be minted; stderr names the fix",
+          "refused before claude started: a flag or the brief is missing, the bundle is not the main checkout's, claude is absent, lacks a flag the wrapper passes, is older than 2.1.330 or reports no version, or the role's token could not be minted; stderr names the fix",
       },
     ],
     effects: {

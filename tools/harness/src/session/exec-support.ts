@@ -94,6 +94,8 @@ export const ARGV = [
   "/repo/.claude/settings.json",
   "Fix the bug.\nThen report.",
 ];
+/** What `claude --version` prints for the claude the wrapper's minimum names. */
+export const VERSION = "2.1.330 (Claude Code)\n";
 /** claude --help as the installed claude prints it, with every flag the wrapper passes. */
 export const HELP = [
   "  --agent <agent>  Agent for the session",
@@ -109,6 +111,7 @@ export const SCRUBBED = { HOME, HC_TERMINAL_ID: "t7" };
 
 export interface Replies {
   help?: RunResult;
+  version?: RunResult;
   claude?: RunResult;
   sops?: RunResult;
   curl?: RunResult;
@@ -139,15 +142,22 @@ export function flags(features: Record<string, boolean>): void {
   });
 }
 
+/** claude's answer to one call: the --help and --version probes, or the replies' claude result for a run. */
+function claudeAnswer(args: readonly string[], replies: Replies): RunResult {
+  if (args[0] === "--help") {
+    return replies.help ?? { stdout: HELP, stderr: "", code: 0 };
+  }
+  if (args[0] === "--version") {
+    return replies.version ?? { stdout: VERSION, stderr: "", code: 0 };
+  }
+  return replies.claude ?? { stdout: "", stderr: "", code: 0 };
+}
+
 /** Answers each command from the spec's replies: claude, sops (from the store items), curl and gh. */
 export function answer(deps: FakeDeps, replies: Replies = {}): void {
   deps.runner.run.mockImplementation((command, args) => {
     if (command === "claude") {
-      return Promise.resolve(
-        args[0] === "--help"
-          ? (replies.help ?? { stdout: HELP, stderr: "", code: 0 })
-          : (replies.claude ?? { stdout: "", stderr: "", code: 0 }),
-      );
+      return Promise.resolve(claudeAnswer(args, replies));
     }
     if (command === "curl") {
       return Promise.resolve(
@@ -186,10 +196,11 @@ export function answer(deps: FakeDeps, replies: Replies = {}): void {
 export const from = (deps: FakeDeps, bundleUrl?: string): CliDeps =>
   bundleUrl === undefined ? deps : { ...deps, bundleUrl };
 
-/** The claude runs recorded, not the --help probe. */
+/** The claude runs recorded, not the --help and --version probes. */
 export function claudeRuns(deps: FakeDeps): unknown[][] {
   return deps.runner.run.mock.calls.filter(
-    ([command, args]) => command === "claude" && args[0] !== "--help",
+    ([command, args]) =>
+      command === "claude" && args[0] !== "--help" && args[0] !== "--version",
   );
 }
 
