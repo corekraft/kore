@@ -15,10 +15,21 @@ vi.mock("./main-session.js");
 
 const WINDOW: [number, number] = [0, 1000];
 const ASOF = 500;
-const EVENTS = [{ id: "all" }] as unknown as LedgerEvent[];
-const NAMED = [{ id: "named" }] as unknown as LedgerEvent[];
-const HERDR_VIEW = [{ id: "herdr" }] as unknown as LedgerEvent[];
-const TERMINAL_VIEW = [{ id: "terminal" }] as unknown as LedgerEvent[];
+/** A pane event with the id given; the mocks tell event lists apart by identity, not content. */
+function ev(id: string): LedgerEvent {
+  return {
+    schema: 1,
+    id,
+    source: "herdr",
+    kind: "pane.finished",
+    occurredAt: new Date(0).toISOString(),
+    recordedAt: new Date(0).toISOString(),
+  };
+}
+const EVENTS: LedgerEvent[] = [ev("all")];
+const NAMED: LedgerEvent[] = [ev("named")];
+const HERDR_VIEW: LedgerEvent[] = [ev("herdr")];
+const TERMINAL_VIEW: LedgerEvent[] = [ev("terminal")];
 const BYIDEA = new Map<string, LedgerEvent[]>();
 const HERDR_IDEAS = new Map<string, LedgerEvent[]>([["#1", []]]);
 const TERMINAL_IDEAS = new Map<string, LedgerEvent[]>([["#2", []]]);

@@ -20,8 +20,12 @@ const insufficient = (reason: string): Insufficient => ({
 
 /** The reason a terminal source's pane figures are not read: the scan counts herdr reads only (#1782). */
 const TERMINAL_READS_REASON = "the retro scan counts herdr pane reads only";
-/** The reason the signed share is not read once a terminal source is in the ledger: the scan's sends do not split (#1782). */
-const SENDS_SPLIT_REASON = "the retro scan does not split its sends by source";
+/** The reason the terminal signed share is not read: the scan counts no raw terminal sends (#1782). */
+const TERMINAL_SENDS_REASON =
+  "the retro scan counts no raw terminal sends, so no terminal share is read";
+/** The reason the herdr signed share is not read when the ledger holds more terminal sends than the scan counted (#1782). */
+const SIGNED_SHORT_REASON =
+  "the ledger holds more terminal sends than the scan counted as signed";
 
 /** The main session's handover count (#1036), read beside its three figures. */
 export { handoverCount, type HandoverCount } from "./handover-count.js";
@@ -162,7 +166,19 @@ export function mainSessionFigures(
     scans.reduce((total, scan) => total + pick(scan), 0);
   const pollMinutes = sum((scan) => scan.pollMinutes);
   const reads = sum((scan) => scan.paneReads);
-  const signed = sum((scan) => scan.signedSends);
+  // The scan counts every `harness session send`, on herdr or a terminal. The main session's terminal
+  // sends in the same windows are taken out, so the herdr share reads its own sends (#1782).
+  const terminalSends = countIn(
+    events.filter(
+      (e) =>
+        e.source === "terminal" &&
+        e.kind === "session.send" &&
+        e.senderRole === undefined,
+    ),
+    "session.send",
+    spans,
+  );
+  const signed = sum((scan) => scan.signedSends) - terminalSends;
   const raw = sum((scan) => scan.rawSends);
   if (gate !== undefined) {
     return {
@@ -184,18 +200,14 @@ export function mainSessionFigures(
       finished,
       perFinished: round(reads / finished),
     },
-    signedSendShare: signedShare(signed, raw, split.terminal),
+    signedSendShare: signedShare(signed, raw),
   };
 }
 
-/** The signed share, or why it is not read: a terminal source's sends do not split, and no send is no share. */
-function signedShare(
-  signed: number,
-  raw: number,
-  terminal: boolean,
-): ShareFigure {
-  if (terminal) {
-    return insufficient(SENDS_SPLIT_REASON);
+/** The signed share, or why it is not read: a negative herdr count means the scan missed terminal sends, and no send is no share. */
+function signedShare(signed: number, raw: number): ShareFigure {
+  if (signed < 0) {
+    return insufficient(SIGNED_SHORT_REASON);
   }
   if (signed + raw === 0) {
     return insufficient("no pane sends in the window");
@@ -205,7 +217,7 @@ function signedShare(
 
 /**
  * The terminal source's reading of the main session's pane figures (#1782): the scan
- * counts herdr reads and sends only, so neither is read for a terminal pane.
+ * counts herdr reads and raw sends only, so neither is read for a terminal pane.
  */
 export function terminalMainSession(): Pick<
   MainSessionFigures,
@@ -216,6 +228,6 @@ export function terminalMainSession(): Pick<
       status: "insufficient",
       reason: TERMINAL_READS_REASON,
     },
-    signedSendShare: { status: "insufficient", reason: SENDS_SPLIT_REASON },
+    signedSendShare: { status: "insufficient", reason: TERMINAL_SENDS_REASON },
   };
 }

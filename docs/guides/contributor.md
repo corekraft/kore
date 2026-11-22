@@ -345,10 +345,12 @@ no terminal event names. A ledger with no `source: "terminal"` event reads as he
 is `null`. Once one is present, `terminal` holds the same readings over the terminal source (`finishDetection`,
 `stalledPanes`, `leadTime` and `mainSession`), and the text prints each figure once per source, labelled
 and never blended. A pane or session is read as terminal when the ledger records a terminal event on it; an
-idea reads under the source of its first pane or session event. The retro scan counts herdr pane reads and
-does not split its sends by source, so `mainSession.paneReadsPerFinishedPane` reads the herdr source only,
-and `mainSession.signedSendShare` is insufficient once a terminal source is present; the terminal reading of
-both is insufficient with its reason. Merged-change figures, tokens and the other figures are not split. A
+idea reads under the source of its first pane or session event. The retro scan counts herdr pane reads and raw sends, and every `harness session send` on either
+backend, with no source on the event. So `mainSession.paneReadsPerFinishedPane` reads the herdr source only, and
+`mainSession.signedSendShare` takes out of the scan's signed count the main session's terminal sends (a send with no
+sender role) in the same windows, so the herdr share reads as it did; when the ledger holds more terminal sends
+than the scan counted, it is `insufficient`. The terminal reading of both is `insufficient`: the scan counts no
+terminal reads and no raw terminal sends, and the ledger records no terminal read. Merged-change figures, tokens and the other figures are not split. A
 terminal's finish is noticed almost at once and its stall is a blocked or error event, so compare each source
 with its own history. The `terminal` key is not a hypothesis metric until an idea names one. Report version 41
 added `terminal`.

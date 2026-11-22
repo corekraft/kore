@@ -6,6 +6,7 @@ type Figures = Pick<
   FlowReport,
   "finishDetection" | "stalledPanes" | "terminal"
 >;
+type Terminal = NonNullable<FlowReport["terminal"]>;
 
 const noFinish = {
   windowSeconds: 300,
@@ -66,7 +67,7 @@ describe("flow report text: finish detection and silent sessions (#1090)", () =>
 
 describe("flow report text: finish lines per source (#1782)", () => {
   it("prints each figure once per source when a terminal event is in the ledger, with the watch's wording and the source's meaning stated", () => {
-    const herdr = {
+    const herdr: Pick<FlowReport, "finishDetection" | "stalledPanes"> = {
       finishDetection: {
         ...noFinish,
         results: 3,
@@ -79,7 +80,7 @@ describe("flow report text: finish lines per source (#1782)", () => {
       },
       stalledPanes: { ...noStall, recorded: 1 },
     };
-    const terminal = {
+    const terminal: Terminal = {
       finishDetection: {
         ...noFinish,
         results: 1,
@@ -88,9 +89,19 @@ describe("flow report text: finish lines per source (#1782)", () => {
         lagMinutes: { samples: 1, median: 0.5, p90: 0.5 },
       },
       stalledPanes: { ...noStall, recorded: 2, silentSessions: 1 },
-      mainSession: null,
+      leadTime: { ideas: [], medianSeconds: null, maxSeconds: null },
+      mainSession: {
+        paneReadsPerFinishedPane: {
+          status: "insufficient",
+          reason: "the retro scan counts herdr pane reads only",
+        },
+        signedSendShare: {
+          status: "insufficient",
+          reason: "the retro scan counts no raw terminal sends",
+        },
+      },
     };
-    expect(finishLines({ ...herdr, terminal } as unknown as Figures)).toEqual([
+    expect(finishLines({ ...herdr, terminal })).toEqual([
       "Finish detection and stalls read per ledger source: a terminal's finish is noticed almost at once and its stall is a blocked or error event, so compare each source with its own history.",
       "Finish detection (herdr): 1 of 3 results noticed (a pane.finished recorded by session wait on the result's pane within the 300s placeholder window); never noticed 1, late 1",
       "Finish lag in minutes, detected and late (herdr): median 10.25, p90 20, over 2 finishes. Not a merge delay.",
