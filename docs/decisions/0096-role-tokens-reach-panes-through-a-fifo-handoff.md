@@ -1,5 +1,6 @@
 ---
-status: accepted
+status: superseded
+superseded-by: docs/decisions/0179-a-session-s-token-is-made-inside-its-launch-wrapper-from-the-identity-store.md
 summary: Refines ADR 0095: session spawn gives writer and judge panes their GitHub token through a 0600 FIFO, since herdr offers no argv-free environment; the orchestrator gets none.
 date: 2026-11-12
 last-verified: 2026-11-12

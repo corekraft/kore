@@ -13,6 +13,8 @@ Refines: the model table in `skills/spawn-session/SKILL.md` and the Herdr
 session pattern recorded in
 [`infra/plans/6-agent-primitives.md` § Results](../../infra/plans/6-agent-primitives.md#results).
 
+> Refined by [ADR 0178](0178-agent-sessions-follow-hc-s-model-behind-a-terminals-port.md): the herdr pane mechanics in this decision are replaced by hc terminals behind one Terminals port. The role table, the one-command launch and the guards stand.
+
 ## Context
 
 One long, interrupted session spends tokens rereading context and loses track

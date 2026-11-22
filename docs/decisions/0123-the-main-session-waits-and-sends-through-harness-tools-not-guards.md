@@ -19,6 +19,8 @@ tagged agent message, which is not approval (ADR 0120), so its acceptance needed
 comment, which came on 2026-11-18. It contradicts no accepted
 sentence of ADR 0091, 0101, 0119, 0120 or 0121.
 
+> Refined by [ADR 0178](0178-agent-sessions-follow-hc-s-model-behind-a-terminals-port.md): the wait becomes `hc wait`, and a child's result is its report file, not a scraped RESULT line. The rest of this decision stands until the switch.
+
 ## Context
 
 Over 15 and 16 November the main session spent about 490 minutes in 669
