@@ -252,26 +252,26 @@ export class FakeTerminals implements Terminals {
 
   /** Prints text to a terminal's output, as its program would. */
   emit(id: string, text: string): void {
-    this.#require(id).output += text;
+    this.#existing(id).output += text;
   }
 
   /** Ends a terminal's program with an exit code, as the program exiting would. */
   finish(id: string, exitCode: number): void {
-    this.#require(id);
+    this.#existing(id);
     this.#end(id, exitCode);
   }
 
   /** Sets the status a terminal reports. */
   setStatus(id: string, status: Status): void {
-    this.#require(id).status = status;
+    this.#existing(id).status = status;
   }
 
   /** The texts sent to a terminal, in order. */
   sent(id: string): string[] {
-    return [...this.#require(id).sent];
+    return [...this.#existing(id).sent];
   }
 
-  #require(id: string): Model {
+  #existing(id: string): Model {
     const model = this.#models.get(id);
     if (model === undefined) {
       throw new Error(`no terminal ${id}`);
