@@ -57,6 +57,7 @@ interface Resource {
   status?: {
     operationState?: { finishedAt?: unknown };
     conditions?: unknown;
+    parents?: { conditions?: unknown[] }[];
   };
   items?: unknown;
 }
@@ -140,19 +141,11 @@ export class DeliveryStageTimer {
     service: string,
     namespace: string,
   ): Promise<number> {
+    const selector = `app.kubernetes.io/part-of=${service}`;
     const pods = await this.read<Resource>(
       "admission",
       `the pods of ${service}`,
-      [
-        "-n",
-        namespace,
-        "get",
-        "pods",
-        "-l",
-        `app.kubernetes.io/part-of=${service}`,
-        "-o",
-        "json",
-      ],
+      ["-n", namespace, "get", "pods", "-l", selector, "-o", "json"],
     );
     return this.earliest(
       "admission",
@@ -161,17 +154,44 @@ export class DeliveryStageTimer {
     );
   }
 
-  /** The Ready=True transition of the Service's certificate. */
+  /**
+   * The certificate stage's end. A Service on the shared Gateway has no
+   * certificate of its own: its end is the shared HTTPRoute's Accepted=True
+   * transition. A Service with no shared route (a host outside the platform
+   * domain) ends at its own Certificate's Ready=True transition. The platform
+   * wildcard Certificate is never read: it predates every merge.
+   */
   private async certificateEnd(
     service: string,
     namespace: string,
   ): Promise<number> {
+    const route = `${service}-shared`;
+    const shared = await this.present<Resource>(
+      "certificate",
+      `the HTTPRoute ${route}`,
+      ["-n", namespace, "get", "httproute", route, "-o", "json"],
+    );
+    if (shared !== undefined) {
+      const parents = shared.status?.parents ?? [];
+      return this.condition(
+        "certificate",
+        `HTTPRoute ${route}`,
+        parents.flatMap((parent) => parent.conditions ?? []),
+        "Accepted",
+        "lastTransitionTime",
+      );
+    }
     const certificate = `${service}-tls`;
-    const cert = await this.read<Resource>(
+    const cert = await this.present<Resource>(
       "certificate",
       `the certificate ${certificate}`,
       ["-n", namespace, "get", "certificate", certificate, "-o", "json"],
     );
+    if (cert === undefined) {
+      throw new Error(
+        `delivery stage "certificate" has no time source: neither the HTTPRoute ${route} nor the Certificate ${certificate} exists in ${namespace}; check that the Service's route or certificate is applied`,
+      );
+    }
     return this.condition(
       "certificate",
       `Certificate ${certificate}`,
@@ -179,6 +199,22 @@ export class DeliveryStageTimer {
       "Ready",
       "lastTransitionTime",
     );
+  }
+
+  /** A source that may be absent: kubectl's NotFound is undefined; any other failed read still fails. */
+  private async present<T>(
+    stage: DeliveryStage,
+    subject: string,
+    args: string[],
+  ): Promise<T | undefined> {
+    try {
+      return await this.read<T>(stage, subject, args);
+    } catch (error) {
+      if (error instanceof Error && /\(NotFound\)/.test(error.message)) {
+        return undefined;
+      }
+      throw error;
+    }
   }
 
   /**
@@ -189,47 +225,28 @@ export class DeliveryStageTimer {
     service: string,
     namespace: string,
   ): Promise<{ rolledOut: number; available: number }> {
+    const selector = `app.kubernetes.io/part-of=${service}`;
     const deployments = await this.read<Resource>(
       "rollout",
       `the deployments of ${service}`,
-      [
-        "-n",
-        namespace,
-        "get",
-        "deployments",
-        "-l",
-        `app.kubernetes.io/part-of=${service}`,
-        "-o",
-        "json",
-      ],
+      ["-n", namespace, "get", "deployments", "-l", selector, "-o", "json"],
     );
-    const rolledOut = this.latest(
-      "rollout",
-      `deployments of ${service} Progressing lastUpdateTime`,
-      deployments.items,
-      (conditions) =>
-        this.condition(
-          "rollout",
-          `a deployment of ${service}`,
-          conditions,
-          "Progressing",
-          "lastUpdateTime",
-        ),
-    );
-    const available = this.latest(
-      "readiness",
-      `deployments of ${service} Available lastTransitionTime`,
-      deployments.items,
-      (conditions) =>
-        this.condition(
-          "readiness",
-          `a deployment of ${service}`,
-          conditions,
-          "Available",
-          "lastTransitionTime",
-        ),
-    );
-    return { rolledOut, available };
+    return {
+      rolledOut: this.latestCondition(
+        "rollout",
+        service,
+        deployments.items,
+        "Progressing",
+        "lastUpdateTime",
+      ),
+      available: this.latestCondition(
+        "readiness",
+        service,
+        deployments.items,
+        "Available",
+        "lastTransitionTime",
+      ),
+    };
   }
 
   /** Runs one read-only kubectl get; a failed read names the stage and what it was reading. */
@@ -282,19 +299,31 @@ export class DeliveryStageTimer {
     );
   }
 
-  private latest(
+  /** The latest transition of the named condition across the Service's deployments. */
+  private latestCondition(
     stage: DeliveryStage,
-    what: string,
+    service: string,
     items: unknown,
-    pick: (conditions: unknown) => number,
+    type: string,
+    field: string,
   ): number {
     const list = Array.isArray(items) ? (items as Resource[]) : [];
     if (list.length === 0) {
       throw new Error(
-        `delivery stage "${stage}" has no time source: ${what} has no items`,
+        `delivery stage "${stage}" has no time source: deployments of ${service} ${type} ${field} has no items`,
       );
     }
-    return Math.max(...list.map((item) => pick(item.status?.conditions)));
+    return Math.max(
+      ...list.map((item) =>
+        this.condition(
+          stage,
+          `a deployment of ${service}`,
+          item.status?.conditions,
+          type,
+          field,
+        ),
+      ),
+    );
   }
 
   /** The time of the named condition's transition, when its status is True. */
