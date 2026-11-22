@@ -7,7 +7,7 @@
 // Plan: infra/plans/8-harness-measurement.md#step-3-stage-event-ledger
 
 import { fileURLToPath } from "node:url";
-import type { CliDeps } from "../runtime/index.js";
+import type { CliDeps, CommandHelp } from "../runtime/index.js";
 import { recordCompaction } from "./compaction.js";
 import { hookCommand } from "./io.js";
 import { recordEvent } from "./ledger-event.js";
@@ -70,6 +70,45 @@ async function endedAskingOwner(
   }
 }
 
+const recordHelp: CommandHelp = {
+  purpose:
+    "Appends one stage-ledger event for the session the host reports: session.start for a startup, clear or resume, session.compacted for a compaction, and owner.asked when the agent asks its owner a question. It prints nothing.",
+  when: "The host runs the session-start mode on SessionStart, as .claude/settings.json wires it. The turn-end mode (Stop) and the owner-asked mode (PreToolUse on AskUserQuestion) are not wired in this repository's settings; the host's own settings run them.",
+  whenNot:
+    "To append an event yourself, use harness ledger record, which validates it first; to read events back, use harness ledger list.",
+  flags: {
+    strict: "A fault exits 1 instead of failing open with 0.",
+  },
+  operand:
+    "The mode: session-start, turn-end or owner-asked. Any other value, or none, records nothing and exits 0.",
+  examples: [
+    {
+      command: "harness hook record session-start",
+      shows:
+        "session.start recorded for a startup, clear or resume on stdin, and the GitHub and herdr polls started in the background",
+    },
+    {
+      command: "harness hook record turn-end",
+      shows:
+        "owner.asked recorded when the transcript's final message asks the owner, and nothing otherwise",
+    },
+  ],
+  exits: [
+    {
+      code: 0,
+      meaning:
+        "the event is recorded, or there is nothing to record; a fault fails open with exit 0 and names itself on stderr",
+    },
+    { code: 1, meaning: "a fault, under --strict" },
+  ],
+  effects: {
+    kind: "mutates",
+    detail:
+      "appends stage-ledger events. session-start on a startup, clear or resume records session.start and starts ledger poll-github and ledger poll-herdr detached, so they run in the background; on a compaction it records one session.compacted. turn-end records owner.asked only when the final message asks the owner; owner-asked records it for AskUserQuestion",
+  },
+  seeAlso: ["ledger record", "ledger list", "hook context"],
+};
+
 export const record = hookCommand(
   "record",
   "record a ledger event for the session; modes: session-start (SessionStart, no matcher; a startup, clear or resume start records session.start and starts ledger poll-github and ledger poll-herdr in the background; a compact start records one session.compacted reading, the compaction's number, once per compaction), turn-end (Stop; records owner.asked when the final message asks the owner), owner-asked (PreToolUse on AskUserQuestion; records owner.asked)",
@@ -105,5 +144,5 @@ export const record = hookCommand(
     }
     return {};
   },
-  { operand: "mode" },
+  { operand: "mode", help: recordHelp },
 );

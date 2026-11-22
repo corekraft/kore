@@ -7,7 +7,7 @@
 // person's own.
 
 import { activePlans, nextStep, openCounts, readPlans } from "../plan/index.js";
-import type { CliDeps } from "../runtime/index.js";
+import type { CliDeps, CommandHelp } from "../runtime/index.js";
 import { hookCommand } from "./io.js";
 
 const AMBER_AT = 40;
@@ -101,6 +101,38 @@ function projectOf(input: StatusInput, deps: CliDeps): string {
 /** Marker for plans that exist but cannot be read; Claude Code may hide stderr for a status line. */
 const UNREADABLE = "plans?";
 
+const statuslineHelp: CommandHelp = {
+  purpose:
+    "Prints one status line from the host's status-line JSON: the context window's percent in use, the active plan's name, its Next: step and its open item count. What it cannot read is left out, and a plan that cannot be read prints plans? instead.",
+  when: "The host runs it as the status line when a person opts in from their user settings. It is not in this repository's settings, because a project status line would replace each person's own.",
+  whenNot:
+    "To read the active plan with its full text, use harness plan active.",
+  flags: {
+    strict: "A fault exits 1 instead of failing open with 0.",
+  },
+  examples: [
+    {
+      command: "harness hook statusline",
+      shows:
+        "one line with the context percent, the active plan's name, its Next: step and its open count; nothing when there is nothing to show",
+    },
+  ],
+  exits: [
+    {
+      code: 0,
+      meaning:
+        "the line is printed, or nothing when there is nothing to show; a fault fails open with 0 unless --strict",
+    },
+    { code: 1, meaning: "a fault under --strict" },
+  ],
+  effects: {
+    kind: "read-only",
+    detail:
+      "reads the active plans under infra/plans in the project named by CLAUDE_PROJECT_DIR, else the host's workspace, else its working directory; writes nothing",
+  },
+  seeAlso: ["plan active", "status"],
+};
+
 export const statusline = hookCommand(
   "statusline",
   "print one status line from the host's JSON: context use, the active plan, its Next: step and open items",
@@ -128,4 +160,5 @@ export const statusline = hookCommand(
     }
     return line === "" ? {} : { stdout: `${line}\n` };
   },
+  { help: statuslineHelp },
 );

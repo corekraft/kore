@@ -3,7 +3,11 @@
 // Docs: infra/plans/5-self-maintenance.md#step-2-deterministic-retrospective-scan
 
 import { homedir } from "node:os";
-import { CommandError, type CliDeps } from "../runtime/index.js";
+import {
+  CommandError,
+  type CliDeps,
+  type CommandHelp,
+} from "../runtime/index.js";
 import {
   GuardrailError,
   auditRuleNames,
@@ -120,6 +124,56 @@ async function report(
   return { stdout: `${JSON.stringify(body, null, 2)}\n`, stderr };
 }
 
+const retroScanHelp: CommandHelp = {
+  purpose:
+    "Scans the session transcripts and prints a JSON report: guard blocks and warnings per rule, failed tools, skills loaded, repeated corrections, unused skills and agents, bare pane sends, and a ready command for each finding. It runs none of those commands; the retro skill reads the report and decides.",
+  when: "The retro skill runs it first, with --strict, to count the sessions since the plan's Last retrospective date or since --since, before it proposes any change.",
+  whenNot:
+    "To count one repository's ledger events over a window, use harness flow report; to act on a finding, run the command the report names, such as harness guardrail request.",
+  flags: {
+    dir: "Reads the transcripts in this folder instead of the Claude project folders of the repository and its worktrees. A scan of another folder records no ledger event.",
+    since:
+      "The first day or instant to count: YYYY-MM-DD for local midnight, or YYYY-MM-DDTHH:MM:SSZ for that UTC instant. Any other value exits 2.",
+    evidence:
+      "Adds guardEvidence and overriddenEvidence: the session, line and excerpt of each guard block and each overridden audit warning, capped per rule.",
+    strict: "A fault exits 1 instead of failing open with 0.",
+  },
+  examples: [
+    {
+      command: "harness hook retro-scan --since 2026-11-01",
+      shows:
+        "the JSON counts for the sessions active from 1 November, with a proposal for each finding",
+    },
+    {
+      command: "harness hook retro-scan --since 2026-11-01 --evidence",
+      shows:
+        "the same report, with the session and line of each guard block and override",
+    },
+  ],
+  exits: [
+    {
+      code: 0,
+      meaning:
+        "the JSON report is printed, with a note on stderr when, for example, the skills directory is missing; or a fault with no report, which exits 0 and names itself on stderr unless --strict",
+    },
+    {
+      code: 1,
+      meaning: "a fault under --strict, such as an invalid guardrail inventory",
+    },
+    {
+      code: 2,
+      meaning:
+        "a usage problem: an invalid --since, no transcripts found, transcripts that cannot be read, or a Last retrospective date that cannot be read; stderr names the fix",
+    },
+  ],
+  effects: {
+    kind: "mutates",
+    detail:
+      "reads the transcripts and the ledger. A scan of the repository's own transcripts appends one retro.main-session ledger event to the main checkout's ledger, and only when the main-session-figures flag is on in the local overlay; a refused event fails the scan",
+  },
+  seeAlso: ["retro due", "retro record", "guardrail request"],
+};
+
 export const retroScan = hookCommand(
   "retro-scan",
   "count guard blocks, failures, skills and repeated corrections over session transcripts (retro skill input)",
@@ -138,5 +192,6 @@ export const retroScan = hookCommand(
   {
     flags: { dir: "string", since: "string", evidence: "boolean" },
     payload: false,
+    help: retroScanHelp,
   },
 );
