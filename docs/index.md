@@ -347,6 +347,7 @@ decisions; read one only when planning that area, and expect it to change.
 - [`docs/ideas/0076-the-golden-path-bff-scales-out-and-back-and-keeps-its-p95-li.md`](ideas/0076-the-golden-path-bff-scales-out-and-back-and-keeps-its-p95-li.md) — The golden-path BFF scales out and back and keeps its p95 live in local
 - [`docs/ideas/0077-the-delivery-stage-timer-times-a-service-through-six-stages.md`](ideas/0077-the-delivery-stage-timer-times-a-service-through-six-stages.md) — The delivery-stage timer times a Service through six stages live in local
 - [`docs/ideas/0078-writer-sandbox-denies-the-hc-socket-and-credentials.md`](ideas/0078-writer-sandbox-denies-the-hc-socket-and-credentials.md) — The writer sandbox denies the hc socket and credentials once it is wired into spawn
+- [`docs/ideas/0079-the-browser-token-check-passes-live-no-token-reaches-the-pag.md`](ideas/0079-the-browser-token-check-passes-live-no-token-reaches-the-pag.md) — The browser token check passes live: no token reaches the page and the session cookie is locked down
 
 ## Operations and Guides
 
