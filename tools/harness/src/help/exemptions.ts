@@ -24,9 +24,6 @@ export const undocumented: readonly string[] = [
   "idea list",
   "idea show",
   "idea sync",
-  // outcome
-  "outcome record",
-  "outcome close",
   // decision
   "decision make",
   "decision route",
@@ -45,11 +42,4 @@ export const undocumented: readonly string[] = [
   "ledger list",
   "ledger poll-herdr",
   "ledger poll-github",
-  // flow
-  "flow report",
-  // retro
-  "retro due",
-  "retro record",
-  // evaluate
-  "evaluate",
 ];
