@@ -1,6 +1,7 @@
 import type { SendBackCategory } from "../ledger/index.js";
 import type { QueueItem } from "../queue/index.js";
 import type { Runner } from "../runtime/index.js";
+import type { BriefBackend } from "./judgment-briefs.js";
 import type { RetroPane, RetroReport } from "./retro-launch.js";
 import type {
   Delivery,
@@ -21,6 +22,7 @@ export class HarnessCli implements Harness {
   constructor(
     protected readonly runner: Runner,
     private readonly root: string,
+    private readonly sessionBackend: BriefBackend = "herdr",
   ) {}
 
   async queue(): Promise<QueueItem[]> {
@@ -213,11 +215,19 @@ export class HarnessCli implements Harness {
     );
   }
 
-  /** `session wait`, then the pane's unwrapped text, which holds the proposals a retro pane printed. */
+  /** `session wait`, then the retro's proposals: on hc the summary its report carried, on herdr the pane's unwrapped text. */
   async collect(name: string): Promise<{ outcome: string; text: string }> {
     const waited = this.json(
       await this.harness("session", "wait", name, "--json"),
-    ) as { outcome: string; paneId: string };
+    ) as { outcome: string; paneId: string; summary?: string };
+    if (this.sessionBackend === "hc") {
+      if (waited.summary === undefined) {
+        throw new HarnessCliError(
+          `The retro session ${name} settled without a report, so its proposals are not read. Rerun the retro; its last action must be \`harness session report\`.`,
+        );
+      }
+      return { outcome: waited.outcome, text: waited.summary };
+    }
     const done = await this.runner.run(
       "herdr",
       ["pane", "read", waited.paneId, "--source", "recent-unwrapped"],

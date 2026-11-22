@@ -81,7 +81,7 @@ const notifyCommand: Command = {
 
 const reportCommand: Command = {
   summary:
-    "record this hc session's outcome: writes .kore/report/<session>.json with the next seq, then sends the parent one notice line (--outcome done|blocked, and exactly one of --summary <text> or --file <path>, a file under .kore/report; --plan <file> stores its text with the report); the last action of a session that session spawn started on hc",
+    "record this hc session's outcome: writes .kore/report/<session>.json with the next seq, then sends the parent one notice line (--outcome done|blocked, and exactly one of --summary <text> (or - for stdin) or --file <path>, a file under .kore/report; --plan <file> (or - for stdin) stores its text with the report); the last action of a session that session spawn started on hc",
   options: {
     outcome: "string",
     summary: "string",

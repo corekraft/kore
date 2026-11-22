@@ -28,13 +28,11 @@ const quoted = (text: string): string =>
     .filter((line) => !/PLAN-JSON|RESULT\s*:/.test(line))
     .join("\n");
 
-/** The hc plan: the object goes to a file that session report carries as the report's plan. */
-const HC_PLAN =
-  'End with one JSON object that is your plan, with exactly one of reads, work or stop. Reads is a list of objects with question and paths; work is a list of objects with role (writer or reader), name, brief, files and after; stop is an object with reason. Write that object to the file .kore/report/<your session name>.plan.json, then run `harness session report --outcome done --summary "plan written" --plan .kore/report/<your session name>.plan.json` as your last action.';
+/** The hc plan: the object goes to session report on its standard input, which stores it as the report's plan. */
+const HC_PLAN = `End with one JSON object that is your plan, with exactly one of reads, work or stop. Reads is a list of objects with question and paths; work is a list of objects with role (writer or reader), name, brief, files and after; stop is an object with reason. Then, as your last action, run \`harness session report --outcome done --summary "plan written" --plan - <<'EOF'\`, with that object on the lines after it, then a line that reads EOF.`;
 
-/** The hc answer: the reader writes it to a file that session report carries as its summary. */
-const HC_ANSWER =
-  "Write your answer to the file .kore/report/<your session name>.md, then run `harness session report --outcome done --file .kore/report/<your session name>.md` as your last action.";
+/** The hc answer: the answer goes to session report on its standard input, which stores it as the report's summary. */
+const HC_ANSWER = `Then, as your last action, run \`harness session report --outcome done --summary - <<'EOF'\`, with your answer on the lines after it, then a line that reads EOF. Use --outcome blocked only when you cannot answer.`;
 
 function contextLines(decision: JudgmentContext): string {
   if (decision.kind === "start") {

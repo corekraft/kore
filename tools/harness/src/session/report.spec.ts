@@ -49,7 +49,7 @@ const REPORT = "/work/writer/.kore/report/image-trust-writer.json";
 const SUMMARY = "/work/writer/.kore/report/summary.md";
 const NOTICE = `image-trust-writer done seq 1: ${REPORT}`;
 const USAGE =
-  "session report --outcome done|blocked (--summary <text> | --file <path>) [--plan <file>]";
+  "session report --outcome done|blocked (--summary <text> | --summary - | --file <path>) [--plan <file> | --plan -]";
 const OUTCOME_MESSAGE = `--outcome must be done or blocked: ${USAGE}.`;
 const ONE_OF_MESSAGE = `Give exactly one of --summary <text> or --file <path>: ${USAGE}.`;
 const DONE = { outcome: "done", summary: "Opened PR #5." };

@@ -122,14 +122,14 @@ describe("RetroLaunch pane", () => {
     expect(RETRO_REASON.length).toBeLessThanOrEqual(100);
   });
 
-  it("briefs an hc pane to finish with a report file, never a RESULT line", async () => {
+  it("briefs an hc pane to finish with its proposals on the stdin of session report, never a RESULT line or a file", async () => {
     const { fake, panes } = ports({ backend: "hc" });
 
     await new RetroLaunch(fake).run();
 
     const brief = panes[0]?.brief ?? "";
     expect(brief).toContain(
-      "then run `harness session report --outcome done --file .kore/report/<your session name>.md` as your last action.",
+      "then, as your last action, run `harness session report --outcome done --summary - <<'EOF'` with your proposals on the lines after it, then a line that reads EOF.",
     );
     expect(brief).not.toMatch(/RESULT/);
   });

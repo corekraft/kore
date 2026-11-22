@@ -49,7 +49,7 @@ export function reviewerBrief(
 ): string {
   const finish =
     backend === "hc"
-      ? "Then write those lines to the file .kore/report/<your session name>.md and run `harness session report --outcome done --file .kore/report/<your session name>.md` as your last action, or with --outcome blocked when you cannot review."
+      ? "Then, as your last action, run `harness session report --outcome done --summary - <<'EOF'`, with your verdict lines on the lines after it, then a line that reads EOF; or use --outcome blocked when you cannot review."
       : "Then end with the word RESULT, a colon, then done or blocked.";
   return (
     `Review PR #${pr} at head ${short(head)} against AGENTS.md as your definition says, ` +

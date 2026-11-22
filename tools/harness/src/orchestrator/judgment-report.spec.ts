@@ -17,6 +17,12 @@ describe("readPlanFromReport", () => {
     });
   });
 
+  it("reads a plan piped in on stdin, which keeps the trailing newline a heredoc adds", () => {
+    const stored = `${JSON.stringify(PLAN, null, 2)}\n`;
+
+    expect(readPlanFromReport(stored)).toStrictEqual({ ok: true, raw: PLAN });
+  });
+
   it("refuses a report with no plan, so nothing is started", () => {
     expect(readPlanFromReport(undefined)).toStrictEqual({
       ok: false,

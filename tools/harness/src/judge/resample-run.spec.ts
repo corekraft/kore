@@ -57,7 +57,7 @@ describe("ResampleRun launch (#852)", () => {
     });
   });
 
-  it("asks an hc reader for its verdict in a report file, on one line, and never for a RESULT line", async () => {
+  it("asks an hc reader for its verdict on the stdin of session report, on one line, and never for a RESULT line", async () => {
     const f = fakes();
     vi.mocked(readVerdict).mockReturnValue([]);
     await new ResampleRun(f.ports, "hc").run([A]);
@@ -65,7 +65,7 @@ describe("ResampleRun launch (#852)", () => {
     const brief = f.spawn.mock.calls[0]?.[0].brief as string;
     expect(brief).not.toContain("\n");
     expect(brief).toContain(
-      "and run `harness session report --outcome done --file .kore/report/<your session name>.md` as your last action",
+      "run `harness session report --outcome done --summary - <<'EOF'`, with your verdict lines on the lines after it",
     );
     expect(brief).not.toMatch(/RESULT/);
   });

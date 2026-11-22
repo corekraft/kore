@@ -195,14 +195,14 @@ describe("ReviewRun records a failure and posts nothing when there is no verdict
     expect(io.close).toHaveBeenCalledWith("pr42-reviewer");
   });
 
-  it("asks an hc Reviewer for its verdict in a report file, and a herdr one for its RESULT line", async () => {
+  it("asks an hc Reviewer for its verdict on the stdin of session report, and a herdr one for its RESULT line", async () => {
     io.view.mockResolvedValue(view(HEAD_A));
     await new ReviewRun(io, 3, "hc").run(42, WHO);
     await new ReviewRun(io).run(42, WHO);
 
     const [hc, herdr] = io.spawn.mock.calls.map((call) => call[1]);
     expect(hc).toContain(
-      "and run `harness session report --outcome done --file .kore/report/<your session name>.md` as your last action",
+      "run `harness session report --outcome done --summary - <<'EOF'`, with your verdict lines on the lines after it",
     );
     expect(hc).not.toMatch(/RESULT/);
     expect(herdr).toContain(

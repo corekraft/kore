@@ -19,7 +19,7 @@ export const RETRO_ROLE = "reader";
 export const RETRO_FLAG = "automatic-retro";
 
 /**
- * The retro pane's brief. An hc pane writes its proposals to its report file and finishes with session report; a
+ * The retro pane's brief. An hc pane gives its proposals to session report on stdin; a
  * herdr pane prints them and its RESULT line, as it always has.
  */
 export function retroBrief(
@@ -29,7 +29,7 @@ export function retroBrief(
   const proposals = `End with your proposals as one JSON array, one object per idea with the string fields title, hypothesis, expectedOutcome, measurement, safetyPattern, metric, direction (up or down) and window (such as 14d), between a line ${PROPOSALS_BEGIN} and a line ${PROPOSALS_END}`;
   const finish =
     backend === "hc"
-      ? ", written to the file .kore/report/<your session name>.md, then run `harness session report --outcome done --file .kore/report/<your session name>.md` as your last action."
+      ? ", then, as your last action, run `harness session report --outcome done --summary - <<'EOF'` with your proposals on the lines after it, then a line that reads EOF."
       : ", then print RESULT: done.";
   return `Run the /retro skill: review the sessions since the last retrospective and end with ranked proposals. Propose only; change no file and record nothing. The trigger (${reason}) is already recorded. ${proposals}${finish} A tool files the first ${RETRO_CAP} as ideas and drops the rest, so rank them.`;
 }
