@@ -1,3 +1,4 @@
+// oxlint-disable import/max-dependencies -- the report reads every figure's module, and the pane figures add the source split (#1782)
 import type { Kind, LedgerEvent } from "../ledger/index.js";
 import { roleResolver, stageResolver, type Stage } from "./stage-of.js";
 import {
@@ -28,9 +29,7 @@ import {
   outcomes,
   unstampedSpawns,
   type UnstampedSpawns,
-  finishDetection,
   type FinishDetection,
-  stalledPanes,
   type StalledPanes,
   type Attribution,
   type CostMetrics,
@@ -43,6 +42,7 @@ import {
   type LeadTime,
   type MergedChangeFigures,
 } from "./idea-metrics.js";
+import { sourceFigures, type TerminalFigures } from "./source-figures.js";
 import {
   inWindow,
   scopeOf,
@@ -52,7 +52,7 @@ import {
   type ScopeOptions,
 } from "./scope.js";
 
-export const REPORT_VERSION = 40;
+export const REPORT_VERSION = 41;
 
 export type { StageTotals, Toil } from "./tally.js";
 export type { Scope, ScopeOptions } from "./scope.js";
@@ -102,6 +102,8 @@ export interface FlowReport
   finishDetection: FinishDetection;
   /** Stalled panes from the detector's pane.stalled events and from token-usage silence, each apart (#854). */
   stalledPanes: StalledPanes;
+  /** The pane figures read over the terminal source (#1782), or null when the ledger holds no terminal event; the top-level pane figures then read the herdr source alone. */
+  terminal: TerminalFigures | null;
 }
 
 export interface ReportOptions extends ScopeOptions, ReportSettings {
@@ -338,7 +340,6 @@ export function buildReport(
     ...mergedChangeFigures(named, window, options),
     tierShares: tierShares(named, window),
     unstampedSpawns: unstampedSpawns(named, window),
-    finishDetection: finishDetection(named, window),
-    stalledPanes: stalledPanes(named, window, asOf.getTime()),
+    ...sourceFigures(events, named, ownByIdea, window, asOf.getTime()),
   };
 }

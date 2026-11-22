@@ -202,7 +202,7 @@ describe("buildReport per-merged-change figures (#829, #830)", () => {
     );
   });
 
-  it("versions the report to 40, since the violations by rule and the break-even joined the writer figures (#1051)", () => {
-    expect(run([]).version).toBe(40);
+  it("versions the report to 41, since the violations by rule and the break-even joined the writer figures (#1051)", () => {
+    expect(run([]).version).toBe(41);
   });
 });
