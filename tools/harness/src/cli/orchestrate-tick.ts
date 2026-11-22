@@ -1,3 +1,4 @@
+// oxlint-disable import/max-dependencies -- the tick entry point wires every tick port, herdr and hc alike
 import { hostname } from "node:os";
 import { join, resolve } from "node:path";
 import { DEFAULT_LEDGER, Ledger } from "../ledger/index.js";
@@ -25,6 +26,7 @@ import {
   branchNoticeFlagOn,
   leasedPass,
   liveProofsOn,
+  reconcilingPass,
   runTicks,
   tickFlagOn,
   type IdeaStep,
@@ -42,10 +44,12 @@ import {
 } from "../runtime/index.js";
 import {
   deliver,
+  hcSessionsOn,
   hostLeaseRefusal,
   signedMainSendsOn,
   spawnLoadRefusal,
 } from "../session/index.js";
+import { hcAttended, hcReconcile } from "./orchestrate-tick-hc.js";
 import { installTickJob } from "./orchestrate-tick-install.js";
 import { runTickLoop } from "./orchestrate-tick-loop.js";
 
@@ -93,7 +97,7 @@ async function build(
   deps: CliDeps,
   root: string,
   outcomes: ReadonlyMap<string, Measured>,
-): Promise<{ tick: Tick; lease: TickLease; cli: TickCli }> {
+): Promise<{ tick: Pick<Tick, "pass">; lease: TickLease; cli: TickCli }> {
   const main = (await mainRoot(deps)) ?? root;
   const cli = new TickCli(
     deps.runner,
@@ -113,15 +117,20 @@ async function build(
     new Ledger(deps.fs, deps.clock, deps.ids, resolve(main, DEFAULT_LEDGER)),
     () => deps.clock.now().toISOString(),
   );
+  // With hc-sessions on, the notice goes to the one attended agent terminal and the pass reconciles first (plan 16, Step 4).
+  const hc = await hcSessionsOn(deps);
+  const herdr = {
+    attendedPane: (idea: string) => cli.attendedPane(idea),
+    send: async (pane: string, body: string) =>
+      deliver(deps, pane, body, {
+        rejoinWrapped: await signedMainSendsOn(deps),
+      }),
+  };
   const notifier = new TickNotifier(
     {
-      attendedPane: (idea) => cli.attendedPane(idea),
+      ...(hc ? hcAttended(deps) : herdr),
       sent: (idea, state) => notices.sent(idea, state),
       openQuestions: (idea) => notices.openQuestions(idea),
-      send: async (pane, body) =>
-        deliver(deps, pane, body, {
-          rejoinWrapped: await signedMainSendsOn(deps),
-        }),
       record: (event) => notices.record(event),
     },
     TICK_ENV,
@@ -148,8 +157,12 @@ async function build(
     undefined,
     waiting,
   );
+  const ticking =
+    liveProofs === undefined ? tick : tick.withLiveProofs(liveProofs);
   return {
-    tick: liveProofs === undefined ? tick : tick.withLiveProofs(liveProofs),
+    tick: hc
+      ? reconcilingPass(await hcReconcile(deps, main), ticking)
+      : ticking,
     lease,
     cli,
   };

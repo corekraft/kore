@@ -1,4 +1,11 @@
-import type { CommandContext, CommandHelp } from "../runtime/index.js";
+import {
+  mainRoot,
+  type CommandContext,
+  type CommandHelp,
+} from "../runtime/index.js";
+import { terminalsFor } from "./backend.js";
+import { checkOnHc } from "./check-hc.js";
+import { hcSessionsOn } from "./hc-flag.js";
 import { FAILED, fail } from "./output.js";
 import { SessionRegistry } from "./registry.js";
 import { roleTokensOn } from "./role-token.js";
@@ -45,12 +52,68 @@ async function rolePanes(
 }
 
 /**
+ * `session check` on hc: each agent terminal that session spawn did not start, and each report file with no open
+ * session record. Read-only; exits 1 when it finds one.
+ */
+async function checkHc(context: CommandContext): Promise<number> {
+  const { json, deps } = context;
+  const main = await mainRoot(deps);
+  if (main === undefined) {
+    return fail(
+      deps,
+      json,
+      FAILED,
+      "Cannot find the main checkout to keep session state in. Run inside the repository or set KORE_ROOT to its root.",
+    );
+  }
+  const found = await checkOnHc(
+    deps,
+    terminalsFor(deps),
+    await SessionRegistry.open(deps),
+    main,
+  );
+  if ("error" in found) {
+    return fail(
+      deps,
+      json,
+      FAILED,
+      `session check could not list the hc terminals: ${found.error}`,
+    );
+  }
+  const clean =
+    found.unmanaged.length === 0 && found.orphanReports.length === 0;
+  if (json) {
+    deps.stdout(`${JSON.stringify(found)}\n`);
+    return clean ? 0 : FAILED;
+  }
+  for (const terminal of found.unmanaged) {
+    deps.stderr(
+      `Terminal ${terminal.terminal} runs an agent (${terminal.role ?? "no role label"}) that session spawn did not start, so it has no kore-session label. Stop it with \`hc kill ${terminal.terminal}\`, remove it with \`hc rm ${terminal.terminal}\`.\n`,
+    );
+  }
+  for (const orphan of found.orphanReports) {
+    deps.stderr(
+      `Report ${orphan.file} has no open session record for ${orphan.name}; read it, then delete it.\n`,
+    );
+  }
+  if (clean) {
+    deps.stdout(
+      "Every agent terminal was started by session spawn, and every report has an open record.\n",
+    );
+  }
+  return clean ? 0 : FAILED;
+}
+
+/**
  * `session check`: with the role-tokens flag on, reports each writer or judge
  * pane that has no open `session spawn` record for it, because such a pane runs
  * without its token and sandbox. Read-only; exits 1 when it finds one.
  */
 export async function check(context: CommandContext): Promise<number> {
   const { json, deps } = context;
+  if (await hcSessionsOn(deps)) {
+    return await checkHc(context);
+  }
   if (!(await roleTokensOn(deps))) {
     deps.stdout(
       json
@@ -93,7 +156,7 @@ export async function check(context: CommandContext): Promise<number> {
 
 export const checkHelp: CommandHelp = {
   purpose:
-    "Reports each writer or judge pane in Herdr that session spawn did not start, since such a pane runs without its role token and sandbox. With the role-tokens flag off it prints that no role pane was checked and exits 0; with --json it prints an object with an empty unmanaged list and checked set to false, and exits 0.",
+    "Reports each writer or judge pane in Herdr that session spawn did not start, since such a pane runs without its role token and sandbox. With the role-tokens flag off it prints that no role pane was checked and exits 0; with --json it prints an object with an empty unmanaged list and checked set to false, and exits 0. With the hc-sessions flag on it lists the hc terminals instead: each live agent terminal with no kore-session label that is under a parent, with its role from the role label, and each report file with no open session record.",
   when: "With the role-tokens flag on, to find a writer or judge pane that must be closed and started again with session spawn.",
   whenNot:
     "To start a pane, use session spawn. To close a pane this tool spawned, use session close; a pane that spawn did not start is closed with herdr pane close, as the report says. This command changes nothing.",
@@ -124,7 +187,7 @@ export const checkHelp: CommandHelp = {
   effects: {
     kind: "read-only",
     detail:
-      "reads the role-tokens flag, the herdr agent list and the session registry; changes nothing",
+      "reads the role-tokens flag, the herdr agent list and the session registry; with hc-sessions on, the hc terminal list, the report files and the registry; changes nothing",
   },
   seeAlso: ["session spawn", "session close"],
 };
