@@ -70,7 +70,7 @@ describe("the current documents point at help instead of listing flags", () => {
     expect(mentions.length).toBeGreaterThan(50);
   });
 
-  it("lists no flag of a harness command, outside the agent definitions that wait on #1802", () => {
+  it("lists no flag of a harness command, outside the agent definitions and write-adr that wait on #1802", () => {
     const listings = mentions
       .filter((m) => m.flags.length > 0)
       .filter(
