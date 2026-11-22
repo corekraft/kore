@@ -12,3 +12,5 @@
 (^|/)infra/charts/keycloak-operator/templates/crd-keycloaks\.yaml$
 # release-please's generated CHANGELOG.md links every entry to its 40-hex commit hash, and scanning the whole file reports one such hash as an unverified GitHubOauth2 token (release PR #735, line 634). It is a commit link, not a credential. Only this pass skips the file: the history pass still reads every committed version of it, so a real token there is caught.
 ^CHANGELOG\.md$
+# The browser token check's fixture: a fake session token, assembled from its segments in the file, that the token check's tests assert against. It is not a credential. The path stays excluded only while the branch history holds the earlier literal form (commit 69ea3632), and can go once the change is squashed.
+^tools/kore/src/testing/signin-token-program\.fixtures\.ts$
