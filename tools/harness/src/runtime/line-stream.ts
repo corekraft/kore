@@ -47,13 +47,16 @@ export class ProcessLineStream implements LineStream {
       child.once("close", (code) => resolve({ code }));
     });
     const lines = createInterface({ input: child.stdout });
+    let completed = false;
     try {
       for await (const line of lines) {
         yield line;
       }
+      completed = true;
     } finally {
       lines.close();
-      if (child.exitCode === null && child.signalCode === null) {
+      // Only a reader that stopped early kills the command. Output that ends first is a normal end, and its exit code may not be set yet.
+      if (!completed && child.exitCode === null && child.signalCode === null) {
         child.kill("SIGTERM");
       }
     }

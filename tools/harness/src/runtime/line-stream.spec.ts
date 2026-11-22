@@ -141,6 +141,25 @@ describe("ProcessLineStream: a child that fails", () => {
   });
 });
 
+describe("ProcessLineStream: a command that ends normally", () => {
+  it("does not kill a child whose output ends before its exit code is set, and waits for the code", async () => {
+    const stream = new ProcessLineStream()
+      .lines("hc", ["events"])
+      [Symbol.asyncIterator]();
+
+    const pending = next(stream);
+    child.stdout.end();
+    await new Promise((resolve) => setImmediate(resolve));
+    expect(child.kill).not.toHaveBeenCalled();
+
+    child.exitCode = 0;
+    child.emit("close", 0);
+
+    expect(await pending).toBeUndefined();
+    expect(child.kill).not.toHaveBeenCalled();
+  });
+});
+
 describe("ProcessLineStream: stopping early", () => {
   it("kills the child when the reader stops before it ends, so no process outlives its reader", async () => {
     const stream = new ProcessLineStream()
