@@ -2,12 +2,27 @@
 // Docs: infra/plans/4-knowledge.md#step-3-knowledge-health-check
 
 import { findings, format, type TreeDeps } from "../kb/index.js";
+import type { CommandTable } from "../runtime/index.js";
+
+/** A few harness commands and their flags, the table a fake tree's documents are checked against. */
+export const HARNESS_COMMANDS: CommandTable = {
+  pr: {
+    open: { options: { title: "string", "body-file": "string" } },
+    check: { options: { wait: "boolean" } },
+  },
+  plan: { tick: { options: {} } },
+  flag: { activate: { options: { environment: "string" } } },
+};
 
 export type Tree = Record<string, string | null>;
 
 export function fakeDeps(tree: Tree): TreeDeps {
   const files = Object.keys(tree).filter((path) => tree[path] !== null);
-  return { files: () => files, read: (path) => tree[path] ?? null };
+  return {
+    files: () => files,
+    read: (path) => tree[path] ?? null,
+    commands: () => HARNESS_COMMANDS,
+  };
 }
 
 export const planFrontmatter = [

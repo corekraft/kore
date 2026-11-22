@@ -1,6 +1,7 @@
 import { FakeRunner, type FakeResponse } from "./runner-support.js";
 import type { CliDeps } from "../runtime/index.js";
 import { MemoryFileSystem } from "./memory-filesystem-support.js";
+import { domains } from "../cli/index.js";
 
 export interface TestHarness {
   deps: CliDeps;
@@ -56,6 +57,7 @@ export function testHarness(
     env: options.env ?? {},
     cwd: "/work/tree",
     ids: { next: () => "id-1" },
+    commands: domains,
     stdin: () => Promise.resolve(""),
     stdout: (text) => out.push(text),
     stderr: (text) => err.push(text),

@@ -5,6 +5,11 @@ import type { IdSource } from "./ids.js";
 import type { Links } from "./links.js";
 import type { Runner } from "./runner.js";
 
+/** The harness's commands by domain and name; a domain's only command is under "". Only what a check reads is kept. */
+export type CommandTable = Readonly<
+  Record<string, Readonly<Record<string, Pick<Command, "options">>>>
+>;
+
 /** Everything a command may touch; real adapters in main.ts, fakes in specs. */
 export interface CliDeps {
   runner: Runner;
@@ -33,6 +38,11 @@ export interface CliDeps {
   platform?: NodeJS.Platform;
   /** The process working directory (a worktree's own checkout, not the repository root). */
   cwd: string;
+  /**
+   * The harness's own command table, which the knowledge check resolves the commands a document names
+   * against. main.ts and the test harness supply it; a fake that checks no document leaves it out.
+   */
+  commands?: CommandTable;
   /** Reads all of standard input as text. */
   stdin(): Promise<string>;
   stdout(text: string): void;

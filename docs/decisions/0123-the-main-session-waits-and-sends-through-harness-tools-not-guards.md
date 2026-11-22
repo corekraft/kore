@@ -47,7 +47,7 @@ than the pane never matches, and the main session falls back to raw herdr.
 
 - **No guard rule.** Neither idea adds a guard, a deny rule or a rule family.
   The main session is helped by tools (ADR 0101) and an instruction line.
-- **One background wait (0019).** `harness wait` takes any mix of `--pr <n>`
+- **One background wait (0019).** The planned `wait` command takes any mix of `--pr <n>`
   and `--session <name>` targets, returns when the first settles (CI green or
   red, or a RESULT line) or its bound passes, and names the target and state,
   in `--json` too. Settled and bound-passed exit differently; a target already
@@ -91,7 +91,7 @@ than the pane never matches, and the main session falls back to raw herdr.
 
 - **One flag each, gating the main-session brief.** `main-session-wait`,
   `pane-result-summary` and `signed-main-sends` each gate one line of the
-  main session's SessionStart brief naming the tool to use. `harness wait` and
+  main session's SessionStart brief naming the tool to use. The planned `wait` command and
   `result.summary` are additive and ship unflagged. The wrapped-line
   confirmation changes `session notify` exit codes for role panes too, so it
   sits behind `signed-main-sends`, and flag off keeps today's behaviour. Each
@@ -124,4 +124,4 @@ ideas above do not depend on it.
 
 By recommendation in a grilling session on ideas 0019 to 0021 on 2026-11-16,
 answered on the owner's behalf by another session. The summary length cap
-and the `harness wait` bound are placeholders.
+and the `wait` command's bound are placeholders.
