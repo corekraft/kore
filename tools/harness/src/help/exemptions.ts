@@ -42,7 +42,6 @@ export const undocumented: readonly string[] = [
   "session tier",
   "session equalize",
   "session prompt-size",
-  "session exec",
   // skill
   "skill audit",
   // idea
