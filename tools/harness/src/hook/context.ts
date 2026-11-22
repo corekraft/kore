@@ -26,7 +26,7 @@ const RETRO_AFTER_SESSIONS = 5;
  * finished pane's summary is read instead of its pane (ADR 0123).
  */
 export const RESULT_SUMMARY_LINE =
-  "A finished pane's result is in `session wait <name> --json`, as result.summary: read it there, not with `herdr agent read`.";
+  "A finished pane's result summary is read with `harness session wait <name>`, not `herdr agent read`; see `harness session wait --help` for how to print it.";
 
 /**
  * The line the main session gets while main-session-wait is on: one background
@@ -34,14 +34,14 @@ export const RESULT_SUMMARY_LINE =
  * loops (ADR 0123).
  */
 export const MAIN_SESSION_WAIT_LINE =
-  "Wait for CI or a pane's RESULT with `harness wait --pr <n> --session <name>`, run in the background, not with sleep, until or seq loops: it returns when the first settles.";
+  "Wait for CI or a pane's RESULT with `harness harness wait` in the background, not with sleep, until or seq loops: it returns when the first settles; see `harness harness wait --help` for its flags.";
 
 /**
  * The line the main session gets while signed-main-sends is on: `session send`
  * in place of raw `herdr agent prompt` (ADR 0123).
  */
 export const SIGNED_SEND_LINE =
-  "Message a pane with `session send <name> --message <text>`, not `herdr agent prompt`: it signs the message and confirms delivery.";
+  "Message a pane with `harness session send <name>`, not `herdr agent prompt`: it signs the message and confirms delivery; see `harness session send --help` for its flags.";
 
 /**
  * The roles that get no plan session brief: their orchestrator-only steps are

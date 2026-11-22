@@ -29,7 +29,7 @@ vi.mock("./retro-scan.js", async (importOriginal) => {
 });
 
 const LINE =
-  "Message a pane with `session send <name> --message <text>`, not `herdr agent prompt`: it signs the message and confirms delivery.";
+  "Message a pane with `harness session send <name>`, not `herdr agent prompt`: it signs the message and confirms delivery; see `harness session send --help` for its flags.";
 const SESSION = { source: "startup", session_id: "s1" };
 
 beforeEach(() => {
