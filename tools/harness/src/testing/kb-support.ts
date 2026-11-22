@@ -2,17 +2,7 @@
 // Docs: infra/plans/4-knowledge.md#step-3-knowledge-health-check
 
 import { findings, format, type TreeDeps } from "../kb/index.js";
-import type { CommandTable } from "../runtime/index.js";
-
-/** A few harness commands and their flags, the table a fake tree's documents are checked against. */
-export const HARNESS_COMMANDS: CommandTable = {
-  pr: {
-    open: { options: { title: "string", "body-file": "string" } },
-    check: { options: { wait: "boolean" } },
-  },
-  plan: { tick: { options: {} } },
-  flag: { activate: { options: { environment: "string" } } },
-};
+import { HARNESS_COMMANDS } from "./command-table-support.js";
 
 export type Tree = Record<string, string | null>;
 

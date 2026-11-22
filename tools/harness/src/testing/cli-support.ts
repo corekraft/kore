@@ -1,7 +1,7 @@
 import { FakeRunner, type FakeResponse } from "./runner-support.js";
-import type { CliDeps } from "../runtime/index.js";
+import type { CliDeps, CommandTable } from "../runtime/index.js";
 import { MemoryFileSystem } from "./memory-filesystem-support.js";
-import { domains } from "../cli/index.js";
+import { HARNESS_COMMANDS } from "./command-table-support.js";
 
 export interface TestHarness {
   deps: CliDeps;
@@ -17,6 +17,8 @@ export function testHarness(
   options: {
     env?: Record<string, string | undefined>;
     responses?: readonly FakeResponse[];
+    /** The harness command table the knowledge check reads; the fixture table when absent. */
+    commands?: CommandTable;
     /** Files the fake filesystem starts with, by absolute path. */
     files?: Record<string, string>;
   } = {},
@@ -57,7 +59,7 @@ export function testHarness(
     env: options.env ?? {},
     cwd: "/work/tree",
     ids: { next: () => "id-1" },
-    commands: domains,
+    commands: options.commands ?? HARNESS_COMMANDS,
     stdin: () => Promise.resolve(""),
     stdout: (text) => out.push(text),
     stderr: (text) => err.push(text),
