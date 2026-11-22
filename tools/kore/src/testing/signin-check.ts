@@ -8,11 +8,7 @@ import {
 import { pinnedBrowserImage, runHeadlessBrowser } from "./headless-browser.js";
 import type { Runner } from "../runtime/index.js";
 import { defaultRealm, KeycloakTestUsers } from "./keycloak-test-user.js";
-import {
-  backstageSignInPaths,
-  signInProgram,
-  type SignInPaths,
-} from "./signin-program.js";
+import { signInProgram, type SignInPaths } from "./signin-program.js";
 
 // Docs: docs/decisions/0111-run-a-backstage-and-an-argo-cd-for-the-platform-organization-s-operators.md
 // Docs: docs/decisions/0113-run-a-keycloak-for-the-platform-organization-s-operators.md
@@ -46,15 +42,15 @@ function assertionsOf(reply: unknown): SignInAssertion[] {
 export interface SignInTarget {
   host: string;
   realm: string;
-  paths: SignInPaths;
+  /** A target's own paths. Left out for Backstage, whose browser program keeps its text. */
+  paths?: SignInPaths | undefined;
 }
 
-/** Backstage's target from the environment: its host, the platform realm, and Backstage's paths. */
+/** Backstage's target from the environment: its host and the platform realm. */
 export function backstageSignInTarget(repository: Repository): SignInTarget {
   return {
     host: backstageHostname(repository.environment),
     realm: defaultRealm,
-    paths: backstageSignInPaths,
   };
 }
 

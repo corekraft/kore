@@ -8,7 +8,7 @@ import {
   checkSignIn,
   type SignInTarget,
 } from "./signin-check.js";
-import { backstageSignInPaths, signInProgram } from "./signin-program.js";
+import { signInProgram } from "./signin-program.js";
 
 const { connect } = vi.hoisted(() => ({ connect: vi.fn() }));
 
@@ -150,14 +150,12 @@ describe("checkSignIn hosts", () => {
     );
   });
 
-  it("checks Backstage when no target is given: Backstage's host and paths, and the platform realm", async () => {
+  it("checks Backstage when no target is given, with no paths of its own so its browser program keeps its text", async () => {
     await checkSignIn(repository, runner);
     expect(signInProgram).toHaveBeenCalledWith(
-      expect.objectContaining({
-        host: "backstage.kore.internal",
-        paths: backstageSignInPaths,
-      }),
+      expect.objectContaining({ host: "backstage.kore.internal" }),
     );
+    expect(vi.mocked(signInProgram).mock.calls[0]?.[0].paths).toBeUndefined();
     expect(connect).toHaveBeenCalledWith(repository, runner, "platform");
   });
 
@@ -165,7 +163,6 @@ describe("checkSignIn hosts", () => {
     expect(backstageSignInTarget(repository)).toEqual({
       host: "backstage.kore.internal",
       realm: "platform",
-      paths: backstageSignInPaths,
     });
   });
 });
