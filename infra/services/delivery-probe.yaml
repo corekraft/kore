@@ -1,0 +1,6 @@
+{
+  "apiVersion": "platform.kore.dev/v1alpha1",
+  "kind": "Service",
+  "metadata": { "name": "delivery-probe" },
+  "spec": { "organization": "platform", "environments": ["local"] }
+}
