@@ -49,12 +49,12 @@ describe("harness dispatch: resolving the command", () => {
   it("never resolves a prototype member such as constructor as a domain or command", async () => {
     await refused(
       ["constructor", "x"],
-      'Unknown domain "constructor". Domains: harness, plan, hook, lone.',
+      'Unknown domain "constructor".',
       "root",
     );
     await refused(
       ["harness", "__proto__"],
-      'Unknown command "__proto__" for domain "harness". Commands: version.',
+      'Unknown command "__proto__" for domain "harness".',
       "domain",
     );
   });
@@ -211,7 +211,7 @@ describe("harness dispatch: exit codes and failures", () => {
   it("exits 1, not 2, for a hook, so a typo in settings never blocks a tool call", async () => {
     await refused(
       ["hook", "nope"],
-      'Unknown command "nope" for domain "hook". Commands: guard.',
+      'Unknown command "nope" for domain "hook".',
       "domain",
       1,
     );

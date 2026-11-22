@@ -100,12 +100,7 @@ function commandLines(view: CommandView): string[] {
       "Exit codes",
       columns(view.exits.map((exit) => [String(exit.code), exit.meaning])),
     ),
-    ...section(
-      "Effects",
-      view.effects === undefined
-        ? []
-        : [`${view.effects.kind}: ${view.effects.detail}`],
-    ),
+    ...section("Effects", [`${view.effects.kind}: ${view.effects.detail}`]),
     ...section(
       "See also",
       view.seeAlso.map((ref) => `harness ${ref}`),

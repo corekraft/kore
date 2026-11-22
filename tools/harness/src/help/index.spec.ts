@@ -12,7 +12,6 @@ describe("help barrel", () => {
       "renderText",
       "rootGuide",
       "rootView",
-      "undocumented",
     ]);
   });
 });

@@ -7,8 +7,6 @@ export interface RegistryInput {
   domains: Record<string, Record<string, Command>>;
   guides: Record<string, DomainGuide>;
   root: RootGuide;
-  /** Commands not yet documented (help/exemptions.ts), each by its path. */
-  undocumented: readonly string[];
 }
 
 const isOneLine = (text: string): boolean =>
@@ -41,11 +39,10 @@ function lookupIn(domains: Record<string, Record<string, Command>>): Lookup {
   };
 }
 
-/** One command: its summary, then either its help checks, or the rule that it has help or is exempt. */
+/** One command: its summary, then either the rule that it has help, or its help checks. */
 function pathProblems(
   path: string,
   command: Command,
-  exempt: boolean,
   lookup: Lookup,
 ): string[] {
   const summary = isOneLine(command.summary)
@@ -53,39 +50,23 @@ function pathProblems(
     : [`${path}: summary is empty or more than one line`];
   const help = command.help;
   if (help === undefined) {
-    return exempt
-      ? summary
-      : [
-          ...summary,
-          `${path}: has no help; write it beside the command or list it in help/exemptions.ts`,
-        ];
-  }
-  if (exempt) {
-    return [
-      ...summary,
-      `${path}: has help but is still on the exemption list; remove its line`,
-    ];
+    return [...summary, `${path}: has no help; write it beside the command`];
   }
   return [...summary, ...commandProblems(path, command, help, lookup)];
 }
 
 /**
- * The registry checks over a command table: every command has help or is exempt, a
- * command that has help is checked in full, no exemption names a missing command, and
- * the guides and root flows resolve. Returns each problem; an empty list passes.
+ * The registry checks over a command table: every command has help and passes its checks,
+ * and the guides and root flows resolve. Returns each problem; an empty list passes.
  */
 export function registryProblems(input: RegistryInput): string[] {
   const lookup = lookupIn(input.domains);
-  const exempt = new Set(input.undocumented);
   const commands = pairsIn(input.domains).flatMap(([path, command]) =>
-    pathProblems(path, command, exempt.has(path), lookup),
+    pathProblems(path, command, lookup),
   );
-  const stale = input.undocumented
-    .filter((path) => lookup(path) === undefined)
-    .map((path) => `exemption "${path}" is not a command in the table`);
   const guides = guideProblems(
     { domains: input.domains, guides: input.guides, root: input.root },
     lookup,
   );
-  return [...commands, ...stale, ...guides];
+  return [...commands, ...guides];
 }

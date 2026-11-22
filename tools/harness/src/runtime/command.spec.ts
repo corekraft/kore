@@ -12,13 +12,13 @@ import type {
 } from "./command.js";
 
 describe("the command types", () => {
-  it("a command has a summary, optional flags and operand, optional help, and a run that resolves to an exit code", () => {
+  it("a command has a summary, optional flags and operand, a help record, and a run that resolves to an exit code", () => {
     expectTypeOf<Command["summary"]>().toEqualTypeOf<string>();
     expectTypeOf<Command["options"]>().toEqualTypeOf<
       Record<string, "string" | "boolean" | "list"> | undefined
     >();
     expectTypeOf<Command["operand"]>().toEqualTypeOf<string | undefined>();
-    expectTypeOf<Command["help"]>().toEqualTypeOf<CommandHelp | undefined>();
+    expectTypeOf<Command["help"]>().toEqualTypeOf<CommandHelp>();
     expectTypeOf<Command["run"]>().returns.toEqualTypeOf<Promise<number>>();
   });
 

@@ -209,30 +209,30 @@ async function escalateWriter(context: CommandContext): Promise<void> {
   );
 }
 
-export const nextCommand: Command = {
+export const nextCommand = {
   summary:
     "Lists the approved ideas and judge send-backs the orchestrator takes next, oldest first.",
   options: { ledger: "string", explain: "string" },
   run: (context) => guarded(context, () => next(context)),
-};
+} satisfies Omit<Command, "help">;
 
-export const sendBacksCommand: Command = {
+export const sendBacksCommand = {
   summary:
     "Counts a pull request's judge send-backs and names the writer model to relaunch it on.",
   operand: "pr",
   options: { ledger: "string" },
   run: (context) => guarded(context, () => sendBacks(context)),
-};
+} satisfies Omit<Command, "help">;
 
-export const escalateCommand: Command = {
+export const escalateCommand = {
   summary:
     "Records a writer's escalation after two send-backs and prints the spawn line that relaunches it.",
   operand: "pr",
   options: { ledger: "string" },
   run: (context) => guarded(context, () => escalateWriter(context)),
-};
+} satisfies Omit<Command, "help">;
 
-export const queueCommands: Record<string, Command> = {
+export const queueCommands: Record<string, Omit<Command, "help">> = {
   next: nextCommand,
   "send-backs": sendBacksCommand,
   escalate: escalateCommand,

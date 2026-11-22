@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import type { Command } from "../runtime/index.js";
+import type { Command, CommandHelp } from "../runtime/index.js";
 import { records } from "./records.js";
 
 const {
@@ -13,7 +13,18 @@ const {
   decisionCommands,
   prCommands,
 } = vi.hoisted(() => {
+  const HELP: CommandHelp = {
+    purpose: "A stub command.",
+    when: "In a test.",
+    whenNot: "Outside a test.",
+    flags: {},
+    examples: [{ command: "harness stub", shows: "nothing" }],
+    exits: [{ code: 0, meaning: "always" }],
+    effects: { kind: "read-only", detail: "nothing" },
+    seeAlso: [],
+  };
   const command = (name: string): Command => ({
+    help: HELP,
     summary: name,
     run: () => Promise.resolve(0),
   });

@@ -294,9 +294,9 @@ export async function runOnTicks(
   );
 }
 
-export const tickCommand: Command = {
+export const tickCommand = {
   summary:
     "Advances each approved idea one step per pass, behind the orchestrator-tick flag.",
   options: { idea: "string", loop: "boolean", install: "boolean" },
   run: runTick,
-};
+} satisfies Omit<Command, "help">;

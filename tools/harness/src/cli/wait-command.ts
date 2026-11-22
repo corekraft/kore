@@ -329,7 +329,7 @@ async function waitRun(context: CommandContext): Promise<number> {
   }
 }
 
-export const harnessWait: Command = {
+export const harnessWait = {
   summary:
     "wait in the background for the first of pull request checks (--pr <n>), spawned panes' RESULT lines (--session <name>) or an idea's state change in the ledger (--idea <name>, or --any-idea for any idea) to settle, repeating a flag: settled exits 0 and names the target and its state, with the rest to restart with; the bound (--timeout ms, default one hour) exits 3 and names what is still pending and the next step; --json gives the same as one object",
   options: {
@@ -340,4 +340,4 @@ export const harnessWait: Command = {
     "any-idea": "boolean",
   },
   run: waitRun,
-};
+} satisfies Omit<Command, "help">;

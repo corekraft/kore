@@ -1,9 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import type { Command } from "../runtime/index.js";
+import type { Command, CommandHelp } from "../runtime/index.js";
 import { registryProblems } from "./registry.js";
 
 // The per-command and per-guide checks have their own specs; this one tests the
-// walk over the table: which commands are checked, which are exempt, and the lookup.
+// walk over the table: which commands are checked, and the lookup.
 const fakes = vi.hoisted(() => ({
   commandProblems: vi.fn(),
   guideProblems: vi.fn(),
@@ -15,20 +15,20 @@ vi.mock("./registry-command.js", () => ({
 vi.mock("./registry-guide.js", () => ({ guideProblems: fakes.guideProblems }));
 
 const none = () => Promise.resolve(0);
-const help = {
+const help: CommandHelp = {
   purpose: "p",
   when: "w",
   whenNot: "n",
   flags: {},
   examples: [{ command: "harness plan next", shows: "s" }],
   exits: [{ code: 0, meaning: "m" }],
-  effects: { kind: "read-only" as const, detail: "d" },
+  effects: { kind: "read-only", detail: "d" },
   seeAlso: [],
 };
 
 const next: Command = { summary: "set the Next: line", run: none, help };
-const tick: Command = { summary: "tick one item", run: none };
-const status: Command = { summary: "report the work", run: none };
+const tick: Command = { summary: "tick one item", run: none, help };
+const status: Command = { summary: "report the work", run: none, help };
 
 const domains = { plan: { next, tick }, status: { "": status } };
 
@@ -38,87 +38,40 @@ beforeEach(() => {
 });
 
 describe("the registry walk", () => {
-  it("passes a table where every command has help or is exempt, and the guides pass", () => {
+  it("passes a table where every command has help, and the guides pass", () => {
     expect(
-      registryProblems({
-        domains,
-        guides: {},
-        root: {} as never,
-        undocumented: ["plan tick", "status"],
-      }),
+      registryProblems({ domains, guides: {}, root: {} as never }),
     ).toEqual([]);
   });
 
-  it("checks a command that has help, and not exempt, in full, with its help and the lookup", () => {
-    registryProblems({
-      domains,
-      guides: {},
-      root: {} as never,
-      undocumented: ["plan tick", "status"],
-    });
-    expect(fakes.commandProblems).toHaveBeenCalledTimes(1);
-    expect(fakes.commandProblems).toHaveBeenCalledWith(
-      "plan next",
-      next,
-      help,
-      expect.any(Function),
-    );
-  });
-});
-
-describe("the registry walk, exemptions and summaries", () => {
-  it("fails a command with no help that is not exempt, naming it and the list it must join", () => {
+  it("checks each command in full, with its help and the lookup; a domain's only command is named by the domain alone", () => {
+    registryProblems({ domains, guides: {}, root: {} as never });
     expect(
-      registryProblems({
-        domains,
-        guides: {},
-        root: {} as never,
-        undocumented: ["status"],
-      }),
+      fakes.commandProblems.mock.calls.map(([path, command, record]) => [
+        path,
+        command,
+        record,
+      ]),
     ).toEqual([
-      "plan tick: has no help; write it beside the command or list it in help/exemptions.ts",
+      ["plan next", next, help],
+      ["plan tick", tick, help],
+      ["status", status, help],
     ]);
   });
 
-  it("leaves a command with no help alone when it is on the exemption list", () => {
+  it("fails a command with no help, naming it, with no exemption list to join", () => {
+    const bare = { summary: "tick one item", run: none } as unknown as Command;
     expect(
       registryProblems({
-        domains,
+        domains: { plan: { tick: bare } },
         guides: {},
         root: {} as never,
-        undocumented: ["plan tick", "status"],
       }),
-    ).toEqual([]);
-    expect(fakes.commandProblems).toHaveBeenCalledTimes(1);
+    ).toEqual(["plan tick: has no help; write it beside the command"]);
+    expect(fakes.commandProblems).not.toHaveBeenCalled();
   });
 
-  it("fails a command that has help but is still on the exemption list, until its line is taken off", () => {
-    expect(
-      registryProblems({
-        domains,
-        guides: {},
-        root: {} as never,
-        undocumented: ["plan next", "plan tick", "status"],
-      }),
-    ).toEqual([
-      "plan next: has help but is still on the exemption list; remove its line",
-    ]);
-  });
-
-  it("fails an exemption that names no command in the table", () => {
-    expect(
-      registryProblems({
-        domains,
-        guides: {},
-        root: {} as never,
-        undocumented: ["plan tick", "status", "plan nope"],
-      }),
-    ).toEqual(['exemption "plan nope" is not a command in the table']);
-  });
-});
-
-describe("the registry walk, guides and lookup", () => {
-  it("fails a multi-line or empty summary for any command, exempt or not", () => {
+  it("fails a multi-line or empty summary for any command", () => {
     const multi = {
       plan: {
         next: { ...next, summary: "one\ntwo" },
@@ -127,12 +80,7 @@ describe("the registry walk, guides and lookup", () => {
       status: { "": status },
     };
     expect(
-      registryProblems({
-        domains: multi,
-        guides: {},
-        root: {} as never,
-        undocumented: ["plan tick", "status"],
-      }),
+      registryProblems({ domains: multi, guides: {}, root: {} as never }),
     ).toEqual([
       "plan next: summary is empty or more than one line",
       "plan tick: summary is empty or more than one line",
@@ -144,12 +92,7 @@ describe("the registry walk, guides and lookup", () => {
       "plan: domain has no guide in help/domain-guides.ts",
     ]);
     expect(
-      registryProblems({
-        domains,
-        guides: {},
-        root: {} as never,
-        undocumented: ["plan tick", "status"],
-      }),
+      registryProblems({ domains, guides: {}, root: {} as never }),
     ).toEqual(["plan: domain has no guide in help/domain-guides.ts"]);
     expect(fakes.guideProblems).toHaveBeenCalledWith(
       { domains, guides: {}, root: {} },
@@ -158,12 +101,7 @@ describe("the registry walk, guides and lookup", () => {
   });
 
   it("finds a command by its path, a domain-only command by the domain alone, and nothing else", () => {
-    registryProblems({
-      domains,
-      guides: {},
-      root: {} as never,
-      undocumented: ["plan tick", "status"],
-    });
+    registryProblems({ domains, guides: {}, root: {} as never });
     const lookup = fakes.commandProblems.mock.calls[0]?.[3] as (
       p: string,
     ) => Command | undefined;

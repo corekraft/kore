@@ -46,8 +46,8 @@ export interface HookShape {
    * non-blocking but shows, so a broken enforcer is never silent.
    */
   faultCode?: number;
-  /** The help record `--help` reads for the command; a command with none stays exempt (help/exemptions.ts). */
-  help?: CommandHelp;
+  /** The help record `--help` reads for the command; every hook carries one. */
+  help: CommandHelp;
 }
 
 /**
@@ -63,13 +63,13 @@ export function hookCommand(
   name: string,
   summary: string,
   handler: (context: HookContext) => Promise<HookResult>,
-  { flags = {}, payload = true, operand, faultCode = 0, help }: HookShape = {},
+  { flags = {}, payload = true, operand, faultCode = 0, help }: HookShape,
 ): Command {
   return {
     summary,
     options: { ...flags, strict: "boolean" },
     ...(operand === undefined ? {} : { operand }),
-    ...(help === undefined ? {} : { help }),
+    help,
     async run({ deps, options, operand: given }) {
       let result: HookResult;
       try {

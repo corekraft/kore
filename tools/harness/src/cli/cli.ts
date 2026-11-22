@@ -30,10 +30,6 @@ function own<T>(table: Record<string, T>, key: string): T | undefined {
   return Object.hasOwn(table, key) ? table[key] : undefined;
 }
 
-function names(commands: Record<string, Command>): string {
-  return Object.keys(commands).join(", ");
-}
-
 /**
  * The deepest level the words reach. No domain, or an unknown one, reaches the root. A command
  * named, or a domain's only command reached from the domain alone, reaches that command; a
@@ -58,7 +54,12 @@ function viewOf(found: Reach): HelpView {
     return rootView(rootGuide, domainGuides);
   }
   if (found.level === "domain") {
-    const guide = own(domainGuides, found.domain) ?? { purpose: "", flow: "" };
+    const guide = own(domainGuides, found.domain);
+    if (guide === undefined) {
+      throw new Error(
+        `Domain "${found.domain}" has no guide; add it to help/domain-guides.ts.`,
+      );
+    }
     return domainView(found.domain, found.commands, guide);
   }
   const path =
@@ -79,12 +80,12 @@ function unresolved(
   found: Exclude<Reach, { level: "command" }>,
 ): string {
   if (found.level === "root") {
-    return `Unknown domain "${domain}". Domains: ${Object.keys(domains).join(", ")}.`;
+    return `Unknown domain "${domain}".`;
   }
   if (name === undefined) {
-    return `Missing command for domain "${domain}". Commands: ${names(found.commands)}.`;
+    return `Missing command for domain "${domain}".`;
   }
-  return `Unknown command "${name}" for domain "${domain}". Commands: ${names(found.commands)}.`;
+  return `Unknown command "${name}" for domain "${domain}".`;
 }
 
 /**

@@ -135,9 +135,9 @@ describe("the add-command skill", () => {
     expect(helpStep).toContain("integration/help/command-registry.spec.ts");
   });
 
-  it("says a new command is never added to the exemption list", () => {
+  it("says help is required on every command, so the compiler refuses one without it", () => {
     expect(skill).toContain(
-      "A new command is never added to `help/exemptions.ts`",
+      "`help` is required on every command, so the compiler refuses one without it.",
     );
   });
 });

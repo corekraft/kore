@@ -3,6 +3,22 @@ import { vi } from "vitest";
 import type { CliDeps } from "../runtime/index.js";
 import { depsWith } from "./command-support.js";
 
+// The help record of plan tick. The dispatcher's specs read it back through the command view.
+export const tickHelp = {
+  purpose: "tick a step",
+  when: "When a step is done.",
+  whenNot: "When only reading the plan.",
+  flags: {
+    note: "A note for the tick.",
+    force: "Ticks even when a step is open.",
+  },
+  operand: "The step to tick.",
+  examples: [{ command: "harness plan tick A1", shows: "the step is ticked" }],
+  exits: [{ code: 0, meaning: "the step is ticked" }],
+  effects: { kind: "mutates" as const, detail: "ticks one step in its plan" },
+  seeAlso: [],
+};
+
 export const table = (() => {
   const command = (summary: string, extra: Record<string, unknown> = {}) => ({
     summary,
@@ -19,9 +35,11 @@ export const table = (() => {
       tick: command("tick a step", {
         operand: "step",
         options: { note: "string", force: "boolean" },
+        help: tickHelp,
       }),
     },
     hook: { guard: command("guard a tool call") },
+    nodoc: { check: command("a domain with no guide") },
     lone: {
       "": command("the domain's only command"),
       join: command("join targets", {

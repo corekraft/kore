@@ -1,3 +1,4 @@
+import { stubHelp } from "../testing/index.js";
 import { describe, expect, it } from "vitest";
 import type { Command } from "../runtime/index.js";
 import type { DomainGuide, RootGuide } from "./guide.js";
@@ -8,10 +9,10 @@ const none = () => Promise.resolve(0);
 
 const domains: Record<string, Record<string, Command>> = {
   plan: {
-    active: { summary: "list", run: none },
-    tick: { summary: "tick", run: none },
+    active: { help: stubHelp, summary: "list", run: none },
+    tick: { help: stubHelp, summary: "tick", run: none },
   },
-  status: { "": { summary: "report", run: none } },
+  status: { "": { help: stubHelp, summary: "report", run: none } },
 };
 
 const lookup: Lookup = (path) => {

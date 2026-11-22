@@ -1,7 +1,13 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { domainGuides, rootGuide } from "../help/index.js";
 import { run } from "./cli.js";
-import { depsOf, help, outputOf, table } from "./cli-fakes-support.js";
+import {
+  depsOf,
+  help,
+  outputOf,
+  table,
+  tickHelp,
+} from "./cli-fakes-support.js";
 
 vi.mock("./domains.js", async () => ({
   domains: (await import("./cli-fakes-support.js")).table,
@@ -77,7 +83,7 @@ describe("harness dispatch: a usage error prints the guide of the closest level"
     expect(await run(["nope", "x"], deps)).toBe(2);
     expect(outputOf()).toEqual({
       out: "",
-      err: 'Unknown domain "nope". Domains: harness, plan, hook, lone.\n\ntext root\n',
+      err: 'Unknown domain "nope".\n\ntext root\n',
     });
   });
 
@@ -85,12 +91,12 @@ describe("harness dispatch: a usage error prints the guide of the closest level"
     const unknown = depsOf();
     expect(await run(["harness", "nope"], unknown)).toBe(2);
     expect(outputOf().err).toBe(
-      'Unknown command "nope" for domain "harness". Commands: version.\n\ntext domain\n',
+      'Unknown command "nope" for domain "harness".\n\ntext domain\n',
     );
     const missing = depsOf();
     expect(await run(["plan"], missing)).toBe(2);
     expect(outputOf().err).toBe(
-      'Missing command for domain "plan". Commands: tick.\n\ntext domain\n',
+      'Missing command for domain "plan".\n\ntext domain\n',
     );
   });
 
@@ -153,12 +159,12 @@ describe("harness dispatch: the views it builds", () => {
     );
   });
 
-  it("passes no help record for a command that has none, so the view is the fallback", async () => {
+  it("passes a command's own help record to its view", async () => {
     expect(await run(["plan", "tick", "--help"], depsOf())).toBe(0);
     expect(help.commandView).toHaveBeenCalledExactlyOnceWith(
       "plan tick",
       table.plan.tick,
-      undefined,
+      tickHelp,
     );
   });
 
@@ -167,8 +173,16 @@ describe("harness dispatch: the views it builds", () => {
     expect(help.commandView).toHaveBeenCalledExactlyOnceWith(
       "plan tick",
       table.plan.tick,
-      undefined,
+      tickHelp,
     );
     expect(help.domainView).not.toHaveBeenCalled();
+  });
+});
+
+describe("harness dispatch: a domain with no guide", () => {
+  it("fails loudly, naming the guide file to add it to, rather than printing a blank guide", async () => {
+    await expect(run(["nodoc", "--help"], depsOf())).rejects.toThrow(
+      'Domain "nodoc" has no guide; add it to help/domain-guides.ts.',
+    );
   });
 });
