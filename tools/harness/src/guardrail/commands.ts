@@ -68,7 +68,7 @@ const statusHelp: CommandHelp = {
 export function statusWith(loadPending: LoadPending): Command {
   return {
     summary:
-      "list each guardrail with its kind, mode and owner, and the requests waiting for a person's approval, read from the ledger (--json: guardrails, pending: rule, from, to, idea) [--ledger]",
+      "list each guardrail's mode, and the mode changes awaiting a person's approval",
     options: { ledger: "string" },
     help: statusHelp,
     async run(context) {
@@ -189,7 +189,7 @@ const denyHelp: CommandHelp = {
 
 const deny: Command = {
   summary:
-    "print the settings deny list generated from the enforced deny rules; --check fails when settings differ, --write regenerates them",
+    "print, check or regenerate the settings deny list the inventory generates",
   options: {
     check: "boolean",
     write: "boolean",

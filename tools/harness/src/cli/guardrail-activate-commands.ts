@@ -211,7 +211,7 @@ function report({ deps, json }: CommandContext, done: ActivateResult): number {
 /** The help record for `guardrail activate`: changes a mode only on a person's recorded approval. */
 const activateHelp: CommandHelp = {
   purpose:
-    "Changes a guardrail's mode, or removes it, only when a person has approved that change on the idea's issue. The approval is a comment from the owner login, made after the request, with the line approve <rule>:<from>><to>. The owner login is ownerLogin in .claude/harness.json, else the repository's owner. On approval it rewrites the rule in .claude/guardrails.yaml, regenerates the settings deny list for a deny rule, and records a guardrail.activated event.",
+    "Changes a guardrail's mode, or removes it, only when a person has approved that change on the idea's issue. The approval is a comment from the owner login, made after the request, with the line approve <rule>:<from>><to>. The owner login is ownerLogin in .claude/harness.json, else the repository's owner. On approval it rewrites the rule in .claude/guardrails.yaml, regenerates the settings deny list for a deny rule, and records a guardrail.activated event. An approving comment that carries a sender line still approves, but the change warns on stderr and in the JSON warning field, and also records a guardrail.approval-warned event.",
   when: "After guardrail request has posted the request and the owner has commented the approval line on the idea's issue, to apply exactly that change.",
   whenNot:
     "Before the approval is on the issue: the command refuses and posts a refusal comment instead, and an agent-applied label never counts as approval. To ask for the change, run guardrail request first.",
@@ -233,7 +233,7 @@ const activateHelp: CommandHelp = {
       command:
         "harness guardrail activate flag-activation --to enforce --idea 1500 --json",
       shows:
-        "the result as one JSON object: rule, from, to, idea, issue, activated, and reason and refusalPosted when refused, or warning when the approving comment carries a sender line",
+        "the result as one JSON object: rule, from, to, idea, issue, activated, reason, refusalPosted and commentUrl when refused, or warning when the approving comment carries a sender line",
     },
   ],
   exits: [
@@ -264,7 +264,7 @@ const activateHelp: CommandHelp = {
 export const activate: Command = {
   help: activateHelp,
   summary:
-    "change a guardrail's mode, or remove it, only when a person has approved that change on the idea's issue: a comment from the owner login (ownerLogin in .claude/harness.json, else the repository's owner) made after the request comment, with the line `approve <rule>:<from>><to>`; an agent-applied label never counts; enforcing, loosening and removing need the same approval, requested first with `guardrail request`; on approval it edits .claude/guardrails.yaml (and regenerates the settings deny list for a deny rule) and records a guardrail.activated ledger event; an approving comment that carries a sender line (a session wrote it, not the owner) still approves, but the change warns on stderr and in the JSON `warning` field and records a guardrail.approval-warned ledger event; with no request, no approval or only a label it refuses (exit 1), leaves the mode as it is and posts one refusal comment on the idea's issue (<rule> --to enforce|audit|removed --idea <number> [--json: rule, from, to, idea, issue, activated, reason, refusalPosted, commentUrl, warning] [--ledger])",
+    "change a guardrail's mode or remove it, only on the owner's approval of that change",
   operand: "rule",
   options: { to: "string", idea: "string", ledger: "string" },
   async run(context) {

@@ -5,8 +5,8 @@ import type { CommandHelp } from "../runtime/index.js";
 /** The help record for `guardrail replay`: a read-only judgement of one rule change over recorded calls. */
 export const replayHelp: CommandHelp = {
   purpose:
-    "Replays one guardrail rule over the recorded Bash, Read, Write and Edit calls in a window: it lists each call the rule refused under the old git ref and its new ref's guard allows. Each ref's guard is built in a disposable worktree that is removed afterwards. It reads session transcripts and the inventory, never the ledger.",
-  when: "Before an idea changes what a guard blocks, to see which recorded calls the change would newly allow, as the guard-idea checklist requires (ADR 0119).",
+    "Replays one guardrail rule over the recorded Bash, Read, Write and Edit calls in a window: it lists each call the rule refused under the old git ref and its new ref's guard allows. Each ref's guard is built in a disposable worktree that is removed afterwards. It reads session transcripts and the inventory, never the ledger. Each changed call gives its session, line, time (at), tool, and its command or path; an empty list is stated as empty; the output is always JSON.",
+  when: "Ideas that change what a guard blocks use it (ADR 0119), through this checklist: (1) the guard corpus still blocks every known-bad case in CI (integration/hook/guard-corpus.spec.ts); (2) run this over the idea's window; (3) a reader pane checks the changed list and the judge reads its report; (4) one changed command that left the worktree or wrote outside its role refutes the idea, whatever the block count says; (5) the revert restores the approved state, and the escape joins CORPUS in guard-corpus.ts in the reverting change, with the revert and the escape in the next owner digest.",
   whenNot:
     "When you want a rule's current mode or its pending requests: use guardrail status. When you want the settings deny list: use guardrail deny.",
   flags: {

@@ -43,7 +43,7 @@ async function ruleInsights(context: CommandContext): Promise<number> {
 /** The help record for `ruleset sync`: makes the live rulesets match the declared file, once confirmed. */
 const syncHelp: CommandHelp = {
   purpose:
-    "Makes the repository's GitHub rulesets match the declared file .github/rulesets/<target>.json. The enforce rules go to the live ruleset <target>, which stays active; the audit rules go to <target>-candidate in evaluate mode, so GitHub reports what they would block. It refuses a change that would weaken main unless --allow-removal is given.",
+    "Makes the repository's GitHub rulesets match the declared file .github/rulesets/<target>.json. The enforce rules go to the live ruleset <target>, which stays active; the audit rules go to <target>-candidate in evaluate mode, so GitHub reports what they would block. It refuses a change that would weaken main unless --allow-removal is given. Each declared rule needs one main-ruleset-<rule> entry in the guardrail inventory; its mode decides whether it goes to main or to the candidate.",
   when: "After you edit .github/rulesets/<target>.json: preview with --dry-run, then apply with --confirm once the operator agrees to the plan.",
   whenNot:
     "To see what the candidate would have blocked: use ruleset insights. To move a rule from audit to enforce: a person approves it through guardrail request and guardrail activate, which edit the inventory; then sync.",
@@ -98,7 +98,7 @@ const syncHelp: CommandHelp = {
 
 const sync: Command = {
   summary:
-    "sync a repository ruleset from .github/rulesets/<target>.json: main stays active with the enforce rules (one main-ruleset-<rule> inventory entry each), audit rules sync into <target>-candidate in evaluate; --dry-run shows the plan and mutates nothing; a live change needs --confirm after the operator agrees, and removing a rule from main needs --allow-removal (--repo <owner/name> --target <name> [--dry-run] [--confirm] [--allow-removal])",
+    "sync the repository's rulesets from .github/rulesets; --dry-run plans, --confirm applies",
   options: {
     repo: "string",
     target: "string",
@@ -164,7 +164,7 @@ const insightsHelp: CommandHelp = {
 
 const insights: Command = {
   summary:
-    "summarize what the evaluate-mode candidate ruleset would have blocked, by rule, from GitHub's rule-suite insights; read-only, for the activation request (--repo <owner/name> --target <name> [--time-period hour|day|week|month])",
+    "summarize what the evaluate-mode candidate ruleset would have blocked, by rule; read-only",
   options: { repo: "string", target: "string", "time-period": "string" },
   help: insightsHelp,
   run: (context) => guarded(context, () => ruleInsights(context)),

@@ -280,7 +280,7 @@ async function replayWith(
 export const guardrailReplay: Command = {
   help: replayHelp,
   summary:
-    "read-only; list the recorded Bash, Read, Write and Edit calls in a window that the rule refused under the old git ref and the new ref's guard allows, as JSON (rule, old, new, since, until, examined, empty, changed: session, line, at, tool, command or path); each ref's own guard judges each call in a disposable worktree under .claude/worktrees, built there and removed afterwards; an empty list is stated as empty; it reads session transcripts and the guardrail inventory, never the ledger, and writes nothing outside those worktrees; the guard-idea checklist: (1) the guard corpus still blocks every known-bad case in CI (integration/hook/guard-corpus.spec.ts); (2) run this over the idea's window; (3) a reader pane checks the changed list and the judge reads its report; (4) one changed command that left the worktree or wrote outside its role refutes the idea, whatever the block count says; (5) the revert restores the approved state, and the escape joins CORPUS in guard-corpus.ts in the reverting change, with the revert and the escape in the next owner digest (--rule <name> --old <ref> --new <ref> --since <date|UTC timestamp> [--until <date|UTC timestamp>]; the output is always JSON)",
+    "list the recorded calls one rule refused under an old ref and its new ref allows; read-only",
   options: {
     rule: "string",
     old: "string",
