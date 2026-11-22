@@ -52,10 +52,12 @@ function unknownReason(words: readonly string[]): string | undefined {
   if (domain === undefined) {
     return undefined;
   }
-  if (!Object.hasOwn(domains, domain)) {
+  const table: Readonly<Record<string, Readonly<Record<string, unknown>>>> =
+    domains;
+  if (!Object.hasOwn(table, domain)) {
     return `no domain \`${domain}\``;
   }
-  const commands = domains[domain] ?? {};
+  const commands = table[domain] ?? {};
   if (command === undefined || Object.hasOwn(commands, command)) {
     return undefined;
   }
