@@ -1,4 +1,4 @@
-import type { CliDeps, CommandContext } from "../runtime/index.js";
+import type { CliDeps, CommandContext, CommandHelp } from "../runtime/index.js";
 import { signedMessage } from "../sender/index.js";
 import { garbled, plain, withoutDim } from "./ansi.js";
 import { describeFailure } from "./equalize.js";
@@ -240,3 +240,52 @@ export async function notify(context: CommandContext): Promise<number> {
   );
   return 0;
 }
+
+export const notifyHelp: CommandHelp = {
+  purpose:
+    "Tells the caller pane that this spawned session finished: it sends one line, starting with its sender line, that names the outcome and the pane holding the summary, submits it, and reads the caller pane back to confirm the line arrived.",
+  when: "As a spawned session's last action, after it has printed its RESULT line, so the caller hears of the finish without polling.",
+  whenNot:
+    "From the main session, or from any pane session spawn did not start: it refuses there, since only a spawned session has a name to report. To message a spawned session instead, use session send.",
+  flags: {
+    outcome:
+      "The outcome the session reports, done or blocked; it must match the RESULT line the session printed.",
+  },
+  operand:
+    "The caller's Herdr pane id, such as w3:p1. Only letters, digits, underscores and colons are accepted.",
+  examples: [
+    {
+      command: "harness session notify w3:p1 --outcome done",
+      shows:
+        "the caller pane receives the finished line, and the command prints that it notified w3:p1 and exits 0",
+    },
+    {
+      command: "harness session notify w3:p1 --outcome maybe",
+      shows:
+        "the outcome is not done or blocked, so the command exits 2 and sends nothing",
+    },
+  ],
+  exits: [
+    {
+      code: 0,
+      meaning:
+        "the line was delivered and its arrival confirmed in the caller pane",
+    },
+    {
+      code: 1,
+      meaning:
+        "not inside a spawned session, the line could not be signed, or delivery failed or was not confirmed; when it was not confirmed, do not send again, since the line may have arrived",
+    },
+    {
+      code: 2,
+      meaning:
+        "a usage error: the caller pane is missing or invalid, or the outcome is not done or blocked; nothing is sent",
+    },
+  ],
+  effects: {
+    kind: "mutates",
+    detail:
+      "types and submits one line into the caller's pane and reads that pane back; writes no registry entry and no ledger event",
+  },
+  seeAlso: ["session send", "session wait"],
+};

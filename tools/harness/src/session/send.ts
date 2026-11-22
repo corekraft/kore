@@ -4,6 +4,7 @@ import {
   mainRoot,
   type CliDeps,
   type CommandContext,
+  type CommandHelp,
 } from "../runtime/index.js";
 import { signedMessage, type Sender } from "../sender/index.js";
 import { deliver } from "./notify.js";
@@ -119,3 +120,52 @@ export async function send(context: CommandContext): Promise<number> {
   );
   return 0;
 }
+
+export const sendHelp: CommandHelp = {
+  purpose:
+    "Sends a one-line follow-up to a spawned session's pane. The line starts with a sender line that names who sent it, is confirmed to show in the pane, and is then recorded as a session.send ledger event that names the sender.",
+  when: "When a session that is still running needs a correction, a fact or a question in its own pane, and this tool spawned it.",
+  whenNot:
+    "When the session is closed, which this refuses; read a finished session's result with session wait. To start new work rather than message a running session, use session spawn. For the session's own message to its caller, use session notify.",
+  flags: {
+    message:
+      "The text to send: one line, not blank, with no line break. It goes out after the sender line.",
+  },
+  operand:
+    "The spawned session's name, such as image-trust-reader. A name this tool did not spawn is refused.",
+  examples: [
+    {
+      command:
+        'harness session send image-trust-reader --message "Also check the cache rule"',
+      shows:
+        "the line reaches the session's pane, and the command prints that it was sent and exits 0",
+    },
+    {
+      command: "harness session send image-trust-reader",
+      shows: "the message is missing, so the command exits 2 and sends nothing",
+    },
+  ],
+  exits: [
+    {
+      code: 0,
+      meaning:
+        "the line was delivered and confirmed; if its ledger event could not be recorded, stderr says so and the exit stays 0",
+    },
+    {
+      code: 1,
+      meaning:
+        "no session of this tool has that name, the session is closed, the message cannot be signed, or delivery failed or was not confirmed",
+    },
+    {
+      code: 2,
+      meaning:
+        "a usage error: no name, or the message is missing, blank or spans lines; nothing is sent",
+    },
+  ],
+  effects: {
+    kind: "mutates",
+    detail:
+      "types and submits one line into the session's pane, then appends a session.send ledger event that names the sender's role and session; the session registry is not changed",
+  },
+  seeAlso: ["session notify", "session wait", "session spawn"],
+};
