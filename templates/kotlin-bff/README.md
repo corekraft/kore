@@ -14,3 +14,30 @@ Golden-path template for a Kotlin Spring Boot backend for frontend
 
 Build: `gradle jib --image=<ref>` (needs Docker for the training run). Nothing
 deploys this template yet; the live build and startup measurement are owed.
+
+## Sign-in
+
+Sign-in is behind the `golden-path-signin` flag, off in every environment
+overlay. The Service's chart passes the flag to the application as
+`GOLDEN_PATH_SIGNIN`, and only the exact value `true` turns the flow on. A
+value that is neither `true` nor `false` refuses to start.
+
+With the flag off, every route answers as it did before sign-in existed, and no
+session is created.
+
+With the flag on, set these three environment variables at run time. They are
+never committed, and the client secret is never logged or printed:
+
+- `OIDC_ISSUER_URI`: the OIDC provider's issuer. Discovery is read from it when
+  the application starts.
+- `OIDC_CLIENT_ID`: the client id the provider issued.
+- `OIDC_CLIENT_SECRET`: the client secret the provider issued.
+
+A missing or blank variable refuses to start, and the message names it. The
+session cookie is host-only, HttpOnly, Secure and SameSite lax. Every path
+except the health probes (`/actuator/health`) and the sign-in routes needs a
+signed-in session; an unauthenticated request is redirected to sign-in and
+never served.
+
+Pinned sign-in dependencies and their evidence are in
+[`infra/catalog/compatibility.md`](../../infra/catalog/compatibility.md).

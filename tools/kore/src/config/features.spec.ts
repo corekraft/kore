@@ -14,6 +14,7 @@ import {
   gatewayClassName,
   gatewayClassChangeFlag,
   gatewayRollbackOrderFlag,
+  goldenPathSigninFlag,
   ingressFlag,
 } from "./features.js";
 import type { Environment } from "./types.js";
@@ -207,4 +208,17 @@ test("a release that does not declare startsAfterDelivery never starts after the
   expect(
     startsAfterDelivery(on, fakeComponent({ startsAfterDelivery: false })),
   ).toBe(false);
+});
+
+test("the golden-path sign-in flag is named golden-path-signin and is off while an overlay omits it", () => {
+  expect(goldenPathSigninFlag).toBe("golden-path-signin");
+  expect(featureEnabled(environment(undefined), goldenPathSigninFlag)).toBe(
+    false,
+  );
+  expect(
+    featureEnabled(
+      environment({ [goldenPathSigninFlag]: true }),
+      goldenPathSigninFlag,
+    ),
+  ).toBe(true);
 });
