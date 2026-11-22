@@ -25,6 +25,8 @@ function toolInput(
       return { file_path: c.input, old_string: "a", new_string: "b" };
     case "Write":
       return { file_path: c.input, content: "x" };
+    case "REPL":
+      return { code: c.input };
     case "Glob":
       return { pattern: c.pattern ?? c.input, path: c.input };
     case "Grep":

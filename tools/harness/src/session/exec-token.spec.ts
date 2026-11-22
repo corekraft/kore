@@ -76,6 +76,7 @@ describe("launchClaude: the GitHub token", () => {
         ...SCRUBBED,
         GH_TOKEN: MINTED,
         KORE_HARNESS_BUNDLE: "/repo/skills/bin/harness.mjs",
+        CLAUDE_CODE_EXPERIMENTAL_CODE_MODE: "0",
       },
       inherit: true,
     });
@@ -139,6 +140,7 @@ describe("launchClaude: the owner token, and roles without one", () => {
       env: {
         ...SCRUBBED,
         KORE_HARNESS_BUNDLE: "/repo/skills/bin/harness.mjs",
+        CLAUDE_CODE_EXPERIMENTAL_CODE_MODE: "0",
       },
       inherit: true,
     });
@@ -156,6 +158,7 @@ describe("launchClaude: the owner token, and roles without one", () => {
     );
     expect(claudeRuns(deps)).toEqual([]);
     expect(deps.runner.run.mock.calls.map(([command]) => command)).toEqual([
+      "claude",
       "claude",
     ]);
   });

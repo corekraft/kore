@@ -73,3 +73,78 @@ for (const role of ["reader", "writer"]) {
     },
   );
 }
+
+// Code Mode is the REPL tool (#1872). claude has no flag for it, so session exec turns it off with the environment
+// switch: an off there overrides the user settings' env block, which sets the switch on. claude -p prints its tool
+// names as one comma-separated line, after a warning line when Code Mode is off.
+const CODE_MODE = "CLAUDE_CODE_EXPERIMENTAL_CODE_MODE";
+const SETTINGS_ON = JSON.stringify({ env: { [CODE_MODE]: "1" } });
+
+/** The tool names claude -p reports, with the switch set by env on top of the caller's environment and the settings' switch on. */
+async function reportedTools(
+  env: Record<string, string>,
+): Promise<{ code: number; names: string[] }> {
+  // The probe starts its own claude, so the CLAUDECODE marker of an enclosing session is not passed on.
+  const inherited = Object.fromEntries(
+    Object.entries(process.env).filter(
+      (entry): entry is [string, string] =>
+        entry[1] !== undefined &&
+        entry[0] !== CODE_MODE &&
+        entry[0] !== "CLAUDECODE",
+    ),
+  );
+  const result = await new ProcessRunner().run(
+    "claude",
+    [
+      "--model",
+      "claude-haiku-5-5",
+      "--setting-sources",
+      "user",
+      "--settings",
+      SETTINGS_ON,
+      "-p",
+      "List only the exact names of the tools you can call, comma separated.",
+      "--output-format",
+      "json",
+    ],
+    { env: { ...inherited, ...env } },
+  );
+  const reply = JSON.parse(
+    result.stdout.slice(result.stdout.search(/^\{/m)),
+  ) as { result: string };
+  return {
+    code: result.code,
+    names: reply.result
+      .replace(/\.$/, "")
+      .split(",")
+      .map((tool) => tool.trim()),
+  };
+}
+
+const named = (label: string) =>
+  claudeOnPath ? label : `${label} (skipped: claude is not on PATH)`;
+
+it.skipIf(!claudeOnPath)(
+  named(
+    "with Code Mode off in the environment, claude lists Bash and no REPL, though the settings turn it on",
+  ),
+  async () => {
+    const { code, names } = await reportedTools({ [CODE_MODE]: "0" });
+
+    expect(code).toBe(0);
+    expect(names).toContain("Bash");
+    expect(names).not.toContain("REPL");
+  },
+);
+
+it.skipIf(!claudeOnPath)(
+  named(
+    "the control: with the switch unset and the settings on, claude lists REPL",
+  ),
+  async () => {
+    const { code, names } = await reportedTools({});
+
+    expect(code).toBe(0);
+    expect(names).toContain("REPL");
+  },
+);

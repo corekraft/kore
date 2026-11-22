@@ -56,6 +56,14 @@ export const readOnly = (what: string): Finding =>
       "and the judge sends the change back.",
   );
 
+/** REPL runs JavaScript the guard does not read, so a read-only role that runs it is refused whatever the code. */
+export const replNotRead = (): Finding =>
+  block(
+    "role-read-only",
+    "REPL runs JavaScript the guard cannot read, and a read-only role never writes. " +
+      "Instead, run the read as a Bash command, such as cat or grep, or report what needs changing.",
+  );
+
 /** The reads a read-only role allows, named in the block message so a refused role can pick one that works; guard-role-allow.spec.ts checks each is allowed. */
 export const WORKING_READS: readonly string[] = [
   "cat",

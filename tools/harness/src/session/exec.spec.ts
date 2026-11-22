@@ -251,3 +251,69 @@ describe("launchClaude: the role's agent definition", () => {
     expect(claudeRuns(deps)).toEqual([]);
   });
 });
+
+describe("launchClaude: Code Mode is off", () => {
+  it("starts claude with CLAUDE_CODE_EXPERIMENTAL_CODE_MODE=0 in its environment, overriding the 1 the caller inherits", async () => {
+    deps.env = { ...SCRUBBED, CLAUDE_CODE_EXPERIMENTAL_CODE_MODE: "1" };
+
+    const code = await launchClaude(from(deps, BUNDLE_URL), INPUT);
+
+    expect(code).toBe(0);
+    expect(claudeRuns(deps)).toEqual([
+      [
+        "claude",
+        ARGV,
+        expect.objectContaining({
+          env: expect.objectContaining({
+            CLAUDE_CODE_EXPERIMENTAL_CODE_MODE: "0",
+          }),
+        }),
+      ],
+    ]);
+  });
+
+  it("refuses a claude older than 2.1.330, naming the switch and the version, and starts nothing", async () => {
+    answer(deps, {
+      version: { stdout: "2.1.329 (Claude Code)\n", stderr: "", code: 0 },
+    });
+
+    const code = await launchClaude(from(deps, BUNDLE_URL), INPUT);
+
+    expect(code).toBe(1);
+    expect(deps.stderr).toHaveBeenCalledWith(
+      "The installed claude is 2.1.329, but session exec turns Code Mode off with CLAUDE_CODE_EXPERIMENTAL_CODE_MODE=0, which needs claude 2.1.330 or later. Upgrade claude, then rerun.\n",
+    );
+    expect(deps.runner.run.mock.calls.map(([command]) => command)).toEqual([
+      "claude",
+      "claude",
+    ]);
+    expect(claudeRuns(deps)).toEqual([]);
+  });
+
+  it("refuses a claude whose version cannot be read, naming the switch, and starts nothing", async () => {
+    answer(deps, {
+      version: { stdout: "", stderr: "unknown option", code: 1 },
+    });
+
+    const code = await launchClaude(from(deps, BUNDLE_URL), INPUT);
+
+    expect(code).toBe(1);
+    expect(deps.stderr).toHaveBeenCalledWith(
+      "session exec cannot read claude's version, so it cannot check that claude turns Code Mode off with CLAUDE_CODE_EXPERIMENTAL_CODE_MODE=0. Install claude 2.1.330 or later, then rerun.\n",
+    );
+    expect(claudeRuns(deps)).toEqual([]);
+  });
+
+  it("accepts a claude 2.1.1000, comparing the version's parts as numbers", async () => {
+    answer(deps, {
+      version: { stdout: "2.1.1000 (Claude Code)\n", stderr: "", code: 0 },
+    });
+
+    const code = await launchClaude(from(deps, BUNDLE_URL), INPUT);
+
+    expect(code).toBe(0);
+    expect(claudeRuns(deps)).toEqual([
+      ["claude", ARGV, expect.objectContaining({ inherit: true })],
+    ]);
+  });
+});
