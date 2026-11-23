@@ -485,19 +485,19 @@
           }
       },
       {
-        "image": "ghcr.io/corekraft/kore/backstage@sha256:86ea69871da3e31af13bd1880ae9a96d54577681d1f3bb10b85716ccb5790157",
+        "image": "ghcr.io/corekraft/kore/backstage@sha256:a47f1b52eb19b2619305bf35c179885472a4b5fc50b4e9dd8c2fee5ececdd866",
         "name": "backstage",
         "component": "kore-platform-backstage",
         "evidence":
           {
             "method": "registry-digest",
-            "source": "Built, pushed and signed by the release workflow of the v0.20.0 tag (release.yaml, the Backstage image step, run 44947866573). backstage-image.lock.json on the v0.20.0 release records this digest and the signer identity, and the release verified it entry by entry before upload. Replaces upstream's evaluation build (ghcr.io/backstage/backstage:1.55.2), which has no OIDC module and no Kore catalog provider (issue 1708).",
-            "checked": "2026-11-21",
+            "source": "Built, pushed and signed by the release workflow of the v0.24.0 tag (release.yaml, the Backstage image step, run 45099227907). backstage-image.lock.json on the v0.24.0 release records this digest and the signer identity, and the release verified it entry by entry before upload. Replaces upstream's evaluation build (ghcr.io/backstage/backstage:1.55.2), which has no OIDC module and no Kore catalog provider (issue 1708).",
+            "checked": "2026-11-23",
             "provenance":
               {
                 "signed": true,
                 "issuer": "https://token.actions.githubusercontent.com",
-                "identity": "https://github.com/corekraft/kore/.github/workflows/release.yaml@refs/tags/v0.20.0"
+                "identity": "https://github.com/corekraft/kore/.github/workflows/release.yaml@refs/tags/v0.24.0"
               }
           }
       },
