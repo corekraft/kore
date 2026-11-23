@@ -82,7 +82,7 @@ export interface MergedChangeFigures {
   breakEven: WriterFigures["breakEven"];
   /** The same break-even read before and from the split date; present only when the report is given one (#1051). */
   breakEvenSplit?: WriterFigures["breakEvenSplit"];
-  /** The main session's poll minutes, pane-result reads and signed sends, from the retro scans' events (#940); never in the owner digest. */
+  /** The main session's poll minutes, pane-result reads and signed sends, from the retro scans' events (#940); never reported to the owner. */
   mainSession: MainSessionFigures;
   /** The main session's handovers by reason over the window, or why they are not read: no reason recorded, or too few merged changes (#1036). */
   handovers: HandoverCount;

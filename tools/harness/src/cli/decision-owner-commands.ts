@@ -1,11 +1,9 @@
-// The owner-facing `decision` commands (ADR 0120): `ask` posts a reserved question, and `digest`
-// reports the open ones to the owner once a day. The decision group merges them in one place.
+// The owner-facing `decision` commands (ADR 0120): `ask` posts a reserved question to the owner's
+// queue. The decision group merges it in one place. `decision digest` was removed (#1787).
 import type { Command } from "../runtime/index.js";
 import { askCommands } from "./decision-ask-commands.js";
-import { digestCommands } from "./decision-digest-commands.js";
 
-/** The ask and digest commands, merged into the `decision` group. */
+/** The ask command, merged into the `decision` group. */
 export const ownerCommands: Record<string, Command> = {
   ...askCommands,
-  ...digestCommands,
 };

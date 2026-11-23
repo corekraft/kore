@@ -2,7 +2,7 @@
 status: accepted
 summary: Refines ADR 0117: a question that carries a recommendation goes to a read-only advisor role that records its decision on the issue, unless it is a reserved decision from a closed, fail-closed list whose entries already belong to the owner; the advisor grants nothing, reserved questions are posted at once and notified in one daily digest, a comment or pane message without a role line is the owner's; by delegation the advisor runs on Opus as ADR 0117's one exception and unattended sessions get their own identities; accepted on the owner's untagged comments on #794.
 date: 2026-11-16
-last-verified: 2026-11-16
+last-verified: 2026-11-23
 ---
 
 # ADR 0120: Recommended decisions go to an advisor, reserved decisions to the owner
@@ -75,6 +75,11 @@ back to the principle; it adds no gate.
   pane, marks a question blocking from the ledger, and keeps advancing other
   ideas. Consent for a destructive command is never routed: it stays inline
   with its gate, and an unsupervised pane that meets one stops and reports.
+  _Note, 2026-11-23: `decision digest` is removed (#1787, the owner's approval of
+  the removal list). Reserved questions are still posted at once on their issues,
+  and `harness status` lists the open ones, blocking first. No daily digest is
+  posted now; the digest text above is the record of the decision, not of the
+  command._
 - **Measured from sources the router does not write.** A hook records an event
   whenever a session asks the person or ends a turn waiting on them. The
   primary metric is owner-facing questions outside the reserved list per merged

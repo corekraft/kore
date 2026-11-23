@@ -1111,13 +1111,9 @@ It refuses, with nothing posted, a question the advisor decides (use `decision m
 and a consent prompt: an action that matches the destruction list stays inline with
 its gate and is never routed. It is refused while the `decision-advisor` flag is off.
 
-`decision digest` posts the owner digest, at most once a day, to the one issue pinned
-on the repository: the open reserved questions, blocking first, and whether the tick
-is not running. It records `decision.digest` with no question in it. It refuses while
-no issue or several are pinned, and posts nothing when no question is open and the
-tick runs. `harness status` lists the open questions after the idea counts. A tick
-writes `decision.blocking` to mark an idea whose question blocks it; the tick does not
-write that mark yet.
+`harness status` lists the open reserved questions after the idea counts, blocking
+first. A tick writes `decision.blocking` to mark an idea whose question blocks it; the
+tick does not write that mark yet.
 
 `harness queue next` lists the frontier behind the local `tick-ticket-queue` flag (off).
 It holds every open `ready-for-agent` issue that no exclusion keeps out: an assignee, the
@@ -1446,8 +1442,8 @@ An idea that changes what a guard blocks is confirmed on this checklist (ADR 011
 4. One changed command that left the worktree or wrote outside its role refutes
    the idea, whatever the block count says.
 5. The revert restores the approved state with no approval, and the escaping
-   command joins `CORPUS` in the reverting change. The revert and the escape go in
-   the next owner digest.
+   command joins `CORPUS` in the reverting change. The revert and the escape are
+   reported to the owner on the idea's issue.
 
 ## Status
 

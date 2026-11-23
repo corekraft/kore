@@ -126,7 +126,7 @@ const makeHelp: CommandHelp = {
     detail:
       "posts one comment on the idea's or the issue's GitHub issue, under the sender line, then appends one decision.made event carrying the idea or issue number and the category. The ledger is append-only and written only here.",
   },
-  seeAlso: ["decision ask", "decision digest"],
+  seeAlso: ["decision ask"],
 };
 
 const make: Command = {

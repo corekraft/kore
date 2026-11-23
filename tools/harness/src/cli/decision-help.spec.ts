@@ -5,10 +5,7 @@ import * as help from "./decision-help.js";
 // The decision help records are data. These tests pin what each record must say: its text,
 // its examples, its exits, the flag gate, and the append-only note on each writer. The
 // make record lives beside its command in decision-commands.ts.
-const records: [string, CommandHelp][] = [
-  ["ask", help.askHelp],
-  ["digest", help.digestHelp],
-];
+const records: [string, CommandHelp][] = [["ask", help.askHelp]];
 
 describe("the decision help records", () => {
   it.each(records)(
@@ -75,6 +72,5 @@ describe("the decision help records", () => {
       "question",
       "question-file",
     ]);
-    expect(Object.keys(help.digestHelp.flags)).toEqual(["ledger"]);
   });
 });

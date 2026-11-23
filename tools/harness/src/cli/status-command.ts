@@ -112,7 +112,7 @@ const statusHelp: CommandHelp = {
     detail:
       "reads the active plans, the idea records and the ledger, then prints the report. It writes nothing.",
   },
-  seeAlso: ["ledger list", "idea show", "decision digest"],
+  seeAlso: ["ledger list", "idea show"],
 };
 
 export const statusCommand: Command = {

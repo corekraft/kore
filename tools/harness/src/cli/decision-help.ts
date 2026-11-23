@@ -54,47 +54,5 @@ export const askHelp: CommandHelp = {
     detail:
       "adds the needs-info label to the idea's GitHub issue, posts one comment under the sender line, then appends one decision.routed event to the owner. The ledger is append-only and written only here.",
   },
-  seeAlso: ["decision make", "decision digest"],
-};
-
-export const digestHelp: CommandHelp = {
-  purpose:
-    "Posts the owner digest, at most once a day, to the one issue pinned on the repository: the open reserved questions, blocking first, and whether the tick is not running. It posts nothing when no question is open and the tick is running, and then says so. Refused with nothing posted or recorded while the decision-advisor flag is off in the local overlay.",
-  when: "When the owner should see the open reserved questions and the tick's state, such as from a daily loop or by hand.",
-  whenNot:
-    "When you want the picture for yourself: use status, which reports the same questions and changes nothing. The digest is a comment the owner reads on GitHub.",
-  flags: {
-    ledger:
-      "The ledger file to read and append to, resolved from the working directory. Default: the shared ledger under the main checkout root (.kore/state/ledger.jsonl), where KORE_ROOT overrides the root.",
-  },
-  examples: [
-    {
-      command: "harness decision digest",
-      shows:
-        "the digest posted to the pinned issue with its open and blocking counts; or that it is not due until a time; or that nothing needed saying",
-    },
-    {
-      command: "harness decision digest --json",
-      shows:
-        "the result as one object: posted true with the comment's URL and counts, or posted false with its reason and the time the next digest is due",
-    },
-  ],
-  exits: [
-    {
-      code: 0,
-      meaning:
-        "the digest was posted; or it was not due, and the next time is printed; or nothing needed saying",
-    },
-    {
-      code: 1,
-      meaning:
-        "refused with nothing posted: the flag is off, no issue or several issues are pinned, the sender line cannot be written, the text carries a guardrail approval line, or the GitHub call fails. Also when the digest was posted but its ledger event was rejected; the message says not to post it again",
-    },
-  ],
-  effects: {
-    kind: "mutates",
-    detail:
-      "reads the ledger. When a digest is due and has something to say, it reads the pinned issue, posts one comment under the sender line, and appends one decision.digest event, which is append-only and written only here.",
-  },
-  seeAlso: ["status", "decision ask"],
+  seeAlso: ["decision make"],
 };
