@@ -56,6 +56,23 @@ Recorded per the [pin-upgrade skill](../../skills/pin-upgrade/SKILL.md):
   checksum ([plan 16](../../infra/plans/16-hc-native-sessions.md), Open
   Questions).
 
+## Reaching the delivery terminal from the Mac
+
+The Mac main session reaches the delivery terminal on kore-agents with hc. It
+replaces the ssh and herdr relay that carried these messages before:
+
+```sh
+hc send kore-agents/<id> "<text>"
+```
+
+- `<id>` is the terminal labelled `kore-delivery=1` on kore-agents. Read its id
+  there with `hc ls --label kore-delivery=1`.
+- The Mac adds the host once with `hc machine add`, under the name
+  `kore-agents`; `hc machine ls` lists the machines added there. hc reaches the
+  machine over ssh; no harness command runs its own ssh.
+- Sessions on kore-agents never use this relay. Their own messages go through
+  `harness session send`, which is for sessions the caller may reach.
+
 ## Related
 
 - [`infra/plans/16-hc-native-sessions.md`](../../infra/plans/16-hc-native-sessions.md) — the plan that adopts hc's model. Step 1 declared the `hc-sessions` flag; Step 6 removed the flag and the herdr path, so hc is the only session path.

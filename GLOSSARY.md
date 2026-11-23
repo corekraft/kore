@@ -48,14 +48,40 @@ than an agent.
 _Avoid_: Planner, manager, lead
 
 **Main session**:
-The session the owner attends, which starts role panes and talks to them. It
+The session the owner attends, which starts role sessions and talks to them. It
 has no agent definition, holds the owner's token and is never spawned.
 _Avoid_: Orchestrator session, orchestrating session, driver
 
-**Pane result**:
-What a finished pane leaves its caller: an outcome word, done or blocked, and
-a short summary.
-_Avoid_: Finish line, notification
+**Terminal**:
+A process run by hc: it has a parent, labels and a live or finished state, and
+is addressed as `t7` or `kore-agents/t7`. A session is one terminal. The harness
+reads a terminal's status from hc, never from its screen.
+_Avoid_: Process, shell
+
+**Session result**:
+What a finished session leaves its caller: an outcome word, done or blocked, and
+a short summary, recorded in its **Report**.
+_Avoid_: Finish line, notification, Pane result
+
+**Report**:
+A session's result as a file, `.kore/report/<session>.json`, written with the
+next `seq` before a one-line notice names the file to its parent. Only a report
+makes a session done; a terminal that stopped with no report is blocked.
+_Avoid_: Result line, result scrape
+
+**Delivery terminal**:
+The plain shell terminal labelled `kore-delivery=1` on a machine that runs the
+delivery loop. It runs the tick and is the parent of the sessions the loop
+starts; a crash of it ends them, and their worktrees survive. The Mac main
+session reaches the one on kore-agents with `hc send kore-agents/<id>`, as
+`docs/operations/hc-pin.md` describes.
+_Avoid_: Delivery host, loop terminal
+
+**Group**:
+The label `group=<name>` that `session spawn` sets on a session started as part
+of a pair. `session send` reaches a session's parent, its children and its group
+siblings, and nothing else.
+_Avoid_: Team, channel
 
 **Reader**:
 An agent that only reads and summarizes for another agent.
@@ -67,13 +93,14 @@ _Avoid_: Implementer, coder
 
 **Follow-up**:
 A message sent to a writer session after its brief, by the main session or a
-tool, always carrying a sender line.
+tool. hc's tag names its sender, so the message carries its provenance without a
+typed line. A GitHub comment a tool writes keeps its sender line.
 _Avoid_: Nudge, ping
 
 **Branch update notice**:
-The one signed follow-up the tick sends a writer when its PR conflicts with main
-or is ready but for being behind: it tells the writer to merge origin/main and
-never pushes the branch itself.
+The one follow-up the tick sends a writer session when its PR conflicts with
+main or is ready but for being behind: it tells the writer to merge origin/main
+and never pushes the branch itself.
 _Avoid_: Rebase request, branch update
 
 **Judge**:
@@ -177,8 +204,8 @@ zero.
 _Avoid_: Plan percentage, usage percentage
 
 **Rework**:
-A follow-up sent to a writer after a judge send-back of the pull request that
-writer started. Any other follow-up is not rework.
+A follow-up sent to a writer session after a judge send-back of the pull request
+that writer session started. Any other follow-up is not rework.
 Rework is a subset of **Follow-up**.
 _Avoid_: Retry, resend
 
@@ -300,25 +327,31 @@ outcomes.
 _Avoid_: Slow step
 
 **Finish detection**:
-The share of a flow report's pane results that a `pane.finished` on the same
-pane noticed within the detection window, a placeholder of 300 seconds. A result
-is noticed only when `session wait` recorded that finish: a pane read or a
-message to the pane records nothing, so it counts as not noticed. The undetected
-results split into never noticed (no `pane.finished` was ever recorded on the
-pane) and late (one was recorded outside the window, or already used). Lag is how
-late a finish was recorded, never a merge delay.
+The share of a flow report's session results that a finish recorded on the same
+terminal noticed within the detection window, a placeholder of 300 seconds. A
+result is noticed only when its finish was recorded: for a herdr result, a
+`pane.finished` ledger event, recorded when `session wait` saw it; for a
+terminal result, when the terminal watch did. A
+terminal read or a message to the session records nothing, so it counts as not
+noticed. The undetected results split into never noticed (no finish was ever
+recorded on the terminal) and late (one was recorded outside the window, or
+already used). Lag is how late a finish was recorded, never a merge delay.
+Meanings change with the source: a terminal's finish is noticed almost at once,
+so the share is read per ledger source and never blended.
 _Avoid_: Stop detection, finish rate
 
 **Silent session**:
-A session whose last `token.usage` is more than 900 seconds before the report's
-measuring point, with no RESULT since, and with no background command or open
-reserved question on its pane. The flow report counts silent sessions beside the
-recorded `pane.stalled` count. It is a token-usage reading, not a stalled pane.
-_Avoid_: Stalled pane, stall count
+A session whose last `token.usage` is more than 900 seconds before the flow
+report's measuring point, with no report since, and with no background command or
+open reserved question on its terminal. The flow report counts silent sessions
+beside the recorded stall count, the `pane.stalled` ledger events, which is read per
+ledger source: a terminal's stall is a blocked or error event. It is a token-usage reading, not a stalled
+terminal.
+_Avoid_: Stalled terminal, stall count
 
 **Stage event**:
 A timestamped fact about one idea's journey through the delivery loop, such as
-a session starting, a pane going idle, or a pull request merging. It records
+a session starting, a terminal going idle, or a pull request merging. It records
 that something happened, never what was said or changed.
 _Avoid_: Log line, telemetry, trace
 
@@ -337,8 +370,8 @@ _Avoid_: Pipeline, throughput
 
 **Unmapped event**:
 A stage event the flow report cannot place in a stage or attribute to an idea,
-such as a label that is not the approval label or a pane with no role. It is
-counted but left out of every stage.
+such as a label that is not the approval label or a terminal with no role label.
+It is counted but left out of every stage.
 
 **Merged change**:
 One pull request merged to `main`, the unit a per-merge metric counts. It
