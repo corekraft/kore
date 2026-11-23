@@ -1,14 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { DecisionError } from "./decision.js";
 import { ADVISOR_FILES, matchedBy } from "./matcher.js";
 import { reservedCategory } from "./reserved.js";
-import {
-  classify,
-  routeQuestion,
-  UNCLASSIFIED,
-  type RoutePorts,
-  type RouteInput,
-} from "./route.js";
+import { classify, type ClassifyInput } from "./classify.js";
 
 vi.mock("./matcher.js", async (importOriginal) => ({
   ...(await importOriginal<typeof import("./matcher.js")>()),
@@ -19,22 +12,13 @@ vi.mock("./reserved.js", async (importOriginal) => ({
   reservedCategory: vi.fn(),
 }));
 
-const INPUT: RouteInput = {
+const INPUT: ClassifyInput = {
   idea: "8",
   category: "naming",
   question: "Should the column be named Median or P50?",
   action: "Rename the column to Median.",
   escalate: false,
 };
-
-function ports(overrides: Partial<RoutePorts> = {}): RoutePorts {
-  return {
-    flagOn: vi.fn(() => Promise.resolve(true)),
-    idea: vi.fn(() => Promise.resolve("0008")),
-    record: vi.fn(() => Promise.resolve({ ok: true as const })),
-    ...overrides,
-  };
-}
 
 beforeEach(() => {
   vi.mocked(matchedBy).mockReturnValue(undefined);
@@ -101,77 +85,5 @@ describe("classify", () => {
       route: "owner",
       signal: "escalated",
     });
-  });
-});
-
-describe("routeQuestion", () => {
-  it("records decision.routed with the idea, the category, the route and the signal, and never the question or the action", async () => {
-    const p = ports();
-
-    const routed = await routeQuestion(p, INPUT);
-
-    expect(p.record).toHaveBeenCalledWith({
-      idea: "0008",
-      label: "naming",
-      route: "advisor",
-      signal: "agreed",
-    });
-    expect(routed).toEqual({
-      idea: "0008",
-      category: "naming",
-      route: "advisor",
-      signal: "agreed",
-    });
-  });
-
-  it("records an unreadable category under the unclassified label, so the ledger accepts the event and the owner gets it", async () => {
-    const p = ports();
-
-    const routed = await routeQuestion(p, { ...INPUT, category: "Bad Name" });
-
-    expect(p.record).toHaveBeenCalledWith({
-      idea: "0008",
-      label: UNCLASSIFIED,
-      route: "owner",
-      signal: "unclassifiable",
-    });
-    expect(routed.category).toBe(UNCLASSIFIED);
-  });
-
-  it("records an escalation as route owner, the advisor's escalation writing no advisor route", async () => {
-    const p = ports();
-
-    const routed = await routeQuestion(p, { ...INPUT, escalate: true });
-
-    expect(p.record).toHaveBeenCalledWith({
-      idea: "0008",
-      label: "naming",
-      route: "owner",
-      signal: "escalated",
-    });
-    expect(routed.route).toBe("owner");
-  });
-
-  it("refuses, recording nothing, while the decision-advisor flag is off", async () => {
-    const p = ports({ flagOn: vi.fn(() => Promise.resolve(false)) });
-
-    await expect(routeQuestion(p, INPUT)).rejects.toThrow(DecisionError);
-    await expect(routeQuestion(p, INPUT)).rejects.toThrow(
-      /decision-advisor flag is off/,
-    );
-    expect(p.record).not.toHaveBeenCalled();
-    expect(p.idea).not.toHaveBeenCalled();
-  });
-
-  it("refuses an advisor route the ledger rejects, so the pane never acts on a route nobody recorded", async () => {
-    const p = ports({
-      record: vi.fn(() =>
-        Promise.resolve({ ok: false as const, message: "label is empty." }),
-      ),
-    });
-
-    await expect(routeQuestion(p, INPUT)).rejects.toThrow(
-      /label is empty\. Treat the question as the owner's/,
-    );
   });
 });

@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { signedBody } from "../sender/index.js";
 import { DecisionError, type DecisionTarget } from "./decision.js";
 import { askOwner, ASK_LABEL, type AskPorts } from "./ask.js";
-import { classify } from "./route.js";
+import { classify } from "./classify.js";
 import { reservedCategory } from "./reserved.js";
 
 vi.mock("../sender/index.js", async (importOriginal) => ({
@@ -13,8 +13,8 @@ vi.mock("./reserved.js", async (importOriginal) => ({
   ...(await importOriginal<typeof import("./reserved.js")>()),
   reservedCategory: vi.fn(),
 }));
-vi.mock("./route.js", async (importOriginal) => ({
-  ...(await importOriginal<typeof import("./route.js")>()),
+vi.mock("./classify.js", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("./classify.js")>()),
   classify: vi.fn(),
 }));
 
