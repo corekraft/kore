@@ -48,7 +48,8 @@ test("this repository's recovery objectives cover every vps stateful component",
   });
   assert.equal(ok, true);
   assert.deepEqual(report["problems"], []);
-  assert.ok((report["objectives"] as number) > 0);
+  const objectives = report["objectives"];
+  assert.ok(typeof objectives === "number" && objectives > 0);
 });
 
 test("the recovery schema names the vps environment", async () => {
