@@ -41,7 +41,6 @@ const EMPTY_HUMAN_TEXT = [
   ...EMPTY_VIOLATION_LINES,
   "Passed reviews later sent back for a rule break: no recorded reviews in this range",
   "Reviews that found a violation: no recorded reviews in this range",
-  "Re-reviews of sampled passed reviews: no re-reviews in this range",
   "Friction: none",
   "Finish detection: no results with a pane in this range",
   "Finish lag in minutes, detected and late: no finish with a lag",

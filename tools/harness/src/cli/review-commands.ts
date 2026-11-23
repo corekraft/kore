@@ -9,8 +9,6 @@ import type { Command, CommandContext, CommandHelp } from "../runtime/index.js";
 import { senderFrom } from "../sender/index.js";
 import { failed, prNumber } from "./judge-shared.js";
 import { ghReviewIo, type ReviewIo } from "./review-gh.js";
-import { reviewResampleRun } from "./review-resample-command.js";
-import { sessionResampleIo } from "./review-resample-io.js";
 import { reviewRunRun } from "./review-run-command.js";
 
 const POST_USAGE =
@@ -107,7 +105,7 @@ const postHelp: CommandHelp = {
     detail:
       "posts one comment on the PR's head unless the identical verdict is already on it or --dry-run is set; a comment it posts is recorded as a review.run event at the shared ledger, with the PR, the head, the finding count and the rule labels, never the verdict text",
   },
-  seeAlso: ["review run", "review resample", "judge precheck"],
+  seeAlso: ["review run", "judge precheck"],
 };
 
 const runHelp: CommandHelp = {
@@ -115,7 +113,7 @@ const runHelp: CommandHelp = {
     "Reviews a PR's head with a principles-review Reviewer pane and posts the verdict for that head itself. It spawns the Reviewer through session spawn, collects its verdict with session wait, and posts it with the code review post uses; a head that moves during a review is reviewed again, up to three reviews.",
   when: "When a PR has no principles-review verdict on its head yet, so the judge's precheck can read one. The orchestrator runs it; the judge pane may not, since its role list has no review command.",
   whenNot:
-    "When a Reviewer has already reported and you hold its findings, use review post, which posts them without spawning a pane. When passed reviews of merged PRs need a second look, use review resample.",
+    "When a Reviewer has already reported and you hold its findings, use review post, which posts them without spawning a pane.",
   flags: {},
   operand: "The pull request number, a positive whole number.",
   examples: [
@@ -151,58 +149,7 @@ const runHelp: CommandHelp = {
     detail:
       "spawns one principles-review pane per review, named pr<N>-reviewer, and closes it once its verdict is read; posts one comment on the PR unless the identical verdict is already there; appends a review.run event per review to the shared ledger, labelled posted or unchanged with the head, rerun when the head moved, or failed when the Reviewer was blocked, gave no verdict, or the head moved every time",
   },
-  seeAlso: [
-    "review post",
-    "review resample",
-    "judge precheck",
-    "session spawn",
-  ],
-};
-
-const resampleHelp: CommandHelp = {
-  purpose:
-    "Re-reviews a sample of passed reviews of merged PRs, to check that the principles review passed them rightly. It draws up to --size heads that no re-review has taken yet and runs one Sonnet reader per head through session spawn, on the override tier that session spawn records with its reason. Each reader's result is recorded as a review.run event; nothing is posted to GitHub.",
-  when: "For a periodic check of review quality, once several PRs have merged, so the flow report's re-review ratio has fresh data.",
-  whenNot:
-    "When a PR itself needs a review, use review run, which posts a verdict. When no passed review is waiting, this starts no reader and says so.",
-  flags: {
-    size: "How many heads to re-review: a whole number of 1 or more; without it, 5, a placeholder sample size.",
-  },
-  examples: [
-    {
-      command: "harness review resample --size 3",
-      shows:
-        "one line per sampled head with its findings, or the reason its reader failed, and the totals",
-    },
-    {
-      command: "harness review resample",
-      shows:
-        "a sample of 5 re-reviews, or that no passed review of a merged PR is waiting",
-    },
-  ],
-  exits: [
-    {
-      code: 0,
-      meaning:
-        "the sample was re-reviewed, or none was waiting; a reader that failed is listed and recorded, not an exit code",
-    },
-    {
-      code: 1,
-      meaning:
-        "refused: --size is not a whole number of 1 or more, or the ledger or a session call failed; stderr names the fix",
-    },
-    {
-      code: 2,
-      meaning:
-        "a usage error: a flag the command does not declare, a second operand, or a flag with no value",
-    },
-  ],
-  effects: {
-    kind: "mutates",
-    detail:
-      "starts one Sonnet reader pane per sampled head, named resample-pr<N>-<head>, on the high effort, and closes it once its verdict is read; appends a review.run event per head to the shared ledger, labelled resample:<head> with its finding count, or resample-failed:<head> when the reader was blocked or gave no verdict; posts nothing to GitHub",
-  },
-  seeAlso: ["review run", "review post", "flow report"],
+  seeAlso: ["review post", "judge precheck", "session spawn"],
 };
 
 export const reviewCommands: Record<string, Command> = {
@@ -219,13 +166,5 @@ export const reviewCommands: Record<string, Command> = {
     operand: "pr",
     help: runHelp,
     run: reviewRunRun,
-  },
-  resample: {
-    summary:
-      "re-review a sample of passed reviews of merged PRs and post nothing",
-    help: resampleHelp,
-    options: { size: "string" },
-    run: (context) =>
-      reviewResampleRun(context, () => sessionResampleIo(context), Math.random),
   },
 };
