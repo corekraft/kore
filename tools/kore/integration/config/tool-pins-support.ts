@@ -13,8 +13,6 @@ const CATALOG_ONLY_TOOLS: Readonly<Record<string, string>> = {
 
 /** Tools .mise.toml pins that the catalog does not mirror. */
 const MISE_ONLY_TOOLS: Readonly<Record<string, string>> = {
-  herdr:
-    "the harness runs its sessions in herdr panes; it is a developer tool, not a platform tool, so the platform tool catalog does not mirror it",
   "github:theseus-rs/postgresql-binaries":
     "the host psql (libpq 17 or newer) for the database-by-name proof; it is a developer client, not a platform tool, so the platform tool catalog does not mirror it",
   "pipx:ansible-core":

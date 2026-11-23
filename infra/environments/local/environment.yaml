@@ -77,8 +77,7 @@
       "signed-main-sends": true,
       "main-session-wait": true,
       "golden-path-signin": true,
-      "decision-advisor": true,
-      "hc-sessions": true
+      "decision-advisor": true
     },
   "imageInventory": "audit",
   "exemptionCheck": "audit",
