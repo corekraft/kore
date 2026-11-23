@@ -95,14 +95,16 @@ test("doctor reports checks in a fixed order with pass messages for matching too
   const checks = await doctor(repository, runner);
   const names = checks.map(({ name }) => name);
 
-  assert.deepEqual(names.slice(-5), [
+  assert.deepEqual(names.slice(-7), [
     "container-runtime",
     "host:cpu",
     "host:memory",
     "host:disk",
     "credentials",
+    "platform-domain",
+    "run-time values",
   ]);
-  assert.ok(names.slice(0, -5).every((name) => name.startsWith("tool:")));
+  assert.ok(names.slice(0, -7).every((name) => name.startsWith("tool:")));
   const kubectl = checks.find(({ name }) => name === "tool:kubectl");
   assert.equal(kubectl?.status, "pass");
   assert.equal(
@@ -157,4 +159,30 @@ test("doctor accepts a configured managed context and fails host checks that exc
     byName("host:disk")?.message ?? "",
     /GiB free, 100000000 GiB required/,
   );
+});
+
+test("doctor reports the platform domain as the placeholder until KORE_PLATFORM_DOMAIN is set, and never prints the value", async () => {
+  const repository = await loadManagedLocal();
+  const home = "/nonexistent/home";
+  const domain = (checks: Awaited<ReturnType<typeof doctor>>) =>
+    checks.find(({ name }) => name === "platform-domain");
+
+  const placeholder = await doctor(repository, new MismatchRunner(), {}, home);
+  assert.equal(domain(placeholder)?.status, "warn");
+  assert.match(domain(placeholder)?.message ?? "", /^placeholder: /);
+
+  const set = await doctor(
+    repository,
+    new MismatchRunner(),
+    { KORE_PLATFORM_DOMAIN: "example.com" },
+    home,
+  );
+  assert.deepEqual(domain(set), {
+    name: "platform-domain",
+    status: "pass",
+    required: false,
+    message: "set: from KORE_PLATFORM_DOMAIN",
+  });
+  assert.equal(JSON.stringify(set).includes("example.com"), false);
+  assert.equal(doctorFailed(set), doctorFailed(placeholder));
 });

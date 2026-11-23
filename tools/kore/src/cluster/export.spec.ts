@@ -2,7 +2,7 @@ import { mkdir, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { beforeEach, expect, test, vi } from "vitest";
 import { assertExpectedCluster } from "./cluster.js";
-import { exportRetainedData } from "./export.js";
+import { ageArguments, exportRetainedData } from "./export.js";
 import { execArgs, retainedClusters } from "./export-cluster.js";
 import { exportDirectory, sha256 } from "./export-manifest.js";
 import { exportRecipients } from "./export-recipient.js";
@@ -219,4 +219,14 @@ test("a manifest that cannot be written removes the artifact it just wrote, then
     "disk full",
   );
   expect(rm).toHaveBeenCalledWith(`${DIRECTORY}/${ARTIFACT}`, { force: true });
+});
+
+test("age arms armored output and names every recipient, in the order given", () => {
+  expect(ageArguments([RECIPIENT, OTHER])).toEqual([
+    "--armor",
+    "--recipient",
+    RECIPIENT,
+    "--recipient",
+    OTHER,
+  ]);
 });

@@ -129,7 +129,7 @@ const recordHelp: CommandHelp = {
     idea: "The idea's number or slug, as harness idea list shows it.",
     kind: "The kind of measurement: experiment, usage or verification. A flag outcome needs verification.",
     source:
-      "Where the measurement came from: live-run, journal, eval-history, comparison or owner-waiver. An owner-waiver needs kind verification and an evidence that is the owner's GitHub comment URL.",
+      "Where the measurement came from: live-run, journal, eval-history, comparison or owner-waiver. An owner-waiver needs kind verification and an evidence that is the owner's GitHub comment URL. platform-window is refused: the platform's activation window writes it for an app flag.",
     evidence:
       "The run, journal entry, eval record or comparison the result was measured on, on one line. It must not contain an HTML comment.",
     result: "The result: confirmed, refuted or inconclusive.",

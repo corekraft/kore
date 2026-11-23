@@ -1,0 +1,10 @@
+# Managed by infra/hosts/vps (Ansible). Edits here are overwritten.
+# The host's own addresses, read from host facts. Neither is in git or a log.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: kore-host-addresses
+  namespace: kore-system
+data:
+  public: "{{ kore_host_addresses.public }}"
+  tailnet: "{{ kore_host_addresses.tailnet }}"

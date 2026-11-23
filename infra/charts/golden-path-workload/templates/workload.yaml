@@ -1,6 +1,13 @@
 {{- /* Probe paths: the frontend's /healthz (templates/static-frontend/nginx.conf) and the BFF's actuator health. Both listen on 8080. The startupProbe allows up to 5 minutes (periodSeconds 5 x failureThreshold 60) for a slow JVM start, so liveness cannot restart a container that has not yet started. */}}
 {{- $autoscaling := .Values.autoscaling }}
 {{- $signin := .Values.signin }}
+{{- $safety := .Values.safetyDefaults }}
+{{- $rollout := .Values.rolloutDefaults }}
+{{- if $safety }}
+{{- if le (int $rollout.terminationGracePeriodSeconds) (int $rollout.preStopSleepSeconds) }}
+{{- fail "rolloutDefaults.terminationGracePeriodSeconds must be longer than rolloutDefaults.preStopSleepSeconds, so a pod is not killed during its preStop sleep; raise terminationGracePeriodSeconds" }}
+{{- end }}
+{{- end }}
 {{- if $signin.enabled }}
 {{- if not .Values.ingress }}
 {{- fail "signin.enabled needs ingress.host: the Keycloak client's redirect URI is the Service's HTTPS host; the golden-path ApplicationSet sets it from the registration" }}
@@ -22,6 +29,13 @@
 {{- end }}
 {{- range $name, $path := dict "frontend" "/healthz" "bff" "/actuator/health" }}
 {{- $workload := index $.Values $name }}
+{{- /* With safetyDefaults the BFF's probes read its own readiness and liveness health groups (ADR 0154); the frontend keeps its health path for both. */}}
+{{- $readinessPath := $path }}
+{{- $livenessPath := $path }}
+{{- if and $safety (eq $name "bff") }}
+{{- $readinessPath = "/actuator/health/readiness" }}
+{{- $livenessPath = "/actuator/health/liveness" }}
+{{- end }}
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -32,7 +46,16 @@ metadata:
     app.kubernetes.io/part-of: {{ $.Values.service }}
 spec:
   {{- if not $autoscaling.enabled }}
-  replicas: 1
+  replicas: {{ if $safety }}2{{ else }}1{{ end }}
+  {{- end }}
+  {{- if $safety }}
+  minReadySeconds: {{ $rollout.minReadySeconds }}
+  progressDeadlineSeconds: {{ $rollout.progressDeadlineSeconds }}
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
   {{- end }}
   selector:
     matchLabels:
@@ -47,6 +70,9 @@ spec:
         runAsNonRoot: true
         seccompProfile:
           type: RuntimeDefault
+      {{- if $safety }}
+      terminationGracePeriodSeconds: {{ $rollout.terminationGracePeriodSeconds }}
+      {{- end }}
       {{- if and $signin.enabled (eq $name "bff") }}
       {{- /* The JVM does not trust the cluster's local CA, so Spring's discovery of the Keycloak issuer fails PKIX path building. A same-image init container builds a truststore of the JDK roots plus the CA into an emptyDir; only ca.crt is mounted, never tls.key. */}}
       initContainers:
@@ -132,14 +158,20 @@ spec:
             requests:
               cpu: {{ $.Values.resources.requests.cpu | quote }}
           {{- end }}
+          {{- if $safety }}
+          lifecycle:
+            preStop:
+              sleep:
+                seconds: {{ $rollout.preStopSleepSeconds }}
+          {{- end }}
           startupProbe:
             httpGet: { path: {{ $path }}, port: http }
             periodSeconds: 5
             failureThreshold: 60
           readinessProbe:
-            httpGet: { path: {{ $path }}, port: http }
+            httpGet: { path: {{ $readinessPath }}, port: http }
           livenessProbe:
-            httpGet: { path: {{ $path }}, port: http }
+            httpGet: { path: {{ $livenessPath }}, port: http }
           securityContext:
             allowPrivilegeEscalation: false
             capabilities:
@@ -168,6 +200,21 @@ spec:
     - name: http
       port: 80
       targetPort: http
+{{- if $safety }}
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: {{ $.Values.service }}-{{ $name }}
+  labels:
+    app.kubernetes.io/name: {{ $.Values.service }}-{{ $name }}
+    app.kubernetes.io/part-of: {{ $.Values.service }}
+spec:
+  maxUnavailable: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: {{ $.Values.service }}-{{ $name }}
+{{- end }}
 {{- if $autoscaling.enabled }}
 ---
 apiVersion: autoscaling/v2

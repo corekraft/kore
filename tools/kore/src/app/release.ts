@@ -3,6 +3,7 @@ import {
   platformPlan,
   registryPlan,
   type Repository,
+  internalGateway,
 } from "../config/index.js";
 import type { LockedImage } from "../images/index.js";
 
@@ -28,9 +29,9 @@ export function releaseArgs(
     "10m",
     "--rollback-on-failure",
     "--set-string",
-    `platform.gateway.name=${repository.environment.gateway.name}`,
+    `platform.gateway.name=${internalGateway(repository.environment).name}`,
     "--set-string",
-    `platform.gateway.namespace=${repository.environment.gateway.namespace}`,
+    `platform.gateway.namespace=${internalGateway(repository.environment).namespace}`,
     "--set-string",
     `platform.gateway.hostname=${platformPlan(repository.environment).domain}`,
     "--set-string",

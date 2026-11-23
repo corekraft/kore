@@ -2,7 +2,7 @@
 status: accepted
 summary: kore app up is the single owner of application namespaces and labels them istio.io/dataplane-mode ambient; Gatekeeper audits that contract.
 date: 2026-11-08
-last-verified: 2026-11-16
+last-verified: 2026-11-23
 ---
 
 # ADR 0025: Application namespaces are created and enrolled by `kore app up`
@@ -11,6 +11,8 @@ Source: [`infra/plans/2-implementation.md` § Step 9](../../infra/plans/2-implem
 
 Refines: [ADR 0017](0017-gatekeeper-policy-families-audit-first.md) (the
 `KoreMeshEnrollment` rule) and [ADR 0007](0007-workload-identity-and-layered-authorization.md).
+
+> Refined by [ADR 0165](0165-a-suborg-is-the-namespace-quota-and-trust-boundary-of-its-services.md): a suborg's namespace is created and labelled by the Organization composition, so `kore app up` keeps only the reference app's namespace.
 
 ## Context
 

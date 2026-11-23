@@ -8,6 +8,22 @@ import type { Runner } from "../runtime/index.js";
 
 export type Run = Runner["run"];
 
+/** The check names a managed environment's doctor reports, in order, while every probe passes. */
+export const managedCheckNames = [
+  "tool:node",
+  "tool:npm",
+  "tool:kubectl",
+  "tool:helm",
+  "tool:sops",
+  "tool:docker",
+  "tool:cosign",
+  "container-runtime",
+  "host:cpu",
+  "host:memory",
+  "host:disk",
+  "credentials",
+];
+
 export function errno(code: string): NodeJS.ErrnoException {
   return Object.assign(new Error(code), { code });
 }

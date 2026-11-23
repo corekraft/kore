@@ -42,6 +42,10 @@
         }
       }
     },
+    "keycloakWait": {
+      "description": "Whether the portal's pod waits for the Keycloak realm's OIDC discovery before its proxy starts, which kore passes only while platform-keycloak-wait is on (issue 1788). Off, the pod has no init container.",
+      "type": "boolean"
+    },
     "localCa": {
       "description": "The ConfigMap, in this namespace, that carries the local CA the portal's pods trust (keys ca.crt and bundle.crt), which kore applies and passes only while platform-dns is on (ADR 0132). Without it nothing is mounted.",
       "type": "object",
