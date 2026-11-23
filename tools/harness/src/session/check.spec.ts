@@ -3,12 +3,8 @@ import type { CliDeps, CommandContext, Runner } from "../runtime/index.js";
 import { mainRoot } from "../runtime/index.js";
 import { check } from "./check.js";
 import { checkOnHc } from "./check-hc.js";
-import { hcSessionsOn } from "./hc-flag.js";
-import { SessionRegistry, type SessionRecord } from "./registry.js";
-import { roleTokensOn } from "./role-token.js";
+import { SessionRegistry } from "./registry.js";
 
-vi.mock("./role-token.js", () => ({ roleTokensOn: vi.fn() }));
-vi.mock("./hc-flag.js", () => ({ hcSessionsOn: vi.fn() }));
 vi.mock("./check-hc.js", () => ({ checkOnHc: vi.fn() }));
 vi.mock("./backend.js", () => ({ terminalsFor: vi.fn() }));
 vi.mock("../runtime/index.js", async (original) => ({
@@ -32,102 +28,18 @@ const context = (json = false): CommandContext => ({
   deps,
   options: {},
 });
-const agents = (list: object[]) => ({
-  code: 0,
-  stdout: JSON.stringify({ result: { agents: list } }),
-  stderr: "",
-});
-const pane = (id: string, title: string, name?: string) => ({
-  pane_id: id,
-  terminal_title_stripped: title,
-  ...(name === undefined ? {} : { name }),
-});
-const record = (paneId: string, closedAt?: string) =>
-  ({ paneId, closedAt }) as unknown as SessionRecord;
 
 beforeEach(() => {
   out.length = 0;
   err.length = 0;
   vi.resetAllMocks();
-  vi.mocked(roleTokensOn).mockResolvedValue(true);
-  vi.mocked(hcSessionsOn).mockResolvedValue(false);
   vi.mocked(mainRoot).mockResolvedValue("/main");
   open.mockResolvedValue({ read } as unknown as SessionRegistry);
   read.mockResolvedValue(undefined);
 });
 
-describe("session check", () => {
-  it("does nothing while the role-tokens flag is off", async () => {
-    vi.mocked(roleTokensOn).mockResolvedValue(false);
-    expect(await check(context())).toBe(0);
-    expect(run).not.toHaveBeenCalled();
-    expect(out).toEqual(["role-tokens is off; no role pane was checked.\n"]);
-  });
-
-  it("reports a writer pane that session spawn did not start, naming session spawn", async () => {
-    run.mockResolvedValue(agents([pane("w3:p4", "writer", "raw-writer")]));
-    expect(await check(context())).toBe(1);
-    expect(err).toEqual([
-      "Pane w3:p4 (raw-writer) runs as a writer but session spawn did not start it, so it has no role token and no sandbox. Close it with `herdr pane close w3:p4` and start it with `session spawn --role writer`.\n",
-    ]);
-  });
-
-  it("reports an unnamed judge pane", async () => {
-    run.mockResolvedValue(agents([pane("w3:p5", "judge")]));
-    expect(await check(context())).toBe(1);
-    expect(err[0]).toContain("Pane w3:p5 (unnamed) runs as a judge");
-  });
-
-  it("accepts a role pane whose open record names that pane", async () => {
-    run.mockResolvedValue(agents([pane("w3:p4", "writer", "w")]));
-    read.mockResolvedValue(record("w3:p4"));
-    expect(await check(context())).toBe(0);
-    expect(out).toEqual([
-      "Every writer and judge pane was started by session spawn.\n",
-    ]);
-  });
-
-  it("reports a pane whose record is closed or names another pane", async () => {
-    run.mockResolvedValue(
-      agents([pane("w3:p4", "writer", "a"), pane("w3:p6", "judge", "b")]),
-    );
-    read
-      .mockResolvedValueOnce(record("w3:p4", "2026-11-15T00:00:00Z"))
-      .mockResolvedValueOnce(record("w3:p9"));
-    expect(await check(context())).toBe(1);
-    expect(err).toHaveLength(2);
-  });
-
-  it("ignores panes that are not a writer or judge", async () => {
-    run.mockResolvedValue(
-      agents([pane("w3:p1", "reader", "r"), pane("w3:p2", "✳ claude")]),
-    );
-    expect(await check(context())).toBe(0);
-    expect(read).not.toHaveBeenCalled();
-  });
-
-  it("fails when herdr cannot list agents, and never calls it a pass", async () => {
-    run.mockResolvedValue({ code: 1, stdout: "", stderr: "no server" });
-    expect(await check(context())).toBe(1);
-    expect(err[0]).toContain("herdr agent list failed");
-    expect(out).toEqual([]);
-  });
-
-  it("prints the offending panes as JSON", async () => {
-    run.mockResolvedValue(agents([pane("w3:p4", "writer", "raw")]));
-    await check(context(true));
-    expect(out).toEqual([
-      `${JSON.stringify({ unmanaged: [{ pane: "w3:p4", name: "raw", role: "writer" }] })}\n`,
-    ]);
-  });
-});
-
-describe("session check on hc, while hc-sessions is on", () => {
-  beforeEach(() => {
-    vi.mocked(hcSessionsOn).mockResolvedValue(true);
-  });
-
-  it("reads hc only: no herdr agent list, and no role-tokens read", async () => {
+describe("session check on hc", () => {
+  it("reads hc only, and lists the terminals", async () => {
     vi.mocked(checkOnHc).mockResolvedValue({
       unmanaged: [],
       orphanReports: [],
@@ -187,13 +99,5 @@ describe("session check on hc, while hc-sessions is on", () => {
       "session check could not list the hc terminals: hc is not running\n",
     ]);
     expect(out).toStrictEqual([]);
-  });
-});
-
-describe("session check does not read hc while hc-sessions is off", () => {
-  it("runs the herdr check unchanged and never calls the hc check", async () => {
-    run.mockResolvedValue(agents([]));
-    expect(await check(context())).toBe(0);
-    expect(checkOnHc).not.toHaveBeenCalled();
   });
 });

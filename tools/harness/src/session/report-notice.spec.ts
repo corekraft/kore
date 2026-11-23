@@ -64,7 +64,7 @@ async function setUpTerminals(self: string | undefined): Promise<void> {
     parent: "t1",
   });
   vi.mocked(terminalsFor).mockReturnValue(terminals);
-  vi.mocked(routeSession).mockReturnValue({ backend: "hc", terminals });
+  vi.mocked(routeSession).mockReturnValue({ terminals });
 }
 
 beforeEach(async () => {
@@ -118,7 +118,7 @@ describe("report tells the parent in one fixed line, and only an agent parent", 
     terminals = new FakeTerminals({ self: "t1" });
     await terminals.run({ argv: ["claude"], cwd: "/work/writer" });
     vi.mocked(terminalsFor).mockReturnValue(terminals);
-    vi.mocked(routeSession).mockReturnValue({ backend: "hc", terminals });
+    vi.mocked(routeSession).mockReturnValue({ terminals });
 
     const code = await report(contextOf(deps, { options: DONE }));
 

@@ -77,7 +77,7 @@ vi.mock("./records-support.js", () =>
 );
 vi.mock("./runner-support.js", () => stubs("FakeRunner"));
 vi.mock("./session-close-support.js", () =>
-  stubs("INSIDE", "gitCommon", "herdrCalls", "layoutOf", "stateFile"),
+  stubs("gitCommon", "herdrCalls", "layoutOf", "stateFile"),
 );
 vi.mock("./ruleset-support.js", () =>
   stubs(
@@ -166,11 +166,9 @@ const EXPORTS = [
   "ghWrites",
   "harness",
   "hasMatchUnder",
-  "herdrCalls",
   "ideaFields",
   "ideaFile",
   "ideaText",
-  "INSIDE",
   "inventory",
   "inventoryWith",
   "linked",
@@ -192,7 +190,6 @@ const EXPORTS = [
   "root",
   "rulesetRepo",
   "seeded",
-  "layoutOf",
   "sent",
   "stateFile",
   "sync",

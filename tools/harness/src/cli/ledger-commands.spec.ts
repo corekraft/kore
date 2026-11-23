@@ -4,7 +4,6 @@ import {
   SOURCES,
   isTimestamp,
   pollGithub,
-  pollHerdr,
   type ListResult,
   type RecordResult,
 } from "../ledger/index.js";
@@ -32,7 +31,6 @@ vi.mock("../ledger/index.js", async (importOriginal) => ({
     return { record: ledgerRecord, list: ledgerList };
   }),
   pollGithub: vi.fn(),
-  pollHerdr: vi.fn(),
   isTimestamp: vi.fn(),
 }));
 vi.mock("../runtime/index.js", async (importOriginal) => ({
@@ -198,34 +196,6 @@ describe("ledger list", () => {
       'Invalid --since "yesterday". Use an ISO 8601 UTC time such as 2026-01-02T03:04:05Z.\n',
     );
     expect(ledgerList).not.toHaveBeenCalled();
-  });
-});
-
-describe("ledger poll-herdr", () => {
-  it("polls herdr into the ledger and reports the recorded count", async () => {
-    vi.mocked(pollHerdr).mockResolvedValue({
-      ok: true,
-      recorded: 2,
-      events: [],
-    });
-    const { context, deps } = ctx();
-    expect(await run("poll-herdr", context)).toBe(0);
-    expect(pollHerdr).toHaveBeenCalledWith(
-      expect.objectContaining({ fs: deps.fs }),
-    );
-    expect(deps.stdout).toHaveBeenCalledWith("recorded 2 herdr event(s)\n");
-  });
-
-  it("names a herdr failure as the herdr field, and exits 1", async () => {
-    vi.mocked(pollHerdr).mockResolvedValue({
-      ok: false,
-      message: "herdr agent list failed",
-    });
-    const { context, deps } = ctx({}, { json: true });
-    expect(await run("poll-herdr", context)).toBe(1);
-    expect(deps.stderr).toHaveBeenCalledWith(
-      `${JSON.stringify({ error: "herdr agent list failed", field: "herdr" })}\n`,
-    );
   });
 });
 

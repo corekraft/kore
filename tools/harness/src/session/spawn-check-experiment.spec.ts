@@ -5,7 +5,7 @@ import { contextOf, fakeDeps, type FakeDeps } from "./deps-support.js";
 import { hostLeaseRefusal } from "./host-lease.js";
 import { sessionNameError } from "./names.js";
 import { USAGE_ERROR } from "./output.js";
-import { check } from "./spawn-check.js";
+import { checkRequest } from "./spawn-check.js";
 import {
   EXPERIMENT_EFFORT_ENV,
   EXPERIMENT_SHARE_ENV,
@@ -14,7 +14,7 @@ import {
 } from "./spawn-experiment.js";
 import { spawnLoadRefusal } from "./spawn-load.js";
 import { tierInputError, tierOf } from "./tier-source.js";
-import { findResult, parseTimeout } from "./wait.js";
+import { parseTimeout } from "./wait.js";
 
 vi.mock("./agent-definition.js");
 vi.mock("./host-lease.js");
@@ -52,7 +52,6 @@ beforeEach(() => {
   random = vi.fn<() => number>(() => 0.05);
   deps.random = random;
   vi.mocked(sessionNameError).mockReturnValue(undefined);
-  vi.mocked(findResult).mockReturnValue(undefined);
   vi.mocked(parseTimeout).mockReturnValue(60_000);
   vi.mocked(hostLeaseRefusal).mockResolvedValue(undefined);
   vi.mocked(spawnLoadRefusal).mockReturnValue(undefined);
@@ -65,9 +64,9 @@ beforeEach(() => {
   });
 });
 
-describe("check samples a default-tier writer into the experiment window", () => {
+describe("checkRequest samples a default-tier writer into the experiment window", () => {
   it("runs a sampled writer on Sonnet at the window effort, and records the experiment override", async () => {
-    await expect(check(request())).resolves.toMatchObject({
+    await expect(checkRequest(request())).resolves.toMatchObject({
       values: { model: "claude-sonnet-5-5", effort: "high" },
       tier: { tierSource: "override", tierReason: "experiment" },
     });
@@ -76,7 +75,7 @@ describe("check samples a default-tier writer into the experiment window", () =>
   it("runs the control on the definition's model at the window effort, with the control marker", async () => {
     random.mockReturnValue(0.1);
 
-    await expect(check(request())).resolves.toMatchObject({
+    await expect(checkRequest(request())).resolves.toMatchObject({
       values: { model: "claude-haiku-5-5", effort: "high" },
       tier: { tierSource: "definition", tierReason: "experiment-control" },
     });
@@ -85,16 +84,18 @@ describe("check samples a default-tier writer into the experiment window", () =>
   it("draws a writer launched with only an effort flag, and runs it at the window effort", async () => {
     vi.mocked(tierOf).mockResolvedValue({ tierSource: "override" });
 
-    await expect(check(request({ effort: "low" }))).resolves.toMatchObject({
+    await expect(
+      checkRequest(request({ effort: "low" })),
+    ).resolves.toMatchObject({
       values: { model: "claude-sonnet-5-5", effort: "high" },
       tier: { tierSource: "override", tierReason: "experiment" },
     });
   });
 
-  it("refuses a writer when the window is open and the window effort is unset, before any herdr call", async () => {
+  it("refuses a writer when the window is open and the window effort is unset, before any hc call", async () => {
     delete deps.env[EXPERIMENT_EFFORT_ENV];
 
-    await expect(check(request())).resolves.toEqual({
+    await expect(checkRequest(request())).resolves.toEqual({
       error: experimentConfigError(deps.env),
       code: USAGE_ERROR,
     });
@@ -105,7 +106,7 @@ describe("check samples a default-tier writer into the experiment window", () =>
   it("keeps the definition, and draws nothing, before the window opens", async () => {
     deps.clock.now.mockReturnValue(new Date("2026-11-30T23:59:59.999Z"));
 
-    await expect(check(request())).resolves.toMatchObject({
+    await expect(checkRequest(request())).resolves.toMatchObject({
       values: { model: "claude-haiku-5-5" },
       tier: { tierSource: "definition" },
     });
@@ -115,7 +116,7 @@ describe("check samples a default-tier writer into the experiment window", () =>
   it("keeps the definition, and draws nothing, when no window is configured", async () => {
     delete deps.env[EXPERIMENT_START];
 
-    await expect(check(request())).resolves.toMatchObject({
+    await expect(checkRequest(request())).resolves.toMatchObject({
       values: { model: "claude-haiku-5-5" },
       tier: { tierSource: "definition" },
     });
@@ -123,7 +124,7 @@ describe("check samples a default-tier writer into the experiment window", () =>
   });
 });
 
-describe("check keeps flag-chosen, reader and misconfigured launches on their own tier", () => {
+describe("checkRequest keeps flag-chosen, reader and misconfigured launches on their own tier", () => {
   it("leaves a writer whose tier a flag chose on that flag's tier, and draws nothing", async () => {
     vi.mocked(tierOf).mockResolvedValue({
       tierSource: "override",
@@ -131,7 +132,7 @@ describe("check keeps flag-chosen, reader and misconfigured launches on their ow
     });
 
     await expect(
-      check(request({ model: "claude-opus-5-5" })),
+      checkRequest(request({ model: "claude-opus-5-5" })),
     ).resolves.toMatchObject({
       tier: { tierSource: "override", tierReason: "deep diff" },
     });
@@ -140,7 +141,7 @@ describe("check keeps flag-chosen, reader and misconfigured launches on their ow
 
   it("leaves a reader on its definition, whatever the window and the draw", async () => {
     await expect(
-      check(request({ role: "reader", worktree: false })),
+      checkRequest(request({ role: "reader", worktree: false })),
     ).resolves.toMatchObject({
       values: { model: "claude-haiku-5-5" },
       tier: { tierSource: "definition" },
@@ -148,20 +149,20 @@ describe("check keeps flag-chosen, reader and misconfigured launches on their ow
     expect(random).not.toHaveBeenCalled();
   });
 
-  it("refuses a writer whose window start is not a real date, before any herdr call", async () => {
+  it("refuses a writer whose window start is not a real date, before any hc call", async () => {
     deps.env = { ...deps.env, [EXPERIMENT_START]: "2026-02-30" };
 
-    await expect(check(request())).resolves.toEqual({
+    await expect(checkRequest(request())).resolves.toEqual({
       error: experimentConfigError(deps.env),
       code: USAGE_ERROR,
     });
     expect(deps.runner.run).not.toHaveBeenCalled();
   });
 
-  it("refuses a writer whose share or length the code would not read, before any herdr call", async () => {
+  it("refuses a writer whose share or length the code would not read, before any hc call", async () => {
     deps.env = { ...deps.env, [EXPERIMENT_SHARE_ENV]: "1.5" };
 
-    await expect(check(request())).resolves.toEqual({
+    await expect(checkRequest(request())).resolves.toEqual({
       error: `${EXPERIMENT_SHARE_ENV} must be a share above 0 and up to 1, such as 0.1, or unset; got "1.5". No session was started.`,
       code: USAGE_ERROR,
     });

@@ -15,36 +15,22 @@ const HC_ANSWER = `Then, as your last action, run \`node skills/bin/harness.mjs 
 
 describe("judgmentBrief on hc", () => {
   it("ends with a plan file that session report carries, never a PLAN-JSON marker or RESULT line", () => {
-    const brief = judgmentBrief(
-      "0007",
-      873,
-      12,
-      { kind: "start", sendBacks: 3 },
-      "hc",
-    );
+    const brief = judgmentBrief("0007", 873, 12, {
+      kind: "start",
+      sendBacks: 3,
+    });
 
     expect(brief).toContain(HC_PLAN);
     expect(brief).not.toMatch(/PLAN-JSON|RESULT/);
-  });
-
-  it("keeps the herdr brief unchanged when no backend is given", () => {
-    const decision = { kind: "start", sendBacks: 3 } as const;
-
-    expect(judgmentBrief("0007", 873, 12, decision)).toBe(
-      judgmentBrief("0007", 873, 12, decision, "herdr"),
-    );
-    expect(judgmentBrief("0007", 873, 12, decision)).toContain("PLAN-JSON");
   });
 });
 
 describe("readerBrief on hc", () => {
   it("answers through its report's summary, given on stdin, never the SUMMARY markers or a RESULT line", () => {
-    const brief = readerBrief(
-      "0007",
-      873,
-      { question: "Which tests?", paths: ["tools/x.ts"] },
-      "hc",
-    );
+    const brief = readerBrief("0007", 873, {
+      question: "Which tests?",
+      paths: ["tools/x.ts"],
+    });
 
     expect(brief).toContain(HC_ANSWER);
     expect(brief).not.toMatch(/SUMMARY-BEGIN|SUMMARY-END|RESULT/);
@@ -104,7 +90,7 @@ describe("judgmentBrief", () => {
       sendBacks: 3,
     });
 
-    expect(brief).toContain("start no pane");
+    expect(brief).toContain("start no session");
     expect(brief).toContain("change no file");
   });
 

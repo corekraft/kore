@@ -27,23 +27,9 @@ function ports(over: Partial<BranchPorts> = {}): BranchPorts {
     sent: vi.fn().mockResolvedValue(false),
     send: vi.fn().mockResolvedValue(undefined),
     record: vi.fn().mockResolvedValue(undefined),
-    backend: "herdr",
     ...over,
   };
 }
-
-describe("BranchNotice.check: the notice follows the backend its writer runs on", () => {
-  it("sends an hc writer the report form of the pinned reply, never the RESULT line", async () => {
-    const p = ports({ backend: "hc" });
-
-    await new BranchNotice(p).check(IDEA, 34);
-
-    expect(p.send).toHaveBeenCalledWith(
-      WRITER,
-      branchNoticeBody("conflict", PR, "hc"),
-    );
-  });
-});
 
 describe("BranchNotice.check: which PRs get a notice", () => {
   it("sends one follow-up to the live writer of a PR that conflicts with main, and records it", async () => {
@@ -217,30 +203,24 @@ describe("BranchNotice.check: what it reports and does not send", () => {
 });
 
 describe("branchNoticeBody", () => {
-  it("names the trigger, repeats the writer's rule, and asks for the pinned reply as the RESULT line", () => {
+  it("names the trigger, repeats the writer's rule, and asks for the pinned reply as a session report", () => {
     const body = branchNoticeBody("conflict", PR);
 
     expect(body).toContain("PR #1234 conflicts with main");
     expect(body).toContain("Merge origin/main into your branch");
     expect(body).toContain("never rebase or force-push");
     expect(body).toContain(
-      "reply with exactly `pinned: no change` as your RESULT line and stop",
+      'run `node skills/bin/harness.mjs session report --outcome done --summary "pinned: no change"` and stop',
     );
   });
 
-  it("asks an hc writer to report its pinned reply, one line, and names no RESULT line", () => {
-    const body = branchNoticeBody("conflict", PR, "hc");
+  it("asks the writer to report its pinned reply, one line, and names no RESULT line", () => {
+    const body = branchNoticeBody("conflict", PR);
 
     expect(body).toBe(
       'Branch update notice: PR #1234 conflicts with main. Merge origin/main into your branch and push it; never rebase or force-push. If your brief pins a live proof to your head, run `node skills/bin/harness.mjs session report --outcome done --summary "pinned: no change"` and stop.',
     );
     expect(body).not.toMatch(/RESULT|\n/);
-  });
-
-  it("keeps the herdr notice unchanged when no backend is given", () => {
-    expect(branchNoticeBody("conflict", PR)).toBe(
-      branchNoticeBody("conflict", PR, "herdr"),
-    );
   });
 
   it("says a PR ready but behind is behind main, for the behind-and-ready trigger", () => {

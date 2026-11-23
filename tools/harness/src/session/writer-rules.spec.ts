@@ -58,7 +58,6 @@ describe("each standing writer rule has one owner, writer.md", () => {
       const brief = buildBrief({
         task: "Do the thing.",
         name: "writer-rule-owners",
-        callerPane: "w3:p1",
         role: "writer",
       });
       expect(brief).not.toContain(sentence);

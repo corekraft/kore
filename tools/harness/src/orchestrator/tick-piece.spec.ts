@@ -31,17 +31,17 @@ describe("pieceLaunch", () => {
     vi.mocked(pieceBrief).mockReturnValue("PIECE BRIEF");
   });
 
-  it("briefs a reader piece for the backend it is launched under", () => {
+  it("briefs a reader piece for hc, so it finishes with a report", () => {
     const reader = { ...piece("tests"), role: "reader" as const };
 
-    pieceLaunch(IDEA, 11, reader, "idea-0007-piece-tests", "hc");
+    pieceLaunch(IDEA, 11, reader, "idea-0007-piece-tests");
 
-    expect(pieceBrief).toHaveBeenCalledWith(IDEA, 11, reader, "hc");
+    expect(pieceBrief).toHaveBeenCalledWith(IDEA, 11, reader);
   });
 
   it("launches a writer piece in its own worktree, briefed with the piece, under its pane name", () => {
     expect(
-      pieceLaunch(IDEA, 11, piece("docs"), "idea-0007-piece-docs", "herdr"),
+      pieceLaunch(IDEA, 11, piece("docs"), "idea-0007-piece-docs"),
     ).toEqual({
       role: "writer",
       name: "idea-0007-piece-docs",
@@ -49,22 +49,20 @@ describe("pieceLaunch", () => {
       brief: "PIECE BRIEF",
       worktree: true,
     });
-    expect(pieceBrief).toHaveBeenCalledWith(IDEA, 11, piece("docs"), "herdr");
+    expect(pieceBrief).toHaveBeenCalledWith(IDEA, 11, piece("docs"));
   });
 
   it("launches a reader piece without a worktree, since it changes no file", () => {
     const reader = { ...piece("tests"), role: "reader" as const };
 
-    expect(
-      pieceLaunch(IDEA, 11, reader, "idea-0007-piece-tests", "herdr"),
-    ).toEqual({
+    expect(pieceLaunch(IDEA, 11, reader, "idea-0007-piece-tests")).toEqual({
       role: "reader",
       name: "idea-0007-piece-tests",
       issue: 11,
       brief: "PIECE BRIEF",
     });
     expect(
-      pieceLaunch(IDEA, 11, reader, "idea-0007-piece-tests", "herdr"),
+      pieceLaunch(IDEA, 11, reader, "idea-0007-piece-tests"),
     ).not.toHaveProperty("worktree");
   });
 });

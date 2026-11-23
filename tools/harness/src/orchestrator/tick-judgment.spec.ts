@@ -74,13 +74,10 @@ describe("TickJudgment.begin", () => {
       admitted(),
     );
 
-    expect(judgmentBrief).toHaveBeenCalledWith(
-      IDEA,
-      ISSUE,
-      PR,
-      { kind: "start", sendBacks: 3 },
-      "herdr",
-    );
+    expect(judgmentBrief).toHaveBeenCalledWith(IDEA, ISSUE, PR, {
+      kind: "start",
+      sendBacks: 3,
+    });
     expect(p.spawn).toHaveBeenCalledWith({
       role: "judgment",
       name: "idea-0007-judgment-r1",

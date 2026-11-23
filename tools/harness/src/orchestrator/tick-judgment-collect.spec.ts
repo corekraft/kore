@@ -76,25 +76,19 @@ describe("TickJudgment.consume: collecting the readers", () => {
       admitted(),
     );
 
-    expect(judgmentBrief).toHaveBeenCalledWith(
-      IDEA,
-      ISSUE,
-      PR,
-      {
-        kind: "after-reads",
-        summaries: [
-          {
-            name: "idea-0007-read-r1-q1",
-            text: "S(text of idea-0007-read-r1-q1)",
-          },
-          {
-            name: "idea-0007-read-r1-q2",
-            text: "S(text of idea-0007-read-r1-q2)",
-          },
-        ],
-      },
-      "herdr",
-    );
+    expect(judgmentBrief).toHaveBeenCalledWith(IDEA, ISSUE, PR, {
+      kind: "after-reads",
+      summaries: [
+        {
+          name: "idea-0007-read-r1-q1",
+          text: "S(text of idea-0007-read-r1-q1)",
+        },
+        {
+          name: "idea-0007-read-r1-q2",
+          text: "S(text of idea-0007-read-r1-q2)",
+        },
+      ],
+    });
     expect(p.spawn).toHaveBeenCalledWith({
       role: "judgment",
       name: "idea-0007-judgment-r2",
@@ -211,7 +205,6 @@ describe("TickJudgment.consume: holds and crash recovery", () => {
 describe("TickJudgment.consume: an hc judgment reads its readers from their reports", () => {
   it("takes each reader's answer from its report, with no summary markers, and briefs the judgment for hc", async () => {
     const p = ports({
-      backend: "hc",
       reportOf: vi.fn(async (name: string) => ({
         summary: `answer of ${name}`,
       })),
@@ -235,24 +228,18 @@ describe("TickJudgment.consume: an hc judgment reads its readers from their repo
 
     expect(readSummary).not.toHaveBeenCalled();
     expect(p.paneText).not.toHaveBeenCalled();
-    expect(judgmentBrief).toHaveBeenCalledWith(
-      IDEA,
-      ISSUE,
-      PR,
-      {
-        kind: "after-reads",
-        summaries: [
-          {
-            name: "idea-0007-read-r1-q1",
-            text: "answer of idea-0007-read-r1-q1",
-          },
-          {
-            name: "idea-0007-read-r1-q2",
-            text: "answer of idea-0007-read-r1-q2",
-          },
-        ],
-      },
-      "hc",
-    );
+    expect(judgmentBrief).toHaveBeenCalledWith(IDEA, ISSUE, PR, {
+      kind: "after-reads",
+      summaries: [
+        {
+          name: "idea-0007-read-r1-q1",
+          text: "answer of idea-0007-read-r1-q1",
+        },
+        {
+          name: "idea-0007-read-r1-q2",
+          text: "answer of idea-0007-read-r1-q2",
+        },
+      ],
+    });
   });
 });

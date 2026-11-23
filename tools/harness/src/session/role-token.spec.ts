@@ -111,7 +111,7 @@ describe("roleToken reads nothing for a role without an identity", () => {
     );
 
     await expect(roleToken(deps, "writer")).resolves.toEqual({
-      error: "The local overlay is not JSON. No pane was split.",
+      error: "The local overlay is not JSON.",
     });
   });
 
@@ -141,7 +141,7 @@ describe("roleToken for a judge", () => {
     answer({});
 
     await expect(roleToken(deps, "judge")).resolves.toEqual({
-      error: `The judge identity is missing: keychain item kore.judge.pat was not found. Create it with \`bash ${WIZARD}\`, then rerun. No pane was split.`,
+      error: `The judge identity is missing: keychain item kore.judge.pat was not found. Create it with \`bash ${WIZARD}\`, then rerun.`,
     });
   });
 });
@@ -180,7 +180,7 @@ describe("roleToken signs and mints for a writer", () => {
     answer({ ...KEYCHAIN, "kore.writer.app-id": undefined });
 
     await expect(roleToken(deps, "writer")).resolves.toEqual({
-      error: `The writer identity is missing: keychain item kore.writer.app-id was not found. Create it with \`bash ${WIZARD}\`, then rerun. No pane was split.`,
+      error: `The writer identity is missing: keychain item kore.writer.app-id was not found. Create it with \`bash ${WIZARD}\`, then rerun.`,
     });
   });
 
@@ -194,7 +194,7 @@ describe("roleToken signs and mints for a writer", () => {
     crypto.createSign.mockReturnValue(broken);
 
     await expect(roleToken(deps, "writer")).resolves.toEqual({
-      error: `The writer App private key in keychain item kore.writer.private-key could not sign a token. Recreate it with \`bash ${WIZARD}\`. No pane was split.`,
+      error: `The writer App private key in keychain item kore.writer.private-key could not sign a token. Recreate it with \`bash ${WIZARD}\`.`,
     });
   });
 
@@ -208,7 +208,7 @@ describe("roleToken signs and mints for a writer", () => {
     const result = await roleToken(deps, "writer");
 
     expect(result).toEqual({
-      error: `Could not mint a kore-writer installation token (curl: (22) The requested URL returned error: 403: Resource not accessible). Check the App is installed on corekraft/kore and its key is current: \`bash ${WIZARD}\`. No pane was split.`,
+      error: `Could not mint a kore-writer installation token (curl: (22) The requested URL returned error: 403: Resource not accessible). Check the App is installed on corekraft/kore and its key is current: \`bash ${WIZARD}\`.`,
     });
     expect(JSON.stringify(result)).not.toContain("ghs_leak");
   });
@@ -217,7 +217,7 @@ describe("roleToken signs and mints for a writer", () => {
     answer(KEYCHAIN, { stdout: "not json" });
 
     await expect(roleToken(deps, "writer")).resolves.toEqual({
-      error: `Could not mint a kore-writer installation token (the response carried no token). Check the App is installed on corekraft/kore and its key is current: \`bash ${WIZARD}\`. No pane was split.`,
+      error: `Could not mint a kore-writer installation token (the response carried no token). Check the App is installed on corekraft/kore and its key is current: \`bash ${WIZARD}\`.`,
     });
   });
 });
@@ -281,7 +281,7 @@ describe("roleToken gives the principles-review pane the Reviewer App's token", 
     answer({ ...KEYCHAIN, "kore.reviewer.app-id": undefined });
 
     await expect(roleToken(deps, "principles-review")).resolves.toEqual({
-      error: `The reviewer identity is missing: keychain item kore.reviewer.app-id was not found. Create it with \`bash ${WIZARD}\`, then rerun. No pane was split.`,
+      error: `The reviewer identity is missing: keychain item kore.reviewer.app-id was not found. Create it with \`bash ${WIZARD}\`, then rerun.`,
     });
   });
 
@@ -295,7 +295,7 @@ describe("roleToken gives the principles-review pane the Reviewer App's token", 
     const result = await roleToken(deps, "principles-review");
 
     expect(result).toEqual({
-      error: `Could not mint a kore-reviewer installation token (curl: (22) The requested URL returned error: 403: Resource not accessible). Check the App is installed on corekraft/kore and its key is current: \`bash ${WIZARD}\`. No pane was split.`,
+      error: `Could not mint a kore-reviewer installation token (curl: (22) The requested URL returned error: 403: Resource not accessible). Check the App is installed on corekraft/kore and its key is current: \`bash ${WIZARD}\`.`,
     });
     expect(JSON.stringify(result)).not.toContain("ghs_leak");
   });
@@ -327,7 +327,7 @@ describe("roleToken gives the orchestrator its own App token, and no other role 
     answer({ ...KEYCHAIN, "kore.orchestrator.private-key": undefined });
 
     await expect(roleToken(deps, "orchestrator")).resolves.toEqual({
-      error: `The orchestrator identity is missing: keychain item kore.orchestrator.private-key was not found. Create it with \`bash ${WIZARD}\`, then rerun. No pane was split.`,
+      error: `The orchestrator identity is missing: keychain item kore.orchestrator.private-key was not found. Create it with \`bash ${WIZARD}\`, then rerun.`,
     });
   });
 

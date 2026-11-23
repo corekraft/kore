@@ -192,12 +192,13 @@ describe("TickCli panes", () => {
 });
 
 describe("TickCli judgment reads and labels", () => {
-  it("reads a finished pane's text through its session result and the pane's own text", async () => {
-    const { cli, calls } = setup((command) =>
-      command === "node"
-        ? { stdout: JSON.stringify({ outcome: "done", paneId: "p9" }) }
-        : { stdout: "PLAN-JSON" },
-    );
+  it("reads a finished session's text from the summary its report carries, and reads no terminal", async () => {
+    const { cli, calls } = setup(() => ({
+      stdout: JSON.stringify({
+        outcome: "done",
+        summary: "PLAN-JSON",
+      }),
+    }));
 
     expect(await cli.paneText("idea-0001-judgment-r1")).toBe("PLAN-JSON");
     expect(calls).toEqual([
@@ -210,10 +211,6 @@ describe("TickCli judgment reads and labels", () => {
           "idea-0001-judgment-r1",
           "--json",
         ],
-      },
-      {
-        command: "herdr",
-        args: ["pane", "read", "p9", "--source", "recent-unwrapped"],
       },
     ]);
   });

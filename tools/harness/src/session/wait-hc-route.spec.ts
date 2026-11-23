@@ -62,7 +62,7 @@ describe("wait on an hc session waits through hc and reads its report, never a h
       summary: "Opened PR #5.",
       seq: 1,
     };
-    vi.mocked(routeSession).mockReturnValue({ backend: "hc", terminals: hc });
+    vi.mocked(routeSession).mockReturnValue({ terminals: hc });
     vi.mocked(waitForReport).mockResolvedValue(result);
     vi.mocked(formatReportWait).mockReturnValue("<report wait line>\n");
     registry.read.mockResolvedValue(HC_RECORD);
@@ -84,7 +84,6 @@ describe("wait on an hc session waits through hc and reads its report, never a h
 
   it("fails with hc's message when the report wait cannot answer", async () => {
     vi.mocked(routeSession).mockReturnValue({
-      backend: "hc",
       terminals: new FakeTerminals(),
     });
     vi.mocked(waitForReport).mockResolvedValue({

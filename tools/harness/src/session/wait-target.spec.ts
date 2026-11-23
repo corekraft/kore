@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { asRegistry, fakeDeps, fakeRegistry } from "./deps-support.js";
 import { sessionNameError } from "./names.js";
 import type { SessionRecord, SessionRegistry } from "./registry.js";
-import { readResult } from "./wait.js";
+import { readSettledOnce } from "./wait-hc.js";
 import { openSessionTarget, settleSessionTarget } from "./wait-target.js";
 
 const opener = vi.hoisted(() => ({
@@ -11,7 +11,7 @@ const opener = vi.hoisted(() => ({
 
 vi.mock("./registry.js", () => ({ SessionRegistry: opener }));
 vi.mock("./names.js");
-vi.mock("./wait.js", () => ({ readResult: vi.fn() }));
+vi.mock("./wait-hc.js", () => ({ readSettledOnce: vi.fn() }));
 
 const RECORD: SessionRecord = {
   name: "image-trust-writer",
@@ -65,7 +65,7 @@ describe("openSessionTarget opens a spawned session as a wait target, or refuses
 describe("settleSessionTarget reads the pane once, through session wait", () => {
   it("is pending while session wait finds no RESULT line", async () => {
     registry.read.mockResolvedValue(RECORD);
-    vi.mocked(readResult).mockResolvedValue(undefined);
+    vi.mocked(readSettledOnce).mockResolvedValue(undefined);
     const opened = await openSessionTarget(deps, RECORD.name);
     if (!("target" in opened)) {
       throw new Error("expected a target");
@@ -76,13 +76,11 @@ describe("settleSessionTarget reads the pane once, through session wait", () => 
 
   it("returns the outcome word once session wait records the RESULT line", async () => {
     registry.read.mockResolvedValue(RECORD);
-    vi.mocked(readResult).mockResolvedValue({
+    vi.mocked(readSettledOnce).mockResolvedValue({
       name: RECORD.name,
-      paneId: RECORD.paneId,
       model: RECORD.model,
       outcome: "blocked",
       summary: "pane w3:p9",
-      result: { outcome: "blocked", summary: "" },
     });
     const opened = await openSessionTarget(deps, RECORD.name);
     if (!("target" in opened)) {
@@ -95,7 +93,7 @@ describe("settleSessionTarget reads the pane once, through session wait", () => 
   });
 
   it("passes a pane read error through, so the caller fails rather than waits", async () => {
-    vi.mocked(readResult).mockResolvedValue({
+    vi.mocked(readSettledOnce).mockResolvedValue({
       error: "herdr pane read w3:p9 failed: no pane",
     });
     registry.read.mockResolvedValue(RECORD);

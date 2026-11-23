@@ -74,7 +74,7 @@ describe("noteUnstamped records the spawn in the ledger", () => {
     await noteUnstamped(deps, SPAWNED, {});
 
     expect(ledger.record).toHaveBeenCalledExactlyOnceWith({
-      source: "herdr",
+      source: "terminal",
       kind: "spawn.unstamped",
       occurredAt: SPAWNED.createdAt,
       pane: "w3:p9",
@@ -87,7 +87,7 @@ describe("noteUnstamped records the spawn in the ledger", () => {
     await noteUnstamped(deps, SPAWNED, { reason: "grilling session" });
 
     expect(ledger.record).toHaveBeenCalledExactlyOnceWith({
-      source: "herdr",
+      source: "terminal",
       kind: "spawn.unstamped",
       occurredAt: SPAWNED.createdAt,
       pane: "w3:p9",
@@ -128,7 +128,7 @@ describe("recordLaunch writes the effort the session ran at", () => {
     await recordLaunch(deps, LAUNCHED, { tierSource: "definition" }, "write");
 
     expect(ledger.record).toHaveBeenCalledExactlyOnceWith({
-      source: "herdr",
+      source: "terminal",
       kind: "session.launch",
       occurredAt: "2026-11-15T10:00:00.000Z",
       pane: "w3:p9",
@@ -150,7 +150,7 @@ describe("recordLaunch writes the effort the session ran at", () => {
     );
 
     expect(ledger.record).toHaveBeenCalledExactlyOnceWith({
-      source: "herdr",
+      source: "terminal",
       kind: "session.launch",
       occurredAt: "2026-11-15T10:00:00.000Z",
       pane: "w3:p9",
@@ -190,7 +190,7 @@ describe("recordIdeaLabels records one session.labelled event per label the idea
     expect(ledger.record.mock.calls).toEqual([
       [
         {
-          source: "herdr",
+          source: "terminal",
           kind: "session.labelled",
           occurredAt: LAUNCHED.createdAt,
           session: "image-trust-writer",
@@ -199,7 +199,7 @@ describe("recordIdeaLabels records one session.labelled event per label the idea
       ],
       [
         {
-          source: "herdr",
+          source: "terminal",
           kind: "session.labelled",
           occurredAt: LAUNCHED.createdAt,
           session: "image-trust-writer",

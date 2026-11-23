@@ -69,7 +69,7 @@ async function setUpTerminals(self: string | undefined): Promise<void> {
     parent: "t1",
   });
   vi.mocked(terminalsFor).mockReturnValue(terminals);
-  vi.mocked(routeSession).mockReturnValue({ backend: "hc", terminals });
+  vi.mocked(routeSession).mockReturnValue({ terminals });
 }
 
 beforeEach(async () => {
@@ -143,21 +143,6 @@ describe("report refuses when it is not an open hc session", () => {
       false,
       FAILED,
       "No open session record matches terminal t2. session report writes only for a session that session spawn started; nothing was written.",
-    );
-    expect(deps.fs.writeFile).not.toHaveBeenCalled();
-  });
-
-  it("refuses a record that runs on herdr, since report is for hc sessions only", async () => {
-    vi.mocked(routeSession).mockReturnValue({ backend: "herdr" });
-
-    const code = await report(contextOf(deps, { options: DONE }));
-
-    expect(code).toBe(1);
-    expect(fail).toHaveBeenCalledWith(
-      deps,
-      false,
-      FAILED,
-      "Session image-trust-writer runs on herdr; session report is for hc sessions only.",
     );
     expect(deps.fs.writeFile).not.toHaveBeenCalled();
   });

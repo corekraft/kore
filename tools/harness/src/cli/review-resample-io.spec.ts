@@ -47,7 +47,7 @@ beforeEach(() => {
 describe("the resample ports start a Sonnet reader on the override tier (#852)", () => {
   it("spawns a reader on the re-review tier, with its override reason, and no wait", async () => {
     run.mockReturnValue(result(""));
-    const io = await sessionResampleIo(context, "herdr");
+    const io = await sessionResampleIo(context);
 
     await io.ports.spawn({
       name: "resample-pr42-aaaaaaaa",
@@ -83,8 +83,8 @@ describe("the resample ports start a Sonnet reader on the override tier (#852)",
   });
 
   it("names the failed spawn and the fix", async () => {
-    run.mockReturnValue(result("", 1, "no herdr"));
-    const io = await sessionResampleIo(context, "herdr");
+    run.mockReturnValue(result("", 1, "no session"));
+    const io = await sessionResampleIo(context);
 
     await expect(
       io.ports.spawn({
@@ -95,7 +95,7 @@ describe("the resample ports start a Sonnet reader on the override tier (#852)",
         effort: "high",
         reason: "r",
       }),
-    ).rejects.toThrow(/session spawn.*failed: no herdr/s);
+    ).rejects.toThrow(/session spawn.*failed: no session/s);
   });
 });
 
@@ -104,7 +104,7 @@ describe("the resample ports wait for, read and close the reader's pane (#852)",
     run.mockReturnValue(
       result(JSON.stringify({ name: "n", paneId: "p1", outcome: "blocked" })),
     );
-    const io = await sessionResampleIo(context, "herdr");
+    const io = await sessionResampleIo(context);
 
     expect(await io.ports.wait("resample-pr42-aaaaaaaa")).toEqual({
       outcome: "blocked",
@@ -118,29 +118,40 @@ describe("the resample ports wait for, read and close the reader's pane (#852)",
     ]);
   });
 
-  it("reads the unwrapped text of the pane its session settled in, by session name, and refuses an unsettled session", async () => {
-    run
-      .mockReturnValueOnce(
-        result(JSON.stringify({ name: "n", paneId: "p1", outcome: "done" })),
-      )
-      .mockReturnValueOnce(result("TEXT"));
-    const io = await sessionResampleIo(context, "herdr");
+  it("reads the summary its session wait printed, by session name, and refuses an unsettled session", async () => {
+    run.mockReturnValueOnce(
+      result(
+        JSON.stringify({
+          name: "resample-pr42-aaaaaaaa",
+          model: "m",
+          outcome: "done",
+          summary: "TEXT",
+        }),
+      ),
+    );
+    const io = await sessionResampleIo(context);
     await expect(io.ports.read("resample-pr42-aaaaaaaa")).rejects.toThrow(
       /has not settled/,
     );
     await io.ports.wait("resample-pr42-aaaaaaaa");
 
     expect(await io.ports.read("resample-pr42-aaaaaaaa")).toBe("TEXT");
-    expect(run).toHaveBeenLastCalledWith(
-      "herdr",
-      ["pane", "read", "p1", "--source", "recent-unwrapped"],
+    expect(run).toHaveBeenCalledExactlyOnceWith(
+      "node",
+      [
+        "skills/bin/harness.mjs",
+        "session",
+        "wait",
+        "resample-pr42-aaaaaaaa",
+        "--json",
+      ],
       { cwd: ROOT },
     );
   });
 
   it("closes the reader's session through session close", async () => {
     run.mockReturnValue(result(""));
-    const io = await sessionResampleIo(context, "herdr");
+    const io = await sessionResampleIo(context);
 
     await io.ports.close("resample-pr42-aaaaaaaa");
 
@@ -154,7 +165,7 @@ describe("the resample ports wait for, read and close the reader's pane (#852)",
 
 describe("the resample ports record and read the ledger (#852)", () => {
   it("records a re-review as a review.run with its label and findings", async () => {
-    const io = await sessionResampleIo(context, "herdr");
+    const io = await sessionResampleIo(context);
 
     await io.ports.record(42, "resample:aaaaaaaa", 2);
 
@@ -170,7 +181,7 @@ describe("the resample ports record and read the ledger (#852)", () => {
   });
 
   it("records a failed re-review without findings, so no count is read from it", async () => {
-    const io = await sessionResampleIo(context, "herdr");
+    const io = await sessionResampleIo(context);
 
     await io.ports.record(42, "resample-failed:aaaaaaaa");
 
@@ -182,7 +193,7 @@ describe("the resample ports record and read the ledger (#852)", () => {
     const events = [{ kind: "pr.merged", number: 42 }] as LedgerEvent[];
     list.mockResolvedValue({ events, skipped: 0 });
 
-    const io = await sessionResampleIo(context, "herdr");
+    const io = await sessionResampleIo(context);
 
     expect(list).toHaveBeenCalledWith({});
     expect(io.events).toBe(events);
@@ -202,7 +213,7 @@ describe("the resample ports read an hc reader's verdict from its wait, never a 
         }),
       ),
     );
-    const io = await sessionResampleIo(context, "hc");
+    const io = await sessionResampleIo(context);
     await io.ports.wait("resample-pr42-aaaaaaaa");
 
     expect(await io.ports.read("resample-pr42-aaaaaaaa")).toBe("VERDICT: none");

@@ -1,9 +1,5 @@
 import { describe, expect, it } from "vitest";
-import {
-  PROPOSALS_BEGIN,
-  PROPOSALS_END,
-  RETRO_CAP,
-} from "./retro-proposals.js";
+import { PROPOSALS_BEGIN, PROPOSALS_END } from "./retro-proposals.js";
 import {
   retroBrief,
   RETRO_EFFORT,
@@ -27,7 +23,6 @@ function ports(
     report?: RetroReport;
     appended?: boolean;
     recordFails?: boolean;
-    backend?: "herdr" | "hc";
   } = {},
 ) {
   const calls: string[] = [];
@@ -55,7 +50,6 @@ function ports(
       panes.push(pane);
       return Promise.resolve();
     },
-    backend: () => Promise.resolve(script.backend ?? "herdr"),
   };
   return { fake, calls, panes };
 }
@@ -122,8 +116,8 @@ describe("RetroLaunch pane", () => {
     expect(RETRO_REASON.length).toBeLessThanOrEqual(100);
   });
 
-  it("briefs an hc pane to finish with its proposals on the stdin of session report, never a RESULT line or a file", async () => {
-    const { fake, panes } = ports({ backend: "hc" });
+  it("briefs the pane to finish with its proposals on the stdin of session report, never a RESULT line or a file", async () => {
+    const { fake, panes } = ports();
 
     await new RetroLaunch(fake).run();
 
@@ -182,9 +176,15 @@ describe("RetroLaunch pane", () => {
 });
 
 describe("retroBrief", () => {
-  it("keeps the herdr retro brief exactly as main wrote it, ending with its RESULT line", () => {
-    expect(retroBrief("count")).toBe(
-      `Run the /retro skill: review the sessions since the last retrospective and end with ranked proposals. Propose only; change no file and record nothing. The trigger (count) is already recorded. End with your proposals as one JSON array, one object per idea with the string fields title, hypothesis, expectedOutcome, measurement, safetyPattern, metric, direction (up or down) and window (such as 14d), between a line ${PROPOSALS_BEGIN} and a line ${PROPOSALS_END}, then print RESULT: done. A tool files the first ${RETRO_CAP} as ideas and drops the rest, so rank them.`,
+  it("ends with its proposals on the stdin of session report, never a RESULT line", () => {
+    const brief = retroBrief("count");
+
+    expect(brief).toContain(
+      "then, as your last action, run `node skills/bin/harness.mjs session report --outcome done --summary - <<'EOF'` with your proposals on the lines after it, then a line that reads EOF.",
+    );
+    expect(brief).not.toMatch(/RESULT/);
+    expect(brief).toContain(
+      `between a line ${PROPOSALS_BEGIN} and a line ${PROPOSALS_END}`,
     );
   });
 });

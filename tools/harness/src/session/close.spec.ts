@@ -2,157 +2,83 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { CliDeps } from "../runtime/index.js";
 import { close } from "./close.js";
 import { closeHcSession } from "./close-hc-command.js";
-import { removeMergedWorktree } from "./close-worktree.js";
 import {
-  SPAWNED,
   UNRESULTED,
   WITHOUT_WORKTREE,
-  WORKTREE,
   asRegistry,
   fakeRegistry,
   scene,
-  type Scene,
+  type FakeRegistry,
 } from "./close-support.js";
-import { describeFailure, equalize } from "./equalize.js";
-import { sessionNameError } from "./names.js";
-import { fail } from "./output.js";
 import type { SessionRecord, SessionRegistry } from "./registry.js";
-import { closeHint } from "./worktree.js";
 
-vi.mock("./close-worktree.js", () => ({
-  removeMergedWorktree: vi.fn(),
-}));
-vi.mock("./close-hc-command.js", () => ({
-  closeHcSession: vi.fn(),
-}));
-vi.mock("./equalize.js", () => ({
-  equalize: vi.fn(),
-  describeFailure: vi.fn(() => "herdr said no"),
-}));
-vi.mock("./names.js", () => ({
-  sessionNameError: vi.fn(() => undefined),
-}));
-vi.mock("./output.js", async (original) => ({
-  ...(await original<typeof import("./output.js")>()),
-  fail: vi.fn(),
-}));
 // A plain object, not the class: a static method reference would be an unbound method.
 const opener = vi.hoisted(() => ({
   open: vi.fn<(deps: CliDeps) => Promise<SessionRegistry>>(),
 }));
 vi.mock("./registry.js", () => ({ SessionRegistry: opener }));
-vi.mock("./worktree.js", () => ({
-  closeHint: vi.fn(() => "HINT"),
+vi.mock("./close-hc-command.js", () => ({
+  closeHcSession: vi.fn(),
 }));
 
-const CLOSED_AT = "2026-01-02T03:06:00.000Z";
-const WORKTREE_FLAG = { "remove-worktree": true };
-const RERUN = "session close image-trust-writer --remove-worktree";
-const REMOVED =
-  "Removed worktree /main/.claude/worktrees/x and deleted branch feat/x.";
-const CLOSED = { ...SPAWNED, closedAt: CLOSED_AT };
+let registry: FakeRegistry;
 
-/** The registry this test reads and writes, handed to close through the mocked class. */
-function registryOf(record: typeof SPAWNED | undefined) {
-  const registry = fakeRegistry(record);
+/** The registry the close reads, holding the one record given (or none). */
+function registryOf(record: SessionRecord | undefined): void {
+  registry = fakeRegistry(record);
   opener.open.mockResolvedValue(asRegistry(registry));
-  return registry;
 }
 
-const failures = () => vi.mocked(fail).mock.calls;
-const pairs = (s: Scene) => s.runner.run.mock.calls.map((c) => [c[0], c[1]]);
-
 beforeEach(() => {
-  // The real fail returns its exit code, and close returns what it returns.
-  vi.mocked(fail).mockImplementation((_deps, _json, code) => code);
-  vi.mocked(equalize).mockResolvedValue({ status: "equalized" });
-  vi.mocked(removeMergedWorktree).mockResolvedValue({
-    removed: true,
-    message:
-      "Removed worktree /main/.claude/worktrees/x and deleted branch feat/x.",
-  });
+  vi.clearAllMocks();
+  vi.mocked(closeHcSession).mockResolvedValue(0);
 });
 
 describe("session close refusals, touching nothing", () => {
   it("asks for a session name, opening no registry and running no command", async () => {
     const s = scene({ operand: undefined });
+
     expect(await close(s.context)).toBe(2);
-    expect(failures()).toEqual([
-      [
-        s.context.deps,
-        false,
-        2,
-        "Missing the session name: session close <name>.",
-      ],
-    ]);
+
     expect(opener.open).not.toHaveBeenCalled();
     expect(s.runner.run).not.toHaveBeenCalled();
+    expect(closeHcSession).not.toHaveBeenCalled();
   });
 
   it("rejects an invalid name with the name error, before the registry", async () => {
-    vi.mocked(sessionNameError).mockReturnValueOnce(
-      "Session name must be a slug.",
-    );
-    const s = scene({ operand: "Bad Name" });
+    const s = scene({ operand: "Not A Name" });
+
     expect(await close(s.context)).toBe(2);
-    expect(failures()[0]?.[3]).toBe("Session name must be a slug.");
+
     expect(opener.open).not.toHaveBeenCalled();
+    expect(closeHcSession).not.toHaveBeenCalled();
   });
 
-  it("refuses outside Herdr, opening nothing", async () => {
-    const s = scene({ env: {} });
-    expect(await close(s.context)).toBe(1);
-    expect(failures()[0]?.[3]).toContain("Not inside Herdr");
-    expect(opener.open).not.toHaveBeenCalled();
-    expect(s.runner.run).not.toHaveBeenCalled();
-  });
-
-  it("refuses a name this tool did not create, closing no pane", async () => {
+  it("refuses a name this tool did not create, closing no terminal", async () => {
     registryOf(undefined);
     const s = scene();
-    expect(await close(s.context)).toBe(1);
-    expect(failures()[0]?.[3]).toContain("did not create a session named");
-    expect(s.runner.run).not.toHaveBeenCalled();
-  });
 
-  it("refuses a pane another caller spawned, naming the one that may close it", async () => {
-    registryOf(SPAWNED);
-    const s = scene({ env: { HERDR_ENV: "1", HERDR_PANE_ID: "w3:p77" } });
     expect(await close(s.context)).toBe(1);
-    expect(failures()[0]?.[3]).toContain("spawned from pane w3:p1, not w3:p77");
-    expect(s.runner.run).not.toHaveBeenCalled();
-  });
 
-  it("refuses a session whose result is not recorded, naming session wait", async () => {
-    registryOf(UNRESULTED);
-    const s = scene();
-    expect(await close(s.context)).toBe(1);
-    expect(failures()[0]?.[3]).toContain(
-      "Run `session wait image-trust-writer` first.",
+    expect(closeHcSession).not.toHaveBeenCalled();
+    expect(s.stderr).toHaveBeenCalledWith(
+      expect.stringContaining("did not create a session named"),
     );
-    expect(s.runner.run).not.toHaveBeenCalled();
-  });
-
-  it("refuses a session already closed, closing nothing twice", async () => {
-    registryOf({ ...SPAWNED, closedAt: CLOSED_AT });
-    const s = scene();
-    expect(await close(s.context)).toBe(1);
-    expect(failures()[0]?.[3]).toContain("already closed");
-    expect(s.runner.run).not.toHaveBeenCalled();
   });
 });
 
-describe("session close routes an hc record to hc, never to herdr", () => {
-  it("hands an hc record to closeHcSession, and touches no herdr pane", async () => {
+describe("session close routes a record to hc, never to a pane", () => {
+  it("hands an hc record with a terminal to closeHcSession, and runs no command", async () => {
     const hcRecord = {
       ...WITHOUT_WORKTREE,
       backend: "hc",
       terminal: "t7",
     } as unknown as SessionRecord;
     registryOf(hcRecord);
-    vi.mocked(closeHcSession).mockResolvedValue(0);
     const s = scene();
+
     expect(await close(s.context)).toBe(0);
+
     expect(closeHcSession).toHaveBeenCalledExactlyOnceWith(
       s.context,
       expect.anything(),
@@ -161,165 +87,35 @@ describe("session close routes an hc record to hc, never to herdr", () => {
     );
     expect(s.runner.run).not.toHaveBeenCalled();
   });
-});
 
-describe("session close closes the pane and records it", () => {
-  it("closes the caller's child pane, records closedAt, equalizes from the caller pane, and prints the hint", async () => {
-    const registry = registryOf(SPAWNED);
+  it("settles a start that was lost before it got a terminal, through closeHcSession", async () => {
+    const lost = {
+      ...UNRESULTED,
+      backend: "hc",
+      starting: true,
+    } as unknown as SessionRecord;
+    registryOf(lost);
     const s = scene();
+
     expect(await close(s.context)).toBe(0);
-    expect(pairs(s)).toEqual([["herdr", ["pane", "close", "w3:p9"]]]);
-    expect(registry.write).toHaveBeenCalledWith({
-      ...SPAWNED,
-      closedAt: CLOSED_AT,
-    });
-    expect(equalize).toHaveBeenCalledWith(s.runner.runner, "w3:p1");
-    expect(closeHint).toHaveBeenCalledWith(WORKTREE);
-    expect(s.stdout).toHaveBeenCalledWith(
-      "Closed image-trust-writer (pane w3:p9). HINT\n",
+
+    expect(closeHcSession).toHaveBeenCalledExactlyOnceWith(
+      s.context,
+      expect.anything(),
+      expect.anything(),
+      lost,
     );
-    expect(removeMergedWorktree).not.toHaveBeenCalled();
   });
 
-  it("keeps the session open and reports herdr's words when the pane cannot be closed", async () => {
-    const registry = registryOf(SPAWNED);
-    vi.mocked(describeFailure).mockReturnValueOnce("pane_not_found");
-    const s = scene({ herdr: { code: 1, stderr: "pane_not_found" } });
-    expect(await close(s.context)).toBe(1);
-    expect(failures()[0]?.[3]).toBe(
-      "herdr pane close w3:p9 failed: pane_not_found",
-    );
-    expect(registry.write).not.toHaveBeenCalled();
-  });
-
-  it("notes a failed equalize on stderr, and still reports the close", async () => {
-    registryOf(SPAWNED);
-    vi.mocked(equalize).mockResolvedValue({
-      status: "failed",
-      reason: "layout gone",
-    });
+  it("refuses a record with no terminal id, and names the command that removes it", async () => {
+    registryOf({ ...UNRESULTED, backend: "hc" } as unknown as SessionRecord);
     const s = scene();
-    expect(await close(s.context)).toBe(0);
-    expect(s.stderr).toHaveBeenCalledWith(
-      "Closed, but equalizing failed: layout gone\n",
-    );
-  });
 
-  it("prints no hint for a session without a worktree", async () => {
-    registryOf(WITHOUT_WORKTREE);
-    const s = scene();
-    expect(await close(s.context)).toBe(0);
-    expect(s.stdout).toHaveBeenCalledWith(
-      "Closed image-trust-writer (pane w3:p9).\n",
-    );
-    expect(closeHint).not.toHaveBeenCalled();
-  });
-});
-
-describe("session close JSON without --remove-worktree", () => {
-  it("prints the close and the hint, with no removal field, and removes nothing", async () => {
-    registryOf(SPAWNED);
-    const s = scene({ json: true });
-    expect(await close(s.context)).toBe(0);
-    expect(JSON.parse(s.stdout.mock.calls[0]?.[0] ?? "")).toEqual({
-      name: "image-trust-writer",
-      paneId: "w3:p9",
-      closed: true,
-      equalize: { status: "equalized" },
-      hint: "HINT",
-    });
-    expect(removeMergedWorktree).not.toHaveBeenCalled();
-  });
-});
-
-describe("session close --remove-worktree", () => {
-  it("removes the merged worktree from the caller's directory and names what it removed, with no hint", async () => {
-    registryOf(SPAWNED);
-    const s = scene({ flags: WORKTREE_FLAG });
-    expect(await close(s.context)).toBe(0);
-    expect(removeMergedWorktree).toHaveBeenCalledWith(
-      s.runner.runner,
-      WORKTREE,
-      "/main",
-      RERUN,
-    );
-    expect(s.stdout).toHaveBeenCalledWith(
-      "Closed image-trust-writer (pane w3:p9). Removed worktree /main/.claude/worktrees/x and deleted branch feat/x.\n",
-    );
-    expect(closeHint).not.toHaveBeenCalled();
-  });
-
-  it("closes the pane, keeps the worktree, and exits 1 with the reason on stderr", async () => {
-    const registry = registryOf(SPAWNED);
-    vi.mocked(removeMergedWorktree).mockResolvedValue({
-      removed: false,
-      reason: "branch feat/x is unmerged: no merged PR has it as its head.",
-    });
-    const s = scene({ flags: WORKTREE_FLAG });
     expect(await close(s.context)).toBe(1);
-    expect(pairs(s)).toEqual([["herdr", ["pane", "close", "w3:p9"]]]);
-    expect(registry.write).toHaveBeenCalledTimes(1);
+
+    expect(closeHcSession).not.toHaveBeenCalled();
     expect(s.stderr).toHaveBeenCalledWith(
-      "branch feat/x is unmerged: no merged PR has it as its head.\n",
-    );
-    expect(s.stdout).toHaveBeenCalledWith(
-      "Closed image-trust-writer (pane w3:p9).\n",
-    );
-  });
-
-  it("exits 1 and removes nothing for a session that has no worktree", async () => {
-    registryOf(WITHOUT_WORKTREE);
-    const s = scene({ flags: WORKTREE_FLAG });
-    expect(await close(s.context)).toBe(1);
-    expect(removeMergedWorktree).not.toHaveBeenCalled();
-    expect(s.stderr).toHaveBeenCalledWith(
-      "Session image-trust-writer has no worktree, so there is none to remove.\n",
-    );
-  });
-
-  it("prints the removal in the JSON output beside the close, and no hint", async () => {
-    registryOf(SPAWNED);
-    const s = scene({ flags: WORKTREE_FLAG, json: true });
-    expect(await close(s.context)).toBe(0);
-    expect(JSON.parse(s.stdout.mock.calls[0]?.[0] ?? "")).toEqual({
-      name: "image-trust-writer",
-      paneId: "w3:p9",
-      closed: true,
-      equalize: { status: "equalized" },
-      removal: { removed: true, message: REMOVED },
-    });
-  });
-});
-
-describe("session close --remove-worktree retries a kept worktree", () => {
-  it("removes the worktree of a closed session without closing the pane, rewriting the record, or equalizing", async () => {
-    const registry = registryOf(CLOSED);
-    const s = scene({ flags: WORKTREE_FLAG });
-    expect(await close(s.context)).toBe(0);
-    expect(registry.write).not.toHaveBeenCalled();
-    expect(equalize).not.toHaveBeenCalled();
-    expect(removeMergedWorktree).toHaveBeenCalledWith(
-      s.runner.runner,
-      WORKTREE,
-      "/main",
-      RERUN,
-    );
-    expect(s.stdout).toHaveBeenCalledWith(
-      "Session image-trust-writer was already closed (pane w3:p9). Removed worktree /main/.claude/worktrees/x and deleted branch feat/x.\n",
-    );
-  });
-
-  it("exits 1 again, with the reason, when the retried removal is still refused", async () => {
-    const registry = registryOf(CLOSED);
-    vi.mocked(removeMergedWorktree).mockResolvedValue({
-      removed: false,
-      reason: `worktree /main/.claude/worktrees/x has uncommitted or untracked changes. Kept worktree /main/.claude/worktrees/x and branch feat/x. Commit, stash or delete them. Then rerun \`${RERUN}\`.`,
-    });
-    const s = scene({ flags: WORKTREE_FLAG });
-    expect(await close(s.context)).toBe(1);
-    expect(registry.write).not.toHaveBeenCalled();
-    expect(s.stderr).toHaveBeenCalledWith(
-      expect.stringContaining(`Then rerun \`${RERUN}\`.`),
+      expect.stringContaining("harness session close --force-record"),
     );
   });
 });
