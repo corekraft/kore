@@ -109,6 +109,18 @@ function fixture(
   return { context, stdout, stderr, io, load };
 }
 
+describe("the review domain names no re-review command (#852 removed)", () => {
+  it("registers post and run only, with no resample command", () => {
+    expect(Object.keys(reviewCommands).sort()).toEqual(["post", "run"]);
+  });
+
+  it("names no resample command in the help of the commands it keeps", () => {
+    for (const command of Object.values(reviewCommands)) {
+      expect(JSON.stringify(command.help)).not.toContain("resample");
+    }
+  });
+});
+
 describe("harness review post posts the verdict the domain formats", () => {
   it("reads the PR's head through the port, posts the verdict, and reports the URL", async () => {
     const f = fixture({ none: true }, "");
