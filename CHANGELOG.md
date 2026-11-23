@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.24.0](https://github.com/corekraft/kore/compare/v0.23.0...v0.24.0) (2026-11-23)
+
+
+### Features
+
+* **backstage:** read the argo cd view as the backstage service account ([#1888](https://github.com/corekraft/kore/issues/1888)) ([a987b76](https://github.com/corekraft/kore/commit/a987b76af80647df833b3f738eedd431a5e463ab))
+* **harness:** activate hc-sessions in local ([#1887](https://github.com/corekraft/kore/issues/1887)) ([c3c7190](https://github.com/corekraft/kore/commit/c3c71903efd4c0e1874a51541348689a6da31538))
+
+
+### Documentation
+
+* file idea 0081, verify hc-sessions in local under the owner waiver ([#1885](https://github.com/corekraft/kore/issues/1885)) ([77a1a1d](https://github.com/corekraft/kore/commit/77a1a1deee1b1df364a172b3e81a8b87b42c8a5d))
+* **plans:** record hc-sessions on in local under the owner waiver ([#1890](https://github.com/corekraft/kore/issues/1890)) ([1c24e3f](https://github.com/corekraft/kore/commit/1c24e3f8bec8f1644c41c9fbbc91ca1162182758))
+
 ## [0.23.0](https://github.com/corekraft/kore/compare/v0.22.0...v0.23.0) (2026-11-23)
 
 

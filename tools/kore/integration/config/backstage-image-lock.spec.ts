@@ -88,7 +88,7 @@ test("the Kore Backstage image is in the approved catalog at the release digest,
     "utf8",
   );
   const digest =
-    "sha256:86ea69871da3e31af13bd1880ae9a96d54577681d1f3bb10b85716ccb5790157";
+    "sha256:a47f1b52eb19b2619305bf35c179885472a4b5fc50b4e9dd8c2fee5ececdd866";
   assert.match(
     approved,
     new RegExp(
