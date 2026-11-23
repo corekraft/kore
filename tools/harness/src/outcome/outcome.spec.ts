@@ -6,7 +6,7 @@ import {
   type Created,
 } from "../idea/index.js";
 import { APPROVAL_REFUSAL, type Sender } from "../sender/index.js";
-import { closeOutcome, recordOutcome, type Context } from "./outcome.js";
+import { recordOutcome, type Context } from "./outcome.js";
 import { followUpOf, markerFor, renderSection } from "./model.js";
 import { publishOutcome } from "./publish.js";
 import {
@@ -88,11 +88,13 @@ beforeEach(() => {
 });
 
 describe("recordOutcome refusals", () => {
-  it("refuses an idea that already has an outcome, before any write, issue read or publish", async () => {
+  it("refuses a rerun whose result differs from the recorded one, before any write, issue read or publish", async () => {
     const { ctx, repo } = setUp(ideaRecord({ outcome: "confirmed" }));
-    await expect(recordOutcome(ctx, "1", outcome())).rejects.toThrow(
+    await expect(
+      recordOutcome(ctx, "1", outcome({ result: "refuted" })),
+    ).rejects.toThrow(
       new IdeaError(
-        `${PATH} already has an outcome (confirmed); an outcome is recorded once. Run \`harness outcome close --idea 0001\` to finish publishing it.`,
+        `${PATH} already has an outcome (confirmed), not refuted; an outcome is recorded once. To finish publishing it, rerun \`harness outcome record --idea 0001\` with --result confirmed.`,
       ),
     );
     expect(repo.recordOutcome).not.toHaveBeenCalled();
@@ -190,21 +192,10 @@ describe("recordOutcome writes then publishes", () => {
   });
 });
 
-describe("closeOutcome refusals", () => {
-  it("refuses an idea with no recorded outcome, before any issue read or publish", async () => {
-    const { ctx } = setUp();
-    await expect(closeOutcome(ctx, "1")).rejects.toThrow(
-      new IdeaError(
-        `${PATH} has no recorded outcome, so its issue stays open. Run \`harness outcome record --idea 0001 --kind <experiment|usage|verification> --source <live-run|journal|eval-history|comparison|owner-waiver> --evidence <reference> --result <confirmed|refuted|inconclusive> --summary <text>\`.`,
-      ),
-    );
-    expect(issueTarget).not.toHaveBeenCalled();
-    expect(publishOutcome).not.toHaveBeenCalled();
-  });
-
+describe("rerunning recordOutcome on a recorded idea", () => {
   it("refuses a recorded line that is not a result, without reading the idea's section", async () => {
     const { ctx, repo } = setUp(ideaRecord({ outcome: "won" }));
-    await expect(closeOutcome(ctx, "1")).rejects.toThrow(
+    await expect(recordOutcome(ctx, "1", outcome())).rejects.toThrow(
       new IdeaError(
         `${PATH} has an outcome line "won" that the outcome tool did not write (it needs one of confirmed, refuted, inconclusive and an ## Outcome section). Remove it and run \`harness outcome record --idea 0001\`.`,
       ),
@@ -217,24 +208,23 @@ describe("closeOutcome refusals", () => {
   it("refuses a recorded result whose idea file has no outcome section", async () => {
     const { ctx } = setUp(ideaRecord({ outcome: "confirmed" }));
     vi.mocked(outcomeSection).mockReturnValue(undefined);
-    await expect(closeOutcome(ctx, "1")).rejects.toThrow(
+    await expect(recordOutcome(ctx, "1", outcome())).rejects.toThrow(
       new IdeaError(
         `${PATH} has an outcome line "confirmed" that the outcome tool did not write (it needs one of confirmed, refuted, inconclusive and an ## Outcome section). Remove it and run \`harness outcome record --idea 0001\`.`,
       ),
     );
     expect(publishOutcome).not.toHaveBeenCalled();
   });
-});
 
-describe("closeOutcome publishes the recorded outcome", () => {
-  it("publishes a recorded confirmed outcome without writing the idea again", async () => {
+  it("finishes publishing a recorded confirmed outcome without writing the idea again", async () => {
     const { ctx, repo } = setUp(ideaRecord({ outcome: "confirmed" }));
-    const concluded = await closeOutcome(ctx, "1");
+    const concluded = await recordOutcome(ctx, "1", outcome());
     expect(issueTarget).toHaveBeenCalledWith(
       ctx.runner,
       ROOT,
       ideaRecord({ outcome: "confirmed" }),
     );
+    expect(renderSection).not.toHaveBeenCalled();
     expect(repo.recordOutcome).not.toHaveBeenCalled();
     expect(publishOutcome).toHaveBeenCalledWith(ctx.runner, ROOT, TARGET, {
       idea: "0001",
@@ -250,14 +240,19 @@ describe("closeOutcome publishes the recorded outcome", () => {
     });
   });
 
-  it("creates the follow-up of a recorded refuted outcome when it closes", async () => {
+  it("creates the follow-up of a recorded refuted outcome when it finishes", async () => {
     const { ctx, repo } = setUp(ideaRecord({ outcome: "refuted" }));
-    const concluded = await closeOutcome(ctx, "1");
+    const concluded = await recordOutcome(
+      ctx,
+      "1",
+      outcome({ result: "refuted" }),
+    );
     expect(followUpOf).toHaveBeenCalledWith(
       ideaRecord({ outcome: "refuted" }),
       "refuted",
     );
     expect(repo.create).toHaveBeenCalledWith(FOLLOW_UP.slug, FOLLOW_UP.idea);
+    expect(repo.recordOutcome).not.toHaveBeenCalled();
     expect(concluded).toMatchObject({ followUp: FOLLOW_UP_PATH });
   });
 });

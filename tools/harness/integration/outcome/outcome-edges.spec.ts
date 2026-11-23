@@ -3,7 +3,6 @@ import { run } from "../../src/cli/index.js";
 import { outcomeSection } from "../../src/idea/index.js";
 import { harness, newArgs } from "../../src/testing/index.js";
 import {
-  LEDGER,
   PATH,
   fakeGh,
   linked,
@@ -11,10 +10,10 @@ import {
   withFlag,
 } from "../../src/testing/index.js";
 
-const CLOSE = ["outcome", "close", "--idea", "1", "--ledger", LEDGER];
+const RERUN = record();
 
 describe("harness outcome edge cases", () => {
-  it("repairs a lost ledger event on a later close even when GitHub is already current", async () => {
+  it("repairs a lost ledger event on a later rerun even when GitHub is already current", async () => {
     const { h } = await linked();
     h.fs.appendFile = () => Promise.reject(new Error("disk full"));
     await expect(run(record(), h.deps)).rejects.toThrow("disk full");
@@ -23,8 +22,8 @@ describe("harness outcome edge cases", () => {
       h.fs.files.set(path, (h.fs.files.get(path) ?? "") + text);
       return Promise.resolve();
     };
-    expect(await run(CLOSE, h.deps)).toBe(0);
-    expect(await run(CLOSE, h.deps)).toBe(0);
+    expect(await run(RERUN, h.deps)).toBe(0);
+    expect(await run(RERUN, h.deps)).toBe(0);
     expect(
       (h.get(".kore/state/ledger.jsonl") ?? "").trim().split("\n"),
     ).toHaveLength(1);

@@ -170,6 +170,6 @@ export function checkIdeaIssueClose(name: string, args: string[]): Finding {
   return warn(
     "idea-issue-close",
     "An idea's issue closes, and takes its outcome:* label, only through the outcome tool, which refuses to close without a recorded outcome. " +
-      "Instead, run `harness outcome record` to record the outcome, or `harness outcome close --idea <number or slug>` to finish closing one already recorded.",
+      "Instead, run `harness outcome record` to record the outcome; rerun it with the same flags to finish closing one already recorded.",
   );
 }

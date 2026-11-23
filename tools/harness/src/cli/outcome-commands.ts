@@ -1,6 +1,5 @@
 import { IdeaError, IdeaRepository } from "../idea/index.js";
 import {
-  closeOutcome,
   labelFor,
   parseOutcome,
   recordOutcome,
@@ -36,11 +35,11 @@ async function guarded(
   }
 }
 
-function ideaRef(context: CommandContext, verb: string): string {
+function ideaRef(context: CommandContext): string {
   const ref = text(context.options, "idea")?.trim();
   if (ref === undefined || ref === "") {
     throw new IdeaError(
-      `Missing --idea; run \`harness outcome ${verb} --idea <number or slug>\`, or \`harness idea list\` to see the ideas.`,
+      `Missing --idea; run \`harness outcome record --idea <number or slug>\`, or \`harness idea list\` to see the ideas.`,
     );
   }
   return ref;
@@ -55,7 +54,7 @@ async function withLedger(context: CommandContext) {
   return opened.ledger;
 }
 
-/** Logs the idea's outcome event once, however many reruns: a failed ledger write is repaired by `close`. */
+/** Logs the idea's outcome event once, however many reruns: a failed ledger write is repaired by rerunning `record`. */
 export async function logOutcome(
   ledger: Ledger,
   deps: CommandContext["deps"],
@@ -73,20 +72,20 @@ export async function logOutcome(
     });
     if (!event.ok) {
       throw new IdeaError(
-        `The outcome was published, but its ledger event was rejected: ${event.message} Fix the ledger, then rerun \`harness outcome close --idea ${done.idea}\` to record the event.`,
+        `The outcome was published, but its ledger event was rejected: ${event.message} Fix the ledger, then rerun \`harness outcome record --idea ${done.idea}\` with the same flags to record the event.`,
       );
     }
   }
 }
 
-async function conclusion(context: CommandContext, verb: "record" | "close") {
+async function conclusion(context: CommandContext) {
   const { deps } = context;
-  const sender = senderFrom(deps.env, `outcome ${verb}`);
+  const sender = senderFrom(deps.env, "outcome record");
   if ("error" in sender) {
     throw new IdeaError(sender.error);
   }
   const ledger = await withLedger(context);
-  const ref = ideaRef(context, verb);
+  const ref = ideaRef(context);
   const root = await deps.root().catch((cause: unknown) => {
     throw new IdeaError(cause instanceof Error ? cause.message : String(cause));
   });
@@ -97,24 +96,21 @@ async function conclusion(context: CommandContext, verb: "record" | "close") {
     root,
     sender,
   };
-  const done: Concluded =
-    verb === "record"
-      ? await recordOutcome(
-          ctx,
-          ref,
-          parseOutcome({
-            kind: text(context.options, "kind"),
-            source: text(context.options, "source"),
-            result: text(context.options, "result"),
-            evidence: text(context.options, "evidence"),
-            summary: text(context.options, "summary"),
-            flag: text(context.options, "flag"),
-            environment: text(context.options, "environment"),
-            lock: text(context.options, "lock"),
-            charts: text(context.options, "charts"),
-          }),
-        )
-      : await closeOutcome(ctx, ref);
+  const done = await recordOutcome(
+    ctx,
+    ref,
+    parseOutcome({
+      kind: text(context.options, "kind"),
+      source: text(context.options, "source"),
+      result: text(context.options, "result"),
+      evidence: text(context.options, "evidence"),
+      summary: text(context.options, "summary"),
+      flag: text(context.options, "flag"),
+      environment: text(context.options, "environment"),
+      lock: text(context.options, "lock"),
+      charts: text(context.options, "charts"),
+    }),
+  );
   await logOutcome(ledger, deps, done);
   deps.stdout(
     context.json
@@ -126,9 +122,9 @@ async function conclusion(context: CommandContext, verb: "record" | "close") {
 const recordHelp: CommandHelp = {
   purpose:
     "Records an idea's measured outcome: writes it into the idea's Outcome section, publishes it to the idea's issue as one comment with one outcome label, closes the issue, and logs the outcome to the ledger. A refuted or inconclusive result also opens a follow-up idea.",
-  when: "When an idea has a measured result and no outcome yet: a live run, a journal entry, an eval record, a comparison, or an owner waiver.",
+  when: "When an idea has a measured result and no outcome yet: a live run, a journal entry, an eval record, a comparison, or an owner waiver. Also when an earlier run stopped partway, because a gh call or the ledger write failed: rerun it with the same flags.",
   whenNot:
-    "For a harness idea whose measurement window has passed: evaluate measures it and records the outcome itself. An outcome is recorded once; to finish publishing one already recorded, use outcome close.",
+    "For a harness idea whose measurement window has passed: evaluate measures it and records the outcome itself. An outcome is recorded once, and rerunning the command on a recorded idea never changes the result.",
   flags: {
     idea: "The idea's number or slug, as harness idea list shows it.",
     kind: "The kind of measurement: experiment, usage or verification. A flag outcome needs verification.",
@@ -165,20 +161,20 @@ const recordHelp: CommandHelp = {
     {
       code: 0,
       meaning:
-        "the outcome is recorded and published; the output names the result and the issue",
+        "the outcome is recorded and published, or an earlier partial publish is finished; the output names the result and the issue",
     },
     {
       code: 1,
       meaning:
-        "refused: a flag is missing or not valid, the idea has no issue or already has an outcome, a gh call failed, or the ledger rejected the event; the message names the fix",
+        "refused: a flag is missing or not valid, the idea has no issue, the idea already has an outcome with another result, a gh call failed, or the ledger rejected the event; the message names the fix",
     },
   ],
   effects: {
     kind: "mutates",
     detail:
-      "writes the Outcome section into the idea's file, and creates the follow-up idea for a refuted or inconclusive result; comments on the issue (the comment opens with the sender's line), sets one outcome label in place of any other, closes the issue; appends one outcome event to the ledger unless the idea has one. A refusal before the write changes nothing; a failed publish leaves the outcome recorded for outcome close",
+      "writes the Outcome section into the idea's file, and creates the follow-up idea for a refuted or inconclusive result; comments on the issue (the comment opens with the sender's line), sets one outcome label in place of any other, closes the issue; appends one outcome event to the ledger unless the idea has one. A refusal before the write changes nothing; a failed publish leaves the outcome recorded, and rerunning the command with the same flags finishes it: comment, label and close, each skipped when already done, the follow-up idea reused, the ledger event written when missing",
   },
-  seeAlso: ["outcome close", "evaluate", "idea list"],
+  seeAlso: ["evaluate", "idea list"],
 };
 
 const record: Command = {
@@ -199,60 +195,8 @@ const record: Command = {
     ledger: "string",
   },
   run(context) {
-    return guarded(context, () => conclusion(context, "record"));
+    return guarded(context, () => conclusion(context));
   },
 };
 
-const closeHelp: CommandHelp = {
-  purpose:
-    "Finishes publishing an idea's recorded outcome: its comment, its one outcome label and the closed issue, each step skipped when it is already done. It records no new result.",
-  when: "When outcome record stopped partway, because a gh call or the ledger write failed, or when an issue with a recorded outcome is still open.",
-  whenNot:
-    "When no outcome is recorded yet: it refuses with no gh call, so record one with outcome record first.",
-  flags: {
-    idea: "The idea's number or slug, as harness idea list shows it.",
-    ledger:
-      "A ledger file to append the outcome event to when it is missing, relative to the working directory; by default the shared ledger in the main checkout.",
-  },
-  examples: [
-    {
-      command: "harness outcome close --idea 412",
-      shows:
-        "the result and the issue URL once the issue is closed; a rerun on a finished issue makes no gh write",
-    },
-    {
-      command: "harness outcome close --idea 412 --json",
-      shows:
-        "the same as one object: idea, result, issue, followUp when there is one, and published, naming which of commented, labelled and closed this run did",
-    },
-  ],
-  exits: [
-    {
-      code: 0,
-      meaning: "the issue is brought in line with the recorded outcome",
-    },
-    {
-      code: 1,
-      meaning:
-        "refused: no outcome is recorded, the recorded line is not one the outcome tool wrote, the idea has no issue, or a gh call failed; the message names the fix",
-    },
-  ],
-  effects: {
-    kind: "mutates",
-    detail:
-      "posts the outcome comment, sets the outcome label and closes the issue, each only when not already done; creates the follow-up idea for a refuted or inconclusive result when it does not exist yet, else reuses it; appends the outcome event to the ledger when the idea has none. It never changes the recorded result",
-  },
-  seeAlso: ["outcome record", "idea list"],
-};
-
-const close: Command = {
-  help: closeHelp,
-  summary:
-    "finish publishing an idea's recorded outcome: comment, outcome label and closed issue",
-  options: { idea: "string", ledger: "string" },
-  run(context) {
-    return guarded(context, () => conclusion(context, "close"));
-  },
-};
-
-export const outcomeCommands: Record<string, Command> = { record, close };
+export const outcomeCommands: Record<string, Command> = { record };

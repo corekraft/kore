@@ -17,7 +17,6 @@ const POSTING: [string, Command | undefined][] = [
   ["guardrail request", guardrailLedgerCommands["request"]],
   ["decision make", decisionCommands["make"]],
   ["outcome record", outcomeCommands["record"]],
-  ["outcome close", outcomeCommands["close"]],
   ["pr open", prCommands["open"]],
   ["review post", reviewCommands["post"]],
 ];

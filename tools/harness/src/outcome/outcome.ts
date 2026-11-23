@@ -66,7 +66,11 @@ async function finish(
   };
 }
 
-/** Writes the outcome into the idea, then publishes it: comment, label, close and any follow-up idea. */
+/**
+ * Writes the outcome into the idea, then publishes it: comment, label, close and any follow-up idea.
+ * An idea that already has an outcome is a half-published one: the same result finishes its publishing,
+ * each step skipped when done, and a different result is refused, so the recorded one never changes.
+ */
 export async function recordOutcome(
   ctx: Context,
   ref: string,
@@ -74,9 +78,7 @@ export async function recordOutcome(
 ): Promise<Concluded> {
   const record = await ctx.repo.get(ref);
   if (record.outcome !== undefined) {
-    throw new IdeaError(
-      `${record.path} already has an outcome (${record.outcome}); an outcome is recorded once. Run \`harness outcome close --idea ${record.number}\` to finish publishing it.`,
-    );
+    return await resume(ctx, record, outcome.result);
   }
   // Resolved before the write, so an idea with no issue changes nothing.
   const target = await issueTarget(ctx.runner, ctx.root, record);
@@ -90,18 +92,13 @@ export async function recordOutcome(
   return await finish(ctx, record, outcome.result, target);
 }
 
-/** Closes an idea's issue from its recorded outcome; refuses, with no gh call, when none is recorded. */
-export async function closeOutcome(
+/** Finishes publishing an idea's recorded outcome; refuses, with no gh call, when it is not one the tool wrote. */
+async function resume(
   ctx: Context,
-  ref: string,
+  record: IdeaRecord,
+  requested: Result,
 ): Promise<Concluded> {
-  const record = await ctx.repo.get(ref);
   const recorded = record.outcome;
-  if (recorded === undefined) {
-    throw new IdeaError(
-      `${record.path} has no recorded outcome, so its issue stays open. Run \`harness outcome record --idea ${record.number} --kind <experiment|usage|verification> --source <live-run|journal|eval-history|comparison|owner-waiver> --evidence <reference> --result <confirmed|refuted|inconclusive> --summary <text>\`.`,
-    );
-  }
   const result = RESULTS.find((r) => r === recorded);
   if (
     result === undefined ||
@@ -109,6 +106,11 @@ export async function closeOutcome(
   ) {
     throw new IdeaError(
       `${record.path} has an outcome line "${recorded}" that the outcome tool did not write (it needs one of ${RESULTS.join(", ")} and an ## Outcome section). Remove it and run \`harness outcome record --idea ${record.number}\`.`,
+    );
+  }
+  if (result !== requested) {
+    throw new IdeaError(
+      `${record.path} already has an outcome (${result}), not ${requested}; an outcome is recorded once. To finish publishing it, rerun \`harness outcome record --idea ${record.number}\` with --result ${result}.`,
     );
   }
   const target = await issueTarget(ctx.runner, ctx.root, record);
