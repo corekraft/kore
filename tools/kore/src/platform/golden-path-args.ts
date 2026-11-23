@@ -26,6 +26,8 @@ export function goldenPathArgs(
     ...(golden.sharedGateway ? ["--set", "sharedGateway=true"] : []),
     // Only while autoscaling-defaults is on, so the flag off passes nothing new.
     ...(golden.autoscaling ? ["--set", "autoscaling=true"] : []),
+    // Only while golden-path-template-admission is on, so the flag off passes nothing new.
+    ...(golden.templateAdmission ? ["--set", "templateAdmission=true"] : []),
     // Only while platform-portal, platform-organization-service-apis and
     // platform-argocd-delivery are all on, so the flags off pass nothing new.
     ...(golden.serviceRecords ? ["--set", "serviceRecords=true"] : []),

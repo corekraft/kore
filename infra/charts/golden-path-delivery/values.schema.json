@@ -50,6 +50,10 @@
       "description": "Labels each app namespace the sync creates with the platform-owned shared-gateway label, so the shared Gateway admits its routes (ADR 0133). Off, the sync sets no namespace metadata.",
       "type": "boolean"
     },
+    "templateAdmission": {
+      "description": "Set by kore only while golden-path-template-admission is on (ADR 0181). The sync then labels each app namespace it creates with policy.sigstore.dev/include, so the golden-path namespaces are enrolled by their creator. Off, the sync sets no such label.",
+      "type": "boolean"
+    },
     "signin": {
       "description": "Set by kore only while golden-path-signin is on (issue 1746). The sync then passes signin.enabled and this issuer to each workload, which renders its Keycloak client and the BFF's sign-in variables. Off, the sync sets no such parameter.",
       "type": "object",

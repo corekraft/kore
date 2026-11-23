@@ -117,6 +117,10 @@ export async function composeGoldenPathDelivery(
       },
       sharedGateway:
         repository.environment.features?.["platform-shared-gateway"] === true,
+      // The sync labels each app namespace it creates for policy.sigstore.dev/include (ADR 0181).
+      templateAdmission:
+        repository.environment.features?.["golden-path-template-admission"] ===
+        true,
       autoscaling: repository.environment.features?.[autoscalingFlag] === true,
       // All three flags on: the sync also applies the Service records (ADR 0166).
       serviceRecords:

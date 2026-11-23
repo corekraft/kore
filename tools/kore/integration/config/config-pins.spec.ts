@@ -98,6 +98,12 @@ test("chart image defaults and the reference base image match the catalog pins",
   );
 });
 
+// Paths under infra/ of the two templates that enrol the golden-path namespaces.
+const enrolmentCreators = [
+  "charts/golden-path-delivery/templates/applicationset.yaml",
+  "charts/platform-apis/templates/service-composition.yaml",
+];
+
 test("the catalog declares Sigstore Policy Controller as a bootstrap component with readiness and CRD ownership, enforcing nothing", async () => {
   const repository = await loadRepository("local");
   const component = repository.catalog.components.find(
@@ -127,11 +133,15 @@ test("the catalog declares Sigstore Policy Controller as a bootstrap component w
   ).filter((file) => /\.ya?ml$/.test(file) && !file.startsWith("plans"));
   for (const file of files) {
     const text = await readFile(join(root, "infra", file), "utf8");
-    // Only the image-policy chart (ADR 0028) renders policies; its namespaces
-    // are never labelled, so nothing is enforced.
+    // Only the image-policy chart (ADR 0028) renders policies. Its namespaces
+    // are labelled only by the golden-path creators, behind a flag (ADR 0181).
     if (!file.startsWith("charts/image-policy/")) {
       assert.doesNotMatch(text, /kind:\s*"?ClusterImagePolicy"?/, file);
     }
-    assert.doesNotMatch(text, /policy\.sigstore\.dev\/include/, file);
+    // The two golden-path creators label their namespaces only behind
+    // golden-path-template-admission (ADR 0181); image-trust-enrolment pins them.
+    if (!enrolmentCreators.includes(file)) {
+      assert.doesNotMatch(text, /policy\.sigstore\.dev\/include/, file);
+    }
   }
 });
