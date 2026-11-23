@@ -52,21 +52,34 @@ test.each([
   expect(() => parseLinuxSwapUsedMiB(text)).toThrow(cause);
 });
 
-const listing = (agents: unknown): string =>
-  JSON.stringify({ result: { agents, type: "agent_list" } });
+const listing = (terminals: unknown): string =>
+  JSON.stringify({ hidden_finished: 0, terminals });
 
-test("counts the agents herdr lists", () => {
-  expect(parseAgentPaneCount(listing([{}, {}, {}]))).toBe(3);
+const claude = { address: "t1", agent: "claude-code", state: "live" };
+const node = { address: "t2", agent: "node", state: "live" };
+
+test("counts the claude sessions hc lists, and not the plain processes beside them", () => {
+  expect(parseAgentPaneCount(listing([claude, claude, node]))).toBe(2);
 });
 
-test("counts zero for a herdr that lists no agents, which is an answer and not a missing source", () => {
+test("counts zero for an hc that lists no agent session, which is an answer and not a missing source", () => {
+  expect(parseAgentPaneCount(listing([node]))).toBe(0);
   expect(parseAgentPaneCount(listing([]))).toBe(0);
 });
 
 test.each([
-  ["not json", "herdr agent list did not print JSON"],
-  [JSON.stringify({ result: {} }), "herdr agent list printed no agent list"],
-  [listing("many"), "herdr agent list printed no agent list"],
-])("names the cause when the herdr listing is unusable: %s", (text, cause) => {
+  ["not json", "hc ls did not print JSON"],
+  [JSON.stringify({ hidden_finished: 0 }), "hc ls printed no terminal list"],
+  [listing("many"), "hc ls printed no terminal list"],
+])("names the cause when the hc listing is unusable: %s", (text, cause) => {
   expect(() => parseAgentPaneCount(text)).toThrow(cause);
+});
+
+// A scrubbed copy of hc 0.1.21's `hc ls --all --json` on a host running claude: a live claude is agent
+// "claude-code" with a status, a finished claude child is agent "claude", a plain process is its own name.
+const RECORDED_LS =
+  '{"hidden_finished":0,"terminals":[{"address":"t4","agent":"claude-code","cwd":"/home/x","state":"live","status":"done","turn":18,"where":"kore / 1"},{"address":"t1b","agent":"claude","cwd":"/home/x/kore","exit_code":0,"parent":"t17","reason":"exited","state":"finished","turn":0,"where":"tools / 1"},{"address":"t12y","agent":"node","cwd":"/home/x/kore","name":"ledger-watch","parent":"t3f","state":"live","turn":0,"where":"tools / 1"},{"address":"t133","agent":"claude-code","cwd":"/home/x/kore","name":"writer","parent":"t3f","state":"live","status":"working","turn":0,"where":"tools / 1"}]}';
+
+test("counts the live claude terminals of a recorded hc listing, not the finished claude child or the node process", () => {
+  expect(parseAgentPaneCount(RECORDED_LS)).toBe(2);
 });

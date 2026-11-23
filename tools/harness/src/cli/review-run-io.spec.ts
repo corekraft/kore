@@ -47,7 +47,7 @@ describe("the review run ports start and read the Reviewer through the session t
   it("reads and comments the PR through the review port", async () => {
     io.view.mockResolvedValue({ headSha: "h" } as PrView);
     io.comment.mockResolvedValue("URL");
-    const ports = await sessionReviewPorts(context, "herdr");
+    const ports = await sessionReviewPorts(context);
     expect((await ports.view(42)).headSha).toBe("h");
     expect(await ports.comment(42, "B")).toBe("URL");
     expect(io.view).toHaveBeenCalledWith(42);
@@ -56,9 +56,7 @@ describe("the review run ports start and read the Reviewer through the session t
 
   it("spawns the principles-review role with its own tier and no wait, with no model flag", async () => {
     run.mockReturnValue(result(""));
-    await (
-      await sessionReviewPorts(context, "herdr")
-    ).spawn("pr42-reviewer", "BRIEF");
+    await (await sessionReviewPorts(context)).spawn("pr42-reviewer", "BRIEF");
     expect(run).toHaveBeenCalledExactlyOnceWith(
       "node",
       [
@@ -78,13 +76,13 @@ describe("the review run ports start and read the Reviewer through the session t
   });
 
   it("names the failed spawn and the fix", async () => {
-    run.mockReturnValue(result("", 1, "no herdr"));
+    run.mockReturnValue(result("", 1, "no session"));
     await expect(
-      (await sessionReviewPorts(context, "herdr")).spawn("pr42-reviewer", "B"),
-    ).rejects.toThrow(/session spawn.*failed: no herdr/s);
+      (await sessionReviewPorts(context)).spawn("pr42-reviewer", "B"),
+    ).rejects.toThrow(/session spawn.*failed: no session/s);
   });
 
-  it("waits through session wait and returns the outcome, with no pane", async () => {
+  it("waits through session wait and returns the outcome, with no terminal", async () => {
     run.mockReturnValue(
       result(
         JSON.stringify({
@@ -96,7 +94,7 @@ describe("the review run ports start and read the Reviewer through the session t
       ),
     );
     expect(
-      await (await sessionReviewPorts(context, "herdr")).wait("pr42-reviewer"),
+      await (await sessionReviewPorts(context)).wait("pr42-reviewer"),
     ).toEqual({ outcome: "done" });
     expect(run.mock.calls[0]?.[1]).toEqual([
       "skills/bin/harness.mjs",
@@ -108,9 +106,9 @@ describe("the review run ports start and read the Reviewer through the session t
   });
 });
 
-describe("the review run ports read and close the Reviewer's pane", () => {
+describe("the review run ports read a Reviewer's text only after its wait, and close it", () => {
   it("refuses to read a Reviewer's session it has not waited for", async () => {
-    const ports = await sessionReviewPorts(context, "herdr");
+    const ports = await sessionReviewPorts(context);
 
     await expect(ports.read("pr42-reviewer")).rejects.toThrow(
       /has not settled, so its text is not read/,
@@ -118,25 +116,9 @@ describe("the review run ports read and close the Reviewer's pane", () => {
     expect(run).not.toHaveBeenCalled();
   });
 
-  it("reads the unwrapped text of the pane its session settled in, through herdr, by session name", async () => {
-    run
-      .mockReturnValueOnce(
-        result(JSON.stringify({ outcome: "done", paneId: "p1" })),
-      )
-      .mockReturnValueOnce(result("TEXT"));
-    const ports = await sessionReviewPorts(context, "herdr");
-    await ports.wait("pr42-reviewer");
-    expect(await ports.read("pr42-reviewer")).toBe("TEXT");
-    expect(run).toHaveBeenLastCalledWith(
-      "herdr",
-      ["pane", "read", "p1", "--source", "recent-unwrapped"],
-      { cwd: ROOT },
-    );
-  });
-
   it("closes the session through session close", async () => {
     run.mockReturnValue(result(""));
-    await (await sessionReviewPorts(context, "herdr")).close("pr42-reviewer");
+    await (await sessionReviewPorts(context)).close("pr42-reviewer");
     expect(run.mock.calls[0]?.[1]).toEqual([
       "skills/bin/harness.mjs",
       "session",
@@ -149,9 +131,7 @@ describe("the review run ports read and close the Reviewer's pane", () => {
 describe("the review run port records its events in the ledger", () => {
   it("records a review.run event for the PR in the review stage", async () => {
     record.mockResolvedValue({ ok: true } as never);
-    await (
-      await sessionReviewPorts(context, "herdr")
-    ).record(42, "posted:abc1234d");
+    await (await sessionReviewPorts(context)).record(42, "posted:abc1234d");
     expect(record).toHaveBeenCalledExactlyOnceWith({
       source: "claude",
       kind: "review.run",
@@ -164,9 +144,7 @@ describe("the review run port records its events in the ledger", () => {
 
   it("records the findings count on the event when the verdict gave one", async () => {
     record.mockResolvedValue({ ok: true } as never);
-    await (
-      await sessionReviewPorts(context, "herdr")
-    ).record(42, "posted:abc1234d", 2);
+    await (await sessionReviewPorts(context)).record(42, "posted:abc1234d", 2);
     expect(record).toHaveBeenCalledExactlyOnceWith({
       source: "claude",
       kind: "review.run",
@@ -181,13 +159,13 @@ describe("the review run port records its events in the ledger", () => {
   it("refuses a rejected ledger event with the reason", async () => {
     record.mockResolvedValue({ ok: false, message: "bad label" } as never);
     await expect(
-      (await sessionReviewPorts(context, "herdr")).record(42, "x"),
+      (await sessionReviewPorts(context)).record(42, "x"),
     ).rejects.toThrow(JudgeError);
   });
 });
 
-describe("the review run ports read an hc Reviewer's verdict from its wait, never a pane", () => {
-  it("returns the summary its wait printed, and runs no pane read through herdr", async () => {
+describe("the review run ports read an hc Reviewer's verdict from its wait, never a terminal read", () => {
+  it("returns the summary its wait printed, and runs no terminal read through hc", async () => {
     run.mockReturnValueOnce(
       result(
         JSON.stringify({
@@ -199,7 +177,7 @@ describe("the review run ports read an hc Reviewer's verdict from its wait, neve
         }),
       ),
     );
-    const ports = await sessionReviewPorts(context, "hc");
+    const ports = await sessionReviewPorts(context);
     await ports.wait("pr42-reviewer");
 
     expect(await ports.read("pr42-reviewer")).toBe("VERDICT: none");

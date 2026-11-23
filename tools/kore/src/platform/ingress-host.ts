@@ -12,13 +12,13 @@ import {
 // swap, the Docker VM's free memory and how many agent panes were running. A
 // result recorded on a busy machine is not comparable, so the measurement
 // carries these before and after. Everything is read-only: `sysctl`, `docker
-// exec ... cat /proc/meminfo`, `/proc/meminfo` on Linux and `herdr agent list`.
+// exec ... cat /proc/meminfo`, `/proc/meminfo` on Linux and `hc ls`.
 
 /**
- * Where the agent pane count comes from: `herdr agent list`, the listing the
- * harness's own herdr poll reads. Every agent the herdr server lists is one pane.
+ * Where the agent pane count comes from: `hc ls`, the listing of the live
+ * terminals the harness's sessions run in. Every claude session it lists is one pane.
  */
-export const agentPaneSource = "herdr agent list";
+export const agentPaneSource = "hc ls";
 
 /** The host's meminfo, read on Linux, where the host runs Docker itself. */
 const hostMeminfo = "/proc/meminfo";
@@ -118,10 +118,10 @@ export class HostConditions implements HostReader {
     );
   }
 
-  /** A missing herdr is reported by name and does not stop the measurement. */
+  /** A missing hc is reported by name and does not stop the measurement. */
   private async agentPanes(): Promise<AgentPanes> {
     try {
-      const stdout = await this.capture("herdr", ["agent", "list"]);
+      const stdout = await this.capture("hc", ["ls", "--json"]);
       return { count: parseAgentPaneCount(stdout), source: agentPaneSource };
     } catch (error) {
       return {

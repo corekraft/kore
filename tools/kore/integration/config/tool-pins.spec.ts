@@ -42,8 +42,8 @@ test("docker, which is a host prerequisite mise does not install, may live only 
   assert.deepEqual(comparePinnedTools({}, { docker: "29.7.2" }), []);
 });
 
-test("herdr, a developer tool the platform catalog does not mirror, may live only in .mise.toml", () => {
-  assert.deepEqual(comparePinnedTools({ herdr: "0.9.5" }, {}), []);
+test("ansible-lint, a developer tool the platform catalog does not mirror, may live only in .mise.toml", () => {
+  assert.deepEqual(comparePinnedTools({ "pipx:ansible-lint": "26.11.0" }, {}), []);
 });
 
 test("psql, a host client the platform catalog does not mirror, may live only in .mise.toml under its backend name", () => {

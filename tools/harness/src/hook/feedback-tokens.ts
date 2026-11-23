@@ -105,20 +105,19 @@ function parseState(text: string): TokenState {
 }
 
 /**
- * The session's tokens so far, whether they grew, and the complete lines the stop
- * read (`added`, for the RESULT line of the turn), reading the transcript only
+ * The session's tokens so far and whether they grew, reading the transcript only
  * from where the last stop stopped. A missing state file starts from the top, so
  * losing it costs one full read, not a wrong count. Best effort: an unreadable
- * transcript reports no growth and no lines.
+ * transcript reports no growth.
  */
 export async function readTokens(
   fs: FileSystem,
   path: unknown,
   stateFile: string,
-): Promise<{ total: number; grew: boolean; added: string }> {
+): Promise<{ total: number; grew: boolean }> {
   try {
     if (typeof path !== "string" || path === "") {
-      return { total: 0, grew: false, added: "" };
+      return { total: 0, grew: false };
     }
     const before = await fs.readFile(stateFile).then(parseState, () => EMPTY);
     const chunk = await fs.readFrom(path, before.offset);
@@ -129,9 +128,8 @@ export async function readTokens(
     return {
       total: after.total,
       grew: after.total !== before.total,
-      added: chunk.slice(0, chunk.lastIndexOf("\n") + 1),
     };
   } catch {
-    return { total: 0, grew: false, added: "" };
+    return { total: 0, grew: false };
   }
 }

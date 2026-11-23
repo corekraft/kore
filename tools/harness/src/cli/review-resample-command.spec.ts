@@ -5,7 +5,6 @@ import type {
   ResampleResult,
 } from "../judge/index.js";
 import type { LedgerEvent } from "../ledger/index.js";
-import { briefBackend } from "../session/index.js";
 import { fakeContext } from "./command-support.js";
 import {
   reviewResampleRun,
@@ -26,9 +25,6 @@ const { run, sample, pool, constructed } = vi.hoisted(() => ({
   pool: vi.fn<(events: LedgerEvent[]) => ResampleCandidate[]>(),
 }));
 
-vi.mock("../session/index.js", () => ({
-  briefBackend: vi.fn<(deps: unknown) => Promise<"herdr" | "hc">>(),
-}));
 vi.mock("../judge/index.js", async (original) => ({
   ...(await original<typeof import("../judge/index.js")>()),
   resampleCandidates: pool,
@@ -57,7 +53,6 @@ function loader() {
 
 beforeEach(() => {
   vi.resetAllMocks();
-  vi.mocked(briefBackend).mockResolvedValue("herdr");
   pool.mockReturnValue([ONE, TWO]);
   sample.mockReturnValue([TWO]);
   run.mockResolvedValue({
@@ -147,18 +142,5 @@ describe("review resample: what it reports (#852)", () => {
         failed: [],
       })}\n`,
     );
-  });
-});
-
-describe("review resample: the backend its readers are briefed and read for (hc-sessions)", () => {
-  it("loads the ports for the backend the flag names, and re-reviews through that backend", async () => {
-    vi.mocked(briefBackend).mockResolvedValue("hc");
-    const load = loader();
-    const { context } = fakeContext();
-
-    await reviewResampleRun(context, load, random);
-
-    expect(load).toHaveBeenCalledWith("hc");
-    expect(constructed).toHaveBeenCalledWith(PORTS, "hc");
   });
 });

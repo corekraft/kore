@@ -23,9 +23,7 @@ export async function reserve(
   const registry = await SessionRegistry.open(deps);
   const taken = await registry.unavailable(name);
   if (taken !== undefined) {
-    return {
-      error: taken.replace(" No pane was split.", " No terminal was started."),
-    };
+    return { error: taken };
   }
   const placed = await place(deps, options, name);
   if ("error" in placed) {

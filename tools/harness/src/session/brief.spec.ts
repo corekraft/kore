@@ -20,12 +20,6 @@ const TWO_SKILLS = [
   "- Load `add-command` and `pin-upgrade` with the Skill tool before you edit.",
 ].join("\n");
 
-const FINISH = [
-  "When you finish, broadcast to pane `w3:p1`. Print your summary and a final line with the word RESULT, a colon, then done or blocked. Then, as your very last action, run this one line with the outcome word (done or blocked) in place of <done|blocked>; the command fills in your own name and pane, and must carry no secrets or output beyond the outcome word:",
-  "",
-  "node skills/bin/harness.mjs session notify w3:p1 --outcome <done|blocked>",
-].join("\n");
-
 const LIVE_PROOF = [
   "Live proof:",
   "- While a live proof is pinned to a head, change no code, because a change invalidates that proof.",
@@ -38,15 +32,9 @@ const HEAD = [
   "",
 ].join("\n");
 
-/** A pushing role's brief: the skills section and the pinned-proof rule sit between the name and the finish instructions. */
-const WRITER_BRIEF = [HEAD, NO_SKILL, "", LIVE_PROOF, "", FINISH].join("\n");
-/** A read-only role's brief: the same text without the pushing-role sections. */
-const READER_BRIEF = [HEAD, FINISH].join("\n");
-
 const input = {
   task: "Do the thing.",
   name: "image-trust-writer",
-  callerPane: "w3:p1",
 };
 
 describe("buildBrief", () => {
@@ -94,7 +82,7 @@ describe("buildBrief", () => {
   it("lists every skill when paths from two areas match", () => {
     vi.mocked(skillsForPaths).mockReturnValue(["add-command", "pin-upgrade"]);
     expect(buildBrief({ ...input, role: "writer" })).toBe(
-      [HEAD, TWO_SKILLS, "", LIVE_PROOF, "", FINISH].join("\n"),
+      [HEAD, TWO_SKILLS, "", LIVE_PROOF, "", HC_FINISH].join("\n"),
     );
   });
 
@@ -112,6 +100,11 @@ const HC_FINISH_READ = [
   "When you finish, print your summary, then as your very last action run `node skills/bin/harness.mjs session report --outcome <done|blocked> --summary - <<'EOF'`, with your summary on the lines after it, then a line that reads EOF. Use blocked only when you cannot go on without a person. Each report takes the next seq, so a rework reports again.",
 ].join("\n");
 
+/** A pushing role's brief: the skills section and the pinned-proof rule sit between the name and the finish. */
+const WRITER_BRIEF = [HEAD, NO_SKILL, "", LIVE_PROOF, "", HC_FINISH].join("\n");
+/** A read-only role's brief: the same text without the pushing-role sections. */
+const READER_BRIEF = [HEAD, HC_FINISH_READ].join("\n");
+
 const HC_GROUP = [
   "Your group is pair-a: a partner session shares it. To message a session you are paired with, run `node skills/bin/harness.mjs session send <peer name>`, where <peer name> is that session's name, given in your task.",
 ].join("\n");
@@ -119,7 +112,6 @@ const HC_GROUP = [
 const HC_INPUT = {
   task: "Do the thing.",
   name: "image-trust-writer",
-  backend: "hc" as const,
 };
 
 describe("buildBrief on hc", () => {

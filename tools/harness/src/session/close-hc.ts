@@ -141,7 +141,7 @@ async function closeLive(
 /**
  * `session close <name>` on hc: kills the session's terminal if it is live, writes its pane.closed ledger
  * event, then removes the terminal and marks the record closed. Only the terminal that spawned the session may
- * close it, and only once its result or report is recorded, as on herdr. The event is written once: its time is
+ * close it, and only once its result or report is recorded. The event is written once: its time is
  * kept on the record before the removal, so a removal that fails is finished by a rerun, not repeated. A terminal
  * hc no longer has means an earlier run finished the removal, so the record is only marked closed, still behind the result gate
  * (plan 16, Step 4 (d)). A record whose start never got a terminal is closed as blocked, with nothing to kill.

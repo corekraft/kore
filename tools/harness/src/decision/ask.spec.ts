@@ -86,8 +86,8 @@ describe("askOwner", () => {
     });
   });
 
-  it("links the posting pane and the issue number on decision.routed, so the stall check can exempt that pane (#854)", async () => {
-    const p = ports({ env: { ...ENV, HERDR_PANE_ID: "w3:p1" } });
+  it("links the issue number on decision.routed, and records no pane", async () => {
+    const p = ports({ env: ENV });
 
     await askOwner(p, INPUT);
 
@@ -97,15 +97,7 @@ describe("askOwner", () => {
       route: "owner",
       signal: "reserved-category",
       number: 878,
-      pane: "w3:p1",
     });
-  });
-
-  it("records no pane for a question asked outside a Herdr pane, or from an empty pane id", async () => {
-    const p = ports({ env: { ...ENV, HERDR_PANE_ID: "" } });
-
-    await askOwner(p, INPUT);
-
     expect(vi.mocked(p.record).mock.calls[0]?.[0]).not.toHaveProperty("pane");
   });
 

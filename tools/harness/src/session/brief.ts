@@ -7,24 +7,11 @@ interface BriefBase {
   role?: string;
 }
 
-/**
- * The brief's backend decides how the session finishes: a herdr pane prints its RESULT line and runs the notify
- * command, which names the caller's pane; an hc session runs session report, and a paired one messages its partner
- * by name. The herdr form is unchanged until the hc-sessions flag is retired (plan 16, Step 6).
- */
-export type BriefInput = BriefBase &
-  (
-    | { backend?: "herdr"; callerPane: string }
-    | { backend: "hc"; group?: string }
-  );
+/** A session finishes by running session report, and a paired one messages its partner by name. */
+export type BriefInput = BriefBase & { group?: string };
 
 /** The roles that push code, so they follow the review rules; read-only roles never do. */
 const PUSHING_ROLES: ReadonlySet<string> = new Set(["writer", "fixer"]);
-
-/** The exact completion command, filled in: the session runs it from its own pane, which reads its name and pane from its environment. */
-export function notifyCommand(callerPane: string): string {
-  return `node skills/bin/harness.mjs session notify ${callerPane} --outcome <done|blocked>`;
-}
 
 /** The finish of a writer, which may write a file: its summary as an argument, or a file under .kore/report for a long one. */
 const HC_FINISH_WRITER = [
@@ -81,36 +68,23 @@ export function buildBrief(input: BriefInput): string {
     role !== undefined && PUSHING_ROLES.has(role)
       ? [skillSection(task), "", LIVE_PROOF, ""]
       : [];
-  if (input.backend === "hc") {
-    const group = input.group === undefined ? [] : [groupLine(input.group), ""];
-    const finish = namesOwnFinish(task)
-      ? []
-      : [
-          role !== undefined && PUSHING_ROLES.has(role)
-            ? HC_FINISH_WRITER
-            : HC_FINISH_READ,
-        ];
-    return [
-      task,
-      "",
-      `You are ${name}; your session name is ${name}.`,
-      "",
-      ...followUp,
-      ...group,
-      ...finish,
-    ]
-      .join("\n")
-      .trimEnd();
-  }
-  const { callerPane } = input;
+  const group = input.group === undefined ? [] : [groupLine(input.group), ""];
+  const finish = namesOwnFinish(task)
+    ? []
+    : [
+        role !== undefined && PUSHING_ROLES.has(role)
+          ? HC_FINISH_WRITER
+          : HC_FINISH_READ,
+      ];
   return [
     task,
     "",
     `You are ${name}; your session name is ${name}.`,
     "",
     ...followUp,
-    `When you finish, broadcast to pane \`${callerPane}\`. Print your summary and a final line with the word RESULT, a colon, then done or blocked. Then, as your very last action, run this one line with the outcome word (done or blocked) in place of <done|blocked>; the command fills in your own name and pane, and must carry no secrets or output beyond the outcome word:`,
-    "",
-    notifyCommand(callerPane),
-  ].join("\n");
+    ...group,
+    ...finish,
+  ]
+    .join("\n")
+    .trimEnd();
 }

@@ -26,7 +26,7 @@ const ctx: GuardContext = {
   modeOf: () => "enforce",
   denyRules: [],
 };
-const BLOCK: Verdict = block("bare-agent-start", "stop");
+const BLOCK: Verdict = block("destructive", "stop");
 
 beforeEach(() => {
   vi.mocked(checkRole).mockReturnValue(null);

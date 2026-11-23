@@ -42,15 +42,9 @@ const short = (head: string): string => head.slice(0, VERDICT_HEAD_LENGTH);
  * The Reviewer's brief. One line, so no line of it is only a verdict marker, which the
  * reader would take for the Reviewer's own answer.
  */
-export function reviewerBrief(
-  pr: number,
-  head: string,
-  backend: "herdr" | "hc" = "herdr",
-): string {
+export function reviewerBrief(pr: number, head: string): string {
   const finish =
-    backend === "hc"
-      ? "Then, as your last action, run `node skills/bin/harness.mjs session report --outcome done --summary - <<'EOF'`, with your verdict lines on the lines after it, then a line that reads EOF; or use --outcome blocked when you cannot review."
-      : "Then end with the word RESULT, a colon, then done or blocked.";
+    "Then, as your last action, run `node skills/bin/harness.mjs session report --outcome done --summary - <<'EOF'`, with your verdict lines on the lines after it, then a line that reads EOF; or use --outcome blocked when you cannot review.";
   return (
     `Review PR #${pr} at head ${short(head)} against AGENTS.md as your definition says, ` +
     `reading the change with \`gh pr diff ${pr}\` and the files at that head. ` +
@@ -73,7 +67,6 @@ export class ReviewRun {
   constructor(
     private readonly ports: ReviewPorts,
     private readonly maxRuns: number = MAX_REVIEW_RUNS,
-    private readonly backend: "herdr" | "hc" = "herdr",
   ) {}
 
   async run(pr: number, sender: Sender): Promise<ReviewRunResult> {
@@ -106,7 +99,7 @@ export class ReviewRun {
   /** One Reviewer pane on one head; its findings, or a recorded failure. The pane is always closed. */
   private async review(pr: number, head: string): Promise<string[]> {
     const name = `pr${pr}-reviewer`;
-    await this.ports.spawn(name, reviewerBrief(pr, head, this.backend));
+    await this.ports.spawn(name, reviewerBrief(pr, head));
     let text: string;
     try {
       const waited = await this.ports.wait(name);

@@ -1,120 +1,28 @@
-// oxlint-disable import/max-dependencies -- close routes between two backends, so it reads the record's backend and both paths' modules
 import type { CommandContext, CommandHelp } from "../runtime/index.js";
-import { removeMergedWorktree, type Removal } from "./close-worktree.js";
 import { routeSession, terminalsFor } from "./backend.js";
 import { closeHcSession } from "./close-hc-command.js";
-import { describeFailure, equalize } from "./equalize.js";
+import { forceRecordClose } from "./close-force-record.js";
 import { sessionNameError } from "./names.js";
 import { FAILED, USAGE_ERROR, fail } from "./output.js";
 import { SessionRegistry, type SessionRecord } from "./registry.js";
-import { closeHint } from "./worktree.js";
 
-const NOT_IN_HERDR =
-  "Not inside Herdr (HERDR_ENV is not 1 or HERDR_PANE_ID is unset). Run this from the Herdr pane that spawned the session.";
-
-/**
- * Why this caller may not close the session, or undefined when it may. A
- * retry (--remove-worktree on a session already closed, whose worktree was
- * kept) passes the closed check; the caller and result checks still apply.
- */
-function refuse(
-  record: SessionRecord,
-  callerPane: string,
-  retry: boolean,
-): string | undefined {
-  const { name, paneId } = record;
-  if (record.closedAt !== undefined && !retry) {
-    return `Session ${name} is already closed (pane ${paneId}).`;
-  }
-  if (record.callerPane === undefined) {
-    return `Session ${name} runs on the ${record.backend ?? "herdr"} backend and has no caller pane, so herdr close cannot tell who may close it. Close it on its own backend.`;
-  }
-  if (record.callerPane !== callerPane) {
-    return `Session ${name} was spawned from pane ${record.callerPane}, not ${callerPane}; only that pane may close it.`;
-  }
-  return record.result === undefined
-    ? `Session ${name} has no recorded result, so pane ${paneId} stays open. Run \`session wait ${name}\` first.`
-    : undefined;
-}
-
-/** Removes the session's worktree and branch when --remove-worktree asked; a session without one has nothing to remove. */
-async function removeWorktree(
-  { deps }: CommandContext,
-  record: SessionRecord,
-): Promise<Removal> {
-  return record.worktree === undefined
-    ? {
-        removed: false,
-        reason: `Session ${record.name} has no worktree, so there is none to remove.`,
-      }
-    : await removeMergedWorktree(
-        deps.runner,
-        record.worktree,
-        deps.cwd,
-        `session close ${record.name} --remove-worktree`,
-      );
-}
-
-/** What the closing line says after the pane: the removal's message, or the hint when none was asked for. */
-function detailOf(
-  removal: Removal | undefined,
-  hint: string | undefined,
-): string | undefined {
-  if (removal === undefined) {
-    return hint;
-  }
-  return removal.removed ? removal.message : undefined;
-}
-
-/**
- * Marks the session closed, rebalances the column, removes the worktree when
- * asked, and reports. A retry skips the marking and the rebalance: the pane
- * was closed and recorded by the first call.
- */
-async function finishClose(
+/** `session close <name> --force-record`: removes the record file only, refused while its terminal is live in hc. */
+async function closeForced(
   context: CommandContext,
-  registry: SessionRegistry,
-  record: SessionRecord,
-  callerPane: string,
-  retry: boolean,
+  name: string,
 ): Promise<number> {
   const { json, deps } = context;
-  const { name } = record;
-  const asked = context.options["remove-worktree"] === true;
-  const removal = asked ? await removeWorktree(context, record) : undefined;
-  let equalized: Awaited<ReturnType<typeof equalize>> | undefined;
-  if (!retry) {
-    await registry.write({
-      ...record,
-      closedAt: deps.clock.now().toISOString(),
-    });
-    equalized = await equalize(deps.runner, callerPane);
-    const note =
-      equalized.status === "failed"
-        ? `Closed, but equalizing failed: ${equalized.reason}`
-        : undefined;
-    if (note !== undefined) {
-      deps.stderr(`${note}\n`);
-    }
+  const registry = await SessionRegistry.open(deps);
+  const removed = await forceRecordClose(name, terminalsFor(deps), registry);
+  if ("error" in removed) {
+    return fail(deps, json, FAILED, removed.error);
   }
-  const hint =
-    asked || record.worktree === undefined
-      ? undefined
-      : closeHint(record.worktree);
-  const detail = detailOf(removal, hint);
-  const kept = removal !== undefined && !removal.removed;
-  if (kept) {
-    deps.stderr(`${removal.reason}\n`);
-  }
-  const lead = retry
-    ? `Session ${name} was already closed (pane ${record.paneId}).`
-    : `Closed ${name} (pane ${record.paneId}).`;
   deps.stdout(
     json
-      ? `${JSON.stringify({ name, paneId: record.paneId, closed: true, ...(retry ? { alreadyClosed: true } : { equalize: equalized }), ...(hint === undefined ? {} : { hint }), ...(removal === undefined ? {} : { removal }) })}\n`
-      : `${lead}${detail === undefined ? "" : ` ${detail}`}\n`,
+      ? `${JSON.stringify(removed)}\n`
+      : `Removed the record of ${name}; its terminal, if any, was not live in hc.\n`,
   );
-  return kept ? FAILED : 0;
+  return 0;
 }
 
 /** An hc record whose start was lost before it got a terminal: routing would refuse it with this command, so close settles it itself. */
@@ -126,7 +34,7 @@ function neverStarted(record: SessionRecord): boolean {
   );
 }
 
-/** `session close <name>`: close a pane only if this caller created it and its result is recorded; an hc session closes its terminal instead. */
+/** `session close <name>`: kills the session's terminal from the terminal that spawned it, once its result is recorded. */
 export async function close(context: CommandContext): Promise<number> {
   const { json, deps } = context;
   const name = context.operand;
@@ -142,111 +50,71 @@ export async function close(context: CommandContext): Promise<number> {
   if (nameError !== undefined) {
     return fail(deps, json, USAGE_ERROR, nameError);
   }
-  const terminals = terminalsFor(deps);
-  const callerPane = deps.env.HERDR_PANE_ID;
-  if (
-    (deps.env.HERDR_ENV !== "1" || !callerPane) &&
-    terminals.self() === undefined
-  ) {
-    return fail(deps, json, FAILED, NOT_IN_HERDR);
+  if (context.options["force-record"] === true) {
+    return await closeForced(context, name);
   }
+  const terminals = terminalsFor(deps);
   const registry = await SessionRegistry.open(deps);
   const found = await registry.read(name);
-  if (found !== undefined && neverStarted(found)) {
-    return await closeHcSession(context, terminals, registry, found);
-  }
-  const routed =
-    found === undefined ? undefined : routeSession(found, terminals);
-  if (routed !== undefined && "error" in routed) {
-    return fail(deps, json, FAILED, routed.error);
-  }
-  if (routed?.backend === "hc" && found !== undefined) {
-    return await closeHcSession(context, routed.terminals, registry, found);
-  }
-  return await closeHerdr(context, registry, found, name, callerPane);
-}
-
-/** The herdr path: closes a pane this herdr pane spawned, once its result is recorded. */
-async function closeHerdr(
-  context: CommandContext,
-  registry: SessionRegistry,
-  record: SessionRecord | undefined,
-  name: string,
-  callerPane: string | undefined,
-): Promise<number> {
-  const { json, deps } = context;
-  if (deps.env.HERDR_ENV !== "1" || !callerPane) {
-    return fail(deps, json, FAILED, NOT_IN_HERDR);
-  }
-  if (record === undefined) {
+  if (found === undefined) {
     return fail(
       deps,
       json,
       FAILED,
-      `This tool did not create a session named ${name}, so it will not close one. Close it yourself with \`herdr pane close <pane-id>\` if you are sure.`,
+      `This tool did not create a session named ${name}, so it will not close one.`,
     );
   }
-  // A closed session whose worktree was kept can still have it removed: the flag retries only that.
-  const retry =
-    record.closedAt !== undefined &&
-    context.options["remove-worktree"] === true &&
-    record.worktree !== undefined;
-  const refusal = refuse(record, callerPane, retry);
-  if (refusal !== undefined) {
-    return fail(deps, json, FAILED, refusal);
+  if (neverStarted(found)) {
+    return await closeHcSession(context, terminals, registry, found);
   }
-  if (!retry) {
-    const closed = await deps.runner.run("herdr", [
-      "pane",
-      "close",
-      record.paneId,
-    ]);
-    if (closed.code !== 0) {
-      return fail(
-        deps,
-        json,
-        FAILED,
-        `herdr pane close ${record.paneId} failed: ${describeFailure(closed)}`,
-      );
-    }
+  const routed = routeSession(found, terminals);
+  if ("error" in routed) {
+    return fail(deps, json, FAILED, routed.error);
   }
-  return await finishClose(context, registry, record, callerPane, retry);
+  return await closeHcSession(context, routed.terminals, registry, found);
 }
 
 export const closeHelp: CommandHelp = {
   purpose:
-    "Closes a spawned session's Herdr pane once its result is recorded, marks the session closed and rebalances its column. On hc it kills the session's terminal and removes it, from the terminal that spawned the session, after writing a pane.closed ledger event; it refuses a terminal the caller did not spawn. With --remove-worktree it also removes the session's worktree and deletes its branch (herdr only), but only when a merged pull request has that branch at the worktree's HEAD and the worktree is clean.",
-  when: "Last, once session wait has recorded the session's RESULT and the pane is no longer needed, from the pane that spawned the session.",
+    "Closes a spawned session once its result is recorded: kills its hc terminal and removes it, from the terminal that spawned the session, after writing a pane.closed ledger event; it refuses a terminal the caller did not spawn. --force-record removes a session's record file only, and is refused while the record's terminal is live in hc. With --remove-worktree it also removes the session's worktree and branch once their pull request is merged.",
+  when: "Last, once session wait has recorded the session's outcome and the terminal is no longer needed, from the terminal that spawned the session.",
   whenNot:
-    "When no result is recorded yet, which this refuses: run session wait first. When the pane was started by hand, or from a pane other than the spawning one, which this also refuses. To list unmanaged writer and judge panes, use session check. To rebalance a column after a pane was closed another way, use session equalize.",
+    "When no result is recorded yet, which this refuses: run session wait first. When the terminal was started by hand, or from a terminal other than the spawning one, which this also refuses. To list unmanaged agent terminals, use session check.",
   flags: {
     "remove-worktree":
-      "Herdr only: also removes the worktree and deletes its branch, only when a merged pull request has that branch at the worktree's HEAD and the worktree is clean. Otherwise both are kept, the reason is printed, and the command exits 1. An hc session refuses it, before anything is killed.",
+      "Also removes the session's worktree and deletes its branch, only when a merged pull request has that branch at the worktree's HEAD and the worktree is clean. Otherwise both are kept, the reason is printed, and the command exits 1 with the terminal closed. On a session already closed it retries only the removal.",
+    "force-record":
+      "Removes the session's record file only, and nothing in hc or the worktree. Refused while the record's terminal is live in hc, or while hc cannot say whether it is; a record with no terminal id is removed without asking hc. Use it for a record that has no terminal id, which session close and the other session tools refuse.",
   },
   operand:
-    "The spawned session's name, such as image-trust-reader. Only the pane that spawned the session may close it.",
+    "The spawned session's name, such as image-trust-reader. Only the terminal that spawned the session may close it.",
   examples: [
     {
       command: "harness session close image-trust-reader",
       shows:
-        "the pane closes and the command prints Closed image-trust-reader, with the hint to remove its worktree once merged when it has one; exit 0",
+        "the terminal is killed and removed and the command prints Closed image-trust-reader; exit 0",
     },
     {
       command: "harness session close image-trust-reader --remove-worktree",
       shows:
-        "the pane closes, and the worktree and its branch are removed when their PR is merged; otherwise both are kept and the command exits 1",
+        "the terminal is closed, and the worktree and its branch are removed when their pull request is merged; otherwise both are kept and the command exits 1",
+    },
+    {
+      command: "harness session close image-trust-reader --force-record",
+      shows:
+        "the record file is removed when its terminal is not live in hc; exit 0",
     },
   ],
   exits: [
     {
       code: 0,
       meaning:
-        "the pane is closed and recorded; a retry that removes a kept worktree from a closed session also exits 0",
+        "the terminal is closed and recorded, or the record is removed by --force-record",
     },
     {
       code: 1,
       meaning:
-        "refused: already closed, spawned from another pane, no recorded result, not a session of this tool, or not inside Herdr or an hc terminal; or (hc) the terminal is not the caller's child, or --remove-worktree was given; or herdr pane close failed; or --remove-worktree kept the worktree and branch",
+        "refused: already closed, not spawned by this tool, no recorded result, not the caller's child, a record whose terminal is live in hc, hc could not be asked, or --remove-worktree kept the worktree and branch",
     },
     {
       code: 2,
@@ -256,7 +124,7 @@ export const closeHelp: CommandHelp = {
   effects: {
     kind: "mutates",
     detail:
-      "herdr: closes the Herdr pane, records closedAt on the session's registry entry and equalizes the column. hc: kills the terminal, appends a pane.closed ledger event, removes the terminal and records closedAt. With --remove-worktree (herdr) it removes the git worktree and force-deletes its branch, after gh and git checks; a refused removal keeps both",
+      "kills the session's hc terminal, appends a pane.closed ledger event, removes the terminal and records closedAt; with --remove-worktree it removes the git worktree and force-deletes its branch after gh and git checks, and a refused removal keeps both; --force-record removes only the record file",
   },
-  seeAlso: ["session wait", "session check", "session equalize"],
+  seeAlso: ["session wait", "session check"],
 };

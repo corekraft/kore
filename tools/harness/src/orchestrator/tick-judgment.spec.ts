@@ -30,9 +30,11 @@ vi.mock("./judgment-panes.js", () => ({
 vi.mock("./judgment-plan.js", () => ({
   checkNames: vi.fn(),
   checkPlan: vi.fn(),
-  readPlan: vi.fn(),
 }));
-vi.mock("./judgment-summary.js", () => ({ readSummary: vi.fn() }));
+vi.mock("./judgment-read.js", () => ({
+  readPlanOf: vi.fn(),
+  readSummaryOf: vi.fn(),
+}));
 
 beforeEach(() => {
   primeMocks();
@@ -74,13 +76,10 @@ describe("TickJudgment.begin", () => {
       admitted(),
     );
 
-    expect(judgmentBrief).toHaveBeenCalledWith(
-      IDEA,
-      ISSUE,
-      PR,
-      { kind: "start", sendBacks: 3 },
-      "herdr",
-    );
+    expect(judgmentBrief).toHaveBeenCalledWith(IDEA, ISSUE, PR, {
+      kind: "start",
+      sendBacks: 3,
+    });
     expect(p.spawn).toHaveBeenCalledWith({
       role: "judgment",
       name: "idea-0007-judgment-r1",
@@ -116,7 +115,6 @@ describe("TickJudgment.consume before a decision", () => {
     expect(
       await new TickJudgment(p).consume(IDEA, ISSUE, [], admitted()),
     ).toBeUndefined();
-    expect(p.paneText).not.toHaveBeenCalled();
     expect(p.delivery).not.toHaveBeenCalled();
   });
 
@@ -127,7 +125,6 @@ describe("TickJudgment.consume before a decision", () => {
     expect(
       await new TickJudgment(p).consume(IDEA, ISSUE, [], admitted()),
     ).toBeUndefined();
-    expect(p.paneText).not.toHaveBeenCalled();
   });
 
   it("leaves a closed decision with no reader round to the caller, which closes nothing here", async () => {

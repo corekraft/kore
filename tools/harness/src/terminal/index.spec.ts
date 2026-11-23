@@ -13,6 +13,7 @@ describe("the terminal barrel", () => {
     expect(Object.keys(barrel).sort()).toEqual([
       "FakeTerminals",
       "HcTerminals",
+      "isInheritedFromCore",
       "terminalError",
     ]);
   });

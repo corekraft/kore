@@ -4,9 +4,9 @@ import { contextOf, fakeDeps, type FakeDeps } from "./deps-support.js";
 import { hostLeaseRefusal } from "./host-lease.js";
 import { sessionNameError } from "./names.js";
 import { spawnLoadRefusal } from "./spawn-load.js";
-import { check } from "./spawn-check.js";
+import { checkRequest } from "./spawn-check.js";
 import { launchStage, tierInputError, tierOf } from "./tier-source.js";
-import { findResult, parseTimeout } from "./wait.js";
+import { parseTimeout } from "./wait.js";
 
 vi.mock("./agent-definition.js");
 vi.mock("./host-lease.js");
@@ -19,9 +19,7 @@ let deps: FakeDeps;
 
 beforeEach(() => {
   deps = fakeDeps();
-  deps.env = { HERDR_ENV: "1", HERDR_PANE_ID: "w3:p1" };
   vi.mocked(sessionNameError).mockReturnValue(undefined);
-  vi.mocked(findResult).mockReturnValue(undefined);
   vi.mocked(parseTimeout).mockReturnValue(60_000);
   vi.mocked(hostLeaseRefusal).mockResolvedValue(undefined);
   vi.mocked(spawnLoadRefusal).mockReturnValue(undefined);
@@ -43,18 +41,20 @@ function spawnOf(
   return { role, name: `x-${role}`, brief: "Go.", worktree: true, ...extra };
 }
 
-describe("check flags a required role spawned with no idea", () => {
+describe("checkRequest flags a required role spawned with no idea", () => {
   it.each(["writer", "judge", "principles-review"])(
     "marks a %s spawn with no --idea as unstamped, with no reason",
     async (role) => {
-      const checked = await check(contextOf(deps, { options: spawnOf(role) }));
+      const checked = await checkRequest(
+        contextOf(deps, { options: spawnOf(role) }),
+      );
 
       expect(checked).toHaveProperty("unstamped", {});
     },
   );
 
   it("starts the spawn: the unstamped mark is not a refusal", async () => {
-    const checked = await check(
+    const checked = await checkRequest(
       contextOf(deps, { options: spawnOf("writer") }),
     );
 
@@ -63,7 +63,7 @@ describe("check flags a required role spawned with no idea", () => {
   });
 
   it("leaves a required role that names an idea unmarked", async () => {
-    const checked = await check(
+    const checked = await checkRequest(
       contextOf(deps, { options: spawnOf("writer", { idea: "827" }) }),
     );
 
@@ -71,7 +71,7 @@ describe("check flags a required role spawned with no idea", () => {
   });
 
   it("leaves a reader with no idea unmarked, since an idea is optional for a reader", async () => {
-    const checked = await check(
+    const checked = await checkRequest(
       contextOf(deps, {
         options: { role: "reader", name: "x-reader", brief: "Go." },
       }),
@@ -81,9 +81,9 @@ describe("check flags a required role spawned with no idea", () => {
   });
 });
 
-describe("check records the reason a session gives with --no-idea", () => {
+describe("checkRequest records the reason a session gives with --no-idea", () => {
   it("carries the reason for a required role, so no warning is owed", async () => {
-    const checked = await check(
+    const checked = await checkRequest(
       contextOf(deps, {
         options: spawnOf("writer", { "no-idea": "grilling session, no issue" }),
       }),
@@ -95,7 +95,7 @@ describe("check records the reason a session gives with --no-idea", () => {
   });
 
   it("carries the reason for a reader too, so its deliberate gap is told apart", async () => {
-    const checked = await check(
+    const checked = await checkRequest(
       contextOf(deps, {
         options: {
           role: "reader",
@@ -110,7 +110,7 @@ describe("check records the reason a session gives with --no-idea", () => {
   });
 
   it("refuses --idea together with --no-idea, and starts nothing", async () => {
-    const checked = await check(
+    const checked = await checkRequest(
       contextOf(deps, {
         options: spawnOf("writer", { idea: "827", "no-idea": "none" }),
       }),
@@ -126,7 +126,7 @@ describe("check records the reason a session gives with --no-idea", () => {
     ["an empty reason", ""],
     ["a reason over 100 characters", "x".repeat(101)],
   ])("refuses %s, which the ledger would drop", async (_case, reason) => {
-    const checked = await check(
+    const checked = await checkRequest(
       contextOf(deps, { options: spawnOf("writer", { "no-idea": reason }) }),
     );
 
@@ -138,7 +138,7 @@ describe("check records the reason a session gives with --no-idea", () => {
   });
 
   it("accepts a reason of exactly 100 characters", async () => {
-    const checked = await check(
+    const checked = await checkRequest(
       contextOf(deps, {
         options: spawnOf("writer", { "no-idea": "x".repeat(100) }),
       }),

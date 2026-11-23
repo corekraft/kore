@@ -56,30 +56,22 @@ describe("recordEvent: the event it appends", () => {
     });
   });
 
-  it("stamps the herdr pane when the environment names one, and omits it when empty", async () => {
-    await recordEvent(depsWith({ HERDR_PANE_ID: "w3:p1" }), "session.start", {
-      session_id: "s1",
-    });
-    await recordEvent(depsWith({ HERDR_PANE_ID: "" }), "session.start", {
-      session_id: "s1",
-    });
-
-    expect(recorded().mock.calls[0]?.[0]).toMatchObject({ pane: "w3:p1" });
-    expect(recorded().mock.calls[1]?.[0]).not.toHaveProperty("pane");
-  });
-
-  it("stamps the idea and agent only when the name is valid", async () => {
-    vi.mocked(isName).mockImplementation((value) => value === "good");
+  it("takes no identity from the environment outside an hc terminal, so no pane, idea or agent is stamped", async () => {
+    vi.mocked(isName).mockReturnValue(true);
     await recordEvent(
-      depsWith({ KORE_IDEA: "good", KORE_AGENT: "bad" }),
+      depsWith({
+        HERDR_PANE_ID: "w3:p1",
+        KORE_IDEA: "good",
+        KORE_AGENT: "good",
+      }),
       "session.start",
       { session_id: "s1" },
     );
 
-    expect(recorded()).toHaveBeenCalledWith(
-      expect.objectContaining({ idea: "good" }),
-    );
-    expect(recorded().mock.calls[0]?.[0]).not.toHaveProperty("agent");
+    const event = recorded().mock.calls[0]?.[0];
+    expect(event).not.toHaveProperty("pane");
+    expect(event).not.toHaveProperty("idea");
+    expect(event).not.toHaveProperty("agent");
   });
 
   it("records the tool name for a tool event, and not for any other kind", async () => {

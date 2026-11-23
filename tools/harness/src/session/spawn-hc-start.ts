@@ -90,7 +90,6 @@ export async function startSession(
   const base = startingRecord(admitted, createdAt);
   await registry.create({ ...base, starting: true });
   const brief = buildBrief({
-    backend: "hc",
     task: values.brief,
     name: values.name,
     role: values.role,

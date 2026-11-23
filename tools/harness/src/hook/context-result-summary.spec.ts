@@ -37,7 +37,7 @@ vi.mock("./retro-scan.js", async (importOriginal) => {
 });
 
 const LINE =
-  "A finished pane's result summary is read with `harness session wait <name>`, not `herdr agent read`; see `harness session wait --help` for how to print it.";
+  "A finished session's result summary is read with `harness session wait <name>`, not a read of its terminal; see `harness session wait --help` for how to print it.";
 const SESSION = { source: "startup", session_id: "s1" };
 
 beforeEach(() => {

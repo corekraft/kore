@@ -11,12 +11,10 @@ import {
   type RetroPorts,
 } from "../orchestrator/index.js";
 import type { CliDeps } from "../runtime/index.js";
-import { briefBackend } from "../session/index.js";
 import { retroHook } from "./orchestrate-retro.js";
 
 vi.mock("node:crypto", () => ({ createHash: vi.fn() }));
 vi.mock("../flow/index.js", () => ({ flowMetricNames: vi.fn() }));
-vi.mock("../session/index.js", () => ({ briefBackend: vi.fn() }));
 vi.mock("../orchestrator/index.js", () => ({
   RETRO_MODEL: "claude-sonnet-5-5",
   RETRO_EFFORT: "high",
@@ -62,15 +60,6 @@ beforeEach(() => {
 });
 
 describe("retroHook launch ports", () => {
-  it("gives the retro pane the brief backend the hc-sessions flag names", async () => {
-    vi.mocked(briefBackend).mockResolvedValue("hc");
-    hook();
-    const ports = vi.mocked(RetroLaunch).mock.calls[0]?.[0] as RetroPorts;
-
-    expect(await ports.backend()).toBe("hc");
-    expect(briefBackend).toHaveBeenCalledWith(deps);
-  });
-
   it("builds the ports from the harness tools and the local overlay flag", async () => {
     await hook()();
     const ports = vi.mocked(RetroLaunch).mock.calls[0]?.[0] as RetroPorts;

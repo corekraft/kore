@@ -2,9 +2,9 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { CliDeps } from "../runtime/index.js";
 import { mainRoot } from "../runtime/index.js";
 import { failed, fakeRunner, ok } from "./close-support.js";
-import { describeFailure } from "./equalize.js";
+import { describeFailure } from "./describe-failure.js";
 import type { SessionRecord } from "./registry.js";
-import { closeHint, place, removeHint } from "./worktree.js";
+import { place, removeHint } from "./worktree.js";
 
 vi.mock("../runtime/index.js", async (original) => ({
   ...(await original<typeof import("../runtime/index.js")>()),
@@ -12,7 +12,7 @@ vi.mock("../runtime/index.js", async (original) => ({
 }));
 const open = vi.hoisted(() => vi.fn());
 vi.mock("./registry.js", () => ({ SessionRegistry: { open } }));
-vi.mock("./equalize.js", () => ({
+vi.mock("./describe-failure.js", () => ({
   describeFailure: vi.fn(() => "npm said no"),
 }));
 
@@ -71,13 +71,7 @@ beforeEach(() => {
   open.mockResolvedValue({ read });
 });
 
-describe("closeHint and removeHint", () => {
-  it("names the worktree removal and the branch delete once the branch is merged", () => {
-    expect(closeHint(WORKTREE)).toBe(
-      "Remove its worktree once its branch is merged: `git worktree remove /main/.claude/worktrees/x` and `git branch -D feat/x`.",
-    );
-  });
-
+describe("removeHint", () => {
   it("says a failed spawn left the worktree behind, and names the same two commands", () => {
     expect(removeHint(WORKTREE)).toBe(
       "The worktree /main/.claude/worktrees/x was left behind; remove it with `git worktree remove /main/.claude/worktrees/x` and `git branch -D feat/x`.",
@@ -135,7 +129,7 @@ describe("place with --worktree", () => {
     const fake = runnerFailing({ line: ADD });
     const result = await place(deps(fake), { worktree: true }, "x");
     expect(result).toEqual({
-      error: `git worktree add failed: npm said no. No pane was split. A previous spawn may have left the worktree or branch: run \`git worktree remove /main/.claude/worktrees/x\` and \`git branch -D x\`, or pass --branch <other>.`,
+      error: `git worktree add failed: npm said no. A previous spawn may have left the worktree or branch: run \`git worktree remove /main/.claude/worktrees/x\` and \`git branch -D x\`, or pass --branch <other>.`,
     });
     expect(lines(fake.run)).toEqual([ADD]);
   });
@@ -144,7 +138,7 @@ describe("place with --worktree", () => {
     const fake = runnerFailing({ line: "npm ci", cwd: KORE });
     const result = await place(deps(fake), { worktree: true }, "x");
     expect(result).toEqual({
-      error: `npm ci failed in the new worktree: npm said no. No pane was split. ${removeHint(CREATED)}`,
+      error: `npm ci failed in the new worktree: npm said no. ${removeHint(CREATED)}`,
     });
     expect(lines(fake.run)).toEqual([ADD, "npm ci"]);
   });
@@ -153,7 +147,7 @@ describe("place with --worktree", () => {
     const fake = runnerFailing({ line: "npm ci", cwd: HARNESS });
     const result = await place(deps(fake), { worktree: true }, "x");
     expect(result).toEqual({
-      error: `npm ci failed for the harness in the new worktree: npm said no. No pane was split. ${removeHint(CREATED)}`,
+      error: `npm ci failed for the harness in the new worktree: npm said no. ${removeHint(CREATED)}`,
     });
     expect(lines(fake.run)).toEqual([ADD, "npm ci", "npm ci"]);
   });
@@ -162,7 +156,7 @@ describe("place with --worktree", () => {
     const fake = runnerFailing({ line: BUILD });
     const result = await place(deps(fake), { worktree: true }, "x");
     expect(result).toEqual({
-      error: `Building the harness bundle failed in the new worktree: npm said no. The pane's guard hook would block every tool call. No pane was split. ${removeHint(CREATED)}`,
+      error: `Building the harness bundle failed in the new worktree: npm said no. The pane's guard hook would block every tool call. ${removeHint(CREATED)}`,
     });
     expect(lines(fake.run)).toEqual([ADD, "npm ci", "npm ci", BUILD]);
   });
@@ -223,7 +217,6 @@ describe("place with --worktree over an existing path", () => {
         "/main/.claude/worktrees/x already exists and is not the worktree of a session recorded lost with its parent",
       ) as string,
     });
-    expect((result as { error: string }).error).toContain("No pane was split.");
     expect(fake.run).not.toHaveBeenCalled();
   });
 
@@ -318,7 +311,7 @@ describe("place with --worktree over a path another session owns", () => {
       return args[0] === "rev-parse" ? ok("x\n") : ok();
     });
     expect(await place(deps(fake), { worktree: true }, "x")).toEqual({
-      error: `npm ci failed in the new worktree: npm said no. No pane was split. ${removeHint(CREATED)}`,
+      error: `npm ci failed in the new worktree: npm said no. ${removeHint(CREATED)}`,
     });
   });
 });

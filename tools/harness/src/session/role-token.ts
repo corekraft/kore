@@ -173,7 +173,7 @@ async function mintApp(deps: CliDeps, app: AppIdentity): Promise<RoleToken> {
     );
   } catch {
     return {
-      error: `The ${label} App private key in keychain item ${service.privateKey} could not sign a token. Recreate it with \`bash ${WIZARD}\`. No pane was split.`,
+      error: `The ${label} App private key in keychain item ${service.privateKey} could not sign a token. Recreate it with \`bash ${WIZARD}\`.`,
     };
   }
   // The JWT goes through curl's config on stdin, never argv.
@@ -215,7 +215,7 @@ async function mintApp(deps: CliDeps, app: AppIdentity): Promise<RoleToken> {
   return typeof token === "string" && token !== ""
     ? { token }
     : {
-        error: `Could not mint a ${app.app} installation token (${minted.code === 0 ? "the response carried no token" : reason}). Check the App is installed on corekraft/kore and its key is current: \`bash ${WIZARD}\`. No pane was split.`,
+        error: `Could not mint a ${app.app} installation token (${minted.code === 0 ? "the response carried no token" : reason}). Check the App is installed on corekraft/kore and its key is current: \`bash ${WIZARD}\`.`,
       };
 }
 
@@ -248,7 +248,7 @@ async function ownerToken(deps: CliDeps): Promise<RoleToken> {
     ? { token: value }
     : {
         error:
-          "The owner-writer flag is on but `gh auth token` returned no token. Run `gh auth login`, then rerun. No pane was split.",
+          "The owner-writer flag is on but `gh auth token` returned no token. Run `gh auth login`, then rerun.",
       };
 }
 
@@ -279,7 +279,7 @@ export async function roleToken(
     ownerWriter = await localFlag(deps, OWNER_WRITER_FLAG);
   } catch (error) {
     if (error instanceof FlagError) {
-      return { error: `${error.message} No pane was split.` };
+      return { error: `${error.message}` };
     }
     throw error;
   }

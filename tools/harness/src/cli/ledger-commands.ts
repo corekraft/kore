@@ -5,7 +5,6 @@ import {
   KINDS,
   Ledger,
   pollGithub,
-  pollHerdr,
   SOURCES,
   isTimestamp,
   type Kind,
@@ -239,34 +238,6 @@ const list: Command = {
   },
 };
 
-const pollHerdrCommand: Command = {
-  summary: "append the changes in herdr's agent panes to the ledger, read once",
-  options: STRING_FLAGS(["ledger"]),
-  help: help.pollHerdrHelp,
-  async run(context) {
-    const opened = await openLedger(context);
-    if ("error" in opened) {
-      return reject(context, opened.error, "ledger");
-    }
-    const { runner, clock, fs } = context.deps;
-    const result = await pollHerdr({
-      ledger: opened.ledger,
-      runner,
-      clock,
-      fs,
-    });
-    if (!result.ok) {
-      return reject(context, result.message, "herdr");
-    }
-    context.deps.stdout(
-      context.json
-        ? `${JSON.stringify({ recorded: result.recorded, events: result.events })}\n`
-        : `recorded ${result.recorded} herdr event(s)\n`,
-    );
-    return 0;
-  },
-};
-
 const pollGithubCommand: Command = {
   summary:
     "append GitHub's issue, pull request and outcome events to the ledger",
@@ -319,7 +290,6 @@ const pollGithubCommand: Command = {
 export const ledgerCommands: Record<string, Command> = {
   record,
   list,
-  "poll-herdr": pollHerdrCommand,
   "poll-github": pollGithubCommand,
   watch: watchCommand(openLedger),
 };

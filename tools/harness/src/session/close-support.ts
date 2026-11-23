@@ -72,6 +72,7 @@ export const SPAWNED: SessionRecord = {
 export interface FakeRegistry {
   read: MockedFunction<(name: string) => Promise<SessionRecord | undefined>>;
   write: MockedFunction<(record: SessionRecord) => Promise<void>>;
+  remove: MockedFunction<(name: string) => Promise<void>>;
 }
 
 export function fakeRegistry(record: SessionRecord | undefined): FakeRegistry {
@@ -80,6 +81,7 @@ export function fakeRegistry(record: SessionRecord | undefined): FakeRegistry {
       Promise.resolve(record),
     ),
     write: vi.fn((): Promise<void> => Promise.resolve()),
+    remove: vi.fn((): Promise<void> => Promise.resolve()),
   };
 }
 
@@ -94,25 +96,22 @@ export interface Scene {
   stderr: MockedFunction<(text: string) => void>;
 }
 
-/** A command context inside Herdr by default; only the deps close reads are real. */
+/** A command context with no environment by default; only the deps close reads are real. */
 export function scene(
   options: {
     operand?: string | undefined;
     env?: Record<string, string>;
     json?: boolean;
     flags?: Record<string, string | boolean>;
-    herdr?: Partial<RunResult>;
   } = {},
 ): Scene {
-  const runner = fakeRunner((command) =>
-    command === "herdr" ? (options.herdr ?? {}) : {},
-  );
+  const runner = fakeRunner(() => ({}));
   const stdout = vi.fn<(text: string) => void>();
   const stderr = vi.fn<(text: string) => void>();
   const deps = {
     runner: runner.runner,
     clock: { now: () => new Date("2026-01-02T03:06:00.000Z") },
-    env: options.env ?? { HERDR_ENV: "1", HERDR_PANE_ID: "w3:p1" },
+    env: options.env ?? {},
     cwd: "/main",
     stdout,
     stderr,

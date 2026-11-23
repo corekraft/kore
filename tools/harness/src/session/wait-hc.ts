@@ -230,6 +230,41 @@ export async function waitForReport(
   );
 }
 
+/**
+ * Looks at an hc session once and never waits (harness wait's read of each target): a report with a new seq, or a
+ * blocked or error status, settles it; a terminal that stopped with no report is blocked; anything else is still
+ * pending, which is undefined.
+ */
+export async function readSettledOnce(
+  deps: WaitDeps,
+  terminals: Terminals,
+  registry: Pick<SessionRegistry, "write">,
+  record: SessionRecord,
+): Promise<ReportWait | { error: string } | undefined> {
+  if (record.terminal === undefined) {
+    return {
+      error: `Session ${record.name} has no hc terminal recorded; start it again with session spawn.`,
+    };
+  }
+  const view = await terminals.get(record.terminal);
+  if ("error" in view) {
+    return failure(record.name, view);
+  }
+  const settled = await settleWoken({
+    deps,
+    terminals,
+    registry,
+    record,
+    cwd: view.cwd,
+    terminal: record.terminal,
+  });
+  if (settled !== undefined || view.state !== "finished") {
+    return settled;
+  }
+  await settleStopped(deps, registry, record);
+  return blocked(record, "stopped without a report");
+}
+
 /** The line `session wait` prints for an hc session: name, model, outcome and summary. */
 export function formatReportWait(result: ReportWait): string {
   return `${result.name} (${result.model}) ${result.outcome}: ${result.summary}\n`;

@@ -1,5 +1,5 @@
 // `orchestrate run` end to end with real domains (orchestrator, flag overlay, retro
-// filing, flow metric names) and a scripted host in place of gh, herdr and the harness
+// filing, flow metric names) and a scripted host in place of gh and the harness
 // tools (ADR 0104). It gates a release only, never a commit or a merge (ADR 0098).
 
 import { describe, expect, it } from "vitest";

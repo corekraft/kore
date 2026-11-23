@@ -52,7 +52,7 @@ const OTHER_VERBS = forRoles(NO_TERMINAL, "role-read-only", [
 
 /**
  * A bare hc launch of claude starts a session outside harness session spawn, for the person's session and
- * the writer. Audit mode (ADR 0080): the guard warns, since the owner's approval covers the herdr form only.
+ * the writer. Audit mode (ADR 0080): the guard warns until the owner activates the hc form.
  * The path and shell-script forms are the same launch; a word that only contains claude is not one.
  */
 export const HC_LAUNCH_AUDIT: readonly CorpusCase[] = [

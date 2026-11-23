@@ -6,7 +6,6 @@ import {
   HarnessCliError,
   tickFlagOn,
 } from "../orchestrator/index.js";
-import { briefBackend } from "../session/index.js";
 import { retroHook } from "./orchestrate-retro.js";
 import { runOnTicks, tickCommand } from "./orchestrate-tick.js";
 import { planCommand } from "./orchestrate-plan.js";
@@ -14,7 +13,6 @@ import type { CommandContext } from "../runtime/index.js";
 import { orchestrateCommands } from "./orchestrate-commands.js";
 
 vi.mock("./orchestrate-retro.js", () => ({ retroHook: vi.fn() }));
-vi.mock("../session/index.js", () => ({ briefBackend: vi.fn() }));
 vi.mock("./orchestrate-plan.js", () => ({
   planCommand: { summary: "plan" },
 }));
@@ -58,7 +56,6 @@ function setup(options: Record<string, string | boolean>, json = false) {
 
 beforeEach(() => {
   vi.resetAllMocks();
-  vi.mocked(briefBackend).mockResolvedValue("herdr");
   vi.mocked(IdeaRun).mockImplementation(function () {
     return { run } as unknown as IdeaRun;
   });
@@ -69,18 +66,9 @@ describe("orchestrate run", () => {
   it("runs the idea with the given outcome through the harness tools and says how it ended", async () => {
     const { context, out } = setup({ idea: "0042", ...OUTCOME });
     expect(await orchestrateCommands["run"]?.run(context)).toBe(0);
-    expect(HarnessCli).toHaveBeenCalledWith(context.deps.runner, ROOT, "herdr");
+    expect(HarnessCli).toHaveBeenCalledWith(context.deps.runner, ROOT);
     expect(run).toHaveBeenCalledWith("0042", OUTCOME);
     expect(out.join("")).toBe("Idea 0042: outcome-recorded after 2 rounds.\n");
-  });
-
-  it("gives the run's harness the brief backend the hc-sessions flag names", async () => {
-    vi.mocked(briefBackend).mockResolvedValue("hc");
-    const { context } = setup({ idea: "0042" });
-
-    await orchestrateCommands["run"]?.run(context);
-
-    expect(HarnessCli).toHaveBeenCalledWith(context.deps.runner, ROOT, "hc");
   });
 
   it("passes no outcome when none is given, so the idea is never closed", async () => {

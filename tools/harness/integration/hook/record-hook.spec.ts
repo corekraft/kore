@@ -17,7 +17,7 @@ async function record(payload: unknown, env: Record<string, string> = {}) {
 
 describe("hook record session-start", () => {
   for (const source of ["startup", "clear", "resume"]) {
-    it(`a ${source} records a session start with session and pane, and prints nothing`, async () => {
+    it(`a ${source} records a session start with session, and prints nothing`, async () => {
       const result = await record(
         { session_id: "s1", source },
         { HERDR_PANE_ID: "w9:p9" },
@@ -28,7 +28,6 @@ describe("hook record session-start", () => {
           source: "claude",
           kind: "session.start",
           session: "s1",
-          pane: "w9:p9",
         },
       ]);
     });

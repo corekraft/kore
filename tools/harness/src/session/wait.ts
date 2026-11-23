@@ -1,41 +1,12 @@
-// oxlint-disable import/max-dependencies -- wait settles a session by its pane (herdr) or its report (hc), so it imports both paths
-import type { CliDeps, CommandContext, CommandHelp } from "../runtime/index.js";
-import { plain } from "./ansi.js";
-import { describeFailure } from "./equalize.js";
-import { recordFinish } from "./finish-record.js";
+import type { CommandContext, CommandHelp } from "../runtime/index.js";
+import type { Terminals } from "../terminal/index.js";
+import { routeSession, terminalsFor } from "./backend.js";
 import { sessionNameError } from "./names.js";
 import { FAILED, USAGE_ERROR, fail } from "./output.js";
-import { PROMPT } from "./prompt.js";
-import { routeSession, terminalsFor } from "./backend.js";
-import type { Terminals } from "../terminal/index.js";
 import { SessionRegistry, type SessionRecord } from "./registry.js";
 import { formatReportWait, waitForReport } from "./wait-hc.js";
 
 export const DEFAULT_TIMEOUT_MS = 60 * 60 * 1000;
-const POLL_MS = 2000;
-/** The most characters of a pane result summary kept; the cap is a placeholder (ADR 0123). */
-export const SUMMARY_CAP = 2000;
-
-/** What `session wait` and a waiting `session spawn` return. */
-export interface WaitResult {
-  name: string;
-  paneId: string;
-  model: string;
-  outcome: "done" | "blocked";
-  /** Where the summary is: the finished session's own pane. */
-  summary: string;
-  /** The pane result: its outcome word and the text the pane printed before its RESULT line. */
-  result: { outcome: "done" | "blocked"; summary: string };
-}
-
-/** Only a line that is nothing but the marker (after indent or Claude's bullet) counts; brief text never is. */
-const MARKER = /^[ \t]*(?:[●⏺][ \t]+)?RESULT: (done|blocked)[ \t\r]*$/gm;
-
-/** The outcome word of the last anchored marker line, or undefined when there is none. */
-export function findResult(text: string): "done" | "blocked" | undefined {
-  const last = [...text.matchAll(MARKER)].at(-1)?.[1];
-  return last === "done" || last === "blocked" ? last : undefined;
-}
 
 /** A timeout in milliseconds from the flag, or an error message. */
 export function parseTimeout(
@@ -50,138 +21,7 @@ export function parseTimeout(
     : { error: "--timeout must be a positive whole number of milliseconds." };
 }
 
-function seconds(ms: number): string {
-  return `${ms / 1000} seconds`;
-}
-
-/**
- * The text the pane printed between its last prompt line and its last RESULT
- * line: plain, trimmed and capped with an ellipsis. Empty when the RESULT line
- * follows the prompt directly, or when the text has no RESULT line.
- */
-export function resultSummary(text: string): string {
-  const marker = [...text.matchAll(MARKER)].at(-1);
-  if (marker?.index === undefined) {
-    return "";
-  }
-  const lines = text.slice(0, marker.index).split("\n");
-  const prompt = lines.findLastIndex((line) => PROMPT.test(plain(line)));
-  const body = plain(lines.slice(prompt + 1).join("\n")).trim();
-  return body.length > SUMMARY_CAP
-    ? `${body.slice(0, SUMMARY_CAP - 1)}…`
-    : body;
-}
-
-/** The wait's answer for a session that has settled, with its recorded or read outcome and summary. */
-function settled(
-  record: SessionRecord,
-  outcome: "done" | "blocked",
-  summary: string,
-): WaitResult {
-  return {
-    name: record.name,
-    paneId: record.paneId,
-    model: record.model,
-    outcome,
-    summary: `pane ${record.paneId}`,
-    result: { outcome, summary },
-  };
-}
-
-/**
- * Reads the session's own pane once, unwrapped. It settles on an anchored marker line, records
- * the outcome, its summary and pane.finished, and returns the result; undefined means no marker
- * yet, and nothing is recorded. A recorded result settles at once, without reading the pane.
- * An error message is returned when the pane cannot be read (ADR 0123).
- */
-export async function readResult(
-  deps: CliDeps,
-  registry: SessionRegistry,
-  record: SessionRecord,
-): Promise<WaitResult | { error: string } | undefined> {
-  if (record.result !== undefined) {
-    return settled(record, record.result.outcome, record.result.summary ?? "");
-  }
-  const read = await deps.runner.run("herdr", [
-    "pane",
-    "read",
-    record.paneId,
-    "--source",
-    "recent-unwrapped",
-  ]);
-  if (read.code !== 0) {
-    return {
-      error: `herdr pane read ${record.paneId} failed: ${describeFailure(read)}`,
-    };
-  }
-  const outcome = findResult(read.stdout);
-  if (outcome === undefined) {
-    return undefined;
-  }
-  const summary = resultSummary(read.stdout);
-  await registry.write({
-    ...record,
-    result: { outcome, at: deps.clock.now().toISOString(), summary },
-  });
-  await recordFinish(deps, record.paneId, record.name, outcome);
-  return settled(record, outcome, summary);
-}
-
-/**
- * Polls the session's own pane, unwrapped, until an anchored marker line shows,
- * then records the outcome and its summary. An error message is returned when it never does.
- */
-export async function waitForResult(
-  deps: CliDeps,
-  registry: SessionRegistry,
-  record: SessionRecord,
-  timeoutMs: number,
-): Promise<WaitResult | { error: string }> {
-  const deadline = deps.clock.now().getTime() + timeoutMs;
-  for (;;) {
-    const result = await readResult(deps, registry, record);
-    if (result !== undefined) {
-      return result;
-    }
-    if (deps.clock.now().getTime() + POLL_MS > deadline) {
-      return {
-        error: `Session ${record.name} printed no "RESULT: done" or "RESULT: blocked" line in pane ${record.paneId} within ${seconds(timeoutMs)}. It may still be working; run \`session wait ${record.name}\` again or read the pane.`,
-      };
-    }
-    await deps.clock.sleep(POLL_MS);
-  }
-}
-
-export function formatWait(result: Omit<WaitResult, "result">): string {
-  return `${result.name} (${result.model}) finished: RESULT ${result.outcome}; summary in ${result.summary}.\n`;
-}
-
-/** Settles an hc session by its report, and prints the outcome it settles on. */
-async function settleOnReport(
-  context: CommandContext,
-  terminals: Terminals,
-  registry: SessionRegistry,
-  record: SessionRecord,
-  timeout: number,
-): Promise<number> {
-  const { json, deps } = context;
-  const reported = await waitForReport(
-    deps,
-    terminals,
-    registry,
-    record,
-    timeout,
-  );
-  if ("error" in reported) {
-    return fail(deps, json, FAILED, reported.error);
-  }
-  deps.stdout(
-    json ? `${JSON.stringify(reported)}\n` : formatReportWait(reported),
-  );
-  return 0;
-}
-
-/** `session wait <name>`: wait for a spawned session's anchored result marker. */
+/** `session wait <name>`: waits for a spawned session to settle on its report, then prints its outcome. */
 export async function wait(context: CommandContext): Promise<number> {
   const { json, deps, options } = context;
   const name = context.operand;
@@ -215,26 +55,49 @@ export async function wait(context: CommandContext): Promise<number> {
   if ("error" in routed) {
     return fail(deps, json, FAILED, routed.error);
   }
-  if (routed.backend === "hc") {
-    return settleOnReport(context, routed.terminals, registry, record, timeout);
+  return await settleOnReport(
+    context,
+    routed.terminals,
+    registry,
+    record,
+    timeout,
+  );
+}
+
+/** Settles an hc session by its report, and prints the outcome it settles on. */
+async function settleOnReport(
+  context: CommandContext,
+  terminals: Terminals,
+  registry: SessionRegistry,
+  record: SessionRecord,
+  timeout: number,
+): Promise<number> {
+  const { json, deps } = context;
+  const reported = await waitForReport(
+    deps,
+    terminals,
+    registry,
+    record,
+    timeout,
+  );
+  if ("error" in reported) {
+    return fail(deps, json, FAILED, reported.error);
   }
-  const result = await waitForResult(deps, registry, record, timeout);
-  if ("error" in result) {
-    return fail(deps, json, FAILED, result.error);
-  }
-  deps.stdout(json ? `${JSON.stringify(result)}\n` : formatWait(result));
+  deps.stdout(
+    json ? `${JSON.stringify(reported)}\n` : formatReportWait(reported),
+  );
   return 0;
 }
 
 export const waitHelp: CommandHelp = {
   purpose:
-    "Waits for one spawned session to settle, then prints its outcome, done or blocked, with its name and model. A herdr session settles on its RESULT line in its own pane, and --json adds the summary text the pane printed before that line. An hc session settles on its report file instead: done or blocked as the report says, or blocked, stopped without a report, when its terminal stops with none; --json then prints {name, model, outcome, summary, seq}, with seq absent when it settled without a report.",
-  when: "When a session started with --no-wait must be collected, typically in the background, so the main session hears when it settles.",
+    "Waits for one spawned session to settle, then prints its outcome, done or blocked, with its name and model. A session settles on its report file: done or blocked as the report says, or blocked, stopped without a report, when its terminal stops with none. --json prints {name, model, outcome, summary, seq}, with seq absent when it settled without a report.",
+  when: "When a session started with session spawn must be collected, typically in the background, so the main session hears when it settles.",
   whenNot:
-    "When the session was started without --no-wait, since session spawn already waited for it. To watch several targets at once, use harness wait. To see what a pane shows now, read the pane with herdr: this command only settles on the RESULT line.",
+    "To watch several targets at once, use harness wait. To see what a session's terminal shows now, read it with hc read: this command only settles on a report or a stop.",
   flags: {
     timeout:
-      "The bound in milliseconds, a positive whole number; the default is one hour. When it passes with no RESULT line, the command exits 1 and the session keeps running. For an hc session the bound applies to waiting for its terminal to stop: when it passes with no report, the command exits 1 and the session keeps running, unless the terminal turned blocked or errored meanwhile, which settles as blocked and exits 0.",
+      "The bound in milliseconds, a positive whole number; the default is one hour. For a session the bound applies to waiting for its terminal to stop: when it passes with no report, the command exits 1 and the session keeps running, unless the terminal turned blocked or errored meanwhile, which settles as blocked and exits 0.",
   },
   operand:
     "The spawned session's name, as session spawn recorded it, such as image-trust-reader. A name this tool did not spawn is refused.",
@@ -242,24 +105,24 @@ export const waitHelp: CommandHelp = {
     {
       command: "harness session wait image-trust-reader --timeout 600000",
       shows:
-        "the session's RESULT line and outcome once it prints one, or exit 1 after ten minutes with no line",
+        "the session's report outcome once it is written, or exit 1 after ten minutes with the session still working",
     },
     {
       command: "harness session wait image-trust-reader --json",
       shows:
-        "the same outcome as one JSON object, with the summary the pane printed before its RESULT line",
+        "the outcome as one JSON object, with the summary the report carried and its seq",
     },
   ],
   exits: [
     {
       code: 0,
       meaning:
-        "the RESULT line showed and its outcome is printed; a blocked outcome also exits 0. For an hc session: its report showed, or it settled as blocked (blocked or errored status, or its terminal stopped without a report), and the outcome is printed",
+        "its report showed, or it settled as blocked (blocked or errored status, or its terminal stopped without a report), and the outcome is printed",
     },
     {
       code: 1,
       meaning:
-        "no session of this tool has that name, its pane could not be read, or no RESULT line came within the timeout. For an hc session: it has no terminal recorded, its terminal could not be read, or it was still working with no report when the timeout passed",
+        "no session of this tool has that name, its record has no terminal, its terminal could not be read, or it was still working with no report when the timeout passed",
     },
     {
       code: 2,
@@ -270,7 +133,7 @@ export const waitHelp: CommandHelp = {
   effects: {
     kind: "mutates",
     detail:
-      "once a RESULT line shows, records the outcome and its summary on the session's registry entry and appends a pane.finished ledger event; until then it only reads the pane. An hc session records no RESULT line and no pane.finished event: the wait reads the report file in its terminal's checkout, and when it consumes a report it writes that report's seq to reportSeq on the registry entry, so a later wait settles only on a newer report",
+      "records the report's outcome and summary on the session's registry entry, and its seq as consumed, so a later wait settles only on a newer report; a stop with no report is recorded as blocked",
   },
   seeAlso: ["session spawn", "harness wait", "session close"],
 };

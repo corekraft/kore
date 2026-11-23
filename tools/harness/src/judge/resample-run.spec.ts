@@ -57,19 +57,6 @@ describe("ResampleRun launch (#852)", () => {
     });
   });
 
-  it("asks an hc reader for its verdict on the stdin of session report, on one line, and never for a RESULT line", async () => {
-    const f = fakes();
-    vi.mocked(readVerdict).mockReturnValue([]);
-    await new ResampleRun(f.ports, "hc").run([A]);
-
-    const brief = f.spawn.mock.calls[0]?.[0].brief as string;
-    expect(brief).not.toContain("\n");
-    expect(brief).toContain(
-      "run `node skills/bin/harness.mjs session report --outcome done --summary - <<'EOF'`, with your verdict lines on the lines after it",
-    );
-    expect(brief).not.toMatch(/RESULT/);
-  });
-
   it("sends a one-line brief, so no line of it can read as a verdict marker", async () => {
     const f = fakes();
     await new ResampleRun(f.ports).run([A]);
@@ -159,15 +146,15 @@ describe("ResampleRun failures (#852)", () => {
     ]);
   });
 
-  it("closes the pane even when the wait fails, so no reader is left running", async () => {
+  it("closes the session even when the wait fails, so no reader is left running", async () => {
     const f = fakes({
       wait: async () => {
-        throw new Error("herdr is gone");
+        throw new Error("session is gone");
       },
     });
 
     await expect(new ResampleRun(f.ports).run([A])).rejects.toThrow(
-      "herdr is gone",
+      "session is gone",
     );
     expect(f.close).toHaveBeenCalledWith("resample-pr10-aaaaaaaa");
   });

@@ -1,14 +1,15 @@
 // The session side of `harness wait --session <name>` (ADR 0123): opens a spawned session as a
-// wait target, and settles it once through session wait's own read, so its RESULT line is
-// recorded exactly as `session wait` records it. The command never reads a pane itself.
+// wait target, and settles it once through the same report read `session wait` uses, so its outcome
+// is recorded exactly as `session wait` records it. The command never reads a terminal itself.
 // Docs: infra/plans/3-agent-harness.md
 
 import type { CliDeps } from "../runtime/index.js";
+import { terminalsFor } from "./backend.js";
 import { sessionNameError } from "./names.js";
 import { SessionRegistry, type SessionRecord } from "./registry.js";
-import { readResult } from "./wait.js";
+import { readSettledOnce } from "./wait-hc.js";
 
-/** A spawned session `harness wait` watches: its record, and the registry its result is written to. */
+/** A spawned session `harness wait` watches: its record, and the registry its outcome is written to. */
 export interface SessionWaitTarget {
   readonly name: string;
   readonly record: SessionRecord;
@@ -39,19 +40,24 @@ export async function openSessionTarget(
 }
 
 /**
- * Reads the target's pane once: "pending" while it shows no RESULT line, the outcome word once
- * it does (recorded by session wait), or an error when the pane cannot be read.
+ * Reads the target's report once: "pending" while it has settled on nothing, the outcome word once it has
+ * (recorded by session wait's read), or an error when its terminal cannot be read.
  */
 export async function settleSessionTarget(
   deps: CliDeps,
   target: SessionWaitTarget,
 ): Promise<"pending" | { outcome: "done" | "blocked" } | { error: string }> {
-  const result = await readResult(deps, target.registry, target.record);
-  if (result === undefined) {
+  const settled = await readSettledOnce(
+    deps,
+    terminalsFor(deps),
+    target.registry,
+    target.record,
+  );
+  if (settled === undefined) {
     return "pending";
   }
-  if ("error" in result) {
-    return result;
+  if ("error" in settled) {
+    return settled;
   }
-  return { outcome: result.outcome };
+  return { outcome: settled.outcome };
 }

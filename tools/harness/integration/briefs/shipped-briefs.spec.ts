@@ -33,7 +33,6 @@ const HC_BRIEFS: [string, string][] = [
   [
     "a paired writer session's brief",
     buildBrief({
-      backend: "hc",
       task: "Do the thing.",
       name: "image-trust-writer",
       role: "writer",
@@ -43,7 +42,6 @@ const HC_BRIEFS: [string, string][] = [
   [
     "a reader session's brief",
     buildBrief({
-      backend: "hc",
       task: "Read it.",
       name: "reader-one",
       role: "reader",
@@ -51,16 +49,14 @@ const HC_BRIEFS: [string, string][] = [
   ],
   [
     "the judgment brief",
-    judgmentBrief("0007", 873, 12, { kind: "start", sendBacks: 3 }, "hc"),
+    judgmentBrief("0007", 873, 12, { kind: "start", sendBacks: 3 }),
   ],
   [
     "the reader brief",
-    readerBrief(
-      "0007",
-      873,
-      { question: "Which tests?", paths: ["tools/x.ts"] },
-      "hc",
-    ),
+    readerBrief("0007", 873, {
+      question: "Which tests?",
+      paths: ["tools/x.ts"],
+    }),
   ],
   [
     "the writer re-brief",
@@ -69,15 +65,15 @@ const HC_BRIEFS: [string, string][] = [
       files: ["docs/a.md"],
     }),
   ],
-  ["the retro brief", retroBrief("count", "hc")],
-  ["the branch update notice", branchNoticeBody("conflict", 12, "hc")],
+  ["the retro brief", retroBrief("count")],
+  ["the branch update notice", branchNoticeBody("conflict", 12)],
   [
     "the reviewer brief",
-    reviewerBrief(12, "aaaaaaaa11111111aaaaaaaa11111111aaaaaaaa", "hc"),
+    reviewerBrief(12, "aaaaaaaa11111111aaaaaaaa11111111aaaaaaaa"),
   ],
   [
     "the re-review brief",
-    resamplerBrief(12, "aaaaaaaa11111111aaaaaaaa11111111aaaaaaaa", "hc"),
+    resamplerBrief(12, "aaaaaaaa11111111aaaaaaaa11111111aaaaaaaa"),
   ],
   ["the main session's wait line", MAIN_SESSION_WAIT_LINE],
 ];

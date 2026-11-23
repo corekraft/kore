@@ -138,8 +138,8 @@ const snapshot = (oneMinute: number, count: number | null): HostSnapshot => ({
   vmFreeMiB: 5000,
   agentPanes:
     count === null
-      ? { count, source: "herdr agent list", missing: "spawn herdr ENOENT" }
-      : { count, source: "herdr agent list" },
+      ? { count, source: "hc ls", missing: "spawn hc ENOENT" }
+      : { count, source: "hc ls" },
 });
 
 function hostReading(
@@ -204,8 +204,8 @@ test("a missing agent pane source stays named in the recorded host, not zero", a
 
   expect(result.host?.before.agentPanes).toEqual({
     count: null,
-    source: "herdr agent list",
-    missing: "spawn herdr ENOENT",
+    source: "hc ls",
+    missing: "spawn hc ENOENT",
   });
 });
 

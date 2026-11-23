@@ -1,5 +1,5 @@
 import type { Runner } from "../runtime/index.js";
-import { describeFailure } from "./equalize.js";
+import { describeFailure } from "./describe-failure.js";
 import type { Worktree } from "./worktree.js";
 
 /** Whether the worktree and its branch were removed, and what was kept and why when they were not. */

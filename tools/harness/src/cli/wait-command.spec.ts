@@ -207,7 +207,7 @@ describe("harness wait returns on the first target to settle", () => {
     );
   });
 
-  it("settles on a session whose RESULT line shows, and names its outcome", async () => {
+  it("settles on a session that reported, and names its outcome", async () => {
     vi.mocked(openSessionTarget).mockResolvedValue({ target: TARGET });
     vi.mocked(settleSessionTarget).mockResolvedValue({ outcome: "blocked" });
     vi.mocked(readChecks).mockResolvedValue(report("pending"));
@@ -215,7 +215,7 @@ describe("harness wait returns on the first target to settle", () => {
 
     expect(await harnessWait.run(f.context)).toBe(0);
     expect(f.stdout).toHaveBeenCalledExactlyOnceWith(
-      "settled: session image-trust-writer finished: RESULT blocked.\nRestart harness wait with the rest: --pr 5.\n",
+      "settled: session image-trust-writer reported blocked.\nRestart harness wait with the rest: --pr 5.\n",
     );
     expect(settleSessionTarget).toHaveBeenCalledWith(f.context.deps, TARGET);
   });
@@ -272,16 +272,16 @@ describe("harness wait treats a failed read as a failure, not a result", () => {
     expect(f.stdout).not.toHaveBeenCalled();
   });
 
-  it("returns the pane read error as a failure, not a pending target", async () => {
+  it("returns the terminal read error as a failure, not a pending target", async () => {
     vi.mocked(openSessionTarget).mockResolvedValue({ target: TARGET });
     vi.mocked(settleSessionTarget).mockResolvedValue({
-      error: "herdr pane read w3:p9 failed: no pane",
+      error: "hc read t9 failed: no terminal",
     });
     const f = fixture({ session: ["image-trust-writer"] });
 
     expect(await harnessWait.run(f.context)).toBe(1);
     expect(f.stderr).toHaveBeenCalledExactlyOnceWith(
-      "herdr pane read w3:p9 failed: no pane\n",
+      "hc read t9 failed: no terminal\n",
     );
     expect(f.stdout).not.toHaveBeenCalled();
   });

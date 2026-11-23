@@ -65,7 +65,7 @@ async function setUpTerminals(): Promise<void> {
     parent: "t1",
   });
   vi.mocked(terminalsFor).mockReturnValue(terminals);
-  vi.mocked(routeSession).mockReturnValue({ backend: "hc", terminals });
+  vi.mocked(routeSession).mockReturnValue({ terminals });
 }
 
 beforeEach(async () => {

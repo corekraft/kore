@@ -23,7 +23,7 @@ const RECORD: SessionRecord = {
 const FILE = `${STATE}/image-trust-writer.json`;
 const CLOSED = { ...RECORD, closedAt: "2026-01-02T03:06:00.000Z" };
 const OPEN_REASON =
-  "A session record for image-trust-writer (pane w3:p9) already exists and is not closed; run `session wait image-trust-writer` then `session close image-trust-writer`, or pick another name. No pane was split.";
+  "A session record for image-trust-writer (terminal none) already exists and is not closed; run `session wait image-trust-writer` then `session close image-trust-writer`, or pick another name.";
 
 /** Opens the registry the way a command does, over the fake deps. */
 async function openWith(deps: FakeDeps): Promise<SessionRegistry> {
@@ -160,7 +160,7 @@ describe("SessionRegistry.unavailable", () => {
     );
   });
 
-  it("names the pane and the two commands that free an open record's name", async () => {
+  it("names the terminal and the two commands that free an open record's name", async () => {
     const deps = fakeDeps();
     deps.fs.exists.mockResolvedValue(true);
     deps.fs.readFile.mockResolvedValue(JSON.stringify(RECORD));
@@ -187,7 +187,7 @@ describe("SessionRegistry.create", () => {
     expect(deps.fs.writeFile).not.toHaveBeenCalled();
   });
 
-  it("refuses an open record under the same name, saying the pane runs unrecorded", async () => {
+  it("refuses an open record under the same name, with the registry's reason", async () => {
     const deps = fakeDeps();
     deps.fs.createFile.mockRejectedValue(
       Object.assign(new Error("exists"), { code: "EEXIST" }),
@@ -198,12 +198,7 @@ describe("SessionRegistry.create", () => {
     const registry = await openWith(deps);
 
     await expect(registry.create(RECORD)).rejects.toThrow(
-      new CommandError(
-        OPEN_REASON.replace(
-          " No pane was split.",
-          " Pane w3:p9 is running unrecorded; close it with `herdr pane close w3:p9`.",
-        ),
-      ),
+      new CommandError(OPEN_REASON),
     );
     expect(deps.fs.writeFile).not.toHaveBeenCalled();
   });

@@ -3,7 +3,7 @@ import type { Ledger } from "../ledger/index.js";
 import type { CommandContext, RunResult } from "../runtime/index.js";
 import { openJudgeLedger } from "./judge-shared.js";
 import { ghReviewIo } from "./review-gh.js";
-import { settledReads, type Backend } from "./review-settled.js";
+import { settledReads } from "./review-settled.js";
 
 const HARNESS = "skills/bin/harness.mjs";
 const ROLE = "principles-review";
@@ -34,12 +34,11 @@ async function recordReviewRun(
 
 /**
  * The real ports of `review run`: the PR through gh, the Reviewer pane through the `session` tools
- * (so its launch records its tier source), its text through herdr on herdr or from its report's summary
- * on hc, and the review.run events through the judge's ledger.
+ * (so its launch records its tier source), its text from its report's summary, and the review.run events
+ * through the judge's ledger.
  */
 export async function sessionReviewPorts(
   context: CommandContext,
-  backend: Backend,
 ): Promise<ReviewPorts> {
   const { deps } = context;
   const root = await deps.root();
@@ -76,7 +75,7 @@ export async function sessionReviewPorts(
         "--no-wait",
       );
     },
-    ...settledReads(harness, tool, backend),
+    ...settledReads(harness),
     close: async (name) => {
       await harness("session", "close", name);
     },

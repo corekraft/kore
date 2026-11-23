@@ -7,12 +7,11 @@ import * as help from "./ledger-help.js";
 const records: [string, CommandHelp][] = [
   ["record", help.recordHelp],
   ["list", help.listHelp],
-  ["poll-herdr", help.pollHerdrHelp],
   ["poll-github", help.pollGithubHelp],
   ["watch", help.watchHelp],
 ];
 
-const writers = ["record", "poll-herdr", "poll-github", "watch"];
+const writers = ["record", "poll-github", "watch"];
 
 describe("the ledger help records", () => {
   it.each(records)(
@@ -100,7 +99,6 @@ describe("the ledger help flags", () => {
       "source",
       "until",
     ]);
-    expect(Object.keys(help.pollHerdrHelp.flags)).toEqual(["ledger"]);
     expect(Object.keys(help.pollGithubHelp.flags).sort()).toEqual([
       "ledger",
       "repo",

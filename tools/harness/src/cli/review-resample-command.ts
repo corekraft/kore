@@ -10,9 +10,7 @@ import {
 } from "../judge/index.js";
 import type { LedgerEvent } from "../ledger/index.js";
 import type { CommandContext } from "../runtime/index.js";
-import { briefBackend } from "../session/index.js";
 import { failed } from "./judge-shared.js";
-import type { Backend } from "./review-settled.js";
 
 const USAGE = "Run `harness review resample [--size n] [--json]`.";
 
@@ -74,18 +72,17 @@ function summaryOf({
  */
 export async function reviewResampleRun(
   context: CommandContext,
-  load: (backend: Backend) => Promise<ResampleIo>,
+  load: () => Promise<ResampleIo>,
   random: () => number,
 ): Promise<number> {
   try {
     const size = sizeOf(context.options["size"]);
-    const backend = await briefBackend(context.deps);
-    const io = await load(backend);
+    const io = await load();
     const sample = drawSample(resampleCandidates(io.events), size, random);
     const result =
       sample.length === 0
         ? { reviewed: [], failed: [] }
-        : await new ResampleRun(io.ports, backend).run(sample);
+        : await new ResampleRun(io.ports).run(sample);
     const output: ResampleOutput = { sample, ...result };
     context.deps.stdout(
       context.json ? `${JSON.stringify(output)}\n` : summaryOf(output),

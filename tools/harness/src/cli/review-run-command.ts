@@ -6,7 +6,6 @@ import {
 } from "../judge/index.js";
 import type { CommandContext } from "../runtime/index.js";
 import { senderFrom } from "../sender/index.js";
-import { briefBackend } from "../session/index.js";
 import { failed, prNumber } from "./judge-shared.js";
 import { sessionReviewPorts } from "./review-run-io.js";
 
@@ -30,11 +29,9 @@ export async function reviewRunRun(context: CommandContext): Promise<number> {
     if ("error" in sender) {
       throw new JudgeError(sender.error);
     }
-    const backend = await briefBackend(context.deps);
     const done = await new ReviewRun(
-      await sessionReviewPorts(context, backend),
+      await sessionReviewPorts(context),
       MAX_REVIEW_RUNS,
-      backend,
     ).run(pr, sender);
     context.deps.stdout(
       context.json ? `${JSON.stringify(done)}\n` : summaryOf(done),

@@ -9,7 +9,6 @@ import {
 } from "../orchestrator/index.js";
 import { hostLocksDirectory, mainRoot } from "../runtime/index.js";
 import type { CommandContext } from "../runtime/index.js";
-import { hcSessionsOn } from "../session/index.js";
 import { tickCommand } from "./orchestrate-tick.js";
 import { hcAttended, hcReconcile } from "./orchestrate-tick-hc.js";
 
@@ -18,10 +17,6 @@ vi.mock("./orchestrate-tick-loop.js", () => ({ runTickLoop: vi.fn() }));
 vi.mock("./orchestrate-tick-hc.js", () => ({
   hcAttended: vi.fn(),
   hcReconcile: vi.fn(),
-}));
-vi.mock("../session/index.js", async () => ({
-  ...(await vi.importActual<object>("../session/index.js")),
-  hcSessionsOn: vi.fn(),
 }));
 vi.mock("../orchestrator/index.js", async () => ({
   ...(await vi.importActual<object>("../orchestrator/tick-bounds.js")),
@@ -116,11 +111,7 @@ beforeEach(() => {
   vi.mocked(tickFlagOn).mockResolvedValue(true);
 });
 
-describe("orchestrate tick with hc-sessions on", () => {
-  beforeEach(() => {
-    vi.mocked(hcSessionsOn).mockResolvedValue(true);
-  });
-
+describe("orchestrate tick reconciles through hc", () => {
   it("runs the pass that reconciles the tick, not the tick's own", async () => {
     const order: string[] = [];
     const pass = wiredTick(order);
@@ -138,7 +129,7 @@ describe("orchestrate tick with hc-sessions on", () => {
     expect(order).toEqual(["reconciled pass"]);
   });
 
-  it("sends the notices to the attended terminal, not to herdr", async () => {
+  it("sends the notices to the attended terminal", async () => {
     wiredTick([]);
     const attended = {
       attendedPane: vi.fn().mockResolvedValue("t9"),
@@ -167,25 +158,5 @@ describe("orchestrate tick with hc-sessions on", () => {
     expect(await tickCommand.run(context)).toBe(1);
     expect(pass).not.toHaveBeenCalled();
     expect(err.join("")).toBe("hc is not running\n");
-  });
-});
-
-describe("orchestrate tick with hc-sessions off", () => {
-  beforeEach(() => {
-    vi.mocked(hcSessionsOn).mockResolvedValue(false);
-  });
-
-  it("builds no hc reconcile and no attended terminal, and keeps the herdr pass", async () => {
-    const order: string[] = [];
-    wiredTick(order);
-    const { context } = setup();
-
-    expect(await tickCommand.run(context)).toBe(0);
-    expect(hcReconcile).not.toHaveBeenCalled();
-    expect(hcAttended).not.toHaveBeenCalled();
-    expect(reconcilingPass).not.toHaveBeenCalled();
-    expect(order).toEqual(["pass"]);
-    const ports = vi.mocked(TickNotifier).mock.calls[0]?.[0];
-    expect(ports?.send).toEqual(expect.any(Function));
   });
 });

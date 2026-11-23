@@ -2,7 +2,7 @@
 // another terminal, and a raw hc label, hc run or hc exec, or an HC_TERMINAL_ID prefix, can relabel or drive
 // one, and a label is what names a role. The rule starts in audit mode (ADR 0080): it warns until the owner
 // activates it. Only the writer is checked here, and it is identified by its session record, which exists only
-// in an hc terminal, so the herdr path is unchanged. The read-only roles and the judge are refused by their
+// in an hc terminal, so a process outside one is not checked here. The read-only roles and the judge are refused by their
 // allowlist (role-read-only), not here.
 import { commandOf } from "./guard-shell.js";
 import { block, type Finding } from "./guard-verdict.js";

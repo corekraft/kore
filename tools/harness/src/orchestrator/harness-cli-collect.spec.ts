@@ -22,7 +22,7 @@ function setup(answer: (args: string[]) => Partial<RunResult>) {
       },
     ),
   };
-  return { cli: new HarnessCli(runner, "/repo", "hc"), calls };
+  return { cli: new HarnessCli(runner, "/repo"), calls };
 }
 
 const harness = (...args: string[]) => ({

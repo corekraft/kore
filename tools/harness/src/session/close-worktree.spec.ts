@@ -1,10 +1,10 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { RunResult } from "../runtime/index.js";
 import { removeMergedWorktree } from "./close-worktree.js";
-import { describeFailure } from "./equalize.js";
+import { describeFailure } from "./describe-failure.js";
 import { failed, fakeRunner, ok } from "./close-support.js";
 
-vi.mock("./equalize.js", () => ({
+vi.mock("./describe-failure.js", () => ({
   describeFailure: vi.fn(() => "git said no"),
 }));
 

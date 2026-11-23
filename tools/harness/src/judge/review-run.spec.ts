@@ -195,24 +195,22 @@ describe("ReviewRun records a failure and posts nothing when there is no verdict
     expect(io.close).toHaveBeenCalledWith("pr42-reviewer");
   });
 
-  it("asks an hc Reviewer for its verdict on the stdin of session report, and a herdr one for its RESULT line", async () => {
+  it("asks the Reviewer for its verdict on the stdin of session report, never a RESULT line", async () => {
     io.view.mockResolvedValue(view(HEAD_A));
-    await new ReviewRun(io, 3, "hc").run(42, WHO);
-    await new ReviewRun(io).run(42, WHO);
+    await new ReviewRun(io, 3).run(42, WHO);
 
-    const [hc, herdr] = io.spawn.mock.calls.map((call) => call[1]);
-    expect(hc).toContain(
+    const [brief] = io.spawn.mock.calls.map((call) => call[1]);
+    expect(brief).toContain(
       "run `node skills/bin/harness.mjs session report --outcome done --summary - <<'EOF'`, with your verdict lines on the lines after it",
     );
-    expect(hc).not.toMatch(/RESULT/);
-    expect(herdr).toContain(
-      "Then end with the word RESULT, a colon, then done or blocked.",
-    );
+    expect(brief).not.toMatch(/RESULT/);
   });
 
-  it("closes the pane even when reading it fails", async () => {
-    io.read.mockRejectedValue(new Error("herdr gone"));
-    await expect(new ReviewRun(io).run(42, WHO)).rejects.toThrow(/herdr gone/);
+  it("closes the Reviewer's session even when reading it fails", async () => {
+    io.read.mockRejectedValue(new Error("session gone"));
+    await expect(new ReviewRun(io).run(42, WHO)).rejects.toThrow(
+      /session gone/,
+    );
     expect(io.close).toHaveBeenCalledWith("pr42-reviewer");
     expect(postReview).not.toHaveBeenCalled();
   });

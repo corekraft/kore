@@ -57,12 +57,8 @@ export type TickPorts = Pick<
   head(pr: number): Promise<string>;
   /** Whether a principles-review verdict is already posted for the head; read-only. */
   reviewPosted(pr: number, head: string): Promise<boolean>;
-  /** A finished pane's text, read before the pane is closed; read-only. */
-  paneText(name: string): Promise<string>;
   /** The report a finished hc session wrote, read-only; undefined when it wrote none. */
   reportOf: JudgmentPorts["reportOf"];
-  /** The backend the judgment and piece briefs are written for: hc when the hc-sessions flag is on. */
-  backend: "herdr" | "hc";
   /** Labels the issue `needs-info` with the reason, for a judgment flow that stops (ADR 0121). */
   needsInfo(issue: number, reason: string): Promise<void>;
   /** The idea's persisted work plan, read-only; undefined when the idea has none (ADR 0121). */
@@ -215,9 +211,7 @@ export class Tick {
     if (bound !== undefined) {
       return done("held", { bound });
     }
-    await this.ports.spawn(
-      pieceLaunch(idea, issue, next.piece, next.name, this.ports.backend),
-    );
+    await this.ports.spawn(pieceLaunch(idea, issue, next.piece, next.name));
     return done("spawn-piece", { pane: next.name });
   }
 

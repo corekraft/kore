@@ -36,34 +36,19 @@ const HC_RECORD: SessionRecord = {
   createdAt: "2026-01-02T03:04:05.000Z",
 };
 
-describe("routeSession sends a record to the backend it names", () => {
-  it("routes a record with no backend to herdr, so every record written before the field keeps its path", () => {
-    expect(routeSession(HERDR_RECORD, undefined)).toStrictEqual({
-      backend: "herdr",
-    });
-  });
-
-  it("routes an explicit herdr backend to herdr, even when an hc adapter is injected", () => {
+describe("routeSession sends a record to its hc terminals, and refuses one with no terminal id", () => {
+  it("routes a record with a terminal id to the injected hc terminals", () => {
     const hc = new FakeTerminals();
 
-    expect(
-      routeSession({ ...HERDR_RECORD, backend: "herdr" }, hc),
-    ).toStrictEqual({ backend: "herdr" });
+    expect(routeSession(HC_RECORD, hc)).toStrictEqual({ terminals: hc });
   });
 
-  it("routes a backend hc record to the injected hc terminals", () => {
+  it("refuses a record with no terminal id, naming the close that removes it, and never routes it", () => {
     const hc = new FakeTerminals();
 
-    expect(routeSession(HC_RECORD, hc)).toStrictEqual({
-      backend: "hc",
-      terminals: hc,
-    });
-  });
-
-  it("refuses an hc record when no hc terminals are available, with a hint, and never routes it to herdr", () => {
-    expect(routeSession(HC_RECORD, undefined)).toStrictEqual({
+    expect(routeSession(HERDR_RECORD, hc)).toStrictEqual({
       error:
-        "Session image-trust-writer runs on hc, but hc is not available here, so it is not routed to herdr. Install the pinned hc (plan 16, step 1), then retry.",
+        "Session image-trust-writer has no terminal id, so it is not on hc and nothing can be sent to or read from it. Run `harness session close --force-record image-trust-writer` to remove its record.",
     });
   });
 });

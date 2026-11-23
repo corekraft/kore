@@ -30,7 +30,7 @@ export function sessionNameError(name: string): string | undefined {
     return `Session name "${name}" must use only lowercase letters, digits, "-" and "_"; ${EXAMPLE}.`;
   }
   if (name.length > MAX_LENGTH) {
-    return `Session name "${name}" is ${name.length} characters, but Herdr allows at most ${MAX_LENGTH}; shorten it, for example by dropping the role suffix.`;
+    return `Session name "${name}" is ${name.length} characters, but a session name is at most ${MAX_LENGTH} characters; shorten it, for example by dropping the role suffix.`;
   }
   if (name.split(/[-_]/).some(isPlaceholderSegment)) {
     return `Session name "${name}" uses a letter, ordinal or step number; ${EXAMPLE}.`;

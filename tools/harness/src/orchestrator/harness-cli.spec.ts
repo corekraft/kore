@@ -262,36 +262,25 @@ describe("HarnessCli retro", () => {
     ]);
   });
 
-  it("collects a pane by waiting for it and reading its unwrapped text", async () => {
-    const { cli, calls } = setup((args) =>
-      args.includes("wait")
-        ? { stdout: JSON.stringify({ outcome: "done", paneId: "w1:p4" }) }
-        : { stdout: "pane text" },
-    );
+  it("collects a session by waiting for it and reading the summary its report carries", async () => {
+    const { cli, calls } = setup(() => ({
+      stdout: JSON.stringify({ outcome: "done", summary: "the proposals" }),
+    }));
 
     expect(await cli.collect("retro-1")).toEqual({
       outcome: "done",
-      text: "pane text",
+      text: "the proposals",
     });
-    expect(calls).toEqual([
-      harness("session", "wait", "retro-1", "--json"),
-      {
-        command: "herdr",
-        args: ["pane", "read", "w1:p4", "--source", "recent-unwrapped"],
-        cwd: "/repo",
-      },
-    ]);
+    expect(calls).toEqual([harness("session", "wait", "retro-1", "--json")]);
   });
 
-  it("names the failed read when herdr cannot read the pane", async () => {
-    const { cli } = setup((args) =>
-      args.includes("wait")
-        ? { stdout: JSON.stringify({ outcome: "done", paneId: "w1:p4" }) }
-        : { code: 1, stderr: "no such pane" },
-    );
+  it("refuses a session that settled without a report, and names the fix", async () => {
+    const { cli } = setup(() => ({
+      stdout: JSON.stringify({ outcome: "done" }),
+    }));
 
     await expect(cli.collect("retro-1")).rejects.toThrow(
-      "`herdr pane read w1:p4` failed: no such pane. Fix that, then rerun.",
+      /settled without a report, so its proposals are not read/,
     );
   });
 });

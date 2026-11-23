@@ -7,6 +7,10 @@ import { hostLeaseRefusal, spawnLoadRefusal } from "../session/index.js";
 import { runOnTicks } from "./orchestrate-tick.js";
 
 vi.mock("../orchestrator/index.js", async () => ({
+  AttendedTerminal: vi.fn(),
+  reconcilingPass: vi.fn(),
+  TickReconcile: vi.fn(),
+  unsettledOf: vi.fn(),
   ...(await vi.importActual<object>("../orchestrator/tick-bounds.js")),
   FileLeaseStore: vi.fn(),
   HarnessCliError: class extends Error {},
@@ -30,6 +34,7 @@ vi.mock("../orchestrator/index.js", async () => ({
   tickFlagOn: vi.fn(),
 }));
 vi.mock("../runtime/index.js", () => ({
+  ProcessLineStream: vi.fn(),
   hostLocksDirectory: vi.fn(),
   mainRoot: vi.fn(),
   readPower: vi.fn(),
@@ -39,11 +44,12 @@ vi.mock("../ledger/index.js", () => ({
   Ledger: vi.fn(),
 }));
 vi.mock("../session/index.js", () => ({
+  terminalsFor: vi.fn(),
+  SessionRegistry: { open: vi.fn() },
   deliver: vi.fn(),
   hostLeaseRefusal: vi.fn(),
   signedMainSendsOn: vi.fn(),
   spawnLoadRefusal: vi.fn(),
-  hcSessionsOn: vi.fn().mockResolvedValue(false),
 }));
 
 const NOW = new Date("2026-11-16T12:00:00.000Z");

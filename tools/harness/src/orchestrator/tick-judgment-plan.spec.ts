@@ -1,7 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { decide } from "./judgment-flow.js";
 import { flowOf } from "./judgment-panes.js";
-import { checkNames, checkPlan, readPlan } from "./judgment-plan.js";
+import { checkNames, checkPlan } from "./judgment-plan.js";
+import { readPlanOf } from "./judgment-read.js";
 import {
   IDEA,
   ISSUE,
@@ -28,9 +29,11 @@ vi.mock("./judgment-panes.js", () => ({
 vi.mock("./judgment-plan.js", () => ({
   checkNames: vi.fn(),
   checkPlan: vi.fn(),
-  readPlan: vi.fn(),
 }));
-vi.mock("./judgment-summary.js", () => ({ readSummary: vi.fn() }));
+vi.mock("./judgment-read.js", () => ({
+  readPlanOf: vi.fn(),
+  readSummaryOf: vi.fn(),
+}));
 
 const WORK = {
   role: "writer" as const,
@@ -55,7 +58,7 @@ beforeEach(() => {
   primeMocks();
   vi.mocked(flowOf).mockReturnValue(decidingFlow("done"));
   vi.mocked(checkPlan).mockReturnValue(WORK_PLAN);
-  vi.mocked(readPlan).mockReturnValue({ ok: true, raw: {} });
+  vi.mocked(readPlanOf).mockResolvedValue({ ok: true, raw: {} });
   vi.mocked(checkNames).mockImplementation((_idea, checked) => checked);
 });
 
@@ -116,21 +119,15 @@ describe("TickJudgment.consume: persisting the work plan", () => {
   });
 });
 
-describe("TickJudgment.consume: an hc judgment's plan comes from its report", () => {
-  it("checks the plan its report carries, and reads no pane", async () => {
+describe("TickJudgment.consume: a judgment's plan comes from its report", () => {
+  it("checks the plan its report carries", async () => {
     const plan = { stop: { reason: "owner decides" } };
-    const p = ports({
-      backend: "hc",
-      reportOf: vi.fn(async () => ({
-        summary: "plan written",
-        plan: JSON.stringify(plan, null, 2),
-      })),
-    });
+    const p = ports();
+    vi.mocked(readPlanOf).mockResolvedValue({ ok: true, raw: plan });
 
     await new TickJudgment(p).consume(IDEA, ISSUE, [], admitted());
 
-    expect(readPlan).not.toHaveBeenCalled();
-    expect(p.paneText).not.toHaveBeenCalled();
+    expect(readPlanOf).toHaveBeenCalledWith(p, "idea-0007-judgment-r1");
     expect(checkPlan).toHaveBeenCalledWith(plan);
   });
 });

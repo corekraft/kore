@@ -19,11 +19,14 @@ import { runTickLoop } from "./orchestrate-tick-loop.js";
 vi.mock("./orchestrate-tick-install.js", () => ({ installTickJob: vi.fn() }));
 vi.mock("../session/index.js", async () => ({
   ...(await vi.importActual<object>("../session/index.js")),
-  hcSessionsOn: vi.fn().mockResolvedValue(false),
 }));
 vi.mock("./orchestrate-tick-loop.js", () => ({ runTickLoop: vi.fn() }));
 
 vi.mock("../orchestrator/index.js", async () => ({
+  AttendedTerminal: vi.fn(),
+  reconcilingPass: vi.fn(),
+  TickReconcile: vi.fn(),
+  unsettledOf: vi.fn(),
   ...(await vi.importActual<object>("../orchestrator/tick-bounds.js")),
   FileLeaseStore: vi.fn(),
   HarnessCliError: class extends Error {},
@@ -50,6 +53,7 @@ vi.mock("../orchestrator/index.js", async () => ({
   tickFlagOn: vi.fn(),
 }));
 vi.mock("../runtime/index.js", () => ({
+  ProcessLineStream: vi.fn(),
   hostLocksDirectory: vi.fn(),
   mainRoot: vi.fn(),
 }));
@@ -130,7 +134,6 @@ describe("orchestrate tick with the flag on", () => {
         plans: "/main/.kore/state/tick-plans",
         checkout: "/main",
       },
-      "herdr",
     );
     expect(TickLease).toHaveBeenCalledWith(
       expect.anything(),

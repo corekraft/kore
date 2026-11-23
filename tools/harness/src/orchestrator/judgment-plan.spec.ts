@@ -1,12 +1,5 @@
 import { describe, expect, it } from "vitest";
-import {
-  BRIEF_MAX,
-  PLAN_BEGIN,
-  PLAN_END,
-  TEXT_MAX,
-  checkPlan,
-  readPlan,
-} from "./judgment-plan.js";
+import { BRIEF_MAX, TEXT_MAX, checkPlan } from "./judgment-plan.js";
 
 const SUFFIX =
   "The whole plan is refused and nothing was started; fix the judgment pane's plan and rerun.";
@@ -18,40 +11,6 @@ const piece = (overrides: Record<string, unknown> = {}) => ({
   files: ["tools/harness/src/orchestrator/a.ts"],
   after: [],
   ...overrides,
-});
-
-describe("readPlan", () => {
-  it("reads the JSON between the last pair of markers in the pane", () => {
-    const pane = [
-      PLAN_BEGIN,
-      '{"stop":{"reason":"old"}}',
-      PLAN_END,
-      "more text",
-      `● ${PLAN_BEGIN}`,
-      '{"stop":{"reason":"new"}}',
-      `  ${PLAN_END}`,
-      "RESULT: done",
-    ].join("\n");
-    expect(readPlan(pane)).toEqual({
-      ok: true,
-      raw: { stop: { reason: "new" } },
-    });
-  });
-
-  it("refuses a pane that printed no plan and names the markers", () => {
-    expect(readPlan("RESULT: done")).toEqual({
-      ok: false,
-      error: `The judgment pane printed no plan; it must end with one JSON object between the ${PLAN_BEGIN} line and the ${PLAN_END} line. Nothing was started; rerun the judgment pane.`,
-    });
-  });
-
-  it("refuses a plan that is not valid JSON", () => {
-    const pane = `${PLAN_BEGIN}\n{"reads": [\n${PLAN_END}`;
-    expect(readPlan(pane)).toEqual({
-      ok: false,
-      error: `The judgment pane's plan is not valid JSON; it must be one JSON object between ${PLAN_BEGIN} and ${PLAN_END}. Nothing was started.`,
-    });
-  });
 });
 
 describe("checkPlan: accepted plans", () => {

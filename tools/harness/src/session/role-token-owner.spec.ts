@@ -36,7 +36,7 @@ const KEYCHAIN: Record<string, string | undefined> = {
   "kore.orchestrator.private-key": KEY,
 };
 const GH_LOGIN_ERROR =
-  "The owner-writer flag is on but `gh auth token` returned no token. Run `gh auth login`, then rerun. No pane was split.";
+  "The owner-writer flag is on but `gh auth token` returned no token. Run `gh auth login`, then rerun.";
 
 let deps: FakeDeps;
 
@@ -169,7 +169,7 @@ describe("roleToken for a judge with the owner-writer flag on", () => {
     answer({ ...KEYCHAIN, "kore.judge.app-id": undefined });
 
     await expect(roleToken(deps, "judge")).resolves.toEqual({
-      error: `The judge identity is missing: keychain item kore.judge.app-id was not found. Create it with \`bash ${WIZARD}\`, then rerun. No pane was split.`,
+      error: `The judge identity is missing: keychain item kore.judge.app-id was not found. Create it with \`bash ${WIZARD}\`, then rerun.`,
     });
   });
 

@@ -8,7 +8,7 @@ import * as hookFeedback from "./hook-feedback-support.js";
 const { KORE_BIN, edited, failing, hook, ledgerEvents, root } = hookFeedback;
 
 describe("hook feedback records ledger events", () => {
-  it("records a tool end as success after any tool, with session, pane and tool", async () => {
+  it("records a tool end as success after any tool, with session and tool", async () => {
     const h = testHarness({
       env: {
         KORE_ROOT: root,
@@ -30,7 +30,6 @@ describe("hook feedback records ledger events", () => {
       source: "claude",
       kind: "tool.end",
       session: "s1",
-      pane: "w9:p9",
       tool: "Bash",
       outcome: "success",
     });
@@ -143,8 +142,8 @@ describe("hook feedback records token usage at stop", () => {
   });
 });
 
-describe("hook feedback records the session result at stop (#853)", () => {
-  it("records session.result with only the outcome word, between the stop and the tokens, and keeps none of the turn's text", async () => {
+describe("hook feedback records no session result at stop (ADR 0178)", () => {
+  it("records no session.result for a RESULT line, since a session settles on its report, and keeps none of the turn's text", async () => {
     const said = (id: string, text: string, usage?: object) =>
       JSON.stringify({
         type: "assistant",
@@ -157,12 +156,6 @@ describe("hook feedback records the session result at stop (#853)", () => {
     ]);
     expect(events).toMatchObject([
       { kind: "session.stop" },
-      {
-        kind: "session.result",
-        session: "s1",
-        source: "claude",
-        result: "blocked",
-      },
       { kind: "token.usage", tokens: 10 },
     ]);
     expect(JSON.stringify(events)).not.toMatch(/all green|working on/);

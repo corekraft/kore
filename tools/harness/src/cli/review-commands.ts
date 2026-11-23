@@ -226,10 +226,6 @@ export const reviewCommands: Record<string, Command> = {
     help: resampleHelp,
     options: { size: "string" },
     run: (context) =>
-      reviewResampleRun(
-        context,
-        (backend) => sessionResampleIo(context, backend),
-        Math.random,
-      ),
+      reviewResampleRun(context, () => sessionResampleIo(context), Math.random),
   },
 };

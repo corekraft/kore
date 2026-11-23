@@ -89,11 +89,6 @@ async function openRecord(
   if ("error" in routed) {
     return { error: routed.error };
   }
-  if (routed.backend === "herdr") {
-    return {
-      error: `Session ${record.name} runs on herdr; session report is for hc sessions only.`,
-    };
-  }
   return record;
 }
 
@@ -210,7 +205,7 @@ export const reportHelp: CommandHelp = {
     "Records how a spawned hc session finished as a numbered report file, which the waiting parent reads, then tells the parent in one fixed line that the report is there.",
   when: "As the last action of a session that session spawn started on hc, once its work is finished or it is blocked.",
   whenNot:
-    "Outside a session's own terminal, which it refuses, and for a herdr pane, which reports through its RESULT line. After a rework, report again: each report takes the next seq, and the parent reads the new one.",
+    "Outside a session's own terminal, which it refuses. After a rework, report again: each report takes the next seq, and the parent reads the new one.",
   flags: {
     outcome:
       "done when the work is finished, blocked when it cannot go on without a person.",

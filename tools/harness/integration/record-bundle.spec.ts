@@ -44,14 +44,14 @@ function record(source: string) {
   return { result, events };
 }
 
-it("cli: a startup records a session start, with session and pane, before it exits", () => {
+it("cli: a startup records a session start, with session, before it exits", () => {
   const { result, events } = record("startup");
   assert.equal(result.status, 0);
   assert.equal(result.stdout, "");
   assert.equal(result.stderr, "");
   assert.deepEqual(
-    events.map((e) => [e["kind"], e["session"], e["pane"]]),
-    [["session.start", "s1", "w9:p9"]],
+    events.map((e) => [e["kind"], e["session"]]),
+    [["session.start", "s1"]],
   );
 });
 

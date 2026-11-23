@@ -179,21 +179,16 @@ const GITHUB_POLL = [
   ["/repo/skills/bin/harness.mjs", "ledger", "poll-github"],
   { detached: true },
 ];
-const HERDR_POLL = [
-  "node",
-  ["/repo/skills/bin/harness.mjs", "ledger", "poll-herdr"],
-  { detached: true },
-];
 
 describe("record hook: the background ledger polls", () => {
   it.each(["startup", "clear", "resume"])(
-    "starts `ledger poll-github` then `ledger poll-herdr`, each detached through the runner, for a %s start",
+    "starts `ledger poll-github`, detached through the runner, for a %s start",
     async (source) => {
       runnerRun.mockResolvedValue({ stdout: "", stderr: "", code: 0 });
 
       await run({ source, session_id: "abc" });
 
-      expect(runnerRun.mock.calls).toEqual([GITHUB_POLL, HERDR_POLL]);
+      expect(runnerRun.mock.calls).toEqual([GITHUB_POLL]);
     },
   );
 
@@ -209,7 +204,7 @@ describe("record hook: the background ledger polls", () => {
 });
 
 describe("record hook: background polls that fail or do not run", () => {
-  it("still starts the herdr poll when the GitHub poll cannot start", async () => {
+  it("still settles when the GitHub poll cannot start", async () => {
     runnerRun.mockReset();
     runnerRun.mockImplementationOnce(() => {
       throw new Error("spawn failed");
@@ -217,10 +212,10 @@ describe("record hook: background polls that fail or do not run", () => {
     runnerRun.mockResolvedValue({ stdout: "", stderr: "", code: 0 });
 
     expect(await run({ source: "startup", session_id: "abc" })).toEqual({});
-    expect(runnerRun.mock.calls).toEqual([GITHUB_POLL, HERDR_POLL]);
+    expect(runnerRun.mock.calls).toEqual([GITHUB_POLL]);
   });
 
-  it("starts the herdr poll after a GitHub poll that rejects, so one failure does not stop the other", async () => {
+  it("ends quietly when the GitHub poll rejects", async () => {
     runnerRun.mockReset();
     runnerRun.mockImplementation((_command: string, args: string[]) =>
       args.includes("poll-github")
@@ -229,7 +224,7 @@ describe("record hook: background polls that fail or do not run", () => {
     );
 
     expect(await run({ source: "startup", session_id: "abc" })).toEqual({});
-    expect(runnerRun.mock.calls).toEqual([GITHUB_POLL, HERDR_POLL]);
+    expect(runnerRun.mock.calls).toEqual([GITHUB_POLL]);
   });
 
   it("prints nothing into the session context when the poll reports output or fails", async () => {

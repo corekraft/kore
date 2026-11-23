@@ -19,3 +19,4 @@ export type {
 } from "./port.js";
 export { FakeTerminals } from "./FakeTerminals.js";
 export { HcTerminals, type HcTerminalsOptions } from "./HcTerminals.js";
+export { isInheritedFromCore } from "./inherited.js";

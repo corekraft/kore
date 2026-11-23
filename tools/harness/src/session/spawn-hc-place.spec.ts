@@ -38,12 +38,12 @@ beforeEach(() => {
 describe("reserve refuses a name whose record is still open, and places nothing", () => {
   it("refuses with the registry's reason, rewritten for an hc session, and never places a directory", async () => {
     registry.unavailable.mockResolvedValue(
-      "A session record for image-trust-reader (pane t7) already exists and is not closed. No pane was split.",
+      "A session record for image-trust-reader (terminal t7) already exists and is not closed.",
     );
 
     await expect(reserve(deps, {}, "image-trust-reader")).resolves.toEqual({
       error:
-        "A session record for image-trust-reader (pane t7) already exists and is not closed. No terminal was started.",
+        "A session record for image-trust-reader (terminal t7) already exists and is not closed.",
     });
     expect(place).not.toHaveBeenCalled();
   });

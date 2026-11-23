@@ -217,11 +217,6 @@ export const CORPUS: readonly CorpusCase[] = [
   ...GUARD_PATH_VARIANTS,
   ...GATED,
   ...HELP_NEAR_MISS_REFUSED,
-  {
-    tool: "Bash",
-    input: "herdr agent start w3:p2 --permission-mode bypassPermissions",
-    rule: "bare-agent-start",
-  },
 ];
 
 export interface OrdinaryCase {
@@ -303,13 +298,6 @@ export const ORDINARY: readonly OrdinaryCase[] = [
     undefined,
     "harness session spawn --role writer --name a --brief b",
     "node skills/bin/harness.mjs session spawn --role judge --name j --brief b --no-wait",
-  ),
-  ...ordinary(
-    undefined,
-    "echo 'herdr agent start'",
-    'git commit -m "use herdr agent start"',
-    "herdr agent prompt w3:p2 hi",
-    "herdr agent start --help",
   ),
   { role: "writer", tool: "Write", input: "src/a.ts" },
   { role: "writer", tool: "Edit", input: "docs/index.md" },

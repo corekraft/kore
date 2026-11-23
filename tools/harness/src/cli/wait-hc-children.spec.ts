@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { CliDeps } from "../runtime/index.js";
-import { hcSessionsOn, terminalsFor } from "../session/index.js";
+import { terminalsFor } from "../session/index.js";
 import type { Terminal, Terminals } from "../terminal/index.js";
 import { CHECKS_POLL_MS } from "./pr-checks.js";
 import {
@@ -13,7 +13,6 @@ import {
 } from "./wait-hc-children.js";
 
 vi.mock("../session/index.js", () => ({
-  hcSessionsOn: vi.fn(),
   terminalsFor: vi.fn(),
 }));
 
@@ -49,9 +48,8 @@ function child(id: string, name: string, state: "live" | "finished"): Terminal {
   return { id, name, state, labels: {}, cwd: "/repo" };
 }
 
-/** The caller as hc-sessions and the terminal see it: whether hc is on, and the caller's own terminal. */
-function hcCaller(on: boolean): TerminalsMock {
-  vi.mocked(hcSessionsOn).mockResolvedValue(on);
+/** The caller as its terminal sees it: its own terminal, listed by hc. */
+function hcCaller(): TerminalsMock {
   const terminals = terminalsMock();
   vi.mocked(terminalsFor).mockReturnValue(asTerminals(terminals));
   return terminals;
@@ -61,38 +59,31 @@ beforeEach(() => {
   vi.resetAllMocks();
 });
 
-describe("hcChildrenFor: the children wait runs only for a --pr target on hc-sessions, from an hc terminal", () => {
-  it("is absent when hc-sessions is off, so the loop keeps polling", async () => {
-    hcCaller(false);
-    expect(await hcChildrenFor({} as CliDeps, { prs: [5], ideas: 0 })).toBe(
-      undefined,
-    );
-  });
-
+describe("hcChildrenFor: the children wait runs only for a --pr target, from an hc terminal", () => {
   it("is absent when the wait names an idea, which keeps the loop", async () => {
-    hcCaller(true);
+    hcCaller();
     expect(await hcChildrenFor({} as CliDeps, { prs: [5], ideas: 1 })).toBe(
       undefined,
     );
   });
 
   it("is absent when no pull request is named", async () => {
-    hcCaller(true);
+    hcCaller();
     expect(await hcChildrenFor({} as CliDeps, { prs: [], ideas: 0 })).toBe(
       undefined,
     );
   });
 
   it("is absent when the caller is not an hc terminal, since no child can be started", async () => {
-    const terminals = hcCaller(true);
+    const terminals = hcCaller();
     terminals.self.mockReturnValue(undefined);
     expect(await hcChildrenFor({} as CliDeps, { prs: [5], ideas: 0 })).toBe(
       undefined,
     );
   });
 
-  it("is the caller's terminals and terminal id when hc-sessions is on and a pull request is named", async () => {
-    const terminals = hcCaller(true);
+  it("is the caller's terminals and terminal id when a pull request is named", async () => {
+    const terminals = hcCaller();
     expect(await hcChildrenFor({} as CliDeps, { prs: [5], ideas: 0 })).toEqual({
       terminals: asTerminals(terminals),
       self: "t1",
@@ -101,8 +92,9 @@ describe("hcChildrenFor: the children wait runs only for a --pr target on hc-ses
 });
 
 describe("withPause: the wait runs on the caller's children on hc, and on the checks' poll interval otherwise", () => {
-  it("runs with the poll pause, and starts no watcher, when the caller has no hc children", async () => {
-    const terminals = hcCaller(false);
+  it("runs with the poll pause, and starts no watcher, when the caller is not an hc terminal", async () => {
+    const terminals = hcCaller();
+    terminals.self.mockReturnValue(undefined);
     const { clock, sleep } = clockAt();
     const run = vi.fn(async (pause: Pause) =>
       (await pause(CHECKS_POLL_MS + 1)) ? 1 : 0,
@@ -115,7 +107,7 @@ describe("withPause: the wait runs on the caller's children on hc, and on the ch
   });
 
   it("runs under the watchers of the caller's children on hc, and stops them when the wait returns", async () => {
-    const terminals = hcCaller(true);
+    const terminals = hcCaller();
     terminals.run.mockResolvedValue({ id: "t7" });
     terminals.kill.mockResolvedValue({ id: "t7" });
     const deps = {

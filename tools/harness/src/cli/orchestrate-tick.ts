@@ -1,4 +1,4 @@
-// oxlint-disable import/max-dependencies -- the tick entry point wires every tick port, herdr and hc alike
+// oxlint-disable import/max-dependencies -- the tick entry point wires every tick port
 import { hostname } from "node:os";
 import { join, resolve } from "node:path";
 import { DEFAULT_LEDGER, Ledger } from "../ledger/index.js";
@@ -42,13 +42,7 @@ import {
   type Command,
   type CommandContext,
 } from "../runtime/index.js";
-import {
-  deliver,
-  hcSessionsOn,
-  hostLeaseRefusal,
-  signedMainSendsOn,
-  spawnLoadRefusal,
-} from "../session/index.js";
+import { hostLeaseRefusal, spawnLoadRefusal } from "../session/index.js";
 import { hcAttended, hcReconcile } from "./orchestrate-tick-hc.js";
 import { installTickJob } from "./orchestrate-tick-install.js";
 import { runTickLoop } from "./orchestrate-tick-loop.js";
@@ -92,18 +86,12 @@ function boundGate(deps: CliDeps, main: string): PassGate {
   };
 }
 
-function tickCliFor(deps: CliDeps, root: string, main: string, hc: boolean) {
-  return new TickCli(
-    deps.runner,
-    root,
-    deps.fs,
-    {
-      sessions: join(main, SESSIONS),
-      plans: join(main, PLANS_DIRECTORY),
-      checkout: main,
-    },
-    hc ? "hc" : "herdr",
-  );
+function tickCliFor(deps: CliDeps, root: string, main: string) {
+  return new TickCli(deps.runner, root, deps.fs, {
+    sessions: join(main, SESSIONS),
+    plans: join(main, PLANS_DIRECTORY),
+    checkout: main,
+  });
 }
 
 /** The tick, the lease it runs under and the tools it drives, wired to the machine's real files. */
@@ -113,8 +101,7 @@ async function build(
   outcomes: ReadonlyMap<string, Measured>,
 ): Promise<{ tick: Pick<Tick, "pass">; lease: TickLease; cli: TickCli }> {
   const main = (await mainRoot(deps)) ?? root;
-  const hc = await hcSessionsOn(deps);
-  const cli = tickCliFor(deps, root, main, hc);
+  const cli = tickCliFor(deps, root, main);
   const lease = new TickLease(
     new FileLeaseStore(deps.fs, join(hostLocksDirectory(deps.env), LEASE_FILE)),
     () => deps.clock.now(),
@@ -126,17 +113,10 @@ async function build(
     new Ledger(deps.fs, deps.clock, deps.ids, resolve(main, DEFAULT_LEDGER)),
     () => deps.clock.now().toISOString(),
   );
-  // With hc-sessions on, the notice goes to the one attended agent terminal and the pass reconciles first (plan 16, Step 4).
-  const herdr = {
-    attendedPane: (idea: string) => cli.attendedPane(idea),
-    send: async (pane: string, body: string) =>
-      deliver(deps, pane, body, {
-        rejoinWrapped: await signedMainSendsOn(deps),
-      }),
-  };
+  // The notice goes to the one attended agent terminal, and the pass reconciles first (plan 16, Step 4).
   const notifier = new TickNotifier(
     {
-      ...(hc ? hcAttended(deps) : herdr),
+      ...hcAttended(deps),
       sent: (idea, state) => notices.sent(idea, state),
       openQuestions: (idea) => notices.openQuestions(idea),
       record: (event) => notices.record(event),
@@ -168,9 +148,7 @@ async function build(
   const ticking =
     liveProofs === undefined ? tick : tick.withLiveProofs(liveProofs);
   return {
-    tick: hc
-      ? reconcilingPass(await hcReconcile(deps, main), ticking)
-      : ticking,
+    tick: reconcilingPass(await hcReconcile(deps, main), ticking),
     lease,
     cli,
   };
@@ -188,7 +166,6 @@ function branchNotice(deps: CliDeps, cli: TickCli, main: string): BranchNotice {
     ),
   );
   return new BranchNotice({
-    backend: cli.backend,
     delivery: (issue) => cli.delivery(issue),
     panes: (idea) => cli.panes(idea),
     mergeState: (pr) => cli.mergeState(pr),

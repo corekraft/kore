@@ -133,7 +133,7 @@ describe("roleToken gives the advisor pane the kore-orchestrator App's token", (
     answer({ ...KEYCHAIN, "kore.orchestrator.private-key": undefined });
 
     await expect(roleToken(deps, "advisor")).resolves.toEqual({
-      error: `The orchestrator identity is missing: keychain item kore.orchestrator.private-key was not found. Create it with \`bash ${WIZARD}\`, then rerun. No pane was split.`,
+      error: `The orchestrator identity is missing: keychain item kore.orchestrator.private-key was not found. Create it with \`bash ${WIZARD}\`, then rerun.`,
     });
   });
 

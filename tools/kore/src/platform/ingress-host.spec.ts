@@ -21,7 +21,7 @@ const SERVER = "k3d-kore-local-server-0";
 const outputs: Record<string, string> = {
   sysctl: "swap-text",
   docker: "meminfo-text",
-  herdr: "herdr-text",
+  hc: "hc-text",
 };
 const run = vi.fn<Runner["run"]>();
 const readFile = vi.fn<(path: string) => Promise<string>>();
@@ -57,7 +57,7 @@ test("reads the 1, 5 and 15 minute load, swap used, free VM memory and agent pan
     load: { oneMinute: 1.5, fiveMinute: 2.5, fifteenMinute: 3.5 },
     swapUsedMiB: 512,
     vmFreeMiB: 4096,
-    agentPanes: { count: 7, source: "herdr agent list" },
+    agentPanes: { count: 7, source: "hc ls" },
   });
 });
 
@@ -67,11 +67,11 @@ test("reads each value from the process that owns it and parses that process's o
   expect(run.mock.calls).toEqual([
     ["sysctl", ["vm.swapusage"], { capture: true }],
     ["docker", ["exec", SERVER, "cat", "/proc/meminfo"], { capture: true }],
-    ["herdr", ["agent", "list"], { capture: true }],
+    ["hc", ["ls", "--json"], { capture: true }],
   ]);
   expect(parseSwapUsedMiB).toHaveBeenCalledWith("swap-text");
   expect(parseMemAvailableMiB).toHaveBeenCalledWith("meminfo-text");
-  expect(parseAgentPaneCount).toHaveBeenCalledWith("herdr-text");
+  expect(parseAgentPaneCount).toHaveBeenCalledWith("hc-text");
 });
 
 test("on macOS never reads the host's /proc/meminfo", async () => {
@@ -86,17 +86,15 @@ test("on Linux reads the load, swap and free memory from the host's /proc/meminf
     load: { oneMinute: 1.5, fiveMinute: 2.5, fifteenMinute: 3.5 },
     swapUsedMiB: 256,
     vmFreeMiB: 4096,
-    agentPanes: { count: 7, source: "herdr agent list" },
+    agentPanes: { count: 7, source: "hc ls" },
   });
 });
 
-test("on Linux runs no sysctl and no docker: the only process read is the herdr listing", async () => {
+test("on Linux runs no sysctl and no docker: the only process read is the hc listing", async () => {
   await host("linux").read();
 
   expect(readFile).toHaveBeenCalledWith(HOST_MEMINFO);
-  expect(run.mock.calls).toEqual([
-    ["herdr", ["agent", "list"], { capture: true }],
-  ]);
+  expect(run.mock.calls).toEqual([["hc", ["ls", "--json"], { capture: true }]]);
 });
 
 test("on Linux parses the one /proc/meminfo text for both swap and available memory", async () => {
@@ -126,8 +124,8 @@ test("on Linux names the parse cause when the host's swap cannot be read", async
 
 test("reports a missing pane count source by name with a null count, never a silent zero", async () => {
   run.mockImplementation(async (command) => {
-    if (command === "herdr") {
-      throw new Error("spawn herdr ENOENT");
+    if (command === "hc") {
+      throw new Error("spawn hc ENOENT");
     }
     return { code: 0, stdout: "", stderr: "" };
   });
@@ -136,21 +134,21 @@ test("reports a missing pane count source by name with a null count, never a sil
 
   expect(snapshot.agentPanes).toEqual({
     count: null,
-    source: "herdr agent list",
-    missing: "spawn herdr ENOENT",
+    source: "hc ls",
+    missing: "spawn hc ENOENT",
   });
   expect(snapshot.swapUsedMiB).toBe(512);
 });
 
-test("reports an unreadable herdr listing as a missing source, naming the parse cause", async () => {
+test("reports an unreadable hc listing as a missing source, naming the parse cause", async () => {
   vi.mocked(parseAgentPaneCount).mockImplementation(() => {
-    throw new Error("herdr agent list did not print JSON");
+    throw new Error("hc ls did not print JSON");
   });
 
   expect((await host().read()).agentPanes).toEqual({
     count: null,
-    source: "herdr agent list",
-    missing: "herdr agent list did not print JSON",
+    source: "hc ls",
+    missing: "hc ls did not print JSON",
   });
 });
 

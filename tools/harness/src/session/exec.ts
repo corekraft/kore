@@ -2,6 +2,7 @@ import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import type { Command, CliDeps, Runner } from "../runtime/index.js";
 import { bundleMainRoot } from "../runtime/index.js";
+import { isInheritedFromCore } from "../terminal/index.js";
 import { readRoleAgent } from "./exec-agent.js";
 import { hasIdentity, roleToken } from "./role-token.js";
 
@@ -31,16 +32,13 @@ export const PASSED_FLAGS = [
 export const CODE_MODE_SWITCH = "CLAUDE_CODE_EXPERIMENTAL_CODE_MODE";
 /** The value that turns Code Mode off, so the role's session runs the Bash tool the role guard reads. */
 const CODE_MODE_OFF = "0";
-/** The oldest claude session exec accepts: 2.1.330, the only version tested (kore-agents). The Mac's 2.1.329 must update before hc-sessions is on. */
+/** The oldest claude session exec accepts: 2.1.330, the only version tested (kore-agents). The Mac's 2.1.329 must update first. */
 const MIN_CLAUDE = [2, 1, 330] as const;
-
-/** roleToken's messages end with the pane wording; a terminal has no pane to split. */
-const PANE_SUFFIX = / No pane was split\.$/;
 
 const BUNDLE_HINT =
   "Start it by absolute path from the main checkout's skills/bin/harness.mjs, then rerun.";
 
-/** The caller's environment without any GitHub token, and without any herdr variable an hc terminal inherits from the core. */
+/** The caller's environment without any GitHub token, and without any variable an hc terminal inherits from its core. */
 function scrubbed(
   env: Readonly<Record<string, string | undefined>>,
 ): Record<string, string> {
@@ -50,7 +48,7 @@ function scrubbed(
         entry[1] !== undefined &&
         entry[0] !== "GH_TOKEN" &&
         entry[0] !== "GITHUB_TOKEN" &&
-        !entry[0].startsWith("HERDR_"),
+        !isInheritedFromCore(entry[0]),
     ),
   );
 }
@@ -155,7 +153,7 @@ async function tokenFor(
       : { ok: true };
   }
   return "error" in minted
-    ? { ok: false, message: `${minted.error.replace(PANE_SUFFIX, "")}\n` }
+    ? { ok: false, message: `${minted.error}\n` }
     : { ok: true, token: minted.token };
 }
 
@@ -234,15 +232,15 @@ const USAGE =
 
 export const execCommand: Command = {
   summary:
-    "start one role's claude session as the wrapper for an hc terminal (`session exec --role <role> --model <model> --effort <effort> <brief>`): run from the main checkout's bundle only, it reads the role's agent definition from the main checkout as --agents, checks that `claude --help` names every flag it passes and that claude is at least 2.1.330, mints the role's token from the identity store with any inherited GitHub token and herdr variable scrubbed, and runs claude in place with Code Mode off, the fixed argv and the brief as its first prompt",
+    "start one role's claude session as the wrapper for an hc terminal (`session exec --role <role> --model <model> --effort <effort> <brief>`): run from the main checkout's bundle only, it reads the role's agent definition from the main checkout as --agents, checks that `claude --help` names every flag it passes and that claude is at least 2.1.330, mints the role's token from the identity store with any inherited GitHub token and any variable an hc terminal inherits from its core scrubbed, and runs claude in place with Code Mode off, the fixed argv and the brief as its first prompt",
   operand: "brief",
   options: { role: "string", model: "string", effort: "string" },
   help: {
     purpose:
-      "Starts one role's claude session as the wrapper for an hc terminal. It reads the role's agent definition from the main checkout's .claude/agents/<role>.md and passes it as --agents, since --setting-sources user loads no project agent; a role with no definition, or one with no description, is refused. It checks that the installed claude names every flag the wrapper passes and is at least 2.1.330, the oldest that turns Code Mode off with CLAUDE_CODE_EXPERIMENTAL_CODE_MODE=0, and mints the role's GitHub token from the main checkout's identity store with any inherited GitHub token and herdr variable scrubbed, and runs claude with Code Mode off (CLAUDE_CODE_EXPERIMENTAL_CODE_MODE=0), the fixed argv and the brief as its first prompt.",
+      "Starts one role's claude session as the wrapper for an hc terminal. It reads the role's agent definition from the main checkout's .claude/agents/<role>.md and passes it as --agents, since --setting-sources user loads no project agent; a role with no definition, or one with no description, is refused. It checks that the installed claude names every flag the wrapper passes and is at least 2.1.330, the oldest that turns Code Mode off with CLAUDE_CODE_EXPERIMENTAL_CODE_MODE=0, and mints the role's GitHub token from the main checkout's identity store with any inherited GitHub token and any variable an hc terminal inherits from its core scrubbed, and runs claude with Code Mode off (CLAUDE_CODE_EXPERIMENTAL_CODE_MODE=0), the fixed argv and the brief as its first prompt.",
     when: "When an hc terminal starts a role's session and needs the command that launches it, run from the main checkout's skills/bin/harness.mjs by absolute path.",
     whenNot:
-      "When starting a role's session in a herdr pane from the main session: run session spawn, which starts the pane and records the launch. To read the model and effort a role launches at, run session tier.",
+      "When starting a role's session from the main session: run session spawn, which starts the terminal and records the launch. To read the model and effort a role launches at, run session tier.",
     flags: {
       role: "The role whose agent definition claude starts with, such as writer; the role's GitHub identity is minted for the session when it has one.",
       model:

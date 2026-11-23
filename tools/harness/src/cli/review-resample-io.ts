@@ -3,7 +3,7 @@ import type { Ledger } from "../ledger/index.js";
 import type { CommandContext, RunResult } from "../runtime/index.js";
 import { openJudgeLedger } from "./judge-shared.js";
 import type { ResampleIo } from "./review-resample-command.js";
-import { settledReads, type Backend } from "./review-settled.js";
+import { settledReads } from "./review-settled.js";
 
 const HARNESS = "skills/bin/harness.mjs";
 
@@ -39,7 +39,6 @@ async function recordResample(
  */
 export async function sessionResampleIo(
   context: CommandContext,
-  backend: Backend,
 ): Promise<ResampleIo> {
   const { deps } = context;
   const root = await deps.root();
@@ -82,7 +81,7 @@ export async function sessionResampleIo(
           "--no-wait",
         );
       },
-      ...settledReads(harness, tool, backend),
+      ...settledReads(harness),
       close: async (name) => {
         await harness("session", "close", name);
       },

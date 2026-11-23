@@ -115,15 +115,12 @@ export async function askOwner(
   const target = await ports.target(input.idea);
   await ports.label(target, ASK_LABEL);
   const commentUrl = await ports.post(target, signed.body);
-  // The pane that posted the question, when it runs in one: the stall check exempts that pane while it waits (#854).
-  const pane = ports.env["HERDR_PANE_ID"];
   const recorded = await ports.record({
     idea: target.idea,
     label: input.category,
     route: "owner",
     signal: routed.signal,
     number: Number(target.number),
-    ...(pane === undefined || pane === "" ? {} : { pane }),
   });
   if (!recorded.ok) {
     throw new DecisionError(

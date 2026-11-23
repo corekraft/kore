@@ -4,9 +4,9 @@ import { contextOf, fakeDeps, type FakeDeps } from "./deps-support.js";
 import { hostLeaseRefusal } from "./host-lease.js";
 import { sessionNameError } from "./names.js";
 import { spawnLoadRefusal } from "./spawn-load.js";
-import { check } from "./spawn-check.js";
+import { checkRequest } from "./spawn-check.js";
 import { launchStage, tierInputError, tierOf } from "./tier-source.js";
-import { findResult, parseTimeout } from "./wait.js";
+import { parseTimeout } from "./wait.js";
 
 vi.mock("./agent-definition.js");
 vi.mock("./host-lease.js");
@@ -19,9 +19,7 @@ let deps: FakeDeps;
 
 beforeEach(() => {
   deps = fakeDeps();
-  deps.env = { HERDR_ENV: "1", HERDR_PANE_ID: "w3:p1" };
   vi.mocked(sessionNameError).mockReturnValue(undefined);
-  vi.mocked(findResult).mockReturnValue(undefined);
   vi.mocked(parseTimeout).mockReturnValue(60_000);
   vi.mocked(hostLeaseRefusal).mockResolvedValue(undefined);
   vi.mocked(spawnLoadRefusal).mockReturnValue(undefined);
@@ -35,11 +33,11 @@ beforeEach(() => {
   });
 });
 
-describe("check carries the stage derived from the role", () => {
+describe("checkRequest carries the stage derived from the role", () => {
   it("returns the stage launchStage derives from the role and --pr", async () => {
     vi.mocked(launchStage).mockReturnValue("verify");
 
-    const checked = await check(
+    const checked = await checkRequest(
       contextOf(deps, {
         options: { role: "reader", name: "x-reader", brief: "Go.", pr: "612" },
       }),
@@ -50,7 +48,7 @@ describe("check carries the stage derived from the role", () => {
   });
 
   it("leaves the stage off when the role has none", async () => {
-    const checked = await check(
+    const checked = await checkRequest(
       contextOf(deps, {
         options: { role: "reader", name: "x-reader", brief: "Go." },
       }),

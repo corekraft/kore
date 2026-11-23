@@ -50,7 +50,7 @@ describe("harness pr open links the pull request to its writer through the ledge
     ).toBeUndefined();
     expect(record).toHaveBeenCalledTimes(1);
     expect(record).toHaveBeenCalledWith({
-      source: "herdr",
+      source: "terminal",
       kind: "pr.linked",
       occurredAt: "2026-11-17T10:00:00.000Z",
       number: 9,

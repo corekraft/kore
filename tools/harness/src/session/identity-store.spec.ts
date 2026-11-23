@@ -12,7 +12,7 @@ let deps: FakeDeps;
 
 /** The error for an item sops could not hand back. */
 const unreadable = (identity: string, item: string): string =>
-  `The ${identity} identity is missing: item ${item} could not be read from ${STORE} (it is absent, or sops could not decrypt it with the age key ${AGE_KEY}). ${TRANSFER} No pane was split.`;
+  `The ${identity} identity is missing: item ${item} could not be read from ${STORE} (it is absent, or sops could not decrypt it with the age key ${AGE_KEY}). ${TRANSFER}`;
 
 beforeEach(() => {
   deps = fakeDeps();
@@ -44,7 +44,7 @@ describe("identityItem on macOS reads the keychain", () => {
     deps.runner.run.mockResolvedValue({ stdout: "", stderr: "", code: 44 });
 
     await expect(identityItem(deps, ITEM, "reviewer")).resolves.toEqual({
-      error: `The reviewer identity is missing: keychain item ${ITEM} was not found. Create it with \`bash ${WIZARD}\`, then rerun. No pane was split.`,
+      error: `The reviewer identity is missing: keychain item ${ITEM} was not found. Create it with \`bash ${WIZARD}\`, then rerun.`,
     });
   });
 
@@ -92,7 +92,7 @@ describe("identityItem on Linux reads the sops store", () => {
     deps.fs.exists.mockResolvedValue(false);
 
     await expect(identityItem(deps, ITEM, "reviewer")).resolves.toEqual({
-      error: `The reviewer identity is missing: the identity store ${STORE} was not found. ${TRANSFER} No pane was split.`,
+      error: `The reviewer identity is missing: the identity store ${STORE} was not found. ${TRANSFER}`,
     });
     expect(deps.runner.run).not.toHaveBeenCalled();
   });
@@ -134,7 +134,7 @@ describe("identityItem on Linux reads the sops store", () => {
     delete deps.env["HOME"];
 
     await expect(identityItem(deps, ITEM, "reviewer")).resolves.toEqual({
-      error: `The reviewer identity is missing: HOME is not set, so the identity store ~/.config/kore/identities.sops.json cannot be found. Set HOME, then rerun. No pane was split.`,
+      error: `The reviewer identity is missing: HOME is not set, so the identity store ~/.config/kore/identities.sops.json cannot be found. Set HOME, then rerun.`,
     });
     expect(deps.fs.exists).not.toHaveBeenCalled();
     expect(deps.runner.run).not.toHaveBeenCalled();

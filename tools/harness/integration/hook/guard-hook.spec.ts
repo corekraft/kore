@@ -56,7 +56,7 @@ describe("hook guard", () => {
     ]);
   });
 
-  it("records which rule blocked the call, and never the command", async () => {
+  it("records which rule blocked the call, and never the command or the environment's pane", async () => {
     const result = await guard(
       { ...call("k3d cluster delete kore-local"), session_id: "s1" },
       {
@@ -66,9 +66,10 @@ describe("hook guard", () => {
       },
     );
     const blocks = result.events.filter((e) => e["kind"] === "guard.block");
-    expect(blocks.map((e) => [e["label"], e["session"], e["pane"]])).toEqual([
-      ["destructive", "s1", "w9:p9"],
+    expect(blocks.map((e) => [e["label"], e["session"]])).toEqual([
+      ["destructive", "s1"],
     ]);
+    expect(blocks[0]).not.toHaveProperty("pane");
     expect(JSON.stringify(result.events)).not.toMatch(/k3d cluster delete/);
   });
 
@@ -236,7 +237,7 @@ describe("guard evaluation edges", () => {
 });
 
 describe("hook guard, ledger events", () => {
-  it("never records the tool input, only session, pane and tool", async () => {
+  it("never records the tool input, only session and tool", async () => {
     const result = await guard(
       {
         session_id: "s1",
@@ -246,21 +247,19 @@ describe("hook guard, ledger events", () => {
       {
         CLAUDE_PROJECT_DIR: "/repo",
         KORE_ROOT: "/repo",
-        HERDR_PANE_ID: "w9:p9",
       },
     );
     expect(result.code).toBe(0);
     const [event] = result.events;
-    expect([
-      event?.["kind"],
-      event?.["session"],
-      event?.["pane"],
-      event?.["tool"],
-    ]).toEqual(["tool.start", "s1", "w9:p9", "Grep"]);
+    expect([event?.["kind"], event?.["session"], event?.["tool"]]).toEqual([
+      "tool.start",
+      "s1",
+      "Grep",
+    ]);
     expect(JSON.stringify(result.events)).not.toMatch(/hunter2/);
   });
 
-  it("attributes events to the idea and agent the harness stamped into the pane", async () => {
+  it("takes no idea or agent from the environment, since only an hc record names them", async () => {
     const result = await guard(call("git status"), {
       CLAUDE_PROJECT_DIR: "/repo",
       KORE_ROOT: "/repo",
@@ -269,7 +268,7 @@ describe("hook guard, ledger events", () => {
     });
     expect(
       result.events.map((e) => [e["kind"], e["idea"], e["agent"]]),
-    ).toEqual([["tool.start", "#338", "flow-metrics-writer"]]);
+    ).toEqual([["tool.start", undefined, undefined]]);
   });
 
   it("still records the event, unattributed, when the stamp is not a valid name", async () => {

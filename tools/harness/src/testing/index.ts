@@ -13,13 +13,7 @@ export {
   NEW as ADR_NEW,
 } from "./adr-support.js";
 export { testHarness, type TestHarness } from "./cli-support.js";
-export {
-  INSIDE,
-  gitCommon,
-  herdrCalls,
-  layoutOf,
-  stateFile,
-} from "./session-close-support.js";
+export { gitCommon, stateFile } from "./session-close-support.js";
 export {
   DEFAULT as LEDGER_FILE,
   harness as ledgerHarness,
