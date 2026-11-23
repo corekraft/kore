@@ -43,16 +43,17 @@ const KEPT: Readonly<Record<string, string>> = {
 };
 
 const SOURCE = resolve(dirname(fileURLToPath(import.meta.url)), "../src");
+const KORE_SOURCE = resolve(SOURCE, "../../kore/src");
 
-/** Every shipped .ts file under src, excluding specs, as a path relative to src. */
-function sources(dir: string): string[] {
+/** Every shipped .ts file under `dir`, excluding specs, as a path relative to `root`. */
+function sources(dir: string, root: string = SOURCE): string[] {
   return readdirSync(dir, { withFileTypes: true }).flatMap((entry) => {
     const path = join(dir, entry.name);
     if (entry.isDirectory()) {
-      return sources(path);
+      return sources(path, root);
     }
     return entry.name.endsWith(".ts") && !entry.name.endsWith(".spec.ts")
-      ? [relative(SOURCE, path)]
+      ? [relative(root, path)]
       : [];
   });
 }
@@ -65,8 +66,8 @@ function codeLines(text: string): string[] {
 }
 
 /** The code lines that name a backend binary, or read its environment, as `file:line`. */
-function namingBackend(file: string): string[] {
-  const text = readFileSync(join(SOURCE, file), "utf8");
+function namingBackend(file: string, root: string = SOURCE): string[] {
+  const text = readFileSync(join(root, file), "utf8");
   return codeLines(text).flatMap((line, index) =>
     /HERDR_/.test(line) ||
     /["'`]herdr["'`]/.test(line) ||
@@ -86,7 +87,7 @@ describe("nothing outside terminal/ names a backend binary or reads its environm
   it("names no backend in code outside terminal/, except the closed list of kept readers", () => {
     const offenders = sources(SOURCE)
       .filter((file) => !file.startsWith("terminal/") && !(file in KEPT))
-      .flatMap(namingBackend);
+      .flatMap((file) => namingBackend(file));
 
     expect(offenders).toEqual([]);
   });
@@ -98,5 +99,15 @@ describe("nothing outside terminal/ names a backend binary or reads its environm
     );
 
     expect(stale).toEqual([]);
+  });
+});
+
+describe("the kore CLI names no backend binary either (plan 16, Step 6)", () => {
+  it("names no backend in the code of tools/kore/src", () => {
+    const offenders = sources(KORE_SOURCE, KORE_SOURCE).flatMap((file) =>
+      namingBackend(file, KORE_SOURCE),
+    );
+
+    expect(offenders).toEqual([]);
   });
 });

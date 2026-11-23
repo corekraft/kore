@@ -52,21 +52,25 @@ test.each([
   expect(() => parseLinuxSwapUsedMiB(text)).toThrow(cause);
 });
 
-const listing = (agents: unknown): string =>
-  JSON.stringify({ result: { agents, type: "agent_list" } });
+const listing = (terminals: unknown): string =>
+  JSON.stringify({ hidden_finished: 0, terminals });
 
-test("counts the agents herdr lists", () => {
-  expect(parseAgentPaneCount(listing([{}, {}, {}]))).toBe(3);
+const claude = { address: "t1", agent: "claude-code", state: "live" };
+const node = { address: "t2", agent: "node", state: "live" };
+
+test("counts the claude sessions hc lists, and not the plain processes beside them", () => {
+  expect(parseAgentPaneCount(listing([claude, claude, node]))).toBe(2);
 });
 
-test("counts zero for a herdr that lists no agents, which is an answer and not a missing source", () => {
+test("counts zero for an hc that lists no agent session, which is an answer and not a missing source", () => {
+  expect(parseAgentPaneCount(listing([node]))).toBe(0);
   expect(parseAgentPaneCount(listing([]))).toBe(0);
 });
 
 test.each([
-  ["not json", "herdr agent list did not print JSON"],
-  [JSON.stringify({ result: {} }), "herdr agent list printed no agent list"],
-  [listing("many"), "herdr agent list printed no agent list"],
-])("names the cause when the herdr listing is unusable: %s", (text, cause) => {
+  ["not json", "hc ls did not print JSON"],
+  [JSON.stringify({ hidden_finished: 0 }), "hc ls printed no terminal list"],
+  [listing("many"), "hc ls printed no terminal list"],
+])("names the cause when the hc listing is unusable: %s", (text, cause) => {
   expect(() => parseAgentPaneCount(text)).toThrow(cause);
 });

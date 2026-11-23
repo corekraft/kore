@@ -24,8 +24,8 @@ import { parseTargetRate, targetRateVariable } from "./ingress-pacing.js";
 // `rate_mismatch`) and the test fails on a mismatch, because a run whose
 // achieved rate is not within 10 percent of the target is not comparable.
 // The result's `host` records the 1, 5 and 15 minute load, swap used, free
-// Docker VM memory and the agent pane count (from `herdr agent list`; a
-// missing herdr is named in `missing`, not counted as zero) before and after.
+// Docker VM memory and the agent pane count (from `hc ls`; a
+// missing hc is named in `missing`, not counted as zero) before and after.
 // Unset keeps the closed-loop load. Use the same target for both gateways.
 
 const live = {

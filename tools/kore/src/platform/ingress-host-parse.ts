@@ -30,24 +30,26 @@ export function parseLinuxSwapUsedMiB(stdout: string): number {
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === "object" && value !== null;
 
-/** The number of agents `herdr agent list` prints; zero is an answer, not a missing source. */
+/** The agent that `hc ls` names for a terminal running a claude session. */
+const CLAUDE_AGENT = "claude-code";
+
+/** The number of claude sessions `hc ls --json` lists; zero is an answer, not a missing source. */
 export function parseAgentPaneCount(stdout: string): number {
   let parsed: unknown;
   try {
     parsed = JSON.parse(stdout);
   } catch {
     throw new Error(
-      "herdr agent list did not print JSON; run `herdr agent list` by hand and check the herdr version",
+      "hc ls did not print JSON; run `hc ls --json` by hand and check the hc version",
     );
   }
-  const agents =
-    isRecord(parsed) && isRecord(parsed["result"])
-      ? parsed["result"]["agents"]
-      : undefined;
-  if (!Array.isArray(agents)) {
+  const terminals = isRecord(parsed) ? parsed["terminals"] : undefined;
+  if (!Array.isArray(terminals)) {
     throw new Error(
-      "herdr agent list printed no agent list (.result.agents); the herdr version may have changed its output",
+      "hc ls printed no terminal list (.terminals); the hc version may have changed its output",
     );
   }
-  return agents.length;
+  return terminals.filter(
+    (terminal) => isRecord(terminal) && terminal["agent"] === CLAUDE_AGENT,
+  ).length;
 }
