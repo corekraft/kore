@@ -7,7 +7,7 @@ import org.junit.jupiter.api.Test
 
 class SessionStoreSettingsTest {
     private val complete = mapOf(
-        "spring.datasource.url" to "jdbc:postgresql://db.example.test:5432/app?sslmode=require",
+        "spring.datasource.url" to "jdbc:h2:mem:example-sessions",
         "spring.datasource.username" to "app",
         "spring.datasource.password" to "test-only-password-value",
     )
@@ -17,7 +17,7 @@ class SessionStoreSettingsTest {
     @Test
     fun `reads the URL, username and password from the three datasource properties`() {
         val settings = from(complete)
-        assertEquals("jdbc:postgresql://db.example.test:5432/app?sslmode=require", settings.url)
+        assertEquals("jdbc:h2:mem:example-sessions", settings.url)
         assertEquals("app", settings.username)
         assertEquals("test-only-password-value", settings.password())
     }

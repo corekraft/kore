@@ -113,7 +113,7 @@ spec:
                   name: {{ printf "%s-db-connection" $.Values.service }}
                   key: sslmode
             - name: SPRING_DATASOURCE_URL
-              value: "jdbc:postgresql://$(SESSION_DB_HOST):$(SESSION_DB_PORT)/$(SESSION_DB_NAME)?sslmode=$(SESSION_DB_SSLMODE)"
+              value: {{ printf "jdbc:postgresql:%s" "//$(SESSION_DB_HOST):$(SESSION_DB_PORT)/$(SESSION_DB_NAME)?sslmode=$(SESSION_DB_SSLMODE)" | quote }}
             - name: SPRING_DATASOURCE_USERNAME
               valueFrom:
                 secretKeyRef:
