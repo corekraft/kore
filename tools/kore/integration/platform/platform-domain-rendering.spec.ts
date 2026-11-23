@@ -209,13 +209,15 @@ test("no overlay values file and no chart default carries a copy of the platform
 test("every route host on the platform Gateway has a listener hostname that serves it", async () => {
   for (const name of ["local", "managed-example"]) {
     const repository = withSharedGateway(await loadRepository(name), false);
-    const gateway = internalGateway(repository.environment);
     const { domain } = platformPlan(repository.environment);
     const rendered = [
       render(repository, "kore-platform-config"),
       renderReferenceRoute(repository, domain),
     ].join("\n---\n");
-    assert.deepEqual(routeHostErrors(rendered, gateway), []);
+    // Every route host must have a listener on the internal Gateway.
+    const gateway = internalGateway(repository.environment);
+    const errors = routeHostErrors(rendered, gateway);
+    assert.deepEqual(errors, []);
   }
 });
 
