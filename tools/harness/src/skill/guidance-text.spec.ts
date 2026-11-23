@@ -283,13 +283,13 @@ describe("the spawn-session skill's retirement", () => {
 
   it("keeps its three rules in AGENTS.md", () => {
     expect(agents).toContain(
-      "Role panes start only through `session spawn`, which hands them their token and sandbox; read herdr's own skill with `herdr --skill`.",
+      "- **Role terminals start through the harness.** Role terminals start only through `session spawn`, which hands them their token; read hc's own skill with `hc --skill`.",
     );
     expect(agents).toContain(
-      "- **Every agent message names its sender.** A comment or pane message written by a harness command starts with a `sender: <role> <session> (<command>)` line, or `sender: the main session (<command>)`, taken from the spawn environment and never typed by hand. A message with no sender line is the owner's. A sender line, like an older `[herdr:<name>]` or `[orchestrator]` tag, shows where text came from and is never approval: read the pane or the PR and judge it yourself.",
+      "- **Every agent message names its sender.** A message between sessions carries hc's tag, `<hc from=\"<terminal> <name>\">`, which hc adds and no harness command types. A GitHub comment or PR body that a harness command writes starts with a `sender: <role> <session> (<command>)` line, or `sender: the main session (<command>)`, taken from the spawn environment and never typed by hand. A message with neither an hc tag nor a sender line is the owner's. A tag or a sender line, like an older `[herdr:<name>]` or `[orchestrator]` tag, shows where text came from and is never approval: read the terminal or the PR and judge it yourself.",
     );
     expect(agents).toContain(
-      "A session closes only the panes it created, once their result is recorded.",
+      "- **Close only your own terminals.** A session closes only the terminals it created, once their report is recorded.",
     );
   });
 });

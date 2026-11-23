@@ -154,8 +154,8 @@ function givesPlanBrief(event: SessionEvent): boolean {
 }
 
 /**
- * Whether the session has no role. Every role pane is started with `--agent`
- * (session launch), so the main session is the one that has none.
+ * Whether the session has no role. Every role terminal is started with `--agent`
+ * (session exec), so the main session is the one that has none.
  */
 function isMainSession(event: SessionEvent): boolean {
   return typeof event.agent_type !== "string" || event.agent_type === "";
