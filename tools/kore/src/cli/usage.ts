@@ -1,7 +1,7 @@
 export const usage = `Kore local platform orchestration
 
 Usage:
-  kore doctor [--environment local] [--json]
+  kore doctor [--environment local] [--json]   (read-only; reports whether the platform domain is the placeholder or set, never its value, and the run-time values the flags that are on need, read from the environment and then ~/.kore/runtime.env, which must be owner-only)
   kore validate [--environment local] [--platform-image-lock <file>] [--platform-claims <file>] [--json]   (warnings print as "warning:" lines on stderr and in --json as warnings; they never change the exit status; environment exemptionCheck: audit|enforce, unset reads as audit; --platform-claims checks a JSON array of Organization and Service claims against their schema, offline, and is skipped with a warning while the platform-organization-service-apis flag is off)
   kore status [--environment local] [--json]   (reports each Organization and Service claim's Ready condition, read-only; exits 1 while one is not ready; reports gated-off, without reading the cluster, while the platform-organization-service-apis flag is off)
   kore cluster up|stop|destroy --environment <name> [--yes] [--purge-data]
