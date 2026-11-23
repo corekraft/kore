@@ -37,7 +37,7 @@ type Done = (
   extra?: Partial<Pick<IdeaStep, "pr" | "pane" | "bound">>,
 ) => IdeaStep;
 
-/** What the tick reads and does: the stage ports of `orchestrate run`, plus three non-blocking reads. */
+/** What the tick reads and does: the stage ports of the one-idea run, plus three non-blocking reads. */
 export type TickPorts = Pick<
   Harness,
   | "queue"

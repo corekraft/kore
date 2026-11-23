@@ -58,9 +58,9 @@ Next: First run the #225 closed-loop live proof, then #325 notify live proof. Th
 
 ### Work
 
-- [ ] `orchestrate run` starts retro on Sonnet at high effort after every five
+- [ ] `orchestrate tick --idea <n> --loop` starts retro on Sonnet at high effort after every five
       closed ideas, or as soon as a metric worsens past its threshold against
-      its trailing average. The retro pane proposes, and `orchestrate run` files
+      its trailing average. The retro pane proposes, and `orchestrate tick --idea <n> --loop` files
       the proposals as ideas ([ADR 0117](../../docs/decisions/0117-the-delivery-loop-s-role-set.md)).
 - [x] Retro findings become harness ideas, each with a hypothesis tied to a
       metric.

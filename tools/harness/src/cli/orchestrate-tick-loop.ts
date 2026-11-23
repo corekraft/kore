@@ -26,7 +26,6 @@ const FLAG_OFF =
 export async function runTickLoop(
   deps: CliDeps,
   root: string,
-  idea: string | undefined,
 ): Promise<number> {
   const main = (await mainRoot(deps)) ?? root;
   const ledger = new Ledger(
@@ -48,12 +47,7 @@ export async function runTickLoop(
     }
   };
   const updater = selfUpdater(deps, root, ledger);
-  const args = [
-    join(root, HARNESS),
-    "orchestrate",
-    "tick",
-    ...(idea === undefined ? [] : ["--idea", idea]),
-  ];
+  const args = [join(root, HARNESS), "orchestrate", "tick"];
   const loop = new TickLoop({
     flagOn: () => tickFlagOn(deps.fs, root),
     ensureWatch: () => ensureLedgerWatch(deps, main),

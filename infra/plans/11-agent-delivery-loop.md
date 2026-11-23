@@ -124,7 +124,7 @@ Next: Merged: queue and escalation counting ([#707](https://github.com/corekraft
 
 ### Work
 
-- [ ] `orchestrate run` fills the Orchestrator role, which no agent does: it
+- [ ] `orchestrate tick --idea <n> --loop` fills the Orchestrator role, which no agent does: it
       reads the queue only between pieces of work, and launches readers,
       writers and judges as panes.
 - [x] Writers escalate from Haiku to Sonnet after two judge send-backs, by

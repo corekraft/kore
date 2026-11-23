@@ -6,6 +6,10 @@ import type { CommandContext } from "../runtime/index.js";
 import { hostLeaseRefusal, spawnLoadRefusal } from "../session/index.js";
 import { runOnTicks } from "./orchestrate-tick.js";
 
+vi.mock("./orchestrate-tick-idea.js", () => ({
+  hasOutcomeFlags: vi.fn(),
+  runIdea: vi.fn(),
+}));
 vi.mock("../orchestrator/index.js", async () => ({
   AttendedTerminal: vi.fn(),
   reconcilingPass: vi.fn(),

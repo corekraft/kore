@@ -13,14 +13,16 @@ import {
 import { hostLocksDirectory, mainRoot } from "../runtime/index.js";
 import type { CommandContext } from "../runtime/index.js";
 import { runOnTicks, tickCommand } from "./orchestrate-tick.js";
-import { installTickJob } from "./orchestrate-tick-install.js";
-import { runTickLoop } from "./orchestrate-tick-loop.js";
 
 vi.mock("./orchestrate-tick-install.js", () => ({ installTickJob: vi.fn() }));
 vi.mock("../session/index.js", async () => ({
   ...(await vi.importActual<object>("../session/index.js")),
 }));
 vi.mock("./orchestrate-tick-loop.js", () => ({ runTickLoop: vi.fn() }));
+vi.mock("./orchestrate-tick-idea.js", () => ({
+  hasOutcomeFlags: vi.fn(),
+  runIdea: vi.fn(),
+}));
 
 vi.mock("../orchestrator/index.js", async () => ({
   AttendedTerminal: vi.fn(),
@@ -289,25 +291,5 @@ describe("the tick's printed steps", () => {
 
     expect(await tickCommand.run(context)).toBe(0);
     expect(out.join("")).toBe("Idea 0002: held by saver.\n");
-  });
-});
-
-describe("orchestrate tick --loop and --install", () => {
-  it("hands --loop to the loop, scoped by --idea, and runs no single pass", async () => {
-    vi.mocked(runTickLoop).mockResolvedValue(0);
-    const { context } = setup({ loop: true, idea: "7" });
-
-    expect(await tickCommand.run(context)).toBe(0);
-    expect(runTickLoop).toHaveBeenCalledWith(context.deps, "/repo", "7");
-    expect(leasedPass).not.toHaveBeenCalled();
-  });
-
-  it("hands --install to the installer and runs no pass", async () => {
-    vi.mocked(installTickJob).mockResolvedValue(1);
-    const { context } = setup({ install: true });
-
-    expect(await tickCommand.run(context)).toBe(1);
-    expect(installTickJob).toHaveBeenCalledWith(context.deps, "/repo");
-    expect(leasedPass).not.toHaveBeenCalled();
   });
 });

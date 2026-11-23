@@ -117,7 +117,7 @@ export const domainGuides: Record<DomainName, DomainGuide> = {
   orchestrate: {
     purpose:
       "Drives approved ideas to a recorded outcome through the writer, the judge and the send-back loop.",
-    flow: "Run orchestrate run for one idea to take it through writer and judge; orchestrate tick advances each approved idea one step per pass behind the orchestrator-tick flag; orchestrate plan records a work plan for a tick.",
+    flow: "Run orchestrate tick --idea <n> --loop for one idea to take it through writer and judge; orchestrate tick alone advances each approved idea one step per pass behind the orchestrator-tick flag; orchestrate plan records a work plan for a tick.",
   },
   approve: {
     purpose:

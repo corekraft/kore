@@ -12,6 +12,10 @@ import type { CommandContext } from "../runtime/index.js";
 import { tickCommand } from "./orchestrate-tick.js";
 import { hcAttended, hcReconcile } from "./orchestrate-tick-hc.js";
 
+vi.mock("./orchestrate-tick-idea.js", () => ({
+  hasOutcomeFlags: vi.fn(),
+  runIdea: vi.fn(),
+}));
 vi.mock("./orchestrate-tick-install.js", () => ({ installTickJob: vi.fn() }));
 vi.mock("./orchestrate-tick-loop.js", () => ({ runTickLoop: vi.fn() }));
 vi.mock("./orchestrate-tick-hc.js", () => ({
