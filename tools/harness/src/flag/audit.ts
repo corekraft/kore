@@ -1,7 +1,8 @@
 import { IdeaRepository } from "../idea/index.js";
 import type { Clock, FileSystem } from "../runtime/index.js";
+import { UNRECORDED_WINDOWS, type ProofSources } from "./app-windows.js";
 import { findProof } from "./proof.js";
-import { environments, readOverlay } from "./overlay.js";
+import { environments, readOverlay, type Overlay } from "./overlay.js";
 
 export interface UnprovenFlag {
   flag: string;
@@ -28,19 +29,32 @@ export async function proofAudit(
 ): Promise<ProofAudit> {
   const repo = new IdeaRepository(fs, clock, base);
   const audit: ProofAudit = { unproven: [], waived: [] };
+  const overlays: Overlay[] = [];
   for (const environment of await environments(fs, base)) {
-    const overlay = await readOverlay(fs, base, environment);
+    overlays.push(await readOverlay(fs, base, environment));
+  }
+  // A flag an overlay names is a platform flag, so no platform window ever counts for it (ADR 0174).
+  const platform = new Set(overlays.flatMap((o) => Object.keys(o.features)));
+  const sources: ProofSources = {
+    isAppFlag: (flag) => !platform.has(flag),
+    windows: UNRECORDED_WINDOWS,
+  };
+  for (const overlay of overlays) {
     for (const [flag, on] of Object.entries(overlay.features)) {
       if (!on) {
         continue;
       }
-      const proof = await findProof(repo, flag, environment);
+      const proof = await findProof(repo, flag, overlay.environment, sources);
       if (proof === undefined) {
-        audit.unproven.push({ flag, environment, path: overlay.path });
+        audit.unproven.push({
+          flag,
+          environment: overlay.environment,
+          path: overlay.path,
+        });
       } else if (proof.source === "owner-waiver") {
         audit.waived.push({
           flag,
-          environment,
+          environment: overlay.environment,
           path: overlay.path,
           idea: proof.idea,
           proof: proof.path,
