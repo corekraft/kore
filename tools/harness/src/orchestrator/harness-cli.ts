@@ -138,7 +138,7 @@ export class HarnessCli implements Harness {
 
   async sendBacks(pr: number): Promise<SendBackTier> {
     const tier = this.json(
-      await this.harness("queue", "send-backs", String(pr), "--json"),
+      await this.harness("queue", "escalate", String(pr), "--check", "--json"),
     ) as SendBackTier;
     return { count: tier.count, model: tier.model, escalate: tier.escalate };
   }
