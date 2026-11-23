@@ -843,16 +843,14 @@ ratio is above that average. A review from before `findings` was recorded is
 review gives null, never zero, and the first window's null trailing average is a
 baseline, not a comparison.
 
-`review resample` re-reviews a sample of the passed reviews (#852). It draws
-a sample (five by default, a placeholder; `harness review resample --help` names the option) from the passed reviews of merged PRs whose
-head no re-review has taken yet, passed or failed, one Sonnet reader per head on
-the override tier, which `session spawn` records with its reason. Each re-review
-writes a `review.run` labelled `resample:<head>` with its `findings`, or
-`resample-failed:<head>` when the reader ends blocked or with no verdict. It
-posts nothing to GitHub, and `reviewMisses.resample` counts the re-reviews in the
-range beside the ratio: `count` that read a verdict, `found` with at least one
-violation, and its `share`, null when there are none. A re-review is never in
-the reviews the ratio is taken over.
+The re-review command that sampled passed reviews (#852) is removed (#1787). Its
+`review.run` events stay in the ledger: one labelled `resample:<head>` with its
+`findings` when a re-review read a verdict, or `resample-failed:<head>` when the
+reader ended blocked or with no verdict. `reviewMisses.resample` still counts the
+`resample:` events in the range: `count` that read a verdict, `found` with at
+least one violation, and its `share`, null when there are none. The human flow
+report no longer prints that figure. A re-review is never in the reviews the
+ratio is taken over.
 
 `finishDetection` counts the finishes the ledger holds (#853), over the herdr-era
 events a ledger still carries: a `session.result` the Stop hook recorded with only
