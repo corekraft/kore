@@ -25,6 +25,9 @@ vi.mock("../cluster/index.js", () => ({ k3dClusterInfo: vi.fn() }));
 vi.mock("../config/index.js", () => ({ managedCluster: vi.fn() }));
 vi.mock("./registry-name-check.js", () => ({ registryNameCheck: () => [] }));
 vi.mock("./run-time-check.js", () => ({ runTimeChecks: async () => [] }));
+vi.mock("./token-secret-check.js", () => ({
+  tokenSecretChecks: async () => [],
+}));
 vi.mock("../resolver/index.js", () => ({
   resolverChecks: vi.fn(),
   systemResolverHost: vi.fn(),

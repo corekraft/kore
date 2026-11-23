@@ -5,6 +5,7 @@ import {
 } from "../images/index.js";
 import { localDown, localUp, withHostResolver } from "../local/index.js";
 import {
+  applyCloudflareTokens,
   applySmtpCredentials,
   installLocalTrust,
   parseSmtpCredentials,
@@ -61,6 +62,18 @@ export async function secretsCommand(context: CommandContext): Promise<number> {
           parseSmtpCredentials(await readFile("/dev/stdin", "utf8")),
         );
         print({ status: "applied", secret: "grafana-smtp" }, context.json);
+        return 0;
+      }
+      if (context.action === "tokens") {
+        // Each token is decrypted from its sops document and streamed on stdin, never printed.
+        const secrets = await applyCloudflareTokens(context.repository, runner);
+        print(
+          {
+            status: secrets.length === 0 ? "nothing-to-apply" : "applied",
+            secrets,
+          },
+          context.json,
+        );
         return 0;
       }
       const rotate = boolFlag(context.parsed, "rotate");

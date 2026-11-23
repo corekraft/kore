@@ -5,15 +5,24 @@ import { syncLocalSecrets } from "./secrets.js";
 import { applySmtpCredentials, parseSmtpCredentials } from "./smtp-secret.js";
 import { ensureLocalCaTrust, loadLocalCa } from "./local-ca-trust.js";
 import { installLocalTrust, removeLocalTrustArtifacts } from "./trust.js";
+import {
+  activeTokenConsumers,
+  applyCloudflareTokens,
+  cloudflareTokenSecretName,
+} from "./cloudflare-token.js";
 
 vi.mock("./local-ca-trust.js");
 vi.mock("./secrets.js");
 vi.mock("./smtp-secret.js");
 vi.mock("./trust.js");
+vi.mock("./cloudflare-token.js");
 
-test("the security barrel exposes exactly the local secret sync, local trust, local CA distribution and local CA read entry points, and the SMTP credential entry points", () => {
+test("the security barrel exposes exactly the local secret sync, local trust, local CA distribution and local CA read entry points, the SMTP credential entry points, and the Cloudflare token entry points", () => {
   expect(Object.keys(security).sort()).toEqual([
+    "activeTokenConsumers",
+    "applyCloudflareTokens",
     "applySmtpCredentials",
+    "cloudflareTokenSecretName",
     "ensureLocalCaTrust",
     "installLocalTrust",
     "loadLocalCa",
@@ -21,6 +30,9 @@ test("the security barrel exposes exactly the local secret sync, local trust, lo
     "removeLocalTrustArtifacts",
     "syncLocalSecrets",
   ]);
+  expect(security.activeTokenConsumers).toBe(activeTokenConsumers);
+  expect(security.applyCloudflareTokens).toBe(applyCloudflareTokens);
+  expect(security.cloudflareTokenSecretName).toBe(cloudflareTokenSecretName);
   expect(security.applySmtpCredentials).toBe(applySmtpCredentials);
   expect(security.parseSmtpCredentials).toBe(parseSmtpCredentials);
   expect(security.ensureLocalCaTrust).toBe(ensureLocalCaTrust);

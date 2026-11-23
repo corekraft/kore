@@ -57,7 +57,7 @@ export const COMMANDS: ReadonlyMap<string, CommandSpec> = new Map<
   [
     "secrets",
     {
-      mutations: ["sync", "smtp"],
+      mutations: ["sync", "smtp", "tokens"],
       alwaysMutates: true,
       run: secretsCommand,
     },
