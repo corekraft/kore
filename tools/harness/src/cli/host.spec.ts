@@ -7,13 +7,9 @@ const fakes = vi.hoisted(() => ({
   hook: { guard: {} },
   session: { spawn: {} },
   skill: { audit: {} },
-  promptSize: { run: () => Promise.resolve(0) },
 }));
 
-vi.mock("../hook/index.js", () => ({
-  hook: fakes.hook,
-  promptSizeCommand: fakes.promptSize,
-}));
+vi.mock("../hook/index.js", () => ({ hook: fakes.hook }));
 vi.mock("../session/index.js", () => ({ session: fakes.session }));
 vi.mock("../skill/index.js", () => ({ skill: fakes.skill }));
 
@@ -24,10 +20,8 @@ describe("host domains", () => {
     expect(hostDomains["skill"]).toBe(fakes.skill);
   });
 
-  it("adds prompt-size to the session domain, beside the session barrel's own commands (#1038)", () => {
-    expect(hostDomains["session"]).toEqual({
-      spawn: fakes.session.spawn,
-      "prompt-size": fakes.promptSize,
-    });
+  it("adds no command to the session domain: its table is the session barrel's own", () => {
+    expect(hostDomains["session"]).toBe(fakes.session);
+    expect(hostDomains["session"]).not.toHaveProperty("prompt-size");
   });
 });

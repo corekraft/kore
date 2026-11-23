@@ -843,16 +843,14 @@ ratio is above that average. A review from before `findings` was recorded is
 review gives null, never zero, and the first window's null trailing average is a
 baseline, not a comparison.
 
-`review resample` re-reviews a sample of the passed reviews (#852). It draws
-a sample (five by default, a placeholder; `harness review resample --help` names the option) from the passed reviews of merged PRs whose
-head no re-review has taken yet, passed or failed, one Sonnet reader per head on
-the override tier, which `session spawn` records with its reason. Each re-review
-writes a `review.run` labelled `resample:<head>` with its `findings`, or
-`resample-failed:<head>` when the reader ends blocked or with no verdict. It
-posts nothing to GitHub, and `reviewMisses.resample` counts the re-reviews in the
-range beside the ratio: `count` that read a verdict, `found` with at least one
-violation, and its `share`, null when there are none. A re-review is never in
-the reviews the ratio is taken over.
+The re-review command that sampled passed reviews (#852) is removed (#1787). Its
+`review.run` events stay in the ledger: one labelled `resample:<head>` with its
+`findings` when a re-review read a verdict, or `resample-failed:<head>` when the
+reader ended blocked or with no verdict. `reviewMisses.resample` still counts the
+`resample:` events in the range: `count` that read a verdict, `found` with at
+least one violation, and its `share`, null when there are none. The human flow
+report no longer prints that figure. A re-review is never in the reviews the
+ratio is taken over.
 
 `finishDetection` counts the finishes the ledger holds (#853), over the herdr-era
 events a ledger still carries: a `session.result` the Stop hook recorded with only
@@ -1470,25 +1468,6 @@ is the `plan active` list with open items per step; `ideas` is
 as `success` or `failure`; `ledger` is `{ recent, skipped }`, the ten latest
 stage events (`{ occurredAt, stage, kind, number?, idea? }`) newest first.
 No bounded role may run it.
-
-## Prompt size
-
-`node skills/bin/harness.mjs session prompt-size [<session-id>]` prints a
-session's latest request prompt (input plus cache writes plus cache reads) against the
-`compactionCap` in `.claude/harness.json`. It is read-only and never writes. With no
-name it reads the newest transcript of this checkout's own Claude project directory and
-prints that session's id. With a Claude session id it reads that session only when its
-transcript is in this repository's own transcript directories (the main checkout and
-its worktrees); any other session is refused. A name must be a plain id, letters,
-digits, `-` and `_`.
-
-The text line is `session <id>: prompt <n>, cap <n>, over` or `..., cap <n>, not over`;
-a prompt equal to the cap is not over. With no cap set it prints `cap not set` and exits
-0, never under the cap. Its JSON form (`harness session prompt-size --help`) prints `{"session","prompt","cap","over"}`, with `cap` and
-`over` null when no cap is set. A malformed config, a missing transcript, and a transcript
-with no request yet each exit 1 with the reason, never a size of zero. The command is in
-the hook domain (`hook/prompt-size-command.ts`) and the host composes it into the session
-table (`cli/host.ts`), so the session barrel does not import it.
 
 ## Rules that bite
 
