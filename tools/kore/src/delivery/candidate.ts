@@ -1,5 +1,6 @@
 // Docs: docs/decisions/0097-an-outcome-issue-closes-on-recorded-proof-not-on-merge.md (versions are never reused)
-const VERSION = /^\d+\.\d+\.\d+(-[0-9A-Za-z.-]+)?\+[0-9a-f]{7,40}$/;
+/** A semantic version plus a commit SHA, such as 1.2.3+abc1234. Shared with the contract trailers. */
+export const VERSION = /^\d+\.\d+\.\d+(-[0-9A-Za-z.-]+)?\+[0-9a-f]{7,40}$/;
 const DIGEST = /^sha256:[0-9a-f]{64}$/;
 
 export interface CandidateInput {

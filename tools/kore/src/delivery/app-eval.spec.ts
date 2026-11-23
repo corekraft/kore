@@ -9,6 +9,7 @@ import {
   type FlagDeclaration,
   type FlagsManifest,
 } from "./flags-manifest.js";
+import { migrationCarrier } from "./migration-carrier.js";
 import { patternFailures, safetyTrailer } from "./safety-pattern.js";
 
 // The orchestration is the unit: every rule it calls is mocked, so these tests observe what it
@@ -17,7 +18,16 @@ vi.mock("./attestation.js");
 vi.mock("./candidate.js");
 vi.mock("./flag-expiry.js");
 vi.mock("./flags-manifest.js");
+vi.mock("./migration-carrier.js");
 vi.mock("./safety-pattern.js");
+
+const EMPTY_PLAN = {
+  release: "none",
+  migrationsPath: null,
+  migrations: [],
+  contract: null,
+  n1: "not-applicable",
+};
 
 const digest = `sha256:${"d".repeat(64)}`;
 const version = "1.2.3+abc1234";
@@ -44,6 +54,9 @@ const source: AppSource = {
   flagsText: async () => HEAD_TEXT,
   baseFlagsText: async () => BASE_TEXT,
   changedPaths: async () => ["src/app.ts", "flags.yaml"],
+  // The carrier reads these; a non-carrier run never calls them, and the carrier is mocked here.
+  changes: async () => [],
+  headText: async () => "",
   headMessage: async () => "feat: add\n\nSafety-pattern: feature-flagged\n",
 };
 
@@ -67,6 +80,10 @@ beforeEach(() => {
     predicateType: args.predicateType,
     predicate: args.predicate,
   }));
+  vi.mocked(migrationCarrier).mockResolvedValue({
+    failures: [],
+    plan: EMPTY_PLAN as never,
+  });
 });
 
 test("a candidate that passes every rule gets a pass verdict, with both statements built from the head manifest", async () => {
@@ -97,6 +114,79 @@ test("a candidate that passes every rule gets a pass verdict, with both statemen
       expiredFlags: [],
     },
   });
+});
+
+test("the migration-plan statement carries the carrier's plan, and is attested beside the other two", async () => {
+  const plan = {
+    release: "expand",
+    migrationsPath: "migrations/",
+    migrations: [{ path: "migrations/0002-add-note.sql", class: "expand" }],
+    contract: null,
+    n1: "passed",
+  };
+  vi.mocked(migrationCarrier).mockResolvedValue({
+    failures: [],
+    plan: plan as never,
+  });
+  const report = await evaluateApp(source, { ...input, carriesPlan: true });
+  expect(report.verdict).toBe("pass");
+  expect(statement).toHaveBeenCalledWith({
+    predicateType: PREDICATE_TYPES.migrationPlan,
+    version,
+    digest,
+    predicate: plan,
+  });
+  expect(Object.keys(report.attestations ?? {})).toEqual([
+    "eval-result",
+    "flags-manifest",
+    "migration-plan",
+  ]);
+});
+
+test("the carrier is asked to run only for a carrier, with the head message, the pattern and the new and retired flags", async () => {
+  await evaluateApp(source, input);
+  expect(migrationCarrier).toHaveBeenCalledWith({
+    carries: false,
+    source,
+    message: "feat: add\n\nSafety-pattern: feature-flagged\n",
+    version,
+    pattern: "feature-flagged",
+    changedPaths: ["src/app.ts", "flags.yaml"],
+    newFlags: ["leads.new-checkout"],
+    retiredFlags: [],
+    n1: undefined,
+  });
+});
+
+test("a flag the base manifest declares and the head does not is retired, and is passed to the carrier", async () => {
+  vi.mocked(parseFlagsManifest).mockImplementation((text) =>
+    text === HEAD_TEXT
+      ? { manifest: head, failures: [] }
+      : {
+          manifest: { ...base, flags: [...base.flags, flag("leads.old")] },
+          failures: [],
+        },
+  );
+  await evaluateApp(source, { ...input, carriesPlan: true });
+  expect(migrationCarrier).toHaveBeenCalledWith(
+    expect.objectContaining({ carries: true, retiredFlags: ["leads.old"] }),
+  );
+});
+
+test("a failure from the migration carrier fails the verdict and yields no statement, and is reported after the earlier rules", async () => {
+  vi.mocked(patternFailures).mockReturnValue(["pattern failure"]);
+  vi.mocked(migrationCarrier).mockResolvedValue({
+    failures: ["migration migrations/0004.sql was modified"],
+    plan: EMPTY_PLAN as never,
+  });
+  const report = await evaluateApp(source, { ...input, carriesPlan: true });
+  expect(report.verdict).toBe("fail");
+  expect(report.failures).toEqual([
+    "pattern failure",
+    "migration migrations/0004.sql was modified",
+  ]);
+  expect(statement).not.toHaveBeenCalled();
+  expect(report).not.toHaveProperty("attestations");
 });
 
 test("only the flags the head declares and the base does not are new, and they reach the pattern rule", async () => {

@@ -1,7 +1,7 @@
 import { readFile } from "node:fs/promises";
 import { evaluateApp, gitAppSource } from "../delivery/index.js";
 import type { CommandContext } from "./context.js";
-import { stringFlag, type ParsedArgs } from "./flags.js";
+import { boolFlag, stringFlag, type ParsedArgs } from "./flags.js";
 import { print } from "./output.js";
 
 // Docs: docs/decisions/0169-an-app-declares-its-flags-and-the-platform-holds-their-state.md
@@ -53,7 +53,22 @@ export async function evalCommand(context: CommandContext): Promise<number> {
       base,
       readText: readOptionalText,
     }),
-    { version, digest, published, today },
+    {
+      version,
+      digest,
+      published,
+      today,
+      carriesPlan: boolFlag(parsed, "carries-plan"),
+      n1: {
+        runner: context.runner,
+        dir,
+        baseEnv: process.env,
+        apply: stringFlag(parsed, "n1-apply"),
+        previousSuite: stringFlag(parsed, "n1-previous-suite"),
+        // The scratch URL is read from the environment only, so it never shows in argv or a log.
+        databaseUrl: process.env.KORE_EVAL_SCRATCH_DATABASE_URL,
+      },
+    },
   );
   print(report, true);
   return report.verdict === "pass" ? 0 : 1;
