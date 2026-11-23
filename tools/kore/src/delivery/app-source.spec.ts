@@ -3,6 +3,7 @@ import { CommandError, type Runner } from "../runtime/index.js";
 import { gitAppSource } from "./app-source.js";
 
 const dir = "/work/leads";
+const GIT = "git";
 
 // A fake runner: each call returns the next scripted outcome, or throws it.
 function scriptedRunner(...outcomes: (string | Error)[]) {
@@ -18,7 +19,7 @@ function scriptedRunner(...outcomes: (string | Error)[]) {
 }
 
 const failedGit = (args: string[]) =>
-  new CommandError("git", args, {
+  new CommandError(GIT, args, {
     stdout: "",
     stderr: "fatal: bad revision",
     code: 128,
@@ -33,7 +34,7 @@ test("the changed paths are the files git lists between the base and HEAD", asyn
     readText: async () => undefined,
   });
   expect(await source.changedPaths()).toEqual(["src/app.ts", "flags.yaml"]);
-  expect(runner.run).toHaveBeenCalledWith("git", [
+  expect(runner.run).toHaveBeenCalledWith(GIT, [
     "-C",
     dir,
     "diff",
@@ -56,7 +57,7 @@ test("the head message is the full message of the head commit, read with git log
   expect(await source.headMessage()).toBe(
     "feat: add it\n\nSafety-pattern: feature-flagged\n",
   );
-  expect(runner.run).toHaveBeenCalledWith("git", [
+  expect(runner.run).toHaveBeenCalledWith(GIT, [
     "-C",
     dir,
     "log",
@@ -77,7 +78,7 @@ test("the base flags file is read from the base commit, and a base without one r
     readText: async () => undefined,
   });
   expect(await source.baseFlagsText()).toBeUndefined();
-  expect(runner.run).toHaveBeenCalledWith("git", [
+  expect(runner.run).toHaveBeenCalledWith(GIT, [
     "-C",
     dir,
     "show",

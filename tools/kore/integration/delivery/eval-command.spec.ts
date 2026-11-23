@@ -19,6 +19,17 @@ let scratch: string;
 let base: string;
 let written: string[];
 
+// Under a git hook GIT_DIR names the real repository, so the fixture's git runs without GIT_* (#368).
+const withoutGit = () =>
+  Object.fromEntries(
+    Object.entries(process.env).filter(([name]) => !name.startsWith("GIT_")),
+  );
+
+// The GIT_* names the test process inherited; they are cleared for the test and restored after.
+const inheritedGit = Object.entries(process.env).filter(([name]) =>
+  name.startsWith("GIT_"),
+);
+
 const git = (...args: string[]) =>
   execFileSync(
     "git",
@@ -33,7 +44,7 @@ const git = (...args: string[]) =>
       "commit.gpgsign=false",
       ...args,
     ],
-    { encoding: "utf8" },
+    { encoding: "utf8", env: withoutGit() },
   );
 
 // The fixture keeps the manifest as flags.json, so a formatter cannot rewrite it into non-JSON
@@ -41,6 +52,9 @@ const git = (...args: string[]) =>
 const fixtureText = (path: string) => readFile(join(fixture, path), "utf8");
 
 beforeEach(async () => {
+  for (const [name] of inheritedGit) {
+    delete process.env[name];
+  }
   app = await mkdtemp(join(tmpdir(), "kore-eval-app-"));
   scratch = await mkdtemp(join(tmpdir(), "kore-eval-scratch-"));
   git("init", "--quiet");
@@ -58,6 +72,9 @@ beforeEach(async () => {
 });
 
 afterEach(async () => {
+  for (const [name, value] of inheritedGit) {
+    process.env[name] = value;
+  }
   vi.restoreAllMocks();
   await rm(app, { recursive: true, force: true });
   await rm(scratch, { recursive: true, force: true });
