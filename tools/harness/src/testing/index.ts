@@ -56,8 +56,6 @@ export {
   summarizeError,
   windowStart,
 } from "../hook/retro-scan.js";
-// The status line's pure figures and builder, for the integration spec over real plans.
-export { contextPercent, statusLine } from "../hook/statusline.js";
 // The bypass corpus is data the guard's real-run spec replays; re-exported here so no integration spec deep-imports the hook domain.
 export {
   CORPUS,

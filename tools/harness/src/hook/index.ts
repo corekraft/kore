@@ -9,7 +9,7 @@ export { HC_AUDIT, HC_LAUNCH_AUDIT } from "./guard-corpus-hc.js";
 import { feedback } from "./feedback.js";
 import { guard } from "./guard.js";
 import { hookCommand } from "./io.js";
-import { context, delta, record, statusline } from "./session-hooks.js";
+import { context, delta, record } from "./session-hooks.js";
 import { retroScan } from "./retro-hook.js";
 import { testHooks } from "./test-hooks.js";
 import {
@@ -128,7 +128,6 @@ export const hook: Record<string, Command> = {
   record,
   "retro-scan": retroScan,
   "skill-links": skillLinks,
-  statusline,
   ...testHooks,
   "workflow-permissions": workflowPermissions,
 };
