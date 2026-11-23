@@ -1,8 +1,17 @@
-import type { Repository } from "../config/index.js";
+import {
+  featureEnabled,
+  releaseOwner,
+  releaseRecoveryArgocdRefusalFlag,
+  type Component,
+  type Repository,
+} from "../config/index.js";
 import { CommandError, type Runner } from "../runtime/index.js";
 
-/** A Helm release a recovery may act on: a catalog component or an app release. */
-export interface ReleaseTarget {
+/**
+ * A Helm release a recovery may act on: a catalog component or an app release.
+ * An app release names no owner, so it is kore's.
+ */
+export interface ReleaseTarget extends Partial<Pick<Component, "owner">> {
   name: string;
   namespace: string;
   timeout: string;
@@ -71,7 +80,9 @@ function lastRevisionWith(
  * - a release that never deployed is uninstalled and must then be gone;
  * - a canceled upgrade or rollback returns to the last deployed revision
  *   (never an uninstall, which would remove a healthy release) and the latest
- *   revision must then be deployed;
+ *   revision must then be deployed; with release-recovery-argocd-refusal on, a
+ *   release Argo CD owns is refused instead, naming its git revert, because
+ *   helm rollback never runs under Argo CD;
  * - a release that was deployed before a failed upgrade is left to Helm.
  * `beforeUninstall` runs first and may refuse (retained data). Returns what it
  * did. Other history failures are rethrown, never read as a missing release.
@@ -108,6 +119,20 @@ export async function recoverRelease(
       lastRevisionWith(revisions, "superseded");
     if (live === undefined) {
       return "none";
+    }
+    // With the refusal flag on, an Argo CD owned release is never rolled back by
+    // helm (ADR 0153): its owner reverts its record in git, or the delivery flag
+    // is turned off. Off, the rollback runs as before.
+    if (
+      featureEnabled(
+        repository.environment,
+        releaseRecoveryArgocdRefusalFlag,
+      ) &&
+      releaseOwner(repository.environment, target) === "argocd"
+    ) {
+      throw new Error(
+        `release ${target.name} in namespace ${target.namespace} is owned by Argo CD, so kore refuses helm rollback to revision ${live}; roll it back with a git revert of its record in infra/catalog/components.yaml, or turn platform-argocd-delivery off in ${repository.environment.name} to hand it back to Helm (ADR 0153)`,
+      );
     }
     await runner.run(
       "helm",

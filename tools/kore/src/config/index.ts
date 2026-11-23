@@ -114,6 +114,7 @@ export {
   platformDnsFlag,
   platformPortalFlag,
   portalStagedInstallFlag,
+  releaseRecoveryArgocdRefusalFlag,
   startsAfterDelivery,
   registryPruneFlag,
   registryTailnetForwardFlag,

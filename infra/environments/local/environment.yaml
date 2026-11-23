@@ -52,6 +52,7 @@
       "registry-tag-pruning": false,
       "platform-organization-service-apis": true,
       "platform-argocd-delivery": true,
+      "release-recovery-argocd-refusal": false,
       "database-routes": true,
       "platform-dns": true,
       "drift-listing-mappings": false,
