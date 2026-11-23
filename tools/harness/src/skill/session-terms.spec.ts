@@ -13,6 +13,9 @@ const read = (path: string) => readFileSync(join(ROOT, path), "utf8");
 /** A pane or a tab named for a session: the herdr words the hc model retired. */
 const PANE_OR_TAB = /\b(panes?|tabs?)\b/i;
 
+/** The two ledger event names that keep "pane" in their dotted name. */
+const LEDGER_EVENT_NAMES = /`pane\.(finished|stalled)`/g;
+
 describe("the session terms in the glossary", () => {
   const glossary = read("GLOSSARY.md");
 
@@ -34,7 +37,21 @@ describe("the session terms in the glossary", () => {
   it("names no pane or tab for a session, except Pane result under Avoid", () => {
     const named = "_Avoid_: Finish line, notification, Pane result";
     expect(glossary).toContain(named);
-    expect(glossary.replace(named, "")).not.toMatch(PANE_OR_TAB);
+    const rest = glossary.replace(named, "").replace(LEDGER_EVENT_NAMES, "");
+    expect(rest).not.toMatch(PANE_OR_TAB);
+  });
+
+  it("keeps the ledger event names pane.finished and pane.stalled, as event names", () => {
+    const block = (term: string) =>
+      glossary.split("\n\n").find((b) => b.startsWith(`**${term}**:`));
+    expect(block("Finish detection")).toContain("`pane.finished`");
+    expect(block("Silent session")).toContain("`pane.stalled`");
+    expect("a pane result and a tab".replace(LEDGER_EVENT_NAMES, "")).toMatch(
+      PANE_OR_TAB,
+    );
+    expect("the `pane.finished` pane".replace(LEDGER_EVENT_NAMES, "")).toMatch(
+      PANE_OR_TAB,
+    );
   });
 
   it("takes follow-up's provenance from hc's tag, not a sender line on every message", () => {
@@ -65,6 +82,14 @@ describe("the session rules in AGENTS.md", () => {
   it("names only the token a role terminal is handed, not a sandbox", () => {
     expect(agents).toContain("which hands them their token;");
     expect(agents).not.toContain("sandbox");
+  });
+});
+
+describe("the relay note in hc-pin.md", () => {
+  it("shows how a relay is sent to a machine session", () => {
+    expect(read("docs/operations/hc-pin.md")).toContain(
+      "hc send kore-agents/<id>",
+    );
   });
 });
 

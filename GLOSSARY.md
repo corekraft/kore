@@ -329,8 +329,9 @@ _Avoid_: Slow step
 **Finish detection**:
 The share of a flow report's session results that a finish recorded on the same
 terminal noticed within the detection window, a placeholder of 300 seconds. A
-result is noticed only when its finish was recorded: for a herdr result, when
-`session wait` recorded it; for a terminal result, when the terminal watch did. A
+result is noticed only when its finish was recorded: for a herdr result, a
+`pane.finished` ledger event, recorded when `session wait` saw it; for a
+terminal result, when the terminal watch did. A
 terminal read or a message to the session records nothing, so it counts as not
 noticed. The undetected results split into never noticed (no finish was ever
 recorded on the terminal) and late (one was recorded outside the window, or
@@ -343,8 +344,8 @@ _Avoid_: Stop detection, finish rate
 A session whose last `token.usage` is more than 900 seconds before the flow
 report's measuring point, with no report since, and with no background command or
 open reserved question on its terminal. The flow report counts silent sessions
-beside the recorded stall count, which is read per ledger source: a terminal's
-stall is a blocked or error event. It is a token-usage reading, not a stalled
+beside the recorded stall count, the `pane.stalled` ledger events, which is read per
+ledger source: a terminal's stall is a blocked or error event. It is a token-usage reading, not a stalled
 terminal.
 _Avoid_: Stalled terminal, stall count
 
