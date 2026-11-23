@@ -113,7 +113,7 @@ see [The harness bundle](#the-harness-bundle).
   together without a cluster, and gates a release. A live test needs a cluster
   and runs only when asked. The move to these tiers is in progress under
   [plan 14](../../infra/plans/14-test-tiers.md): the cluster suites are live
-  tests now (#372), and the script, hook, status line and bundle tests run in
+  tests now (#372), and the script, hook and bundle tests run in
   the integration tier (#373). A pull request that touches only `.claude/` files
   other than hooks and evals, `skills/` or `.codex/` runs no hook test before
   merge; the nightly integration job covers them after merge (owner decision).
