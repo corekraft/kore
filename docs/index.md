@@ -370,6 +370,7 @@ decisions; read one only when planning that area, and expect it to change.
 - [`docs/operations/backups.md`](operations/backups.md) — the export backup target, the RPO objective, and the audit-only `backups` status row. Read when exporting, restoring, or when `backups` is degraded.
 - [`docs/operations/hc-pin.md`](operations/hc-pin.md) — the exact hc pin (0.1.21), where it is checked, how a host installs it, and the open release-source question. Read when installing or upgrading hc, or when the hc version check fails.
 - [`docs/operations/agentgateway-listener-probe.md`](operations/agentgateway-listener-probe.md) — the opt-in probe for a passthrough and an HTTPS listener on one port, and listener sets, and how to read its result. Read before running it or deciding the registry and database routes.
+- [`docs/operations/agentgateway-data-plane-series.md`](operations/agentgateway-data-plane-series.md) — which agentgateway data-plane series carry request count, errors and latency, what carries the service key, the candidate names (unverified), the data-plane scrape, and the live query the coordinator runs. Read before writing an evidence window that reads request series, or before changing the agentgateway scrape.
 
 ## Reference
 

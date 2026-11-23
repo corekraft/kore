@@ -41,8 +41,9 @@ test("Prometheus scrapes the Collector exporter and the Collector's own metrics"
     "every extraScrapeConfigs line is a block-sequence item",
   );
   const scrape = lines.map((line) => JSON.parse(line.slice(2)));
+  // Jobs that discover their targets (the data-plane job) have no static_configs.
   const targets = scrape.flatMap((job: Json) =>
-    job.static_configs.flatMap((config: Json) => config.targets),
+    (job.static_configs ?? []).flatMap((config: Json) => config.targets),
   );
   assert.ok(targets.includes("otel-collector.observability.svc:8889"));
   assert.ok(targets.includes("otel-collector.observability.svc:8888"));
