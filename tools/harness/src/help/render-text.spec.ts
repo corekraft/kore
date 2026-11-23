@@ -65,7 +65,7 @@ const command: CommandView = {
     kind: "mutates",
     detail: "rewrites the Next: line of one plan file",
   },
-  seeAlso: ["plan active", "plan clear-next"],
+  seeAlso: ["plan active", "plan tick"],
 };
 
 describe("the prose help at the root level", () => {
@@ -138,7 +138,7 @@ Effects:
 
 See also:
   harness plan active
-  harness plan clear-next
+  harness plan tick
 `);
   });
 

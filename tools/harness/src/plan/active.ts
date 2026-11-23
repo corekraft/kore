@@ -54,7 +54,7 @@ export const planActive: Command = {
       "Lists the active plans: each file under infra/plans whose frontmatter says status: active, highest-numbered first. Each shows its open items per step, its Next: line and its upcoming steps. The first is the default that the plan commands use when no --plan is given.",
     when: "When you need to know which plan is the default, or what is still open in the active plans before you tick an item or set a Next: line.",
     whenNot:
-      "When you need one plan's full text rather than its open items: read the file under infra/plans. To change a plan, use plan tick, plan next or plan clear-next.",
+      "When you need one plan's full text rather than its open items: read the file under infra/plans. To change a plan, use plan tick or plan next (plan next --clear removes the Next: line).",
     flags: {},
     examples: [
       {
@@ -83,7 +83,7 @@ export const planActive: Command = {
       kind: "read-only",
       detail: "reads each plan file under infra/plans and writes nothing",
     },
-    seeAlso: ["plan tick", "plan next", "plan clear-next"],
+    seeAlso: ["plan tick", "plan next"],
   },
   async run({ json, deps }) {
     const listed = await readActivePlans(deps);

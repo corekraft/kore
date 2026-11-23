@@ -41,7 +41,7 @@ const SENDERS = new Map<string, Sender>([
   [
     ADVISOR_OTHER_COMMAND,
     {
-      command: "decision route",
+      command: "decision ask",
       session: { role: "advisor", name: "advisor-862" },
     },
   ],

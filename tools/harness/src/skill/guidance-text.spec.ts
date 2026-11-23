@@ -142,6 +142,21 @@ describe("the add-command skill", () => {
   });
 });
 
+describe("the handoff skill", () => {
+  const skill = read("skills/handoff/SKILL.md");
+
+  it("clears the Next: line with plan next and --clear, the one command that sets and clears it", () => {
+    expect(skill).toContain(
+      "run `node skills/bin/harness.mjs plan next` for plan N with `--clear`",
+    );
+    expect(skill).toContain("`harness plan next --help` names the options");
+  });
+
+  it("no longer names plan clear-next, which plan next --clear replaces", () => {
+    expect(skill).not.toContain("clear-next");
+  });
+});
+
 describe("the glossary", () => {
   const glossary = read("GLOSSARY.md");
   const entry =

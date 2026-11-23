@@ -11,7 +11,7 @@ export const domainGuides: Record<DomainName, DomainGuide> = {
   plan: {
     purpose:
       "Reads and edits the plan files under infra/plans: the active plan, its open items and its single Next: line.",
-    flow: "Run plan active to list the plans, plan next to set the Next: line, plan tick to tick an open item, and plan clear-next to remove the line.",
+    flow: "Run plan active to list the plans, plan next to set the Next: line, plan next --clear to remove it, and plan tick to tick an open item.",
     seeAlso: ["plan active"],
   },
   adr: {
@@ -54,13 +54,8 @@ export const domainGuides: Record<DomainName, DomainGuide> = {
   decision: {
     purpose:
       "Routes the questions the panes raise: the advisor decides what it may, and reserved questions go to the owner.",
-    flow: "Run decision route to send a question to the advisor or the owner; decision make posts the advisor's decision, decision ask posts a reserved question, and decision digest posts the daily digest. All four are refused while the decision-advisor flag is off.",
-    seeAlso: [
-      "decision route",
-      "decision make",
-      "decision ask",
-      "decision digest",
-    ],
+    flow: "Run decision make to post the advisor's decision, decision ask to post a reserved question to the owner, and decision digest to post the daily digest. All three are refused while the decision-advisor flag is off.",
+    seeAlso: ["decision make", "decision ask", "decision digest"],
   },
   flag: {
     purpose:

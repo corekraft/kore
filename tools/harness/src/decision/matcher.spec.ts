@@ -32,7 +32,9 @@ describe("matchedBy", () => {
 
   it("names the advisor's own files for a question that cites one, even when no reserved pattern matches", () => {
     expect(
-      matchedBy("Should tools/harness/src/decision/route.ts widen its check?"),
+      matchedBy(
+        "Should tools/harness/src/decision/classify.ts widen its check?",
+      ),
     ).toBe(ADVISOR_FILES);
     expect(matchedBy("Edit .claude/agents/advisor.md to name the tool")).toBe(
       ADVISOR_FILES,
