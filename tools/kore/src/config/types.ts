@@ -336,6 +336,8 @@ export interface GoldenPathDeliveryValues {
   sharedGateway?: boolean;
   /** True while golden-path-template-admission is on: the sync labels the app namespaces it creates for policy.sigstore.dev/include (ADR 0181). */
   templateAdmission?: boolean;
+  /** Set only while golden-path-safety-defaults is on: the sync sets safetyDefaults on each workload (ADR 0154). */
+  safetyDefaults?: boolean;
   autoscaling?: boolean;
   /** True while platform-portal, platform-organization-service-apis and platform-argocd-delivery are all on: the sync also applies the Service records (ADR 0166). */
   serviceRecords?: boolean;

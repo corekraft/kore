@@ -28,6 +28,12 @@ project: default
 # HorizontalPodAutoscaler and no replica count.
 # autoscaling: true
 
+# Set by kore only while golden-path-safety-defaults is on (ADR 0154). The sync
+# then passes safetyDefaults=true to each workload, so its chart renders two
+# replicas, an explicit rolling update, a PodDisruptionBudget and its own
+# readiness endpoint. Off, the sync sets no such parameter.
+# safetyDefaults: true
+
 # Set by kore only while platform-portal, platform-organization-service-apis and
 # platform-argocd-delivery are all on (ADR 0166). The sync then also applies each
 # registration's Service record to the cluster, and the Service composition, not
