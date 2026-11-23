@@ -124,7 +124,6 @@ test("with platform-sync-window on and a maintenance hold, the AppProject denies
       duration: 24h
       applications:
         - "*"
-      manualSync: true
 `,
   );
 }, 120_000);
