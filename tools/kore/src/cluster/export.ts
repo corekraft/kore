@@ -30,6 +30,14 @@ export interface ExportEntry {
   cluster: string;
 }
 
+/** age arguments that encrypt to every recipient, armored so the output is text. */
+export function ageArguments(recipients: readonly string[]): string[] {
+  return [
+    "--armor",
+    ...recipients.flatMap((recipient) => ["--recipient", recipient]),
+  ];
+}
+
 /** Retained claims that are not CloudNativePG data volumes, which pg_dump cannot cover. */
 async function uncoveredVolumes(
   repository: Repository,
@@ -173,14 +181,10 @@ export async function exportRetainedData(
       ]),
       { capture: true },
     );
-    const encrypted = await runner.run(
-      "age",
-      [
-        "--armor",
-        ...recipients.flatMap((recipient) => ["--recipient", recipient]),
-      ],
-      { capture: true, input: dump.stdout },
-    );
+    const encrypted = await runner.run("age", ageArguments(recipients), {
+      capture: true,
+      input: dump.stdout,
+    });
     exports.push(
       await writeExport(repository, {
         directory,

@@ -2,14 +2,14 @@
 status: proposed
 summary: On vps, application secrets are held by OpenBao behind the existing External Secrets contract, with one store and one secret path per suborg and the provider switch dark-launched; the unseal key is a recorded exception in its own ADR; databases get separate DDL and DML roles from CloudNativePG now, with OpenBao dynamic DDL credentials later behind their own flag.
 date: 2026-11-20
-last-verified: 2026-11-20
+last-verified: 2026-11-23
 ---
 
 # ADR 0167: Application secrets come from OpenBao behind the platform-secrets contract, one path per suborg
 
 Source: [issue #1484](https://github.com/corekraft/kore/issues/1484), the owner's decisions of 2026-11-20 on the secret backend (research comment by the secret-backend researcher), under the platform v1 interview record [#1478](https://github.com/corekraft/kore/issues/1478).
 
-Refines: [ADR 0009](0009-encrypted-secrets-through-external-secrets.md), [ADR 0024](0024-reference-app-database-access.md) (one role for DDL and DML becomes two). Builds on the ADR "A suborg is the namespace, quota and trust boundary of its services" and on the ADR "The OpenBao static seal key is a recorded exception to no plaintext on disk".
+Refines: [ADR 0009](0009-encrypted-secrets-through-external-secrets.md), [ADR 0024](0024-reference-app-database-access.md) (one role for DDL and DML becomes two). Builds on [ADR 0165](0165-a-suborg-is-the-namespace-quota-and-trust-boundary-of-its-services.md) (a suborg is the namespace, quota and trust boundary of its services) and on [ADR 0168](0168-the-openbao-static-seal-key-is-a-recorded-exception-to-no-plaintext-on-disk.md) (the OpenBao static seal key is a recorded exception to no plaintext on disk).
 
 ## Context
 

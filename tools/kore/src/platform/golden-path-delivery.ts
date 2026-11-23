@@ -48,6 +48,16 @@ function templateImages(lock: unknown) {
   return result;
 }
 
+/** Only while golden-path-safety-defaults is on, so the flag-off values are unchanged (ADR 0154). */
+function safetyDefaultsValues(repository: Repository): {
+  safetyDefaults?: true;
+} {
+  return repository.environment.features?.["golden-path-safety-defaults"] ===
+    true
+    ? { safetyDefaults: true }
+    : {};
+}
+
 async function git(
   repository: Repository,
   runner: Runner,
@@ -122,6 +132,7 @@ export async function composeGoldenPathDelivery(
         repository.environment.features?.["golden-path-template-admission"] ===
         true,
       autoscaling: repository.environment.features?.[autoscalingFlag] === true,
+      ...safetyDefaultsValues(repository),
       // All three flags on: the sync also applies the Service records (ADR 0166).
       serviceRecords:
         repository.environment.features?.[platformPortalFlag] === true &&

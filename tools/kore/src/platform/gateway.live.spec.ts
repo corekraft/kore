@@ -1,6 +1,10 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { gatewayEntryPort, loadRepository } from "../config/index.js";
+import {
+  gatewayEntryPort,
+  loadRepository,
+  internalGateway,
+} from "../config/index.js";
 import {
   listHostProcesses,
   ProcessRunner,
@@ -74,7 +78,7 @@ const httpsLive = (cluster: Cluster, options: ProofOptions, root: string) =>
   );
 
 async function gatewayReady(cluster: Cluster): Promise<void> {
-  const { gateway } = cluster.repository.environment;
+  const gateway = internalGateway(cluster.repository.environment);
   await eventually(
     "the Gateway",
     () =>

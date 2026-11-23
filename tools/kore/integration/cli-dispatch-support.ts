@@ -152,6 +152,8 @@ export const platformModule = () => ({
 export const securityModule = () => ({
   syncLocalSecrets: vi.fn(async () => (dispatch.push("syncLocalSecrets"), 2)),
   installLocalTrust: vi.fn(async () => void dispatch.push("installLocalTrust")),
+  // The local internal Gateway's name; the trust install reads it as the issuer.
+  trustIssuer: vi.fn(() => "kore-gateway"),
 });
 
 export const localModule = () => ({
