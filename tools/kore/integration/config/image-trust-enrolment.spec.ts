@@ -6,19 +6,22 @@ import { findRoot, loadRepository } from "../../src/config/index.js";
 
 // Docs: docs/decisions/0181-namespaces-delivered-from-git-are-enrolled-in-image-admission-by-their-creator.md
 
-type Trust = Record<string, unknown>;
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null;
+}
 
 test("the VPS and managed-example overlays admit the v0.22.0 release signer, and stay in warn", async () => {
   const v022 =
     "https://github.com/corekraft/kore/.github/workflows/release.yaml@refs/tags/v0.22.0";
   for (const environment of ["vps", "managed-example"]) {
     const repository = await loadRepository(environment);
-    const trust = repository.imageTrustValues?.trust as Trust;
+    const trust: unknown = repository.imageTrustValues?.["trust"];
+    assert.ok(isRecord(trust), `${environment} declares a trust authority`);
     assert.ok(
-      (trust.subjects as string[]).includes(v022),
+      Array.isArray(trust["subjects"]) && trust["subjects"].includes(v022),
       `${environment} trusts the v0.22.0 release signer`,
     );
-    assert.equal(trust.mode, "warn", `${environment} stays in warn`);
+    assert.equal(trust["mode"], "warn", `${environment} stays in warn`);
   }
 });
 
