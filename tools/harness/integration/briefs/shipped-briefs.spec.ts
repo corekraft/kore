@@ -10,7 +10,7 @@ import {
   retroBrief,
 } from "../../src/orchestrator/index.js";
 import { buildBrief } from "../../src/session/index.js";
-import { resamplerBrief, reviewerBrief } from "../../src/judge/index.js";
+import { reviewerBrief } from "../../src/judge/index.js";
 
 // The shipped text a session on hc reads: every agent definition, and every brief an hc session is started with or
 // sent. The RESULT line and the terminal addresses belong to the herdr path until its flip (plan 16, Step 6), so an
@@ -70,10 +70,6 @@ const HC_BRIEFS: [string, string][] = [
   [
     "the reviewer brief",
     reviewerBrief(12, "aaaaaaaa11111111aaaaaaaa11111111aaaaaaaa"),
-  ],
-  [
-    "the re-review brief",
-    resamplerBrief(12, "aaaaaaaa11111111aaaaaaaa11111111aaaaaaaa"),
   ],
   ["the main session's wait line", MAIN_SESSION_WAIT_LINE],
 ];

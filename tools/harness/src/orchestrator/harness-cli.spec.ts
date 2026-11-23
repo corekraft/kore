@@ -149,7 +149,7 @@ describe("HarnessCli escalation, outcome and failure", () => {
     });
     await cli.escalate(50);
     expect(calls).toEqual([
-      harness("queue", "send-backs", "50", "--json"),
+      harness("queue", "escalate", "50", "--check", "--json"),
       harness("queue", "escalate", "50"),
     ]);
   });
