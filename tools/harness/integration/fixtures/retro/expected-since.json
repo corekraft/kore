@@ -50,10 +50,16 @@
   ],
   "skills": {
     "perSession": {
-      "alpha": ["test-driven-development"],
-      "bravo": ["handoff"]
+      "alpha": [
+        "test-driven-development"
+      ],
+      "bravo": [
+        "handoff"
+      ]
     },
-    "unused": ["alpha-skill"]
+    "unused": [
+      "alpha-skill"
+    ]
   },
   "subagents": {},
   "bareCommands": {
@@ -84,7 +90,9 @@
     }
   ],
   "rules": {
-    "promotable": ["unquoted-glob"],
+    "promotable": [
+      "unquoted-glob"
+    ],
     "audit": [
       {
         "rule": "image-digest",

@@ -21,10 +21,12 @@ beforeEach(() => {
 });
 afterEach(() => rmSync(dir, { recursive: true, force: true }));
 
+// stderr is piped, not inherited, so the build's own error trace for the refused rename stays out of the test log.
 const build = (out: string) =>
   execFileSync(process.execPath, ["build.mjs", out], {
     cwd: harnessRoot,
     encoding: "utf8",
+    stdio: ["ignore", "pipe", "pipe"],
   });
 
 describe("the bundle build", () => {
