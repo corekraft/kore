@@ -58,12 +58,13 @@ test("the app signs in through Keycloak only: no guest provider is configured or
   assert.equal((await source("package.json")).includes("guest"), false);
 });
 
-test("the Kubernetes plugin reads as the signed-in user, with no service account token configured", async () => {
+// Docs: docs/decisions/0180-backstage-reads-the-argo-cd-view-as-its-own-service-account-gated-by-the-operators-policy.md
+test("the Kubernetes plugin reads as Backstage's service account, with the token from the environment and no OIDC token provider", async () => {
   const config = JSON.parse(await source("app-config.yaml"));
   const [cluster] = config.kubernetes.clusterLocatorMethods[0].clusters;
-  assert.equal(cluster.authProvider, "oidc");
-  assert.equal(cluster.oidcTokenProvider, "oidc");
-  assert.equal("serviceAccountToken" in cluster, false);
+  assert.equal(cluster.authProvider, "serviceAccount");
+  assert.equal(cluster.serviceAccountToken, "${K8S_SA_TOKEN}");
+  assert.equal("oidcTokenProvider" in cluster, false);
 });
 
 test("the backend wires the group sign-in resolver and the catalog provider, and the catalog refreshes on a schedule", async () => {
@@ -85,7 +86,12 @@ test("the chart gives Backstage the OIDC values by Secret reference and a read-o
     assert.match(deployment, new RegExp(`name: ${name}\\b`));
   }
   assert.match(deployment, /serviceAccountName: backstage/);
-  assert.equal(/kind: Secret\b/.test(rendered), false);
+  // The only Secret is the data-less service account token Secret (ADR 0180).
+  const secrets = rendered
+    .split(/^---$/m)
+    .filter((part) => /^kind: Secret$/m.test(part));
+  assert.equal(secrets.length, 1);
+  assert.match(secrets[0] ?? "", /type: kubernetes\.io\/service-account-token/);
   const role = document(rendered, "ClusterRole");
   assert.match(role, /apiGroups: \["platform\.kore\.dev"\]/);
   assert.match(role, /resources: \["organizations", "services"\]/);
@@ -144,17 +150,16 @@ test("the Backstage client accepts only the sign-in proxy's callback, so no othe
   assert.equal(client.includes("oidc/handler/frame"), false);
 });
 
-test("the Kubernetes plugin shows each service's Argo CD Application beside its workload, read as the user", async () => {
+test("the Kubernetes plugin shows each service's Argo CD Application beside its workload, read as the service account", async () => {
   const config = JSON.parse(await source("app-config.yaml"));
   assert.deepEqual(config.kubernetes.customResources, [
     { group: "argoproj.io", apiVersion: "v1alpha1", plural: "applications" },
   ]);
   const [cluster] = config.kubernetes.clusterLocatorMethods[0].clusters;
-  assert.equal(cluster.authProvider, "oidc");
-  assert.equal("serviceAccountToken" in cluster, false);
+  assert.equal(cluster.authProvider, "serviceAccount");
 });
 
-test("the Argo CD view is read by the signed-in operators group only, never by Backstage's own service account", async () => {
+test("the Argo CD view is read by Backstage's own service account with a read-only role, from a long-lived token Secret, and only operators may ask", async () => {
   const documents = (await render()).split(/^---$/m);
   const named = (kind: string): string | undefined =>
     documents.find(
@@ -172,8 +177,23 @@ test("the Argo CD view is read by the signed-in operators group only, never by B
   assert.equal(/\*|create|update|patch|delete/.test(role), false);
   const binding = named("ClusterRoleBinding");
   assert.ok(binding, "the view binding is rendered");
-  assert.match(binding, /kind: Group\n\s+name: platform-operators/);
-  assert.equal(/kind: ServiceAccount/.test(binding), false);
+  assert.match(binding, /kind: ServiceAccount\n\s+name: backstage\n/);
+  assert.equal(/kind: Group/.test(binding), false);
+  const secret = documents.find(
+    (part) =>
+      /^kind: Secret$/m.test(part) &&
+      /kubernetes\.io\/service-account-token/.test(part),
+  );
+  assert.ok(secret, "the service account token Secret is rendered");
+  assert.match(secret, /kubernetes\.io\/service-account\.name: backstage/);
+  const deployment = documents.find((part) => /^kind: Deployment$/m.test(part));
+  assert.match(
+    deployment ?? "",
+    /name: K8S_SA_TOKEN\n\s+valueFrom:\n\s+secretKeyRef:\n\s+name: backstage-sa-token\n\s+key: token/,
+  );
+  assert.match(secret, /name: backstage-sa-token/);
+  const policy = await source("src/policy.js");
+  assert.match(policy, /group:default\/platform-operators/);
 });
 
 test("every Backstage dependency is an exact version and the lockfile resolves each to it", async () => {

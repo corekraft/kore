@@ -1,7 +1,7 @@
 # Backstage's catalog provider lists the platform Organization and Service
 # objects with the pod's own token (ADR 0111). The role can only get and list
-# those two resources. The Kubernetes plugin never uses this account: it reads
-# clusters as the signed-in user, with their Keycloak token.
+# those two resources. The Kubernetes plugin reads the Argo CD view with this
+# account too, through its own read-only role below (ADR 0180).
 apiVersion: v1
 kind: ServiceAccount
 metadata:
@@ -30,10 +30,10 @@ subjects:
     name: backstage
     namespace: {{ .Release.Namespace }}
 ---
-# The Argo CD sync and rollout view (ADR 0111). The Kubernetes plugin reads as
-# the signed-in user, so the grant is to the operators group, never to the
-# backstage service account above. Read-only: get and list on Applications and
-# Deployments, nothing else, no wildcards.
+# The Argo CD sync and rollout view (ADR 0111, ADR 0180). The Kubernetes plugin
+# reads with the backstage service account's long-lived token below, and the
+# permission policy lets only the platform-operators group ask. Read-only: get
+# and list on Applications and Deployments, nothing else, no wildcards.
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
@@ -55,6 +55,19 @@ roleRef:
   kind: ClusterRole
   name: kore-backstage-argocd-view
 subjects:
-  - apiGroup: rbac.authorization.k8s.io
-    kind: Group
-    name: platform-operators
+  - kind: ServiceAccount
+    name: backstage
+    namespace: {{ .Release.Namespace }}
+---
+# A long-lived token for the backstage service account, which the Kubernetes
+# plugin sends as the cluster's service account token (K8S_SA_TOKEN). Bound pod
+# tokens expire and Backstage reads its config once, so the token is a Secret
+# the control plane fills in and does not rotate.
+apiVersion: v1
+kind: Secret
+metadata:
+  name: backstage-sa-token
+  namespace: {{ .Release.Namespace }}
+  annotations:
+    kubernetes.io/service-account.name: backstage
+type: kubernetes.io/service-account-token
