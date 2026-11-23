@@ -1,8 +1,8 @@
 // The main session's three figures (#940, ideas 0019 to 0021): poll minutes per merged
 // change, pane-result reads per finished pane, and the signed share of pane sends. Each
 // is read from the retro.main-session events a retro scan recorded, over the merged
-// changes and finished panes in the windows those scans read. Nothing here goes into
-// the owner digest.
+// changes and finished panes in the windows those scans read. Nothing here is reported
+// to the owner.
 
 import type { LedgerEvent, RetroOrigin } from "../ledger/index.js";
 import { DEFAULT_COST, type CostOptions } from "./cost.js";
