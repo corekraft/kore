@@ -22,7 +22,7 @@ export async function recordLaunch(
       deps.ids,
       join(main, DEFAULT_LEDGER),
     ).record({
-      source: "herdr",
+      source: "terminal",
       kind: "session.launch",
       occurredAt: record.createdAt,
       pane: record.paneId,
@@ -66,7 +66,7 @@ export async function recordIdeaLabels(
     );
     for (const label of names) {
       await ledger.record({
-        source: "herdr",
+        source: "terminal",
         kind: "session.labelled",
         occurredAt: launched.createdAt,
         session: launched.name,
@@ -117,7 +117,7 @@ export async function noteUnstamped(
       deps.ids,
       join(main, DEFAULT_LEDGER),
     ).record({
-      source: "herdr",
+      source: "terminal",
       kind: "spawn.unstamped",
       occurredAt: spawned.createdAt,
       pane: spawned.paneId,

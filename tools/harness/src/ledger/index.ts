@@ -1,7 +1,6 @@
 export { pollGithub, type GithubPollResult } from "./github-poll.js";
 export { APPROVED_MARKER, REFUSED_MARKER } from "./github-owner-actions.js";
 export { pollSignals } from "./github-signals.js";
-export { pollHerdr, type PollResult } from "./herdr-poll.js";
 export { followTerminals, type FollowEnd } from "./terminal-follow.js";
 export { lastReadings, planTerminals } from "./terminal-watch.js";
 export { hasOpenBackground } from "./background.js";

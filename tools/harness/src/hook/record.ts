@@ -1,7 +1,7 @@
 // `harness hook record session-start`: records a session start in the stage
 // ledger and prints nothing. A session starts on startup, clear or resume; a
 // compaction continues the same session, so it is not a start. Each start also
-// polls GitHub and herdr into the ledger in the background (best effort). A compact start
+// polls GitHub into the ledger in the background (best effort). A compact start
 // records a session.compacted reading instead, once per compaction (#1037). The context
 // hook keeps its own matcher and output and does not record.
 // Plan: infra/plans/8-harness-measurement.md#step-3-stage-event-ledger
@@ -16,22 +16,21 @@ import { asksOwner } from "./owner-question.js";
 const STARTS = new Set(["startup", "clear", "resume"]);
 
 /**
- * The ledger polls a session start runs in the background: GitHub's outcome
- * signals and herdr's pane states (`pane.stalled` among them, #1091). The herdr
- * poll only reads herdr and writes ledger events; it never closes, restarts or
- * messages a pane.
+ * The ledger poll a session start runs in the background: GitHub's outcome
+ * signals. The hc terminals' events come from the ledger watch, which
+ * `session spawn` starts under its own terminal.
  */
-const BACKGROUND_POLLS = ["poll-github", "poll-herdr"] as const;
+const BACKGROUND_POLLS = ["poll-github"] as const;
 
 /**
  * Starts each `ledger poll` detached (its own process group, no pipes,
  * unref'd), so the hook exits at once whatever the polls do: the ledger gets
- * its signals without a session start ever waiting on GitHub or herdr. Each
+ * its signals without a session start ever waiting on GitHub. Each
  * poll is started on its own, so one that cannot start does not stop the next.
  * Best effort by contract: a poll that fails, is rate limited or cannot start
  * never changes the hook's output, and its output is dropped, never printed.
  * Each poll refuses to run twice at once (ledger/poll-lock.ts, a lock file
- * beside the ledger, taken in ledger/github-poll.ts and ledger/herdr-poll.ts).
+ * beside the ledger, taken in ledger/github-poll.ts).
  */
 function pollInBackground(deps: CliDeps): void {
   if (deps.bundleUrl === undefined) {
@@ -85,7 +84,7 @@ const recordHelp: CommandHelp = {
     {
       command: "harness hook record session-start",
       shows:
-        "session.start recorded for a startup, clear or resume on stdin, and the GitHub and herdr polls started in the background",
+        "session.start recorded for a startup, clear or resume on stdin, and the GitHub poll started in the background",
     },
     {
       command: "harness hook record turn-end",
@@ -104,7 +103,7 @@ const recordHelp: CommandHelp = {
   effects: {
     kind: "mutates",
     detail:
-      "appends stage-ledger events. session-start on a startup, clear or resume records session.start and starts ledger poll-github and ledger poll-herdr detached, so they run in the background; on a compaction it records one session.compacted. turn-end records owner.asked only when the final message asks the owner; owner-asked records it for AskUserQuestion",
+      "appends stage-ledger events. session-start on a startup, clear or resume records session.start and starts ledger poll-github detached, so they run in the background; on a compaction it records one session.compacted. turn-end records owner.asked only when the final message asks the owner; owner-asked records it for AskUserQuestion",
   },
   seeAlso: ["ledger record", "ledger list", "hook context"],
 };

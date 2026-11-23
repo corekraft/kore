@@ -11,7 +11,6 @@ import {
   type HarnessCli,
 } from "../orchestrator/index.js";
 import type { CliDeps } from "../runtime/index.js";
-import { briefBackend } from "../session/index.js";
 
 const HASH_LENGTH = 8;
 
@@ -42,7 +41,6 @@ export function retroHook(
     due: () => harness.retroDue(),
     record: (reason) => harness.retroRecord(reason),
     spawn: (pane) => harness.spawnRetro(pane),
-    backend: () => briefBackend(deps),
   });
   const cli = new RetroFilingCli(deps.runner, root, () =>
     deps.clock.now().toISOString(),

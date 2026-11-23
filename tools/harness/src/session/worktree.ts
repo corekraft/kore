@@ -1,7 +1,7 @@
 import { join } from "node:path";
 import { mainRoot } from "../runtime/index.js";
 import type { CliDeps } from "../runtime/index.js";
-import { describeFailure } from "./equalize.js";
+import { describeFailure } from "./describe-failure.js";
 import { SessionRegistry } from "./registry.js";
 
 export interface Worktree {
@@ -49,7 +49,7 @@ async function reuse(
   worktree: Worktree,
 ): Promise<string | undefined> {
   if (!(await lostHere(deps, name, worktree))) {
-    return `${worktree.path} already exists and is not the worktree of a session recorded lost with its parent, so it was not reused, recreated or reset. No pane was split. Pick another session name, or remove it yourself once nothing there is needed.`;
+    return `${worktree.path} already exists and is not the worktree of a session recorded lost with its parent, so it was not reused, recreated or reset. Pick another session name, or remove it yourself once nothing there is needed.`;
   }
   const head = await deps.runner.run(
     "git",
@@ -57,12 +57,12 @@ async function reuse(
     { cwd: worktree.path },
   );
   if (head.code !== 0) {
-    return `Cannot read the branch of the existing worktree ${worktree.path}: ${describeFailure(head)}. It was not reused. No pane was split.`;
+    return `Cannot read the branch of the existing worktree ${worktree.path}: ${describeFailure(head)}. It was not reused.`;
   }
   const on = head.stdout.trim();
   return on === worktree.branch
     ? undefined
-    : `The existing worktree ${worktree.path} is on ${on}, not ${worktree.branch}, so it was not reused or reset. No pane was split. Check out ${worktree.branch} there, or pass --branch ${on}.`;
+    : `The existing worktree ${worktree.path} is on ${on}, not ${worktree.branch}, so it was not reused or reset. Check out ${worktree.branch} there, or pass --branch ${on}.`;
 }
 
 /**
@@ -82,7 +82,7 @@ async function create(
   if (main === undefined) {
     return {
       error:
-        "Cannot find the main checkout to create the worktree in. Run inside the repository or set KORE_ROOT to its root. No pane was split.",
+        "Cannot find the main checkout to create the worktree in. Run inside the repository or set KORE_ROOT to its root.",
     };
   }
   const worktree = { path: join(main, ".claude", "worktrees", name), branch };
@@ -100,7 +100,7 @@ async function create(
       );
   if (add !== undefined && add.code !== 0) {
     return {
-      error: `git worktree add failed: ${describeFailure(add)}. No pane was split. A previous spawn may have left the worktree or branch: run ${removeCommands(worktree)}, or pass --branch <other>.`,
+      error: `git worktree add failed: ${describeFailure(add)}. A previous spawn may have left the worktree or branch: run ${removeCommands(worktree)}, or pass --branch <other>.`,
     };
   }
   const install = await deps.runner.run("npm", ["ci"], {
@@ -108,7 +108,7 @@ async function create(
   });
   if (install.code !== 0) {
     return {
-      error: `npm ci failed in the new worktree: ${describeFailure(install)}. No pane was split. ${removeHint(worktree)}`,
+      error: `npm ci failed in the new worktree: ${describeFailure(install)}. ${removeHint(worktree)}`,
     };
   }
   // The pane's hooks need the harness bundle from its first tool call, and the
@@ -117,7 +117,7 @@ async function create(
   const harnessInstall = await deps.runner.run("npm", ["ci"], { cwd: harness });
   if (harnessInstall.code !== 0) {
     return {
-      error: `npm ci failed for the harness in the new worktree: ${describeFailure(harnessInstall)}. No pane was split. ${removeHint(worktree)}`,
+      error: `npm ci failed for the harness in the new worktree: ${describeFailure(harnessInstall)}. ${removeHint(worktree)}`,
     };
   }
   const build = await deps.runner.run("npm", ["run", "build", "--silent"], {
@@ -125,7 +125,7 @@ async function create(
   });
   if (build.code !== 0) {
     return {
-      error: `Building the harness bundle failed in the new worktree: ${describeFailure(build)}. The pane's guard hook would block every tool call. No pane was split. ${removeHint(worktree)}`,
+      error: `Building the harness bundle failed in the new worktree: ${describeFailure(build)}. The pane's guard hook would block every tool call. ${removeHint(worktree)}`,
     };
   }
   return worktree;

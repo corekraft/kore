@@ -216,13 +216,13 @@ const activateHelp: CommandHelp = {
     "The feature flag to turn on, as declared in the environment overlay.",
   examples: [
     {
-      command: "harness flag activate hc-sessions --environment local",
+      command: "harness flag activate behind-main-notice --environment local",
       shows:
-        "with no confirmed verification outcome for hc-sessions in local, the overlay is unchanged and the command exits 1, naming the outcome to record",
+        "with no confirmed verification outcome for behind-main-notice in local, the overlay is unchanged and the command exits 1, naming the outcome to record",
     },
     {
       command:
-        "harness flag activate hc-sessions --environment local --chart-lock platform-charts.lock.json",
+        "harness flag activate behind-main-notice --environment local --chart-lock platform-charts.lock.json",
       shows:
         "the flag on in the local overlay and its proof named, when a live run's charts equal the release lock",
     },

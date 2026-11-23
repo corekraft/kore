@@ -39,7 +39,7 @@ async function fromMacKeychain(
   ]);
   return (
     valueOf(read) ?? {
-      error: `The ${identity} identity is missing: keychain item ${service} was not found. Create it with \`bash ${WIZARD}\`, then rerun. No pane was split.`,
+      error: `The ${identity} identity is missing: keychain item ${service} was not found. Create it with \`bash ${WIZARD}\`, then rerun.`,
     }
   );
 }
@@ -58,13 +58,13 @@ async function fromSopsStore(
   const home = deps.env["HOME"];
   if (home === undefined || home === "") {
     return {
-      error: `The ${identity} identity is missing: HOME is not set, so the identity store ~/${STORE_RELATIVE} cannot be found. Set HOME, then rerun. No pane was split.`,
+      error: `The ${identity} identity is missing: HOME is not set, so the identity store ~/${STORE_RELATIVE} cannot be found. Set HOME, then rerun.`,
     };
   }
   const store = `${home}/${STORE_RELATIVE}`;
   if (!(await deps.fs.exists(store))) {
     return {
-      error: `The ${identity} identity is missing: the identity store ${store} was not found. From the Mac, run \`${TRANSFER_STEP}\`, then rerun. No pane was split.`,
+      error: `The ${identity} identity is missing: the identity store ${store} was not found. From the Mac, run \`${TRANSFER_STEP}\`, then rerun.`,
     };
   }
   const read = await deps.runner.run("sops", [
@@ -75,7 +75,7 @@ async function fromSopsStore(
   ]);
   return (
     valueOf(read) ?? {
-      error: `The ${identity} identity is missing: item ${item} could not be read from ${store} (it is absent, or sops could not decrypt it with the age key ${home}/${AGE_KEY_RELATIVE}). From the Mac, run \`${TRANSFER_STEP}\`, then rerun. No pane was split.`,
+      error: `The ${identity} identity is missing: item ${item} could not be read from ${store} (it is absent, or sops could not decrypt it with the age key ${home}/${AGE_KEY_RELATIVE}). From the Mac, run \`${TRANSFER_STEP}\`, then rerun.`,
     }
   );
 }

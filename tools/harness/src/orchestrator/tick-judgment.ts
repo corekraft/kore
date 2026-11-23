@@ -4,7 +4,6 @@ import { decide, type Next } from "./judgment-flow.js";
 import {
   judgmentBrief,
   readerBrief,
-  type BriefBackend,
   type ReaderSummary,
 } from "./judgment-briefs.js";
 import {
@@ -49,8 +48,6 @@ export type Admit = () => Promise<BoundName | undefined>;
 export interface JudgmentPorts {
   spawn: (launch: Launch) => Promise<void>;
   close: (name: string) => Promise<void>;
-  /** The backend the briefs are written for: hc when the hc-sessions flag is on, else herdr. */
-  backend: BriefBackend;
   /** The finished pane's text, which carries its plan or its summary; read-only. */
   paneText: (name: string) => Promise<string>;
   /** The report a finished hc session wrote, read-only; undefined when it wrote none, as a herdr pane never does. */
@@ -103,13 +100,7 @@ export class TickJudgment {
       role: "judgment",
       name,
       issue,
-      brief: judgmentBrief(
-        idea,
-        issue,
-        pr,
-        { kind: "start", sendBacks },
-        this.ports.backend,
-      ),
+      brief: judgmentBrief(idea, issue, pr, { kind: "start", sendBacks }),
     });
     return { step: "spawn-judgment", pane: name };
   }
@@ -207,7 +198,7 @@ export class TickJudgment {
           role: "reader",
           name,
           issue: ctx.issue,
-          brief: readerBrief(ctx.idea, ctx.issue, read, this.ports.backend),
+          brief: readerBrief(ctx.idea, ctx.issue, read),
         });
       }
     }
@@ -231,13 +222,7 @@ export class TickJudgment {
       role: "judgment",
       name,
       issue: ctx.issue,
-      brief: judgmentBrief(
-        ctx.idea,
-        ctx.issue,
-        pr,
-        { kind: "retry", reason },
-        this.ports.backend,
-      ),
+      brief: judgmentBrief(ctx.idea, ctx.issue, pr, { kind: "retry", reason }),
     });
     await this.ports.close(latest.pane.name);
     return { step: "retry-judgment", pane: name };
@@ -270,13 +255,10 @@ export class TickJudgment {
       role: "judgment",
       name,
       issue: ctx.issue,
-      brief: judgmentBrief(
-        ctx.idea,
-        ctx.issue,
-        pr,
-        { kind: "after-reads", summaries },
-        this.ports.backend,
-      ),
+      brief: judgmentBrief(ctx.idea, ctx.issue, pr, {
+        kind: "after-reads",
+        summaries,
+      }),
     });
     for (const reader of open) {
       await this.ports.close(reader.name);

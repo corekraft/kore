@@ -1,11 +1,9 @@
 import type { CommandContext } from "../runtime/index.js";
-import { hostLeaseRefusal } from "./host-lease.js";
 import { launchOf } from "./spawn-launch.js";
-import { spawnLoadRefusal } from "./spawn-load.js";
 import { sessionNameError } from "./names.js";
-import { FAILED, USAGE_ERROR } from "./output.js";
+import { USAGE_ERROR } from "./output.js";
 import { launchStage, tierInputError, type TierOrigin } from "./tier-source.js";
-import { findResult, parseTimeout } from "./wait.js";
+import { parseTimeout } from "./wait.js";
 
 const REQUIRED = ["role", "name", "brief"] as const;
 
@@ -41,43 +39,6 @@ export type Requested =
 /** A refusal: the message and the exit code it gets. */
 type Refusal = { error: string; code: number };
 
-/** A request checked for Herdr too: its values, and the pane that broadcasts back to it. */
-export type Checked =
-  (Exclude<Requested, Refusal> & { callerPane: string }) | Refusal;
-
-/**
- * The pane to broadcast back to, or the refusal when not run from a Herdr
- * pane, or when a writer would start while a live run holds the host lease or the host load is above KORE_SPAWN_MAX_LOAD.
- */
-async function herdrCaller(
-  deps: CommandContext["deps"],
-  role: string,
-): Promise<string | Refusal> {
-  const callerPane = deps.env.HERDR_PANE_ID;
-  if (deps.env.HERDR_ENV !== "1") {
-    return {
-      error:
-        "Not inside Herdr (HERDR_ENV is not 1). Run this from a Herdr pane; no session was started.",
-      code: FAILED,
-    };
-  }
-  if (callerPane === undefined || callerPane === "") {
-    return {
-      error:
-        "HERDR_PANE_ID is not set, so the session cannot broadcast back. Run this from a Herdr pane.",
-      code: FAILED,
-    };
-  }
-  const refused =
-    role === "writer"
-      ? ((await hostLeaseRefusal(deps)) ?? spawnLoadRefusal(deps))
-      : undefined;
-  if (refused !== undefined) {
-    return { error: refused, code: FAILED };
-  }
-  return callerPane;
-}
-
 /** The worktree flags' refusal: --branch needs --worktree, and a writer has its own so concurrent writers cannot collide. */
 function worktreeError(
   role: string,
@@ -89,13 +50,6 @@ function worktreeError(
   return role === "writer" && options.worktree !== true
     ? "A writer needs its own worktree so concurrent writers cannot collide. Add --worktree."
     : undefined;
-}
-
-/** The refusal for a brief with a line that is only a RESULT marker. */
-function briefError(brief: string): string | undefined {
-  return findResult(brief) === undefined
-    ? undefined
-    : 'The brief has a line that is only a RESULT marker, which would end the wait early. Describe the marker in words instead, such as "end with the word RESULT, a colon, then done or blocked".';
 }
 
 /** `338` or `#338` as `#338`; an error message for anything else; undefined when not given. */
@@ -134,7 +88,6 @@ function inputError(
 ): string | undefined {
   const idea = ideaOf(options.idea);
   return (
-    briefError(given.brief) ??
     worktreeError(given.role, options) ??
     (typeof idea === "object" ? idea.error : undefined) ??
     noIdeaError(options) ??
@@ -200,17 +153,4 @@ export async function checkRequest({
     ...(stage === undefined ? {} : { stage }),
     ...(unstamped === undefined ? {} : { unstamped }),
   };
-}
-
-/** Everything that can be refused is refused here, before any herdr call. */
-export async function check(context: CommandContext): Promise<Checked> {
-  const requested = await checkRequest(context);
-  if ("error" in requested) {
-    return requested;
-  }
-  const callerPane = await herdrCaller(context.deps, requested.values.role);
-  if (typeof callerPane !== "string") {
-    return callerPane;
-  }
-  return { ...requested, callerPane };
 }

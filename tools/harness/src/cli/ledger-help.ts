@@ -7,7 +7,7 @@ export const recordHelp: CommandHelp = {
     "Appends one validated event to the stage ledger, the shared record of what happened, from flags or from one JSON event on stdin. Each field is checked against the event's kind, and an event the ledger cannot hold is refused; the ledger sets the event's schema and recordedAt, and its id when no --id is given.",
   when: "When something happened that no other command records, such as a session starting by hand, and flow, status or the outcome reports need it in the ledger.",
   whenNot:
-    "When a command already records the event: decision make, decision route, decision ask and decision digest record their decisions, and ledger poll-herdr and ledger poll-github record the panes and GitHub's records. GitHub's own records are refused here: a source of github, and the kinds only the poller writes, such as pr.merged.",
+    "When a command already records the event: decision make, decision route, decision ask and decision digest record their decisions, and ledger poll-github records GitHub's records. GitHub's own records are refused here: a source of github, and the kinds only the poller writes, such as pr.merged.",
   flags: {
     id: "The event's id, a name of letters, digits and . _ : / # @ - up to 128 characters. Without it the ledger assigns one.",
     source:
@@ -17,7 +17,7 @@ export const recordHelp: CommandHelp = {
       "When the event happened, as an ISO 8601 UTC time such as 2026-01-02T03:04:05.000Z. Required; the ledger does not stamp it.",
     session:
       "The session the event belongs to, as a name of letters, digits and . _ : / # @ - up to 128 characters.",
-    pane: "The herdr pane the event belongs to, as a name of the same form.",
+    pane: "The pane or terminal the event belongs to, as a name of the same form.",
     agent:
       "The agent the event belongs to, as a name of the same form; required on pr.linked, which names the writer's agent.",
     idea: "The idea the event concerns, as a name of the same form.",
@@ -70,7 +70,7 @@ export const recordHelp: CommandHelp = {
     detail:
       "appends one line to the ledger file. The ledger is append-only and is written only through this command, never by hand; nothing else changes.",
   },
-  seeAlso: ["ledger list", "ledger poll-herdr", "ledger poll-github"],
+  seeAlso: ["ledger list", "ledger poll-github"],
 };
 
 export const listHelp: CommandHelp = {
@@ -81,7 +81,7 @@ export const listHelp: CommandHelp = {
     "When you need the state of the work rather than its events: use status. To add an event, use ledger record. This command writes nothing.",
   flags: {
     session: "Only the events of this session.",
-    pane: "Only the events of this herdr pane.",
+    pane: "Only the events of this pane or terminal.",
     idea: "Only the events about this idea.",
     source:
       "Only the events from this source: claude, herdr, terminal or github. Any other value is refused with exit 2.",
@@ -129,43 +129,6 @@ export const listHelp: CommandHelp = {
   seeAlso: ["ledger record", "status", "flow report"],
 };
 
-export const pollHerdrHelp: CommandHelp = {
-  purpose:
-    "Reads herdr's agent panes once and appends to the ledger only what changed since the last poll: pane.spawned, pane.busy, pane.waiting and pane.closed, and pane.stalled for a spawned pane that is idle or gone past 300 seconds with no result. pane.closed means the pane no longer hosts an agent.",
-  when: "When the panes' state should be in the ledger now, before status or a flow report, or from a wait loop. A session start already runs it in the background, and the poll is safe to repeat from a wait loop.",
-  whenNot:
-    "When you want to act on a pane: this command only reads herdr, and never closes, restarts or messages a pane. To read one session's result, use session wait.",
-  flags: {
-    ledger:
-      "The ledger file to append to, resolved from the working directory. Default: the shared ledger under the main checkout root (.kore/state/ledger.jsonl), where KORE_ROOT overrides the root.",
-  },
-  examples: [
-    {
-      command: "harness ledger poll-herdr",
-      shows:
-        "the number of herdr events recorded by this poll, 0 when no pane changed",
-    },
-  ],
-  exits: [
-    {
-      code: 0,
-      meaning:
-        "the poll ran; the number of herdr events recorded is printed, possibly 0",
-    },
-    {
-      code: 1,
-      meaning:
-        "herdr agent list failed or printed output the poll cannot read, another poll holds the lock beside the ledger, or no shared ledger root can be found",
-    },
-  ],
-  effects: {
-    kind: "mutates",
-    detail:
-      "reads herdr's agent list, then appends the changed pane events to the ledger, which is append-only and written only here. It holds a lock file beside the ledger while it runs, so one poll runs at a time. It never closes, restarts or messages a pane.",
-  },
-  seeAlso: ["ledger list", "ledger poll-github", "harness wait"],
-};
-
 export const pollGithubHelp: CommandHelp = {
   purpose:
     "Reads GitHub through gh and appends what it finds: issue.opened, issue.labelled, pr.opened and pr.merged from the issues and pull requests; then the outcome signals agents cannot write: ci.main and ci.nightly from workflow runs, main.revert from commits on main, and advisor.overturned, owner.action and owner.replied from the owner login's comments, events and reviews. It records numbers, labels, conclusions and GitHub times only, never titles, bodies, messages or logins. A run counts by its first attempt, so a failure later re-run to success still shows.",
@@ -208,7 +171,7 @@ export const pollGithubHelp: CommandHelp = {
     detail:
       "reads issues, pull requests, workflow runs, commits and the owner's events through gh, and appends the new events to the ledger, which is append-only and written only here. It holds a lock file beside the ledger while it runs. It writes nothing on GitHub.",
   },
-  seeAlso: ["ledger list", "ledger poll-herdr", "harness wait"],
+  seeAlso: ["ledger list", "harness wait"],
 };
 
 export const watchHelp: CommandHelp = {

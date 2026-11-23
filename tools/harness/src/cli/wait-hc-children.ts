@@ -1,11 +1,11 @@
 // The children wait of `harness wait --pr` on hc (plan 16, Step 6). Each pull request gets one `gh pr checks --watch
 // --fail-fast` terminal, a child of the caller, and the wait is one `wait --children any` for the next news among the
 // caller's children. Each wake re-reads the checks with readChecks, so the watcher's exit code is never trusted, and a
-// watcher still running when the wait ends is killed. Only a --pr target on hc-sessions from an hc terminal takes this path.
+// watcher still running when the wait ends is killed. Only a --pr target from an hc terminal takes this path.
 // Docs: infra/plans/16-hc-native-sessions.md
 
 import type { CliDeps } from "../runtime/index.js";
-import { hcSessionsOn, terminalsFor } from "../session/index.js";
+import { terminalsFor } from "../session/index.js";
 import type { Terminal, Terminals } from "../terminal/index.js";
 import {
   childrenPause,
@@ -32,18 +32,14 @@ interface Place {
 const ENDED: readonly string[] = ["not-found", "not-live"];
 
 /**
- * The caller's children when this wait can run on them: a --pr target, no idea target, hc-sessions on, and the caller is
- * an hc terminal. Undefined keeps the loop that polls the checks itself.
+ * The caller's children when this wait can run on them: a --pr target, no idea target, and the caller is an hc
+ * terminal. Undefined keeps the loop that polls the checks itself.
  */
 export async function hcChildrenFor(
   deps: CliDeps,
   targets: { prs: readonly number[]; ideas: number },
 ): Promise<HcChildren | undefined> {
-  if (
-    targets.prs.length === 0 ||
-    targets.ideas > 0 ||
-    !(await hcSessionsOn(deps))
-  ) {
+  if (targets.prs.length === 0 || targets.ideas > 0) {
     return undefined;
   }
   const terminals = terminalsFor(deps);

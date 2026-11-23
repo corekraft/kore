@@ -11,7 +11,7 @@ import {
   terminalsFor,
 } from "../session/index.js";
 
-/** The notice's destination when hc-sessions is on: the one attended agent terminal, over the hc port (plan 16, Step 4). */
+/** The notice's destination: the one attended agent terminal, over the hc port (plan 16, Step 4). */
 export function hcAttended(deps: CliDeps): {
   attendedPane: () => Promise<string | undefined>;
   send: (pane: string, body: string) => Promise<string | undefined>;

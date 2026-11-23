@@ -1,5 +1,5 @@
-// Routes a session tool to the backend its record names. The record decides, never a flag:
-// a record with no backend is herdr, so every record written before the field keeps its path.
+// Routes a session tool to its record's hc terminal. A record with no terminal id never reached hc (or was written
+// before the flip), so it is refused with the command that removes it, never sent anywhere else.
 import {
   ProcessLineStream,
   type CliDeps,
@@ -10,40 +10,25 @@ import {
   type TerminalError,
   type Terminals,
 } from "../terminal/index.js";
-import type { Backend, SessionRecord } from "./registry.js";
+import type { SessionRecord } from "./registry.js";
 
-export type Routed =
-  | { backend: "herdr" }
-  | { backend: "hc"; terminals: Terminals }
-  | { error: string };
-
-/** The backend a record runs on; a record with no backend predates the field and is herdr. */
-function backendOf(record: SessionRecord): Backend {
-  return record.backend ?? "herdr";
-}
+export type Routed = { terminals: Terminals } | { error: string };
 
 /**
- * Where a session tool sends work for a record. An hc record goes to the injected hc terminals,
- * and when there are none it is refused with a hint rather than sent to herdr.
+ * Where a session tool sends work for a record: its hc terminals. A record with no terminal id is refused, and a
+ * record whose start was lost before its terminal was recorded is refused with the close that clears it.
  */
-export function routeSession(
-  record: SessionRecord,
-  hc: Terminals | undefined,
-): Routed {
-  if (backendOf(record) === "herdr") {
-    return { backend: "herdr" };
+export function routeSession(record: SessionRecord, hc: Terminals): Routed {
+  if (record.terminal === undefined) {
+    return record.starting === true
+      ? {
+          error: `Session ${record.name} never started a terminal, so it is blocked, not live: it was lost before its start was recorded. Run session close ${record.name} to clear it.`,
+        }
+      : {
+          error: `Session ${record.name} has no terminal id, so it is not on hc and nothing can be sent to or read from it. Run \`harness session close --force-record ${record.name}\` to remove its record.`,
+        };
   }
-  if (record.starting === true && record.terminal === undefined) {
-    return {
-      error: `Session ${record.name} never started a terminal, so it is blocked, not live: it was lost before its start was recorded. Run session close ${record.name} to clear it.`,
-    };
-  }
-  if (hc === undefined) {
-    return {
-      error: `Session ${record.name} runs on hc, but hc is not available here, so it is not routed to herdr. Install the pinned hc (plan 16, step 1), then retry.`,
-    };
-  }
-  return { backend: "hc", terminals: hc };
+  return { terminals: hc };
 }
 
 /** The one place a session tool gets its hc adapter: the hc CLI over the caller's runner and environment. */

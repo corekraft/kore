@@ -32,8 +32,8 @@ export const domainGuides: Record<DomainName, DomainGuide> = {
   },
   session: {
     purpose:
-      "Starts, waits for, messages and closes the Claude sessions that run in Herdr panes, checks the role panes, and reports a role's tier and a session's prompt size.",
-    flow: "Run session spawn with --no-wait, then session wait for its name in the background to collect its RESULT line, and session close once the result is recorded.",
+      "Starts, waits for, messages and closes the Claude sessions that run as hc terminals, checks the agent terminals, and reports a role's tier.",
+    flow: "Run session spawn, then session wait for its name to collect its report, and session close once the report is recorded.",
     seeAlso: ["harness wait"],
   },
   skill: {
@@ -96,7 +96,7 @@ export const domainGuides: Record<DomainName, DomainGuide> = {
   ledger: {
     purpose:
       "The stage ledger, the record of what happened, read and appended only through these commands.",
-    flow: "Run ledger record to append one validated event, ledger list to read events by session, idea, kind or time, and ledger poll-herdr or ledger poll-github to append what the panes and GitHub show.",
+    flow: "Run ledger record to append one validated event, ledger list to read events by session, idea, kind or time, and ledger poll-github to append what GitHub shows, and ledger watch to append what the hc terminals report.",
     seeAlso: ["ledger list", "flow report"],
   },
   flow: {

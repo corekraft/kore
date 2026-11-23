@@ -32,23 +32,10 @@ async function holds(ledger: Ledger, kind: Kind, id: string): Promise<boolean> {
   return events.some((e) => e.id === id);
 }
 
-/** A herdr stamp: the pane's environment value, when the ledger accepts it as a name. `session spawn` sets these. */
-function stamp(
-  deps: CliDeps,
-  field: "idea" | "agent",
-  name: string,
-): Partial<LedgerEvent> {
-  const value = deps.env[name];
-  return isName(value) ? { [field]: value } : {};
-}
-
-/** The session and idea an event names. Outside an hc terminal, the herdr stamps; inside one, only the record hc confirmed, and never the environment. */
+/** The session and idea an event names: only the record hc confirmed, never the environment. Outside an hc terminal, none. */
 async function identityOf(deps: CliDeps): Promise<Partial<LedgerEvent>> {
   if (hcTerminalId(deps) === undefined) {
-    return {
-      ...stamp(deps, "idea", "KORE_IDEA"),
-      ...stamp(deps, "agent", "KORE_AGENT"),
-    };
+    return {};
   }
   const identity = await sessionIdentity(deps);
   if (identity?.checked !== true || !isName(identity.name)) {
@@ -83,13 +70,11 @@ export async function recordEvent(
     if (main === undefined) {
       return;
     }
-    const pane = deps.env["HERDR_PANE_ID"];
     const event: Partial<LedgerEvent> = {
       source: "claude",
       kind,
       occurredAt: deps.clock.now().toISOString(),
       session,
-      ...(typeof pane === "string" && pane !== "" ? { pane } : {}),
       ...(await identityOf(deps)),
       ...(kind.startsWith("tool.") && typeof call.tool_name === "string"
         ? { tool: call.tool_name }

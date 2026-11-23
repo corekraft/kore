@@ -1,4 +1,3 @@
-import type { BriefBackend } from "./judgment-briefs.js";
 import {
   PROPOSALS_BEGIN,
   PROPOSALS_END,
@@ -19,18 +18,12 @@ export const RETRO_ROLE = "reader";
 export const RETRO_FLAG = "automatic-retro";
 
 /**
- * The retro pane's brief. An hc pane gives its proposals to session report on stdin; a
- * herdr pane prints them and its RESULT line, as it always has.
+ * The retro session's brief: it gives its proposals to session report on stdin, which stores them as the report's summary.
  */
-export function retroBrief(
-  reason: string,
-  backend: BriefBackend = "herdr",
-): string {
+export function retroBrief(reason: string): string {
   const proposals = `End with your proposals as one JSON array, one object per idea with the string fields title, hypothesis, expectedOutcome, measurement, safetyPattern, metric, direction (up or down) and window (such as 14d), between a line ${PROPOSALS_BEGIN} and a line ${PROPOSALS_END}`;
   const finish =
-    backend === "hc"
-      ? ", then, as your last action, run `node skills/bin/harness.mjs session report --outcome done --summary - <<'EOF'` with your proposals on the lines after it, then a line that reads EOF."
-      : ", then print RESULT: done.";
+    ", then, as your last action, run `node skills/bin/harness.mjs session report --outcome done --summary - <<'EOF'` with your proposals on the lines after it, then a line that reads EOF.";
   return `Run the /retro skill: review the sessions since the last retrospective and end with ranked proposals. Propose only; change no file and record nothing. The trigger (${reason}) is already recorded. ${proposals}${finish} A tool files the first ${RETRO_CAP} as ideas and drops the rest, so rank them.`;
 }
 
@@ -57,8 +50,6 @@ export interface RetroPorts {
   record(reason: string): Promise<{ recordedAt: string; appended: boolean }>;
   /** `session spawn --no-wait`. */
   spawn(pane: RetroPane): Promise<void>;
-  /** The backend the retro pane's brief is written for: hc when the hc-sessions flag is on. */
-  backend(): Promise<BriefBackend>;
 }
 
 export type RetroLaunchResult =
@@ -98,7 +89,7 @@ export class RetroLaunch {
       model: RETRO_MODEL,
       effort: RETRO_EFFORT,
       reason: RETRO_REASON,
-      brief: retroBrief(reason, await this.ports.backend()),
+      brief: retroBrief(reason),
     });
     return { status: "launched", reason, name };
   }

@@ -46,15 +46,9 @@ type Outcome = { findings: number } | { reason: string };
  * The re-review brief, one line, so no line of it is only a verdict marker, which the
  * reader would take for its own answer.
  */
-export function resamplerBrief(
-  pr: number,
-  head: string,
-  backend: "herdr" | "hc" = "herdr",
-): string {
+export function resamplerBrief(pr: number, head: string): string {
   const finish =
-    backend === "hc"
-      ? "Then, as your last action, run `node skills/bin/harness.mjs session report --outcome done --summary - <<'EOF'`, with your verdict lines on the lines after it, then a line that reads EOF; or use --outcome blocked when you cannot review."
-      : "Then end with the word RESULT, a colon, then done or blocked.";
+    "Then, as your last action, run `node skills/bin/harness.mjs session report --outcome done --summary - <<'EOF'`, with your verdict lines on the lines after it, then a line that reads EOF; or use --outcome blocked when you cannot review.";
   return (
     `Re-review PR #${pr} at head ${head} against AGENTS.md, reading the change with \`gh pr diff ${pr}\` and the files at that head. ` +
     "Do not post anything. This is an independent check of a review that passed: report every rule break you find. " +
@@ -71,10 +65,7 @@ export function resamplerBrief(
  * bad pane does not stop the sample. Each pane is closed whatever happens to it.
  */
 export class ResampleRun {
-  constructor(
-    private readonly ports: ResamplePorts,
-    private readonly backend: "herdr" | "hc" = "herdr",
-  ) {}
+  constructor(private readonly ports: ResamplePorts) {}
 
   async run(sample: readonly ResampleCandidate[]): Promise<ResampleResult> {
     const result: ResampleResult = { reviewed: [], failed: [] };
@@ -94,7 +85,7 @@ export class ResampleRun {
     await this.ports.spawn({
       name,
       role: ROLE,
-      brief: resamplerBrief(pr, head, this.backend),
+      brief: resamplerBrief(pr, head),
       model: RESAMPLE_MODEL,
       effort: RESAMPLE_EFFORT,
       reason: RESAMPLE_REASON,

@@ -10,7 +10,6 @@ import { planCommand } from "./orchestrate-plan.js";
 import { runOnTicks, tickCommand } from "./orchestrate-tick.js";
 import { tickHelp } from "./orchestrate-tick-help.js";
 import type { Command, CommandContext, CommandHelp } from "../runtime/index.js";
-import { briefBackend } from "../session/index.js";
 
 const FAILED = 1;
 const OUTCOME_FLAGS = [
@@ -65,7 +64,7 @@ async function runIdea(context: CommandContext): Promise<number> {
   }
   try {
     const root = await deps.root();
-    const harness = new HarnessCli(deps.runner, root, await briefBackend(deps));
+    const harness = new HarnessCli(deps.runner, root);
     const result = (await tickFlagOn(deps.fs, root))
       ? await runOnTicks(deps, root, idea, outcome)
       : await new IdeaRun(harness, retroHook(deps, root, harness)).run(

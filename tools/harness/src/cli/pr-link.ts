@@ -41,7 +41,7 @@ export async function linkPullRequest(
       deps.ids,
       join(main, DEFAULT_LEDGER),
     ).record({
-      source: "herdr",
+      source: "terminal",
       kind: "pr.linked",
       occurredAt: deps.clock.now().toISOString(),
       number: Number(match[1]),

@@ -52,8 +52,6 @@ export class TickCli extends HarnessCli {
     private readonly repo: string,
     private readonly fs: FileSystem,
     paths: TickCliPaths,
-    /** The backend this tick writes its briefs for: hc when the hc-sessions flag is on. */
-    readonly backend: "herdr" | "hc" = "herdr",
   ) {
     super(runner, repo);
     this.sessions = paths.sessions;

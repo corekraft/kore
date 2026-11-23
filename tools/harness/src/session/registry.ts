@@ -240,7 +240,7 @@ export class SessionRegistry {
     const existing = await this.read(name);
     return existing === undefined || existing.closedAt !== undefined
       ? undefined
-      : `A session record for ${name} (pane ${existing.paneId}) already exists and is not closed; run \`session wait ${name}\` then \`session close ${name}\`, or pick another name. No pane was split.`;
+      : `A session record for ${name} (terminal ${existing.terminal ?? "none"}) already exists and is not closed; run \`session wait ${name}\` then \`session close ${name}\`, or pick another name.`;
   }
 
   /** Records a new session; refuses to replace one that is not closed, even under a race. */
@@ -254,12 +254,7 @@ export class SessionRegistry {
       }
       const reason = await this.unavailable(record.name);
       if (reason !== undefined) {
-        throw new CommandError(
-          reason.replace(
-            " No pane was split.",
-            ` Pane ${record.paneId} is running unrecorded; close it with \`herdr pane close ${record.paneId}\`.`,
-          ),
-        );
+        throw new CommandError(reason);
       }
       await this.write(record);
     }
