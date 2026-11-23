@@ -25,7 +25,6 @@ export { recordsOfTerminal, type TerminalRecords } from "./terminal-record.js";
 export { terminalsFor } from "./backend.js";
 export { startLedgerWatch } from "./spawn-hc-watch.js";
 export { readReport, reportPath } from "./report-file.js";
-export { findResult } from "./result-marker.js";
 import { check, checkHelp } from "./check.js";
 import { close, closeHelp } from "./close.js";
 import { execCommand } from "./exec.js";
@@ -99,7 +98,7 @@ const checkCommand: Command = {
 
 const closeCommand: Command = {
   summary:
-    "close a spawned session: kill its terminal from the parent terminal once its result is recorded; --force-record removes a record whose terminal is not live in hc; --remove-worktree is refused on hc",
+    "close a spawned session: kill its terminal from the parent terminal once its result is recorded; --force-record removes a record whose terminal is not live in hc; --remove-worktree also removes the worktree and branch once their pull request is merged",
   operand: "name",
   options: { "remove-worktree": "boolean", "force-record": "boolean" },
   help: closeHelp,
