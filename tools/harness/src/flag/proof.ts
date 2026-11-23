@@ -1,4 +1,9 @@
 import { IdeaRepository, outcomeSection } from "../idea/index.js";
+import {
+  NO_SOURCES,
+  type AppFlagWindows,
+  type ProofSources,
+} from "./app-windows.js";
 import { readProofLock } from "./recorded-lock.js";
 import { chartDifferences, type ReleaseLock } from "./release-lock.js";
 
@@ -10,6 +15,15 @@ export interface Proof {
   path: string;
   source: ProofSource;
 }
+
+/** An app flag's platform window: the platform's record of a confirmed activation window, not an idea. */
+export interface WindowProof {
+  source: "platform-window";
+  path: string;
+}
+
+/** The proof findProof returns: an idea's live run or waiver, or an app flag's platform window. */
+export type FoundProof = Proof | WindowProof;
 
 /** The tool's field block: the lines under `## Outcome` up to the first blank line. The summary after it is free text. */
 function fieldBlock(section: string): string[] {
@@ -81,11 +95,31 @@ async function scan(
   return { proof: waived, refused };
 }
 
+/** The platform's confirmed verification window for this app flag in this environment, if one is on record. */
+async function platformWindow(
+  windows: AppFlagWindows,
+  flag: string,
+  environment: string,
+): Promise<WindowProof | undefined> {
+  const record = (await windows.list(flag, environment)).find(
+    (w) =>
+      w.flag === flag &&
+      w.environment === environment &&
+      w.kind === "verification" &&
+      w.result === "confirmed",
+  );
+  return record === undefined
+    ? undefined
+    : { source: "platform-window", path: record.path };
+}
+
 /**
- * The idea whose recorded outcome is a confirmed verification of this flag in
- * this environment, from a live run or from an owner waiver; a live run wins
- * over a waiver. Only the outcome tool writes that block, and it rejects
- * summary lines shaped like a field, so a match is proof on record (ADR 0077).
+ * The proof on record for this flag in this environment: an idea's confirmed
+ * live run, else its owner waiver, else for an app flag only a confirmed
+ * platform window (ADR 0174). A live run wins over a waiver, and a waiver over
+ * a window, so the waiver stays visible in the audit. Only the outcome tool
+ * writes the idea block, and it rejects summary lines shaped like a field, so a
+ * match is proof on record (ADR 0077). A platform flag never takes a window.
  * It does not compare charts: the audit has no release lock, and activation,
  * which does, uses `activationProof`.
  */
@@ -93,8 +127,15 @@ export async function findProof(
   repo: IdeaRepository,
   flag: string,
   environment: string,
-): Promise<Proof | undefined> {
-  return (await scan(repo, flag, environment, () => undefined)).proof;
+  sources: ProofSources = NO_SOURCES,
+): Promise<FoundProof | undefined> {
+  const idea = (await scan(repo, flag, environment, () => undefined)).proof;
+  if (idea !== undefined) {
+    return idea;
+  }
+  return sources.isAppFlag(flag)
+    ? await platformWindow(sources.windows, flag, environment)
+    : undefined;
 }
 
 /**
