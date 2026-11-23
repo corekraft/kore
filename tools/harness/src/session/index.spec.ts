@@ -155,7 +155,11 @@ describe("the session domain's operands and flags", () => {
     ["wait", "name", { timeout: "string" }],
     ["notify", "pane", { outcome: "string" }],
     ["send", "name", { message: "string" }],
-    ["close", "name", { "remove-worktree": "boolean" }],
+    [
+      "close",
+      "name",
+      { "remove-worktree": "boolean", "force-record": "boolean" },
+    ],
     [
       "report",
       undefined,

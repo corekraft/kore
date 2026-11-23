@@ -230,6 +230,11 @@ export class SessionRegistry {
     );
   }
 
+  /** Removes the record file of `name`; nothing else is touched. Used by `session close --force-record` only. */
+  async remove(name: string): Promise<void> {
+    await this.fs.remove(this.file(name));
+  }
+
   /** Why `name` cannot be spawned again: its record exists and is not closed. Undefined when free. */
   async unavailable(name: string): Promise<string | undefined> {
     const existing = await this.read(name);

@@ -72,6 +72,7 @@ export const SPAWNED: SessionRecord = {
 export interface FakeRegistry {
   read: MockedFunction<(name: string) => Promise<SessionRecord | undefined>>;
   write: MockedFunction<(record: SessionRecord) => Promise<void>>;
+  remove: MockedFunction<(name: string) => Promise<void>>;
 }
 
 export function fakeRegistry(record: SessionRecord | undefined): FakeRegistry {
@@ -80,6 +81,7 @@ export function fakeRegistry(record: SessionRecord | undefined): FakeRegistry {
       Promise.resolve(record),
     ),
     write: vi.fn((): Promise<void> => Promise.resolve()),
+    remove: vi.fn((): Promise<void> => Promise.resolve()),
   };
 }
 

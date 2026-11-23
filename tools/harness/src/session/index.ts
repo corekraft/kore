@@ -114,7 +114,7 @@ const closeCommand: Command = {
   summary:
     "close a spawned session: its herdr pane once its result is recorded, or on hc its terminal from the parent terminal; --remove-worktree also removes its merged worktree and branch (herdr only)",
   operand: "name",
-  options: { "remove-worktree": "boolean" },
+  options: { "remove-worktree": "boolean", "force-record": "boolean" },
   help: closeHelp,
   run: close,
 };

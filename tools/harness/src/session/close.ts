@@ -3,6 +3,7 @@ import type { CommandContext, CommandHelp } from "../runtime/index.js";
 import { removeMergedWorktree, type Removal } from "./close-worktree.js";
 import { routeSession, terminalsFor } from "./backend.js";
 import { closeHcSession } from "./close-hc-command.js";
+import { forceRecordClose } from "./close-force-record.js";
 import { describeFailure, equalize } from "./equalize.js";
 import { sessionNameError } from "./names.js";
 import { FAILED, USAGE_ERROR, fail } from "./output.js";
@@ -126,6 +127,25 @@ function neverStarted(record: SessionRecord): boolean {
   );
 }
 
+/** `session close <name> --force-record`: removes the record file only, refused while its terminal is live in hc. */
+async function closeForced(
+  context: CommandContext,
+  name: string,
+): Promise<number> {
+  const { json, deps } = context;
+  const registry = await SessionRegistry.open(deps);
+  const removed = await forceRecordClose(name, terminalsFor(deps), registry);
+  if ("error" in removed) {
+    return fail(deps, json, FAILED, removed.error);
+  }
+  deps.stdout(
+    json
+      ? `${JSON.stringify(removed)}\n`
+      : `Removed the record of ${name}; its terminal, if any, was not live in hc.\n`,
+  );
+  return 0;
+}
+
 /** `session close <name>`: close a pane only if this caller created it and its result is recorded; an hc session closes its terminal instead. */
 export async function close(context: CommandContext): Promise<number> {
   const { json, deps } = context;
@@ -141,6 +161,9 @@ export async function close(context: CommandContext): Promise<number> {
   const nameError = sessionNameError(name);
   if (nameError !== undefined) {
     return fail(deps, json, USAGE_ERROR, nameError);
+  }
+  if (context.options["force-record"] === true) {
+    return await closeForced(context, name);
   }
   const terminals = terminalsFor(deps);
   const callerPane = deps.env.HERDR_PANE_ID;
@@ -222,6 +245,8 @@ export const closeHelp: CommandHelp = {
   flags: {
     "remove-worktree":
       "Herdr only: also removes the worktree and deletes its branch, only when a merged pull request has that branch at the worktree's HEAD and the worktree is clean. Otherwise both are kept, the reason is printed, and the command exits 1. An hc session refuses it, before anything is killed.",
+    "force-record":
+      "Removes the session's record file only, and nothing in hc or the worktree. Refused while the record's terminal is live in hc, or while hc cannot say whether it is; a record with no terminal id is removed without asking hc. For a record the flip left with no terminal id, which session close refuses.",
   },
   operand:
     "The spawned session's name, such as image-trust-reader. Only the pane that spawned the session may close it.",
