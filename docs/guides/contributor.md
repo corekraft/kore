@@ -854,10 +854,11 @@ range beside the ratio: `count` that read a verdict, `found` with at least one
 violation, and its `share`, null when there are none. A re-review is never in
 the reviews the ratio is taken over.
 
-`finishDetection` counts the finishes the ledger holds (#853). The Stop hook
-records a `session.result` carrying only the outcome word, when the turn's
-assistant text printed a RESULT line. `session wait` records a `pane.finished`
-with its pane, session name and outcome word the first time it sees that line.
+`finishDetection` counts the finishes the ledger holds (#853), over the herdr-era
+events a ledger still carries: a `session.result` the Stop hook recorded with only
+the outcome word, and a `pane.finished` that `session wait` recorded with its pane,
+session name and outcome word. The Stop hook no longer records a `session.result`:
+an hc session settles on its report (ADR 0178).
 A result is noticed when such a `pane.finished` falls on its pane within 300
 seconds either side of it, and one finish detects one result. `undetected` counts
 the results no finish detected, `detected` those that were, and `medianLagSeconds`

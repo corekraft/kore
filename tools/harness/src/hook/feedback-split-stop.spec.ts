@@ -38,7 +38,7 @@ function fakeDeps() {
 beforeEach(() => {
   vi.mocked(tokenStateFile).mockReturnValue("/state/tokens.json");
   vi.mocked(splitStateFile).mockReturnValue("/state/split.json");
-  vi.mocked(readTokens).mockResolvedValue({ total: 0, grew: false, added: "" });
+  vi.mocked(readTokens).mockResolvedValue({ total: 0, grew: false });
   vi.mocked(readSplit).mockResolvedValue([]);
   vi.mocked(compactionCapOf).mockResolvedValue(80000);
   vi.mocked(recordEvent).mockReset();
@@ -69,7 +69,6 @@ describe("feedback stop records the token split", () => {
     vi.mocked(readTokens).mockResolvedValue({
       total: 120,
       grew: true,
-      added: "",
     });
     vi.mocked(readSplit).mockResolvedValue([reading]);
     await feedback("stop", payload, deps);

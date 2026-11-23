@@ -58,7 +58,7 @@ const feedbackHelp: CommandHelp = {
   effects: {
     kind: "mutates",
     detail:
-      "appends ledger events: tool.end on post-edit and tool-failure, and on stop session.stop, with session.result, token.usage and token.split when the transcript has them. It sets a marker in the temporary directory when an edited TypeScript file is tracked, and clears it after a passing stop typecheck; the checks only read",
+      "appends ledger events: tool.end on post-edit and tool-failure, and on stop session.stop, with token.usage and token.split when the transcript has them. It sets a marker in the temporary directory when an edited TypeScript file is tracked, and clears it after a passing stop typecheck; the checks only read",
   },
   seeAlso: ["hook guard", "flow report"],
 };

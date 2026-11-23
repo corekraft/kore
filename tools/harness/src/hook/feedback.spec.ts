@@ -14,14 +14,12 @@ import {
   stop,
   type FeedbackDeps,
 } from "./feedback.js";
-import { resultOf } from "./feedback-result.js";
 import { readSplit, splitStateFile } from "./feedback-split.js";
 import { readTokens, tokenStateFile } from "./feedback-tokens.js";
 import { recordEvent } from "./ledger-event.js";
 
 vi.mock("node:os", () => ({ tmpdir: vi.fn() }));
 vi.mock("node:path", () => ({ join: vi.fn() }));
-vi.mock("./feedback-result.js", () => ({ resultOf: vi.fn() }));
 vi.mock("./feedback-tokens.js", () => ({
   readTokens: vi.fn(),
   tokenStateFile: vi.fn(),
@@ -84,8 +82,7 @@ beforeEach(() => {
   vi.mocked(tokenStateFile).mockReturnValue("/state/tokens.json");
   vi.mocked(splitStateFile).mockReturnValue("/state/split.json");
   vi.mocked(readSplit).mockResolvedValue([]);
-  vi.mocked(readTokens).mockResolvedValue({ total: 0, grew: false, added: "" });
-  vi.mocked(resultOf).mockReturnValue(undefined);
+  vi.mocked(readTokens).mockResolvedValue({ total: 0, grew: false });
 });
 
 describe("feedback source matching and bounds", () => {
@@ -288,7 +285,6 @@ describe("feedback dispatch, ledger events and markers", () => {
     vi.mocked(readTokens).mockResolvedValue({
       total: 120,
       grew: true,
-      added: "",
     });
     await feedback("stop", payload, deps);
     expect(vi.mocked(readTokens).mock.calls).toEqual([
@@ -305,7 +301,6 @@ describe("feedback dispatch, ledger events and markers", () => {
     vi.mocked(readTokens).mockResolvedValue({
       total: 120,
       grew: false,
-      added: "",
     });
     await feedback("stop", { session_id: "s1" }, deps);
     expect(vi.mocked(recordEvent).mock.calls.map((c) => c[1])).toEqual([
