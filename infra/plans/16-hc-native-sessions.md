@@ -1,5 +1,5 @@
 ---
-status: active
+status: done
 summary: Rebuild the harness's session tools on hc's model (terminals with parents and children, labels, reported status, hc wait, tagged reports, events) behind one Terminals port. hc is the adapter and an in-memory fake the second implementation. The token is minted inside each session's launch wrapper. A child's report is a file the parent's wait reads, announced by a one-line notice. The switch is the hc-sessions flag. What hc makes unnecessary is deleted, and the rest is pruned from usage evidence. The layered --help guide moved to plan 17.
 last-verified: 2026-11-23
 ---
@@ -222,7 +222,7 @@ X.Y.Z` as the floor, `hc update --from <file>` for an exact binary or
       reason `holder_lost` and no exit code. The tier never touches the owner's
       core. It skips, naming the reason, on a host without hc: CI has no hc, so
       the gate runs on hosts with the pinned hc (the Step 5 live proof).
-- [ ] Owed, not settled by Step 2: a core restart keeps its terminals (the brief
+- [x] Owed, not settled by Step 2 (waived with the Step 5 live gate, #1783: not run; the three facts stay unproven and nothing depends on them): a core restart keeps its terminals (the brief
       barred `hc server restart`, and `hc server stop` ends live terminals); an
       exit note reaches an agent parent and `--no-notify` keeps it out (needs a
       real claude parent); an agent parent reports a status object where a shell
@@ -361,8 +361,9 @@ small-split read.
 - [x] Make hc the only path. Delete the herdr call sites, `equalize`,
       `spawn-pane` splitting, the paste-race retries, `herdr-poll` and
       `herdr-stall`.
-- [ ] Run the evidence review (Pruning), get the owner's approval of the
-      removal list, then remove, one PR each.
+- [x] Run the evidence review (Pruning), get the owner's approval of the
+      removal list, then remove, one PR each. (#1786 approved 2026-11-23; #1787 removed or
+      merged nine commands in #1906 to #1914.)
 - [x] Add a guard test: nothing outside `terminal/` names a backend
       binary or reads its environment.
 - [x] Update `GLOSSARY.md`. New terms: Terminal, Report, Delivery terminal,
@@ -645,7 +646,7 @@ finished children from the listing; `hcFailure` reads stdout.
 
 ## Next
 
-**Step 6 mostly merged (2026-11-23).** Step 5 closed under the owner waiver (idea 0081, #1887). The flip merged in #1893 (hc is the only session path, herdr removed from the harness, the tools/kore ingress count and the vps agents role; the Mac and kore-agents gate run is recorded on #1784, the soak waived by the owner) and the glossary, AGENTS.md and relay note in #1900. Left: the command removals. #1786 posted the keep, merge and remove lists with kore-agents counts and is waiting for the owner's approval comment; #1787 then removes the approved commands, one PR each. The Mac's counts for #1786 are still to be added by the Mac session (`hook statusline` is provisional). Full state: #1765.
+Nothing. Plan 16 is done (2026-11-23): hc is the only session path (#1893), the glossary and AGENTS.md follow (#1900), and the owner-approved removals landed in #1906 to #1914 (`session prompt-size`, `review resample`, `decision route`, `decision digest`, `hook statusline`, `queue send-backs`, `plan clear-next`, `orchestrate run`, `outcome close`). Full state: #1765.
 
 ## Done When
 
