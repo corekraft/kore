@@ -243,7 +243,9 @@ existing reference app keeps working until a service moves to them.
 - [x] Add the unit-level assertion on the template's cookie and response
       settings that the vision's token test names: every session cookie
       host-only, `HttpOnly`, `Secure` and `SameSite`.
-- [ ] Sign both images through release automation and deploy them by digest.
+- [x] Sign both images through release automation and deploy them by digest.
+
+      - 2026-11-23 owner approved on the live run recorded on [#1103](https://github.com/corekraft/kore/issues/1103#issuecomment-7088871307) (main `131066ab`, v0.22.0 template lock): both template images run by digest in both Services and `cosign verify` of both digests against `release.yaml@refs/tags/v0.22.0` succeeded. Admission by digest is not shown: the enforced policies do not cover `ghcr.io/corekraft/kore/templates/**`; tracked on [#1884](https://github.com/corekraft/kore/issues/1884). The Exit Criterion "admitted by digest" stays unproven until then.
 
 ### Exit Criteria
 
@@ -398,7 +400,8 @@ No clause is refuted.
 | The end-user token test                                                             | confirmed    | idea 0079 on [#1116](https://github.com/corekraft/kore/issues/1116): no token reaches the page, every session cookie host-only, `HttpOnly`, `Secure` and `SameSite` (names and attributes only)                                                                                                                                           |
 | Next's footprint against the Now baseline                                           | confirmed    | [#1756](https://github.com/corekraft/kore/issues/1756) runs 1 and 3 (clean) and [#1748](https://github.com/corekraft/kore/issues/1748), baseline in [plan 2](2-implementation.md); neither profile breached the #1107 rule                                                                                                                |
 
-Still owed: Step 4 item 4 (admission by digest), Step 6 item 3 (the Argo CD sync
-view in Backstage), and a fresh `kore local up` with `golden-path-signin` on
+Still owed: admission of the template images by digest
+([#1884](https://github.com/corekraft/kore/issues/1884)), Step 6 item 3 (the Argo CD
+sync view in Backstage: [#1883](https://github.com/corekraft/kore/issues/1883), then [#1881](https://github.com/corekraft/kore/issues/1881)), and a fresh `kore local up` with `golden-path-signin` on
 ([#1880](https://github.com/corekraft/kore/issues/1880)). Reading clusters as the
 signed-in user (Step 6 item 2) was not exercised.
