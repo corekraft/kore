@@ -144,6 +144,11 @@ earlier would not have been enough: the Client still needs the server.
   within the platform Keycloak's catalog timeout, before enrollment and the gate. The
   ApplicationSet owns the Applications and Argo CD the sync, as before; only the set
   of Applications a wait reads changes.
+- **The component's own readiness for the Application collection reads the same scope.**
+  The `kore-config-delivery` release lists `applications.argoproj.io` as readiness, so its
+  check, reached through the component readiness path, uses the platform scope whenever
+  the delivery wait does. Without it the golden-path Applications still failed the release
+  after the wait had passed (issue 1880, live run on main d0e595a5).
 - **With any of the three flags off, the gate waits on every Application, as before.** With the
   portal disabled there is no platform Keycloak to wait for, so nothing is deferred.
 - Rejected: installing the ClusterProviderConfig before the gate. The Client would
