@@ -358,14 +358,14 @@ small-split read.
 
 ### Step 6: Flip, contract and prune
 
-- [ ] Make hc the only path. Delete the herdr call sites, `equalize`,
+- [x] Make hc the only path. Delete the herdr call sites, `equalize`,
       `spawn-pane` splitting, the paste-race retries, `herdr-poll` and
       `herdr-stall`.
 - [ ] Run the evidence review (Pruning), get the owner's approval of the
       removal list, then remove, one PR each.
-- [ ] Add a guard test: nothing outside `terminal/` names a backend
+- [x] Add a guard test: nothing outside `terminal/` names a backend
       binary or reads its environment.
-- [ ] Update `GLOSSARY.md`. New terms: Terminal, Report, Delivery terminal,
+- [x] Update `GLOSSARY.md`. New terms: Terminal, Report, Delivery terminal,
       Group. Rewrite Pane result (Session result, with Pane result under
       Avoid), Rework, Unmapped event (a terminal with no role label), Silent
       session ("no report since", "its terminal"), Finish detection and
@@ -374,7 +374,7 @@ small-split read.
       detection from `hc events` notices almost at once and `pane.stalled`
       becomes a `blocked` or `error` event, so the terms say they are read per
       source. Ledger event names (`pane.finished`, `pane.stalled`) stay.
-- [ ] Update AGENTS.md (role panes start through `session spawn`; read
+- [x] Update AGENTS.md (role panes start through `session spawn`; read
       `hc --skill`), `skills/spawn-session`, the session hints, and the
       memories "panes in a new tab" and "grilling pairs get their own tab",
       which were workarounds for herdr reads. Fix the AGENTS.md line "hands
@@ -382,7 +382,7 @@ small-split read.
       idea lands. Document that the Mac main session reaches the delivery
       terminal with `hc send kore-agents/<id>`, replacing the ssh and herdr
       relay.
-- [ ] The flip PR merges only when `session check` on the Mac and on
+- [x] The flip PR merges only when `session check` on the Mac and on
       kore-agents reports no live herdr session and `hc --version` on both
       hosts matches the pin; the run is recorded on the tracking issue. A live
       record with no terminal id after the flip is an error naming
@@ -645,7 +645,7 @@ finished children from the listing; `hcFailure` reads stdout.
 
 ## Next
 
-**Step 5 done under an owner waiver (2026-11-23).** `hc-sessions` is on in the local overlay (#1887) on the owner's waiver of the remaining live run ([idea 0081](../../docs/ideas/0081-hc-sessions-verification.md), evidence on #1783); #1783 is closed. Two live runs on kore-agents passed the spawn, send, wait, report, check, close, ledger and `harness wait --pr` path; the removed store item, the worktree-settings loosen attempt, a permission-prompt `blocked`, the kore-writer token and the small-split read were waived, not run. Before a session spawns on the Mac, update its claude from 2.1.329 to 2.1.330 or later (`session exec` refuses less). Left: Step 6. #1784 needs `session check` and `hc --version` recorded on both hosts and a flag soak; #1785 and #1786 follow it; #1787 waits for the owner's approval of #1786's list. Full state: #1765.
+**Step 6 mostly merged (2026-11-23).** Step 5 closed under the owner waiver (idea 0081, #1887). The flip merged in #1893 (hc is the only session path, herdr removed from the harness, the tools/kore ingress count and the vps agents role; the Mac and kore-agents gate run is recorded on #1784, the soak waived by the owner) and the glossary, AGENTS.md and relay note in #1900. Left: the command removals. #1786 posted the keep, merge and remove lists with kore-agents counts and is waiting for the owner's approval comment; #1787 then removes the approved commands, one PR each. The Mac's counts for #1786 are still to be added by the Mac session (`hook statusline` is provisional). Full state: #1765.
 
 ## Done When
 
