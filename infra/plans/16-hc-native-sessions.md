@@ -631,8 +631,9 @@ holder_lost` and no exit code. A finished one keeps its exit code. The core
 - **Agent status object.** A stand-in named `claude` reports status null, but a
   real claude parent (settled 2026-11-23, #1783) reports an object, for example
   `{"app":"claude-code","kind":"permission","msg":"trust this folder","state":"blocked"}`
-  then `{"app":"claude-code","state":"done"}`, with `reported: true`. So `status`
-  tells an agent from a shell only for a real agent.
+  then `{"app":"claude-code","state":"done"}`, with `reported: true`. In this
+  run, `status` told the claude parent from the `sh` terminal; a stand-in does
+  not.
 - **Launch caution.** A bare program name resolved on the core's PATH, which the
   core inherits at start, so a stand-in named `claude` was not used on one run.
   The wrapper (Step 4) starts by absolute path, so this matters only for tests that
