@@ -1,9 +1,8 @@
 # hc Pin: herdr-core 0.1.21
 
 Operational facts about the pinned `hc` binary, the terminal core that the
-harness's session tools are moving to ([plan 16](../../infra/plans/16-hc-native-sessions.md),
-Step 1). The herdr pin is separate and unchanged: `herdr 0.9.5` stays in
-`.mise.toml` until the flip PR.
+harness's session tools run on ([plan 16](../../infra/plans/16-hc-native-sessions.md)).
+The herdr pin is gone from `.mise.toml`, and hc is the only session path.
 
 ## The pin
 
