@@ -19,7 +19,8 @@ interface View {
   comments: string[];
 }
 
-const FIX = "Check `gh auth status`, then rerun `harness outcome close`.";
+const FIX =
+  "Check `gh auth status`, then rerun `harness outcome record` with the same flags.";
 
 function names(value: unknown, key: string): string[] {
   return Array.isArray(value)
@@ -62,7 +63,7 @@ function missingLabel(
   idea: string,
 ): string | undefined {
   return /not found/i.test(stderr) && stderr.includes(wanted)
-    ? `The label "${wanted}" does not exist on ${repo}; create it with \`gh label create ${wanted} --repo ${repo}\`, then rerun \`harness outcome close --idea ${idea}\`.`
+    ? `The label "${wanted}" does not exist on ${repo}; create it with \`gh label create ${wanted} --repo ${repo}\`, then rerun \`harness outcome record --idea ${idea}\` with the same flags.`
     : undefined;
 }
 

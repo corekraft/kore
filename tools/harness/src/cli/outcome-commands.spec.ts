@@ -1,7 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { IdeaError, IdeaRepository } from "../idea/index.js";
 import {
-  closeOutcome,
   labelFor,
   parseOutcome,
   recordOutcome,
@@ -18,7 +17,6 @@ vi.mock("../idea/index.js", async (importOriginal) => ({
 }));
 vi.mock("../outcome/index.js", async (importOriginal) => ({
   ...(await importOriginal<typeof import("../outcome/index.js")>()),
-  closeOutcome: vi.fn(),
   labelFor: vi.fn(),
   parseOutcome: vi.fn(),
   recordOutcome: vi.fn(),
@@ -60,7 +58,7 @@ function fakeDeps() {
   };
 }
 
-/** A context for `outcome record` or `outcome close` with the given flags. */
+/** A context for `outcome record` with the given flags. */
 function context(options: Record<string, string | boolean>, json = false) {
   const deps = fakeDeps();
   return { ctx: contextWith(deps, options, json), deps };
@@ -102,7 +100,6 @@ beforeEach(() => {
   vi.mocked(labelFor).mockImplementation((r) => `outcome:${r}`);
   vi.mocked(parseOutcome).mockReturnValue(parsedOutcome());
   vi.mocked(recordOutcome).mockResolvedValue(CONCLUDED);
-  vi.mocked(closeOutcome).mockResolvedValue(CONCLUDED);
 });
 
 describe("outcome record", () => {
@@ -198,7 +195,7 @@ describe("outcome record output and ledger", () => {
     const { ctx, deps } = context(RECORD_FLAGS);
     expect(await outcomeCommands.record?.run(ctx)).toBe(1);
     expect(deps.stderr).toHaveBeenCalledWith(
-      "The outcome was published, but its ledger event was rejected: disk full. Fix the ledger, then rerun `harness outcome close --idea 0001` to record the event.\n",
+      "The outcome was published, but its ledger event was rejected: disk full. Fix the ledger, then rerun `harness outcome record --idea 0001` with the same flags to record the event.\n",
     );
     expect(deps.stdout).not.toHaveBeenCalled();
   });
@@ -262,32 +259,7 @@ describe("outcome record refusals", () => {
   });
 });
 
-describe("outcome close", () => {
-  it("closes the idea's recorded outcome without parsing any outcome flags", async () => {
-    const { ctx, deps } = context({ idea: "1" });
-    expect(await outcomeCommands.close?.run(ctx)).toBe(0);
-    expect(parseOutcome).not.toHaveBeenCalled();
-    expect(recordOutcome).not.toHaveBeenCalled();
-    expect(closeOutcome).toHaveBeenCalledWith(
-      expect.objectContaining({ root: ROOT, runner: deps.runner }),
-      "1",
-    );
-    expect(deps.stdout).toHaveBeenCalledWith(
-      "Idea 0001 confirmed; issue closed: https://github.com/corekraft/kore/issues/300\n",
-    );
-  });
-
-  it("refuses a missing --idea with the close command in the message", async () => {
-    const { ctx, deps } = context({});
-    expect(await outcomeCommands.close?.run(ctx)).toBe(1);
-    expect(deps.stderr).toHaveBeenCalledWith(
-      "Missing --idea; run `harness outcome close --idea <number or slug>`, or `harness idea list` to see the ideas.\n",
-    );
-    expect(closeOutcome).not.toHaveBeenCalled();
-  });
-});
-
-describe("outcome record and close name their sender on the comment", () => {
+describe("outcome record names its sender on the comment", () => {
   it("refuses before the ledger opens when the environment cannot name the sender", async () => {
     const deps = fakeDeps();
     const ctx = contextWith(
@@ -302,17 +274,18 @@ describe("outcome record and close name their sender on the comment", () => {
     );
   });
 
-  it("names outcome close as the command when it publishes the recorded outcome", async () => {
-    const { ctx } = context({ idea: "1" });
-    expect(await outcomeCommands.close?.run(ctx)).toBe(0);
-    expect(closeOutcome).toHaveBeenCalledWith(
+  it("names outcome record as the command, on a rerun too", async () => {
+    const { ctx } = context(RECORD_FLAGS);
+    expect(await outcomeCommands.record?.run(ctx)).toBe(0);
+    expect(recordOutcome).toHaveBeenCalledWith(
       expect.objectContaining({
         sender: {
-          command: "outcome close",
+          command: "outcome record",
           session: { role: "orchestrator", name: "queue-x" },
         },
       }),
       "1",
+      expect.anything(),
     );
   });
 });

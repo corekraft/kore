@@ -1,4 +1,4 @@
-// `orchestrate run` end to end with real domains (orchestrator, flag overlay, retro
+// `orchestrate tick --idea <n> --loop` end to end with real domains (orchestrator, flag overlay, retro
 // filing, flow metric names) and a scripted host in place of gh and the harness
 // tools (ADR 0104). It gates a release only, never a commit or a merge (ADR 0098).
 
@@ -10,7 +10,7 @@ import {
   repo,
   PROPOSALS,
   type Event,
-} from "./orchestrate-run-support.js";
+} from "./orchestrate-tick-idea-support.js";
 
 const FAILED = {
   ok: false,
@@ -37,15 +37,20 @@ async function run(h: ReturnType<typeof host>, root: string) {
   const code = await harnessRun(
     [
       "orchestrate",
-      "run",
-      ...Object.entries(OUTCOME).flatMap(([k, v]) => [`--${k}`, v]),
+      "tick",
+      "--idea",
+      OUTCOME.idea,
+      "--loop",
+      ...Object.entries(OUTCOME)
+        .filter(([k]) => k !== "idea")
+        .flatMap(([k, v]) => [`--${k}`, v]),
     ],
     d,
   );
   return { code, stderr: stderr.join("") };
 }
 
-describe("orchestrate run", () => {
+describe("orchestrate tick --idea --loop", () => {
   it("sends a failed precheck back, launches no judge on it, and records each stage in order", async () => {
     const h = host([FAILED, READY]);
     const { code } = await run(h, repo(true));

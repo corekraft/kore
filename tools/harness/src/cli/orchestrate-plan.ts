@@ -57,7 +57,7 @@ const planHelp: CommandHelp = {
     detail:
       "writes .kore/state/tick-plans/<idea>.json in the main checkout once, and appends one tick.plan ledger event carrying the piece count; a rerun of the same plan writes and records nothing twice",
   },
-  seeAlso: ["orchestrate tick", "orchestrate run"],
+  seeAlso: ["orchestrate tick"],
 };
 
 /**

@@ -49,7 +49,7 @@ export const domainGuides: Record<DomainName, DomainGuide> = {
   outcome: {
     purpose:
       "Records an idea's measured outcome on its record and its issue, and closes the issue once the outcome is recorded.",
-    flow: "Run outcome record with the result (confirmed, refuted or inconclusive), its evidence and its summary; it publishes the outcome and closes the issue, and outcome close finishes publishing when a run stopped partway.",
+    flow: "Run outcome record with the result (confirmed, refuted or inconclusive), its evidence and its summary; it publishes the outcome and closes the issue, and rerunning it with the same flags finishes publishing when a run stopped partway.",
   },
   decision: {
     purpose:
@@ -117,7 +117,7 @@ export const domainGuides: Record<DomainName, DomainGuide> = {
   orchestrate: {
     purpose:
       "Drives approved ideas to a recorded outcome through the writer, the judge and the send-back loop.",
-    flow: "Run orchestrate run for one idea to take it through writer and judge; orchestrate tick advances each approved idea one step per pass behind the orchestrator-tick flag; orchestrate plan records a work plan for a tick.",
+    flow: "Run orchestrate tick --idea <n> --loop for one idea to take it through writer and judge; orchestrate tick alone advances each approved idea one step per pass behind the orchestrator-tick flag; orchestrate plan records a work plan for a tick.",
   },
   approve: {
     purpose:

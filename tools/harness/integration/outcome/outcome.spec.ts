@@ -72,7 +72,7 @@ describe("harness outcome record", () => {
     });
   });
 
-  it("refuses to record a second outcome and points at close", async () => {
+  it("refuses a rerun with a different result and points at the recorded one", async () => {
     const { h } = await linked();
     await run(record(), h.deps);
     const before = h.get(PATH);
@@ -81,7 +81,7 @@ describe("harness outcome record", () => {
       1,
     );
     expect(h.err()).toMatch(/already has an outcome \(confirmed\)/);
-    expect(h.err()).toMatch(/harness outcome close/);
+    expect(h.err()).toMatch(/harness outcome record --idea 0001/);
     expect(h.get(PATH)).toBe(before);
     expect(ghWrites(h)).toHaveLength(writes);
   });

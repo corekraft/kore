@@ -1029,7 +1029,7 @@ posts it for that same head. If the head moved during the review it discards the
 verdict and reviews again (3 reviews at most); a pane that ends blocked or with
 no verdict records a `review.run` failure event and posts nothing. A posted or
 unchanged verdict's event records its `findings` count, 0 for a clean review.
-`orchestrate run` calls it before each precheck.
+`orchestrate tick --idea <n> --loop` calls it before each precheck.
 
 `harness harness wait` is the main session's one background wait (ADR 0123). Its help (`harness harness wait --help`) names the targets, each a pull request or a session, which may repeat; it checks each target once,
 then returns on the first to settle: CI green or red for a pull request (as
@@ -1077,7 +1077,7 @@ owner's. Older verdicts with no line still count.
 
 The same line starts every other comment or review the harness posts: `judge
 send-back`, `judge approve` (the approval's review body), `guardrail request`,
-`outcome record` and `outcome close`, `decision make`, `evaluate`, and the `pr open` body, which
+`outcome record`, `decision make`, `evaluate`, and the `pr open` body, which
 keeps its `Safety pattern:` line last. The posting commands take no `--role`
 flag, and a command refuses to post when the environment cannot name its sender.
 The module also refuses a body with a line of guardrail approval syntax,
@@ -1135,8 +1135,7 @@ per-machine lease, one file in the host lock directory, that a tick holds for it
 pass and the next tick recovers once it is 30 minutes old. A pane it starts is
 named for its idea and the PR head it works at (`idea-<idea>-judge-<head>`), so
 a rerun finds the pane and starts nothing twice. With the flag on, `orchestrate
-run`, given an idea (`harness orchestrate run --help`), runs ticks scoped to that idea until it ends, instead of its own
-loop. The standing loop and the heartbeat are later steps. A third send-back starts
+tick --idea <n> --loop` (`harness orchestrate tick --help`) runs ticks scoped to that idea until it ends and exits, instead of looping in the background; it takes the five outcome flags `orchestrate run` took, and with the flag off it drives the idea through the harness tools as `orchestrate run` did. The standing loop and the heartbeat are later steps. A third send-back starts
 a judgment pane (ADR 0121) that decides once: its plan is checked whole, a refused
 plan is retried once, then the idea is labelled `needs-info`. A later third send-back
 is reported as `needs-judgment` and nothing is started for it.
@@ -1166,7 +1165,7 @@ start no pane, so a bound never stops them.
 When an idea reaches an end that needs a person, the tick sends the attended pane one
 line, once per idea and state: `sender: tick orchestrator-tick (orchestrate tick): Idea <n>
 needs a person: <reason>.`. The step ends are `blocked`, `needs-judgment` and `needs-info`, a
-subset of the ends `orchestrate run` stops at: `awaiting-judge` is a judge pane's wait, not a
+subset of the ends `orchestrate tick --idea <n> --loop` stops at: `awaiting-judge` is a judge pane's wait, not a
 person. They and `reserved` (below) are the states of the constant `NEEDS_A_PERSON`. The attended pane is the pane the idea's latest session
 was spawned from, read from the session registry. The line goes through the signed send path,
 and the send is recorded as a `session.send` event naming the idea and the state, so a restart

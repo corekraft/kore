@@ -27,7 +27,7 @@ function said(name: string, result: FilingResult): string {
 }
 
 /**
- * The between-work hook of `orchestrate run`: starts a retro when one is due,
+ * The between-work hook of `orchestrate tick --idea <n> --loop` with the tick flag off: starts a retro when one is due,
  * then collects its pane and files the proposals through the idea domain. A
  * refused batch is reported on stderr and never fails the run.
  */

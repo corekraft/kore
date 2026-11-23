@@ -138,7 +138,7 @@ const closeWarned = (result: Result, label: string) => {
   assert.equal(result.action, "warn", `${label}: ${JSON.stringify(result)}`);
   assert.equal(result.rule, "idea-issue-close", label);
   assert.match(result.message, /\[guard:idea-issue-close\]/, label);
-  assert.match(result.message, /harness outcome close/, label);
+  assert.match(result.message, /harness outcome record/, label);
   assert.match(result.message, /Instead/, label);
 };
 

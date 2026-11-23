@@ -17,7 +17,8 @@ const OUTCOME: Parameters<typeof publishOutcome>[3] = {
   comment: COMMENT,
 };
 const AT = ["--repo", "corekraft/kore"];
-const FIX = "Check `gh auth status`, then rerun `harness outcome close`.";
+const FIX =
+  "Check `gh auth status`, then rerun `harness outcome record` with the same flags.";
 const VIEW = [
   "gh",
   ["issue", "view", "300", ...AT, "--json", "state,labels,comments"],
@@ -235,7 +236,7 @@ describe("publishOutcome failures name the step and how to resume", () => {
     });
     await expect(publishOutcome(runner, ROOT, TARGET, OUTCOME)).rejects.toThrow(
       new IdeaError(
-        'The label "outcome:confirmed" does not exist on corekraft/kore; create it with `gh label create outcome:confirmed --repo corekraft/kore`, then rerun `harness outcome close --idea 0001`.',
+        'The label "outcome:confirmed" does not exist on corekraft/kore; create it with `gh label create outcome:confirmed --repo corekraft/kore`, then rerun `harness outcome record --idea 0001` with the same flags.',
       ),
     );
     expect(runner.run.mock.calls.map(([, args]) => args[1])).toEqual([

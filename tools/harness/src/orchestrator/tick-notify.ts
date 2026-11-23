@@ -4,7 +4,7 @@ import type { IdeaStep, StepName } from "./tick.js";
 
 /**
  * The notifier's states at which an idea needs a person (ADR 0121): the tick cannot go on without
- * the owner. The step ends are a subset of the ends `orchestrate run` stops at; a judge pane's wait
+ * the owner. The step ends are a subset of the ends `orchestrate tick --idea <n> --loop` stops at; a judge pane's wait
  * is not a person. `reserved` is not a step: it is an owner-routed question open on the idea (#1058).
  */
 export const NEEDS_A_PERSON = [

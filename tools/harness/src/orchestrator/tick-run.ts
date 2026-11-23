@@ -1,7 +1,7 @@
 import type { RunResult, RunStatus } from "./idea-run.js";
 import type { StepName, Tick } from "./tick.js";
 
-/** How long `orchestrate run` waits between passes while a pane works; a placeholder (idea 0007). */
+/** How long `orchestrate tick --idea <n> --loop` waits between passes while a pane works; a placeholder (idea 0007). */
 export const TICK_POLL_MS = 30 * 1000;
 
 /** Passes one run may take before it gives up, so a stuck pane cannot hold it forever. */
@@ -19,7 +19,7 @@ const ENDS: Partial<Record<StepName, RunStatus>> = {
 };
 
 /**
- * `orchestrate run` under the tick: passes scoped to one idea, one step each,
+ * `orchestrate tick --idea <n> --loop`: passes scoped to one idea, one step each,
  * until the idea reaches an end. It sleeps only while a pane is working or a host bound holds it.
  */
 export async function runTicks(

@@ -89,7 +89,7 @@ describe("orchestrate tick --loop", () => {
     vi.mocked(tickFlagOn).mockResolvedValue(true);
     const { deps, record } = setup();
 
-    await runTickLoop(deps, ROOT, undefined);
+    await runTickLoop(deps, ROOT);
     await capturedPorts().heartbeat();
     await capturedPorts().stopped();
 
@@ -109,7 +109,7 @@ describe("orchestrate tick --loop", () => {
     vi.mocked(tickFlagOn).mockResolvedValue(true);
     const { deps, runs } = setup();
 
-    await runTickLoop(deps, ROOT, undefined);
+    await runTickLoop(deps, ROOT);
     await capturedPorts().pass();
 
     expect(runs).toEqual([
@@ -121,27 +121,11 @@ describe("orchestrate tick --loop", () => {
     ]);
   });
 
-  it("scopes each child pass to one idea when the loop is given --idea", async () => {
-    vi.mocked(tickFlagOn).mockResolvedValue(true);
-    const { deps, runs } = setup();
-
-    await runTickLoop(deps, ROOT, "7");
-    await capturedPorts().pass();
-
-    expect(runs[0]?.args).toEqual([
-      "/repo/skills/bin/harness.mjs",
-      "orchestrate",
-      "tick",
-      "--idea",
-      "7",
-    ]);
-  });
-
   it("shows a failed pass's output and says the loop goes on, so a throwing tick is visible", async () => {
     vi.mocked(tickFlagOn).mockResolvedValue(true);
     const { deps, err, out } = setup();
 
-    await runTickLoop(deps, ROOT, undefined);
+    await runTickLoop(deps, ROOT);
     capturedPorts().report({
       stdout: "",
       stderr: "TypeError: boom\n",
@@ -158,7 +142,7 @@ describe("orchestrate tick --loop", () => {
     vi.mocked(tickFlagOn).mockResolvedValue(true);
     const { deps } = setup({ ok: false, message: "label too long" });
 
-    await runTickLoop(deps, ROOT, undefined);
+    await runTickLoop(deps, ROOT);
     await expect(capturedPorts().heartbeat()).rejects.toThrow(
       "The tick.started event was rejected: label too long. Fix the ledger, then rerun orchestrate tick --loop.",
     );
@@ -171,7 +155,7 @@ describe("orchestrate tick --loop and the flag", () => {
     loopEndingWith({ status: "flag-off", passes: 0 });
     const { deps, out, runs } = setup();
 
-    expect(await runTickLoop(deps, ROOT, undefined)).toBe(0);
+    expect(await runTickLoop(deps, ROOT)).toBe(0);
     expect(out.join("")).toBe(
       "The orchestrator-tick flag is off in the local overlay, so no idea was advanced.\n",
     );
@@ -183,7 +167,7 @@ describe("orchestrate tick --loop and the flag", () => {
     loopEndingWith({ status: "flag-off", passes: 3 });
     const { deps, out } = setup();
 
-    expect(await runTickLoop(deps, ROOT, undefined)).toBe(0);
+    expect(await runTickLoop(deps, ROOT)).toBe(0);
     expect(out.join("")).toBe(
       "The orchestrator-tick flag turned off after 3 passes, so the loop stopped.\n",
     );
@@ -199,7 +183,7 @@ describe("orchestrate tick --loop self-update step", () => {
     vi.mocked(tickSelfUpdateOn).mockResolvedValue(true);
     const { deps } = setup();
 
-    await runTickLoop(deps, ROOT, undefined);
+    await runTickLoop(deps, ROOT);
     await capturedPorts().update?.();
     expect(run).toHaveBeenCalledTimes(1);
 
@@ -217,7 +201,7 @@ describe("orchestrate tick --loop self-update step", () => {
       syscall: "spawn mise",
     });
 
-    await runTickLoop(deps, ROOT, undefined);
+    await runTickLoop(deps, ROOT);
     capturedPorts().updateFailed(missing);
 
     expect(err.join("")).toBe(
@@ -228,7 +212,7 @@ describe("orchestrate tick --loop self-update step", () => {
   it("prints a rejected ledger write with its own message and the ledger fix", async () => {
     const { deps, err } = setup();
 
-    await runTickLoop(deps, ROOT, undefined);
+    await runTickLoop(deps, ROOT);
     capturedPorts().updateFailed(new HarnessCliError("ledger line is invalid"));
 
     expect(err.join("")).toBe(
@@ -240,7 +224,7 @@ describe("orchestrate tick --loop self-update step", () => {
     const { deps, err } = setup();
     const odd = new RangeError("odd failure");
 
-    await runTickLoop(deps, ROOT, undefined);
+    await runTickLoop(deps, ROOT);
 
     expect(() => capturedPorts().updateFailed(odd)).toThrow(odd);
     expect(err.join("")).toBe("");
@@ -249,7 +233,7 @@ describe("orchestrate tick --loop self-update step", () => {
   it("rethrows a thrown non-error value and reports nothing as handled", async () => {
     const { deps, err } = setup();
 
-    await runTickLoop(deps, ROOT, undefined);
+    await runTickLoop(deps, ROOT);
 
     let thrown: unknown;
     try {
@@ -269,7 +253,7 @@ describe("orchestrate tick --loop self-update step", () => {
       syscall: "open",
     });
 
-    await runTickLoop(deps, ROOT, undefined);
+    await runTickLoop(deps, ROOT);
 
     expect(() => capturedPorts().updateFailed(other)).toThrow(other);
     expect(err.join("")).toBe("");

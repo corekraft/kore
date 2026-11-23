@@ -1,7 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { run } from "../../src/cli/index.js";
 import {
-  LEDGER,
   PATH,
   ghWrites,
   linked,
@@ -9,40 +8,47 @@ import {
   withFlag,
 } from "../../src/testing/index.js";
 
-const CLOSE = ["outcome", "close", "--idea", "1", "--ledger", LEDGER];
+const RERUN = record();
 
-describe("harness outcome close", () => {
-  it("refuses an idea with no recorded outcome and issues no gh call", async () => {
-    const { h, issue } = await linked();
-    expect(await run([...CLOSE, "--json"], h.deps)).toBe(1);
-    const error = JSON.parse(h.err().split("\n")[0] ?? "") as { error: string };
-    expect(error.error).toMatch(/no recorded outcome/);
-    expect(error.error).toMatch(/harness outcome record/);
-    expect(h.runner.calls.filter((c) => c.command === "gh")).toHaveLength(0);
-    expect(issue.state).toBe("OPEN");
-  });
-
-  it("closes an issue whose outcome is recorded but unpublished, once", async () => {
+describe("rerunning harness outcome record on a half-published idea", () => {
+  it("finishes the comment, label and close, once, without a second outcome", async () => {
     const { h, issue } = await linked();
     // Simulate a record that wrote the markdown and then failed on gh.
     await run(record(), h.deps);
+    const recorded = h.get(PATH);
     issue.state = "OPEN";
     issue.labels = ["ready-for-agent"];
     issue.comments = [];
-    expect(await run(CLOSE, h.deps)).toBe(0);
+    expect(await run(RERUN, h.deps)).toBe(0);
     expect(issue.state).toBe("CLOSED");
     expect(issue.labels).toContain("outcome:confirmed");
     expect(issue.comments).toHaveLength(1);
+    expect(h.get(PATH)).toBe(recorded);
 
     const writes = ghWrites(h).length;
-    expect(await run([...CLOSE, "--json"], h.deps)).toBe(0);
+    expect(await run([...RERUN, "--json"], h.deps)).toBe(0);
     expect(ghWrites(h)).toHaveLength(writes);
+  });
+
+  it("refuses a rerun whose result differs from the recorded one, with no gh write", async () => {
+    const { h, issue } = await linked();
+    await run(record(), h.deps);
+    issue.state = "OPEN";
+    const writes = ghWrites(h).length;
+    expect(await run(withFlag(record(), "--result", "refuted"), h.deps)).toBe(
+      1,
+    );
+    expect(h.err()).toMatch(
+      /already has an outcome \(confirmed\), not refuted/,
+    );
+    expect(ghWrites(h)).toHaveLength(writes);
+    expect(issue.state).toBe("OPEN");
   });
 
   it("does not record a second ledger event when nothing changed", async () => {
     const { h } = await linked();
     await run(record(), h.deps);
-    await run(CLOSE, h.deps);
+    await run(RERUN, h.deps);
     const lines = (h.get(".kore/state/ledger.jsonl") ?? "").trim().split("\n");
     expect(lines).toHaveLength(1);
   });
@@ -77,10 +83,10 @@ describe("follow-up ideas", () => {
     ]);
   });
 
-  it("rerunning close does not create a second follow-up", async () => {
+  it("rerunning record does not create a second follow-up", async () => {
     const { h } = await linked();
     await run(withFlag(record(), "--result", "refuted"), h.deps);
-    await run(CLOSE, h.deps);
+    await run(record(), h.deps);
     expect(h.paths().filter((p) => p.startsWith("docs/ideas/"))).toHaveLength(
       2,
     );
