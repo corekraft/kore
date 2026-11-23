@@ -80,8 +80,8 @@ export const domainGuides: Record<DomainName, DomainGuide> = {
   },
   review: {
     purpose:
-      "The principles review of a pull request: running the Reviewer, posting a verdict, and re-reviewing a sample of passed reviews of merged PRs.",
-    flow: "Run review run to have a principles-review Reviewer read a PR's head and post its verdict; review post posts findings a Reviewer reported, in the format the precheck reads; review resample re-reviews a sample of merged PRs and posts nothing.",
+      "The principles review of a pull request: running the Reviewer and posting a verdict.",
+    flow: "Run review run to have a principles-review Reviewer read a PR's head and post its verdict; review post posts findings a Reviewer reported, in the format the precheck reads.",
   },
   pr: {
     purpose:

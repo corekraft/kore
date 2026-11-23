@@ -23,20 +23,7 @@ export {
   type ReviewPorts,
   type ReviewRunResult,
 } from "./review-run.js";
-export {
-  drawSample,
-  RESAMPLE_SIZE,
-  resampleCandidates,
-  type ResampleCandidate,
-} from "./resample.js";
 export { reviewerBrief } from "./review-run.js";
-export { resamplerBrief } from "./resample-run.js";
-export {
-  ResampleRun,
-  type ResampleLaunch,
-  type ResamplePorts,
-  type ResampleResult,
-} from "./resample-run.js";
 export { hasSentBack, sendBackBody } from "./send-back.js";
 export { reviewersFor, type ReviewerSources } from "./reviewers.js";
 export { diffStat, selectDiff, type FileStat } from "./diff-select.js";
