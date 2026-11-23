@@ -3,7 +3,6 @@ import {
   enabledComponents,
   helmInstalledComponents,
   releaseOwner,
-  signinAwaitsPortal,
   startsAfterDelivery,
   type Component,
   type Repository,
@@ -13,6 +12,7 @@ import { helmReleaseStatus } from "./probe.js";
 import { reconcileConfiguration } from "./reconcile.js";
 import { prepareConfigurationRelease } from "./release-prerequisites.js";
 import {
+  signinDeferred,
   waitForApplications,
   type ApplicationScope,
 } from "./readiness-argocd.js";
@@ -94,30 +94,12 @@ async function isDeployed(
 }
 
 /**
- * True when the golden-path sign-in waits for the platform Keycloak, which the
- * staged install starts after the delivery: both flags are on and the portal
- * is enabled (issue 1880).
- */
-function signinDeferred(
-  repository: Repository,
-  components: readonly Component[],
-): boolean {
-  return (
-    signinAwaitsPortal(repository.environment) &&
-    components.some(({ name }) => name === platformKeycloak)
-  );
-}
-
-/**
  * The Applications the delivery wait reads. While the sign-in waits for the
  * portal, the golden-path Service Applications are awaited after the staged
  * install instead, so only the platform Applications gate here.
  */
-function deliveryScope(
-  repository: Repository,
-  components: readonly Component[],
-): ApplicationScope {
-  return signinDeferred(repository, components) ? "platform" : "all";
+function deliveryScope(repository: Repository): ApplicationScope {
+  return signinDeferred(repository) ? "platform" : "all";
 }
 
 /**
@@ -160,7 +142,7 @@ export async function awaitArgocdDelivery(
       ],
     },
     delivery.timeout,
-    deliveryScope(repository, components),
+    deliveryScope(repository),
   );
   for (const component of owned) {
     await awaitRelease(repository, runner, component);
@@ -178,9 +160,12 @@ export async function awaitSigninApplications(
   repository: Repository,
   runner: Runner,
 ): Promise<void> {
+  if (!signinDeferred(repository)) {
+    return;
+  }
   const components = enabledComponents(repository);
   const keycloak = components.find(({ name }) => name === platformKeycloak);
-  if (keycloak === undefined || !signinDeferred(repository, components)) {
+  if (keycloak === undefined) {
     return;
   }
   const delivery = components.find(

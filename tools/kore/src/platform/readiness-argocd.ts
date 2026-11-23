@@ -1,4 +1,8 @@
-import type { Repository } from "../config/index.js";
+import {
+  enabledComponents,
+  signinAwaitsPortal,
+  type Repository,
+} from "../config/index.js";
 import {
   CommandError,
   CommandTimeoutError,
@@ -7,6 +11,25 @@ import {
 import { pollUntil } from "./readiness-poll.js";
 
 // Docs: docs/decisions/0043-platform-configuration-through-argo-cd.md
+
+/** The release that starts after the delivery and serves the Keycloak the golden-path sign-in needs. */
+const platformKeycloakRelease = "kore-platform-keycloak";
+
+/**
+ * True while the golden-path sign-in waits for the platform Keycloak: its flags
+ * are on and the platform Keycloak is enabled (issue 1880). Then the Application
+ * waits read only the platform Applications, and the golden-path ones wait for
+ * the portal. The delivery wait and the component's own check both ask this one
+ * question, so they cannot disagree.
+ */
+export function signinDeferred(repository: Repository): boolean {
+  return (
+    signinAwaitsPortal(repository.environment) &&
+    enabledComponents(repository).some(
+      ({ name }) => name === platformKeycloakRelease,
+    )
+  );
+}
 
 /** The catalog readiness entry that stands for every Argo CD Application. */
 export const APPLICATIONS = "applications.argoproj.io";
@@ -191,9 +214,14 @@ export function argocdApplicationsCheck(
   if (resource !== APPLICATIONS) {
     return undefined;
   }
+  // While the golden-path sign-in waits for the portal, a component's own check
+  // reads only the platform Applications, as the delivery wait does (issue 1880).
+  const scope: ApplicationScope = signinDeferred(context.repository)
+    ? "platform"
+    : "all";
   return {
     condition: "every Application Synced and Healthy",
     run: (timeout) =>
-      pollUntil(timeout, () => applicationsProblem(context, resource, "all")),
+      pollUntil(timeout, () => applicationsProblem(context, resource, scope)),
   };
 }
