@@ -3,6 +3,7 @@ import {
   enabledComponents,
   helmInstalledComponents,
   releaseOwner,
+  signinAwaitsPortal,
   startsAfterDelivery,
   type Component,
   type Repository,
@@ -11,13 +12,18 @@ import { CommandError, type Runner } from "../runtime/index.js";
 import { helmReleaseStatus } from "./probe.js";
 import { reconcileConfiguration } from "./reconcile.js";
 import { prepareConfigurationRelease } from "./release-prerequisites.js";
-import { waitForApplications } from "./readiness-argocd.js";
+import {
+  waitForApplications,
+  type ApplicationScope,
+} from "./readiness-argocd.js";
 import { ReadinessTimeout, pollUntil } from "./readiness-poll.js";
 import { readinessFailure } from "./readiness.js";
 
 // Docs: docs/decisions/0043-platform-configuration-through-argo-cd.md (the safe order, step 4)
 
 export { reconcileStagedConfigurations } from "./staged-configuration.js";
+
+const platformKeycloak = "kore-platform-keycloak";
 
 /**
  * Reconciles each configuration and enforcement release Helm still owns. An
@@ -88,6 +94,33 @@ async function isDeployed(
 }
 
 /**
+ * True when the golden-path sign-in waits for the platform Keycloak, which the
+ * staged install starts after the delivery: both flags are on and the portal
+ * is enabled (issue 1880).
+ */
+function signinDeferred(
+  repository: Repository,
+  components: readonly Component[],
+): boolean {
+  return (
+    signinAwaitsPortal(repository.environment) &&
+    components.some(({ name }) => name === platformKeycloak)
+  );
+}
+
+/**
+ * The Applications the delivery wait reads. While the sign-in waits for the
+ * portal, the golden-path Service Applications are awaited after the staged
+ * install instead, so only the platform Applications gate here.
+ */
+function deliveryScope(
+  repository: Repository,
+  components: readonly Component[],
+): ApplicationScope {
+  return signinDeferred(repository, components) ? "platform" : "all";
+}
+
+/**
  * Waits until Argo CD has delivered what it owns, before the admission gate is
  * judged. Helm waited for each release it installed (`--wait`); Argo CD syncs
  * asynchronously, so one read after the handover races it. Every Application
@@ -127,10 +160,51 @@ export async function awaitArgocdDelivery(
       ],
     },
     delivery.timeout,
+    deliveryScope(repository, components),
   );
   for (const component of owned) {
     await awaitRelease(repository, runner, component);
   }
+}
+
+/**
+ * Waits for the golden-path Service Applications once the staged portal has
+ * started, within the platform Keycloak's own timeout: their Keycloak clients
+ * need the server that the portal installs (issue 1880). Only a labelled
+ * Application is read, so a platform Application is never excused here. With
+ * the sign-in not waiting for the portal, nothing is deferred and nothing runs.
+ */
+export async function awaitSigninApplications(
+  repository: Repository,
+  runner: Runner,
+): Promise<void> {
+  const components = enabledComponents(repository);
+  const keycloak = components.find(({ name }) => name === platformKeycloak);
+  if (keycloak === undefined || !signinDeferred(repository, components)) {
+    return;
+  }
+  const delivery = components.find(
+    ({ name }) => name === configDeliveryRelease,
+  );
+  if (delivery === undefined) {
+    throw new Error(
+      `${configDeliveryRelease} is not enabled, so the golden-path Applications cannot be awaited; enable its featureFlag`,
+    );
+  }
+  await waitForApplications(
+    {
+      repository,
+      runner,
+      base: [
+        "--context",
+        repository.environment.kubeContext,
+        "--namespace",
+        delivery.namespace,
+      ],
+    },
+    keycloak.timeout,
+    "service",
+  );
 }
 
 /**

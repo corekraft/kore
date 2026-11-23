@@ -101,6 +101,7 @@ export {
   startsAfterDelivery,
   registryPruneFlag,
   registryTailnetForwardFlag,
+  signinAwaitsPortal,
 } from "./features.js";
 export {
   chartDeliveryValues,

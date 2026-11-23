@@ -179,6 +179,7 @@ test("the Applications that kore-config-delivery created are awaited within its 
       base: ["--context", "k3d-kore-local", "--namespace", "argocd"],
     },
     "5m",
+    "all",
   );
 });
 

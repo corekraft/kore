@@ -10,6 +10,7 @@ import { assertNoOrphanedReleases } from "./gated-release.js";
 import { enrollPlatformNamespaces } from "./enrollment.js";
 import {
   awaitArgocdDelivery,
+  awaitSigninApplications,
   reconcileConfigurations,
   reconcileStagedConfigurations,
 } from "./handover.js";
@@ -35,6 +36,9 @@ export async function platformUp(
   // The portal's Keycloak and Backstage start only now, on a settled cluster,
   // never while Argo CD is still syncing the Applications (ADR 0113).
   await reconcileStagedConfigurations(repository, runner);
+  // The golden-path Services wait for the portal's Keycloak, which just started;
+  // their Applications are gated here, not by the delivery wait (issue 1880).
+  await awaitSigninApplications(repository, runner);
   // Every phase is done, so Policy Controller and the image policies are ready:
   // enforce environments enroll their namespaces now, before the inventory
   // judges them (ADR 0056).

@@ -18,6 +18,7 @@ import {
   goldenPathTemplateAdmissionFlag,
   ingressFlag,
   readinessGatedOff,
+  signinAwaitsPortal,
 } from "./features.js";
 import type { Environment } from "./types.js";
 import {
@@ -210,6 +211,32 @@ test("a release that does not declare startsAfterDelivery never starts after the
   expect(
     startsAfterDelivery(on, fakeComponent({ startsAfterDelivery: false })),
   ).toBe(false);
+});
+
+test("the golden-path sign-in waits for the portal only while both golden-path-signin and portal-staged-install are on", () => {
+  const both = environment({
+    [goldenPathSigninFlag]: true,
+    [portalStagedInstallFlag]: true,
+  });
+
+  expect(signinAwaitsPortal(both)).toBe(true);
+  expect(
+    signinAwaitsPortal(
+      environment({
+        [goldenPathSigninFlag]: false,
+        [portalStagedInstallFlag]: true,
+      }),
+    ),
+  ).toBe(false);
+  expect(
+    signinAwaitsPortal(
+      environment({
+        [goldenPathSigninFlag]: true,
+        [portalStagedInstallFlag]: false,
+      }),
+    ),
+  ).toBe(false);
+  expect(signinAwaitsPortal(environment())).toBe(false);
 });
 
 test("the template admission flag is named golden-path-template-admission and is off while an overlay omits it", () => {

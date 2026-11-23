@@ -11,6 +11,19 @@ import { pollUntil } from "./readiness-poll.js";
 /** The catalog readiness entry that stands for every Argo CD Application. */
 export const APPLICATIONS = "applications.argoproj.io";
 
+/**
+ * The label the golden-path ApplicationSet puts on each Service's Application
+ * (ADR 0043, issue 1880). A labelled Application is a golden-path Service.
+ */
+export const SERVICE_LABEL = "platform.kore.dev/service";
+
+/**
+ * Which Applications a wait reads: every one (`all`), only the platform ones
+ * that carry no service label (`platform`), or only the golden-path Service
+ * ones (`service`). The platform scope never excuses an unlabelled Application.
+ */
+export type ApplicationScope = "all" | "platform" | "service";
+
 /** What an Argo CD check reads from: the repository, runner and kubectl scope. */
 export interface ArgocdContext {
   repository: Repository;
@@ -19,7 +32,7 @@ export interface ArgocdContext {
 }
 
 interface Application {
-  metadata: { name: string };
+  metadata: { name: string; labels?: Record<string, string> };
   status?: {
     sync?: { status?: string };
     health?: { status?: string; message?: string };
@@ -30,6 +43,15 @@ interface Application {
 
 function kubectlArgocd(context: string): string {
   return `kubectl --context ${context} -n argocd`;
+}
+
+/** Whether an Application is read by a wait of this scope. */
+function inScope({ metadata }: Application, scope: ApplicationScope): boolean {
+  if (scope === "all") {
+    return true;
+  }
+  const labelled = metadata.labels?.[SERVICE_LABEL] !== undefined;
+  return labelled === (scope === "service");
 }
 
 /** Why an Application is not Synced and Healthy, or undefined when it is. */
@@ -122,12 +144,14 @@ function isStdoutBufferFull(error: unknown): error is CommandError {
 }
 
 /**
- * Every Application that exists must be Synced and Healthy. An unreadable
- * Application list is an error, never a pass, so the gate stays closed.
+ * Every Application in scope that exists must be Synced and Healthy. An
+ * unreadable Application list is an error, never a pass, so the gate stays
+ * closed.
  */
 async function applicationsProblem(
   context: ArgocdContext,
   resource: string,
+  scope: ApplicationScope,
 ): Promise<string | undefined> {
   const { repository } = context;
   const items = applicationItems(await readApplications(context, resource));
@@ -135,22 +159,28 @@ async function applicationsProblem(
     const { kubeContext } = repository.environment;
     return `kubectl get ${resource} returned output that is not a JSON Application list, so Application health is unknown; run ${kubectlArgocd(kubeContext)} get ${resource}`;
   }
-  const problems = items.flatMap(
-    (app) => problem(app, repository.environment.kubeContext) ?? [],
+  const problems = items.flatMap((app) =>
+    inScope(app, scope)
+      ? (problem(app, repository.environment.kubeContext) ?? [])
+      : [],
   );
   return problems.length ? problems.join("; ") : undefined;
 }
 
 /**
- * Polls, within `timeout`, until every Application that exists is Synced and
- * Healthy. A delivery is asynchronous, so the gate's single read can race it;
- * the failure names the Application that is not ready and its last state.
+ * Polls, within `timeout`, until every Application in `scope` that exists is
+ * Synced and Healthy. A delivery is asynchronous, so the gate's single read can
+ * race it; the failure names the Application that is not ready and its last
+ * state. The scope defaults to every Application, the flag-off gate.
  */
 export function waitForApplications(
   context: ArgocdContext,
   timeout: string,
+  scope: ApplicationScope = "all",
 ): Promise<void> {
-  return pollUntil(timeout, () => applicationsProblem(context, APPLICATIONS));
+  return pollUntil(timeout, () =>
+    applicationsProblem(context, APPLICATIONS, scope),
+  );
 }
 
 /** The readiness check for the Application collection, if `resource` is it. */
@@ -164,6 +194,6 @@ export function argocdApplicationsCheck(
   return {
     condition: "every Application Synced and Healthy",
     run: (timeout) =>
-      pollUntil(timeout, () => applicationsProblem(context, resource)),
+      pollUntil(timeout, () => applicationsProblem(context, resource, "all")),
   };
 }

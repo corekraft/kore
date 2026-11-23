@@ -105,6 +105,18 @@ export const registryTailnetForwardFlag = "registry-tailnet-forward";
 /** The flag that gates the platform organization's portal: its Keycloak and, later, its Backstage (ADR 0113, plan 15 step 6). */
 export const platformPortalFlag = "platform-portal";
 
+/**
+ * Whether the golden-path sign-in waits for the portal: its Services need the platform Keycloak, which starts only after the Argo CD delivery while the staged install is on (ADR 0113, issue 1880). With either flag off the Applications are gated with the rest of the delivery.
+ */
+export function signinAwaitsPortal(
+  environment: Pick<Environment, "features">,
+): boolean {
+  return (
+    featureEnabled(environment, goldenPathSigninFlag) &&
+    featureEnabled(environment, portalStagedInstallFlag)
+  );
+}
+
 /** The flag that stages the portal install: a release that declares startsAfterDelivery starts only after the Argo CD delivery is Synced and Healthy (ADR 0113, issue 1318). */
 export const portalStagedInstallFlag = "portal-staged-install";
 
