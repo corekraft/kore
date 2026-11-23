@@ -27,7 +27,7 @@ async function rejectionOf(repository: Repository): Promise<string> {
   try {
     await validateRepository(repository);
   } catch (error) {
-    return (error as Error).message;
+    return error instanceof Error ? error.message : String(error);
   }
   return "";
 }

@@ -1,6 +1,10 @@
 // Docs: docs/decisions/0148-a-flag-manifest-declares-each-flags-kind-environments-and-prerequisites.md
 import { expect, test } from "vitest";
-import { fakeEnvironment, fakeRepository } from "./config-support.js";
+import {
+  fakeEnvironment,
+  fakeRepository,
+  malformed,
+} from "./config-support.js";
 import {
   appliedFlags,
   flagEntry,
@@ -94,7 +98,7 @@ test("a flag declared twice is refused, naming the flag", () => {
 });
 
 test("an entry with a name, kind, applies or mark that is not valid is refused, naming the flag and the fix", () => {
-  const broken = {
+  const broken = malformed<FlagManifest>({
     flags: [
       { name: "Bad_Name", kind: "feature", applies: ["local"] },
       { name: "bad-kind", kind: "service", applies: ["local"] },
@@ -119,7 +123,7 @@ test("an entry with a name, kind, applies or mark that is not valid is refused, 
         neverRetire: "yes",
       },
     ],
-  } as unknown as FlagManifest;
+  });
   expect(
     flagManifestErrors(repositoryOf({ name: "local" }, broken)).sort(),
   ).toEqual([
@@ -136,9 +140,10 @@ test("an entry with a name, kind, applies or mark that is not valid is refused, 
 test("a manifest without a flags list is refused, naming the file", () => {
   expect(
     flagManifestErrors(
-      repositoryOf({ name: "local" }, {
-        flags: undefined,
-      } as unknown as FlagManifest),
+      repositoryOf(
+        { name: "local" },
+        malformed<FlagManifest>({ flags: undefined }),
+      ),
     ),
   ).toEqual(["infra/catalog/flags.yaml must declare a flags list"]);
 });
