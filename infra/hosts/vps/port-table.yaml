@@ -1,0 +1,45 @@
+{
+  "publish":
+    [
+      {
+        "name": "external-gateway-http",
+        "address": "public",
+        "port": 80,
+        "protocol": "tcp",
+        "service": "kore-gateway-external",
+        "nodePort": 30080
+      },
+      {
+        "name": "external-gateway-https",
+        "address": "public",
+        "port": 443,
+        "protocol": "tcp",
+        "service": "kore-gateway-external",
+        "nodePort": 30444
+      },
+      {
+        "name": "internal-gateway-https",
+        "address": "tailnet",
+        "port": 443,
+        "protocol": "tcp",
+        "service": "kore-gateway",
+        "nodePort": 30443
+      },
+      {
+        "name": "platform-dns-udp",
+        "address": "tailnet",
+        "port": 53,
+        "protocol": "udp",
+        "service": "platform-dns",
+        "nodePort": 31053
+      },
+      {
+        "name": "platform-dns-tcp",
+        "address": "tailnet",
+        "port": 53,
+        "protocol": "tcp",
+        "service": "platform-dns",
+        "nodePort": 31053
+      }
+    ]
+}

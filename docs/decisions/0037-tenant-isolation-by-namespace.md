@@ -2,7 +2,7 @@
 status: accepted
 summary: Tenants share one cluster and are isolated per service environment namespace by mesh, network policy, quotas, and admission; Kore's tenancy API owns those namespaces, without Capsule, and a vCluster is a later dedicated tier.
 date: 2026-11-08
-last-verified: 2026-11-14
+last-verified: 2026-11-23
 ---
 
 # ADR 0037: Isolate tenants by namespace in one shared cluster
@@ -11,6 +11,8 @@ Source: [`docs/vision.md` § Tenancy Model](../vision.md#tenancy-model)
 
 Refines: [ADR 0025](0025-application-namespace-ambient-enrollment.md), once the
 `Service` API exists.
+
+> Refined by [ADR 0165](0165-a-suborg-is-the-namespace-quota-and-trust-boundary-of-its-services.md): the namespace is per suborg, not per service environment; the isolation layers, quotas and negative-test requirement here still stand.
 
 ## Context
 

@@ -265,6 +265,27 @@ describe("harness pr open creates nothing a sender line or approval check refuse
   });
 });
 
+describe("harness pr open reads --expand-step as a PR number, or none for the expand step itself", () => {
+  it("passes --expand-step none to the renderer as none, not as a number", async () => {
+    const f = fixture({
+      ...REQUIRED,
+      pattern: "expand-contract",
+      "expand-step": "none",
+    });
+    await prOpenRun(f.context);
+    expect(renderPrBody).toHaveBeenCalledWith(
+      expect.objectContaining({ expandStep: "none" }),
+    );
+  });
+
+  it("refuses a value for --expand-step that is neither a PR number nor none, before gh is reached", async () => {
+    const f = fixture({ ...REQUIRED, "expand-step": "latest" });
+    await expect(prOpenRun(f.context)).resolves.toBe(1);
+    expect(renderPrBody).not.toHaveBeenCalled();
+    expect(f.run).not.toHaveBeenCalled();
+  });
+});
+
 describe("harness pr open is declared as a mutating command", () => {
   it("documents its options, --body-file and the pr.linked event in its help", () => {
     const open = prCommands["open"];
@@ -284,6 +305,12 @@ describe("harness pr open is declared as a mutating command", () => {
       "pattern",
       "title",
     ]);
+  });
+
+  it("says in its help that --expand-step none writes no Expand step line", () => {
+    const open = prCommands["open"];
+    expect(open?.help?.flags["expand-step"]).toContain("none");
+    expect(open?.help?.flags["expand-step"]).toContain("no Expand step line");
   });
 
   it("says in its help that --idea none writes no Idea line and records none", () => {

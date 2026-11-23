@@ -2,6 +2,7 @@ import { expect, test, vi } from "vitest";
 import * as infra from "./commands-infra.js";
 import * as local from "./commands-local.js";
 import * as dns from "./commands-dns.js";
+import * as delivery from "./commands-delivery.js";
 import * as read from "./commands-read.js";
 import * as ops from "./commands-ops.js";
 import * as policy from "./commands-policy.js";
@@ -18,6 +19,7 @@ vi.mock("./commands-ops.js");
 vi.mock("./commands-policy.js");
 vi.mock("./commands-local.js");
 vi.mock("./commands-dns.js");
+vi.mock("./commands-delivery.js");
 vi.mock("./commands-read.js");
 
 test("the command table names every command, in dispatch order", () => {
@@ -38,6 +40,7 @@ test("the command table names every command, in dispatch order", () => {
     "secrets",
     "trust",
     "dns",
+    "eval",
   ]);
 });
 
@@ -63,6 +66,7 @@ test("each command's mutating actions are exactly the actions that change its en
     secrets: ["sync", "smtp"],
     trust: ["install"],
     dns: ["install", "uninstall"],
+    eval: [],
   });
 });
 
@@ -89,10 +93,18 @@ test("each command runs its own handler", () => {
   expect(runOf("secrets")).toBe(handlerOf(local, "secretsCommand"));
   expect(runOf("trust")).toBe(handlerOf(local, "trustCommand"));
   expect(runOf("dns")).toBe(handlerOf(dns, "dnsCommand"));
+  expect(runOf("eval")).toBe(handlerOf(delivery, "evalCommand"));
 });
 
 test("a read-only command never mutates, whatever action it is given", () => {
-  for (const name of ["doctor", "validate", "journal", "ops", "policy"]) {
+  for (const name of [
+    "doctor",
+    "validate",
+    "journal",
+    "ops",
+    "policy",
+    "eval",
+  ]) {
     expect(isMutating(COMMANDS.get(name)!, "anything")).toBe(false);
   }
   expect(isMutating(COMMANDS.get("ops")!, "inventory")).toBe(false);

@@ -37,6 +37,21 @@
         "issuerUri": { "type": "string", "minLength": 1 }
       }
     },
+    "safetyDefaults": {
+      "description": "Set by the golden-path ApplicationSet only while golden-path-safety-defaults is on (ADR 0154). Then each workload renders the safety defaults; off, every render is unchanged.",
+      "type": "boolean"
+    },
+    "rolloutDefaults": {
+      "description": "The numbers of the safety defaults, rendered only while safetyDefaults is on (ADR 0154).",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "minReadySeconds": { "type": "integer", "minimum": 0 },
+        "progressDeadlineSeconds": { "type": "integer", "minimum": 1 },
+        "preStopSleepSeconds": { "type": "integer", "minimum": 0 },
+        "terminationGracePeriodSeconds": { "type": "integer", "minimum": 1 }
+      }
+    },
     "resources": {
       "type": "object",
       "properties": {
