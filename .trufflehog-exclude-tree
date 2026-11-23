@@ -10,5 +10,9 @@
 \.enc\.yaml$
 # Vendored upstream Keycloak CRD: the JDBC detector reports a documentation example sentence in an upstream description (no host, no credential). The current file is trimmed and scans clean; the line stays only while the branch history holds the original, and can go once the change is squashed.
 (^|/)infra/charts/keycloak-operator/templates/crd-keycloaks\.yaml$
+# The signed-in BFF's session database URL (issue 1841). The JDBC detector reports credential-free jdbc:postgresql:// strings: the chart's URL is built from $(SESSION_DB_*) references to the claim's connection Secret, and two specs name an example host. None holds a password (that is read by Secret reference). The history holds the first commit, so the paths stay excluded until the change is squashed.
+^infra/charts/golden-path-workload/templates/workload\.yaml$
+^templates/kotlin-bff/src/test/kotlin/dev/kore/bff/session/SessionStoreSettingsTest\.kt$
+^tools/kore/integration/config/golden-path-signin-session-chart\.spec\.ts$
 # release-please's generated CHANGELOG.md links every entry to its 40-hex commit hash, and scanning the whole file reports one such hash as an unverified GitHubOauth2 token (release PR #735, line 634). It is a commit link, not a credential. Only this pass skips the file: the history pass still reads every committed version of it, so a real token there is caught.
 ^CHANGELOG\.md$
