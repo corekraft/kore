@@ -7,7 +7,12 @@ import {
   writeK3dRegistriesConfig,
 } from "../images/index.js";
 import { k3dCreateArgs } from "./k3d-cluster.js";
-import { apiHostAddress, drift, unreadablePorts } from "./k3d-drift.js";
+import {
+  apiHostAddress,
+  drift,
+  listingReportsMappings,
+  unreadablePorts,
+} from "./k3d-drift.js";
 import { inspectPortMappings } from "./k3d-inspect.js";
 import { commandLines, fakeK3d, fakeRepository } from "./cluster-support.js";
 import { waitForClusterReady } from "./readiness.js";
@@ -26,6 +31,7 @@ vi.mock("./k3d-drift.js", async (importOriginal) => ({
   ...(await importOriginal<typeof import("./k3d-drift.js")>()),
   apiHostAddress: vi.fn(),
   drift: vi.fn(),
+  listingReportsMappings: vi.fn(),
   unreadablePorts: vi.fn(),
 }));
 vi.mock("./k3d-inspect.js", async (importOriginal) => ({
@@ -41,6 +47,7 @@ beforeEach(() => {
   vi.mocked(writeK3dRegistriesConfig).mockResolvedValue(undefined);
   vi.mocked(waitForClusterReady).mockResolvedValue(undefined);
   vi.mocked(drift).mockReturnValue([]);
+  vi.mocked(listingReportsMappings).mockReturnValue(true);
   vi.mocked(unreadablePorts).mockReturnValue([]);
   vi.mocked(inspectPortMappings).mockResolvedValue(undefined);
 });

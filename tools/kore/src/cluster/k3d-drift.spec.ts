@@ -101,6 +101,40 @@ test("without reported mappings only the counts compare, so a missing mapping li
   ]);
 });
 
+test("a listing that reports no load balancer mappings is compared on docker inspect's bindings, so a missing 443 mapping is a difference", () => {
+  const preCutover = {
+    "30443/tcp": [{ HostIp: "127.0.0.1", HostPort: "8443" }],
+  };
+  expect(drift(entry(undefined), entryPoint, preCutover)).toEqual([
+    "port 30443: 8443 != 443",
+  ]);
+});
+
+test("a listing with no load balancer mappings and docker inspect's bindings that match the overlay is no difference", () => {
+  const matching = { "30443/tcp": [{ HostIp: "127.0.0.1", HostPort: "443" }] };
+  expect(drift(entry(undefined), entryPoint, matching)).toEqual([]);
+});
+
+test("a difference on a feature-flagged port names the flag that publishes it", () => {
+  const flagged: K3dCluster = {
+    ...overlay,
+    ports: [
+      {
+        hostAddress: "127.0.0.1",
+        hostPort: 443,
+        loadBalancerPort: 30443,
+        featureFlag: "platform-dns",
+      },
+    ],
+  };
+  const preCutover = {
+    "30443/tcp": [{ HostIp: "127.0.0.1", HostPort: "8443" }],
+  };
+  expect(drift(entry(undefined), flagged, preCutover)).toEqual([
+    "port 30443 (platform-dns): 8443 != 443",
+  ]);
+});
+
 test("an extra mapping that is not the API port is ignored, even when it is off loopback", () => {
   const extra = entry({
     "443/tcp": [{ HostIp: "127.0.0.1", HostPort: "443" }],

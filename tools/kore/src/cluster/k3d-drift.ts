@@ -24,6 +24,7 @@ export interface Published {
   hostAddress: string;
   hostPort?: number;
   protocol?: K3dPort["protocol"];
+  featureFlag?: string;
 }
 
 /**
@@ -62,16 +63,43 @@ function listedMappings(
   ] as PortMappings | undefined;
 }
 
+/**
+ * Whether `k3d cluster list` reports the load balancer's port mappings at all.
+ * When it does not, docker inspect is the only source of them, so the caller
+ * must read it before it can say whether a declared port is published.
+ */
+export function listingReportsMappings(
+  entry: Record<string, unknown>,
+): boolean {
+  return listedMappings(entry) !== undefined;
+}
+
+/** The bindings to compare: the listing's, else docker inspect's when the listing reports none. */
+function mappingsOf(
+  entry: Record<string, unknown>,
+  inspected: PortMappings | undefined,
+): PortMappings | undefined {
+  return listedMappings(entry) ?? inspected;
+}
+
 /** A mapping's transport: TCP unless it says otherwise. */
 function protocolOf(port: Published): string {
   return port.protocol ?? "tcp";
 }
 
-/** How a published port is named in a difference: UDP ports carry their protocol. */
+/**
+ * How a published port is named in a difference: UDP ports carry their protocol,
+ * and a port that names a feature flag names it, so the difference says what
+ * publishes the mapping.
+ */
 function labelOf(port: Published): string {
-  return port.protocol === "udp"
-    ? `port ${port.loadBalancerPort}/udp`
-    : `port ${port.loadBalancerPort}`;
+  const name =
+    port.protocol === "udp"
+      ? `port ${port.loadBalancerPort}/udp`
+      : `port ${port.loadBalancerPort}`;
+  return port.featureFlag === undefined
+    ? name
+    : `${name} (${port.featureFlag})`;
 }
 
 /** Every binding under a published port's container port and protocol, whatever its host port. */
@@ -126,9 +154,9 @@ export function unreadablePorts(
   cluster: K3dCluster,
   inspected?: PortMappings,
 ): Published[] {
-  const listed = listedMappings(entry);
+  const mappings = mappingsOf(entry, inspected);
   return publishedPorts(cluster).filter((port) =>
-    bindingsOn(listed, port).some(
+    bindingsOn(mappings, port).some(
       (binding) => addressOf(binding, port, inspected) === undefined,
     ),
   );
@@ -158,13 +186,13 @@ export function drift(
   };
   compare("servers", entry["serversCount"], cluster.servers ?? 1);
   compare("agents", entry["agentsCount"], cluster.agents ?? 0);
-  const listed = listedMappings(entry);
-  if (listed !== undefined) {
+  const mappings = mappingsOf(entry, inspected);
+  if (mappings !== undefined) {
     for (const port of publishedPorts(cluster)) {
-      const onPort = bindingsOn(listed, port);
+      const onPort = bindingsOn(mappings, port);
       if (onPort.length === 0) {
         if (port.hostPort !== undefined) {
-          const under = bindingsUnder(listed, port);
+          const under = bindingsUnder(mappings, port);
           compare(
             labelOf(port),
             under.length

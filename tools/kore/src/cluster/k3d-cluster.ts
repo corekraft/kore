@@ -11,6 +11,7 @@ import { ClusterUnavailableError } from "./cluster-unavailable.js";
 import {
   apiHostAddress,
   drift,
+  listingReportsMappings,
   unreadableMessage,
   unreadablePorts,
 } from "./k3d-drift.js";
@@ -258,8 +259,11 @@ export async function clusterUpK3d(
   );
   if (entry !== undefined) {
     const cluster = k3dCluster(repository.environment);
-    // The listing is the first source of host addresses; docker inspect is the second.
+    // The listing is the first source of mappings and host addresses; docker inspect is
+    // the second, read when the listing reports no mappings at all (#1683) or an address
+    // it omits.
     const inspected =
+      !listingReportsMappings(entry) ||
       unreadablePorts(entry, cluster).length > 0
         ? await inspectPortMappings(runner, clusterName)
         : undefined;
