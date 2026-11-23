@@ -43,6 +43,28 @@ at all, which blocked the live proof of admission by digest.
   image-trust guard.
 - **Local stays unenrolled, and the flag stays off in every overlay** until a
   recorded live outcome turns it on (`harness flag activate`).
+- **The template policy has its own keyless trust, `templates.trust`.** It sits
+  in the environment's `image-policy` overlay beside the platform's `trust`, and
+  holds `type: keyless`, the GitHub Actions `issuer`, the exact release
+  `subjects` that signed the template lock, and `mode`. The platform's `trust`
+  is unchanged by it, so a platform on key trust (local) still runs the template
+  policy in warn. With the flag on, a missing or invalid `templates.trust` fails
+  validation up front and names the setting; with the flag off nothing is
+  checked. The platform policy admits only the platform's release signers, and
+  a template tag is added to `templates.trust.subjects` alone.
+
+## Amendment: the template trust is separate from the platform trust (issue 1884)
+
+Trust design (b), decided by the owner on 2026-11-23: the template policy gets
+its own keyless trust, so local can run it in warn while its platform images
+stay on key trust. The enrolment decisions in this ADR are unchanged.
+
+The platform policy's v0.22.0 subject in vps and managed-example was there only
+because the template policy shared the platform trust. It is removed, since the
+overlays record no platform rollout at v0.22.0 (their platform subjects stop at
+v0.4.0); the template policy admits v0.22.0 through `templates.trust`. The
+`templates.mode` key is replaced by `templates.trust.mode`, so one setting holds
+the template policy's trust and its mode.
 
 ## Consequences
 

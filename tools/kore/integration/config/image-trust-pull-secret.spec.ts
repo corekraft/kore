@@ -117,7 +117,6 @@ test("local trusts its local signing key and managed-example a pinned release wo
         releaseSubject.replace(/v0\.1\.1$/, "v0.3.1"),
         releaseSubject.replace(/v0\.1\.1$/, "v0.3.2"),
         releaseSubject.replace(/v0\.1\.1$/, "v0.4.0"),
-        releaseSubject.replace(/v0\.1\.1$/, "v0.22.0"),
       ],
     }),
   );

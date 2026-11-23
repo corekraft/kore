@@ -20,12 +20,12 @@ upstreamImages:
   - "ghcr.io/cloudnative-pg/cloudnative-pg**"
 # The golden-path template images (ADR 0045, ADR 0046): the kore-template-images
 # policy admits only this repository's images, and only under the release
-# identity, while golden-path-template-admission is on. The chart owns it.
+# identity, while golden-path-template-admission is on. The chart owns the
+# repository; the environment overlay owns templates.trust (issue 1884), the
+# template policy's own keyless authority, separate from the platform's trust.
 templates:
   repository: "ghcr.io/corekraft/kore/templates"
-  # Audit before enforce: the template policy starts in warn whatever the
-  # platform's trust.mode, and enforces only once its own live outcome is recorded.
-  mode: warn
+  trust: {}
 # Platform namespaces whose images the kore-upstream-images static pass covers
 # (ADR 0032): istio-system runs the Istio proxy image, cnpg-system the
 # CloudNativePG operator image. Each needs an entry in
