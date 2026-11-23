@@ -13,6 +13,11 @@ server:
         # provider, which Strict would drop.
         same-site: lax
 management:
+  health:
+    db:
+      # The probes read /actuator/health: a database blip must not restart or
+      # unready every replica, so the session store is not part of it.
+      enabled: false
   endpoints:
     web:
       exposure:
@@ -21,3 +26,19 @@ management:
     health:
       probes:
         enabled: true
+spring:
+  autoconfigure:
+    # The datasource exists only while sign-in is on (SessionStoreConfiguration), so
+    # the AOT training and verify runs refresh the context with no database.
+    exclude:
+      - org.springframework.boot.jdbc.autoconfigure.DataSourceAutoConfiguration
+  session:
+    # A session lives 30 minutes from its last request, the idle time of the
+    # platform realm's SSO session; signing in again rebuilds it.
+    timeout: 30m
+    jdbc:
+      # SessionSchema creates the tables, under a lock, so replicas starting
+      # together do not race on Spring Session's non-idempotent script.
+      initialize-schema: never
+      # Expired rows are deleted every five minutes by each replica.
+      cleanup-cron: "0 */5 * * * *"

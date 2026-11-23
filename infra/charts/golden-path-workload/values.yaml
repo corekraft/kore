@@ -20,8 +20,15 @@ resources:
 # connection Secret that client writes. It also renders a cert-manager
 # Certificate whose Secret carries the local CA and a truststore init container,
 # so the BFF's JVM trusts the Keycloak issuer (issue 1824). Off, nothing of it
-# renders. The BFF's sign-in session is in memory, so while sign-in is on the BFF
-# runs as one pod with no autoscaler (it gives up its high availability and
-# scale-out) until a shared session store lands; the frontend keeps autoscaling.
+# renders. The BFF keeps its sign-in session in a database the platform
+# PostgreSQL API claims for the Service (issue 1841, ADR 0182), so every replica
+# sees it and the BFF autoscales like the frontend.
 signin:
   enabled: false
+
+# The session database's portable inputs (infra/apis/postgresql), claimed only
+# while signin.enabled. Sessions are rebuilt by signing in again, so the claim is
+# not retained and a small volume holds them.
+database:
+  storageSize: 1Gi
+  compatibilityVersion: 17
