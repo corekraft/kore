@@ -27,7 +27,7 @@ Usage:
   kore ops upgrade-check|crd-check [--from <release-tag>] [--environment local] [--json]
   kore policy record <constraint> --environment <name> --audit <file|-> [--json]
   kore policy promote|rollback <constraint> --environment <name> [--json]
-  kore eval <dir> --base <ref> --version <semver>+<sha> --digest sha256:<hex> [--published <file>] [--today <YYYY-MM-DD>]   (read-only and offline: runs the deterministic evals on one application repository and prints a JSON report; exits 1 on a failing verdict; see "eval" below)
+  kore eval <dir> --base <ref> --version <semver>+<sha> --digest sha256:<hex> [--published <file>] [--today <YYYY-MM-DD>] [--carries-plan --n1-apply <exe> --n1-previous-suite <exe>]   (runs the deterministic evals on one application repository and prints a JSON report; exits 1 on a failing verdict; see "eval" below)
 
 "cluster destroy" refuses while data labeled platform.kore.dev/retention=Retain
 (databases) exists; --purge-data deletes it.
@@ -139,15 +139,46 @@ the diff contradicts: a migration under migrations/ forces expand-contract, a ne
 flag forces feature-flagged, and only tests and docs may claim no-behaviour-change.
 It refuses a version already published for another digest. A flag past its
 expiry only warns and never fails. --version is the manifest semver plus the
-commit SHA; --digest is the candidate image's sha256. The report is JSON:
-verdict (pass or fail), failures, warnings, and on a pass only attestations, two
-in-toto v1 statements whose subject is the image digest (name: the version,
-digest.sha256: the hex without the prefix):
+commit SHA; --digest is the candidate image's sha256.
+
+The migration checks run only for the image that carries the plan, given
+--carries-plan; every other image attests the empty plan and reads no migration.
+A migration is a .sql file under migrations/, one migration per file, and is
+expand only when every statement is on the allowlist: CREATE TABLE, ALTER TABLE
+ADD COLUMN that is nullable or has a default, ALTER TABLE ADD CONSTRAINT NOT
+VALID, and CREATE INDEX CONCURRENTLY that is not unique. Any other statement,
+any unreadable file and any non-.sql file is a contract. Migrations are
+append-only: a modified, renamed or deleted file under migrations/ is refused.
+A normal release carries only expand migrations. A contract ships alone, named
+by git trailers on the head commit, beside Safety-pattern (which it must set to
+expand-contract): Contract-release: data or code, Contract-last-used:
+<semver>+<sha> (an earlier release) and Contract-soak-hours: a positive number
+of hours. A data contract carries contract migrations only and touches nothing
+but migrations/ and tests, so flags.yaml is unchanged; a code contract touches
+no migration, retires at least one flag the base manifest declares, and adds
+none. The eval checks the trailers' shape only; the platform checks the soak.
+A release that adds a migration runs the N-1 check: --n1-apply names an
+executable that applies the new migrations, and --n1-previous-suite names one
+that runs the previous release's suite; both run in the app directory with
+DATABASE_URL set to the scratch database URL, which is read from
+KORE_EVAL_SCRATCH_DATABASE_URL, never from argv, and is redacted from every
+failure. The caller provisions and drops the scratch database; the eval creates
+and destroys nothing. Missing N-1 inputs fail the release and name the three.
+
+The report is JSON: verdict (pass or fail), failures, warnings, and on a pass
+only attestations, three in-toto v1 statements whose subject is the image digest
+(name: the version, digest.sha256: the hex without the prefix):
   - predicateType urn:kore:eval-result:v1, predicate {verdict, version,
     safetyPattern, checks, warnings, expiredFlags}
   - predicateType urn:kore:flags-manifest:v1, predicate {service, flags}, where
     each flag is {name, default: false, owner, safetyPattern, expiry, rollout:
     {kind, criteria, soakHours}}
+  - predicateType urn:kore:migration-plan:v1, predicate {release, migrationsPath,
+    migrations, contract, n1}, where release is none, expand, data-contract or
+    code-contract; migrationsPath is migrations/ or null (null for none);
+    migrations is [{path, class}] sorted by path, class expand or contract;
+    contract is null or {lastUsed, soakHours, retiredFlags}; n1 is passed or
+    not-applicable
 A failing eval prints no attestations, so there is no payload to sign.
 
 Every mutation requires --environment and is recorded in

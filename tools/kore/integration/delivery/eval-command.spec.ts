@@ -165,6 +165,18 @@ test("a passing eval of the fixture app prints the verdict and both payloads, an
           ],
         },
       },
+      "migration-plan": {
+        _type: "https://in-toto.io/Statement/v1",
+        subject: [{ name: version, digest: { sha256: "e".repeat(64) } }],
+        predicateType: "urn:kore:migration-plan:v1",
+        predicate: {
+          release: "none",
+          migrationsPath: null,
+          migrations: [],
+          contract: null,
+          n1: "not-applicable",
+        },
+      },
     },
   });
 });
@@ -232,6 +244,6 @@ test("a --base that git does not know is refused, naming the flag to fix", async
       today,
     ]),
   ).rejects.toThrow(
-    /^eval could not read [\s\S]* with git \(diff --name-only no-such-ref HEAD\): [\s\S]*; check that --base no-such-ref names a commit in that repository$/,
+    /^eval could not read [\s\S]* with git \(diff --name-only -z no-such-ref HEAD\): [\s\S]*; check that --base no-such-ref names a commit in that repository$/,
   );
 });
