@@ -89,7 +89,25 @@ test("the values carry the lock's digests, the checked-out commit and the enviro
     sharedGateway: false,
     autoscaling: false,
     serviceRecords: false,
+    templateAdmission: false,
   });
+});
+
+test("with golden-path-template-admission on the values carry templateAdmission, so the sync enrols the golden-path namespaces it creates", async () => {
+  const admitted = {
+    ...repository,
+    environment: {
+      ...repository.environment,
+      features: { "golden-path-template-admission": true },
+    },
+  };
+  const { runner } = git();
+  const composed = await composeGoldenPathDelivery(
+    admitted,
+    runner,
+    "template.lock.json",
+  );
+  expect(composed.goldenPathDelivery?.templateAdmission).toBe(true);
 });
 
 test("with platform-shared-gateway on the values carry sharedGateway, so the sync labels the app namespaces it creates", async () => {

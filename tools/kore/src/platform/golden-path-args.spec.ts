@@ -33,6 +33,28 @@ test("with serviceRecords on, the golden-path arguments end with the serviceReco
   expect(args.slice(-2)).toEqual(["--set", "serviceRecords=true"]);
 });
 
+test("with templateAdmission on, the golden-path arguments carry the templateAdmission pair, so the sync enrols the golden-path namespaces", () => {
+  const args = goldenPathArgs(
+    {
+      ...fakeRepository(),
+      goldenPathDelivery: { ...golden, templateAdmission: true },
+    },
+    goldenComponent,
+  );
+  expect(args.slice(-2)).toEqual(["--set", "templateAdmission=true"]);
+});
+
+test("with templateAdmission off, the golden-path arguments carry no templateAdmission argument, so the flag-off render is unchanged", () => {
+  const args = goldenPathArgs(
+    {
+      ...fakeRepository(),
+      goldenPathDelivery: { ...golden, templateAdmission: false },
+    },
+    goldenComponent,
+  );
+  expect(args.some((arg) => arg.includes("templateAdmission"))).toBe(false);
+});
+
 test("with serviceRecords off, the golden-path arguments carry no serviceRecords argument, so the flag-off render is unchanged", () => {
   const args = goldenPathArgs(
     {

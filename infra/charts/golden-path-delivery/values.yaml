@@ -40,6 +40,12 @@ project: default
 # 0133). Off by default, so the sync sets no namespace metadata.
 # sharedGateway: true
 
+# Set by kore only while golden-path-template-admission is on (ADR 0181).
+# The sync then labels each app namespace it creates with the admission enrolment
+# label (ADR 0032), so the golden-path namespaces are enrolled by their creator.
+# Off, no such label.
+# templateAdmission: true
+
 # The `entries` of the release's template-images.lock.json (ADR 0045), passed
 # whole, for example --set-json templateImages="$(jq .entries lock.json)".
 # Both entries are required and each is deployed by digest.

@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { execFile } from "node:child_process";
-import { readdir, readFile } from "node:fs/promises";
+import { readFile } from "node:fs/promises";
 import { promisify } from "node:util";
 import { join } from "node:path";
 import { test } from "vitest";
@@ -170,23 +170,6 @@ test("the chart renders ClusterImagePolicy for all containers without regexps or
   assert.doesNotMatch(text, /RegExp/i);
   assert.doesNotMatch(text, /static:/);
   assert.doesNotMatch(text, /policy\.sigstore\.dev\/include/);
-});
-
-test("no namespace is opted into enforcement yet", async () => {
-  const root = await findRoot();
-  for (const dir of ["infra/charts", "infra/environments"]) {
-    const files = (await readdir(join(root, dir), { recursive: true })).filter(
-      (f) => /\.(ya?ml|tpl)$/.test(f),
-    );
-    for (const file of files) {
-      const body = await readFile(join(root, dir, file), "utf8");
-      assert.doesNotMatch(
-        body,
-        /policy\.sigstore\.dev\/include/,
-        `${dir}/${file} opts a namespace in before audit`,
-      );
-    }
-  }
 });
 
 test("a key reference outside the policy-controller namespace is rejected with the fix", async () => {

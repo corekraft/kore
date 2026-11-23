@@ -334,6 +334,8 @@ export interface GoldenPathDeliveryValues {
   ingress: { platformDomain: string; gatewayClassName: string };
   /** True while platform-shared-gateway is on: the sync labels the app namespaces it creates (ADR 0133). */
   sharedGateway?: boolean;
+  /** True while golden-path-template-admission is on: the sync labels the app namespaces it creates for policy.sigstore.dev/include (ADR 0181). */
+  templateAdmission?: boolean;
   autoscaling?: boolean;
   /** True while platform-portal, platform-organization-service-apis and platform-argocd-delivery are all on: the sync also applies the Service records (ADR 0166). */
   serviceRecords?: boolean;

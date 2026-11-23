@@ -5,7 +5,7 @@
   "additionalProperties": false,
   "properties": {
     "features": {
-      "description": "Kore passes the environment's feature flags here (ADR 0077). Only platform-portal and platform-hostname-ownership are read: portal on, the Organization composition also owns the realm; hostname ownership on, the Organization XRD carries a zone.",
+      "description": "Kore passes the environment's feature flags here (ADR 0077). Only platform-portal, platform-hostname-ownership, platform-shared-gateway and golden-path-template-admission are read: portal on, the Organization composition also owns the realm; hostname ownership on, the Organization XRD carries a zone; shared gateway and template admission on, the Service composition labels each namespace it creates (ADR 0181).",
       "type": "object"
     },
     "platformOrganizationId": {

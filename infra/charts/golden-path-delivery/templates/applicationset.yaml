@@ -9,6 +9,13 @@
 # With serviceRecords on (ADR 0166) the records Application applies each Service,
 # so the Service composition is the one owner of the namespace and the sync sets
 # no CreateNamespace. The sync still creates nothing else.
+{{- /*
+With templateAdmission on (golden-path-template-admission, ADR 0181)
+the sync labels each namespace it creates with the admission enrolment label, so
+the golden-path namespaces are enrolled by their creator. The Service composition
+labels the namespaces it creates the same way. This is a template comment, so the
+flag-off render is byte-identical to before.
+*/ -}}
 {{- $frontend := index .Values.templateImages "static-frontend" }}
 {{- $bff := index .Values.templateImages "kotlin-bff" }}
 {{- if and .Values.signin (not .Values.ingress) }}
@@ -85,8 +92,13 @@ spec:
         syncOptions:
           - CreateNamespace=true
         {{- end }}
-        {{- if .Values.sharedGateway }}
+        {{- if or .Values.sharedGateway .Values.templateAdmission }}
         managedNamespaceMetadata:
           labels:
+            {{- if .Values.sharedGateway }}
             platform.kore.dev/shared-gateway: "true"
+            {{- end }}
+            {{- if .Values.templateAdmission }}
+            policy.sigstore.dev/include: "true"
+            {{- end }}
         {{- end }}

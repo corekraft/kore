@@ -46,7 +46,8 @@ spec:
               labels:
                 platform.kore.dev/tenant: {{ $org }}
                 platform.kore.dev/organization: {{ $org }}`}}{{- if and .Values.features (index .Values.features "platform-shared-gateway") }}
-                platform.kore.dev/shared-gateway: "true"{{ end }}{{`
+                platform.kore.dev/shared-gateway: "true"{{ end }}{{- if and .Values.features (index .Values.features "golden-path-template-admission") }}
+                policy.sigstore.dev/include: "true"{{ end }}{{`
             {{- end }}`}}
     - step: mark-ready
       functionRef: { name: function-auto-ready }
