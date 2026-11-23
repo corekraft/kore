@@ -45,5 +45,31 @@ except the health probes (`/actuator/health`) and the sign-in routes needs a
 signed-in session; an unauthenticated request is redirected to sign-in and
 never served.
 
+## Session store
+
+With sign-in on, the session and the OAuth2 authorization request live in a
+PostgreSQL database through Spring Session JDBC
+([ADR 0182](../../docs/decisions/0182-the-golden-path-bff-keeps-its-session-in-the-platform-postgresql-database.md)),
+so a callback that lands on another replica finds them and the signed-in BFF can
+run more than one replica. The Service's chart claims the database through the
+platform PostgreSQL API and passes its connection by reference as
+`SPRING_DATASOURCE_URL`, `SPRING_DATASOURCE_USERNAME` and
+`SPRING_DATASOURCE_PASSWORD`; set these at run time. They are never committed, the
+password is never logged or printed, and a missing one refuses to start and names
+it. `application.yaml` holds no connection value.
+
+- With sign-in off there is no datasource, no JDBC session and no session cookie,
+  so the AOT training and verify runs need no database.
+- The tables are created at start by an idempotent script under a PostgreSQL
+  advisory lock, so replicas that start together do not race.
+- A session lasts 30 minutes from its last request, and each replica deletes
+  expired rows every five minutes.
+- The database is not part of `/actuator/health`: a database blip does not
+  restart or unready the replicas.
+- The session cookie is named `SESSION`; its attributes are unchanged.
+
+This replaces the one-replica rule of issue 1837. The signed-in scale-out and
+high-availability claims wait for the live runs on issue 1841.
+
 Pinned sign-in dependencies and their evidence are in
 [`infra/catalog/compatibility.md`](../../infra/catalog/compatibility.md).
