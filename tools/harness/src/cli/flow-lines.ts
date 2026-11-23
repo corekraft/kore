@@ -143,15 +143,10 @@ const ratePercent = (rate: number | null) =>
 
 /**
  * The passed-then-rule-break ratio and the found-violation share, each against its
- * trailing average (#851), then the re-reviews of a passed sample beside them (#852).
+ * trailing average (#851). The re-review figure is in the JSON report only (#852).
  */
 export function reviewMissLines(m: FlowReport["reviewMisses"]): string[] {
-  const r = m.resample;
-  const resample =
-    r.count === 0
-      ? "Re-reviews of sampled passed reviews: no re-reviews in this range"
-      : `Re-reviews of sampled passed reviews: ${r.found} of ${r.count} found a violation (${ratePercent(r.share)})`;
-  return [...ratioLines(m), resample];
+  return ratioLines(m);
 }
 
 /** The ratio and share lines (#851). With no review in the range the line says so, never a rate. */
