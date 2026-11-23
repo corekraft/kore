@@ -150,6 +150,7 @@ const entryPoints = [
   "gatewayRollbackOrderFlag",
   "helmInstalledComponents",
   "ingressFlag",
+  "internalGateway",
   "isLocalProvider",
   "keycloakHostname",
   "loadRepository",

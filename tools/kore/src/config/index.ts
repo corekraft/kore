@@ -44,6 +44,7 @@ export type {
   AuditReport,
   PromotionRecord,
 } from "./policy-promotion.js";
+export { internalGateway } from "./gateways.js";
 export {
   backstageHostname,
   gatewayEntryPort,

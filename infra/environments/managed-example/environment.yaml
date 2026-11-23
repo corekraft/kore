@@ -25,6 +25,16 @@
     { "domain": "platform.example.com", "organizationId": "platform" },
   "gateway":
     { "namespace": "kore-system", "name": "kore-gateway", "port": 443 },
+  "gateways":
+    {
+      "internal":
+        {
+          "namespace": "kore-system",
+          "name": "kore-gateway",
+          "port": 443,
+          "issuer": "managed-cluster-issuer"
+        }
+    },
   "features":
     {
       "agentgateway-mesh-enrollment": false,

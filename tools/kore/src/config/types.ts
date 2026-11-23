@@ -157,6 +157,18 @@ export interface K3dPort {
   optOut?: boolean;
 }
 
+/** A Gateway the environment names: its object, its namespace and the port it listens on. */
+export interface GatewayRef {
+  namespace: string;
+  name: string;
+  port: number;
+}
+
+/** A Gateway entry in gateways: the Gateway and the certificate issuer it uses (chosen per Gateway, never per app). */
+export interface GatewayEntry extends GatewayRef {
+  issuer: string;
+}
+
 export interface Environment {
   $schema?: string;
   name: string;
@@ -241,8 +253,24 @@ export interface Environment {
   platform: {
     domain: string;
     organizationId: string;
+    /**
+     * The domain the internal Gateway's names live under (ADR 0042 expand step).
+     * Unset, it is the platform domain. With gateways.external declared it is
+     * required and must be `internal.<domain>`.
+     */
+    internalDomain?: string;
   };
-  gateway: { namespace: string; name: string; port: number };
+  /**
+   * The single Gateway field, still accepted beside gateways.internal (the
+   * expand step). Read through internalGateway, never directly.
+   */
+  gateway?: GatewayRef;
+  /**
+   * The environment's Gateways (the expand step of the internal and external
+   * Gateway split). Once declared, internal is required; external is optional
+   * and carries the public HTTPS routes.
+   */
+  gateways?: { internal?: GatewayEntry; external?: GatewayEntry };
   secrets: { storeName: string; sourceNamespace: string };
   telemetry: { otlpEndpoint: string };
   componentValues?: Record<string, string[]>;
