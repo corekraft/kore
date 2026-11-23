@@ -301,10 +301,16 @@ function toSeries(name: string, entry: unknown): EvidenceSeries {
       `Prometheus answered ${name} with a series that has no metric or values, so the query failed and no series is read`,
     );
   }
-  const { __name__: metric, ...labels } = entry.metric;
+  const labels: Record<string, string> = {};
+  for (const [key, value] of Object.entries(entry.metric)) {
+    if (typeof value === "string" && key !== "__name__") {
+      labels[key] = value;
+    }
+  }
+  const metric = entry.metric["__name__"];
   return {
     name: typeof metric === "string" ? metric : name,
-    labels: labels as Record<string, string>,
+    labels,
     samples: entry.values.map(toSample),
   };
 }
@@ -324,7 +330,8 @@ function toSample(pair: unknown): EvidenceSample {
 
 function parseJson(body: string): unknown {
   try {
-    return JSON.parse(body) as unknown;
+    const parsed: unknown = JSON.parse(body);
+    return parsed;
   } catch {
     return undefined;
   }

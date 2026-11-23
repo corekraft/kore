@@ -1,7 +1,6 @@
 // Docs: docs/decisions/0143-the-controller-reaches-a-managed-registry-through-a-forward-over-the-tailnet.md
 // (the registry forward pattern); issue #1520 under spec #1510.
 import { expect, test, vi } from "vitest";
-import type { Repository } from "../config/index.js";
 import {
   CommandError,
   type Runner,
@@ -9,13 +8,15 @@ import {
   type RunResult,
 } from "../runtime/index.js";
 import { readEvidence, type EvidenceWindow } from "./evidence-reader.js";
+import { fakeRepository } from "./platform-support.js";
 
 // The runner is the only seam: every kubectl and curl call goes through it, so
 // these units start no process, open no socket and wait on no timer (ADR 0098).
-const repository = {
-  root: "/repo",
-  environment: { name: "vps", provider: "managed", kubeContext: "kore-vps" },
-} as unknown as Repository;
+const repository = fakeRepository({
+  name: "vps",
+  provider: "managed",
+  kubeContext: "kore-vps",
+});
 
 const window: EvidenceWindow = {
   start: new Date(1_700_000_000_000),
