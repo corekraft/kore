@@ -62,7 +62,7 @@ beforeEach(() => {
   vi.mocked(platformPlan).mockReturnValue({
     domain: "kore.internal",
     organizationId: "platform",
-  } as never);
+  });
   vi.mocked(readFile).mockResolvedValue(JSON.stringify(lock));
 });
 
