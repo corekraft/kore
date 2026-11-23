@@ -1,5 +1,5 @@
 import { beforeEach, expect, test, vi } from "vitest";
-import type { Repository } from "../config/index.js";
+import { readinessGatedOff } from "../config/index.js";
 import { waitFor } from "./readiness.js";
 import {
   component,
@@ -9,6 +9,10 @@ import {
   tails,
 } from "./readiness-support.js";
 
+vi.mock("../config/index.js", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("../config/index.js")>()),
+  readinessGatedOff: vi.fn(),
+}));
 vi.mock("./probe.js");
 vi.mock("./readiness-custom.js");
 vi.mock("./readiness-issuer.js");
@@ -25,40 +29,47 @@ vi.mock("./readiness-poll.js", async (importOriginal) => ({
 
 beforeEach(primeReadinessFakes);
 
-test("a flag-gated readiness resource is checked only while its flag is on, and the rest always are", async () => {
-  const gated = "clusterimagepolicy.policy.sigstore.dev/kore-template-images";
-  const always = "clusterimagepolicy.policy.sigstore.dev/kore-platform-images";
-  const flagged = component({
-    readiness: [always, gated],
-    readinessFlags: { [gated]: "golden-path-template-admission" },
-  });
-  const asRepository = (features: Record<string, boolean>) =>
-    ({
-      ...repository,
-      environment: { ...repository.environment, features },
-    }) as unknown as Repository;
+const gated = "clusterimagepolicy.policy.sigstore.dev/kore-template-images";
+const always = "clusterimagepolicy.policy.sigstore.dev/kore-platform-images";
+const flagged = component({
+  readiness: [always, gated],
+  readinessFlags: { [gated]: "golden-path-template-admission" },
+});
 
-  const off = fakeRunner();
-  await waitFor(asRepository({}), off.runner, flagged);
-  expect(tails(off.run)).toEqual([
+/** Stubs the gate: the flagged resource is off when `off`, every other resource is never gated. */
+function gateOff(off: boolean): void {
+  vi.mocked(readinessGatedOff).mockImplementation(
+    (_environment, _component, resource) => off && resource === gated,
+  );
+}
+
+test("with the gated resource's flag off, waitFor skips it and checks only the ungated resource", async () => {
+  gateOff(true);
+  const fake = fakeRunner();
+
+  await waitFor(repository, fake.runner, flagged);
+
+  expect(readinessGatedOff).toHaveBeenCalledWith(
+    repository.environment,
+    flagged,
+    gated,
+  );
+  expect(tails(fake.run)).toEqual([
     ["--for=condition=Ready", always, "--timeout=10m"],
   ]);
   expect(
-    off.run.mock.calls.map((call) => (call[1] as string[]).join(" ")),
-  ).not.toContainEqual(expect.stringContaining(gated));
+    fake.run.mock.calls.flatMap((call) => call[1] as string[]),
+  ).not.toContain(gated);
+});
 
-  const on = fakeRunner();
-  await waitFor(
-    asRepository({ "golden-path-template-admission": true }),
-    on.runner,
-    flagged,
-  );
-  expect(
-    on.run.mock.calls.map((call) => (call[1] as string[]).join(" ")),
-  ).toEqual(
-    expect.arrayContaining([
-      expect.stringContaining(always),
-      expect.stringContaining(gated),
-    ]),
-  );
+test("with the gated resource's flag on, waitFor checks both resources, the gated one too", async () => {
+  gateOff(false);
+  const fake = fakeRunner();
+
+  await waitFor(repository, fake.runner, flagged);
+
+  expect(tails(fake.run)).toEqual([
+    ["--for=condition=Ready", always, "--timeout=10m"],
+    ["--for=condition=Ready", gated, "--timeout=10m"],
+  ]);
 });
