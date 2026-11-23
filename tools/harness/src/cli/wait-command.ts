@@ -184,7 +184,7 @@ async function readTarget(
   return { kind: "settled", state: read.outcome };
 }
 
-/** The first line a settled target prints: the PR's state, the session's RESULT, or the idea that moved. */
+/** The first line a settled target prints: the PR's state, the session's report, or the idea that moved. */
 function headOf(
   target: Target,
   settled: { state: string; idea?: string },
@@ -193,7 +193,7 @@ function headOf(
     return `settled: PR #${target.target} is ${settled.state}.`;
   }
   if (target.kind === "session") {
-    return `settled: session ${target.target} finished: RESULT ${settled.state}.`;
+    return `settled: session ${target.target} reported ${settled.state}.`;
   }
   return `settled: idea ${settled.idea ?? target.target} is now ${settled.state}.`;
 }
@@ -335,7 +335,7 @@ async function waitRun(context: CommandContext): Promise<number> {
 
 export const harnessWait = {
   summary:
-    "wait in the background for the first of pull request checks (--pr <n>), spawned panes' RESULT lines (--session <name>) or an idea's state change in the ledger (--idea <name>, or --any-idea for any idea) to settle, repeating a flag: settled exits 0 and names the target and its state, with the rest to restart with; the bound (--timeout ms, default one hour) exits 3 and names what is still pending and the next step; --json gives the same as one object",
+    "wait in the background for the first of pull request checks (--pr <n>), spawned sessions' reports (--session <name>) or an idea's state change in the ledger (--idea <name>, or --any-idea for any idea) to settle, repeating a flag: settled exits 0 and names the target and its state, with the rest to restart with; the bound (--timeout ms, default one hour) exits 3 and names what is still pending and the next step; --json gives the same as one object",
   options: {
     timeout: "string",
     pr: "list",

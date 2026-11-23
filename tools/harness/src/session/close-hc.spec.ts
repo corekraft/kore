@@ -214,7 +214,7 @@ describe("closeOnHc refuses a terminal the caller did not spawn, and closes noth
 });
 
 describe("closeOnHc refuses a session with no recorded result or report, and kills nothing", () => {
-  it("refuses a session with neither a result nor a consumed report, with herdr's hint", async () => {
+  it("refuses a session with neither a result nor a consumed report, naming the wait to run", async () => {
     const terminals = await world("t1");
     const kill = vi.spyOn(terminals, "kill");
     const remove = vi.spyOn(terminals, "remove");

@@ -82,7 +82,7 @@ describe("the review run ports start and read the Reviewer through the session t
     ).rejects.toThrow(/session spawn.*failed: no session/s);
   });
 
-  it("waits through session wait and returns the outcome, with no pane", async () => {
+  it("waits through session wait and returns the outcome, with no terminal", async () => {
     run.mockReturnValue(
       result(
         JSON.stringify({
@@ -164,8 +164,8 @@ describe("the review run port records its events in the ledger", () => {
   });
 });
 
-describe("the review run ports read an hc Reviewer's verdict from its wait, never a pane", () => {
-  it("returns the summary its wait printed, and runs no pane read through herdr", async () => {
+describe("the review run ports read an hc Reviewer's verdict from its wait, never a terminal read", () => {
+  it("returns the summary its wait printed, and runs no terminal read through hc", async () => {
     run.mockReturnValueOnce(
       result(
         JSON.stringify({

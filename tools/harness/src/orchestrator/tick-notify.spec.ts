@@ -9,7 +9,7 @@ import {
 
 const TICK_ENV = { KORE_ROLE: "tick", KORE_AGENT: "orchestrator-tick" };
 const COMMAND = "orchestrate tick";
-const PANE = "w3:p1";
+const PANE = "t1";
 
 function ports(over: Partial<NotifyPorts> = {}): NotifyPorts {
   return {
@@ -119,11 +119,11 @@ describe("TickNotifier.notify", () => {
 
   it("records nothing when delivery fails, so the next pass tries again", async () => {
     const p = ports({
-      send: vi.fn().mockResolvedValue("herdr pane send-text failed"),
+      send: vi.fn().mockResolvedValue("session send failed"),
     });
     await expect(
       new TickNotifier(p, TICK_ENV, COMMAND).notify(step("blocked")),
-    ).rejects.toThrow("herdr pane send-text failed");
+    ).rejects.toThrow("session send failed");
 
     expect(p.record).not.toHaveBeenCalled();
   });
@@ -179,11 +179,11 @@ describe("TickNotifier.notify for a reserved question (#1058)", () => {
   it("records nothing when delivering the reserved line fails, so the next pass tries again", async () => {
     const p = ports({
       openQuestions: vi.fn().mockResolvedValue(OPEN),
-      send: vi.fn().mockResolvedValue("herdr pane send-text failed"),
+      send: vi.fn().mockResolvedValue("session send failed"),
     });
     await expect(
       new TickNotifier(p, TICK_ENV, COMMAND).notify(step("waiting")),
-    ).rejects.toThrow("herdr pane send-text failed");
+    ).rejects.toThrow("session send failed");
 
     expect(p.record).not.toHaveBeenCalled();
   });

@@ -38,7 +38,7 @@ const version: Command = {
 
 const waitHelp: CommandHelp = {
   purpose:
-    "Waits in the background for the first of several things to settle: a pull request's checks, a spawned session's RESULT line, or an idea's state change in the ledger. It names the one that settled and the targets to restart with.",
+    "Waits in the background for the first of several things to settle: a pull request's checks, a spawned session's report, or an idea's state change in the ledger. It names the one that settled and the targets to restart with.",
   when: "When the main session has pull requests, spawned sessions or ideas to act on as they settle, and should not poll them one by one.",
   whenNot:
     "When one read is enough: use pr checks, session wait or ledger list for a single target.",
@@ -47,7 +47,7 @@ const waitHelp: CommandHelp = {
       "The bound in milliseconds; the default is one hour. When it passes with nothing settled, the command exits 3.",
     pr: "A pull request number to watch; repeat the flag to watch several.",
     session:
-      "A spawned session's name to watch for its RESULT line; repeat the flag to watch several.",
+      "A spawned session's name to watch for its report; repeat the flag to watch several.",
     idea: "An idea's name to watch for a state change in the ledger; repeat the flag to watch several.",
     "any-idea": "Watch every idea for a state change in the ledger.",
   },
@@ -58,7 +58,7 @@ const waitHelp: CommandHelp = {
     },
     {
       command: "harness harness wait --session build --timeout 600000",
-      shows: "session build's RESULT line, or exit 3 after ten minutes",
+      shows: "session build's report, or exit 3 after ten minutes",
     },
   ],
   exits: [
@@ -84,12 +84,12 @@ const waitHelp: CommandHelp = {
   effects: {
     kind: "mutates",
     detail:
-      "a session that shows its RESULT line is recorded as finished, with its pane.finished ledger event; pull requests and ideas are only read",
+      "a session that has reported or stopped is recorded as finished, with its pane.finished ledger event; pull requests and ideas are only read",
   },
   seeAlso: ["pr checks", "session wait", "ledger list"],
 };
 
-/** The harness domain: its version, and the one background wait over pull requests and panes (ADR 0123). */
+/** The harness domain: its version, and the one background wait over pull requests, sessions and ideas (ADR 0123). */
 export const harnessCommands: Record<string, Command> = {
   version,
   wait: { ...harnessWait, help: waitHelp },

@@ -99,8 +99,8 @@ describe("the resample ports start a Sonnet reader on the override tier (#852)",
   });
 });
 
-describe("the resample ports wait for, read and close the reader's pane (#852)", () => {
-  it("waits through session wait and returns the outcome, with no pane", async () => {
+describe("the resample ports wait for, read and close the reader's terminal (#852)", () => {
+  it("waits through session wait and returns the outcome, with no terminal", async () => {
     run.mockReturnValue(
       result(JSON.stringify({ name: "n", paneId: "p1", outcome: "blocked" })),
     );
@@ -200,8 +200,8 @@ describe("the resample ports record and read the ledger (#852)", () => {
   });
 });
 
-describe("the resample ports read an hc reader's verdict from its wait, never a pane (#852)", () => {
-  it("returns the summary its wait printed, and runs no pane read through herdr", async () => {
+describe("the resample ports read an hc reader's verdict from its wait, never a terminal read (#852)", () => {
+  it("returns the summary its wait printed, and runs no terminal read through hc", async () => {
     run.mockReturnValueOnce(
       result(
         JSON.stringify({

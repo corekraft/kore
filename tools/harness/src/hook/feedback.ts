@@ -218,10 +218,10 @@ export async function stop(
 }
 
 /**
- * Records the stop, then the turn's outcome word when its text printed a RESULT line
- * (#853), then the session's tokens so far when they grew since the last stop, then the
- * priced token split (#1001), one reading per model whose count grew, measured against the
- * compaction cap the harness config sets under the root (#1032).
+ * Records the stop, then the session's tokens so far when they grew since the last stop,
+ * then the priced token split (#1001), one reading per model whose count grew, measured
+ * against the compaction cap the harness config sets under the root (#1032). The outcome
+ * is not read here: a session reports it with `session report`.
  */
 async function recordStop(
   deps: CliDeps,
