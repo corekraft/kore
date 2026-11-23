@@ -1,13 +1,8 @@
 import { describe, expect, it, vi } from "vitest";
 import type { Command, CommandHelp } from "../runtime/index.js";
-import {
-  escalateHelp,
-  nextHelp,
-  queueDomain,
-  sendBacksHelp,
-} from "./queue-help.js";
+import { escalateHelp, nextHelp, queueDomain } from "./queue-help.js";
 
-// The three queue commands are collaborators: the records are checked against the flags each
+// The two queue commands are collaborators: the records are checked against the flags each
 // command declares, and the composition keeps each command's own run.
 vi.mock("./queue-commands.js", () => ({
   nextCommand: {
@@ -15,24 +10,17 @@ vi.mock("./queue-commands.js", () => ({
     options: { ledger: "string", explain: "string" },
     run: () => Promise.resolve(0),
   },
-  sendBacksCommand: {
-    summary: "send-backs",
-    operand: "pr",
-    options: { ledger: "string" },
-    run: () => Promise.resolve(0),
-  },
   escalateCommand: {
     summary: "escalate",
     operand: "pr",
-    options: { ledger: "string" },
+    options: { ledger: "string", check: "boolean" },
     run: () => Promise.resolve(0),
   },
 }));
 
 const records: [string, CommandHelp, string[]][] = [
   ["next", nextHelp, ["explain", "ledger"]],
-  ["send-backs", sendBacksHelp, ["ledger"]],
-  ["escalate", escalateHelp, ["ledger"]],
+  ["escalate", escalateHelp, ["check", "ledger"]],
 ];
 
 /** The flags an example names, without the -- prefix. */
@@ -63,8 +51,7 @@ describe("the queue help records", () => {
     }
   });
 
-  it("describes the pr operand of send-backs and escalate, and no operand for next", () => {
-    expect(sendBacksHelp.operand).toBe("The pull request number, such as 746.");
+  it("describes the pr operand of escalate, and no operand for next", () => {
     expect(escalateHelp.operand).toBe("The pull request number, such as 746.");
     expect(nextHelp.operand).toBeUndefined();
   });
@@ -82,13 +69,8 @@ describe("the queue help records", () => {
 
 describe("the queue domain table", () => {
   it("keeps each command's own run and adds its help record", () => {
-    expect(Object.keys(queueDomain)).toEqual([
-      "next",
-      "send-backs",
-      "escalate",
-    ]);
+    expect(Object.keys(queueDomain)).toEqual(["next", "escalate"]);
     expect(queueDomain["next"]?.help).toBe(nextHelp);
-    expect(queueDomain["send-backs"]?.help).toBe(sendBacksHelp);
     expect(queueDomain["escalate"]?.help).toBe(escalateHelp);
     expect(queueDomain["next"]?.summary).toBe("next");
   });

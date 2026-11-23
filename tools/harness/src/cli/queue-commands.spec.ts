@@ -36,6 +36,7 @@ interface Run {
 function setup(
   options: {
     json?: boolean;
+    check?: boolean;
     operand?: string;
     answer?: (args: string[]) => {
       code: number;
@@ -54,7 +55,7 @@ function setup(
   };
   const context: CommandContext = {
     json: options.json ?? false,
-    options: {},
+    options: options.check === true ? { check: true } : {},
     operand: options.operand,
     deps: {
       runner: {
@@ -83,7 +84,7 @@ function setup(
   };
 }
 
-const run = (name: "next" | "send-backs" | "escalate", c: CommandContext) =>
+const run = (name: "next" | "escalate", c: CommandContext) =>
   queueCommands[name]?.run(c);
 
 const EVENTS = [{ id: "e" }] as LedgerEvent[];
@@ -200,29 +201,31 @@ describe("harness queue next failures", () => {
   });
 });
 
-describe("harness queue send-backs", () => {
-  it("reports the count and the writer's declared model below two", async () => {
-    const c = setup({ operand: "50", json: true });
-    expect(await run("send-backs", c.context)).toBe(0);
+describe("harness queue escalate --check", () => {
+  it("reports the count and the writer's declared model below two, and records nothing", async () => {
+    const c = setup({ operand: "50", json: true, check: true });
+    expect(await run("escalate", c.context)).toBe(0);
     expect(countSendBacks).toHaveBeenCalledWith(EVENTS, 50);
     expect(c.out()).toBe(
       `${JSON.stringify({ pr: 50, count: 1, model: "claude-haiku-5-5", escalate: false })}\n`,
     );
+    expect(ledger.write).not.toHaveBeenCalled();
   });
 
-  it("names Sonnet at two without reading the writer's definition", async () => {
+  it("names Sonnet at two without reading the writer's definition or recording an escalation", async () => {
     vi.mocked(countSendBacks).mockReturnValue(2);
-    const c = setup({ operand: "50" });
-    await run("send-backs", c.context);
+    const c = setup({ operand: "50", check: true });
+    expect(await run("escalate", c.context)).toBe(0);
     expect(resolveTier).not.toHaveBeenCalled();
+    expect(ledger.write).not.toHaveBeenCalled();
     expect(c.out()).toBe(
       "PR #50: sent back 2 times; launch the writer on claude-sonnet-5-5\n",
     );
   });
 
   it("says 'time' for a single send-back", async () => {
-    const c = setup({ operand: "50" });
-    await run("send-backs", c.context);
+    const c = setup({ operand: "50", check: true });
+    await run("escalate", c.context);
     expect(c.out()).toBe(
       "PR #50: sent back 1 time; launch the writer on claude-haiku-5-5\n",
     );
@@ -230,18 +233,20 @@ describe("harness queue send-backs", () => {
 
   it("fails with the tier error when the writer's model is not declared", async () => {
     vi.mocked(resolveTier).mockResolvedValue({ error: "no model" });
-    const c = setup({ operand: "50" });
-    expect(await run("send-backs", c.context)).toBe(1);
+    const c = setup({ operand: "50", check: true });
+    expect(await run("escalate", c.context)).toBe(1);
     expect(c.err()).toBe("no model\n");
   });
 
   it.each([undefined, "abc", "0", "-1"])(
     "refuses the PR operand %s",
     async (operand) => {
-      const c = setup(operand === undefined ? {} : { operand });
-      expect(await run("send-backs", c.context)).toBe(1);
+      const c = setup(
+        operand === undefined ? { check: true } : { operand, check: true },
+      );
+      expect(await run("escalate", c.context)).toBe(1);
       expect(c.err()).toBe(
-        "Missing or invalid PR number. Run `harness queue send-backs <pr>`.\n",
+        "Missing or invalid PR number. Run `harness queue escalate <pr> --check`.\n",
       );
     },
   );

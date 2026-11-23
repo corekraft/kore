@@ -93,5 +93,5 @@ export const sendBackHelp: CommandHelp = {
     detail:
       "posts one comment on the PR with the reason, signed with the pane's sender line, unless the same reason is already on that head; then appends one send-back event to the shared ledger, unless the newest send-back on the PR already has this reason and category; nothing is merged or approved",
   },
-  seeAlso: ["judge precheck", "judge merge", "queue send-backs"],
+  seeAlso: ["judge precheck", "judge merge", "queue escalate"],
 };
