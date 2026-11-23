@@ -29,6 +29,31 @@ spec:
     baseUrl: https://{{ .Values.backstageHostname }}
     validRedirectUris:
       - https://{{ .Values.backstageHostname }}/oauth2/callback
+      - https://{{ .Values.backstageHostname }}/api/auth/oidc/handler/frame
     clientSecretSecretRef:
       name: backstage-oidc
       key: client-secret
+---
+# The groups claim the sign-in resolver reads (images/backstage/src/signin.js):
+# the user's Keycloak group paths, such as /platform/platform-operators, which
+# become group entity refs for the operators-only permission policy. Without it
+# a signed-in operator has no group and the policy denies every read.
+apiVersion: openidgroup.keycloak.m.crossplane.io/v1alpha1
+kind: GroupMembershipProtocolMapper
+metadata:
+  name: backstage-groups
+  namespace: backstage
+spec:
+  providerConfigRef:
+    kind: ClusterProviderConfig
+    name: keycloak
+  forProvider:
+    realmId: platform
+    clientIdRef:
+      name: backstage
+    name: groups
+    claimName: groups
+    fullPath: true
+    addToIdToken: true
+    addToAccessToken: true
+    addToUserinfo: true

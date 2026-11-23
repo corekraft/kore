@@ -98,8 +98,14 @@ spec:
               value: https://{{ .Values.backstageHostname }}
             - name: APP_CONFIG_backend_baseUrl
               value: https://{{ .Values.backstageHostname }}
-            # In-app sign-in (ADR 0113). The proxy stays in front until a live
-            # run proves it; the client secret is the same Secret reference.
+            # The auth backend's session store: the in-app OIDC sign-in mints the
+            # Backstage identity every API call needs and refuses to start
+            # without a session secret. It reuses the cookie secret by reference.
+            - name: APP_CONFIG_auth_session_secret
+              valueFrom:
+                secretKeyRef:
+                  name: backstage-oidc
+                  key: cookie-secret
             # The Kubernetes plugin's cluster token (ADR 0180): the backstage
             # service account's long-lived token Secret.
             - name: K8S_SA_TOKEN
@@ -107,6 +113,8 @@ spec:
                 secretKeyRef:
                   name: backstage-sa-token
                   key: token
+            # In-app sign-in (ADR 0113). The proxy stays in front until a live
+            # run proves it; the client secret is the same Secret reference.
             - name: OIDC_METADATA_URL
               value: https://{{ required "set keycloakHostname, which kore passes from the environment's platform field" .Values.keycloakHostname }}/realms/platform/.well-known/openid-configuration
             - name: OIDC_CLIENT_ID

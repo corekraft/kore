@@ -127,7 +127,7 @@ test("the Backstage client is a Crossplane-managed Keycloak client in the platfo
   assert.match(
     client,
     new RegExp(
-      `validRedirectUris:\\n\\s+- https://backstage\\.platform\\.${domain}/oauth2/callback\\n`,
+      `validRedirectUris:\\n\\s+- https://backstage\\.platform\\.${domain}/oauth2/callback\\n\\s+- https://backstage\\.platform\\.${domain}/api/auth/oidc/handler/frame\\n`,
     ),
   );
   assert.match(
@@ -137,7 +137,10 @@ test("the Backstage client is a Crossplane-managed Keycloak client in the platfo
   assert.equal(document(rendered, "KeycloakOIDCClient"), "");
 });
 
-test("the Backstage client accepts only the sign-in proxy's callback, so no other redirect is registered", async () => {
+// Docs: docs/decisions/0180-backstage-reads-the-argo-cd-view-as-its-own-service-account-gated-by-the-operators-policy.md
+// In-app sign-in (found live, #1883): the auth backend mints the Backstage
+// identity every API call needs, so the client accepts its callback too.
+test("the Backstage client accepts the sign-in proxy's callback and the auth backend's frame callback, and no other redirect", async () => {
   const root = await findRoot();
   const client = await readFile(
     join(root, "infra/charts/platform-backstage/templates/oidc-client.yaml"),
@@ -145,9 +148,33 @@ test("the Backstage client accepts only the sign-in proxy's callback, so no othe
   );
   assert.match(
     client,
-    /validRedirectUris:\n\s+- https:\/\/\{\{ \.Values\.backstageHostname \}\}\/oauth2\/callback\n/,
+    /validRedirectUris:\n\s+- https:\/\/\{\{ \.Values\.backstageHostname \}\}\/oauth2\/callback\n\s+- https:\/\/\{\{ \.Values\.backstageHostname \}\}\/api\/auth\/oidc\/handler\/frame\n/,
   );
-  assert.equal(client.includes("oidc/handler/frame"), false);
+  assert.equal((client.match(/^\s+- https:/gm) ?? []).length, 2);
+});
+
+test("the Backstage client carries a groups claim in the id token, access token and userinfo, so the sign-in resolver sees the operators group", async () => {
+  const mapper = document(await render(), "GroupMembershipProtocolMapper");
+  assert.match(
+    mapper,
+    /apiVersion: openidgroup\.keycloak\.m\.crossplane\.io\/v1alpha1/,
+  );
+  assert.match(mapper, /claimName: groups/);
+  assert.match(mapper, /realmId: platform/);
+  assert.match(mapper, /clientIdRef:\n\s+name: backstage/);
+  assert.match(mapper, /fullPath: true/);
+  assert.match(mapper, /addToIdToken: true/);
+  assert.match(mapper, /addToUserinfo: true/);
+  assert.match(mapper, /name: ClusterProviderConfig|name: keycloak/);
+});
+
+test("the auth backend's session secret comes from the cookie secret by reference, on the Backstage container", async () => {
+  const deployment = document(await render(), "Deployment");
+  const backstage = deployment.slice(deployment.indexOf("- name: backstage"));
+  assert.match(
+    backstage,
+    /name: APP_CONFIG_auth_session_secret\n\s+valueFrom:\n\s+secretKeyRef:\n\s+name: backstage-oidc\n\s+key: cookie-secret/,
+  );
 });
 
 test("the Kubernetes plugin shows each service's Argo CD Application beside its workload, read as the service account", async () => {
