@@ -67,7 +67,7 @@ export interface Harness {
     reason: string,
     category: SendBackCategory,
   ): Promise<void>;
-  /** `queue send-backs`: read-only. */
+  /** `queue escalate --check`: read-only. */
   sendBacks(pr: number): Promise<SendBackTier>;
   /** `queue escalate`: appends the escalation event. */
   escalate(pr: number): Promise<void>;

@@ -122,7 +122,7 @@ function precheck(h: Host): Answer {
 const HARNESS: Record<string, Handler> = {
   "queue next": () =>
     out({ queue: [{ kind: "idea", idea: "0042", issue: 42, title: "t" }] }),
-  "queue send-backs": () => out({ count: 1, model: "haiku", escalate: false }),
+  "queue escalate": () => out({ count: 1, model: "haiku", escalate: false }),
   "session spawn": spawn,
   "session wait": () => out({ outcome: "done", summary: PANE }),
   "session close": () => NONE,
