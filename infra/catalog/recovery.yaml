@@ -100,15 +100,88 @@
         "restoreTest": "tools/kore/src/ops/data-restore.live.spec.ts"
       },
       {
-        "name": "managed-postgresql",
+        "name": "vps-retained-postgresql",
         "components": ["kore-postgresql-api", "cloudnative-pg"],
-        "data": "PostgreSQL databases on a managed cluster",
-        "environment": "managed",
+        "data": "Retained databases and the platform's own databases on vps, dumped daily by the in-cluster backup job (ADR 0155)",
+        "environment": "vps",
         "status": "planned",
         "protection": "scheduled-backup",
         "schedule": { "kind": "cron", "expression": "0 2 * * *" },
-        "rpoMinutes": 15,
+        "rpoMinutes": 1440,
         "rtoMinutes": 60
+      },
+      {
+        "name": "vps-keycloak-operator",
+        "components": ["keycloak-operator"],
+        "data": "The Keycloak operator holds no data on vps; the vendored CRDs only describe a persistence field that Keycloak resources may set",
+        "environment": "vps",
+        "status": "planned",
+        "protection": "rebuild",
+        "schedule":
+          {
+            "kind": "on-demand",
+            "trigger": "the platform rollout reinstalls the operator from git"
+          },
+        "rpoMinutes": null,
+        "rtoMinutes": 15,
+        "reason": "The operator and its CRDs are declared in the repository and pinned by digest. The operator holds no Keycloak data; the platform Keycloak's database is covered by vps-retained-postgresql."
+      },
+      {
+        "name": "vps-registry",
+        "components": ["oci-registry"],
+        "data": "Images pushed to the in-cluster registry on vps",
+        "environment": "vps",
+        "status": "planned",
+        "protection": "rebuild",
+        "schedule":
+          {
+            "kind": "on-demand",
+            "trigger": "a recovery copies every recorded digest back into the registry"
+          },
+        "rpoMinutes": null,
+        "rtoMinutes": 480,
+        "reason": "The claim is labelled Delete and the registry holds no unique image: on a rebuild every digest a record names is copied back from GHCR by digest, signatures included, before any app is admitted (ADR 0156)."
+      },
+      {
+        "name": "vps-telemetry",
+        "components":
+          [
+            "prometheus",
+            "loki",
+            "grafana",
+            "tempo",
+            "kore-observability-config"
+          ],
+        "data": "Metrics, logs, traces, and dashboards state on vps",
+        "environment": "vps",
+        "status": "planned",
+        "protection": "rebuild",
+        "schedule":
+          {
+            "kind": "on-demand",
+            "trigger": "the platform rollout recreates the stack from git"
+          },
+        "rpoMinutes": null,
+        "rtoMinutes": 30,
+        "reason": "Claims are labelled Delete and hold only derived telemetry with short retention, lost on purpose on a rebuild; dashboards and datasources are declared in the repository (ADR 0156)."
+      },
+      {
+        "name": "vps-whole-box",
+        "components":
+          [
+            "keycloak-operator",
+            "kore-observability-config",
+            "kore-postgresql-api",
+            "oci-registry"
+          ],
+        "data": "Everything on the vps box: the databases from their daily backups, the images from GHCR, and the rest from git",
+        "environment": "vps",
+        "status": "planned",
+        "protection": "scheduled-backup",
+        "schedule": { "kind": "cron", "expression": "0 2 * * *" },
+        "rpoMinutes": 1440,
+        "rtoMinutes": 480,
+        "reason": "Whole-box loss is not the no-hand promise: the provider OS install and the Tailscale sign-in are by hand (ADR 0141), and the box serves nothing until its data is restored (ADR 0156)."
       }
     ]
 }

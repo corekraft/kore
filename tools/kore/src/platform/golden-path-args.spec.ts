@@ -55,6 +55,28 @@ test("with templateAdmission off, the golden-path arguments carry no templateAdm
   expect(args.some((arg) => arg.includes("templateAdmission"))).toBe(false);
 });
 
+test("with safetyDefaults on, the golden-path arguments end with the safetyDefaults pair, so the sync sets the workload defaults (ADR 0154)", () => {
+  const args = goldenPathArgs(
+    {
+      ...fakeRepository(),
+      goldenPathDelivery: { ...golden, safetyDefaults: true },
+    },
+    goldenComponent,
+  );
+  expect(args.slice(-2)).toEqual(["--set", "safetyDefaults=true"]);
+});
+
+test("with safetyDefaults off, the golden-path arguments carry no safetyDefaults argument, so the flag-off render is unchanged", () => {
+  const args = goldenPathArgs(
+    {
+      ...fakeRepository(),
+      goldenPathDelivery: { ...golden, safetyDefaults: false },
+    },
+    goldenComponent,
+  );
+  expect(args.some((arg) => arg.includes("safetyDefaults"))).toBe(false);
+});
+
 test("with serviceRecords off, the golden-path arguments carry no serviceRecords argument, so the flag-off render is unchanged", () => {
   const args = goldenPathArgs(
     {
