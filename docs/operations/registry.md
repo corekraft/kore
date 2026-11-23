@@ -41,6 +41,25 @@ tested objectives.
 **Gap:** no restore test measures them (plan Step 15, "Add backup schedules,
 restore tests, and recovery objectives").
 
+## The vps registry
+
+On `vps` the registry is still a cache: it holds nothing unique and has no
+backup of its own ([ADR 0156](../decisions/0156-the-box-is-rebuilt-from-git-ghcr-and-backups-under-a-recovery-hold.md)).
+
+- **Images come from GHCR, by digest.** The app images, their signatures
+  included, are copied from GHCR into the vps registry. A rebuild copies again:
+  every digest a current record names, plus the revert targets the retention rule
+  keeps. GHCR must keep those versions. A GitHub outage during a rebuild halts the
+  copy, as it halts app delivery. **Planned**: the copy is the controller's step
+  of `kore platform up --environment vps --recover`, which is not built yet.
+- **Credentials and the CA are regenerated.** The registry's push and read
+  credentials and its CA are made again on install and never backed up. After a
+  rebuild, k3s must trust the new CA. That is a by-hand step, gated by the
+  `k3s-registry-trust` flag, in the [host README](../../infra/hosts/vps/README.md#trusting-the-in-cluster-registry).
+- **The order.** The registry is installed by the platform, then the image copy
+  runs before apps sync. The full order is in [rebuilding the box](rebuild-the-box.md),
+  steps 8 to 12.
+
 ## Data export and restore
 
 Retained databases are the only data worth backing up. `kore data export
