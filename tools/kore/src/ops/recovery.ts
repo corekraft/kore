@@ -13,8 +13,8 @@ export interface Objective {
   name: string;
   components: string[];
   data: string;
-  environment: "local" | "managed";
-  /** A managed objective is `planned` until a live restore test proves it. */
+  environment: "local" | "managed" | "vps";
+  /** A managed or vps objective is `planned` until a live restore test proves it. */
   status?: "planned" | "active";
   protection: Protection;
   schedule: Schedule;
@@ -30,6 +30,8 @@ export interface Objective {
 export interface RecoveryContext {
   components: string[];
   stateful: string[];
+  /** The environment being checked; its stateful components need its own objectives. */
+  environment: string;
   exists: (path: string) => boolean;
 }
 
@@ -175,13 +177,13 @@ export function recoveryProblems(
   }
   const covered = new Set(
     objectives
-      .filter((objective) => objective.environment === "local")
+      .filter((objective) => objective.environment === context.environment)
       .flatMap((objective) => objective.components),
   );
   for (const component of context.stateful) {
     if (!covered.has(component)) {
       problems.push(
-        `${component}: stateful component has no local recovery objective in ${RECOVERY}`,
+        `${component}: stateful component has no ${context.environment} recovery objective in ${RECOVERY}`,
       );
     }
   }
@@ -209,6 +211,7 @@ export async function checkRecovery(repository: Repository): Promise<{
     problems: recoveryProblems(objectives, {
       components: repository.catalog.components.map((c) => c.name),
       stateful,
+      environment: repository.environment.name,
       exists: (path) => present.has(path),
     }),
     objectives: objectives.length,
