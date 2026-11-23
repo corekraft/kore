@@ -372,9 +372,8 @@ Safety pattern: `no-behaviour-change` (records only).
 
 ### Outcome Record (rewritten 2026-11-23)
 
-Outcome: **confirmed for twelve of the fourteen clauses; two are partly shown**
-(the Argo CD sync view in Backstage, and admission of the template images by
-digest). It replaces the 2026-11-14 record, which read inconclusive because no
+Outcome: **confirmed for thirteen of the fourteen clauses; one is partly shown**
+(admission of the template images by digest). It replaces the 2026-11-14 record, which read inconclusive because no
 clause had a live run. Every cluster-facing piece merged behind its flag and the
 five Next flags are now on in `local`, each after a recorded live outcome.
 Statuses: _confirmed_ (a recorded live run met the clause), _partly shown_ (a
