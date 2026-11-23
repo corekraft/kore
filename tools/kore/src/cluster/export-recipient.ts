@@ -30,6 +30,11 @@ function findRecipients(text: string, name: string): string | undefined {
   return undefined;
 }
 
+/** True for a public age key: `age1` and 58 characters from the bech32 alphabet. */
+export function isAgeRecipient(value: string): boolean {
+  return AGE_RECIPIENT.test(value);
+}
+
 /** Each entry is checked alone, so one bad entry is named, never the whole list. */
 function checkRecipient(entry: string, name: string): void {
   if (entry === PLACEHOLDER_RECIPIENT) {
@@ -37,7 +42,7 @@ function checkRecipient(entry: string, name: string): void {
       `the age recipient in .sops.yaml for ${name} is still the placeholder ${PLACEHOLDER_RECIPIENT}; set it to the public age recipient (age1...) you generated, then retry`,
     );
   }
-  if (!AGE_RECIPIENT.test(entry)) {
+  if (!isAgeRecipient(entry)) {
     throw new Error(
       `"${entry}" in .sops.yaml is not a valid age recipient (expected age1 followed by 58 characters); set the public recipient printed by age-keygen`,
     );

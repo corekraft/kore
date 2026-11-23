@@ -1,5 +1,16 @@
 - name: Converge the kore VPS host
   hosts: kore-vps
+  # The host's own addresses, read from its facts. The firewall and the
+  # cluster's address ConfigMap read this one copy; neither address is written
+  # into the repository.
+  vars:
+    kore_host_addresses:
+      public: "{{ ansible_facts['default_ipv4']['address'] }}"
+      tailnet: "{{ ansible_facts['tailscale0']['ipv4']['address'] }}"
+    # The overlay's flag. Off, the firewall and the ConfigMap are left as they are.
+    kore_host_ports_flag: >-
+      {{ (lookup('ansible.builtin.file', playbook_dir ~ '/../../environments/vps/environment.yaml')
+      | from_yaml).features['host-published-ports'] | default(false) }}
   roles:
     - base
     - tailscale

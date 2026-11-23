@@ -1,12 +1,13 @@
 import {
   databaseRoutesFlag,
   featureEnabled,
-  postgresqlServiceClassInstancesFlag,
   platformDnsFlag,
   otlpRouteFlag,
   platformHostnameOwnershipFlag,
   platformSharedGatewayFlag,
 } from "./features.js";
+import { platformDomainVariable, runTimeDomain } from "./run-time-domain.js";
+import { serviceClassArgs } from "./service-class-args.js";
 import type { Environment } from "./types.js";
 
 /** The platform domain and the platform organization's identifier. */
@@ -48,13 +49,42 @@ function declared(environment: Environment): DeclaredPlatform | undefined {
   return environment.platform;
 }
 
-/** Reads the environment's one platform field; every derived copy goes through it. */
-export function platformPlan(environment: Environment): PlatformPlan {
+/**
+ * Reads the environment's one platform field, with the run-time domain over the
+ * placeholder; every derived copy goes through it.
+ */
+export function platformPlan(
+  environment: Environment,
+  env: NodeJS.ProcessEnv = process.env,
+): PlatformPlan {
   const field = declared(environment);
   if (field?.domain === undefined || field.organizationId === undefined) {
     throw new Error(missing(environment));
   }
-  return { domain: field.domain, organizationId: field.organizationId };
+  return {
+    domain: runTimeDomain(environment, env) ?? field.domain,
+    organizationId: field.organizationId,
+  };
+}
+
+/**
+ * The refusal of a run-time domain that is not a valid platform domain. It names
+ * the variable and an example, and never echoes the value.
+ */
+export function runTimeDomainErrors(
+  environment: Environment,
+  env: NodeJS.ProcessEnv = process.env,
+): string[] {
+  const value = runTimeDomain(environment, env);
+  if (
+    value === undefined ||
+    (domainPattern.test(value) && value.length <= maxDomainLength)
+  ) {
+    return [];
+  }
+  return [
+    `${platformDomainVariable} must be a lowercase DNS name of at least two labels, at most ${maxDomainLength} characters, for example example.com; fix ${platformDomainVariable} in the shell that runs kore`,
+  ];
 }
 
 /**
@@ -70,7 +100,10 @@ function removedAliasError(environment: Environment): string {
  * Schema checks of platform.domain and platform.organizationId, run before any
  * cluster command so a bad value fails up front with the fix.
  */
-export function platformDomainErrors(environment: Environment): string[] {
+export function platformDomainErrors(
+  environment: Environment,
+  env: NodeJS.ProcessEnv = process.env,
+): string[] {
   const field = declared(environment);
   if (field === undefined) {
     return [missing(environment)];
@@ -97,6 +130,7 @@ export function platformDomainErrors(environment: Environment): string[] {
       : [
           `platform.organizationId must be one lowercase DNS label, for example platform, ${where}, got ${JSON.stringify(organizationId)}`,
         ]),
+    ...runTimeDomainErrors(environment, env),
   ];
 }
 
@@ -105,8 +139,11 @@ export function platformDomainErrors(environment: Environment): string[] {
  * The one derivation: the Helm path and the delivery chart's values both take it
  * from here, so the two renders cannot disagree.
  */
-export function platformWildcard(environment: Environment): string {
-  const { domain, organizationId } = platformPlan(environment);
+export function platformWildcard(
+  environment: Environment,
+  env: NodeJS.ProcessEnv = process.env,
+): string {
+  const { domain, organizationId } = platformPlan(environment, env);
   return `*.${organizationId}.${domain}`;
 }
 
@@ -115,8 +152,11 @@ export function platformWildcard(environment: Environment): string {
  * `otlp.<organizationId>.<domain>` (ADR 0140): the one derivation that the OTLP
  * route's chart and the live telemetry test both take from here.
  */
-export function otlpHostname(environment: Environment): string {
-  const { domain, organizationId } = platformPlan(environment);
+export function otlpHostname(
+  environment: Environment,
+  env: NodeJS.ProcessEnv = process.env,
+): string {
+  const { domain, organizationId } = platformPlan(environment, env);
   return `otlp.${organizationId}.${domain}`;
 }
 
@@ -130,13 +170,17 @@ export function otlpByName(environment: Environment): boolean {
  * shared Gateway its HTTPS route attaches to (ADR 0140). Off, none is passed, so
  * the flag off renders what it rendered before.
  */
-function otlpRouteArgs(environment: Environment, component: string): string[] {
+function otlpRouteArgs(
+  environment: Environment,
+  component: string,
+  env: NodeJS.ProcessEnv,
+): string[] {
   if (component !== "kore-otlp-route" || !otlpByName(environment)) {
     return [];
   }
   return [
     "--set-string",
-    `otlpRoute.hostname=${otlpHostname(environment)}`,
+    `otlpRoute.hostname=${otlpHostname(environment, env)}`,
     "--set-string",
     `otlpRoute.gateway.name=${environment.gateway.name}`,
     "--set-string",
@@ -177,8 +221,11 @@ const sharedGatewayValueKeys: Record<string, string | undefined> = {
  * platform Gateway serves it by name (ADR 0133); otherwise keycloak.<domain>, the
  * host the flag off renders.
  */
-export function keycloakHostname(environment: Environment): string {
-  const { domain, organizationId } = platformPlan(environment);
+export function keycloakHostname(
+  environment: Environment,
+  env: NodeJS.ProcessEnv = process.env,
+): string {
+  const { domain, organizationId } = platformPlan(environment, env);
   return featureEnabled(environment, platformSharedGatewayFlag)
     ? `keycloak.${organizationId}.${domain}`
     : `keycloak.${domain}`;
@@ -191,8 +238,11 @@ export function keycloakHostname(environment: Environment): string {
  * The portal chart's route, its base URL, its sign-in redirect and its Keycloak
  * client take this one value, and so does the sign-in check.
  */
-export function backstageHostname(environment: Environment): string {
-  const { domain, organizationId } = platformPlan(environment);
+export function backstageHostname(
+  environment: Environment,
+  env: NodeJS.ProcessEnv = process.env,
+): string {
+  const { domain, organizationId } = platformPlan(environment, env);
   return featureEnabled(environment, platformSharedGatewayFlag)
     ? `backstage.${organizationId}.${domain}`
     : `backstage.${domain}`;
@@ -202,9 +252,13 @@ export function backstageHostname(environment: Environment): string {
 function backstageHostArgs(
   environment: Environment,
   component: string,
+  env: NodeJS.ProcessEnv,
 ): string[] {
   return component === "kore-platform-backstage"
-    ? ["--set-string", `backstageHostname=${backstageHostname(environment)}`]
+    ? [
+        "--set-string",
+        `backstageHostname=${backstageHostname(environment, env)}`,
+      ]
     : [];
 }
 
@@ -217,9 +271,10 @@ const keycloakHostComponents = [
 function keycloakHostArgs(
   environment: Environment,
   component: string,
+  env: NodeJS.ProcessEnv,
 ): string[] {
   return keycloakHostComponents.includes(component)
-    ? ["--set-string", `keycloakHostname=${keycloakHostname(environment)}`]
+    ? ["--set-string", `keycloakHostname=${keycloakHostname(environment, env)}`]
     : [];
 }
 
@@ -231,6 +286,7 @@ function keycloakHostArgs(
 function sharedGatewayArgs(
   environment: Environment,
   component: string,
+  env: NodeJS.ProcessEnv,
 ): string[] {
   const key = sharedGatewayValueKeys[component];
   if (
@@ -239,7 +295,7 @@ function sharedGatewayArgs(
   ) {
     return [];
   }
-  const { domain, organizationId } = platformPlan(environment);
+  const { domain, organizationId } = platformPlan(environment, env);
   // The portal's host is backstageHostname, so its sharedGateway takes no domain.
   return [
     ["name", environment.gateway.name],
@@ -260,6 +316,7 @@ function sharedGatewayArgs(
 function databaseRoutesArgs(
   environment: Environment,
   component: string,
+  env: NodeJS.ProcessEnv,
 ): string[] {
   if (!featureEnabled(environment, databaseRoutesFlag)) {
     return [];
@@ -268,7 +325,7 @@ function databaseRoutesArgs(
     return ["--set", "databaseRoutes=true"];
   }
   if (component === "kore-postgresql-api") {
-    const { domain, organizationId } = platformPlan(environment);
+    const { domain, organizationId } = platformPlan(environment, env);
     return [
       "--set",
       "databaseRoutes=true",
@@ -283,25 +340,6 @@ function databaseRoutesArgs(
     ];
   }
   return [];
-}
-
-/**
- * With postgresql-service-class-instances on, the value the PostgreSQL composition
- * takes to derive its instances and sizing from the claim's serviceClass (ADR 0154).
- * Only the API chart takes it; off, none is passed, so the composition renders the
- * one-instance Cluster it rendered before.
- */
-function serviceClassArgs(
-  environment: Environment,
-  component: string,
-): string[] {
-  if (
-    component !== "kore-postgresql-api" ||
-    !featureEnabled(environment, postgresqlServiceClassInstancesFlag)
-  ) {
-    return [];
-  }
-  return ["--set", "serviceClassInstances=true"];
 }
 
 /** The ConfigMap, in the portal's namespace, that carries the local CA its pods trust (ADR 0132). */
@@ -339,7 +377,11 @@ function clusterResolutionArgs(
  * Organization API builds its zone default from, `<organizationId>.<domain>`;
  * otherwise none, so the flag off renders what it rendered before.
  */
-function zoneArgs(environment: Environment, component: string): string[] {
+function zoneArgs(
+  environment: Environment,
+  component: string,
+  env: NodeJS.ProcessEnv,
+): string[] {
   if (
     component !== "kore-platform-apis" ||
     !featureEnabled(environment, platformHostnameOwnershipFlag)
@@ -348,7 +390,7 @@ function zoneArgs(environment: Environment, component: string): string[] {
   }
   return [
     "--set-string",
-    `platformOrganizationId=${platformPlan(environment).organizationId}`,
+    `platformOrganizationId=${platformPlan(environment, env).organizationId}`,
   ];
 }
 
@@ -360,28 +402,29 @@ function zoneArgs(environment: Environment, component: string): string[] {
 export function platformHelmArgs(
   environment: Environment,
   component: string,
+  env: NodeJS.ProcessEnv = process.env,
 ): string[] {
   const key = domainValueKeys[component];
   const wildcard = wildcardValueKeys[component];
   const shared = [
-    ...backstageHostArgs(environment, component),
-    ...keycloakHostArgs(environment, component),
-    ...zoneArgs(environment, component),
-    ...sharedGatewayArgs(environment, component),
+    ...backstageHostArgs(environment, component, env),
+    ...keycloakHostArgs(environment, component, env),
+    ...zoneArgs(environment, component, env),
+    ...sharedGatewayArgs(environment, component, env),
     ...clusterResolutionArgs(environment, component),
-    ...databaseRoutesArgs(environment, component),
+    ...databaseRoutesArgs(environment, component, env),
     ...serviceClassArgs(environment, component),
-    ...otlpRouteArgs(environment, component),
+    ...otlpRouteArgs(environment, component, env),
   ];
   if (key === undefined && wildcard === undefined) {
     return shared;
   }
-  const { domain } = platformPlan(environment);
+  const { domain } = platformPlan(environment, env);
   return [
     ...(key === undefined ? [] : ["--set-string", `${key}=${domain}`]),
     ...(wildcard === undefined
       ? []
-      : ["--set-string", `${wildcard}=${platformWildcard(environment)}`]),
+      : ["--set-string", `${wildcard}=${platformWildcard(environment, env)}`]),
     ...shared,
   ];
 }

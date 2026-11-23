@@ -32,6 +32,7 @@
       "gateway-class-change-release": false,
       "gateway-rollback-order": false,
       "ingress-agentgateway": false,
+      "agentgateway-data-plane-metrics": false,
       "local-image-reuse": false,
       "registry-tag-pruning": false,
       "platform-organization-service-apis": false,
@@ -65,6 +66,7 @@
       "golden-path-template-admission": false,
       "golden-path-signin-after-portal": false,
       "postgresql-service-class-instances": false,
+      "golden-path-safety-defaults": false,
       "decision-advisor": false
     },
   "secrets": { "storeName": "platform-secrets", "sourceNamespace": "external" },

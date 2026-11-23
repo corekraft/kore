@@ -1,3 +1,7 @@
 # Seconds before a just-applied firewall removes itself unless the playbook
 # reconnects and cancels it. Rescue mode stays the last resort.
 network_firewall_rollback_seconds: 300
+
+# The one port table: each published address and port, the node port it maps
+# to, and the Service that owns that node port. Validation reads the same file.
+network_port_table: "{{ lookup('ansible.builtin.file', playbook_dir ~ '/port-table.yaml') | from_yaml }}"
