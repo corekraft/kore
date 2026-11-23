@@ -4,7 +4,7 @@ import { mainRoot } from "../runtime/index.js";
 import { failed, fakeRunner, ok } from "./close-support.js";
 import { describeFailure } from "./describe-failure.js";
 import type { SessionRecord } from "./registry.js";
-import { closeHint, place, removeHint } from "./worktree.js";
+import { place, removeHint } from "./worktree.js";
 
 vi.mock("../runtime/index.js", async (original) => ({
   ...(await original<typeof import("../runtime/index.js")>()),
@@ -71,13 +71,7 @@ beforeEach(() => {
   open.mockResolvedValue({ read });
 });
 
-describe("closeHint and removeHint", () => {
-  it("names the worktree removal and the branch delete once the branch is merged", () => {
-    expect(closeHint(WORKTREE)).toBe(
-      "Remove its worktree once its branch is merged: `git worktree remove /main/.claude/worktrees/x` and `git branch -D feat/x`.",
-    );
-  });
-
+describe("removeHint", () => {
   it("says a failed spawn left the worktree behind, and names the same two commands", () => {
     expect(removeHint(WORKTREE)).toBe(
       "The worktree /main/.claude/worktrees/x was left behind; remove it with `git worktree remove /main/.claude/worktrees/x` and `git branch -D feat/x`.",
@@ -223,7 +217,6 @@ describe("place with --worktree over an existing path", () => {
         "/main/.claude/worktrees/x already exists and is not the worktree of a session recorded lost with its parent",
       ) as string,
     });
-    expect((result as { error: string }).error).toContain("");
     expect(fake.run).not.toHaveBeenCalled();
   });
 

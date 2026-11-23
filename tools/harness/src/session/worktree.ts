@@ -16,10 +16,6 @@ const removeCommands = (worktree: Worktree): string =>
 export const removeHint = (worktree: Worktree): string =>
   `The worktree ${worktree.path} was left behind; remove it with ${removeCommands(worktree)}.`;
 
-/** What to run once a closed session's worktree is no longer needed. */
-export const closeHint = (worktree: Worktree): string =>
-  `Remove its worktree once its branch is merged: ${removeCommands(worktree)}.`;
-
 /** How the tick records a session whose terminal ended with its parent (plan 16, Grilled Decisions 10). */
 const LOST = "lost with its parent";
 
