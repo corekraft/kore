@@ -4,6 +4,7 @@ import {
   inClusterCaFlag,
   featureEnabled,
   gatewayClassName,
+  postgresqlServiceClassInstancesFlag,
 } from "./features.js";
 import { platformPlan, platformWildcard } from "./platform-domain.js";
 import type { Repository } from "./types.js";
@@ -39,6 +40,12 @@ export interface ChartDeliveryValues {
    * (ADR 0137). Absent, the Application carries none.
    */
   databaseRoutes?: true;
+  /**
+   * Only while postgresql-service-class-instances is on: the PostgreSQL API's
+   * Application takes the flag as a Helm parameter, so its instances and sizing
+   * derive from the serviceClass (ADR 0154). Absent, the Application carries none.
+   */
+  serviceClassInstances?: true;
   /**
    * Only while in-cluster-ca is on: the AppProject admits the cert-manager
    * ClusterIssuer kind and namespace the CA objects need (ADR 0142). Absent,
@@ -142,6 +149,12 @@ export function chartDeliveryValues(
   const { domain, organizationId } = platformPlan(repository.environment);
   const routes = featureEnabled(repository.environment, databaseRoutesFlag);
   return {
+    ...(featureEnabled(
+      repository.environment,
+      postgresqlServiceClassInstancesFlag,
+    )
+      ? { serviceClassInstances: true as const }
+      : {}),
     ...(featureEnabled(repository.environment, inClusterCaFlag)
       ? { inClusterCa: true as const }
       : {}),
