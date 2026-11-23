@@ -44,6 +44,7 @@ export type {
   AuditReport,
   PromotionRecord,
 } from "./policy-promotion.js";
+export { internalGateway } from "./gateways.js";
 export {
   backstageHostname,
   gatewayEntryPort,
@@ -106,12 +107,14 @@ export {
   gatewayRollbackOrderFlag,
   gatewayClassName,
   ingressFlag,
+  keycloakWaitFlag,
   localImageReuseFlag,
   organizationServiceApisFlag,
   platformArgocdDeliveryFlag,
   platformDnsFlag,
   platformPortalFlag,
   portalStagedInstallFlag,
+  releaseRecoveryArgocdRefusalFlag,
   startsAfterDelivery,
   registryPruneFlag,
   registryTailnetForwardFlag,

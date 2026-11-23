@@ -52,6 +52,7 @@
       "registry-tag-pruning": false,
       "platform-organization-service-apis": true,
       "platform-argocd-delivery": true,
+      "release-recovery-argocd-refusal": false,
       "database-routes": true,
       "platform-dns": true,
       "drift-listing-mappings": false,
@@ -81,6 +82,7 @@
       "golden-path-signin": true,
       "golden-path-template-admission": false,
       "golden-path-signin-after-portal": false,
+      "platform-keycloak-wait": false,
       "golden-path-safety-defaults": false,
       "decision-advisor": true
     },
@@ -100,6 +102,16 @@
   "platform": { "domain": "kore.internal", "organizationId": "platform" },
   "gateway":
     { "namespace": "kore-system", "name": "kore-gateway", "port": 8443 },
+  "gateways":
+    {
+      "internal":
+        {
+          "namespace": "kore-system",
+          "name": "kore-gateway",
+          "port": 8443,
+          "issuer": "kore-local-ca"
+        }
+    },
   "secrets":
     {
       "storeName": "platform-secrets",

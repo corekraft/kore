@@ -1,8 +1,6 @@
 import assert from "node:assert/strict";
-import { execFile } from "node:child_process";
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
-import { promisify } from "node:util";
 import { test } from "vitest";
 import {
   approvedImageList,
@@ -10,72 +8,25 @@ import {
   findRoot,
   loadRepository,
   orderedComponents,
-  platformHelmArgs,
   platformPortalFlag,
   validateRepository,
-  type Repository,
 } from "../../src/config/index.js";
 import { withGatewayFlagsOff } from "../../src/testing/index.js";
 import { escapeRegExp, localPlatform } from "../local-platform-support.js";
+import {
+  document,
+  renderWith,
+  withFlagOff,
+} from "./platform-backstage-support.js";
 
 const platform = await localPlatform();
 const domain = escapeRegExp(platform.domain);
 
 // Docs: docs/decisions/0111-run-a-backstage-and-an-argo-cd-for-the-platform-organization-s-operators.md
 
-const run = promisify(execFile);
-
-// The flag decides whether the portal also attaches a route to the shared
-// Gateway, so every render here states it off; the shared-on cases are in
-// platform-backstage-shared-gateway.spec.ts.
-async function withFlagOff(environment: string): Promise<Repository> {
-  const base = await loadRepository(environment);
-  return {
-    ...base,
-    environment: {
-      ...base.environment,
-      features: {
-        ...base.environment.features,
-        "platform-shared-gateway": false,
-      },
-    },
-  };
-}
-
-async function renderWith(
-  repository: Repository,
-  extra: string[] = [],
-): Promise<string> {
-  const root = await findRoot();
-  const component = repository.catalog.components.find(
-    (c) => c.name === "kore-platform-backstage",
-  );
-  const values = [
-    ...(component?.values ?? []),
-    ...(repository.environment.componentValues?.["kore-platform-backstage"] ??
-      []),
-  ].flatMap((file) => ["--values", join(root, file)]);
-  const { stdout } = await run("helm", [
-    "template",
-    "kore-platform-backstage",
-    join(root, "infra/charts/platform-backstage"),
-    "--namespace",
-    "backstage",
-    ...values,
-    ...platformHelmArgs(repository.environment, "kore-platform-backstage"),
-    ...extra,
-  ]);
-  return stdout;
-}
-
 async function render(environment: string): Promise<string> {
   return renderWith(await withFlagOff(environment));
 }
-
-const document = (rendered: string, kind: string): string =>
-  rendered
-    .split(/^---$/m)
-    .find((part) => new RegExp(`^kind: ${kind}$`, "m").test(part)) ?? "";
 
 test("the platform Backstage is a flag-gated chart installed after the platform Keycloak and the PostgreSQL API, so with the flag off nothing reaches a cluster", async () => {
   for (const name of ["local", "managed-example"]) {

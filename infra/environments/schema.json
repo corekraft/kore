@@ -158,6 +158,12 @@
           "type": "string",
           "description": "The platform organization's identifier, one lowercase DNS label, for example platform.",
           "pattern": "^[a-z0-9]([-a-z0-9]{0,61}[a-z0-9])?$"
+        },
+        "internalDomain": {
+          "type": "string",
+          "maxLength": 180,
+          "description": "The domain the internal Gateway's names live under (spec #1612). Unset, it is the platform domain. With gateways.external declared it is required and must be internal.<domain>.",
+          "pattern": "^([a-z0-9]([-a-z0-9]{0,61}[a-z0-9])?\\.)+[a-z0-9]([-a-z0-9]{0,61}[a-z0-9])?$"
         }
       }
     },
@@ -210,6 +216,59 @@
       "additionalProperties": {
         "type": "array",
         "items": { "type": "string", "minLength": 1 }
+      }
+    },
+    "gateway": {
+      "$ref": "#/$defs/gatewayRef",
+      "description": "The single Gateway field (spec #1612, the expand step). It is accepted beside gateways.internal, and when both are declared they name the same Gateway."
+    },
+    "gateways": {
+      "type": "object",
+      "description": "The environment's Gateways (spec #1612). internal is required once gateways is declared; external is optional and carries the public HTTPS routes. The certificate issuer is chosen per Gateway here, never per app.",
+      "required": ["internal"],
+      "additionalProperties": false,
+      "properties": {
+        "internal": { "$ref": "#/$defs/gatewayEntry" },
+        "external": { "$ref": "#/$defs/gatewayEntry" }
+      }
+    }
+  },
+  "$defs": {
+    "gatewayRef": {
+      "type": "object",
+      "required": ["namespace", "name", "port"],
+      "additionalProperties": false,
+      "properties": {
+        "namespace": {
+          "type": "string",
+          "pattern": "^[a-z0-9]([-a-z0-9]{0,61}[a-z0-9])?$"
+        },
+        "name": {
+          "type": "string",
+          "pattern": "^[a-z0-9]([-a-z0-9]{0,61}[a-z0-9])?$"
+        },
+        "port": { "type": "integer", "minimum": 1, "maximum": 65535 }
+      }
+    },
+    "gatewayEntry": {
+      "type": "object",
+      "required": ["namespace", "name", "port", "issuer"],
+      "additionalProperties": false,
+      "properties": {
+        "namespace": {
+          "type": "string",
+          "pattern": "^[a-z0-9]([-a-z0-9]{0,61}[a-z0-9])?$"
+        },
+        "name": {
+          "type": "string",
+          "pattern": "^[a-z0-9]([-a-z0-9]{0,61}[a-z0-9])?$"
+        },
+        "port": { "type": "integer", "minimum": 1, "maximum": 65535 },
+        "issuer": {
+          "type": "string",
+          "description": "The certificate issuer this Gateway uses, one lowercase DNS label, for example kore-local-ca.",
+          "pattern": "^[a-z0-9]([-a-z0-9]{0,61}[a-z0-9])?$"
+        }
       }
     }
   },

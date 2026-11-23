@@ -26,6 +26,16 @@
   "platform": { "domain": "kore.internal", "organizationId": "platform" },
   "gateway":
     { "namespace": "kore-system", "name": "kore-gateway", "port": 443 },
+  "gateways":
+    {
+      "internal":
+        {
+          "namespace": "kore-system",
+          "name": "kore-gateway",
+          "port": 443,
+          "issuer": "kore-local-ca"
+        }
+    },
   "features":
     {
       "agentgateway-mesh-enrollment": false,
@@ -38,6 +48,7 @@
       "registry-tag-pruning": false,
       "platform-organization-service-apis": false,
       "platform-argocd-delivery": false,
+      "release-recovery-argocd-refusal": false,
       "database-routes": false,
       "platform-dns": false,
       "drift-listing-mappings": false,
