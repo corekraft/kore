@@ -222,11 +222,7 @@ X.Y.Z` as the floor, `hc update --from <file>` for an exact binary or
       reason `holder_lost` and no exit code. The tier never touches the owner's
       core. It skips, naming the reason, on a host without hc: CI has no hc, so
       the gate runs on hosts with the pinned hc (the Step 5 live proof).
-- [x] Owed, not settled by Step 2 (waived with the Step 5 live gate, #1783: not run; the three facts stay unproven and nothing depends on them): a core restart keeps its terminals (the brief
-      barred `hc server restart`, and `hc server stop` ends live terminals); an
-      exit note reaches an agent parent and `--no-notify` keeps it out (needs a
-      real claude parent); an agent parent reports a status object where a shell
-      reports null (needs a real claude parent). Step 5 runs these on a host with hc.
+- [x] Owed by Step 2, settled 2026-11-23 by a live run on kore-agents (hc 0.1.21, Claude Code 2.1.330, scratch core; recorded on #1765 and #1783, after the owner's waiver of #1783): a core restart keeps its terminals; an exit note reaches an agent parent and `--no-notify` keeps it out; an agent parent reports a status object where a shell reports null. See Step 2 facts below.
 
 ### Step 3: Reporting
 
@@ -623,18 +619,20 @@ the same core. Where hc differed from this plan, the port or the adapter changed
 holder_lost` and no exit code. A finished one keeps its exit code. The core
   survives. Confirmed.
 - **`hc server stop` ends a live terminal** with `reason: server_stop`, unless it
-  is kept. **Not settled:** "a core restart keeps terminals" (this plan, Decisions
-  and Step 2). The brief for this step barred `hc server restart`, so it was not
-  run; stop is not restart. It is owed to a run that may restart, and the plan
-  must not claim it until then. A reboot is not tested either.
+  is kept. **A core restart keeps terminals** (settled 2026-11-23 on kore-agents,
+  #1783): across `hc server restart` the core's pid changed, and a live `sh`
+  terminal stayed `live` with the same pid and holder, its output still readable.
+  A reboot is not tested.
 - **Exit notes.** No note reached a plain shell parent, with `--no-notify` or
-  without it, and none reached a stand-in agent named `claude`. The positive
-  control (a note that `--no-notify` suppresses) needs a real claude parent, so
-  the `--no-notify` claim is **owed to Step 5**, and the spec asserts only the
-  plain-shell case.
-- **Agent status object** (against null) needs a real claude parent. A stand-in
-  named `claude` reports status null too, so the status test cannot yet tell an
-  agent from a shell by `status`. **Owed to Step 5.**
+  without it, and none reached a stand-in agent named `claude`. A real claude
+  parent (settled 2026-11-23 on kore-agents, #1783) received
+  `<hc>t3 child-notify exited (exit 3). Last lines: … Read: hc read t3</hc>` as
+  input, and a child started with `--no-notify` (`notify: false`) sent none.
+- **Agent status object.** A stand-in named `claude` reports status null, but a
+  real claude parent (settled 2026-11-23, #1783) reports an object, for example
+  `{"app":"claude-code","kind":"permission","msg":"trust this folder","state":"blocked"}`
+  then `{"app":"claude-code","state":"done"}`, with `reported: true`. So `status`
+  tells an agent from a shell only for a real agent.
 - **Launch caution.** A bare program name resolved on the core's PATH, which the
   core inherits at start, so a stand-in named `claude` was not used on one run.
   The wrapper (Step 4) starts by absolute path, so this matters only for tests that
