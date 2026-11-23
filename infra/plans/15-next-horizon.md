@@ -278,8 +278,6 @@ owners.
 
 ## Step 6: Platform Keycloak and Backstage
 
-Next: Plan 15 has one item left, Step 6 item 3 (Backstage shows delivered services with their Argo CD sync and rollout). Build order: #1883 (apiserver OIDC behind a flag, Application label; ready-for-agent, needs a writer spawned from a Herdr pane: session spawn refuses outside Herdr), then its live proof on #1881, then the owner approves the tick. Also open and ready-for-agent: #1884 (ClusterImagePolicy admitting ghcr.io/corekraft/kore/templates by digest, so the Step 4 exit criterion is shown) and #1880 (a fresh kore local up with golden-path-signin on stops at the config-delivery gate). When Step 6 item 3 is ticked: update the Outcome Record rows (Backstage shows them, deployed by digest), then close #1101, #1103, #1104 and #616 through their sub-issues (Refs, never Closes; ADR 0097). #1216 and #1354 are housekeeping still open. The cluster kore-local is stopped; no worktree of mine is open.
-
 Safety pattern: `feature-flagged` (`platform-portal`, off in `local`). The portal never
 runs open: with the flag on, Backstage starts only once its Keycloak sign-in is
 ready.
