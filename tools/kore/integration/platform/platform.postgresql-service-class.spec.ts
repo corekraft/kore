@@ -124,3 +124,16 @@ test("with the flag off and database-routes on, the Cluster keeps its one instan
   const out = await renderStep(template, 17, undefined, undefined, "standard");
   assert.equal(clusterSpec(out), [...oneInstance, ...certificates].join("\n"));
 });
+
+test("the flag changes only the composition's serviceClassInstances header, so one file defines both variants and they cannot drift", async () => {
+  const off = await chart();
+  const on = await chart(...serviceClassFlag);
+  assert.notEqual(on, off, "the flag changes the rendered composition");
+  assert.equal(
+    on,
+    off.replace(
+      "{{- $serviceClassInstances := false }}",
+      "{{- $serviceClassInstances := true }}",
+    ),
+  );
+});

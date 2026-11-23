@@ -1,1 +1,2 @@
-{{- if not .Values.databaseRoutes }}{{ if .Values.serviceClassInstances }}{{ .Files.Get "compositions/service-class/local.yaml" }}{{ else }}{{ .Files.Get "compositions/local.yaml" }}{{ end }}{{- end }}
+{{- /* The one local composition; its serviceClassInstances header is set from the value, as composition-database-routes.yaml sets compose.gotmpl's (ADR 0154). Off, the header is unchanged and the render is the file byte for byte. */ -}}
+{{- if not .Values.databaseRoutes }}{{ .Files.Get "compositions/local.yaml" | replace "$serviceClassInstances := false" (printf "$serviceClassInstances := %t" (default false .Values.serviceClassInstances)) }}{{- end }}
