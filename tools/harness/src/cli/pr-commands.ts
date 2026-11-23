@@ -13,7 +13,7 @@ import { linkPullRequest } from "./pr-link.js";
 import { readPrBody } from "./pr-open-body.js";
 
 const USAGE =
-  "Run `harness pr open --title <title> --pattern <pattern> [--body <summary> | --body-file <path>] [--issue <n>] [--closes] [--idea <number or slug, or none>] [--expand-step <pr>] [--base <branch>] [--head <branch>] [--dry-run] [--json]`.";
+  "Run `harness pr open --title <title> --pattern <pattern> [--body <summary> | --body-file <path>] [--issue <n>] [--closes] [--idea <number or slug, or none>] [--expand-step <pr or none>] [--base <branch>] [--head <branch>] [--dry-run] [--json]`.";
 
 /** The idea a pull request serves none of: no `Idea:` line, and `none` on its pr.linked event (ADR 0126). */
 const NONE = "none";
@@ -21,6 +21,15 @@ const NONE = "none";
 function text(context: CommandContext, name: string): string | undefined {
   const value = context.options[name];
   return typeof value === "string" && value !== "" ? value : undefined;
+}
+
+/** The expand step: a merged expand PR's number, `none` for an expand step that names no earlier one, or undefined when the flag is absent. */
+function expandStepOf(
+  context: CommandContext,
+): number | typeof NONE | undefined {
+  return text(context, "expand-step") === NONE
+    ? NONE
+    : number(context, "expand-step");
 }
 
 function required(context: CommandContext, name: string): string {
@@ -84,7 +93,7 @@ export async function prOpenRun(context: CommandContext): Promise<number> {
     const title = required(context, "title");
     const pattern = required(context, "pattern");
     const issue = number(context, "issue");
-    const expandStep = number(context, "expand-step");
+    const expandStep = expandStepOf(context);
     const idea = text(context, "idea") ?? NONE;
     const rendered = renderPrBody({
       body: await readPrBody(
@@ -202,7 +211,7 @@ const openHelp: CommandHelp = {
       "Writes Closes instead of Refs. Beside --idea it warns, citing ADR 0079; it is never refused.",
     idea: "The idea the PR serves, by number or slug, written as an Idea: line. none, the default, writes no Idea line and records none on the link.",
     "expand-step":
-      "The merged expand PR's number. Required for expand-contract, and refused for any other pattern.",
+      "The merged expand PR's number, written as an Expand step: line. Required for expand-contract, and refused for any other pattern. none, for a contract that is itself the expand step, writes no Expand step line.",
     base: "The base branch, passed to gh pr create.",
     head: "The head branch, passed to gh pr create.",
     "dry-run": "Prints the body that would be posted and creates nothing.",
