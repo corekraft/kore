@@ -3,6 +3,7 @@ import { exists } from "./files.js";
 import {
   loadImageTrustValues,
   loadJSON,
+  loadK3sHostPin,
   loadRegistryComponentValues,
 } from "./overlay-files.js";
 import { loadServiceRegistrations } from "./service-registrations.js";
@@ -89,6 +90,7 @@ export async function loadRepository(
     catalog,
     environment,
     imageTrustValues,
+    k3sHostPin: await loadK3sHostPin(root, environment.name),
     registryComponentValues: await loadRegistryComponentValues(
       root,
       environment,
