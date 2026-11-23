@@ -1,13 +1,19 @@
-import type { Repository } from "../config/index.js";
-import { beforeEach, expect, test, vi } from "vitest";
+import {
+  enabledComponents,
+  signinAwaitsPortal,
+  type Repository,
+} from "../config/index.js";
+import { beforeEach, describe, expect, test, vi } from "vitest";
 import type { Runner } from "../runtime/index.js";
 import {
   argocdApplicationsCheck,
   waitForApplications,
 } from "./readiness-argocd.js";
 import { pollUntil } from "./readiness-poll.js";
+import { fakeComponent } from "./platform-support.js";
 
 vi.mock("./readiness-poll.js");
+vi.mock("../config/index.js");
 
 const repository = {
   environment: { kubeContext: "k3d-kore-local" },
@@ -258,3 +264,74 @@ test.each([
     );
   },
 );
+
+/** The component's own check reads the platform Applications while the sign-in waits for the portal (issue 1880). */
+describe("the component's Application check under the golden-path sign-in", () => {
+  const keycloak = fakeComponent({ name: "kore-platform-keycloak" });
+  const labelled = (name: string, health: string) => ({
+    metadata: { name, labels: { "platform.kore.dev/service": name } },
+    status: { sync: { status: "Synced" }, health: { status: health } },
+  });
+  const plain = (name: string, health: string) => ({
+    metadata: { name },
+    status: { sync: { status: "Synced" }, health: { status: health } },
+  });
+  const apps = (...items: unknown[]) =>
+    runnerReturning(JSON.stringify({ items }));
+
+  /** Runs the component's check over the given Applications with the given deferral and Keycloak. */
+  function componentCheck(
+    deferred: boolean,
+    enabled: unknown[],
+    items: unknown[],
+  ): Promise<void> {
+    vi.mocked(signinAwaitsPortal).mockReturnValue(deferred);
+    vi.mocked(enabledComponents).mockReturnValue(enabled as never);
+    const { runner } = apps(...items);
+    return (
+      argocdApplicationsCheck(
+        { repository, runner, base: BASE },
+        RESOURCE,
+      )?.run("5m") ?? Promise.resolve()
+    );
+  }
+
+  test("while the sign-in waits for the portal, a golden-path Application that is Degraded passes the component's check", async () => {
+    await expect(
+      componentCheck(
+        true,
+        [keycloak],
+        [plain("opa", "Healthy"), labelled("golden-path-example", "Degraded")],
+      ),
+    ).resolves.toBeUndefined();
+  });
+
+  test("while the sign-in waits for the portal, a platform Application that is Degraded still fails the component's check", async () => {
+    await expect(
+      componentCheck(
+        true,
+        [keycloak],
+        [
+          plain("kore-postgresql-api", "Degraded"),
+          labelled("golden-path-example", "Degraded"),
+        ],
+      ),
+    ).rejects.toThrow("Application kore-postgresql-api is Synced and Degraded");
+  });
+
+  test("when the sign-in is not deferred, a golden-path Application that is Degraded still fails the component's check", async () => {
+    await expect(
+      componentCheck(
+        false,
+        [keycloak],
+        [labelled("golden-path-example", "Degraded")],
+      ),
+    ).rejects.toThrow("Application golden-path-example is Synced and Degraded");
+  });
+
+  test("with no platform Keycloak enabled, nothing is deferred and a golden-path Application that is Degraded still fails", async () => {
+    await expect(
+      componentCheck(true, [], [labelled("golden-path-example", "Degraded")]),
+    ).rejects.toThrow("Application golden-path-example is Synced and Degraded");
+  });
+});
