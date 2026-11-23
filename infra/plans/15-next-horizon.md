@@ -226,8 +226,6 @@ Safety pattern: `feature-flagged` (`autoscaling-defaults`, off in `local`).
 
 ## Step 4: Golden-Path Templates
 
-Next: Plan 15: Step 7 item 4 ticked (footprint, #1756 run 3 clean, #1866 merged); #1113, #1116, #1747 proven. Still unticked, each needs a recorded green live run then the owner's approval, one at a time: Step 4 item 4 (both images signed and admitted by digest), Step 5 items 1, 3, 4 (Argo CD, ApplicationSet, HTTPS; flag platform-argocd-delivery), Step 6 items 1-3 (Keycloak, Backstage sign-in and catalog, sync view; flag platform-portal), Step 7 items 1-2 may already be ticked (check). Then rewrite the Step 7 Outcome Record per clause, close #1101, #1103, #1104, #616 through their sub-issues, and #1216 and #1354 housekeeping. Start by asking the owner which clean live run to cite for Step 4 item 4. The cluster kore-local is stopped; no worktree of mine is open; the live-v022 overlay edit is gone.
-
 Safety pattern: `expand-contract`. The templates are new files and images; the
 existing reference app keeps working until a service moves to them.
 
@@ -279,6 +277,8 @@ owners.
   flag on.
 
 ## Step 6: Platform Keycloak and Backstage
+
+Next: Plan 15 has one item left, Step 6 item 3 (Backstage shows delivered services with their Argo CD sync and rollout). Build order: #1883 (apiserver OIDC behind a flag, Application label; ready-for-agent, needs a writer spawned from a Herdr pane: session spawn refuses outside Herdr), then its live proof on #1881, then the owner approves the tick. Also open and ready-for-agent: #1884 (ClusterImagePolicy admitting ghcr.io/corekraft/kore/templates by digest, so the Step 4 exit criterion is shown) and #1880 (a fresh kore local up with golden-path-signin on stops at the config-delivery gate). When Step 6 item 3 is ticked: update the Outcome Record rows (Backstage shows them, deployed by digest), then close #1101, #1103, #1104 and #616 through their sub-issues (Refs, never Closes; ADR 0097). #1216 and #1354 are housekeeping still open. The cluster kore-local is stopped; no worktree of mine is open.
 
 Safety pattern: `feature-flagged` (`platform-portal`, off in `local`). The portal never
 runs open: with the flag on, Backstage starts only once its Keycloak sign-in is
