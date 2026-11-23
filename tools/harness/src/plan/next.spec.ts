@@ -1,7 +1,7 @@
 import { join } from "node:path";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { CommandError } from "../runtime/index.js";
-import { planClearNext, planNext } from "./next.js";
+import { planNext } from "./next.js";
 import {
   apply,
   choosePlan,
@@ -206,7 +206,7 @@ describe("planNext output", () => {
   });
 });
 
-describe("planClearNext", () => {
+describe("planNext --clear", () => {
   it("removes a Next: paragraph with its blank line and writes the result", async () => {
     const lines = ["## Step 1: A", "", "Next: old", "", "- [ ] one"];
     vi.mocked(readPlans).mockResolvedValue({ "2-a.md": lines.join("\n") });
@@ -214,7 +214,9 @@ describe("planClearNext", () => {
       { step: "Step 1: A", text: "old", line: 2, end: 3 },
     ]);
     const deps = fakeDeps();
-    expect(await planClearNext.run({ json: false, deps, options: {} })).toBe(0);
+    expect(
+      await planNext.run({ json: false, deps, options: { clear: true } }),
+    ).toBe(0);
     expect(vi.mocked(apply).mock.calls).toEqual([
       [lines, [{ start: 2, end: 4, lines: [] }]],
     ]);
@@ -224,26 +226,52 @@ describe("planClearNext", () => {
     );
   });
 
+  it("clears the line in a plan with no open item, where setting one is refused", async () => {
+    vi.mocked(openCounts).mockReturnValue([]);
+    vi.mocked(nextBlocks).mockReturnValue([
+      { step: "Step 1: A", text: "old", line: 2, end: 3 },
+    ]);
+    const deps = fakeDeps();
+    expect(
+      await planNext.run({ json: false, deps, options: { clear: true } }),
+    ).toBe(0);
+    expect(deps.fs.writeFile).toHaveBeenCalledWith(
+      `${ROOT}/${FILE}`,
+      "applied",
+    );
+  });
+
   it("writes nothing and says so when there is no Next: line", async () => {
     vi.mocked(toChanges).mockReturnValue([]);
     const deps = fakeDeps();
-    expect(await planClearNext.run({ json: false, deps, options: {} })).toBe(0);
+    expect(
+      await planNext.run({ json: false, deps, options: { clear: true } }),
+    ).toBe(0);
     expect(deps.fs.writeFile).not.toHaveBeenCalled();
     expect(vi.mocked(deps.stdout).mock.calls).toEqual([
       [`No Next: line to clear in ${FILE}\n`],
     ]);
   });
 
-  it("headlines a dry run as a clear that would happen", async () => {
+  it("headlines a dry run as a clear that would happen, and writes nothing", async () => {
     const deps = fakeDeps();
-    await planClearNext.run({
+    await planNext.run({
       json: false,
       deps,
-      options: { "dry-run": true },
+      options: { clear: true, "dry-run": true },
     });
     expect(deps.fs.writeFile).not.toHaveBeenCalled();
     expect(renderChanges).toHaveBeenCalledWith(`Would clear Next: in ${FILE}`, [
       CHANGE,
     ]);
+  });
+
+  it("refuses --clear together with --text, and writes nothing", async () => {
+    const deps = fakeDeps();
+    await expect(
+      planNext.run({ json: false, deps, options: { clear: true, text: "x" } }),
+    ).rejects.toThrow("not both");
+    expect(readPlans).not.toHaveBeenCalled();
+    expect(deps.fs.writeFile).not.toHaveBeenCalled();
   });
 });

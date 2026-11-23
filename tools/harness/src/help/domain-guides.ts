@@ -11,7 +11,7 @@ export const domainGuides: Record<DomainName, DomainGuide> = {
   plan: {
     purpose:
       "Reads and edits the plan files under infra/plans: the active plan, its open items and its single Next: line.",
-    flow: "Run plan active to list the plans, plan next to set the Next: line, plan tick to tick an open item, and plan clear-next to remove the line.",
+    flow: "Run plan active to list the plans, plan next to set the Next: line, plan next --clear to remove it, and plan tick to tick an open item.",
     seeAlso: ["plan active"],
   },
   adr: {
