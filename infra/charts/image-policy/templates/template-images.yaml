@@ -1,0 +1,37 @@
+{{- /*
+The golden-path template images (ADR 0045, ADR 0046) are signed keylessly by the
+release workflow and never by the environment's signing key, so only a keyless
+trust authority gets this policy: a key authority (the local profile) renders
+nothing. The identities are the environment's trust.subjects, the exact release
+workflow subjects that kore-platform-images already admits; kore's lock check
+requires the template lock's signer to be one of them (managedLockErrors), so
+the admitted identity and the lock's signer cannot drift apart.
+
+The policy exists only while the golden-path-template-admission feature flag is
+on, and it starts in trust.mode (warn while auditing, enforce after a recorded
+live outcome). Its glob is the template repository and nothing else, so no other
+image matches it.
+*/ -}}
+{{- $features := .Values.features | default dict }}
+{{- if and (eq .Values.trust.type "keyless") (index $features "golden-path-template-admission") }}
+apiVersion: policy.sigstore.dev/v1beta1
+kind: ClusterImagePolicy
+metadata:
+  name: kore-template-images
+  labels: {app.kubernetes.io/managed-by: Helm}
+spec:
+  mode: {{ required "trust.mode is required (warn or enforce)" .Values.trust.mode }}
+  images:
+    - glob: {{ printf "%s/**" .Values.templates.repository | quote }}
+  authorities:
+    - name: release-workflow
+      keyless:
+        url: https://fulcio.sigstore.dev
+        identities:
+          {{- range .Values.trust.subjects }}
+          - issuer: {{ $.Values.trust.issuer | quote }}
+            subject: {{ . | quote }}
+          {{- end }}
+      ctlog:
+        url: https://rekor.sigstore.dev
+{{- end }}
