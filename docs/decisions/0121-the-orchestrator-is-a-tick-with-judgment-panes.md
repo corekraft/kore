@@ -29,7 +29,8 @@ what runs in parallel, and handling a blocked pane.
   the ledger that advances each in-flight idea by at most one step and exits.
   It calls no model. `orchestrate run <idea>` becomes a loop of ticks scoped to
   one idea; both call one step function per stage, so the step logic has one
-  owner.
+  owner. That loop is `orchestrate tick --idea <n> --loop`, which takes the
+  outcome flags `run` took, and the `run` command is removed (#1787).
 - **Judgment panes.** For a step a tool cannot decide, the tick spawns a fresh
   Sonnet pane with a small brief, under 60k tokens of context. Its definition
   is read-only, like the reader's. It ends with a plan, and the tick, not the

@@ -146,7 +146,7 @@ describe("no agent fills a role the loop retired", () => {
 });
 
 describe("no agent fills the orchestrator or concierge role", () => {
-  it("has no definition for either, since `orchestrate run` and the person's main session do that work", () => {
+  it("has no definition for either, since `orchestrate tick --idea <n> --loop` and the person's main session do that work", () => {
     expect([...definitions().keys()]).not.toContain("orchestrator");
     expect([...definitions().keys()]).not.toContain("concierge");
   });

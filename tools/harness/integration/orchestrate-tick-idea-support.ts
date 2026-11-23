@@ -1,4 +1,4 @@
-// A scripted host for `orchestrate run`: the tools it drives (`harness` and `gh`)
+// A scripted host for `orchestrate tick --idea <n> --loop`: the tools it drives (`harness` and `gh`)
 // are answered here and append the ledger events the real tools would, so a spec reads the
 // run as a ledger. No network, no cluster, no process (ADR 0098, ADR 0104).
 

@@ -45,11 +45,14 @@ import {
 import { hostLeaseRefusal, spawnLoadRefusal } from "../session/index.js";
 import { hcAttended, hcReconcile } from "./orchestrate-tick-hc.js";
 import { installTickJob } from "./orchestrate-tick-install.js";
+import { hasOutcomeFlags, runIdea } from "./orchestrate-tick-idea.js";
 import { runTickLoop } from "./orchestrate-tick-loop.js";
 
 const FAILED = 1;
 const LEASE_FILE = "orchestrate-tick.lock";
 const SESSIONS = ".kore/state/sessions";
+const OUTCOME_NEEDS_IDEA_LOOP =
+  "The outcome flags (--kind, --source, --result, --evidence, --summary) apply only to `orchestrate tick --idea <number> --loop`; add both, or drop the outcome flags.\n";
 
 /**
  * The host bounds each pass reads (power, the load ceiling and a live run's lease),
@@ -246,13 +249,21 @@ async function runTick(context: CommandContext): Promise<number> {
   const { deps, options } = context;
   const idea =
     typeof options["idea"] === "string" ? options["idea"] : undefined;
+  const looping = options["loop"] === true;
   try {
     const root = await deps.root();
+    if (hasOutcomeFlags(options) && !(looping && idea !== undefined)) {
+      deps.stderr(OUTCOME_NEEDS_IDEA_LOOP);
+      return FAILED;
+    }
     if (options["install"] === true) {
       return await installTickJob(deps, root);
     }
-    if (options["loop"] === true) {
-      return await runTickLoop(deps, root, idea);
+    if (looping && idea !== undefined) {
+      return await runIdea(context, root, idea, runOnTicks);
+    }
+    if (looping) {
+      return await runTickLoop(deps, root);
     }
     return await runPass(context, root, idea);
   } catch (error) {
@@ -265,7 +276,7 @@ async function runTick(context: CommandContext): Promise<number> {
 }
 
 /**
- * `orchestrate run` with the tick flag on: passes scoped to one idea, each under
+ * `orchestrate tick --idea <n> --loop` with the tick flag on: passes scoped to one idea, each under
  * the lease, until the idea ends. A pass that finds the lease held counts as waiting.
  */
 export async function runOnTicks(
@@ -296,6 +307,15 @@ export async function runOnTicks(
 export const tickCommand = {
   summary:
     "Advances each approved idea one step per pass, behind the orchestrator-tick flag.",
-  options: { idea: "string", loop: "boolean", install: "boolean" },
+  options: {
+    idea: "string",
+    loop: "boolean",
+    install: "boolean",
+    kind: "string",
+    source: "string",
+    result: "string",
+    evidence: "string",
+    summary: "string",
+  },
   run: runTick,
 } satisfies Omit<Command, "help">;

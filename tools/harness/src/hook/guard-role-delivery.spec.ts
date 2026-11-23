@@ -275,10 +275,10 @@ describe("checkDeliveryBash: the commands no delivery role lists", () => {
   };
 
   it.each(["judge", "writer"])(
-    "does not list `orchestrate run`, `retro record` or `retro due` for the %s, since the tool runs from the person's session",
+    "does not list `orchestrate tick`, `retro record` or `retro due` for the %s, since the tool runs from the person's session",
     (role) => {
       for (const command of [
-        "orchestrate run --idea 1",
+        "orchestrate tick --idea 1 --loop",
         "retro record --reason count",
         "retro due --json",
       ]) {
