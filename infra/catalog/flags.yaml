@@ -97,6 +97,16 @@
         "kind": "feature",
         "applies": ["local", "vps", "managed-example"]
       },
+      {
+        "name": "release-recovery-argocd-refusal",
+        "kind": "feature",
+        "applies": ["local", "vps", "managed-example"]
+      },
+      {
+        "name": "platform-keycloak-wait",
+        "kind": "feature",
+        "applies": ["local"]
+      },
       { "name": "host-published-ports", "kind": "feature", "applies": ["vps"] },
       {
         "name": "registry-tag-pruning",

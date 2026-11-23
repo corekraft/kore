@@ -103,6 +103,7 @@ test("the flags that apply to vps are the ones the manifest declares, pending fl
     "golden-path-template-admission",
     "golden-path-signin-after-portal",
     "golden-path-safety-defaults",
+    "release-recovery-argocd-refusal",
     "host-published-ports",
     "in-cluster-ca",
     "k3s-registry-trust",

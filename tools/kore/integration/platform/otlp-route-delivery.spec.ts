@@ -7,6 +7,7 @@ import {
   platformHelmArgs,
   releaseOwner,
   type Repository,
+  internalGateway,
 } from "../../src/config/index.js";
 
 // With platform-argocd-delivery on, only argocd-owned releases are handed to
@@ -58,9 +59,9 @@ test("with the OTLP route on, the Helm path gives it its name and the shared Gat
       "--set-string",
       "otlpRoute.hostname=otlp.platform.kore.internal",
       "--set-string",
-      `otlpRoute.gateway.name=${repository.environment.gateway.name}`,
+      `otlpRoute.gateway.name=${internalGateway(repository.environment).name}`,
       "--set-string",
-      `otlpRoute.gateway.namespace=${repository.environment.gateway.namespace}`,
+      `otlpRoute.gateway.namespace=${internalGateway(repository.environment).namespace}`,
     ],
   );
 });
