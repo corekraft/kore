@@ -27,6 +27,7 @@ Usage:
   kore ops upgrade-check|crd-check [--from <release-tag>] [--environment local] [--json]
   kore policy record <constraint> --environment <name> --audit <file|-> [--json]
   kore policy promote|rollback <constraint> --environment <name> [--json]
+  kore eval <dir> --base <ref> --version <semver>+<sha> --digest sha256:<hex> [--published <file>] [--today <YYYY-MM-DD>]   (read-only and offline: runs the deterministic evals on one application repository and prints a JSON report; exits 1 on a failing verdict; see "eval" below)
 
 "cluster destroy" refuses while data labeled platform.kore.dev/retention=Retain
 (databases) exists; --purge-data deletes it.
@@ -125,6 +126,29 @@ in infra/policies/gatekeeper/promotions/<constraint>.json. "promote" moves one
 dryrun constraint to deny only when that evidence shows zero violations and is
 under 14 days old. "rollback" sets one constraint back to dryrun and keeps its
 evidence. Review the resulting diff in a pull request.
+
+"eval" checks one candidate of an application in its own repository, with git
+and no network. It reads flags.yaml at the app root, the Safety-pattern trailer
+of the head commit, the files changed from --base to HEAD, and --published (a
+JSON object of version to digest). It refuses a flags.yaml that is not
+schema-valid: a service-prefixed flag name, default false, an owner, a safety
+pattern of no-behaviour-change, feature-flagged, dark-launched or
+expand-contract, an expiry date as YYYY-MM-DD, and a complete rollout (kind flag,
+canary or dark-launch; criteria; soakHours of at least 1). It refuses a pattern
+the diff contradicts: a migration under migrations/ forces expand-contract, a new
+flag forces feature-flagged, and only tests and docs may claim no-behaviour-change.
+It refuses a version already published for another digest. A flag past its
+expiry only warns and never fails. --version is the manifest semver plus the
+commit SHA; --digest is the candidate image's sha256. The report is JSON:
+verdict (pass or fail), failures, warnings, and on a pass only attestations, two
+in-toto v1 statements whose subject is the image digest (name: the version,
+digest.sha256: the hex without the prefix):
+  - predicateType urn:kore:eval-result:v1, predicate {verdict, version,
+    safetyPattern, checks, warnings, expiredFlags}
+  - predicateType urn:kore:flags-manifest:v1, predicate {service, flags}, where
+    each flag is {name, default: false, owner, safetyPattern, expiry, rollout:
+    {kind, criteria, soakHours}}
+A failing eval prints no attestations, so there is no payload to sign.
 
 Every mutation requires --environment and is recorded in
 .kore/state/journal/<environment>.jsonl. Status, doctor, validate, render, ops,
