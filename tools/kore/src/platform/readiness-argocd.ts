@@ -13,7 +13,7 @@ import { pollUntil } from "./readiness-poll.js";
 // Docs: docs/decisions/0043-platform-configuration-through-argo-cd.md
 
 /** The release that starts after the delivery and serves the Keycloak the golden-path sign-in needs. */
-const platformKeycloakRelease = "kore-platform-keycloak";
+export const platformKeycloakRelease = "kore-platform-keycloak";
 
 /**
  * True while the golden-path sign-in waits for the platform Keycloak: its flags

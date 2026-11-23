@@ -12,6 +12,7 @@ import { helmReleaseStatus } from "./probe.js";
 import { reconcileConfiguration } from "./reconcile.js";
 import { prepareConfigurationRelease } from "./release-prerequisites.js";
 import {
+  platformKeycloakRelease,
   signinDeferred,
   waitForApplications,
   type ApplicationScope,
@@ -22,8 +23,6 @@ import { readinessFailure } from "./readiness.js";
 // Docs: docs/decisions/0043-platform-configuration-through-argo-cd.md (the safe order, step 4)
 
 export { reconcileStagedConfigurations } from "./staged-configuration.js";
-
-const platformKeycloak = "kore-platform-keycloak";
 
 /**
  * Reconciles each configuration and enforcement release Helm still owns. An
@@ -164,7 +163,9 @@ export async function awaitSigninApplications(
     return;
   }
   const components = enabledComponents(repository);
-  const keycloak = components.find(({ name }) => name === platformKeycloak);
+  const keycloak = components.find(
+    ({ name }) => name === platformKeycloakRelease,
+  );
   if (keycloak === undefined) {
     return;
   }
