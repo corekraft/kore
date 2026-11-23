@@ -109,7 +109,11 @@
       "external-secrets":
         ["infra/environments/vps/values/mirror/external-secrets.yaml"],
       "gatekeeper": ["infra/environments/vps/values/mirror/gatekeeper.yaml"],
-      "grafana": ["infra/environments/vps/values/mirror/grafana.yaml"],
+      "grafana":
+        [
+          "infra/environments/vps/values/mirror/grafana.yaml",
+          "infra/environments/vps/values/grafana.yaml"
+        ],
       "agentgateway":
         ["infra/environments/vps/values/mirror/agentgateway.yaml"],
       "argocd": ["infra/environments/vps/values/mirror/argocd.yaml"],
@@ -122,12 +126,24 @@
       "istiod": ["infra/environments/vps/values/mirror/istiod.yaml"],
       "istio-cni": ["infra/environments/vps/values/mirror/istio-cni.yaml"],
       "ztunnel": ["infra/environments/vps/values/mirror/ztunnel.yaml"],
-      "loki": ["infra/environments/vps/values/mirror/loki.yaml"],
+      "loki":
+        [
+          "infra/environments/vps/values/mirror/loki.yaml",
+          "infra/environments/vps/values/loki.yaml"
+        ],
       "opentelemetry-operator":
         ["infra/environments/vps/values/mirror/opentelemetry-operator.yaml"],
       "otel-agent": ["infra/environments/vps/values/mirror/otel-agent.yaml"],
-      "prometheus": ["infra/environments/vps/values/mirror/prometheus.yaml"],
-      "tempo": ["infra/environments/vps/values/mirror/tempo.yaml"],
+      "prometheus":
+        [
+          "infra/environments/vps/values/mirror/prometheus.yaml",
+          "infra/environments/vps/values/prometheus.yaml"
+        ],
+      "tempo":
+        [
+          "infra/environments/vps/values/mirror/tempo.yaml",
+          "infra/environments/vps/values/tempo.yaml"
+        ],
       "opa-authorizer":
         ["infra/environments/vps/values/mirror/opa-authorizer.yaml"],
       "kore-platform-dns":
