@@ -11,7 +11,7 @@ import {
 } from "./node-capacity.js";
 import type { Environment } from "./types.js";
 
-const cluster = {
+const cluster: NonNullable<Environment["cluster"]> = {
   profile: "external",
   kubernetesVersion: "1.37.2",
   driver: "external",
@@ -34,7 +34,7 @@ function managed(fields: Partial<NonNullable<Environment["cluster"]>> = {}) {
   return fakeEnvironment({
     name: "vps",
     provider: "managed",
-    cluster: { ...cluster, ...fields } as NonNullable<Environment["cluster"]>,
+    cluster: { ...cluster, ...fields },
   });
 }
 
