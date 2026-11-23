@@ -146,7 +146,7 @@ function objectiveProblems(
     problems.push(
       objective.environment === "local"
         ? `${name}: ${objective.protection} needs a restoreTest`
-        : `${name}: an active ${objective.protection} needs a restoreTest`,
+        : `${name}: an active ${objective.protection} needs a restore test on disk`,
     );
   }
   if (objective.restoreTest) {

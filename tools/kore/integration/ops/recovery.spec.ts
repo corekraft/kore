@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { readFile } from "node:fs/promises";
+import { access, readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { test } from "vitest";
 import { findRoot, loadRepository } from "../../src/config/index.js";
@@ -78,14 +78,19 @@ const vpsNamed = async (name: string): Promise<Objective> => {
   return found;
 };
 
-test("no objective is active without a restore test that exists", async () => {
-  const active = (await loadRecovery(await findRoot())).filter(
+test("no objective is active without a restore test on disk", async () => {
+  const root = await findRoot();
+  const active = (await loadRecovery(root)).filter(
     (objective) => objective.status === "active",
   );
   for (const objective of active) {
     assert.ok(
       objective.restoreTest,
       `${objective.name} is active without a restoreTest`,
+    );
+    await assert.doesNotReject(
+      access(join(root, objective.restoreTest)),
+      `${objective.name} is active but its restore test ${objective.restoreTest} is not on disk`,
     );
   }
 });

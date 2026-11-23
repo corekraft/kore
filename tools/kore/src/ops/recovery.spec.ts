@@ -140,7 +140,9 @@ test("a managed objective that is active needs a restore test, a planned one doe
   expect(problems(exportObjective, managed)).toEqual([]);
   expect(
     problems(exportObjective, { ...managed, status: "active" }).join(),
-  ).toMatch(/managed-db: an active scheduled-backup needs a restoreTest/);
+  ).toMatch(
+    /managed-db: an active scheduled-backup needs a restore test on disk/,
+  );
 });
 
 test("objective names are unique", () => {
@@ -174,7 +176,9 @@ test("a planned vps objective needs no restore test, an active one does", () => 
   expect(recoveryProblems([vpsObjective], onVps)).toEqual([]);
   expect(
     recoveryProblems([{ ...vpsObjective, status: "active" }], onVps).join(),
-  ).toMatch(/vps-databases: an active scheduled-backup needs a restoreTest/);
+  ).toMatch(
+    /vps-databases: an active scheduled-backup needs a restore test on disk/,
+  );
   expect(
     recoveryProblems(
       [
