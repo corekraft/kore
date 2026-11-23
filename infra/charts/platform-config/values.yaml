@@ -9,5 +9,11 @@ gateway:
     sharedServicePort: 443,
     database: { port: 5432, nodePort: null }
   }
+# The external Gateway (ADR 0160, issue 1633), rendered only while external-gateway
+# is on. Its HTTP listener is on port 80; the overlay sets the node port its
+# Service is published on, which the host's port table maps to public 80.
+externalGateway:
+  port: 80
+  service: { nodePort: null }
 issuer: { name: kore-local-ca }
 secrets: { sourceNamespace: kore-secret-source, storeName: platform-secrets }
