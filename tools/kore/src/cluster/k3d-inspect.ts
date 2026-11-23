@@ -1,11 +1,5 @@
-import type { K3dCluster, Repository } from "../config/index.js";
-import { driftListingMappingsFlag, featureEnabled } from "../config/index.js";
 import { CommandError, type Runner } from "../runtime/index.js";
-import {
-  listingReportsMappings,
-  type PortMappings,
-  unreadablePorts,
-} from "./k3d-drift.js";
+import type { PortMappings } from "./k3d-drift.js";
 
 /** The name k3d gives a cluster's load balancer container. */
 export function loadBalancerContainer(clusterName: string): string {
@@ -46,20 +40,4 @@ export async function inspectPortMappings(
     );
   }
   return (mappings ?? {}) as PortMappings;
-}
-
-/**
- * Whether docker inspect is read for a cluster's listing: when the listing omits an
- * address, or, with the drift-listing-mappings flag on, when it reports no mappings
- * at all (#1683). Otherwise the listing alone decides, as before.
- */
-export function inspectionNeeded(
-  repository: Repository,
-  entry: Record<string, unknown>,
-  cluster: K3dCluster,
-): boolean {
-  const missingMappings =
-    featureEnabled(repository.environment, driftListingMappingsFlag) &&
-    !listingReportsMappings(entry);
-  return missingMappings || unreadablePorts(entry, cluster).length > 0;
 }

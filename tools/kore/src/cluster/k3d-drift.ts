@@ -88,18 +88,18 @@ function protocolOf(port: Published): string {
 }
 
 /**
- * How a published port is named in a difference: UDP ports carry their protocol,
- * and a port that names a feature flag names it, so the difference says what
- * publishes the mapping.
+ * How a published port is named in a difference: UDP ports carry their protocol.
+ * With `namedFlags` (the drift-listing-mappings flag is on), a port that names a
+ * feature flag also names it, so the difference says what publishes the mapping.
  */
-function labelOf(port: Published): string {
+function labelOf(port: Published, namedFlags: boolean): string {
   const name =
     port.protocol === "udp"
       ? `port ${port.loadBalancerPort}/udp`
       : `port ${port.loadBalancerPort}`;
-  return port.featureFlag === undefined
-    ? name
-    : `${name} (${port.featureFlag})`;
+  return namedFlags && port.featureFlag !== undefined
+    ? `${name} (${port.featureFlag})`
+    : name;
 }
 
 /** Every binding under a published port's container port and protocol, whatever its host port. */
@@ -172,11 +172,13 @@ export function unreadablePorts(
  * mappings are ignored. The service CIDR is not compared: k3d's list does not
  * report it in a form confirmed live (gap for the live proof, #149). Callers
  * refuse `unreadablePorts` first, so every address compared here is known.
+ * `namedFlags` names the feature flag that publishes a differing port (#1683).
  */
 export function drift(
   entry: Record<string, unknown>,
   cluster: K3dCluster,
   inspected?: PortMappings,
+  namedFlags = false,
 ): string[] {
   const differences: string[] = [];
   const compare = (name: string, actual: unknown, wanted: unknown): void => {
@@ -194,7 +196,7 @@ export function drift(
         if (port.hostPort !== undefined) {
           const under = bindingsUnder(mappings, port);
           compare(
-            labelOf(port),
+            labelOf(port, namedFlags),
             under.length
               ? under.map((binding) => String(binding.HostPort)).join(",")
               : "unmapped",
@@ -208,7 +210,7 @@ export function drift(
       );
       if (!addresses.includes(port.hostAddress)) {
         compare(
-          `${labelOf(port)} address`,
+          `${labelOf(port, namedFlags)} address`,
           addresses.join(","),
           port.hostAddress,
         );
@@ -227,7 +229,20 @@ export function unreadableMessage(
   clusterName: string,
   container: string,
   ports: readonly Published[],
+  namedFlags = false,
 ): string {
-  const names = ports.map(labelOf).join(", ");
+  const names = ports.map((port) => labelOf(port, namedFlags)).join(", ");
   return `k3d cluster ${clusterName} does not report the host address of ${names} in \`k3d cluster list --output json\` or \`docker inspect ${container}\`; it cannot be checked against the overlay, and recreating the cluster does not change that. Check that k3d and Docker report the load balancer's port bindings.`;
+}
+
+/**
+ * The refusal when, with the drift-listing-mappings flag on, neither `k3d cluster
+ * list` nor docker inspect reports the load balancer's port mappings. It names the
+ * gap; the cluster cannot be checked, and recreating it does not change that (#1683).
+ */
+export function unmappedMessage(
+  clusterName: string,
+  container: string,
+): string {
+  return `k3d cluster ${clusterName} does not report its load balancer's port mappings in \`k3d cluster list --output json\` or \`docker inspect ${container}\`; it cannot be checked against the overlay, and recreating the cluster does not change that. Check that k3d and Docker report the load balancer's port bindings.`;
 }

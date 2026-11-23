@@ -8,17 +8,8 @@ import {
 } from "../images/index.js";
 import { CommandError, type Runner } from "../runtime/index.js";
 import { ClusterUnavailableError } from "./cluster-unavailable.js";
-import {
-  apiHostAddress,
-  drift,
-  unreadableMessage,
-  unreadablePorts,
-} from "./k3d-drift.js";
-import {
-  inspectPortMappings,
-  inspectionNeeded,
-  loadBalancerContainer,
-} from "./k3d-inspect.js";
+import { apiHostAddress } from "./k3d-drift.js";
+import { refuseDrift } from "./k3d-listing.js";
 import { activePorts, checkHostPorts, type PortProbe } from "./k3d-ports.js";
 
 export type { PortProbe };
@@ -261,26 +252,12 @@ export async function clusterUpK3d(
     runner,
   );
   if (entry !== undefined) {
-    const cluster = k3dCluster(repository.environment);
-    const inspected = inspectionNeeded(repository, entry, cluster)
-      ? await inspectPortMappings(runner, clusterName)
-      : undefined;
-    const unreadable = unreadablePorts(entry, cluster, inspected);
-    if (unreadable.length > 0) {
-      throw new Error(
-        unreadableMessage(
-          clusterName,
-          loadBalancerContainer(clusterName),
-          unreadable,
-        ),
-      );
-    }
-    const differences = drift(entry, cluster, inspected);
-    if (differences.length > 0) {
-      throw new Error(
-        `k3d cluster ${clusterName} differs from the overlay (${differences.join("; ")}); recreate it with \`kore local down --prune\` then \`kore local up\``,
-      );
-    }
+    await refuseDrift(
+      runner,
+      repository.environment,
+      k3dCluster(repository.environment),
+      entry,
+    );
   }
   if (state === "absent") {
     // Refused before any write or create: a taken host port fails here, named (#1198).

@@ -1,6 +1,11 @@
 import { expect, test } from "vitest";
 import type { K3dCluster } from "../config/index.js";
-import { drift, unreadableMessage, unreadablePorts } from "./k3d-drift.js";
+import {
+  drift,
+  unmappedMessage,
+  unreadableMessage,
+  unreadablePorts,
+} from "./k3d-drift.js";
 
 const overlay: K3dCluster = {
   clusterName: "kore-local",
@@ -130,9 +135,38 @@ test("a difference on a feature-flagged port names the flag that publishes it", 
   const preCutover = {
     "30443/tcp": [{ HostIp: "127.0.0.1", HostPort: "8443" }],
   };
-  expect(drift(entry(undefined), flagged, preCutover)).toEqual([
+  expect(drift(entry(undefined), flagged, preCutover, true)).toEqual([
     "port 30443 (platform-dns): 8443 != 443",
   ]);
+});
+
+test("a difference on a feature-flagged port names no flag while the drift-listing-mappings flag is off", () => {
+  const flagged: K3dCluster = {
+    ...overlay,
+    ports: [
+      {
+        hostAddress: "127.0.0.1",
+        hostPort: 443,
+        loadBalancerPort: 30443,
+        featureFlag: "platform-dns",
+      },
+    ],
+  };
+  const preCutover = {
+    "30443/tcp": [{ HostIp: "127.0.0.1", HostPort: "8443" }],
+  };
+  expect(drift(entry(undefined), flagged, preCutover, false)).toEqual([
+    "port 30443: 8443 != 443",
+  ]);
+});
+
+test("the unmapped message names the gap, the container, and never says to recreate the cluster", () => {
+  const message = unmappedMessage("kore-local", "k3d-kore-local-serverlb");
+  expect(message).toContain(
+    "does not report its load balancer's port mappings",
+  );
+  expect(message).toContain("`docker inspect k3d-kore-local-serverlb`");
+  expect(message).toContain("recreating the cluster does not change that");
 });
 
 test("an extra mapping that is not the API port is ignored, even when it is off loopback", () => {
