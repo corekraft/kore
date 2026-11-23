@@ -140,16 +140,22 @@ function launch(
     liveGroups.add(pid);
     child.on("exit", () => liveGroups.delete(pid));
   }
-  const output = { stdout: "", stderr: "" };
+  // Chunks are kept as bytes and decoded once, on demand, so a multi-byte
+  // character split across two chunks decodes whole.
+  const chunks = { stdout: [] as Buffer[], stderr: [] as Buffer[] };
   child.stdout?.on("data", (chunk: Buffer) => {
-    output.stdout += chunk.toString();
+    chunks.stdout.push(chunk);
   });
   child.stderr?.on("data", (chunk: Buffer) => {
-    output.stderr += chunk.toString();
+    chunks.stderr.push(chunk);
   });
   if (options.input !== undefined) {
     child.stdin?.end(options.input);
   }
+  const output = (): Omit<RunResult, "code"> => ({
+    stdout: Buffer.concat(chunks.stdout).toString("utf8"),
+    stderr: Buffer.concat(chunks.stderr).toString("utf8"),
+  });
   return { child, send, output };
 }
 
@@ -212,7 +218,7 @@ export class ProcessRunner implements Runner {
             new CommandTimeoutError(
               command,
               args,
-              { ...output, code: 1 },
+              { ...output(), code: 1 },
               watchdog.timeoutMs,
               watchdog.escalated(),
             ),
@@ -235,7 +241,7 @@ export class ProcessRunner implements Runner {
         }
         watchdog.clear();
         options.signal?.removeEventListener("abort", terminate);
-        const result = { ...output, code: code ?? 1 };
+        const result = { ...output(), code: code ?? 1 };
         if (result.code === 0) {
           resolve(result);
         } else {
