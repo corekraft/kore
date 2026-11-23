@@ -7,6 +7,7 @@ import {
   platformHostnameOwnershipFlag,
   platformSharedGatewayFlag,
 } from "./features.js";
+import { keycloakWaitArgs } from "./platform-keycloak-wait.js";
 import { platformDomainVariable, runTimeDomain } from "./run-time-domain.js";
 import type { Environment } from "./types.js";
 
@@ -409,6 +410,7 @@ export function platformHelmArgs(
   const shared = [
     ...backstageHostArgs(environment, component, env),
     ...keycloakHostArgs(environment, component, env),
+    ...keycloakWaitArgs(environment, component),
     ...zoneArgs(environment, component, env),
     ...sharedGatewayArgs(environment, component, env),
     ...clusterResolutionArgs(environment, component),

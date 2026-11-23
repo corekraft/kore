@@ -8,3 +8,6 @@ database:
 # feature flag, so it has no default here. The issuer is the ClusterIssuer that
 # signs the portal host's certificate.
 issuer: kore-local-ca
+# Set by kore only while platform-keycloak-wait is on: the pod waits for the
+# Keycloak realm's discovery before its proxy starts (issue 1788).
+keycloakWait: false

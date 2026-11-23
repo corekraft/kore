@@ -107,6 +107,7 @@ export {
   gatewayRollbackOrderFlag,
   gatewayClassName,
   ingressFlag,
+  keycloakWaitFlag,
   localImageReuseFlag,
   organizationServiceApisFlag,
   platformArgocdDeliveryFlag,
