@@ -258,16 +258,16 @@ owners.
 
 ### Work
 
-- [ ] Install the platform organization's Argo CD in the core phase, and hand
+- [x] Install the platform organization's Argo CD in the core phase, and hand
       the configuration-phase releases except the image policy to it as Helm
       charts from the platform OCI registry
       ([ADR 0043](../../docs/decisions/0043-platform-configuration-through-argo-cd.md)).
 - [x] Gate application admission on its health, failing closed and naming the
       cause.
-- [ ] Deliver the golden-path BFF and static frontend from git by digest with
+- [x] Deliver the golden-path BFF and static frontend from git by digest with
       an ApplicationSet over the `Service` registrations, so the sync, not
       `kore`, owns their workload.
-- [ ] Reach HTTPS on each service's host.
+- [x] Reach HTTPS on each service's host.
 
 ### Exit Criteria
 
@@ -294,15 +294,23 @@ ready.
 
 ### Work
 
-- [ ] Install the Keycloak operator and the platform organization's Keycloak,
+      - 2026-11-22 owner approved Step 5 items 1, 3 and 4 on the recorded live proof of [#1110](https://github.com/corekraft/kore/issues/1110), run `fresh1110-g` on main `2037c3a6` (2026-11-18, throwaway overlay, existing profile): `kore local up` exited 0 with `platform-argocd-delivery` on; the golden-path ApplicationSet generated the Application from the pushed commit, Synced and Healthy, running `reference@sha256:959014af…` by digest; `https://kore.local:8443/` reached the Gateway and answered 403 without a token; 0 OOMKilled, no breach. The flag is on in `local`.
+
+- [x] Install the Keycloak operator and the platform organization's Keycloak,
       with one realm and groups mirroring the organization
       ([ADR 0040](../../docs/decisions/0040-keycloak-human-identity.md)). Pin
       and evaluate the Crossplane Keycloak provider first.
-- [ ] Install the platform organization's Backstage, signing in through
+
+      - 2026-11-22 owner approved on the recorded live proof of [#1111](https://github.com/corekraft/kore/issues/1111) run j on main `cdb6be38` (idea 0072, confirmed): provider-keycloak Installed and Healthy under Gatekeeper, Realm `platform` and Groups `platform` and `platform-operators` Synced and Ready, no OOMKilled pod.
+
+- [x] Install the platform organization's Backstage, signing in through
       Keycloak and reading clusters as the user, with its catalog built from the
       `Organization` and `Service` objects.
 
       - 2026-11-15 OIDC sign-in and the unauthenticated-request-refused check: not provable: no project command exists (owner decision 2026-11-15, no command signs in through Keycloak or sends a request with no sign-in; tracked on [#616](https://github.com/corekraft/kore/issues/616)). Not ticked, and the matching Exit Criteria stay unproven.
+
+
+      - 2026-11-22 owner approved on [#1115](https://github.com/corekraft/kore/issues/1115) run i on main `a4e61fa6` (idea 0074, confirmed): a Keycloak sign-in through the Crossplane-managed Backstage client reaches Backstage (signed-in call 200) and a request with no sign-in is refused (403); the catalog holds `golden-path-example`, `platform` and `platform-operators` ([#1111](https://github.com/corekraft/kore/issues/1111) run j). Reading clusters as the user was not exercised. Supersedes the 2026-11-15 note above.
 
 - [ ] Show the delivered services in Backstage with their Argo CD sync and
       rollout.
