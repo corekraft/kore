@@ -14,6 +14,7 @@ import {
   gatewayClassName,
   gatewayClassChangeFlag,
   gatewayRollbackOrderFlag,
+  goldenPathSafetyDefaultsFlag,
   goldenPathSigninAfterPortalFlag,
   goldenPathSigninFlag,
   goldenPathTemplateAdmissionFlag,
@@ -251,6 +252,19 @@ test("the recovery refusal flag is named release-recovery-argocd-refusal and is 
   expect(
     featureEnabled(environment(undefined), releaseRecoveryArgocdRefusalFlag),
   ).toBe(false);
+});
+
+test("the safety defaults flag is named golden-path-safety-defaults and is off while an overlay omits it (ADR 0154)", () => {
+  expect(goldenPathSafetyDefaultsFlag).toBe("golden-path-safety-defaults");
+  expect(
+    featureEnabled(environment(undefined), goldenPathSafetyDefaultsFlag),
+  ).toBe(false);
+  expect(
+    featureEnabled(
+      environment({ [goldenPathSafetyDefaultsFlag]: true }),
+      goldenPathSafetyDefaultsFlag,
+    ),
+  ).toBe(true);
 });
 
 test("the template admission flag is named golden-path-template-admission and is off while an overlay omits it", () => {

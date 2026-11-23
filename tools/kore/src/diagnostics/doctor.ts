@@ -1,4 +1,4 @@
-import { totalmem, cpus } from "node:os";
+import { totalmem, cpus, homedir } from "node:os";
 import { statfs } from "node:fs/promises";
 import type { Repository } from "../config/index.js";
 import { managedCluster } from "../config/index.js";
@@ -6,6 +6,7 @@ import { k3dClusterInfo } from "../cluster/index.js";
 import type { Runner } from "../runtime/index.js";
 import { resolverChecks, systemResolverHost } from "../resolver/index.js";
 import { registryNameCheck } from "./registry-name-check.js";
+import { runTimeChecks } from "./run-time-check.js";
 
 export type CheckStatus = "pass" | "warn" | "fail";
 export interface Check {
@@ -227,11 +228,16 @@ async function k3dClusterCheck(
  * Read-only: every probe is a version, list, file read or DNS query, run before
  * anything mutates. A k3d overlay checks k3d, docker, the cluster and the host
  * resolver file (ADR 0132), and with registry-by-name on the registry's name; the host sizing checks apply only to a managed
- * environment, which declares its sizing.
+ * environment, which declares its sizing. The run-time checks (ADR 0164) report
+ * the platform domain as placeholder or set, never its value, and the run-time
+ * values the flags that are on still need. The environment and the machine's
+ * home are injected; a spec passes its own.
  */
 export async function doctor(
   repository: Repository,
   runner: Runner,
+  env: NodeJS.ProcessEnv = process.env,
+  home: string = homedir(),
 ): Promise<Check[]> {
   const k3d = repository.environment.provider === "k3d";
   return [
@@ -252,6 +258,7 @@ export async function doctor(
       systemResolverHost(),
     )),
     ...(await registryNameCheck(repository, runner)),
+    ...(await runTimeChecks(repository.environment, env, home)),
   ];
 }
 

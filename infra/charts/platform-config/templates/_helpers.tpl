@@ -8,6 +8,15 @@ before. kore hands every declared flag to this chart as features.<flag>.
 {{- end -}}
 
 {{/*
+True (a non-empty string) only for the agentgateway class with the
+agentgateway-data-plane-metrics flag on. The Gateway then asks the data-plane
+pods to be scraped (issue 1514); any other state renders as before.
+*/}}
+{{- define "platform-config.agentgatewayMetrics" -}}
+{{- if and (eq .Values.gateway.className "agentgateway") (index (.Values.features | default dict) "agentgateway-data-plane-metrics") -}}true{{- end -}}
+{{- end -}}
+
+{{/*
 True (a non-empty string) only while the platform-shared-gateway flag is on: the
 Gateway gains the platform organization's wildcard listener and its certificate,
 and its Service serves the standard port (ADR 0132). Off, nothing it renders

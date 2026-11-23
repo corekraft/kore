@@ -35,5 +35,7 @@ export function goldenPathArgs(
     ...(golden.signin
       ? ["--set-string", `signin.issuerUri=${golden.signin.issuerUri}`]
       : []),
+    // Only while golden-path-safety-defaults is on, so the flag off passes nothing new (ADR 0154).
+    ...(golden.safetyDefaults ? ["--set", "safetyDefaults=true"] : []),
   ];
 }
