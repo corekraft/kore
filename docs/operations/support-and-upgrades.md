@@ -87,7 +87,7 @@ upgrades nothing.
   release. A kill during a mutation leaves a lock that the next run recovers
   when its owner is gone; read `kore journal --environment local` for what was
   interrupted.
-- **A release Argo CD owns:** Kore never runs `helm rollback` against it (ADR
+- **A release Argo CD owns:** Kore never rolls it back through Helm (ADR
   0153). Roll it back with a `git revert` of its record in
   `infra/catalog/components.yaml`, or turn `platform-argocd-delivery` off to hand
   it back to Helm.
