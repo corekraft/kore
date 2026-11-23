@@ -23,6 +23,9 @@ upstreamImages:
 # identity, while golden-path-template-admission is on. The chart owns it.
 templates:
   repository: "ghcr.io/corekraft/kore/templates"
+  # Audit before enforce: the template policy starts in warn whatever the
+  # platform's trust.mode, and enforces only once its own live outcome is recorded.
+  mode: warn
 # Platform namespaces whose images the kore-upstream-images static pass covers
 # (ADR 0032): istio-system runs the Istio proxy image, cnpg-system the
 # CloudNativePG operator image. Each needs an entry in

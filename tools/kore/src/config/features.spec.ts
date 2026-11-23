@@ -17,6 +17,7 @@ import {
   goldenPathSigninFlag,
   goldenPathTemplateAdmissionFlag,
   ingressFlag,
+  readinessGatedOff,
 } from "./features.js";
 import type { Environment } from "./types.js";
 import {
@@ -231,4 +232,33 @@ test("the golden-path sign-in flag is named golden-path-signin and is off while 
       goldenPathSigninFlag,
     ),
   ).toBe(true);
+});
+
+test("a readiness resource gated by a flag is skipped while that flag is off, and waited on once it is on (issue 1884)", () => {
+  const component = {
+    readinessFlags: {
+      "clusterimagepolicy.policy.sigstore.dev/kore-template-images":
+        goldenPathTemplateAdmissionFlag,
+    },
+  };
+  const resource =
+    "clusterimagepolicy.policy.sigstore.dev/kore-template-images";
+  expect(readinessGatedOff(environment(undefined), component, resource)).toBe(
+    true,
+  );
+  expect(
+    readinessGatedOff(
+      environment({ [goldenPathTemplateAdmissionFlag]: true }),
+      component,
+      resource,
+    ),
+  ).toBe(false);
+  expect(
+    readinessGatedOff(
+      environment(undefined),
+      component,
+      "clusterimagepolicy.policy.sigstore.dev/kore-platform-images",
+    ),
+  ).toBe(false);
+  expect(readinessGatedOff(environment(undefined), {}, resource)).toBe(false);
 });

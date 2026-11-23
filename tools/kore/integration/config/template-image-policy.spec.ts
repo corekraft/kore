@@ -17,6 +17,7 @@ const templateFlag = "golden-path-template-admission";
 async function render(
   trust: Record<string, unknown>,
   features: Record<string, boolean> = {},
+  sets: string[] = [],
 ): Promise<string[]> {
   const root = await findRoot();
   const args = [
@@ -30,6 +31,9 @@ async function render(
   ];
   for (const [flag, on] of Object.entries(features)) {
     args.push("--set", `features.${flag}=${on}`);
+  }
+  for (const set of sets) {
+    args.push("--set", set);
   }
   const { stdout } = await run("helm", args);
   return stdout.split(/^---$/m);
@@ -69,15 +73,37 @@ test("with the flag on and keyless trust, a template policy admits the template 
   );
 });
 
-test("the template policy starts in the environment's trust mode, warn while auditing", async () => {
-  const warn = templatePolicy(
-    await render(keyless("warn"), { [templateFlag]: true }),
-  );
-  assert.match(warn, /mode: warn/);
-  const enforce = templatePolicy(
+test("the template policy audits by default, whatever the platform's trust mode, so enforcing the platform does not enforce the templates", async () => {
+  const policy = templatePolicy(
     await render(keyless("enforce"), { [templateFlag]: true }),
   );
-  assert.match(enforce, /mode: enforce/);
+  assert.match(policy, /mode: warn/);
+});
+
+test("the template policy enforces only when templates.mode says so", async () => {
+  const policy = templatePolicy(
+    await render(keyless("warn"), { [templateFlag]: true }, [
+      "templates.mode=enforce",
+    ]),
+  );
+  assert.match(policy, /mode: enforce/);
+});
+
+test("the template policy reads its signatures through the trust signaturePullSecret, as the platform policy does", async () => {
+  const withSecret = templatePolicy(
+    await render(
+      { ...keyless(), signaturePullSecret: "kore-registry-read" },
+      { [templateFlag]: true },
+    ),
+  );
+  assert.ok(
+    withSecret.includes('- name: "kore-registry-read"'),
+    "names the pull secret as a signature source",
+  );
+  const without = templatePolicy(
+    await render(keyless(), { [templateFlag]: true }),
+  );
+  assert.ok(!without.includes("signaturePullSecrets"), "no source without one");
 });
 
 test("with the flag off, no template policy is rendered, so the flag-off render is unchanged", async () => {

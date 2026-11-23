@@ -66,6 +66,8 @@ export interface Component {
   timeout: string;
   values?: string[];
   readiness: string[];
+  /** Readiness resources that exist only while a flag is on, keyed by resource (issue 1884). */
+  readinessFlags?: Record<string, string>;
   helm?: HelmOptions;
   /** Probe fields a chart gives no value for, applied by a Helm post-renderer (see the probe patches ADR). */
   patches?: ProbePatch[];

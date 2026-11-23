@@ -48,6 +48,20 @@ export function componentGatedOff(
   );
 }
 
+/**
+ * Whether a readiness resource is skipped because the flag that creates it is
+ * off: a component's readinessFlags names the flag per resource, so a resource
+ * that exists only behind a flag is not waited on while the flag is off (issue 1884).
+ */
+export function readinessGatedOff(
+  environment: Pick<Environment, "features">,
+  component: { readinessFlags?: Record<string, string> | undefined },
+  resource: string,
+): boolean {
+  const flag = component.readinessFlags?.[resource];
+  return flag !== undefined && !featureEnabled(environment, flag);
+}
+
 /** Catalog components the environment installs, in dependency order. */
 export function enabledComponents(repository: Repository): Component[] {
   return orderedComponents(repository.catalog).filter(

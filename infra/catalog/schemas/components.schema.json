@@ -96,6 +96,14 @@
             "minItems": 1,
             "items": { "type": "string", "minLength": 1 }
           },
+          "readinessFlags": {
+            "type": "object",
+            "description": "Readiness resources that exist only while a flag is on, keyed by the resource name (in readiness) with the flag as value; a flag-off resource is not waited on.",
+            "additionalProperties": {
+              "type": "string",
+              "pattern": "^[a-z][a-z0-9-]*$"
+            }
+          },
           "patches": {
             "type": "array",
             "items": {

@@ -20,7 +20,7 @@ metadata:
   name: kore-template-images
   labels: {app.kubernetes.io/managed-by: Helm}
 spec:
-  mode: {{ required "trust.mode is required (warn or enforce)" .Values.trust.mode }}
+  mode: {{ required "templates.mode is required (warn or enforce)" .Values.templates.mode }}
   images:
     - glob: {{ printf "%s/**" .Values.templates.repository | quote }}
   authorities:
@@ -34,4 +34,9 @@ spec:
           {{- end }}
       ctlog:
         url: https://rekor.sigstore.dev
+      {{- with .Values.trust.signaturePullSecret }}
+      source:
+        - signaturePullSecrets:
+            - name: {{ . | quote }}
+      {{- end }}
 {{- end }}
