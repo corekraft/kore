@@ -1,7 +1,15 @@
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { FakeTerminals, type Terminals } from "../terminal/index.js";
+import { hcMessage } from "./backend.js";
 import { forceRecordClose } from "./close-force-record.js";
 import type { SessionRecord, SessionRegistry } from "./registry.js";
+
+vi.mock("./backend.js", () => ({ hcMessage: vi.fn() }));
+
+beforeEach(() => {
+  vi.resetAllMocks();
+  vi.mocked(hcMessage).mockReturnValue("the hc message");
+});
 
 const NOW = "2026-01-02T03:04:05.000Z";
 
@@ -130,17 +138,16 @@ describe("session close --force-record keeps the record it cannot prove is safe 
     expect(registry.remove).not.toHaveBeenCalled();
   });
 
-  it("keeps the record when hc cannot say whether the terminal is live, and names hc's hint", async () => {
+  it("keeps the record when hc cannot say whether the terminal is live, and names hc's message", async () => {
+    const refusal = {
+      error: {
+        kind: "unreachable",
+        message: "the hc core is not running",
+        hint: "start hc, then retry",
+      },
+    };
     const unreachable = {
-      get: vi.fn(() =>
-        Promise.resolve({
-          error: {
-            kind: "unreachable",
-            message: "the hc core is not running",
-            hint: "start hc, then retry",
-          },
-        }),
-      ),
+      get: vi.fn(() => Promise.resolve(refusal)),
     } as unknown as Terminals;
     const registry = registryOf(recordOf("image-trust-writer", "t2"));
 
@@ -150,8 +157,9 @@ describe("session close --force-record keeps the record it cannot prove is safe 
       registry.fake,
     );
 
+    expect(hcMessage).toHaveBeenCalledWith(refusal);
     expect(result).toEqual({
-      error: expect.stringContaining("start hc, then retry"),
+      error: expect.stringContaining("(the hc message)"),
     });
     expect(registry.remove).not.toHaveBeenCalled();
   });
