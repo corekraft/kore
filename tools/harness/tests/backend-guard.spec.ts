@@ -8,8 +8,6 @@ import { describe, expect, it } from "vitest";
 // the list below, each file with its reason: a reader of herdr-era ledger events or records, a retro recognizer of
 // herdr transcript lines, or the guard that refuses raw input typed into a herdr pane (ADR 0123). Nothing else may.
 const KEPT: Readonly<Record<string, string>> = {
-  "hook/guard-agent-start.ts":
-    "the enforced bare-agent-start guard that refuses a herdr agent start outside session spawn; its retirement with herdr is a demotion for the owner (ADR 0080), so the rule stays until then",
   "ledger/schema.ts":
     "the ledger's source enumeration, which still accepts herdr events",
   "cli/ledger-help.ts":

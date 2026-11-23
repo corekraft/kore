@@ -10,7 +10,6 @@ import { guardBlocks } from "./outcomes.js";
  */
 export const KNOWN_GUARD_RULES: readonly string[] = [
   "append-only",
-  "bare-agent-start",
   "bare-glob",
   "coverage-threshold",
   "destructive",

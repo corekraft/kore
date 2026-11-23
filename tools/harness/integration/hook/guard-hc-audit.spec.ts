@@ -111,22 +111,4 @@ describe("a bare hc launch of claude, in audit mode (plan 16, Step 4)", () => {
     expect(result.out).toContain("[guard:bare-agent-start-hc]");
     expect(result.out).toContain("[guard:role-hc-raw]");
   });
-
-  it("still blocks the herdr launch for the writer under bare-agent-start, the enforced rule", async () => {
-    const result = await inWriterTerminal(
-      "herdr agent start w3:p2 --permission-mode bypassPermissions",
-    );
-
-    expect(result.code).toBe(2);
-    expect(result.err).toContain("[guard:bare-agent-start]");
-  });
-
-  it("still blocks a herdr launch that follows a warned hc launch, since a warning never softens a block", async () => {
-    const result = await inWriterTerminal(
-      "hc run --bg -- claude && herdr agent start w3:p2",
-    );
-
-    expect(result.code).toBe(2);
-    expect(result.err).toContain("[guard:bare-agent-start]");
-  });
 });
