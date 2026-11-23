@@ -1077,7 +1077,7 @@ owner's. Older verdicts with no line still count.
 
 The same line starts every other comment or review the harness posts: `judge
 send-back`, `judge approve` (the approval's review body), `guardrail request`,
-`outcome record` and `outcome close`, `decision make`, `evaluate`, and the `pr open` body, which
+`outcome record`, `decision make`, `evaluate`, and the `pr open` body, which
 keeps its `Safety pattern:` line last. The posting commands take no `--role`
 flag, and a command refuses to post when the environment cannot name its sender.
 The module also refuses a body with a line of guardrail approval syntax,

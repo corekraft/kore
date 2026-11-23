@@ -85,7 +85,6 @@ describe("role-read-only: the harness is allowlisted per role", () => {
       "session wait a",
       "session close a",
       "outcome record --idea 1",
-      "outcome close --idea 1",
       "idea sync --idea 1",
     ]) {
       blocked(

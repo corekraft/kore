@@ -49,7 +49,7 @@ export const domainGuides: Record<DomainName, DomainGuide> = {
   outcome: {
     purpose:
       "Records an idea's measured outcome on its record and its issue, and closes the issue once the outcome is recorded.",
-    flow: "Run outcome record with the result (confirmed, refuted or inconclusive), its evidence and its summary; it publishes the outcome and closes the issue, and outcome close finishes publishing when a run stopped partway.",
+    flow: "Run outcome record with the result (confirmed, refuted or inconclusive), its evidence and its summary; it publishes the outcome and closes the issue, and rerunning it with the same flags finishes publishing when a run stopped partway.",
   },
   decision: {
     purpose:

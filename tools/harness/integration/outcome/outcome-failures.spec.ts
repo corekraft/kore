@@ -12,25 +12,13 @@ describe("harness outcome record failing on gh", () => {
         : good(command, args, options);
     expect(await run(record(), h.deps)).toBe(1);
     expect(h.err()).toMatch(/gh issue close failed for issue 300: HTTP 502/);
-    expect(h.err()).toMatch(/harness outcome close/);
+    expect(h.err()).toMatch(/harness outcome record/);
     expect(h.get(PATH)).toMatch(/^outcome: confirmed$/m);
     expect(issue.state).toBe("OPEN");
     expect(h.get(".kore/state/ledger.jsonl")).toBeUndefined();
 
     h.runner.run = good;
-    expect(
-      await run(
-        [
-          "outcome",
-          "close",
-          "--idea",
-          "1",
-          "--ledger",
-          "/repo/.kore/state/ledger.jsonl",
-        ],
-        h.deps,
-      ),
-    ).toBe(0);
+    expect(await run(record(), h.deps)).toBe(0);
     expect(issue.state).toBe("CLOSED");
     expect(
       (h.get(".kore/state/ledger.jsonl") ?? "").trim().split("\n"),
@@ -67,33 +55,21 @@ describe("harness outcome with a missing label", () => {
     expect(h.err()).toContain(
       "gh label create outcome:confirmed --repo corekraft/kore",
     );
-    expect(h.err()).toMatch(/harness outcome close --idea 0001/);
+    expect(h.err()).toMatch(/harness outcome record --idea 0001/);
     expect(h.err()).not.toMatch(/auth status/);
     expect(issue.state).toBe("OPEN");
     expect(issue.comments).toHaveLength(0);
   });
 });
 
-describe("harness outcome close refusals", () => {
+describe("harness outcome record rerun refusals", () => {
   it("refuses an outcome line the tool did not write, naming how to redo it", async () => {
     const { h } = await linked();
     h.set(
       PATH,
       (h.get(PATH) ?? "").replace("issue: 300", "issue: 300\noutcome: won"),
     );
-    expect(
-      await run(
-        [
-          "outcome",
-          "close",
-          "--idea",
-          "1",
-          "--ledger",
-          "/repo/.kore/state/ledger.jsonl",
-        ],
-        h.deps,
-      ),
-    ).toBe(1);
+    expect(await run(record(), h.deps)).toBe(1);
     expect(h.err()).toMatch(/did not write/);
     expect(ghWrites(h)).toHaveLength(0);
   });
@@ -102,7 +78,7 @@ describe("harness outcome close refusals", () => {
     const { h } = await linked();
     expect(
       await run(
-        ["outcome", "close", "--ledger", "/repo/.kore/state/ledger.jsonl"],
+        ["outcome", "record", "--ledger", "/repo/.kore/state/ledger.jsonl"],
         h.deps,
       ),
     ).toBe(1);
