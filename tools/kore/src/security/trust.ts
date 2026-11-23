@@ -1,7 +1,11 @@
 import { access, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { isLocalProvider, type Repository } from "../config/index.js";
+import {
+  isLocalProvider,
+  type Repository,
+  internalGateway,
+} from "../config/index.js";
 import { assertExpectedCluster } from "../cluster/index.js";
 import { CommandError } from "../runtime/index.js";
 import type { Runner } from "../runtime/index.js";
@@ -29,7 +33,7 @@ async function ensureNamespaces(
   repository: Repository,
   runner: Runner,
 ): Promise<void> {
-  const namespace = repository.environment.gateway.namespace;
+  const namespace = internalGateway(repository.environment).namespace;
   for (const targetNamespace of new Set([namespace, certificateNamespace])) {
     const ownership =
       targetNamespace === namespace
@@ -156,6 +160,11 @@ async function applyIssuer(
     ],
     { capture: false },
   );
+}
+
+/** The issuer the local trust is reported under: the internal Gateway's name, as the trust command always printed it. */
+export function trustIssuer(repository: Repository): string {
+  return internalGateway(repository.environment).name;
 }
 
 export async function installLocalTrust(

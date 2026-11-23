@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { gatewayEntryPort } from "../config/index.js";
+import { gatewayEntryPort, internalGateway } from "../config/index.js";
 import { checkSignIn, goldenPathSignInTarget } from "../testing/index.js";
 import { goldenPathReach } from "./golden-path-reach.live.js";
 import { live, setup } from "./identity-live.js";
@@ -35,7 +35,8 @@ test(
     }
     const { repository, runner } = await setup();
     const target = goldenPathSignInTarget(repository.environment, service);
-    const { kubeContext, name, gateway } = repository.environment;
+    const { kubeContext, name } = repository.environment;
+    const gateway = internalGateway(repository.environment);
     const reach = await goldenPathReach(runner, {
       kubeContext,
       namespace: `${service}--${name}`,
