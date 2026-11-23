@@ -134,21 +134,23 @@ against that Keycloak server, so it cannot connect until the server starts, and 
 waited on those Applications, so it could not pass. Moving the ClusterProviderConfig
 earlier would not have been enough: the Client still needs the server.
 
-- **While both `golden-path-signin` and `portal-staged-install` are on, the delivery
-  gate waits only on the platform Applications, those without the
-  `platform.kore.dev/service` label.** A labelled Application is a golden-path
+- **While `golden-path-signin`, `portal-staged-install` and `golden-path-signin-after-portal`
+  are all on, the delivery gate waits only on the platform Applications, those without
+  the `platform.kore.dev/service` label.** The third flag is off in every overlay, so
+  the new order is taken only after a recorded live run turns it on. A labelled Application is a golden-path
   Service. The label scope never excuses an unlabelled Application, so a platform
   failure still blocks the gate.
 - **The run then awaits the labelled Applications after `reconcileStagedConfigurations`,**
   within the platform Keycloak's catalog timeout, before enrollment and the gate. The
   ApplicationSet owns the Applications and Argo CD the sync, as before; only the set
   of Applications a wait reads changes.
-- **With either flag off, the gate waits on every Application, as before.** With the
+- **With any of the three flags off, the gate waits on every Application, as before.** With the
   portal disabled there is no platform Keycloak to wait for, so nothing is deferred.
 - Rejected: installing the ClusterProviderConfig before the gate. The Client would
   still fail until the Keycloak server started, so the gate would still block.
 - Rejected: turning `portal-staged-install` off in the local overlay. The staging
   exists to keep Keycloak's start off the burst of Argo CD's first sync (above), and
   the local host cannot pass the gate with the portal off.
-- Unproven live: the change needs a live `kore local up` on a host that can run the
-  golden-path BFF image before merge, because it alters the local gate's order.
+- Unproven live: the new order needs a live `kore local up` on a host that can run the
+  golden-path BFF image, with the flag on, before `golden-path-signin-after-portal` is
+  activated. Until then local keeps the gate as it was.
