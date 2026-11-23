@@ -6,7 +6,7 @@ measurement: Read the ledger's terminal-source events and the session commands' 
 safety-pattern: feature-flagged
 date: 2026-11-23
 issue: 1783
-parent: 1765
+parent: "#1765"
 outcome: confirmed
 ---
 
