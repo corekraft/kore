@@ -10,6 +10,8 @@ import { findRoot } from "../../src/config/index.js";
 
 const run = promisify(execFile);
 
+type Json = Record<string, any>; // oxlint-disable-line typescript/no-explicit-any
+
 async function repoFile(path: string): Promise<string> {
   return readFile(join(await findRoot(), path), "utf8");
 }
@@ -51,14 +53,9 @@ test("the service recording rules are loaded: the ConfigMap carries the file and
   );
   assert.match(configMap, /^ {2}services\.yaml: /m);
 
-  const values = JSON.parse(await repoFile(prometheusOverlay)) as {
-    server: {
-      extraConfigmapMounts: { configMap: string; mountPath: string }[];
-    };
-    serverFiles: { "prometheus.yml": { rule_files: string[] } };
-  };
+  const values: Json = JSON.parse(await repoFile(prometheusOverlay));
   const mount = values.server.extraConfigmapMounts.find(
-    (m) => m.configMap === "kore-prometheus-rules",
+    (entry: Json) => entry.configMap === "kore-prometheus-rules",
   );
   assert.ok(mount, "the kore-prometheus-rules ConfigMap is mounted");
   const ruleFiles = values.serverFiles["prometheus.yml"].rule_files;
@@ -77,9 +74,7 @@ test("the service recording rules are loaded: the ConfigMap carries the file and
 });
 
 test("kube-state-metrics exports the service label for Deployments and Pods, and nothing else is added to the allowlist", async () => {
-  const values = JSON.parse(await repoFile(commonPrometheus)) as {
-    "kube-state-metrics": { metricLabelsAllowlist: string[] };
-  };
+  const values: Json = JSON.parse(await repoFile(commonPrometheus));
   assert.deepEqual(values["kube-state-metrics"].metricLabelsAllowlist, [
     "deployments=[app.kubernetes.io/part-of]",
     "pods=[app.kubernetes.io/part-of]",
