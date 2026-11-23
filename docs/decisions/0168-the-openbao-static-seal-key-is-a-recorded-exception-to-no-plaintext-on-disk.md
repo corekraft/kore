@@ -2,7 +2,7 @@
 status: proposed
 summary: The vps OpenBao unseals itself with a static seal whose 32-byte key is a root-only plaintext file on the node's root filesystem, a recorded exception to "secrets never touch disk in plaintext", because unattended recovery after the weekly reboot and that rule cannot both hold on one node with no off-box KMS.
 date: 2026-11-20
-last-verified: 2026-11-20
+last-verified: 2026-11-23
 ---
 
 # ADR 0168: The OpenBao static seal key is a recorded exception to no plaintext on disk
@@ -13,7 +13,7 @@ Refines: [ADR 0009](0009-encrypted-secrets-through-external-secrets.md) and the 
 
 ## Context
 
-Application secrets on vps are held by OpenBao behind the existing External Secrets contract (the ADR "Each suborg reads its own secret store"). OpenBao starts sealed after every restart. The host reboots weekly inside a maintenance window and must recover without a hand. Unsealing by hand (Shamir shares) keeps the plaintext rule but breaks that recovery. Unsealing by a cloud KMS or a second always-on OpenBao is impossible: the box is one node with no off-box service. A TPM seal needs hardware that is not known to exist on the rented machine.
+Application secrets on vps are held by OpenBao behind the existing External Secrets contract ([ADR 0167](0167-application-secrets-come-from-openbao-behind-the-platform-secrets-contract-one-path-per-suborg.md)). OpenBao starts sealed after every restart. The host reboots weekly inside a maintenance window and must recover without a hand. Unsealing by hand (Shamir shares) keeps the plaintext rule but breaks that recovery. Unsealing by a cloud KMS or a second always-on OpenBao is impossible: the box is one node with no off-box service. A TPM seal needs hardware that is not known to exist on the rented machine.
 
 The node already keeps one key beside the data it protects: k3s writes its AES key for Secret encryption to the k3s data directory on the same disks.
 

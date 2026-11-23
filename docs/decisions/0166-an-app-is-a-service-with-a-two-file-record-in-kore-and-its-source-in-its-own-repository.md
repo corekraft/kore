@@ -2,7 +2,7 @@
 status: proposed
 summary: An application's source lives in its own repository and holds no manifests; Kore holds one app record per service as two files, a human-reviewed spec file and a release file only the platform writes, in the environment overlay of the cluster that runs it, validated before any cluster is touched.
 date: 2026-11-20
-last-verified: 2026-11-20
+last-verified: 2026-11-23
 ---
 
 # ADR 0166: An app is a service with a two-file record in Kore and its source in its own repository
