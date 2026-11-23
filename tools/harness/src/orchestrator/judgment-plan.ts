@@ -21,46 +21,11 @@ export type {
   WorkRole,
 } from "./judgment-check.js";
 
-/** The lines that fence a judgment pane's plan, so the tick finds it among the pane's other output (ADR 0121). */
-export const PLAN_BEGIN = "PLAN-JSON";
-export const PLAN_END = "END-PLAN-JSON";
-
 const TOP_KEYS = ["reads", "work", "stop"];
 const READ_FIELDS = ["question", "paths"];
-const BEGIN_LINE = /^[ \t]*(?:[●⏺][ \t]+)?PLAN-JSON[ \t\r]*$/;
-const END_LINE = /^[ \t]*(?:[●⏺][ \t]+)?END-PLAN-JSON[ \t\r]*$/;
 
 export type PlanRead =
   { ok: true; raw: unknown } | { ok: false; error: string };
-
-/** The JSON between the last pair of plan markers in the pane's text, parsed but not yet trusted. */
-export function readPlan(pane: string): PlanRead {
-  const lines = pane.split("\n");
-  let found: string | undefined;
-  let start: number | undefined;
-  lines.forEach((line, at) => {
-    if (BEGIN_LINE.test(line)) {
-      start = at;
-    } else if (END_LINE.test(line) && start !== undefined) {
-      found = lines.slice(start + 1, at).join("\n");
-      start = undefined;
-    }
-  });
-  if (found === undefined) {
-    return {
-      ok: false,
-      error: `The judgment pane printed no plan; it must end with one JSON object between the ${PLAN_BEGIN} line and the ${PLAN_END} line. Nothing was started; rerun the judgment pane.`,
-    };
-  }
-  try {
-    return { ok: true, raw: JSON.parse(found) as unknown };
-  } catch {
-    return {
-      ok: false,
-      error: `The judgment pane's plan is not valid JSON; it must be one JSON object between ${PLAN_BEGIN} and ${PLAN_END}. Nothing was started.`,
-    };
-  }
-}
 
 /**
  * Treats the plan as untrusted model text: the whole plan is checked, and one bad

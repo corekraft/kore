@@ -11,8 +11,8 @@ import {
   type Flow,
   type FlowPane,
 } from "./judgment-panes.js";
-import { checkNames, checkPlan, readPlan } from "./judgment-plan.js";
-import { readSummary } from "./judgment-summary.js";
+import { checkNames, checkPlan } from "./judgment-plan.js";
+import { readPlanOf, readSummaryOf } from "./judgment-read.js";
 import type { JudgmentPorts } from "./tick-judgment.js";
 
 export const IDEA = "0007";
@@ -37,7 +37,6 @@ export function ports(over: Partial<JudgmentPorts> = {}): JudgmentPorts {
   return {
     spawn: vi.fn().mockResolvedValue(undefined),
     close: vi.fn().mockResolvedValue(undefined),
-    paneText: vi.fn().mockResolvedValue(""),
     reportOf: vi.fn().mockResolvedValue(undefined),
     delivery: vi.fn().mockResolvedValue({ merged: false, pr: PR }),
     needsInfo: vi.fn().mockResolvedValue(undefined),
@@ -66,8 +65,10 @@ export function primeMocks(): void {
   vi.mocked(flowOf).mockReturnValue(flow());
   vi.mocked(judgmentBrief).mockReturnValue("JUDGMENT BRIEF");
   vi.mocked(readerBrief).mockReturnValue("READER BRIEF");
-  vi.mocked(readSummary).mockImplementation((text) => `S(${text})`);
-  vi.mocked(readPlan).mockReturnValue({ ok: true, raw: {} });
+  vi.mocked(readSummaryOf).mockImplementation(
+    async (_reads, name) => `S(${name})`,
+  );
+  vi.mocked(readPlanOf).mockResolvedValue({ ok: true, raw: {} });
   vi.mocked(checkNames).mockImplementation((_idea, checked) => checked);
   vi.mocked(checkPlan).mockReturnValue({
     ok: true,

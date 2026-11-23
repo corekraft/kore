@@ -44,13 +44,11 @@ export interface JudgmentOutcome {
 /** Asks the host bounds whether one pane may start now; undefined when it may, and counts the start if so. */
 export type Admit = () => Promise<BoundName | undefined>;
 
-/** Every side effect a judgment step has: `session spawn`, `session close`, the pane's text, the PR and the label. */
+/** Every side effect a judgment step has: `session spawn`, `session close`, the session's report, the PR and the label. */
 export interface JudgmentPorts {
   spawn: (launch: Launch) => Promise<void>;
   close: (name: string) => Promise<void>;
-  /** The finished pane's text, which carries its plan or its summary; read-only. */
-  paneText: (name: string) => Promise<string>;
-  /** The report a finished hc session wrote, read-only; undefined when it wrote none, as a herdr pane never does. */
+  /** The report a finished hc session wrote, read-only; undefined when it wrote none. */
   reportOf: AnswerReads["reportOf"];
   /** The idea's pull request, read-only, so a brief can name it. */
   delivery: (issue: number) => Promise<Delivery>;

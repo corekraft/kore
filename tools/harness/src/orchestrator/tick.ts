@@ -57,8 +57,6 @@ export type TickPorts = Pick<
   head(pr: number): Promise<string>;
   /** Whether a principles-review verdict is already posted for the head; read-only. */
   reviewPosted(pr: number, head: string): Promise<boolean>;
-  /** A finished pane's text, read before the pane is closed; read-only. */
-  paneText(name: string): Promise<string>;
   /** The report a finished hc session wrote, read-only; undefined when it wrote none. */
   reportOf: JudgmentPorts["reportOf"];
   /** Labels the issue `needs-info` with the reason, for a judgment flow that stops (ADR 0121). */

@@ -218,11 +218,6 @@ export class TickCli extends HarnessCli {
     );
   }
 
-  /** A finished judgment or reader pane's text, read through its session result before the pane closes; read-only. */
-  async paneText(name: string): Promise<string> {
-    return (await this.collect(name)).text;
-  }
-
   /**
    * Labels the issue `needs-info`, then comments the reason under the tick's sender line. The
    * reason is refused, before any write, when it carries guardrail approval syntax.

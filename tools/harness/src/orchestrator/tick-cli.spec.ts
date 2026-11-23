@@ -192,29 +192,6 @@ describe("TickCli panes", () => {
 });
 
 describe("TickCli judgment reads and labels", () => {
-  it("reads a finished session's text from the summary its report carries, and reads no terminal", async () => {
-    const { cli, calls } = setup(() => ({
-      stdout: JSON.stringify({
-        outcome: "done",
-        summary: "PLAN-JSON",
-      }),
-    }));
-
-    expect(await cli.paneText("idea-0001-judgment-r1")).toBe("PLAN-JSON");
-    expect(calls).toEqual([
-      {
-        command: "node",
-        args: [
-          "skills/bin/harness.mjs",
-          "session",
-          "wait",
-          "idea-0001-judgment-r1",
-          "--json",
-        ],
-      },
-    ]);
-  });
-
   it("labels the issue needs-info, then comments the reason under the tick's own sender line", async () => {
     const { cli, calls } = setup();
 

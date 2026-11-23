@@ -2,7 +2,8 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { decide } from "./judgment-flow.js";
 import { judgmentBrief, readerBrief } from "./judgment-briefs.js";
 import { flowOf } from "./judgment-panes.js";
-import { checkPlan, readPlan } from "./judgment-plan.js";
+import { checkPlan } from "./judgment-plan.js";
+import { readPlanOf } from "./judgment-read.js";
 import {
   IDEA,
   ISSUE,
@@ -32,9 +33,11 @@ vi.mock("./judgment-panes.js", () => ({
 vi.mock("./judgment-plan.js", () => ({
   checkNames: vi.fn(),
   checkPlan: vi.fn(),
-  readPlan: vi.fn(),
 }));
-vi.mock("./judgment-summary.js", () => ({ readSummary: vi.fn() }));
+vi.mock("./judgment-read.js", () => ({
+  readPlanOf: vi.fn(),
+  readSummaryOf: vi.fn(),
+}));
 
 const READS = [
   { question: "where is it", paths: ["a.ts"] },
@@ -126,7 +129,7 @@ describe("TickJudgment.consume: the reads a decision may take", () => {
 
   it("refuses a pane that printed no plan with the reason, and checks no plan", async () => {
     vi.mocked(flowOf).mockReturnValue(decidingFlow("done"));
-    vi.mocked(readPlan).mockReturnValue({ ok: false, error: "no plan" });
+    vi.mocked(readPlanOf).mockResolvedValue({ ok: false, error: "no plan" });
 
     await new TickJudgment(ports()).consume(IDEA, ISSUE, [], admitted());
 
