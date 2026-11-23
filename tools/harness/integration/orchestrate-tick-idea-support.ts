@@ -174,7 +174,7 @@ export function host(prechecks: unknown[]): Host {
 
 /** A repo root whose local overlay turns `automatic-retro` on or off. */
 export function repo(retro: boolean): string {
-  const root = mkdtempSync(join(tmpdir(), "orchestrate-run-"));
+  const root = mkdtempSync(join(tmpdir(), "orchestrate-tick-idea-"));
   const dir = join(root, "infra/environments/local");
   mkdirSync(dir, { recursive: true });
   writeFileSync(

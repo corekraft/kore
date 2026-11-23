@@ -306,7 +306,7 @@ export async function runOnTicks(
 
 export const tickCommand = {
   summary:
-    "Advances each approved idea one step per pass, behind the orchestrator-tick flag.",
+    "Advances each approved idea one step per pass behind the orchestrator-tick flag; with --idea and --loop, runs one idea to its end.",
   options: {
     idea: "string",
     loop: "boolean",

@@ -49,7 +49,7 @@ describe("orchestrate tick, which mode its flags pick", () => {
     expect(leasedPass).not.toHaveBeenCalled();
   });
 
-  it("hands --idea with --loop to the one-idea run, which not the background loop", async () => {
+  it("hands --idea with --loop to the one-idea run, not the background loop", async () => {
     vi.mocked(runIdea).mockResolvedValue(1);
     const { context } = setup({ loop: true, idea: "7", kind: "experiment" });
     vi.mocked(hasOutcomeFlags).mockReturnValue(true);

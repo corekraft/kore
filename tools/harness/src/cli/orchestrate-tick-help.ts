@@ -3,7 +3,7 @@ import type { CommandHelp } from "../runtime/index.js";
 /** The orchestrate tick's help record; it sits here so orchestrate-tick.ts stays under its line limit. */
 export const tickHelp: CommandHelp = {
   purpose:
-    "Advances each approved idea by at most one step in one pass: starts its writer, closes a finished pane, runs the precheck and the judge, and relaunches a writer after a send-back. It advances nothing unless the local orchestrator-tick flag is on.",
+    "Advances each approved idea by at most one step in one pass: starts its writer, closes a finished pane, runs the precheck and the judge, and relaunches a writer after a send-back. It advances nothing unless the local orchestrator-tick flag is on. With --idea and --loop it runs that one idea to its end instead (the idea run): with the flag on as passes scoped to it, with the flag off through its writer and judge directly.",
   when: "When the orchestrator-tick flag is on and approved ideas should move on: run one pass, or with --loop run passes in the background. When one approved idea should run to its recorded outcome in this terminal: give --idea with --loop.",
   whenNot:
     "When the outcome is not known yet, give none of the five outcome flags: the one-idea run stops after the merge and exits 1. For the loop's restart job, use --install and let the owner start it.",
