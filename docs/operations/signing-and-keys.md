@@ -40,7 +40,9 @@ Trust moves by a reviewed change, never by a wildcard:
    workflow signs the digest and attaches `images.lock.json` and
    `platform-images.lock.json`.
 2. Copy the digest into `infra/catalog/images.lock.json` and add the tag's
-   subject to the managed environment's `trust.subjects` in a pull request.
+   subject to the managed environment's `trust.subjects` in a pull request. A
+   golden-path template image is admitted by its own authority instead,
+   `templates.trust.subjects` in the same overlay ([ADR 0181](../decisions/0181-namespaces-delivered-from-git-are-enrolled-in-image-admission-by-their-creator.md)).
 3. `kore validate --environment managed-example --platform-image-lock <file>`
    checks the lock against the overlay and the image policy.
 4. Merge, then reconcile the managed cluster (`kore platform up`). Keep the old

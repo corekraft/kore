@@ -6,6 +6,7 @@ import { test } from "vitest";
 import { findRoot } from "../../src/config/index.js";
 
 // Docs: docs/decisions/0045-static-frontends-as-signed-images.md (the template images),
+// docs/decisions/0181-namespaces-delivered-from-git-are-enrolled-in-image-admission-by-their-creator.md,
 // infra/plans/15-next-horizon.md Step 4 (issue 1884).
 
 const run = promisify(execFile);
@@ -14,10 +15,15 @@ const subject =
   "https://github.com/corekraft/kore/.github/workflows/release.yaml@refs/tags/v0.22.0";
 const templateFlag = "golden-path-template-admission";
 
+/**
+ * Renders the image-policy chart. The platform trust and the template trust are
+ * separate inputs (templates.trust, issue 1884), so each test states both.
+ */
 async function render(
-  trust: Record<string, unknown>,
+  templateTrust: Record<string, unknown>,
   features: Record<string, boolean> = {},
   sets: string[] = [],
+  platformTrust: Record<string, unknown> = keyless(),
 ): Promise<string[]> {
   const root = await findRoot();
   const args = [
@@ -27,7 +33,9 @@ async function render(
     "--set-string",
     "platform.registry.address=registry.example:5000",
     "--set-json",
-    `trust=${JSON.stringify(trust)}`,
+    `trust=${JSON.stringify(platformTrust)}`,
+    "--set-json",
+    `templates.trust=${JSON.stringify(templateTrust)}`,
   ];
   for (const [flag, on] of Object.entries(features)) {
     args.push("--set", `features.${flag}=${on}`);
@@ -46,10 +54,16 @@ const keyless = (mode = "warn") => ({
   subjects: [subject],
 });
 
+const keyPlatform = {
+  type: "key",
+  mode: "enforce",
+  keyRef: { name: "kore-local-signing-pub", namespace: "cosign-system" },
+};
+
 const templatePolicy = (docs: string[]) =>
   docs.find((doc) => doc.includes("name: kore-template-images")) ?? "";
 
-test("with the flag on and keyless trust, a template policy admits the template repository only under the release identity", async () => {
+test("with the flag on and its own keyless templates.trust, a template policy admits the template repository only under the release identity", async () => {
   const policy = templatePolicy(
     await render(keyless(), { [templateFlag]: true }),
   );
@@ -73,23 +87,42 @@ test("with the flag on and keyless trust, a template policy admits the template 
   );
 });
 
-test("the template policy audits by default, whatever the platform's trust mode, so enforcing the platform does not enforce the templates", async () => {
-  const policy = templatePolicy(
+test("the template policy runs beside a key platform trust, so local can admit template images while platform images keep key trust", async () => {
+  const docs = await render(
+    keyless(),
+    { [templateFlag]: true },
+    [],
+    keyPlatform,
+  );
+  const policy = templatePolicy(docs);
+  assert.ok(policy.includes("keyless:"), "the template authority is keyless");
+  assert.ok(
+    policy.includes(`subject: "${subject}"`),
+    "the template identities come from templates.trust",
+  );
+  assert.ok(
+    docs.some((d) => d.includes("name: kore-platform-images")),
+    "the platform policy still renders",
+  );
+});
+
+test("the template policy takes its mode from templates.trust, whatever the platform's trust mode", async () => {
+  const enforcePlatform = templatePolicy(
+    await render(
+      keyless("warn"),
+      { [templateFlag]: true },
+      [],
+      keyless("enforce"),
+    ),
+  );
+  assert.match(enforcePlatform, /mode: warn/);
+  const enforceTemplates = templatePolicy(
     await render(keyless("enforce"), { [templateFlag]: true }),
   );
-  assert.match(policy, /mode: warn/);
+  assert.match(enforceTemplates, /mode: enforce/);
 });
 
-test("the template policy enforces only when templates.mode says so", async () => {
-  const policy = templatePolicy(
-    await render(keyless("warn"), { [templateFlag]: true }, [
-      "templates.mode=enforce",
-    ]),
-  );
-  assert.match(policy, /mode: enforce/);
-});
-
-test("the template policy reads its signatures through the trust signaturePullSecret, as the platform policy does", async () => {
+test("the template policy reads its signatures through templates.trust's signaturePullSecret", async () => {
   const withSecret = templatePolicy(
     await render(
       { ...keyless(), signaturePullSecret: "kore-registry-read" },
@@ -113,7 +146,7 @@ test("with the flag off, no template policy is rendered, so the flag-off render 
   assert.equal(templatePolicy(off), "");
 });
 
-test("a key authority never gets a template policy, since the templates are signed keylessly by the release", async () => {
+test("a key templates.trust never gets a template policy, since the templates are signed keylessly by the release", async () => {
   const keyTrust = {
     type: "key",
     mode: "warn",

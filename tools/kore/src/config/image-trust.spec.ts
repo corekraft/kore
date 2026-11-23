@@ -50,6 +50,7 @@ const components = [
 function repositoryWith(options: {
   trust?: Record<string, unknown> | undefined;
   provider?: Environment["provider"];
+  templateTrust?: Record<string, unknown> | undefined;
   components?: Component[];
   seeds?: unknown[];
 }): Repository {
@@ -60,9 +61,16 @@ function repositoryWith(options: {
     }),
     catalog: fakeCatalog(options.components ?? components),
     seeds: fakeSeeds(options.seeds ?? []),
-    ...(options.trust === undefined
+    ...(options.trust === undefined && options.templateTrust === undefined
       ? {}
-      : { imageTrustValues: { trust: options.trust } }),
+      : {
+          imageTrustValues: {
+            ...(options.trust === undefined ? {} : { trust: options.trust }),
+            ...(options.templateTrust === undefined
+              ? {}
+              : { templates: { trust: options.templateTrust } }),
+          },
+        }),
   });
 }
 
@@ -240,25 +248,83 @@ test("a registry address that does not parse skips the glob check rather than re
   ).toEqual([]);
 });
 
-const templateFlagError = /golden-path-template-admission needs keyless trust/;
+const templateTrust = {
+  type: "keyless",
+  mode: "warn",
+  issuer: "https://token.actions.githubusercontent.com",
+  subjects: [release],
+};
+const templateSetting = /templates\.trust/;
 
-test("the template admission flag with key trust fails validation up front, naming the flag and the keyless fix", () => {
+test("the template admission flag with its own keyless templates.trust validates, whatever the platform trust is", () => {
   vi.mocked(featureEnabled).mockReturnValue(true);
-  const errors = imageTrustErrors(repositoryWith({ trust: keyTrust }));
-  expect(errors.join("\n")).toMatch(templateFlagError);
-  expect(errors.join("\n")).toMatch(
-    /kore-template-images policy renders only under a keyless authority/,
-  );
+  expect(
+    imageTrustErrors(
+      repositoryWith({ trust: keyTrust, templateTrust: templateTrust }),
+    ),
+  ).toEqual([]);
 });
 
-test("the template admission flag with keyless trust raises no template error", () => {
+test("the template admission flag on with no templates.trust fails up front, naming templates.trust and the flag", () => {
   vi.mocked(featureEnabled).mockReturnValue(true);
   const errors = imageTrustErrors(repositoryWith({ trust: keylessTrust }));
-  expect(errors.join("\n")).not.toMatch(templateFlagError);
+  expect(errors.join("\n")).toMatch(templateSetting);
+  expect(errors.join("\n")).toMatch(/golden-path-template-admission/);
 });
 
-test("the template admission flag off raises no template error, whatever the trust", () => {
+test("the template admission flag on with key templates.trust names templates.trust and requires keyless", () => {
+  vi.mocked(featureEnabled).mockReturnValue(true);
+  const errors = imageTrustErrors(
+    repositoryWith({ trust: keylessTrust, templateTrust: keyTrust }),
+  );
+  expect(errors).toEqual([
+    "templates.trust: type must be keyless (the kore-template-images policy is signed keylessly by the release)",
+  ]);
+});
+
+test("the template admission flag on checks templates.trust's issuer, subjects and mode, naming the setting", () => {
+  vi.mocked(featureEnabled).mockReturnValue(true);
+  const cases: [Record<string, unknown>, RegExp][] = [
+    [
+      { ...templateTrust, issuer: "https://example.com" },
+      /templates\.trust: keyless issuer must be/,
+    ],
+    [
+      { ...templateTrust, subjects: [] },
+      /templates\.trust: keyless needs at least one exact subject/,
+    ],
+    [
+      {
+        ...templateTrust,
+        subjects: [
+          "https://github.com/corekraft/kore/.github/workflows/release.yaml@refs/heads/main",
+        ],
+      },
+      /templates\.trust: subject .* must be the exact corekraft\/kore release workflow/,
+    ],
+    [
+      { ...templateTrust, mode: "audit" },
+      /templates\.trust: mode must be warn or enforce/,
+    ],
+    [
+      { ...templateTrust, subjectRegExp: ".*" },
+      /templates\.trust: subjectRegExp is not allowed/,
+    ],
+  ];
+  for (const [trust, message] of cases) {
+    const errors = imageTrustErrors(
+      repositoryWith({ trust: keyTrust, templateTrust: trust }),
+    );
+    expect(errors.join("\n")).toMatch(message);
+  }
+});
+
+test("the template admission flag off raises no template error, whatever templates.trust is or is missing", () => {
   vi.mocked(featureEnabled).mockReturnValue(false);
-  const errors = imageTrustErrors(repositoryWith({ trust: keyTrust }));
-  expect(errors.join("\n")).not.toMatch(templateFlagError);
+  expect(imageTrustErrors(repositoryWith({ trust: keyTrust }))).toEqual([]);
+  expect(
+    imageTrustErrors(
+      repositoryWith({ trust: keyTrust, templateTrust: keyTrust }),
+    ),
+  ).toEqual([]);
 });

@@ -1,26 +1,26 @@
 {{- /*
 The golden-path template images (ADR 0045, ADR 0046) are signed keylessly by the
-release workflow and never by the environment's signing key, so only a keyless
-trust authority gets this policy: a key authority (the local profile) renders
-nothing. The identities are the environment's trust.subjects, the exact release
-workflow subjects that kore-platform-images already admits; kore's lock check
-requires the template lock's signer to be one of them (managedLockErrors), so
-the admitted identity and the lock's signer cannot drift apart.
+release workflow and never by the environment's signing key. The policy has its
+own keyless authority, templates.trust (issue 1884), separate from the platform's
+trust, so a platform on key trust (local) still renders it. Its identities are
+templates.trust.subjects: the exact release subjects that signed the template
+lock, which kore validates (ADR 0181, image-trust.ts).
 
 The policy exists only while the golden-path-template-admission feature flag is
-on, and it starts in trust.mode (warn while auditing, enforce after a recorded
-live outcome). Its glob is the template repository and nothing else, so no other
-image matches it.
+on, and it starts in templates.trust.mode (warn while auditing, enforce after a
+recorded live outcome). Its glob is the template repository and nothing else, so
+no other image matches it.
 */ -}}
 {{- $features := .Values.features | default dict }}
-{{- if and (eq .Values.trust.type "keyless") (index $features "golden-path-template-admission") }}
+{{- $template := .Values.templates.trust | default dict }}
+{{- if and (eq $template.type "keyless") (index $features "golden-path-template-admission") }}
 apiVersion: policy.sigstore.dev/v1beta1
 kind: ClusterImagePolicy
 metadata:
   name: kore-template-images
   labels: {app.kubernetes.io/managed-by: Helm}
 spec:
-  mode: {{ required "templates.mode is required (warn or enforce)" .Values.templates.mode }}
+  mode: {{ required "templates.trust.mode is required (warn or enforce)" $template.mode }}
   images:
     - glob: {{ printf "%s/**" .Values.templates.repository | quote }}
   authorities:
@@ -28,13 +28,13 @@ spec:
       keyless:
         url: https://fulcio.sigstore.dev
         identities:
-          {{- range .Values.trust.subjects }}
-          - issuer: {{ $.Values.trust.issuer | quote }}
+          {{- range $template.subjects }}
+          - issuer: {{ $template.issuer | quote }}
             subject: {{ . | quote }}
           {{- end }}
       ctlog:
         url: https://rekor.sigstore.dev
-      {{- with .Values.trust.signaturePullSecret }}
+      {{- with $template.signaturePullSecret }}
       source:
         - signaturePullSecrets:
             - name: {{ . | quote }}

@@ -5,16 +5,17 @@ Commands are written as `kore ...` (see the [operator guide](../guides/operator.
 
 ## Trust roots
 
-| Root                                | Owner and location                                                                                                                                             | Lifetime                                               |
-| ----------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------ |
-| Image signing key (local)           | `kore-system/kore-local-signing-key` Secret; public half in `cosign-system/kore-local-signing-pub`                                                             | the cluster ([signing and keys](signing-and-keys.md))  |
-| Release signing identity (managed)  | `trust.subjects` in the environment's `image-policy` values                                                                                                    | per release tag                                        |
-| Registry CA and serving certificate | cert-manager objects in `kore-registry` (`oci-registry-ca`, `oci-registry-tls`); public CA copied to `cosign-system/kore-registry-ca` and the node's `certs.d` | ten years (`tls.duration` in the `oci-registry` chart) |
-| Gateway certificate (local)         | cert-manager `Certificate/kore-local`, issued by the local ClusterIssuer from the mkcert CA                                                                    | cert-manager defaults                                  |
-| mkcert CA (host)                    | installed by `kore trust install --environment local` into the host trust store                                                                                | mkcert default; removed with `mkcert -uninstall`       |
-| Registry push and read credentials  | `kore-registry/oci-registry-credentials` and `oci-registry-auth`; pull Secret `kore-registry-read` per enrolled namespace                                      | until rotated                                          |
-| SOPS age recipient                  | `.sops.yaml`; the identity stays on the developer's machine                                                                                                    | until changed                                          |
-| Workload identity                   | Kubernetes ServiceAccounts mapped to Istio SPIFFE principals                                                                                                   | per ServiceAccount                                     |
+| Root                                 | Owner and location                                                                                                                                             | Lifetime                                               |
+| ------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------ |
+| Image signing key (local)            | `kore-system/kore-local-signing-key` Secret; public half in `cosign-system/kore-local-signing-pub`                                                             | the cluster ([signing and keys](signing-and-keys.md))  |
+| Release signing identity (managed)   | `trust.subjects` in the environment's `image-policy` values                                                                                                    | per release tag                                        |
+| Release signing identity (templates) | `templates.trust.subjects` in the environment's `image-policy` values (its own authority, ADR 0181)                                                            | per release tag                                        |
+| Registry CA and serving certificate  | cert-manager objects in `kore-registry` (`oci-registry-ca`, `oci-registry-tls`); public CA copied to `cosign-system/kore-registry-ca` and the node's `certs.d` | ten years (`tls.duration` in the `oci-registry` chart) |
+| Gateway certificate (local)          | cert-manager `Certificate/kore-local`, issued by the local ClusterIssuer from the mkcert CA                                                                    | cert-manager defaults                                  |
+| mkcert CA (host)                     | installed by `kore trust install --environment local` into the host trust store                                                                                | mkcert default; removed with `mkcert -uninstall`       |
+| Registry push and read credentials   | `kore-registry/oci-registry-credentials` and `oci-registry-auth`; pull Secret `kore-registry-read` per enrolled namespace                                      | until rotated                                          |
+| SOPS age recipient                   | `.sops.yaml`; the identity stays on the developer's machine                                                                                                    | until changed                                          |
+| Workload identity                    | Kubernetes ServiceAccounts mapped to Istio SPIFFE principals                                                                                                   | per ServiceAccount                                     |
 
 ## Registry credentials
 
