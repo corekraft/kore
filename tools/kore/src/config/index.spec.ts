@@ -187,6 +187,7 @@ const entryPoints = [
   "registryPruneFlag",
   "registryTailnetForwardFlag",
   "releaseOwner",
+  "releaseRecoveryArgocdRefusalFlag",
   "renderedCrdNames",
   "rollbackConstraint",
   "sessionCookieViolations",

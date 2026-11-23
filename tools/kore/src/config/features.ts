@@ -84,6 +84,10 @@ export const organizationServiceApisFlag = "platform-organization-service-apis";
 /** The flag that installs the platform organization's Argo CD in the core phase (ADR 0043, plan 15 step 5). */
 export const platformArgocdDeliveryFlag = "platform-argocd-delivery";
 
+/** The flag that makes a recovery refuse a helm rollback of a release Argo CD owns, naming its git revert (ADR 0153, issue 1541). Off in every overlay until a recorded live outcome. */
+export const releaseRecoveryArgocdRefusalFlag =
+  "release-recovery-argocd-refusal";
+
 /** The flag that installs the local-only platform DNS server, answering the platform domain zone with the loopback address (plan 15, issue 1202). */
 export const platformDnsFlag = "platform-dns";
 
