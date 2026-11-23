@@ -184,3 +184,67 @@ test("an unreadable values file names the release and the path, before any clust
     /^kore-platform-config values file \/repo\/gone\.yaml is unreadable: /,
   );
 });
+
+const releaseSigner =
+  "https://github.com/corekraft/kore/.github/workflows/release.yaml@refs/tags/v0.10.1";
+const mainSigner =
+  "https://github.com/corekraft/kore/.github/workflows/release.yaml@refs/heads/main";
+const vps = {
+  ...fakeRepository({ name: "vps", provider: "managed" }),
+  catalog: { components: [] },
+};
+/** A chart lock as the charts jobs write it: its authorized signers declare whose identity signed it. */
+const signedLock = (...signers: string[]) =>
+  JSON.stringify({ version: 1, authorizedSigners: signers, entries: {} });
+
+test("a managed environment refuses a main chart lock before any cluster call, and names the release lock to use", async () => {
+  vi.mocked(readFile).mockResolvedValue(signedLock(mainSigner));
+  await expect(composeChartDelivery(vps, "main.json")).rejects.toThrow(
+    /^--platform-chart-lock main\.json is not the release chart lock: it is signed by .*refs\/heads\/main, and vps takes only a lock signed by release automation at a version tag .*[Pp]ass the platform-charts\.lock\.json attached to the release/,
+  );
+  expect(chartDeliveryValues).not.toHaveBeenCalled();
+});
+
+test("a managed environment refuses a main chart lock even while platform-argocd-delivery is off, since the lock is handed in for the run", async () => {
+  vi.mocked(helmInstalledComponents).mockReturnValue([]);
+  vi.mocked(readFile).mockResolvedValue(signedLock(mainSigner));
+  await expect(composeChartDelivery(vps, "main.json")).rejects.toThrow(
+    "is not the release chart lock",
+  );
+  expect(chartDeliveryValues).not.toHaveBeenCalled();
+});
+
+test("a managed environment refuses a lock signed by a developer key or naming no signer, since only release automation is known to sign a release lock", async () => {
+  vi.mocked(readFile).mockResolvedValue(signedLock("local-kore-key"));
+  await expect(composeChartDelivery(vps, "local.json")).rejects.toThrow(
+    "is not the release chart lock",
+  );
+  vi.mocked(readFile).mockResolvedValue(lockText);
+  await expect(composeChartDelivery(vps, "bare.json")).rejects.toThrow(
+    "is not the release chart lock",
+  );
+  expect(chartDeliveryValues).not.toHaveBeenCalled();
+});
+
+test("a managed environment takes the release chart lock as before", async () => {
+  vi.mocked(readFile).mockResolvedValue(signedLock(releaseSigner));
+  vi.mocked(chartDeliveryValues).mockReturnValue(values);
+  await expect(composeChartDelivery(vps, "release.json")).resolves.toEqual({
+    ...vps,
+    chartDelivery: { ...values, releaseValues: {} },
+  });
+  expect(chartDeliveryValues).toHaveBeenCalledWith(vps, {
+    version: 1,
+    authorizedSigners: [releaseSigner],
+    entries: {},
+  });
+});
+
+test("local still accepts a main chart lock for a local proof", async () => {
+  vi.mocked(readFile).mockResolvedValue(signedLock(mainSigner));
+  vi.mocked(chartDeliveryValues).mockReturnValue(values);
+  await expect(composeChartDelivery(repository, "main.json")).resolves.toEqual({
+    ...repository,
+    chartDelivery: { ...values, releaseValues: {} },
+  });
+});
