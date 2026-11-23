@@ -28,39 +28,54 @@ evidence set grows past availability (ADR 0174).
   `agentgateway-system`, which holds only the controller.
 - Before #1514 the repository configured no agentgateway metrics and no
   data-plane scrape (ADR 0174, "Request-level series have no source").
-- The Prometheus scrape seam is the `extraScrapeConfigs` string in
-  `infra/environments/local/values/prometheus.yaml`. It holds the two Collector
-  jobs and, from #1514, the `agentgateway-data-plane` job. The chart's default
-  `kubernetes-pods` job is not replaced (`platform.telemetry-proofs.spec.ts`).
-  The Prometheus chart is 29.45.1 and its server is `prometheus-server`, the
-  Grafana datasource URL (`infra/environments/local/values/grafana.yaml`).
+- The chart's default `kubernetes-pods` job scrapes pods that carry
+  `prometheus.io/scrape` and `prometheus.io/port`. The pinned ztunnel chart's
+  pods carry them with port 15020, checked by the opt-in upstream spec
+  `tools/kore/integration/platform/ztunnel-render.spec.ts` (ADR 0062). The
+  Prometheus server is `prometheus-server` in `observability`, the Grafana
+  datasource URL (`infra/environments/local/values/grafana.yaml`).
 - Each golden-path service's HTTPRoute is named after the service and parented
   on a Gateway by the service's name (`infra/charts/golden-path-workload/templates/ingress.yaml`).
   If a series' `route` label carries the HTTPRoute name, it carries the service
   key for those services.
 - ADR 0174 picks request series "by the gateway route" and the service "by a
   label from the app record". No such label exists yet.
-- The ztunnel pods carry `prometheus.io/scrape` and port 15020, which the
-  default `kubernetes-pods` job picks up (ADR 0062). Whether agentgateway's
-  proxy pods carry the same annotation is **unverified**; if they do, the
-  default job already scrapes them and the new job is a second, labelled copy.
 
-## The scrape added by #1514
+## The data-plane scrape (#1514)
 
-Job `agentgateway-data-plane`, 30 s, in `local` only (the overlay where
-`ingress-agentgateway` is on). It keeps the pods of `kore-system` whose
-`gateway.networking.k8s.io/gateway-name` label is `kore-gateway` and that
-declare container port `15020`, and sets the `namespace` and `pod` labels.
+The scrape is the chart's own pod scrape, switched on by an annotation on the
+data-plane pods. Nothing changes in the Prometheus values.
 
-- **Unverified:** that the proxy pod carries the `gateway.networking.k8s.io/gateway-name`
-  label, and that it declares container port `15020` as its metrics port. If
-  either is false the job scrapes no target and `up` is absent. The live query
-  below shows which.
-- The gate is the overlay, not a code-level flag check. A Helm argument for
-  this job would replace the `extraScrapeConfigs` string and drop the Collector
-  jobs, so the overlay is the only place that can add it without changing the
-  seam. Vps and managed-example never layer the local values, so they never
-  render it. The spec `platform.agentgateway-scrape.spec.ts` pins this.
+- The flag is `agentgateway-data-plane-metrics`, declared in the three overlays
+  and **off in all of them** (`infra/environments/*/environment.yaml`). It turns
+  on only through `harness flag activate`, after a recorded live outcome
+  (AGENTS.md, "It just works").
+- With the flag on and the GatewayClass `agentgateway`, the Gateway's
+  `spec.infrastructure.annotations` carry `prometheus.io/scrape: "true"` and
+  `prometheus.io/port: "15020"`
+  (`infra/charts/platform-config/templates/gateway.yaml`, helper
+  `platform-config.agentgatewayMetrics` in `_helpers.tpl`).
+- Rendered output, checked with `helm template` on the local platform-config
+  values: with the flag off, the chart renders exactly as `origin/main` does
+  (193 lines, no difference). With the flag on, the only added lines are the
+  annotation block.
+- Specs: `tools/kore/integration/config/agentgateway-data-plane-metrics-chart.spec.ts`
+  renders the Gateway with the flag on, off, and on with the Istio class, and
+  reads its infrastructure block; `tools/kore/src/platform/platform.agentgateway-data-plane-metrics.spec.ts`
+  pins the flag off in every overlay.
+
+**Unverified until the live run:**
+
+- that agentgateway copies Gateway `infrastructure.annotations` onto the
+  data-plane pod (the template copies labels, and the Gateway API spec asks
+  implementations to apply infrastructure annotations too);
+- that the data plane serves its metrics on port 15020 (the ztunnel number,
+  not checked for agentgateway);
+- that the default job's `kubernetes-pods` relabelling selects these pods in
+  this chart version, which the repository checks only for ztunnel.
+
+If the pod is not annotated, or port 15020 is wrong, `up` is absent for the
+pod. The live query below shows which.
 
 ## Candidate series (unverified)
 
@@ -83,9 +98,9 @@ known next step:
 
 1. **The `route` label carries the service name** (the HTTPRoute name, or
    `namespace/name` of it). Then the evidence set selects a service by that
-   label. The smallest change is a `metric_relabel_configs` rule in the
-   `agentgateway-data-plane` job that copies `route` to a `service` label, with
-   no change to the chart.
+   label. The smallest change is a recording rule per service, as the
+   `service-observability` chart does for `istio_requests_total`, selecting on
+   `route`; no change to the scrape.
 2. **The `route` label carries a value that is not the service** (a per-rule or
    generated name). Then the smallest change is to make the HTTPRoute name the
    service key, or to add a label to the data plane through its
@@ -93,28 +108,36 @@ known next step:
    unverified.
 3. **No series carries any service-identifying label.** Then the request series
    cannot select a service, the window stays availability-only, and the smallest
-   change is the one in outcome 2 plus a recording rule per service, as ADR 0174
-   describes for the `service-observability` chart.
+   change is the one in outcome 2 plus the per-service recording rule of
+   outcome 1.
 
 Until the live query runs, the evidence set stays availability, restarts and
 readiness (ADR 0174), and any outcome names that set.
 
 ## Live query (coordinator, after merge)
 
-Read-only. Use the configured context `k3d-kore-local`, never the current one
-(`infra/environments/local/environment.yaml`). Run one step at a time.
+Read-only except for the flag turn-on in step 0. Use the configured context
+`k3d-kore-local`, never the current one (`infra/environments/local/environment.yaml`).
+Run one step at a time.
 
-1. **Does the data plane carry the label, and which ports does it declare?**
+0. **Turn the scrape on for the proof, without touching the tracked overlay.**
+   The flag is off in `infra/environments/local/environment.yaml`. Set
+   `agentgateway-data-plane-metrics` to `true` in a scratch copy of the local
+   overlay (a worktree copy, never the tracked file), and apply it the way the
+   proof scripts do. Record the outcome. Only then `harness flag activate` turns
+   it on in the tracked overlay.
+
+1. **Does the data plane carry the annotations and the label, and which ports does it declare?**
 
    ```sh
    kubectl --context k3d-kore-local -n kore-system get pods --show-labels
    kubectl --context k3d-kore-local -n kore-system get pods \
      -l gateway.networking.k8s.io/gateway-name=kore-gateway \
-     -o jsonpath='{range .items[*]}{.metadata.name}{"\n"}{range .spec.containers[*].ports[*]}  {.name} {.containerPort}{"\n"}{end}{end}'
+     -o jsonpath='{range .items[*]}{.metadata.name}{"\n"}{.metadata.annotations}{"\n"}{range .spec.containers[*].ports[*]}  {.name} {.containerPort}{"\n"}{end}{end}'
    ```
 
-   If the second returns nothing, the label is absent: record the labels the
-   first command shows and go to step 2 anyway, using the pod name.
+   If the second returns nothing, the pod label is absent: record the labels the
+   first command shows and use the pod name for the next steps.
 
 2. **Which series and labels does the data plane emit?** Forward the port of
    one data-plane pod (`POD` from step 1) and read `/metrics`:
@@ -126,27 +149,28 @@ Read-only. Use the configured context `k3d-kore-local`, never the current one
    ```
 
    If `15020` refuses, the port is wrong: list the container ports from step 1
-   and retry on the port that serves `/metrics`.
+   and retry on the port that serves `/metrics`, then record it as the answer.
 
 3. **Does Prometheus scrape it, and with which labels?** Forward the Prometheus
-   server (`prometheus-server` in `observability`) and query its API:
+   server and query its API:
 
    ```sh
    kubectl --context k3d-kore-local -n observability port-forward svc/prometheus-server 9090:80
-   curl -sG http://127.0.0.1:9090/api/v1/query --data-urlencode 'query=up{job="agentgateway-data-plane"}'
-   curl -sG http://127.0.0.1:9090/api/v1/query --data-urlencode 'query=count by (__name__) ({job="agentgateway-data-plane"})'
-   curl -sG http://127.0.0.1:9090/api/v1/query --data-urlencode 'query=count by (route) (agentgateway_requests_total{job="agentgateway-data-plane"})'
-   curl -sG http://127.0.0.1:9090/api/v1/query --data-urlencode 'query=count by (job) ({__name__=~"agentgateway.*"})'
+   curl -sG http://127.0.0.1:9090/api/v1/query --data-urlencode 'query=up{job="kubernetes-pods"}'
+   curl -sG http://127.0.0.1:9090/api/v1/query --data-urlencode 'query=count by (__name__) ({__name__=~"agentgateway.*"})'
+   curl -sG http://127.0.0.1:9090/api/v1/query --data-urlencode 'query=count by (route) (agentgateway_requests_total)'
    ```
 
-   The last query shows whether the chart's default `kubernetes-pods` job
-   already scrapes the proxy pods too.
+   `up{job="kubernetes-pods"}` lists every pod the default job scrapes; find the
+   data-plane pod by its namespace or pod label. The label names of the default
+   job are a chart detail and are unverified here: read them from the first
+   result if the names differ.
 
 4. **After traffic:** send a few requests through the gateway to one golden-path
-   service, wait one scrape interval (30 s), then:
+   service, wait one scrape interval, then:
 
    ```sh
-   curl -sG http://127.0.0.1:9090/api/v1/query --data-urlencode 'query=sum by (route, status) (agentgateway_requests_total{job="agentgateway-data-plane"})'
+   curl -sG http://127.0.0.1:9090/api/v1/query --data-urlencode 'query=sum by (route, status) (agentgateway_requests_total)'
    ```
 
    A non-empty result with `route` equal to the service name answers the service
@@ -157,6 +181,7 @@ Read-only. Use the configured context `k3d-kore-local`, never the current one
 ## Live result
 
 Not yet run. The coordinator records, for each step: the command, the output
-that matters (series names, labels, `up`, the `route` values), the outcome
-(1, 2 or 3 above), and the commit it ran against. The live proof is recorded
-on the issue (ADR 0097) before #1514 closes.
+that matters (annotations, ports, series names, labels, `up`, the `route`
+values), the outcome (1, 2 or 3 above), and the commit it ran against. The
+recorded proof is on the issue (ADR 0097) before #1514 closes, and the flag is
+activated only after that outcome is recorded.

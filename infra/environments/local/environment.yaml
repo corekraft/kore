@@ -45,6 +45,7 @@
       "gateway-class-change-release": true,
       "gateway-rollback-order": true,
       "ingress-agentgateway": true,
+      "agentgateway-data-plane-metrics": false,
       "role-tokens": true,
       "owner-writer": true,
       "local-image-reuse": true,
