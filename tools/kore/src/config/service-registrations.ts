@@ -77,14 +77,13 @@ async function registrationFiles(directory: string): Promise<string[]> {
 }
 
 /**
- * The Service names the registrations in git declare, sorted. The derivation
- * reads no feature flag: any later consumer reads the names from here. An
- * invalid registration fails here, naming its file, before anything renders.
- * A repository with no registrations directory has no names.
+ * The file that declares each registered Service name, keyed by name, each file
+ * a repository path. An invalid registration fails here, naming its file. A
+ * repository with no registrations directory has none.
  */
-export async function loadServiceRegistrations(
+export async function registrationPaths(
   root: string,
-): Promise<string[]> {
+): Promise<Map<string, string>> {
   const directory = `${root}/${serviceRegistrationsDirectory}`;
   const owners = new Map<string, string>();
   for (const file of await registrationFiles(directory)) {
@@ -97,7 +96,19 @@ export async function loadServiceRegistrations(
     }
     owners.set(name, `${serviceRegistrationsDirectory}/${file}`);
   }
-  return [...owners.keys()].sort();
+  return owners;
+}
+
+/**
+ * The Service names the registrations in git declare, sorted. The derivation
+ * reads no feature flag: any later consumer reads the names from here. An
+ * invalid registration fails here, naming its file, before anything renders.
+ * A repository with no registrations directory has no names.
+ */
+export async function loadServiceRegistrations(
+  root: string,
+): Promise<string[]> {
+  return [...(await registrationPaths(root)).keys()].sort();
 }
 
 /**

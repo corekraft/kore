@@ -125,6 +125,7 @@ const entryPoints = [
   "backstageHostname",
   "chartDeliveryValues",
   "chartRepositoryUrls",
+  "checkAppRecords",
   "checkCrdOwnership",
   "componentGatedOff",
   "componentValues",
