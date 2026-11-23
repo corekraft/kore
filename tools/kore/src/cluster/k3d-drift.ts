@@ -235,6 +235,14 @@ export function unreadableMessage(
   return `k3d cluster ${clusterName} does not report the host address of ${names} in \`k3d cluster list --output json\` or \`docker inspect ${container}\`; it cannot be checked against the overlay, and recreating the cluster does not change that. Check that k3d and Docker report the load balancer's port bindings.`;
 }
 
+/** The refusal when an existing cluster differs from the overlay; it names the way back to the overlay. */
+export function differsMessage(
+  clusterName: string,
+  differences: readonly string[],
+): string {
+  return `k3d cluster ${clusterName} differs from the overlay (${differences.join("; ")}); recreate it with \`kore local down --prune\` then \`kore local up\``;
+}
+
 /**
  * The refusal when, with the drift-listing-mappings flag on, neither `k3d cluster
  * list` nor docker inspect reports the load balancer's port mappings. It names the

@@ -5,6 +5,7 @@ import type { Environment, K3dCluster } from "../config/index.js";
 import { driftListingMappingsFlag, featureEnabled } from "../config/index.js";
 import type { Runner } from "../runtime/index.js";
 import {
+  differsMessage,
   drift,
   listingReportsMappings,
   type PortMappings,
@@ -70,8 +71,6 @@ export async function refuseDrift(
   }
   const differences = drift(entry, cluster, inspected, mappingsFlag);
   if (differences.length > 0) {
-    throw new Error(
-      `k3d cluster ${clusterName} differs from the overlay (${differences.join("; ")}); recreate it with \`kore local down --prune\` then \`kore local up\``,
-    );
+    throw new Error(differsMessage(clusterName, differences));
   }
 }

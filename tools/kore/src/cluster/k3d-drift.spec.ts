@@ -1,6 +1,7 @@
 import { expect, test } from "vitest";
 import type { K3dCluster } from "../config/index.js";
 import {
+  differsMessage,
   drift,
   unmappedMessage,
   unreadableMessage,
@@ -158,6 +159,17 @@ test("a difference on a feature-flagged port names no flag while the drift-listi
   expect(drift(entry(undefined), flagged, preCutover, false)).toEqual([
     "port 30443: 8443 != 443",
   ]);
+});
+
+test("the differs message names every difference and the recreate path, and never reaches for the overlay's own values", () => {
+  expect(
+    differsMessage("kore-local", [
+      "servers: 3 != 1",
+      "port 443: unmapped != 443",
+    ]),
+  ).toBe(
+    "k3d cluster kore-local differs from the overlay (servers: 3 != 1; port 443: unmapped != 443); recreate it with `kore local down --prune` then `kore local up`",
+  );
 });
 
 test("the unmapped message names the gap, the container, and never says to recreate the cluster", () => {

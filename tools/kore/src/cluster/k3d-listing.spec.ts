@@ -1,12 +1,15 @@
 import { beforeEach, expect, test, vi } from "vitest";
+import { featureEnabled, type K3dCluster } from "../config/index.js";
+import { fakeRepository, fakeRunner } from "./cluster-support.js";
 import {
-  featureEnabled,
-  type Environment,
-  type K3dCluster,
-} from "../config/index.js";
-import { fakeRunner } from "./cluster-support.js";
-import { drift, listingReportsMappings, unreadablePorts } from "./k3d-drift.js";
-import { inspectPortMappings } from "./k3d-inspect.js";
+  differsMessage,
+  drift,
+  listingReportsMappings,
+  unmappedMessage,
+  unreadableMessage,
+  unreadablePorts,
+} from "./k3d-drift.js";
+import { inspectPortMappings, loadBalancerContainer } from "./k3d-inspect.js";
 import { refuseDrift } from "./k3d-listing.js";
 
 vi.mock("../config/index.js", async (importOriginal) => ({
@@ -15,14 +18,20 @@ vi.mock("../config/index.js", async (importOriginal) => ({
 }));
 vi.mock("./k3d-drift.js", async (importOriginal) => ({
   ...(await importOriginal<typeof import("./k3d-drift.js")>()),
+  differsMessage: vi.fn(),
   drift: vi.fn(),
   listingReportsMappings: vi.fn(),
+  unmappedMessage: vi.fn(),
+  unreadableMessage: vi.fn(),
   unreadablePorts: vi.fn(),
 }));
 vi.mock("./k3d-inspect.js", async (importOriginal) => ({
   ...(await importOriginal<typeof import("./k3d-inspect.js")>()),
   inspectPortMappings: vi.fn(),
+  loadBalancerContainer: vi.fn(),
 }));
+
+const environment = fakeRepository().environment;
 
 /** The cluster the local overlay declares: its 443 entry point, published by platform-dns. */
 const cluster: K3dCluster = {
@@ -58,40 +67,50 @@ beforeEach(() => {
   vi.mocked(unreadablePorts).mockReturnValue([]);
   vi.mocked(drift).mockReturnValue([]);
   vi.mocked(inspectPortMappings).mockResolvedValue(undefined);
+  vi.mocked(loadBalancerContainer).mockReturnValue("k3d-kore-local-serverlb");
+  vi.mocked(differsMessage).mockReturnValue("DIFFERS");
+  vi.mocked(unmappedMessage).mockReturnValue("UNMAPPED");
+  vi.mocked(unreadableMessage).mockReturnValue("UNREADABLE");
 });
 
-test("with drift-listing-mappings on, a listing with no mappings reads docker inspect, and the difference it finds is refused", async () => {
+test("with drift-listing-mappings on, a listing with no mappings reads docker inspect, and the differences it finds are refused with their message", async () => {
   setFlag(true);
   vi.mocked(inspectPortMappings).mockResolvedValue(preCutover);
   vi.mocked(drift).mockReturnValue(["port 30443 (platform-dns): 8443 != 443"]);
   const { runner } = fakeRunner();
 
   await expect(
-    refuseDrift(runner, {} as Environment, cluster, silentEntry),
-  ).rejects.toThrow(/port 30443 \(platform-dns\): 8443 != 443.*down --prune/);
+    refuseDrift(runner, environment, cluster, silentEntry),
+  ).rejects.toThrow("DIFFERS");
 
   expect(inspectPortMappings).toHaveBeenCalledWith(runner, "kore-local");
   expect(drift).toHaveBeenCalledWith(silentEntry, cluster, preCutover, true);
+  expect(differsMessage).toHaveBeenCalledWith("kore-local", [
+    "port 30443 (platform-dns): 8443 != 443",
+  ]);
 });
 
-test("with drift-listing-mappings on, a listing with no mappings and an unreadable docker inspect is refused, naming the gap", async () => {
+test("with drift-listing-mappings on, a listing with no mappings and an unreadable docker inspect is refused with the unmapped message, and drift is not run", async () => {
   setFlag(true);
   vi.mocked(inspectPortMappings).mockResolvedValue(undefined);
   const { runner } = fakeRunner();
 
   await expect(
-    refuseDrift(runner, {} as Environment, cluster, silentEntry),
-  ).rejects.toThrow(
-    /does not report its load balancer's port mappings.*`docker inspect k3d-kore-local-serverlb`/,
-  );
+    refuseDrift(runner, environment, cluster, silentEntry),
+  ).rejects.toThrow("UNMAPPED");
 
+  expect(loadBalancerContainer).toHaveBeenCalledWith("kore-local");
+  expect(unmappedMessage).toHaveBeenCalledWith(
+    "kore-local",
+    "k3d-kore-local-serverlb",
+  );
   expect(drift).not.toHaveBeenCalled();
 });
 
-test("with drift-listing-mappings off, a listing with no mappings never reads docker inspect, and drift names no flag", async () => {
+test("with drift-listing-mappings off, a listing with no mappings never reads docker inspect, and drift runs with the flag off", async () => {
   const { runner } = fakeRunner();
 
-  await refuseDrift(runner, {} as Environment, cluster, silentEntry);
+  await refuseDrift(runner, environment, cluster, silentEntry);
 
   expect(inspectPortMappings).not.toHaveBeenCalled();
   expect(drift).toHaveBeenCalledWith(silentEntry, cluster, undefined, false);
@@ -102,20 +121,30 @@ test("with drift-listing-mappings on, a listing that reports its mappings never 
   vi.mocked(listingReportsMappings).mockReturnValue(true);
   const { runner } = fakeRunner();
 
-  await refuseDrift(runner, {} as Environment, cluster, silentEntry);
+  await refuseDrift(runner, environment, cluster, silentEntry);
 
   expect(inspectPortMappings).not.toHaveBeenCalled();
 });
 
-test("a host address nothing reports is refused naming the gap, with docker inspect read for it", async () => {
-  vi.mocked(unreadablePorts).mockReturnValue([cluster.ports[0]!]);
+test("a host address nothing reports is refused with the unreadable message, with docker inspect read for it and drift not run", async () => {
+  const port = cluster.ports[0];
+  if (port === undefined) {
+    throw new Error("the cluster fixture declares its 443 port");
+  }
+  vi.mocked(unreadablePorts).mockReturnValue([port]);
   vi.mocked(inspectPortMappings).mockResolvedValue(preCutover);
   const { runner } = fakeRunner();
 
   await expect(
-    refuseDrift(runner, {} as Environment, cluster, silentEntry),
-  ).rejects.toThrow(/does not report the host address of port 30443/);
+    refuseDrift(runner, environment, cluster, silentEntry),
+  ).rejects.toThrow("UNREADABLE");
 
   expect(inspectPortMappings).toHaveBeenCalledWith(runner, "kore-local");
+  expect(unreadableMessage).toHaveBeenCalledWith(
+    "kore-local",
+    "k3d-kore-local-serverlb",
+    [port],
+    false,
+  );
   expect(drift).not.toHaveBeenCalled();
 });
