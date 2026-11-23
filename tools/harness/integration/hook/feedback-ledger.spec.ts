@@ -142,8 +142,8 @@ describe("hook feedback records token usage at stop", () => {
   });
 });
 
-describe("hook feedback records the session result at stop (#853)", () => {
-  it("records session.result with only the outcome word, between the stop and the tokens, and keeps none of the turn's text", async () => {
+describe("hook feedback records no session result at stop (ADR 0178)", () => {
+  it("records no session.result for a RESULT line, since a session settles on its report, and keeps none of the turn's text", async () => {
     const said = (id: string, text: string, usage?: object) =>
       JSON.stringify({
         type: "assistant",
@@ -156,12 +156,6 @@ describe("hook feedback records the session result at stop (#853)", () => {
     ]);
     expect(events).toMatchObject([
       { kind: "session.stop" },
-      {
-        kind: "session.result",
-        session: "s1",
-        source: "claude",
-        result: "blocked",
-      },
       { kind: "token.usage", tokens: 10 },
     ]);
     expect(JSON.stringify(events)).not.toMatch(/all green|working on/);
