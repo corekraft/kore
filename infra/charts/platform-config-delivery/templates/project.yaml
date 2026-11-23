@@ -58,3 +58,13 @@ spec:
         - {{ .Values.operatorsGroup | quote }}
       policies:
         - p, proj:{{ .Values.project }}:operators, applications, *, {{ .Values.project }}/*, allow
+  {{- /* The maintenance deny window (issue 1540, ADR 0153): kore passes syncWindow only while platform-sync-window is on, and a maintenance run holds the window by setting maintenanceHold. Held, every sync in the project is refused, manual ones too, until the run clears the hold once every release is Ready; with either value absent the project is unchanged. */}}
+  {{- if and .Values.syncWindow .Values.maintenanceHold }}
+  syncWindows:
+    - kind: deny
+      schedule: "* * * * *"
+      duration: 24h
+      applications:
+        - "*"
+      manualSync: true
+  {{- end }}

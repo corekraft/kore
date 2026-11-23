@@ -5,6 +5,7 @@ import {
   autoscalingFlag,
   platformArgocdDeliveryFlag,
   platformPortalFlag,
+  platformSyncWindowFlag,
   portalStagedInstallFlag,
   startsAfterDelivery,
   componentGatedOff,
@@ -143,6 +144,10 @@ test("the platform Argo CD delivery flag gates a component off until an overlay 
       gated,
     ),
   ).toBe(false);
+});
+
+test("the platform sync window flag is named for the AppProject's maintenance deny window (issue 1540)", () => {
+  expect(platformSyncWindowFlag).toBe("platform-sync-window");
 });
 
 test("the platform portal flag gates a component off until an overlay turns it on, and an omitted flag is off", () => {

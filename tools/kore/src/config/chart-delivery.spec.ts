@@ -240,6 +240,22 @@ test("the delivery arguments hand the kore-config-delivery chart the flag, the o
   expect(databaseRoutesDeliveryArgs(base)).toEqual([]);
 });
 
+test("with platform-sync-window on the values carry syncWindow, so the AppProject can carry its maintenance deny window; off they carry none, so the project is unchanged", () => {
+  vi.mocked(featureEnabled).mockImplementation(
+    (_environment, flag) => flag === "platform-sync-window",
+  );
+  try {
+    expect(chartDeliveryValues(repository, lock())).toMatchObject({
+      syncWindow: true,
+    });
+  } finally {
+    vi.mocked(featureEnabled).mockReset();
+  }
+  expect(chartDeliveryValues(repository, lock())).not.toHaveProperty(
+    "syncWindow",
+  );
+});
+
 test("with in-cluster-ca on the values carry the flag the AppProject needs to admit the CA objects; off they carry none, so local's project is unchanged", () => {
   vi.mocked(featureEnabled).mockImplementation(
     (_environment, flag) => flag === "in-cluster-ca",

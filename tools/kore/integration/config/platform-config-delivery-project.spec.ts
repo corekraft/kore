@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "vitest";
+import { loadRepository, type Repository } from "../../src/config/index.js";
 import {
   admitted,
   appProject,
@@ -88,6 +89,69 @@ test("the AppProject whitelists exactly the cluster-scoped kinds the argocd-owne
     [...admitted(appProject(docs)).clusterKinds].sort(),
     [...rendered].sort(),
   );
+}, 120_000);
+
+/** The local repository with platform-sync-window set as given; every other flag is the overlay's own. */
+async function withSyncWindow(on: boolean): Promise<Repository> {
+  const base = await loadRepository("local");
+  return {
+    ...base,
+    environment: {
+      ...base.environment,
+      features: { ...base.environment.features, "platform-sync-window": on },
+    },
+  };
+}
+
+test("with platform-sync-window on and a maintenance hold, the AppProject denies every sync in it, manual ones too, and changes nothing else", async () => {
+  const off = appProject(
+    (await renderDelivery(await withSyncWindow(false))).docs,
+  );
+  const held = appProject(
+    (
+      await renderDelivery(await withSyncWindow(true), [
+        "--set",
+        "maintenanceHold=true",
+      ])
+    ).docs,
+  );
+  assert.equal(
+    held,
+    `${off.trimEnd()}
+  syncWindows:
+    - kind: deny
+      schedule: "* * * * *"
+      duration: 24h
+      applications:
+        - "*"
+      manualSync: true
+`,
+  );
+}, 120_000);
+
+test("with platform-sync-window on and no maintenance hold, the AppProject is the one the flag-off render gives", async () => {
+  const off = appProject(
+    (await renderDelivery(await withSyncWindow(false))).docs,
+  );
+  const on = appProject(
+    (await renderDelivery(await withSyncWindow(true))).docs,
+  );
+  assert.equal(on, off);
+}, 120_000);
+
+test("a maintenance hold with platform-sync-window off renders no sync window, so the flag gates the deny window", async () => {
+  const off = appProject(
+    (await renderDelivery(await withSyncWindow(false))).docs,
+  );
+  const held = appProject(
+    (
+      await renderDelivery(await withSyncWindow(false), [
+        "--set",
+        "maintenanceHold=true",
+      ])
+    ).docs,
+  );
+  assert.equal(held, off);
 }, 120_000);
 
 test("the AppProject admits the CA's ClusterIssuer kind and the cert-manager namespace only with in-cluster-ca on", async () => {
