@@ -4,7 +4,8 @@ import { n1Check, type N1Inputs } from "./n1-check.js";
 
 // The check runs through the injected runner only, so these tests script each step's outcome and
 // observe the calls, the environment they get and the failures they produce (ADR 0098).
-const URL = "postgres://eval:secret@scratch.kore.internal:5432/eval";
+// A bare placeholder: the redaction only needs a string to find, never a real connection string.
+const URL = "scratch-database-placeholder";
 const dir = "/work/leads";
 const baseEnv = { PATH: "/usr/bin" };
 
@@ -111,7 +112,9 @@ test("the scratch database URL appears in neither the failure nor anything else 
   expect(failures).toEqual([
     "N-1 check: applying the new migrations failed (exit 1): could not connect to <redacted>: refused",
   ]);
-  expect(JSON.stringify(failures)).not.toContain("secret");
+  expect(JSON.stringify(failures)).not.toContain(
+    "scratch-database-placeholder",
+  );
 });
 
 test("an error that is not a failed command, such as a missing runner, is not swallowed", async () => {

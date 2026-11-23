@@ -151,8 +151,7 @@ test("an eval without --carries-plan is not the carrier, so it attests the empty
 
 test("--carries-plan marks the carrier, and the N-1 steps come from flags while the scratch URL comes from the environment", async () => {
   const before = process.env.KORE_EVAL_SCRATCH_DATABASE_URL;
-  process.env.KORE_EVAL_SCRATCH_DATABASE_URL =
-    "postgres://eval:secret@scratch.kore.internal:5432/eval";
+  process.env.KORE_EVAL_SCRATCH_DATABASE_URL = "scratch-database-placeholder";
   try {
     const context = fakeContext({
       parsed: parsedArgs(
@@ -176,7 +175,7 @@ test("--carries-plan marks the carrier, and the N-1 steps come from flags while 
           baseEnv: process.env,
           apply: "/eval/apply-migrations",
           previousSuite: "/eval/previous-suite",
-          databaseUrl: "postgres://eval:secret@scratch.kore.internal:5432/eval",
+          databaseUrl: "scratch-database-placeholder",
         },
       }),
     );

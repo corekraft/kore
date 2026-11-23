@@ -21,7 +21,8 @@ const fixture = fileURLToPath(new URL("./fixtures/app", import.meta.url));
 const digest = `sha256:${"e".repeat(64)}`;
 const version = "1.2.3+abc1234";
 const today = "2026-11-23";
-const SCRATCH_URL = "postgres://eval:hunter2@scratch.kore.internal:5432/eval";
+// A bare placeholder: the redaction checks need a string to find, never a connection string.
+const SCRATCH_URL = "scratch-database-placeholder";
 const EXPAND_CONTRACT = "Safety-pattern: expand-contract";
 
 let app: string;
@@ -189,7 +190,7 @@ test("an expand-only carrier passes, attests its plan exactly, and the N-1 steps
     },
   });
   expect(await readFile(applyLog, "utf8")).toBe(`apply ${SCRATCH_URL}\n`);
-  expect(text).not.toContain("hunter2");
+  expect(text).not.toContain(SCRATCH_URL);
 });
 
 test("a previous-suite failure refuses the release with no payload, names the step, and redacts the URL", async () => {
@@ -209,7 +210,7 @@ test("a previous-suite failure refuses the release with no payload, names the st
     "N-1 check: the previous release's suite failed (exit 1): suite could not reach <redacted>",
   ]);
   expect(report).not.toHaveProperty("attestations");
-  expect(text).not.toContain("hunter2");
+  expect(text).not.toContain(SCRATCH_URL);
 });
 
 test("a release that adds a migration but gives no N-1 inputs is refused, naming the three inputs", async () => {
