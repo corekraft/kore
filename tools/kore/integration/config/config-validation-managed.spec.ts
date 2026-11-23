@@ -46,6 +46,7 @@ test("validation reports every rule violation exactly once, sorted", async () =>
         ...base.environment,
         enrollmentExemptions: {},
         providerOwnedCRDGroups: {},
+        features: {},
         name: "BAD_NAME",
         provider: "other",
         kubeContext: "",

@@ -3,7 +3,9 @@ import { readdir, readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { test } from "vitest";
 import {
+  appliedFlags,
   findRoot,
+  flagEntry,
   loadRepository,
   validateRepository,
 } from "../../src/config/index.js";
@@ -21,12 +23,41 @@ test("the vps overlay validates as a managed environment on the persistent k3s n
   assert.equal(environment.cluster?.kubernetesVersion, "1.37.2");
 });
 
-test("the vps overlay lists every feature flag and holds each one off, so none turns on until a live run and harness flag activate turn it on", async () => {
-  const { environment } = await loadRepository("vps");
-  const features = Object.entries(environment.features ?? {});
-  assert.ok(features.length > 0, "the flags are listed, not left implicit");
+test("every flag the vps overlay lists is declared in the flag manifest as applying to vps, and every flag that applies to vps is listed", async () => {
+  const { environment, flags } = await loadRepository("vps");
+  const listed = Object.keys(environment.features ?? {});
+  assert.ok(listed.length > 0, "the flags are listed, not left implicit");
+  for (const name of listed) {
+    assert.ok(flagEntry(flags, name)?.applies.includes("vps"), name);
+  }
   assert.deepEqual(
-    features.filter(([, value]) => value !== false),
+    appliedFlags(flags, "vps").filter((name) => !listed.includes(name)),
+    [],
+  );
+});
+
+test("the pending flags platform-dns and registry-by-name are declared pending, stay off in vps, and are left out of what applies to it", async () => {
+  const { environment, flags } = await loadRepository("vps");
+  for (const name of ["platform-dns", "registry-by-name"]) {
+    assert.equal(flagEntry(flags, name)?.pending, true, name);
+    assert.equal(environment.features?.[name], false, name);
+    assert.equal(appliedFlags(flags, "vps").includes(name), false, name);
+  }
+});
+
+test("the vps overlay validates with a flag turned on in a fixture, so no activation breaks it", async () => {
+  const base = await loadRepository("vps");
+  assert.deepEqual(
+    await validateRepository({
+      ...base,
+      environment: {
+        ...base.environment,
+        features: {
+          ...base.environment.features,
+          "autoscaling-defaults": true,
+        },
+      },
+    }),
     [],
   );
 });

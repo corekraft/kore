@@ -157,6 +157,31 @@ export interface K3dPort {
   optOut?: boolean;
 }
 
+/**
+ * What a feature flag is: a capability that retires once it soaks everywhere it
+ * applies, an environment flag that chooses how an environment is built and
+ * never retires, or a harness flag that only the local harness reads (ADR 0148).
+ */
+export type FlagKind = "feature" | "environment" | "harness";
+
+/** One flag in the flag manifest: its kind, the environments it applies to, and its marks (ADR 0148). */
+export interface FlagEntry {
+  name: string;
+  kind: FlagKind;
+  /** The environments the flag applies to, by environment name. */
+  applies: string[];
+  /** An environment flag that is never retired. */
+  neverRetire?: boolean;
+  /** Declared but not yet applicable: left out of what applies, pending a decision. */
+  pending?: boolean;
+}
+
+/** The flag manifest, `infra/catalog/flags.yaml` (ADR 0148). */
+export interface FlagManifest {
+  $schema?: string;
+  flags: FlagEntry[];
+}
+
 export interface Environment {
   $schema?: string;
   name: string;
@@ -351,6 +376,8 @@ export interface Repository {
   approved: ApprovedImageManifest;
   catalog: Catalog;
   environment: Environment;
+  /** The flag manifest: every flag an overlay may list, with its kind and environments (ADR 0148). */
+  flags: FlagManifest;
   /** Parsed environment overlay of the kore-image-policy component. */
   imageTrustValues?: Record<string, unknown> | undefined;
   /**

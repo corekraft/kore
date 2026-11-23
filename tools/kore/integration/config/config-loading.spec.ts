@@ -14,6 +14,7 @@ test("malformed environment fails with useful schema errors", async () => {
     `{"tools":{},"kubernetes":"1.35.1","components":{},"images":{}}`,
   );
   await writeFile(join(root, "infra/catalog/seeds.yaml"), `{"seeds":[]}`);
+  await writeFile(join(root, "infra/catalog/flags.yaml"), `{"flags":[]}`);
   await writeFile(
     join(root, "infra/catalog/readiness.yaml"),
     `{"version":1,"requirements":[]}`,
