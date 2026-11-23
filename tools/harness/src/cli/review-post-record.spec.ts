@@ -13,8 +13,6 @@ import { reviewPostRun } from "./review-commands.js";
 import type { ReviewIo } from "./review-gh.js";
 
 vi.mock("./review-gh.js", () => ({ ghReviewIo: vi.fn() }));
-vi.mock("./review-resample-command.js", () => ({ reviewResampleRun: vi.fn() }));
-vi.mock("./review-resample-io.js", () => ({ sessionResampleIo: vi.fn() }));
 vi.mock("./review-run-command.js", () => ({ reviewRunRun: vi.fn() }));
 vi.mock("../judge/index.js", () => ({
   JudgeError: class extends Error {},
