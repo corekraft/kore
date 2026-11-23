@@ -17,6 +17,13 @@ Desired state for the rented VPS host `kore-vps`, converged by Ansible
    The playbook signs the host in through stdin and closes public SSH. Then
    `mise run vps-apply` for the agents VM, and `unset TAILSCALE_AUTH_KEY`.
 4. `tofu apply` in `infra/tofu/stacks/tailnet` tags the new machines.
+5. On the agents VM, sign the logins in by hand, as `agent`: `gh auth login`
+   and `claude` (see [The agents VM](#the-agents-vm)). They are never backed up.
+
+The whole rebuild, with the restores and what is still planned, is in
+[rebuilding the box](../../../docs/operations/rebuild-the-box.md). Hold the
+items in the [recovery kit](../../../docs/operations/recovery-kit.md) before you
+start.
 
 Without a key, the playbook stops at the sign-in check: run
 `sudo tailscale up --ssh --hostname=kore-vps` on the host, approve the link,

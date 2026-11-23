@@ -6,6 +6,7 @@ import {
   gatewayEntryPort,
   loadRepository,
   platformPlan,
+  internalGateway,
 } from "../config/index.js";
 import { ProcessRunner, liveEnvironment } from "../runtime/index.js";
 import { HostConditions } from "./ingress-host.js";
@@ -42,7 +43,8 @@ test(
   live,
   async () => {
     const repository = await loadRepository(liveEnvironment());
-    const { gateway, kubeContext } = repository.environment;
+    const { kubeContext } = repository.environment;
+    const gateway = internalGateway(repository.environment);
     const target = parseTargetRate(process.env[targetRateVariable]);
     const runner = new ProcessRunner();
     const measurement = new RatedMeasurement(
