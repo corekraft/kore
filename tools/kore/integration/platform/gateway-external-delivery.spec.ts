@@ -59,25 +59,36 @@ async function composed(repository: Repository) {
   return composeChartDelivery(repository, lockPath);
 }
 
+/** The value of a flag in the features object the delivery hands kore-platform-config last, or undefined when none is there. */
+function deliveredFlag(texts: readonly string[], flag: string): unknown {
+  const parsed: unknown = JSON.parse(texts[texts.length - 1] ?? "null");
+  if (
+    typeof parsed !== "object" ||
+    parsed === null ||
+    !("features" in parsed)
+  ) {
+    return undefined;
+  }
+  const { features } = parsed;
+  if (typeof features !== "object" || features === null) {
+    return undefined;
+  }
+  return Reflect.get(features, flag);
+}
+
 test("the delivered kore-platform-config takes the external-gateway flag and the overlay's external node port, as the Helm path does", async () => {
   const delivery = await composed(await deliveredVps(true));
   const texts = delivery.chartDelivery?.releaseValues?.["kore-platform-config"];
 
   assert.ok(texts, "kore-platform-config is handed its values");
   assert.match(texts.join("\n"), /nodePort: 30080/);
-  const features = JSON.parse(texts[texts.length - 1]!) as {
-    features: Record<string, boolean>;
-  };
-  assert.equal(features.features["external-gateway"], true);
-  assert.equal(features.features["service-listener-sets"], true);
+  assert.equal(deliveredFlag(texts, "external-gateway"), true);
+  assert.equal(deliveredFlag(texts, "service-listener-sets"), true);
 });
 
 test("with the external-gateway flag off the delivered values carry it off, so the delivered render adds no external Gateway", async () => {
   const delivery = await composed(await deliveredVps(false));
   const texts =
     delivery.chartDelivery?.releaseValues?.["kore-platform-config"] ?? [];
-  const features = JSON.parse(texts[texts.length - 1]!) as {
-    features: Record<string, boolean>;
-  };
-  assert.equal(features.features["external-gateway"], false);
+  assert.equal(deliveredFlag(texts, "external-gateway"), false);
 });

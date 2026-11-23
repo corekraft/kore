@@ -159,15 +159,19 @@ test("the external Gateway's Service publishes the overlay's external node port 
 
 test("the vps external node port matches the host port table for external-gateway-http", async () => {
   const base = await loadRepository("vps");
-  const table = JSON.parse(
-    await readFile(`${base.root}/infra/hosts/vps/port-table.yaml`, "utf8"),
-  ) as { publish: { name: string; nodePort: number }[] };
-  const entry = table.publish.find((p) => p.name === "external-gateway-http");
-  assert.equal(entry?.nodePort, 30080);
+  const portTable = await readFile(
+    `${base.root}/infra/hosts/vps/port-table.yaml`,
+    "utf8",
+  );
+  const nodePort =
+    /"name": "external-gateway-http"[\s\S]*?"nodePort": (\d+)/.exec(
+      portTable,
+    )?.[1];
+  assert.equal(nodePort, "30080");
   const output = render(
     withFeatures(base, Object.fromEntries(externalFlags.map((f) => [f, true]))),
   );
-  assert.match(output, new RegExp(`nodePort: ${entry!.nodePort}`));
+  assert.match(output, new RegExp(`nodePort: ${nodePort}`));
 });
 
 test("with service-listener-sets on both Gateways admit ListenerSets only from namespaces carrying the shared-Gateway label", async () => {
