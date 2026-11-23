@@ -270,9 +270,11 @@ destructive_suites=(test:live:signer test:live:lifecycle)
 # The golden-path sign-in check and its browser token test need the one delivered
 # Service's name at run time (KORE_SIGNIN_SERVICE), and the night delivers none, so
 # they run by hand.
+# The Backstage delivery check needs the delivered Service's name at run time
+# (KORE_BACKSTAGE_SERVICE), so it runs by hand too.
 # The alert delivery proof fires an alert on a delivered Service and needs the owner
 # address at run time; the night delivers none, so it runs by hand.
-excluded_suites=(test:live:footprint test:live:golden-path-load test:live:delivery-stage test:live:alert-delivery test:live:golden-path-signin test:live:golden-path-token)
+excluded_suites=(test:live:footprint test:live:golden-path-load test:live:delivery-stage test:live:alert-delivery test:live:golden-path-signin test:live:golden-path-token test:live:backstage-delivery)
 suites_all="$suites"
 for excluded in "${excluded_suites[@]}"; do
   if printf '%s\n' "$suites_all" | grep -qxF "$excluded"; then
