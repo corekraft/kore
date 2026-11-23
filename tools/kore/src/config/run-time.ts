@@ -94,18 +94,30 @@ export function runTimeValues(
   return parseRunTimeFile(file.text, file.path);
 }
 
+/** The two reads the loader makes: the file's mode and its text. The machine reads them from disk; a spec passes its own. */
+export type RunTimeReads = {
+  stat(path: string): Promise<{ mode: number }>;
+  readFile(path: string): Promise<string>;
+};
+
+const machineReads: RunTimeReads = {
+  stat: (path) => stat(path),
+  readFile: (path) => readFile(path, "utf8"),
+};
+
 /** The file at a path, or undefined when there is none; other read failures are rethrown. */
 export async function loadRunTimeFile(
   path: string,
+  reads: RunTimeReads = machineReads,
 ): Promise<RunTimeFile | undefined> {
   try {
     const [info, text] = await Promise.all([
-      stat(path),
-      readFile(path, "utf8"),
+      reads.stat(path),
+      reads.readFile(path),
     ]);
     return { path, mode: info.mode & 0o777, text };
   } catch (error) {
-    if ((error as NodeJS.ErrnoException).code === "ENOENT") {
+    if (error instanceof Error && "code" in error && error.code === "ENOENT") {
       return undefined;
     }
     throw error;

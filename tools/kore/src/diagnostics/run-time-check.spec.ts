@@ -27,8 +27,19 @@ vi.mock("../config/index.js", () => ({
 const home = "/home/owner";
 const path = "/home/owner/.kore/runtime.env";
 const env: NodeJS.ProcessEnv = { KORE_PLATFORM_DOMAIN: "example.com" };
-const managed = { name: "vps", provider: "managed" } as Environment;
-const local = { name: "local", provider: "k3d" } as Environment;
+// A complete, valid environment, so each environment is typed without a cast. The check reads only the name and provider.
+const base: Environment = {
+  name: "local",
+  provider: "k3d",
+  kubeContext: "k3d-kore-local",
+  registry: { address: "registry.example.com:5000" },
+  platform: { domain: "example.com", organizationId: "kore" },
+  gateway: { namespace: "gateway", name: "kore", port: 443 },
+  secrets: { storeName: "kore", sourceNamespace: "secrets" },
+  telemetry: { otlpEndpoint: "http://otel.example.com:4318" },
+};
+const managed: Environment = { ...base, name: "vps", provider: "managed" };
+const local: Environment = base;
 const load = vi.fn(async (_path: string) => undefined);
 
 const domain = (checks: Awaited<ReturnType<typeof runTimeChecks>>) => checks[0];

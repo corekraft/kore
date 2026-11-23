@@ -1,6 +1,5 @@
 // Docs: docs/decisions/0164-the-platform-domain-is-a-run-time-value-and-the-repository-holds-a-placeholder.md
-import { readFile, stat } from "node:fs/promises";
-import { beforeEach, expect, test, vi } from "vitest";
+import { expect, test } from "vitest";
 import { fakeEnvironment } from "./config-support.js";
 import {
   loadRunTimeFile,
@@ -13,9 +12,8 @@ import {
   runTimeValues,
   runTimeVariables,
   type RunTimeFile,
+  type RunTimeReads,
 } from "./run-time.js";
-
-vi.mock("node:fs/promises");
 
 const path = "/home/owner/.kore/runtime.env";
 const publicIPv4 = runTimeVariables.publicIPv4;
@@ -27,10 +25,27 @@ const fileWith = (mode: number, text: string): RunTimeFile => ({
   text,
 });
 
-beforeEach(() => {
-  vi.mocked(stat).mockReset();
-  vi.mocked(readFile).mockReset();
+/** Reads of a file with the given mode and text, as the disk would return them. */
+const readsOf = (mode: number, text: string): RunTimeReads => ({
+  stat: async () => ({ mode }),
+  readFile: async () => text,
 });
+
+/** Reads that fail with the given error, as a disk read does when it is refused. */
+const failingReads = (error: Error): RunTimeReads => ({
+  stat: () => Promise.reject(error),
+  readFile: () => Promise.reject(error),
+});
+
+/** The message a call throws, or an empty string when the call throws nothing. */
+function messageOf(call: () => unknown): string {
+  try {
+    call();
+  } catch (error) {
+    return error instanceof Error ? error.message : String(error);
+  }
+  return "";
+}
 
 test("the run-time file lives under the machine's kore home, never in the repository", () => {
   expect(runTimeFilePath("/home/owner")).toBe("/home/owner/.kore/runtime.env");
@@ -49,12 +64,9 @@ test("NAME=value lines are read, and blank lines and # comments are skipped", ()
 });
 
 test("a line that is not NAME=value is refused by its line number, and its text is never echoed", () => {
-  let message = "";
-  try {
-    parseRunTimeFile("KORE_PUBLIC_IPV4 192.0.2.10\n", path);
-  } catch (error) {
-    message = (error as Error).message;
-  }
+  const message = messageOf(() =>
+    parseRunTimeFile("KORE_PUBLIC_IPV4 192.0.2.10\n", path),
+  );
   expect(message).toBe(`${path} line 1 is not NAME=value; fix that line`);
   expect(message).not.toContain("192.0.2.10");
 });
@@ -84,24 +96,23 @@ test("no file means no values, and that is not an error", () => {
 });
 
 test("a missing file loads as no file, while any other read failure is rethrown", async () => {
-  vi.mocked(stat).mockRejectedValue(
-    Object.assign(new Error("ENOENT"), { code: "ENOENT" }),
-  );
-  vi.mocked(readFile).mockRejectedValue(
-    Object.assign(new Error("ENOENT"), { code: "ENOENT" }),
-  );
-  await expect(loadRunTimeFile(path)).resolves.toBeUndefined();
+  const missing = Object.assign(new Error("ENOENT"), { code: "ENOENT" });
+  await expect(
+    loadRunTimeFile(path, failingReads(missing)),
+  ).resolves.toBeUndefined();
 
-  vi.mocked(stat).mockRejectedValue(
-    Object.assign(new Error("EACCES: permission denied"), { code: "EACCES" }),
+  const denied = Object.assign(new Error("EACCES: permission denied"), {
+    code: "EACCES",
+  });
+  await expect(loadRunTimeFile(path, failingReads(denied))).rejects.toThrow(
+    "EACCES",
   );
-  await expect(loadRunTimeFile(path)).rejects.toThrow("EACCES");
 });
 
 test("loading reads the file's permission bits and its text", async () => {
-  vi.mocked(stat).mockResolvedValue({ mode: 0o100600 } as never);
-  vi.mocked(readFile).mockResolvedValue(`${publicIPv4}=192.0.2.10\n` as never);
-  await expect(loadRunTimeFile(path)).resolves.toEqual({
+  await expect(
+    loadRunTimeFile(path, readsOf(0o100600, `${publicIPv4}=192.0.2.10\n`)),
+  ).resolves.toEqual({
     path,
     mode: 0o600,
     text: `${publicIPv4}=192.0.2.10\n`,
