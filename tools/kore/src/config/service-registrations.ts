@@ -77,13 +77,14 @@ async function registrationFiles(directory: string): Promise<string[]> {
 }
 
 /**
- * The file that declares each registered Service name, keyed by name, each file
- * a repository path. An invalid registration fails here, naming its file. A
- * repository with no registrations directory has none.
+ * The Service names the registrations in git declare, sorted. The derivation
+ * reads no feature flag: any later consumer reads the names from here. An
+ * invalid registration fails here, naming its file, before anything renders.
+ * A repository with no registrations directory has no names.
  */
-export async function registrationPaths(
+export async function loadServiceRegistrations(
   root: string,
-): Promise<Map<string, string>> {
+): Promise<string[]> {
   const directory = `${root}/${serviceRegistrationsDirectory}`;
   const owners = new Map<string, string>();
   for (const file of await registrationFiles(directory)) {
@@ -96,19 +97,26 @@ export async function registrationPaths(
     }
     owners.set(name, `${serviceRegistrationsDirectory}/${file}`);
   }
-  return owners;
+  return [...owners.keys()].sort();
 }
 
 /**
- * The Service names the registrations in git declare, sorted. The derivation
- * reads no feature flag: any later consumer reads the names from here. An
- * invalid registration fails here, naming its file, before anything renders.
- * A repository with no registrations directory has no names.
+ * The file that declares each registered Service name, keyed by name, each file
+ * a repository path. loadRepository has already refused an invalid registration
+ * and a duplicate name, so this reads the same files without repeating those checks.
  */
-export async function loadServiceRegistrations(
+export async function registrationPaths(
   root: string,
-): Promise<string[]> {
-  return [...(await registrationPaths(root)).keys()].sort();
+): Promise<Map<string, string>> {
+  const directory = `${root}/${serviceRegistrationsDirectory}`;
+  const paths = new Map<string, string>();
+  for (const file of await registrationFiles(directory)) {
+    paths.set(
+      await registrationName(directory, file),
+      `${serviceRegistrationsDirectory}/${file}`,
+    );
+  }
+  return paths;
 }
 
 /**
