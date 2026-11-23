@@ -2,12 +2,7 @@ import { adrCommands } from "../adr/index.js";
 import { guardrailCliCommands } from "./guardrail-commands.js";
 import { measurement } from "./measurement.js";
 import { records } from "./records.js";
-import {
-  planActive,
-  planClearNext,
-  planNext,
-  planTick,
-} from "../plan/index.js";
+import { planActive, planNext, planTick } from "../plan/index.js";
 import { hostDomains } from "./host.js";
 import { harnessCommands } from "./harness-commands.js";
 import type { Command } from "../runtime/index.js";
@@ -19,7 +14,6 @@ export const domains = {
     active: planActive,
     tick: planTick,
     next: planNext,
-    "clear-next": planClearNext,
   },
   adr: adrCommands,
   guardrail: guardrailCliCommands,

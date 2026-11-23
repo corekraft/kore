@@ -11,7 +11,6 @@ const fakes = vi.hoisted(() => ({
   planActive: vi.fn(),
   planTick: vi.fn(),
   planNext: vi.fn(),
-  planClearNext: vi.fn(),
   hostDomains: { hook: {}, session: {}, skill: {} },
   measurement: { measure: {} },
   records: { record: {} },
@@ -23,7 +22,6 @@ vi.mock("./guardrail-commands.js", () => ({
 }));
 vi.mock("../plan/index.js", () => ({
   planActive: fakes.planActive,
-  planClearNext: fakes.planClearNext,
   planNext: fakes.planNext,
   planTick: fakes.planTick,
 }));
@@ -43,7 +41,6 @@ describe("domain table", () => {
       active: fakes.planActive,
       tick: fakes.planTick,
       next: fakes.planNext,
-      "clear-next": fakes.planClearNext,
     });
     expect(domains.adr).toBe(fakes.adrCommands);
     expect(domains.guardrail).toBe(fakes.guardrailCommands);
