@@ -8,7 +8,6 @@ import * as help from "./decision-help.js";
 const records: [string, CommandHelp][] = [
   ["route", help.routeHelp],
   ["ask", help.askHelp],
-  ["digest", help.digestHelp],
 ];
 
 describe("the decision help records", () => {
@@ -84,6 +83,5 @@ describe("the decision help records", () => {
       "question",
       "question-file",
     ]);
-    expect(Object.keys(help.digestHelp.flags)).toEqual(["ledger"]);
   });
 });

@@ -24,14 +24,4 @@ export {
   type AskInput,
   type AskPorts,
 } from "./ask.js";
-export {
-  DIGEST_INTERVAL_MS,
-  digestDue,
-  postDigest,
-  type DigestInput,
-  type DigestPorts,
-  type DigestResult,
-  type DigestTarget,
-} from "./digest.js";
 export { openOwnerQuestions, type OwnerQuestion } from "./owner-queue.js";
-export { pinnedDigestIssue, type GhRun } from "./pinned.js";

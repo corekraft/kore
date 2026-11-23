@@ -27,18 +27,14 @@ describe("the decision barrel", () => {
     expect(Object.keys(barrel).sort()).toEqual([
       "ASK_LABEL",
       "DECISION_FLAG",
-      "DIGEST_INTERVAL_MS",
       "DecisionError",
       "RESERVED_CATEGORIES",
       "UNCLASSIFIED",
       "askOwner",
       "classify",
       "decisionFlagOn",
-      "digestDue",
       "makeDecision",
       "openOwnerQuestions",
-      "pinnedDigestIssue",
-      "postDigest",
       "reservedCategory",
       "routeQuestion",
     ]);

@@ -54,13 +54,8 @@ export const domainGuides: Record<DomainName, DomainGuide> = {
   decision: {
     purpose:
       "Routes the questions the panes raise: the advisor decides what it may, and reserved questions go to the owner.",
-    flow: "Run decision route to send a question to the advisor or the owner; decision make posts the advisor's decision, decision ask posts a reserved question, and decision digest posts the daily digest. All four are refused while the decision-advisor flag is off.",
-    seeAlso: [
-      "decision route",
-      "decision make",
-      "decision ask",
-      "decision digest",
-    ],
+    flow: "Run decision route to send a question to the advisor or the owner; decision make posts the advisor's decision, and decision ask posts a reserved question. All three are refused while the decision-advisor flag is off.",
+    seeAlso: ["decision route", "decision make", "decision ask"],
   },
   flag: {
     purpose:
@@ -76,7 +71,7 @@ export const domainGuides: Record<DomainName, DomainGuide> = {
     purpose:
       "One read-only report of where the work stands: plan items, ideas by state, open owner questions, recent stages and the tick's heartbeat.",
     flow: "Run harness status whenever you need the picture; it changes nothing.",
-    seeAlso: ["ledger list", "decision digest"],
+    seeAlso: ["ledger list"],
   },
   judge: {
     purpose:
