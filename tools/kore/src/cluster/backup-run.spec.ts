@@ -15,7 +15,27 @@ const OBJECT = "vps/golden-path/pg-main/app/2026-11-23T04-05-06Z.sql.age";
 const MANIFEST = `${OBJECT}.manifest.json`;
 const HEADER = { postgresMajor: 17, dumpVersion: "18.1" };
 /** What buildBackupManifest returns: its JSON is what the manifest object holds. */
-const BUILT = { built: "manifest" } as unknown as BackupManifest;
+const BUILT: BackupManifest = {
+  version: 1,
+  environment: "vps",
+  createdAt: "2026-11-23T04:05:06.000Z",
+  recipient: "age1vps,age1recovery",
+  contents: {
+    kind: "cnpg-database",
+    namespace: "golden-path",
+    cluster: "pg-main",
+    database: "app",
+    format: "pg_dump-plain",
+  },
+  artifact: {
+    file: "2026-11-23T04-05-06Z.sql.age",
+    sha256: "digest-of-the-ciphertext",
+    bytes: 6,
+  },
+  target: { kind: "off-host" },
+  recipients: RECIPIENTS,
+  dump: { tool: "pg_dump", version: "18.1", postgresMajor: 17 },
+};
 
 const job: BackupJob = {
   environment: "vps",
