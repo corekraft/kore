@@ -1,5 +1,40 @@
 # Changelog
 
+## [0.25.0](https://github.com/corekraft/kore/compare/v0.24.0...v0.25.0) (2026-11-23)
+
+
+### Features
+
+* **backstage:** enable in-app sign-in with a session secret, the frame callback and a groups mapper ([#1896](https://github.com/corekraft/kore/issues/1896)) ([619829c](https://github.com/corekraft/kore/commit/619829cb19a2706b03eb6e3274310ddc1151b065))
+* **cluster:** gate the docker inspect mapping check behind drift-listing-mappings ([#1905](https://github.com/corekraft/kore/issues/1905)) ([54846b1](https://github.com/corekraft/kore/commit/54846b1584a7dc3fb34a6f744f35f3f42ec96e8e))
+* **harness:** make hc the only session path and retire the herdr code ([#1893](https://github.com/corekraft/kore/issues/1893)) ([e349100](https://github.com/corekraft/kore/commit/e349100c66884bfd10c1212c34f1f0f244bce1b1))
+* **image-policy:** admit the golden-path template images by signature behind a flag ([#1904](https://github.com/corekraft/kore/issues/1904)) ([62e26ef](https://github.com/corekraft/kore/commit/62e26ef9324caf770ec380fb7e579af7037ae1df))
+
+
+### Bug fixes
+
+* **scan:** leave CHANGELOG.md out of the working-tree secret pass file list ([#1894](https://github.com/corekraft/kore/issues/1894)) ([40d809b](https://github.com/corekraft/kore/commit/40d809bd748cf248aa3a642b89e8df7d06c12eeb))
+
+
+### Refactoring
+
+* **harness:** merge outcome close into an outcome record rerun ([#1914](https://github.com/corekraft/kore/issues/1914)) ([244a963](https://github.com/corekraft/kore/commit/244a96355e14d3b2492c31a09f19f198a0503be4))
+* **harness:** merge plan clear-next into plan next --clear ([#1912](https://github.com/corekraft/kore/issues/1912)) ([b9b11ce](https://github.com/corekraft/kore/commit/b9b11ce077d0f4fd1f12cad066ad5698a7879d0e))
+* **harness:** merge queue send-backs into escalate --check ([#1906](https://github.com/corekraft/kore/issues/1906)) ([57245ab](https://github.com/corekraft/kore/commit/57245ab7a125292eeb923c2792ad68db124c5098))
+* **harness:** remove the review resample command ([#1787](https://github.com/corekraft/kore/issues/1787)) ([#1908](https://github.com/corekraft/kore/issues/1908)) ([3f98483](https://github.com/corekraft/kore/commit/3f98483342a4dbcaa5b2869a3d6b0c72c58df482))
+* **harness:** remove the session prompt-size command ([#1909](https://github.com/corekraft/kore/issues/1909)) ([0f7aa10](https://github.com/corekraft/kore/commit/0f7aa10326c9bd0c958cd7a0622ce2a57055baf5)), closes [#1787](https://github.com/corekraft/kore/issues/1787)
+
+
+### Documentation
+
+* name terminals, reports and the hc tag in the glossary and AGENTS ([#1900](https://github.com/corekraft/kore/issues/1900)) ([ac2ea10](https://github.com/corekraft/kore/commit/ac2ea10578fb2c624cf143d1e1ee31bf398267f4))
+* **plans:** mark deployed-by-digest partly shown, admission accepted as not shown ([#1899](https://github.com/corekraft/kore/issues/1899)) ([6e27069](https://github.com/corekraft/kore/commit/6e270693673479df7fabea96fa82a82ac0b9a86c))
+* **plans:** mark plan 15 done ([#1902](https://github.com/corekraft/kore/issues/1902)) ([e5b86db](https://github.com/corekraft/kore/commit/e5b86db79b1598872be8f51858316ee5578ff49f))
+* **plans:** mark plan 16 done after the approved removals ([#1915](https://github.com/corekraft/kore/issues/1915)) ([43e17ae](https://github.com/corekraft/kore/commit/43e17ae7d07fc5043ac1561f6940138f13a43147))
+* **plans:** record plan 16 step 2 facts proven live on kore-agents ([#1917](https://github.com/corekraft/kore/issues/1917)) ([73752b1](https://github.com/corekraft/kore/commit/73752b1b53fc16b78df13f851e6efa3eba21d156))
+* **plans:** tick plan 15 step 6 item 3 and confirm the outcome record ([#1898](https://github.com/corekraft/kore/issues/1898)) ([61666f5](https://github.com/corekraft/kore/commit/61666f5d44b79438cf3294916c07878a60255553))
+* **plans:** tick plan 16 step 6 items merged and record what is left ([#1901](https://github.com/corekraft/kore/issues/1901)) ([c243c45](https://github.com/corekraft/kore/commit/c243c451ada9135e6bbefe446be46f10ecff38fd))
+
 ## [0.24.0](https://github.com/corekraft/kore/compare/v0.23.0...v0.24.0) (2026-11-23)
 
 
