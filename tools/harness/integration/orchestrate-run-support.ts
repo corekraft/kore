@@ -1,4 +1,4 @@
-// A scripted host for `orchestrate run`: the tools it drives (`harness`, `gh`, `herdr`)
+// A scripted host for `orchestrate run`: the tools it drives (`harness` and `gh`)
 // are answered here and append the ledger events the real tools would, so a spec reads the
 // run as a ledger. No network, no cluster, no process (ADR 0098, ADR 0104).
 
@@ -124,7 +124,7 @@ const HARNESS: Record<string, Handler> = {
     out({ queue: [{ kind: "idea", idea: "0042", issue: 42, title: "t" }] }),
   "queue send-backs": () => out({ count: 1, model: "haiku", escalate: false }),
   "session spawn": spawn,
-  "session wait": (_h, a) => out({ outcome: "done", paneId: `pane-${a[2]}` }),
+  "session wait": () => out({ outcome: "done", summary: PANE }),
   "session close": () => NONE,
   "review run": (h, a) => record(h, { kind: "review.run", pr: Number(a[2]) }),
   "judge send-back": (h, a) =>
@@ -144,9 +144,6 @@ function answer(h: Host, command: string, args: string[]): Answer {
   if (command === "gh") {
     const mergedAt = h.state.merged ? "2026-11-15T10:10:00Z" : null;
     return out([{ number: PR, mergedAt }]);
-  }
-  if (command === "herdr") {
-    return { stdout: PANE, stderr: "", code: 0 };
   }
   const words = args.slice(1);
   if (words[0] === "judge" && words[1] === "precheck") {

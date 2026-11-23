@@ -8,7 +8,7 @@ import * as hookFeedback from "./hook-feedback-support.js";
 const { KORE_BIN, edited, failing, hook, ledgerEvents, root } = hookFeedback;
 
 describe("hook feedback records ledger events", () => {
-  it("records a tool end as success after any tool, with session, pane and tool", async () => {
+  it("records a tool end as success after any tool, with session and tool", async () => {
     const h = testHarness({
       env: {
         KORE_ROOT: root,
@@ -30,7 +30,6 @@ describe("hook feedback records ledger events", () => {
       source: "claude",
       kind: "tool.end",
       session: "s1",
-      pane: "w9:p9",
       tool: "Bash",
       outcome: "success",
     });

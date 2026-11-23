@@ -134,8 +134,7 @@ describe("a harness command a harness source file names in a string must exist",
     expect(
       check(
         cleanTree({
-          [SOURCE]:
-            'export const hint = "Run `harness pr open --title t`.";\n',
+          [SOURCE]: 'export const hint = "Run `harness pr open --title t`.";\n',
         }),
       ),
     ).toEqual([]);
