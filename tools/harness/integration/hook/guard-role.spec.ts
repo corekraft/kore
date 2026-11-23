@@ -90,7 +90,7 @@ describe("role guard: harness commands are an explicit allowlist, not a prefix",
   const writing = [
     "plan tick --item x",
     "plan next --text x",
-    "plan clear-next",
+    "plan next --clear",
     "adr new --title x",
     "adr supersede --old 1 --new 2",
     "flag activate some-flag --environment local",

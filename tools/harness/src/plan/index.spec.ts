@@ -24,7 +24,6 @@ describe("plan barrel", () => {
       "openCounts",
       "openItems",
       "planActive",
-      "planClearNext",
       "planNext",
       "planStatus",
       "planTick",
@@ -38,7 +37,6 @@ describe("plan barrel", () => {
     expect(plan.planActive).toBe(active.planActive);
     expect(plan.readActivePlans).toBe(active.readActivePlans);
     expect(plan.planNext).toBe(next.planNext);
-    expect(plan.planClearNext).toBe(next.planClearNext);
     expect(plan.planTick).toBe(tick.planTick);
     expect(plan.readPlans).toBe(store.readPlans);
   });

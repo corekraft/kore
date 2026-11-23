@@ -111,7 +111,7 @@ const nextHelp: CommandHelp = {
     kind: "mutates",
     detail: "rewrites the Next: line of one plan file",
   },
-  seeAlso: ["plan active", "plan clear-next"],
+  seeAlso: ["plan active", "plan tick"],
 };
 
 describe("the command view", () => {
@@ -141,7 +141,7 @@ describe("the command view", () => {
       examples: nextHelp.examples,
       exits: nextHelp.exits,
       effects: nextHelp.effects,
-      seeAlso: ["plan active", "plan clear-next"],
+      seeAlso: ["plan active", "plan tick"],
     });
   });
 

@@ -12,4 +12,4 @@ The plan is the only state that carries over. The next session's brief reads it.
 3. **Write the `Next:` line.** Run `node skills/bin/harness.mjs plan next` with plan N and the line (`harness plan next --help` names the options). The line names the first concrete action and any state the next thread can't find in the files: a failing test, a branch, a decision still open. Leave out transcript, reasoning, and anything already in the files or git history.
 4. **Show the person the `Next:` line** and tell them to start a new thread.
 
-When the step is finished, run `node skills/bin/harness.mjs plan clear-next` for plan N (`harness plan clear-next --help`).
+When the step is finished, run `node skills/bin/harness.mjs plan next` for plan N with `--clear` (`harness plan next --help` names the options).
