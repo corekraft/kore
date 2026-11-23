@@ -9,8 +9,8 @@ import { ticketFlagOn } from "./tick-ticket-flag.js";
 
 const HARNESS = "skills/bin/harness.mjs";
 
-/** The line `session wait` ends with when no result marker has shown yet: the pane is still working. */
-const STILL_WORKING = "printed no";
+/** The words `session wait` ends with when the session reported nothing and has not stopped: it is still working. */
+const STILL_WORKING = "is still working";
 
 /** The verdict line `review post` writes, with the head it reviewed. */
 const VERDICT = /principles-review:[^\n]*\(head ([0-9a-f]{7,40})\)/gi;
@@ -307,7 +307,7 @@ export class TickCli extends HarnessCli {
     if (record.result !== undefined) {
       return record.result.outcome;
     }
-    // `session wait` reads the pane once and records a result it finds.
+    // `session wait` reads the terminal once and records a result it finds.
     const done = await this.runner.run(
       "node",
       [

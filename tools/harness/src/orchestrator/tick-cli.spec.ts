@@ -166,12 +166,12 @@ describe("TickCli panes", () => {
     ]);
   });
 
-  it("reads an open pane that has printed no result as running", async () => {
+  it("reads an open session that is still working as running", async () => {
     const { cli } = setup(
       () => ({
         code: 1,
         stderr:
-          'Session idea-0001-writer printed no "RESULT: done" or "RESULT: blocked" line in pane p within 0.001 seconds.',
+          "Session idea-0001-writer is still working: no report and no stop within 1 seconds. Run session wait idea-0001-writer again, or read the terminal with hc read t1.",
       }),
       { [file("idea-0001-writer")]: record("idea-0001-writer") },
     );
@@ -183,11 +183,11 @@ describe("TickCli panes", () => {
 
   it("fails, naming the cause, when the wait fails for another reason", async () => {
     const { cli } = setup(
-      () => ({ code: 1, stderr: "herdr pane read p failed: gone" }),
+      () => ({ code: 1, stderr: "hc read t1 failed: gone" }),
       { [file("idea-0001-writer")]: record("idea-0001-writer") },
     );
 
-    await expect(cli.panes("0001")).rejects.toThrow(/herdr pane read p failed/);
+    await expect(cli.panes("0001")).rejects.toThrow(/hc read t1 failed/);
   });
 });
 
