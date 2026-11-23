@@ -8,6 +8,7 @@ import {
   platformHelmArgs,
   platformPlan,
   type Repository,
+  internalGateway,
 } from "../../src/config/index.js";
 import { helmTemplateArgs } from "../../src/platform/index.js";
 import {
@@ -113,9 +114,9 @@ function renderReference(repository: Repository): string {
       "--namespace",
       "reference",
       "--set-string",
-      `platform.gateway.name=${repository.environment.gateway.name}`,
+      `platform.gateway.name=${internalGateway(repository.environment).name}`,
       "--set-string",
-      `platform.gateway.namespace=${repository.environment.gateway.namespace}`,
+      `platform.gateway.namespace=${internalGateway(repository.environment).namespace}`,
       "--set-string",
       `platform.gateway.hostname=${platformPlan(repository.environment).domain}`,
     ],
@@ -228,7 +229,7 @@ function labelled(repository: Repository, delivery: string): Set<string> {
 }
 
 function onSharedGateway(repository: Repository, found: Route[]): Route[] {
-  const { gateway } = repository.environment;
+  const gateway = internalGateway(repository.environment);
   return found.filter(
     (route) => route.gateway === `${gateway.namespace}/${gateway.name}`,
   );

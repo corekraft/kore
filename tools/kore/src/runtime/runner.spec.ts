@@ -132,6 +132,30 @@ describe("ProcessRunner: the result", () => {
     expect(lastWatchdog().clears).toBe(1);
   });
 
+  it("keeps a multi-byte character split across two stdout chunks, with no replacement character", async () => {
+    const result = runner().run("tool", []);
+    const euro = Buffer.from("€", "utf8");
+
+    child.stdout.emit("data", euro.subarray(0, 2));
+    child.stdout.emit("data", euro.subarray(2));
+    child.emit("close", 0);
+
+    await expect(result).resolves.toMatchObject({ stdout: "€" });
+    expect((await result).stdout).not.toContain("�");
+  });
+
+  it("keeps a multi-byte character split across two stderr chunks, with no replacement character", async () => {
+    const result = runner().run("tool", []);
+    const euro = Buffer.from("€", "utf8");
+
+    child.stderr.emit("data", euro.subarray(0, 1));
+    child.stderr.emit("data", euro.subarray(1));
+    child.emit("close", 0);
+
+    await expect(result).resolves.toMatchObject({ stderr: "€" });
+    expect((await result).stderr).not.toContain("�");
+  });
+
   it("rejects with a CommandError naming the command, arguments and output on a failing exit", async () => {
     const result = runner().run("tool", ["run"]);
 

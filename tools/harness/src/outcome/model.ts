@@ -12,6 +12,7 @@ export const OUTCOME_SOURCES = [
   "eval-history",
   "comparison",
   "owner-waiver",
+  "platform-window",
 ] as const;
 export const LOCK_KINDS = ["main", "release"] as const;
 export const RESULTS = ["confirmed", "refuted", "inconclusive"] as const;
@@ -76,6 +77,11 @@ export function parseOutcome(options: {
 }): Outcome {
   const kind = choice("kind", OUTCOME_KINDS, options.kind);
   const source = choice("source", OUTCOME_SOURCES, options.source);
+  if (source === "platform-window") {
+    throw new IdeaError(
+      "--source platform-window is written by the platform's activation window for an app flag, never by harness outcome record; a platform flag takes a live-run or an owner-waiver.",
+    );
+  }
   const result = choice("result", RESULTS, options.result);
   const evidence = text(
     "evidence",

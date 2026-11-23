@@ -2,6 +2,7 @@ import {
   loadRepository,
   platformPlan,
   type Repository,
+  internalGateway,
 } from "../src/config/index.js";
 
 type Environment = Repository["environment"];
@@ -46,7 +47,7 @@ export function platformOf(environment: Environment): LocalPlatform {
     registry: `registry.${domain}:${registryPort}`,
     registryPort,
     registryName: `registry.${organizationId}.${domain}`,
-    gatewayPort: environment.gateway.port,
+    gatewayPort: internalGateway(environment).port,
     hostPort,
   };
 }
