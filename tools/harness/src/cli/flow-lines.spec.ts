@@ -150,7 +150,6 @@ describe("reviewMissLines (#851)", () => {
     expect(reviewMissLines(figure())).toEqual([
       "Passed reviews later sent back for a rule break: 1 of 4 reviews (25%), trailing average 10% over the trailing 7 days (worsened)",
       "Reviews that found a violation: 2 of 4 (50%), trailing average 20% over the trailing 7 days",
-      "Re-reviews of sampled passed reviews: no re-reviews in this range",
     ]);
   });
 
@@ -187,7 +186,6 @@ describe("reviewMissLines (#851)", () => {
     expect(lines).toEqual([
       "Passed reviews later sent back for a rule break: no recorded reviews in this range",
       "Reviews that found a violation: no recorded reviews in this range",
-      "Re-reviews of sampled passed reviews: no re-reviews in this range",
     ]);
   });
 
@@ -199,32 +197,12 @@ describe("reviewMissLines (#851)", () => {
   });
 });
 
-describe("reviewMissLines: re-reviews of a passed sample (#852)", () => {
-  it("puts the re-reviews that found a violation beside the ratio, as count of re-reviews and share", () => {
+describe("reviewMissLines: no re-review line (#852 removed)", () => {
+  it("prints no re-review line, even when the report carries re-reviews", () => {
     const lines = reviewMissLines(
       figure({ resample: { count: 3, found: 1, share: 0.3333 } }),
     );
-    expect(lines[2]).toBe(
-      "Re-reviews of sampled passed reviews: 1 of 3 found a violation (33%)",
-    );
-  });
-
-  it("gives the re-review line even with no review in the range, since a sample can be re-reviewed alone", () => {
-    const lines = reviewMissLines(
-      figure({
-        reviews: 0,
-        passedRuleBreak: {
-          count: 0,
-          ratio: null,
-          trailingAverage: null,
-          worsened: false,
-        },
-        foundViolation: { count: 0, share: null, trailingAverage: null },
-        resample: { count: 2, found: 0, share: 0 },
-      }),
-    );
-    expect(lines[2]).toBe(
-      "Re-reviews of sampled passed reviews: 0 of 2 found a violation (0%)",
-    );
+    expect(lines).toHaveLength(2);
+    expect(lines.join("\n")).not.toContain("Re-reviews");
   });
 });
