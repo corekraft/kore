@@ -16,6 +16,9 @@ const forbidden = ["subjectRegExp", "issuerRegExp", "subjectRegexp"];
 
 type Trust = Record<string, unknown>;
 
+const isTrust = (value: unknown): value is Trust =>
+  typeof value === "object" && value !== null;
+
 const isText = (value: unknown): value is string =>
   typeof value === "string" && value.trim() !== "";
 
@@ -141,10 +144,9 @@ function templateTrustErrors(repository: Repository): string[] {
   ) {
     return [];
   }
-  const templates = repository.imageTrustValues?.["templates"] as
-    { trust?: unknown } | undefined;
-  const template = templates?.trust as Trust | undefined;
-  if (!template || typeof template !== "object") {
+  const templates = repository.imageTrustValues?.["templates"];
+  const template = isTrust(templates) ? templates["trust"] : undefined;
+  if (!isTrust(template)) {
     return [
       `${templateSetting}: ${goldenPathTemplateAdmissionFlag} needs its own keyless trust setting, ${templateSetting}, in the ${imagePolicyComponent} values overlay of environment ${repository.environment.name}. The kore-template-images policy renders only under a keyless authority, because the templates are signed keylessly by the release. Add type keyless, issuer, subjects and mode, or turn the flag off`,
     ];
