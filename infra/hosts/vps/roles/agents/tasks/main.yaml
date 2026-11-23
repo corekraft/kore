@@ -96,7 +96,7 @@
 
 - name: Put the agent's tools on the non-interactive PATH
   # Above Debian's interactive-only guard, so commands run over SSH (Moshi
-  # starting herdr or tmux, Ansible) find herdr, claude and gh.
+  # starting tmux, Ansible) find hc, claude and gh.
   ansible.builtin.lineinfile:
     path: "/home/{{ agents_user }}/.bashrc"
     regexp: '^export PATH="\$HOME/\.local/'
@@ -107,8 +107,7 @@
     mode: "0644"
     create: true
 
-# A real link comes first on the PATH: through the mise shim, `herdr --version`
-# reports mise's own version rather than herdr's.
+# A real link comes first on the PATH, ahead of the mise shims.
 - name: Create the agent's local bin directory
   ansible.builtin.file:
     path: "/home/{{ agents_user }}/.local/bin"
@@ -117,15 +116,21 @@
     group: "{{ agents_user }}"
     mode: "0755"
 
-- name: Link herdr to the pinned install
+# herdr is no longer installed here: the agent's terminals are hc terminals, and
+# the owner's own terminal is Herdr.app. A host that still holds the old link,
+# shim or mise install converges by losing them.
+- name: Remove the old herdr link and shim
   ansible.builtin.file:
-    src: "/home/{{ agents_user }}/.local/share/mise/installs/herdr/{{ agents_tools.herdr }}/herdr"
-    dest: "/home/{{ agents_user }}/.local/bin/herdr"
-    state: link
-    force: true
-    follow: false
-    owner: "{{ agents_user }}"
-    group: "{{ agents_user }}"
+    path: "{{ item }}"
+    state: absent
+  loop:
+    - "/home/{{ agents_user }}/.local/bin/herdr"
+    - "/home/{{ agents_user }}/.local/share/mise/shims/herdr"
+
+- name: Remove the old mise herdr install
+  ansible.builtin.file:
+    path: "/home/{{ agents_user }}/.local/share/mise/installs/herdr"
+    state: absent
 
 # The pinned tarball rather than install.sh piped to sh, which installs the
 # latest release. install.sh's own steps for Linux are the same: unpack

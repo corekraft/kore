@@ -1,4 +1,4 @@
-# The unprivileged account herdr and Claude Code run as. It has Docker (for
+# The unprivileged account hc and Claude Code run as. It has Docker (for
 # throwaway `kore local up` profiles) and no sudo; the VM is the boundary.
 agents_user: agent
 
@@ -7,11 +7,10 @@ agents_mise_version: "2026.11.10"
 agents_mise_sha256: "b603a4f48563fc379a794d9ea2cf9f709ed276c9141068604cb0c59fa3e674a9"
 
 # The agent's global tools. A kore checkout's own .mise.toml pins the rest
-# (herdr and node are repeated here so they work outside a checkout; keep them
-# equal to the repository's pins).
+# (node is repeated here so it works outside a checkout; keep it equal to the
+# repository's pin).
 agents_tools:
   node: "26.13.0"
-  herdr: "0.9.5"
   gh: "2.105.0"
   # The native release binary through aqua, which checks its checksum.
   claude: "2.1.330"
@@ -21,9 +20,9 @@ agents_tools:
   # The Pi coding agent CLI (the `pi` command), from npm, pinned exactly.
   "npm:@earendil-works/pi-coding-agent": "1.6.0"
 
-# herdr-core (hc), the newer herdr without the TUI, from its release tarball
-# checked against the checksum in the release's manifest.json. It lives
-# beside herdr, as ~/.local/bin/herdr-core with an `hc` link.
+# herdr-core (hc), herdr without the TUI, from its release tarball checked
+# against the checksum in the release's manifest.json. It lives as
+# ~/.local/bin/herdr-core with an `hc` link.
 agents_herdr_core_version: "0.1.21"
 agents_herdr_core_sha256: "78424755c10a40dde38a0bdb55c20ac19706e9ae05ed68fc2acf1fcff0d941c1"
 

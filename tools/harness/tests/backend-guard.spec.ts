@@ -44,6 +44,7 @@ const KEPT: Readonly<Record<string, string>> = {
 
 const SOURCE = resolve(dirname(fileURLToPath(import.meta.url)), "../src");
 const KORE_SOURCE = resolve(SOURCE, "../../kore/src");
+const AGENTS_ROLE = resolve(SOURCE, "../../../infra/hosts/vps/roles/agents");
 
 /** Every shipped .ts file under `dir`, excluding specs, as a path relative to `root`. */
 function sources(dir: string, root: string = SOURCE): string[] {
@@ -109,5 +110,43 @@ describe("the kore CLI names no backend binary either (plan 16, Step 6)", () => 
     );
 
     expect(offenders).toEqual([]);
+  });
+});
+
+/** The tasks of an Ansible tasks file, each as the text of its `- name:` block, comment lines left out. */
+function taskBlocks(text: string): string[] {
+  return text
+    .split("\n")
+    .filter((line) => !/^\s*#/.test(line))
+    .join("\n")
+    .split(/^(?=- name:)/m)
+    .filter((block) => block.startsWith("- name:"));
+}
+
+/** Whether a block names the herdr TUI binary: the word herdr, not herdr-core or the herdr-core release URL. */
+function namesHerdrBinary(block: string): boolean {
+  return /\bherdr\b(?!-core)/.test(
+    block.replace(/releases\.herdr\.dev\/core/g, ""),
+  );
+}
+
+describe("the agents role installs no herdr binary beside herdr-core (plan 16, Step 6)", () => {
+  it("pins no herdr in the agent's global tools", () => {
+    const defaults = readFileSync(
+      join(AGENTS_ROLE, "defaults/main.yaml"),
+      "utf8",
+    );
+
+    expect(defaults).not.toMatch(/^\s+herdr:/m);
+  });
+
+  it("names herdr in a task only to remove it", () => {
+    const tasks = taskBlocks(
+      readFileSync(join(AGENTS_ROLE, "tasks/main.yaml"), "utf8"),
+    );
+    const naming = tasks.filter(namesHerdrBinary);
+
+    expect(naming.filter((block) => !/state: absent/.test(block))).toEqual([]);
+    expect(naming).not.toEqual([]);
   });
 });
