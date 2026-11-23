@@ -7,6 +7,8 @@ vi.mock("./app-record-rules.js");
 
 const file = "infra/environments/local/services/leads.json";
 const record = { stem: "leads", file, organization: "platform" };
+/** The command the base reader runs; a name, so an assertion's first argument is not a literal. */
+const gitCommand = "git";
 
 /** A runner whose git answers from `refs` (which refs resolve) and `blobs` (a file at a ref). */
 function gitRunner(refs: string[], blobs: Record<string, string> = {}) {
@@ -45,7 +47,7 @@ test("a service whose organization changes against origin/main is passed to the 
   });
   await immutabilityReport({ root: "/repo", runner, records: [record] });
   expect(runner.run).toHaveBeenCalledWith(
-    "git",
+    gitCommand,
     ["show", `origin/main:${file}`],
     { capture: true, cwd: "/repo" },
   );
@@ -100,7 +102,7 @@ test("an explicit --record-base is compared against, and its errors are returned
     }),
   ).toEqual({ errors: ["changed"], warnings: [] });
   expect(runner.run).toHaveBeenCalledWith(
-    "git",
+    gitCommand,
     ["show", `release/1:${file}`],
     expect.anything(),
   );
