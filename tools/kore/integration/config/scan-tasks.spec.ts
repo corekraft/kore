@@ -158,6 +158,17 @@ async function pendingHistoryExcludes(): Promise<
 
 test("a history-only secret-scan exclusion goes when the squash drops its branch commit", async () => {
   const { root } = await loadRepository("local");
+  const shallow = execFileSync(
+    "git",
+    ["rev-parse", "--is-shallow-repository"],
+    {
+      cwd: root,
+      env: gitEnv,
+      encoding: "utf8",
+    },
+  ).trim();
+  // A shallow checkout cannot tell a squashed commit from one it never fetched; the PR integration job fetches full history.
+  if (shallow === "true") return;
   for (const { commit, patterns } of await pendingHistoryExcludes()) {
     let inHistory = true;
     try {
