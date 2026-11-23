@@ -47,11 +47,13 @@ function repositoryWith(options: {
   provider?: Environment["provider"];
   components?: Component[];
   seeds?: unknown[];
+  features?: Record<string, boolean>;
 }): Repository {
   return fakeRepository({
     environment: fakeEnvironment({
       name: "local",
       provider: options.provider ?? "k3d",
+      ...(options.features === undefined ? {} : { features: options.features }),
     }),
     catalog: fakeCatalog(options.components ?? components),
     seeds: fakeSeeds(options.seeds ?? []),
@@ -232,4 +234,39 @@ test("a registry address that does not parse skips the glob check rather than re
   expect(
     imageTrustErrors(repositoryWith({ trust: keylessTrust, seeds })),
   ).toEqual([]);
+});
+
+const templateFlagError = /golden-path-template-admission needs keyless trust/;
+
+test("the template admission flag with key trust fails validation up front, naming the flag and the keyless fix", () => {
+  const errors = imageTrustErrors(
+    repositoryWith({
+      trust: keyTrust,
+      features: { "golden-path-template-admission": true },
+    }),
+  );
+  expect(errors.join("\n")).toMatch(templateFlagError);
+  expect(errors.join("\n")).toMatch(
+    /kore-template-images policy renders only under a keyless authority/,
+  );
+});
+
+test("the template admission flag with keyless trust raises no template error", () => {
+  const errors = imageTrustErrors(
+    repositoryWith({
+      trust: keylessTrust,
+      features: { "golden-path-template-admission": true },
+    }),
+  );
+  expect(errors.join("\n")).not.toMatch(templateFlagError);
+});
+
+test("the template admission flag off raises no template error, whatever the trust", () => {
+  const errors = imageTrustErrors(
+    repositoryWith({
+      trust: keyTrust,
+      features: { "golden-path-template-admission": false },
+    }),
+  );
+  expect(errors.join("\n")).not.toMatch(templateFlagError);
 });

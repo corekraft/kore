@@ -1,4 +1,5 @@
 import { enrollmentExemptionErrors } from "./enrollment.js";
+import { featureEnabled, goldenPathTemplateAdmissionFlag } from "./features.js";
 import { registryPlan } from "./registry-address.js";
 import type { Repository } from "./types.js";
 
@@ -123,10 +124,30 @@ function parseableAddress(repository: Repository): boolean {
   }
 }
 
+/**
+ * The kore-template-images policy renders only under a keyless authority, since
+ * the templates are signed keylessly by the release. With the flag on and any
+ * other trust, its readiness resource would never exist, so validation names
+ * the cause here instead of letting the wait time out (issue 1884).
+ */
+function templateTrustErrors(repository: Repository): string[] {
+  const trust = repository.imageTrustValues?.trust as Trust | undefined;
+  if (
+    !featureEnabled(repository.environment, goldenPathTemplateAdmissionFlag) ||
+    trust?.type === "keyless"
+  ) {
+    return [];
+  }
+  return [
+    `image trust: ${goldenPathTemplateAdmissionFlag} needs keyless trust in environment ${repository.environment.name} (its trust is ${typeof trust?.type === "string" ? trust.type : "unset"}): the kore-template-images policy renders only under a keyless authority, because the templates are signed keylessly by the release. Use a keyless trust authority, or turn the flag off`,
+  ];
+}
+
 export function imageTrustErrors(repository: Repository): string[] {
   return [
     ...enrollmentExemptionErrors(repository),
     ...trustValueErrors(repository),
+    ...templateTrustErrors(repository),
   ];
 }
 
