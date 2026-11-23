@@ -32,6 +32,7 @@
       "gateway-class-change-release": false,
       "gateway-rollback-order": false,
       "ingress-agentgateway": false,
+      "agentgateway-data-plane-metrics": false,
       "platform-organization-service-apis": false,
       "platform-argocd-delivery": false,
       "database-routes": false,
@@ -43,12 +44,14 @@
       "otlp-route": false,
       "in-cluster-ca": false,
       "k3s-registry-trust": false,
+      "host-published-ports": false,
       "platform-hostname-ownership": false,
       "platform-portal": false,
       "portal-staged-install": false,
       "golden-path-signin": false,
       "golden-path-template-admission": false,
-      "golden-path-signin-after-portal": false
+      "golden-path-signin-after-portal": false,
+      "golden-path-safety-defaults": false
     },
   "secrets": { "storeName": "platform-secrets", "sourceNamespace": "external" },
   "telemetry":

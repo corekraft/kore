@@ -81,7 +81,7 @@ test("the real vps overlay lists no harness flag, and every flag it lists applie
   }
 });
 
-test("the flags that apply to vps are the ones ADR 0148 seeds, pending flags excluded", async () => {
+test("the flags that apply to vps are the ones the manifest declares, pending flags excluded", async () => {
   const { flags } = await loadRepository("vps");
   assert.deepEqual(appliedFlags(flags, "vps"), [
     "agentgateway-mesh-enrollment",
@@ -89,6 +89,7 @@ test("the flags that apply to vps are the ones ADR 0148 seeds, pending flags exc
     "gateway-class-change-release",
     "gateway-rollback-order",
     "ingress-agentgateway",
+    "agentgateway-data-plane-metrics",
     "platform-organization-service-apis",
     "platform-argocd-delivery",
     "platform-shared-gateway",
@@ -101,6 +102,8 @@ test("the flags that apply to vps are the ones ADR 0148 seeds, pending flags exc
     "golden-path-signin",
     "golden-path-template-admission",
     "golden-path-signin-after-portal",
+    "golden-path-safety-defaults",
+    "host-published-ports",
     "in-cluster-ca",
     "k3s-registry-trust",
     "registry-tailnet-forward",

@@ -28,6 +28,11 @@
         "applies": ["local", "vps", "managed-example"]
       },
       {
+        "name": "agentgateway-data-plane-metrics",
+        "kind": "feature",
+        "applies": ["local", "vps", "managed-example"]
+      },
+      {
         "name": "platform-organization-service-apis",
         "kind": "feature",
         "applies": ["local", "vps", "managed-example"]
@@ -87,6 +92,12 @@
         "kind": "feature",
         "applies": ["local", "vps", "managed-example"]
       },
+      {
+        "name": "golden-path-safety-defaults",
+        "kind": "feature",
+        "applies": ["local", "vps", "managed-example"]
+      },
+      { "name": "host-published-ports", "kind": "feature", "applies": ["vps"] },
       {
         "name": "registry-tag-pruning",
         "kind": "feature",
