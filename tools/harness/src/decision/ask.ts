@@ -93,11 +93,9 @@ export async function askOwner(
     );
   }
   const routed = classify({
-    idea: input.idea,
     category: input.category,
     question: input.question,
     action: input.action,
-    escalate: false,
   });
   if (routed.route !== "owner") {
     throw new DecisionError(

@@ -13,11 +13,9 @@ vi.mock("./reserved.js", async (importOriginal) => ({
 }));
 
 const INPUT: ClassifyInput = {
-  idea: "8",
   category: "naming",
   question: "Should the column be named Median or P50?",
   action: "Rename the column to Median.",
-  escalate: false,
 };
 
 beforeEach(() => {
@@ -78,12 +76,5 @@ describe("classify", () => {
         signal: "unclassifiable",
       });
     }
-  });
-
-  it("routes an escalated question to the owner whatever the signals say, so no input moves it to the advisor", () => {
-    expect(classify({ ...INPUT, escalate: true })).toEqual({
-      route: "owner",
-      signal: "escalated",
-    });
   });
 });

@@ -8,15 +8,11 @@ import { ADVISOR_FILES, matchedBy } from "./matcher.js";
 import { RESERVED_CATEGORIES, reservedCategory } from "./reserved.js";
 
 export interface ClassifyInput {
-  /** The idea the question is about, as the pane names it. */
-  readonly idea: string;
   /** The category the asking pane declared. */
   readonly category: string;
   readonly question: string;
   /** What the pane would do if the question were answered yes. */
   readonly action: string;
-  /** The advisor's escalation: the question goes to the owner whatever the signals say. */
-  readonly escalate: boolean;
 }
 
 export interface Classification {
@@ -33,14 +29,11 @@ function isReserved(category: string): boolean {
 }
 
 /**
- * The route the two signals give. Escalation and unreadable input go to the owner first; a
- * reserved category, and a match on the question or its action, go to the owner next. The
- * advisor gets the question only when the category is readable and unreserved and nothing matches.
+ * The route the two signals give. Unreadable input goes to the owner first; a reserved category,
+ * and a match on the question or its action, go to the owner next. The advisor gets the question
+ * only when the category is readable and unreserved and nothing matches.
  */
 export function classify(input: ClassifyInput): Classification {
-  if (input.escalate) {
-    return { route: "owner", signal: "escalated" };
-  }
   if (
     !CATEGORY_NAME.test(input.category) ||
     input.question.trim() === "" ||
