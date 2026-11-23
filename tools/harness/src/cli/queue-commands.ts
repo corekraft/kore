@@ -62,11 +62,11 @@ async function openedLedger(context: CommandContext) {
   return opened.ledger;
 }
 
-function prOf(context: CommandContext, verb: string): number {
+function prOf(context: CommandContext, usage: string): number {
   const { operand } = context;
   if (operand === undefined || !/^\d+$/.test(operand) || Number(operand) < 1) {
     throw new QueueError(
-      `Missing or invalid PR number. Run \`harness queue ${verb} <pr>\`.`,
+      `Missing or invalid PR number. Run \`harness queue ${usage}\`.`,
     );
   }
   return Number(operand);
@@ -166,8 +166,9 @@ async function modelFor(context: CommandContext, count: number) {
   return writerTier(count, declared.model);
 }
 
-async function sendBacks(context: CommandContext): Promise<void> {
-  const pr = prOf(context, "send-backs");
+/** `queue escalate <pr> --check`: the count and the model to launch, read-only, with nothing recorded. */
+async function checkEscalation(context: CommandContext): Promise<void> {
+  const pr = prOf(context, "escalate <pr> --check");
   const { count } = await countFor(context, pr);
   const { model, escalate } = await modelFor(context, count);
   context.deps.stdout(
@@ -179,7 +180,7 @@ async function sendBacks(context: CommandContext): Promise<void> {
 
 async function escalateWriter(context: CommandContext): Promise<void> {
   const { deps, json } = context;
-  const pr = prOf(context, "escalate");
+  const pr = prOf(context, "escalate <pr>");
   const { ledger, count } = await countFor(context, pr);
   if (count < ESCALATION_THRESHOLD) {
     throw new QueueError(
@@ -216,24 +217,20 @@ export const nextCommand = {
   run: (context) => guarded(context, () => next(context)),
 } satisfies Omit<Command, "help">;
 
-export const sendBacksCommand = {
-  summary:
-    "Counts a pull request's judge send-backs and names the writer model to relaunch it on.",
-  operand: "pr",
-  options: { ledger: "string" },
-  run: (context) => guarded(context, () => sendBacks(context)),
-} satisfies Omit<Command, "help">;
-
 export const escalateCommand = {
   summary:
-    "Records a writer's escalation after two send-backs and prints the spawn line that relaunches it.",
+    "Records a writer's escalation after two send-backs and prints the spawn line that relaunches it; with --check, only counts the send-backs and names the model.",
   operand: "pr",
-  options: { ledger: "string" },
-  run: (context) => guarded(context, () => escalateWriter(context)),
+  options: { ledger: "string", check: "boolean" },
+  run: (context) =>
+    guarded(context, () =>
+      context.options["check"] === true
+        ? checkEscalation(context)
+        : escalateWriter(context),
+    ),
 } satisfies Omit<Command, "help">;
 
 export const queueCommands: Record<string, Omit<Command, "help">> = {
   next: nextCommand,
-  "send-backs": sendBacksCommand,
   escalate: escalateCommand,
 };

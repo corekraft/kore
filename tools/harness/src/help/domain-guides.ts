@@ -107,7 +107,7 @@ export const domainGuides: Record<DomainName, DomainGuide> = {
   queue: {
     purpose:
       "The work queue: approved ideas and pending judge send-backs, and the escalation that relaunches a writer on a stronger model.",
-    flow: "Run queue next to list what to work on, oldest first (the whole ticket frontier behind tick-ticket-queue); queue send-backs to count a PR's send-backs and name the writer model; queue escalate to record the escalation at two send-backs.",
+    flow: "Run queue next to list what to work on, oldest first (the whole ticket frontier behind tick-ticket-queue); queue escalate --check to count a PR's send-backs and name the writer model; queue escalate to record the escalation at two send-backs.",
   },
   retro: {
     purpose:
