@@ -184,6 +184,7 @@
     owner: root
     group: root
     mode: "0700"
+  when: kore_host_ports_flag | bool
 
 # k3s applies every manifest in this directory. The ConfigMap holds the host's
 # addresses from its facts, so the task's output is suppressed and no address
@@ -195,6 +196,7 @@
     owner: root
     group: root
     mode: "0600"
+  when: kore_host_ports_flag | bool
   no_log: true
 
 - name: Read the cluster kubeconfig

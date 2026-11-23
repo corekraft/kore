@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { test } from "vitest";
-import { findRoot } from "../../src/config/index.js";
+import { findRoot, loadRepository } from "../../src/config/index.js";
 
 // Docs: docs/decisions/0160-vps-has-an-internal-gateway-on-the-tailnet-and-an-external-gateway-on-public-443.md
 
@@ -23,9 +23,10 @@ async function readHost(path: string): Promise<string> {
 }
 
 async function portTable(): Promise<{ publish: PublishRule[] }> {
-  return JSON.parse(await readHost("port-table.yaml")) as {
-    publish: PublishRule[];
-  };
+  const table: { publish: PublishRule[] } = JSON.parse(
+    await readHost("port-table.yaml"),
+  );
+  return table;
 }
 
 /** The text of one task, from its name line to the next task. */
@@ -130,9 +131,28 @@ test("the network role renders its firewall from the port table and the host's a
     defaults,
     /^network_port_table: "\{\{ lookup\('ansible\.builtin\.file', playbook_dir ~ '\/port-table\.yaml'\) \| from_yaml \}\}"$/m,
   );
+});
+
+test("the firewall is written from the port table only while the host-published-ports flag is on, and otherwise today's firewall is written unchanged", async () => {
   const tasks = await readHost("roles/network/tasks/main.yaml");
-  assert.match(tasks, /src: nftables\.conf\.j2/);
-  assert.doesNotMatch(tasks, /src: nftables\.conf\n/);
+  assert.match(
+    tasks,
+    /src: "\{\{ 'nftables\.conf\.j2' if kore_host_ports_flag \| bool else 'nftables\.conf' \}\}"/,
+  );
+  const current = await readHost("roles/network/templates/nftables.conf");
+  assert.match(current, /^table inet kore_host \{$/m);
+  assert.match(current, /chain input \{/);
+  assert.doesNotMatch(current, /prerouting|forward|\{\{|\{%/);
+});
+
+test("the host-published-ports flag is declared in the vps overlay, off, and the playbook reads it from there", async () => {
+  const { environment } = await loadRepository("vps");
+  assert.equal(environment.features?.["host-published-ports"], false);
+  const site = await readHost("site.yaml");
+  assert.match(
+    site,
+    /kore_host_ports_flag: >-\n\s+\{\{ \(lookup\('ansible\.builtin\.file', playbook_dir ~ '\/\.\.\/\.\.\/environments\/vps\/environment\.yaml'\)\n\s+\| from_yaml\)\.features\['host-published-ports'\] \| default\(false\) \}\}/,
+  );
 });
 
 test("the firewall template redirects each published port to its node port per address, before kube-proxy's own node-port rules run", async () => {
@@ -238,4 +258,27 @@ test("the task that writes the host-address ConfigMap suppresses its output, so 
   const tasks = await readHost("roles/k3s/tasks/main.yaml");
   const publish = task(tasks, "Publish the host's addresses to the cluster");
   assert.match(publish, /^ {2}no_log: true$/m);
+});
+
+test("the ConfigMap and its directory are written only while the host-published-ports flag is on, so a flag-off run changes nothing on the node", async () => {
+  const tasks = await readHost("roles/k3s/tasks/main.yaml");
+  for (const name of [
+    "Create the k3s auto-deploy directory",
+    "Publish the host's addresses to the cluster",
+  ]) {
+    assert.match(
+      task(tasks, name),
+      /^ {2}when: kore_host_ports_flag \| bool$/m,
+      name,
+    );
+  }
+});
+
+test("the flag-off firewall and the ConfigMap template hold no literal IPv4 address, so the host's own addresses come only from facts", async () => {
+  for (const path of [
+    "roles/network/templates/nftables.conf",
+    "roles/k3s/templates/kore-host-addresses.yaml.j2",
+  ]) {
+    assert.doesNotMatch(await readHost(path), ipv4Literal, path);
+  }
 });

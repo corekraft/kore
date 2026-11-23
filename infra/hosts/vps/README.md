@@ -57,7 +57,10 @@ every other node port that arrives off the tailnet, except the external
 Gateway's. The host's public and tailnet addresses come from the play's facts
 (`kore_host_addresses` in `site.yaml`); the `k3s` role publishes them to the
 cluster as the `kore-host-addresses` ConfigMap. Neither address is in the
-repository, and that task's output is suppressed.
+repository, and that task's output is suppressed. All of it sits behind the
+`host-published-ports` flag in the vps overlay, off until a live run on kore-vps
+and `harness flag activate`; with it off the run writes today's firewall and no
+ConfigMap.
 
 ## k3s
 

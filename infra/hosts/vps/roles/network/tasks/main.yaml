@@ -1,6 +1,9 @@
+# Dark launch: with host-published-ports off (the overlay's flag, until a live
+# run and harness flag activate turn it on) the firewall written is today's
+# file, so a run changes nothing here.
 - name: Write the host firewall
   ansible.builtin.template:
-    src: nftables.conf.j2
+    src: "{{ 'nftables.conf.j2' if kore_host_ports_flag | bool else 'nftables.conf' }}"
     dest: /etc/nftables.conf
     owner: root
     group: root
