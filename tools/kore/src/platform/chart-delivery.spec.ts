@@ -7,11 +7,13 @@ import {
   componentValues,
   helmInstalledComponents,
 } from "../config/index.js";
+import { isReleaseAutomationSigner } from "../images/index.js";
 import { composeChartDelivery } from "./chart-delivery.js";
 import { fakeComponent, fakeRepository } from "./platform-support.js";
 
 vi.mock("node:fs/promises");
 vi.mock("../config/index.js");
+vi.mock("../images/index.js");
 
 const repository = { ...fakeRepository(), catalog: { components: [] } };
 const values = {
@@ -198,6 +200,9 @@ const signedLock = (...signers: string[]) =>
   JSON.stringify({ version: 1, authorizedSigners: signers, entries: {} });
 
 test("a managed environment refuses a main chart lock before any cluster call, and names the release lock to use", async () => {
+  vi.mocked(isReleaseAutomationSigner).mockImplementation(
+    (signer) => signer === releaseSigner,
+  );
   vi.mocked(readFile).mockResolvedValue(signedLock(mainSigner));
   await expect(composeChartDelivery(vps, "main.json")).rejects.toThrow(
     /^--platform-chart-lock main\.json is not the release chart lock: it is signed by .*refs\/heads\/main, and vps takes only a lock signed by release automation at a version tag .*[Pp]ass the platform-charts\.lock\.json attached to the release/,
@@ -206,6 +211,9 @@ test("a managed environment refuses a main chart lock before any cluster call, a
 });
 
 test("a managed environment refuses a main chart lock even while platform-argocd-delivery is off, since the lock is handed in for the run", async () => {
+  vi.mocked(isReleaseAutomationSigner).mockImplementation(
+    (signer) => signer === releaseSigner,
+  );
   vi.mocked(helmInstalledComponents).mockReturnValue([]);
   vi.mocked(readFile).mockResolvedValue(signedLock(mainSigner));
   await expect(composeChartDelivery(vps, "main.json")).rejects.toThrow(
@@ -215,6 +223,9 @@ test("a managed environment refuses a main chart lock even while platform-argocd
 });
 
 test("a managed environment refuses a lock signed by a developer key or naming no signer, since only release automation is known to sign a release lock", async () => {
+  vi.mocked(isReleaseAutomationSigner).mockImplementation(
+    (signer) => signer === releaseSigner,
+  );
   vi.mocked(readFile).mockResolvedValue(signedLock("local-kore-key"));
   await expect(composeChartDelivery(vps, "local.json")).rejects.toThrow(
     "is not the release chart lock",
@@ -227,6 +238,9 @@ test("a managed environment refuses a lock signed by a developer key or naming n
 });
 
 test("a managed environment takes the release chart lock as before", async () => {
+  vi.mocked(isReleaseAutomationSigner).mockImplementation(
+    (signer) => signer === releaseSigner,
+  );
   vi.mocked(readFile).mockResolvedValue(signedLock(releaseSigner));
   vi.mocked(chartDeliveryValues).mockReturnValue(values);
   await expect(composeChartDelivery(vps, "release.json")).resolves.toEqual({
