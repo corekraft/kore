@@ -2,59 +2,6 @@
 // files, which attach each to its command, so no command file outgrows its size budget.
 import type { CommandHelp } from "../runtime/index.js";
 
-export const routeHelp: CommandHelp = {
-  purpose:
-    "Routes a pane's question to the advisor or to the owner, and appends decision.routed with the route, the category, the idea and the signal that decided it, never the question or the action. The owner gets any reserved, matched, unreadable or escalated question; the advisor gets one only when its category and the matcher both agree. Refused with nothing posted or recorded while the decision-advisor flag is off in the local overlay.",
-  when: "When a pane raises a question and must know whether the advisor may decide it before it acts.",
-  whenNot:
-    "When the question is already the owner's, use decision ask, which posts it to the owner. When the advisor has decided it, use decision make to record the decision. This command posts nothing on GitHub.",
-  flags: {
-    idea: "The idea the question is about, by its number or slug. Required.",
-    category:
-      "The category the pane declares: lowercase letters, digits and -, starting with a letter. A name that is not readable is recorded as unclassified and routed to the owner.",
-    question:
-      "The question the pane asks, as text. It is matched against the reserved list and never stored; an empty one is routed to the owner.",
-    action:
-      "What the pane would do if the question were answered yes, as text. It is matched with the question and never stored; an empty one is routed to the owner.",
-    escalate:
-      "Sends the question to the owner whatever the other signals say, with the signal escalated.",
-    ledger:
-      "The ledger file to append to, resolved from the working directory. Default: the shared ledger under the main checkout root (.kore/state/ledger.jsonl), where KORE_ROOT overrides the root.",
-  },
-  examples: [
-    {
-      command:
-        'harness decision route --idea 0042 --category naming --question "Rename the report command?" --action "Rename it and update its skill."',
-      shows:
-        "the route the question takes: Routed to the advisor for idea 0042 (signal: agreed), or to the owner with the signal that decided it",
-    },
-    {
-      command:
-        'harness decision route --idea 0042 --category naming --question "Rename it?" --action "Rename it." --escalate --json',
-      shows: "the owner route with the signal escalated, as one JSON object",
-    },
-  ],
-  exits: [
-    {
-      code: 0,
-      meaning:
-        "the route is recorded and printed; a route to the owner is a successful route too",
-    },
-    {
-      code: 1,
-      meaning:
-        "refused with nothing recorded: the flag is off, the idea is unknown, or the ledger rejected the route",
-    },
-    { code: 2, meaning: "--idea is not given" },
-  ],
-  effects: {
-    kind: "mutates",
-    detail:
-      "appends one decision.routed event with the idea, the category, the route and the signal. The ledger is append-only and written only here. It posts nothing on GitHub and never stores the question or the action.",
-  },
-  seeAlso: ["decision ask", "decision make"],
-};
-
 export const askHelp: CommandHelp = {
   purpose:
     "Posts a reserved question to the owner: a comment on the idea's issue under the sender line, with the needs-info label, then appends decision.routed to the owner. The pane's own record lets a pane waiting on the answer go unreported as stalled. The question and the action are posted and never stored in the ledger. Refused with nothing posted or recorded while the decision-advisor flag is off in the local overlay.",
@@ -107,7 +54,7 @@ export const askHelp: CommandHelp = {
     detail:
       "adds the needs-info label to the idea's GitHub issue, posts one comment under the sender line, then appends one decision.routed event to the owner. The ledger is append-only and written only here.",
   },
-  seeAlso: ["decision route", "decision make", "decision digest"],
+  seeAlso: ["decision make", "decision digest"],
 };
 
 export const digestHelp: CommandHelp = {
