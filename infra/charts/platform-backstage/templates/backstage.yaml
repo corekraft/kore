@@ -25,6 +25,41 @@ spec:
         runAsNonRoot: true
         seccompProfile:
           type: RuntimeDefault
+{{- if .Values.keycloakWait }}
+{{- $discovery := printf "https://%s/realms/platform/.well-known/openid-configuration" (required "set keycloakHostname, which kore passes from the environment's platform field" .Values.keycloakHostname) }}
+      # With keycloakWait, this init container holds both containers until the
+      # realm answers discovery: the proxy exits when discovery fails, and
+      # Kubernetes backs its restart off for minutes (issue 1788). It runs the
+      # portal's pinned Backstage image, so it adds no image.
+      initContainers:
+        - name: wait-for-keycloak
+          image: {{ .Values.backstage.image | quote }}
+          command:
+            - /nodejs/bin/node
+            - -e
+            - {{ printf "(async () => { for (;;) { try { if ((await fetch(%q)).ok) process.exit(0); } catch (e) {} await new Promise((r) => setTimeout(r, 2000)); } })();" $discovery | quote }}
+          env:
+            - name: NODE_EXTRA_CA_CERTS
+{{- if .Values.localCa }}
+              value: /etc/kore/local-ca/bundle.crt
+{{- else }}
+              value: /var/run/secrets/kubernetes.io/serviceaccount/ca.crt
+{{- end }}
+{{- if .Values.localCa }}
+          volumeMounts:
+            - name: local-ca
+              mountPath: /etc/kore/local-ca
+              readOnly: true
+{{- end }}
+          resources:
+            requests: { cpu: 10m, memory: 64Mi }
+            limits: { cpu: 200m, memory: 128Mi }
+          securityContext:
+            runAsUser: 65532
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: [ALL]
+{{- end }}
       containers:
         - name: proxy
           image: {{ .Values.proxy.image | quote }}

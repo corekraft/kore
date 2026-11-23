@@ -4,6 +4,7 @@ import {
   platformDnsFlag,
   otlpRouteFlag,
   platformHostnameOwnershipFlag,
+  keycloakWaitFlag,
   platformSharedGatewayFlag,
 } from "./features.js";
 import type { Environment } from "./types.js";
@@ -223,6 +224,22 @@ function keycloakHostArgs(
 }
 
 /**
+ * With platform-keycloak-wait on, the portal's pod waits for the Keycloak
+ * realm's discovery before its proxy starts (issue 1788); otherwise none, so
+ * the flag off renders what it rendered before. The portal is feature-free, so
+ * kore hands this one boolean rather than the features map.
+ */
+function keycloakWaitArgs(
+  environment: Environment,
+  component: string,
+): string[] {
+  return component === "kore-platform-backstage" &&
+    featureEnabled(environment, keycloakWaitFlag)
+    ? ["--set", "keycloakWait=true"]
+    : [];
+}
+
+/**
  * With platform-shared-gateway on, the Gateway a route attaches to and the
  * organization's domain it serves, `<organizationId>.<domain>`; otherwise none,
  * so the flag off renders what it rendered before.
@@ -346,6 +363,7 @@ export function platformHelmArgs(
   const shared = [
     ...backstageHostArgs(environment, component),
     ...keycloakHostArgs(environment, component),
+    ...keycloakWaitArgs(environment, component),
     ...zoneArgs(environment, component),
     ...sharedGatewayArgs(environment, component),
     ...clusterResolutionArgs(environment, component),

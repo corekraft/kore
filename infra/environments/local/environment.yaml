@@ -80,6 +80,7 @@
       "golden-path-signin": true,
       "golden-path-template-admission": false,
       "golden-path-signin-after-portal": false,
+      "platform-keycloak-wait": false,
       "decision-advisor": true
     },
   "imageInventory": "audit",
