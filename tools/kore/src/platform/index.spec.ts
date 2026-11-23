@@ -59,6 +59,7 @@ test("the platform barrel exposes exactly the runtime names its callers use", ()
       "recoverRelease",
       "releaseMatchesFingerprint",
       "routeHostErrors",
+      "uninstallGatedRelease",
       "upChartLockDrift",
       "waitForHTTPRoute",
       "withAbsoluteChart",

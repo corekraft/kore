@@ -7,6 +7,7 @@ Usage:
   kore cluster up|stop|destroy --environment <name> [--yes] [--purge-data]
   kore cluster status [--environment <name>] [--json]
   kore platform bootstrap|up|gate-check|stop|destroy --environment <name> [--yes] [--purge-data] [--force] [--platform-chart-lock <platform-charts.lock.json>] [--platform-template-lock <template-images.lock.json>]   (the locks are read only by "up", and only while platform-argocd-delivery is on, when it is required: kore checks it against the catalog before touching the cluster, composes the kore-config-delivery chart values from the chart lock, the kore-golden-path-delivery values from the template lock, the checked-out commit and the environment, and gives Argo CD the registry's read credential through stdin)
+  kore platform uninstall <component> --environment <name> [--yes] [--purge-data]   (uninstalls the Helm release of a component whose featureFlag is off, in the environment's configured context; without --yes it removes nothing and names what it would remove; retained data in its namespace needs --purge-data, and a namespace shared with another component is refused; it never prunes and never touches another release)
   kore platform status|render [--environment <name>] [--output <directory>] [--json]   (a component gated off by its catalog featureFlag reports gated-off)
   kore app up <name> --environment <name> [--image-lock <release images.lock.json>]
   kore app down <name> --environment <name> [--json]

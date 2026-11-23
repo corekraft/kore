@@ -74,6 +74,7 @@ export { retryBudget } from "../platform/readiness-poll.js";
 export { openApplicationAdmission } from "../platform/readiness-gate.js";
 export { gatewayCheck, waitForGateway } from "../platform/readiness-gateway.js";
 export { backupStatus } from "../platform/backup-status.js";
+export { uninstallGatedRelease } from "../platform/gated-uninstall.js";
 export {
   capacityStatus,
   parseCpu,

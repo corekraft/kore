@@ -70,6 +70,7 @@ const FORWARDS: Record<string, readonly string[]> = {
   "../platform/readiness-gate.js": ["openApplicationAdmission"],
   "../platform/readiness-gateway.js": ["gatewayCheck", "waitForGateway"],
   "../platform/backup-status.js": ["backupStatus"],
+  "../platform/gated-uninstall.js": ["uninstallGatedRelease"],
   "../platform/capacity-status.js": [
     "capacityStatus",
     "parseCpu",
