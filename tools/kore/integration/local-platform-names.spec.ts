@@ -2,7 +2,7 @@ import { readdirSync, readFileSync } from "node:fs";
 import { dirname, join, relative } from "node:path";
 import { fileURLToPath } from "node:url";
 import { expect, test } from "vitest";
-import { loadRepository } from "../src/config/index.js";
+import { loadRepository, internalGateway } from "../src/config/index.js";
 import { defaultPlatformDomain } from "../src/platform-domain.fixtures.js";
 import {
   escapeRegExp,
@@ -38,10 +38,13 @@ test("no integration spec hardcodes the platform domain, the gateway port or the
 
 test("the names follow the overlay's platform domain and gateway port", async () => {
   const { environment } = await loadRepository("local");
+  // The declared gateways.internal would win over the single field, so the
+  // moved overlay declares only the single field, on the port under test.
+  const { gateways: _declared, ...single } = environment;
   const moved = platformOf({
-    ...environment,
+    ...single,
     platform: { domain: "kore.internal", organizationId: "platform" },
-    gateway: { ...environment.gateway, port: 443 },
+    gateway: { ...internalGateway(environment), port: 443 },
   });
   expect(moved).toEqual({
     domain: "kore.internal",
@@ -58,7 +61,7 @@ test("the local overlay's own values are what the specs read", async () => {
   const { environment } = await loadRepository("local");
   const local = await localPlatform();
   expect(local.domain).toBe(environment.platform?.domain);
-  expect(local.gatewayPort).toBe(environment.gateway.port);
+  expect(local.gatewayPort).toBe(internalGateway(environment).port);
   expect(local.hostPort).toBe(environment.k3d?.ports[0]?.hostPort);
 });
 

@@ -9,6 +9,7 @@ import {
   installLocalTrust,
   parseSmtpCredentials,
   syncLocalSecrets,
+  trustIssuer,
 } from "../security/index.js";
 import { mutateAction } from "./context.js";
 import type { CommandContext } from "./context.js";
@@ -91,7 +92,7 @@ export async function trustCommand(context: CommandContext): Promise<number> {
       print(
         {
           status: "installed",
-          issuer: context.repository.environment.gateway.name,
+          issuer: trustIssuer(context.repository),
         },
         context.json,
       );

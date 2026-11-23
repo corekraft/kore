@@ -1,3 +1,4 @@
+import { internalGateway } from "./gateways.js";
 import {
   databaseRoutesFlag,
   featureEnabled,
@@ -6,6 +7,7 @@ import {
   platformHostnameOwnershipFlag,
   platformSharedGatewayFlag,
 } from "./features.js";
+import { keycloakWaitArgs } from "./platform-keycloak-wait.js";
 import { platformDomainVariable, runTimeDomain } from "./run-time-domain.js";
 import type { Environment } from "./types.js";
 
@@ -181,9 +183,9 @@ function otlpRouteArgs(
     "--set-string",
     `otlpRoute.hostname=${otlpHostname(environment, env)}`,
     "--set-string",
-    `otlpRoute.gateway.name=${environment.gateway.name}`,
+    `otlpRoute.gateway.name=${internalGateway(environment).name}`,
     "--set-string",
-    `otlpRoute.gateway.namespace=${environment.gateway.namespace}`,
+    `otlpRoute.gateway.namespace=${internalGateway(environment).namespace}`,
   ];
 }
 
@@ -297,8 +299,8 @@ function sharedGatewayArgs(
   const { domain, organizationId } = platformPlan(environment, env);
   // The portal's host is backstageHostname, so its sharedGateway takes no domain.
   return [
-    ["name", environment.gateway.name],
-    ["namespace", environment.gateway.namespace],
+    ["name", internalGateway(environment).name],
+    ["namespace", internalGateway(environment).namespace],
     ...(component === "kore-platform-backstage"
       ? []
       : [["domain", `${organizationId}.${domain}`]]),
@@ -333,9 +335,9 @@ function databaseRoutesArgs(
       "--set-string",
       `organizationId=${organizationId}`,
       "--set-string",
-      `gateway.name=${environment.gateway.name}`,
+      `gateway.name=${internalGateway(environment).name}`,
       "--set-string",
-      `gateway.namespace=${environment.gateway.namespace}`,
+      `gateway.namespace=${internalGateway(environment).namespace}`,
     ];
   }
   return [];
@@ -360,7 +362,7 @@ function clusterResolutionArgs(
     return ["--set-string", `localCa.configMap=${localCaConfigMap}`];
   }
   if (component === "kore-platform-dns") {
-    const { name, namespace } = environment.gateway;
+    const { name, namespace } = internalGateway(environment);
     return [
       "--set-string",
       `gateway.name=${name}`,
@@ -408,6 +410,7 @@ export function platformHelmArgs(
   const shared = [
     ...backstageHostArgs(environment, component, env),
     ...keycloakHostArgs(environment, component, env),
+    ...keycloakWaitArgs(environment, component),
     ...zoneArgs(environment, component, env),
     ...sharedGatewayArgs(environment, component, env),
     ...clusterResolutionArgs(environment, component),

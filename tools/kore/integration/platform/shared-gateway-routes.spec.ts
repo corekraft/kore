@@ -9,6 +9,7 @@ import {
   platformHelmArgs,
   platformPlan,
   type Repository,
+  internalGateway,
 } from "../../src/config/index.js";
 import { helmTemplateArgs, routeHostErrors } from "../../src/platform/index.js";
 import { withAbsoluteChart } from "../../src/testing/index.js";
@@ -144,7 +145,7 @@ function sharedRoute(output: string, name: string): string {
 }
 
 function shared(repository: Repository) {
-  const { gateway } = repository.environment;
+  const gateway = internalGateway(repository.environment);
   const { domain, organizationId } = platformPlan(repository.environment);
   return { gateway, domain, organizationId };
 }
