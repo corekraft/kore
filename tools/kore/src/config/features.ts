@@ -73,6 +73,9 @@ export const platformArgocdDeliveryFlag = "platform-argocd-delivery";
 /** The flag that installs the local-only platform DNS server, answering the platform domain zone with the loopback address (plan 15, issue 1202). */
 export const platformDnsFlag = "platform-dns";
 
+/** The flag that makes `kore local up` read a cluster's load balancer mappings from docker inspect when `k3d cluster list` reports none, so a missing declared port is refused (#1683). Off, the drift check reads the listing alone. */
+export const driftListingMappingsFlag = "drift-listing-mappings";
+
 /** The flag that installs the hostname-ownership constraint and the zone field it reads from the Organization API (ADR 0042, issue 1331). */
 export const platformHostnameOwnershipFlag = "platform-hostname-ownership";
 
