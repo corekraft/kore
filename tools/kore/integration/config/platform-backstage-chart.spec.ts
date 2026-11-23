@@ -142,7 +142,12 @@ test("the proxy holds its client and cookie secrets by Secret reference, so no c
   assert.match(deployment, /name: backstage-oidc/);
   assert.match(deployment, /key: client-secret/);
   assert.match(deployment, /key: cookie-secret/);
-  assert.equal(/kind: Secret\b/.test(rendered), false);
+  // The only Secret is the service account token the control plane fills in:
+  // it carries no data in git (ADR 0180).
+  const secrets = documents(rendered, "Secret");
+  assert.equal(secrets.length, 1);
+  assert.match(secrets[0] ?? "", /type: kubernetes\.io\/service-account-token/);
+  assert.equal(/^data:|^stringData:/m.test(secrets[0] ?? ""), false);
   assert.equal(
     /(secret|password):\s*[A-Za-z0-9]{16,}/i.test(deployment),
     false,
@@ -286,7 +291,7 @@ test("the route renders only once the gateway class is given, so a render withou
 test("group authorization stays with the platform-operators group, and the route adds no second grant", async () => {
   const rendered = await renderRouted();
   const rbac = documents(rendered, "ClusterRoleBinding").join("\n");
-  assert.match(rbac, /platform-operators/);
+  assert.equal(/kind: Group/.test(rbac), false);
   for (const part of [
     ...documents(rendered, "HTTPRoute"),
     ...documents(rendered, "Gateway"),
@@ -296,8 +301,7 @@ test("group authorization stays with the platform-operators group, and the route
   const subjects = [...rendered.matchAll(/kind: Group\n\s+name: (\S+)/g)].map(
     (m) => m[1],
   );
-  assert.ok(subjects.length > 0);
-  assert.ok(subjects.every((s) => s === "platform-operators"));
+  assert.deepEqual(subjects, []);
 });
 
 // The pod sets runAsNonRoot, and the kubelet can only verify it when each

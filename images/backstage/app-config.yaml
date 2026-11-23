@@ -44,8 +44,8 @@
                 {
                   "name": "platform",
                   "url": "https://kubernetes.default.svc",
-                  "authProvider": "oidc",
-                  "oidcTokenProvider": "oidc",
+                  "authProvider": "serviceAccount",
+                  "serviceAccountToken": "${K8S_SA_TOKEN}",
                   "skipTLSVerify": false
                 }
               ]

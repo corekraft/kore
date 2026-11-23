@@ -100,6 +100,13 @@ spec:
               value: https://{{ .Values.backstageHostname }}
             # In-app sign-in (ADR 0113). The proxy stays in front until a live
             # run proves it; the client secret is the same Secret reference.
+            # The Kubernetes plugin's cluster token (ADR 0180): the backstage
+            # service account's long-lived token Secret.
+            - name: K8S_SA_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: backstage-sa-token
+                  key: token
             - name: OIDC_METADATA_URL
               value: https://{{ required "set keycloakHostname, which kore passes from the environment's platform field" .Values.keycloakHostname }}/realms/platform/.well-known/openid-configuration
             - name: OIDC_CLIENT_ID

@@ -28,7 +28,8 @@ done for [ADR 0113](0113-run-a-keycloak-for-the-platform-organization-s-operator
   operators.
 - **Argo CD syncs service workloads from git, by digest.** Image admission
   still decides what runs.
-- **Backstage reads clusters as the user.** Its Kubernetes plugin uses the
+- **Backstage reads clusters as the user** (refined by [ADR 0180](0180-backstage-reads-the-argo-cd-view-as-its-own-service-account-gated-by-the-operators-policy.md):
+  the Argo CD view reads as the Backstage service account). Its Kubernetes plugin uses the
   user's OIDC token ([ADR 0113](0113-run-a-keycloak-for-the-platform-organization-s-operators.md)), so
   Kubernetes RBAC applies.
 - **Both run like any other service,** with hosts, a claim on the PostgreSQL
