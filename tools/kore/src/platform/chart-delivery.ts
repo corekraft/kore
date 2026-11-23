@@ -74,6 +74,18 @@ async function readLock(lockPath: string): Promise<unknown> {
   }
 }
 
+/** The signers a lock declares, or none when it declares no list. */
+function declaredSigners(lock: unknown): unknown[] {
+  if (
+    typeof lock !== "object" ||
+    lock === null ||
+    !("authorizedSigners" in lock)
+  ) {
+    return [];
+  }
+  return Array.isArray(lock.authorizedSigners) ? lock.authorizedSigners : [];
+}
+
 /**
  * A managed environment takes only a lock that release automation signed at a
  * version tag, the one attached to a release. A main chart lock (ADR 0138), a
@@ -86,9 +98,7 @@ function assertReleaseLock(
   lockPath: string,
   repository: Repository,
 ): void {
-  const declared = (lock as { authorizedSigners?: unknown } | null)
-    ?.authorizedSigners;
-  const signers: unknown[] = Array.isArray(declared) ? declared : [];
+  const signers = declaredSigners(lock);
   if (
     signers.length > 0 &&
     signers.every(
