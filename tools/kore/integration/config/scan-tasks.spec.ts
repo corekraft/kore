@@ -113,16 +113,67 @@ test("only the working-tree pass skips release-please's CHANGELOG.md, so the his
     !history.some((pattern) => pattern.includes("CHANGELOG")),
     "the history pass never excludes CHANGELOG.md",
   );
+  const pending = await pendingHistoryExcludes();
+  const pendingPatterns = pending.flatMap((entry) => entry.patterns);
   assert.deepEqual(
     tree.filter((pattern) => !history.includes(pattern)),
     ["^CHANGELOG\\.md$"],
     "the tree pass adds exactly the CHANGELOG.md path to the shared excludes",
   );
   assert.deepEqual(
-    history.filter((pattern) => !tree.includes(pattern)),
+    history.filter(
+      (pattern) =>
+        !tree.includes(pattern) && !pendingPatterns.includes(pattern),
+    ),
     [],
-    "the tree pass keeps every shared exclude",
+    "the tree pass keeps every shared exclude except the history-only pending ones",
   );
+  for (const pattern of pendingPatterns) {
+    assert.ok(
+      !tree.includes(pattern),
+      `${pattern} is history-only: the working-tree pass reads the current file`,
+    );
+  }
+});
+
+/** Exclude lines that stand only while a named branch commit sits in history: the comment line `# until-squash <sha>` heads the group. */
+async function pendingHistoryExcludes(): Promise<
+  { commit: string; patterns: string[] }[]
+> {
+  const entries: { commit: string; patterns: string[] }[] = [];
+  let current: { commit: string; patterns: string[] } | undefined;
+  for (const line of (await read(".trufflehog-exclude")).split("\n")) {
+    const marker = line.match(/^# until-squash ([0-9a-f]{8,40})\b/);
+    if (marker) {
+      current = { commit: marker[1] ?? "", patterns: [] };
+      entries.push(current);
+    } else if (line === "" || line.startsWith("#")) {
+      continue;
+    } else if (current) {
+      current.patterns.push(line);
+    }
+  }
+  return entries.filter((entry) => entry.patterns.length > 0);
+}
+
+test("a history-only secret-scan exclusion goes when the squash drops its branch commit", async () => {
+  const { root } = await loadRepository("local");
+  for (const { commit, patterns } of await pendingHistoryExcludes()) {
+    let inHistory = true;
+    try {
+      execFileSync("git", ["merge-base", "--is-ancestor", commit, "HEAD"], {
+        cwd: root,
+        env: gitEnv,
+        stdio: "ignore",
+      });
+    } catch {
+      inHistory = false;
+    }
+    assert.ok(
+      inHistory,
+      `commit ${commit} is gone from history (squashed): delete its ${patterns.length} exclude line(s) from .trufflehog-exclude`,
+    );
+  }
 });
 
 test("scanner tasks are offline-capable and send no telemetry", async () => {

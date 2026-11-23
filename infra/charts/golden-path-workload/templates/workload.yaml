@@ -190,7 +190,7 @@ spec:
 {{- end }}
 {{- if $signin.enabled }}
 ---
-{{- /* The BFF's session store (ADR 0182): one database per signed-in Service, claimed through the platform PostgreSQL API like Backstage's. A session is rebuilt by signing in again, so the content is not retained data and the claim deletes with the release. The composition creates the CloudNativePG Cluster auth-db, its Service <service>-db-rw and the Secret <service>-db-app. */}}
+{{- /* The BFF's session store (ADR 0182): one database per signed-in Service, claimed through the platform PostgreSQL API like Backstage's. A session is rebuilt by signing in again, so the content is not retained data and the claim deletes with the release. The composition creates the CloudNativePG Cluster <service>-db, its Service <service>-db-rw and the Secret <service>-db-app. */}}
 apiVersion: platform.kore.dev/v1alpha1
 kind: PostgreSQLInstance
 metadata:

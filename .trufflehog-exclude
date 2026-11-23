@@ -9,7 +9,8 @@
 \.enc\.yaml$
 # Vendored upstream Keycloak CRD: the JDBC detector reports a documentation example sentence in an upstream description (no host, no credential). The current file is trimmed and scans clean; the line stays only while the branch history holds the original, and can go once the change is squashed.
 (^|/)infra/charts/keycloak-operator/templates/crd-keycloaks\.yaml$
-# Commit 0ad94338 (issue 1841) holds credential-free example connection strings for the signed-in BFF's session database: placeholders and a test host, no password (that is read by Secret reference). The JDBC detector reports them; the current files are reworded and scan clean, and these three paths stay excluded only while the branch history holds that commit, until the change is squashed.
+# until-squash 0ad94338
+# History pass only. Commit 0ad94338 (issue 1841) holds credential-free example JDBC connection strings for the signed-in BFF's session database (placeholders and a test host, no password: that is read by Secret reference). Only the JDBC detector reports them, only in that commit; the current files are reworded and the working-tree pass scans all three clean. TruffleHog ignores by path in the history pass, so these paths are skipped there until the squash drops that commit; scan-tasks.spec.ts fails once commit 0ad94338 is not in history, which is the prompt to delete these three lines.
 (^|/)infra/charts/golden-path-workload/templates/workload\.yaml$
 (^|/)templates/kotlin-bff/src/test/kotlin/dev/kore/bff/session/SessionStoreSettingsTest\.kt$
 (^|/)tools/kore/integration/config/golden-path-signin-session-chart\.spec\.ts$
