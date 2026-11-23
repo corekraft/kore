@@ -59,5 +59,5 @@ Recorded per the [pin-upgrade skill](../../skills/pin-upgrade/SKILL.md):
 
 ## Related
 
-- [`infra/plans/16-hc-native-sessions.md`](../../infra/plans/16-hc-native-sessions.md) — the plan that adopts hc's model; Step 1 declares the `hc-sessions` flag, off in every overlay.
-- [`infra/environments/local/environment.yaml`](../../infra/environments/local/environment.yaml), [`vps`](../../infra/environments/vps/environment.yaml), [`managed-example`](../../infra/environments/managed-example/environment.yaml) — each lists `hc-sessions: false`.
+- [`infra/plans/16-hc-native-sessions.md`](../../infra/plans/16-hc-native-sessions.md) — the plan that adopts hc's model. Step 1 declared the `hc-sessions` flag; Step 6 removed the flag and the herdr path, so hc is the only session path.
+- [`infra/environments/local/environment.yaml`](../../infra/environments/local/environment.yaml), [`vps`](../../infra/environments/vps/environment.yaml), [`managed-example`](../../infra/environments/managed-example/environment.yaml) — no overlay lists the `hc-sessions` flag any more.

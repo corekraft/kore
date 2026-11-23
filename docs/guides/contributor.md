@@ -872,7 +872,7 @@ no unused finish has no lag. `lagMinutes` gives `samples`, the `median` and the
 nearest-rank `p90` in minutes over the detected and late results that have a lag,
 each null with none. The lag is a reported reading of how late a finish was
 recorded, not a merge delay. Results with no pane are not counted. A failed
-`session notify` leaves no ledger event, so the report does not count those.
+`session send` leaves no ledger event, so the report does not count those.
 
 `qualifierWarnings` counts the qualifier's warnings (`qualifier.warned` events)
 over the ideas filed in the range (`idea.filed` events), as `warnings`, `filed`
@@ -880,12 +880,10 @@ and `perFiled` (#866). It is a figure only: the qualifier warns and never
 refuses.
 
 `stalledPanes` counts stalled panes from two sources that do not read each
-other (#854). `recorded` counts the `pane.stalled` events the herdr poll appends
-when a session-spawned pane has been idle or gone for 300 seconds with no RESULT
-printed since it last started work. The session hook starts `ledger poll-herdr`
-in the background at each session start, beside `ledger poll-github` (#1091); the
-poll reads herdr and writes ledger events only, and never closes, restarts or
-messages a pane. `silentSessions` counts silent sessions: the last
+other (#854). `recorded` counts the `pane.stalled` events the herdr poll appended before the
+hc flip (#854). The herdr poll is retired (plan 16, Step 6), so no new
+`pane.stalled` event is written; the session hook starts only `ledger
+poll-github` at each session start (#1091). `silentSessions` counts silent sessions: the last
 `token.usage` is more than 900 seconds before the report's measuring point, with
 no RESULT since. The text report prints `recorded` beside it. `backgroundExcluded` counts silent sessions left out because a
 `tool.start` marked `background` is open on their pane: one that started after
