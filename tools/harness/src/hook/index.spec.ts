@@ -62,7 +62,6 @@ describe("the hook registry", () => {
       "record",
       "retro-scan",
       "skill-links",
-      "statusline",
       "test-budget",
       "unit-specs",
       "workflow-permissions",

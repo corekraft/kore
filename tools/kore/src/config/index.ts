@@ -84,6 +84,7 @@ export {
   autoscalingFlag,
   componentGatedOff,
   readinessGatedOff,
+  driftListingMappingsFlag,
   enabledComponents,
   featureEnabled,
   featureHelmArgs,

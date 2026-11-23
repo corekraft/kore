@@ -113,7 +113,7 @@ see [The harness bundle](#the-harness-bundle).
   together without a cluster, and gates a release. A live test needs a cluster
   and runs only when asked. The move to these tiers is in progress under
   [plan 14](../../infra/plans/14-test-tiers.md): the cluster suites are live
-  tests now (#372), and the script, hook, status line and bundle tests run in
+  tests now (#372), and the script, hook and bundle tests run in
   the integration tier (#373). A pull request that touches only `.claude/` files
   other than hooks and evals, `skills/` or `.codex/` runs no hook test before
   merge; the nightly integration job covers them after merge (owner decision).
@@ -1099,22 +1099,13 @@ refuses, posting nothing, a question that matches the reserved list in
 The patterns there are a backstop for a fail-closed router, not the boundary, and
 changing the list is itself a reserved decision.
 
-`decision route` (`harness decision route --help` names its options)
-is how a pane raises a question ([ADR 0120](../decisions/0120-recommended-decisions-go-to-an-advisor-reserved-decisions-to-the-owner.md)).
-It answers `advisor` or `owner` and records `decision.routed` with the idea, the
-category, the route and the signal; the question and the action stay out of the
-ledger. The owner gets any question whose category is reserved, whose question or
-action matches the reserved list or the guard's secret-path pattern, that names the
-advisor's own files, whose category or question is unreadable, or that is escalated.
-The advisor gets one only when the declared category and the matcher both agree. An
-escalation writes `owner`, and no input moves an owner route to the
-advisor. It is refused, with nothing recorded, while the `decision-advisor` flag is
-off, and a pane that gets no route acts as if the question were the owner's.
-
 `decision ask` (`harness decision ask --help` names its options) posts a
 reserved question on the idea's issue, under the sender line, with the `needs-info`
 label, and records `decision.routed` to the owner ([ADR 0120](../decisions/0120-recommended-decisions-go-to-an-advisor-reserved-decisions-to-the-owner.md)).
-A question or action of more than a line is written to a file with the Write tool and
+The question and the action stay out of the ledger. It posts only a question the
+owner decides: one whose category is reserved, whose question or action matches the
+reserved list or the guard's secret-path pattern, that names the advisor's own files,
+or whose category or question is unreadable. A question or action of more than a line is written to a file with the Write tool and
 given by its `-file` flag; giving a flag and its file together is refused, naming both.
 It refuses, with nothing posted, a question the advisor decides (use `decision make`),
 and a consent prompt: an action that matches the destruction list stays inline with

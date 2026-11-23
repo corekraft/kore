@@ -9,8 +9,7 @@ import {
 import { CommandError } from "../runtime/index.js";
 import { ClusterUnavailableError } from "./cluster-unavailable.js";
 import { waitForClusterReady } from "./readiness.js";
-import { drift, unreadablePorts } from "./k3d-drift.js";
-import { inspectPortMappings } from "./k3d-inspect.js";
+import { refuseDrift } from "./k3d-listing.js";
 import {
   assertExpectedK3dCluster,
   clusterStatusK3d,
@@ -40,22 +39,15 @@ import {
 
 vi.mock("../images/index.js");
 vi.mock("./readiness.js");
-vi.mock("./k3d-drift.js", async (importOriginal) => ({
-  ...(await importOriginal<typeof import("./k3d-drift.js")>()),
-  drift: vi.fn(),
-  unreadablePorts: vi.fn(),
-}));
-vi.mock("./k3d-inspect.js", async (importOriginal) => ({
-  ...(await importOriginal<typeof import("./k3d-inspect.js")>()),
-  inspectPortMappings: vi.fn(),
+vi.mock("./k3d-listing.js", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("./k3d-listing.js")>()),
+  refuseDrift: vi.fn(),
 }));
 
 const repository = fakeRepository();
 
 beforeEach(() => {
-  vi.mocked(drift).mockReturnValue([]);
-  vi.mocked(unreadablePorts).mockReturnValue([]);
-  vi.mocked(inspectPortMappings).mockResolvedValue(undefined);
+  vi.mocked(refuseDrift).mockResolvedValue(undefined);
   vi.mocked(k3dTrustDirectory).mockReturnValue(TRUST);
   vi.mocked(k3dTrustVolumeArgs).mockReturnValue(TRUST_VOLUMES);
   vi.mocked(koreManagesRegistryAuth).mockReturnValue(true);
@@ -271,19 +263,31 @@ test("an external registry creates the cluster with no trust mounts and writes n
   expect(writeK3dRegistriesConfig).not.toHaveBeenCalled();
 });
 
-test("drift is refused with the recreate path before any start or write, whichever difference the verdict names", async () => {
-  vi.mocked(drift).mockReturnValueOnce(["servers: 3 != 1"]);
+test("a cluster the listing refusal rejects is refused before any start or write, with the refusal's own message", async () => {
+  vi.mocked(refuseDrift).mockRejectedValueOnce(
+    new Error(
+      "k3d cluster kore-local differs from the overlay (servers: 3 != 1)",
+    ),
+  );
   const servers = fakeK3d(1, { serversCount: 3, serversRunning: 3 });
-  await expect(up(servers.runner)).rejects.toThrow(MESSAGES.overlayServers);
+  await expect(up(servers.runner)).rejects.toThrow("servers: 3 != 1");
   expect(commandLines(servers.run)).toEqual([LIST]);
-  vi.mocked(drift).mockReturnValueOnce(["port 443: 9443 != 443"]);
-  const wrong = fakeK3d(1);
-  await expect(up(wrong.runner)).rejects.toThrow(MESSAGES.wrongPort);
-  vi.mocked(drift).mockReturnValueOnce(["port 443: unmapped != 443"]);
-  const unmapped = fakeK3d(1);
-  await expect(up(unmapped.runner)).rejects.toThrow(MESSAGES.unmappedPort);
   expect(writeK3dRegistriesConfig).not.toHaveBeenCalled();
   expect(waitForClusterReady).not.toHaveBeenCalled();
+});
+
+test("a running cluster's listing entry is handed to the listing refusal with its runner, environment and cluster, and an absent cluster is not checked", async () => {
+  const running = fakeK3d(1);
+  await up(running.runner);
+  expect(refuseDrift).toHaveBeenCalledWith(
+    running.runner,
+    expect.objectContaining({ name: "local" }),
+    expect.objectContaining({ clusterName: "kore-local" }),
+    expect.objectContaining({ name: "kore-local" }),
+  );
+  vi.mocked(refuseDrift).mockClear();
+  await up(fakeK3d(undefined).runner);
+  expect(refuseDrift).not.toHaveBeenCalled();
 });
 
 test("a readiness failure after create is raised as it is, and the identity check is never reached", async () => {

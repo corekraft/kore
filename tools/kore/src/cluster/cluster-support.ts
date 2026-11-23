@@ -3,7 +3,7 @@
 import type { Mock } from "vitest";
 import { vi } from "vitest";
 import type { Repository } from "../config/index.js";
-import type { RunResult, Runner } from "../runtime/index.js";
+import { CommandError, type RunResult, type Runner } from "../runtime/index.js";
 
 export type Run = Runner["run"];
 
@@ -96,6 +96,14 @@ export function fakeK3d(
       return JSON.stringify(
         state === undefined ? [] : [k3dEntry(state, current)],
       );
+    }
+    if (command === "docker") {
+      // Not modelled here: docker inspect cannot read the container, so the listing alone decides.
+      throw new CommandError("docker", [...args], {
+        stdout: "",
+        stderr: "no such container",
+        code: 1,
+      });
     }
     if (args.includes("jsonpath={.metadata.name}")) {
       return namespace;
