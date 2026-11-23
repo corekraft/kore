@@ -74,3 +74,12 @@ test.each([
 ])("names the cause when the hc listing is unusable: %s", (text, cause) => {
   expect(() => parseAgentPaneCount(text)).toThrow(cause);
 });
+
+// A scrubbed copy of hc 0.1.21's `hc ls --all --json` on a host running claude: a live claude is agent
+// "claude-code" with a status, a finished claude child is agent "claude", a plain process is its own name.
+const RECORDED_LS =
+  '{"hidden_finished":0,"terminals":[{"address":"t4","agent":"claude-code","cwd":"/home/x","state":"live","status":"done","turn":18,"where":"kore / 1"},{"address":"t1b","agent":"claude","cwd":"/home/x/kore","exit_code":0,"parent":"t17","reason":"exited","state":"finished","turn":0,"where":"tools / 1"},{"address":"t12y","agent":"node","cwd":"/home/x/kore","name":"ledger-watch","parent":"t3f","state":"live","turn":0,"where":"tools / 1"},{"address":"t133","agent":"claude-code","cwd":"/home/x/kore","name":"writer","parent":"t3f","state":"live","status":"working","turn":0,"where":"tools / 1"}]}';
+
+test("counts the live claude terminals of a recorded hc listing, not the finished claude child or the node process", () => {
+  expect(parseAgentPaneCount(RECORDED_LS)).toBe(2);
+});
