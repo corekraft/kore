@@ -25,6 +25,10 @@ async function environmentNames(): Promise<string[]> {
   return names.sort();
 }
 
+// local turned the flag on after a recorded live outcome under the owner waiver
+// (#1887); every other overlay lists it off.
+const ON = new Set(["local"]);
+
 test("every environment overlay lists the hc-sessions flag, so the flag manifest is complete", async () => {
   const names = await environmentNames();
   assert.ok(names.length > 0, "at least one environment overlay exists");
@@ -35,6 +39,6 @@ test("every environment overlay lists the hc-sessions flag, so the flag manifest
   }
   assert.deepEqual(
     listed,
-    Object.fromEntries(names.map((name) => [name, false])),
+    Object.fromEntries(names.map((name) => [name, ON.has(name)])),
   );
 });
