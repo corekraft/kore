@@ -46,6 +46,7 @@
       "otlp-route": false,
       "in-cluster-ca": false,
       "k3s-registry-trust": false,
+      "host-published-ports": false,
       "platform-hostname-ownership": false,
       "platform-portal": false,
       "portal-staged-install": false,
