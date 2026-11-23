@@ -71,6 +71,43 @@ test.each(["pending-upgrade", "pending-rollback"])(
   },
 );
 
+const canceledUpgrade: Revision[] = [
+  { revision: 1, status: "superseded" },
+  { revision: 2, status: "deployed" },
+  { revision: 3, status: "pending-upgrade" },
+];
+const argocdOwned = { ...target, owner: "argocd" as const };
+const argocdFlagOn = fakeRepository({
+  features: { "platform-argocd-delivery": true },
+});
+
+test("a canceled upgrade of a release Argo CD owns is refused, naming its git revert, and no helm rollback runs", async () => {
+  const { runner, calls } = helm(canceledUpgrade);
+  await expect(
+    recoverRelease(argocdFlagOn, runner, argocdOwned),
+  ).rejects.toThrow(
+    /release reference in namespace reference is owned by Argo CD.*git revert of its record in infra\/catalog\/components\.yaml.*platform-argocd-delivery/s,
+  );
+  expect(verbs(calls)).toEqual(["history"]);
+  expect(calls.some((call) => call[1] === "rollback")).toBe(false);
+});
+
+test("an argocd-named release is still rolled back by kore while platform-argocd-delivery is off, since kore owns it then", async () => {
+  const { runner, calls } = helm(canceledUpgrade);
+  await expect(recoverRelease(repository, runner, argocdOwned)).resolves.toBe(
+    "rolled-back",
+  );
+  expect(verbs(calls)).toEqual(["history", "rollback", "history"]);
+});
+
+test("a release kore owns is rolled back as before while platform-argocd-delivery is on", async () => {
+  const { runner, calls } = helm(canceledUpgrade);
+  await expect(
+    recoverRelease(argocdFlagOn, runner, { ...target, owner: "kore" }),
+  ).resolves.toBe("rolled-back");
+  expect(verbs(calls)).toEqual(["history", "rollback", "history"]);
+});
+
 test("a deployed release, even after a failed upgrade, is left to helm", async () => {
   const { runner, calls } = helm([
     { revision: 1, status: "deployed" },
