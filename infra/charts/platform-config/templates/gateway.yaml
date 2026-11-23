@@ -5,7 +5,7 @@ metadata:
   namespace: kore-system
   labels: {app.kubernetes.io/managed-by: Helm}
 spec:
-{{- if or .Values.gateway.service.type (include "platform-config.agentgatewayEnrolled" .) }}
+{{- if or .Values.gateway.service.type (include "platform-config.agentgatewayEnrolled" .) (include "platform-config.agentgatewayMetrics" .) }}
   infrastructure:
 {{- end }}
 {{- if include "platform-config.agentgatewayEnrolled" . }}
@@ -13,6 +13,14 @@ spec:
     # copies Gateway infrastructure labels onto the generated pod, and the pod
     # runs as the ServiceAccount named after the Gateway.
     labels: {istio.io/dataplane-mode: ambient}
+{{- end }}
+{{- if include "platform-config.agentgatewayMetrics" . }}
+    # Marks the data-plane pods for the chart's Prometheus pod scrape, the same
+    # annotations the pinned ztunnel pods carry (issue 1514). Unverified until the
+    # live run: that agentgateway copies Gateway infrastructure annotations too.
+    annotations:
+      prometheus.io/scrape: "true"
+      prometheus.io/port: "15020"
 {{- end }}
 {{- if .Values.gateway.service.type }}
 {{- if eq .Values.gateway.className "istio" }}
