@@ -1,7 +1,7 @@
 ---
-status: active
+status: done
 summary: Deliver the vision's Next horizon, services as first-class objects delivered from git that scale, in seven steps from accepting the Next ADRs to an outcome against every Next "Done when" clause; it starts now: the owner waived both start gates (plan 14 Step 4 merging, the Now footprint baseline) on 2026-11-14 and took them as debt #659.
-last-verified: 2026-11-18
+last-verified: 2026-11-23
 ---
 
 # Next Horizon: Services as First-Class Objects Plan
