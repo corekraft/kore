@@ -14,10 +14,12 @@ import {
   gatewayClassName,
   gatewayClassChangeFlag,
   gatewayRollbackOrderFlag,
+  goldenPathSigninAfterPortalFlag,
   goldenPathSigninFlag,
   goldenPathTemplateAdmissionFlag,
   ingressFlag,
   readinessGatedOff,
+  signinAwaitsPortal,
 } from "./features.js";
 import type { Environment } from "./types.js";
 import {
@@ -209,6 +211,35 @@ test("a release that does not declare startsAfterDelivery never starts after the
   expect(startsAfterDelivery(on, fakeComponent())).toBe(false);
   expect(
     startsAfterDelivery(on, fakeComponent({ startsAfterDelivery: false })),
+  ).toBe(false);
+});
+
+test("the golden-path sign-in waits for the portal only while golden-path-signin, portal-staged-install and the after-portal flag are all on", () => {
+  const all = environment({
+    [goldenPathSigninFlag]: true,
+    [portalStagedInstallFlag]: true,
+    [goldenPathSigninAfterPortalFlag]: true,
+  });
+
+  expect(signinAwaitsPortal(all)).toBe(true);
+  for (const off of [
+    goldenPathSigninFlag,
+    portalStagedInstallFlag,
+    goldenPathSigninAfterPortalFlag,
+  ]) {
+    expect(
+      signinAwaitsPortal({ features: { ...all.features, [off]: false } }),
+    ).toBe(false);
+  }
+  expect(signinAwaitsPortal(environment())).toBe(false);
+});
+
+test("the after-portal flag is named golden-path-signin-after-portal and is off while an overlay omits it", () => {
+  expect(goldenPathSigninAfterPortalFlag).toBe(
+    "golden-path-signin-after-portal",
+  );
+  expect(
+    featureEnabled(environment(undefined), goldenPathSigninAfterPortalFlag),
   ).toBe(false);
 });
 

@@ -190,6 +190,7 @@ const entryPoints = [
   "renderedCrdNames",
   "rollbackConstraint",
   "sessionCookieViolations",
+  "signinAwaitsPortal",
   "smtpSecretName",
   "smtpSecretNamespace",
   "startsAfterDelivery",

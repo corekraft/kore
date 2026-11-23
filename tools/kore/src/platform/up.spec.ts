@@ -9,6 +9,7 @@ import {
 import { assertNoOrphanedReleases } from "./gated-release.js";
 import {
   awaitArgocdDelivery,
+  awaitSigninApplications,
   reconcileConfigurations,
   reconcileStagedConfigurations,
 } from "./handover.js";
@@ -50,6 +51,7 @@ beforeEach(() => {
   vi.mocked(reconcileConfigurations).mockImplementation(record("configure"));
   vi.mocked(awaitArgocdDelivery).mockImplementation(record("delivery"));
   vi.mocked(reconcileStagedConfigurations).mockImplementation(record("staged"));
+  vi.mocked(awaitSigninApplications).mockImplementation(record("signin"));
   vi.mocked(enrollPlatformNamespaces).mockImplementation(record("enroll"));
   vi.mocked(openApplicationAdmission).mockImplementation(async () => {
     order.push("open-gate");
@@ -78,7 +80,7 @@ test("a managed environment never installs local trust", async () => {
   expect(installLocalTrust).not.toHaveBeenCalled();
 });
 
-test("the configuration is reconciled after trust, then the Argo CD delivery is awaited, then the staged releases start, then enrollment, the gate and the state", async () => {
+test("the configuration is reconciled after trust, then the Argo CD delivery is awaited, then the staged releases start, then the golden-path sign-in Applications are awaited, then enrollment, the gate and the state", async () => {
   await platformUp(local, fakeRunner().runner);
   expect(order).toEqual([
     "bootstrap",
@@ -86,6 +88,7 @@ test("the configuration is reconciled after trust, then the Argo CD delivery is 
     "configure",
     "delivery",
     "staged",
+    "signin",
     "enroll",
     "open-gate",
     "state:ready",
@@ -152,6 +155,16 @@ test("a delivery wait that fails stops up before the staged releases, enrollment
   expect(writePlatformState).not.toHaveBeenCalled();
 });
 
+test("the golden-path sign-in Applications are awaited only after the staged portal has started, so a failed portal stops up before them", async () => {
+  vi.mocked(reconcileStagedConfigurations).mockRejectedValueOnce(
+    new Error("statefulset/keycloak not ready"),
+  );
+  await expect(platformUp(local, fakeRunner().runner)).rejects.toThrow(
+    "statefulset/keycloak not ready",
+  );
+  expect(awaitSigninApplications).not.toHaveBeenCalled();
+});
+
 test("a staged release that fails stops up before enrollment, the gate and the state", async () => {
   vi.mocked(reconcileStagedConfigurations).mockRejectedValueOnce(
     new Error("statefulset/keycloak not ready"),
@@ -181,6 +194,7 @@ test("up hands the orphan check to itself and runs it after the configuration, b
     "orphans",
     "delivery",
     "staged",
+    "signin",
     "enroll",
     "open-gate",
     "state:ready",
