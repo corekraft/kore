@@ -3,6 +3,7 @@
   "name": "vps",
   "provider": "managed",
   "kubeContext": "kore-vps",
+  "nodeCount": 1,
   "cluster":
     {
       "profile": "external",
