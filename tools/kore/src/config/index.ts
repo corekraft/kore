@@ -83,6 +83,7 @@ export {
   agentgatewayMeshEnrollmentFlag,
   autoscalingFlag,
   componentGatedOff,
+  driftListingMappingsFlag,
   enabledComponents,
   featureEnabled,
   featureHelmArgs,
