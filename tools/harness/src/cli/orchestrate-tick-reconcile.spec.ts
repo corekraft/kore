@@ -111,7 +111,7 @@ beforeEach(() => {
   vi.mocked(tickFlagOn).mockResolvedValue(true);
 });
 
-describe("orchestrate tick on hc", () => {
+describe("orchestrate tick reconciles through hc", () => {
   it("runs the pass that reconciles the tick, not the tick's own", async () => {
     const order: string[] = [];
     const pass = wiredTick(order);

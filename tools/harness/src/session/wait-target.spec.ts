@@ -15,8 +15,8 @@ vi.mock("./wait-hc.js", () => ({ readSettledOnce: vi.fn() }));
 
 const RECORD: SessionRecord = {
   name: "image-trust-writer",
-  paneId: "w3:p9",
-  callerPane: "w3:p1",
+  paneId: "t9",
+  callerPane: "t1",
   model: "claude-opus-5-5",
   role: "writer",
   effort: "high",
@@ -62,8 +62,8 @@ describe("openSessionTarget opens a spawned session as a wait target, or refuses
   });
 });
 
-describe("settleSessionTarget reads the pane once, through session wait", () => {
-  it("is pending while session wait finds no RESULT line", async () => {
+describe("settleSessionTarget reads the session's report once, through session wait", () => {
+  it("is pending while session wait finds no report", async () => {
     registry.read.mockResolvedValue(RECORD);
     vi.mocked(readSettledOnce).mockResolvedValue(undefined);
     const opened = await openSessionTarget(deps, RECORD.name);
@@ -74,13 +74,13 @@ describe("settleSessionTarget reads the pane once, through session wait", () => 
     expect(await settleSessionTarget(deps, opened.target)).toBe("pending");
   });
 
-  it("returns the outcome word once session wait records the RESULT line", async () => {
+  it("returns the outcome word once session wait records the report", async () => {
     registry.read.mockResolvedValue(RECORD);
     vi.mocked(readSettledOnce).mockResolvedValue({
       name: RECORD.name,
       model: RECORD.model,
       outcome: "blocked",
-      summary: "pane w3:p9",
+      summary: "terminal t9",
     });
     const opened = await openSessionTarget(deps, RECORD.name);
     if (!("target" in opened)) {
@@ -92,9 +92,9 @@ describe("settleSessionTarget reads the pane once, through session wait", () => 
     });
   });
 
-  it("passes a pane read error through, so the caller fails rather than waits", async () => {
+  it("passes a terminal read error through, so the caller fails rather than waits", async () => {
     vi.mocked(readSettledOnce).mockResolvedValue({
-      error: "herdr pane read w3:p9 failed: no pane",
+      error: "hc read t9 failed: no terminal",
     });
     registry.read.mockResolvedValue(RECORD);
     const opened = await openSessionTarget(deps, RECORD.name);
@@ -103,7 +103,7 @@ describe("settleSessionTarget reads the pane once, through session wait", () => 
     }
 
     expect(await settleSessionTarget(deps, opened.target)).toEqual({
-      error: "herdr pane read w3:p9 failed: no pane",
+      error: "hc read t9 failed: no terminal",
     });
   });
 });
