@@ -80,6 +80,7 @@
       "golden-path-signin": true,
       "golden-path-template-admission": false,
       "golden-path-signin-after-portal": false,
+      "postgresql-service-class-instances": false,
       "decision-advisor": true
     },
   "imageInventory": "audit",

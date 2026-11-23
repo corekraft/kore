@@ -1,6 +1,7 @@
 import {
   databaseRoutesFlag,
   featureEnabled,
+  postgresqlServiceClassInstancesFlag,
   platformDnsFlag,
   otlpRouteFlag,
   platformHostnameOwnershipFlag,
@@ -284,6 +285,25 @@ function databaseRoutesArgs(
   return [];
 }
 
+/**
+ * With postgresql-service-class-instances on, the value the PostgreSQL composition
+ * takes to derive its instances and sizing from the claim's serviceClass (ADR 0154).
+ * Only the API chart takes it; off, none is passed, so the composition renders the
+ * one-instance Cluster it rendered before.
+ */
+function serviceClassArgs(
+  environment: Environment,
+  component: string,
+): string[] {
+  if (
+    component !== "kore-postgresql-api" ||
+    !featureEnabled(environment, postgresqlServiceClassInstancesFlag)
+  ) {
+    return [];
+  }
+  return ["--set", "serviceClassInstances=true"];
+}
+
 /** The ConfigMap, in the portal's namespace, that carries the local CA its pods trust (ADR 0132). */
 export const localCaConfigMap = "kore-local-ca";
 
@@ -350,6 +370,7 @@ export function platformHelmArgs(
     ...sharedGatewayArgs(environment, component),
     ...clusterResolutionArgs(environment, component),
     ...databaseRoutesArgs(environment, component),
+    ...serviceClassArgs(environment, component),
     ...otlpRouteArgs(environment, component),
   ];
   if (key === undefined && wildcard === undefined) {

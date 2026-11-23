@@ -1,1 +1,1 @@
-{{- if not .Values.databaseRoutes }}{{ .Files.Get "compositions/local.yaml" }}{{- end }}
+{{- if not .Values.databaseRoutes }}{{ if .Values.serviceClassInstances }}{{ .Files.Get "compositions/service-class/local.yaml" }}{{ else }}{{ .Files.Get "compositions/local.yaml" }}{{ end }}{{- end }}
