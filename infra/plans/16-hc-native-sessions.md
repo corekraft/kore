@@ -1,7 +1,7 @@
 ---
 status: active
 summary: Rebuild the harness's session tools on hc's model (terminals with parents and children, labels, reported status, hc wait, tagged reports, events) behind one Terminals port. hc is the adapter and an in-memory fake the second implementation. The token is minted inside each session's launch wrapper. A child's report is a file the parent's wait reads, announced by a one-line notice. The switch is the hc-sessions flag. What hc makes unnecessary is deleted, and the rest is pruned from usage evidence. The layered --help guide moved to plan 17.
-last-verified: 2026-11-22
+last-verified: 2026-11-23
 ---
 
 # hc-Native Sessions Plan
@@ -341,19 +341,19 @@ session, because kore-agents never records outcomes, and `harness flag
 activate` runs once afterwards. The Mac needs only `session check` and the
 small-split read.
 
-- [ ] From an hc terminal: spawn a writer in a worktree, send, then wait
+- [x] From an hc terminal: spawn a writer in a worktree, send, then wait
       for its report. Run check, `ledger watch`, close, and `harness wait
 --pr`. Record the outcome on the tracking issue (Refs until green).
-- [ ] Read a writer while herdr-app shows it in a small split, to prove that
+- [x] Read a writer while herdr-app shows it in a small split, to prove that
       reads and reports do not depend on the view.
-- [ ] With a decoy `GH_TOKEN` in the core's login environment, a spawned
+- [x] With a decoy `GH_TOKEN` in the core's login environment, a spawned
       writer's `gh api /installation/repositories` shows the kore-writer App
       (with `owner-writer` off), never the decoy. A removed store item ends
       the terminal with a message naming the item, and no claude starts.
-- [ ] A writer's guard hooks still fire under `--setting-sources user` and the
+- [x] A writer's guard hooks still fire under `--setting-sources user` and the
       main checkout's `--settings`, and its worktree `.claude/settings.json`
       cannot loosen them.
-- [ ] Three writers at once, with one forced `blocked` (a permission
+- [x] Three writers at once, with one forced `blocked` (a permission
       prompt), to prove that hc announces it and the ledger records it.
 
 ### Step 6: Flip, contract and prune
@@ -645,7 +645,7 @@ finished children from the listing; `hcFailure` reads stdout.
 
 ## Next
 
-**Step 5 in progress (2026-11-22).** Steps 1 to 4 are merged. The first live runs on kore-agents found and fixed five defects (#1867, #1868, #1872, #1874, #1876), each merged; comments on #1783 list the items proven and the ones not yet run: `harness wait --pr` on hc, the small-split read, the removed store item, the worktree-settings loosen attempt, a permission-prompt `blocked`, and the GH_TOKEN identity (the endpoint in the plan cannot show it). The flag stays off. Left behind gates: the ideas' outcomes due 2026-11-30, claude 2.1.330 on the Mac (it runs 2.1.329), then Step 6: #1784 (no live herdr session on either host, matching hc pins), #1785 and #1786 after it, #1787 after the owner approves #1786's list. Full state: #1765.
+**Step 5 done under an owner waiver (2026-11-23).** `hc-sessions` is on in the local overlay (#1887) on the owner's waiver of the remaining live run ([idea 0081](../../docs/ideas/0081-hc-sessions-verification.md), evidence on #1783); #1783 is closed. Two live runs on kore-agents passed the spawn, send, wait, report, check, close, ledger and `harness wait --pr` path; the removed store item, the worktree-settings loosen attempt, a permission-prompt `blocked`, the kore-writer token and the small-split read were waived, not run. Before a session spawns on the Mac, update its claude from 2.1.329 to 2.1.330 or later (`session exec` refuses less). Left: Step 6. #1784 needs `session check` and `hc --version` recorded on both hosts and a flag soak; #1785 and #1786 follow it; #1787 waits for the owner's approval of #1786's list. Full state: #1765.
 
 ## Done When
 
