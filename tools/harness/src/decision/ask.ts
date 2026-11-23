@@ -9,7 +9,7 @@ import {
   DecisionError,
   type DecisionTarget,
 } from "./decision.js";
-import { classify } from "./route.js";
+import { classify } from "./classify.js";
 import { reservedCategory } from "./reserved.js";
 
 /** The existing label that puts the issue in the owner's queue (docs/agents/triage-labels.md). */
@@ -93,11 +93,9 @@ export async function askOwner(
     );
   }
   const routed = classify({
-    idea: input.idea,
     category: input.category,
     question: input.question,
     action: input.action,
-    escalate: false,
   });
   if (routed.route !== "owner") {
     throw new DecisionError(

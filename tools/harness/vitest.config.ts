@@ -16,7 +16,7 @@ export default defineConfig({
       "test-results/unit.json",
       configDefaults.reporters,
     ),
-    // Unit specs start no process and read no built bundle. The hook, status line,
+    // Unit specs start no process and read no built bundle. The hook,
     // eval and bundle specs run in the integration tier (vitest.integration.config.ts).
     projects: [
       {

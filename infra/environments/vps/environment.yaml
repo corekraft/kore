@@ -38,6 +38,7 @@
       "platform-argocd-delivery": false,
       "database-routes": false,
       "platform-dns": false,
+      "drift-listing-mappings": false,
       "platform-shared-gateway": false,
       "registry-by-name": false,
       "registry-tailnet-forward": false,

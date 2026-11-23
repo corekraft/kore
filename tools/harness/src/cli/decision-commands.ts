@@ -16,7 +16,6 @@ import {
 import type { Ledger } from "../ledger/index.js";
 import type { Command, CommandContext, CommandHelp } from "../runtime/index.js";
 import { ownerCommands } from "./decision-owner-commands.js";
-import { routeCommands } from "./decision-route-commands.js";
 import { openLedger } from "./ledger-commands.js";
 
 const FAILED = 1;
@@ -89,7 +88,7 @@ const makeHelp: CommandHelp = {
     "Records one advisor decision: posts it as a comment on an idea's issue, or a plain ticket's issue, under the sender line, then appends decision.made with the category. The question and the decision are posted in the comment and never stored in the ledger. Refused with nothing posted or recorded while the decision-advisor flag is off in the local overlay.",
   when: "When the advisor has decided a question a pane raised, and the question is one the advisor may decide, so the decision belongs on its issue.",
   whenNot:
-    "When the question is the owner's: the reserved list of ADR 0120 refuses it, so use decision ask to put it to the owner. When the question has yet to be routed, use decision route first. Nothing is posted in those cases.",
+    "When the question is the owner's: the reserved list of ADR 0120 refuses it, so use decision ask to put it to the owner. Nothing is posted in those cases.",
   flags: {
     idea: "The idea whose issue the decision is posted on, by its number or slug. Give this or --issue, not both.",
     issue:
@@ -127,7 +126,7 @@ const makeHelp: CommandHelp = {
     detail:
       "posts one comment on the idea's or the issue's GitHub issue, under the sender line, then appends one decision.made event carrying the idea or issue number and the category. The ledger is append-only and written only here.",
   },
-  seeAlso: ["decision route", "decision ask"],
+  seeAlso: ["decision ask"],
 };
 
 const make: Command = {
@@ -190,6 +189,5 @@ const make: Command = {
 /** The decision tool: the advisor's way to record a decision on an idea's issue. */
 export const decisionCommands: Record<string, Command> = {
   make,
-  ...routeCommands,
   ...ownerCommands,
 };

@@ -54,8 +54,8 @@ export const domainGuides: Record<DomainName, DomainGuide> = {
   decision: {
     purpose:
       "Routes the questions the panes raise: the advisor decides what it may, and reserved questions go to the owner.",
-    flow: "Run decision route to send a question to the advisor or the owner; decision make posts the advisor's decision, and decision ask posts a reserved question. All three are refused while the decision-advisor flag is off.",
-    seeAlso: ["decision route", "decision make", "decision ask"],
+    flow: "Run decision make to post the advisor's decision, and decision ask to post a reserved question to the owner. Both are refused while the decision-advisor flag is off.",
+    seeAlso: ["decision make", "decision ask"],
   },
   flag: {
     purpose:

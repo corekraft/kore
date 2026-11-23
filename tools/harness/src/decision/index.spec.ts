@@ -1,9 +1,9 @@
 import { describe, expect, it, vi } from "vitest";
 import * as barrel from "./index.js";
 import * as decision from "./decision.js";
+import * as classify from "./classify.js";
 import * as flag from "./flag.js";
 import * as reserved from "./reserved.js";
-import * as route from "./route.js";
 
 vi.mock("./decision.js", () => ({
   CATEGORY_NAME: /^x$/,
@@ -16,10 +16,8 @@ vi.mock("./reserved.js", () => ({
   RESERVED_CATEGORIES: [],
   reservedCategory: vi.fn(),
 }));
-vi.mock("./route.js", () => ({
-  UNCLASSIFIED: "unclassified",
+vi.mock("./classify.js", () => ({
   classify: vi.fn(),
-  routeQuestion: vi.fn(),
 }));
 
 describe("the decision barrel", () => {
@@ -29,14 +27,12 @@ describe("the decision barrel", () => {
       "DECISION_FLAG",
       "DecisionError",
       "RESERVED_CATEGORIES",
-      "UNCLASSIFIED",
       "askOwner",
       "classify",
       "decisionFlagOn",
       "makeDecision",
       "openOwnerQuestions",
       "reservedCategory",
-      "routeQuestion",
     ]);
   });
 
@@ -46,8 +42,6 @@ describe("the decision barrel", () => {
     expect(barrel.decisionFlagOn).toBe(flag.decisionFlagOn);
     expect(barrel.reservedCategory).toBe(reserved.reservedCategory);
     expect(barrel.RESERVED_CATEGORIES).toBe(reserved.RESERVED_CATEGORIES);
-    expect(barrel.routeQuestion).toBe(route.routeQuestion);
-    expect(barrel.classify).toBe(route.classify);
-    expect(barrel.UNCLASSIFIED).toBe(route.UNCLASSIFIED);
+    expect(barrel.classify).toBe(classify.classify);
   });
 });

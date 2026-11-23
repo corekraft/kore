@@ -7,7 +7,7 @@ export const recordHelp: CommandHelp = {
     "Appends one validated event to the stage ledger, the shared record of what happened, from flags or from one JSON event on stdin. Each field is checked against the event's kind, and an event the ledger cannot hold is refused; the ledger sets the event's schema and recordedAt, and its id when no --id is given.",
   when: "When something happened that no other command records, such as a session starting by hand, and flow, status or the outcome reports need it in the ledger.",
   whenNot:
-    "When a command already records the event: decision make, decision route and decision ask record their decisions, and ledger poll-github records GitHub's records. GitHub's own records are refused here: a source of github, and the kinds only the poller writes, such as pr.merged.",
+    "When a command already records the event: decision make and decision ask record their decisions, and ledger poll-github records GitHub's records. GitHub's own records are refused here: a source of github, and the kinds only the poller writes, such as pr.merged.",
   flags: {
     id: "The event's id, a name of letters, digits and . _ : / # @ - up to 128 characters. Without it the ledger assigns one.",
     source:
