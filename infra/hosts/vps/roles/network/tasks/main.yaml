@@ -1,6 +1,6 @@
 - name: Write the host firewall
-  ansible.builtin.copy:
-    src: nftables.conf
+  ansible.builtin.template:
+    src: nftables.conf.j2
     dest: /etc/nftables.conf
     owner: root
     group: root

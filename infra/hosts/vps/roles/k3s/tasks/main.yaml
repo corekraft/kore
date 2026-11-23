@@ -177,6 +177,26 @@
   changed_when: false
   when: not ansible_check_mode
 
+- name: Create the k3s auto-deploy directory
+  ansible.builtin.file:
+    path: "{{ k3s_data_path }}/k3s/server/manifests"
+    state: directory
+    owner: root
+    group: root
+    mode: "0700"
+
+# k3s applies every manifest in this directory. The ConfigMap holds the host's
+# addresses from its facts, so the task's output is suppressed and no address
+# reaches a log.
+- name: Publish the host's addresses to the cluster
+  ansible.builtin.template:
+    src: kore-host-addresses.yaml.j2
+    dest: "{{ k3s_data_path }}/k3s/server/manifests/kore-host-addresses.yaml"
+    owner: root
+    group: root
+    mode: "0600"
+  no_log: true
+
 - name: Read the cluster kubeconfig
   ansible.builtin.slurp:
     src: /etc/rancher/k3s/k3s.yaml
