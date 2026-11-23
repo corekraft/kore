@@ -78,6 +78,7 @@
       "signed-main-sends": true,
       "main-session-wait": true,
       "golden-path-signin": true,
+      "golden-path-template-admission": false,
       "decision-advisor": true
     },
   "imageInventory": "audit",

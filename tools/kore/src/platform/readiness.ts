@@ -1,4 +1,5 @@
 import type { Component, Repository } from "../config/index.js";
+import { readinessGatedOff } from "../config/index.js";
 import type { Runner } from "../runtime/index.js";
 import { errorMessage } from "./probe.js";
 import { customCheck } from "./readiness-custom.js";
@@ -273,9 +274,11 @@ async function runChecks(
     check: checkFor(context, resource),
   });
   const crds = component.ownsCRDs.map((crd) => `crd/${crd}`);
-  for (const { resource, check } of [...component.readiness, ...crds].map(
-    named,
-  )) {
+  const waited = [...component.readiness, ...crds].filter(
+    (resource) =>
+      !readinessGatedOff(repository.environment, component, resource),
+  );
+  for (const { resource, check } of waited.map(named)) {
     const started = Date.now();
     try {
       await check.run(timeout);

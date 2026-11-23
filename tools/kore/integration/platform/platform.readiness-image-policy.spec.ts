@@ -59,5 +59,11 @@ test("the image policy component waits on its ClusterImagePolicy by fully qualif
   assert.deepEqual(component.readiness, [
     "clusterimagepolicy.policy.sigstore.dev/kore-platform-images",
     "clusterimagepolicy.policy.sigstore.dev/kore-upstream-images",
+    "clusterimagepolicy.policy.sigstore.dev/kore-template-images",
   ]);
+  // The template policy exists only behind its flag, so only that flag gates its wait (issue 1884).
+  assert.deepEqual(component.readinessFlags, {
+    "clusterimagepolicy.policy.sigstore.dev/kore-template-images":
+      "golden-path-template-admission",
+  });
 });

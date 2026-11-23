@@ -9,6 +9,7 @@ import {
   registryGlob,
   trustedSigners,
 } from "./image-trust.js";
+import { featureEnabled } from "./features.js";
 import { registryPlan, type RegistryPlan } from "./registry-address.js";
 import {
   fakeCatalog,
@@ -22,6 +23,10 @@ import type { Component, Environment, Repository } from "./types.js";
 // Factories, not automocks: the collaborators' real modules never load here.
 vi.mock("./enrollment.js", () => ({ enrollmentExemptionErrors: vi.fn() }));
 vi.mock("./registry-address.js", () => ({ registryPlan: vi.fn() }));
+vi.mock("./features.js", () => ({
+  featureEnabled: vi.fn(),
+  goldenPathTemplateAdmissionFlag: "golden-path-template-admission",
+}));
 
 const release =
   "https://github.com/corekraft/kore/.github/workflows/release.yaml@refs/tags/v1.2.3";
@@ -63,6 +68,7 @@ function repositoryWith(options: {
 
 beforeEach(() => {
   vi.mocked(enrollmentExemptionErrors).mockReturnValue([]);
+  vi.mocked(featureEnabled).mockReturnValue(false);
   vi.mocked(registryPlan).mockReturnValue({
     address: "registry.example:5000",
   } as RegistryPlan);
@@ -232,4 +238,27 @@ test("a registry address that does not parse skips the glob check rather than re
   expect(
     imageTrustErrors(repositoryWith({ trust: keylessTrust, seeds })),
   ).toEqual([]);
+});
+
+const templateFlagError = /golden-path-template-admission needs keyless trust/;
+
+test("the template admission flag with key trust fails validation up front, naming the flag and the keyless fix", () => {
+  vi.mocked(featureEnabled).mockReturnValue(true);
+  const errors = imageTrustErrors(repositoryWith({ trust: keyTrust }));
+  expect(errors.join("\n")).toMatch(templateFlagError);
+  expect(errors.join("\n")).toMatch(
+    /kore-template-images policy renders only under a keyless authority/,
+  );
+});
+
+test("the template admission flag with keyless trust raises no template error", () => {
+  vi.mocked(featureEnabled).mockReturnValue(true);
+  const errors = imageTrustErrors(repositoryWith({ trust: keylessTrust }));
+  expect(errors.join("\n")).not.toMatch(templateFlagError);
+});
+
+test("the template admission flag off raises no template error, whatever the trust", () => {
+  vi.mocked(featureEnabled).mockReturnValue(false);
+  const errors = imageTrustErrors(repositoryWith({ trust: keyTrust }));
+  expect(errors.join("\n")).not.toMatch(templateFlagError);
 });

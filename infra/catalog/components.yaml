@@ -1031,8 +1031,13 @@
         "readiness":
           [
             "clusterimagepolicy.policy.sigstore.dev/kore-platform-images",
-            "clusterimagepolicy.policy.sigstore.dev/kore-upstream-images"
-          ]
+            "clusterimagepolicy.policy.sigstore.dev/kore-upstream-images",
+            "clusterimagepolicy.policy.sigstore.dev/kore-template-images"
+          ],
+        "readinessFlags":
+          {
+            "clusterimagepolicy.policy.sigstore.dev/kore-template-images": "golden-path-template-admission"
+          }
       },
       {
         "name": "kore-platform-config",

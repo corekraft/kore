@@ -62,6 +62,7 @@
       "signed-main-sends": false,
       "main-session-wait": false,
       "golden-path-signin": false,
+      "golden-path-template-admission": false,
       "decision-advisor": false
     },
   "secrets": { "storeName": "platform-secrets", "sourceNamespace": "external" },

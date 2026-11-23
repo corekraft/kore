@@ -15,7 +15,9 @@ import {
   gatewayClassChangeFlag,
   gatewayRollbackOrderFlag,
   goldenPathSigninFlag,
+  goldenPathTemplateAdmissionFlag,
   ingressFlag,
+  readinessGatedOff,
 } from "./features.js";
 import type { Environment } from "./types.js";
 import {
@@ -210,6 +212,15 @@ test("a release that does not declare startsAfterDelivery never starts after the
   ).toBe(false);
 });
 
+test("the template admission flag is named golden-path-template-admission and is off while an overlay omits it", () => {
+  expect(goldenPathTemplateAdmissionFlag).toBe(
+    "golden-path-template-admission",
+  );
+  expect(
+    featureEnabled(environment(undefined), goldenPathTemplateAdmissionFlag),
+  ).toBe(false);
+});
+
 test("the golden-path sign-in flag is named golden-path-signin and is off while an overlay omits it", () => {
   expect(goldenPathSigninFlag).toBe("golden-path-signin");
   expect(featureEnabled(environment(undefined), goldenPathSigninFlag)).toBe(
@@ -221,4 +232,33 @@ test("the golden-path sign-in flag is named golden-path-signin and is off while 
       goldenPathSigninFlag,
     ),
   ).toBe(true);
+});
+
+test("a readiness resource gated by a flag is skipped while that flag is off, and waited on once it is on (issue 1884)", () => {
+  const component = {
+    readinessFlags: {
+      "clusterimagepolicy.policy.sigstore.dev/kore-template-images":
+        goldenPathTemplateAdmissionFlag,
+    },
+  };
+  const resource =
+    "clusterimagepolicy.policy.sigstore.dev/kore-template-images";
+  expect(readinessGatedOff(environment(undefined), component, resource)).toBe(
+    true,
+  );
+  expect(
+    readinessGatedOff(
+      environment({ [goldenPathTemplateAdmissionFlag]: true }),
+      component,
+      resource,
+    ),
+  ).toBe(false);
+  expect(
+    readinessGatedOff(
+      environment(undefined),
+      component,
+      "clusterimagepolicy.policy.sigstore.dev/kore-platform-images",
+    ),
+  ).toBe(false);
+  expect(readinessGatedOff(environment(undefined), {}, resource)).toBe(false);
 });
