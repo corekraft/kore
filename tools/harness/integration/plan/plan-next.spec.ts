@@ -127,10 +127,10 @@ describe("harness plan next edge cases", () => {
   });
 });
 
-describe("harness plan clear-next", () => {
+describe("harness plan next --clear", () => {
   it("leaves no Next: line and no wrapped remainder", async () => {
     const h = plan();
-    expect(await run(["plan", "clear-next"], h.deps)).toBe(0);
+    expect(await run(["plan", "next", "--clear"], h.deps)).toBe(0);
     const after = h.files[PLAN] ?? "";
     expect(nextLines(after)).toEqual([]);
     expect(after).not.toContain("that wraps");
@@ -140,14 +140,14 @@ describe("harness plan clear-next", () => {
   it("reports changed lines equal to the diff", async () => {
     const h = plan();
     const before = h.files[PLAN] ?? "";
-    await run(["plan", "clear-next", "--json"], h.deps);
+    await run(["plan", "next", "--clear", "--json"], h.deps);
     const report = JSON.parse(h.out()) as { changes: Change[] };
     expect(applyChanges(before, report.changes)).toBe(h.files[PLAN]);
   });
 
   it("is a no-op that writes nothing when there is no Next: line", async () => {
     const h = plan(BODY.replace("Next: old line\n  that wraps.\n\n", ""));
-    expect(await run(["plan", "clear-next"], h.deps)).toBe(0);
+    expect(await run(["plan", "next", "--clear"], h.deps)).toBe(0);
     expect(h.writes).toEqual([]);
     expect(h.out()).toContain("No Next:");
   });
@@ -156,7 +156,7 @@ describe("harness plan clear-next", () => {
     const h = plan(
       "## Step 1: A\n\nNext: old\n- [ ] one\n- [ ] two\n\n## Step 2: B\n\n- [ ] x\n",
     );
-    await run(["plan", "clear-next"], h.deps);
+    await run(["plan", "next", "--clear"], h.deps);
     const after = h.files[PLAN] ?? "";
     expect(after).toContain("- [ ] one\n- [ ] two");
     expect(after).not.toContain("Next:");
@@ -173,7 +173,7 @@ describe("harness plan next and code fences", () => {
     expect(h.files[PLAN]).toContain("Next: new\n");
     expect(h.files[PLAN]).toContain("```\nNext: example in a fence\n```");
     expect(h.files[PLAN]).not.toContain("Next: real");
-    await run(["plan", "clear-next"], h.deps);
+    await run(["plan", "next", "--clear"], h.deps);
     expect(h.files[PLAN]).toContain("```\nNext: example in a fence\n```");
     expect(nextLines(h.files[PLAN] ?? "")).toEqual([
       "Next: example in a fence",
@@ -182,7 +182,7 @@ describe("harness plan next and code fences", () => {
 
   it("stops removing a Next: line at a code fence", async () => {
     const h = plan("## Step 1: A\n\nNext: real\n```\ncode\n```\n\n- [ ] one\n");
-    await run(["plan", "clear-next"], h.deps);
+    await run(["plan", "next", "--clear"], h.deps);
     expect(h.files[PLAN]).toContain("```\ncode\n```");
     expect(h.files[PLAN]).not.toContain("Next: real");
   });

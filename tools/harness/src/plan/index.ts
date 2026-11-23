@@ -1,5 +1,5 @@
 export { planActive, readActivePlans, type ActivePlan } from "./active.js";
-export { planClearNext, planNext } from "./next.js";
+export { planNext } from "./next.js";
 export { planTick } from "./tick.js";
 export { readPlans } from "./store.js";
 export {
