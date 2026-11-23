@@ -1,5 +1,81 @@
 # Changelog
 
+## [0.23.0](https://github.com/corekraft/kore/compare/v0.22.0...v0.23.0) (2026-11-23)
+
+
+### Features
+
+* **flags:** record the hc pin and declare the hc-sessions flag ([#1811](https://github.com/corekraft/kore/issues/1811)) ([482efa6](https://github.com/corekraft/kore/commit/482efa6c9d2ab1a420bdd89a0cd332efe1ad1288))
+* **flow:** split flow-report figures by ledger source ([#1864](https://github.com/corekraft/kore/issues/1864)) ([de70b09](https://github.com/corekraft/kore/commit/de70b09e52aabf462d9daf92984742c640d2b16c))
+* **harness:** add the help record, domain guides and registry specs ([#1814](https://github.com/corekraft/kore/issues/1814)) ([3c4e040](https://github.com/corekraft/kore/commit/3c4e04038152416ff265e31f9e22e5f0f6af7535))
+* **harness:** kb-check fails a doc naming a missing harness command or flag ([#1849](https://github.com/corekraft/kore/issues/1849)) ([aff8586](https://github.com/corekraft/kore/commit/aff8586b83776f25e1636b5e93fb214cb5592942))
+* **harness:** kb-check fails a harness source string that names a missing command ([#1853](https://github.com/corekraft/kore/issues/1853)) ([0af9355](https://github.com/corekraft/kore/commit/0af93550d260ffe80e43f0569178e1213e15e20d)), closes [#1850](https://github.com/corekraft/kore/issues/1850) [#1789](https://github.com/corekraft/kore/issues/1789)
+* **harness:** make command help required and delete the exemption list ([#1846](https://github.com/corekraft/kore/issues/1846)) ([313516c](https://github.com/corekraft/kore/commit/313516c8b924da4b94930461fc0230192d322177))
+* **harness:** point the session hints at the help guide ([#1839](https://github.com/corekraft/kore/issues/1839)) ([a5bfb9b](https://github.com/corekraft/kore/commit/a5bfb9b838a448eb7ea44cdc92cd8b187290b5bc))
+* **harness:** render the three help levels from the dispatcher ([#1820](https://github.com/corekraft/kore/issues/1820)) ([57f1307](https://github.com/corekraft/kore/commit/57f130749af93461c408b1792ce09d7b86ad2fd4))
+* **hook:** let every role read the harness help at each level ([#1844](https://github.com/corekraft/kore/issues/1844)) ([c447e4e](https://github.com/corekraft/kore/commit/c447e4eaec3dfaf2abea961f96542857aac2b372)), closes [#1802](https://github.com/corekraft/kore/issues/1802) [#1789](https://github.com/corekraft/kore/issues/1789)
+* **hook:** let role terminals use hc reads and refuse raw hc commands ([#1835](https://github.com/corekraft/kore/issues/1835)) ([0c7d7ef](https://github.com/corekraft/kore/commit/0c7d7efd686e63f6df9fe440bc3c6c0a04d00b08))
+* **ledger:** accept the terminal source beside herdr ([#1854](https://github.com/corekraft/kore/issues/1854)) ([3a06106](https://github.com/corekraft/kore/commit/3a0610659770b08b7e223d3eb4f258db1326bd9e))
+* **ledger:** follow hc events and write terminal ledger events ([#1859](https://github.com/corekraft/kore/issues/1859)) ([5156881](https://github.com/corekraft/kore/commit/5156881a870e1df3c799e27747769339f4fa4d9c))
+* **orchestrator:** recover lost hc sessions and tell the attended terminal ([#1858](https://github.com/corekraft/kore/issues/1858)) ([0039cb3](https://github.com/corekraft/kore/commit/0039cb3b7d3a3b1839fbbacd55918697bc6b59fa))
+* **session:** add session exec, the hc launch wrapper ([#1812](https://github.com/corekraft/kore/issues/1812)) ([72db040](https://github.com/corekraft/kore/commit/72db040759a831d7164a0a5a056ebfab32187c29))
+* **session:** add session report and read it in session wait ([#1825](https://github.com/corekraft/kore/issues/1825)) ([0525aec](https://github.com/corekraft/kore/commit/0525aec3013663c871307f41fbbae56993bd63be))
+* **session:** add the record fields and route a session by backend ([#1819](https://github.com/corekraft/kore/issues/1819)) ([a377edb](https://github.com/corekraft/kore/commit/a377edbb9c7294a83e43b5282688b723f7db31a2))
+* **session:** finish hc briefs with session report ([#1861](https://github.com/corekraft/kore/issues/1861)) ([12da50c](https://github.com/corekraft/kore/commit/12da50c2165b2dd0d5384c6d7987743737c69c46))
+* **session:** pass the role definition to claude from session exec ([#1870](https://github.com/corekraft/kore/issues/1870)) ([89e6029](https://github.com/corekraft/kore/commit/89e602939d61b371ab64e90dc68527787de71650))
+* **session:** reuse the worktree of a session lost with its parent ([#1860](https://github.com/corekraft/kore/issues/1860)) ([b7c5d4d](https://github.com/corekraft/kore/commit/b7c5d4db722dbff95eb69a69e7dea63a768552d8))
+* **session:** send, close and check on hc terminals ([#1855](https://github.com/corekraft/kore/issues/1855)) ([c934d9b](https://github.com/corekraft/kore/commit/c934d9b95bf845b36725d3256745a628dbbd5d09))
+* **session:** spawn a role on hc behind hc-sessions ([#1848](https://github.com/corekraft/kore/issues/1848)) ([73dac50](https://github.com/corekraft/kore/commit/73dac50768d709e5be50f67bd19d95f42dfec678))
+* **session:** start the ledger watch at spawn and restart it in the tick ([#1862](https://github.com/corekraft/kore/issues/1862)) ([464b693](https://github.com/corekraft/kore/commit/464b693f30602c161215a7c8fa8a92bce49674fc))
+* **session:** wait on pr checks through hc children ([#1863](https://github.com/corekraft/kore/issues/1863)) ([a534668](https://github.com/corekraft/kore/commit/a534668de2e338d3ef411dbf35f3856667ad128e))
+* **terminal:** add HcTerminals over the injected runner ([#1823](https://github.com/corekraft/kore/issues/1823)) ([95a79fb](https://github.com/corekraft/kore/commit/95a79fb8a2fb9df3ec54b8b29983f7a3e96bbedb))
+* **terminal:** add the line-stream seam and HcTerminals events ([#1857](https://github.com/corekraft/kore/issues/1857)) ([ff01548](https://github.com/corekraft/kore/commit/ff01548827ce9ee5abaef2a7bb8246aa052902c2))
+* **terminal:** add the Terminals port, FakeTerminals and the shared contract ([#1813](https://github.com/corekraft/kore/issues/1813)) ([b06b6a9](https://github.com/corekraft/kore/commit/b06b6a9f94218048210a6ba3acfbf641ab7b6407))
+* **testing:** add the browser token test for a delivered golden-path Service ([#1816](https://github.com/corekraft/kore/issues/1816)) ([e826b77](https://github.com/corekraft/kore/commit/e826b776ca9b06b6b346a4f59c84deab6f20b7d5))
+
+
+### Bug fixes
+
+* **charts:** build an https redirect uri for the golden-path BFF behind the gateway ([#1836](https://github.com/corekraft/kore/issues/1836)) ([9023ee0](https://github.com/corekraft/kore/commit/9023ee0a32a1df035820c14efa29f216142a9348))
+* **charts:** read the oidc client secret from the clientSecret key ([#1822](https://github.com/corekraft/kore/issues/1822)) ([f07a70a](https://github.com/corekraft/kore/commit/f07a70ab7a8e83bade22f9a6b6e19de3eb4134dc))
+* **charts:** run the golden-path BFF as one replica while sign-in is on ([#1837](https://github.com/corekraft/kore/issues/1837)) ([78553ce](https://github.com/corekraft/kore/commit/78553ce9aacc6ac32db5d703b88f47573b7ff2ad))
+* **charts:** trust the local CA in the golden-path BFF while sign-in is on ([#1827](https://github.com/corekraft/kore/issues/1827)) ([6ce8f88](https://github.com/corekraft/kore/commit/6ce8f888d7b4acf6cfc736821047bec49b77f475))
+* **session:** document session exec in the help record ([#1821](https://github.com/corekraft/kore/issues/1821)) ([e377c75](https://github.com/corekraft/kore/commit/e377c75baadeb05ddca9a7a9be0078422de5f778))
+* **session:** keep waiting when a message wakes hc wait ([#1877](https://github.com/corekraft/kore/issues/1877)) ([8b21a44](https://github.com/corekraft/kore/commit/8b21a443797e13f12fd66f29eb2447b8f0b61353))
+* **session:** launch roles with Code Mode off so the guard reads Bash ([#1873](https://github.com/corekraft/kore/issues/1873)) ([24c4fdf](https://github.com/corekraft/kore/commit/24c4fdfc462d369f71a292aaf482c6a283484167))
+* **terminal:** keep the notify row's run free of a parent lookup ([#1856](https://github.com/corekraft/kore/issues/1856)) ([0bbb9b2](https://github.com/corekraft/kore/commit/0bbb9b2fb279728b8e09c8e8c80127876c24f143)), closes [#1765](https://github.com/corekraft/kore/issues/1765)
+* **terminal:** parse the real hc events shapes ([#1869](https://github.com/corekraft/kore/issues/1869)) ([8d70779](https://github.com/corekraft/kore/commit/8d70779496d94c3c9d25b39f62d11ba3a94ca787))
+* **terminal:** read a terminal status from hc get object shape ([#1875](https://github.com/corekraft/kore/issues/1875)) ([6d77526](https://github.com/corekraft/kore/commit/6d77526bf9fa31a126421b4a405cedfeed123ef5))
+* **testing:** expect golden-path-signin on in local ([#1852](https://github.com/corekraft/kore/issues/1852)) ([8453839](https://github.com/corekraft/kore/commit/8453839e21a1dfb8096146caf14a3aae90435421))
+* **testing:** read the token check's session cookies from the browser ([#1840](https://github.com/corekraft/kore/issues/1840)) ([4012a8e](https://github.com/corekraft/kore/commit/4012a8e864f6a7caa127a21d6cb797fee0cd4fb9)), closes [#1838](https://github.com/corekraft/kore/issues/1838) [#1116](https://github.com/corekraft/kore/issues/1116)
+
+
+### Documentation
+
+* **decisions:** record hc-native sessions and the launch-wrapper token ([#1810](https://github.com/corekraft/kore/issues/1810)) ([611361e](https://github.com/corekraft/kore/commit/611361e4d24760c09ddad4db37cf848cd95f48e0))
+* **harness:** document the guardrail, ruleset and flag domains in the help guide ([#1832](https://github.com/corekraft/kore/issues/1832)) ([14dd5e1](https://github.com/corekraft/kore/commit/14dd5e188961ec9749decec0ca37f22140700dd3))
+* **harness:** document the hook domains in the help guide ([#1828](https://github.com/corekraft/kore/issues/1828)) ([bef49cf](https://github.com/corekraft/kore/commit/bef49cf85a593cf67efd4f1ac01cef05c4dbd045))
+* **harness:** document the judge, approve and review domains in the help guide ([#1831](https://github.com/corekraft/kore/issues/1831)) ([b6f48a8](https://github.com/corekraft/kore/commit/b6f48a8d53146ce85c60ffeddac801acf9fad19f))
+* **harness:** document the ledger, decision and status domains in the help guide ([#1834](https://github.com/corekraft/kore/issues/1834)) ([c8a716e](https://github.com/corekraft/kore/commit/c8a716e1afa9d1911190e803aaf59ef0a5a85afc))
+* **harness:** document the plan, adr and idea domains in the help guide ([#1826](https://github.com/corekraft/kore/issues/1826)) ([afb2fd1](https://github.com/corekraft/kore/commit/afb2fd1ec23ae1017e897e306469f9e52df6e170))
+* **harness:** document the pr, queue and orchestrate domains in the help guide ([#1829](https://github.com/corekraft/kore/issues/1829)) ([0908818](https://github.com/corekraft/kore/commit/090881805c2ab3056b056c9e2cdff6d4c36e8e4c))
+* **harness:** document the retro, outcome, evaluate and flow domains in the help guide ([#1833](https://github.com/corekraft/kore/issues/1833)) ([18487cb](https://github.com/corekraft/kore/commit/18487cb95bce486ca6913260a57721c018b211ea))
+* **harness:** document the session and skill domains in the help guide ([#1830](https://github.com/corekraft/kore/issues/1830)) ([707e2ba](https://github.com/corekraft/kore/commit/707e2bad3e2db5e2fd96bf10a8ff8e86eb5aad00))
+* **harness:** point skills and docs at the help guide ([#1843](https://github.com/corekraft/kore/issues/1843)) ([6de58d5](https://github.com/corekraft/kore/commit/6de58d5c367bc6654745282b6e200103ace52ea9))
+* **help:** define the help guide and teach add-command to declare it ([#1818](https://github.com/corekraft/kore/issues/1818)) ([bdedaeb](https://github.com/corekraft/kore/commit/bdedaebc4c7044f55f45bf4561e2b96ac8e10d9a)), closes [#1793](https://github.com/corekraft/kore/issues/1793) [#1789](https://github.com/corekraft/kore/issues/1789)
+* **ideas:** file the writer sandbox as idea 0078 ([#1808](https://github.com/corekraft/kore/issues/1808)) ([b5d785b](https://github.com/corekraft/kore/commit/b5d785bf89bd18199f99b6be80d89409b3fe5487))
+* **ideas:** record the browser token check outcome for [#1116](https://github.com/corekraft/kore/issues/1116) ([#1845](https://github.com/corekraft/kore/issues/1845)) ([f3f685a](https://github.com/corekraft/kore/commit/f3f685a87b39c35c4ed9c237909fc9f4668de474))
+* **ideas:** record the delivery-stage timer outcome for [#1113](https://github.com/corekraft/kore/issues/1113) ([#1790](https://github.com/corekraft/kore/issues/1790)) ([a973900](https://github.com/corekraft/kore/commit/a9739007ade4461d5dd52e2add97f993fe6ab434))
+* **ideas:** record the golden-path sign-in outcome for [#1747](https://github.com/corekraft/kore/issues/1747) and turn the flag on in local ([#1847](https://github.com/corekraft/kore/issues/1847)) ([8bca961](https://github.com/corekraft/kore/commit/8bca961dbb4be553444d19bdb6281a56a46a6734))
+* **plans:** mark plan 17 done and update plan 16 next ([#1878](https://github.com/corekraft/kore/issues/1878)) ([ccce45c](https://github.com/corekraft/kore/commit/ccce45c0fc20f2dc26cf9c1ff3c002970d3fc489)), closes [#1765](https://github.com/corekraft/kore/issues/1765)
+* **plans:** record the kore-agents Linux footprint baseline for Now ([#1866](https://github.com/corekraft/kore/issues/1866)) ([1078cef](https://github.com/corekraft/kore/commit/1078cefab5ff6b884b55c41c4b0ab07b2171b47e))
+* **plans:** record the next step for plan 15 after the sign-in live runs ([#1842](https://github.com/corekraft/kore/issues/1842)) ([a280600](https://github.com/corekraft/kore/commit/a28060001c9207cb536f77fcbfaefb659f282b88))
+* **plans:** record the next step for plans 16 and 17 ([#1817](https://github.com/corekraft/kore/issues/1817)) ([7b7a445](https://github.com/corekraft/kore/commit/7b7a4459dbf299e44a9ad99f67c11d83f937f2ba))
+* **plans:** rewrite the plan 15 outcome record and tick step 4 item 4 ([#1882](https://github.com/corekraft/kore/issues/1882)) ([4c2c59f](https://github.com/corekraft/kore/commit/4c2c59f9945cb143a09b18e1f0b74dc59452f9f0))
+* **plans:** tick plan 15 step 5 items 1, 3, 4 and step 6 items 1, 2 on recorded live proof ([#1879](https://github.com/corekraft/kore/issues/1879)) ([131066a](https://github.com/corekraft/kore/commit/131066ab9b0d8c76e787d828421051229bb6865a))
+* **plans:** tick plan 16 steps 1-4 and plan 17 step 1 ([#1865](https://github.com/corekraft/kore/issues/1865)) ([8bb7566](https://github.com/corekraft/kore/commit/8bb75663349931077a7d32d23142bf5a59ad76cd))
+* **plans:** update the plan 15 next line after the footprint tick ([#1871](https://github.com/corekraft/kore/issues/1871)) ([1a4d2a2](https://github.com/corekraft/kore/commit/1a4d2a2d11c6e18f92b864cb8894bf8dac9f0a71))
+
 ## [0.22.0](https://github.com/corekraft/kore/compare/v0.21.0...v0.22.0) (2026-11-22)
 
 
