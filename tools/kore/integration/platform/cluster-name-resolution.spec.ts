@@ -9,6 +9,7 @@ import {
   loadRepository,
   platformHelmArgs,
   type Repository,
+  internalGateway,
 } from "../../src/config/index.js";
 import { escapeRegExp, localPlatform } from "../local-platform-support.js";
 
@@ -123,9 +124,9 @@ test("the Gateway the rewrite follows is the environment's, handed over by kore"
   );
   assert.deepEqual(args.slice(-4), [
     "--set-string",
-    `gateway.name=${repository.environment.gateway.name}`,
+    `gateway.name=${internalGateway(repository.environment).name}`,
     "--set-string",
-    `gateway.namespace=${repository.environment.gateway.namespace}`,
+    `gateway.namespace=${internalGateway(repository.environment).namespace}`,
   ]);
 });
 

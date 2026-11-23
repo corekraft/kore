@@ -14,6 +14,7 @@ import {
   platformPlan,
   validateRepository,
   type Repository,
+  internalGateway,
 } from "../../src/config/index.js";
 import {
   composeChartDelivery,
@@ -99,7 +100,7 @@ function withSharedGateway(repository: Repository, on: boolean): Repository {
 }
 
 function renderReferenceRoute(repository: Repository, host: string): string {
-  const { gateway } = repository.environment;
+  const gateway = internalGateway(repository.environment);
   return execFileSync(
     "helm",
     [
@@ -208,15 +209,13 @@ test("no overlay values file and no chart default carries a copy of the platform
 test("every route host on the platform Gateway has a listener hostname that serves it", async () => {
   for (const name of ["local", "managed-example"]) {
     const repository = withSharedGateway(await loadRepository(name), false);
+    const gateway = internalGateway(repository.environment);
     const { domain } = platformPlan(repository.environment);
     const rendered = [
       render(repository, "kore-platform-config"),
       renderReferenceRoute(repository, domain),
     ].join("\n---\n");
-    assert.deepEqual(
-      routeHostErrors(rendered, repository.environment.gateway),
-      [],
-    );
+    assert.deepEqual(routeHostErrors(rendered, gateway), []);
   }
 });
 
@@ -227,7 +226,8 @@ test("a route host the platform Gateway has no listener for fails the check, nam
     render(repository, "kore-platform-config"),
     renderReferenceRoute(repository, "moved.example.test"),
   ].join("\n---\n");
-  const errors = routeHostErrors(rendered, repository.environment.gateway);
+  const gateway = internalGateway(repository.environment);
+  const errors = routeHostErrors(rendered, gateway);
   assert.equal(errors.length, 1);
   assert.match(
     errors[0]!,
