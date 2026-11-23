@@ -10,19 +10,61 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;
 }
 
-test("the VPS and managed-example overlays admit the v0.22.0 release signer, and stay in warn", async () => {
-  const v022 =
-    "https://github.com/corekraft/kore/.github/workflows/release.yaml@refs/tags/v0.22.0";
+const v022 =
+  "https://github.com/corekraft/kore/.github/workflows/release.yaml@refs/tags/v0.22.0";
+const v025 =
+  "https://github.com/corekraft/kore/.github/workflows/release.yaml@refs/tags/v0.25.0";
+
+test("every overlay gives the template policy its own keyless trust, admitting v0.25.0 and v0.22.0, in warn", async () => {
+  for (const environment of ["local", "vps", "managed-example"]) {
+    const repository = await loadRepository(environment);
+    const templates: unknown = repository.imageTrustValues?.["templates"];
+    const trust: unknown = isRecord(templates) ? templates["trust"] : undefined;
+    assert.ok(isRecord(trust), `${environment} declares templates.trust`);
+    assert.equal(
+      trust["type"],
+      "keyless",
+      `${environment} templates.trust is keyless`,
+    );
+    assert.equal(
+      trust["issuer"],
+      "https://token.actions.githubusercontent.com",
+      `${environment} templates.trust uses the GitHub Actions issuer`,
+    );
+    assert.deepEqual(
+      trust["subjects"],
+      [v025, v022],
+      `${environment} templates.trust admits the v0.25.0 and v0.22.0 release signers`,
+    );
+    assert.equal(
+      trust["mode"],
+      "warn",
+      `${environment} templates.trust stays in warn`,
+    );
+  }
+});
+
+test("the platform policy of vps and managed-example no longer admits v0.22.0, which only the template policy needs; the platform stays in warn", async () => {
   for (const environment of ["vps", "managed-example"]) {
     const repository = await loadRepository(environment);
     const trust: unknown = repository.imageTrustValues?.["trust"];
     assert.ok(isRecord(trust), `${environment} declares a trust authority`);
     assert.ok(
-      Array.isArray(trust["subjects"]) && trust["subjects"].includes(v022),
-      `${environment} trusts the v0.22.0 release signer`,
+      Array.isArray(trust["subjects"]) && !trust["subjects"].includes(v022),
+      `${environment} platform trust no longer lists v0.22.0`,
     );
     assert.equal(trust["mode"], "warn", `${environment} stays in warn`);
   }
+});
+
+test("local keeps its key platform trust untouched", async () => {
+  const repository = await loadRepository("local");
+  assert.deepEqual(repository.imageTrustValues?.["trust"], {
+    type: "key",
+    mode: "enforce",
+    signaturePullSecret: "kore-registry-read",
+    keyRef: { name: "kore-local-signing-pub", namespace: "cosign-system" },
+  });
 });
 
 const enrolmentLabel = "policy.sigstore.dev/include";

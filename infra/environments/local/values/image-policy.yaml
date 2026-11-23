@@ -6,5 +6,19 @@
       "signaturePullSecret": "kore-registry-read",
       "keyRef":
         { "name": "kore-local-signing-pub", "namespace": "cosign-system" }
+    },
+  "templates":
+    {
+      "trust":
+        {
+          "type": "keyless",
+          "mode": "warn",
+          "issuer": "https://token.actions.githubusercontent.com",
+          "subjects":
+            [
+              "https://github.com/corekraft/kore/.github/workflows/release.yaml@refs/tags/v0.25.0",
+              "https://github.com/corekraft/kore/.github/workflows/release.yaml@refs/tags/v0.22.0"
+            ]
+        }
     }
 }

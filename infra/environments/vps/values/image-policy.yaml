@@ -10,8 +10,21 @@
           "https://github.com/corekraft/kore/.github/workflows/release.yaml@refs/tags/v0.2.0",
           "https://github.com/corekraft/kore/.github/workflows/release.yaml@refs/tags/v0.3.1",
           "https://github.com/corekraft/kore/.github/workflows/release.yaml@refs/tags/v0.3.2",
-          "https://github.com/corekraft/kore/.github/workflows/release.yaml@refs/tags/v0.4.0",
-          "https://github.com/corekraft/kore/.github/workflows/release.yaml@refs/tags/v0.22.0"
+          "https://github.com/corekraft/kore/.github/workflows/release.yaml@refs/tags/v0.4.0"
         ]
+    },
+  "templates":
+    {
+      "trust":
+        {
+          "type": "keyless",
+          "mode": "warn",
+          "issuer": "https://token.actions.githubusercontent.com",
+          "subjects":
+            [
+              "https://github.com/corekraft/kore/.github/workflows/release.yaml@refs/tags/v0.25.0",
+              "https://github.com/corekraft/kore/.github/workflows/release.yaml@refs/tags/v0.22.0"
+            ]
+        }
     }
 }

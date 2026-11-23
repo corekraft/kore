@@ -19,26 +19,27 @@ type Trust = Record<string, unknown>;
 const isText = (value: unknown): value is string =>
   typeof value === "string" && value.trim() !== "";
 
-function keylessErrors(trust: Trust): string[] {
+/** The keyless checks; `setting` names the trust value an error belongs to. */
+function keylessErrors(trust: Trust, setting = "image trust"): string[] {
   const subjects = Array.isArray(trust.subjects) ? trust.subjects : [];
   return [
     ...(trust.issuer === githubIssuer
       ? []
-      : [`image trust: keyless issuer must be ${githubIssuer}`]),
+      : [`${setting}: keyless issuer must be ${githubIssuer}`]),
     ...(subjects.length
       ? []
       : [
-          "image trust: keyless needs at least one exact subject (the release workflow identity)",
+          `${setting}: keyless needs at least one exact subject (the release workflow identity)`,
         ]),
     ...subjects
       .filter((s) => typeof s !== "string" || !exactReleaseSubject.test(s))
       .map(
         (s) =>
-          `image trust: subject ${String(s)} must be the exact corekraft/kore release workflow on a release tag (https://github.com/corekraft/kore/.github/workflows/release.yaml@refs/tags/vX.Y.Z); wildcards, branches, and pull requests are not allowed`,
+          `${setting}: subject ${String(s)} must be the exact corekraft/kore release workflow on a release tag (https://github.com/corekraft/kore/.github/workflows/release.yaml@refs/tags/vX.Y.Z); wildcards, branches, and pull requests are not allowed`,
       ),
     ...(trust.keyRef === undefined
       ? []
-      : ["image trust: keyless authority must not also set keyRef"]),
+      : [`${setting}: keyless authority must not also set keyRef`]),
   ];
 }
 
@@ -125,21 +126,45 @@ function parseableAddress(repository: Repository): boolean {
 }
 
 /**
- * The kore-template-images policy renders only under a keyless authority, since
- * the templates are signed keylessly by the release. With the flag on and any
- * other trust, its readiness resource would never exist, so validation names
- * the cause here instead of letting the wait time out (issue 1884).
+ * The kore-template-images policy has its own keyless authority, templates.trust
+ * (issue 1884, ADR 0181), separate from the platform's trust: the templates are
+ * signed keylessly by the release, so a platform on key trust (local) still
+ * runs the template policy. With the flag on, a missing or invalid templates.trust
+ * fails validation up front, naming the setting, instead of letting the policy's
+ * readiness wait time out. With the flag off nothing is checked.
  */
+const templateSetting = "templates.trust";
+
 function templateTrustErrors(repository: Repository): string[] {
-  const trust = repository.imageTrustValues?.trust as Trust | undefined;
   if (
-    !featureEnabled(repository.environment, goldenPathTemplateAdmissionFlag) ||
-    trust?.type === "keyless"
+    !featureEnabled(repository.environment, goldenPathTemplateAdmissionFlag)
   ) {
     return [];
   }
+  const templates = repository.imageTrustValues?.["templates"] as
+    { trust?: unknown } | undefined;
+  const template = templates?.trust as Trust | undefined;
+  if (!template || typeof template !== "object") {
+    return [
+      `${templateSetting}: ${goldenPathTemplateAdmissionFlag} needs its own keyless trust setting, ${templateSetting}, in the ${imagePolicyComponent} values overlay of environment ${repository.environment.name}. The kore-template-images policy renders only under a keyless authority, because the templates are signed keylessly by the release. Add type keyless, issuer, subjects and mode, or turn the flag off`,
+    ];
+  }
+  if (template.type !== "keyless") {
+    return [
+      `${templateSetting}: type must be keyless (the kore-template-images policy is signed keylessly by the release)`,
+    ];
+  }
   return [
-    `image trust: ${goldenPathTemplateAdmissionFlag} needs keyless trust in environment ${repository.environment.name} (its trust is ${typeof trust?.type === "string" ? trust.type : "unset"}): the kore-template-images policy renders only under a keyless authority, because the templates are signed keylessly by the release. Use a keyless trust authority, or turn the flag off`,
+    ...forbidden
+      .filter((name) => name in template)
+      .map(
+        (name) =>
+          `${templateSetting}: ${name} is not allowed (regexp identities admit other workflows or branches); list exact subjects`,
+      ),
+    ...(template.mode === "warn" || template.mode === "enforce"
+      ? []
+      : [`${templateSetting}: mode must be warn or enforce`]),
+    ...keylessErrors(template, templateSetting),
   ];
 }
 
