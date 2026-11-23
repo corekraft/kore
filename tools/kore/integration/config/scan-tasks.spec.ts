@@ -168,7 +168,9 @@ test("a history-only secret-scan exclusion goes when the squash drops its branch
     },
   ).trim();
   // A shallow checkout cannot tell a squashed commit from one it never fetched; the PR integration job fetches full history.
-  if (shallow === "true") return;
+  if (shallow === "true") {
+    return;
+  }
   for (const { commit, patterns } of await pendingHistoryExcludes()) {
     let inHistory = true;
     try {
