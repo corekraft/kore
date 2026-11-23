@@ -142,7 +142,10 @@ function launch(
   }
   // Chunks are kept as bytes and decoded once, on demand, so a multi-byte
   // character split across two chunks decodes whole.
-  const chunks = { stdout: [] as Buffer[], stderr: [] as Buffer[] };
+  const chunks: { stdout: Buffer[]; stderr: Buffer[] } = {
+    stdout: [],
+    stderr: [],
+  };
   child.stdout?.on("data", (chunk: Buffer) => {
     chunks.stdout.push(chunk);
   });
