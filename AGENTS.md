@@ -30,7 +30,10 @@ the plans and ADRs record why. Find them through
 - **Deploy what was verified.** Images are deployed by signed digest, never by
   tag; local builds never alter the release lock. _Audited: `image-digest`._
 - **Secrets never touch disk or git in plaintext.** Encrypt at rest, stream
-  plaintext through stdin only. _Enforced: `secret-path`, `sops-plaintext`._
+  plaintext through stdin only. The one recorded exception is the vps OpenBao
+  static seal key, a root-only file on the root filesystem
+  ([ADR 0168](docs/decisions/0168-the-openbao-static-seal-key-is-a-recorded-exception-to-no-plaintext-on-disk.md)).
+  _Enforced: `secret-path`, `sops-plaintext`._
 - **Audit before enforce.** New policies start in audit mode.
 - **Fail closed.** Admission stays closed until every prerequisite proves
   ready. A step isn't done until its readiness checks pass.

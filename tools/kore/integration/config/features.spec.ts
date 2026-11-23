@@ -104,6 +104,17 @@ test("local charts receive flag values and upstream charts do not", async () => 
   );
 });
 
+test("golden-path-safety-defaults is listed false in every overlay, so no workload changes until a recorded live outcome turns it on (ADR 0154)", async () => {
+  for (const name of ["local", "vps", "managed-example"]) {
+    const repository = await loadRepository(name);
+    assert.equal(
+      repository.environment.features?.["golden-path-safety-defaults"],
+      false,
+      `${name} overlay`,
+    );
+  }
+});
+
 test("the managed-example overlay validates with and without flags", async () => {
   const base = await loadRepository("managed-example");
   await validateRepository(base);

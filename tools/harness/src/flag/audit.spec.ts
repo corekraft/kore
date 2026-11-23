@@ -82,7 +82,7 @@ describe("unprovenFlags", () => {
     });
     await unprovenFlags(fs, clock, BASE);
     expect(
-      vi.mocked(findProof).mock.calls.map((call) => call.slice(1)),
+      vi.mocked(findProof).mock.calls.map((call) => call.slice(1, 3)),
     ).toEqual([["on-flag", "local"]]);
   });
 

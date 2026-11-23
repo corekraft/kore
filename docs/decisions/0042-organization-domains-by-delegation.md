@@ -2,7 +2,7 @@
 status: accepted
 summary: Organizations bring domains by delegating a zone under any TLD to the platform's DNS, services are subdomains within those zones, and every organization also gets one default zone under a per-environment platform domain.
 date: 2026-11-09
-last-verified: 2026-11-14
+last-verified: 2026-11-23
 ---
 
 # ADR 0042: Bring organization domains by delegation, with one platform default zone each
@@ -13,6 +13,8 @@ Refines: [ADR 0012](0012-environment-overlays-hold-provider-specifics.md), which
 gains a per-environment platform domain and DNS provider.
 
 > Proposed refinement by [ADR 0132](0132-local-names-resolve-through-platform-dns-and-one-loopback-entry-point.md): the local platform domain is `kore.internal`, answered by a platform DNS in the cluster; the separateness rule and the platform's ownership of `<org-id>.kore.internal` only are unchanged.
+
+> Refined by [ADR 0163](0163-one-cloudflare-zone-holds-the-platform-domain-opentofu-owns-fixed-records-and-external-dns-owns-route-records.md): for vps, delegated zones are retired; a suborg's default zone is `<suborg>.<platform domain>` inside the one Cloudflare zone, with no NS delegation.
 
 ## Context
 
