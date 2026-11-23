@@ -1,8 +1,6 @@
 import assert from "node:assert/strict";
-import { execFile } from "node:child_process";
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
-import { promisify } from "node:util";
 import { test } from "vitest";
 import {
   approvedImageList,
@@ -10,72 +8,25 @@ import {
   findRoot,
   loadRepository,
   orderedComponents,
-  platformHelmArgs,
   platformPortalFlag,
   validateRepository,
-  type Repository,
 } from "../../src/config/index.js";
 import { withGatewayFlagsOff } from "../../src/testing/index.js";
 import { escapeRegExp, localPlatform } from "../local-platform-support.js";
+import {
+  document,
+  renderWith,
+  withFlagOff,
+} from "./platform-backstage-support.js";
 
 const platform = await localPlatform();
 const domain = escapeRegExp(platform.domain);
 
 // Docs: docs/decisions/0111-run-a-backstage-and-an-argo-cd-for-the-platform-organization-s-operators.md
 
-const run = promisify(execFile);
-
-// The flag decides whether the portal also attaches a route to the shared
-// Gateway, so every render here states it off; the shared-on cases are in
-// platform-backstage-shared-gateway.spec.ts.
-async function withFlagOff(environment: string): Promise<Repository> {
-  const base = await loadRepository(environment);
-  return {
-    ...base,
-    environment: {
-      ...base.environment,
-      features: {
-        ...base.environment.features,
-        "platform-shared-gateway": false,
-      },
-    },
-  };
-}
-
-async function renderWith(
-  repository: Repository,
-  extra: string[] = [],
-): Promise<string> {
-  const root = await findRoot();
-  const component = repository.catalog.components.find(
-    (c) => c.name === "kore-platform-backstage",
-  );
-  const values = [
-    ...(component?.values ?? []),
-    ...(repository.environment.componentValues?.["kore-platform-backstage"] ??
-      []),
-  ].flatMap((file) => ["--values", join(root, file)]);
-  const { stdout } = await run("helm", [
-    "template",
-    "kore-platform-backstage",
-    join(root, "infra/charts/platform-backstage"),
-    "--namespace",
-    "backstage",
-    ...values,
-    ...platformHelmArgs(repository.environment, "kore-platform-backstage"),
-    ...extra,
-  ]);
-  return stdout;
-}
-
 async function render(environment: string): Promise<string> {
   return renderWith(await withFlagOff(environment));
 }
-
-const document = (rendered: string, kind: string): string =>
-  rendered
-    .split(/^---$/m)
-    .find((part) => new RegExp(`^kind: ${kind}$`, "m").test(part)) ?? "";
 
 test("the platform Backstage is a flag-gated chart installed after the platform Keycloak and the PostgreSQL API, so with the flag off nothing reaches a cluster", async () => {
   for (const name of ["local", "managed-example"]) {
@@ -322,58 +273,4 @@ test("each Backstage container names the numeric uid of its image's user, so the
       ]),
   );
   assert.deepEqual(uids, { proxy: "65532", backstage: "65532" });
-});
-
-// The proxy exits when Keycloak's realm is not serving discovery yet, and
-// Kubernetes then backs the restart off for minutes (issue 1788). With
-// keycloakWait the pod's init container polls the realm until it answers, so
-// neither container starts before Keycloak is ready.
-const initContainers = (deployment: string): string =>
-  deployment
-    .split(/^ {6}initContainers:$/m)[1]
-    ?.split(/^ {6}containers:$/m)[0] ?? "";
-
-test("with keycloakWait off the Deployment has no init container, so the portal renders as before", async () => {
-  const deployment = document(await render("local"), "Deployment");
-  assert.equal(deployment.includes("initContainers"), false);
-});
-
-test("with keycloakWait on an init container polls the realm's discovery until it answers, before either container starts", async () => {
-  const rendered = await renderWith(await withFlagOff("local"), [
-    "--set",
-    "keycloakWait=true",
-  ]);
-  const init = initContainers(document(rendered, "Deployment"));
-  const discovery = `https://keycloak.${platform.domain}/realms/platform/.well-known/openid-configuration`;
-  const command = `            - "(async () => { for (;;) { try { if ((await fetch(\\"${discovery}\\")).ok) process.exit(0); } catch (e) {} await new Promise((r) => setTimeout(r, 2000)); } })();"`;
-  assert.ok(init.includes(command), init);
-  assert.match(init, /^ {8}- name: wait-for-keycloak$/m);
-  assert.match(init, /^ {12}- \/nodejs\/bin\/node$/m);
-});
-
-test("the init container runs the portal's pinned Backstage image as the numeric non-root uid and holds no credential", async () => {
-  const repository = await loadRepository("local");
-  const backstage = repository.approved.images.find(
-    (i) => i.component === "kore-platform-backstage" && i.name === "backstage",
-  );
-  const rendered = await renderWith(await withFlagOff("local"), [
-    "--set",
-    "keycloakWait=true",
-  ]);
-  const init = initContainers(document(rendered, "Deployment"));
-  assert.ok(init.includes(`image: "${backstage?.image}"`), init);
-  assert.match(init, /^ {12}runAsUser: 65532$/m);
-  assert.equal(init.includes("secretKeyRef"), false);
-});
-
-test("with the local CA the init container trusts the local CA bundle, as the Backstage container does", async () => {
-  const rendered = await renderWith(await withFlagOff("local"), [
-    "--set",
-    "keycloakWait=true",
-    "--set-string",
-    "localCa.configMap=kore-local-ca",
-  ]);
-  const init = initContainers(document(rendered, "Deployment"));
-  assert.match(init, /^ {14}value: \/etc\/kore\/local-ca\/bundle\.crt$/m);
-  assert.match(init, /mountPath: \/etc\/kore\/local-ca$/m);
 });
