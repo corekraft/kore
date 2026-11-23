@@ -64,6 +64,7 @@
       "golden-path-signin": false,
       "golden-path-template-admission": false,
       "golden-path-signin-after-portal": false,
+      "golden-path-safety-defaults": false,
       "decision-advisor": false
     },
   "secrets": { "storeName": "platform-secrets", "sourceNamespace": "external" },

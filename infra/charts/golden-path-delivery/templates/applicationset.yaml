@@ -59,6 +59,10 @@ spec:
             - name: autoscaling.enabled
               value: "true"
             {{- end }}
+            {{- if .Values.safetyDefaults }}
+            - name: safetyDefaults
+              value: "true"
+            {{- end }}
             {{- with .Values.ingress }}
             - name: ingress.host
               value: '{{`{{ .metadata.name }}`}}.{{`{{ .spec.organization }}`}}.{{ .platformDomain }}'
