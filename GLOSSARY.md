@@ -329,9 +329,8 @@ _Avoid_: Slow step
 **Finish detection**:
 The share of a flow report's session results that a finish recorded on the same
 terminal noticed within the detection window, a placeholder of 300 seconds. A
-result is noticed only when its finish was recorded: for a herdr result, a
-`pane.finished` ledger event, recorded when `session wait` saw it; for a
-terminal result, when the terminal watch did. A
+result is noticed only when its finish was recorded: a finish on the terminal,
+recorded when `session wait` saw it or when the terminal watch did. A
 terminal read or a message to the session records nothing, so it counts as not
 noticed. The undetected results split into never noticed (no finish was ever
 recorded on the terminal) and late (one was recorded outside the window, or
