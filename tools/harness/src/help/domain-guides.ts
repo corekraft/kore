@@ -85,8 +85,8 @@ export const domainGuides: Record<DomainName, DomainGuide> = {
   },
   review: {
     purpose:
-      "The principles review of a pull request: running the Reviewer, posting a verdict, and re-reviewing a sample of passed reviews of merged PRs.",
-    flow: "Run review run to have a principles-review Reviewer read a PR's head and post its verdict; review post posts findings a Reviewer reported, in the format the precheck reads; review resample re-reviews a sample of merged PRs and posts nothing.",
+      "The principles review of a pull request: running the Reviewer and posting a verdict.",
+    flow: "Run review run to have a principles-review Reviewer read a PR's head and post its verdict; review post posts findings a Reviewer reported, in the format the precheck reads.",
   },
   pr: {
     purpose:
@@ -107,7 +107,7 @@ export const domainGuides: Record<DomainName, DomainGuide> = {
   queue: {
     purpose:
       "The work queue: approved ideas and pending judge send-backs, and the escalation that relaunches a writer on a stronger model.",
-    flow: "Run queue next to list what to work on, oldest first (the whole ticket frontier behind tick-ticket-queue); queue send-backs to count a PR's send-backs and name the writer model; queue escalate to record the escalation at two send-backs.",
+    flow: "Run queue next to list what to work on, oldest first (the whole ticket frontier behind tick-ticket-queue); queue escalate --check to count a PR's send-backs and name the writer model; queue escalate to record the escalation at two send-backs.",
   },
   retro: {
     purpose:

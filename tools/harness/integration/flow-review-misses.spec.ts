@@ -96,6 +96,7 @@ describe("flow report review misses, from the ledger (#851)", () => {
 });
 
 describe("flow report review misses: the re-review sample and the human report (#851, #852)", () => {
+  // The human report prints no re-review line; the JSON keeps the reviewMisses.resample figure.
   it("counts the re-reviews of sampled passed reviews beside the ratio, and keeps them out of the reviews", async () => {
     const h = harness();
     const events = [
@@ -122,7 +123,7 @@ describe("flow report review misses: the re-review sample and the human report (
     });
   });
 
-  it("prints the re-review line beside the two review figures in the human report", async () => {
+  it("prints no re-review line in the human report, though a re-review is in the range", async () => {
     const h = harness();
     h.fs.files.set(
       DEFAULT,
@@ -130,9 +131,7 @@ describe("flow report review misses: the re-review sample and the human report (
     );
 
     expect(await run(["flow", "report", ...RANGE], h.deps)).toBe(0);
-    expect(h.out()).toContain(
-      "Re-reviews of sampled passed reviews: 1 of 1 found a violation (100%)",
-    );
+    expect(h.out()).not.toContain("Re-reviews of sampled passed reviews");
   });
 
   it("prints both review figures in the human report, with the trailing average", async () => {

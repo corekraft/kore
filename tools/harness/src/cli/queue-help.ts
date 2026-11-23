@@ -1,9 +1,5 @@
 import type { Command, CommandHelp } from "../runtime/index.js";
-import {
-  escalateCommand,
-  nextCommand,
-  sendBacksCommand,
-} from "./queue-commands.js";
+import { escalateCommand, nextCommand } from "./queue-commands.js";
 
 /**
  * The queue domain's table: each command with its help record. The records sit here, not in
@@ -15,7 +11,7 @@ export const nextHelp: CommandHelp = {
     "Lists what the orchestrator should work on next, oldest first: approved ideas without an outcome and the judge's pending send-backs. With the local tick-ticket-queue flag on, it lists the whole frontier, numbered in queue order, instead.",
   when: "When you need to know what the tick takes next, or why one issue is not queued (with --explain).",
   whenNot:
-    "When you need one PR's send-back count and the writer model to launch: use queue send-backs. To act on the queue, run orchestrate tick.",
+    "When you need one PR's send-back count and the writer model to launch: use queue escalate --check. To act on the queue, run orchestrate tick.",
   flags: {
     ledger:
       "The stage ledger to read send-backs from, relative to the working directory. Without it, the shared ledger of the main checkout.",
@@ -51,56 +47,20 @@ export const nextHelp: CommandHelp = {
     detail:
       "reads the ledger, the idea records and GitHub's issues and pull requests; writes nothing",
   },
-  seeAlso: ["queue send-backs", "queue escalate", "orchestrate tick"],
-};
-
-export const sendBacksHelp: CommandHelp = {
-  purpose:
-    "Counts a PR's judge send-backs from the ledger and names the model to launch its writer on: the writer's declared default model below two send-backs, claude-sonnet-5-5 from two.",
-  when: "Before relaunching a PR's writer after a judge send-back, to see which model to launch it on.",
-  whenNot:
-    "When you mean to record an escalation: use queue escalate, which records it once. This command only reads.",
-  flags: {
-    ledger:
-      "The stage ledger to read send-backs from, relative to the working directory. Without it, the shared ledger of the main checkout.",
-  },
-  operand: "The pull request number, such as 746.",
-  examples: [
-    {
-      command: "harness queue send-backs 746",
-      shows: "PR 746's send-back count and the model to launch its writer on",
-    },
-    {
-      command: "harness queue send-backs 746 --json",
-      shows:
-        "the pr, count, model and whether the writer escalates, as one object",
-    },
-  ],
-  exits: [
-    { code: 0, meaning: "the count and model were printed" },
-    {
-      code: 1,
-      meaning:
-        "the PR number is missing or not a whole number, or the ledger or the writer's declared model cannot be read",
-    },
-  ],
-  effects: {
-    kind: "read-only",
-    detail:
-      "reads the ledger's send-back events and the writer's declared model; writes nothing",
-  },
-  seeAlso: ["queue escalate", "queue next", "session spawn"],
+  seeAlso: ["queue escalate", "orchestrate tick"],
 };
 
 export const escalateHelp: CommandHelp = {
   purpose:
-    "Records the escalation of a PR's writer once the PR has two send-backs, one escalation per PR, and prints the spawn line that relaunches the writer on the stronger model.",
-  when: "After a PR's second judge send-back, before relaunching its writer.",
+    "Records the escalation of a PR's writer once the PR has two send-backs, one escalation per PR, and prints the spawn line that relaunches the writer on the stronger model. With --check it only counts the PR's judge send-backs and names the model to launch its writer on: the writer's declared default below two send-backs, claude-sonnet-5-5 from two.",
+  when: "After a PR's second judge send-back, before relaunching its writer; with --check, before any relaunch, to see which model to launch it on.",
   whenNot:
-    "Below two send-backs it refuses: relaunch the writer on its default model, which queue send-backs names. It starts nothing itself; run the spawn line it prints.",
+    "Without --check it records, so use --check when you only want to read. Below two send-backs it refuses: relaunch the writer on its default model, which queue escalate --check names. It starts nothing itself; run the spawn line it prints.",
   flags: {
     ledger:
       "The stage ledger to record the escalation in, relative to the working directory. Without it, the shared ledger of the main checkout.",
+    check:
+      "Read only: print the PR's send-back count and the model to launch its writer on, record nothing and never refuse below two send-backs.",
   },
   operand: "The pull request number, such as 746.",
   examples: [
@@ -113,30 +73,38 @@ export const escalateHelp: CommandHelp = {
       command: "harness queue escalate 746 --json",
       shows: "the pr, count, model and escalated set to true, as one object",
     },
+    {
+      command: "harness queue escalate 746 --check",
+      shows: "PR 746's send-back count and the model to launch its writer on",
+    },
+    {
+      command: "harness queue escalate 746 --check --json",
+      shows:
+        "the pr, count, model and whether the writer escalates, as one object",
+    },
   ],
   exits: [
     {
       code: 0,
       meaning:
-        "the escalation is recorded, or was already recorded for this PR",
+        "the escalation is recorded, or was already recorded for this PR; with --check, the count and model were printed",
     },
     {
       code: 1,
       meaning:
-        "refused: fewer than two send-backs, the PR number is missing or not a whole number, the ledger cannot be read, or the escalation event was rejected",
+        "refused: fewer than two send-backs (not with --check), the PR number is missing or not a whole number, the ledger or the writer's declared model cannot be read, or the escalation event was rejected",
     },
   ],
   effects: {
     kind: "mutates",
     detail:
-      "appends one escalation event to the ledger for this PR, labelled with the model, unless one is already there; starts no pane",
+      "appends one escalation event to the ledger for this PR, labelled with the model, unless one is already there; starts no pane. With --check it reads the ledger's send-back events and the writer's declared model and writes nothing",
   },
-  seeAlso: ["queue send-backs", "session spawn", "queue next"],
+  seeAlso: ["session spawn", "queue next"],
 };
 
 /** The queue domain's commands, each with its help record; the command table reads them from here. */
 export const queueDomain: Record<string, Command> = {
   next: { ...nextCommand, help: nextHelp },
-  "send-backs": { ...sendBacksCommand, help: sendBacksHelp },
   escalate: { ...escalateCommand, help: escalateHelp },
 };

@@ -74,3 +74,5 @@ Not set. The owner sets the number after the baseline is read.
 
 This idea turns no flag on, opens no window, changes no default tier and sets no
 value for the weekly token ceiling. Those stay the owner's.
+
+Note (#1787): the experiment no longer has `session prompt-size` or `session notify`. `session prompt-size` was removed (the owner approved the removal list on #1786), and #1893 retired `session notify` in favour of `session report`.
