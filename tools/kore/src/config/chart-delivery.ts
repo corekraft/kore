@@ -1,3 +1,4 @@
+import { internalGateway } from "./gateways.js";
 import {
   databaseRoutesFlag,
   enabledComponents,
@@ -159,8 +160,8 @@ export function chartDeliveryValues(
       ? {
           databaseRoutes: true as const,
           organizationId,
-          gatewayName: repository.environment.gateway.name,
-          gatewayNamespace: repository.environment.gateway.namespace,
+          gatewayName: internalGateway(repository.environment).name,
+          gatewayNamespace: internalGateway(repository.environment).namespace,
         }
       : {}),
     charts: Object.fromEntries(

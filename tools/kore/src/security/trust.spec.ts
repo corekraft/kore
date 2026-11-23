@@ -4,7 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { beforeEach, expect, test, vi } from "vitest";
 import { assertExpectedCluster } from "../cluster/index.js";
-import { isLocalProvider } from "../config/index.js";
+import { internalGateway, isLocalProvider } from "../config/index.js";
 import { CommandError } from "../runtime/index.js";
 import { errno, fakeRepository, fakeRunner } from "./security-support.js";
 import {
@@ -59,6 +59,11 @@ beforeEach(() => {
   vi.mocked(join).mockImplementation((...parts: string[]) => parts.join("/"));
   vi.mocked(tmpdir).mockReturnValue("/tmp");
   vi.mocked(isLocalProvider).mockReturnValue(true);
+  vi.mocked(internalGateway).mockReturnValue({
+    namespace: "kore-system",
+    name: "kore-gateway",
+    port: 443,
+  });
   vi.mocked(assertExpectedCluster).mockResolvedValue();
   caFiles();
 });

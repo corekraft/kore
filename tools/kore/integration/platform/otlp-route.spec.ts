@@ -2,7 +2,11 @@
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
 import { test } from "vitest";
-import { loadRepository, type Repository } from "../../src/config/index.js";
+import {
+  loadRepository,
+  type Repository,
+  internalGateway,
+} from "../../src/config/index.js";
 import { helmTemplateArgs } from "../../src/platform/index.js";
 import { withAbsoluteChart } from "../../src/testing/index.js";
 
@@ -63,8 +67,8 @@ spec:
   parentRefs:
     - group: gateway.networking.k8s.io
       kind: Gateway
-      name: ${repository.environment.gateway.name}
-      namespace: ${repository.environment.gateway.namespace}
+      name: ${internalGateway(repository.environment).name}
+      namespace: ${internalGateway(repository.environment).namespace}
       sectionName: https-platform
   hostnames:
     - "otlp.platform.kore.internal"
