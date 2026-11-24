@@ -1,5 +1,40 @@
 # Changelog
 
+## [0.27.0](https://github.com/corekraft/kore/compare/v0.26.0...v0.27.0) (2026-11-24)
+
+
+### Features
+
+* **config:** declare each flag's kind and environments in a flag manifest ([#1932](https://github.com/corekraft/kore/issues/1932)) ([3d7e05c](https://github.com/corekraft/kore/commit/3d7e05ced191651968de9eec2f3bcdc4fee33fa5))
+* **config:** mark the flags that do not apply to vps in the flag manifest ([#2000](https://github.com/corekraft/kore/issues/2000)) ([0a2e3a5](https://github.com/corekraft/kore/commit/0a2e3a584b491f22b3f8dec308ee9cc04c34de0c))
+* **harness:** warn when a write names the platform domain, in audit mode ([#1995](https://github.com/corekraft/kore/issues/1995)) ([f4efc9c](https://github.com/corekraft/kore/commit/f4efc9c052009e0af62c1e63446c6eb440fc4f56))
+* **platform:** add acme-dns01 behind a dark flag for Let's Encrypt DNS-01 through Cloudflare ([#2010](https://github.com/corekraft/kore/issues/2010)) ([3b09920](https://github.com/corekraft/kore/commit/3b0992020803fade837ba6e6cd28ed65c17ee662))
+* **platform:** add external-dns behind a dark flag for the external Gateway ([#1996](https://github.com/corekraft/kore/issues/1996)) ([f1c6185](https://github.com/corekraft/kore/commit/f1c61858c75332d5fafc0efb108f221596414656))
+* **platform:** add the Cloudflare platform zone stack and its runbook ([#1992](https://github.com/corekraft/kore/issues/1992)) ([b582596](https://github.com/corekraft/kore/commit/b582596c2d69359d34b282815748d88bde502370)), closes [#1615](https://github.com/corekraft/kore/issues/1615)
+* **platform:** derive the observability service list from the environment's records ([#1999](https://github.com/corekraft/kore/issues/1999)) ([312f195](https://github.com/corekraft/kore/commit/312f195448a088f24b7e1889b895b679856c62aa))
+* **platform:** describe suborgs in the Organization API with a required quota ([#1993](https://github.com/corekraft/kore/issues/1993)) ([84cd117](https://github.com/corekraft/kore/commit/84cd117c5318f71cd1cac51130c4846f0adeb38d))
+* **platform:** gate controller rollouts on apiserver readiness behind a flag ([#2012](https://github.com/corekraft/kore/issues/2012)) ([a6d69d2](https://github.com/corekraft/kore/commit/a6d69d2f1809192a3e2894452a8bd3dda19c3525))
+* **platform:** judge the golden-path workload's rollout on the declared node count ([#2003](https://github.com/corekraft/kore/issues/2003)) ([be02ce9](https://github.com/corekraft/kore/commit/be02ce9c15b0e3f81ceb387ebb3b43e1c64f89d0))
+* **platform:** let a Service name a suborg with a name pattern ([#2009](https://github.com/corekraft/kore/issues/2009)) ([ed8738f](https://github.com/corekraft/kore/commit/ed8738f4d9ca41485d2afd44d10d0688e5f0431e)), closes [#2005](https://github.com/corekraft/kore/issues/2005)
+* **platform:** limit the external Gateway with one platform-owned policy behind a flag ([#1981](https://github.com/corekraft/kore/issues/1981)) ([ad3ab9a](https://github.com/corekraft/kore/commit/ad3ab9a56577371253f98f063ff5db8fb738f977))
+* **platform:** refuse a hostname claim that breaks the claim rules ([#2007](https://github.com/corekraft/kore/issues/2007)) ([75edcfa](https://github.com/corekraft/kore/commit/75edcfa0b4f754a447cd2c275cd58143c17b1487))
+* **platform:** validate the app record spec and release files ([#1970](https://github.com/corekraft/kore/issues/1970)) ([38d5c43](https://github.com/corekraft/kore/commit/38d5c43e05dea255280091b33c773aad60c9d489))
+* **platform:** write app flag windows append-only behind the window store ([#2001](https://github.com/corekraft/kore/issues/2001)) ([58c1e37](https://github.com/corekraft/kore/commit/58c1e37fc56befb071536ef5523ba1350d801ef3))
+* **policy:** audit the workload defaults at admission behind a flag ([#2008](https://github.com/corekraft/kore/issues/2008)) ([ad6e987](https://github.com/corekraft/kore/commit/ad6e987054149335330ddb258b22de890099c029))
+
+
+### Bug fixes
+
+* **config:** declare platform-keycloak-realm-wait in the flag manifest ([#1997](https://github.com/corekraft/kore/issues/1997)) ([73a3bfd](https://github.com/corekraft/kore/commit/73a3bfd922c0d803b0e760af0cfe3941a7071512)), closes [#1984](https://github.com/corekraft/kore/issues/1984)
+* **platform:** wait for the Keycloak realm before applying the portal behind a flag ([#1994](https://github.com/corekraft/kore/issues/1994)) ([d306dd0](https://github.com/corekraft/kore/commit/d306dd0b13c73e8910317189018bbe9d4307f514))
+* **release:** sign the golden-path template images in the legacy .sig form ([#1986](https://github.com/corekraft/kore/issues/1986)) ([975fcc8](https://github.com/corekraft/kore/commit/975fcc8743a33b0bd76d4a7f3aefedc792558fbe)), closes [#1884](https://github.com/corekraft/kore/issues/1884)
+
+
+### Documentation
+
+* **adr:** refine 0077 and 0114 for app flags from platform evidence ([#1966](https://github.com/corekraft/kore/issues/1966)) ([f5409fb](https://github.com/corekraft/kore/commit/f5409fb0d8f52c1ff72a9578c124c3df97e45d52))
+* **ideas:** record the drift-listing-mappings and golden-path-signin-after-portal live outcomes ([#1985](https://github.com/corekraft/kore/issues/1985)) ([f20145d](https://github.com/corekraft/kore/commit/f20145d77ff24feb6b8744bc5126023f657278ee))
+
 ## [0.26.0](https://github.com/corekraft/kore/compare/v0.25.0...v0.26.0) (2026-11-24)
 
 
