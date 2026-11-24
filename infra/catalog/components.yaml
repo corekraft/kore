@@ -760,7 +760,9 @@
         "readiness":
           [
             "crd/organizations.platform.kore.dev",
-            "crd/services.platform.kore.dev"
+            "crd/services.platform.kore.dev",
+            "compositeresourcedefinition.apiextensions.crossplane.io/organizations.platform.kore.dev",
+            "compositeresourcedefinition.apiextensions.crossplane.io/services.platform.kore.dev"
           ]
       },
       {

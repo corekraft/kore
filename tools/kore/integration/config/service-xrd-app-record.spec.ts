@@ -115,7 +115,7 @@ test("gateway defaults to internal and takes only internal or external", () => {
 test("soak is an optional object with exactly duration and minRequests, and no CRD default", () => {
   const soak = serviceSpec().properties?.soak;
   expect(soak?.type).toBe("object");
-  expect(soak?.additionalProperties).toBe(false);
+  expect(soak?.additionalProperties).toBeUndefined();
   expect(soak?.required).toBeUndefined();
   expect(soak?.default).toBeUndefined();
   expect(Object.keys(soak?.properties ?? {})).toEqual([
