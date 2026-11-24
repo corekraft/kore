@@ -564,6 +564,7 @@
         "readiness":
           [
             "configmap/kore-prometheus-rules",
+            "configmap/kore-prometheus-disk-rules",
             "configmap/kore-grafana-dashboards"
           ]
       },

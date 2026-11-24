@@ -69,7 +69,22 @@ test("the vps Prometheus render loads the platform rule file from the kore-prome
       configMap: "kore-prometheus-rules",
       readOnly: true,
     },
+    {
+      name: "kore-prometheus-disk-rules",
+      mountPath: "/etc/kore/disk-rules",
+      configMap: "kore-prometheus-disk-rules",
+      readOnly: true,
+    },
   ]);
+});
+
+test("the vps Prometheus render loads the disk rule file from its own mount, so the disk alerts reach vps and no other environment", async () => {
+  const prometheus = await vpsRender("prometheus");
+  assert.ok(
+    prometheus["serverFiles"]["prometheus.yml"]["rule_files"].includes(
+      "/etc/kore/disk-rules/disk.yaml",
+    ),
+  );
 });
 
 test("the vps Prometheus render keeps metrics 15 days inside a size limit of 80 percent of a 20 GiB volume", async () => {

@@ -12,7 +12,8 @@
               "/etc/config/recording_rules.yml",
               "/etc/config/alerting_rules.yml",
               "/etc/kore/rules/platform.yaml",
-              "/etc/kore/rules/services.yaml"
+              "/etc/kore/rules/services.yaml",
+              "/etc/kore/disk-rules/disk.yaml"
             ]
         }
     },
@@ -26,6 +27,12 @@
             "name": "kore-prometheus-rules",
             "mountPath": "/etc/kore/rules",
             "configMap": "kore-prometheus-rules",
+            "readOnly": true
+          },
+          {
+            "name": "kore-prometheus-disk-rules",
+            "mountPath": "/etc/kore/disk-rules",
+            "configMap": "kore-prometheus-disk-rules",
             "readOnly": true
           }
         ],

@@ -1,2 +1,7 @@
 tracing:
   samplingPercentage: 10
+# Disk alert thresholds, in percent (issue #1516). Notify-only (ADR 0114): the
+# starting values the owner set on #1486, to be tuned after the vps soak.
+disk:
+  volumeFillPercent: 85
+  nodeFilesystemCriticalPercent: 90
