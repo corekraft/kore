@@ -70,14 +70,17 @@ test("local keeps its key platform trust untouched", async () => {
 const enrolmentLabel = "policy.sigstore.dev/include";
 
 // The only files that may carry the enrolment label: the two creators of the
-// golden-path namespaces, each behind golden-path-template-admission (ADR 0181).
-// Any other chart or overlay that carries it fails this guard.
+// golden-path namespaces, behind golden-path-template-admission (ADR 0181), and
+// the Organization composition, which enrols each suborg namespace behind
+// suborg-tenancy (ADR 0165, issue 1550). Any other chart or overlay that carries
+// it fails this guard.
 const flagGatedEnrolmentFiles = [
   "infra/charts/golden-path-delivery/templates/applicationset.yaml",
   "infra/charts/platform-apis/templates/service-composition.yaml",
+  "infra/charts/platform-apis/templates/organization-composition.yaml",
 ];
 
-test("the only namespace enrolment in git is the golden-path creators' label, behind golden-path-template-admission", async () => {
+test("the only namespace enrolment in git is a namespace creator's label, each behind its own flag (ADR 0181, ADR 0165)", async () => {
   const root = await findRoot();
   const carriers: string[] = [];
   for (const dir of ["infra/charts", "infra/environments"]) {

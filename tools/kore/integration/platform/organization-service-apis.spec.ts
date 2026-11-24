@@ -137,7 +137,12 @@ test("the Organization composition is a skeleton that composes no resource until
   );
   assert.match(source, /^  name: organization-local$/m);
   assert.match(source, /function-auto-ready/);
-  assert.doesNotMatch(source, /kind: Namespace/);
+  // The suborg namespace is composed only behind suborg-tenancy (ADR 0165), after the skeleton.
+  const [beforeSuborg = "", suborg = ""] = source.split(
+    /^\{\{- if index \$features "suborg-tenancy" \}\}$/m,
+  );
+  assert.doesNotMatch(beforeSuborg, /kind: Namespace/);
+  assert.match(suborg, /kind: Namespace/);
   const [always = "", gated = ""] = source.split(
     /^\{\{- if index \$features "platform-portal" \}\}$/m,
   );
