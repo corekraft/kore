@@ -18,9 +18,13 @@ role in is a separate change that must:
   `factory-merge` (ADR 0183), the release gate's clearance in
   `flag activate` (ADR 0184); goal check records outcomes (ADR 0185).
 
-Open work is tracked as ideas: the writer's 100K cumulative token budget
-(idea 0086, #1988) and the provenance evidence freshness needs (idea 0087,
-#1989). Griller runs only on the owner's machine, where the
+Open work is tracked as ideas: the roles under `session spawn` (idea 0088,
+#2019), the orchestrator's handoff to the advisor (0089, #2020), the merge on
+the principles review verdict (0090, #2021), `flag activate` accepting a
+clearance (0091, #2022), goal check's outcomes (0092, #2023), the writer's
+100K cumulative token budget (0086, #1988) and the provenance evidence
+freshness needs (0087, #1989). Idea 0088 comes first; 0091 needs 0087.
+Griller runs only on the owner's machine, where the
 `/mattpocock:grill-with-docs`, `/mattpocock:to-spec` and
 `/mattpocock:to-tickets` skills are installed; it chains every ticket to
 ticket review.

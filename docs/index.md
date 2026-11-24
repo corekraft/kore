@@ -362,6 +362,11 @@ decisions; read one only when planning that area, and expect it to change.
 - [`docs/ideas/0085-golden-path-signin-after-portal-works-live-on-release-locks.md`](ideas/0085-golden-path-signin-after-portal-works-live-on-release-locks.md) — golden-path-signin-after-portal works live in local on the v0.26.0 locks
 - [`docs/ideas/0086-writer-token-budget.md`](ideas/0086-writer-token-budget.md) — Each writer's lifetime stays strictly under 100,000 cumulative active tokens and hands back its work before the limit.
 - [`docs/ideas/0087-release-proof-provenance.md`](ideas/0087-release-proof-provenance.md) — A clearance's proof records its build, flag wiring and exercised path, so evidence freshness can reuse it or name the smallest refresh.
+- [`docs/ideas/0088-factory-roles-spawn.md`](ideas/0088-factory-roles-spawn.md) — Moves the factory role definitions from .claude/factory into .claude/agents behind the factory-roles flag, each with a guard group, keeping the live roles' harness commands.
+- [`docs/ideas/0089-tick-hands-stall-to-advisor.md`](ideas/0089-tick-hands-stall-to-advisor.md) — Implements ADR 0182 behind factory-orchestrator: a step no rule decides goes from the orchestrator role to the advisor with a fixed handoff, in place of a judgment pane.
+- [`docs/ideas/0090-merge-on-principles-verdict.md`](ideas/0090-merge-on-principles-verdict.md) — Implements ADR 0183 behind factory-merge: a head the principles review permits merges once required checks are green and the head is unchanged, with no judge pane.
+- [`docs/ideas/0091-flag-activate-accepts-clearance.md`](ideas/0091-flag-activate-accepts-clearance.md) — Implements ADR 0184: flag activate turns a flag on in any non-local environment from a recorded release gate clearance of local proof, and AGENTS.md's It just works rule is rewritten with it.
+- [`docs/ideas/0092-goal-check-records-outcome.md`](ideas/0092-goal-check-records-outcome.md) — Implements ADR 0185: goal check compares an idea's stated goal with evidence observed in its environment and records the result through outcome record.
 
 ## Operations and Guides
 
