@@ -208,6 +208,7 @@ test("loading reads the catalog, the flag manifest and the overlay, validates th
     "/repo/infra/catalog/components.yaml",
     "/repo/infra/catalog/flags.yaml",
     "/repo/infra/environments/local/environment.yaml",
+    "/repo/.sops.yaml",
   ]);
 });
 

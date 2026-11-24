@@ -83,7 +83,9 @@
       "app-sizing": false,
       "workload-defaults-admission": false,
       "pvc-ownership-admission": false,
-      "openbao": false
+      "openbao": false,
+      "database-backups": false,
+      "openbao-snapshots": false
     },
   "secrets": { "storeName": "platform-secrets", "sourceNamespace": "external" },
   "telemetry":

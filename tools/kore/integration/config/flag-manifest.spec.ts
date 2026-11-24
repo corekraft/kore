@@ -124,6 +124,8 @@ test("the flags that apply to vps are the ones the manifest declares, pending fl
     "release-recovery-argocd-refusal",
     "host-published-ports",
     "openbao",
+    "database-backups",
+    "openbao-snapshots",
     "registry-revert-keep",
     "platform-dns",
     "in-cluster-ca",

@@ -65,6 +65,8 @@
       "external-gateway-limits": false,
       "external-dns": false,
       "openbao": false,
+      "database-backups": false,
+      "openbao-snapshots": false,
       "registry-by-name": true,
       "otlp-route": true,
       "platform-hostname-ownership": false,
