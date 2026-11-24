@@ -47,6 +47,10 @@ spec:
             - rule: {{ printf "self.metadata.name == 'platform' || (has(self.spec.zone) && self.spec.zone == self.metadata.name + '.%s')" .Values.platformDomain | quote }}
               message: {{ printf "spec.zone must be the suborg's default zone, <suborg>.%s: the platform zone default is for the platform organization only" .Values.platformDomain | quote }}
 {{- end }}
+          # No object here sets additionalProperties beside properties: Crossplane cannot
+          # render that into a CRD ("additionalProperties and properties are mutual
+          # exclusive"), and the XRD still reads Established (#2047). kore validate closes
+          # every object that has properties, so an unknown field is refused there.
           properties:
             spec:
               type: object
@@ -64,12 +68,10 @@ spec:
                 quota:
                   type: object
                   required: [requests, pods, storage]
-                  additionalProperties: false
                   properties:
                     requests:
                       type: object
                       required: [cpu, memory]
-                      additionalProperties: false
                       properties:
                         cpu: { type: string, pattern: "^[0-9]+(\\.[0-9]+)?m?$" }
                         memory: { type: string, pattern: "^[0-9]+(\\.[0-9]+)?(Mi|Gi|Ti)$" }

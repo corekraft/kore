@@ -71,6 +71,33 @@ export function healthyOpenbaoOutput(
   return command.includes("audit.log") ? "audit" : undefined;
 }
 
+/** An XRD Crossplane has rendered (its condition observed its generation) and its CRD; neither declares a field, so nothing is missing. */
+export function healthyXrdOutput(args: readonly string[]): string | undefined {
+  if (!args.includes("json")) {
+    return undefined;
+  }
+  if (
+    args.some((arg) =>
+      arg.startsWith(
+        "compositeresourcedefinition.apiextensions.crossplane.io/",
+      ),
+    )
+  ) {
+    return JSON.stringify({
+      metadata: { generation: 1 },
+      spec: { versions: [] },
+      status: {
+        conditions: [
+          { type: "Established", status: "True", observedGeneration: 1 },
+        ],
+      },
+    });
+  }
+  return args.some((arg) => arg.startsWith("crd/"))
+    ? JSON.stringify({ spec: { versions: [] } })
+    : undefined;
+}
+
 /** What a healthy cluster answers to any read-only readiness check, if args are one. */
 export function healthyClusterOutput(args: readonly string[]): string {
   return (
@@ -80,6 +107,7 @@ export function healthyClusterOutput(args: readonly string[]): string {
     healthyDaemonSetOutput(args) ??
     healthyWebhookOutput(args) ??
     healthyOpenbaoOutput(args) ??
+    healthyXrdOutput(args) ??
     "ready"
   );
 }
