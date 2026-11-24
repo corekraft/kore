@@ -7,6 +7,7 @@ import {
 } from "../config/index.js";
 import {
   assertExpectedCluster,
+  assertRunningK3dMatchesOverlay,
   ClusterUnavailableError,
   clusterUp,
 } from "../cluster/index.js";
@@ -31,6 +32,7 @@ async function ensureCluster(
     return;
   }
   try {
+    await assertRunningK3dMatchesOverlay(repository, runner);
     await assertExpectedCluster(repository, runner);
   } catch (error) {
     if (!(error instanceof ClusterUnavailableError)) {

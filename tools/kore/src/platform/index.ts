@@ -52,3 +52,10 @@ export {
 export { capacityWarningPercent } from "./capacity-status.js";
 export { routeHostErrors } from "./route-hosts.js";
 export type { GatewayRef } from "./route-hosts.js";
+export { readEvidence } from "./evidence-reader.js";
+export type {
+  EvidenceReading,
+  EvidenceSample,
+  EvidenceSeries,
+  EvidenceWindow,
+} from "./evidence-reader.js";

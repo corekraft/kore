@@ -102,6 +102,7 @@ export function fakeRepository(fields: Partial<Repository> = {}): Repository {
     approved: fakeApproved(),
     catalog: fakeCatalog(),
     environment: fakeEnvironment(),
+    flags: { flags: [] },
     ...fields,
   } as Repository;
 }

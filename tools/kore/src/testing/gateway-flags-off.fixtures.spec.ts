@@ -4,8 +4,12 @@ import type { Repository } from "../config/index.js";
 const loadRepository = vi.hoisted(() => vi.fn());
 vi.mock("../config/index.js", () => ({ loadRepository }));
 
-const { loadLocalGatewayFlagsOff, withGatewayFlagsOff, withPlatformDnsOn } =
-  await import("./gateway-flags-off.fixtures.js");
+const {
+  loadLocalGatewayFlagsOff,
+  withDriftListingMappingsOff,
+  withGatewayFlagsOff,
+  withPlatformDnsOn,
+} = await import("./gateway-flags-off.fixtures.js");
 
 const repository = {
   environment: {
@@ -20,6 +24,7 @@ const repository = {
       "otlp-route": true,
       "platform-dns": true,
       "platform-portal": true,
+      "drift-listing-mappings": true,
       "role-tokens": true,
     },
   },
@@ -38,6 +43,7 @@ test("the gateway and traffic flags read off, so the istio path and no live-only
     "otlp-route": false,
     "platform-dns": false,
     "platform-portal": false,
+    "drift-listing-mappings": false,
     "role-tokens": true,
   });
 });
@@ -61,6 +67,7 @@ test("withPlatformDnsOn turns platform-dns on and leaves every other flag as it 
     "otlp-route": false,
     "platform-dns": true,
     "platform-portal": false,
+    "drift-listing-mappings": false,
     "role-tokens": true,
   });
 });
@@ -79,4 +86,16 @@ test("the local repository loads with the gateway and traffic flags off", async 
 
   expect(loadRepository).toHaveBeenCalledWith("local");
   expect(loaded.environment.features?.["ingress-agentgateway"]).toBe(false);
+});
+
+test("withDriftListingMappingsOff turns only drift-listing-mappings off and leaves the repository it is given as it was", () => {
+  const pinned = withDriftListingMappingsOff(repository);
+
+  expect(pinned.environment.features).toEqual({
+    ...repository.environment.features,
+    "drift-listing-mappings": false,
+  });
+  expect(repository.environment.features?.["drift-listing-mappings"]).toBe(
+    true,
+  );
 });

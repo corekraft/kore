@@ -7,6 +7,7 @@ import {
   loadRepository,
   platformPlan,
   type Repository,
+  internalGateway,
 } from "../../src/config/index.js";
 import { helmTemplateArgs, routeHostErrors } from "../../src/platform/index.js";
 import {
@@ -54,7 +55,7 @@ function renderConfig(repository: Repository): string {
 }
 
 function routeErrors(repository: Repository, host: string): string[] {
-  const { gateway } = repository.environment;
+  const gateway = internalGateway(repository.environment);
   const route = execFileSync(
     "helm",
     [

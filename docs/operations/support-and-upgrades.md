@@ -80,9 +80,22 @@ upgrades nothing.
 ## Rollback
 
 - **A failed release:** rerun `kore platform up`. Reconcile uninstalls a release
-  that never reached `deployed` and retries once. A kill during a mutation
-  leaves a lock that the next run recovers when its owner is gone; read
-  `kore journal --environment local` for what was interrupted.
+  that never reached `deployed` and retries once. A canceled upgrade is rolled
+  back by Kore to its last deployed revision. With `release-recovery-argocd-refusal`
+  on, that is only for a release Kore owns: a release Argo CD owns is refused
+  with its git revert named, and with the flag off it rolls back as before. Helm's own
+  `--rollback-on-failure` still rolls back a failed upgrade of a Kore-owned
+  release. A kill during a mutation leaves a lock that the next run recovers
+  when its owner is gone; read `kore journal --environment local` for what was
+  interrupted.
+- **A release Argo CD owns:** with `release-recovery-argocd-refusal` on, Kore
+  never rolls it back through Helm (ADR 0153). Roll it back with a `git revert`
+  of its record in `infra/catalog/components.yaml`, or turn
+  `platform-argocd-delivery` off to hand it back to Helm. The flag stays off in
+  every overlay until the window before `kore-config-delivery` is installed is
+  handled (issue 1541), because until then Helm still owns these releases.
+- **A Kore-owned Helm release:** roll it back by reverting its lock and running
+  `kore platform up`.
 - **A bad version bump:** revert the commit that changed the pin and rerun
   `kore platform up`. **Gap:** (plan Step 15, "Add upgrade tests from the
   previously supported version catalog") there is no `kore` command that rolls a single

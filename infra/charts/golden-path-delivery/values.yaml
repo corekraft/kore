@@ -28,12 +28,24 @@ project: default
 # HorizontalPodAutoscaler and no replica count.
 # autoscaling: true
 
+# Set by kore only while golden-path-safety-defaults is on (ADR 0154). The sync
+# then passes safetyDefaults=true to each workload, so its chart renders two
+# replicas, an explicit rolling update, a PodDisruptionBudget and its own
+# readiness endpoint. Off, the sync sets no such parameter.
+# safetyDefaults: true
+
 # Set by kore only while platform-portal, platform-organization-service-apis and
 # platform-argocd-delivery are all on (ADR 0166). The sync then also applies each
 # registration's Service record to the cluster, and the Service composition, not
 # the sync, creates each app namespace. Off, the sync creates the namespace itself
 # and applies no records.
 # serviceRecords: true
+
+# Set by kore only while app-delivery is on (ADR 0166, ADR 0172). The sync then gives each
+# Application its service's release file, infra/environments/<environment>/services/<service>.release.json,
+# as an optional values file: the workload deploys the release's digest for each component
+# that has one, and a service with no release keeps its lock images. Off, the sync sets no values file.
+# appDelivery: true
 
 # Set by kore only while platform-shared-gateway is on. The sync then labels each
 # app namespace it creates with the platform-owned shared-gateway label (ADR

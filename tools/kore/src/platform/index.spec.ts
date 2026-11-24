@@ -19,6 +19,7 @@ vi.mock("./readiness-gateway.js");
 vi.mock("./release-recovery.js");
 vi.mock("./helm.js");
 vi.mock("./capacity-status.js");
+vi.mock("./evidence-reader.js");
 
 const barrel = await import("./index.js");
 
@@ -55,6 +56,7 @@ test("the platform barrel exposes exactly the runtime names its callers use", ()
       "platformStop",
       "platformUp",
       "readAdmissionGate",
+      "readEvidence",
       "readinessFailureSummary",
       "recoverRelease",
       "releaseMatchesFingerprint",

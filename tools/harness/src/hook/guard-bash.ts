@@ -4,6 +4,7 @@
 import { checkBashSegment } from "./guard-bash-segment.js";
 import { bareGlob } from "./guard-bare-glob.js";
 import { unquotedGlob } from "./guard-unquoted-glob.js";
+import { domainLeak } from "./guard-leak.js";
 import {
   execGlobQualifier,
   rawWords,
@@ -78,6 +79,8 @@ export async function evaluateBash(
   if (zsh) {
     found.push(await bareGlob(command, ctx), equalsWord(command));
   }
+  // A commit message or a gh body that names the platform domain (ADR 0164): the whole command is the text.
+  found.push(domainLeak(command, ctx.platformDomain));
   // Each finding takes its own rule's mode first; any block wins, else every warning is joined.
   return weigh(found.map((finding) => applyMode(finding, ctx)));
 }

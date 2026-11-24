@@ -1,0 +1,72 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Kore ServiceRelease",
+  "description": "The release file of one app record, <service>.release.json, written only by the platform. It carries the image digests, the source commit and the attestation references. Flag state is not here: the platform holds it in the separate per-app state file (ADR 0169). Every object is closed (additionalProperties false).",
+  "type": "object",
+  "required": ["apiVersion", "kind", "metadata", "spec"],
+  "additionalProperties": false,
+  "properties": {
+    "apiVersion": { "const": "platform.kore.dev/v1alpha1" },
+    "kind": { "const": "ServiceRelease" },
+    "metadata": {
+      "type": "object",
+      "required": ["name"],
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "the service name, equal to the file name without .release.json"
+        }
+      }
+    },
+    "spec": {
+      "type": "object",
+      "required": ["commit", "components"],
+      "additionalProperties": false,
+      "properties": {
+        "commit": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{40}$",
+          "description": "the 40-character lowercase hex application source commit"
+        },
+        "components": {
+          "type": "object",
+          "minProperties": 1,
+          "description": "frontend, bff or both; a release carries at least one",
+          "additionalProperties": false,
+          "properties": {
+            "frontend": { "$ref": "#/$defs/component" },
+            "bff": { "$ref": "#/$defs/component" }
+          }
+        }
+      }
+    }
+  },
+  "$defs": {
+    "component": {
+      "type": "object",
+      "required": ["digest", "attestation"],
+      "additionalProperties": false,
+      "properties": {
+        "digest": {
+          "type": "string",
+          "pattern": "^sha256:[0-9a-f]{64}$",
+          "description": "the image digest: sha256, a colon, then 64 lowercase hex characters"
+        },
+        "attestation": {
+          "type": "string",
+          "pattern": "^[a-z0-9][a-z0-9.:-]*(/[a-z0-9._-]+)+@sha256:[0-9a-f]{64}$",
+          "description": "an OCI reference of the form <registry>/<repository>@sha256:<64 hex characters>"
+        },
+        "rejected": {
+          "type": "array",
+          "description": "digests the platform must not deploy again (a rollback returns to a digest that is not on this list); a list never holds the component's own digest (ADR 0172)",
+          "items": {
+            "type": "string",
+            "pattern": "^sha256:[0-9a-f]{64}$"
+          }
+        }
+      }
+    }
+  }
+}

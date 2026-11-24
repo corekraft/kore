@@ -5,6 +5,12 @@ export { JudgeError } from "./errors.js";
 export { reviewCheck, type PrComment, type PrView } from "./checks.js";
 export { auditDeclaration, type Audit } from "./declaration-audit.js";
 export { harnessFreshness, type Freshness } from "./freshness.js";
+export {
+  hostnameClaims,
+  type HostnameClaimCheck,
+  type HostnameClaimReport,
+} from "./hostname-claims.js";
+export type { ChangedFile } from "./diff.js";
 export { renderPrBody, type PrBody, type PrBodyInput } from "./pr-body.js";
 export { precheck, readPr, summary, type Report } from "./precheck.js";
 export {

@@ -12,6 +12,7 @@ import {
 // the functions under test, so it runs for real, and it is the one derivation.
 vi.mock("./features.js", () => ({
   featureEnabled: vi.fn(),
+  acmeDns01Flag: "acme-dns01",
   databaseRoutesFlag: "database-routes",
   otlpRouteFlag: "otlp-route",
   platformDnsFlag: "platform-dns",

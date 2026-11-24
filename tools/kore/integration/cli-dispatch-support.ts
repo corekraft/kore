@@ -5,6 +5,7 @@ export const dispatch: string[] = [];
 export const repository = {
   root: "/tmp/kore-cli-test",
   catalog: { components: [] },
+  versions: { tools: { yq: "4.54.2" } },
   environment: {
     name: "local",
     provider: "k3d",
@@ -47,7 +48,18 @@ export const clusterModule = () => ({
   }),
 });
 
+/** The base ref each app record check was given: undefined when --record-base was not passed. */
+export const recordBases: (string | undefined)[] = [];
+
 export const configModule = () => ({
+  checkAppRecords: vi.fn(async (options) => {
+    recordBases.push(options.recordBase);
+    return { errors: [], warnings: [] };
+  }),
+  checkOrganizationRecords: vi.fn(async () => ({
+    errors: [],
+    organizations: [],
+  })),
   loadRepository: vi.fn(async (environment) => ({
     ...repository,
     environment: { ...repository.environment, name: environment },
@@ -152,6 +164,8 @@ export const platformModule = () => ({
 export const securityModule = () => ({
   syncLocalSecrets: vi.fn(async () => (dispatch.push("syncLocalSecrets"), 2)),
   installLocalTrust: vi.fn(async () => void dispatch.push("installLocalTrust")),
+  // The local internal Gateway's name; the trust install reads it as the issuer.
+  trustIssuer: vi.fn(() => "kore-gateway"),
 });
 
 export const localModule = () => ({

@@ -51,6 +51,9 @@ test("the TLS certificate and complete TLS Secret are ready before Gateway confi
   assert.deepEqual(certificate.readiness, [
     "certificate/kore-local",
     "secret/kore-local-tls",
+    // The two ACME issuers are waited on only while acme-dns01 is on (readinessFlags).
+    "clusterissuer.cert-manager.io/letsencrypt-staging",
+    "clusterissuer.cert-manager.io/letsencrypt-production",
   ]);
 
   const runner = new RecordingRunner([

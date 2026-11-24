@@ -14,6 +14,9 @@ How retained data is protected and how Kore tells you when the protection is sta
 - **Managed:** provider object storage. **Not yet implemented**; the managed
   objective in `infra/catalog/recovery.yaml` is `planned` until a live restore
   proves it (Step 7).
+- **vps:** a daily, age-encrypted, in-cluster dump to a typed target on the
+  box's own disks until an off-host target exists. **Planned**; see
+  [vps](#vps) below.
 
 ## Objective
 
@@ -44,3 +47,45 @@ Restore into a fresh profile with `kore data restore --from <artifact> --environ
 as described in [registry recovery](registry.md#restore-and-disaster-recovery)
 and ADR 0029. The restore time objective is measured by the opt-in spec
 `npm run test:live:ops`, not assumed.
+
+## vps
+
+**Planned.** The vps environment will back up its retained data on a schedule
+([ADR 0155](../decisions/0155-retained-databases-are-backed-up-by-a-scheduled-age-encrypted-dump-and-restored-only-from-the-controller.md),
+with the rebuild in [ADR 0156](../decisions/0156-the-box-is-rebuilt-from-git-ghcr-and-backups-under-a-recovery-hold.md)).
+Nothing here is built yet, and both flags are off in every overlay.
+
+- **What is backed up.** Each PostgreSQL database that opts in with `backup: true`
+  on its entry in the app record, which requires `retentionPolicy: Retain`.
+  Platform-owned databases are always backed up. The OpenBao Raft snapshot is
+  backed up on its own daily job, and the stage ledger is copied daily, encrypted.
+  Nothing else is: telemetry is lost on purpose, images come from GHCR, and
+  cluster-generated keys are regenerated.
+- **Schedule and objective.** One daily job, outside the Sunday reboot window.
+  The recovery point is 24 hours. The newest 14 daily backups per database and per
+  snapshot are kept, then aged out by retention.
+- **Target.** A typed `backup.target` in the vps overlay, of kind `interim` or
+  `off-host`. The interim target is a pinned SeaweedFS on the box's own disks, so
+  it does not survive the loss of the box. Every report names it "mechanics proven,
+  not off-host". The off-host target is an S3-compatible bucket outside the box's
+  failure domain. The provider is not yet chosen, so no page names one.
+- **Who holds what.** The box holds only public recipients and a write-only
+  credential, so it can write backups and never read or delete them. Restore,
+  decryption and deletion run only on the controller, which holds the read and
+  prune credentials. Every real-data backup is also encrypted to a second recovery
+  recipient, whose identity is in the [recovery kit](recovery-kit.md).
+- **Freshness.** The job writes the newest success into a ConfigMap, and the
+  `backups` row, the contract check, the destroy check and the rollout check read
+  it without decrypting. A backup is restorable when its manifest matches the
+  object in the target, it is under 24 hours old, and a restore drill has passed in
+  the last 30 days. A stale or interim record never passes a gate.
+- **Restore.** Only from the controller, with `kore data restore --environment vps --from <object>`
+  (**planned**). It refuses a non-empty database without `--overwrite-data --yes`,
+  and it refuses a major-version mismatch before it decrypts.
+- **Status.** The `backups` row for vps (**planned**) is audit-only: it warns but
+  does not close admission or change the exit status.
+- **Manual copy.** `kore data export --environment <name>` stays a manual extra
+  copy. It counts for no gate.
+- **Whole-box loss.** See [rebuilding the box](rebuild-the-box.md) for the order of
+  a rebuild, and [the recovery kit](recovery-kit.md) for what the owner holds.
+  The rebuild is not the "recover without a hand" promise.

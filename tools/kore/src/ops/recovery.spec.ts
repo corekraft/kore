@@ -18,6 +18,7 @@ vi.mock("../config/index.js");
 const context = {
   components: ["db", "cache", "pg-controller"],
   stateful: ["db"],
+  environment: "local",
   exists: (path: string): boolean => path === "tests/db.live.spec.ts",
 };
 
@@ -139,13 +140,57 @@ test("a managed objective that is active needs a restore test, a planned one doe
   expect(problems(exportObjective, managed)).toEqual([]);
   expect(
     problems(exportObjective, { ...managed, status: "active" }).join(),
-  ).toMatch(/managed-db: an active scheduled-backup needs a restoreTest/);
+  ).toMatch(
+    /managed-db: an active scheduled-backup needs a restore test on disk/,
+  );
 });
 
 test("objective names are unique", () => {
   expect(problems(exportObjective, exportObjective).join()).toMatch(
     /database: duplicate objective name/,
   );
+});
+
+const vpsObjective: Objective = {
+  name: "vps-databases",
+  components: ["db"],
+  data: "databases on the box",
+  environment: "vps",
+  status: "planned",
+  protection: "scheduled-backup",
+  schedule: { kind: "cron", expression: "0 2 * * *" },
+  rpoMinutes: 1440,
+  rtoMinutes: 60,
+};
+
+const onVps = { ...context, environment: "vps" };
+
+test("a vps stateful component is covered by a vps objective, not by a local one", () => {
+  expect(recoveryProblems([exportObjective], onVps)).toEqual([
+    "db: stateful component has no vps recovery objective in infra/catalog/recovery.yaml",
+  ]);
+  expect(recoveryProblems([vpsObjective], onVps)).toEqual([]);
+});
+
+test("a planned vps objective needs no restore test, an active one does", () => {
+  expect(recoveryProblems([vpsObjective], onVps)).toEqual([]);
+  expect(
+    recoveryProblems([{ ...vpsObjective, status: "active" }], onVps).join(),
+  ).toMatch(
+    /vps-databases: an active scheduled-backup needs a restore test on disk/,
+  );
+  expect(
+    recoveryProblems(
+      [
+        {
+          ...vpsObjective,
+          status: "active",
+          restoreTest: "tests/db.live.spec.ts",
+        },
+      ],
+      onVps,
+    ),
+  ).toEqual([]);
 });
 
 test("the recovery objectives file is read under the repository root", async () => {

@@ -20,8 +20,10 @@ export {
 } from "./ledger-support.js";
 export { MemoryFileSystem as RootedMemoryFileSystem } from "./filesystem-support.js";
 export {
+  MANIFEST,
   OVERLAY,
   activate,
+  flagManifest,
   overlay,
   provenIdea,
   repository,

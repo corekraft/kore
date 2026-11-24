@@ -1,0 +1,58 @@
+# Source: golden-path-delivery/templates/applicationset.yaml
+# One Application per Service registration in git (ADR 0043). The sync owns the
+# workload: kore installs this ApplicationSet and never applies what it
+# generates. The namespace has one owner: Argo CD, through CreateNamespace,
+# creates <service>--<environment> only when it is absent, so a fresh profile,
+# where nothing else has made it, still syncs, and a namespace that already
+# exists is left as it is. Nothing applies a registration's Service to the
+# cluster, so the Service composition creates no namespace for it.
+#
+# With serviceRecords on (ADR 0166) the records Application applies each Service,
+# so the Service composition is the one owner of the namespace and the sync sets
+# no CreateNamespace. The sync still creates nothing else.
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata:
+  name: golden-path-services
+  namespace: argocd
+spec:
+  goTemplate: true
+  goTemplateOptions: ["missingkey=error"]
+  generators:
+    - git:
+        repoURL: "https://github.com/corekraft/kore.git"
+        revision: "cccccccccccccccccccccccccccccccccccccccc"
+        files:
+          - path: "infra/services/*.yaml"
+  template:
+    metadata:
+      name: 'golden-path-{{ .metadata.name }}'
+      labels:
+        platform.kore.dev/service: '{{ .metadata.name }}'
+        app.kubernetes.io/part-of: '{{ .metadata.name }}'
+    spec:
+      project: "default"
+      source:
+        repoURL: "https://github.com/corekraft/kore.git"
+        targetRevision: "cccccccccccccccccccccccccccccccccccccccc"
+        path: "infra/charts/golden-path-workload"
+        helm:
+          parameters:
+            - name: service
+              value: '{{ .metadata.name }}'
+            - name: frontend.image
+              value: "ghcr.io/corekraft/kore/static-frontend-template@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+            - name: bff.image
+              value: "ghcr.io/corekraft/kore/kotlin-bff-template@sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+          ignoreMissingValueFiles: true
+          valueFiles:
+            - "../../../infra/environments/local/services/{{ .metadata.name }}.release.json"
+      destination:
+        server: https://kubernetes.default.svc
+        namespace: '{{ .metadata.name }}--local'
+      syncPolicy:
+        automated:
+          prune: true
+          selfHeal: true
+        syncOptions:
+          - CreateNamespace=true

@@ -1,0 +1,64 @@
+{{- if include "platform-config.externalGateway" . }}
+# The external Gateway (ADR 0160, issue 1633): one HTTP listener on port 80 that
+# serves only the platform's redirect to HTTPS, and no HTTPS listener until a
+# service claims a name. It admits only HTTPRoute, and only from its own
+# namespace, so no passthrough, TCP, database, registry, telemetry or platform
+# listener ever reaches the public address.
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+  name: kore-gateway-external
+  namespace: kore-system
+  # external-dns reads only the routes of a Gateway carrying this label (ADR 0162).
+  labels:
+    {app.kubernetes.io/managed-by: Helm, platform.kore.dev/gateway: external}
+spec:
+{{- if and .Values.externalGateway.service.nodePort (eq .Values.gateway.className "agentgateway") }}
+  infrastructure:
+    parametersRef: {group: agentgateway.dev, kind: AgentgatewayParameters, name: kore-gateway-external-service}
+{{- else if and .Values.externalGateway.service.nodePort (eq .Values.gateway.className "istio") }}
+  infrastructure:
+    parametersRef: {group: "", kind: ConfigMap, name: kore-gateway-external-service}
+{{- end }}
+  gatewayClassName: {{ required "set gateway.className, or render through kore, which derives it from the ingress-agentgateway feature flag" .Values.gateway.className }}
+{{- if include "platform-config.serviceListenerSets" . }}
+  # As the internal Gateway: ListenerSets only from namespaces the platform labels
+  # as shared (ADR 0159).
+  allowedListeners:
+    namespaces:
+      from: Selector
+      selector:
+        matchLabels:
+          platform.kore.dev/shared-gateway: "true"
+{{- end }}
+  listeners:
+    - name: http
+      port: {{ .Values.externalGateway.port }}
+      protocol: HTTP
+      allowedRoutes:
+        kinds: [{kind: HTTPRoute}]
+        namespaces: {from: Same}
+---
+# The platform's redirect for plain HTTP: every request on port 80 is answered
+# with a redirect to the same path over HTTPS. Only this route attaches to the
+# HTTP listener, since it admits routes from its own namespace alone.
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: kore-gateway-external-redirect
+  namespace: kore-system
+  labels: {app.kubernetes.io/managed-by: Helm}
+spec:
+  parentRefs:
+    - group: gateway.networking.k8s.io
+      kind: Gateway
+      name: kore-gateway-external
+      namespace: kore-system
+      sectionName: http
+  rules:
+    - filters:
+        - type: RequestRedirect
+          requestRedirect:
+            scheme: https
+            statusCode: 301
+{{- end }}

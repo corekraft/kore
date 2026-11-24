@@ -37,6 +37,7 @@ export function fakeRepository(
   return {
     root,
     catalog: { components: [] },
+    versions: { tools: { yq: "4.54.2" } },
     environment: {
       name: "local",
       kubeContext: "k3d-kore-local",

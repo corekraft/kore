@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "vitest";
 import {
   loadRepository,
+  nodeCount,
   type Component,
   type Repository,
 } from "../../src/config/index.js";
@@ -10,10 +11,6 @@ import {
   rolloutProblems,
   yamlDocuments,
 } from "../../src/testing/index.js";
-
-// The environment schema declares no node count; local is a single k3d
-// server node. Read it from the config here once an environment can declare it.
-const localNodes = 1;
 
 /**
  * The release already running, rendered without the environment's scheduling
@@ -42,9 +39,11 @@ async function baseline(
 // tests run offline (AGENTS.md). Run with `npm run test:upstream-charts` when
 // bumping a chart or changing local values.
 test.runIf(process.env["KORE_CHECK_UPSTREAM_CHARTS"] === "1")(
-  "every workload rendered with the local values can roll out and drain on the local node count",
+  "every workload rendered with the local values can roll out and drain on the declared node count",
   async () => {
     const repository = await loadRepository("local");
+    // The overlay's declared node count (ADR 0152; unset reads as one).
+    const nodes = nodeCount(repository.environment);
     const charts = repository.catalog.components!.filter(
       (component) => component.kind !== "manifest",
     );
@@ -57,7 +56,7 @@ test.runIf(process.env["KORE_CHECK_UPSTREAM_CHARTS"] === "1")(
           // The release already running was rendered without the overlays, so
           // its pods' anti-affinity still applies to a surge pod.
           const previous = await baseline(repository, component);
-          return rolloutProblems(manifests, localNodes, previous).map(
+          return rolloutProblems(manifests, nodes, previous).map(
             (problem) => `${component.name}: ${problem}`,
           );
         }),

@@ -35,5 +35,9 @@ export function goldenPathArgs(
     ...(golden.signin
       ? ["--set-string", `signin.issuerUri=${golden.signin.issuerUri}`]
       : []),
+    // Only while golden-path-safety-defaults is on, so the flag off passes nothing new (ADR 0154).
+    ...(golden.safetyDefaults ? ["--set", "safetyDefaults=true"] : []),
+    // Only while app-delivery is on, so the flag off passes nothing new (ADR 0172).
+    ...(golden.appDelivery ? ["--set", "appDelivery=true"] : []),
   ];
 }

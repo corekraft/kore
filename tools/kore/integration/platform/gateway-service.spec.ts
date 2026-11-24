@@ -6,6 +6,7 @@ import {
   loadRepository,
   type Repository,
   gatewayEntryPort,
+  internalGateway,
 } from "../../src/config/index.js";
 import {
   generatedPorts,
@@ -33,7 +34,8 @@ test.each([false, true])(
   "the local overlay publishes the Gateway Service as a NodePort the load balancer maps, with platform-shared-gateway %s",
   async (on) => {
     const repository = withSharedGateway(await loadRepository("local"), on);
-    const { k3d, gateway } = repository.environment;
+    const { k3d } = repository.environment;
+    const gateway = internalGateway(repository.environment);
     const output = render(repository);
     assert.match(output, /parametersRef:/);
     assert.match(output, /type: NodePort/);
@@ -101,7 +103,10 @@ test.each([
       ),
     );
     const merged = merge(
-      generatedPorts(gatewayClass, repository.environment.gateway.port),
+      generatedPorts(
+        gatewayClass,
+        internalGateway(repository.environment).port,
+      ),
       overlayPorts(output),
     );
     assert.deepEqual(

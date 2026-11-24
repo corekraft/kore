@@ -1,5 +1,7 @@
 import { readFile } from "node:fs/promises";
 import {
+  checkAppRecords,
+  checkOrganizationRecords,
   featureEnabled,
   orderedComponents,
   organizationServiceApisFlag,
@@ -89,7 +91,31 @@ export async function validateCommand(
     (component) => component.name,
   );
   const portability = await validatePortability(repository, context.runner);
-  const warnings = repository.warnings ?? [];
+  const catalogNamespaces = repository.catalog.components.map(
+    (component) => component.namespace,
+  );
+  const records = await checkAppRecords({
+    root: repository.root,
+    environment: repository.environment.name,
+    runner: context.runner,
+    yqVersion: repository.versions.tools.yq ?? "",
+    recordBase: stringFlag(context.parsed, "record-base"),
+    hostnames: {
+      root: repository.root,
+      environment: repository.environment,
+      catalogNamespaces,
+    },
+  });
+  const suborgs = await checkOrganizationRecords({
+    root: repository.root,
+    environment: repository.environment,
+    catalogNamespaces,
+  });
+  const failures = [...suborgs.errors, ...records.errors];
+  if (failures.length > 0) {
+    throw new Error(failures.join("\n"));
+  }
+  const warnings = [...(repository.warnings ?? []), ...records.warnings];
   for (const warning of warnings) {
     console.error(`warning: ${warning}`);
   }
@@ -102,6 +128,9 @@ export async function validateCommand(
       status: "valid",
       ...(warnings.length > 0 ? { warnings } : {}),
       ...(platformClaims === undefined ? {} : { platformClaims }),
+      ...(suborgs.organizations.length > 0
+        ? { organizations: suborgs.organizations }
+        : {}),
     },
     json,
   );

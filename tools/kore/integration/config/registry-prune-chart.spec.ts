@@ -41,13 +41,9 @@ test("the proxy lets only the push identity write, so only it can delete, flag o
   assert.doesNotMatch(conf, /features/);
 });
 
-test("the flag is declared off in every environment overlay", async () => {
-  for (const name of ["local", "managed-example"]) {
-    const repository = await loadRepository(name);
-    assert.equal(
-      repository.environment.features?.[registryPruneFlag],
-      false,
-      `${name} must declare ${registryPruneFlag} as false`,
-    );
-  }
+test("the flag is declared off in local, the only overlay the manifest applies it to", async () => {
+  const local = await loadRepository("local");
+  assert.equal(local.environment.features?.[registryPruneFlag], false);
+  const managed = await loadRepository("managed-example");
+  assert.equal(managed.environment.features?.[registryPruneFlag], undefined);
 });

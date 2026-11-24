@@ -11,7 +11,12 @@ import {
   type CheckStatus,
 } from "./doctor.js";
 import { resolverChecks, systemResolverHost } from "../resolver/index.js";
-import { errno, fakeRepository, fakeRunner } from "./diagnostics-support.js";
+import {
+  errno,
+  fakeRepository,
+  fakeRunner,
+  managedCheckNames,
+} from "./diagnostics-support.js";
 
 vi.mock("node:fs/promises");
 vi.mock("node:os");
@@ -19,6 +24,10 @@ vi.mock("node:os");
 vi.mock("../cluster/index.js", () => ({ k3dClusterInfo: vi.fn() }));
 vi.mock("../config/index.js", () => ({ managedCluster: vi.fn() }));
 vi.mock("./registry-name-check.js", () => ({ registryNameCheck: () => [] }));
+vi.mock("./run-time-check.js", () => ({ runTimeChecks: async () => [] }));
+vi.mock("./token-secret-check.js", () => ({
+  tokenSecretChecks: async () => [],
+}));
 vi.mock("../resolver/index.js", () => ({
   resolverChecks: vi.fn(),
   systemResolverHost: vi.fn(),
@@ -33,21 +42,6 @@ const tools: Record<string, string> = {
   docker: "27.3.1",
   cosign: "2.4.1",
 };
-const managedNames = [
-  "tool:node",
-  "tool:npm",
-  "tool:kubectl",
-  "tool:helm",
-  "tool:sops",
-  "tool:docker",
-  "tool:cosign",
-  "container-runtime",
-  "host:cpu",
-  "host:memory",
-  "host:disk",
-  "credentials",
-];
-
 const byName = (checks: Check[], name: string) =>
   checks.find((check) => check.name === name);
 
@@ -250,7 +244,7 @@ test("a k3d cluster that cannot be listed is a warning, not a failure", async ()
 test("a managed environment runs only version and info reads, in a fixed order", async () => {
   const { runner, run } = replies();
   const checks = await doctor(managed(), runner);
-  expect(checks.map(({ name }) => name)).toEqual(managedNames);
+  expect(checks.map(({ name }) => name)).toEqual(managedCheckNames);
   expect(
     run.mock.calls.map(([command, args]) => [command, ...args].join(" ")),
   ).toEqual([

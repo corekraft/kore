@@ -1,6 +1,7 @@
 import { dirname, isAbsolute, join, resolve } from "node:path";
 import { exists } from "./files.js";
 import {
+  loadFlagManifest,
   loadImageTrustValues,
   loadJSON,
   loadRegistryComponentValues,
@@ -27,6 +28,9 @@ export type {
   Component,
   ComponentKind,
   Environment,
+  FlagEntry,
+  FlagKind,
+  FlagManifest,
   K3dCluster,
   Phase,
   ProbePatch,
@@ -66,7 +70,7 @@ export async function loadRepository(
   start?: string,
 ): Promise<Repository> {
   const root = await findRoot(start);
-  const [versions, seeds, readiness, approved, catalog, environment] =
+  const [versions, seeds, readiness, approved, catalog, flags, environment] =
     await Promise.all([
       loadJSON<Versions>(join(root, "infra/catalog/versions.yaml")),
       loadJSON<SeedManifest>(join(root, "infra/catalog/seeds.yaml")),
@@ -75,6 +79,7 @@ export async function loadRepository(
         join(root, "infra/catalog/approved-images.yaml"),
       ),
       loadJSON<Catalog>(join(root, "infra/catalog/components.yaml")),
+      loadFlagManifest(root),
       loadJSON<Environment>(
         join(root, "infra/environments", environmentName, "environment.yaml"),
       ),
@@ -87,13 +92,14 @@ export async function loadRepository(
     readiness,
     approved,
     catalog,
+    flags,
     environment,
     imageTrustValues,
     registryComponentValues: await loadRegistryComponentValues(
       root,
       environment,
     ),
-    registeredServices: await loadServiceRegistrations(root),
+    registeredServices: await loadServiceRegistrations(root, environmentName),
   };
   const exemptions = new ExemptionCheck(new FileExemptionSource(root));
   const warnings = await validateRepository(repository, [], (repo) =>

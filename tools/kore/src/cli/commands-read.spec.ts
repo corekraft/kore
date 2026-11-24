@@ -1,6 +1,8 @@
 import { readFile } from "node:fs/promises";
 import { beforeEach, expect, test, vi } from "vitest";
 import {
+  checkAppRecords,
+  checkOrganizationRecords,
   featureEnabled,
   orderedComponents,
   platformClaimErrors,
@@ -62,6 +64,34 @@ beforeEach(() => {
   vi.mocked(summarizeOperations).mockReturnValue(operations as never);
   vi.mocked(readJournal).mockResolvedValue([] as never);
   vi.mocked(managedLockErrors).mockReturnValue([]);
+  vi.mocked(checkAppRecords).mockResolvedValue({ errors: [], warnings: [] });
+  vi.mocked(checkOrganizationRecords).mockResolvedValue({
+    errors: [],
+    organizations: [],
+  });
+});
+
+test("validate passes --record-base to the app record check, and an app record error fails it", async () => {
+  vi.mocked(stringFlag).mockImplementation((_parsed, name) =>
+    name === "record-base" ? "origin/release" : undefined,
+  );
+  await validateCommand(fakeContext({ command: "validate", repository }));
+  expect(checkAppRecords).toHaveBeenCalledWith(
+    expect.objectContaining({
+      environment: "local",
+      recordBase: "origin/release",
+      yqVersion: "4.54.2",
+    }),
+  );
+  vi.mocked(checkAppRecords).mockResolvedValueOnce({
+    errors: [
+      "infra/environments/local/services/leads.json: spec.replicas is not a field of this record",
+    ],
+    warnings: [],
+  });
+  await expect(
+    validateCommand(fakeContext({ command: "validate", repository })),
+  ).rejects.toThrow(/spec\.replicas is not a field of this record/);
 });
 
 test("validate reports the environment's components in order and its applications, without reading any lock", async () => {

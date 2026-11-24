@@ -3,7 +3,7 @@
 import { warn, type Finding } from "./guard-verdict.js";
 
 const APPEND_ONLY =
-  /(^|[/\s>'"=])(\.claude\/evals\/history\.jsonl|\.kore\/state\/journal\/[^/\s'"]*\.jsonl|\.kore\/state\/ledger\.jsonl|\.kore\/state\/test-pass\/[^\s'"]+)$/;
+  /(^|[/\s>'"=])(\.claude\/evals\/history\.jsonl|\.kore\/state\/journal\/[^/\s'"]*\.jsonl|\.kore\/state\/ledger\.jsonl|\.kore\/state\/test-pass\/[^\s'"]+|infra\/app-outcomes\/[^\s'"]+)$/;
 export const isAppendOnly = (path: string): boolean => APPEND_ONLY.test(path);
 
 export const appendOnlyWarn = (path: string): Finding =>
@@ -11,8 +11,9 @@ export const appendOnlyWarn = (path: string): Finding =>
     "append-only",
     `${path} is an append-only record: .claude/evals/history.jsonl is owned by eval.mjs, ` +
       `.kore/state/journal/*.jsonl by kore, .kore/state/ledger.jsonl by the harness ledger tool (\`harness ledger record\`), ` +
-      `.kore/state/test-pass/ (a recorded test pass that lets the commit hook skip tests) by test-lock.mjs after a real green run. ` +
-      `Instead, append through the owning script (eval.mjs, kore, harness ledger, test-lock.mjs); never edit, truncate, move, or remove it by hand.`,
+      `.kore/state/test-pass/ (a recorded test pass that lets the commit hook skip tests) by test-lock.mjs after a real green run, ` +
+      `infra/app-outcomes/ (an app flag's activation window) by the platform's window writer (ADR 0174). ` +
+      `Instead, append through the owning script (eval.mjs, kore, harness ledger, test-lock.mjs, the platform's window writer); never edit, truncate, move, or remove it by hand.`,
   );
 
 const TRUNCATING_REDIRECT = /^(?:\d*|&)>(?!>)(.*)$/;
@@ -23,6 +24,7 @@ const PROTECTED_DIRS = new Set([
   ".kore/state",
   ".kore/state/journal",
   ".kore/state/test-pass",
+  "infra/app-outcomes",
 ]);
 
 function isProtectedDir(arg: string, root: string): boolean {

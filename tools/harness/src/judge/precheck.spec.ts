@@ -6,6 +6,7 @@ import {
   gatherChecks,
   gatherExpandStep,
   gatherGuardrailChanges,
+  hostnameClaims,
   lengthAudit,
   parsePrView,
   type Checks,
@@ -17,7 +18,7 @@ import { JudgeError } from "./errors.js";
 import { hintsFor, type Hints } from "./hints.js";
 import { withManifestSides } from "./manifest-source.js";
 import { precheck } from "./precheck.js";
-import { fakeDeps } from "./precheck-support.js";
+import { fakeDeps, NO_CLAIMS } from "./precheck-support.js";
 import { assess } from "./verdict.js";
 
 // Every collaborator of the precheck is mocked: its behaviour is the wiring the
@@ -93,6 +94,7 @@ function ready(): void {
     clusterFacing: false,
     unverified: [],
   });
+  vi.mocked(hostnameClaims).mockResolvedValue(NO_CLAIMS);
 }
 
 describe("precheck stops at a PR whose declaration is invalid", () => {

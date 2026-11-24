@@ -15,6 +15,7 @@ import {
   trustCommand,
 } from "./commands-local.js";
 import { dnsCommand } from "./commands-dns.js";
+import { evalCommand } from "./commands-delivery.js";
 import {
   doctorCommand,
   journalCommand,
@@ -63,7 +64,7 @@ export const COMMANDS: ReadonlyMap<string, CommandSpec> = new Map<
   [
     "secrets",
     {
-      mutations: ["sync", "smtp"],
+      mutations: ["sync", "smtp", "tokens"],
       alwaysMutates: true,
       run: secretsCommand,
     },
@@ -71,6 +72,8 @@ export const COMMANDS: ReadonlyMap<string, CommandSpec> = new Map<
   ["trust", { mutations: ["install"], alwaysMutates: true, run: trustCommand }],
   // Writes or removes the host resolver file (ADR 0132); each action changes the host.
   ["dns", { mutations: ["install", "uninstall"], run: dnsCommand }],
+  // Reads one application repository directory with git; it never touches an environment.
+  ["eval", { mutations: [], noAction: true, run: evalCommand }],
 ]);
 
 export function isMutating(

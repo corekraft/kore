@@ -50,11 +50,13 @@ test("the registry address and the k3s-registry-trust flag come from the vps env
   }
 });
 
-test("k3s-registry-trust is listed and off in every overlay until a live run on kore-vps and harness flag activate turn it on", async () => {
-  for (const name of ["local", "managed-example", "vps"]) {
+test("k3s-registry-trust is listed and off in vps and managed-example until a live run on kore-vps and harness flag activate turn it on, and absent from local, which the manifest does not apply it to", async () => {
+  for (const name of ["managed-example", "vps"]) {
     const { environment } = await loadRepository(name);
     assert.equal(environment.features?.["k3s-registry-trust"], false, name);
   }
+  const local = await loadRepository("local");
+  assert.equal(local.environment.features?.["k3s-registry-trust"], undefined);
 });
 
 test("the registry trust is skipped unless the flag is on, and with it on a missing CA file stops the run naming the export command", async () => {

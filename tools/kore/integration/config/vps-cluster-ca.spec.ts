@@ -104,9 +104,11 @@ test("with in-cluster-ca off the certificate release creates no issuer, for vps 
   }
 });
 
-test("in-cluster-ca is listed and off in every overlay until a live run on kore-vps and harness flag activate turn it on", async () => {
-  for (const name of ["local", "vps", "managed-example"]) {
+test("in-cluster-ca is listed and off in vps and managed-example until a live run on kore-vps and harness flag activate turn it on, and absent from local, which the manifest does not apply it to", async () => {
+  for (const name of ["vps", "managed-example"]) {
     const { environment } = await loadRepository(name);
     assert.equal(environment.features?.["in-cluster-ca"], false, name);
   }
+  const local = await loadRepository("local");
+  assert.equal(local.environment.features?.["in-cluster-ca"], undefined);
 });

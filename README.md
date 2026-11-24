@@ -298,6 +298,15 @@ consumes it is a later ticket under #613.
 additionally checks a release's `platform-images.lock.json` (attached to the
 GitHub release as an asset) against the committed overlay and image policy
 ([ADR 0044](docs/decisions/0044-managed-platform-images-from-the-mirror.md)).
+`kore validate --environment <name>` also checks each app record in
+`infra/environments/<name>/services/`: the spec file `<service>.json` against the
+Service schema of the platform-apis chart (read with `yq`, at the pinned
+version), and the release file `<service>.release.json` against the
+ServiceRelease schema. Only the release file carries image digests, the source
+commit and flag state. An existing service's `organization` is immutable,
+compared with `origin/main` or with `--record-base <ref>`; a base that does not
+resolve is a warning, or a failure when the flag names it
+([ADR 0166](docs/decisions/0166-an-app-is-a-service-with-a-two-file-record-in-kore-and-its-source-in-its-own-repository.md)).
 
 The catalog and environment files intentionally use JSON-compatible YAML. This
 makes schema failures deterministic before any cluster mutation while remaining
@@ -355,7 +364,7 @@ recent operations and any that were interrupted.
 Run `kore --help` for every flag; the usage text in `tools/kore/src/cli/usage.ts`
 is the source of truth.
 
-`kore local fetch-lock --output <file> [--commit <sha>]` is read-only: it writes the main chart lock of a commit (default: the checkout's HEAD) from its `charts-main` artifact, which is kept 30 days, to the path you name, so a local proof can pass it to `--platform-chart-lock`. It names the cause and the fix when the artifact has expired or is missing, or when `gh` is not signed in. `--require-fresh-lock` still gates the proof.
+`kore local fetch-lock --output <file> [--commit <sha>]` is read-only: it writes the main chart lock of a commit (default: the checkout's HEAD) from its `charts-main` artifact, which is kept 30 days, to the path you name, so a local proof can pass it to `--platform-chart-lock`. It names the cause and the fix when the artifact has expired or is missing, or when `gh` is not signed in. `--require-fresh-lock` still gates the proof. A managed environment refuses this lock: `platform up` takes only the `platform-charts.lock.json` attached to a release.
 
 | Command         | Does                                                                                                                                                                                                                                                                                                                                                           |
 | --------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -375,3 +384,4 @@ is the source of truth.
 | `kore ops`      | Offline checks: dependency inventory and integrity, recovery objectives, upgrade from the previous release, CRD safety. Read-only.                                                                                                                                                                                                                             |
 | `kore policy`   | Records audit evidence, promotes one Gatekeeper constraint from dryrun to deny on clean evidence, or rolls it back. Edits the repository only.                                                                                                                                                                                                                 |
 | `kore journal`  | Lists recent mutating operations and flags interrupted ones. Read-only.                                                                                                                                                                                                                                                                                        |
+| `kore eval`     | Runs the deterministic evals on one application repository directory (its `flags.yaml`, safety pattern and version reuse), with git and no network; prints a JSON verdict and, on a pass only, the attestation payloads. Read-only; exits 1 on a failing verdict.                                                                                              |

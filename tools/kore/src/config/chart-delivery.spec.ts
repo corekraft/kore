@@ -240,6 +240,38 @@ test("the delivery arguments hand the kore-config-delivery chart the flag, the o
   expect(databaseRoutesDeliveryArgs(base)).toEqual([]);
 });
 
+test("with platform-sync-window on the values carry syncWindow, so the AppProject can carry its maintenance deny window; off they carry none, so the project is unchanged", () => {
+  vi.mocked(featureEnabled).mockImplementation(
+    (_environment, flag) => flag === "platform-sync-window",
+  );
+  try {
+    expect(chartDeliveryValues(repository, lock())).toMatchObject({
+      syncWindow: true,
+    });
+  } finally {
+    vi.mocked(featureEnabled).mockReset();
+  }
+  expect(chartDeliveryValues(repository, lock())).not.toHaveProperty(
+    "syncWindow",
+  );
+});
+
+test("with postgresql-service-class-instances on the values carry the flag the PostgreSQL API's Application takes; off they carry none", () => {
+  vi.mocked(featureEnabled).mockImplementation(
+    (_environment, flag) => flag === "postgresql-service-class-instances",
+  );
+  try {
+    expect(chartDeliveryValues(repository, lock())).toMatchObject({
+      serviceClassInstances: true,
+    });
+  } finally {
+    vi.mocked(featureEnabled).mockReset();
+  }
+  expect(chartDeliveryValues(repository, lock())).not.toHaveProperty(
+    "serviceClassInstances",
+  );
+});
+
 test("with in-cluster-ca on the values carry the flag the AppProject needs to admit the CA objects; off they carry none, so local's project is unchanged", () => {
   vi.mocked(featureEnabled).mockImplementation(
     (_environment, flag) => flag === "in-cluster-ca",
@@ -253,5 +285,21 @@ test("with in-cluster-ca on the values carry the flag the AppProject needs to ad
   }
   expect(chartDeliveryValues(repository, lock())).not.toHaveProperty(
     "inClusterCa",
+  );
+});
+
+test("with workload-defaults-admission on the values carry workloadDefaults, so the AppProject admits the constraint kind; off they carry none, so the project is unchanged (issue 1526)", () => {
+  vi.mocked(featureEnabled).mockImplementation(
+    (_environment, flag) => flag === "workload-defaults-admission",
+  );
+  try {
+    expect(chartDeliveryValues(repository, lock())).toMatchObject({
+      workloadDefaults: true,
+    });
+  } finally {
+    vi.mocked(featureEnabled).mockReset();
+  }
+  expect(chartDeliveryValues(repository, lock())).not.toHaveProperty(
+    "workloadDefaults",
   );
 });
