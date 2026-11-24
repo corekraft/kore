@@ -1,5 +1,5 @@
 import { beforeEach, expect, test, vi } from "vitest";
-import { featureEnabled, keycloakWaitFlag } from "../config/index.js";
+import { featureEnabled, keycloakRealmWaitFlag } from "../config/index.js";
 import { CommandError } from "../runtime/index.js";
 import { waitForKeycloakRealm } from "./keycloak-realm-wait.js";
 import { fakeRepository, fakeRunner } from "./platform-support.js";
@@ -38,13 +38,13 @@ beforeEach(() => {
   vi.mocked(pollUntil).mockResolvedValue(undefined);
 });
 
-test("with platform-keycloak-wait off nothing is read from the cluster", async () => {
+test("with platform-keycloak-realm-wait off nothing is read from the cluster", async () => {
   vi.mocked(featureEnabled).mockReturnValue(false);
   const { runner, run } = fakeRunner();
   await waitForKeycloakRealm(repository, runner);
   expect(featureEnabled).toHaveBeenCalledWith(
     repository.environment,
-    keycloakWaitFlag,
+    keycloakRealmWaitFlag,
   );
   expect(pollUntil).not.toHaveBeenCalled();
   expect(run).not.toHaveBeenCalled();

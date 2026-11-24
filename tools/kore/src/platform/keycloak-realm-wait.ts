@@ -1,4 +1,4 @@
-import { featureEnabled, keycloakWaitFlag } from "../config/index.js";
+import { featureEnabled, keycloakRealmWaitFlag } from "../config/index.js";
 import type { Repository } from "../config/index.js";
 import type { Runner } from "../runtime/index.js";
 import { errorMessage } from "./probe.js";
@@ -26,14 +26,14 @@ const RESTARTING =
  * portal's proxy started while Keycloak had no endpoint, exited on discovery's
  * 503 and sat in a restart back-off kore's fail-fast then reported as a
  * crash loop. Waiting here fails with the cause named, in minutes, instead of
- * as an unnamed rollout timeout. Read-only; a no-op with platform-keycloak-wait
+ * as an unnamed rollout timeout. Read-only; a no-op with platform-keycloak-realm-wait
  * off, so the flag off runs what it ran before.
  */
 export async function waitForKeycloakRealm(
   repository: Repository,
   runner: Runner,
 ): Promise<void> {
-  if (!featureEnabled(repository.environment, keycloakWaitFlag)) {
+  if (!featureEnabled(repository.environment, keycloakRealmWaitFlag)) {
     return;
   }
   const context = repository.environment.kubeContext;

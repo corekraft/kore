@@ -18,7 +18,7 @@ import { waitForKeycloakRealm } from "./keycloak-realm-wait.js";
  * with platform-dns on (ADR 0132). A route waits for admission inside its
  * release's readiness check, so the namespace of a component that attaches one
  * carries the shared Gateway label first (ADR 0134, #1388). With
- * platform-keycloak-wait on, the portal's release also waits for the Keycloak
+ * platform-keycloak-realm-wait on, the portal's release also waits for the Keycloak
  * realm to answer discovery, so an upgraded Keycloak that is still restarting
  * never reaches the portal's proxy (issue 1984).
  */

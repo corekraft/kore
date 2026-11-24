@@ -112,8 +112,11 @@ export const registryTailnetForwardFlag = "registry-tailnet-forward";
 /** The flag that gates the platform organization's portal: its Keycloak and, later, its Backstage (ADR 0113, plan 15 step 6). */
 export const platformPortalFlag = "platform-portal";
 
-/** The flag that makes the portal's pod wait for the Keycloak realm's OIDC discovery before its proxy starts, so a restart after a stop converges (issue 1788), and makes kore wait for the realm before it applies the portal's release, so an upgrade of Keycloak converges or names the cause (issue 1984). Off in every overlay until a recorded live run proves the restart converges. */
+/** The flag that makes the portal's pod wait for the Keycloak realm's OIDC discovery before its proxy starts, so a restart after a stop converges (issue 1788). Off in every overlay until a recorded live run proves the restart converges. */
 export const keycloakWaitFlag = "platform-keycloak-wait";
+
+/** The flag that makes kore wait for the Keycloak realm's OIDC discovery before it applies the portal's release, so a Keycloak upgrade converges or fails naming the cause (issue 1984). Off in every overlay until a recorded live run proves an upgrade converges. */
+export const keycloakRealmWaitFlag = "platform-keycloak-realm-wait";
 
 /** The flag that makes the golden-path sign-in wait for the portal's Keycloak instead of the delivery gate (ADR 0113, issue 1880). Off in every overlay until a live run proves the local gate converges. */
 export const goldenPathSigninAfterPortalFlag =
