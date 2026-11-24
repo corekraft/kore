@@ -98,6 +98,12 @@
         "components": ["kore-platform-dns"]
       },
       {
+        "name": "external-dns",
+        "step": 8,
+        "capability": "endpoint",
+        "components": ["external-dns"]
+      },
+      {
         "name": "keycloak-operator",
         "step": 8,
         "capability": "controller",

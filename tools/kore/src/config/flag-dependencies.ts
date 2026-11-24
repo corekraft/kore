@@ -1,4 +1,5 @@
 import {
+  externalDnsFlag,
   externalGatewayFlag,
   externalGatewayLimitsFlag,
   featureEnabled,
@@ -52,6 +53,12 @@ const requirements: Requirement[] = [
     needs: externalGatewayFlag,
     reason:
       "the limits are the external Gateway's policy, so there is no Gateway to limit without it",
+  },
+  {
+    flag: externalDnsFlag,
+    needs: externalGatewayFlag,
+    reason:
+      "external-dns publishes the records of the external Gateway's routes, so it has no records to publish without it",
   },
 ];
 
