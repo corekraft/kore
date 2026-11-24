@@ -165,7 +165,7 @@ spec:
                     storage: {{ $quota.storage | quote }}
             {{- end }}`}}
 {{- $net := .Values.suborgNetwork | default dict }}
-{{- $serviceCidr := required "suborgNetwork.serviceCidr is required while suborg-tenancy is on: pass the cluster's service range from the environment (cluster.serviceCidr, or k3d.serviceCidr on k3d)" $net.serviceCidr }}
+{{- $serviceCidr := required "suborgNetwork.serviceCidr is required while suborg-tenancy is on: pass the cluster's service range from the environment that provisions the cluster" $net.serviceCidr }}
 {{- $podCidr := $net.podCidr | default "10.42.0.0/16" }}
 {{- $excluded := concat (list $podCidr $serviceCidr) ($net.apiServerCidrs | default (list)) }}
     # With suborg-tenancy on (ADR 0165, issue 1552) the suborg is the trust boundary of
