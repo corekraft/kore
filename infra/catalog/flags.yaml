@@ -61,7 +61,7 @@
       {
         "name": "external-gateway",
         "kind": "feature",
-        "applies": ["local", "vps", "managed-example"],
+        "applies": ["vps"],
         "requires": ["service-listener-sets", "acme-issuers"]
       },
       {

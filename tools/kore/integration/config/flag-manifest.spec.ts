@@ -175,6 +175,38 @@ test("in-cluster-ca is refused in the local overlay through the manifest, becaus
   );
 });
 
+// Issue 1637: external-gateway needs acme-issuers, which applies to vps only, so the external Gateway is a vps
+// flag: a local or managed-example overlay that carries it, or turns it on, is refused through the manifest.
+test("external-gateway applies to vps only, so no local or managed-example overlay lists it, and turning it on there is refused by the manifest", async () => {
+  const { flags } = await loadRepository("vps");
+  assert.deepEqual(flagEntry(flags, "external-gateway")?.applies, ["vps"]);
+  for (const name of ["local", "managed-example"]) {
+    const repository = await loadRepository(name);
+    assert.equal(
+      repository.environment.features?.["external-gateway"],
+      undefined,
+      name,
+    );
+    assert.equal(
+      appliedFlags(repository.flags, name).includes("external-gateway"),
+      false,
+      name,
+    );
+  }
+  const message = await rejectionOf(
+    await withFeatures("local", {
+      ...(await loadRepository("local")).environment.features,
+      "external-gateway": true,
+    }),
+  );
+  assert.ok(
+    message.includes(
+      "flag external-gateway is in the local overlay but its entry applies to vps only; add local to its applies or remove it from the local overlay (ADR 0148)",
+    ),
+    message,
+  );
+});
+
 test("a fixture overlay that turns a flag on still validates, so activating a flag does not break the vps overlay", async () => {
   const repository = await withFeatures("vps", {
     ...(await loadRepository("vps")).environment.features,

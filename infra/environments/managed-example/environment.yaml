@@ -52,7 +52,6 @@
       "drift-listing-mappings": false,
       "platform-shared-gateway": false,
       "service-listener-sets": false,
-      "external-gateway": false,
       "external-gateway-limits": false,
       "external-dns": false,
       "registry-by-name": false,
