@@ -20,6 +20,7 @@ import {
   managedNamespaces,
   platformGeneration,
   platformStatus,
+  uninstallGatedRelease,
 } from "../../src/testing/index.js";
 
 const deployed = JSON.stringify({ info: { status: "deployed" } });
@@ -105,7 +106,7 @@ test("status reports a gated-off component whose release remains as degraded, wi
   assert.equal(row!.status, "degraded");
   assert.match(
     row!.detail,
-    /helm uninstall gated --namespace gated-ns --kube-context \S+/,
+    /kore platform uninstall gated --environment \S+ --yes/,
   );
   assert.match(row!.detail, /feature ingress/);
 });
@@ -138,7 +139,7 @@ test("platform bootstrap fails fast, installing nothing, when a gated-off releas
   const { runner, calls } = cluster(true);
   await assert.rejects(
     bootstrapControllers(repository, runner),
-    /gated.*helm uninstall gated --namespace gated-ns --kube-context \S+.*feature ingress/s,
+    /gated.*kore platform uninstall gated --environment \S+ --yes.*feature ingress/s,
   );
   assert.equal(calls.filter((c) => c.startsWith("helm upgrade")).length, 0);
 });
@@ -207,5 +208,68 @@ test("a requirement whose components are all gated off is skipped, not ready", a
   assert.deepEqual(
     evidence.requirements.map((r) => r.status),
     ["skipped", "ready"],
+  );
+});
+
+test("uninstall without --yes removes nothing and names the release it would remove", async () => {
+  const repository = await repositoryWith(false);
+  const { runner, calls } = cluster(true);
+  await assert.rejects(
+    uninstallGatedRelease(repository, runner, "gated", {
+      yes: false,
+      purgeData: false,
+    }),
+    /would uninstall release gated from namespace gated-ns in kube context \S+\. Nothing was removed/,
+  );
+  assert.ok(calls.every((call) => !call.startsWith("helm uninstall")));
+});
+
+test("uninstall with --yes runs exactly one helm uninstall of the named release, in the environment's context, and nothing else that mutates", async () => {
+  const repository = await repositoryWith(false);
+  const { runner, calls } = cluster(true);
+  let installed = true;
+  const stateful: Runner = {
+    async run(command, args, options) {
+      if (command === "helm" && args[0] === "uninstall") {
+        calls.push(`${command} ${args.join(" ")}`);
+        installed = false;
+        return { stdout: "", stderr: "", code: 0 };
+      }
+      if (
+        command === "helm" &&
+        args[0] === "status" &&
+        args[1] === "gated" &&
+        !installed
+      ) {
+        throw new CommandError(command, args, {
+          stdout: "",
+          stderr: "Error: release: not found",
+          code: 1,
+        });
+      }
+      return runner.run(command, args, options);
+    },
+  };
+  const { timeout } = repository.catalog.components.find(
+    (component) => component.name === "gated",
+  )!;
+
+  const result = await uninstallGatedRelease(repository, stateful, "gated", {
+    yes: true,
+    purgeData: false,
+  });
+
+  assert.deepEqual(result, {
+    status: "uninstalled",
+    name: "gated",
+    namespace: "gated-ns",
+  });
+  assert.deepEqual(
+    calls.filter((call) =>
+      /^helm (uninstall|rollback|upgrade)|delete /.test(call),
+    ),
+    [
+      `helm uninstall gated --namespace gated-ns --kube-context ${repository.environment.kubeContext} --wait --timeout ${timeout}`,
+    ],
   );
 });

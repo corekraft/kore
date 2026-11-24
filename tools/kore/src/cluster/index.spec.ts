@@ -16,7 +16,7 @@ import {
   k3dClusterInfo,
 } from "./k3d-cluster.js";
 import { restoreRetainedData } from "./restore.js";
-import { retainedResources } from "./retained.js";
+import { purgeRetainedResources, retainedResources } from "./retained.js";
 
 vi.mock("./cluster.js");
 vi.mock("./export.js");
@@ -42,6 +42,7 @@ test("the cluster barrel exposes exactly the cluster domain's public entry point
     "hasVerifiedExport",
     "k3dClusterInfo",
     "newestVerifiedExport",
+    "purgeRetainedResources",
     "restoreRetainedData",
     "retainedResources",
   ]);
@@ -63,4 +64,5 @@ test("each cluster barrel entry is the function or class its module exports", ()
   expect(cluster.newestVerifiedExport).toBe(newestVerifiedExport);
   expect(cluster.restoreRetainedData).toBe(restoreRetainedData);
   expect(cluster.retainedResources).toBe(retainedResources);
+  expect(cluster.purgeRetainedResources).toBe(purgeRetainedResources);
 });
