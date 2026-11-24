@@ -111,6 +111,25 @@ export async function loadServiceRegistrations(
 }
 
 /**
+ * The file that declares each registered Service name, keyed by name, each file
+ * a repository path. loadRepository has already refused an invalid registration
+ * and a duplicate name, so this reads the same files without repeating those checks.
+ */
+export async function registrationPaths(
+  root: string,
+): Promise<Map<string, string>> {
+  const directory = `${root}/${serviceRegistrationsDirectory}`;
+  const paths = new Map<string, string>();
+  for (const file of await registrationFiles(directory)) {
+    paths.set(
+      await registrationName(directory, file),
+      `${serviceRegistrationsDirectory}/${file}`,
+    );
+  }
+  return paths;
+}
+
+/**
  * Helm arguments that hand the registered Service names to the observability
  * chart. Passed only while its own flag, platform-portal, is on; otherwise none.
  */

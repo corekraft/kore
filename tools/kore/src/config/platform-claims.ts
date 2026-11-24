@@ -2,8 +2,9 @@
 // Offline mirror of the Organization and Service XRD schemas in
 // infra/charts/platform-apis. The chart stays the runtime owner; the
 // integration test in integration/config fails when the two drift apart. That
-// test holds the chart's pattern and rule messages as literals, so this module
-// exports nothing but platformClaimErrors.
+// test holds the chart's pattern and rule messages as literals. It exports
+// platformClaimErrors and serviceNameErrors, the Service name rules the app
+// record check (app-record-rules.ts) reuses, so the name rules live in one place.
 
 const platformApiVersion = "platform.kore.dev/v1alpha1";
 
@@ -57,7 +58,8 @@ function organizationErrors(claim: Claim, path: string): string[] {
   return errors;
 }
 
-function serviceNameErrors(name: string, path: string): string[] {
+/** The Service name rules of the XRD, as messages that name `path`. */
+export function serviceNameErrors(name: string, path: string): string[] {
   const errors: string[] = [];
   if (!dnsLabel.test(name)) {
     errors.push(
