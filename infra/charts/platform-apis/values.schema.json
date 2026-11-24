@@ -13,6 +13,33 @@
       "type": "string",
       "pattern": "^[a-z0-9]([-a-z0-9]{0,61}[a-z0-9])?$"
     },
+    "suborgNetwork": {
+      "description": "With suborg-tenancy on (ADR 0165, issue 1552), the cluster's address ranges the suborg NetworkPolicies exclude from open internet egress: the pods of other suborgs and platform namespaces live in the pod range, and the Kubernetes API answers on the service range and on any recorded API address. serviceCidr is required then; the others default to the k3s pod range and to none.",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "serviceCidr": {
+          "description": "The cluster's service range, as the environment provisions it (cluster.serviceCidr or k3d.serviceCidr).",
+          "type": "string",
+          "pattern": "^([0-9]{1,3}\\.){3}[0-9]{1,3}/[0-9]{1,2}$"
+        },
+        "podCidr": {
+          "description": "The cluster's pod range. The k3s and k3d default is assumed; no environment records an override.",
+          "type": "string",
+          "pattern": "^([0-9]{1,3}\\.){3}[0-9]{1,3}/[0-9]{1,2}$",
+          "default": "10.42.0.0/16"
+        },
+        "apiServerCidrs": {
+          "description": "Addresses the Kubernetes API answers on besides its service address, excluded from open internet egress. None is recorded in any environment yet.",
+          "type": "array",
+          "default": [],
+          "items": {
+            "type": "string",
+            "pattern": "^([0-9]{1,3}\\.){3}[0-9]{1,3}/[0-9]{1,2}$"
+          }
+        }
+      }
+    },
     "platformDomain": {
       "description": "The environment's platform domain (ADR 0042). A service host is <service>.<organization>.<platformDomain>, so with a 63-character service and the organization the whole host stays within 253 characters.",
       "type": "string",

@@ -5,6 +5,7 @@ import {
   otlpRouteFlag,
   platformHostnameOwnershipFlag,
   platformSharedGatewayFlag,
+  suborgTenancyFlag,
 } from "./features.js";
 import { dnsHelmArgs } from "./dns-helm-args.js";
 import { clusterResolutionArgs } from "./platform-cluster-resolution.js";
@@ -189,6 +190,25 @@ function otlpRouteArgs(
     "--set-string",
     `otlpRoute.gateway.namespace=${internalGateway(environment).namespace}`,
   ];
+}
+
+/**
+ * With suborg-tenancy on (ADR 0165, issue 1552), the cluster's service range, which
+ * the suborg NetworkPolicies exclude from open egress: the k3d cluster's range on k3d,
+ * the overlay's otherwise. Absent, none is passed and the chart refuses to render.
+ */
+function suborgNetworkArgs(
+  environment: Environment,
+  component: string,
+): string[] {
+  const cluster =
+    environment.provider === "k3d" ? environment.k3d : environment.cluster;
+  const on =
+    component === "kore-platform-apis" &&
+    featureEnabled(environment, suborgTenancyFlag);
+  return on && cluster?.serviceCidr !== undefined
+    ? ["--set-string", `suborgNetwork.serviceCidr=${cluster.serviceCidr}`]
+    : [];
 }
 
 /** The chart value each component that names the platform domain reads it through. */
@@ -392,6 +412,7 @@ export function platformHelmArgs(
     ...clusterResolutionArgs(environment, component),
     ...databaseRoutesArgs(environment, component, env),
     ...serviceClassArgs(environment, component),
+    ...suborgNetworkArgs(environment, component),
     ...otlpRouteArgs(environment, component, env),
     ...dnsHelmArgs(environment, component, env, suborgs),
   ];

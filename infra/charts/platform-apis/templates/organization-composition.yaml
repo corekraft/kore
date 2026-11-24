@@ -164,6 +164,103 @@ spec:
                   max:
                     storage: {{ $quota.storage | quote }}
             {{- end }}`}}
+{{- $net := .Values.suborgNetwork | default dict }}
+{{- $serviceCidr := required "suborgNetwork.serviceCidr is required while suborg-tenancy is on: pass the cluster's service range from the environment (cluster.serviceCidr, or k3d.serviceCidr on k3d)" $net.serviceCidr }}
+{{- $podCidr := $net.podCidr | default "10.42.0.0/16" }}
+{{- $excluded := concat (list $podCidr $serviceCidr) ($net.apiServerCidrs | default (list)) }}
+    # With suborg-tenancy on (ADR 0165, issue 1552) the suborg is the trust boundary of
+    # its services, so this step is the one owner of its two NetworkPolicies. The
+    # default-deny ingress admits only pods of the same suborg, the shared gateway,
+    # platform telemetry, kubelet probes (Istio ambient SNATs them to 169.254.7.127)
+    # and DNS on port 53; a grant opens more, in the Service composition. The egress
+    # policy reaches only the same suborg and DNS, and open internet addresses outside
+    # the pod range, the service range and any recorded API address: that is the v1
+    # open-egress default the owner confirmed. The ranges are passed by the environment
+    # and fail closed when the service range is missing.
+    - step: compose-suborg-network-policies
+      functionRef: { name: function-go-templating }
+      input:
+        apiVersion: gotemplating.fn.crossplane.io/v1beta1
+        kind: GoTemplate
+        source: Inline
+        inline:
+          template: |
+            {{`{{- $suborg := .observed.composite.resource }}
+            {{- with $suborg.spec.parent }}
+            ---
+            apiVersion: networking.k8s.io/v1
+            kind: NetworkPolicy
+            metadata:
+              name: suborg-default-deny-ingress
+              namespace: {{ $suborg.metadata.name }}
+              annotations:
+                gotemplating.fn.crossplane.io/composition-resource-name: default-deny-ingress
+            spec:
+              podSelector: {}
+              policyTypes: [Ingress]
+              ingress:
+                - from:
+                    - podSelector: {}
+                - from:
+                    - namespaceSelector:
+                        matchLabels:
+                          kubernetes.io/metadata.name: kore-system
+                      podSelector:
+                        matchLabels:
+                          gateway.networking.k8s.io/gateway-name: kore-gateway
+                - from:
+                    - namespaceSelector:
+                        matchLabels:
+                          kubernetes.io/metadata.name: observability
+                - from:
+                    - ipBlock:
+                        cidr: 169.254.7.127/32
+                - from:
+                    - namespaceSelector:
+                        matchLabels:
+                          kubernetes.io/metadata.name: kube-system
+                    - namespaceSelector:
+                        matchLabels:
+                          kubernetes.io/metadata.name: kore-dns
+                  ports:
+                    - port: 53
+                      protocol: UDP
+                    - port: 53
+                      protocol: TCP
+            ---
+            apiVersion: networking.k8s.io/v1
+            kind: NetworkPolicy
+            metadata:
+              name: suborg-egress
+              namespace: {{ $suborg.metadata.name }}
+              annotations:
+                gotemplating.fn.crossplane.io/composition-resource-name: egress
+            spec:
+              podSelector: {}
+              policyTypes: [Egress]
+              egress:
+                - to:
+                    - podSelector: {}
+                - to:
+                    - namespaceSelector:
+                        matchLabels:
+                          kubernetes.io/metadata.name: kube-system
+                    - namespaceSelector:
+                        matchLabels:
+                          kubernetes.io/metadata.name: kore-dns
+                  ports:
+                    - port: 53
+                      protocol: UDP
+                    - port: 53
+                      protocol: TCP
+                - to:
+                    - ipBlock:
+                        cidr: 0.0.0.0/0
+                        except:`}}
+{{- range $cidr := $excluded }}
+                          - {{ $cidr }}
+{{- end }}
+            {{`{{- end }}`}}
 {{- end }}
     - step: mark-ready
       functionRef: { name: function-auto-ready }
