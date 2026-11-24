@@ -14,8 +14,10 @@ const v022 =
   "https://github.com/corekraft/kore/.github/workflows/release.yaml@refs/tags/v0.22.0";
 const v025 =
   "https://github.com/corekraft/kore/.github/workflows/release.yaml@refs/tags/v0.25.0";
+const v027 =
+  "https://github.com/corekraft/kore/.github/workflows/release.yaml@refs/tags/v0.27.0";
 
-test("every overlay gives the template policy its own keyless trust, admitting v0.25.0 and v0.22.0, in warn", async () => {
+test("every overlay gives the template policy its own keyless trust, admitting its release signers, in warn", async () => {
   for (const environment of ["local", "vps", "managed-example"]) {
     const repository = await loadRepository(environment);
     const templates: unknown = repository.imageTrustValues?.["templates"];
@@ -33,8 +35,8 @@ test("every overlay gives the template policy its own keyless trust, admitting v
     );
     assert.deepEqual(
       trust["subjects"],
-      [v025, v022],
-      `${environment} templates.trust admits the v0.25.0 and v0.22.0 release signers`,
+      environment === "local" ? [v027, v025, v022] : [v025, v022],
+      `${environment} templates.trust admits its release signers (local also v0.27.0)`,
     );
     assert.equal(
       trust["mode"],

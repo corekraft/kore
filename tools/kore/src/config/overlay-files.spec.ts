@@ -1,10 +1,12 @@
 import { readFile } from "node:fs/promises";
 import { beforeEach, expect, test, vi } from "vitest";
 import { exists } from "./files.js";
+import { suborgNames } from "./organization-records.js";
 import {
   loadImageTrustValues,
   loadJSON,
   loadRegistryComponentValues,
+  loadSuborgNames,
 } from "./overlay-files.js";
 import type { Environment } from "./types.js";
 
@@ -13,6 +15,7 @@ vi.mock("node:path", () => ({
   join: (...parts: string[]) => parts.join("/").replace(/\/+/g, "/"),
 }));
 vi.mock("./files.js", () => ({ exists: vi.fn() }));
+vi.mock("./organization-records.js", () => ({ suborgNames: vi.fn() }));
 vi.mock("./registry-address.js", () => ({
   registryConsumers: ["oci-registry", "kore-image-policy"],
 }));
@@ -90,4 +93,21 @@ test("a registry consumer's existing overlays are merged in order, later files w
       }),
     ),
   ).toEqual({ "oci-registry": { port: 5000, host: "b" } });
+});
+
+test("loadSuborgNames hands the root, the environment and the catalog's namespaces to the record reader, and returns the names it gives", async () => {
+  vi.mocked(suborgNames).mockResolvedValue(["reference"]);
+  const environment = environmentWith({});
+  expect(await loadSuborgNames("/repo", environment, ["kore-system"])).toEqual([
+    "reference",
+  ]);
+  expect(vi.mocked(suborgNames).mock.calls).toEqual([
+    [
+      {
+        root: "/repo",
+        environment,
+        catalogNamespaces: ["kore-system"],
+      },
+    ],
+  ]);
 });
