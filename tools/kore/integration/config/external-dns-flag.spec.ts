@@ -127,6 +127,24 @@ test("turning external-dns on in vps is refused before any mutation until the pl
   }
 });
 
+test("external-dns takes a global TTL of 300 seconds for records that carry none, on both providers", async () => {
+  const repository = await loadRepository("local");
+  const values = JSON.parse(
+    await readFile(
+      join(
+        repository.root,
+        "infra",
+        "environments",
+        "common",
+        "values",
+        "external-dns.yaml",
+      ),
+      "utf8",
+    ),
+  ) as { extraArgs: Record<string, string> };
+  assert.equal(values.extraArgs["min-ttl"], "300");
+});
+
 test("the local, vps and managed overlays validate with the external-dns flag declared off", async () => {
   for (const name of overlays) {
     await validateRepository(await loadRepository(name));

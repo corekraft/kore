@@ -5,5 +5,9 @@
   "txtOwnerId": "kore-vps",
   "managedRecordTypes": ["A"],
   "interval": "5m",
-  "extraArgs": { "gateway-label-filter": "platform.kore.dev/gateway=external" }
+  "extraArgs":
+    {
+      "gateway-label-filter": "platform.kore.dev/gateway=external",
+      "min-ttl": "300"
+    }
 }
