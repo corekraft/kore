@@ -1,0 +1,54 @@
+{{- /*
+Platform alerts for the external-dns sync and the certificates (#1619), as one
+Grafana alerting provisioning file (ADR 0177, ADR 0114). Grafana evaluates each
+rule over the Prometheus datasource and its one root policy routes what fires to
+the one platform contact point. Prometheus keeps no alerting here: Alertmanager
+is off, so a Prometheus rule would reach no contact point.
+
+Each alert renders only while its flag is on, so with both flags off this
+template renders nothing and the chart is byte-identical to main:
+  external-dns  -> ExternalDNSSyncErrors
+  acme-dns01    -> CertificateNotReady, CertificateNearExpiry
+
+Every rule is notify-only (ADR 0128): it tells an operator and never blocks,
+rolls back or scales anything. No rule names a domain or a destination.
+*/}}
+{{- $features := default dict .Values.features }}
+{{- $groups := list }}
+{{- if index $features "external-dns" }}
+{{- $alerts := list }}
+{{- /* external-dns counts its failing reconcile loops, its registry errors and its source errors; each term reads zero when its series is absent, so one error of any kind makes the sum above zero. */}}
+{{- $alerts = append $alerts (dict "uid" "kore-platform-external-dns-sync-errors" "name" "ExternalDNSSyncErrors" "severity" "warning" "for" "15m" "type" "gt" "params" (list 0) "expr" `(sum(external_dns_controller_consecutive_soft_errors) or vector(0)) + (sum(increase(external_dns_registry_errors_total[15m])) or vector(0)) + (sum(increase(external_dns_source_errors_total[15m])) or vector(0))` "summary" "external-dns reports sync errors against its DNS provider or its sources") }}
+{{- $groups = append $groups (dict "name" "kore.platform.external-dns" "alerts" $alerts) }}
+{{- end }}
+{{- if index $features "acme-dns01" }}
+{{- $alerts := list }}
+{{- /* certmanager_certificate_ready_status carries one series per condition, with the current one at 1; the True series reads 0 whenever a certificate is not Ready, including while it is being issued. */}}
+{{- $alerts = append $alerts (dict "uid" "kore-platform-certificate-not-ready" "name" "CertificateNotReady" "severity" "critical" "for" "15m" "type" "lt" "params" (list 1) "expr" `certmanager_certificate_ready_status{condition="True"}` "summary" "A certificate is not Ready") }}
+{{- /* The seconds left before the certificate expires, under fourteen days (1209600 seconds). A certificate that has already expired reads negative and fires too. */}}
+{{- $alerts = append $alerts (dict "uid" "kore-platform-certificate-near-expiry" "name" "CertificateNearExpiry" "severity" "warning" "for" "1h" "type" "lt" "params" (list 1209600) "expr" `certmanager_certificate_expiration_timestamp_seconds - time()` "summary" "A certificate expires within 14 days") }}
+{{- $groups = append $groups (dict "name" "kore.platform.certificates" "alerts" $alerts) }}
+{{- end }}
+{{- $grafanaGroups := list }}
+{{- range $groups }}
+{{- $rules := list }}
+{{- range .alerts }}
+{{- $labels := dict "severity" .severity "enforcement" "notify-only" }}
+{{- $query := dict "refId" "A" "relativeTimeRange" (dict "from" 600 "to" 0) "datasourceUid" "prometheus" "model" (dict "refId" "A" "expr" .expr "instant" true "intervalMs" 1000 "maxDataPoints" 43200) }}
+{{- $threshold := dict "refId" "C" "relativeTimeRange" (dict "from" 0 "to" 0) "datasourceUid" "__expr__" "model" (dict "refId" "C" "type" "threshold" "expression" "A" "conditions" (list (dict "evaluator" (dict "type" .type "params" .params)))) }}
+{{- $rules = append $rules (dict "uid" .uid "title" .name "condition" "C" "data" (list $query $threshold) "noDataState" "OK" "execErrState" "Error" "for" .for "labels" $labels "annotations" (dict "summary" .summary)) }}
+{{- end }}
+{{- $grafanaGroups = append $grafanaGroups (dict "orgId" 1 "name" .name "folder" "Kore" "interval" "1m" "rules" $rules) }}
+{{- end }}
+{{- if $grafanaGroups }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: kore-platform-alert-rules
+  namespace: {{ .Release.Namespace }}
+  labels:
+    grafana_alert: "1"
+data:
+  platform-alerts.yaml: |
+{{ dict "apiVersion" 1 "groups" $grafanaGroups | toPrettyJson | indent 4 }}
+{{- end }}
