@@ -6,6 +6,8 @@
 // answering, and the record the drill prints. The live spec and its cluster steps
 // do the reads and the restart; nothing here touches the cluster.
 
+import { CommandError } from "../runtime/index.js";
+
 /** The fixed method of the drill. The sampler reads each second; the drill holds the probe after settling. */
 export const k3sRestartDrill = {
   /** The systemd unit the drill restarts, in place. Its drain-free restart keeps the containers running. */
@@ -25,6 +27,15 @@ export function restartRefusalOf(kubeContext: string): string | undefined {
     return undefined;
   }
   return `the k3s restart drill runs only on context ${k3sRestartDrill.requiredContext}, not "${kubeContext}"; set the drill's environment to vps so it restarts only the kore-vps node`;
+}
+
+/**
+ * Whether an error thrown by a kubectl read means the API server did not answer:
+ * a command that failed or was killed for hanging. Any other error (a parse
+ * failure, a TypeError) is a bug in the drill, so the caller rethrows it.
+ */
+export function isUnansweredRead(error: unknown): boolean {
+  return error instanceof CommandError;
 }
 
 export interface PodListDocument {

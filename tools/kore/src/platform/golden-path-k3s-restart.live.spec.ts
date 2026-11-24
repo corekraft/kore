@@ -134,6 +134,9 @@ async function restartUnderProbe(c: Context, targets: Target[]) {
   const samples: ReadySample[] = [];
   const probing = probeUntil(c, probe, () => running.value);
   const sampling = sampleUntil(c, targets, samples, began, () => running.value);
+  // A sampler bug (now rethrown, not swallowed) is raised below once the restart
+  // is done; this handler keeps it from ending the process unhandled before then.
+  sampling.catch(() => undefined);
   let apiReturnedSeconds = 0;
   let outcome: unknown;
   try {

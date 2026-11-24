@@ -13,6 +13,7 @@ import {
   type Target,
 } from "./golden-path-rollout-cluster.live.js";
 import {
+  isUnansweredRead,
   k3sRestartDrill,
   nodesOf,
   podsOf,
@@ -62,18 +63,55 @@ function kubectl(
   );
 }
 
+const deploymentArgs = (target: Target): string[] => [
+  "get",
+  "deployment",
+  target.name,
+  "--output",
+  "json",
+];
+
+/**
+ * The stdout of a kubectl read, or undefined when the API server did not answer it.
+ * Only the failed or hung command is caught; any other error is a bug and is rethrown.
+ */
+async function answeredStdout(
+  c: RolloutContext,
+  namespace: string | undefined,
+  args: string[],
+): Promise<string | undefined> {
+  try {
+    const { stdout } = await kubectl(c, namespace, args);
+    return stdout;
+  } catch (error) {
+    if (isUnansweredRead(error)) {
+      return undefined;
+    }
+    throw error;
+  }
+}
+
 async function readDeployment(
   c: RolloutContext,
   target: Target,
 ): Promise<Deployment> {
-  const { stdout } = await kubectl(c, target.namespace, [
-    "get",
-    "deployment",
-    target.name,
-    "--output",
-    "json",
-  ]);
+  const { stdout } = await kubectl(c, target.namespace, deploymentArgs(target));
   return deploymentOf(JSON.parse(stdout) as DeploymentDocument);
+}
+
+/** One Deployment's read, or undefined when the API server did not answer it. */
+async function readDeploymentIfAnswered(
+  c: RolloutContext,
+  target: Target,
+): Promise<Deployment | undefined> {
+  const stdout = await answeredStdout(
+    c,
+    target.namespace,
+    deploymentArgs(target),
+  );
+  return stdout === undefined
+    ? undefined
+    : deploymentOf(JSON.parse(stdout) as DeploymentDocument);
 }
 
 /** The ready replicas of each target, keyed by `<namespace>/<name>`; one unanswered read fails the whole reading. */
@@ -89,31 +127,44 @@ export async function readReady(
   return ready;
 }
 
+/** The ready replicas of each target, or undefined when the API server did not answer one of them. */
+async function readReadyIfAnswered(
+  c: RolloutContext,
+  targets: Target[],
+): Promise<Record<string, number> | undefined> {
+  const ready: Record<string, number> = {};
+  for (const target of targets) {
+    const deployment = await readDeploymentIfAnswered(c, target);
+    if (deployment === undefined) {
+      return undefined;
+    }
+    ready[`${target.namespace}/${target.name}`] = deployment.ready;
+  }
+  return ready;
+}
+
 /** Whether every target is settled now. An unanswered read counts as not settled yet. */
 async function allSettled(
   c: RolloutContext,
   targets: Target[],
 ): Promise<boolean> {
-  try {
-    for (const target of targets) {
-      if (!settled(await readDeployment(c, target))) {
-        return false;
-      }
+  for (const target of targets) {
+    const deployment = await readDeploymentIfAnswered(c, target);
+    if (deployment === undefined || !settled(deployment)) {
+      return false;
     }
-    return true;
-  } catch {
-    return false;
   }
+  return true;
 }
 
 /** Whether the API server answers its readiness endpoint, so reads can resume. */
 async function apiAnswers(c: RolloutContext): Promise<boolean> {
-  try {
-    await kubectl(c, undefined, ["get", "--raw", "/readyz"]);
-    return true;
-  } catch {
-    return false;
-  }
+  const stdout = await answeredStdout(c, undefined, [
+    "get",
+    "--raw",
+    "/readyz",
+  ]);
+  return stdout !== undefined;
 }
 
 /** The pods of the service and the shared Gateway's namespaces, read as the pod checks need them. */
@@ -184,15 +235,12 @@ export async function sampleUntil(
 ): Promise<void> {
   while (running()) {
     const seconds = elapsedSeconds(began);
-    try {
-      samples.push({
-        seconds,
-        answered: true,
-        ready: await readReady(c, targets),
-      });
-    } catch {
-      samples.push({ seconds, answered: false, ready: {} });
-    }
+    const ready = await readReadyIfAnswered(c, targets);
+    samples.push(
+      ready === undefined
+        ? { seconds, answered: false, ready: {} }
+        : { seconds, answered: true, ready },
+    );
     await sleep(k3sRestartDrill.sampleIntervalSeconds);
   }
 }
