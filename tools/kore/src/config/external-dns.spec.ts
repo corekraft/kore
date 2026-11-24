@@ -1,6 +1,10 @@
 // Docs: docs/decisions/0162-external-dns-publishes-route-records-for-the-external-gateway-behind-external-dns.md
 import { beforeEach, expect, test, vi } from "vitest";
-import { externalDnsErrors, externalDnsHelmArgs } from "./external-dns.js";
+import {
+  externalDnsErrors,
+  externalDnsHelmArgs,
+  externalDnsMetricsPort,
+} from "./external-dns.js";
 import { featureEnabled } from "./features.js";
 import { isLocalProvider } from "./provider.js";
 import { runTimeDomain } from "./run-time-domain.js";
@@ -90,6 +94,20 @@ test("a component other than external-dns takes no external-dns arguments, even 
   expect(externalDnsErrors(managed, "kore-platform-config", {})).toEqual([]);
 });
 
+// The pod annotations that let Prometheus scrape external-dns's metrics while the flag is on (no ServiceMonitor, its CRD is not installed).
+const scrapeAnnotations = [
+  "--set-json",
+  'podAnnotations={"prometheus.io/scrape":"true","prometheus.io/port":"7979"}',
+];
+
+/** The pod annotations the Helm arguments set, or undefined when none are set. */
+function podAnnotationsOf(args: string[]): Record<string, string> | undefined {
+  const entry = args.find((arg) => arg.startsWith("podAnnotations="));
+  return entry === undefined
+    ? undefined
+    : JSON.parse(entry.slice("podAnnotations=".length));
+}
+
 test("the inmemory provider in local filters to the platform domain and excludes internal names by configuration", () => {
   expect(externalDnsHelmArgs(local, "external-dns", {})).toEqual([
     "--set-string",
@@ -98,6 +116,7 @@ test("the inmemory provider in local filters to the platform domain and excludes
     "excludeDomains[0]=internal.kore.internal",
     "--set-string",
     "extraArgs.default-targets=127.0.0.1",
+    ...scrapeAnnotations,
   ]);
 });
 
@@ -111,7 +130,41 @@ test("the Cloudflare provider adds the one zone as a zone-id filter, the domain 
     `extraArgs.default-targets=${exampleIPv4}`,
     "--set-string",
     `extraArgs.zone-id-filter=${exampleZone}`,
+    ...scrapeAnnotations,
   ]);
+});
+
+test("with the external-dns flag on, the pod template carries the Prometheus scrape annotation and the chart's metrics port", () => {
+  const annotations = podAnnotationsOf(
+    externalDnsHelmArgs(managed, "external-dns", runTime),
+  );
+  expect(annotations).toEqual({
+    "prometheus.io/scrape": "true",
+    "prometheus.io/port": String(externalDnsMetricsPort),
+  });
+  expect(annotations).toEqual(
+    expect.objectContaining({ "prometheus.io/port": "7979" }),
+  );
+});
+
+test("the metrics port is 7979, the port the pinned chart 1.24.0 serves its metrics on (service.port and the http container port)", () => {
+  expect(externalDnsMetricsPort).toBe(7979);
+});
+
+test("with the external-dns flag off, no pod annotation is set, so the scrape annotation is absent", () => {
+  vi.mocked(featureEnabled).mockReturnValue(false);
+  expect(
+    podAnnotationsOf(externalDnsHelmArgs(managed, "external-dns", runTime)),
+  ).toBeUndefined();
+  expect(
+    podAnnotationsOf(externalDnsHelmArgs(local, "external-dns", {})),
+  ).toBeUndefined();
+});
+
+test("with the external-dns flag on, the scrape is set through the pod annotations and renders no ServiceMonitor", () => {
+  const args = externalDnsHelmArgs(local, "external-dns", {});
+  expect(args.join(" ")).not.toContain("serviceMonitor");
+  expect(args.join(" ")).not.toContain("ServiceMonitor");
 });
 
 test("the exclusion is internal.<domain>, so an internal name is excluded by the configured list, not by luck", () => {
