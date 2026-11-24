@@ -3,9 +3,11 @@ import { featureEnabled, keycloakRealmWaitFlag } from "../config/index.js";
 import { CommandError } from "../runtime/index.js";
 import { waitForKeycloakRealm } from "./keycloak-realm-wait.js";
 import { fakeRepository, fakeRunner } from "./platform-support.js";
+import { errorMessage } from "./probe.js";
 import { ReadinessTimeout, pollUntil } from "./readiness-poll.js";
 
 vi.mock("../config/index.js");
+vi.mock("./probe.js");
 // Only the poll is replaced: ReadinessTimeout stays the real error class.
 vi.mock("./readiness-poll.js", async (importOriginal) => ({
   ...(await importOriginal<typeof import("./readiness-poll.js")>()),
@@ -36,6 +38,9 @@ beforeEach(() => {
   vi.resetAllMocks();
   vi.mocked(featureEnabled).mockReturnValue(true);
   vi.mocked(pollUntil).mockResolvedValue(undefined);
+  vi.mocked(errorMessage).mockImplementation((error) =>
+    error instanceof Error ? error.message : String(error),
+  );
 });
 
 test("with platform-keycloak-realm-wait off nothing is read from the cluster", async () => {
