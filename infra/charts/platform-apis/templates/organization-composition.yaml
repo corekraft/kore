@@ -96,5 +96,74 @@ spec:
                 parentIdRef:
                   name: platform
 {{- end }}
+{{- if index $features "suborg-tenancy" }}
+    # With suborg-tenancy on (ADR 0165, issue 1550), a suborg is the namespace,
+    # quota and trust boundary of its services. This step is the one owner of the
+    # suborg's Namespace, every label on it, and its ResourceQuota and LimitRange;
+    # nothing else creates them. Only an Organization with a parent is a suborg, so
+    # the platform tenant root composes no namespace. The quota has no default (the
+    # XRD requires it), so the LimitRange is derived from it: a container may ask no
+    # more than the suborg's whole requests, and a claim no more than its storage.
+    # The shared-gateway label follows platform-shared-gateway (ADR 0134). The Go
+    # template is wrapped in a Helm raw string so Helm leaves it for Crossplane to
+    # evaluate; the feature flags alone are spliced in by Helm.
+    - step: compose-suborg-namespace
+      functionRef: { name: function-go-templating }
+      input:
+        apiVersion: gotemplating.fn.crossplane.io/v1beta1
+        kind: GoTemplate
+        source: Inline
+        inline:
+          template: |
+            {{`{{- $suborg := .observed.composite.resource }}
+            {{- $quota := $suborg.spec.quota }}
+            {{- with $suborg.spec.parent }}
+            ---
+            apiVersion: v1
+            kind: Namespace
+            metadata:
+              name: {{ $suborg.metadata.name }}
+              annotations:
+                gotemplating.fn.crossplane.io/composition-resource-name: namespace
+              labels:
+                platform.kore.dev/tenant: {{ . }}
+                platform.kore.dev/organization: {{ $suborg.metadata.name }}
+                pod-security.kubernetes.io/enforce: restricted
+                istio.io/dataplane-mode: ambient
+                policy.sigstore.dev/include: "true"`}}{{ if index $features "platform-shared-gateway" }}
+                platform.kore.dev/shared-gateway: "true"{{ end }}{{`
+            ---
+            apiVersion: v1
+            kind: ResourceQuota
+            metadata:
+              name: suborg-quota
+              namespace: {{ $suborg.metadata.name }}
+              annotations:
+                gotemplating.fn.crossplane.io/composition-resource-name: quota
+            spec:
+              hard:
+                requests.cpu: {{ $quota.requests.cpu | quote }}
+                requests.memory: {{ $quota.requests.memory | quote }}
+                requests.storage: {{ $quota.storage | quote }}
+                pods: {{ $quota.pods | int | quote }}
+            ---
+            apiVersion: v1
+            kind: LimitRange
+            metadata:
+              name: suborg-limits
+              namespace: {{ $suborg.metadata.name }}
+              annotations:
+                gotemplating.fn.crossplane.io/composition-resource-name: limits
+            spec:
+              limits:
+                - type: Container
+                  max:
+                    cpu: {{ $quota.requests.cpu | quote }}
+                    memory: {{ $quota.requests.memory | quote }}
+                - type: PersistentVolumeClaim
+                  max:
+                    storage: {{ $quota.storage | quote }}
+            {{- end }}`}}
+{{- end }}
     - step: mark-ready
       functionRef: { name: function-auto-ready }

@@ -17,6 +17,10 @@ vi.mock("./features.js", () => ({
   registryByNameFlag: "registry-by-name",
   platformSharedGatewayFlag: "platform-shared-gateway",
   serviceListenerSetsFlag: "service-listener-sets",
+  suborgTenancyFlag: "suborg-tenancy",
+  organizationServiceApisFlag: "platform-organization-service-apis",
+  platformArgocdDeliveryFlag: "platform-argocd-delivery",
+  platformPortalFlag: "platform-portal",
 }));
 
 const environment = fakeEnvironment({ name: "local" });
@@ -172,5 +176,33 @@ test("acme-dns01 on for a managed environment has no error", () => {
 test("acme-dns01 off needs nothing, even for a k3d environment", () => {
   flagsOn();
   vi.mocked(isLocalProvider).mockReturnValue(true);
+  expect(flagDependencyErrors(environment)).toEqual([]);
+});
+
+test("suborg-tenancy on without the Organization API, the records Application or the portal is refused, naming each one", () => {
+  flagsOn("suborg-tenancy");
+  const errors = flagDependencyErrors(environment);
+  expect(errors).toHaveLength(3);
+  for (const needed of [
+    "platform-organization-service-apis",
+    "platform-argocd-delivery",
+    "platform-portal",
+  ]) {
+    expect(
+      errors.some((error) =>
+        error.includes(`turns on suborg-tenancy, which needs ${needed}:`),
+      ),
+      needed,
+    ).toBe(true);
+  }
+});
+
+test("suborg-tenancy on with the three flags it needs has no error", () => {
+  flagsOn(
+    "suborg-tenancy",
+    "platform-organization-service-apis",
+    "platform-argocd-delivery",
+    "platform-portal",
+  );
   expect(flagDependencyErrors(environment)).toEqual([]);
 });
