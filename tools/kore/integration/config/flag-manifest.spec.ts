@@ -116,6 +116,7 @@ test("the flags that apply to vps are the ones the manifest declares, pending fl
     "workload-defaults-admission",
     "release-recovery-argocd-refusal",
     "host-published-ports",
+    "openbao",
     "platform-dns",
     "in-cluster-ca",
     "k3s-registry-trust",

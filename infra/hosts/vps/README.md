@@ -98,3 +98,30 @@ mise run vps-apply
 The run installs the CA at `/etc/rancher/k3s/registry-ca.crt`, writes
 `/etc/rancher/k3s/registries.yaml`, and restarts k3s once (the pods restart
 with it). It refuses a file that holds a private key.
+
+## The OpenBao static seal key
+
+The `openbao` role places the static seal key that OpenBao unseals itself with
+after a reboot ([ADR 0168](../../decisions/0168-the-openbao-static-seal-key-is-a-recorded-exception-to-no-plaintext-on-disk.md),
+the one recorded exception to no plaintext on disk). It runs last in the play and
+does nothing while the `openbao` flag in `infra/environments/vps/environment.yaml`
+is off (off until a live run and `harness flag activate`).
+
+The key is base64 text that decodes to 32 bytes. The controller keeps it at
+`~/.config/kore/openbao-static-seal.key`, outside the repository, and the role
+streams it to the node through stdin, never logged, to
+`/etc/kore/openbao/static-seal.key`: a root-only file (mode 0400) on the root
+filesystem, not on the k3s data volume. Create the controller copy on a first
+placement only; on a rebuild, copy it from the recovery kit instead, because a
+new key cannot unseal an OpenBao that holds the old one.
+
+```sh
+install -d -m 0700 ~/.config/kore
+openssl rand -base64 32 > ~/.config/kore/openbao-static-seal.key
+chmod 0400 ~/.config/kore/openbao-static-seal.key
+```
+
+A missing or short controller key stops the run and changes nothing. After every
+apply the role checks the node's file: mode, owner, group, location and content.
+It never overwrites a key that is already there, and a drift stops the run
+without a repair.

@@ -74,7 +74,8 @@
       "gateway-proxy-defaults": false,
       "golden-path-safety-defaults": false,
       "app-delivery": false,
-      "workload-defaults-admission": false
+      "workload-defaults-admission": false,
+      "openbao": false
     },
   "secrets": { "storeName": "platform-secrets", "sourceNamespace": "external" },
   "telemetry":
