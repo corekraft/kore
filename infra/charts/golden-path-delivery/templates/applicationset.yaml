@@ -63,6 +63,10 @@ spec:
             - name: safetyDefaults
               value: "true"
             {{- end }}
+            {{- if .Values.serviceIdentity }}
+            - name: serviceIdentity
+              value: "true"
+            {{- end }}
             {{- with .Values.ingress }}
             - name: ingress.host
               value: '{{`{{ .metadata.name }}`}}.{{`{{ .spec.organization }}`}}.{{ .platformDomain }}'

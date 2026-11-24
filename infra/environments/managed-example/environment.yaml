@@ -70,6 +70,7 @@
       "postgresql-service-class-instances": false,
       "gateway-proxy-defaults": false,
       "golden-path-safety-defaults": false,
+      "golden-path-service-identity": false,
       "app-delivery": false,
       "workload-defaults-admission": false
     },
