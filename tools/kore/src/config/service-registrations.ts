@@ -43,10 +43,20 @@ async function registrationName(
   }
   const record = (
     typeof manifest === "object" && manifest !== null ? manifest : {}
-  ) as { kind?: unknown; metadata?: { name?: unknown } };
+  ) as {
+    kind?: unknown;
+    metadata?: { name?: unknown };
+    limits?: unknown;
+    spec?: { limits?: unknown };
+  };
   if (record.kind !== "Service") {
     throw new Error(
       `${relative}: a registration must be a Service manifest (kind Service)`,
+    );
+  }
+  if (record.limits !== undefined || record.spec?.limits !== undefined) {
+    throw new Error(
+      `${relative}: a limits field is platform-owned: the external Gateway's limits are set by the platform in the environment overlay, so a service record cannot tune, lower or raise them (ADR 0160)`,
     );
   }
   const name = record.metadata?.name;
@@ -98,6 +108,25 @@ export async function loadServiceRegistrations(
     owners.set(name, `${serviceRegistrationsDirectory}/${file}`);
   }
   return [...owners.keys()].sort();
+}
+
+/**
+ * The file that declares each registered Service name, keyed by name, each file
+ * a repository path. loadRepository has already refused an invalid registration
+ * and a duplicate name, so this reads the same files without repeating those checks.
+ */
+export async function registrationPaths(
+  root: string,
+): Promise<Map<string, string>> {
+  const directory = `${root}/${serviceRegistrationsDirectory}`;
+  const paths = new Map<string, string>();
+  for (const file of await registrationFiles(directory)) {
+    paths.set(
+      await registrationName(directory, file),
+      `${serviceRegistrationsDirectory}/${file}`,
+    );
+  }
+  return paths;
 }
 
 /**

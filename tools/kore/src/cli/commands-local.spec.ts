@@ -10,6 +10,7 @@ import {
   installLocalTrust,
   parseSmtpCredentials,
   syncLocalSecrets,
+  trustIssuer,
 } from "../security/index.js";
 import type { ActionHandler } from "./context.js";
 import { mutateAction } from "./context.js";
@@ -138,6 +139,7 @@ test("secrets sync --rotate rotates the secrets with --yes, and says to restart 
 });
 
 test("trust install installs local trust and reports the gateway as the issuer", async () => {
+  vi.mocked(trustIssuer).mockReturnValue("kore-gateway");
   const context = fakeContext({
     command: "trust",
     action: "install",

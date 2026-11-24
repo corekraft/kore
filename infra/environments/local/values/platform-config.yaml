@@ -15,3 +15,12 @@ issuer:
 secrets:
   sourceNamespace: kore-secret-source
   storeName: platform-secrets
+# The external Gateway's limits (ADR 0160, issue 1674), read only while
+# external-gateway-limits is on; the same numbers as vps, so a flag proof renders.
+externalGateway:
+  limits:
+    concurrentRequests: 256
+    rate: { requests: 200, unit: Seconds, burst: 100 }
+    body: { maxBytes: 1048576 }
+    headers: { http1MaxHeaders: 100, http2MaxHeaderSize: 16Ki }
+    timeouts: { request: 60s, responseIdle: 30s }

@@ -60,6 +60,86 @@ spec:
                     type: string
                     maxLength: 61
                     pattern: "^[a-z0-9]([-a-z0-9]{0,61}[a-z0-9])?$"
+                # The app record fields (ADR 0166). Every one is optional, so a
+                # Service without them, and the legacy infra/services directory,
+                # still validate. Image digests, the source commit and flag state
+                # are not here: only the ServiceRelease file carries them.
+                repository:
+                  {
+                    type: string,
+                    description: "the application's source repository, for example example.org/leads/checkout"
+                  }
+                path:
+                  {
+                    type: string,
+                    description: "the directory of the service inside its repository"
+                  }
+                components:
+                  type: object
+                  description: "frontend, bff or both: a service with neither is refused"
+                  minProperties: 1
+                  additionalProperties: false
+                  properties:
+                    frontend:
+                      type: object
+                      additionalProperties: false
+                      properties:
+                        resources:
+                          type: object
+                          additionalProperties: false
+                          properties:
+                            requests:
+                              type: object
+                              additionalProperties: false
+                              properties:
+                                cpu: { type: string }
+                                memory: { type: string }
+                    bff:
+                      type: object
+                      additionalProperties: false
+                      properties:
+                        resources:
+                          type: object
+                          additionalProperties: false
+                          properties:
+                            requests:
+                              type: object
+                              additionalProperties: false
+                              properties:
+                                cpu: { type: string }
+                                memory: { type: string }
+                gateway:
+                  type: string
+                  enum: [internal, external]
+                  default: internal
+                  description: "internal by default; external is accepted here, and the ingress work enforces it"
+                # Reserved for their own decisions: the ingress decision owns the
+                # hostnames shape, the backup decision owns backup, and the access
+                # decision owns allowFrom. Loose placeholders until then.
+                hostnames:
+                  {
+                    type: array,
+                    items: { type: string },
+                    description: "reserved: the ingress decision owns the shape"
+                  }
+                backup:
+                  {
+                    type: object,
+                    x-kubernetes-preserve-unknown-fields: true,
+                    description: "reserved: the backup decision owns the shape"
+                  }
+                allowFrom:
+                  {
+                    type: array,
+                    items: { type: string },
+                    description: "reserved: the names of the grantees; the access decision owns the shape"
+                  }
+                secrets:
+                  type: array
+                  description: "secret names only; secret values never enter git"
+                  items:
+                    type: string
+                    pattern: "^[a-z0-9]([-a-z0-9]{0,61}[a-z0-9])?$"
             status:
               type: object
               properties:

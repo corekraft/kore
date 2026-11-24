@@ -45,16 +45,22 @@
       "gateway-class-change-release": true,
       "gateway-rollback-order": true,
       "ingress-agentgateway": true,
+      "agentgateway-data-plane-metrics": false,
       "role-tokens": true,
       "owner-writer": true,
       "local-image-reuse": true,
       "registry-tag-pruning": false,
       "platform-organization-service-apis": true,
       "platform-argocd-delivery": true,
+      "platform-sync-window": false,
+      "release-recovery-argocd-refusal": false,
       "database-routes": true,
       "platform-dns": true,
       "drift-listing-mappings": false,
       "platform-shared-gateway": true,
+      "service-listener-sets": false,
+      "external-gateway": false,
+      "external-gateway-limits": false,
       "registry-by-name": true,
       "registry-tailnet-forward": false,
       "otlp-route": true,
@@ -80,6 +86,10 @@
       "golden-path-signin": true,
       "golden-path-template-admission": false,
       "golden-path-signin-after-portal": false,
+      "postgresql-service-class-instances": false,
+      "gateway-proxy-defaults": false,
+      "platform-keycloak-wait": false,
+      "golden-path-safety-defaults": false,
       "decision-advisor": true
     },
   "imageInventory": "audit",
@@ -98,6 +108,16 @@
   "platform": { "domain": "kore.internal", "organizationId": "platform" },
   "gateway":
     { "namespace": "kore-system", "name": "kore-gateway", "port": 8443 },
+  "gateways":
+    {
+      "internal":
+        {
+          "namespace": "kore-system",
+          "name": "kore-gateway",
+          "port": 8443,
+          "issuer": "kore-local-ca"
+        }
+    },
   "secrets":
     {
       "storeName": "platform-secrets",

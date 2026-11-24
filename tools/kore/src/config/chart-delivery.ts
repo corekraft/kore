@@ -1,9 +1,12 @@
+import { internalGateway } from "./gateways.js";
 import {
   databaseRoutesFlag,
   enabledComponents,
   inClusterCaFlag,
   featureEnabled,
   gatewayClassName,
+  platformSyncWindowFlag,
+  postgresqlServiceClassInstancesFlag,
 } from "./features.js";
 import { platformPlan, platformWildcard } from "./platform-domain.js";
 import type { Repository } from "./types.js";
@@ -40,11 +43,23 @@ export interface ChartDeliveryValues {
    */
   databaseRoutes?: true;
   /**
+   * Only while postgresql-service-class-instances is on: the PostgreSQL API's
+   * Application takes the flag as a Helm parameter, so its instances and sizing
+   * derive from the serviceClass (ADR 0154). Absent, the Application carries none.
+   */
+  serviceClassInstances?: true;
+  /**
    * Only while in-cluster-ca is on: the AppProject admits the cert-manager
    * ClusterIssuer kind and namespace the CA objects need (ADR 0142). Absent,
    * the project is exactly what it was.
    */
   inClusterCa?: true;
+  /**
+   * Only while platform-sync-window is on: the AppProject may carry the
+   * maintenance deny window, which renders only while a maintenance run holds
+   * it (ADR 0153, issue 1540). Absent, the project is exactly what it was.
+   */
+  syncWindow?: true;
   organizationId?: string;
   /** With databaseRoutes: the shared Gateway each database's TLS route attaches to (ADR 0139). */
   gatewayName?: string;
@@ -142,15 +157,24 @@ export function chartDeliveryValues(
   const { domain, organizationId } = platformPlan(repository.environment);
   const routes = featureEnabled(repository.environment, databaseRoutesFlag);
   return {
+    ...(featureEnabled(
+      repository.environment,
+      postgresqlServiceClassInstancesFlag,
+    )
+      ? { serviceClassInstances: true as const }
+      : {}),
     ...(featureEnabled(repository.environment, inClusterCaFlag)
       ? { inClusterCa: true as const }
+      : {}),
+    ...(featureEnabled(repository.environment, platformSyncWindowFlag)
+      ? { syncWindow: true as const }
       : {}),
     ...(routes
       ? {
           databaseRoutes: true as const,
           organizationId,
-          gatewayName: repository.environment.gateway.name,
-          gatewayNamespace: repository.environment.gateway.namespace,
+          gatewayName: internalGateway(repository.environment).name,
+          gatewayNamespace: internalGateway(repository.environment).namespace,
         }
       : {}),
     charts: Object.fromEntries(

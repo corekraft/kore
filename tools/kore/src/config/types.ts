@@ -157,11 +157,34 @@ export interface K3dPort {
   optOut?: boolean;
 }
 
+/** A Gateway the environment names: its object, its namespace and the port it listens on. */
+export interface GatewayRef {
+  namespace: string;
+  name: string;
+  port: number;
+}
+
+/** A Gateway entry in gateways: the Gateway and the certificate issuer it uses (chosen per Gateway, never per app). */
+export interface GatewayEntry extends GatewayRef {
+  issuer: string;
+}
+
 export interface Environment {
   $schema?: string;
   name: string;
   provider: "k3d" | "managed";
   kubeContext: string;
+  /**
+   * How many nodes the environment runs. Unset reads as one (ADR 0152), so
+   * every existing overlay, local included, keeps its meaning. Read it through
+   * `nodeCount`.
+   */
+  nodeCount?: number;
+  /**
+   * The share of the one-node budget that app quotas may commit, from 0 to 1.
+   * Unset reads as 0.8 (ADR 0152). Read it through `committedFraction`.
+   */
+  committedFraction?: number;
   /**
    * Cluster settings of a managed environment. A k3d overlay declares `k3d`
    * instead and validation rejects this block there. Read it through
@@ -177,6 +200,21 @@ export interface Environment {
     diskSize: string;
     /** Service ClusterIP range of the cluster; an in-cluster registry address must lie inside it. */
     serviceCidr?: string;
+    /**
+     * The kubelet's measured reserves and memory eviction floor (ADR 0152).
+     * Absent until the vps measurement records them; a budget with an absent
+     * reserve is not judged.
+     */
+    kubelet?: {
+      kubeReserved?: { cpu?: string; memory?: string };
+      systemReserved?: { cpu?: string; memory?: string };
+      evictionHard?: { memory?: string };
+    };
+    /**
+     * The disk the platform keeps back from `diskSize` for the kubelet and the
+     * node's own use, a size in GiB such as `20g`. Absent until measured.
+     */
+    diskReserve?: string;
   };
   /** The k3d cluster; required when provider is k3d, rejected otherwise. */
   k3d?: K3dCluster;
@@ -241,8 +279,24 @@ export interface Environment {
   platform: {
     domain: string;
     organizationId: string;
+    /**
+     * The domain the internal Gateway's names live under (ADR 0042 expand step).
+     * Unset, it is the platform domain. With gateways.external declared it is
+     * required and must be `internal.<domain>`.
+     */
+    internalDomain?: string;
   };
-  gateway: { namespace: string; name: string; port: number };
+  /**
+   * The single Gateway field, still accepted beside gateways.internal (the
+   * expand step). Read through internalGateway, never directly.
+   */
+  gateway?: GatewayRef;
+  /**
+   * The environment's Gateways (the expand step of the internal and external
+   * Gateway split). Once declared, internal is required; external is optional
+   * and carries the public HTTPS routes.
+   */
+  gateways?: { internal?: GatewayEntry; external?: GatewayEntry };
   secrets: { storeName: string; sourceNamespace: string };
   telemetry: { otlpEndpoint: string };
   componentValues?: Record<string, string[]>;
@@ -336,6 +390,8 @@ export interface GoldenPathDeliveryValues {
   sharedGateway?: boolean;
   /** True while golden-path-template-admission is on: the sync labels the app namespaces it creates for policy.sigstore.dev/include (ADR 0181). */
   templateAdmission?: boolean;
+  /** Set only while golden-path-safety-defaults is on: the sync sets safetyDefaults on each workload (ADR 0154). */
+  safetyDefaults?: boolean;
   autoscaling?: boolean;
   /** True while platform-portal, platform-organization-service-apis and platform-argocd-delivery are all on: the sync also applies the Service records (ADR 0166). */
   serviceRecords?: boolean;

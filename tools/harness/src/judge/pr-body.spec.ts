@@ -39,6 +39,13 @@ describe("renderPrBody writes the declaration lines the precheck reads", () => {
     );
   });
 
+  it("writes no expand step line when the contract's expand step is none, because the PR is the expand step itself", () => {
+    expect(
+      renderPrBody({ ...base, pattern: "expand-contract", expandStep: "none" })
+        .body,
+    ).toBe("Summary of the change.\n\nSafety pattern: expand-contract\n");
+  });
+
   it("omits the summary paragraph when the body is empty", () => {
     expect(renderPrBody({ ...base, body: "" }).body).toBe(
       "Safety pattern: no-behaviour-change\n",
@@ -47,14 +54,20 @@ describe("renderPrBody writes the declaration lines the precheck reads", () => {
 });
 
 describe("renderPrBody refuses what the precheck would refuse, before any PR exists", () => {
-  it("refuses a contract that names no expand step, and says how to name one", () => {
+  it("refuses a contract that names no expand step, and says how to name one, none included", () => {
     expect(() => renderPrBody({ ...base, pattern: "expand-contract" })).toThrow(
-      /--expand-step/,
+      /--expand-step.*none/,
     );
   });
 
   it("refuses an expand step on a pattern that is not expand-contract", () => {
     expect(() => renderPrBody({ ...base, expandStep: 700 })).toThrow(
+      /only to expand-contract/,
+    );
+  });
+
+  it("refuses none as an expand step on a pattern that is not expand-contract", () => {
+    expect(() => renderPrBody({ ...base, expandStep: "none" })).toThrow(
       /only to expand-contract/,
     );
   });

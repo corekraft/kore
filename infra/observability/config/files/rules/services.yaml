@@ -1,0 +1,56 @@
+# Evidence signals, defined once (ADR 0174). The dashboard, the Grafana alert
+# rules and the judge read these recorded names; no consumer types a raw
+# kube-state-metrics or istio expression.
+#
+# A service is the value of the app.kubernetes.io/part-of label that every
+# Deployment and pod template of a service carries (golden-path-workload).
+# kube-state-metrics exports it through the metric-labels-allowlist in
+# infra/environments/common/values/prometheus.yaml, so the helper series below
+# map each workload to its service. A workload without the label gets an empty
+# service and still shows in the namespace-keyed series.
+groups:
+  - name: kore.service.evidence
+    rules:
+      - record: kore:deployment_service
+        expr: label_replace(kube_deployment_labels, "service", "$1", "label_app_kubernetes_io_part_of", "(.*)")
+      - record: kore:pod_service
+        expr: label_replace(kube_pod_labels, "service", "$1", "label_app_kubernetes_io_part_of", "(.*)")
+
+      # Per service, keyed by namespace and service: two services in one
+      # namespace record two separate series sets.
+      - record: kore:service_replicas_available
+        expr: sum by (namespace, service) (kube_deployment_status_replicas_available * on (namespace, deployment) group_left (service) kore:deployment_service)
+      - record: kore:service_replicas_desired
+        expr: sum by (namespace, service) (kube_deployment_spec_replicas * on (namespace, deployment) group_left (service) kore:deployment_service)
+      - record: kore:service_ready_ratio
+        expr: kore:service_replicas_available / kore:service_replicas_desired
+      - record: kore:service_restarts_increase15m
+        expr: sum by (namespace, service) (increase(kube_pod_container_status_restarts_total[15m]) * on (namespace, pod) group_left (service) kore:pod_service)
+      - record: kore:service_rollout_failed
+        expr: sum by (namespace, service) (kube_deployment_status_condition{condition="Progressing", status="false"} * on (namespace, deployment) group_left (service) kore:deployment_service)
+      - record: kore:service_pods_not_ready
+        expr: sum by (namespace, service) (kube_pod_status_ready{condition="false"} * on (namespace, pod) group_left (service) kore:pod_service)
+
+      # Expand step of the namespace key (expand-contract, ADR 0174). These keep
+      # the namespace-keyed series rendering with the values of the expressions
+      # they replace, so a service with no part-of label yet changes nothing.
+      # The contract step drops them when the suborg namespace move lands.
+      - record: kore:namespace_available_replicas
+        expr: sum by (namespace) (kube_deployment_status_replicas_available)
+      - record: kore:namespace_restarts_increase15m
+        expr: sum by (namespace) (increase(kube_pod_container_status_restarts_total[15m]))
+
+      # Request series carry no service label: istio_requests_total is keyed by
+      # its destination namespace only. Per-service request series follow when
+      # the gateway-route source exists (ADR 0174).
+      - record: kore:namespace_requests_increase5m
+        expr: sum by (namespace) (label_replace(increase(istio_requests_total[5m]), "namespace", "$1", "destination_service_namespace", "(.*)"))
+      - record: kore:namespace_server_errors_increase5m
+        expr: sum by (namespace) (label_replace(increase(istio_requests_total{response_code=~"5.."}[5m]), "namespace", "$1", "destination_service_namespace", "(.*)"))
+      - record: kore:namespace_error_ratio_5m
+        expr: kore:namespace_server_errors_increase5m / kore:namespace_requests_increase5m
+
+      # The five percent server-error cap, defined once. The Grafana alert in
+      # service-observability and the judge both read this constant series.
+      - record: kore:error_ratio_cap
+        expr: vector(0.05)

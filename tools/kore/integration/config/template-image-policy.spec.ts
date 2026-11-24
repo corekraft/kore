@@ -122,6 +122,22 @@ test("the template policy takes its mode from templates.trust, whatever the plat
   assert.match(enforceTemplates, /mode: enforce/);
 });
 
+test("with the flag on, the template authority keeps the default signature format, since the release also writes the legacy .sig tag that policy-controller reads (issue 1884)", async () => {
+  const policy = templatePolicy(
+    await render(keyless(), { [templateFlag]: true }),
+  );
+  assert.ok(
+    policy.includes(
+      "  authorities:\n    - name: release-workflow\n      keyless:\n",
+    ),
+    "the release-workflow authority sets no signatureFormat beside its keyless identities",
+  );
+  assert.ok(
+    !policy.includes("signatureFormat"),
+    "no authority overrides the default signature format",
+  );
+});
+
 test("the template policy reads its signatures through templates.trust's signaturePullSecret", async () => {
   const withSecret = templatePolicy(
     await render(
@@ -144,6 +160,10 @@ test("with the flag off, no template policy is rendered, so the flag-off render 
   assert.equal(templatePolicy(docs), "");
   const off = await render(keyless(), { [templateFlag]: false });
   assert.equal(templatePolicy(off), "");
+  assert.ok(
+    !docs.join("").includes("signatureFormat"),
+    "the flag-off render sets no signature format anywhere",
+  );
 });
 
 test("a key templates.trust never gets a template policy, since the templates are signed keylessly by the release", async () => {

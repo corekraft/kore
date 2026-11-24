@@ -1,9 +1,12 @@
 {{- if .Values.databaseRoutes }}
 {{- $routesHeader := printf "{{- $routes := dict \"domain\" %q \"organizationId\" %q \"issuer\" %q \"gatewayName\" %q \"gatewayNamespace\" %q \"sectionName\" %q }}" (required "set platformDomain, which kore passes from platform.domain, to render database routes" .Values.platformDomain) (required "set organizationId, which kore passes from platform.organizationId, to render database routes" .Values.organizationId) (required "set issuer.name to the ClusterIssuer that signs database certificates" .Values.issuer.name) (required "set gateway.name, which kore passes from the environment's gateway, to render database routes" .Values.gateway.name) (required "set gateway.namespace, which kore passes from the environment's gateway, to render database routes" .Values.gateway.namespace) (required "set gateway.sectionName to the Gateway's database listener" .Values.gateway.sectionName) }}
+{{- $serviceClassHeader := printf "{{- $serviceClassInstances := %t }}" (default false .Values.serviceClassInstances) }}
 # With database-routes on, the composition gains the derived name, the local CA's
 # certificate and the verifying connection keys (ADR 0137). The Go template bodies
 # live beside it, unrendered by helm; the header line carries the platform values
-# that kore passes, so the composition reads them without a second source.
+# that kore passes, so the composition reads them without a second source. The
+# serviceClassInstances header tells the compose step whether to derive its
+# instances from the claim's serviceClass (ADR 0154); it is set only while the flag is on.
 apiVersion: apiextensions.crossplane.io/v1
 kind: Composition
 metadata:
@@ -23,6 +26,7 @@ spec:
         inline:
           template: |
             {{ $routesHeader }}
+            {{ $serviceClassHeader }}
 {{ .Files.Get "compositions/database-routes/compose.gotmpl" | indent 12 }}
     - step: project-status
       functionRef: { name: function-go-templating }
