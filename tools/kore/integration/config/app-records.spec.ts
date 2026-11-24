@@ -234,11 +234,41 @@ test("the same name in another environment is allowed: one environment is one cl
   expect(await f.check()).toEqual({ errors: [], warnings: [] });
 });
 
-test("an organization outside the chart's enum fails through the Service schema", async () => {
+const organizationPattern = "^[a-z0-9]([a-z0-9]|-[a-z0-9])*$";
+const organizationNamePart =
+  "a DNS label of lowercase letters and digits with single hyphens, at most 54 characters; platform is the tenant root";
+
+test("a suborg name the chart's pattern accepts passes the Service schema, with no errors and no warnings", async () => {
   const f = await repo({
     [`${dir}/leads.json`]: record("leads", { organization: "sales" }),
+    [`${dir}/leads.release.json`]: release("leads"),
+  });
+  expect(await f.check()).toEqual({ errors: [], warnings: [] });
+});
+
+test("an uppercase letter in the organization fails the chart's name pattern, naming the pattern and the rule", async () => {
+  const f = await repo({
+    [`${dir}/leads.json`]: record("leads", { organization: "Sales" }),
   });
   expect((await f.check()).errors).toEqual([
-    `${dir}/leads.json: spec.organization must be one of platform`,
+    `${dir}/leads.json: spec.organization must match ${organizationPattern} (${organizationNamePart})`,
+  ]);
+});
+
+test("a double hyphen in the organization fails the chart's name pattern, because the namespace <suborg>--preview needs it", async () => {
+  const f = await repo({
+    [`${dir}/leads.json`]: record("leads", { organization: "sales--team" }),
+  });
+  expect((await f.check()).errors).toEqual([
+    `${dir}/leads.json: spec.organization must match ${organizationPattern} (${organizationNamePart})`,
+  ]);
+});
+
+test("an organization of 55 characters fails the chart's length cap of 54, and no other rule", async () => {
+  const f = await repo({
+    [`${dir}/leads.json`]: record("leads", { organization: "a".repeat(55) }),
+  });
+  expect((await f.check()).errors).toEqual([
+    `${dir}/leads.json: spec.organization must be at most 54 characters`,
   ]);
 });

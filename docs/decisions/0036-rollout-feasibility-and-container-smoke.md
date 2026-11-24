@@ -2,7 +2,7 @@
 status: accepted
 summary: Two opt-in offline-ish checks catch cluster-facing failures before first live contact. A rollout-feasibility check flags workloads that cannot roll out or drain on the environment's node count; a container smoke runs each kore-owned chart's pinned image under docker and rejects crashes and bind errors.
 date: 2026-11-08
-last-verified: 2026-11-16
+last-verified: 2026-11-24
 ---
 
 # ADR 0036: Rollout feasibility and container smoke before live contact
@@ -31,8 +31,13 @@ the surge pod could never schedule.
   required anti-affinity rejects a surge pod even when the new template drops
   the rule. The opt-in spec models the running release by rendering each
   upstream chart with the environment's scheduling keys (`affinity`, rollout
-  strategies) removed. The environment schema declares no node count, so local
-  is treated as one node. It runs in `npm run test:upstream-charts`.
+  strategies) removed. The node count is the environment's declared
+  `nodeCount` (ADR 0152): each overlay sets it, and an unset count reads as
+  one, so local runs on one node unless it declares more. The opt-in upstream
+  spec reads it per overlay. The golden-path workload's flag-on render is
+  judged on the same count by `goldenPathFeasibility` (ADR 0154, issue 1523),
+  whose opt-in spec renders the real chart. Both run in
+  `npm run test:upstream-charts`.
 - **Container smoke** (`classifySmokeLogs`, `smokeTargets`, `dockerRunArgs`,
   pure and unit-tested). The opt-in spec, `npm run test:container-smoke`, runs
   each container of a kore-owned local chart under docker by digest with its
@@ -48,4 +53,7 @@ the surge pod could never schedule.
 
 - Local values disable the
   policy-controller webhook PodDisruptionBudget (one replica, one node). The loki gateway fix (affinity null with `maxSurge 0`) landed separately.
+- The node count is the overlay's `nodeCount` (ADR 0152), never a constant
+  in the check. A workload that needs more nodes than the overlay declares is
+  refused, and one that fits on the declared count passes (ADR 0154).
 - Run both checks when adding or changing a chart or its local values.

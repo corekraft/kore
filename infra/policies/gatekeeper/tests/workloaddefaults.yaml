@@ -1,0 +1,137 @@
+kind: Suite
+apiVersion: test.gatekeeper.sh/v1alpha1
+tests:
+  - name: workload-defaults
+    template: ../../../charts/kore-workload-defaults-templates/templates/koreworkloaddefaults.yaml
+    constraint: ../../../charts/kore-workload-defaults/templates/koreworkloaddefaults.yaml
+    cases:
+      - {
+          name: admits-workload-with-every-default,
+          object: objects/wd-compliant.yaml,
+          inventory: [objects/wi-ns-app.yaml],
+          assertions: [{ violations: 0 }]
+        }
+      - {
+          name: rejects-deployment-with-one-replica,
+          object: objects/wd-single-replica.yaml,
+          inventory: [objects/wi-ns-app.yaml],
+          assertions: [{ violations: 1, message: replicas }]
+        }
+      - {
+          name: rejects-statefulset-with-one-replica,
+          object: objects/wd-statefulset-single.yaml,
+          inventory: [objects/wi-ns-app.yaml],
+          assertions: [{ violations: 1, message: replicas }]
+        }
+      - {
+          name: rejects-zero-replicas,
+          object: objects/wd-zero-replicas.yaml,
+          inventory: [objects/wi-ns-app.yaml],
+          assertions: [{ violations: 1, message: replicas }]
+        }
+      # Known gap, pinned on purpose: an absent replica count passes, because an
+      # autoscaled chart omits it and its HorizontalPodAutoscaler owns the count.
+      # The PodDisruptionBudget and autoscaler follow-up closes it by reading the
+      # HPA's minReplicas, and that follow-up gates promotion of this constraint.
+      - {
+          name: admits-absent-replicas-known-gap,
+          object: objects/wd-absent-replicas.yaml,
+          inventory: [objects/wi-ns-app.yaml],
+          assertions: [{ violations: 0 }]
+        }
+      - {
+          name: rejects-rolling-update-allowing-an-unavailable-pod,
+          object: objects/wd-rolling-unavailable.yaml,
+          inventory: [objects/wi-ns-app.yaml],
+          assertions: [{ violations: 1, message: unavailable }]
+        }
+      - {
+          name: rejects-rolling-update-whose-default-is-a-quarter-unavailable,
+          object: objects/wd-rolling-absent.yaml,
+          inventory: [objects/wi-ns-app.yaml],
+          assertions: [{ violations: 1, message: 25 percent }]
+        }
+      - {
+          name: admits-max-unavailable-zero-percent,
+          object: objects/wd-rolling-percent.yaml,
+          inventory: [objects/wi-ns-app.yaml],
+          assertions: [{ violations: 0 }]
+        }
+      - {
+          name: rejects-memory-limit-different-from-request,
+          object: objects/wd-memory-unequal.yaml,
+          inventory: [objects/wi-ns-app.yaml],
+          assertions: [{ violations: 1, message: memory request }]
+        }
+      - {
+          name: rejects-container-without-memory-request,
+          object: objects/wd-memory-request-missing.yaml,
+          inventory: [objects/wi-ns-app.yaml],
+          assertions: [{ violations: 1, message: memory request }]
+        }
+      - {
+          name: rejects-job-without-memory-request,
+          object: objects/wd-job-no-memory.yaml,
+          inventory: [objects/wi-ns-app.yaml],
+          assertions: [{ violations: 1, message: memory request }]
+        }
+      - {
+          name: rejects-the-kore-owned-priority-class,
+          object: objects/wd-priority-kore.yaml,
+          inventory: [objects/wi-ns-app.yaml],
+          assertions: [{ violations: 1, message: priorityClassName }]
+        }
+      - {
+          name: rejects-hand-written-manifest-missing-every-default,
+          object: objects/wd-handwritten.yaml,
+          inventory: [objects/wi-ns-app.yaml],
+          assertions: [{ violations: 4 }]
+        }
+      - {
+          name: admits-sign-in-bff-with-the-single-replica-label,
+          object: objects/wd-bff-labelled.yaml,
+          inventory: [objects/wi-ns-app.yaml],
+          assertions: [{ violations: 0 }]
+        }
+      - {
+          name: rejects-sign-in-bff-without-the-label,
+          object: objects/wd-bff-unlabelled.yaml,
+          inventory: [objects/wi-ns-app.yaml],
+          assertions: [{ violations: 1, message: replicas }]
+        }
+      - {
+          name: rejects-sign-in-bff-with-another-label-value,
+          object: objects/wd-bff-other-label.yaml,
+          inventory: [objects/wi-ns-app.yaml],
+          assertions: [{ violations: 1, message: replicas }]
+        }
+      - {
+          name: rejects-labelled-workload-not-named-bff,
+          object: objects/wd-label-not-bff.yaml,
+          inventory: [objects/wi-ns-app.yaml],
+          assertions: [{ violations: 1, message: replicas }]
+        }
+      - {
+          name: rejects-labelled-bff-with-zero-replicas,
+          object: objects/wd-bff-zero.yaml,
+          inventory: [objects/wi-ns-app.yaml],
+          assertions: [{ violations: 1, message: replicas }]
+        }
+      - {
+          name: bff-exemption-covers-the-replica-rule-alone,
+          object: objects/wd-bff-unavailable.yaml,
+          inventory: [objects/wi-ns-app.yaml],
+          assertions: [{ violations: 1, message: unavailable }]
+        }
+      - {
+          name: does-not-match-platform-namespaces,
+          object: objects/wd-platform-single.yaml,
+          inventory: [objects/wi-ns-observability.yaml],
+          assertions: [{ violations: 0 }]
+        }
+      - {
+          name: does-not-match-system-namespaces,
+          object: objects/wd-system-single.yaml,
+          inventory: [objects/wi-ns-kube-system.yaml],
+          assertions: [{ violations: 0 }]
+        }

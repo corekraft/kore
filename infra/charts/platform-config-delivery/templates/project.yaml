@@ -51,6 +51,11 @@ spec:
     - group: constraints.gatekeeper.sh
       kind: {{ $kind }}
     {{- end }}
+    {{- /* Passed true by kore only while workload-defaults-admission is on (issue 1526): with the flag off the project is unchanged. */}}
+    {{- if .Values.workloadDefaults }}
+    - group: constraints.gatekeeper.sh
+      kind: KoreWorkloadDefaults
+    {{- end }}
   roles:
     - name: operators
       description: Platform operators change and sync the configuration

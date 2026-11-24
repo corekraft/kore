@@ -68,6 +68,12 @@
         "applies": ["local", "vps", "managed-example"]
       },
       {
+        "name": "external-dns",
+        "kind": "feature",
+        "applies": ["local", "vps", "managed-example"]
+      },
+      { "name": "acme-dns01", "kind": "feature", "applies": ["vps"] },
+      {
         "name": "database-routes",
         "kind": "feature",
         "applies": ["local", "vps", "managed-example"],
@@ -133,6 +139,11 @@
       },
       {
         "name": "app-delivery",
+        "kind": "feature",
+        "applies": ["local", "vps", "managed-example"]
+      },
+      {
+        "name": "workload-defaults-admission",
         "kind": "feature",
         "applies": ["local", "vps", "managed-example"]
       },

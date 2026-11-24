@@ -55,6 +55,8 @@
       "service-listener-sets": false,
       "external-gateway": false,
       "external-gateway-limits": false,
+      "external-dns": false,
+      "acme-dns01": false,
       "registry-by-name": false,
       "registry-tailnet-forward": false,
       "otlp-route": false,
@@ -70,7 +72,8 @@
       "postgresql-service-class-instances": false,
       "gateway-proxy-defaults": false,
       "golden-path-safety-defaults": false,
-      "app-delivery": false
+      "app-delivery": false,
+      "workload-defaults-admission": false
     },
   "secrets": { "storeName": "platform-secrets", "sourceNamespace": "external" },
   "telemetry":
@@ -89,6 +92,11 @@
           "infra/environments/vps/values/mirror/otel-collector.yaml"
         ],
       "kore-storage": ["infra/environments/vps/values/platform-storage.yaml"],
+      "external-dns":
+        [
+          "infra/environments/vps/values/mirror/external-dns.yaml",
+          "infra/environments/vps/values/external-dns.yaml"
+        ],
       "kore-platform-config":
         ["infra/environments/vps/values/platform-config.yaml"],
       "kore-local-tls": ["infra/environments/vps/values/platform-config.yaml"],

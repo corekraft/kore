@@ -54,6 +54,7 @@
       "service-listener-sets": false,
       "external-gateway": false,
       "external-gateway-limits": false,
+      "external-dns": false,
       "registry-by-name": false,
       "registry-tailnet-forward": false,
       "otlp-route": false,
@@ -68,7 +69,8 @@
       "postgresql-service-class-instances": false,
       "gateway-proxy-defaults": false,
       "golden-path-safety-defaults": false,
-      "app-delivery": false
+      "app-delivery": false,
+      "workload-defaults-admission": false
     },
   "secrets": { "storeName": "platform-secrets", "sourceNamespace": "external" },
   "telemetry":
@@ -104,6 +106,11 @@
         ],
       "crossplane":
         ["infra/environments/managed-example/values/mirror/crossplane.yaml"],
+      "external-dns":
+        [
+          "infra/environments/managed-example/values/mirror/external-dns.yaml",
+          "infra/environments/managed-example/values/external-dns.yaml"
+        ],
       "external-secrets":
         [
           "infra/environments/managed-example/values/mirror/external-secrets.yaml"
