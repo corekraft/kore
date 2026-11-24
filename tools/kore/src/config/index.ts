@@ -68,6 +68,7 @@ export type { PlatformPlan } from "./platform-domain.js";
 export {
   platformDomainOrigin,
   platformDomainVariable,
+  runTimeDomain,
 } from "./run-time-domain.js";
 export {
   loadRunTimeFile,
@@ -131,6 +132,7 @@ export {
   startsAfterDelivery,
   registryPruneFlag,
   registryTailnetForwardFlag,
+  revertKeepFlag,
   signinAwaitsPortal,
 } from "./features.js";
 export {

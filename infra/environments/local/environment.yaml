@@ -50,6 +50,7 @@
       "owner-writer": true,
       "local-image-reuse": true,
       "registry-tag-pruning": false,
+      "registry-revert-keep": false,
       "platform-organization-service-apis": true,
       "platform-argocd-delivery": true,
       "suborg-tenancy": false,
@@ -98,6 +99,7 @@
       "app-delivery": false,
       "app-sizing": false,
       "workload-defaults-admission": false,
+      "pvc-ownership-admission": false,
       "decision-advisor": true
     },
   "imageInventory": "audit",

@@ -89,6 +89,9 @@ export const localImageReuseFlag = "local-image-reuse";
 /** The flag that lets `kore local up` prune old per-run tags from the registry (ADR 0094). */
 export const registryPruneFlag = "registry-tag-pruning";
 
+/** The flag that makes a registry prune spare the digests a revert needs (ADR 0153); off, the prune is as before. */
+export const revertKeepFlag = "registry-revert-keep";
+
 /** The flag that installs metrics-server and turns on autoscaling defaults (ADR 0047). */
 export const autoscalingFlag = "autoscaling-defaults";
 
@@ -218,6 +221,9 @@ export const goldenPathSafetyDefaultsFlag = "golden-path-safety-defaults";
 /** The flag that renders each golden-path service's identity: a Service and a ServiceAccount named after the service, and each Deployment running as that account with its API token not mounted (issue 1551). Off in every overlay until a recorded live outcome. */
 export const goldenPathServiceIdentityFlag = "golden-path-service-identity";
 export const workloadDefaultsAdmissionFlag = "workload-defaults-admission";
+
+/** The flag that installs the Gatekeeper constraint refusing a PersistentVolumeClaim in an app namespace CloudNativePG does not own, in dryrun, so v1 backup gaps show in an audit before any refusal (ADR 0072, issue 1666). Off in every overlay until a recorded live outcome. */
+export const pvcOwnershipAdmissionFlag = "pvc-ownership-admission";
 
 /** The flag that delivers each app's record through the golden-path ApplicationSet: a release file is a values file of its Application and the workload deploys its digest (ADR 0166, ADR 0172, issue 1569). Off in every overlay until a recorded live outcome turns it on. */
 export const appDeliveryFlag = "app-delivery";

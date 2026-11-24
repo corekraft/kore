@@ -44,6 +44,10 @@
       "description": "Only while workload-defaults-admission is on, kore passes true, and the AppProject admits the workload-defaults constraint kind (issue 1526). Absent, the project is unchanged.",
       "type": "boolean"
     },
+    "pvcOwnership": {
+      "description": "Only while pvc-ownership-admission is on, kore passes true, and the AppProject admits the PVC-ownership constraint kind (issue 1666). Absent, the project is unchanged.",
+      "type": "boolean"
+    },
     "syncWindow": {
       "description": "Only while platform-sync-window is on, kore passes true, and the AppProject may carry the maintenance deny window (ADR 0153, issue 1540). Absent, the project is unchanged.",
       "type": "boolean"
@@ -70,7 +74,7 @@
     "project": { "type": "string", "minLength": 1 },
     "operatorsGroup": { "type": "string", "minLength": 1 },
     "charts": {
-      "description": "One lock entry per handed-over release. The image policy is not one: kore keeps it (ADR 0028). The feature-gated releases (kore-policy-sync, kore-hostname-ownership-templates, kore-hostname-ownership, kore-workload-defaults-templates, kore-workload-defaults) are allowed but never required: with their flag off kore hands over none of them.",
+      "description": "One lock entry per handed-over release. The image policy is not one: kore keeps it (ADR 0028). The feature-gated releases (kore-policy-sync, kore-hostname-ownership-templates, kore-hostname-ownership, kore-workload-defaults-templates, kore-workload-defaults, kore-pvc-ownership-templates, kore-pvc-ownership) are allowed but never required: with their flag off kore hands over none of them.",
       "type": "object",
       "required": [
         "opa-authorizer",
@@ -92,7 +96,9 @@
         "kore-hostname-ownership-templates": { "$ref": "#/definitions/entry" },
         "kore-hostname-ownership": { "$ref": "#/definitions/entry" },
         "kore-workload-defaults-templates": { "$ref": "#/definitions/entry" },
-        "kore-workload-defaults": { "$ref": "#/definitions/entry" }
+        "kore-workload-defaults": { "$ref": "#/definitions/entry" },
+        "kore-pvc-ownership-templates": { "$ref": "#/definitions/entry" },
+        "kore-pvc-ownership": { "$ref": "#/definitions/entry" }
       }
     },
     "releaseValues": {
@@ -114,7 +120,9 @@
         "kore-workload-defaults-templates": {
           "$ref": "#/definitions/valuesFiles"
         },
-        "kore-workload-defaults": { "$ref": "#/definitions/valuesFiles" }
+        "kore-workload-defaults": { "$ref": "#/definitions/valuesFiles" },
+        "kore-pvc-ownership-templates": { "$ref": "#/definitions/valuesFiles" },
+        "kore-pvc-ownership": { "$ref": "#/definitions/valuesFiles" }
       }
     },
     "namespaces": {
@@ -143,7 +151,9 @@
         "kore-workload-defaults-templates": {
           "$ref": "#/definitions/namespace"
         },
-        "kore-workload-defaults": { "$ref": "#/definitions/namespace" }
+        "kore-workload-defaults": { "$ref": "#/definitions/namespace" },
+        "kore-pvc-ownership-templates": { "$ref": "#/definitions/namespace" },
+        "kore-pvc-ownership": { "$ref": "#/definitions/namespace" }
       }
     }
   },
