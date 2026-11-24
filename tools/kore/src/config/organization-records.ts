@@ -7,6 +7,7 @@
 
 import { readdir, readFile } from "node:fs/promises";
 import { join } from "node:path";
+import type { SuborgRecord } from "./hostname-claims.js";
 import { platformClaimErrors } from "./platform-claims.js";
 import { platformPlan } from "./platform-domain.js";
 import {
@@ -226,4 +227,18 @@ export async function checkOrganizationRecords(
     }
   }
   return { errors: [...new Set(errors)], organizations };
+}
+
+/**
+ * The suborg records of an environment by name, each a repository path: the names
+ * the hostname claim rules read (ADR 0159). A directory that cannot be listed holds
+ * no suborgs; the record check reports the directory's own problems.
+ */
+export async function suborgRecords(
+  root: string,
+  environment: Environment,
+): Promise<SuborgRecord[]> {
+  const directory = organizationsDirectory(environment.name);
+  const files = await recordFiles(join(root, directory), directory, []);
+  return [...files].map(([name, file]) => ({ name, file }));
 }

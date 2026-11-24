@@ -1,0 +1,31 @@
+{{- if index .Values.features "acme-dns01" }}
+{{- /*
+Let's Encrypt staging and production ClusterIssuers that solve DNS-01 through
+Cloudflare for one zone (ADR 0161). Each selects only the platform zone through
+dnsZones, so it never handles another domain, and reads its token from the
+consumer's own cloudflare-token Secret in cert-manager, which cert-manager reads
+when it solves a challenge. Neither issuer carries an email: none is committed.
+*/}}
+{{- $zone := required "set acmeDns01.zone, which kore passes as the platform domain while acme-dns01 is on" .Values.acmeDns01.zone }}
+{{- range .Values.acmeDns01.issuers }}
+---
+apiVersion: cert-manager.io/v1
+kind: ClusterIssuer
+metadata:
+  name: {{ .name }}
+spec:
+  acme:
+    server: {{ .server }}
+    privateKeySecretRef:
+      name: {{ .accountKeySecretName }}
+    solvers:
+      - selector:
+          dnsZones:
+            - {{ $zone | quote }}
+        dns01:
+          cloudflare:
+            apiTokenSecretRef:
+              name: {{ $.Values.acmeDns01.tokenSecretName }}
+              key: {{ $.Values.acmeDns01.tokenKey }}
+{{- end }}
+{{- end }}

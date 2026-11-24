@@ -1,0 +1,13 @@
+# A hand-written manifest, not rendered by the chart: it misses every default.
+# One replica, no rollout strategy, no memory request, and the kore-owned class.
+apiVersion: apps/v1
+kind: Deployment
+metadata: { name: orders, namespace: app }
+spec:
+  replicas: 1
+  template:
+    spec:
+      priorityClassName: kore-platform
+      containers:
+        - name: orders
+          image: invalid

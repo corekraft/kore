@@ -981,6 +981,41 @@
           ]
       },
       {
+        "name": "kore-workload-defaults-templates",
+        "phase": "configuration",
+        "owner": "argocd",
+        "namespace": "gatekeeper-system",
+        "kind": "local-chart",
+        "chart": "infra/charts/kore-workload-defaults-templates",
+        "version": "local",
+        "featureFlag": "workload-defaults-admission",
+        "ownsCRDs": [],
+        "dependencies": ["gatekeeper"],
+        "timeout": "5m",
+        "readiness":
+          [
+            "constrainttemplate.templates.gatekeeper.sh/koreworkloaddefaults",
+            "crd/koreworkloaddefaults.constraints.gatekeeper.sh"
+          ]
+      },
+      {
+        "name": "kore-workload-defaults",
+        "phase": "configuration",
+        "owner": "argocd",
+        "namespace": "gatekeeper-system",
+        "kind": "local-chart",
+        "chart": "infra/charts/kore-workload-defaults",
+        "version": "local",
+        "featureFlag": "workload-defaults-admission",
+        "ownsCRDs": [],
+        "dependencies": ["gatekeeper", "kore-workload-defaults-templates"],
+        "timeout": "5m",
+        "readiness":
+          [
+            "koreworkloaddefaults.constraints.gatekeeper.sh/kore-workload-defaults"
+          ]
+      },
+      {
         "name": "kore-admission-gate",
         "phase": "configuration",
         "namespace": "kore-system",
@@ -1006,6 +1041,22 @@
         "readiness": ["deployment/platform-dns"]
       },
       {
+        "name": "external-dns",
+        "phase": "configuration",
+        "namespace": "kore-external-dns",
+        "kind": "helm",
+        "repository": "https://kubernetes-sigs.github.io/external-dns/",
+        "chart": "external-dns",
+        "version": "external-dns",
+        "featureFlag": "external-dns",
+        "ownsCRDs":
+          ["dnsendpoints.externaldns.k8s.io", "dnsrecords.externaldns.k8s.io"],
+        "dependencies": ["kore-platform-config"],
+        "timeout": "5m",
+        "values": ["infra/environments/common/values/external-dns.yaml"],
+        "readiness": ["deployment/external-dns"]
+      },
+      {
         "name": "kore-local-tls",
         "phase": "configuration",
         "owner": "argocd",
@@ -1016,7 +1067,18 @@
         "ownsCRDs": [],
         "dependencies": ["cert-manager"],
         "timeout": "10m",
-        "readiness": ["certificate/kore-local", "secret/kore-local-tls"]
+        "readiness":
+          [
+            "certificate/kore-local",
+            "secret/kore-local-tls",
+            "clusterissuer.cert-manager.io/letsencrypt-staging",
+            "clusterissuer.cert-manager.io/letsencrypt-production"
+          ],
+        "readinessFlags":
+          {
+            "clusterissuer.cert-manager.io/letsencrypt-staging": "acme-dns01",
+            "clusterissuer.cert-manager.io/letsencrypt-production": "acme-dns01"
+          }
       },
       {
         "name": "kore-image-policy",

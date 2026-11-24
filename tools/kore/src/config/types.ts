@@ -176,6 +176,10 @@ export interface FlagEntry {
   requires?: string[];
   /** Declared but not yet applicable: left out of what applies, pending a decision. */
   pending?: boolean;
+  /** The environments of `applies` where the flag is not applicable in v1; it is left out of what applies there (ADR 0148). */
+  notApplicable?: string[];
+  /** Why the flag is not applicable, one line; the progress report prints it (ADR 0148). */
+  reason?: string;
 }
 
 /** The flag manifest, `infra/catalog/flags.yaml` (ADR 0148). */

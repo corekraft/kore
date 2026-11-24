@@ -2,6 +2,8 @@
 import { expect, test, vi } from "vitest";
 import * as flag from "./index.js";
 import { unprovenFlags, unprovenLine } from "./audit.js";
+import { platformWindows } from "./app-window-store.js";
+import { recordAppFlagWindow } from "./app-window-writer.js";
 import { FlagError, environments, readOverlay, withFlagOn } from "./overlay.js";
 import { activationProof, findProof } from "./proof.js";
 import { parseCharts, renderCharts } from "./recorded-lock.js";
@@ -13,7 +15,7 @@ vi.mock("./proof.js");
 vi.mock("./recorded-lock.js");
 vi.mock("./release-lock.js");
 
-test("the flag barrel exposes exactly the overlay, proof and audit entry points", () => {
+test("the flag barrel exposes exactly the overlay, proof, audit and app window entry points", () => {
   expect(Object.keys(flag).sort()).toEqual(
     [
       "FlagError",
@@ -24,8 +26,10 @@ test("the flag barrel exposes exactly the overlay, proof and audit entry points"
       "flagRequires",
       "parseCharts",
       "parseReleaseLock",
+      "platformWindows",
       "proofAudit",
       "readOverlay",
+      "recordAppFlagWindow",
       "renderCharts",
       "unprovenFlags",
       "unprovenLine",
@@ -33,6 +37,11 @@ test("the flag barrel exposes exactly the overlay, proof and audit entry points"
       "withFlagOn",
     ].sort(),
   );
+});
+
+test("the flag barrel re-exports the app window store and writer, not copies", () => {
+  expect(flag.platformWindows).toBe(platformWindows);
+  expect(flag.recordAppFlagWindow).toBe(recordAppFlagWindow);
 });
 
 test("the flag barrel re-exports each module's own function, not a copy", () => {

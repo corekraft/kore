@@ -23,7 +23,7 @@ const mirroredRules = [
   "must be at most 63 characters",
   "must not use a reserved prefix",
   "metadata.name must be at most 54 characters, so <suborg>--preview fits 63",
-  "enum: [platform]",
+  'pattern: "^[a-z0-9]([a-z0-9]|-[a-z0-9])*$"',
   "metadata.name must start with a lowercase letter",
   "metadata.name must be at most 51 characters",
   // The Organization rules for a suborg (ADR 0165), as the claim check words them.

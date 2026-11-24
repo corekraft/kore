@@ -148,6 +148,7 @@ export {
   appliedFlags,
   flagEntry,
   neverRetires,
+  notApplicableReason,
   requiredFlags,
 } from "./flag-manifest.js";
 export { exemptionCheckMode, validateRepository } from "./validate.js";

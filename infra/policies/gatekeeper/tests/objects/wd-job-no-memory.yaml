@@ -1,0 +1,10 @@
+apiVersion: batch/v1
+kind: Job
+metadata: { name: nightly-sweep, namespace: app }
+spec:
+  template:
+    spec:
+      restartPolicy: Never
+      containers:
+        - name: sweep
+          image: invalid
