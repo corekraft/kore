@@ -40,6 +40,10 @@
       "description": "Only while in-cluster-ca is on, kore passes true, and the AppProject admits the cert-manager ClusterIssuer kind and the cert-manager namespace that kore-local-tls renders the CA into (ADR 0142). Absent, the project is unchanged.",
       "type": "boolean"
     },
+    "workloadDefaults": {
+      "description": "Only while workload-defaults-admission is on, kore passes true, and the AppProject admits the workload-defaults constraint kind (issue 1526). Absent, the project is unchanged.",
+      "type": "boolean"
+    },
     "syncWindow": {
       "description": "Only while platform-sync-window is on, kore passes true, and the AppProject may carry the maintenance deny window (ADR 0153, issue 1540). Absent, the project is unchanged.",
       "type": "boolean"
