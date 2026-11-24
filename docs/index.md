@@ -354,6 +354,8 @@ decisions; read one only when planning that area, and expect it to change.
 - [`docs/ideas/0081-hc-sessions-verification.md`](ideas/0081-hc-sessions-verification.md) — Verification that the hc-sessions flag runs harness sessions on hc terminals in local, so it can be activated. Turning it on needs this idea's recorded verification outcome.
 - [`docs/ideas/0082-drift-listing-mappings-works-live-in-local.md`](ideas/0082-drift-listing-mappings-works-live-in-local.md) — drift-listing-mappings works live in local
 - [`docs/ideas/0083-golden-path-signin-after-portal-works-live-in-local.md`](ideas/0083-golden-path-signin-after-portal-works-live-in-local.md) — golden-path-signin-after-portal works live in local
+- [`docs/ideas/0084-drift-listing-mappings-works-live-on-release-locks.md`](ideas/0084-drift-listing-mappings-works-live-on-release-locks.md) — drift-listing-mappings works live in local on the v0.26.0 locks
+- [`docs/ideas/0085-golden-path-signin-after-portal-works-live-on-release-locks.md`](ideas/0085-golden-path-signin-after-portal-works-live-on-release-locks.md) — golden-path-signin-after-portal works live in local on the v0.26.0 locks
 
 ## Operations and Guides
 
