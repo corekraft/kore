@@ -1,6 +1,6 @@
 // File rules for Read, Write and Edit. Blocks: secret-path, sops-plaintext,
 // coverage-threshold. Audit mode (warn): append-only, idea-outcome,
-// flag-activation, image-digest, guardrail-demotion.
+// flag-activation, image-digest, guardrail-demotion, platform-domain-leak.
 import { INVENTORY_PATH } from "../guardrail/index.js";
 import { checkDenyAudit } from "./guard-deny.js";
 import {
@@ -9,6 +9,7 @@ import {
 } from "./guard-guardrails.js";
 import { RULESET_FILE, checkRulesetWeakening } from "./guard-ruleset.js";
 import { appendOnlyWarn, isAppendOnly } from "./guard-append-only.js";
+import { domainLeak } from "./guard-leak.js";
 import {
   SECRET_PATH,
   loadSopsPatterns,
@@ -263,6 +264,8 @@ async function checkWrite(
     checkGuardrailDemotion(relative, guarded.previous, guarded.after),
     checkSettingsDenyRemoval(relative, guarded.previous, guarded.after, ctx),
     checkRulesetWeakening(relative, guarded.previous, guarded.after),
+    // The text the write adds: the content of a Write, or the new snippet of an Edit (ADR 0164).
+    domainLeak(written(tool, input), ctx.platformDomain),
   ];
   return weigh(findings.map((finding) => applyMode(finding, ctx)));
 }

@@ -75,6 +75,27 @@ beforeEach(() => {
   );
 });
 
+describe("hostFacts and the platform domain", () => {
+  it("reads the platform domain the run-time variable names", async () => {
+    expect(
+      await hostFacts(
+        { HOME: "/home/test", KORE_PLATFORM_DOMAIN: "platform.example.com" },
+        fs,
+        "/repo",
+      ),
+    ).toEqual({
+      home: "/home/test",
+      verifiedBash: false,
+      platformDomain: "platform.example.com",
+    });
+  });
+
+  it("carries no platform domain when the run-time variable is unset", async () => {
+    const facts = await hostFacts({ HOME: "/home/test" }, fs, "/repo");
+    expect("platformDomain" in facts).toBe(false);
+  });
+});
+
 describe("hostFacts", () => {
   it("takes the home from the environment's HOME, as the shell reads it", async () => {
     expect(await hostFacts({ HOME: "/home/test" }, fs, "/repo")).toEqual({
