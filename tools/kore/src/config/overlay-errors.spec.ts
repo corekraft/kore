@@ -11,7 +11,7 @@ import {
 import { alertEmailErrors, alertEmailWarnings } from "./alert-email.js";
 import { componentGatedOff } from "./features.js";
 import { exists } from "./files.js";
-import { flagDependencyErrors } from "./flag-dependencies.js";
+import { providerFlagErrors } from "./provider-flag-errors.js";
 import { flagManifestErrors } from "./flag-manifest.js";
 import { overlayErrors, overlayWarnings } from "./overlay-errors.js";
 
@@ -19,7 +19,7 @@ vi.mock("node:path");
 vi.mock("./alert-email.js");
 vi.mock("./features.js");
 vi.mock("./files.js");
-vi.mock("./flag-dependencies.js");
+vi.mock("./provider-flag-errors.js");
 vi.mock("./flag-manifest.js", () => ({ flagManifestErrors: vi.fn() }));
 
 /** Paths in this set do not exist; every other path does. */
@@ -32,7 +32,7 @@ beforeEach(() => {
   vi.mocked(componentGatedOff).mockReturnValue(false);
   vi.mocked(alertEmailErrors).mockReturnValue([]);
   vi.mocked(alertEmailWarnings).mockReturnValue([]);
-  vi.mocked(flagDependencyErrors).mockReturnValue([]);
+  vi.mocked(providerFlagErrors).mockReturnValue([]);
   vi.mocked(flagManifestErrors).mockReturnValue([]);
 });
 
@@ -204,16 +204,16 @@ test("the overlay's warnings are the alert email warnings", () => {
   expect(alertEmailWarnings).toHaveBeenCalledWith(repo);
 });
 
-test("a flag turned on without the flag it needs is an overlay error, read from the environment", async () => {
-  vi.mocked(flagDependencyErrors).mockReturnValue([
-    "environment local turns on registry-by-name, which needs platform-shared-gateway",
+test("a flag a provider refuses is an overlay error, read from the environment", async () => {
+  vi.mocked(providerFlagErrors).mockReturnValue([
+    "environment local turns on in-cluster-ca, which creates the cluster's own root CA",
   ]);
   const environment = fakeEnvironment();
 
   expect(await overlayErrors(repository([], environment))).toEqual([
-    "environment local turns on registry-by-name, which needs platform-shared-gateway",
+    "environment local turns on in-cluster-ca, which creates the cluster's own root CA",
   ]);
-  expect(flagDependencyErrors).toHaveBeenCalledWith(environment);
+  expect(providerFlagErrors).toHaveBeenCalledWith(environment);
 });
 
 test("the flag manifest's errors for the overlay's flags are overlay errors, reported with the rest", async () => {
