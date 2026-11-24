@@ -99,6 +99,8 @@ describe("the committed inventory", () => {
       "image-digest",
       // New in plan 12 Step 4: starts in audit until a person activates it.
       "judge-guardrail-activation",
+      // New in #1620 (ADR 0164): audit until a person activates it.
+      "platform-domain-leak",
       "role-hc-raw",
     ]);
   });

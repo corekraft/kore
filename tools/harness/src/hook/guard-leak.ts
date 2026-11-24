@@ -4,7 +4,6 @@
 import type { Finding } from "./guard-verdict.js";
 import { warn } from "./guard-verdict.js";
 
-export const PLATFORM_DOMAIN_RULE = "platform-domain-leak";
 export const PLATFORM_DOMAIN_VARIABLE = "KORE_PLATFORM_DOMAIN";
 
 /** Names the repository already holds: the placeholder, the local alias and the reserved example domain. */
@@ -42,7 +41,7 @@ export function domainLeak(text: string, domain: string | undefined): Finding {
     return null;
   }
   return warn(
-    PLATFORM_DOMAIN_RULE,
+    "platform-domain-leak",
     "This text names the platform domain that KORE_PLATFORM_DOMAIN holds on this machine, which the public repository never holds. " +
       "Instead, write example.com in its place.",
   );

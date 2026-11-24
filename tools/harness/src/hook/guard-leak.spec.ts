@@ -2,11 +2,9 @@
 // write that names it raises. `warn` is mocked, as the other rule units do.
 
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import {
-  domainLeak,
-  PLATFORM_DOMAIN_RULE,
-  platformDomainOf,
-} from "./guard-leak.js";
+import { domainLeak, platformDomainOf } from "./guard-leak.js";
+
+const PLATFORM_DOMAIN_RULE = "platform-domain-leak";
 import { warn, type Hit } from "./guard-verdict.js";
 
 vi.mock("./guard-verdict.js");
