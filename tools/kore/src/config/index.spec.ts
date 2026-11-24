@@ -29,6 +29,10 @@ vi.mock("./alert-forwarding.js", () => ({
 vi.mock("./dashboard-sidecar.js", () => ({
   dashboardSidecarHelmArgs: vi.fn(),
 }));
+vi.mock("./database-backup.js", () => ({
+  backedUpDatabases: vi.fn(),
+  platformOwnedDatabases: [],
+}));
 vi.mock("./keycloak-operator-probe.js", () => ({
   keycloakOperatorProbeHelmArgs: vi.fn(),
 }));
@@ -133,6 +137,7 @@ const entryPoints = [
   "approvedImageList",
   "auditEvidence",
   "autoscalingFlag",
+  "backedUpDatabases",
   "backstageHostname",
   "chartDeliveryValues",
   "chartRepositoryUrls",
@@ -201,6 +206,7 @@ const entryPoints = [
   "platformDomainOrigin",
   "platformDomainVariable",
   "platformHelmArgs",
+  "platformOwnedDatabases",
   "platformPlan",
   "platformPortalFlag",
   "policyPromotionErrors",

@@ -101,6 +101,7 @@ export async function validateCommand(
     runner: context.runner,
     yqVersion: repository.versions.tools.yq ?? "",
     recordBase: stringFlag(context.parsed, "record-base"),
+    backupTarget: repository.environment.backup !== undefined,
     hostnames: {
       root: repository.root,
       environment: repository.environment,
@@ -125,9 +126,7 @@ export async function validateCommand(
     ...records.warnings,
     ...crossFile.warnings,
   ];
-  for (const warning of warnings) {
-    console.error(`warning: ${warning}`);
-  }
+  warnings.forEach((warning) => console.error(`warning: ${warning}`));
   print(
     {
       environment: repository.environment.name,

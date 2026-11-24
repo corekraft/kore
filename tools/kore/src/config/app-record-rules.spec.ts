@@ -1,4 +1,4 @@
-import { expect, test } from "vitest";
+import { expect, test, vi } from "vitest";
 import type { SchemaNode } from "./schema-subset.js";
 import {
   componentCrossErrors,
@@ -7,6 +7,8 @@ import {
   releaseFileErrors,
   specFileErrors,
 } from "./app-record-rules.js";
+
+vi.mock("./database-backup.js", () => ({ databaseBackupErrors: () => [] }));
 
 const file = "infra/environments/local/services/leads.json";
 const releaseFile = "infra/environments/local/services/leads.release.json";

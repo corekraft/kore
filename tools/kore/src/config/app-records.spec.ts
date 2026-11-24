@@ -72,7 +72,7 @@ beforeEach(() => {
   vi.mocked(immutabilityReport).mockResolvedValue({ errors: [], warnings: [] });
 });
 
-function check(extra: { recordBase?: string } = {}) {
+function check(extra: { recordBase?: string; backupTarget?: boolean } = {}) {
   return checkAppRecords({
     root,
     environment: "local",
@@ -117,6 +117,14 @@ test("each spec file is checked against the Service schema that yq reads from th
     manifest: JSON.parse(spec),
     xrdSpec,
   });
+});
+
+test("each spec file is checked with whether the overlay declares a backup target, for its database backup rules", async () => {
+  files = { [`${dir}/leads.json`]: spec };
+  await check({ backupTarget: true });
+  expect(specFileErrors).toHaveBeenCalledWith(
+    expect.objectContaining({ backupTarget: true }),
+  );
 });
 
 test("a missing yq names the pinned version and the mise command that installs it", async () => {
