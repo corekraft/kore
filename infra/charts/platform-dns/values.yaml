@@ -10,6 +10,10 @@ answer:
   # published gateway port.
   address: 127.0.0.1
   ttl: 60
+# The sizes the container requests and limits while data-path-guaranteed-qos is on
+# (ADR 0152, issue 1593): the request equals the limit, so the pod is Guaranteed.
+# An environment's values may set them; a flag-on render refuses one that omits them.
+guaranteed: { cpu: 200m, memory: 64Mi }
 service:
   # Unset keeps the Service cluster-internal. An environment that publishes the
   # DNS sets one node port, used for both UDP and TCP.

@@ -100,3 +100,42 @@ test("a chart argument is never built while the placeholder is in force, so a re
     /KORE_PLATFORM_DOMAIN/,
   );
 });
+
+test("with the flag on, the platform certificate takes the suborg names as a JSON list, so the chart renders a wildcard pair for each", () => {
+  expect(
+    acmeDns01HelmArgs(
+      managed,
+      "kore-local-tls",
+      { KORE_PLATFORM_DOMAIN: exampleDomain },
+      ["reference", "team-a"],
+    ),
+  ).toEqual([
+    "--set-string",
+    `acmeDns01.zone=${exampleDomain}`,
+    "--set-json",
+    `acmeDns01.suborgs=["reference","team-a"]`,
+  ]);
+});
+
+test("with no suborg records the argument list is what it was before, so a suborg with no Organization manifest renders no wildcard", () => {
+  expect(
+    acmeDns01HelmArgs(
+      managed,
+      "kore-local-tls",
+      { KORE_PLATFORM_DOMAIN: exampleDomain },
+      [],
+    ),
+  ).toEqual(["--set-string", `acmeDns01.zone=${exampleDomain}`]);
+});
+
+test("with the flag off, suborg names add no argument", () => {
+  vi.mocked(featureEnabled).mockReturnValue(false);
+  expect(
+    acmeDns01HelmArgs(
+      managed,
+      "kore-local-tls",
+      { KORE_PLATFORM_DOMAIN: exampleDomain },
+      ["reference"],
+    ),
+  ).toEqual([]);
+});

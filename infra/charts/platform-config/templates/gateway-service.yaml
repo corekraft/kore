@@ -1,5 +1,6 @@
-{{- /* The deployment key carries the shared proxy's app defaults while gateway-proxy-defaults is on (ADR 0154). */}}
-{{- if and (or .Values.gateway.service.type (include "platform-config.proxyDefaults" .)) (eq .Values.gateway.className "istio") }}
+{{- /* The deployment key carries the shared proxy's app defaults while gateway-proxy-defaults is on (ADR 0154), and its resources while data-path-guaranteed-qos is on (ADR 0152). */}}
+{{- $qos := include "platform-config.dataPathQos" . -}}
+{{- if and (or .Values.gateway.service.type (include "platform-config.proxyDefaults" .) $qos) (eq .Values.gateway.className "istio") }}
 # Istio generates the Gateway's Service and merges this overlay into it. The
 # environment decides how the Service is published (an overlay that reaches the
 # Gateway through a node port, say); the chart names no provider.
@@ -19,9 +20,10 @@ data:
         {{- . | nindent 8 }}
       {{- end }}
 {{- end }}
-{{- if include "platform-config.proxyDefaults" . }}
+{{- if or (include "platform-config.proxyDefaults" .) $qos }}
   deployment: |
     spec:
+{{- if include "platform-config.proxyDefaults" . }}
       replicas: {{ .Values.gateway.proxy.replicas }}
       minReadySeconds: {{ .Values.gateway.proxy.minReadySeconds }}
       progressDeadlineSeconds: {{ .Values.gateway.proxy.progressDeadlineSeconds }}
@@ -31,8 +33,16 @@ data:
           maxUnavailable: {{ .Values.gateway.proxy.maxUnavailable }}
           maxSurge: {{ .Values.gateway.proxy.maxSurge }}
 {{- end }}
+{{- if $qos }}
+      template:
+        spec:
+          containers:
+            - name: istio-proxy
+              resources: {{ include "platform-config.guaranteedResources" . }}
 {{- end }}
-{{- if and (eq .Values.gateway.className "agentgateway") (or .Values.gateway.service.type (include "platform-config.proxyDefaults" .)) }}
+{{- end }}
+{{- end }}
+{{- if and (eq .Values.gateway.className "agentgateway") (or .Values.gateway.service.type (include "platform-config.proxyDefaults" .) $qos) }}
 ---
 # agentgateway generates the Gateway's Service and merges this overlay into it,
 # the same settings the Istio ConfigMap above carries, so the environment still
@@ -64,6 +74,9 @@ spec:
         rollingUpdate:
           maxUnavailable: {{ .Values.gateway.proxy.maxUnavailable }}
           maxSurge: {{ .Values.gateway.proxy.maxSurge }}
+{{- end }}
+{{- if $qos }}
+  resources: {{ include "platform-config.guaranteedResources" . }}
 {{- end }}
 {{- end }}
 {{- if and (include "platform-config.externalGateway" .) .Values.externalGateway.service.nodePort }}

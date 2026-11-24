@@ -2,7 +2,7 @@
 status: proposed
 summary: Behind the flag acme-dns01, vps only, cert-manager gets a Let's Encrypt staging and a production ClusterIssuer that solve DNS-01 through Cloudflare for the platform zone, with the DNS-01 self-check pointed at public resolvers so the in-cluster rewrite cannot hide the challenge; platform names get per-suborg wildcard certificates, foreign names get HTTP-01 per-name certificates, and the first live proof uses staging then production under one outcome.
 date: 2026-11-20
-last-verified: 2026-11-20
+last-verified: 2026-11-24
 ---
 
 # ADR 0161: cert-manager solves DNS-01 through Cloudflare and issues per-suborg wildcards behind acme-dns01
@@ -63,6 +63,16 @@ without approval (#1484).
   production issuer is added only after staging is Ready, and the one flag outcome
   records both. The in-cluster CA keeps its role for the registry and other
   non-public names (concept 4 settles the rest).
+- **Issuance budget (#1679).** The platform chart renders, for each suborg in the
+  Organization records, two Certificates: `*.<suborg>.<domain>` and
+  `*.<suborg>.internal.<domain>`. Both reference `acmeDns01.certificateIssuer`, which
+  is `letsencrypt-staging` until a staging Ready outcome is recorded, and no
+  Certificate references production before then. Each new suborg is therefore two new
+  certificates. Let's Encrypt allows 50 new certificates per registered domain per 7
+  days, and every pair of the platform domain counts against that one domain, so the
+  budget is 25 new suborgs per 7 days (2 issuances each, 50 in all). Renewals of an
+  existing pair are not new certificates under that limit. A suborg with no
+  Organization record has no name, so it costs nothing.
 - **Failure is an infrastructure event.** A revoked token or an unreachable
   Cloudflare stops new issuance and renewals; running certificates keep serving, and
   renewal starts 30 days before expiry. Notify-only alerts fire on a certificate not

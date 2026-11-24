@@ -133,7 +133,15 @@
           ],
         "dependencies": ["kore-gateway-api", "oci-registry"],
         "timeout": "10m",
-        "values": ["infra/environments/common/values/policy-controller.yaml"],
+        "values":
+          [
+            "infra/environments/common/values/policy-controller.yaml",
+            "infra/environments/common/values/policy-controller-qos.yaml"
+          ],
+        "valuesFlags":
+          {
+            "infra/environments/common/values/policy-controller-qos.yaml": "data-path-guaranteed-qos"
+          },
         "readiness":
           [
             "deployment/policy-controller-webhook",

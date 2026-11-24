@@ -149,9 +149,20 @@
         "applies": ["local", "vps", "managed-example"]
       },
       {
+        "name": "data-path-guaranteed-qos",
+        "kind": "feature",
+        "applies": ["local", "vps", "managed-example"]
+      },
+      {
         "name": "golden-path-safety-defaults",
         "kind": "feature",
         "applies": ["local", "vps", "managed-example"]
+      },
+      {
+        "name": "golden-path-service-identity",
+        "kind": "feature",
+        "applies": ["local", "vps", "managed-example"],
+        "requires": ["platform-argocd-delivery"]
       },
       {
         "name": "app-delivery",
@@ -189,6 +200,7 @@
         "applies": ["local"]
       },
       { "name": "host-published-ports", "kind": "feature", "applies": ["vps"] },
+      { "name": "openbao", "kind": "feature", "applies": ["vps"] },
       {
         "name": "registry-tag-pruning",
         "kind": "feature",
