@@ -70,6 +70,10 @@ spec:
               message: 'spec.parent must be "platform", the tenant root: v1 places a suborg one level below it; set it to "platform"'
             - rule: "self.metadata.name == 'platform' || has(self.spec.quota)"
               message: "spec.quota is required for a suborg, and has no default: set requests.cpu, requests.memory, pods and storage"
+          # No object here sets additionalProperties beside properties: Crossplane cannot
+          # render that into a CRD ("additionalProperties and properties are mutual
+          # exclusive"), and the XRD still reads Established (#2047). kore validate closes
+          # every object that has properties, so an unknown field is refused there.
           properties:
             spec:
               type: object
@@ -87,12 +91,10 @@ spec:
                 quota:
                   type: object
                   required: [requests, pods, storage]
-                  additionalProperties: false
                   properties:
                     requests:
                       type: object
                       required: [cpu, memory]
-                      additionalProperties: false
                       properties:
                         cpu: { type: string, pattern: "^[0-9]+(\\.[0-9]+)?m?$" }
                         memory: { type: string, pattern: "^[0-9]+(\\.[0-9]+)?(Mi|Gi|Ti)$" }
@@ -154,6 +156,10 @@ spec:
               message: "the namespace name <service>--<environment> must be at most 63 characters; shorten metadata.name or spec.environments"
             - rule: "!self.metadata.name.startsWith('kube-') && !self.metadata.name.startsWith('kore-')"
               message: "metadata.name must not use a reserved prefix (kube-, kore-): it would collide with a namespace owned elsewhere"
+          # No object here sets additionalProperties beside properties: Crossplane cannot
+          # render that into a CRD ("additionalProperties and properties are mutual
+          # exclusive"), and the XRD still reads Established (#2047). kore validate closes
+          # every object that has properties, so an unknown field is refused there.
           properties:
             spec:
               type: object
@@ -198,7 +204,6 @@ spec:
                   type: object
                   description: "frontend, bff or both: a service with neither is refused"
                   minProperties: 1
-                  additionalProperties: false
                   properties:
                     # The sizing fields (#1525, ADR 0152): optional and additive, judged at
                     # kore validate only while app-sizing is on. A memory limit must equal the
@@ -207,27 +212,22 @@ spec:
                     # record that does not write them.
                     frontend:
                       type: object
-                      additionalProperties: false
                       properties:
                         resources:
                           type: object
-                          additionalProperties: false
                           properties:
                             requests:
                               type: object
-                              additionalProperties: false
                               properties:
                                 cpu: { type: string }
                                 memory: { type: string }
                                 ephemeralStorage: { type: string }
                             limits:
                               type: object
-                              additionalProperties: false
                               properties:
                                 memory: { type: string }
                         autoscaling:
                           type: object
-                          additionalProperties: false
                           properties:
                             minReplicas:
                               { type: integer, minimum: 2, default: 2 }
@@ -235,27 +235,22 @@ spec:
                               { type: integer, minimum: 1, default: 5 }
                     bff:
                       type: object
-                      additionalProperties: false
                       properties:
                         resources:
                           type: object
-                          additionalProperties: false
                           properties:
                             requests:
                               type: object
-                              additionalProperties: false
                               properties:
                                 cpu: { type: string }
                                 memory: { type: string }
                                 ephemeralStorage: { type: string }
                             limits:
                               type: object
-                              additionalProperties: false
                               properties:
                                 memory: { type: string }
                         autoscaling:
                           type: object
-                          additionalProperties: false
                           properties:
                             minReplicas:
                               { type: integer, minimum: 2, default: 2 }
@@ -266,7 +261,6 @@ spec:
                 # verdict in app-soak.ts gives it 24h and no request count.
                 soak:
                   type: object
-                  additionalProperties: false
                   description: "the time a contract step waits after this app's release is activated: duration defaults to 24h; minRequests is off unless written"
                   properties:
                     duration:
