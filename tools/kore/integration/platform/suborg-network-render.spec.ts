@@ -8,6 +8,7 @@ import {
   renderStep,
   stepTemplate,
   suborg,
+  networkOn,
   suborgOn,
 } from "./suborg-render-support.js";
 
@@ -42,7 +43,10 @@ async function suborgNetworkPolicies(
   extra: string[] = [],
 ): Promise<string> {
   const step = stepTemplate(
-    composition(render(...suborgOn(false), ...extra), "organization-local"),
+    composition(
+      render(...suborgOn(false), ...networkOn, ...extra),
+      "organization-local",
+    ),
     "compose-suborg-network-policies",
   );
   return renderStep(step, resource);
@@ -149,8 +153,41 @@ test("a suborg with no parent, the platform tenant root, gets no network policie
   );
 });
 
-test("with suborg-tenancy on and no service range recorded the Organization composition refuses to render", () => {
-  assert.throws(() => render("--set", "features.suborg-tenancy=true"));
+test("with both flags on and no service range recorded the Organization composition refuses to render", () => {
+  assert.throws(() =>
+    render(...suborgOn(false), "--set", "features.suborg-network-policy=true"),
+  );
+});
+
+test("with suborg-tenancy on and suborg-network-policy off neither network step is composed and no policy kind renders", () => {
+  const rendered = render(...suborgOn(false));
+  assert.doesNotMatch(
+    composition(rendered, "organization-local"),
+    /compose-suborg-network-policies/,
+  );
+  assert.doesNotMatch(
+    composition(rendered, "service-local"),
+    /compose-grant-policies/,
+  );
+  assert.doesNotMatch(rendered, /kind: (NetworkPolicy|AuthorizationPolicy)$/m);
+});
+
+test("suborg-network-policy alone, without suborg-tenancy, renders no network policy and no grant step", () => {
+  const rendered = render(
+    "--set",
+    "features.suborg-network-policy=true",
+    "--set-string",
+    "suborgNetwork.serviceCidr=10.96.0.0/12",
+  );
+  assert.doesNotMatch(
+    composition(rendered, "organization-local"),
+    /compose-suborg-network-policies/,
+  );
+  assert.doesNotMatch(
+    composition(rendered, "service-local"),
+    /compose-grant-policies/,
+  );
+  assert.doesNotMatch(rendered, /kind: (NetworkPolicy|AuthorizationPolicy)$/m);
 });
 
 test("with suborg-tenancy off the platform-apis render has no NetworkPolicy and no AuthorizationPolicy anywhere", () => {
@@ -169,7 +206,7 @@ async function grantPolicies(
   allowFrom: string[],
 ): Promise<string> {
   const step = stepTemplate(
-    composition(render(...suborgOn(false)), "service-local"),
+    composition(render(...suborgOn(false), ...networkOn), "service-local"),
     "compose-grant-policies",
   );
   return renderStep(step, {
@@ -179,7 +216,10 @@ async function grantPolicies(
 }
 
 test("with suborg-tenancy on the Service composition has one step that composes the grant policies before it is ready", () => {
-  const service = composition(render(...suborgOn(false)), "service-local");
+  const service = composition(
+    render(...suborgOn(false), ...networkOn),
+    "service-local",
+  );
   assert.match(service, /- step: compose-grant-policies/);
   assert.ok(
     service.indexOf("- step: compose-grant-policies") <

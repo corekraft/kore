@@ -49,7 +49,7 @@ spec:
                 platform.kore.dev/shared-gateway: "true"{{ end }}{{- if and .Values.features (index .Values.features "golden-path-template-admission") }}
                 policy.sigstore.dev/include: "true"{{ end }}{{`
             {{- end }}`}}{{- end }}
-{{- if and .Values.features (index .Values.features "suborg-tenancy") }}
+{{- if and .Values.features (index .Values.features "suborg-tenancy") (index .Values.features "suborg-network-policy") }}
     # With suborg-tenancy on (ADR 0165, issue 1552) a grant in allowFrom
     # (<suborg>/<service>) to a service in another suborg opens that service to the
     # grantee, and this step is the one owner of those rules. An AuthorizationPolicy in

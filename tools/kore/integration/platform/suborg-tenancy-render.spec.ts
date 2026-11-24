@@ -53,6 +53,19 @@ test("with suborg-tenancy off the platform-apis render equals the checked-in gol
   );
 });
 
+test("with suborg-tenancy on and suborg-network-policy off the platform-apis render equals main's checked-in golden, so the network flag is the only other change", async () => {
+  assert.equal(
+    render(...suborgOn(false)),
+    await readFile(
+      join(
+        root,
+        "tools/kore/src/platform/fixtures/platform-apis.suborg-tenancy-only.yaml",
+      ),
+      "utf8",
+    ),
+  );
+});
+
 test("with suborg-tenancy absent the Organization composition has no suborg namespace step", () => {
   const organization = composition(render(), "organization-local");
   assert.doesNotMatch(organization, /compose-suborg-namespace/);

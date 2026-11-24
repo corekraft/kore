@@ -3,6 +3,7 @@ import { internalGateway } from "./gateways.js";
 import {
   featureEnabled,
   platformDnsFlag,
+  suborgNetworkPolicyFlag,
   suborgTenancyFlag,
 } from "./features.js";
 import type { Environment } from "./types.js";
@@ -38,9 +39,11 @@ export function clusterResolutionArgs(
 }
 
 /**
- * With suborg-tenancy on (ADR 0165, issue 1552), the cluster's service range, which
- * the suborg NetworkPolicies exclude from open egress: the k3d cluster's range on k3d,
- * the overlay's otherwise. Absent, none is passed and the chart refuses to render.
+ * With suborg-tenancy and suborg-network-policy on (ADR 0165, issue 1552), the cluster's
+ * service range, which the suborg NetworkPolicies exclude from open egress: the k3d
+ * cluster's range on k3d, the overlay's otherwise. Absent, none is passed and the chart
+ * refuses to render the policies. Otherwise none is passed, so suborg-tenancy alone renders
+ * what it rendered before.
  */
 export function suborgNetworkArgs(
   environment: Environment,
@@ -50,7 +53,8 @@ export function suborgNetworkArgs(
     environment.provider === "k3d" ? environment.k3d : environment.cluster;
   const on =
     component === "kore-platform-apis" &&
-    featureEnabled(environment, suborgTenancyFlag);
+    featureEnabled(environment, suborgTenancyFlag) &&
+    featureEnabled(environment, suborgNetworkPolicyFlag);
   return on && cluster?.serviceCidr !== undefined
     ? ["--set-string", `suborgNetwork.serviceCidr=${cluster.serviceCidr}`]
     : [];

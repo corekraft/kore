@@ -101,6 +101,9 @@ export const appSizingFlag = "app-sizing";
 /** The flag that creates each suborg's namespace, labels, ResourceQuota and LimitRange from the Organization composition, and stops the Service composition creating a namespace per environment (ADR 0165, issue 1550). Needs the Organization API, the records Application and the portal, which together make the Organization the one namespace owner. Off in every overlay until a recorded live outcome. */
 export const suborgTenancyFlag = "suborg-tenancy";
 
+/** The flag that renders the suborg ingress and egress NetworkPolicies and the grant policies (ADR 0165, issue 1552); needs suborg-tenancy. Off in every overlay until a recorded live outcome (#1559). */
+export const suborgNetworkPolicyFlag = "suborg-network-policy";
+
 /** The flag that installs the Organization and Service platform APIs, for the platform organization only (plan 15 step 2). */
 export const organizationServiceApisFlag = "platform-organization-service-apis";
 

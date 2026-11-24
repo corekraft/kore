@@ -164,6 +164,7 @@ spec:
                   max:
                     storage: {{ $quota.storage | quote }}
             {{- end }}`}}
+{{- if index $features "suborg-network-policy" }}
 {{- $net := .Values.suborgNetwork | default dict }}
 {{- $serviceCidr := required "suborgNetwork.serviceCidr is required while suborg-tenancy is on: pass the cluster's service range from the environment that provisions the cluster" $net.serviceCidr }}
 {{- $podCidr := $net.podCidr | default "10.42.0.0/16" }}
@@ -261,6 +262,7 @@ spec:
                           - {{ $cidr }}
 {{- end }}
             {{`{{- end }}`}}
+{{- end }}
 {{- end }}
     - step: mark-ready
       functionRef: { name: function-auto-ready }

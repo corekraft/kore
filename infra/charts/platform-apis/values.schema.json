@@ -5,7 +5,7 @@
   "additionalProperties": false,
   "properties": {
     "features": {
-      "description": "Kore passes the environment's feature flags here (ADR 0077). Only platform-portal, platform-hostname-ownership, platform-shared-gateway, golden-path-template-admission and suborg-tenancy are read: portal on, the Organization composition also owns the realm; hostname ownership on, the Organization XRD carries a zone; shared gateway and template admission on, the Service composition labels each namespace it creates (ADR 0181); suborg-tenancy on, the Organization composition creates each suborg's namespace, labels, ResourceQuota and LimitRange, and the Service composition creates no namespace (ADR 0165).",
+      "description": "Kore passes the environment's feature flags here (ADR 0077). Only platform-portal, platform-hostname-ownership, platform-shared-gateway, golden-path-template-admission, suborg-tenancy and suborg-network-policy are read: portal on, the Organization composition also owns the realm; hostname ownership on, the Organization XRD carries a zone; shared gateway and template admission on, the Service composition labels each namespace it creates (ADR 0181); suborg-tenancy on, the Organization composition creates each suborg's namespace, labels, ResourceQuota and LimitRange, and the Service composition creates no namespace (ADR 0165); suborg-network-policy on, with suborg-tenancy, the suborg NetworkPolicies and the grant policies (issue 1552).",
       "type": "object"
     },
     "platformOrganizationId": {
@@ -14,7 +14,7 @@
       "pattern": "^[a-z0-9]([-a-z0-9]{0,61}[a-z0-9])?$"
     },
     "suborgNetwork": {
-      "description": "With suborg-tenancy on (ADR 0165, issue 1552), the cluster's address ranges the suborg NetworkPolicies exclude from open internet egress: the pods of other suborgs and platform namespaces live in the pod range, and the Kubernetes API answers on the service range and on any recorded API address. serviceCidr is required then; the others default to the k3s pod range and to none.",
+      "description": "With suborg-tenancy and suborg-network-policy on (ADR 0165, issue 1552), the cluster's address ranges the suborg NetworkPolicies exclude from open internet egress: the pods of other suborgs and platform namespaces live in the pod range, and the Kubernetes API answers on the service range and on any recorded API address. serviceCidr is required then; the others default to the k3s pod range and to none.",
       "type": "object",
       "additionalProperties": false,
       "properties": {

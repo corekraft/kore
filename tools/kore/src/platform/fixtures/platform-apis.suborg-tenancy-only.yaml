@@ -1,0 +1,434 @@
+---
+# Source: platform-apis/templates/namespace-rbac.yaml
+# Cluster-wide: the Service composition creates cluster-scoped Namespaces (ADR 0115).
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: crossplane-platform-namespaces
+  labels: { app.kubernetes.io/managed-by: Helm }
+rules:
+  - apiGroups: [""]
+    resources: [namespaces]
+    verbs: [get, list, watch, create, update, patch, delete]
+
+---
+# Source: platform-apis/templates/namespace-rbac.yaml
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: crossplane-platform-namespaces
+  labels: { app.kubernetes.io/managed-by: Helm }
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: crossplane-platform-namespaces
+subjects:
+  - kind: ServiceAccount
+    name: crossplane
+    namespace: crossplane-system
+
+---
+# Source: platform-apis/templates/organization-xrd.yaml
+# Cluster scope: ADR 0115 (the namespace composition creates cluster-scoped Namespaces).
+apiVersion: apiextensions.crossplane.io/v2
+kind: CompositeResourceDefinition
+metadata:
+  name: organizations.platform.kore.dev
+spec:
+  scope: Cluster
+  group: platform.kore.dev
+  names:
+    kind: Organization
+    plural: organizations
+  defaultCompositionRef:
+    name: organization-local
+  versions:
+    - name: v1alpha1
+      served: true
+      referenceable: true
+      schema:
+        openAPIV3Schema:
+          type: object
+          required: [spec]
+          # A suborg is an Organization one level below the tenant root `platform` (ADR 0165).
+          # Its name is its namespace, so it is a DNS label of at most 54 characters
+          # (<suborg>--preview fits 63), with no double hyphen; its quota has no default,
+          # so an unbounded suborg cannot be written. Reserved names are refused by
+          # kore validate, which holds the platform namespaces (ADR 0165).
+          x-kubernetes-validations:
+            - rule: "self.metadata.name.matches('^[a-z0-9]([-a-z0-9]{0,61}[a-z0-9])?$')"
+              message: "metadata.name must be a single DNS label (lowercase letters, digits and hyphens, at most 63 characters, no dots)"
+            - rule: "self.metadata.name == 'platform' || self.metadata.name.size() <= 54"
+              message: "metadata.name must be at most 54 characters, so <suborg>--preview fits 63; shorten it"
+            - rule: "!self.metadata.name.contains('--')"
+              message: "metadata.name must not contain a double hyphen: the suborg namespace is <suborg> and its preview is <suborg>--preview; rename it"
+            - rule: "self.metadata.name != 'platform' || !has(self.spec.parent)"
+              message: "the platform organization is the tenant root and has no parent; remove spec.parent"
+            - rule: "self.metadata.name == 'platform' || has(self.spec.parent)"
+              message: 'spec.parent is required for a suborg; set it to "platform", the tenant root'
+            - rule: "!has(self.spec.parent) || self.spec.parent == 'platform'"
+              message: 'spec.parent must be "platform", the tenant root: v1 places a suborg one level below it; set it to "platform"'
+            - rule: "self.metadata.name == 'platform' || has(self.spec.quota)"
+              message: "spec.quota is required for a suborg, and has no default: set requests.cpu, requests.memory, pods and storage"
+          # No object here sets additionalProperties beside properties: Crossplane cannot
+          # render that into a CRD ("additionalProperties and properties are mutual
+          # exclusive"), and the XRD still reads Established (#2047). kore validate closes
+          # every object that has properties, so an unknown field is refused there.
+          properties:
+            spec:
+              type: object
+              required: [tenant]
+              properties:
+                tenant:
+                  type: string
+                  pattern: "^[a-z0-9]([-a-z0-9]{0,61}[a-z0-9])?$"
+                parent:
+                  type: string
+                  pattern: "^[a-z0-9]([-a-z0-9]{0,61}[a-z0-9])?$"
+                # The quota of a suborg: requests for cpu and memory, a pod count and the
+                # storage it may request. Required for a suborg by the rules above, with no
+                # default; the platform organization carries none.
+                quota:
+                  type: object
+                  required: [requests, pods, storage]
+                  properties:
+                    requests:
+                      type: object
+                      required: [cpu, memory]
+                      properties:
+                        cpu: { type: string, pattern: "^[0-9]+(\\.[0-9]+)?m?$" }
+                        memory: { type: string, pattern: "^[0-9]+(\\.[0-9]+)?(Mi|Gi|Ti)$" }
+                    pods: { type: integer, minimum: 1 }
+                    storage: { type: string, pattern: "^[0-9]+(\\.[0-9]+)?(Gi|Ti)$" }
+            status:
+              type: object
+              properties:
+                conditions:
+                  { type: array, x-kubernetes-preserve-unknown-fields: true }
+                phase: { type: string }
+
+---
+# Source: platform-apis/templates/service-xrd.yaml
+# Cluster scope: ADR 0115 (the namespace composition creates cluster-scoped Namespaces).
+# metadata.name is the base of every name derived from a Service. The longest
+# derived label is the Argo Application golden-path-<service>, 12 characters
+# longer: Argo CD's default label tracking copies the Application's name into
+# the app.kubernetes.io/instance label, and a label value is at most 63
+# characters. So the name is at most 51 characters (63 - 12) and starts with a
+# letter (a Kubernetes Service name is a DNS-1035 label). The other derived
+# names are the workload <service>-frontend (9 characters longer, 60 at the
+# cap), the workload <service>-bff, the certificate secret <service>-tls, the
+# Gateway routes named <service>, the namespace <service>--<environment> (at
+# most 63, checked per environment below), and the host label <service> in
+# <service>.<organization>.<platform domain>.
+apiVersion: apiextensions.crossplane.io/v2
+kind: CompositeResourceDefinition
+metadata:
+  name: services.platform.kore.dev
+spec:
+  scope: Cluster
+  group: platform.kore.dev
+  names:
+    kind: Service
+    plural: services
+  defaultCompositionRef:
+    name: service-local
+  versions:
+    - name: v1alpha1
+      served: true
+      referenceable: true
+      schema:
+        openAPIV3Schema:
+          type: object
+          required: [spec]
+          x-kubernetes-validations:
+            - rule: "self.metadata.name.matches('^[a-z0-9]([-a-z0-9]{0,61}[a-z0-9])?$')"
+              message: "metadata.name must be a single DNS label (lowercase letters, digits and hyphens, at most 63 characters, no dots): the default host is <service>.<organization>.<platform domain>"
+            - rule: "self.metadata.name.matches('^[a-z]')"
+              message: "metadata.name must start with a lowercase letter (a Kubernetes Service name cannot start with a digit); rename it to start with a letter"
+            - rule: "self.metadata.name.size() <= 51"
+              message: "metadata.name must be at most 51 characters, because the longest derived label, the Argo Application golden-path-<service>, adds 12 characters to fit 63; shorten it"
+            - rule: "!self.metadata.name.contains('--')"
+              message: "metadata.name must not contain a double hyphen: the namespace is <service>--<environment>"
+            - rule: "self.spec.environments.all(e, !e.contains('--'))"
+              message: "spec.environments must not contain a double hyphen: the namespace is <service>--<environment>"
+            - rule: "self.spec.environments.all(e, self.metadata.name.size() + 2 + e.size() <= 63)"
+              message: "the namespace name <service>--<environment> must be at most 63 characters; shorten metadata.name or spec.environments"
+            - rule: "!self.metadata.name.startsWith('kube-') && !self.metadata.name.startsWith('kore-')"
+              message: "metadata.name must not use a reserved prefix (kube-, kore-): it would collide with a namespace owned elsewhere"
+          # No object here sets additionalProperties beside properties: Crossplane cannot
+          # render that into a CRD ("additionalProperties and properties are mutual
+          # exclusive"), and the XRD still reads Established (#2047). kore validate closes
+          # every object that has properties, so an unknown field is refused there.
+          properties:
+            spec:
+              type: object
+              required: [organization, environments]
+              properties:
+                # The tenant name (ADR 0165): platform, or a suborg. It takes the
+                # Organization name rules in organization-xrd.yaml: a DNS label of
+                # at most 54 characters with no double hyphen, so <suborg>--preview
+                # fits 63. The pattern has no lookahead, so the double hyphen is
+                # ruled out by its shape. Whether a suborg exists is kore validate's to say.
+                organization:
+                  {
+                    type: string,
+                    maxLength: 54,
+                    pattern: "^[a-z0-9]([a-z0-9]|-[a-z0-9])*$",
+                    description: "a DNS label of lowercase letters and digits with single hyphens, at most 54 characters; platform is the tenant root"
+                  }
+                environments:
+                  type: array
+                  minItems: 1
+                  maxItems: 16
+                  x-kubernetes-list-type: set
+                  items:
+                    type: string
+                    maxLength: 61
+                    pattern: "^[a-z0-9]([-a-z0-9]{0,61}[a-z0-9])?$"
+                # The app record fields (ADR 0166). Every one is optional, so a
+                # Service without them, and the legacy infra/services directory,
+                # still validate. Image digests, the source commit and flag state
+                # are not here: only the ServiceRelease file carries them.
+                repository:
+                  {
+                    type: string,
+                    description: "the application's source repository, for example example.org/leads/checkout"
+                  }
+                path:
+                  {
+                    type: string,
+                    description: "the directory of the service inside its repository"
+                  }
+                components:
+                  type: object
+                  description: "frontend, bff or both: a service with neither is refused"
+                  minProperties: 1
+                  properties:
+                    # The sizing fields (#1525, ADR 0152): optional and additive, judged at
+                    # kore validate only while app-sizing is on. A memory limit must equal the
+                    # memory request, and there is no CPU limit. The autoscaler's minimum is
+                    # at least two; its defaults are two and five. Nothing is defaulted in a
+                    # record that does not write them.
+                    frontend:
+                      type: object
+                      properties:
+                        resources:
+                          type: object
+                          properties:
+                            requests:
+                              type: object
+                              properties:
+                                cpu: { type: string }
+                                memory: { type: string }
+                                ephemeralStorage: { type: string }
+                            limits:
+                              type: object
+                              properties:
+                                memory: { type: string }
+                        autoscaling:
+                          type: object
+                          properties:
+                            minReplicas:
+                              { type: integer, minimum: 2, default: 2 }
+                            maxReplicas:
+                              { type: integer, minimum: 1, default: 5 }
+                    bff:
+                      type: object
+                      properties:
+                        resources:
+                          type: object
+                          properties:
+                            requests:
+                              type: object
+                              properties:
+                                cpu: { type: string }
+                                memory: { type: string }
+                                ephemeralStorage: { type: string }
+                            limits:
+                              type: object
+                              properties:
+                                memory: { type: string }
+                        autoscaling:
+                          type: object
+                          properties:
+                            minReplicas:
+                              { type: integer, minimum: 2, default: 2 }
+                            maxReplicas:
+                              { type: integer, minimum: 1, default: 5 }
+                # The per-rollout soak (#1535, ADR 0171): optional, and nothing is
+                # defaulted here, so a record that writes none is unchanged. The
+                # verdict in app-soak.ts gives it 24h and no request count.
+                soak:
+                  type: object
+                  description: "the time a contract step waits after this app's release is activated: duration defaults to 24h; minRequests is off unless written"
+                  properties:
+                    duration:
+                      type: string
+                      pattern: "^[1-9][0-9]*[mhd]$"
+                      description: "a whole number of minutes, hours or days, such as 30m, 24h or 7d; under 30m is accepted with an audit warning"
+                    minRequests:
+                      type: integer
+                      minimum: 1
+                      description: "requests through the shared gateway the soak must see before a contract step; omit it to turn the count off"
+                gateway:
+                  type: string
+                  enum: [internal, external]
+                  default: internal
+                  description: "internal by default; external is accepted here, and the ingress work enforces it"
+                # Reserved for their own decisions: the ingress decision owns the
+                # hostnames shape, the backup decision owns backup, and the access
+                # decision owns allowFrom. Loose placeholders until then.
+                hostnames:
+                  {
+                    type: array,
+                    items: { type: string },
+                    description: "reserved: the ingress decision owns the shape"
+                  }
+                backup:
+                  {
+                    type: object,
+                    x-kubernetes-preserve-unknown-fields: true,
+                    description: "reserved: the backup decision owns the shape"
+                  }
+                allowFrom:
+                  {
+                    type: array,
+                    items: { type: string },
+                    description: "reserved: the names of the grantees; the access decision owns the shape"
+                  }
+                secrets:
+                  type: array
+                  description: "secret names only; secret values never enter git"
+                  items:
+                    type: string
+                    pattern: "^[a-z0-9]([-a-z0-9]{0,61}[a-z0-9])?$"
+            status:
+              type: object
+              properties:
+                defaultHost: { type: string }
+                conditions:
+                  { type: array, x-kubernetes-preserve-unknown-fields: true }
+                phase: { type: string }
+
+---
+# Source: platform-apis/templates/organization-composition.yaml
+apiVersion: apiextensions.crossplane.io/v1
+kind: Composition
+metadata:
+  name: organization-local
+  labels: { platform.kore.dev/provider: local }
+spec:
+  compositeTypeRef:
+    { apiVersion: platform.kore.dev/v1alpha1, kind: Organization }
+  mode: Pipeline
+  pipeline:
+    # With suborg-tenancy on (ADR 0165, issue 1550), a suborg is the namespace,
+    # quota and trust boundary of its services. This step is the one owner of the
+    # suborg's Namespace, every label on it, and its ResourceQuota and LimitRange;
+    # nothing else creates them. Only an Organization with a parent is a suborg, so
+    # the platform tenant root composes no namespace. The quota has no default (the
+    # XRD requires it), so the LimitRange is derived from it: a container may ask no
+    # more than the suborg's whole requests, and a claim no more than its storage.
+    # The shared-gateway label follows platform-shared-gateway (ADR 0134). The Go
+    # template is wrapped in a Helm raw string so Helm leaves it for Crossplane to
+    # evaluate; the feature flags alone are spliced in by Helm.
+    - step: compose-suborg-namespace
+      functionRef: { name: function-go-templating }
+      input:
+        apiVersion: gotemplating.fn.crossplane.io/v1beta1
+        kind: GoTemplate
+        source: Inline
+        inline:
+          template: |
+            {{- $suborg := .observed.composite.resource }}
+            {{- $quota := $suborg.spec.quota }}
+            {{- with $suborg.spec.parent }}
+            ---
+            apiVersion: v1
+            kind: Namespace
+            metadata:
+              name: {{ $suborg.metadata.name }}
+              annotations:
+                gotemplating.fn.crossplane.io/composition-resource-name: namespace
+              labels:
+                platform.kore.dev/tenant: {{ . }}
+                platform.kore.dev/organization: {{ $suborg.metadata.name }}
+                pod-security.kubernetes.io/enforce: restricted
+                istio.io/dataplane-mode: ambient
+                policy.sigstore.dev/include: "true"
+            ---
+            apiVersion: v1
+            kind: ResourceQuota
+            metadata:
+              name: suborg-quota
+              namespace: {{ $suborg.metadata.name }}
+              annotations:
+                gotemplating.fn.crossplane.io/composition-resource-name: quota
+            spec:
+              hard:
+                requests.cpu: {{ $quota.requests.cpu | quote }}
+                requests.memory: {{ $quota.requests.memory | quote }}
+                requests.storage: {{ $quota.storage | quote }}
+                pods: {{ $quota.pods | int | quote }}
+            ---
+            apiVersion: v1
+            kind: LimitRange
+            metadata:
+              name: suborg-limits
+              namespace: {{ $suborg.metadata.name }}
+              annotations:
+                gotemplating.fn.crossplane.io/composition-resource-name: limits
+            spec:
+              limits:
+                - type: Container
+                  max:
+                    cpu: {{ $quota.requests.cpu | quote }}
+                    memory: {{ $quota.requests.memory | quote }}
+                - type: PersistentVolumeClaim
+                  max:
+                    storage: {{ $quota.storage | quote }}
+            {{- end }}
+    - step: mark-ready
+      functionRef: { name: function-auto-ready }
+
+---
+# Source: platform-apis/templates/service-composition.yaml
+apiVersion: apiextensions.crossplane.io/v1
+kind: Composition
+metadata:
+  name: service-local
+  labels: { platform.kore.dev/provider: local }
+spec:
+  compositeTypeRef: { apiVersion: platform.kore.dev/v1alpha1, kind: Service }
+  mode: Pipeline
+  pipeline:
+    # One Namespace per service environment (ADR 0037), labelled with only the
+    # tenant and organization (ADR 0038). The platform organization is the
+    # tenant root, so its name is also the tenant. The namespace is
+    # <service>--<environment>; the XRD forbids a double hyphen in either part, so
+    # the join is unambiguous and cannot equal a platform namespace. The go template is wrapped in
+    # a Helm raw string so Helm leaves it for Crossplane to evaluate; the platform
+    # domain alone is spliced in by Helm from chart values.
+    # The default host is <service>.<organization>.<platform domain> (ADR 0042):
+    # the Service's status.defaultHost, and an annotation on each namespace. The
+    # XRD proves the service name is one DNS label; the chart schema bounds the domain.
+    - step: compose-namespaces
+      functionRef: { name: function-go-templating }
+      input:
+        apiVersion: gotemplating.fn.crossplane.io/v1beta1
+        kind: GoTemplate
+        source: Inline
+        inline:
+          template: |
+            {{- $domain := "kore.internal" }}
+            {{- $service := .observed.composite.resource.metadata.name }}
+            {{- $org := .observed.composite.resource.spec.organization }}
+            {{- $host := printf "%s.%s.%s" $service $org $domain }}
+            ---
+            apiVersion: platform.kore.dev/v1alpha1
+            kind: Service
+            status:
+              defaultHost: {{ $host }}
+    - step: mark-ready
+      functionRef: { name: function-auto-ready }

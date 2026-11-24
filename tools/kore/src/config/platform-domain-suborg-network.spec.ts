@@ -27,7 +27,7 @@ test("with suborg-tenancy on the platform-apis chart is handed the overlay's ser
   const environment = fakeEnvironment({
     ...platform,
     provider: "managed",
-    features: { "suborg-tenancy": true },
+    features: { "suborg-tenancy": true, "suborg-network-policy": true },
     cluster: { ...cluster, serviceCidr: "10.43.0.0/16" },
   });
   expect(platformHelmArgs(environment, "kore-platform-apis")).toContain(
@@ -39,7 +39,7 @@ test("on k3d the service range is the k3d cluster's, not the overlay's cluster b
   const environment = fakeEnvironment({
     ...platform,
     provider: "k3d",
-    features: { "suborg-tenancy": true },
+    features: { "suborg-tenancy": true, "suborg-network-policy": true },
     k3d: { clusterName: "kore", serviceCidr: "10.96.0.0/12", ports: [] },
   });
   expect(platformHelmArgs(environment, "kore-platform-apis")).toContain(
@@ -51,7 +51,7 @@ test("with no service range recorded nothing is passed, so the chart refuses to 
   const environment = fakeEnvironment({
     ...platform,
     provider: "managed",
-    features: { "suborg-tenancy": true },
+    features: { "suborg-tenancy": true, "suborg-network-policy": true },
     cluster,
   });
   expect(
@@ -73,11 +73,39 @@ test("with suborg-tenancy off, or on another component, no suborg network value 
   );
   const on = fakeEnvironment({
     ...platform,
-    features: { "suborg-tenancy": true },
+    features: { "suborg-tenancy": true, "suborg-network-policy": true },
     k3d,
   });
   expect(
     platformHelmArgs(on, "kore-platform-config").some((arg) =>
+      arg.startsWith("suborgNetwork."),
+    ),
+  ).toBe(false);
+});
+
+test("with suborg-tenancy on but suborg-network-policy off nothing is passed, so the chart renders what main renders", () => {
+  const k3d = { clusterName: "kore", serviceCidr: "10.96.0.0/12", ports: [] };
+  const environment = fakeEnvironment({
+    ...platform,
+    features: { "suborg-tenancy": true, "suborg-network-policy": false },
+    k3d,
+  });
+  expect(
+    platformHelmArgs(environment, "kore-platform-apis").some((arg) =>
+      arg.startsWith("suborgNetwork."),
+    ),
+  ).toBe(false);
+});
+
+test("with suborg-network-policy on but suborg-tenancy off nothing is passed", () => {
+  const k3d = { clusterName: "kore", serviceCidr: "10.96.0.0/12", ports: [] };
+  const environment = fakeEnvironment({
+    ...platform,
+    features: { "suborg-tenancy": false, "suborg-network-policy": true },
+    k3d,
+  });
+  expect(
+    platformHelmArgs(environment, "kore-platform-apis").some((arg) =>
       arg.startsWith("suborgNetwork."),
     ),
   ).toBe(false);

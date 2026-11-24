@@ -31,21 +31,27 @@ export function render(...extra: string[]): string {
   );
 }
 
-/**
- * The flag on, with the platform's shared Gateway on or off. The cluster's service
- * range is passed too: the suborg policies exclude it from open internet egress (ADR
- * 0165, issue 1552), and the chart refuses to render without it.
- */
+/** suborg-tenancy on, with the platform's shared Gateway on or off; the network policies stay off. */
 export function suborgOn(sharedGateway: boolean): string[] {
   return [
     "--set",
     "features.suborg-tenancy=true",
     "--set",
     `features.platform-shared-gateway=${sharedGateway}`,
-    "--set-string",
-    "suborgNetwork.serviceCidr=10.96.0.0/12",
   ];
 }
+
+/**
+ * suborg-network-policy on, which needs suborg-tenancy beside it. The cluster's service
+ * range is passed too: the suborg policies exclude it from open internet egress (ADR
+ * 0165, issue 1552), and the chart refuses to render the policies without it.
+ */
+export const networkOn: string[] = [
+  "--set",
+  "features.suborg-network-policy=true",
+  "--set-string",
+  "suborgNetwork.serviceCidr=10.96.0.0/12",
+];
 
 /** The rendered Composition document with the given name. */
 export function composition(rendered: string, name: string): string {
