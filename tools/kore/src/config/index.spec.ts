@@ -208,6 +208,7 @@ const entryPoints = [
   "releaseOwner",
   "releaseRecoveryArgocdRefusalFlag",
   "renderedCrdNames",
+  "requiredFlags",
   "rollbackConstraint",
   "runTimeDomainErrors",
   "runTimeFilePath",

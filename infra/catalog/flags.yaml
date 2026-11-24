@@ -55,17 +55,20 @@
       {
         "name": "service-listener-sets",
         "kind": "feature",
-        "applies": ["local", "vps", "managed-example"]
+        "applies": ["local", "vps", "managed-example"],
+        "requires": ["platform-shared-gateway"]
       },
       {
         "name": "external-gateway",
         "kind": "feature",
-        "applies": ["local", "vps", "managed-example"]
+        "applies": ["local", "vps", "managed-example"],
+        "requires": ["service-listener-sets"]
       },
       {
         "name": "external-gateway-limits",
         "kind": "feature",
-        "applies": ["local", "vps", "managed-example"]
+        "applies": ["local", "vps", "managed-example"],
+        "requires": ["external-gateway"]
       },
       {
         "name": "database-routes",
@@ -75,7 +78,8 @@
       {
         "name": "otlp-route",
         "kind": "feature",
-        "applies": ["local", "vps", "managed-example"]
+        "applies": ["local", "vps", "managed-example"],
+        "requires": ["platform-shared-gateway"]
       },
       {
         "name": "platform-hostname-ownership",
@@ -158,6 +162,7 @@
         "name": "registry-by-name",
         "kind": "feature",
         "applies": ["local", "vps", "managed-example"],
+        "requires": ["platform-shared-gateway"],
         "pending": true
       },
       {

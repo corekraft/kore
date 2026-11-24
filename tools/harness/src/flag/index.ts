@@ -1,4 +1,5 @@
 export { FlagError, environments, readOverlay, withFlagOn } from "./overlay.js";
+export { assertMayTurnOn, flagRequires } from "./requirements.js";
 export { activationProof, findProof } from "./proof.js";
 export type { ActivationProof, Proof, ProofSource } from "./proof.js";
 export { parseCharts, renderCharts } from "./recorded-lock.js";

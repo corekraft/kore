@@ -5,6 +5,7 @@ import {
   flagEntry,
   loadRepository,
   neverRetires,
+  requiredFlags,
   validateRepository,
 } from "../../src/config/index.js";
 import type { Repository } from "../../src/config/index.js";
@@ -128,6 +129,42 @@ test("an environment flag marked never-retire is reported as never retiring, and
     assert.equal(neverRetires(flags, name), true, name);
   }
   assert.equal(neverRetires(flags, "autoscaling-defaults"), false);
+});
+
+test("the real manifest declares each prerequisite the overlay check enforces, so the requirement is stated once in the manifest and the old check agrees with it", async () => {
+  const { flags } = await loadRepository("local");
+  assert.deepEqual(requiredFlags(flags, "registry-by-name"), [
+    "platform-shared-gateway",
+  ]);
+  assert.deepEqual(requiredFlags(flags, "otlp-route"), [
+    "platform-shared-gateway",
+  ]);
+  assert.deepEqual(requiredFlags(flags, "service-listener-sets"), [
+    "platform-shared-gateway",
+  ]);
+  assert.deepEqual(requiredFlags(flags, "external-gateway"), [
+    "service-listener-sets",
+  ]);
+  assert.deepEqual(requiredFlags(flags, "external-gateway-limits"), [
+    "external-gateway",
+  ]);
+  assert.deepEqual(requiredFlags(flags, "autoscaling-defaults"), []);
+});
+
+test("in-cluster-ca is refused in the local overlay through the manifest, because its entry applies to vps and managed-example only", async () => {
+  const message = await rejectionOf(
+    await withFeatures("local", {
+      ...(await loadRepository("local")).environment.features,
+      "in-cluster-ca": true,
+    }),
+  );
+  // The old k3d refusal still reports alongside the manifest's until the contract step deletes it.
+  assert.ok(
+    message.includes(
+      "flag in-cluster-ca is in the local overlay but its entry applies to vps, managed-example only; add local to its applies or remove it from the local overlay (ADR 0148)",
+    ),
+    message,
+  );
 });
 
 test("a fixture overlay that turns a flag on still validates, so activating a flag does not break the vps overlay", async () => {

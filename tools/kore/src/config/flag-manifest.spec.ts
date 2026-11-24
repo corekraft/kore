@@ -10,6 +10,7 @@ import {
   flagEntry,
   flagManifestErrors,
   neverRetires,
+  requiredFlags,
 } from "./flag-manifest.js";
 import type { FlagManifest, Repository } from "./types.js";
 
@@ -134,6 +135,75 @@ test("an entry with a name, kind, applies or mark that is not valid is refused, 
     "flag pending-text pending must be true or false",
     "flag retire-feature is marked neverRetire but is a feature flag; only an environment flag never retires (ADR 0148)",
     "flag retire-text neverRetire must be true or false",
+  ]);
+});
+
+test("a flag's requires reads back the flags it needs, and an undeclared flag or one with no requires needs none", () => {
+  const requiring: FlagManifest = {
+    flags: [
+      {
+        name: "registry-by-name",
+        kind: "feature",
+        applies: ["local"],
+        requires: ["ingress-agentgateway"],
+      },
+      { name: "ingress-agentgateway", kind: "feature", applies: ["local"] },
+    ],
+  };
+  expect(requiredFlags(requiring, "registry-by-name")).toEqual([
+    "ingress-agentgateway",
+  ]);
+  expect(requiredFlags(requiring, "ingress-agentgateway")).toEqual([]);
+  expect(requiredFlags(requiring, "not-declared")).toEqual([]);
+});
+
+test("a requires that names a flag the manifest does not declare is refused, naming both flags and the file", () => {
+  const dangling: FlagManifest = {
+    flags: [
+      {
+        name: "registry-by-name",
+        kind: "feature",
+        applies: ["local"],
+        requires: ["not-declared"],
+      },
+    ],
+  };
+  expect(flagManifestErrors(repositoryOf({ name: "local" }, dangling))).toEqual(
+    [
+      "flag registry-by-name requires not-declared, which has no entry in infra/catalog/flags.yaml; declare not-declared in the manifest or drop it from the requires of registry-by-name (ADR 0148)",
+    ],
+  );
+});
+
+test("a flag that requires itself is refused, naming the flag", () => {
+  const self: FlagManifest = {
+    flags: [
+      {
+        name: "registry-by-name",
+        kind: "feature",
+        applies: ["local"],
+        requires: ["registry-by-name"],
+      },
+    ],
+  };
+  expect(flagManifestErrors(repositoryOf({ name: "local" }, self))).toEqual([
+    "flag registry-by-name requires itself; a flag cannot be its own prerequisite (ADR 0148)",
+  ]);
+});
+
+test("a requires that is not a list of flag names is refused, naming the flag", () => {
+  const notList = malformed<FlagManifest>({
+    flags: [
+      {
+        name: "registry-by-name",
+        kind: "feature",
+        applies: ["local"],
+        requires: "ingress-agentgateway",
+      },
+    ],
+  });
+  expect(flagManifestErrors(repositoryOf({ name: "local" }, notList))).toEqual([
+    "flag registry-by-name requires must be a list of flag names (ADR 0148)",
   ]);
 });
 

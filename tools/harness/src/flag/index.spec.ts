@@ -18,8 +18,10 @@ test("the flag barrel exposes exactly the overlay, proof and audit entry points"
     [
       "FlagError",
       "activationProof",
+      "assertMayTurnOn",
       "environments",
       "findProof",
+      "flagRequires",
       "parseCharts",
       "parseReleaseLock",
       "proofAudit",
