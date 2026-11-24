@@ -11,7 +11,7 @@ import type { Repository } from "./types.js";
  * organization identifier (ADR 0042), the Gateways and internal domain
  * (spec #1612), and the node count, committed fraction and reserves of the
  * one-node budget (ADR 0152), and the run-time values external-dns needs while
- * it is on, refused before any mutation (ADR 0164).
+ * it is on (ADR 0162), refused before any mutation (ADR 0164).
  */
 export function environmentFieldErrors(repository: Repository): string[] {
   return [

@@ -1,26 +1,58 @@
 // Docs: docs/decisions/0162-external-dns-publishes-route-records-for-the-external-gateway-behind-external-dns.md
-import { expect, test } from "vitest";
-import { fakeEnvironment } from "./config-support.js";
+import { beforeEach, expect, test, vi } from "vitest";
 import { externalDnsErrors, externalDnsHelmArgs } from "./external-dns.js";
+import { featureEnabled } from "./features.js";
+import { isLocalProvider } from "./provider.js";
+import { runTimeDomain } from "./run-time-domain.js";
+import { runTimeValue } from "./run-time.js";
 import type { Environment } from "./types.js";
+
+vi.mock("./features.js", () => ({
+  featureEnabled: vi.fn(),
+  externalDnsFlag: "external-dns",
+}));
+vi.mock("./provider.js", () => ({ isLocalProvider: vi.fn() }));
+vi.mock("./run-time-domain.js", () => ({
+  runTimeDomain: vi.fn(),
+  platformDomainVariable: "KORE_PLATFORM_DOMAIN",
+}));
+vi.mock("./run-time.js", () => ({
+  runTimeValue: vi.fn(),
+  runTimeVariables: {
+    publicIPv4: "KORE_PUBLIC_IPV4",
+    cloudflareZoneId: "KORE_CLOUDFLARE_ZONE_ID",
+    tailnetAddress: "KORE_TAILNET_ADDRESS",
+  },
+}));
 
 // The domain, zone and address below are documentation values (example.com, RFC 5737), never real ones.
 const exampleIPv4 = "203.0.113.10";
 const exampleZone = "example-zone-id";
 
-const local = fakeEnvironment({
+const local: Environment = {
   name: "local",
   provider: "k3d",
+  kubeContext: "k3d-kore-local",
+  registry: { address: "10.96.0.50:5000" },
   platform: { domain: "kore.internal", organizationId: "platform" },
+  secrets: {
+    storeName: "platform-secrets",
+    sourceNamespace: "kore-secret-source",
+  },
+  telemetry: { otlpEndpoint: "http://otel-collector.observability.svc:4318" },
   features: { "external-dns": true },
-});
+};
 
-const managed = fakeEnvironment({
+const managed: Environment = {
   name: "vps",
   provider: "managed",
+  kubeContext: "kore-vps",
+  registry: { address: "10.43.0.50:5000" },
   platform: { domain: "kore.internal", organizationId: "platform" },
+  secrets: { storeName: "platform-secrets", sourceNamespace: "external" },
+  telemetry: { otlpEndpoint: "http://otel-collector.observability.svc:4318" },
   features: { "external-dns": true },
-});
+};
 
 const runTime = {
   KORE_PLATFORM_DOMAIN: "example.com",
@@ -28,14 +60,27 @@ const runTime = {
   KORE_CLOUDFLARE_ZONE_ID: exampleZone,
 };
 
-function flagged(environment: Environment, on: boolean): Environment {
-  return { ...environment, features: { "external-dns": on } };
-}
+beforeEach(() => {
+  vi.resetAllMocks();
+  vi.mocked(featureEnabled).mockReturnValue(true);
+  vi.mocked(isLocalProvider).mockImplementation(
+    (environment) => environment.provider === "k3d",
+  );
+  // The run-time domain is read only on a managed environment, as the real reader does.
+  vi.mocked(runTimeDomain).mockImplementation((environment, env) =>
+    environment.provider === "managed"
+      ? env.KORE_PLATFORM_DOMAIN || undefined
+      : undefined,
+  );
+  vi.mocked(runTimeValue).mockImplementation(
+    (name, env) => env[name] || undefined,
+  );
+});
 
 test("with the external-dns flag off, the component takes no arguments and needs no run-time value", () => {
-  const off = flagged(managed, false);
-  expect(externalDnsHelmArgs(off, "external-dns", {})).toEqual([]);
-  expect(externalDnsErrors(off, "external-dns", {})).toEqual([]);
+  vi.mocked(featureEnabled).mockReturnValue(false);
+  expect(externalDnsHelmArgs(managed, "external-dns", {})).toEqual([]);
+  expect(externalDnsErrors(managed, "external-dns", {})).toEqual([]);
 });
 
 test("a component other than external-dns takes no external-dns arguments, even with the flag on", () => {

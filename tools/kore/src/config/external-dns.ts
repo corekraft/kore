@@ -20,7 +20,7 @@ function domainInForce(
 }
 
 /**
- * Problems that refuse a mutation while external-dns is on: a managed
+ * Problems that refuse a mutation while external-dns is on (ADR 0164): a managed
  * environment still on the placeholder domain, and a run-time value the
  * provider needs and the environment does not supply, each named. Local
  * (inmemory) needs no run-time value and no credential. Empty while the flag
