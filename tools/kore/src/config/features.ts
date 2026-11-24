@@ -182,6 +182,7 @@ export const otlpRouteFlag = "otlp-route";
 
 /** The flag that renders the golden-path workload safety defaults: two replicas, an explicit rolling update, a PodDisruptionBudget, separate readiness and liveness endpoints and the termination settings (ADR 0154, issue 1521). Off in every overlay until a recorded live outcome. */
 export const goldenPathSafetyDefaultsFlag = "golden-path-safety-defaults";
+export const workloadDefaultsAdmissionFlag = "workload-defaults-admission";
 
 /** The flag that turns on the golden-path sign-in flow in the Kotlin BFF template: an OIDC sign-in behind a server-side session, off in every overlay until a live run proves it (plan 15 Step 7, issue 1745). */
 export const goldenPathSigninFlag = "golden-path-signin";

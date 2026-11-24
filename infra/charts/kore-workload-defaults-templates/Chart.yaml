@@ -1,0 +1,6 @@
+apiVersion: v2
+name: kore-workload-defaults-templates
+description: The Gatekeeper ConstraintTemplate for the workload defaults at admission (ADR 0154), behind the workload-defaults-admission flag
+type: application
+version: 0.1.0
+appVersion: 0.1.0

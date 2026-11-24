@@ -89,6 +89,7 @@
       "platform-keycloak-wait": false,
       "platform-keycloak-realm-wait": false,
       "golden-path-safety-defaults": false,
+      "workload-defaults-admission": false,
       "decision-advisor": true
     },
   "imageInventory": "audit",
