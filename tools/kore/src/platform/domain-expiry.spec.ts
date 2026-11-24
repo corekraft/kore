@@ -64,6 +64,28 @@ test("an expiration date that is not a string fails closed, naming the cause", (
   );
 });
 
+test("every parse error names its cause and then the fix, so the operator knows what to do next", () => {
+  const malformed = [
+    notJson,
+    notAnObject,
+    responseWithoutEvents,
+    responseWithoutExpiration,
+    responseWithTwoExpirations,
+    responseWithBadExpiration,
+    responseWithNumericExpiration,
+  ];
+  for (const text of malformed) {
+    let message = "";
+    try {
+      parseRdapExpiry(text);
+    } catch (error) {
+      message = error instanceof Error ? error.message : "";
+    }
+    expect(message).toMatch(/; fix: check the registrar's RDAP response/);
+    expect(message).toContain("record the result on #1622");
+  }
+});
+
 test("a parse error never echoes the response, so no domain value leaks into it", () => {
   for (const text of [
     responseWithBadExpiration,
