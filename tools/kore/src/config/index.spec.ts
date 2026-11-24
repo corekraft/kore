@@ -158,6 +158,7 @@ const entryPoints = [
   "keycloakWaitFlag",
   "loadRepository",
   "loadRunTimeFile",
+  "loadServiceRegistrations",
   "localCaConfigMap",
   "localImageReuseFlag",
   "localSigner",
