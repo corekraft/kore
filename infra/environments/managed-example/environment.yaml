@@ -69,6 +69,7 @@
       "postgresql-service-class-instances": false,
       "gateway-proxy-defaults": false,
       "golden-path-safety-defaults": false,
+      "app-delivery": false,
       "workload-defaults-admission": false
     },
   "secrets": { "storeName": "platform-secrets", "sourceNamespace": "external" },

@@ -20,6 +20,7 @@ import { main } from "../src/testing/index.js";
 const repository = new URL("../../../", import.meta.url);
 const dir = "infra/environments/local/services";
 const digest = `sha256:${"a".repeat(64)}`;
+const attestation = `ghcr.io/corekraft/kore/leads-attestation@sha256:${"c".repeat(64)}`;
 const commit = "b".repeat(40);
 
 let root: string;
@@ -92,7 +93,11 @@ const release = (name: string, extra: Record<string, unknown> = {}) =>
     apiVersion: "platform.kore.dev/v1alpha1",
     kind: "ServiceRelease",
     metadata: { name },
-    spec: { commit, components: { frontend: { digest } }, ...extra },
+    spec: {
+      commit,
+      components: { frontend: { digest, attestation } },
+      ...extra,
+    },
   });
 
 test("kore validate passes a valid spec and release pair, and warns that the immutability base is not checked outside git", async () => {
@@ -133,7 +138,7 @@ test("kore validate refuses a malformed digest, naming the field and the pattern
   await records({
     [`${dir}/leads.json`]: spec("leads"),
     [`${dir}/leads.release.json`]: release("leads", {
-      components: { frontend: { digest: "sha256:abc" } },
+      components: { frontend: { digest: "sha256:abc", attestation } },
     }),
   });
   await expect(main(["validate"])).rejects.toThrow(

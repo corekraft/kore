@@ -90,6 +90,7 @@
       "platform-keycloak-realm-wait": false,
       "platform-apiserver-ready": false,
       "golden-path-safety-defaults": false,
+      "app-delivery": false,
       "workload-defaults-admission": false,
       "decision-advisor": true
     },

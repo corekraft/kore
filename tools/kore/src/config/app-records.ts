@@ -11,6 +11,7 @@ import type { Runner } from "../runtime/index.js";
 import {
   componentCrossErrors,
   duplicateNameErrors,
+  rejectedDigestErrors,
   releaseFileErrors,
   specFileErrors,
   type NameEntry,
@@ -210,6 +211,12 @@ async function checkReleases(
         stem,
         manifest: record.manifest,
         releaseSchema,
+      }),
+    );
+    errors.push(
+      ...rejectedDigestErrors({
+        file,
+        components: componentsOf(record.manifest),
       }),
     );
     const spec = parsedSpecs.get(stem);

@@ -118,6 +118,17 @@ test("local charts receive flag values and upstream charts do not", async () => 
   );
 });
 
+test("app-delivery is listed false in every overlay, so no record is delivered until a recorded live outcome turns it on (ADR 0172)", async () => {
+  for (const name of ["local", "vps", "managed-example"]) {
+    const repository = await loadRepository(name);
+    assert.equal(
+      repository.environment.features?.["app-delivery"],
+      false,
+      `${name} overlay`,
+    );
+  }
+});
+
 test("golden-path-safety-defaults is listed false in every overlay, so no workload changes until a recorded live outcome turns it on (ADR 0154)", async () => {
   for (const name of ["local", "vps", "managed-example"]) {
     const repository = await loadRepository(name);

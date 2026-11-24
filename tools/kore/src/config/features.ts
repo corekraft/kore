@@ -190,5 +190,8 @@ export const otlpRouteFlag = "otlp-route";
 export const goldenPathSafetyDefaultsFlag = "golden-path-safety-defaults";
 export const workloadDefaultsAdmissionFlag = "workload-defaults-admission";
 
+/** The flag that delivers each app's record through the golden-path ApplicationSet: a release file is a values file of its Application and the workload deploys its digest (ADR 0166, ADR 0172, issue 1569). Off in every overlay until a recorded live outcome turns it on. */
+export const appDeliveryFlag = "app-delivery";
+
 /** The flag that turns on the golden-path sign-in flow in the Kotlin BFF template: an OIDC sign-in behind a server-side session, off in every overlay until a live run proves it (plan 15 Step 7, issue 1745). */
 export const goldenPathSigninFlag = "golden-path-signin";

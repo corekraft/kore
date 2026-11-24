@@ -41,6 +41,12 @@ project: default
 # and applies no records.
 # serviceRecords: true
 
+# Set by kore only while app-delivery is on (ADR 0166, ADR 0172). The sync then gives each
+# Application its service's release file, infra/environments/<environment>/services/<service>.release.json,
+# as an optional values file: the workload deploys the release's digest for each component
+# that has one, and a service with no release keeps its lock images. Off, the sync sets no values file.
+# appDelivery: true
+
 # Set by kore only while platform-shared-gateway is on. The sync then labels each
 # app namespace it creates with the platform-owned shared-gateway label (ADR
 # 0133). Off by default, so the sync sets no namespace metadata.

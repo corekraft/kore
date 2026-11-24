@@ -178,6 +178,36 @@ export function componentCrossErrors(input: ComponentCrossInput): string[] {
     );
 }
 
+export interface RejectedDigestInput {
+  /** The release file, as a repository path, for the messages. */
+  file: string;
+  /** The release's spec.components. */
+  components: unknown;
+}
+
+/**
+ * A component's rejected list holds digests the platform must not deploy again
+ * (ADR 0172), so it never holds the digest that component deploys. The rule is per
+ * component: another component may reject a digest this one deploys.
+ */
+export function rejectedDigestErrors(input: RejectedDigestInput): string[] {
+  const { file, components } = input;
+  if (!isRecord(components)) {
+    return [];
+  }
+  return Object.entries(components).flatMap(([name, component]) => {
+    if (!isRecord(component) || !Array.isArray(component.rejected)) {
+      return [];
+    }
+    if (!component.rejected.includes(component.digest)) {
+      return [];
+    }
+    return [
+      `${file}: spec.components.${name}.rejected lists the current digest ${String(component.digest)}; a rejected digest must differ from the one the release deploys (ADR 0172)`,
+    ];
+  });
+}
+
 export interface NameEntry {
   name: string;
   /** The file that declares the name, as a repository path. */

@@ -6,6 +6,7 @@ import { immutabilityReport } from "./app-record-base.js";
 import {
   componentCrossErrors,
   duplicateNameErrors,
+  rejectedDigestErrors,
   releaseFileErrors,
   specFileErrors,
 } from "./app-record-rules.js";
@@ -65,6 +66,7 @@ beforeEach(() => {
   vi.mocked(specFileErrors).mockReturnValue([]);
   vi.mocked(releaseFileErrors).mockReturnValue([]);
   vi.mocked(componentCrossErrors).mockReturnValue([]);
+  vi.mocked(rejectedDigestErrors).mockReturnValue([]);
   vi.mocked(duplicateNameErrors).mockReturnValue([]);
   vi.mocked(registrationPaths).mockResolvedValue(new Map());
   vi.mocked(immutabilityReport).mockResolvedValue({ errors: [], warnings: [] });
@@ -209,6 +211,19 @@ test("a release is checked against the components its spec declares", async () =
     specFile: "infra/environments/local/services/leads.json",
     release: {},
     spec: {},
+  });
+});
+
+test("a release's rejected lists are checked against the components of its own release", async () => {
+  files = {
+    [`${dir}/leads.json`]: spec,
+    [`${dir}/leads.release.json`]: release,
+    [`${root}/infra/catalog/schemas/service-release.schema.json`]: "{}",
+  };
+  await check();
+  expect(rejectedDigestErrors).toHaveBeenCalledWith({
+    file: "infra/environments/local/services/leads.release.json",
+    components: {},
   });
 });
 

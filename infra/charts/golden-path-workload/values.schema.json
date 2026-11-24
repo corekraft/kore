@@ -8,6 +8,24 @@
       "type": "string",
       "pattern": "^[a-z0-9]([-a-z0-9]{0,61}[a-z0-9])?$"
     },
+    "apiVersion": {
+      "description": "The release file's apiVersion, passed as the service's optional values file while app-delivery is on (ADR 0166). Without a release file none of these keys is set.",
+      "const": "platform.kore.dev/v1alpha1"
+    },
+    "kind": {
+      "const": "ServiceRelease"
+    },
+    "metadata": {
+      "type": "object",
+      "required": ["name"],
+      "additionalProperties": false,
+      "properties": {
+        "name": { "type": "string" }
+      }
+    },
+    "spec": {
+      "$ref": "#/definitions/release"
+    },
     "frontend": {
       "$ref": "#/definitions/workload"
     },
@@ -111,6 +129,47 @@
           "description": "An image reference that carries its sha256 digest; a tag alone is refused.",
           "type": "string",
           "pattern": "^[^@\\s]+@sha256:[0-9a-f]{64}$"
+        }
+      }
+    },
+    "release": {
+      "description": "The spec of <service>.release.json (ADR 0166). A component's digest replaces the digest of its template image; a component with no release digest keeps its lock image. kore validate enforces that rejected never holds the component's own digest (ADR 0172).",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "commit": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{40}$"
+        },
+        "components": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "frontend": { "$ref": "#/definitions/releaseComponent" },
+            "bff": { "$ref": "#/definitions/releaseComponent" }
+          }
+        }
+      }
+    },
+    "releaseComponent": {
+      "type": "object",
+      "required": ["digest", "attestation"],
+      "additionalProperties": false,
+      "properties": {
+        "digest": {
+          "type": "string",
+          "pattern": "^sha256:[0-9a-f]{64}$"
+        },
+        "attestation": {
+          "type": "string",
+          "pattern": "^[a-z0-9][a-z0-9.:-]*(/[a-z0-9._-]+)+@sha256:[0-9a-f]{64}$"
+        },
+        "rejected": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "^sha256:[0-9a-f]{64}$"
+          }
         }
       }
     }

@@ -17,6 +17,7 @@ export type Files = Record<string, string>;
 
 export const dir = "infra/environments/local/services";
 export const digest = `sha256:${"a".repeat(64)}`;
+export const attestation = `ghcr.io/corekraft/kore/leads-attestation@sha256:${"c".repeat(64)}`;
 export const commit = "b".repeat(40);
 export const runner: Runner = new ProcessRunner();
 
@@ -61,7 +62,7 @@ export function record(
   );
 }
 
-/** A ServiceRelease file carrying the frontend digest and the source commit. */
+/** A ServiceRelease file carrying the frontend digest, its attestation and the source commit. */
 export function release(
   name: string,
   spec: Record<string, unknown> = {},
@@ -73,7 +74,7 @@ export function release(
       metadata: { name },
       spec: {
         commit,
-        components: { frontend: { digest } },
+        components: { frontend: { digest, attestation } },
         ...spec,
       },
     },
