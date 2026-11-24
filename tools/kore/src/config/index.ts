@@ -86,6 +86,9 @@ export type {
   Component,
   ComponentKind,
   Environment,
+  FlagEntry,
+  FlagKind,
+  FlagManifest,
   K3dCluster,
   Phase,
   ProbePatch,
@@ -140,6 +143,7 @@ export type { ManagedCluster } from "./managed-cluster.js";
 export { committedFraction, nodeBudget, nodeCount } from "./node-capacity.js";
 export type { NodeBudget } from "./node-capacity.js";
 export { findRoot } from "./config.js";
+export { appliedFlags, flagEntry, neverRetires } from "./flag-manifest.js";
 export { exemptionCheckMode, validateRepository } from "./validate.js";
 export type { WarningSource } from "./validate.js";
 export { exists } from "./files.js";

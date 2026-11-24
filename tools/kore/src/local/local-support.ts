@@ -72,6 +72,7 @@ export function fakeRepository(
     readiness: { version: 1, requirements: [] },
     approved: { images: [] },
     catalog: { components: [] },
+    flags: { flags: [] },
     environment: {
       name: "local",
       provider: "k3d",

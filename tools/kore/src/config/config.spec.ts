@@ -57,6 +57,7 @@ const localFiles = (): Record<string, string> => ({
   "/repo/infra/catalog/readiness.yaml": '{"checks":[]}',
   "/repo/infra/catalog/approved-images.yaml": '{"images":[]}',
   "/repo/infra/catalog/components.yaml": '{"components":[]}',
+  "/repo/infra/catalog/flags.yaml": '{"flags":[]}',
   "/repo/infra/environments/local/environment.yaml":
     '{"name":"local","componentValues":{}}',
 });
@@ -178,7 +179,7 @@ test("loading carries the warnings validation reports on the repository", async 
   ]);
 });
 
-test("loading reads the six catalog and overlay files, validates the whole repository, and returns it", async () => {
+test("loading reads the catalog, the flag manifest and the overlay, validates the whole repository, and returns it", async () => {
   filesPresent("/repo/infra/catalog/components.yaml");
   const loaded = await loadRepository("local", "/repo");
   expect(loaded).toMatchObject({
@@ -202,6 +203,7 @@ test("loading reads the six catalog and overlay files, validates the whole repos
     "/repo/infra/catalog/readiness.yaml",
     "/repo/infra/catalog/approved-images.yaml",
     "/repo/infra/catalog/components.yaml",
+    "/repo/infra/catalog/flags.yaml",
     "/repo/infra/environments/local/environment.yaml",
   ]);
 });

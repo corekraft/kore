@@ -23,7 +23,7 @@ async function ungatedRepository(): Promise<Repository> {
 /** Gates a leaf component: nothing in the catalog depends on it. */
 async function gatedRepository(
   features: Record<string, boolean> | undefined,
-  flag = "agent-ingress",
+  flag = "autoscaling-defaults",
 ): Promise<Repository> {
   const base = await ungatedRepository();
   const needed = new Set(
@@ -44,7 +44,9 @@ async function gatedRepository(
 }
 
 test("a gated component whose flag the environment declares validates", async () => {
-  await validateRepository(await gatedRepository({ "agent-ingress": false }));
+  await validateRepository(
+    await gatedRepository({ "autoscaling-defaults": false }),
+  );
 });
 
 test("a gated component names itself and the flag when the environment does not declare it", async () => {
@@ -53,14 +55,14 @@ test("a gated component names itself and the flag when the environment does not 
   await assert.rejects(
     validateRepository(repository),
     new RegExp(
-      `${name}: featureFlag agent-ingress is not declared in environment.features`,
+      `${name}: featureFlag autoscaling-defaults is not declared in environment.features`,
     ),
   );
 });
 
 test("a gated component fails validation when the environment has no features map", async () => {
   await assert.rejects(
-    validateRepository(await gatedRepository(undefined)),
+    validateRepository(await gatedRepository(undefined, "agent-ingress")),
     /featureFlag agent-ingress is not declared/,
   );
 });
@@ -73,10 +75,10 @@ test("a malformed featureFlag is rejected", async () => {
 });
 
 test("a flag that is off leaves the component out of the enabled set; on keeps it in order", async () => {
-  const off = await gatedRepository({ "agent-ingress": false });
+  const off = await gatedRepository({ "autoscaling-defaults": false });
   const name = off.catalog.components[0]!.name;
   assert.ok(!enabledComponents(off).some((c) => c.name === name));
-  const on = await gatedRepository({ "agent-ingress": true });
+  const on = await gatedRepository({ "autoscaling-defaults": true });
   assert.ok(enabledComponents(on).some((c) => c.name === name));
 });
 
@@ -86,7 +88,7 @@ test("components without a flag are all enabled", async () => {
 });
 
 test("an enabled component may not depend on a component its flag gates off", async () => {
-  const repository = await gatedRepository({ "agent-ingress": false });
+  const repository = await gatedRepository({ "autoscaling-defaults": false });
   const gated = repository.catalog.components[0]!;
   const dependent = repository.catalog.components[1]!;
   repository.catalog.components[1] = {
@@ -96,13 +98,13 @@ test("an enabled component may not depend on a component its flag gates off", as
   await assert.rejects(
     validateRepository(repository),
     new RegExp(
-      `${dependent.name}: depends on ${gated.name}, which feature agent-ingress gates off`,
+      `${dependent.name}: depends on ${gated.name}, which feature autoscaling-defaults gates off`,
     ),
   );
 });
 
 test("a gated component may depend on another gated component with the same flag", async () => {
-  const repository = await gatedRepository({ "agent-ingress": false });
+  const repository = await gatedRepository({ "autoscaling-defaults": false });
   const [first, ...rest] = repository.catalog.components;
   const needed = new Set(rest.flatMap((c) => c.dependencies));
   const byName = new Map(rest.map((c) => [c.name, c]));
@@ -121,7 +123,7 @@ test("a gated component may depend on another gated component with the same flag
     c === second
       ? {
           ...c,
-          featureFlag: "agent-ingress",
+          featureFlag: "autoscaling-defaults",
           dependencies: [...c.dependencies, first!.name],
         }
       : c,
@@ -130,12 +132,12 @@ test("a gated component may depend on another gated component with the same flag
 });
 
 test("a manifest component cannot be gated, and the error says so and how to proceed", async () => {
-  const repository = await gatedRepository({ "agent-ingress": false });
+  const repository = await gatedRepository({ "autoscaling-defaults": false });
   const manifest = repository.catalog.components.find(
     (c) => c.kind === "manifest",
   )!;
   repository.catalog.components = repository.catalog.components.map((c) =>
-    c === manifest ? { ...c, featureFlag: "agent-ingress" } : c,
+    c === manifest ? { ...c, featureFlag: "autoscaling-defaults" } : c,
   );
   await assert.rejects(
     validateRepository(repository),

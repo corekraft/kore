@@ -1,0 +1,212 @@
+{
+  "$schema": "./schemas/flags.schema.json",
+  "flags":
+    [
+      {
+        "name": "agentgateway-mesh-enrollment",
+        "kind": "feature",
+        "applies": ["local", "vps", "managed-example"]
+      },
+      {
+        "name": "autoscaling-defaults",
+        "kind": "feature",
+        "applies": ["local", "vps", "managed-example"]
+      },
+      {
+        "name": "gateway-class-change-release",
+        "kind": "feature",
+        "applies": ["local", "vps", "managed-example"]
+      },
+      {
+        "name": "gateway-rollback-order",
+        "kind": "feature",
+        "applies": ["local", "vps", "managed-example"]
+      },
+      {
+        "name": "ingress-agentgateway",
+        "kind": "feature",
+        "applies": ["local", "vps", "managed-example"]
+      },
+      {
+        "name": "agentgateway-data-plane-metrics",
+        "kind": "feature",
+        "applies": ["local", "vps", "managed-example"]
+      },
+      {
+        "name": "platform-organization-service-apis",
+        "kind": "feature",
+        "applies": ["local", "vps", "managed-example"]
+      },
+      {
+        "name": "platform-argocd-delivery",
+        "kind": "feature",
+        "applies": ["local", "vps", "managed-example"]
+      },
+      {
+        "name": "platform-sync-window",
+        "kind": "feature",
+        "applies": ["local", "vps", "managed-example"]
+      },
+      {
+        "name": "platform-shared-gateway",
+        "kind": "feature",
+        "applies": ["local", "vps", "managed-example"]
+      },
+      {
+        "name": "service-listener-sets",
+        "kind": "feature",
+        "applies": ["local", "vps", "managed-example"]
+      },
+      {
+        "name": "external-gateway",
+        "kind": "feature",
+        "applies": ["local", "vps", "managed-example"]
+      },
+      {
+        "name": "external-gateway-limits",
+        "kind": "feature",
+        "applies": ["local", "vps", "managed-example"]
+      },
+      {
+        "name": "database-routes",
+        "kind": "feature",
+        "applies": ["local", "vps", "managed-example"]
+      },
+      {
+        "name": "otlp-route",
+        "kind": "feature",
+        "applies": ["local", "vps", "managed-example"]
+      },
+      {
+        "name": "platform-hostname-ownership",
+        "kind": "feature",
+        "applies": ["local", "vps", "managed-example"]
+      },
+      {
+        "name": "platform-portal",
+        "kind": "feature",
+        "applies": ["local", "vps", "managed-example"]
+      },
+      {
+        "name": "portal-staged-install",
+        "kind": "feature",
+        "applies": ["local", "vps", "managed-example"]
+      },
+      {
+        "name": "drift-listing-mappings",
+        "kind": "feature",
+        "applies": ["local", "vps", "managed-example"]
+      },
+      {
+        "name": "golden-path-signin",
+        "kind": "feature",
+        "applies": ["local", "vps", "managed-example"]
+      },
+      {
+        "name": "golden-path-template-admission",
+        "kind": "feature",
+        "applies": ["local", "vps", "managed-example"]
+      },
+      {
+        "name": "golden-path-signin-after-portal",
+        "kind": "feature",
+        "applies": ["local", "vps", "managed-example"]
+      },
+      {
+        "name": "postgresql-service-class-instances",
+        "kind": "feature",
+        "applies": ["local", "vps", "managed-example"]
+      },
+      {
+        "name": "gateway-proxy-defaults",
+        "kind": "feature",
+        "applies": ["local", "vps", "managed-example"]
+      },
+      {
+        "name": "golden-path-safety-defaults",
+        "kind": "feature",
+        "applies": ["local", "vps", "managed-example"]
+      },
+      {
+        "name": "release-recovery-argocd-refusal",
+        "kind": "feature",
+        "applies": ["local", "vps", "managed-example"]
+      },
+      {
+        "name": "platform-keycloak-wait",
+        "kind": "feature",
+        "applies": ["local"]
+      },
+      { "name": "host-published-ports", "kind": "feature", "applies": ["vps"] },
+      {
+        "name": "registry-tag-pruning",
+        "kind": "feature",
+        "applies": ["local"]
+      },
+      {
+        "name": "platform-dns",
+        "kind": "feature",
+        "applies": ["local", "vps", "managed-example"],
+        "pending": true
+      },
+      {
+        "name": "registry-by-name",
+        "kind": "feature",
+        "applies": ["local", "vps", "managed-example"],
+        "pending": true
+      },
+      {
+        "name": "in-cluster-ca",
+        "kind": "environment",
+        "applies": ["vps", "managed-example"],
+        "neverRetire": true
+      },
+      {
+        "name": "k3s-registry-trust",
+        "kind": "environment",
+        "applies": ["vps", "managed-example"],
+        "neverRetire": true
+      },
+      {
+        "name": "registry-tailnet-forward",
+        "kind": "environment",
+        "applies": ["vps", "managed-example"],
+        "neverRetire": true
+      },
+      {
+        "name": "local-image-reuse",
+        "kind": "environment",
+        "applies": ["local"],
+        "neverRetire": true
+      },
+      { "name": "automatic-retro", "kind": "harness", "applies": ["local"] },
+      { "name": "automatic-approval", "kind": "harness", "applies": ["local"] },
+      { "name": "automatic-revert", "kind": "harness", "applies": ["local"] },
+      { "name": "orchestrator-tick", "kind": "harness", "applies": ["local"] },
+      { "name": "behind-main-notice", "kind": "harness", "applies": ["local"] },
+      { "name": "tick-live-proofs", "kind": "harness", "applies": ["local"] },
+      { "name": "tick-ticket-queue", "kind": "harness", "applies": ["local"] },
+      {
+        "name": "shell-aware-zsh-rules",
+        "kind": "harness",
+        "applies": ["local"]
+      },
+      { "name": "gated-help-exempt", "kind": "harness", "applies": ["local"] },
+      {
+        "name": "main-session-figures",
+        "kind": "harness",
+        "applies": ["local"]
+      },
+      {
+        "name": "pane-result-summary",
+        "kind": "harness",
+        "applies": ["local"]
+      },
+      { "name": "signed-main-sends", "kind": "harness", "applies": ["local"] },
+      { "name": "main-session-wait", "kind": "harness", "applies": ["local"] },
+      { "name": "decision-advisor", "kind": "harness", "applies": ["local"] },
+      { "name": "role-tokens", "kind": "harness", "applies": ["local"] },
+      { "name": "owner-writer", "kind": "harness", "applies": ["local"] },
+      { "name": "tick-self-update", "kind": "harness", "applies": ["local"] }
+    ]
+}
