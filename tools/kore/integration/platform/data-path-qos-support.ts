@@ -42,14 +42,21 @@ export interface Container {
 export interface PodSpec {
   containers?: Container[];
   initContainers?: Container[];
+  priorityClassName?: string;
 }
 
 /** One rendered YAML document, with only the fields these specs read. */
 export interface Doc {
   kind?: string;
   metadata?: { name?: string };
-  spec?: { template?: { spec?: PodSpec }; resources?: Resources | null };
+  spec?: {
+    template?: { spec?: PodSpec };
+    resources?: Resources | null;
+    deployment?: { spec?: { template?: { spec?: PodSpec } } };
+  };
   data?: { deployment?: string };
+  value?: number;
+  globalDefault?: boolean;
 }
 
 /** A container's sizes, as the containers of a pod are compared. */
