@@ -5,7 +5,7 @@ metadata:
   namespace: kore-system
   labels: {app.kubernetes.io/managed-by: Helm}
 spec:
-{{- if or .Values.gateway.service.type (include "platform-config.agentgatewayEnrolled" .) (include "platform-config.agentgatewayMetrics" .) }}
+{{- if or .Values.gateway.service.type (include "platform-config.agentgatewayEnrolled" .) (include "platform-config.agentgatewayMetrics" .) (include "platform-config.proxyDefaults" .) }}
   infrastructure:
 {{- end }}
 {{- if include "platform-config.agentgatewayEnrolled" . }}
@@ -22,7 +22,7 @@ spec:
       prometheus.io/scrape: "true"
       prometheus.io/port: "15020"
 {{- end }}
-{{- if .Values.gateway.service.type }}
+{{- if or .Values.gateway.service.type (include "platform-config.proxyDefaults" .) }}
 {{- if eq .Values.gateway.className "istio" }}
     parametersRef: {group: "", kind: ConfigMap, name: kore-gateway-service}
 {{- else if eq .Values.gateway.className "agentgateway" }}

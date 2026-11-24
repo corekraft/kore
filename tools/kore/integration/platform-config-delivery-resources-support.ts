@@ -26,6 +26,8 @@ export const namespacedKinds = new Set([
   "security.istio.io/PeerAuthentication",
   "config.gatekeeper.sh/Config",
   "agentgateway.dev/AgentgatewayParameters",
+  // The shared proxy's budget, rendered by platform-config only with gateway-proxy-defaults on (ADR 0154).
+  "policy/PodDisruptionBudget",
 ]);
 
 async function yamlFiles(dir: string): Promise<string[]> {

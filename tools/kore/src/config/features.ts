@@ -165,6 +165,9 @@ export const databaseRoutesFlag = "database-routes";
 export const postgresqlServiceClassInstancesFlag =
   "postgresql-service-class-instances";
 
+/** The flag that gives the shared gateway proxy the app defaults: two replicas, a RollingUpdate with maxUnavailable 0 and maxSurge 1, a readiness gate (minReadySeconds, progressDeadlineSeconds) and a PodDisruptionBudget (ADR 0154, issue 1529). Off in every overlay until a recorded live outcome. */
+export const gatewayProxyDefaultsFlag = "gateway-proxy-defaults";
+
 /** The flag that routes OTLP by name through the shared Gateway to the standard collector receiver on 4318 (ADR 0140, issue 1224). */
 export const otlpRouteFlag = "otlp-route";
 
