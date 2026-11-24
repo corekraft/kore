@@ -43,10 +43,20 @@ async function registrationName(
   }
   const record = (
     typeof manifest === "object" && manifest !== null ? manifest : {}
-  ) as { kind?: unknown; metadata?: { name?: unknown } };
+  ) as {
+    kind?: unknown;
+    metadata?: { name?: unknown };
+    limits?: unknown;
+    spec?: { limits?: unknown };
+  };
   if (record.kind !== "Service") {
     throw new Error(
       `${relative}: a registration must be a Service manifest (kind Service)`,
+    );
+  }
+  if (record.limits !== undefined || record.spec?.limits !== undefined) {
+    throw new Error(
+      `${relative}: a limits field is platform-owned: the external Gateway's limits are set by the platform in the environment overlay, so a service record cannot tune, lower or raise them (ADR 0160)`,
     );
   }
   const name = record.metadata?.name;

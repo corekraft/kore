@@ -9,6 +9,7 @@ vi.mock("./provider.js", () => ({ isLocalProvider: vi.fn() }));
 vi.mock("./features.js", () => ({
   featureEnabled: vi.fn(),
   externalGatewayFlag: "external-gateway",
+  externalGatewayLimitsFlag: "external-gateway-limits",
   inClusterCaFlag: "in-cluster-ca",
   otlpRouteFlag: "otlp-route",
   registryByNameFlag: "registry-by-name",
@@ -77,6 +78,27 @@ test("external-gateway on with service-listener-sets off is refused, naming both
 
 test("external-gateway on with service-listener-sets on has no error", () => {
   flagsOn(
+    "external-gateway",
+    "service-listener-sets",
+    "platform-shared-gateway",
+  );
+  expect(flagDependencyErrors(environment)).toEqual([]);
+});
+
+test("external-gateway-limits on with external-gateway off is refused, naming both flags and the fix", () => {
+  flagsOn(
+    "external-gateway-limits",
+    "service-listener-sets",
+    "platform-shared-gateway",
+  );
+  expect(flagDependencyErrors(environment)).toEqual([
+    'environment local turns on external-gateway-limits, which needs external-gateway: the limits are the external Gateway\'s policy, so there is no Gateway to limit without it; set "external-gateway": true in the local environment overlay, or turn external-gateway-limits off',
+  ]);
+});
+
+test("external-gateway-limits on with external-gateway on has no error", () => {
+  flagsOn(
+    "external-gateway-limits",
     "external-gateway",
     "service-listener-sets",
     "platform-shared-gateway",

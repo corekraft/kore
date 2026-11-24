@@ -1,0 +1,57 @@
+{{- /*
+The one platform-owned policy that limits the external Gateway (ADR 0160, issue 1674). It targets the
+external Gateway alone, with Override inheritance, so no route policy can loosen it. Its numbers come from
+the environment's values (externalGateway.limits), each required and positive, so an overlay that omits one
+fails here, naming the field. The policy is an agentgateway resource, so a render without ingress-agentgateway
+refuses it. Off, or with external-gateway off, nothing renders.
+
+The public probe's expectations, run from outside the host before the flag turns on (ADR 0160): a request over
+the rate limit returns 429, a request over the concurrency cap 503, a body over 1 MiB 413, and a request under
+all of them is served.
+*/}}
+{{- if include "platform-config.externalGatewayLimits" . }}
+{{- if not (index (.Values.features | default dict) "ingress-agentgateway") }}
+{{- fail "external-gateway-limits needs ingress-agentgateway: its policy is an AgentgatewayPolicy, which only the agentgateway GatewayClass reads; turn ingress-agentgateway on, or turn external-gateway-limits off" }}
+{{- end }}
+{{- $limits := (.Values.externalGateway | default dict).limits | default dict }}
+{{- $rate := $limits.rate | default dict }}
+{{- $body := $limits.body | default dict }}
+{{- $headers := $limits.headers | default dict }}
+{{- $timeouts := $limits.timeouts | default dict }}
+{{- if not (has $rate.unit (list "Hours" "Minutes" "Seconds")) }}
+{{- fail (printf "externalGateway.limits.rate.unit must be Hours, Minutes or Seconds, such as Seconds, got %v" $rate.unit) }}
+{{- end }}
+apiVersion: agentgateway.dev/v1alpha1
+kind: AgentgatewayPolicy
+metadata:
+  name: kore-gateway-external-limits
+  namespace: kore-system
+  labels: {app.kubernetes.io/managed-by: Helm}
+spec:
+  targetRefs:
+    - group: gateway.networking.k8s.io
+      kind: Gateway
+      name: kore-gateway-external
+  strategy:
+    inheritance: Override
+  frontend:
+    http:
+      maxConcurrentRequests: {{ include "platform-config.limitNumber" (dict "path" "concurrentRequests" "value" $limits.concurrentRequests "example" "256") }}
+      http1MaxHeaders: {{ include "platform-config.limitNumber" (dict "path" "headers.http1MaxHeaders" "value" $headers.http1MaxHeaders "example" "100") }}
+      http2MaxHeaderSize: {{ include "platform-config.limitText" (dict "path" "headers.http2MaxHeaderSize" "value" $headers.http2MaxHeaderSize "example" "16Ki") }}
+  traffic:
+    {{- /* The one body cap agentgateway v1.7.0 has is request buffering: a body over maxBytes is refused with 413, and the stream ends (ADR 0160). FailClosed is the mode, not an overlay number. */}}
+    buffer:
+      request:
+        maxBytes: {{ include "platform-config.limitNumber" (dict "path" "body.maxBytes" "value" $body.maxBytes "example" "1048576") }}
+        failureMode: FailClosed
+    {{- /* One bucket for every request on the Gateway. The bucket is per proxy instance: a Gateway-wide bucket needs the global rate service, which kore does not run. */}}
+    rateLimit:
+      local:
+        - requests: {{ include "platform-config.limitNumber" (dict "path" "rate.requests" "value" $rate.requests "example" "200") }}
+          unit: {{ $rate.unit }}
+          burst: {{ include "platform-config.limitNumber" (dict "path" "rate.burst" "value" $rate.burst "example" "100") }}
+    timeouts:
+      request: {{ include "platform-config.limitText" (dict "path" "timeouts.request" "value" $timeouts.request "example" "60s") }}
+      responseIdle: {{ include "platform-config.limitText" (dict "path" "timeouts.responseIdle" "value" $timeouts.responseIdle "example" "30s") }}
+{{- end }}

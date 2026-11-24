@@ -60,6 +60,7 @@
       "platform-shared-gateway": true,
       "service-listener-sets": false,
       "external-gateway": false,
+      "external-gateway-limits": false,
       "registry-by-name": true,
       "registry-tailnet-forward": false,
       "otlp-route": true,
