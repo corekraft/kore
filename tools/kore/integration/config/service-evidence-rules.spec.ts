@@ -43,33 +43,62 @@ const rawMetric =
   /\b(kube_[a-z_]+|istio_[a-z_]+|otelcol_[a-z_]+)\b|\b(rate|increase)\(/;
 
 const ruleFile = "infra/observability/config/files/rules/services.yaml";
-const prometheusOverlay = "infra/environments/local/values/prometheus.yaml";
 const commonPrometheus = "infra/environments/common/values/prometheus.yaml";
 
-test("the service recording rules are loaded: the ConfigMap carries the file and Prometheus lists its mounted path in rule_files", async () => {
+/** Each environment whose Prometheus values mount the kore-prometheus-rules ConfigMap, with that mount. */
+async function mountingOverlays(): Promise<
+  { environment: string; mountPath: string; ruleFiles: string[] }[]
+> {
+  const root = await findRoot();
+  const environments = await readdir(join(root, "infra/environments"));
+  const found: {
+    environment: string;
+    mountPath: string;
+    ruleFiles: string[];
+  }[] = [];
+  for (const environment of environments) {
+    const path = `infra/environments/${environment}/values/prometheus.yaml`;
+    const values: Json = JSON.parse(await repoFile(path).catch(() => "{}"));
+    const mount = values.server?.extraConfigmapMounts?.find(
+      (entry: Json) => entry.configMap === "kore-prometheus-rules",
+    );
+    if (mount === undefined) {
+      continue;
+    }
+    found.push({
+      environment,
+      mountPath: mount.mountPath,
+      ruleFiles: values.serverFiles["prometheus.yml"].rule_files,
+    });
+  }
+  return found;
+}
+
+test("the service recording rules are loaded: the ConfigMap carries the file, and every overlay that mounts it lists each mounted rule file in rule_files", async () => {
   const rendered = await renderChart("infra/observability/config");
   const configMap = rendered.slice(
     rendered.indexOf("name: kore-prometheus-rules"),
   );
   assert.match(configMap, /^ {2}services\.yaml: /m);
 
-  const values: Json = JSON.parse(await repoFile(prometheusOverlay));
-  const mount = values.server.extraConfigmapMounts.find(
-    (entry: Json) => entry.configMap === "kore-prometheus-rules",
-  );
-  assert.ok(mount, "the kore-prometheus-rules ConfigMap is mounted");
-  const ruleFiles = values.serverFiles["prometheus.yml"].rule_files;
+  const overlays = await mountingOverlays();
+  const environments = overlays.map((overlay) => overlay.environment);
+  assert.ok(environments.includes("local"), "local mounts the rules ConfigMap");
+  assert.ok(environments.includes("vps"), "vps mounts the rules ConfigMap");
+
   const files = (
     await readdir(
       join(await findRoot(), "infra/observability/config/files/rules"),
     )
   ).filter((name) => name.endsWith(".yaml"));
   assert.ok(files.includes("services.yaml"));
-  for (const file of files) {
-    assert.ok(
-      ruleFiles.includes(`${mount.mountPath}/${file}`),
-      `Prometheus lists ${mount.mountPath}/${file} in rule_files, or the rules never load`,
-    );
+  for (const overlay of overlays) {
+    for (const file of files) {
+      assert.ok(
+        overlay.ruleFiles.includes(`${overlay.mountPath}/${file}`),
+        `${overlay.environment}: Prometheus lists ${overlay.mountPath}/${file} in rule_files, or the rules never load`,
+      );
+    }
   }
 });
 
