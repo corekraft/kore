@@ -79,7 +79,5 @@ export async function loadSopsRecipients(
 }
 
 function isMissingFile(error: unknown): boolean {
-  return (
-    error instanceof Error && (error as NodeJS.ErrnoException).code === "ENOENT"
-  );
+  return error instanceof Error && "code" in error && error.code === "ENOENT";
 }
