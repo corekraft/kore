@@ -39,6 +39,8 @@
     "test:live:policy": "npm run build --silent && KORE_RUN_LIVE=1 node --import ./dist/src/runtime/live-lock-setup.js --test --test-concurrency=1 dist/src/platform/policy-promotion.live.spec.js",
     "test:live:ops": "npm run build --silent && KORE_RUN_LIVE=1 node --import ./dist/src/runtime/live-lock-setup.js --test --test-concurrency=1 dist/src/ops/*.live.spec.js",
     "test:live:registry": "npm run build --silent && KORE_RUN_LIVE=1 node --import ./dist/src/runtime/live-lock-setup.js --test --test-concurrency=1 dist/src/images/registry.live.spec.js",
+    "test:live:external-dns": "npm run build --silent && KORE_RUN_LIVE=1 node --import ./dist/src/runtime/live-lock-setup.js --test --test-concurrency=1 dist/src/platform/external-dns.live.spec.js",
+    "external-dns:proof-root": "npm run build --silent && node scripts/external-dns-proof-root.mjs",
     "test:live:telemetry": "npm run build --silent && KORE_RUN_LIVE=1 node --import ./dist/src/runtime/live-lock-setup.js --test --test-concurrency=1 dist/src/platform/platform.telemetry.live.spec.js",
     "test:live:gate": "npm run build --silent && KORE_RUN_LIVE=1 node --import ./dist/src/runtime/live-lock-setup.js --test --test-concurrency=1 dist/src/platform/gate.live.spec.js",
     "test:live:reference": "npm run build --silent && KORE_RUN_LIVE=1 node --import ./dist/src/runtime/live-lock-setup.js --test --test-concurrency=1 dist/src/platform/reference-app.live.spec.js dist/src/platform/admission-denial.live.spec.js",

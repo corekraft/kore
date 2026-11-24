@@ -274,7 +274,9 @@ destructive_suites=(test:live:signer test:live:lifecycle)
 # (KORE_BACKSTAGE_SERVICE), so it runs by hand too.
 # The alert delivery proof fires an alert on a delivered Service and needs the owner
 # address at run time; the night delivers none, so it runs by hand.
-excluded_suites=(test:live:footprint test:live:golden-path-load test:live:delivery-stage test:live:alert-delivery test:live:golden-path-signin test:live:golden-path-token test:live:backstage-delivery)
+# The external-dns proof needs a throwaway KORE_ROOT copy and an idea at run time
+# (KORE_EXTERNAL_DNS_IDEA), so it runs by hand too.
+excluded_suites=(test:live:footprint test:live:golden-path-load test:live:delivery-stage test:live:alert-delivery test:live:golden-path-signin test:live:golden-path-token test:live:backstage-delivery test:live:external-dns)
 suites_all="$suites"
 for excluded in "${excluded_suites[@]}"; do
   if printf '%s\n' "$suites_all" | grep -qxF "$excluded"; then
