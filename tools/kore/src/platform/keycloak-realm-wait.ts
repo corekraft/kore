@@ -40,7 +40,8 @@ interface KeycloakState {
 
 function parse<T>(stdout: string, what: string): T {
   try {
-    return JSON.parse(stdout) as T;
+    const parsed: T = JSON.parse(stdout);
+    return parsed;
   } catch {
     throw new Error(`kubectl returned unreadable JSON for ${what}`);
   }
