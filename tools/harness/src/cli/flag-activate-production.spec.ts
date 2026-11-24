@@ -11,12 +11,14 @@ import {
 } from "../flag/index.js";
 import type { Command } from "../runtime/index.js";
 import { openLedger } from "./ledger-commands.js";
+import { noOutcomeMessage } from "./flag-activate-messages.js";
 import { flagCommands } from "./flag-commands.js";
 import type { CommandContext } from "../runtime/index.js";
 import { fakeContext, fakeLedger } from "./command-support.js";
 
 vi.mock("../idea/index.js", () => ({ IdeaRepository: vi.fn() }));
 vi.mock("./ledger-commands.js");
+vi.mock("./flag-activate-messages.js");
 vi.mock("../flag/index.js", async (importOriginal) => ({
   ...(await importOriginal<typeof import("../flag/index.js")>()),
   activationProof: vi.fn(),
@@ -91,17 +93,16 @@ describe("flag activate in a production environment (ADR 0147)", () => {
     expect(writeFile).not.toHaveBeenCalled();
   });
 
-  it("names no owner waiver as an option when no live run is recorded", async () => {
+  it("passes the production overlay to the wording module and throws what it returns when no live run is recorded", async () => {
     vi.mocked(activationProof).mockResolvedValue({
       proof: undefined,
       refused: [],
     });
+    vi.mocked(noOutcomeMessage).mockReturnValue("NO LIVE RUN MESSAGE");
     const { context, err, writeFile } = vpsContext();
     expect(await command("activate").run(context)).toBe(FAILED);
-    expect(err()).toContain(
-      `No verification outcome records a live run of ${FLAG} in vps, so ${VPS_OVERLAY} is unchanged.`,
-    );
-    expect(err()).not.toContain("owner waiver");
+    expect(noOutcomeMessage).toHaveBeenCalledWith(FLAG, "vps", vpsOverlay());
+    expect(err()).toBe("NO LIVE RUN MESSAGE\n");
     expect(writeFile).not.toHaveBeenCalled();
   });
 

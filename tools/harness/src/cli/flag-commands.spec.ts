@@ -12,12 +12,14 @@ import {
 } from "../flag/index.js";
 import type { Command } from "../runtime/index.js";
 import { openLedger } from "./ledger-commands.js";
+import { noOutcomeMessage } from "./flag-activate-messages.js";
 import { flagCommands } from "./flag-commands.js";
 import type { CommandContext } from "../runtime/index.js";
 import { fakeContext, fakeLedger, NOW } from "./command-support.js";
 
 vi.mock("../idea/index.js", () => ({ IdeaRepository: vi.fn() }));
 vi.mock("./ledger-commands.js");
+vi.mock("./flag-activate-messages.js");
 vi.mock("../flag/index.js", async (importOriginal) => ({
   ...(await importOriginal<typeof import("../flag/index.js")>()),
   activationProof: vi.fn(),
@@ -37,6 +39,8 @@ const PROOF = {
 };
 const FAILED = 1;
 const OVERLAY = "infra/environments/local/environment.yaml";
+const NO_PROOF = { proof: undefined, refused: [] };
+const noOutcome = vi.mocked(noOutcomeMessage);
 
 /** A flag command's context: the flag as its operand, in the local environment. */
 const flagContext = (overrides: Partial<CommandContext> = {}) =>
@@ -126,16 +130,13 @@ describe("flag activate refusals before any write", () => {
     expect(err()).toContain("Declared: none.");
   });
 
-  it("refuses a flag with no verification outcome, and leaves the overlay unchanged", async () => {
-    vi.mocked(activationProof).mockResolvedValue({
-      proof: undefined,
-      refused: [],
-    });
+  it("refuses a flag with no verification outcome: passes the overlay to the wording module and throws what it returns, leaving the overlay unchanged", async () => {
+    vi.mocked(activationProof).mockResolvedValue(NO_PROOF);
+    noOutcome.mockReturnValue("NO OUTCOME MESSAGE");
     const { context, err, writeFile } = flagContext();
     expect(await command("activate").run(context)).toBe(FAILED);
-    expect(err()).toContain(
-      `No verification outcome records a live run or an owner waiver of ${FLAG} in local, so ${OVERLAY} is unchanged.`,
-    );
+    expect(noOutcome).toHaveBeenCalledWith(FLAG, "local", overlay(false));
+    expect(err()).toBe("NO OUTCOME MESSAGE\n");
     expect(writeFile).not.toHaveBeenCalled();
   });
 });
