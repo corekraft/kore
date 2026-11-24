@@ -27,6 +27,9 @@ spec:
     spec:
       serviceAccountName: platform-dns
       automountServiceAccountToken: false
+      {{- if index (.Values.features | default dict) "data-path-priority-class" }}
+      priorityClassName: {{ .Values.priorityClass }}
+      {{- end }}
       securityContext:
         runAsNonRoot: true
         runAsUser: 65532
