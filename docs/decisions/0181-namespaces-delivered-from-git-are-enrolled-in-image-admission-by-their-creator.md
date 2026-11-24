@@ -66,10 +66,10 @@ v0.4.0); the template policy admits v0.22.0 through `templates.trust`. The
 `templates.mode` key is replaced by `templates.trust.mode`, so one setting holds
 the template policy's trust and its mode.
 
-The template authority sets `signatureFormat: bundle` because the release signs
-the template images as an OCI-referrer bundle with no legacy `.sig` tag, which
-the default format would look for and never find (Policy Controller v0.13.1
-verifies a bundle only on a keyless authority).
+The release also signs each template image in the legacy `sha256-<digest>.sig`
+form, keyless under the same identity, beside cosign 3's default Sigstore
+bundle (issue 1884). Policy Controller reads only the legacy form, so the
+template authority keeps the default signature format.
 
 ## Consequences
 
