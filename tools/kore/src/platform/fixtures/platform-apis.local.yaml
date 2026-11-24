@@ -261,6 +261,22 @@ spec:
                               { type: integer, minimum: 2, default: 2 }
                             maxReplicas:
                               { type: integer, minimum: 1, default: 5 }
+                # The per-rollout soak (#1535, ADR 0171): optional, and nothing is
+                # defaulted here, so a record that writes none is unchanged. The
+                # verdict in app-soak.ts gives it 24h and no request count.
+                soak:
+                  type: object
+                  additionalProperties: false
+                  description: "the time a contract step waits after this app's release is activated: duration defaults to 24h; minRequests is off unless written"
+                  properties:
+                    duration:
+                      type: string
+                      pattern: "^[1-9][0-9]*[mhd]$"
+                      description: "a whole number of minutes, hours or days, such as 30m, 24h or 7d; under 30m is accepted with an audit warning"
+                    minRequests:
+                      type: integer
+                      minimum: 1
+                      description: "requests through the shared gateway the soak must see before a contract step; omit it to turn the count off"
                 gateway:
                   type: string
                   enum: [internal, external]
