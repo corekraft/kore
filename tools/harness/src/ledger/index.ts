@@ -18,6 +18,12 @@ export {
   type RecordResult,
 } from "./ledger.js";
 export {
+  formatCharts,
+  parseCharts,
+  COMMAND_OWNED_KINDS,
+  type RolloutChart,
+} from "./schema-rollout.js";
+export {
   KINDS,
   POLLER_KINDS,
   SOURCES,

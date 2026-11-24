@@ -47,6 +47,7 @@ export const platformStatusCases: [
     [
       { name: "crd-ownership", status: "degraded" },
       { name: "backups", status: "degraded" },
+      { name: "chart:gateway", status: "missing" },
     ],
     0,
   ],

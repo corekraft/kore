@@ -37,6 +37,7 @@ test("the platform barrel exposes exactly the runtime names its callers use", ()
       "capacityWarningPercent",
       "chartLockDrift",
       "chartLockDriftMessage",
+      "chartVersionRowPrefix",
       "closeGateIfDegraded",
       "composeChartDelivery",
       "composeGoldenPathDelivery",

@@ -5,6 +5,7 @@ import { records } from "./records.js";
 const {
   ideaCommands,
   flagCommands,
+  platformCommands,
   rulesetCommands,
   statusCommand,
   judgeCommands,
@@ -31,6 +32,7 @@ const {
   return {
     ideaCommands: { create: command("idea create") },
     flagCommands: { flag: command("flag") },
+    platformCommands: { "rollout-record": command("platform rollout-record") },
     rulesetCommands: { ruleset: command("ruleset") },
     statusCommand: command("status"),
     judgeCommands: { judge: command("judge") },
@@ -42,7 +44,9 @@ const {
 });
 
 vi.mock("./idea-commands.js", () => ({ ideaRecordCommands: ideaCommands }));
-vi.mock("./flag-commands.js", () => ({ flagCommands }));
+vi.mock("./release-records.js", () => ({
+  releaseRecords: { flag: flagCommands, platform: platformCommands },
+}));
 vi.mock("../ruleset/index.js", () => ({ rulesetCommands }));
 vi.mock("./status-command.js", () => ({ statusCommand }));
 vi.mock("./judge-commands.js", () => ({
@@ -61,6 +65,7 @@ describe("records command map", () => {
       "idea",
       "judge",
       "outcome",
+      "platform",
       "pr",
       "review",
       "ruleset",
@@ -73,8 +78,9 @@ describe("records command map", () => {
     expect(Object.keys(records.idea ?? {})).not.toContain("challenge");
   });
 
-  it("maps flag, ruleset, outcome, decision, judge, review and pr to their own command maps", () => {
+  it("maps flag, platform, ruleset, outcome, decision, judge, review and pr to their own command maps", () => {
     expect(records.flag).toBe(flagCommands);
+    expect(records.platform).toBe(platformCommands);
     expect(records.ruleset).toBe(rulesetCommands);
     expect(records.outcome).toBe(outcomeCommands);
     expect(records.decision).toBe(decisionCommands);
