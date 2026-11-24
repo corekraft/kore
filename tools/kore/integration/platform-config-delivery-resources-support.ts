@@ -26,6 +26,8 @@ export const namespacedKinds = new Set([
   "security.istio.io/PeerAuthentication",
   "config.gatekeeper.sh/Config",
   "agentgateway.dev/AgentgatewayParameters",
+  // The external Gateway's one platform-owned limits policy, rendered only with external-gateway-limits on (ADR 0160, issue 1674).
+  "agentgateway.dev/AgentgatewayPolicy",
   // The shared proxy's budget, rendered by platform-config only with gateway-proxy-defaults on (ADR 0154).
   "policy/PodDisruptionBudget",
 ]);

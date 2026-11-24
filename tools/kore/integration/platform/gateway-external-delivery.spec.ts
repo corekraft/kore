@@ -52,10 +52,17 @@ async function deliveredVps(externalGateway: boolean): Promise<Repository> {
 }
 
 /** The composed delivery of a repository, with its lock file written to a temporary directory. */
+// The release automation identity a release lock declares (the vps environment takes only this signer, #1952).
+const releaseSigner =
+  "https://github.com/corekraft/kore/.github/workflows/release.yaml@refs/tags/v0.26.0";
+
 async function composed(repository: Repository) {
   const dir = await mkdtemp(join(tmpdir(), "kore-lock-"));
   const lockPath = join(dir, "platform-charts.lock.json");
-  await writeFile(lockPath, JSON.stringify({ version: 1, entries }));
+  await writeFile(
+    lockPath,
+    JSON.stringify({ version: 1, authorizedSigners: [releaseSigner], entries }),
+  );
   return composeChartDelivery(repository, lockPath);
 }
 

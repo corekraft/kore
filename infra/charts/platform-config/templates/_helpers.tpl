@@ -46,6 +46,40 @@ renders the external Gateway, its HTTP redirect and its Service's node port
 {{- end -}}
 
 {{/*
+True (a non-empty string) only while external-gateway-limits and external-gateway
+are both on: the one platform-owned policy limits the external Gateway (ADR 0160,
+issue 1674). Off, nothing it renders changes.
+*/}}
+{{- define "platform-config.externalGatewayLimits" -}}
+{{- if and (include "platform-config.externalGateway" .) (index (.Values.features | default dict) "external-gateway-limits") -}}true{{- end -}}
+{{- end -}}
+
+{{/*
+A limit read from externalGateway.limits in the environment's values. It must be
+set and a positive whole number; the failure names the field and an example, so
+an overlay that omits a limit or sets it to zero is refused before anything
+renders. Called with dict "path" (the field under limits), "value" and "example".
+*/}}
+{{- define "platform-config.limitNumber" -}}
+{{- $field := printf "externalGateway.limits.%s" .path -}}
+{{- $value := required (printf "%s must be set in the environment's values, a positive whole number such as %s, while external-gateway-limits is on" $field .example) .value -}}
+{{- if le (int64 $value) 0 -}}
+{{- fail (printf "%s must be a positive whole number such as %s, got %v" $field .example $value) -}}
+{{- end -}}
+{{- int64 $value -}}
+{{- end -}}
+
+{{/*
+A limit read from externalGateway.limits that is a duration or a quantity, which
+the CRD validates in form: it must be set. Called with dict "path", "value" and
+"example".
+*/}}
+{{- define "platform-config.limitText" -}}
+{{- $field := printf "externalGateway.limits.%s" .path -}}
+{{- required (printf "%s must be set in the environment's values, for example %s, while external-gateway-limits is on" $field .example) .value -}}
+{{- end -}}
+
+{{/*
 True (a non-empty string) only while the service-listener-sets flag is on: each
 Gateway admits ListenerSets only from namespaces carrying the platform's
 shared-Gateway label (ADR 0159, issue 1633). Off, the Gateways carry no
