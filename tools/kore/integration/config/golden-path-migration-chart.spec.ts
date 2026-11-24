@@ -61,7 +61,14 @@ async function refusal(...set: string[]): Promise<string> {
   try {
     await render(undefined, ...set);
   } catch (error) {
-    return (error as { stderr: string }).stderr;
+    if (
+      error instanceof Error &&
+      "stderr" in error &&
+      typeof error.stderr === "string"
+    ) {
+      return error.stderr;
+    }
+    throw error;
   }
   throw new Error("the render was accepted, so it did not refuse");
 }
