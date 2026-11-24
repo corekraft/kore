@@ -104,6 +104,12 @@
         "components": ["external-dns"]
       },
       {
+        "name": "openbao",
+        "step": 8,
+        "capability": "health-condition",
+        "components": ["openbao"]
+      },
+      {
         "name": "keycloak-operator",
         "step": 8,
         "capability": "controller",

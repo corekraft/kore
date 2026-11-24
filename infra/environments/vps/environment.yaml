@@ -101,6 +101,11 @@
           "infra/environments/vps/values/mirror/external-dns.yaml",
           "infra/environments/vps/values/external-dns.yaml"
         ],
+      "openbao":
+        [
+          "infra/environments/vps/values/mirror/openbao.yaml",
+          "infra/environments/vps/values/openbao.yaml"
+        ],
       "kore-platform-config":
         ["infra/environments/vps/values/platform-config.yaml"],
       "kore-local-tls": ["infra/environments/vps/values/platform-config.yaml"],

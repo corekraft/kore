@@ -176,6 +176,7 @@ test("the managed-example overlay validates with and without flags", async () =>
         "gateway-rollback-order": false,
         "ingress-agentgateway": false,
         "external-dns": false,
+        openbao: false,
         "otlp-route": false,
         "platform-argocd-delivery": false,
         "platform-dns": false,

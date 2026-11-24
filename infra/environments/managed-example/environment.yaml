@@ -56,6 +56,7 @@
       "external-gateway": false,
       "external-gateway-limits": false,
       "external-dns": false,
+      "openbao": false,
       "registry-by-name": false,
       "registry-tailnet-forward": false,
       "otlp-route": false,
@@ -114,6 +115,8 @@
           "infra/environments/managed-example/values/mirror/external-dns.yaml",
           "infra/environments/managed-example/values/external-dns.yaml"
         ],
+      "openbao":
+        ["infra/environments/managed-example/values/mirror/openbao.yaml"],
       "external-secrets":
         [
           "infra/environments/managed-example/values/mirror/external-secrets.yaml"

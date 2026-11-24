@@ -1065,6 +1065,21 @@
         "readiness": ["deployment/external-dns"]
       },
       {
+        "name": "openbao",
+        "phase": "configuration",
+        "namespace": "openbao",
+        "kind": "helm",
+        "repository": "https://openbao.github.io/openbao-helm",
+        "chart": "openbao",
+        "version": "openbao",
+        "featureFlag": "openbao",
+        "ownsCRDs": [],
+        "dependencies": ["kore-storage"],
+        "timeout": "10m",
+        "values": ["infra/environments/common/values/openbao.yaml"],
+        "readiness": ["statefulset/openbao"]
+      },
+      {
         "name": "kore-local-tls",
         "phase": "configuration",
         "owner": "argocd",

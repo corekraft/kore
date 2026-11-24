@@ -132,6 +132,13 @@ test("kore validate refuses a reserved suborg name, naming the reason", async ()
   );
 });
 
+test("kore validate refuses the OpenBao platform namespace as a suborg name, even with the openbao flag off", async () => {
+  await records({ [`${dir}/openbao.json`]: suborg("openbao") });
+  await expect(main(["validate"])).rejects.toThrow(
+    `${dir}/openbao.json.metadata.name: "openbao" is a reserved name: it is a platform namespace, default, internal, www or reference; choose another name, for example "openbao-team"`,
+  );
+});
+
 test("kore validate refuses a suborg name with a double hyphen", async () => {
   await records({ [`${dir}/pay--team.json`]: suborg("pay--team") });
   await expect(main(["validate"])).rejects.toThrow(
