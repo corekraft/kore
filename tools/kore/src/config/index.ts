@@ -102,6 +102,7 @@ export { approvedImageList } from "./approved.js";
 export type { ApprovedEntry } from "./approved.js";
 export {
   agentgatewayMeshEnrollmentFlag,
+  apiserverReadyFlag,
   autoscalingFlag,
   componentGatedOff,
   readinessGatedOff,

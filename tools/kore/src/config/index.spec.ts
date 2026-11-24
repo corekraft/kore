@@ -57,6 +57,7 @@ vi.mock("./crd-ownership.js", () => ({
 }));
 vi.mock("./features.js", () => ({
   agentgatewayMeshEnrollmentFlag: "agentgateway-mesh-enrollment",
+  apiserverReadyFlag: "platform-apiserver-ready",
   autoscalingFlag: "autoscaling-defaults",
   componentGatedOff: vi.fn(),
   readinessGatedOff: vi.fn(),
@@ -121,6 +122,7 @@ const entryPoints = [
   "agentgatewayMeshEnrollmentFlag",
   "alertEmailHelmArgs",
   "alertForwardingHelmArgs",
+  "apiserverReadyFlag",
   "appliedFlags",
   "approvedImageList",
   "auditEvidence",

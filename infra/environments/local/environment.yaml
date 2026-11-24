@@ -87,6 +87,7 @@
       "gateway-proxy-defaults": false,
       "platform-keycloak-wait": false,
       "platform-keycloak-realm-wait": false,
+      "platform-apiserver-ready": false,
       "golden-path-safety-defaults": false,
       "decision-advisor": true
     },

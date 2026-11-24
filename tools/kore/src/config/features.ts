@@ -118,6 +118,9 @@ export const keycloakWaitFlag = "platform-keycloak-wait";
 /** The flag that makes kore wait for the Keycloak realm's OIDC discovery before it applies the portal's release, so a Keycloak upgrade converges or fails naming the cause (issue 1984). Off in every overlay until a recorded live run proves an upgrade converges. */
 export const keycloakRealmWaitFlag = "platform-keycloak-realm-wait";
 
+/** The flag that makes kore wait for the Kubernetes API server to answer /readyz before it rolls out the Keycloak operator, agentgateway, istio-cni and ztunnel, so a cold-start API server converges or fails naming the cause (issue 2011). Off in every overlay until a recorded live run proves `kore local up` converges over an existing cluster. */
+export const apiserverReadyFlag = "platform-apiserver-ready";
+
 /** The flag that makes the golden-path sign-in wait for the portal's Keycloak instead of the delivery gate (ADR 0113, issue 1880). Off in every overlay until a live run proves the local gate converges. */
 export const goldenPathSigninAfterPortalFlag =
   "golden-path-signin-after-portal";
