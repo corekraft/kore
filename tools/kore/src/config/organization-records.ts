@@ -230,6 +230,18 @@ export async function checkOrganizationRecords(
 }
 
 /**
+ * The names of an environment's suborgs: the records that pass the checks, in name
+ * order (ADR 0161). A suborg with no Organization record, or with a record that fails
+ * the checks, has no name, so it gets no certificate. Read-only, as the check is.
+ */
+export async function suborgNames(
+  check: OrganizationRecordCheck,
+): Promise<string[]> {
+  const report = await checkOrganizationRecords(check);
+  return report.organizations.map((organization) => organization.name);
+}
+
+/**
  * The suborg records of an environment by name, each a repository path: the names
  * the hostname claim rules read (ADR 0159). A directory that cannot be listed holds
  * no suborgs; the record check reports the directory's own problems.

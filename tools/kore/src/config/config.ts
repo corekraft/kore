@@ -5,6 +5,7 @@ import {
   loadImageTrustValues,
   loadJSON,
   loadRegistryComponentValues,
+  loadSuborgNames,
 } from "./overlay-files.js";
 import { loadServiceRegistrations } from "./service-registrations.js";
 import { validateRepository } from "./validate.js";
@@ -100,6 +101,11 @@ export async function loadRepository(
       environment,
     ),
     registeredServices: await loadServiceRegistrations(root, environmentName),
+    suborgs: await loadSuborgNames(
+      root,
+      environment,
+      catalog.components.map((component) => component.namespace),
+    ),
   };
   const exemptions = new ExemptionCheck(new FileExemptionSource(root));
   const warnings = await validateRepository(repository, [], (repo) =>
