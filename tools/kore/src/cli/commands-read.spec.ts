@@ -2,6 +2,7 @@ import { readFile } from "node:fs/promises";
 import { beforeEach, expect, test, vi } from "vitest";
 import {
   checkAppRecords,
+  checkCrossFileRules as crossFile,
   checkOrganizationRecords,
   featureEnabled,
   orderedComponents,
@@ -44,11 +45,9 @@ const operations = [
     outcome: "interrupted",
   },
   {
-    op: "b",
     command: "cluster stop",
     ts: "2026-11-07T10:01:00.000Z",
     outcome: "ok",
-    error: "",
   },
 ];
 
@@ -69,6 +68,7 @@ beforeEach(() => {
     errors: [],
     organizations: [],
   });
+  vi.mocked(crossFile).mockResolvedValue({ errors: [], warnings: [] });
 });
 
 test("validate passes --record-base to the app record check, and an app record error fails it", async () => {

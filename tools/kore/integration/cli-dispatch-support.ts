@@ -56,6 +56,7 @@ export const configModule = () => ({
     recordBases.push(options.recordBase);
     return { errors: [], warnings: [] };
   }),
+  checkCrossFileRules: vi.fn(async () => ({ errors: [], warnings: [] })),
   checkOrganizationRecords: vi.fn(async () => ({
     errors: [],
     organizations: [],
