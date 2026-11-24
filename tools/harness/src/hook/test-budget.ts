@@ -8,6 +8,7 @@
 
 import type { CliDeps, CommandHelp } from "../runtime/index.js";
 import { hookCommand, type HookResult } from "./io.js";
+import { checkoutOf, loadReport } from "./test-budget-checkout.js";
 import type { BudgetReport } from "./test-budget-reporter.js";
 
 const TEST_MS = 100;
@@ -133,23 +134,6 @@ async function isConverted(
   return !isListed(lists, srcDir, source);
 }
 
-async function loadReport(
-  deps: CliDeps,
-  path: string,
-  packageDir: string,
-): Promise<BudgetReport | string> {
-  let text: string;
-  try {
-    text = await deps.fs.readFile(path);
-  } catch (error) {
-    if ((error as { code?: unknown }).code !== "ENOENT") {
-      throw error;
-    }
-    return `test-budget: no unit report at ${path}; run \`npm run test:unit\` in ${packageDir}, which writes it before this check reads it`;
-  }
-  return JSON.parse(text) as BudgetReport;
-}
-
 function slowestLines(
   results: SpecResult[],
   relative: (path: string) => string,
@@ -205,14 +189,15 @@ async function check(
   packageDir: string,
   reportPath: string,
 ): Promise<HookResult> {
-  const root = await deps.root();
+  const checkout = await checkoutOf(deps);
+  const loaded = await loadReport(deps, reportPath, checkout, packageDir);
+  if (typeof loaded === "string") {
+    return { code: 1, stderr: `${loaded}\n` };
+  }
+  const { root, report } = loaded;
   const srcDir = `${root}/${packageDir}/src`;
   const relative = (path: string) =>
     path.startsWith(`${root}/`) ? path.slice(root.length + 1) : path;
-  const report = await loadReport(deps, reportPath, packageDir);
-  if (typeof report === "string") {
-    return { code: 1, stderr: `${report}\n` };
-  }
   const results = report.files;
   const first = results[0];
   if (
@@ -252,7 +237,7 @@ const testBudgetHelp: CommandHelp = {
     package:
       "The package directory from the repository root, such as tools/kore. Required: without it the hook exits 1.",
     report:
-      "The JSON report the unit run writes, such as test-results/unit.json; a relative path is read from the working directory. Required: without it the hook exits 1.",
+      "The JSON report the unit run writes, such as test-results/unit.json; a relative path is read from the working directory, and the main checkout's report at the same path only when the commit's checkout has none. Required: without it the hook exits 1.",
     strict:
       "Accepted for uniformity: a fault already exits 1 here, so --strict changes nothing.",
   },
