@@ -1,5 +1,54 @@
 # Changelog
 
+## [0.26.0](https://github.com/corekraft/kore/compare/v0.25.0...v0.26.0) (2026-11-24)
+
+
+### Features
+
+* **backup:** add the kore-backup program that dumps, encrypts and stores a database ([#1931](https://github.com/corekraft/kore/issues/1931)) ([472f592](https://github.com/corekraft/kore/commit/472f5927ab45511c49c509510b72830efe744a9f))
+* **config:** declare node count, kubelet reserves and committed fraction ([#1928](https://github.com/corekraft/kore/issues/1928)) ([021cf7c](https://github.com/corekraft/kore/commit/021cf7cf01e45ec0031d0336f0a893ac73fa18c0))
+* **harness:** add the platform-window outcome source for app flags ([#1949](https://github.com/corekraft/kore/issues/1949)) ([4f913eb](https://github.com/corekraft/kore/commit/4f913eb05081c6ae8b26e179a9cbbb09cde8eb8d))
+* **harness:** decide an activation window's verdict from canned series ([#1959](https://github.com/corekraft/kore/issues/1959)) ([71e129d](https://github.com/corekraft/kore/commit/71e129d4c44866bfbf17130dd29969fefc98c15f)), closes [#1518](https://github.com/corekraft/kore/issues/1518)
+* **harness:** let an expand step open with --expand-step none ([#1936](https://github.com/corekraft/kore/issues/1936)) ([e43fb51](https://github.com/corekraft/kore/commit/e43fb51aace1074562a5f8f98231e1b5b7e248a9)), closes [#1926](https://github.com/corekraft/kore/issues/1926)
+* **image-policy:** enrol the golden-path namespaces from git behind the template flag ([#1918](https://github.com/corekraft/kore/issues/1918)) ([d0e595a](https://github.com/corekraft/kore/commit/d0e595a5035305e08b91b9bb324b9dce0ae43fe3))
+* **image-policy:** give the template policy its own keyless trust setting ([#1922](https://github.com/corekraft/kore/issues/1922)) ([fcbf3f1](https://github.com/corekraft/kore/commit/fcbf3f13bc139e34ef3d894537ac46cef2854db6))
+* **infra:** run the vps observability stack with scrape, rules, Loki and Grafana datasources ([#1927](https://github.com/corekraft/kore/issues/1927)) ([06535e3](https://github.com/corekraft/kore/commit/06535e399a38cae0547fabab57ab0c73a216a7f4)), closes [#1513](https://github.com/corekraft/kore/issues/1513)
+* **kore:** add the eval command for an app candidate's manifests, flags and pattern ([#1934](https://github.com/corekraft/kore/issues/1934)) ([31532bf](https://github.com/corekraft/kore/commit/31532bf4571cf94257a72bcfce763c3c7b4307e5))
+* **kore:** classify app migrations and enforce the contract release rules in eval ([#1974](https://github.com/corekraft/kore/issues/1974)) ([0d5a9ce](https://github.com/corekraft/kore/commit/0d5a9ce3c5cc1b4e77d79449b9a671f509020e1f)), closes [#1564](https://github.com/corekraft/kore/issues/1564)
+* **observability:** record each service's evidence signals once ([#1943](https://github.com/corekraft/kore/issues/1943)) ([05aeea3](https://github.com/corekraft/kore/commit/05aeea34bb0fdd79d0eb0f14bacad54bbbd39938))
+* **platform:** declare an internal and an optional external Gateway ([#1968](https://github.com/corekraft/kore/issues/1968)) ([08aefa8](https://github.com/corekraft/kore/commit/08aefa8b07c33c1f35393d4c6c9e4af4498b694d))
+* **platform:** derive PostgreSQL instances from the service class behind a flag ([#1947](https://github.com/corekraft/kore/issues/1947)) ([0b4ebce](https://github.com/corekraft/kore/commit/0b4ebce693c1829e437cc246c0f18738535d3fb7))
+* **platform:** gate the helm rollback refusal for argocd releases behind a flag ([#1954](https://github.com/corekraft/kore/issues/1954)) ([ec3594a](https://github.com/corekraft/kore/commit/ec3594ad80a50a16f53c3d78a06ca4ad2f926cfd))
+* **platform:** read recorded series from Prometheus over the environment's kube context ([#1963](https://github.com/corekraft/kore/issues/1963)) ([f3c7ea6](https://github.com/corekraft/kore/commit/f3c7ea6e5a97f9900722f35bbc27bb7c8df379f5))
+* **platform:** read template images as Sigstore bundles on the release authority ([#1976](https://github.com/corekraft/kore/issues/1976)) ([75a8f7f](https://github.com/corekraft/kore/commit/75a8f7f4ab490b0f0047c9eb8cfad36febc4cd17))
+* **platform:** read the platform domain from a run-time variable ([#1933](https://github.com/corekraft/kore/issues/1933)) ([039c3de](https://github.com/corekraft/kore/commit/039c3deda0e65da98749b22724fe85f3e040c9e7))
+* **platform:** render a maintenance deny sync window in the configuration AppProject ([#1956](https://github.com/corekraft/kore/issues/1956)) ([bf3e175](https://github.com/corekraft/kore/commit/bf3e175915c52c37a868385f5d59dea06193b3bb))
+* **platform:** render the external Gateway and ListenerSet admission behind two feature flags ([#1977](https://github.com/corekraft/kore/issues/1977)) ([ba737b9](https://github.com/corekraft/kore/commit/ba737b996faccad10bb94ad730345b1e01cea052))
+* **platform:** render the golden-path workload safety defaults behind a flag ([#1942](https://github.com/corekraft/kore/issues/1942)) ([8eae468](https://github.com/corekraft/kore/commit/8eae468294dbc0d4840f31495510b6d61b8fcafb))
+* **platform:** scrape the agentgateway data plane and record its series ([#1937](https://github.com/corekraft/kore/issues/1937)) ([f436749](https://github.com/corekraft/kore/commit/f436749e5ed3aaf403fe2771653ce73a8849cd12))
+* **platform:** wait for the Keycloak realm before the portal's proxy starts ([#1940](https://github.com/corekraft/kore/issues/1940)) ([7ba7add](https://github.com/corekraft/kore/commit/7ba7add944c5e327a1cabc738250be6b5c6286ae))
+* **recovery:** declare vps recovery objectives per protection class ([#1941](https://github.com/corekraft/kore/issues/1941)) ([bc73635](https://github.com/corekraft/kore/commit/bc73635a5e2009e3a6227114556ddd7c9d5e1ec1))
+* **release:** build, sign and lock the distroless kore-backup image ([#1971](https://github.com/corekraft/kore/issues/1971)) ([ba09b31](https://github.com/corekraft/kore/commit/ba09b312b6e677f953c09f94c271bde5c8ea057b)), closes [#1639](https://github.com/corekraft/kore/issues/1639)
+* **vps:** install reboot-notifier in the base role so a required reboot is visible ([#1962](https://github.com/corekraft/kore/issues/1962)) ([3940546](https://github.com/corekraft/kore/commit/39405467bd94f43c9d4c6e5eda647b404536f473)), closes [#1604](https://github.com/corekraft/kore/issues/1604)
+* **vps:** publish each Gateway from the host through one port table ([#1939](https://github.com/corekraft/kore/issues/1939)) ([fef22b7](https://github.com/corekraft/kore/commit/fef22b7a4662bfd02bd5cc1434e616b3dec128a2))
+
+
+### Bug fixes
+
+* **cluster:** refuse a running cluster that differs from the overlay ([#1683](https://github.com/corekraft/kore/issues/1683)) ([#1979](https://github.com/corekraft/kore/issues/1979)) ([18f17a8](https://github.com/corekraft/kore/commit/18f17a80fbc05da6d8e312b9b1e4468aa9d578fa))
+* **platform:** await golden-path sign-in Applications after the portal starts ([#1919](https://github.com/corekraft/kore/issues/1919)) ([1219664](https://github.com/corekraft/kore/commit/1219664c7304e706c2af4828c11d49ebc8a45f40))
+* **platform:** scope the component's Application check to the platform Applications ([#1924](https://github.com/corekraft/kore/issues/1924)) ([832e42a](https://github.com/corekraft/kore/commit/832e42a5a5581ba96c3870b1f439cc8d036898dd))
+* **runner:** decode process output once so split characters survive ([#1948](https://github.com/corekraft/kore/issues/1948)) ([8d80ceb](https://github.com/corekraft/kore/commit/8d80cebb121b5ad65df597373a4e6bf87281f090))
+
+
+### Documentation
+
+* **adr:** point ADRs 0127, 0138 and 0142 at the ADRs that refine them ([#1964](https://github.com/corekraft/kore/issues/1964)) ([e0cb594](https://github.com/corekraft/kore/commit/e0cb5942ecc9f9282e01d9d550ccd899533b87bb)), closes [#1503](https://github.com/corekraft/kore/issues/1503)
+* **operations:** mark unbuilt vps commands as planned text, not code ([#1973](https://github.com/corekraft/kore/issues/1973)) ([c02ca00](https://github.com/corekraft/kore/commit/c02ca00b5c322ccc5beded8a942fe2fbaf88c59a)), closes [#1669](https://github.com/corekraft/kore/issues/1669)
+* **operations:** write the box rebuild guide and recovery kit list ([#1955](https://github.com/corekraft/kore/issues/1955)) ([969351c](https://github.com/corekraft/kore/commit/969351c0d8402108c168bd159c312f1b92b0527e)), closes [#1669](https://github.com/corekraft/kore/issues/1669)
+* **plans:** correct the plan 15 outcome count to thirteen confirmed, one partly shown ([#1967](https://github.com/corekraft/kore/issues/1967)) ([e162da6](https://github.com/corekraft/kore/commit/e162da6c563578a221579c1042f39803c1bd3b38))
+* **platform:** point ADRs 0025, 0037 and 0042 at the app-model decisions ([#1945](https://github.com/corekraft/kore/issues/1945)) ([6111831](https://github.com/corekraft/kore/commit/61118314dbcd4062a2ba983dfa7edbe67b7cccca)), closes [#1560](https://github.com/corekraft/kore/issues/1560)
+
 ## [0.25.0](https://github.com/corekraft/kore/compare/v0.24.0...v0.25.0) (2026-11-23)
 
 
