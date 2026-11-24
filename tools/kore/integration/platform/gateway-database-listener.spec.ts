@@ -6,6 +6,7 @@ import {
   loadRepository,
   validateRepository,
   type Repository,
+  internalGateway,
 } from "../../src/config/index.js";
 import {
   generatedPorts,
@@ -102,7 +103,7 @@ test.each(["agentgateway", "istio"])(
     const merged = merge(
       generatedPorts(
         gatewayClass,
-        repository.environment.gateway.port,
+        internalGateway(repository.environment).port,
         postgresPort,
       ),
       overlayPorts(output),

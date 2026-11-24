@@ -4,6 +4,7 @@ import {
   gatewayEntryPort,
   loadRepository,
   platformPlan,
+  internalGateway,
 } from "../config/index.js";
 import { ProcessRunner, liveEnvironment } from "../runtime/index.js";
 import type { Runner } from "../runtime/index.js";
@@ -88,7 +89,8 @@ async function proofOptions(
   cluster: Cluster,
   namespace: string,
 ): Promise<ProofOptions> {
-  const { gateway, secrets } = cluster.repository.environment;
+  const { secrets } = cluster.repository.environment;
+  const gateway = internalGateway(cluster.repository.environment);
   // The echo backend runs the exact image the reference app already runs: it
   // is signed, admitted, and present on the node, so nothing new is approved.
   const image = await reference(cluster, "image");

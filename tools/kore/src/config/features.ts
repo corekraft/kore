@@ -84,6 +84,10 @@ export const organizationServiceApisFlag = "platform-organization-service-apis";
 /** The flag that installs the platform organization's Argo CD in the core phase (ADR 0043, plan 15 step 5). */
 export const platformArgocdDeliveryFlag = "platform-argocd-delivery";
 
+/** The flag that makes a recovery refuse a helm rollback of a release Argo CD owns, naming its git revert (ADR 0153, issue 1541). Off in every overlay until a recorded live outcome. */
+export const releaseRecoveryArgocdRefusalFlag =
+  "release-recovery-argocd-refusal";
+
 /** The flag that installs the local-only platform DNS server, answering the platform domain zone with the loopback address (plan 15, issue 1202). */
 export const platformDnsFlag = "platform-dns";
 
@@ -104,6 +108,9 @@ export const registryTailnetForwardFlag = "registry-tailnet-forward";
 
 /** The flag that gates the platform organization's portal: its Keycloak and, later, its Backstage (ADR 0113, plan 15 step 6). */
 export const platformPortalFlag = "platform-portal";
+
+/** The flag that makes the portal's pod wait for the Keycloak realm's OIDC discovery before its proxy starts, so a restart after a stop converges (issue 1788). Off in every overlay until a recorded live run proves the restart converges. */
+export const keycloakWaitFlag = "platform-keycloak-wait";
 
 /** The flag that makes the golden-path sign-in wait for the portal's Keycloak instead of the delivery gate (ADR 0113, issue 1880). Off in every overlay until a live run proves the local gate converges. */
 export const goldenPathSigninAfterPortalFlag =

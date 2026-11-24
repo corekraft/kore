@@ -1,0 +1,296 @@
+{
+  "rule_files": ["../files/rules/services.yaml"],
+  "evaluation_interval": "1m",
+  "tests":
+    [
+      {
+        "interval": "1m",
+        "name": "two services in one namespace record two separate series sets",
+        "input_series":
+          [
+            {
+              "series": 'kube_deployment_labels{namespace="suborg", deployment="leads-api", label_app_kubernetes_io_part_of="leads"}',
+              "values": "1x10"
+            },
+            {
+              "series": 'kube_deployment_labels{namespace="suborg", deployment="notes-api", label_app_kubernetes_io_part_of="notes"}',
+              "values": "1x10"
+            },
+            {
+              "series": 'kube_deployment_spec_replicas{namespace="suborg", deployment="leads-api"}',
+              "values": "2x10"
+            },
+            {
+              "series": 'kube_deployment_spec_replicas{namespace="suborg", deployment="notes-api"}',
+              "values": "1x10"
+            },
+            {
+              "series": 'kube_deployment_status_replicas_available{namespace="suborg", deployment="leads-api"}',
+              "values": "1x10"
+            },
+            {
+              "series": 'kube_deployment_status_replicas_available{namespace="suborg", deployment="notes-api"}',
+              "values": "1x10"
+            }
+          ],
+        "promql_expr_test":
+          [
+            {
+              "expr": "kore:service_replicas_available",
+              "eval_time": "5m",
+              "exp_samples":
+                [
+                  {
+                    "labels": '{__name__="kore:service_replicas_available", namespace="suborg", service="leads"}',
+                    "value": 1
+                  },
+                  {
+                    "labels": '{__name__="kore:service_replicas_available", namespace="suborg", service="notes"}',
+                    "value": 1
+                  }
+                ]
+            },
+            {
+              "expr": "kore:service_ready_ratio",
+              "eval_time": "5m",
+              "exp_samples":
+                [
+                  {
+                    "labels": '{__name__="kore:service_ready_ratio", namespace="suborg", service="leads"}',
+                    "value": 0.5
+                  },
+                  {
+                    "labels": '{__name__="kore:service_ready_ratio", namespace="suborg", service="notes"}',
+                    "value": 1
+                  }
+                ]
+            },
+            {
+              "expr": "kore:namespace_available_replicas",
+              "eval_time": "5m",
+              "exp_samples":
+                [
+                  {
+                    "labels": '{__name__="kore:namespace_available_replicas", namespace="suborg"}',
+                    "value": 2
+                  }
+                ]
+            }
+          ]
+      },
+      {
+        "interval": "1m",
+        "name": "a service with no part-of label keeps its namespace series",
+        "input_series":
+          [
+            {
+              "series": 'kube_deployment_labels{namespace="legacy--local", deployment="legacy-api"}',
+              "values": "1x10"
+            },
+            {
+              "series": 'kube_deployment_spec_replicas{namespace="legacy--local", deployment="legacy-api"}',
+              "values": "1x10"
+            },
+            {
+              "series": 'kube_deployment_status_replicas_available{namespace="legacy--local", deployment="legacy-api"}',
+              "values": "1x10"
+            }
+          ],
+        "promql_expr_test":
+          [
+            {
+              "expr": "kore:namespace_available_replicas",
+              "eval_time": "5m",
+              "exp_samples":
+                [
+                  {
+                    "labels": '{__name__="kore:namespace_available_replicas", namespace="legacy--local"}',
+                    "value": 1
+                  }
+                ]
+            },
+            {
+              "expr": "kore:service_replicas_available",
+              "eval_time": "5m",
+              "exp_samples":
+                [
+                  {
+                    "labels": '{__name__="kore:service_replicas_available", namespace="legacy--local"}',
+                    "value": 1
+                  }
+                ]
+            }
+          ]
+      },
+      {
+        "interval": "1m",
+        "name": "restarts are counted over fifteen minutes for the pod's service",
+        "input_series":
+          [
+            {
+              "series": 'kube_pod_labels{namespace="suborg", pod="leads-api-abc", label_app_kubernetes_io_part_of="leads"}',
+              "values": "1x20"
+            },
+            {
+              "series": 'kube_pod_labels{namespace="suborg", pod="notes-api-xyz", label_app_kubernetes_io_part_of="notes"}',
+              "values": "1x20"
+            },
+            {
+              "series": 'kube_pod_container_status_restarts_total{namespace="suborg", pod="leads-api-abc", container="api"}',
+              "values": "0+1x20"
+            },
+            {
+              "series": 'kube_pod_container_status_restarts_total{namespace="suborg", pod="notes-api-xyz", container="api"}',
+              "values": "0x20"
+            }
+          ],
+        "promql_expr_test":
+          [
+            {
+              "expr": "kore:service_restarts_increase15m",
+              "eval_time": "15m",
+              "exp_samples":
+                [
+                  {
+                    "labels": '{__name__="kore:service_restarts_increase15m", namespace="suborg", service="leads"}',
+                    "value": 15
+                  },
+                  {
+                    "labels": '{__name__="kore:service_restarts_increase15m", namespace="suborg", service="notes"}',
+                    "value": 0
+                  }
+                ]
+            },
+            {
+              "expr": "kore:namespace_restarts_increase15m",
+              "eval_time": "15m",
+              "exp_samples":
+                [
+                  {
+                    "labels": '{__name__="kore:namespace_restarts_increase15m", namespace="suborg"}',
+                    "value": 15
+                  }
+                ]
+            }
+          ]
+      },
+      {
+        "interval": "1m",
+        "name": "a rollout that is not progressing and a pod that is not ready are recorded for the service",
+        "input_series":
+          [
+            {
+              "series": 'kube_deployment_labels{namespace="suborg", deployment="leads-api", label_app_kubernetes_io_part_of="leads"}',
+              "values": "1x10"
+            },
+            {
+              "series": 'kube_deployment_status_condition{namespace="suborg", deployment="leads-api", condition="Progressing", status="false"}',
+              "values": "1x10"
+            },
+            {
+              "series": 'kube_pod_labels{namespace="suborg", pod="leads-api-abc", label_app_kubernetes_io_part_of="leads"}',
+              "values": "1x10"
+            },
+            {
+              "series": 'kube_pod_status_ready{namespace="suborg", pod="leads-api-abc", condition="false"}',
+              "values": "1x10"
+            }
+          ],
+        "promql_expr_test":
+          [
+            {
+              "expr": "kore:service_rollout_failed",
+              "eval_time": "5m",
+              "exp_samples":
+                [
+                  {
+                    "labels": '{__name__="kore:service_rollout_failed", namespace="suborg", service="leads"}',
+                    "value": 1
+                  }
+                ]
+            },
+            {
+              "expr": "kore:service_pods_not_ready",
+              "eval_time": "5m",
+              "exp_samples":
+                [
+                  {
+                    "labels": '{__name__="kore:service_pods_not_ready", namespace="suborg", service="leads"}',
+                    "value": 1
+                  }
+                ]
+            }
+          ]
+      },
+      {
+        "interval": "1m",
+        "name": "the error ratio is recorded as counts over five minutes beside the ratio, keyed by namespace",
+        "input_series":
+          [
+            {
+              "series": 'istio_requests_total{destination_service_namespace="shop--local", response_code="503"}',
+              "values": "0+1x10"
+            },
+            {
+              "series": 'istio_requests_total{destination_service_namespace="shop--local", response_code="200"}',
+              "values": "0+9x10"
+            }
+          ],
+        "promql_expr_test":
+          [
+            {
+              "expr": "kore:namespace_error_ratio_5m",
+              "eval_time": "5m",
+              "exp_samples":
+                [
+                  {
+                    "labels": '{__name__="kore:namespace_error_ratio_5m", namespace="shop--local"}',
+                    "value": 0.1
+                  }
+                ]
+            },
+            {
+              "expr": "kore:namespace_server_errors_increase5m",
+              "eval_time": "5m",
+              "exp_samples":
+                [
+                  {
+                    "labels": '{__name__="kore:namespace_server_errors_increase5m", namespace="shop--local"}',
+                    "value": 5
+                  }
+                ]
+            },
+            {
+              "expr": "kore:namespace_requests_increase5m",
+              "eval_time": "5m",
+              "exp_samples":
+                [
+                  {
+                    "labels": '{__name__="kore:namespace_requests_increase5m", namespace="shop--local"}',
+                    "value": 50
+                  }
+                ]
+            }
+          ]
+      },
+      {
+        "interval": "1m",
+        "name": "the five percent cap is one constant series",
+        "input_series": [],
+        "promql_expr_test":
+          [
+            {
+              "expr": "kore:error_ratio_cap",
+              "eval_time": "5m",
+              "exp_samples":
+                [
+                  {
+                    "labels": '{__name__="kore:error_ratio_cap"}',
+                    "value": 0.05
+                  }
+                ]
+            }
+          ]
+      }
+    ]
+}
