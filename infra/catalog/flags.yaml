@@ -137,6 +137,11 @@
         "kind": "feature",
         "applies": ["local"]
       },
+      {
+        "name": "platform-keycloak-realm-wait",
+        "kind": "feature",
+        "applies": ["local"]
+      },
       { "name": "host-published-ports", "kind": "feature", "applies": ["vps"] },
       {
         "name": "registry-tag-pruning",
