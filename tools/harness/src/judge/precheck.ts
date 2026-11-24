@@ -5,10 +5,12 @@ import {
   gatherChecks,
   gatherExpandStep,
   gatherGuardrailChanges,
+  hostnameClaims,
   lengthAudit,
   parsePrView,
   type AuditFinding,
   type Checks,
+  type HostnameClaimReport,
   type ItemVerdict,
   type PrView,
 } from "./checks.js";
@@ -43,6 +45,8 @@ export interface Report {
   guardrailChanges?: string[];
   /** Present only when a changed file is over a limit: the audit items, shown here and never a reason the check fails. */
   audits?: AuditFinding[];
+  /** Present only when the PR changes a claim input: its claims against main, and each refusal that fails the check. */
+  hostnames?: HostnameClaimReport;
 }
 
 const FIX =
@@ -129,6 +133,35 @@ async function diffChanges(
   };
 }
 
+/** Ready for the judge: the pattern matches, every check passes and no hostname claim is refused. */
+const readyOf = (
+  verdict: { patternMatches: boolean },
+  checks: Checks,
+  hostnames: HostnameClaimReport,
+): boolean =>
+  verdict.patternMatches &&
+  Object.values(checks).every((c) => c.result === "pass") &&
+  hostnames.refusals.length === 0;
+
+/** The PR's hostname claims, read against main's current commit (the base the PR names). */
+const claimsOf = (read: {
+  context: CommandContext;
+  api: Api;
+  root: string;
+  repo: string;
+  view: PrView;
+  files: ChangedFile[];
+}): Promise<HostnameClaimReport> =>
+  hostnameClaims({
+    api: read.api,
+    runner: read.context.deps.runner,
+    root: read.root,
+    repo: read.repo,
+    mainSha: read.view.baseSha,
+    headSha: read.view.headSha,
+    files: read.files,
+  });
+
 /**
  * Reports whether a PR is ready for the judge. The declaration is checked first;
  * an invalid one fails before the diff or any check result is read.
@@ -170,6 +203,7 @@ export async function precheck(
   );
   const hints = hintsFor(declaration.pattern, files);
   const unproven = assess(declaration.pattern, hints, files);
+  const hostnames = await claimsOf({ context, api, root, repo, view, files });
   // Only a contract that names its expand step, and whose diff fails its pattern, reads it.
   const expandStep = declaration.expandStep;
   const expand =
@@ -192,18 +226,27 @@ export async function precheck(
     pr,
     head: view.headSha,
     reviewers: [...reviewers],
-    ok:
-      verdict.patternMatches &&
-      Object.values(checks).every((c) => c.result === "pass"),
+    ok: readyOf(verdict, checks, hostnames),
     pattern: declaration.pattern,
     idea: declaration.idea,
     declaration: { ok: true },
     checks,
     hints,
     ...verdict,
+    ...(hostnames.touches ? { hostnames } : {}),
     ...(await diffChanges(api, repo, files, view, declaration.idea)),
   };
 }
+
+/** The hostname claim lines of a PR that touches one: each refusal, or that the claims hold against main. */
+const hostnameLines = (report: Report): string[] => {
+  if (report.hostnames === undefined) {
+    return [];
+  }
+  return report.hostnames.refusals.length === 0
+    ? ["hostnames: the claims hold against main"]
+    : report.hostnames.refusals.map((r) => `hostnames refused: ${r}`);
+};
 
 export function summary(report: Report): string {
   const head = `PR #${report.pr}: ${report.ok ? "ready for the judge" : "not ready"}`;
@@ -239,6 +282,7 @@ export function summary(report: Report): string {
     ...found,
     ...hints.map((h) => `hint ${h}`),
     ...mismatch,
+    ...hostnameLines(report),
     `cluster-facing: ${report.clusterFacing === true}`,
     ...unverified,
     "",

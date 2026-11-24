@@ -12,6 +12,12 @@ export { lengthAudit, type AuditFinding } from "./file-length.js";
 export { castAudit } from "./cast-audit.js";
 // So does the closing-keyword audit item.
 export { closingAudit } from "./closing-audit.js";
+// So does the hostname claims check, which reads the claim files of the PR and of main.
+export {
+  hostnameClaims,
+  type HostnameClaimCheck,
+  type HostnameClaimReport,
+} from "./hostname-claims.js";
 
 export const RESULTS = [
   "pass",
