@@ -25,6 +25,12 @@ storage:
 guaranteed:
   registry: { cpu: 250m, memory: 512Mi }
   proxy: { cpu: 250m, memory: 128Mi }
+# The kore-owned PriorityClass this release creates, and the registry pod names,
+# while data-path-priority-class is on (ADR 0152, issue 1531). The value sits below
+# the built-in system classes and above the default of 0 that apps keep.
+priorityClass:
+  name: kore-platform-critical
+  value: 1000000
 tls:
   # Lifetime of the CA and the serving certificate (ADR 0058). The proxy reads
   # its certificate at start, so renewal needs a pod restart; ten years keeps

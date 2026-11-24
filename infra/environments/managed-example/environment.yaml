@@ -70,9 +70,11 @@
       "postgresql-service-class-instances": false,
       "gateway-proxy-defaults": false,
       "data-path-guaranteed-qos": false,
+      "data-path-priority-class": false,
       "golden-path-safety-defaults": false,
       "golden-path-service-identity": false,
       "app-delivery": false,
+      "app-sizing": false,
       "workload-defaults-admission": false
     },
   "secrets": { "storeName": "platform-secrets", "sourceNamespace": "external" },
