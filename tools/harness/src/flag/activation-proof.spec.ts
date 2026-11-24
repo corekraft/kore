@@ -187,19 +187,20 @@ describe("activationProof in a production environment (ADR 0147)", () => {
 });
 
 describe("isWaiverRefusal names the refusal a production waiver gets (ADR 0147)", () => {
-  it("is true for the refusal an owner waiver gets in a production environment", async () => {
-    const waiver = { ...proven, Source: "owner-waiver", Environment: "vps" };
-    const repo = fakeRepository([idea("0001", section(waiver))]);
-    const found = await activationProof(repo, FLAG, "vps", RELEASE, true);
-    expect(found.refused).toHaveLength(1);
-    expect(found.refused.every(isWaiverRefusal)).toBe(true);
+  it("is true for the refusal an owner waiver gets in a production environment", () => {
+    expect(
+      isWaiverRefusal(
+        "docs/ideas/0001-proof.md: an owner waiver is not accepted in production environment vps (ADR 0147), so a live run is required",
+      ),
+    ).toBe(true);
   });
 
-  it("is false for a live run refused for its charts, so that refusal keeps its own advice", async () => {
-    const repo = fakeRepository([locked("0001", "main-bad")]);
-    const found = await activationProof(repo, FLAG, ENVIRONMENT, RELEASE);
-    expect(found.refused).toHaveLength(1);
-    expect(found.refused.some(isWaiverRefusal)).toBe(false);
+  it("is false for a live run refused for its charts, so that refusal keeps its own advice", () => {
+    expect(
+      isWaiverRefusal(
+        "docs/ideas/0001-proof.md: its main-lock charts differ from the release lock: cilium (version 9.9.9, release lock 1.0.0)",
+      ),
+    ).toBe(false);
   });
 });
 
