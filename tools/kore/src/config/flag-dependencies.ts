@@ -1,4 +1,5 @@
 import {
+  acmeDns01Flag,
   externalDnsFlag,
   externalGatewayFlag,
   externalGatewayLimitsFlag,
@@ -83,5 +84,11 @@ export function flagDependencyErrors(environment: Environment): string[] {
           `environment ${environment.name} turns on ${inClusterCaFlag}, which creates the cluster's own root CA, but a k3d environment's CA comes from kore trust install and the two would own one ClusterIssuer; turn ${inClusterCaFlag} off in the ${environment.name} environment overlay`,
         ]
       : [];
-  return [...needed, ...twoCaOwners];
+  const acmeNeedsZone =
+    featureEnabled(environment, acmeDns01Flag) && isLocalProvider(environment)
+      ? [
+          `environment ${environment.name} turns on ${acmeDns01Flag}, which needs a real zone: a k3d environment has no public zone for Let's Encrypt to check DNS-01 against; turn ${acmeDns01Flag} off in the ${environment.name} environment overlay`,
+        ]
+      : [];
+  return [...needed, ...twoCaOwners, ...acmeNeedsZone];
 }

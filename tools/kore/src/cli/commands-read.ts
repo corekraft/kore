@@ -91,19 +91,25 @@ export async function validateCommand(
     (component) => component.name,
   );
   const portability = await validatePortability(repository, context.runner);
+  const catalogNamespaces = repository.catalog.components.map(
+    (component) => component.namespace,
+  );
   const records = await checkAppRecords({
     root: repository.root,
     environment: repository.environment.name,
     runner: context.runner,
     yqVersion: repository.versions.tools.yq ?? "",
     recordBase: stringFlag(context.parsed, "record-base"),
+    hostnames: {
+      root: repository.root,
+      environment: repository.environment,
+      catalogNamespaces,
+    },
   });
   const suborgs = await checkOrganizationRecords({
     root: repository.root,
     environment: repository.environment,
-    catalogNamespaces: repository.catalog.components.map(
-      (component) => component.namespace,
-    ),
+    catalogNamespaces,
   });
   const failures = [...suborgs.errors, ...records.errors];
   if (failures.length > 0) {

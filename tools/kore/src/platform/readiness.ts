@@ -21,8 +21,9 @@ const TLS_READY_TEMPLATE =
 /**
  * Cluster-scoped kinds proven by conditions, waited for in order: CRDs are
  * Established, Crossplane Functions and Providers Installed then Healthy, and Sigstore Policy
- * Controller reports a ClusterImagePolicy Ready once its keys are inlined, and
- * an aggregated APIService is Available once its backing Service answers.
+ * Controller reports a ClusterImagePolicy Ready once its keys are inlined, an
+ * aggregated APIService is Available once its backing Service answers, and a
+ * cert-manager ClusterIssuer is Ready once its ACME account is registered.
  */
 const CONDITION_KINDS: readonly (readonly [string, string[]])[] = [
   ["crd/", ["Established"]],
@@ -30,6 +31,7 @@ const CONDITION_KINDS: readonly (readonly [string, string[]])[] = [
   ["provider.pkg.crossplane.io/", ["Installed", "Healthy"]],
   ["clusterimagepolicy.policy.sigstore.dev/", ["Ready"]],
   ["apiservice.apiregistration.k8s.io/", ["Available"]],
+  ["clusterissuer.cert-manager.io/", ["Ready"]],
 ];
 const NOT_FOUND = /NotFound|not found/i;
 const EXISTENCE_KINDS = [

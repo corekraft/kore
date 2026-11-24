@@ -1,13 +1,13 @@
 import { beforeEach, expect, test, vi } from "vitest";
 import { withFailFast } from "./fail-fast.js";
 import { desiredFingerprint } from "./fingerprint.js";
-import { releaseGatewayClassChange } from "./gateway-class-change.js";
 import {
   assertChartDelivery,
   assertGoldenPathDelivery,
   envOption,
   helmEnv,
   helmUpgradeArgs,
+  releaseGatewayClassChange,
   withAbsoluteChart,
 } from "./helm.js";
 import {
@@ -24,7 +24,6 @@ vi.mock("./fail-fast.js", async (importOriginal) => ({
   withFailFast: vi.fn(),
 }));
 vi.mock("./fingerprint.js");
-vi.mock("./gateway-class-change.js");
 vi.mock("./helm.js");
 vi.mock("./probe.js");
 vi.mock("./readiness.js");
