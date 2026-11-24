@@ -14,4 +14,4 @@ When a task stalls and no rule identifies the next step, ask Advisor for the nex
 
 Do not propose a route yourself; that is Advisor's decision.
 
-When Advisor answers, treat the recommendation as direction, not authorization. Route the remaining scope with Advisor's record and the original handoff to the role Advisor names. Neither suitability nor an Advisor decision substitutes for the owner's `ready-for-agent` instruction; only the deterministic dispatcher launches Writers, and only for tickets carrying that instruction. Do not label tickets yourself.
+When Advisor answers, treat the recommendation as direction, not authorization. Route the remaining scope with Advisor's record and the original handoff to the role Advisor names. Only the `ready-for-agent` label authorizes dispatch; the owner or automatic approval (`harness approve`) applies it. Neither suitability nor an Advisor decision substitutes for it. Only the deterministic dispatcher launches Writers, and only for tickets carrying that label. Do not label tickets yourself.

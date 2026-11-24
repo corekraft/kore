@@ -17,3 +17,7 @@ Expect Agent: Completes the spec and /to-tickets without pausing for owner appro
 ## A settled spec proceeds directly to tickets
 Do Agent: Walk through the handoffs for a hunch where /grill-with-docs and Answerer settle all open questions, and /to-spec raises no new ones.
 Expect Agent: Gives the ordered workflow /grill-with-docs with the Answerer loop, then /to-spec, then /to-tickets from the finished spec. Does not require an extra Answerer round when there is no spec question.
+
+## Ticketing ends with Ticket Review
+Do Agent: /to-tickets has produced three tickets from the finished spec. Ticket Review finds two suitable and returns the third as too large for one small Writer, suggesting a split into two slices. Describe the remaining handoffs through owner review.
+Expect Agent: Re-slices the returned ticket as suggested and sends the new slices back to Ticket Review before the owner report. The owner report includes each ticket's review result. Does not pause for owner approval, label tickets ready-for-agent or dispatch Writers.
