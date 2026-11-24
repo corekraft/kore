@@ -1,5 +1,6 @@
 import {
   acmeDns01Flag,
+  acmeIssuersFlag,
   externalDnsFlag,
   externalGatewayFlag,
   externalGatewayLimitsFlag,
@@ -48,6 +49,18 @@ const requirements: Requirement[] = [
     needs: serviceListenerSetsFlag,
     reason:
       "the external Gateway admits ListenerSets only from the namespaces the platform labels as shared",
+  },
+  {
+    flag: acmeIssuersFlag,
+    needs: acmeDns01Flag,
+    reason:
+      "the issuers acme-issuers adds its HTTP-01 solver to are the ones acme-dns01 renders, so there are none without it",
+  },
+  {
+    flag: externalGatewayFlag,
+    needs: acmeIssuersFlag,
+    reason:
+      "the external Gateway answers the HTTP-01 challenges of its names, and only the acme-issuers solver takes them there (ADR 0157)",
   },
   {
     flag: externalGatewayLimitsFlag,

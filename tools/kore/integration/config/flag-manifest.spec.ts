@@ -101,6 +101,7 @@ test("the flags that apply to vps are the ones the manifest declares, pending fl
     "external-gateway-limits",
     "external-dns",
     "acme-dns01",
+    "acme-issuers",
     "platform-hostname-ownership",
     "platform-portal",
     "portal-staged-install",
@@ -148,7 +149,9 @@ test("the real manifest declares each prerequisite the overlay check enforces, s
   ]);
   assert.deepEqual(requiredFlags(flags, "external-gateway"), [
     "service-listener-sets",
+    "acme-issuers",
   ]);
+  assert.deepEqual(requiredFlags(flags, "acme-issuers"), ["acme-dns01"]);
   assert.deepEqual(requiredFlags(flags, "external-gateway-limits"), [
     "external-gateway",
   ]);

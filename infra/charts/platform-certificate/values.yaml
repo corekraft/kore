@@ -10,11 +10,25 @@ features:
   in-cluster-ca: false
   # acme-dns01 (ADR 0161, vps only): renders the Let's Encrypt ClusterIssuers below.
   acme-dns01: false
+  # acme-issuers (ADR 0157, vps only, needs acme-dns01): adds an HTTP-01 solver to the
+  # same two issuers, through the external Gateway's port 80 listener.
+  acme-issuers: false
 # The two ACME ClusterIssuers, rendered only while acme-dns01 is on. kore passes
 # zone as the platform domain, so each issuer selects that one zone and no other.
 # The token is the consumer's own cloudflare-token Secret in cert-manager, applied
 # by kore secrets tokens (ADR 0161, #1969); this chart renders no Secret. No ACME
 # account email is set: none is committed, so the issuers carry none.
+acmeIssuers:
+  # The HTTP-01 solver (ADR 0157): a Certificate that carries this label is solved
+  # through the external Gateway's HTTP listener on port 80, the one route the public
+  # reaches. The label is the only selector, so the solver is chosen by it.
+  http01:
+    labelKey: platform.kore.dev/acme-challenge
+    labelValue: http01
+    gateway:
+      name: kore-gateway-external
+      namespace: kore-system
+      sectionName: http
 acmeDns01:
   zone: ""
   tokenSecretName: cloudflare-token

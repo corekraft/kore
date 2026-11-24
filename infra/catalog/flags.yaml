@@ -62,7 +62,7 @@
         "name": "external-gateway",
         "kind": "feature",
         "applies": ["local", "vps", "managed-example"],
-        "requires": ["service-listener-sets"]
+        "requires": ["service-listener-sets", "acme-issuers"]
       },
       {
         "name": "external-gateway-limits",
@@ -77,6 +77,12 @@
         "requires": ["external-gateway"]
       },
       { "name": "acme-dns01", "kind": "feature", "applies": ["vps"] },
+      {
+        "name": "acme-issuers",
+        "kind": "feature",
+        "applies": ["vps"],
+        "requires": ["acme-dns01"]
+      },
       {
         "name": "database-routes",
         "kind": "feature",

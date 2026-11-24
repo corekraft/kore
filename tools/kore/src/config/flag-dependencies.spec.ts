@@ -9,6 +9,7 @@ vi.mock("./provider.js", () => ({ isLocalProvider: vi.fn() }));
 vi.mock("./features.js", () => ({
   featureEnabled: vi.fn(),
   acmeDns01Flag: "acme-dns01",
+  acmeIssuersFlag: "acme-issuers",
   externalGatewayFlag: "external-gateway",
   externalDnsFlag: "external-dns",
   externalGatewayLimitsFlag: "external-gateway-limits",
@@ -72,7 +73,12 @@ test("registry-by-name off needs nothing, whether or not the shared Gateway is o
 });
 
 test("external-gateway on with service-listener-sets off is refused, naming both flags and the fix", () => {
-  flagsOn("external-gateway", "platform-shared-gateway");
+  flagsOn(
+    "external-gateway",
+    "platform-shared-gateway",
+    "acme-issuers",
+    "acme-dns01",
+  );
   expect(flagDependencyErrors(environment)).toEqual([
     'environment local turns on external-gateway, which needs service-listener-sets: the external Gateway admits ListenerSets only from the namespaces the platform labels as shared; set "service-listener-sets": true in the local environment overlay, or turn external-gateway off',
   ]);
@@ -83,6 +89,44 @@ test("external-gateway on with service-listener-sets on has no error", () => {
     "external-gateway",
     "service-listener-sets",
     "platform-shared-gateway",
+    "acme-issuers",
+    "acme-dns01",
+  );
+  expect(flagDependencyErrors(environment)).toEqual([]);
+});
+
+test("external-gateway on without acme-issuers is refused, naming both flags and the fix", () => {
+  flagsOn(
+    "external-gateway",
+    "service-listener-sets",
+    "platform-shared-gateway",
+  );
+  expect(flagDependencyErrors(environment)).toEqual([
+    'environment local turns on external-gateway, which needs acme-issuers: the external Gateway answers the HTTP-01 challenges of its names, and only the acme-issuers solver takes them there (ADR 0157); set "acme-issuers": true in the local environment overlay, or turn external-gateway off',
+  ]);
+});
+
+test("acme-issuers on without acme-dns01 is refused, naming both flags and the fix, because the two issuers are the ones acme-dns01 renders", () => {
+  flagsOn("acme-issuers");
+  expect(flagDependencyErrors(environment)).toEqual([
+    'environment local turns on acme-issuers, which needs acme-dns01: the issuers acme-issuers adds its HTTP-01 solver to are the ones acme-dns01 renders, so there are none without it; set "acme-dns01": true in the local environment overlay, or turn acme-issuers off',
+  ]);
+});
+
+test("acme-issuers on with acme-dns01 on has no error", () => {
+  flagsOn("acme-issuers", "acme-dns01");
+  expect(flagDependencyErrors(environment)).toEqual([]);
+});
+
+test("acme-issuers off needs nothing, and external-gateway with acme-issuers on needs nothing more than its own chain", () => {
+  flagsOn();
+  expect(flagDependencyErrors(environment)).toEqual([]);
+  flagsOn(
+    "external-gateway",
+    "service-listener-sets",
+    "platform-shared-gateway",
+    "acme-issuers",
+    "acme-dns01",
   );
   expect(flagDependencyErrors(environment)).toEqual([]);
 });
@@ -104,6 +148,8 @@ test("external-gateway-limits on with external-gateway on has no error", () => {
     "external-gateway",
     "service-listener-sets",
     "platform-shared-gateway",
+    "acme-issuers",
+    "acme-dns01",
   );
   expect(flagDependencyErrors(environment)).toEqual([]);
 });
@@ -121,6 +167,8 @@ test("external-dns on with external-gateway on has no error", () => {
     "external-gateway",
     "service-listener-sets",
     "platform-shared-gateway",
+    "acme-issuers",
+    "acme-dns01",
   );
   expect(flagDependencyErrors(environment)).toEqual([]);
 });
