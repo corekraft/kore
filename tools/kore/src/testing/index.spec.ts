@@ -8,6 +8,7 @@ import { expect, test, vi } from "vitest";
 const FORWARDS: Record<string, readonly string[]> = {
   "./gateway-flags-off.fixtures.js": [
     "loadLocalGatewayFlagsOff",
+    "withDriftListingMappingsOff",
     "withGatewayFlagsOff",
     "withPlatformDnsOn",
   ],
@@ -161,6 +162,10 @@ const FORWARDS: Record<string, readonly string[]> = {
   ],
   "../platform/upstream.live.js": ["renderChart", "yamlDocuments"],
   "../platform/rollout-feasibility.js": ["rolloutProblems"],
+  "../platform/golden-path-feasibility.live.js": [
+    "goldenPathFeasibility",
+    "renderGoldenPathWorkload",
+  ],
   "../images/images.fixtures.js": [
     "baseDigest as imageBaseDigest",
     "digest as imageDigest",

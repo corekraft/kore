@@ -43,8 +43,6 @@
       "gateway-rollback-order": false,
       "ingress-agentgateway": false,
       "agentgateway-data-plane-metrics": false,
-      "local-image-reuse": false,
-      "registry-tag-pruning": false,
       "platform-organization-service-apis": false,
       "platform-argocd-delivery": false,
       "platform-sync-window": false,
@@ -56,6 +54,7 @@
       "service-listener-sets": false,
       "external-gateway": false,
       "external-gateway-limits": false,
+      "external-dns": false,
       "registry-by-name": false,
       "registry-tailnet-forward": false,
       "otlp-route": false,
@@ -64,26 +63,14 @@
       "platform-hostname-ownership": false,
       "platform-portal": false,
       "portal-staged-install": false,
-      "automatic-retro": false,
-      "automatic-approval": false,
-      "automatic-revert": false,
-      "orchestrator-tick": false,
-      "behind-main-notice": false,
-      "tick-live-proofs": false,
-      "tick-ticket-queue": false,
-      "shell-aware-zsh-rules": false,
-      "gated-help-exempt": false,
-      "main-session-figures": false,
-      "pane-result-summary": false,
-      "signed-main-sends": false,
-      "main-session-wait": false,
       "golden-path-signin": false,
       "golden-path-template-admission": false,
       "golden-path-signin-after-portal": false,
       "postgresql-service-class-instances": false,
       "gateway-proxy-defaults": false,
       "golden-path-safety-defaults": false,
-      "decision-advisor": false
+      "app-delivery": false,
+      "workload-defaults-admission": false
     },
   "secrets": { "storeName": "platform-secrets", "sourceNamespace": "external" },
   "telemetry":
@@ -119,6 +106,11 @@
         ],
       "crossplane":
         ["infra/environments/managed-example/values/mirror/crossplane.yaml"],
+      "external-dns":
+        [
+          "infra/environments/managed-example/values/mirror/external-dns.yaml",
+          "infra/environments/managed-example/values/external-dns.yaml"
+        ],
       "external-secrets":
         [
           "infra/environments/managed-example/values/mirror/external-secrets.yaml"

@@ -94,6 +94,9 @@ export async function renderDelivery(
     ...(chartDelivery.inClusterCa === true
       ? ["--set", "inClusterCa=true"]
       : []),
+    ...(chartDelivery.workloadDefaults === true
+      ? ["--set", "workloadDefaults=true"]
+      : []),
     ...(chartDelivery.syncWindow === true ? ["--set", "syncWindow=true"] : []),
     ...(chartDelivery.serviceClassInstances === true
       ? ["--set", "serviceClassInstances=true"]

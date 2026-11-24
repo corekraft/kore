@@ -8,6 +8,7 @@ import {
   checkSettingsDenyRemoval,
 } from "./guard-guardrails.js";
 import { checkRulesetWeakening } from "./guard-ruleset.js";
+import { domainLeak } from "./guard-leak.js";
 import { evaluateFile } from "./guard-file.js";
 import { loadSopsPatterns, secretBlock, sopsBlock } from "./guard-secrets.js";
 import {
@@ -26,6 +27,7 @@ vi.mock("./guard-append-only.js", () => ({
   isAppendOnly: vi.fn(),
 }));
 vi.mock("./guard-deny.js", () => ({ checkDenyAudit: vi.fn() }));
+vi.mock("./guard-leak.js", () => ({ domainLeak: vi.fn(() => null) }));
 vi.mock("./guard-guardrails.js", () => ({
   checkGuardrailDemotion: vi.fn(),
   checkSettingsDenyRemoval: vi.fn(),
@@ -275,6 +277,24 @@ describe("evaluateFile: guarded files", () => {
     await scan("Write", { content: "x" }, "src/a.ts");
     expect(checkGuardrailDemotion).toHaveBeenCalledWith("src/a.ts", "", "");
     expect(checkRulesetWeakening).toHaveBeenCalledWith("src/a.ts", "", "");
+  });
+});
+
+describe("evaluateFile: the platform domain leak rule", () => {
+  const leak = (tool: string, input: Input) =>
+    evaluateFile(tool, input, "docs/notes.md", {
+      ...ctxWith(),
+      platformDomain: "platform.example.com",
+    });
+
+  it("checks a Write's content for the platform domain the context names", async () => {
+    await leak("Write", { content: "host x" });
+    expect(domainLeak).toHaveBeenCalledWith("host x", "platform.example.com");
+  });
+
+  it("checks an Edit's new text, not the text it replaces", async () => {
+    await leak("Edit", { old_string: "x", new_string: "y" });
+    expect(domainLeak).toHaveBeenCalledWith("y", "platform.example.com");
   });
 });
 

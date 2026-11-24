@@ -358,8 +358,10 @@ decisions; read one only when planning that area, and expect it to change.
 - [`docs/ideas/0081-hc-sessions-verification.md`](ideas/0081-hc-sessions-verification.md) — Verification that the hc-sessions flag runs harness sessions on hc terminals in local, so it can be activated. Turning it on needs this idea's recorded verification outcome.
 - [`docs/ideas/0082-drift-listing-mappings-works-live-in-local.md`](ideas/0082-drift-listing-mappings-works-live-in-local.md) — drift-listing-mappings works live in local
 - [`docs/ideas/0083-golden-path-signin-after-portal-works-live-in-local.md`](ideas/0083-golden-path-signin-after-portal-works-live-in-local.md) — golden-path-signin-after-portal works live in local
-- [`docs/ideas/0084-writer-token-budget.md`](ideas/0084-writer-token-budget.md) — Each writer's lifetime stays strictly under 100,000 cumulative active tokens and hands back its work before the limit.
-- [`docs/ideas/0085-release-proof-provenance.md`](ideas/0085-release-proof-provenance.md) — A clearance's proof records its build, flag wiring and exercised path, so evidence freshness can reuse it or name the smallest refresh.
+- [`docs/ideas/0084-drift-listing-mappings-works-live-on-release-locks.md`](ideas/0084-drift-listing-mappings-works-live-on-release-locks.md) — drift-listing-mappings works live in local on the v0.26.0 locks
+- [`docs/ideas/0085-golden-path-signin-after-portal-works-live-on-release-locks.md`](ideas/0085-golden-path-signin-after-portal-works-live-on-release-locks.md) — golden-path-signin-after-portal works live in local on the v0.26.0 locks
+- [`docs/ideas/0086-writer-token-budget.md`](ideas/0086-writer-token-budget.md) — Each writer's lifetime stays strictly under 100,000 cumulative active tokens and hands back its work before the limit.
+- [`docs/ideas/0087-release-proof-provenance.md`](ideas/0087-release-proof-provenance.md) — A clearance's proof records its build, flag wiring and exercised path, so evidence freshness can reuse it or name the smallest refresh.
 
 ## Operations and Guides
 
@@ -373,6 +375,7 @@ decisions; read one only when planning that area, and expect it to change.
 - [`docs/operations/signing-and-keys.md`](operations/signing-and-keys.md) — signing identities, key and identity rotation, compromise response, pipeline controls, and break-glass. Read when changing who may sign.
 - [`docs/operations/trust-and-rotation.md`](operations/trust-and-rotation.md) — every trust root, certificate and secret rotation, and workload identity incident response. Read when rotating or revoking anything.
 - [`docs/operations/policy-changes.md`](operations/policy-changes.md) — policy review, audit-to-enforce promotion, rollback, and emergency exemptions. Read when changing or promoting a policy.
+- [`docs/operations/workload-defaults-admission.md`](operations/workload-defaults-admission.md) — the admission constraint that audits app workloads against the replica, rollout, memory and priority defaults, its sign-in BFF exemption, and what it does not yet cover. Read when changing or promoting it.
 - [`docs/operations/role-identities.md`](operations/role-identities.md) — where the role identities live on macOS and on a Linux delivery host (a sops-encrypted store) and how the wizard's `--transfer` step fills it. Read when a Linux host cannot start a reviewer, judge or orchestrator pane.
 - [`docs/operations/resource-budgets.md`](operations/resource-budgets.md) — profile sizing and the `capacity` status warning. Read when the platform runs short of CPU or memory.
 - [`docs/operations/backups.md`](operations/backups.md) — the export backup target, the RPO objective, the planned vps backups, and the audit-only `backups` status row. Read when exporting, restoring, or when `backups` is degraded.

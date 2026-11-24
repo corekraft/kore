@@ -38,6 +38,8 @@
             "kore-policy-sync",
             "kore-hostname-ownership-templates",
             "kore-hostname-ownership",
+            "kore-workload-defaults-templates",
+            "kore-workload-defaults",
             "kore-admission-gate"
           ]
       },
@@ -94,6 +96,12 @@
         "step": 8,
         "capability": "endpoint",
         "components": ["kore-platform-dns"]
+      },
+      {
+        "name": "external-dns",
+        "step": 8,
+        "capability": "endpoint",
+        "components": ["external-dns"]
       },
       {
         "name": "keycloak-operator",

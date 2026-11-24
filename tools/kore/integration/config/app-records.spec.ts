@@ -4,6 +4,7 @@
 // cases are in app-record-base.spec.ts.
 import { afterEach, expect, test } from "vitest";
 import {
+  attestation,
   digest,
   dir,
   fixture,
@@ -81,12 +82,61 @@ test("a malformed digest fails, naming the field and the pattern it must match",
   const f = await repo({
     [`${dir}/leads.json`]: record("leads"),
     [`${dir}/leads.release.json`]: release("leads", {
-      components: { frontend: { digest: "sha256:abc" } },
+      components: { frontend: { digest: "sha256:abc", attestation } },
     }),
   });
   expect((await f.check()).errors).toEqual([
     `${dir}/leads.release.json: spec.components.frontend.digest must match ^sha256:[0-9a-f]{64}$ (the image digest: sha256, a colon, then 64 lowercase hex characters)`,
   ]);
+});
+
+test("a digest without its attestation reference fails, naming the attestation field (ADR 0166)", async () => {
+  const f = await repo({
+    [`${dir}/leads.json`]: record("leads"),
+    [`${dir}/leads.release.json`]: release("leads", {
+      components: { frontend: { digest } },
+    }),
+  });
+  expect((await f.check()).errors).toEqual([
+    `${dir}/leads.release.json: spec.components.frontend.attestation is required (an OCI reference of the form <registry>/<repository>@sha256:<64 hex characters>)`,
+  ]);
+});
+
+test("a malformed rejected digest fails, naming the entry and the pattern it must match", async () => {
+  const f = await repo({
+    [`${dir}/leads.json`]: record("leads"),
+    [`${dir}/leads.release.json`]: release("leads", {
+      components: {
+        frontend: { digest, attestation, rejected: ["sha256:abc"] },
+      },
+    }),
+  });
+  expect((await f.check()).errors).toEqual([
+    `${dir}/leads.release.json: spec.components.frontend.rejected[0] must match ^sha256:[0-9a-f]{64}$`,
+  ]);
+});
+
+test("a rejected list that holds the digest the component deploys fails, naming the component and the digest (ADR 0172)", async () => {
+  const f = await repo({
+    [`${dir}/leads.json`]: record("leads"),
+    [`${dir}/leads.release.json`]: release("leads", {
+      components: { frontend: { digest, attestation, rejected: [digest] } },
+    }),
+  });
+  expect((await f.check()).errors).toEqual([
+    `${dir}/leads.release.json: spec.components.frontend.rejected lists the current digest ${digest}; a rejected digest must differ from the one the release deploys (ADR 0172)`,
+  ]);
+});
+
+test("a release with its attestation and a rejected list of other digests passes", async () => {
+  const other = `sha256:${"d".repeat(64)}`;
+  const f = await repo({
+    [`${dir}/leads.json`]: record("leads"),
+    [`${dir}/leads.release.json`]: release("leads", {
+      components: { frontend: { digest, attestation, rejected: [other] } },
+    }),
+  });
+  expect(await f.check()).toEqual({ errors: [], warnings: [] });
 });
 
 test("a source commit that is not 40 lowercase hex characters fails, naming the field", async () => {
@@ -121,7 +171,7 @@ test("a release component the spec does not declare fails, naming the component 
   const f = await repo({
     [`${dir}/leads.json`]: record("leads"),
     [`${dir}/leads.release.json`]: release("leads", {
-      components: { bff: { digest } },
+      components: { bff: { digest, attestation } },
     }),
   });
   expect((await f.check()).errors).toEqual([
@@ -184,11 +234,41 @@ test("the same name in another environment is allowed: one environment is one cl
   expect(await f.check()).toEqual({ errors: [], warnings: [] });
 });
 
-test("an organization outside the chart's enum fails through the Service schema", async () => {
+const organizationPattern = "^[a-z0-9]([a-z0-9]|-[a-z0-9])*$";
+const organizationNamePart =
+  "a DNS label of lowercase letters and digits with single hyphens, at most 54 characters; platform is the tenant root";
+
+test("a suborg name the chart's pattern accepts passes the Service schema, with no errors and no warnings", async () => {
   const f = await repo({
     [`${dir}/leads.json`]: record("leads", { organization: "sales" }),
+    [`${dir}/leads.release.json`]: release("leads"),
+  });
+  expect(await f.check()).toEqual({ errors: [], warnings: [] });
+});
+
+test("an uppercase letter in the organization fails the chart's name pattern, naming the pattern and the rule", async () => {
+  const f = await repo({
+    [`${dir}/leads.json`]: record("leads", { organization: "Sales" }),
   });
   expect((await f.check()).errors).toEqual([
-    `${dir}/leads.json: spec.organization must be one of platform`,
+    `${dir}/leads.json: spec.organization must match ${organizationPattern} (${organizationNamePart})`,
+  ]);
+});
+
+test("a double hyphen in the organization fails the chart's name pattern, because the namespace <suborg>--preview needs it", async () => {
+  const f = await repo({
+    [`${dir}/leads.json`]: record("leads", { organization: "sales--team" }),
+  });
+  expect((await f.check()).errors).toEqual([
+    `${dir}/leads.json: spec.organization must match ${organizationPattern} (${organizationNamePart})`,
+  ]);
+});
+
+test("an organization of 55 characters fails the chart's length cap of 54, and no other rule", async () => {
+  const f = await repo({
+    [`${dir}/leads.json`]: record("leads", { organization: "a".repeat(55) }),
+  });
+  expect((await f.check()).errors).toEqual([
+    `${dir}/leads.json: spec.organization must be at most 54 characters`,
   ]);
 });

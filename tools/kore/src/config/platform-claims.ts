@@ -32,14 +32,135 @@ const subject = (value: unknown): Claim => (isRecord(value) ? value : {});
 const text = (value: unknown): string =>
   typeof value === "string" ? value : (JSON.stringify(value) ?? "");
 
+/** A suborg's name is at most this long, so <suborg>--preview fits a 63-character namespace (ADR 0165). */
+const suborgNameLimit = 54;
+const quotaFields = ["requests", "pods", "storage"];
+const requestFields = ["cpu", "memory"];
+const cpuPattern = /^[0-9]+(\.[0-9]+)?m?$/;
+const memoryPattern = /^[0-9]+(\.[0-9]+)?(Mi|Gi|Ti)$/;
+const storagePattern = /^[0-9]+(\.[0-9]+)?(Gi|Ti)$/;
+
+/** A suborg's name rules, as the Organization XRD states them (the reserved names are kore validate's). */
+function suborgNameErrors(name: string, path: string): string[] {
+  const errors: string[] = [];
+  if (!dnsLabel.test(name)) {
+    errors.push(
+      `${path}.metadata.name: must be a single DNS label (lowercase letters, digits and hyphens, at most 63 characters, no dots); rename it, for example "${name.toLowerCase().replace(/[^a-z0-9-]/g, "-")}"`,
+    );
+  }
+  if (name.includes("--")) {
+    errors.push(
+      `${path}.metadata.name: must not contain a double hyphen: the suborg namespace is <suborg> and its preview is <suborg>--preview; rename it, for example "${name.replaceAll("--", "-")}"`,
+    );
+  }
+  if (name.length > suborgNameLimit) {
+    errors.push(
+      `${path}.metadata.name: must be at most ${suborgNameLimit} characters, so <suborg>--preview fits 63; shorten it, for example "${name.slice(0, suborgNameLimit)}"`,
+    );
+  }
+  return errors;
+}
+
+/** The requests of a quota: cpu and memory, each named with the form it must take. */
+function requestErrors(requests: unknown, field: string): string[] {
+  if (!isRecord(requests)) {
+    return [
+      `${field}.requests: is required and must be an object with cpu and memory`,
+    ];
+  }
+  const errors = Object.keys(requests)
+    .filter((key) => !requestFields.includes(key))
+    .map(
+      (key) =>
+        `${field}.requests.${key}: is not a quota field; the request fields are cpu and memory`,
+    );
+  if (requests.cpu === undefined) {
+    errors.push(
+      `${field}.requests.cpu: is required; set a CPU quantity such as "8" or "500m"`,
+    );
+  } else if (
+    typeof requests.cpu !== "string" ||
+    !cpuPattern.test(requests.cpu)
+  ) {
+    errors.push(
+      `${field}.requests.cpu: must be a CPU quantity such as "8" or "500m"`,
+    );
+  }
+  if (requests.memory === undefined) {
+    errors.push(
+      `${field}.requests.memory: is required; set a memory quantity with a Mi, Gi or Ti suffix, such as "16Gi"`,
+    );
+  } else if (
+    typeof requests.memory !== "string" ||
+    !memoryPattern.test(requests.memory)
+  ) {
+    errors.push(
+      `${field}.requests.memory: must be a memory quantity with a Mi, Gi or Ti suffix, such as "16Gi"`,
+    );
+  }
+  return errors;
+}
+
+/** The quota's fields, each named with the form it must take (the XRD's patterns). */
+function quotaErrors(quota: unknown, path: string): string[] {
+  const field = `${path}.spec.quota`;
+  if (!isRecord(quota)) {
+    return [
+      `${field}: must be an object with requests (cpu and memory), pods and storage`,
+    ];
+  }
+  const errors = Object.keys(quota)
+    .filter((key) => !quotaFields.includes(key))
+    .map(
+      (key) =>
+        `${field}.${key}: is not a quota field; the fields are requests, pods and storage`,
+    );
+  errors.push(...requestErrors(quota.requests, field));
+  const pods = quota.pods;
+  if (pods === undefined) {
+    errors.push(
+      `${field}.pods: is required; set a whole number of at least 1, for example 50`,
+    );
+  } else if (typeof pods !== "number" || !Number.isInteger(pods) || pods < 1) {
+    errors.push(
+      `${field}.pods: must be a whole number of at least 1, for example 50`,
+    );
+  }
+  const storage = quota.storage;
+  if (storage === undefined) {
+    errors.push(
+      `${field}.storage: is required; set a storage quantity with a Gi or Ti suffix, such as "100Gi"`,
+    );
+  } else if (typeof storage !== "string" || !storagePattern.test(storage)) {
+    errors.push(
+      `${field}.storage: must be a storage quantity with a Gi or Ti suffix, such as "100Gi"`,
+    );
+  }
+  return errors;
+}
+
 function organizationErrors(claim: Claim, path: string): string[] {
-  const name = subject(claim.metadata).name;
+  const name = text(subject(claim.metadata).name);
   const spec = subject(claim.spec);
   const errors: string[] = [];
-  if (name !== platformOrganization) {
-    errors.push(
-      `${path}.metadata.name: only the platform organization is supported; set it to "${platformOrganization}"`,
-    );
+  if (name === platformOrganization) {
+    if (spec.parent !== undefined) {
+      errors.push(
+        `${path}.spec.parent: the platform organization is the tenant root and has no parent; remove spec.parent`,
+      );
+    }
+  } else {
+    errors.push(...suborgNameErrors(name, path));
+    if (spec.parent === undefined) {
+      errors.push(
+        `${path}.spec.parent: is required for a suborg; set it to "${platformOrganization}", the tenant root`,
+      );
+    }
+    if (spec.quota === undefined) {
+      errors.push(
+        `${path}.spec.quota: is required for a suborg, and has no default: set requests.cpu, requests.memory, pods and storage`,
+      );
+    }
   }
   if (spec.tenant === undefined) {
     errors.push(
@@ -54,6 +175,17 @@ function organizationErrors(claim: Claim, path: string): string[] {
     errors.push(
       `${path}.spec.parent: must be a lowercase DNS label of letters, digits and hyphens (at most 63); rename it to the parent organization's tenant name`,
     );
+  } else if (
+    name !== platformOrganization &&
+    spec.parent !== undefined &&
+    text(spec.parent) !== platformOrganization
+  ) {
+    errors.push(
+      `${path}.spec.parent: must be "${platformOrganization}", the tenant root: v1 places a suborg one level below it; set it to "${platformOrganization}"`,
+    );
+  }
+  if (spec.quota !== undefined) {
+    errors.push(...quotaErrors(spec.quota, path));
   }
   return errors;
 }

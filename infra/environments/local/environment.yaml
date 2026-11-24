@@ -56,16 +56,14 @@
       "release-recovery-argocd-refusal": false,
       "database-routes": true,
       "platform-dns": true,
-      "drift-listing-mappings": false,
+      "drift-listing-mappings": true,
       "platform-shared-gateway": true,
       "service-listener-sets": false,
       "external-gateway": false,
       "external-gateway-limits": false,
+      "external-dns": false,
       "registry-by-name": true,
-      "registry-tailnet-forward": false,
       "otlp-route": true,
-      "in-cluster-ca": false,
-      "k3s-registry-trust": false,
       "platform-hostname-ownership": false,
       "platform-portal": true,
       "portal-staged-install": true,
@@ -85,11 +83,15 @@
       "main-session-wait": true,
       "golden-path-signin": true,
       "golden-path-template-admission": false,
-      "golden-path-signin-after-portal": false,
+      "golden-path-signin-after-portal": true,
       "postgresql-service-class-instances": false,
       "gateway-proxy-defaults": false,
       "platform-keycloak-wait": false,
+      "platform-keycloak-realm-wait": false,
+      "platform-apiserver-ready": false,
       "golden-path-safety-defaults": false,
+      "app-delivery": false,
+      "workload-defaults-admission": false,
       "decision-advisor": true
     },
   "imageInventory": "audit",
@@ -144,6 +146,7 @@
       "kore-image-policy":
         ["infra/environments/local/values/image-policy.yaml"],
       "policy-controller":
-        ["infra/environments/local/values/policy-controller.yaml"]
+        ["infra/environments/local/values/policy-controller.yaml"],
+      "external-dns": ["infra/environments/local/values/external-dns.yaml"]
     }
 }

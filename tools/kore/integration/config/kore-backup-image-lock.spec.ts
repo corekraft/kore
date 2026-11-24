@@ -94,10 +94,10 @@ test("a separate job attaches the kore-backup lock with only the write-assets sc
   assert.match(attach, /refusing to replace it/);
 });
 
-test("nothing deploys the kore-backup image: no catalog, chart or environment names it yet", async () => {
+test("nothing deploys the kore-backup image: no chart, environment or local image lock names it", async () => {
   const root = await findRoot();
   const files = [
-    "infra/catalog/approved-images.yaml",
+    "infra/catalog/images.lock.json",
     ...(await readdir(join(root, "infra/charts"), { recursive: true }))
       .filter((name) => /\.(ya?ml|tpl)$/.test(name))
       .map((name) => join("infra/charts", name)),
@@ -109,4 +109,47 @@ test("nothing deploys the kore-backup image: no catalog, chart or environment na
     const text = await readFile(join(root, file), "utf8");
     assert.doesNotMatch(text, /kore\/kore-backup|kore-backup-image/, file);
   }
+});
+
+test("the kore-backup image is listed in the approved catalog at the v0.26.0 release digest, signed by that tag's release workflow, and not in the local image lock", async () => {
+  const root = await findRoot();
+  const approvedText = await readFile(
+    join(root, "infra/catalog/approved-images.yaml"),
+    "utf8",
+  );
+  const approved: {
+    images: {
+      image: string;
+      name: string;
+      component: string;
+      evidence: { provenance: unknown };
+    }[];
+  } = JSON.parse(approvedText);
+  const entries = approved.images.filter(
+    (entry) => entry.name === "kore-backup",
+  );
+  assert.deepEqual(
+    entries.map(({ image, component, evidence }) => ({
+      image,
+      component,
+      provenance: evidence.provenance,
+    })),
+    [
+      {
+        image:
+          "ghcr.io/corekraft/kore/kore-backup@sha256:f14a740bf3c4a4e461bd8fcbf73ecb7c6cd6318c55497a02d0522fbfe17fe448",
+        component: "kore-postgresql-api",
+        provenance: {
+          signed: true,
+          issuer: "https://token.actions.githubusercontent.com",
+          identity:
+            "https://github.com/corekraft/kore/.github/workflows/release.yaml@refs/tags/v0.26.0",
+        },
+      },
+    ],
+  );
+  assert.doesNotMatch(
+    await readFile(join(root, "infra/catalog/images.lock.json"), "utf8"),
+    /kore-backup/,
+  );
 });

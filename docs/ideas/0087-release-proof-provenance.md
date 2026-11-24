@@ -8,4 +8,4 @@ date: 2026-11-24
 issue: https://github.com/corekraft/kore/issues/1989
 ---
 
-# Idea 0085: Release proof records the build it ran on
+# Idea 0087: Release proof records the build it ran on

@@ -6,15 +6,18 @@ import { immutabilityReport } from "./app-record-base.js";
 import {
   componentCrossErrors,
   duplicateNameErrors,
+  rejectedDigestErrors,
   releaseFileErrors,
   specFileErrors,
 } from "./app-record-rules.js";
 import { checkAppRecords } from "./app-records.js";
+import { hostnameFileErrors } from "./hostname-check.js";
 import { registrationPaths } from "./service-registrations.js";
 
 vi.mock("node:fs/promises");
 vi.mock("./app-record-base.js");
 vi.mock("./app-record-rules.js");
+vi.mock("./hostname-check.js");
 vi.mock("./service-registrations.js");
 
 const root = "/repo";
@@ -63,6 +66,7 @@ beforeEach(() => {
   vi.mocked(specFileErrors).mockReturnValue([]);
   vi.mocked(releaseFileErrors).mockReturnValue([]);
   vi.mocked(componentCrossErrors).mockReturnValue([]);
+  vi.mocked(rejectedDigestErrors).mockReturnValue([]);
   vi.mocked(duplicateNameErrors).mockReturnValue([]);
   vi.mocked(registrationPaths).mockResolvedValue(new Map());
   vi.mocked(immutabilityReport).mockResolvedValue({ errors: [], warnings: [] });
@@ -210,6 +214,19 @@ test("a release is checked against the components its spec declares", async () =
   });
 });
 
+test("a release's rejected lists are checked against the components of its own release", async () => {
+  files = {
+    [`${dir}/leads.json`]: spec,
+    [`${dir}/leads.release.json`]: release,
+    [`${root}/infra/catalog/schemas/service-release.schema.json`]: "{}",
+  };
+  await check();
+  expect(rejectedDigestErrors).toHaveBeenCalledWith({
+    file: "infra/environments/local/services/leads.release.json",
+    components: {},
+  });
+});
+
 test("names are unique across this environment's specs and the legacy registrations", async () => {
   files = { [`${dir}/leads.json`]: spec };
   vi.mocked(registrationPaths).mockResolvedValue(
@@ -257,4 +274,44 @@ test("the immutability report's errors and warnings are returned with the record
     errors: ["same", "changed"],
     warnings: ["skipped"],
   });
+});
+
+/** The environment a hostname check reads; the check itself is mocked, so its fields are not read here. */
+const hostnameEnvironment = { name: "local" } as never;
+const hostnames = {
+  root,
+  environment: hostnameEnvironment,
+  catalogNamespaces: ["argocd"],
+};
+
+test("with a hostname check, the record check runs it over the parsed specs and returns its errors", async () => {
+  files = { [`${dir}/leads.json`]: spec };
+  vi.mocked(hostnameFileErrors).mockResolvedValue(["a claim the rules refuse"]);
+  expect(
+    await checkAppRecords({
+      root,
+      environment: "local",
+      runner,
+      yqVersion: "4.54.2",
+      hostnames,
+    }),
+  ).toEqual({ errors: ["a claim the rules refuse"], warnings: [] });
+  expect(hostnameFileErrors).toHaveBeenCalledWith(
+    hostnames,
+    new Map([
+      [
+        "leads",
+        {
+          file: "infra/environments/local/services/leads.json",
+          manifest: JSON.parse(spec),
+        },
+      ],
+    ]),
+  );
+});
+
+test("without a hostname check, the record check runs no claim rule", async () => {
+  files = { [`${dir}/leads.json`]: spec };
+  await check();
+  expect(hostnameFileErrors).not.toHaveBeenCalled();
 });

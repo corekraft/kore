@@ -9,6 +9,7 @@ import {
   expandVersions,
   featureHelmArgs,
   gatewayClassName,
+  keycloakOperatorProbeHelmArgs,
   noMatchPolicy,
   platformHelmArgs,
   prometheusPortalHelmArgs,
@@ -22,6 +23,10 @@ import type { Runner } from "../runtime/index.js";
 import { goldenPathArgs } from "./golden-path-args.js";
 import { featureFreeCharts } from "./feature-free-charts.js";
 import { applyProbePatches } from "./patches.js";
+
+// The install preflights reconcile runs before it applies a release are read through here: the acme-dns01 token Secret (ADR 0161) and the gateway class change, beside the chart and template locks.
+export { assertAcmeTokenSecret } from "./acme-dns01-token.js";
+export { releaseGatewayClassChange } from "./gateway-class-change.js";
 
 /** The Helm post-renderer plugin kept in the repository. */
 const PATCH_PLUGIN = "kore-patch";
@@ -75,6 +80,7 @@ function trailingArgs(repository: Repository, component: Component): string[] {
     ...alertAndServiceArgs(repository, component),
     ...dashboardSidecarHelmArgs(repository.environment, component.name),
     ...prometheusPortalHelmArgs(repository.environment, component.name),
+    ...keycloakOperatorProbeHelmArgs(repository.environment, component.name),
   ];
 }
 
@@ -116,6 +122,9 @@ function chartDeliveryArgs(
     `platformHostname=${delivery.platformHostname}`,
     ...databaseRoutesDeliveryArgs(delivery),
     ...(delivery.inClusterCa === true ? ["--set", "inClusterCa=true"] : []),
+    ...(delivery.workloadDefaults === true
+      ? ["--set", "workloadDefaults=true"]
+      : []),
     ...(delivery.syncWindow === true ? ["--set", "syncWindow=true"] : []),
     ...(delivery.serviceClassInstances === true
       ? ["--set", "serviceClassInstances=true"]

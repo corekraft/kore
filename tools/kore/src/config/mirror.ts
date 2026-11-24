@@ -127,6 +127,8 @@ export const unmirroredImages: Record<string, string> = {
     "chosen by the local PostgreSQL composition's image table; no managed composition exists yet",
   "cnpg-postgresql-18":
     "chosen by the local PostgreSQL composition's image table; no managed composition exists yet",
+  "kore-backup":
+    "nothing deploys the backup image until the scheduled backup job is built (ADR 0155); the release's mirror job copies it, and an overlay rewrites it when the job lands",
 };
 
 /** The YAML text under an environment's own manifest source directory. */

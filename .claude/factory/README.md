@@ -19,7 +19,7 @@ role in is a separate change that must:
   `flag activate` (ADR 0184); goal check records outcomes (ADR 0185).
 
 Open work is tracked as ideas: the writer's 100K cumulative token budget
-(idea 0084, #1988) and the provenance evidence freshness needs (idea 0085,
+(idea 0086, #1988) and the provenance evidence freshness needs (idea 0087,
 #1989). Griller runs only on the owner's machine, where the
 `/mattpocock:grill-with-docs`, `/mattpocock:to-spec` and
 `/mattpocock:to-tickets` skills are installed; it chains every ticket to

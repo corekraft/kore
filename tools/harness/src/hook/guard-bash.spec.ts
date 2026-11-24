@@ -3,6 +3,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { bareGlob } from "./guard-bare-glob.js";
 import { checkBashSegment } from "./guard-bash-segment.js";
+import { domainLeak } from "./guard-leak.js";
 import { evaluateBash } from "./guard-bash.js";
 import { unquotedGlob } from "./guard-unquoted-glob.js";
 import {
@@ -26,6 +27,7 @@ import {
 vi.mock("./guard-bash-segment.js", () => ({ checkBashSegment: vi.fn() }));
 vi.mock("./guard-bare-glob.js", () => ({ bareGlob: vi.fn() }));
 vi.mock("./guard-unquoted-glob.js", () => ({ unquotedGlob: vi.fn() }));
+vi.mock("./guard-leak.js", () => ({ domainLeak: vi.fn(() => null) }));
 vi.mock("./guard-shell.js", () => ({
   execGlobQualifier: vi.fn(),
   rawWords: vi.fn(),
@@ -83,14 +85,26 @@ describe("evaluateBash weighing", () => {
     await evaluateBash("ls", ctx);
     expect(checkBashSegment).toHaveBeenCalledWith(["ls"], ctx);
     expect(bareGlob).toHaveBeenCalledWith("ls", ctx);
-    // The qualifier and =word checks are null here; weigh takes every slot, nulls included.
+    // The qualifier, =word and platform-domain checks are null here; weigh takes every slot, nulls included.
     expect(vi.mocked(weigh).mock.calls[0]?.[0]).toEqual([
       unquoted,
       null,
       segmentFinding,
       bare,
       null,
+      null,
     ]);
+  });
+
+  it("checks the whole command for the platform domain, with the domain the context names", async () => {
+    await evaluateBash("git commit -m 'x'", {
+      ...ctx,
+      platformDomain: "platform.example.com",
+    });
+    expect(domainLeak).toHaveBeenCalledWith(
+      "git commit -m 'x'",
+      "platform.example.com",
+    );
   });
 
   it("applies each finding's mode before weighing it", async () => {
@@ -124,7 +138,7 @@ describe("the zsh rules under a verified bash", () => {
     expect(unquotedGlob).not.toHaveBeenCalled();
     expect(bareGlob).not.toHaveBeenCalled();
     expect(warn).not.toHaveBeenCalled();
-    expect(vi.mocked(weigh).mock.calls[0]?.[0]).toEqual([null, null]);
+    expect(vi.mocked(weigh).mock.calls[0]?.[0]).toEqual([null, null, null]);
   });
 
   it("still checks every segment and the glob qualifier that runs code", async () => {
@@ -142,6 +156,7 @@ describe("the zsh rules under a verified bash", () => {
       null,
       hit("unquoted-glob"),
       segmentFinding,
+      null,
     ]);
   });
 

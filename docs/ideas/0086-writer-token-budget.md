@@ -8,4 +8,4 @@ date: 2026-11-24
 issue: https://github.com/corekraft/kore/issues/1988
 ---
 
-# Idea 0084: Writers stop below a 100K cumulative token budget
+# Idea 0086: Writers stop below a 100K cumulative token budget
