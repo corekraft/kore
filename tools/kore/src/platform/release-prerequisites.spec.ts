@@ -2,6 +2,7 @@ import { beforeEach, expect, test, vi } from "vitest";
 import { featureEnabled } from "../config/index.js";
 import { ensureLocalCaTrust } from "../security/index.js";
 import { enrollSharedGatewayRoute } from "./enrollment.js";
+import { waitForKeycloakRealm } from "./keycloak-realm-wait.js";
 import {
   fakeComponent,
   fakeRepository,
@@ -12,6 +13,7 @@ import { prepareConfigurationRelease } from "./release-prerequisites.js";
 vi.mock("../config/index.js");
 vi.mock("../security/index.js");
 vi.mock("./enrollment.js");
+vi.mock("./keycloak-realm-wait.js");
 
 // Docs: docs/decisions/0132-local-names-resolve-through-platform-dns-and-one-loopback-entry-point.md
 // Docs: docs/decisions/0134-the-shared-gateway-admits-routes-only-from-platform-labelled-namespaces.md
@@ -36,6 +38,9 @@ beforeEach(() => {
   vi.mocked(enrollSharedGatewayRoute).mockImplementation(async (_r, _n, c) => {
     order.push(`shared-gateway:${c.name}`);
   });
+  vi.mocked(waitForKeycloakRealm).mockImplementation(async () => {
+    order.push("keycloak-realm");
+  });
 });
 
 test("with platform-dns on the portal's pods get the local CA, in the portal's namespace, before its route is enrolled", async () => {
@@ -44,6 +49,7 @@ test("with platform-dns on the portal's pods get the local CA, in the portal's n
   expect(order).toEqual([
     "ca:backstage",
     "shared-gateway:kore-platform-backstage",
+    "keycloak-realm",
   ]);
   expect(ensureLocalCaTrust).toHaveBeenCalledWith(
     repository,
@@ -77,4 +83,25 @@ test("a missing local CA stops the portal's preparation before its namespace is 
     prepareConfigurationRelease(repository, fakeRunner().runner, portal),
   ).rejects.toThrow("the local CA is missing");
   expect(enrollSharedGatewayRoute).not.toHaveBeenCalled();
+});
+
+test("the portal waits for the Keycloak realm after its other prerequisites, so the proxy never starts against a Keycloak with no endpoint", async () => {
+  const { runner } = fakeRunner();
+  await prepareConfigurationRelease(repository, runner, portal);
+  expect(waitForKeycloakRealm).toHaveBeenCalledWith(repository, runner);
+  expect(order.at(-1)).toBe("keycloak-realm");
+});
+
+test("no other component waits for the Keycloak realm", async () => {
+  await prepareConfigurationRelease(repository, fakeRunner().runner, other);
+  expect(waitForKeycloakRealm).not.toHaveBeenCalled();
+});
+
+test("a realm that never answers stops the portal's release before it is applied", async () => {
+  vi.mocked(waitForKeycloakRealm).mockRejectedValue(
+    new Error("the Keycloak realm platform did not answer"),
+  );
+  await expect(
+    prepareConfigurationRelease(repository, fakeRunner().runner, portal),
+  ).rejects.toThrow("the Keycloak realm platform did not answer");
 });
