@@ -2,13 +2,12 @@ import { readFile } from "node:fs/promises";
 import { beforeEach, expect, test, vi } from "vitest";
 import {
   checkAppRecords,
-  checkCrossFileRules as crossFile,
   checkOrganizationRecords,
   featureEnabled,
   orderedComponents,
   platformClaimErrors,
 } from "../config/index.js";
-import type { Repository } from "../config/index.js";
+import { type Repository, checkCrossFileRules as cf } from "../config/index.js";
 import { managedLockErrors } from "../images/index.js";
 import {
   doctor,
@@ -45,9 +44,11 @@ const operations = [
     outcome: "interrupted",
   },
   {
+    op: "b",
     command: "cluster stop",
     ts: "2026-11-07T10:01:00.000Z",
     outcome: "ok",
+    error: "",
   },
 ];
 
@@ -59,7 +60,7 @@ beforeEach(() => {
   vi.mocked(validatePortability).mockResolvedValue({
     applications: ["reference"],
   } as never);
-  vi.mocked(stringFlag).mockReturnValue(undefined);
+  vi.mocked(cf).mockResolvedValue({ errors: [], warnings: [] });
   vi.mocked(summarizeOperations).mockReturnValue(operations as never);
   vi.mocked(readJournal).mockResolvedValue([] as never);
   vi.mocked(managedLockErrors).mockReturnValue([]);
@@ -68,7 +69,6 @@ beforeEach(() => {
     errors: [],
     organizations: [],
   });
-  vi.mocked(crossFile).mockResolvedValue({ errors: [], warnings: [] });
 });
 
 test("validate passes --record-base to the app record check, and an app record error fails it", async () => {
