@@ -1,4 +1,5 @@
 import type { Environment, K3dCluster, Repository } from "../config/index.js";
+import { driftListingMappingsFlag, featureEnabled } from "../config/index.js";
 import {
   k3dTrustDirectory,
   koreManagesRegistryAuth,
@@ -290,6 +291,28 @@ export async function clusterUpK3d(
   }
   await waitForClusterReady(repository, runner, readiness);
   await assertExpectedK3dCluster(repository, runner);
+}
+
+/**
+ * With drift-listing-mappings on, refuses a running cluster that differs from the
+ * overlay, before anything reads it. `kore local up` uses a running cluster as it
+ * is and never reaches clusterUpK3d, so without this check a cluster created
+ * before a published port (the 443 entry point) would be used silently (#1683).
+ * Read-only. An absent or stopped cluster is left to clusterUpK3d, which checks it
+ * before it creates or starts anything.
+ */
+export async function assertRunningK3dMatchesOverlay(
+  repository: Repository,
+  runner: Runner,
+): Promise<void> {
+  const { environment } = repository;
+  if (!featureEnabled(environment, driftListingMappingsFlag)) {
+    return;
+  }
+  const info = await listOrUnavailable(environment, runner);
+  if (info.state === "running" && info.entry !== undefined) {
+    await refuseDrift(runner, environment, k3dCluster(environment), info.entry);
+  }
 }
 
 export async function clusterStatusK3d(
