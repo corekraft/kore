@@ -126,6 +126,8 @@ export async function validateCommand(
     ...records.warnings,
     ...crossFile.warnings,
   ];
+  // A warning goes to stderr, one line each, and never fails validation, so the
+  // report on stdout stays the only output a caller parses.
   warnings.forEach((warning) => console.error(`warning: ${warning}`));
   print(
     {
