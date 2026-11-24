@@ -53,6 +53,27 @@ rolloutDefaults:
   preStopSleepSeconds: 10
   terminationGracePeriodSeconds: 30
 
+# The PreSync migration hook (ADR 0171, issue 1570). While enabled, a Job runs the migrate
+# command from the BFF image before the rollout, as the DDL credential below, so a failed
+# migration fails the sync and the old pods keep serving. Nothing sets enabled yet: the
+# ApplicationSet passes it when the credential Secret exists (#1584). Off, nothing renders.
+migration:
+  enabled: false
+  # The migrate command, the Job's entrypoint. Required while enabled; the reference app
+  # runs ["node", "--experimental-strip-types", "src/migrate-main.ts"].
+  command: []
+  # The DDL migration credential Secret (#1584). The Job reads the connection keys host,
+  # port, database, username and sslmode, and the password from password, of this Secret.
+  credentialSecret:
+    name: ""
+  activeDeadlineSeconds: 600
+  # The contract every migrate command holds (ADR 0024, ADR 0171): the run takes an advisory
+  # lock and records its ids in schema_migrations, so a rerun or a concurrent run is safe.
+  # The schema pins both values.
+  contract:
+    advisoryLock: true
+    migrationsTable: schema_migrations
+
 # The spec of the service's release file (ADR 0166, ADR 0172), passed as an optional values
 # file by the golden-path ApplicationSet only while app-delivery is on. A component with a
 # digest here deploys that digest on its lock image's repository; a component without one,
