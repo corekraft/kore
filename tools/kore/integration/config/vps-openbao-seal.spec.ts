@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { test } from "vitest";
-import { findRoot, loadRepository } from "../../src/config/index.js";
+import { findRoot, flagEntry, loadRepository } from "../../src/config/index.js";
 
 // Docs: docs/decisions/0168-the-openbao-static-seal-key-is-a-recorded-exception-to-no-plaintext-on-disk.md
 
@@ -34,14 +34,12 @@ function tasksOf(tasks: string): { name: string; text: string }[] {
 }
 
 test("the openbao flag is one feature for the vps OpenBao component: declared for vps only, and off in the vps overlay", async () => {
-  const manifest = JSON.parse(await readRoot("infra/catalog/flags.yaml")) as {
-    flags: { name: string; kind: string; applies: string[] }[];
-  };
-  assert.deepEqual(
-    manifest.flags.filter((flag) => flag.name === "openbao"),
-    [{ name: "openbao", kind: "feature", applies: ["vps"] }],
-  );
-  const { environment } = await loadRepository("vps");
+  const { environment, flags } = await loadRepository("vps");
+  assert.deepEqual(flagEntry(flags, "openbao"), {
+    name: "openbao",
+    kind: "feature",
+    applies: ["vps"],
+  });
   assert.equal(environment.features?.openbao, false);
 });
 
