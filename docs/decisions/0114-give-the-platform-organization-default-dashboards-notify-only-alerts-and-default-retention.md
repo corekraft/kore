@@ -2,7 +2,7 @@
 status: accepted
 summary: In Next, services get default dashboards and notify-only alerts in the platform Grafana, logs keep 14 days and traces 7, metrics keep one platform retention, and Alertmanager serves platform alerts only.
 date: 2026-11-14
-last-verified: 2026-11-23
+last-verified: 2026-11-24
 ---
 
 # ADR 0114: Give the platform organization default dashboards, notify-only alerts and default retention
@@ -57,5 +57,4 @@ On vps, the Next defaults above take these values, one per store, as set by #151
 Why: an activation window reads metrics back over a known span, so retention
 cannot be left to chart defaults on vps. The local environment keeps its own
 shorter values (Prometheus 3 days; Loki and Tempo 72 hours), which this
-refinement does not change. Until #1513 merges, main's vps overlay sets none of
-these values.
+refinement does not change.
