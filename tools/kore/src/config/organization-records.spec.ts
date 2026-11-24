@@ -236,9 +236,8 @@ test("the suborg names are the valid records' names in name order, so a record t
     "broken.json": JSON.stringify({ ...suborg, metadata: { name: "broken" } }),
     "api.json": JSON.stringify(suborg),
   });
-  vi.mocked(platformClaimErrors).mockImplementation((manifests) =>
-    (manifests as Array<{ metadata: { name: string } }>)[0]?.metadata.name ===
-    "broken"
+  vi.mocked(platformClaimErrors).mockImplementation((claims) =>
+    JSON.stringify(claims).includes('"name":"broken"')
       ? ["claims[0].spec.quota: is required for a suborg, and has no default"]
       : [],
   );
