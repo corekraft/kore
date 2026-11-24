@@ -2,9 +2,9 @@
 import { readFile } from "node:fs/promises";
 import { dirname, isAbsolute, join, resolve } from "node:path";
 import { afterEach, beforeEach, expect, test, vi } from "vitest";
+import { componentValues } from "./component-values.js";
 import {
   absolute,
-  componentValues,
   componentVersion,
   expandVersions,
   findRoot,

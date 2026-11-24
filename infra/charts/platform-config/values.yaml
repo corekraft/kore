@@ -19,7 +19,12 @@ gateway: {
         maxUnavailable: 0,
         minReadySeconds: 10,
         progressDeadlineSeconds: 600,
-        budgetMaxUnavailable: 1
+        budgetMaxUnavailable: 1,
+        # The sizes the proxy requests and limits while data-path-guaranteed-qos
+        # is on (ADR 0152, issue 1593): the request equals the limit, so the pod is
+        # Guaranteed. The limit is the Istio gateway chart's own default, so no
+        # ceiling is lost; an environment's values may set them.
+        guaranteed: { cpu: 2000m, memory: 1024Mi }
       }
   }
 # The external Gateway (ADR 0160, issue 1633), rendered only while external-gateway

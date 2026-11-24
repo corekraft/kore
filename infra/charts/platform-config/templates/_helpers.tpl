@@ -37,6 +37,27 @@ it renders changes.
 {{- end -}}
 
 {{/*
+True (a non-empty string) only while the data-path-guaranteed-qos flag is on: the
+shared proxy requests its limit for CPU and memory, so its pods are Guaranteed
+(ADR 0152, issue 1593), for either GatewayClass. Off, nothing it renders changes.
+*/}}
+{{- define "platform-config.dataPathQos" -}}
+{{- if index (.Values.features | default dict) "data-path-guaranteed-qos" -}}true{{- end -}}
+{{- end -}}
+
+{{/*
+The shared proxy's Guaranteed resources as one flow mapping, the request and the
+limit alike, so the same text serves the Istio deployment patch and the
+AgentgatewayParameters spec. Each size is required while the flag is on, so an
+overlay that omits one is refused before anything renders, naming the field.
+*/}}
+{{- define "platform-config.guaranteedResources" -}}
+{{- $cpu := required "gateway.proxy.guaranteed.cpu must be set in the environment's values, for example 2000m, while data-path-guaranteed-qos is on" .Values.gateway.proxy.guaranteed.cpu -}}
+{{- $memory := required "gateway.proxy.guaranteed.memory must be set in the environment's values, for example 1024Mi, while data-path-guaranteed-qos is on" .Values.gateway.proxy.guaranteed.memory -}}
+{requests: {cpu: {{ $cpu }}, memory: {{ $memory }}}, limits: {cpu: {{ $cpu }}, memory: {{ $memory }}}}
+{{- end -}}
+
+{{/*
 True (a non-empty string) only while the external-gateway flag is on: the chart
 renders the external Gateway, its HTTP redirect and its Service's node port
 (ADR 0160, issue 1633). Off, nothing it renders changes.

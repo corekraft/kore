@@ -129,13 +129,3 @@ export function expandVersions(repository: Repository, value: string): string {
 export function absolute(repository: Repository, path: string): string {
   return isAbsolute(path) ? path : join(repository.root, path);
 }
-
-export function componentValues(
-  repository: Repository,
-  component: Component,
-): string[] {
-  return [
-    ...(component.values ?? []),
-    ...(repository.environment.componentValues?.[component.name] ?? []),
-  ];
-}

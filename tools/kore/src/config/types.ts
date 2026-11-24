@@ -68,6 +68,8 @@ export interface Component {
   readiness: string[];
   /** Readiness resources that exist only while a flag is on, keyed by resource (issue 1884). */
   readinessFlags?: Record<string, string>;
+  /** Value files that carry only a flag's numbers, keyed by the file in values, with the flag as value; a flag-off file is not passed to Helm (issue 1593). */
+  valuesFlags?: Record<string, string>;
   helm?: HelmOptions;
   /** Probe fields a chart gives no value for, applied by a Helm post-renderer (see the probe patches ADR). */
   patches?: ProbePatch[];
