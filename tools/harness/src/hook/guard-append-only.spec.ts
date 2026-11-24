@@ -37,6 +37,15 @@ describe("isAppendOnly", () => {
     expect(isAppendOnly(`${HISTORY}.bak`)).toBe(false);
     expect(isAppendOnly("docs/ledger.jsonl")).toBe(false);
   });
+
+  it("matches each platform app flag window record and any copy beside it, so a hand edit is caught", () => {
+    const WINDOW =
+      "infra/app-outcomes/local/leads.new-checkout/20261123T100000000Z_20261123T110000000Z.json";
+    expect(isAppendOnly(WINDOW)).toBe(true);
+    expect(isAppendOnly(`/repo/${WINDOW}`)).toBe(true);
+    expect(isAppendOnly(`${WINDOW}.bak`)).toBe(true);
+    expect(isAppendOnly("docs/infra/app-outcomes.md")).toBe(false);
+  });
 });
 
 describe("appendOnlyWarn", () => {
@@ -102,5 +111,19 @@ describe("checkAppendOnly", () => {
     expect(checkAppendOnly("rm", ["-rf", "src/build"], [], ROOT)).toBeNull();
     expect(checkAppendOnly("cat", [LEDGER], [], ROOT)).toBeNull();
     expect(warn).not.toHaveBeenCalled();
+  });
+
+  it("warns when rm or mv removes the platform's window store, which only the window writer appends to", () => {
+    expect(
+      checkAppendOnly("rm", ["-rf", "infra/app-outcomes"], [], ROOT),
+    ).toMatchObject({ rule: "append-only" });
+    expect(
+      checkAppendOnly(
+        "sed",
+        ["-i", "s/passed/confirmed/", "infra/app-outcomes/local/x/a.json"],
+        [],
+        ROOT,
+      ),
+    ).toMatchObject({ rule: "append-only" });
   });
 });
