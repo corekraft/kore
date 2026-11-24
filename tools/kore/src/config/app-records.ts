@@ -19,6 +19,7 @@ import {
   immutabilityReport,
   type ImmutabilityRecord,
 } from "./app-record-base.js";
+import { hostnameFileErrors, type HostnameCheck } from "./hostname-check.js";
 import { registrationPaths } from "./service-registrations.js";
 import type { SchemaNode } from "./schema-subset.js";
 
@@ -39,6 +40,11 @@ export interface AppRecordCheck {
   yqVersion: string;
   /** The base ref for the organization check; unset compares against origin/main. */
   recordBase?: string | undefined;
+  /**
+   * The hostname claim rules and the reserved-name list (ADR 0159). Unset, the
+   * check reads no list and applies no claim rule.
+   */
+  hostnames?: HostnameCheck | undefined;
 }
 
 export interface AppRecordReport {
@@ -271,6 +277,9 @@ export async function checkAppRecords(
   const parsedSpecs = await checkSpecs(check, files.specs, errors);
   await checkReleases(check, files, parsedSpecs, errors);
   errors.push(...(await nameErrors(check.root, files.specs)));
+  if (check.hostnames !== undefined) {
+    errors.push(...(await hostnameFileErrors(check.hostnames, parsedSpecs)));
+  }
   const warnings: string[] = [];
   if (check.recordBase !== undefined || files.specs.size > 0) {
     const records: ImmutabilityRecord[] = [];
