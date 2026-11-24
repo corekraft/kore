@@ -5,8 +5,9 @@ import {
   containerNamed,
   containersOf,
   documents,
-  find,
   guaranteed,
+  overlays,
+  podSpecOf,
   renderComponent,
   withQos,
 } from "./data-path-qos-support.js";
@@ -18,13 +19,16 @@ import {
 
 const run = test.runIf(process.env["KORE_CHECK_UPSTREAM_CHARTS"] === "1");
 
+// Each render pulls the pinned chart over the network, so the tests get more than the default 5 s.
+const NETWORK_TIMEOUT_MS = 120_000;
+
 run(
   "flag off: the policy controller keeps the chart's own sizes, and the cleanup Job none",
   async () => {
     const repository = withQos(await loadRepository("local"), false);
     const docs = documents(renderComponent(repository, "policy-controller"));
     const webhook = containersOf(
-      find(docs, "Deployment", "policy-controller-webhook").spec.template.spec,
+      podSpecOf(docs, "Deployment", "policy-controller-webhook"),
     );
     assert.deepEqual(containerNamed(webhook, "policy-controller-webhook"), {
       name: "policy-controller-webhook",
@@ -32,37 +36,31 @@ run(
       limits: { cpu: "200m", memory: "512Mi" },
     });
     assert.equal(guaranteed(webhook), false);
-    const cleanup = containersOf(
-      find(docs, "Job", "leases-cleanup").spec.template.spec,
-    );
+    const cleanup = containersOf(podSpecOf(docs, "Job", "leases-cleanup"));
     assert.equal(guaranteed(cleanup), false);
   },
-  // Each render pulls the pinned chart over the network.
-  120_000,
+  NETWORK_TIMEOUT_MS,
 );
 
 run(
   "flag on: the webhook and the leases-cleanup Job each request their limit, so their pods are Guaranteed",
   async () => {
-    for (const name of ["local", "vps", "managed-example"]) {
+    for (const name of overlays) {
       const repository = withQos(await loadRepository(name), true);
       const docs = documents(renderComponent(repository, "policy-controller"));
       const webhook = containersOf(
-        find(docs, "Deployment", "policy-controller-webhook").spec.template
-          .spec,
+        podSpecOf(docs, "Deployment", "policy-controller-webhook"),
       );
       assert.ok(
         guaranteed(webhook),
         `${name} webhook: ${JSON.stringify(webhook)}`,
       );
-      const cleanup = containersOf(
-        find(docs, "Job", "leases-cleanup").spec.template.spec,
-      );
+      const cleanup = containersOf(podSpecOf(docs, "Job", "leases-cleanup"));
       assert.ok(
         guaranteed(cleanup),
         `${name} cleanup: ${JSON.stringify(cleanup)}`,
       );
     }
   },
-  120_000,
+  NETWORK_TIMEOUT_MS,
 );

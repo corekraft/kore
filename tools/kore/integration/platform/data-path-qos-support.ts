@@ -20,8 +20,47 @@ export function withQos(repository: Repository, on: boolean): Repository {
   };
 }
 
+/** The CPU and memory a container asks for, as a render writes them. */
+export interface Sizes {
+  cpu?: string;
+  memory?: string;
+}
+
+/** A container's resources; a chart that sets no size renders `requests: null`. */
+export interface Resources {
+  requests?: Sizes | null;
+  limits?: Sizes | null;
+}
+
+/** A rendered container and the resources it declares. */
+export interface Container {
+  name: string;
+  resources?: Resources | null;
+}
+
+/** A pod template's spec: its containers and its init containers. */
+export interface PodSpec {
+  containers?: Container[];
+  initContainers?: Container[];
+}
+
+/** One rendered YAML document, with only the fields these specs read. */
+export interface Doc {
+  kind?: string;
+  metadata?: { name?: string };
+  spec?: { template?: { spec?: PodSpec }; resources?: Resources | null };
+  data?: { deployment?: string };
+}
+
+/** A container's sizes, as the containers of a pod are compared. */
+export interface ContainerSizes {
+  name: string;
+  requests?: Sizes;
+  limits?: Sizes;
+}
+
 /** Each YAML document a render holds, parsed by yq; empty documents are dropped. */
-export function documents(text: string): Record<string, any>[] {
+export function documents(text: string): Doc[] {
   const json = execFileSync("yq", ["-o=json", "-I=0", "."], {
     input: text,
     encoding: "utf8",
@@ -29,15 +68,11 @@ export function documents(text: string): Record<string, any>[] {
   return json
     .split("\n")
     .filter((line) => line.trim() !== "" && line !== "null")
-    .map((line) => JSON.parse(line) as Record<string, any>);
+    .map((line): Doc => JSON.parse(line));
 }
 
 /** The rendered document of a kind with the given metadata.name; the render must hold it. */
-export function find(
-  docs: Record<string, any>[],
-  kind: string,
-  name: string,
-): Record<string, any> {
+export function find(docs: Doc[], kind: string, name: string): Doc {
   const found = docs.find(
     (doc) => doc.kind === kind && doc.metadata?.name === name,
   );
@@ -45,52 +80,43 @@ export function find(
   return found;
 }
 
-export interface ContainerSizes {
-  name: string;
-  requests?: Record<string, string>;
-  limits?: Record<string, string>;
-}
-
 /** The containers of a pod spec, init containers included, with their requests and limits. */
-export function containersOf(podSpec: Record<string, any>): ContainerSizes[] {
+export function containersOf(podSpec: PodSpec): ContainerSizes[] {
   return [...(podSpec.initContainers ?? []), ...(podSpec.containers ?? [])].map(
     (container) => ({
       name: container.name,
       // A chart that sets no size renders `requests: null`, which is no request.
-      ...(container.resources?.requests == null
-        ? {}
-        : { requests: container.resources.requests }),
-      ...(container.resources?.limits == null
-        ? {}
-        : { limits: container.resources.limits }),
+      ...(container.resources?.requests
+        ? { requests: container.resources.requests }
+        : {}),
+      ...(container.resources?.limits
+        ? { limits: container.resources.limits }
+        : {}),
     }),
   );
 }
 
-/** Whether every container asks for CPU and memory with a request equal to its limit: the Guaranteed class. */
-export function guaranteed(containers: ContainerSizes[]): boolean {
-  return (
-    containers.length > 0 &&
-    containers.every(
-      ({ requests, limits }) =>
-        requests !== undefined &&
-        limits !== undefined &&
-        ["cpu", "memory"].every(
-          (resource) =>
-            requests[resource] !== undefined &&
-            requests[resource] === limits[resource],
-        ),
-    )
+const SIZED = ["cpu", "memory"] as const;
+
+/** Whether a container asks for CPU and memory with a request equal to its limit. */
+function isGuaranteed({ requests = {}, limits = {} }: ContainerSizes): boolean {
+  return SIZED.every(
+    (resource) =>
+      requests[resource] !== undefined &&
+      requests[resource] === limits[resource],
   );
 }
 
+/** Whether every container of a pod is Guaranteed: the class the kernel reads as the one it spares last. */
+export function guaranteed(containers: ContainerSizes[]): boolean {
+  return containers.length > 0 && containers.every(isGuaranteed);
+}
+
 /** The pod spec of a Deployment or Job, found by its metadata.name. */
-export function podSpecOf(
-  docs: Record<string, any>[],
-  kind: string,
-  name: string,
-): Record<string, any> {
-  return find(docs, kind, name).spec.template.spec;
+export function podSpecOf(docs: Doc[], kind: string, name: string): PodSpec {
+  const spec = find(docs, kind, name).spec?.template?.spec;
+  assert.ok(spec, `${kind}/${name} has a pod template`);
+  return spec;
 }
 
 /** One container of a pod by its name; the pod must hold it. */
@@ -123,8 +149,8 @@ export function gatewayOverlaySizes(
     if (patch === undefined) {
       return undefined;
     }
-    const patched = documents(patch)[0]!;
-    return containersOf(patched.spec.template?.spec ?? {}).find(
+    const patched = documents(patch)[0];
+    return containersOf(patched?.spec?.template?.spec ?? {}).find(
       (c) => c.name === "istio-proxy",
     );
   }
@@ -133,19 +159,21 @@ export function gatewayOverlaySizes(
       doc.kind === "AgentgatewayParameters" &&
       doc.metadata?.name === "kore-gateway-service",
   );
-  const resources = parameters?.spec.resources;
-  return resources === undefined
-    ? undefined
-    : {
-        name: "proxy",
-        requests: resources.requests,
-        limits: resources.limits,
-      };
+  const resources = parameters?.spec?.resources;
+  if (!resources) {
+    return undefined;
+  }
+  return {
+    name: "proxy",
+    ...(resources.requests ? { requests: resources.requests } : {}),
+    ...(resources.limits ? { limits: resources.limits } : {}),
+  };
 }
 
 /** A platform chart rendered as the platform renders it, with the post-renderer plugin it may need. */
 export function renderComponent(repository: Repository, name: string): string {
-  const component = repository.catalog.components.find((c) => c.name === name)!;
+  const component = repository.catalog.components.find((c) => c.name === name);
+  assert.ok(component, `the catalog has the ${name} component`);
   return execFileSync(
     "helm",
     withAbsoluteChart(
