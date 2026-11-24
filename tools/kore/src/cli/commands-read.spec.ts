@@ -7,7 +7,7 @@ import {
   orderedComponents,
   platformClaimErrors,
 } from "../config/index.js";
-import type { Repository } from "../config/index.js";
+import { type Repository, checkCrossFileRules as cf } from "../config/index.js";
 import { managedLockErrors } from "../images/index.js";
 import {
   doctor,
@@ -60,7 +60,7 @@ beforeEach(() => {
   vi.mocked(validatePortability).mockResolvedValue({
     applications: ["reference"],
   } as never);
-  vi.mocked(stringFlag).mockReturnValue(undefined);
+  vi.mocked(cf).mockResolvedValue({ errors: [], warnings: [] });
   vi.mocked(summarizeOperations).mockReturnValue(operations as never);
   vi.mocked(readJournal).mockResolvedValue([] as never);
   vi.mocked(managedLockErrors).mockReturnValue([]);
