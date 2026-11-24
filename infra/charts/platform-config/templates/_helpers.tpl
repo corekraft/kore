@@ -46,6 +46,15 @@ shared proxy requests its limit for CPU and memory, so its pods are Guaranteed
 {{- end -}}
 
 {{/*
+True (a non-empty string) only while the data-path-priority-class flag is on: the
+shared proxy names the kore-owned PriorityClass, which the oci-registry release
+creates (ADR 0152, issue 1531), for either GatewayClass. Off, nothing it renders changes.
+*/}}
+{{- define "platform-config.dataPathPriority" -}}
+{{- if index (.Values.features | default dict) "data-path-priority-class" -}}true{{- end -}}
+{{- end -}}
+
+{{/*
 The shared proxy's Guaranteed resources as one flow mapping, the request and the
 limit alike, so the same text serves the Istio deployment patch and the
 AgentgatewayParameters spec. Each size is required while the flag is on, so an

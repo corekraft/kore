@@ -190,6 +190,9 @@ export const externalDnsFlag = "external-dns";
 /** The flag that renders the Let's Encrypt staging and production ClusterIssuers, which solve DNS-01 through Cloudflare for the platform domain's one zone, and the cert-manager resolvers that let the challenge record be seen (ADR 0161, issue 1618). vps only, because it needs a real zone; off in the vps overlay until a recorded live outcome. */
 export const acmeDns01Flag = "acme-dns01";
 
+/** The flag that adds an HTTP-01 solver to the two issuers acme-dns01 renders, so a name the external Gateway serves is proved through its port 80 listener and needs no DNS token (ADR 0157, issue 1637). Needs acme-dns01, which renders the issuers it adds the solver to, and is needed by external-gateway. vps only; off in the vps overlay until a recorded live outcome. */
+export const acmeIssuersFlag = "acme-issuers";
+
 /** The flag that renders the kore-template-images policy, which admits the golden-path template images by signature under the release identity (plan 15 Step 4, issue 1884), and labels the golden-path namespaces its creators make (the golden-path sync and the Service composition) for policy.sigstore.dev/include (ADR 0181). The policy admits only the template repository; off in every overlay until a recorded live outcome. */
 export const goldenPathTemplateAdmissionFlag = "golden-path-template-admission";
 

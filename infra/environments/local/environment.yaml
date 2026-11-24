@@ -88,6 +88,7 @@
       "postgresql-service-class-instances": false,
       "gateway-proxy-defaults": false,
       "data-path-guaranteed-qos": false,
+      "data-path-priority-class": false,
       "platform-keycloak-wait": false,
       "platform-keycloak-realm-wait": false,
       "platform-apiserver-ready": false,

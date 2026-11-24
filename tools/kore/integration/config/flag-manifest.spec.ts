@@ -102,6 +102,7 @@ test("the flags that apply to vps are the ones the manifest declares, pending fl
     "external-gateway-limits",
     "external-dns",
     "acme-dns01",
+    "acme-issuers",
     "platform-hostname-ownership",
     "platform-portal",
     "portal-staged-install",
@@ -112,6 +113,7 @@ test("the flags that apply to vps are the ones the manifest declares, pending fl
     "postgresql-service-class-instances",
     "gateway-proxy-defaults",
     "data-path-guaranteed-qos",
+    "data-path-priority-class",
     "golden-path-safety-defaults",
     "golden-path-service-identity",
     "app-delivery",
@@ -154,6 +156,7 @@ test("the real manifest declares each prerequisite the overlay check enforces, s
   assert.deepEqual(requiredFlags(flags, "external-gateway"), [
     "service-listener-sets",
   ]);
+  assert.deepEqual(requiredFlags(flags, "acme-issuers"), ["acme-dns01"]);
   assert.deepEqual(requiredFlags(flags, "external-gateway-limits"), [
     "external-gateway",
   ]);
@@ -204,6 +207,26 @@ test("each prerequisite edge is refused by validation when the flag is on and it
         `flag ${flag} is on in the local overlay but requires ${needed}, which is off there; set "${needed}": true in the local overlay, or turn ${flag} off (ADR 0148)`,
       ),
       `${flag} needs ${needed}: ${message}`,
+    );
+  }
+});
+
+// Issue 1637: external-gateway keeps the environments it applies to, and its requires holds service-listener-sets only.
+// Its prerequisite acme-issuers applies to vps alone, and a requires edge cannot yet bind only where the required flag
+// applies (ADR 0148), so vps refuses the pair in the environment check instead (acme-issuers.ts, ADR 0157).
+test("external-gateway applies to local, vps and managed-example, and every one of those overlays lists it false", async () => {
+  const { flags } = await loadRepository("vps");
+  assert.deepEqual(flagEntry(flags, "external-gateway")?.applies, [
+    "local",
+    "vps",
+    "managed-example",
+  ]);
+  for (const name of ["local", "vps", "managed-example"]) {
+    const repository = await loadRepository(name);
+    assert.equal(
+      repository.environment.features?.["external-gateway"],
+      false,
+      name,
     );
   }
 });
