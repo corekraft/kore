@@ -82,6 +82,15 @@ to reclaim space is to recreate the registry claim or the profile and republish
 (`kore local up`). Watch the claim with `kubectl --context kore-local --namespace
 kore-registry get pvc`; `kore platform status` does not report its usage.
 
+With the `registry-tag-pruning` flag on (off in every overlay), `kore local up`
+spares, whatever their per-run tags' age, every digest a revert needs
+([ADR 0153](../decisions/0153-rollback-goes-through-the-release-owner-and-host-maintenance-never-drains.md)):
+each service's last three distinct digests in the release lock's git history
+(`infra/catalog/images.lock.json`), every digest still soaking, and the
+`.sig` and `.att` tags of each kept digest. Until activation is recorded
+(#1485), every digest the lock history names counts as soaking. A shallow
+checkout refuses the prune, because its history is incomplete.
+
 ## Signature retention
 
 - A signature is a `sha256-<digest>.sig` tag in the same repository as the image.
