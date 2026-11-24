@@ -1,4 +1,4 @@
-import { internalGateway } from "./gateways.js";
+import { externalGateway, internalGateway } from "./gateways.js";
 import {
   databaseRoutesFlag,
   featureEnabled,
@@ -348,8 +348,24 @@ function databaseRoutesArgs(
 export { localCaConfigMap } from "./platform-cluster-resolution.js";
 
 /**
+ * The internal domain in force (spec #1612): internal.<domain> with an external
+ * Gateway, else the platform domain, the run-time domain over the overlay's as
+ * platformPlan reads it. A suborg's internal zone is <organization>.<internal domain>.
+ */
+export function internalDomainOf(
+  environment: Environment,
+  env: NodeJS.ProcessEnv = process.env,
+): string {
+  const { domain } = platformPlan(environment, env);
+  return externalGateway(environment) === undefined
+    ? domain
+    : `internal.${domain}`;
+}
+
+/**
  * With platform-hostname-ownership on, the organization identifier the
- * Organization API builds its zone default from, `<organizationId>.<domain>`;
+ * Organization API builds its zone default from, `<organizationId>.<domain>`, and
+ * the internal domain its internal zone default is built from (spec #1612);
  * otherwise none, so the flag off renders what it rendered before.
  */
 function zoneArgs(
@@ -366,6 +382,8 @@ function zoneArgs(
   return [
     "--set-string",
     `platformOrganizationId=${platformPlan(environment, env).organizationId}`,
+    "--set-string",
+    `platformInternalDomain=${internalDomainOf(environment, env)}`,
   ];
 }
 

@@ -8,6 +8,7 @@
 import { readdir, readFile } from "node:fs/promises";
 import { join } from "node:path";
 import type { SuborgRecord } from "./hostname-claims.js";
+import { suborgInternalZoneErrors } from "./internal-zone.js";
 import { platformClaimErrors } from "./platform-claims.js";
 import { platformPlan } from "./platform-domain.js";
 import {
@@ -216,6 +217,15 @@ export async function checkOrganizationRecords(
       reserved,
     });
     errors.push(...recordErrors);
+    errors.push(
+      ...suborgInternalZoneErrors({
+        environment: check.environment,
+        env: check.env,
+        file: record.file,
+        organization: stem,
+        manifest: record.manifest,
+      }),
+    );
     if (recordErrors.length === 0) {
       organizations.push({
         name: stem,
