@@ -72,6 +72,7 @@
         "kind": "feature",
         "applies": ["local", "vps", "managed-example"]
       },
+      { "name": "acme-dns01", "kind": "feature", "applies": ["vps"] },
       {
         "name": "database-routes",
         "kind": "feature",
@@ -153,6 +154,11 @@
       },
       {
         "name": "platform-keycloak-realm-wait",
+        "kind": "feature",
+        "applies": ["local"]
+      },
+      {
+        "name": "platform-apiserver-ready",
         "kind": "feature",
         "applies": ["local"]
       },

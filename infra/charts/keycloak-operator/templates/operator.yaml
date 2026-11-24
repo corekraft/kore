@@ -411,7 +411,7 @@ spec:
               memory: 450Mi
               cpu: 300m
           startupProbe:
-            failureThreshold: 3
+            failureThreshold: {{ dig "startupProbe" "failureThreshold" 3 .Values.operator }}
             httpGet:
               path: /q/health/started
               port: 8080

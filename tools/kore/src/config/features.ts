@@ -118,6 +118,9 @@ export const keycloakWaitFlag = "platform-keycloak-wait";
 /** The flag that makes kore wait for the Keycloak realm's OIDC discovery before it applies the portal's release, so a Keycloak upgrade converges or fails naming the cause (issue 1984). Off in every overlay until a recorded live run proves an upgrade converges. */
 export const keycloakRealmWaitFlag = "platform-keycloak-realm-wait";
 
+/** The flag that makes kore wait for the Kubernetes API server to answer /readyz before it rolls out the Keycloak operator, agentgateway, istio-cni and ztunnel, so a cold-start API server converges or fails naming the cause (issue 2011). Off in every overlay until a recorded live run proves `kore local up` converges over an existing cluster. */
+export const apiserverReadyFlag = "platform-apiserver-ready";
+
 /** The flag that makes the golden-path sign-in wait for the portal's Keycloak instead of the delivery gate (ADR 0113, issue 1880). Off in every overlay until a live run proves the local gate converges. */
 export const goldenPathSigninAfterPortalFlag =
   "golden-path-signin-after-portal";
@@ -163,6 +166,9 @@ export const externalGatewayLimitsFlag = "external-gateway-limits";
 
 /** The flag that renders external-dns, which publishes A records for the routes of the external Gateway into the platform domain's one zone (ADR 0162, issue 1616). Needs external-gateway. Off in every overlay until a recorded live outcome; local runs the inmemory provider, vps the Cloudflare one. */
 export const externalDnsFlag = "external-dns";
+
+/** The flag that renders the Let's Encrypt staging and production ClusterIssuers, which solve DNS-01 through Cloudflare for the platform domain's one zone, and the cert-manager resolvers that let the challenge record be seen (ADR 0161, issue 1618). vps only, because it needs a real zone; off in the vps overlay until a recorded live outcome. */
+export const acmeDns01Flag = "acme-dns01";
 
 /** The flag that renders the kore-template-images policy, which admits the golden-path template images by signature under the release identity (plan 15 Step 4, issue 1884), and labels the golden-path namespaces its creators make (the golden-path sync and the Service composition) for policy.sigstore.dev/include (ADR 0181). The policy admits only the template repository; off in every overlay until a recorded live outcome. */
 export const goldenPathTemplateAdmissionFlag = "golden-path-template-admission";

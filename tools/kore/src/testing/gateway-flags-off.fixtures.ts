@@ -3,7 +3,8 @@ import { loadRepository, type Repository } from "../config/index.js";
 // The flags a spec pins off so it does not depend on the committed local
 // overlay: the agentgateway flags, the three that PR #1574 turned on in local
 // (registry-by-name, database-routes, otlp-route), platform-dns (#1682), and
-// platform-portal (#1715 turns it on in local).
+// platform-portal (#1715 turns it on in local), and drift-listing-mappings, whose
+// check reads the k3d listing's port mappings, which these specs' fake runners do not answer.
 const gatewayFlags = [
   "ingress-agentgateway",
   "gateway-class-change-release",
@@ -14,6 +15,7 @@ const gatewayFlags = [
   "otlp-route",
   "platform-dns",
   "platform-portal",
+  "drift-listing-mappings",
 ] as const;
 
 /**
@@ -40,6 +42,22 @@ export function withPlatformDnsOn(repository: Repository): Repository {
     environment: {
       ...repository.environment,
       features: { ...repository.environment.features, "platform-dns": true },
+    },
+  };
+}
+
+/** The repository with drift-listing-mappings pinned off, for a spec whose fake runner does not answer the k3d listing's port mappings. */
+export function withDriftListingMappingsOff(
+  repository: Repository,
+): Repository {
+  return {
+    ...repository,
+    environment: {
+      ...repository.environment,
+      features: {
+        ...repository.environment.features,
+        "drift-listing-mappings": false,
+      },
     },
   };
 }

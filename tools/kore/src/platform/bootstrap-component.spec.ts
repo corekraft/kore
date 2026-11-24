@@ -4,6 +4,7 @@ import {
   ensureRegistryAuth,
   ensureRegistryTrust,
 } from "../images/index.js";
+import { waitForApiserverReady } from "./apiserver-ready.js";
 import { bootstrapComponent } from "./bootstrap-component.js";
 import { enrollSharedGatewayRoute } from "./enrollment.js";
 import { waitForGatekeeperAdmission } from "./gatekeeper-admission.js";
@@ -20,6 +21,7 @@ import { assertMetricsServerUnowned } from "./metrics-server-ownership.js";
 import { reconcileIfNeeded } from "./reconcile.js";
 
 vi.mock("../images/index.js");
+vi.mock("./apiserver-ready.js");
 vi.mock("./enrollment.js");
 vi.mock("./gatekeeper-admission.js");
 vi.mock("./metrics-server-ownership.js");
@@ -64,6 +66,9 @@ beforeEach(() => {
   vi.mocked(assertMetricsServerUnowned).mockImplementation(
     record("assert-metrics-server-unowned"),
   );
+  vi.mocked(waitForApiserverReady).mockImplementation(
+    async (_r, _n, c) => void order.push(`await-apiserver:${c.name}`),
+  );
   vi.mocked(reconcileIfNeeded).mockImplementation(async (_r, _n, c) => {
     order.push(`reconcile:${c.name}`);
   });
@@ -107,6 +112,7 @@ test("the Argo CD registry credential is applied right after Argo CD is installe
 
 test("the portal Secrets are streamed right after the Keycloak operator creates its namespace", async () => {
   expect(await steps("keycloak-operator")).toEqual([
+    "await-apiserver:keycloak-operator",
     "reconcile:keycloak-operator",
     "portal-secrets",
   ]);
@@ -156,4 +162,28 @@ test("a route-bearing bootstrap component has its namespace enrolled for the sha
     "reconcile:oci-registry",
     "registry-trust",
   ]);
+});
+
+test.each(["keycloak-operator", "agentgateway", "istio-cni", "ztunnel"])(
+  "the %s rollout starts only after the API server readiness step succeeds",
+  async (name) => {
+    const taken = await steps(name);
+    expect(taken.indexOf(`await-apiserver:${name}`)).toBeGreaterThanOrEqual(0);
+    expect(taken.indexOf(`await-apiserver:${name}`)).toBeLessThan(
+      taken.indexOf(`reconcile:${name}`),
+    );
+  },
+);
+
+test("an API server that is not ready stops the rollout before anything is applied", async () => {
+  vi.mocked(waitForApiserverReady).mockRejectedValueOnce(
+    new Error("the Kubernetes API server of k3d-kore-local was not ready"),
+  );
+  await expect(steps("ztunnel")).rejects.toThrow("was not ready");
+  expect(reconcileIfNeeded).not.toHaveBeenCalled();
+});
+
+test("a component that is not a controller or CNI rollout waits for no API server readiness", async () => {
+  expect(await steps("cert-manager")).toEqual(["reconcile:cert-manager"]);
+  expect(waitForApiserverReady).not.toHaveBeenCalled();
 });

@@ -8,6 +8,7 @@ import { isLocalProvider } from "./provider.js";
 vi.mock("./provider.js", () => ({ isLocalProvider: vi.fn() }));
 vi.mock("./features.js", () => ({
   featureEnabled: vi.fn(),
+  acmeDns01Flag: "acme-dns01",
   externalGatewayFlag: "external-gateway",
   externalDnsFlag: "external-dns",
   externalGatewayLimitsFlag: "external-gateway-limits",
@@ -150,6 +151,25 @@ test("in-cluster-ca on for a managed environment has no error", () => {
 });
 
 test("in-cluster-ca off needs nothing, even for a k3d environment", () => {
+  flagsOn();
+  vi.mocked(isLocalProvider).mockReturnValue(true);
+  expect(flagDependencyErrors(environment)).toEqual([]);
+});
+
+test("acme-dns01 on for a k3d environment is refused, because a k3d zone is not public and Let's Encrypt cannot check DNS-01 against it", () => {
+  flagsOn("acme-dns01");
+  vi.mocked(isLocalProvider).mockReturnValue(true);
+  expect(flagDependencyErrors(environment)).toEqual([
+    "environment local turns on acme-dns01, which needs a real zone: a k3d environment has no public zone for Let's Encrypt to check DNS-01 against; turn acme-dns01 off in the local environment overlay",
+  ]);
+});
+
+test("acme-dns01 on for a managed environment has no error", () => {
+  flagsOn("acme-dns01");
+  expect(flagDependencyErrors(environment)).toEqual([]);
+});
+
+test("acme-dns01 off needs nothing, even for a k3d environment", () => {
   flagsOn();
   vi.mocked(isLocalProvider).mockReturnValue(true);
   expect(flagDependencyErrors(environment)).toEqual([]);
