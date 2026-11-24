@@ -34,9 +34,10 @@ function isGatedComponent(value: unknown): value is GatedComponent {
 }
 
 async function readRepositoryJson(path: string): Promise<unknown> {
-  return JSON.parse(
+  const parsed: unknown = JSON.parse(
     await readFile(join(await findRoot(), path), "utf8"),
-  ) as unknown;
+  );
+  return parsed;
 }
 
 /** The external-dns values file, parsed: config stays JSON-compatible YAML (AGENTS.md). */
