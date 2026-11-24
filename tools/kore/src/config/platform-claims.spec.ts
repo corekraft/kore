@@ -38,11 +38,111 @@ test("a claim outside the platform.kore.dev/v1alpha1 API is rejected", () => {
   ]);
 });
 
-test("an Organization that is not named platform names the field and the fix", () => {
+const suborg = {
+  apiVersion: "platform.kore.dev/v1alpha1",
+  kind: "Organization",
+  metadata: { name: "api" },
+  spec: {
+    tenant: "platform",
+    parent: "platform",
+    quota: {
+      requests: { cpu: "8", memory: "16Gi" },
+      pods: 50,
+      storage: "100Gi",
+    },
+  },
+};
+
+test("a suborg one level below platform, with a full quota, passes", () => {
+  expect(platformClaimErrors([suborg])).toEqual([]);
+});
+
+test("a suborg without a parent names spec.parent as required, and says to set platform", () => {
+  const { parent: _parent, ...spec } = suborg.spec;
+  expect(platformClaimErrors([{ ...suborg, spec }])).toEqual([
+    'claims[0].spec.parent: is required for a suborg; set it to "platform", the tenant root',
+  ]);
+});
+
+test("a suborg whose parent is not the tenant root names spec.parent and the depth rule", () => {
   expect(
-    platformClaimErrors([{ ...organization, metadata: { name: "acme" } }]),
+    platformClaimErrors([
+      { ...suborg, spec: { ...suborg.spec, parent: "payments" } },
+    ]),
   ).toEqual([
-    'claims[0].metadata.name: only the platform organization is supported; set it to "platform"',
+    'claims[0].spec.parent: must be "platform", the tenant root: v1 places a suborg one level below it; set it to "platform"',
+  ]);
+});
+
+test("the platform organization has no parent, so a parent on it is refused", () => {
+  expect(
+    platformClaimErrors([
+      { ...organization, spec: { tenant: "platform", parent: "platform" } },
+    ]),
+  ).toEqual([
+    "claims[0].spec.parent: the platform organization is the tenant root and has no parent; remove spec.parent",
+  ]);
+});
+
+test("a suborg without a quota names spec.quota as required, with no default", () => {
+  const { quota: _quota, ...spec } = suborg.spec;
+  expect(platformClaimErrors([{ ...suborg, spec }])).toEqual([
+    "claims[0].spec.quota: is required for a suborg, and has no default: set requests.cpu, requests.memory, pods and storage",
+  ]);
+});
+
+test("a suborg quota names each field that is missing or malformed, and the expected form", () => {
+  expect(
+    platformClaimErrors([
+      {
+        ...suborg,
+        spec: {
+          ...suborg.spec,
+          quota: { requests: { cpu: "lots" }, pods: 0, storage: "100G" },
+        },
+      },
+    ]),
+  ).toEqual([
+    'claims[0].spec.quota.requests.cpu: must be a CPU quantity such as "8" or "500m"',
+    'claims[0].spec.quota.requests.memory: is required; set a memory quantity with a Mi, Gi or Ti suffix, such as "16Gi"',
+    "claims[0].spec.quota.pods: must be a whole number of at least 1, for example 50",
+    'claims[0].spec.quota.storage: must be a storage quantity with a Gi or Ti suffix, such as "100Gi"',
+  ]);
+});
+
+test("a suborg quota with an unknown field names it and lists the fields allowed", () => {
+  expect(
+    platformClaimErrors([
+      {
+        ...suborg,
+        spec: { ...suborg.spec, quota: { ...suborg.spec.quota, gpus: 1 } },
+      },
+    ]),
+  ).toEqual([
+    "claims[0].spec.quota.gpus: is not a quota field; the fields are requests, pods and storage",
+  ]);
+});
+
+test("a suborg name over 54 characters names the limit that keeps <suborg>--preview within 63", () => {
+  const name = "a".repeat(55);
+  expect(platformClaimErrors([{ ...suborg, metadata: { name } }])).toEqual([
+    `claims[0].metadata.name: must be at most 54 characters, so <suborg>--preview fits 63; shorten it, for example "${"a".repeat(54)}"`,
+  ]);
+});
+
+test("a suborg name with a double hyphen names the field and the fix", () => {
+  expect(
+    platformClaimErrors([{ ...suborg, metadata: { name: "pay--team" } }]),
+  ).toEqual([
+    'claims[0].metadata.name: must not contain a double hyphen: the suborg namespace is <suborg> and its preview is <suborg>--preview; rename it, for example "pay-team"',
+  ]);
+});
+
+test("a suborg name that is not a DNS label names the field and the fix", () => {
+  expect(
+    platformClaimErrors([{ ...suborg, metadata: { name: "Pay_Team" } }]),
+  ).toEqual([
+    'claims[0].metadata.name: must be a single DNS label (lowercase letters, digits and hyphens, at most 63 characters, no dots); rename it, for example "pay-team"',
   ]);
 });
 
@@ -122,11 +222,11 @@ test("a Service environment whose namespace would exceed 63 characters names the
 test("every error is reported, each with the index of the claim it belongs to", () => {
   expect(
     platformClaimErrors([
-      { ...organization, metadata: { name: "acme" } },
+      { ...organization, spec: { tenant: "platform", parent: "payments" } },
       { ...service, spec: { organization: "acme", environments: [] } },
     ]),
   ).toEqual([
-    'claims[0].metadata.name: only the platform organization is supported; set it to "platform"',
+    "claims[0].spec.parent: the platform organization is the tenant root and has no parent; remove spec.parent",
     'claims[1].spec.organization: must be "platform"; the Service API serves only the platform organization',
     'claims[1].spec.environments: needs at least one environment; add one, for example "local"',
   ]);
