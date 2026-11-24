@@ -1,5 +1,6 @@
 import { readFile } from "node:fs/promises";
 import {
+  checkAppRecords,
   featureEnabled,
   orderedComponents,
   organizationServiceApisFlag,
@@ -89,7 +90,17 @@ export async function validateCommand(
     (component) => component.name,
   );
   const portability = await validatePortability(repository, context.runner);
-  const warnings = repository.warnings ?? [];
+  const records = await checkAppRecords({
+    root: repository.root,
+    environment: repository.environment.name,
+    runner: context.runner,
+    yqVersion: repository.versions.tools.yq ?? "",
+    recordBase: stringFlag(context.parsed, "record-base"),
+  });
+  if (records.errors.length > 0) {
+    throw new Error(records.errors.join("\n"));
+  }
+  const warnings = [...(repository.warnings ?? []), ...records.warnings];
   for (const warning of warnings) {
     console.error(`warning: ${warning}`);
   }

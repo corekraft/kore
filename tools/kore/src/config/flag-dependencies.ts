@@ -1,5 +1,6 @@
 import {
   externalGatewayFlag,
+  externalGatewayLimitsFlag,
   featureEnabled,
   inClusterCaFlag,
   otlpRouteFlag,
@@ -45,6 +46,12 @@ const requirements: Requirement[] = [
     needs: serviceListenerSetsFlag,
     reason:
       "the external Gateway admits ListenerSets only from the namespaces the platform labels as shared",
+  },
+  {
+    flag: externalGatewayLimitsFlag,
+    needs: externalGatewayFlag,
+    reason:
+      "the limits are the external Gateway's policy, so there is no Gateway to limit without it",
   },
 ];
 

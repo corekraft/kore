@@ -7,4 +7,15 @@ secrets: { sourceNamespace: external, storeName: platform-secrets }
 # The node port the external Gateway's Service is published on (ADR 0160,
 # issue 1633); the host's port table maps it to public 80. Read only while
 # external-gateway is on.
-externalGateway: { service: { nodePort: 30080 } }
+# The external Gateway's limits (ADR 0160, issue 1674), read only while
+# external-gateway-limits is on: each a positive number the render refuses when
+# missing. The 1 MiB body cap fails closed with 413 and is fixed by the policy.
+# The numbers are proposals until the owner confirms them before activation.
+externalGateway:
+  service: { nodePort: 30080 }
+  limits:
+    concurrentRequests: 256
+    rate: { requests: 200, unit: Seconds, burst: 100 }
+    body: { maxBytes: 1048576 }
+    headers: { http1MaxHeaders: 100, http2MaxHeaderSize: 16Ki }
+    timeouts: { request: 60s, responseIdle: 30s }
