@@ -20,8 +20,10 @@ test("the flag barrel exposes exactly the overlay, proof, audit and app window e
     [
       "FlagError",
       "activationProof",
+      "assertMayTurnOn",
       "environments",
       "findProof",
+      "flagRequires",
       "parseCharts",
       "parseReleaseLock",
       "platformWindows",

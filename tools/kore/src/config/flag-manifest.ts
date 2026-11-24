@@ -17,6 +17,12 @@ export function flagEntry(
   return manifest.flags.find((entry) => entry.name === name);
 }
 
+/** The flags a flag requires to be on first, in the order its entry lists them; none when the entry has no requires. */
+export function requiredFlags(manifest: FlagManifest, name: string): string[] {
+  const requires = flagEntry(manifest, name)?.requires;
+  return Array.isArray(requires) ? requires : [];
+}
+
 /** Whether a flag is marked never-retire: only an environment flag is, and it is never retired (ADR 0148). */
 export function neverRetires(manifest: FlagManifest, name: string): boolean {
   return flagEntry(manifest, name)?.neverRetire === true;
@@ -39,6 +45,32 @@ export function appliedFlags(
         !entry.notApplicable?.includes(environment),
     )
     .map((entry) => entry.name);
+}
+
+/** Errors of one entry's requires: a list of declared flag names, none of them the entry itself (ADR 0148). */
+function requiresErrors(entry: FlagEntry, declared: Set<string>): string[] {
+  const requires: unknown = entry.requires;
+  if (
+    !Array.isArray(requires) ||
+    !requires.every((name) => typeof name === "string")
+  ) {
+    return [
+      `flag ${entry.name} requires must be a list of flag names (ADR 0148)`,
+    ];
+  }
+  return requires.flatMap((needed: string) => {
+    if (needed === entry.name) {
+      return [
+        `flag ${entry.name} requires itself; a flag cannot be its own prerequisite (ADR 0148)`,
+      ];
+    }
+    if (!declared.has(needed)) {
+      return [
+        `flag ${entry.name} requires ${needed}, which has no entry in ${flagManifestPath}; declare ${needed} in the manifest or drop it from the requires of ${entry.name} (ADR 0148)`,
+      ];
+    }
+    return [];
+  });
 }
 
 /**
@@ -94,6 +126,7 @@ function notApplicableErrors(entry: FlagEntry): string[] {
 /** Errors of the manifest's own entries: names, kinds, environments and marks. */
 function entryErrors(manifest: FlagManifest): string[] {
   const seen = new Set<string>();
+  const declared = new Set(manifest.flags.map((entry) => entry.name));
   return manifest.flags.flatMap((entry) => {
     const errors: string[] = [];
     if (seen.has(entry.name)) {
@@ -129,6 +162,9 @@ function entryErrors(manifest: FlagManifest): string[] {
     }
     if (entry.pending !== undefined && typeof entry.pending !== "boolean") {
       errors.push(`flag ${entry.name} pending must be true or false`);
+    }
+    if (entry.requires !== undefined) {
+      errors.push(...requiresErrors(entry, declared));
     }
     if (
       entry.neverRetire !== undefined &&
