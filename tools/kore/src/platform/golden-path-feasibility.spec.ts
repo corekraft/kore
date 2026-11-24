@@ -1,7 +1,7 @@
 // Docs: docs/decisions/0036-rollout-feasibility-and-container-smoke.md
 import { expect, test, vi } from "vitest";
 import type { Environment } from "../config/index.js";
-import { goldenPathFeasibility } from "./golden-path-feasibility.js";
+import { goldenPathFeasibility } from "./golden-path-feasibility.live.js";
 
 // Docs: docs/decisions/0154-workloads-run-two-replicas-roll-out-one-surge-pod-at-a-time-and-keep-a-disruption-budget.md
 // The flag-on golden render: two replicas per workload, RollingUpdate with one
