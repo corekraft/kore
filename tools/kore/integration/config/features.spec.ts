@@ -140,6 +140,17 @@ test("golden-path-safety-defaults is listed false in every overlay, so no worklo
   }
 });
 
+test("golden-path-service-identity is listed false in every overlay, so no workload gains a Service, ServiceAccount or pod identity until a recorded live outcome turns it on (issue 1551)", async () => {
+  for (const name of ["local", "vps", "managed-example"]) {
+    const repository = await loadRepository(name);
+    assert.equal(
+      repository.environment.features?.["golden-path-service-identity"],
+      false,
+      `${name} overlay`,
+    );
+  }
+});
+
 test("workload-defaults-admission is listed false in every overlay, so the admission constraint installs nothing until a recorded live outcome turns it on (issue 1526, ADR 0154)", async () => {
   for (const name of ["local", "vps", "managed-example"]) {
     const repository = await loadRepository(name);

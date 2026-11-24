@@ -97,6 +97,10 @@ validated, pinned and rendered like any other, but `kore local up` and
 as `gated-off` without failing. If a flag is turned off after the component
 was installed, status reports it `degraded` with the fix in its detail, and
 `up` fails fast until the release is removed or the flag is turned back on.
+`kore platform uninstall <component> --environment <name>` names the release
+and the context it would remove and removes nothing; `--yes` removes it. Retained
+data in its namespace also needs `--purge-data`, and a namespace shared with
+another component is refused.
 
 Kore records per-machine image digests under ignored `.kore/` state and keeps its
 local-only signing key as the `kore-system/kore-local-signing-key` Secret, never
