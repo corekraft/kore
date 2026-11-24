@@ -981,6 +981,41 @@
           ]
       },
       {
+        "name": "kore-workload-defaults-templates",
+        "phase": "configuration",
+        "owner": "argocd",
+        "namespace": "gatekeeper-system",
+        "kind": "local-chart",
+        "chart": "infra/charts/kore-workload-defaults-templates",
+        "version": "local",
+        "featureFlag": "workload-defaults-admission",
+        "ownsCRDs": [],
+        "dependencies": ["gatekeeper"],
+        "timeout": "5m",
+        "readiness":
+          [
+            "constrainttemplate.templates.gatekeeper.sh/koreworkloaddefaults",
+            "crd/koreworkloaddefaults.constraints.gatekeeper.sh"
+          ]
+      },
+      {
+        "name": "kore-workload-defaults",
+        "phase": "configuration",
+        "owner": "argocd",
+        "namespace": "gatekeeper-system",
+        "kind": "local-chart",
+        "chart": "infra/charts/kore-workload-defaults",
+        "version": "local",
+        "featureFlag": "workload-defaults-admission",
+        "ownsCRDs": [],
+        "dependencies": ["gatekeeper", "kore-workload-defaults-templates"],
+        "timeout": "5m",
+        "readiness":
+          [
+            "koreworkloaddefaults.constraints.gatekeeper.sh/kore-workload-defaults"
+          ]
+      },
+      {
         "name": "kore-admission-gate",
         "phase": "configuration",
         "namespace": "kore-system",

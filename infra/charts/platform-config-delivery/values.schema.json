@@ -66,7 +66,7 @@
     "project": { "type": "string", "minLength": 1 },
     "operatorsGroup": { "type": "string", "minLength": 1 },
     "charts": {
-      "description": "One lock entry per handed-over release. The image policy is not one: kore keeps it (ADR 0028). The feature-gated releases (kore-policy-sync, kore-hostname-ownership-templates, kore-hostname-ownership) are allowed but never required: with their flag off kore hands over none of them.",
+      "description": "One lock entry per handed-over release. The image policy is not one: kore keeps it (ADR 0028). The feature-gated releases (kore-policy-sync, kore-hostname-ownership-templates, kore-hostname-ownership, kore-workload-defaults-templates, kore-workload-defaults) are allowed but never required: with their flag off kore hands over none of them.",
       "type": "object",
       "required": [
         "opa-authorizer",
@@ -86,7 +86,9 @@
         "kore-platform-config": { "$ref": "#/definitions/entry" },
         "kore-policy-sync": { "$ref": "#/definitions/entry" },
         "kore-hostname-ownership-templates": { "$ref": "#/definitions/entry" },
-        "kore-hostname-ownership": { "$ref": "#/definitions/entry" }
+        "kore-hostname-ownership": { "$ref": "#/definitions/entry" },
+        "kore-workload-defaults-templates": { "$ref": "#/definitions/entry" },
+        "kore-workload-defaults": { "$ref": "#/definitions/entry" }
       }
     },
     "releaseValues": {
@@ -104,7 +106,11 @@
         "kore-hostname-ownership-templates": {
           "$ref": "#/definitions/valuesFiles"
         },
-        "kore-hostname-ownership": { "$ref": "#/definitions/valuesFiles" }
+        "kore-hostname-ownership": { "$ref": "#/definitions/valuesFiles" },
+        "kore-workload-defaults-templates": {
+          "$ref": "#/definitions/valuesFiles"
+        },
+        "kore-workload-defaults": { "$ref": "#/definitions/valuesFiles" }
       }
     },
     "namespaces": {
@@ -129,7 +135,11 @@
         "kore-hostname-ownership-templates": {
           "$ref": "#/definitions/namespace"
         },
-        "kore-hostname-ownership": { "$ref": "#/definitions/namespace" }
+        "kore-hostname-ownership": { "$ref": "#/definitions/namespace" },
+        "kore-workload-defaults-templates": {
+          "$ref": "#/definitions/namespace"
+        },
+        "kore-workload-defaults": { "$ref": "#/definitions/namespace" }
       }
     }
   },

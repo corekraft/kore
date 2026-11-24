@@ -135,6 +135,8 @@ test("the same status run is fully ready once the controller is back", async () 
       "kore-platform-keycloak",
       "kore-platform-backstage",
       "kore-service-observability",
+      "kore-workload-defaults-templates",
+      "kore-workload-defaults",
       "kore-otlp-route",
       // Last: the zone rewrite needs the Gateway that kore-platform-config creates.
       "kore-platform-dns",
