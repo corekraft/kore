@@ -95,6 +95,9 @@ export async function renderDelivery(
       ? ["--set", "inClusterCa=true"]
       : []),
     ...(chartDelivery.syncWindow === true ? ["--set", "syncWindow=true"] : []),
+    ...(chartDelivery.serviceClassInstances === true
+      ? ["--set", "serviceClassInstances=true"]
+      : []),
     ...extra,
   ]);
   return {

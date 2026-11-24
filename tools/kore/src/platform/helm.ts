@@ -117,6 +117,9 @@ function chartDeliveryArgs(
     ...databaseRoutesDeliveryArgs(delivery),
     ...(delivery.inClusterCa === true ? ["--set", "inClusterCa=true"] : []),
     ...(delivery.syncWindow === true ? ["--set", "syncWindow=true"] : []),
+    ...(delivery.serviceClassInstances === true
+      ? ["--set", "serviceClassInstances=true"]
+      : []),
     ...(delivery.releaseValues === undefined
       ? []
       : [

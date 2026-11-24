@@ -20,6 +20,13 @@ asserts that a database's TLS route is ready only once the observed route has Ac
 ResolvedRefs True for the shared Gateway, and that a route the Gateway refused projects a False
 `DatabaseRouteReady` condition with the Gateway's reason (issue 1472).
 
+With postgresql-service-class-instances on (ADR 0154), `platform.postgresql-service-class.spec.ts`
+asserts the composed Cluster's spec exactly: a `standard` claim gets two instances with the
+disruption budget on, a `development` claim one with it off; both use `primaryUpdateMethod:
+switchover` and a memory request equal to the limit. Off, every class composes the one-instance
+Cluster with no sizing, with or without database-routes. The flag is declared off in every overlay
+(`integration/config/service-class-flag.spec.ts`).
+
 `kore app down` leaves the claim and database intact and reports retained
 resources (`tools/kore/src/app/app-lifecycle.spec.ts`). Live tests must still
 show the same against a real cluster.
