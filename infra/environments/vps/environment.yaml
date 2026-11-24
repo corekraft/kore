@@ -39,6 +39,7 @@
     },
   "features":
     {
+      "registry-revert-keep": false,
       "agentgateway-mesh-enrollment": false,
       "autoscaling-defaults": false,
       "gateway-class-change-release": false,
@@ -59,6 +60,7 @@
       "external-gateway-limits": false,
       "external-dns": false,
       "acme-dns01": false,
+      "domain-expiry-alert": false,
       "acme-issuers": false,
       "registry-by-name": false,
       "registry-tailnet-forward": false,
@@ -81,6 +83,7 @@
       "app-delivery": false,
       "app-sizing": false,
       "workload-defaults-admission": false,
+      "pvc-ownership-admission": false,
       "openbao": false
     },
   "secrets": { "storeName": "platform-secrets", "sourceNamespace": "external" },

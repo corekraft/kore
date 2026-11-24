@@ -280,7 +280,7 @@ test("with platform-dns off or omitted the portal is handed no CA bundle", () =>
   }
 });
 
-test("with platform-hostname-ownership on the Organization API is handed the organization identifier its zone is built from", () => {
+test("with platform-hostname-ownership on the Organization API is handed the organization identifier and the internal domain its zones are built from", () => {
   const on = fakeEnvironment({
     platform: { domain: "kore.internal", organizationId: "platform" },
     features: { "platform-hostname-ownership": true },
@@ -290,6 +290,8 @@ test("with platform-hostname-ownership on the Organization API is handed the org
     "platformDomain=kore.internal",
     "--set-string",
     "platformOrganizationId=platform",
+    "--set-string",
+    "platformInternalDomain=kore.internal",
   ]);
   expect(platformHelmArgs(on, "kore-platform-keycloak")).toEqual([
     "--set-string",

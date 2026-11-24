@@ -760,7 +760,9 @@
         "readiness":
           [
             "crd/organizations.platform.kore.dev",
-            "crd/services.platform.kore.dev"
+            "crd/services.platform.kore.dev",
+            "compositeresourcedefinition.apiextensions.crossplane.io/organizations.platform.kore.dev",
+            "compositeresourcedefinition.apiextensions.crossplane.io/services.platform.kore.dev"
           ]
       },
       {
@@ -1024,6 +1026,39 @@
           [
             "koreworkloaddefaults.constraints.gatekeeper.sh/kore-workload-defaults"
           ]
+      },
+      {
+        "name": "kore-pvc-ownership-templates",
+        "phase": "configuration",
+        "owner": "argocd",
+        "namespace": "gatekeeper-system",
+        "kind": "local-chart",
+        "chart": "infra/charts/kore-pvc-ownership-templates",
+        "version": "local",
+        "featureFlag": "pvc-ownership-admission",
+        "ownsCRDs": [],
+        "dependencies": ["gatekeeper"],
+        "timeout": "5m",
+        "readiness":
+          [
+            "constrainttemplate.templates.gatekeeper.sh/korepvcownership",
+            "crd/korepvcownership.constraints.gatekeeper.sh"
+          ]
+      },
+      {
+        "name": "kore-pvc-ownership",
+        "phase": "configuration",
+        "owner": "argocd",
+        "namespace": "gatekeeper-system",
+        "kind": "local-chart",
+        "chart": "infra/charts/kore-pvc-ownership",
+        "version": "local",
+        "featureFlag": "pvc-ownership-admission",
+        "ownsCRDs": [],
+        "dependencies": ["gatekeeper", "kore-pvc-ownership-templates"],
+        "timeout": "5m",
+        "readiness":
+          ["korepvcownership.constraints.gatekeeper.sh/kore-pvc-ownership"]
       },
       {
         "name": "kore-admission-gate",

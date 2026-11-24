@@ -1,0 +1,6 @@
+apiVersion: v2
+name: kore-pvc-ownership
+description: The Gatekeeper constraint that audits PersistentVolumeClaims in app namespaces that CloudNativePG does not own, in dryrun, behind the pvc-ownership-admission flag (issue 1666)
+type: application
+version: 0.1.0
+appVersion: 0.1.0
