@@ -149,6 +149,11 @@
         "applies": ["local", "vps", "managed-example"]
       },
       {
+        "name": "data-path-guaranteed-qos",
+        "kind": "feature",
+        "applies": ["local", "vps", "managed-example"]
+      },
+      {
         "name": "golden-path-safety-defaults",
         "kind": "feature",
         "applies": ["local", "vps", "managed-example"]

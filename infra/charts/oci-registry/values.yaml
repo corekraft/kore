@@ -19,6 +19,12 @@ platform:
     address: ""
 storage:
   size: 10Gi
+# The sizes each container requests and limits while data-path-guaranteed-qos is on
+# (ADR 0152, issue 1593): the request equals the limit, so the pod is Guaranteed.
+# An environment's values may set them; a flag-on render refuses one that omits them.
+guaranteed:
+  registry: { cpu: 250m, memory: 512Mi }
+  proxy: { cpu: 250m, memory: 128Mi }
 tls:
   # Lifetime of the CA and the serving certificate (ADR 0058). The proxy reads
   # its certificate at start, so renewal needs a pod restart; ten years keeps

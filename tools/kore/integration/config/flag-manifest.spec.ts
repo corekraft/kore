@@ -111,6 +111,7 @@ test("the flags that apply to vps are the ones the manifest declares, pending fl
     "golden-path-signin-after-portal",
     "postgresql-service-class-instances",
     "gateway-proxy-defaults",
+    "data-path-guaranteed-qos",
     "golden-path-safety-defaults",
     "golden-path-service-identity",
     "app-delivery",

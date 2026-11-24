@@ -31,6 +31,16 @@
         "namespace": { "type": "string", "minLength": 1 }
       }
     },
+    "guaranteed": {
+      "description": "The CPU and memory the container requests and limits, equal, while data-path-guaranteed-qos is on (ADR 0152, issue 1593).",
+      "type": "object",
+      "required": ["cpu", "memory"],
+      "additionalProperties": false,
+      "properties": {
+        "cpu": { "type": "string", "minLength": 1 },
+        "memory": { "type": "string", "minLength": 1 }
+      }
+    },
     "service": {
       "type": "object",
       "additionalProperties": false,

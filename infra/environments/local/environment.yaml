@@ -87,6 +87,7 @@
       "golden-path-signin-after-portal": true,
       "postgresql-service-class-instances": false,
       "gateway-proxy-defaults": false,
+      "data-path-guaranteed-qos": false,
       "platform-keycloak-wait": false,
       "platform-keycloak-realm-wait": false,
       "platform-apiserver-ready": false,
