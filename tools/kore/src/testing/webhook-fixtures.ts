@@ -23,6 +23,7 @@ const runsInLocal = [
 const gatedOffReleases = [
   "agentgateway",
   "agentgateway-crds",
+  "external-dns",
   "metrics-server",
   "argocd",
   "keycloak-operator",

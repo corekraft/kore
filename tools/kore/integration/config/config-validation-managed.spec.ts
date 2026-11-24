@@ -110,6 +110,7 @@ test("validation reports malformed version sections and missing sections", async
       "Cannot read properties of undefined (reading 'map')",
       "environment.cluster.cpus must be at least 2",
       "environment.cluster.memoryMB must be at least 4096",
+      "unknown environment component values: external-dns",
       "unknown environment component values: grafana",
       "unknown environment component values: istio-cni",
       "unknown environment component values: kore-image-policy",
