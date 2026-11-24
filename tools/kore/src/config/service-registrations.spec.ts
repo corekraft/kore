@@ -55,6 +55,38 @@ test("the derived names are exactly the registered Service names, sorted, with n
   expect(await loadServiceRegistrations("/repo")).toEqual(["blog", "shop"]);
 });
 
+test.each([
+  [
+    "under spec",
+    {
+      apiVersion: "platform.kore.dev/v1alpha1",
+      kind: "Service",
+      metadata: { name: "shop" },
+      spec: { organization: "platform", environments: ["vps"], limits: {} },
+    },
+  ],
+  [
+    "at the top level",
+    {
+      apiVersion: "platform.kore.dev/v1alpha1",
+      kind: "Service",
+      metadata: { name: "shop" },
+      limits: {},
+      spec: { organization: "platform", environments: ["vps"] },
+    },
+  ],
+])(
+  "a registration that carries a limits field %s is refused, naming the platform-owned rule",
+  async (_where, manifest) => {
+    files = {
+      "/repo/infra/services/shop.yaml": JSON.stringify(manifest),
+    };
+    await expect(loadServiceRegistrations("/repo")).rejects.toThrow(
+      "infra/services/shop.yaml: a limits field is platform-owned: the external Gateway's limits are set by the platform in the environment overlay, so a service record cannot tune, lower or raise them (ADR 0160)",
+    );
+  },
+);
+
 test("with no registrations directory the derived list is empty, so the profile still converges", async () => {
   expect(await loadServiceRegistrations("/repo")).toEqual([]);
 });
