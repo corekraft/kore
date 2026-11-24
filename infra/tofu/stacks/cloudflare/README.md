@@ -89,7 +89,9 @@ drift: reconcile it by reading the plan, never by deleting the zone.
 ## Registrar checklist (owner)
 
 Register the domain at a Cloudflare-supported registrar. Then check each item
-before the first apply:
+before the first apply. `bash tools/harness/wizards/cloudflare.sh` walks these
+steps, the three tokens and the in-cluster token documents in order, and asks
+for a confirmation before each change; `--dry-run` creates nothing:
 
 - **Registrar lock** is on, so the domain cannot be transferred away.
 - **Auto-renew** is on. An expired registration takes every app down, and no

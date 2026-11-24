@@ -31,7 +31,7 @@ export const acmeResolverArgs: readonly string[] = [
  * The problems that refuse a mutation while acme-dns01 is on (ADR 0164): a
  * managed environment still on the placeholder domain, which would issue for a
  * zone the platform does not own. Empty while the flag is off, and for a local
- * environment, which validation refuses on its own (flag-dependencies.ts).
+ * environment, which validation refuses on its own (provider-flag-errors.ts).
  */
 export function acmeDns01Errors(
   environment: Environment,

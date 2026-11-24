@@ -62,8 +62,19 @@ test("turning suborg-tenancy on without the flags it needs fails validation, nam
   const repository = await withSuborgTenancy("vps", true);
   await assert.rejects(validateRepository(repository), (error: unknown) => {
     const message = error instanceof Error ? error.message : String(error);
-    assert.match(message, /suborg-tenancy/);
-    assert.match(message, /platform-organization-service-apis/);
+    for (const needed of [
+      "platform-organization-service-apis",
+      "platform-argocd-delivery",
+      "platform-portal",
+    ]) {
+      assert.match(
+        message,
+        new RegExp(
+          `flag suborg-tenancy is on in the vps overlay but requires ${needed}, which is off there`,
+        ),
+        needed,
+      );
+    }
     return true;
   });
 });
