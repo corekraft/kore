@@ -1,3 +1,8 @@
+# The one local composition. The chart sets the serviceClassInstances header below
+# from its value (templates/composition.yaml), as compose.gotmpl's header is set.
+# Off, the Cluster is the one-instance Cluster it always was. On, its instances,
+# disruption budget, switchover and memory sizing derive from the claim's
+# serviceClass (postgresql-service-class-instances, ADR 0154).
 apiVersion: apiextensions.crossplane.io/v1
 kind: Composition
 metadata:
@@ -16,6 +21,9 @@ spec:
         source: Inline
         inline:
           template: |
+            {{- $serviceClassInstances := false }}
+            {{- $standard := eq (default "development" .observed.composite.resource.spec.serviceClass) "standard" }}
+            {{- $memory := ternary "1Gi" "512Mi" $standard }}
             {{- $images := dict "16" "ghcr.io/cloudnative-pg/postgresql:16.4@sha256:99be063781d171d3971089b49c992706bdab9ccbd2b57cdf126c7542773aedfe" "17" "ghcr.io/cloudnative-pg/postgresql:17.4@sha256:3c0ba08ea353c9705a755c113e4ae395be76553e0ed68076e5410cb09b9d17d9" "18" "ghcr.io/cloudnative-pg/postgresql:18.4@sha256:6138f19539304b585c6cafd1af82ca407f184139459a8e06f0880df4556d3588" }}
             apiVersion: postgresql.cnpg.io/v1
             kind: Cluster
@@ -27,7 +35,16 @@ spec:
               labels:
                 platform.kore.dev/retention: {{ .observed.composite.resource.spec.retentionPolicy }}
             spec:
-              instances: 1
+              instances: {{ if $serviceClassInstances }}{{ ternary 2 1 $standard }}{{ else }}1{{ end }}
+            {{- if $serviceClassInstances }}
+              enablePDB: {{ $standard }}
+              primaryUpdateMethod: switchover
+              resources:
+                requests:
+                  memory: {{ $memory }}
+                limits:
+                  memory: {{ $memory }}
+            {{- end }}
               inheritedMetadata:
                 labels:
                   platform.kore.dev/retention: {{ .observed.composite.resource.spec.retentionPolicy }}

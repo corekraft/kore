@@ -132,7 +132,7 @@ interface ShopAlert {
 const shopAlerts: ShopAlert[] = [
   {
     name: "ServiceUnavailable",
-    expr: 'sum(kube_deployment_status_replicas_available{namespace="shop--local"})',
+    expr: 'kore:namespace_available_replicas{namespace="shop--local"}',
     threshold: "lt",
     limit: 1,
     for: "5m",
@@ -141,9 +141,9 @@ const shopAlerts: ShopAlert[] = [
   },
   {
     name: "ServiceHighErrorRatio",
-    expr: 'sum(rate(istio_requests_total{destination_service_namespace="shop--local",response_code=~"5.."}[5m])) / sum(rate(istio_requests_total{destination_service_namespace="shop--local"}[5m]))',
+    expr: 'kore:namespace_error_ratio_5m{namespace="shop--local"} - on() group_left() kore:error_ratio_cap',
     threshold: "gt",
-    limit: 0.05,
+    limit: 0,
     for: "10m",
     severity: "warning",
     summary:
@@ -151,7 +151,7 @@ const shopAlerts: ShopAlert[] = [
   },
   {
     name: "ServiceRestartLoop",
-    expr: 'sum(increase(kube_pod_container_status_restarts_total{namespace="shop--local"}[15m]))',
+    expr: 'kore:namespace_restarts_increase15m{namespace="shop--local"}',
     threshold: "gt",
     limit: 3,
     for: "5m",

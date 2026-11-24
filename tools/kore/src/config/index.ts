@@ -134,6 +134,8 @@ export {
 } from "./ownership.js";
 export { managedCluster } from "./managed-cluster.js";
 export type { ManagedCluster } from "./managed-cluster.js";
+export { committedFraction, nodeBudget, nodeCount } from "./node-capacity.js";
+export type { NodeBudget } from "./node-capacity.js";
 export { findRoot } from "./config.js";
 export { exemptionCheckMode, validateRepository } from "./validate.js";
 export type { WarningSource } from "./validate.js";

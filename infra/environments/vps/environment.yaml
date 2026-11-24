@@ -3,6 +3,7 @@
   "name": "vps",
   "provider": "managed",
   "kubeContext": "kore-vps",
+  "nodeCount": 1,
   "cluster":
     {
       "profile": "external",
@@ -79,6 +80,7 @@
       "golden-path-signin": false,
       "golden-path-template-admission": false,
       "golden-path-signin-after-portal": false,
+      "postgresql-service-class-instances": false,
       "golden-path-safety-defaults": false,
       "decision-advisor": false
     },
