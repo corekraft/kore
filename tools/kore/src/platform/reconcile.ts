@@ -2,8 +2,8 @@ import type { Component, Repository } from "../config/index.js";
 import { CommandError, type Runner } from "../runtime/index.js";
 import { FailFastError, withFailFast, type WatchOptions } from "./fail-fast.js";
 import { desiredFingerprint } from "./fingerprint.js";
-import { releaseGatewayClassChange } from "./gateway-class-change.js";
 import {
+  assertAcmeTokenSecret,
   assertChartDelivery,
   assertGoldenPathDelivery,
   envOption,
@@ -11,6 +11,7 @@ import {
   helmUpgradeArgs,
   manifestSource,
   patchFailure,
+  releaseGatewayClassChange,
   withAbsoluteChart,
 } from "./helm.js";
 import {
@@ -61,6 +62,7 @@ async function applyComponent(
   }
   assertChartDelivery(repository, component);
   assertGoldenPathDelivery(repository, component);
+  await assertAcmeTokenSecret(repository, runner, component);
   await releaseGatewayClassChange(repository, runner, component);
   const upgrade = () =>
     withFailFast(
