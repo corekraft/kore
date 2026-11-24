@@ -170,6 +170,11 @@
         "applies": ["local", "vps", "managed-example"]
       },
       {
+        "name": "app-sizing",
+        "kind": "feature",
+        "applies": ["local", "vps", "managed-example"]
+      },
+      {
         "name": "workload-defaults-admission",
         "kind": "feature",
         "applies": ["local", "vps", "managed-example"]
