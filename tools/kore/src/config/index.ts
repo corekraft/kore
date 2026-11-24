@@ -132,6 +132,7 @@ export {
   startsAfterDelivery,
   registryPruneFlag,
   registryTailnetForwardFlag,
+  revertKeepFlag,
   signinAwaitsPortal,
 } from "./features.js";
 export {

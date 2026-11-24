@@ -12,6 +12,7 @@ import {
   type RegistryPruneDependencies,
 } from "./registry-prune.js";
 import { ensureRegistryForward } from "./registry-service.js";
+import { readRevertRecord } from "./lock-digests.js";
 import { asFake } from "./images-support.js";
 
 // Docs: docs/decisions/0094-worktrees-sharing-a-cluster-share-its-locks-tags-and-forward.md
@@ -92,6 +93,8 @@ it("prunes through the forwarded registry with the push identity, a seven day ke
   expect(imagesInUse).toHaveBeenCalledWith(repository, runner);
   await dependencies.lockedDigests();
   expect(lockedDigests).toHaveBeenCalledWith(repository);
+  await dependencies.revert();
+  expect(readRevertRecord).toHaveBeenCalledWith(repository, runner);
 });
 
 it("collects garbage inside the registry container of the configured context", async () => {

@@ -126,6 +126,7 @@ test("the flags that apply to vps are the ones the manifest declares, pending fl
     "openbao",
     "database-backups",
     "openbao-snapshots",
+    "registry-revert-keep",
     "platform-dns",
     "in-cluster-ca",
     "k3s-registry-trust",

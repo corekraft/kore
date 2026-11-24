@@ -38,6 +38,7 @@
     },
   "features":
     {
+      "registry-revert-keep": false,
       "agentgateway-mesh-enrollment": false,
       "autoscaling-defaults": false,
       "gateway-class-change-release": false,

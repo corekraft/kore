@@ -245,6 +245,11 @@
         "applies": ["local"]
       },
       {
+        "name": "registry-revert-keep",
+        "kind": "feature",
+        "applies": ["local", "vps", "managed-example"]
+      },
+      {
         "name": "platform-dns",
         "kind": "feature",
         "applies": ["local", "vps", "managed-example"]

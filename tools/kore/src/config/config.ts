@@ -4,6 +4,7 @@ import {
   loadFlagManifest,
   loadImageTrustValues,
   loadJSON,
+  loadK3sHostPin,
   loadRegistryComponentValues,
   loadSopsRecipients,
   loadSuborgNames,
@@ -97,6 +98,7 @@ export async function loadRepository(
     flags,
     environment,
     imageTrustValues,
+    k3sHostPin: await loadK3sHostPin(root, environment.name),
     registryComponentValues: await loadRegistryComponentValues(
       root,
       environment,

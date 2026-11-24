@@ -2,6 +2,7 @@ import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { exists } from "./files.js";
 import { flagManifestPath } from "./flag-manifest.js";
+import { k3sHostEnvironment, k3sPinFile } from "./k3s-pin.js";
 import { suborgNames } from "./organization-records.js";
 import { registryConsumers } from "./registry-address.js";
 import type { Environment, FlagManifest } from "./types.js";
@@ -35,6 +36,28 @@ export async function loadJSON<T>(path: string): Promise<T> {
       `validate ${path}: files must use JSON-compatible YAML: ${String(error)}`,
     );
   }
+}
+
+const k3sVersionLine = /^k3s_version:\s*(\S+)\s*$/m;
+
+// The k3s role's defaults are Ansible YAML, not JSON, so the one pin line is
+// read by pattern. Only the host environment's validation reads it.
+export async function loadK3sHostPin(
+  root: string,
+  environmentName: string,
+): Promise<string | undefined> {
+  if (environmentName !== k3sHostEnvironment) {
+    return undefined;
+  }
+  const match = k3sVersionLine.exec(
+    await readFile(join(root, k3sPinFile), "utf8"),
+  );
+  if (!match?.[1]) {
+    throw new Error(
+      `${k3sPinFile} must set k3s_version to the pinned k3s release, for example v1.37.2+k3s1`,
+    );
+  }
+  return match[1];
 }
 
 // The environment overlay of the image policy owns the trust authority. A

@@ -61,6 +61,30 @@ test("the backup declaration is checked against the repository, and its errors j
   ]);
 });
 
+test("the vps overlay's Kubernetes version must match the k3s pin, so a move of one is made with the other", async () => {
+  const environment = fakeEnvironment({
+    name: "vps",
+    provider: "managed",
+    kubeContext: "kore-vps",
+    cluster: {
+      profile: "external",
+      kubernetesVersion: "1.37.2",
+      driver: "external",
+      containerRuntime: "containerd",
+      cpus: 4,
+      memoryMB: 20480,
+      diskSize: "300g",
+    },
+  });
+  const errors = await overlayErrors({
+    ...repository([], environment),
+    k3sHostPin: "v1.38.2+k3s1",
+  });
+  expect(errors).toHaveLength(1);
+  expect(errors[0]).toContain("v1.38.2+k3s1");
+  expect(errors[0]).toContain("same pull request");
+});
+
 test("the features map must be a map of flag names to booleans", async () => {
   const environment = fakeEnvironment({
     features: malformed<Record<string, boolean>>([]),

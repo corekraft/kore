@@ -46,6 +46,17 @@ spec:
             # zone is refused rather than given the platform's zone by the default below.
             - rule: {{ printf "self.metadata.name == 'platform' || (has(self.spec.zone) && self.spec.zone == self.metadata.name + '.%s')" .Values.platformDomain | quote }}
               message: {{ printf "spec.zone must be the suborg's default zone, <suborg>.%s: the platform zone default is for the platform organization only" .Values.platformDomain | quote }}
+            # The internal zone (spec #1612) sits beside the public zone: an explicit value is inside
+            # the internal domain, a suborg's is its own name under it, and with an external Gateway
+            # the two zones of one organization never coincide.
+            - rule: {{ printf "!has(self.spec.internalZone) || self.spec.internalZone.endsWith('.%s')" .Values.platformInternalDomain | quote }}
+              message: {{ printf "spec.internalZone must be inside the internal domain %s: set it to <suborg>.%s" .Values.platformInternalDomain .Values.platformInternalDomain | quote }}
+            - rule: {{ printf "self.metadata.name == 'platform' || (has(self.spec.internalZone) && self.spec.internalZone == self.metadata.name + '.%s')" .Values.platformInternalDomain | quote }}
+              message: {{ printf "spec.internalZone must be the suborg's default internal zone, <suborg>.%s: the platform internal zone default is for the platform organization only" .Values.platformInternalDomain | quote }}
+{{- if ne .Values.platformInternalDomain .Values.platformDomain }}
+            - rule: "!has(self.spec.internalZone) || self.spec.internalZone != self.spec.zone"
+              message: "spec.internalZone must differ from spec.zone: the two zones of one organization never coincide on a platform with an external Gateway"
+{{- end }}
 {{- end }}
           properties:
             spec:
@@ -83,6 +94,14 @@ spec:
                 zone:
                   type: string
                   default: {{ printf "%s.%s" (required "platformOrganizationId is required while platform-hostname-ownership is on" .Values.platformOrganizationId) .Values.platformDomain | quote }}
+                  maxLength: 253
+                  pattern: "^([a-z0-9]([-a-z0-9]{0,61}[a-z0-9])?\\.)+[a-z0-9]([-a-z0-9]{0,61}[a-z0-9])?$"
+                # The internal zone (spec #1612): the name the organization owns under the internal
+                # domain, beside its zone. It defaults to <platformOrganizationId>.<platformInternalDomain>;
+                # a suborg states its own, under the rules above.
+                internalZone:
+                  type: string
+                  default: {{ printf "%s.%s" (required "platformOrganizationId is required while platform-hostname-ownership is on" .Values.platformOrganizationId) (required "platformInternalDomain is required while platform-hostname-ownership is on" .Values.platformInternalDomain) | quote }}
                   maxLength: 253
                   pattern: "^([a-z0-9]([-a-z0-9]{0,61}[a-z0-9])?\\.)+[a-z0-9]([-a-z0-9]{0,61}[a-z0-9])?$"
 {{- end }}
