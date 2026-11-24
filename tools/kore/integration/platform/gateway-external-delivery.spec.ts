@@ -10,6 +10,10 @@ import { composeChartDelivery } from "../../src/platform/index.js";
 // Docs: docs/decisions/0160-vps-has-an-internal-gateway-on-the-tailnet-and-an-external-gateway-on-public-443.md
 // Issue 1633: the Argo CD-delivered kore-platform-config takes the same external Gateway flag and node port as the Helm path.
 
+/** Release automation at a version tag: vps takes only a lock this signer signed. */
+const RELEASE_SIGNER =
+  "https://github.com/corekraft/kore/.github/workflows/release.yaml@refs/tags/v1.0.0";
+
 /** The releases the delivery hands over, each with a lock entry at its own digest. */
 const handedOver = [
   "opa-authorizer",
@@ -27,8 +31,7 @@ const entries = Object.fromEntries(
       chart: `ghcr.io/corekraft/kore/charts/${name}`,
       version: "0.0.0-0123456789ab",
       digest: `sha256:${(index + 1).toString(16).repeat(64)}`,
-      signer:
-        "https://github.com/corekraft/kore/.github/workflows/release.yaml@refs/tags/v1.0.0",
+      signer: RELEASE_SIGNER,
     },
   ]),
 );
@@ -55,7 +58,14 @@ async function deliveredVps(externalGateway: boolean): Promise<Repository> {
 async function composed(repository: Repository) {
   const dir = await mkdtemp(join(tmpdir(), "kore-lock-"));
   const lockPath = join(dir, "platform-charts.lock.json");
-  await writeFile(lockPath, JSON.stringify({ version: 1, entries }));
+  await writeFile(
+    lockPath,
+    JSON.stringify({
+      version: 1,
+      authorizedSigners: [RELEASE_SIGNER],
+      entries,
+    }),
+  );
   return composeChartDelivery(repository, lockPath);
 }
 
