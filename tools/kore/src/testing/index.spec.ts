@@ -161,6 +161,8 @@ const FORWARDS: Record<string, readonly string[]> = {
   ],
   "../platform/upstream.live.js": ["renderChart", "yamlDocuments"],
   "../platform/rollout-feasibility.js": ["rolloutProblems"],
+  "../platform/golden-path-feasibility.js": ["goldenPathFeasibility"],
+  "../platform/golden-path-feasibility.live.js": ["renderGoldenPathWorkload"],
   "../images/images.fixtures.js": [
     "baseDigest as imageBaseDigest",
     "digest as imageDigest",
