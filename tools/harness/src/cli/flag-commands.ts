@@ -5,6 +5,8 @@ import type { Command, CommandContext, CommandHelp } from "../runtime/index.js";
 import {
   FlagError,
   activationProof,
+  assertMayTurnOn,
+  flagRequires,
   parseReleaseLock,
   readOverlay,
   proofAudit,
@@ -126,11 +128,7 @@ async function activateFlag(context: CommandContext): Promise<number> {
   const { flag, environment } = activationTarget(context);
   const base = await root(context);
   const overlay = await readOverlay(deps.fs, base, environment);
-  if (!Object.hasOwn(overlay.features, flag)) {
-    throw new FlagError(
-      `${overlay.path} does not declare flag "${flag}". Declared: ${Object.keys(overlay.features).join(", ") || "none"}. Declare it as false first.`,
-    );
-  }
+  assertMayTurnOn(overlay, flag, await flagRequires(deps.fs, base, flag));
   const { proof, refused } = await activationProof(
     new IdeaRepository(deps.fs, deps.clock, base),
     flag,
@@ -236,7 +234,7 @@ const activateHelp: CommandHelp = {
     {
       code: 1,
       meaning:
-        "refused and the overlay is unchanged: a missing operand or --environment, an environment with no overlay, a flag the overlay does not declare, no confirmed verification outcome, a live run whose charts differ from --chart-lock, an unreadable chart lock, or a ledger that cannot be opened. Also when the flag is on but its ledger event is rejected: the flag stays on, and a rerun records the event",
+        "refused and the overlay is unchanged: a missing operand or --environment, an environment with no overlay, a flag the overlay does not declare, a flag whose required flag (infra/catalog/flags.yaml) is off in the environment, no confirmed verification outcome, a live run whose charts differ from --chart-lock, an unreadable chart lock, or a ledger that cannot be opened. Also when the flag is on but its ledger event is rejected: the flag stays on, and a rerun records the event",
     },
     {
       code: 2,

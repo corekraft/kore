@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { IdeaRepository } from "../idea/index.js";
 import {
   activationProof,
+  flagRequires,
   readOverlay,
   proofAudit,
   unprovenLine,
@@ -20,6 +21,7 @@ vi.mock("./ledger-commands.js");
 vi.mock("../flag/index.js", async (importOriginal) => ({
   ...(await importOriginal<typeof import("../flag/index.js")>()),
   activationProof: vi.fn(),
+  flagRequires: vi.fn(),
   readOverlay: vi.fn(),
   proofAudit: vi.fn(),
   unprovenLine: vi.fn(),
@@ -63,6 +65,7 @@ function overlay(on: boolean) {
 }
 
 beforeEach(() => {
+  vi.mocked(flagRequires).mockResolvedValue([]);
   vi.mocked(readOverlay).mockResolvedValue(overlay(false));
   vi.mocked(activationProof).mockResolvedValue({ proof: PROOF, refused: [] });
   vi.mocked(withFlagOn).mockReturnValue("TURNED ON");

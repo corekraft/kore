@@ -172,6 +172,8 @@ export interface FlagEntry {
   applies: string[];
   /** An environment flag that is never retired. */
   neverRetire?: boolean;
+  /** The flags that must be on in an environment before this flag may be turned on there (ADR 0148). */
+  requires?: string[];
   /** Declared but not yet applicable: left out of what applies, pending a decision. */
   pending?: boolean;
   /** The environments of `applies` where the flag is not applicable in v1; it is left out of what applies there (ADR 0148). */

@@ -55,22 +55,26 @@
       {
         "name": "service-listener-sets",
         "kind": "feature",
-        "applies": ["local", "vps", "managed-example"]
+        "applies": ["local", "vps", "managed-example"],
+        "requires": ["platform-shared-gateway"]
       },
       {
         "name": "external-gateway",
         "kind": "feature",
-        "applies": ["local", "vps", "managed-example"]
+        "applies": ["local", "vps", "managed-example"],
+        "requires": ["service-listener-sets"]
       },
       {
         "name": "external-gateway-limits",
         "kind": "feature",
-        "applies": ["local", "vps", "managed-example"]
+        "applies": ["local", "vps", "managed-example"],
+        "requires": ["external-gateway"]
       },
       {
         "name": "external-dns",
         "kind": "feature",
-        "applies": ["local", "vps", "managed-example"]
+        "applies": ["local", "vps", "managed-example"],
+        "requires": ["external-gateway"]
       },
       { "name": "acme-dns01", "kind": "feature", "applies": ["vps"] },
       {
@@ -84,6 +88,7 @@
         "name": "otlp-route",
         "kind": "feature",
         "applies": ["local", "vps", "managed-example"],
+        "requires": ["platform-shared-gateway"],
         "notApplicable": ["vps"],
         "reason": "pods send OTLP to the in-cluster collector, and no route goes on a Gateway reachable without OTLP authentication (ADR 0174, ADR 0140)."
       },
@@ -182,6 +187,7 @@
         "name": "registry-by-name",
         "kind": "feature",
         "applies": ["local", "vps", "managed-example"],
+        "requires": ["platform-shared-gateway"],
         "pending": true,
         "notApplicable": ["vps"],
         "reason": "vps serves the registry as an in-cluster ClusterIP, not by name (ADR 0143)."

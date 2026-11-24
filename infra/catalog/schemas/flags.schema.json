@@ -21,6 +21,11 @@
             "type": "boolean",
             "description": "Only an environment flag is marked never-retire (ADR 0148)."
           },
+          "requires": {
+            "type": "array",
+            "description": "The flags that must be on in an environment before this flag may be turned on there (ADR 0148).",
+            "items": { "type": "string", "pattern": "^[a-z][a-z0-9-]*$" }
+          },
           "pending": {
             "type": "boolean",
             "description": "Declared but left out of what applies until its naming decision lands (ADR 0148)."
