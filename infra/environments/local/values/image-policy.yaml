@@ -16,6 +16,7 @@
           "issuer": "https://token.actions.githubusercontent.com",
           "subjects":
             [
+              "https://github.com/corekraft/kore/.github/workflows/release.yaml@refs/tags/v0.27.0",
               "https://github.com/corekraft/kore/.github/workflows/release.yaml@refs/tags/v0.25.0",
               "https://github.com/corekraft/kore/.github/workflows/release.yaml@refs/tags/v0.22.0"
             ]
