@@ -8,6 +8,7 @@ import {
   activationProof,
   assertMayTurnOn,
   flagRequires,
+  isWaiverRefusal,
   parseReleaseLock,
   readOverlay,
   proofAudit,
@@ -138,8 +139,11 @@ async function activateFlag(context: CommandContext): Promise<number> {
     overlay.production,
   );
   if (proof === undefined && refused.length > 0) {
+    // A refused waiver has no chart lock to re-prove, so when every refusal is one, only the live run's guidance answers it.
     throw new FlagError(
-      `No live run of ${flag} in ${environment} counts, so ${overlay.path} is unchanged: ${refused.join("; ")}. Re-prove it live on charts equal to the release chart lock, then record a new verification outcome with --lock and --charts.`,
+      refused.every(isWaiverRefusal)
+        ? `${refused.join("; ")}. ${noOutcomeMessage(flag, environment, overlay)}`
+        : `No live run of ${flag} in ${environment} counts, so ${overlay.path} is unchanged: ${refused.join("; ")}. Re-prove it live on charts equal to the release chart lock, then record a new verification outcome with --lock and --charts.`,
     );
   }
   if (proof === undefined) {

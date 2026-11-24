@@ -2,7 +2,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { outcomeSection } from "../idea/index.js";
 import { fakeRepository, type FakeIdea } from "./flag-support.js";
-import { activationProof, findProof } from "./proof.js";
+import { activationProof, findProof, isWaiverRefusal } from "./proof.js";
 import { readProofLock, type ProofLock } from "./recorded-lock.js";
 import { chartDifferences } from "./release-lock.js";
 
@@ -183,6 +183,23 @@ describe("activationProof in a production environment (ADR 0147)", () => {
       },
       refused: [],
     });
+  });
+});
+
+describe("isWaiverRefusal names the refusal a production waiver gets (ADR 0147)", () => {
+  it("is true for the refusal an owner waiver gets in a production environment", async () => {
+    const waiver = { ...proven, Source: "owner-waiver", Environment: "vps" };
+    const repo = fakeRepository([idea("0001", section(waiver))]);
+    const found = await activationProof(repo, FLAG, "vps", RELEASE, true);
+    expect(found.refused).toHaveLength(1);
+    expect(found.refused.every(isWaiverRefusal)).toBe(true);
+  });
+
+  it("is false for a live run refused for its charts, so that refusal keeps its own advice", async () => {
+    const repo = fakeRepository([locked("0001", "main-bad")]);
+    const found = await activationProof(repo, FLAG, ENVIRONMENT, RELEASE);
+    expect(found.refused).toHaveLength(1);
+    expect(found.refused.some(isWaiverRefusal)).toBe(false);
   });
 });
 

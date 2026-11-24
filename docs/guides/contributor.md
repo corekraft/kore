@@ -272,7 +272,8 @@ Dark launch means on only in `local`.
    instead, with the owner-waiver source and the comment as evidence (verification
    only, [ADR 0127](../decisions/0127-an-owner-waiver-recorded-in-an-outcome-counts-as-proof-for-a-flag.md));
    a waiver never stands in for the live run a cluster-facing
-   `no-behaviour-change` needs before merge.
+   `no-behaviour-change` needs before merge, and a production environment such
+   as vps does not accept one ([ADR 0147](../decisions/0147-vps-v1-is-every-applicable-flag-proven-live-one-per-run-from-release-locks.md)): only a live run turns a flag on there.
    A proof that ran on a main chart lock also names the main lock and each
    handed-over chart with its version and digest, copied from that lock (`harness outcome record --help` gives the form; [ADR 0138](../decisions/0138-publish-signed-configuration-charts-from-main-for-local-proofs.md)).
 3. `node skills/bin/harness.mjs flag activate <name>` for one environment, which `harness flag activate --help` names, edits

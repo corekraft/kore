@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
   activationProof,
   flagRequires,
+  isWaiverRefusal,
   readOverlay,
   proofAudit,
   unprovenLine,
@@ -23,6 +24,7 @@ vi.mock("../flag/index.js", async (importOriginal) => ({
   ...(await importOriginal<typeof import("../flag/index.js")>()),
   activationProof: vi.fn(),
   flagRequires: vi.fn(),
+  isWaiverRefusal: vi.fn(),
   readOverlay: vi.fn(),
   proofAudit: vi.fn(),
   unprovenLine: vi.fn(),
@@ -31,6 +33,11 @@ vi.mock("../flag/index.js", async (importOriginal) => ({
 }));
 
 const FLAG = "ingress-agentgateway";
+const WAIVER_REFUSAL =
+  "docs/ideas/0001-proof.md: an owner waiver is not accepted in production environment vps (ADR 0147), so a live run is required";
+const CHART_REFUSAL =
+  "docs/ideas/0002-proof.md: its main-lock charts differ from the release lock: cilium (version 9.9.9, release lock 1.0.0)";
+const CHART_ADVICE = "--lock and --charts";
 const PROOF = {
   idea: "0001",
   path: "docs/ideas/0001-proof.md",
@@ -75,21 +82,37 @@ beforeEach(() => {
   vi.mocked(proofAudit).mockResolvedValue({ unproven: [], waived: [] });
   vi.mocked(unprovenLine).mockImplementation((u) => `line ${u.flag}`);
   vi.mocked(waivedLine).mockImplementation((w) => `waived ${w.flag}`);
+  vi.mocked(isWaiverRefusal).mockReturnValue(false);
 });
 
 describe("flag activate in a production environment (ADR 0147)", () => {
-  it("refuses an owner waiver, says a live run is required, and leaves the overlay unchanged", async () => {
+  it("refuses an owner waiver, names it, ends with the live-run guidance, and leaves the overlay unchanged", async () => {
     vi.mocked(activationProof).mockResolvedValue({
       proof: undefined,
-      refused: [
-        "docs/ideas/0001-proof.md: an owner waiver is not accepted in production environment vps (ADR 0147), so a live run is required",
-      ],
+      refused: [WAIVER_REFUSAL],
     });
+    vi.mocked(isWaiverRefusal).mockReturnValue(true);
+    vi.mocked(noOutcomeMessage).mockReturnValue("NO LIVE RUN MESSAGE");
     const { context, err, writeFile } = vpsContext();
     expect(await command("activate").run(context)).toBe(FAILED);
-    expect(err()).toContain(
-      `No live run of ${FLAG} in vps counts, so ${VPS_OVERLAY} is unchanged: docs/ideas/0001-proof.md: an owner waiver is not accepted in production environment vps (ADR 0147), so a live run is required.`,
+    expect(err()).toBe(`${WAIVER_REFUSAL}. NO LIVE RUN MESSAGE\n`);
+    expect(err()).not.toContain(CHART_ADVICE);
+    expect(noOutcomeMessage).toHaveBeenCalledWith(FLAG, "vps", vpsOverlay());
+    expect(writeFile).not.toHaveBeenCalled();
+  });
+
+  it("keeps the chart-lock advice when a live run was refused for its charts, with or without a waiver beside it", async () => {
+    vi.mocked(activationProof).mockResolvedValue({
+      proof: undefined,
+      refused: [CHART_REFUSAL, WAIVER_REFUSAL],
+    });
+    vi.mocked(isWaiverRefusal).mockImplementation(
+      (reason) => reason === WAIVER_REFUSAL,
     );
+    const { context, err, writeFile } = vpsContext();
+    expect(await command("activate").run(context)).toBe(FAILED);
+    expect(err()).toContain(CHART_ADVICE);
+    expect(noOutcomeMessage).not.toHaveBeenCalled();
     expect(writeFile).not.toHaveBeenCalled();
   });
 

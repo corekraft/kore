@@ -54,9 +54,18 @@ export interface ActivationProof {
 /** Why a live-run outcome's recorded lock does not count, or undefined when it does. */
 type Judge = (path: string, fields: Map<string, string>) => string | undefined;
 
+/** The phrase a production environment's waiver refusal names (ADR 0147). */
+const WAIVER_REFUSED =
+  "an owner waiver is not accepted in production environment";
+
 /** Why an owner waiver does not count in a production environment: the live run it stands in for is required (ADR 0147). */
 function waiverRefusal(path: string, environment: string): string {
-  return `${path}: an owner waiver is not accepted in production environment ${environment} (ADR 0147), so a live run is required`;
+  return `${path}: ${WAIVER_REFUSED} ${environment} (ADR 0147), so a live run is required`;
+}
+
+/** Whether a refusal from `activationProof` is an owner waiver refused in production, so the live run is what it needs (ADR 0147). */
+export function isWaiverRefusal(reason: string): boolean {
+  return reason.includes(`: ${WAIVER_REFUSED} `);
 }
 
 /**
