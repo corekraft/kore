@@ -173,6 +173,10 @@ jobs:
             --certificate-identity "$IDENTITY" \
             --certificate-oidc-issuer "$ISSUER" \
             "${TEMPLATE_IMAGE}@${TEMPLATE_DIGEST}"
+          # The legacy .sig form of the same keyless signature (issue 1884). Policy
+          # Controller reads only this form; the bundle above is cosign 3's default.
+          # Both flags are deprecated in cosign 3.1.x and accepted until it drops them.
+          mise exec -- cosign sign --yes --new-bundle-format=false --use-signing-config=false "${TEMPLATE_IMAGE}@${TEMPLATE_DIGEST}"
       # The golden-path Kotlin BFF template image (ADR 0046), built by Jib with the
       # agent and the AOT cache, and signed by the same keyless identity. Published
       # only: nothing deploys the template yet, so the lock stays the reference's.
@@ -194,6 +198,10 @@ jobs:
             --certificate-identity "$IDENTITY" \
             --certificate-oidc-issuer "$ISSUER" \
             "${BFF_TEMPLATE_IMAGE}@${BFF_TEMPLATE_DIGEST}"
+          # The legacy .sig form of the same keyless signature (issue 1884). Policy
+          # Controller reads only this form; the bundle above is cosign 3's default.
+          # Both flags are deprecated in cosign 3.1.x and accepted until it drops them.
+          mise exec -- cosign sign --yes --new-bundle-format=false --use-signing-config=false "${BFF_TEMPLATE_IMAGE}@${BFF_TEMPLATE_DIGEST}"
       # The record a later deploy reads (ADR 0045, 0046). It is separate from the
       # reference image lock above, which stays the reference's own, and it is
       # written only after both template images are signed.
