@@ -9,7 +9,9 @@ kind: Gateway
 metadata:
   name: kore-gateway-external
   namespace: kore-system
-  labels: {app.kubernetes.io/managed-by: Helm}
+  # external-dns reads only the routes of a Gateway carrying this label (ADR 0162).
+  labels:
+    {app.kubernetes.io/managed-by: Helm, platform.kore.dev/gateway: external}
 spec:
 {{- if and .Values.externalGateway.service.nodePort (eq .Values.gateway.className "agentgateway") }}
   infrastructure:

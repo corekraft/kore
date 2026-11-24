@@ -9,6 +9,7 @@ vi.mock("./provider.js", () => ({ isLocalProvider: vi.fn() }));
 vi.mock("./features.js", () => ({
   featureEnabled: vi.fn(),
   externalGatewayFlag: "external-gateway",
+  externalDnsFlag: "external-dns",
   externalGatewayLimitsFlag: "external-gateway-limits",
   inClusterCaFlag: "in-cluster-ca",
   otlpRouteFlag: "otlp-route",
@@ -99,6 +100,23 @@ test("external-gateway-limits on with external-gateway off is refused, naming bo
 test("external-gateway-limits on with external-gateway on has no error", () => {
   flagsOn(
     "external-gateway-limits",
+    "external-gateway",
+    "service-listener-sets",
+    "platform-shared-gateway",
+  );
+  expect(flagDependencyErrors(environment)).toEqual([]);
+});
+
+test("external-dns on with external-gateway off is refused, naming both flags and the fix", () => {
+  flagsOn("external-dns", "service-listener-sets", "platform-shared-gateway");
+  expect(flagDependencyErrors(environment)).toEqual([
+    'environment local turns on external-dns, which needs external-gateway: external-dns publishes the records of the external Gateway\'s routes, so it has no records to publish without it; set "external-gateway": true in the local environment overlay, or turn external-dns off',
+  ]);
+});
+
+test("external-dns on with external-gateway on has no error", () => {
+  flagsOn(
+    "external-dns",
     "external-gateway",
     "service-listener-sets",
     "platform-shared-gateway",

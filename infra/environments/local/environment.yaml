@@ -61,6 +61,7 @@
       "service-listener-sets": false,
       "external-gateway": false,
       "external-gateway-limits": false,
+      "external-dns": false,
       "registry-by-name": true,
       "otlp-route": true,
       "platform-hostname-ownership": false,
@@ -142,6 +143,7 @@
       "kore-image-policy":
         ["infra/environments/local/values/image-policy.yaml"],
       "policy-controller":
-        ["infra/environments/local/values/policy-controller.yaml"]
+        ["infra/environments/local/values/policy-controller.yaml"],
+      "external-dns": ["infra/environments/local/values/external-dns.yaml"]
     }
 }
