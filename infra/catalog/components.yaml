@@ -1067,7 +1067,18 @@
         "ownsCRDs": [],
         "dependencies": ["cert-manager"],
         "timeout": "10m",
-        "readiness": ["certificate/kore-local", "secret/kore-local-tls"]
+        "readiness":
+          [
+            "certificate/kore-local",
+            "secret/kore-local-tls",
+            "clusterissuer.cert-manager.io/letsencrypt-staging",
+            "clusterissuer.cert-manager.io/letsencrypt-production"
+          ],
+        "readinessFlags":
+          {
+            "clusterissuer.cert-manager.io/letsencrypt-staging": "acme-dns01",
+            "clusterissuer.cert-manager.io/letsencrypt-production": "acme-dns01"
+          }
       },
       {
         "name": "kore-image-policy",

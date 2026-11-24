@@ -72,6 +72,7 @@
         "kind": "feature",
         "applies": ["local", "vps", "managed-example"]
       },
+      { "name": "acme-dns01", "kind": "feature", "applies": ["vps"] },
       {
         "name": "database-routes",
         "kind": "feature",
