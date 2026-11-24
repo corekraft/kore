@@ -1,7 +1,7 @@
 // Reads one environment's service spec files and suborg records and runs the cross-file rules
 // over them (cross-file-rules.ts). Read-only: it reads the working tree and contacts no cluster.
-// A record that does not parse is left to its own check, which names it; this check judges only
-// what it can read.
+// A record that is not valid JSON is named by an error here and judged no further; a read failure
+// other than an absent file stops the check. This check judges only what it can read.
 // Docs: docs/decisions/0165-a-suborg-is-the-namespace-quota-and-trust-boundary-of-its-services.md
 // Docs: docs/decisions/0166-an-app-is-a-service-with-a-two-file-record-in-kore-and-its-source-in-its-own-repository.md
 
@@ -57,12 +57,37 @@ async function recordPaths(
   return paths;
 }
 
-/** A record read as JSON, or undefined when it cannot be read or does not parse. */
-async function readJson(root: string, file: string): Promise<Json> {
+/** A record read as JSON: its value, and the error to report when the file is not valid JSON. */
+interface JsonRead {
+  value: Json;
+  error?: string;
+}
+
+/**
+ * A record read as JSON. A missing file reads as absent. A file that is not valid JSON reads as
+ * absent and reports an error naming it. Any other read failure is rethrown with the fix, so an
+ * unreadable record never passes unchecked.
+ */
+async function readJson(root: string, file: string): Promise<JsonRead> {
   try {
-    return JSON.parse(await readFile(join(root, file), "utf8")) as Json;
-  } catch {
-    return undefined;
+    return {
+      value: JSON.parse(await readFile(join(root, file), "utf8")) as Json,
+    };
+  } catch (error) {
+    if (error instanceof SyntaxError) {
+      return {
+        value: undefined,
+        error: `${file}: the record is not valid JSON (${error.message}); fix the JSON syntax in ${file}, then run kore validate again`,
+      };
+    }
+    if ((error as NodeJS.ErrnoException).code === "ENOENT") {
+      return { value: undefined };
+    }
+    const detail = error instanceof Error ? error.message : String(error);
+    throw new Error(
+      `could not read ${file}: ${detail}; check the file's permissions and the disk that holds it, then run kore validate again`,
+      { cause: error },
+    );
   }
 }
 
@@ -135,21 +160,33 @@ export async function checkCrossFileRules(
   const suborgFiles = await recordPaths(root, suborgsDir, (entry) =>
     entry.endsWith(".json"),
   );
+  const readErrors: string[] = [];
   const services: ServiceFacts[] = [];
   for (const [name, file] of specs) {
-    const manifest = await readJson(root, file);
-    if (manifest !== undefined) {
-      services.push(serviceFacts(name, file, manifest));
+    const read = await readJson(root, file);
+    if (read.error !== undefined) {
+      readErrors.push(read.error);
+    }
+    if (read.value !== undefined) {
+      services.push(serviceFacts(name, file, read.value));
     }
   }
   const suborgs: SuborgFacts[] = [];
   for (const [name, file] of suborgFiles) {
-    suborgs.push(suborgFacts(name, file, await readJson(root, file)));
+    const read = await readJson(root, file);
+    if (read.error !== undefined) {
+      readErrors.push(read.error);
+    }
+    suborgs.push(suborgFacts(name, file, read.value));
   }
-  return crossFileRules({
+  const report = crossFileRules({
     environment,
     organizationsDirectory: suborgsDir,
     services,
     suborgs,
   });
+  return {
+    errors: [...readErrors, ...report.errors],
+    warnings: report.warnings,
+  };
 }

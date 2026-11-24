@@ -92,7 +92,7 @@ test("each spec file is read as a service: its organization, grants and componen
   );
 });
 
-test("release files and files that are not JSON are not services, and an unparseable spec is left to its own check", async () => {
+test("release files and files that are not JSON are not services", async () => {
   files[join(services, "checkout.release.json")] = "{}";
   files[join(services, "notes.txt")] = "x";
   files[join(services, "broken.json")] = "{not json";
@@ -149,4 +149,71 @@ test("the rules' errors and warnings are the report, unchanged", async () => {
     errors: ["a.json: refused"],
     warnings: ["the capacity is not judged"],
   });
+});
+
+test("a spec that is not valid JSON is not read as a service, and fails validation naming its file", async () => {
+  files[join(services, "broken.json")] = "{not json";
+  const report = await checkCrossFileRules({ root, environment });
+  const read = vi.mocked(crossFileRules).mock.calls[0]?.[0].services ?? [];
+  expect(read).toEqual([]);
+  expect(report.errors).toEqual([
+    expect.stringMatching(
+      /^infra\/environments\/local\/services\/broken\.json: .*not valid JSON/,
+    ),
+  ]);
+});
+
+test("a suborg record that is not valid JSON still names its suborg, and fails validation naming its file", async () => {
+  files[join(organizations, "team-a.json")] = "{";
+  const report = await checkCrossFileRules({ root, environment });
+  expect(crossFileRules).toHaveBeenCalledWith(
+    expect.objectContaining({
+      suborgs: [
+        {
+          name: "team-a",
+          file: "infra/environments/local/organizations/team-a.json",
+          quota: undefined,
+        },
+      ],
+    }),
+  );
+  expect(report.errors).toEqual([
+    expect.stringMatching(
+      /^infra\/environments\/local\/organizations\/team-a\.json: .*not valid JSON/,
+    ),
+  ]);
+});
+
+test("a spec that cannot be read for a reason other than its absence fails the check, instead of passing unchecked", async () => {
+  files[join(services, "checkout.json")] = "{}";
+  vi.mocked(readFile).mockRejectedValueOnce(
+    Object.assign(new Error("permission denied"), { code: "EACCES" }),
+  );
+  await expect(checkCrossFileRules({ root, environment })).rejects.toThrow(
+    /infra\/environments\/local\/services\/checkout\.json.*permission denied.*check the file's permissions/,
+  );
+  expect(crossFileRules).not.toHaveBeenCalled();
+});
+
+test("a suborg record that cannot be read for an I/O reason fails the check, naming the file and the fix", async () => {
+  files[join(organizations, "team-a.json")] = "{}";
+  vi.mocked(readFile).mockRejectedValueOnce(
+    Object.assign(new Error("input/output error"), { code: "EIO" }),
+  );
+  await expect(checkCrossFileRules({ root, environment })).rejects.toThrow(
+    /infra\/environments\/local\/organizations\/team-a\.json.*check the file's permissions/,
+  );
+  expect(crossFileRules).not.toHaveBeenCalled();
+});
+
+test("a spec that is gone between listing and reading is absent, and is not a failure", async () => {
+  files[join(services, "checkout.json")] = "{}";
+  vi.mocked(readFile).mockRejectedValueOnce(
+    Object.assign(new Error("gone"), { code: "ENOENT" }),
+  );
+  const report = await checkCrossFileRules({ root, environment });
+  expect(crossFileRules).toHaveBeenCalledWith(
+    expect.objectContaining({ services: [] }),
+  );
+  expect(report).toEqual({ errors: [], warnings: [] });
 });
