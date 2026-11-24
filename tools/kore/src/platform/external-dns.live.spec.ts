@@ -98,13 +98,7 @@ async function recordOutcome(
   idea: string,
   startedAt: string,
 ): Promise<void> {
-  const sha = (
-    await runner.run("git", ["rev-parse", "--short", "HEAD"], {
-      cwd: repository.root,
-      capture: true,
-    })
-  ).stdout.trim();
-  const evidence = `external-dns live proof on ${sha}: kubectl logs of ${namespace}/external-dns since ${startedAt}`;
+  const evidence = `external-dns live proof on the copy at ${repository.root}: kubectl logs of ${namespace}/external-dns since ${startedAt}`;
   // The idea file is in this checkout; the copy is only the cluster's root.
   const checkout = resolve(process.cwd(), "../..");
   const recorded = await runner.run(

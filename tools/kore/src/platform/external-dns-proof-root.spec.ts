@@ -27,7 +27,11 @@ function runnerReturning(code: number, stderr = ""): Runner {
 
 describe("the throwaway proof root", () => {
   it("adds a detached worktree of HEAD at the destination and writes the throwaway environment into it", async () => {
-    const run = vi.fn(async () => ({ stdout: "", stderr: "", code: 0 }));
+    const run = vi.fn(async (..._args: unknown[]) => ({
+      stdout: "",
+      stderr: "",
+      code: 0,
+    }));
     const runner: Runner = { run };
     const write = vi.fn(async () => undefined);
     const files = {
@@ -38,11 +42,10 @@ describe("the throwaway proof root", () => {
     const made = await prepareProofRoot({ root, dest, runner, files });
 
     expect(made).toBe(dest);
-    expect(run).toHaveBeenCalledWith(
-      "git",
-      ["worktree", "add", "--detach", dest, "HEAD"],
-      expect.objectContaining({ cwd: root }),
-    );
+    const [program, gitArgs, options] = run.mock.calls[0] ?? [];
+    expect(program).toBe("git");
+    expect(gitArgs).toEqual(["worktree", "add", "--detach", dest, "HEAD"]);
+    expect(options).toEqual(expect.objectContaining({ cwd: root }));
     expect(files.read).toHaveBeenCalledWith(environmentPath);
     expect(write).toHaveBeenCalledTimes(1);
     const [path, text] = write.mock.calls[0] as unknown as [string, string];
