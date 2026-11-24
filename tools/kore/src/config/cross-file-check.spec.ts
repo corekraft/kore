@@ -56,6 +56,7 @@ test("an environment with no services and no suborgs is checked with nothing, an
     organizationsDirectory: "infra/environments/local/organizations",
     services: [],
     suborgs: [],
+    sizing: false,
   });
   expect(report).toEqual({ errors: [], warnings: [] });
 });
@@ -129,6 +130,8 @@ test("each suborg record is read with its quota, and a record with no quota read
           name: "team-a",
           file: "infra/environments/local/organizations/team-a.json",
           quota: { cpu: "2", memory: "4Gi" },
+          pods: 10,
+          storage: "10Gi",
         },
         {
           name: "team-b",

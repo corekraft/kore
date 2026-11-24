@@ -91,6 +91,11 @@ spec:
                   minProperties: 1
                   additionalProperties: false
                   properties:
+                    # The sizing fields (#1525, ADR 0152): optional and additive, judged at
+                    # kore validate only while app-sizing is on. A memory limit must equal the
+                    # memory request, and there is no CPU limit. The autoscaler's minimum is
+                    # at least two; its defaults are two and five. Nothing is defaulted in a
+                    # record that does not write them.
                     frontend:
                       type: object
                       additionalProperties: false
@@ -105,6 +110,20 @@ spec:
                               properties:
                                 cpu: { type: string }
                                 memory: { type: string }
+                                ephemeralStorage: { type: string }
+                            limits:
+                              type: object
+                              additionalProperties: false
+                              properties:
+                                memory: { type: string }
+                        autoscaling:
+                          type: object
+                          additionalProperties: false
+                          properties:
+                            minReplicas:
+                              { type: integer, minimum: 2, default: 2 }
+                            maxReplicas:
+                              { type: integer, minimum: 1, default: 5 }
                     bff:
                       type: object
                       additionalProperties: false
@@ -119,6 +138,20 @@ spec:
                               properties:
                                 cpu: { type: string }
                                 memory: { type: string }
+                                ephemeralStorage: { type: string }
+                            limits:
+                              type: object
+                              additionalProperties: false
+                              properties:
+                                memory: { type: string }
+                        autoscaling:
+                          type: object
+                          additionalProperties: false
+                          properties:
+                            minReplicas:
+                              { type: integer, minimum: 2, default: 2 }
+                            maxReplicas:
+                              { type: integer, minimum: 1, default: 5 }
                 gateway:
                   type: string
                   enum: [internal, external]
