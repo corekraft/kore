@@ -88,6 +88,7 @@
         "requires": ["external-gateway"]
       },
       { "name": "acme-dns01", "kind": "feature", "applies": ["vps"] },
+      { "name": "domain-expiry-alert", "kind": "feature", "applies": ["vps"] },
       {
         "name": "acme-issuers",
         "kind": "feature",
@@ -187,6 +188,11 @@
       },
       {
         "name": "workload-defaults-admission",
+        "kind": "feature",
+        "applies": ["local", "vps", "managed-example"]
+      },
+      {
+        "name": "pvc-ownership-admission",
         "kind": "feature",
         "applies": ["local", "vps", "managed-example"]
       },

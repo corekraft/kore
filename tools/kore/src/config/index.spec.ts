@@ -225,6 +225,7 @@ const entryPoints = [
   "renderedCrdNames",
   "requiredFlags",
   "rollbackConstraint",
+  "runTimeDomain",
   "runTimeDomainErrors",
   "runTimeFilePath",
   "runTimeNeededBy",
