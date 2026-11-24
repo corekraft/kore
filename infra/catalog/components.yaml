@@ -1006,6 +1006,22 @@
         "readiness": ["deployment/platform-dns"]
       },
       {
+        "name": "external-dns",
+        "phase": "configuration",
+        "namespace": "kore-external-dns",
+        "kind": "helm",
+        "repository": "https://kubernetes-sigs.github.io/external-dns/",
+        "chart": "external-dns",
+        "version": "external-dns",
+        "featureFlag": "external-dns",
+        "ownsCRDs":
+          ["dnsendpoints.externaldns.k8s.io", "dnsrecords.externaldns.k8s.io"],
+        "dependencies": ["kore-platform-config"],
+        "timeout": "5m",
+        "values": ["infra/environments/common/values/external-dns.yaml"],
+        "readiness": ["deployment/external-dns"]
+      },
+      {
         "name": "kore-local-tls",
         "phase": "configuration",
         "owner": "argocd",

@@ -210,6 +210,23 @@
           }
       },
       {
+        "image": "registry.k8s.io/external-dns/external-dns:v0.24.0@sha256:a80a146d2540fa138565e404f0625157271071a06093021f27ae19d8316d10f9",
+        "name": "external-dns",
+        "component": "external-dns",
+        "evidence":
+          {
+            "method": "cosign-keyless",
+            "source": "crane digest registry.k8s.io/external-dns/external-dns:v0.24.0 resolves to this index digest. cosign verify --certificate-identity krel-trust@k8s-releng-prod.iam.gserviceaccount.com --certificate-oidc-issuer https://accounts.google.com passes, with the Kubernetes promotion predicate (https://k8s.io/promo-tools/promotion/v1) and a Rekor entry verified offline. Runs only under external-dns, off in every overlay until its flag is turned on.",
+            "checked": "2026-11-24",
+            "provenance":
+              {
+                "signed": true,
+                "issuer": "https://accounts.google.com",
+                "identity": "krel-trust@k8s-releng-prod.iam.gserviceaccount.com"
+              }
+          }
+      },
+      {
         "image": "quay.io/kiwigrid/k8s-sidecar:2.5.0@sha256:a6b3f707f883108376514489a94d6629109a327b2978e1d826cd104c4ca436df",
         "name": "grafana-sidecar",
         "component": "grafana",

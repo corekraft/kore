@@ -54,6 +54,7 @@
       "service-listener-sets": false,
       "external-gateway": false,
       "external-gateway-limits": false,
+      "external-dns": false,
       "registry-by-name": false,
       "registry-tailnet-forward": false,
       "otlp-route": false,
@@ -103,6 +104,11 @@
         ],
       "crossplane":
         ["infra/environments/managed-example/values/mirror/crossplane.yaml"],
+      "external-dns":
+        [
+          "infra/environments/managed-example/values/mirror/external-dns.yaml",
+          "infra/environments/managed-example/values/external-dns.yaml"
+        ],
       "external-secrets":
         [
           "infra/environments/managed-example/values/mirror/external-secrets.yaml"

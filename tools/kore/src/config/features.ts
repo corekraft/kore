@@ -158,6 +158,9 @@ export const externalGatewayFlag = "external-gateway";
 /** The flag that renders the one platform-owned AgentgatewayPolicy on the external Gateway, which sets its concurrency, rate, 1 MiB body, header and timeout limits with Override inheritance, so no route policy can loosen them (ADR 0160, issue 1674). Needs external-gateway; the numbers are read from the environment's values. Off in every overlay until a recorded live outcome of the public probe (429, 503, 413 and served). */
 export const externalGatewayLimitsFlag = "external-gateway-limits";
 
+/** The flag that renders external-dns, which publishes A records for the routes of the external Gateway into the platform domain's one zone (ADR 0162, issue 1616). Needs external-gateway. Off in every overlay until a recorded live outcome; local runs the inmemory provider, vps the Cloudflare one. */
+export const externalDnsFlag = "external-dns";
+
 /** The flag that renders the kore-template-images policy, which admits the golden-path template images by signature under the release identity (plan 15 Step 4, issue 1884), and labels the golden-path namespaces its creators make (the golden-path sync and the Service composition) for policy.sigstore.dev/include (ADR 0181). The policy admits only the template repository; off in every overlay until a recorded live outcome. */
 export const goldenPathTemplateAdmissionFlag = "golden-path-template-admission";
 

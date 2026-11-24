@@ -68,6 +68,11 @@
         "applies": ["local", "vps", "managed-example"]
       },
       {
+        "name": "external-dns",
+        "kind": "feature",
+        "applies": ["local", "vps", "managed-example"]
+      },
+      {
         "name": "database-routes",
         "kind": "feature",
         "applies": ["local", "vps", "managed-example"]

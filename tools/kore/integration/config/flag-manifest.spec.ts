@@ -97,6 +97,7 @@ test("the flags that apply to vps are the ones the manifest declares, pending fl
     "service-listener-sets",
     "external-gateway",
     "external-gateway-limits",
+    "external-dns",
     "database-routes",
     "otlp-route",
     "platform-hostname-ownership",
