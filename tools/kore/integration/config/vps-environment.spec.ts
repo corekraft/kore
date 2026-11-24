@@ -7,6 +7,7 @@ import {
   findRoot,
   flagEntry,
   loadRepository,
+  notApplicableReason,
   validateRepository,
 } from "../../src/config/index.js";
 
@@ -36,13 +37,16 @@ test("every flag the vps overlay lists is declared in the flag manifest as apply
   );
 });
 
-test("the pending flags platform-dns and registry-by-name are declared pending, stay off in vps, and are left out of what applies to it", async () => {
+test("database-routes, otlp-route and registry-by-name are not applicable to vps and stay off there, while platform-dns applies to vps and stays off", async () => {
   const { environment, flags } = await loadRepository("vps");
-  for (const name of ["platform-dns", "registry-by-name"]) {
-    assert.equal(flagEntry(flags, name)?.pending, true, name);
+  for (const name of ["database-routes", "otlp-route", "registry-by-name"]) {
+    assert.ok(notApplicableReason(flags, name, "vps"), name);
     assert.equal(environment.features?.[name], false, name);
     assert.equal(appliedFlags(flags, "vps").includes(name), false, name);
   }
+  assert.notEqual(flagEntry(flags, "platform-dns")?.pending, true);
+  assert.equal(environment.features?.["platform-dns"], false);
+  assert.ok(appliedFlags(flags, "vps").includes("platform-dns"));
 });
 
 test("the vps overlay validates with a flag turned on in a fixture, so no activation breaks it", async () => {

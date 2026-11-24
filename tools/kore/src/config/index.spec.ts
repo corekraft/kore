@@ -173,6 +173,7 @@ const entryPoints = [
   "noMatchPolicy",
   "nodeBudget",
   "nodeCount",
+  "notApplicableReason",
   "orderedComponents",
   "organizationServiceApisFlag",
   "otlpByName",

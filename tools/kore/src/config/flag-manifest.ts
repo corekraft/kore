@@ -24,15 +24,71 @@ export function neverRetires(manifest: FlagManifest, name: string): boolean {
 
 /**
  * The flags that apply to an environment, in manifest order. A pending flag is
- * left out until its decision lands (ADR 0148).
+ * left out until its decision lands, and a flag not applicable to the
+ * environment is left out too (ADR 0148).
  */
 export function appliedFlags(
   manifest: FlagManifest,
   environment: string,
 ): string[] {
   return manifest.flags
-    .filter((entry) => !entry.pending && entry.applies.includes(environment))
+    .filter(
+      (entry) =>
+        !entry.pending &&
+        entry.applies.includes(environment) &&
+        !entry.notApplicable?.includes(environment),
+    )
     .map((entry) => entry.name);
+}
+
+/**
+ * The reason a flag is not applicable to an environment, or undefined when it
+ * applies there or the manifest does not declare it (ADR 0148).
+ */
+export function notApplicableReason(
+  manifest: FlagManifest,
+  name: string,
+  environment: string,
+): string | undefined {
+  const entry = flagEntry(manifest, name);
+  return entry?.notApplicable?.includes(environment) ? entry.reason : undefined;
+}
+
+/**
+ * Errors of an entry's not-applicable mark: each environment it names must be
+ * one its entry applies to, and each needs the one-line reason (ADR 0148).
+ */
+function notApplicableErrors(entry: FlagEntry): string[] {
+  if (entry.notApplicable === undefined) {
+    return [];
+  }
+  const envs = entry.notApplicable;
+  if (
+    !Array.isArray(envs) ||
+    !envs.every((env) => typeof env === "string" && environmentName.test(env))
+  ) {
+    return [
+      `flag ${entry.name} notApplicable must list environment names of lowercase letters, digits and hyphens (ADR 0148)`,
+    ];
+  }
+  const applies = Array.isArray(entry.applies) ? entry.applies : [];
+  const notListed = envs
+    .filter((env) => !applies.includes(env))
+    .map(
+      (env) =>
+        `flag ${entry.name} is marked not applicable to ${env} but its applies does not list ${env}; mark only an environment it applies to (ADR 0148)`,
+    );
+  const reasonIsLine =
+    typeof entry.reason === "string" &&
+    entry.reason.trim() !== "" &&
+    !entry.reason.includes("\n");
+  const reasonless = reasonIsLine
+    ? []
+    : envs.map(
+        (env) =>
+          `flag ${entry.name} is not applicable to ${env} and needs a one-line reason in ${flagManifestPath} (ADR 0148)`,
+      );
+  return [...notListed, ...reasonless];
 }
 
 /** Errors of the manifest's own entries: names, kinds, environments and marks. */
@@ -84,7 +140,7 @@ function entryErrors(manifest: FlagManifest): string[] {
         `flag ${entry.name} is marked neverRetire but is a ${entry.kind} flag; only an environment flag never retires (ADR 0148)`,
       );
     }
-    return errors;
+    return [...errors, ...notApplicableErrors(entry)];
   });
 }
 
@@ -107,6 +163,14 @@ function overlayFlagErrors(repository: Repository): string[] {
     if (!entry.applies.includes(env)) {
       return [
         `flag ${name} is in the ${env} overlay but its entry applies to ${entry.applies.join(", ")} only; add ${env} to its applies or remove it from the ${env} overlay (ADR 0148)`,
+      ];
+    }
+    if (
+      environment.features?.[name] === true &&
+      entry.notApplicable?.includes(env)
+    ) {
+      return [
+        `flag ${name} is on in the ${env} overlay but ${flagManifestPath} marks it not applicable to ${env} (${entry.reason ?? "no reason given"}); keep it off there (ADR 0148)`,
       ];
     }
     return [];

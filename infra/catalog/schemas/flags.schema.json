@@ -24,6 +24,16 @@
           "pending": {
             "type": "boolean",
             "description": "Declared but left out of what applies until its naming decision lands (ADR 0148)."
+          },
+          "notApplicable": {
+            "type": "array",
+            "items": { "type": "string", "pattern": "^[a-z0-9-]+$" },
+            "description": "The environments of applies where the flag is not applicable in v1, left out of what applies there; each needs a reason (ADR 0148)."
+          },
+          "reason": {
+            "type": "string",
+            "pattern": "^[^\\n]*[^\\s][^\\n]*$",
+            "description": "Why the flag is not applicable, one line (ADR 0148)."
           }
         },
         "additionalProperties": false
