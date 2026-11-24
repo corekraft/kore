@@ -116,14 +116,14 @@ test("the kore-backup image is listed in the approved catalog at the v0.26.0 rel
     join(root, "infra/catalog/approved-images.yaml"),
     "utf8",
   );
-  const approved = JSON.parse(approvedText) as {
+  const approved: {
     images: {
       image: string;
       name: string;
       component: string;
       evidence: { provenance: unknown };
     }[];
-  };
+  } = JSON.parse(approvedText);
   const entries = approved.images.filter(
     (entry) => entry.name === "kore-backup",
   );
