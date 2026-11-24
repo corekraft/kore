@@ -43,10 +43,14 @@ function diskRuleFile(rendered: string): Json {
   return JSON.parse(body.join("\n"));
 }
 
-const rulesNamed = (file: Json, kind: "alert" | "record") =>
-  (file["groups"] as Json[]).flatMap((group) =>
-    (group["rules"] as Json[]).filter((rule) => rule[kind] !== undefined),
-  );
+/** The alert or record rules of a rule file, in group order. */
+function rulesNamed(file: Json, kind: "alert" | "record"): Json[] {
+  const groups: Json[] = file["groups"];
+  return groups.flatMap((group) => {
+    const rules: Json[] = group["rules"];
+    return rules.filter((rule) => rule[kind] !== undefined);
+  });
+}
 
 test("the disk rule file holds both notify-only alerts, and drops neither", async () => {
   const file = diskRuleFile(await renderChart());
