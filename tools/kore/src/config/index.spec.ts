@@ -29,6 +29,9 @@ vi.mock("./alert-forwarding.js", () => ({
 vi.mock("./dashboard-sidecar.js", () => ({
   dashboardSidecarHelmArgs: vi.fn(),
 }));
+vi.mock("./keycloak-operator-probe.js", () => ({
+  keycloakOperatorProbeHelmArgs: vi.fn(),
+}));
 vi.mock("./prometheus-memory.js", () => ({
   prometheusPortalHelmArgs: vi.fn(),
 }));
@@ -162,6 +165,7 @@ const entryPoints = [
   "internalGateway",
   "isLocalProvider",
   "keycloakHostname",
+  "keycloakOperatorProbeHelmArgs",
   "keycloakRealmWaitFlag",
   "keycloakWaitFlag",
   "loadRepository",
