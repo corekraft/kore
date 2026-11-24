@@ -1,5 +1,40 @@
 # Changelog
 
+## [0.28.0](https://github.com/corekraft/kore/compare/v0.27.0...v0.28.0) (2026-11-24)
+
+
+### Features
+
+* **config:** declare each flag's requires in the flag manifest ([#2024](https://github.com/corekraft/kore/issues/2024)) ([8b3f505](https://github.com/corekraft/kore/commit/8b3f505f00d03452aecf720904851e54899f6216))
+* **harness:** check hostname claims through kore validate in the judge precheck ([#2016](https://github.com/corekraft/kore/issues/2016)) ([fecca0e](https://github.com/corekraft/kore/commit/fecca0e8e3db61f0dc5804c40c7f42d1abd44939))
+* **image-policy:** trust the v0.27.0 release signer for the template policy in local ([#2036](https://github.com/corekraft/kore/issues/2036)) ([7fedd2d](https://github.com/corekraft/kore/commit/7fedd2de31749653edcfd6e6126624e71834b713))
+* **platform:** add an HTTP-01 solver to the ACME issuers behind acme-issuers ([#2030](https://github.com/corekraft/kore/issues/2030)) ([d517fbb](https://github.com/corekraft/kore/commit/d517fbb020343201b07b0704fa9ecccb3e6e7339))
+* **platform:** add the owner-steps wizard for the Cloudflare account ([#2048](https://github.com/corekraft/kore/issues/2048)) ([cc9b73e](https://github.com/corekraft/kore/commit/cc9b73ef25d25afeb9ea663681b033c274ed4585)), closes [#1621](https://github.com/corekraft/kore/issues/1621)
+* **platform:** add the per-rollout soak and refuse a contract step inside it ([#2056](https://github.com/corekraft/kore/issues/2056)) ([2fd52a0](https://github.com/corekraft/kore/commit/2fd52a0f2d125c7895c3a0b3e6a23bfd1762a942))
+* **platform:** alert on external-dns sync errors and certificates behind their flags ([#2026](https://github.com/corekraft/kore/issues/2026)) ([53c2c24](https://github.com/corekraft/kore/commit/53c2c2460e83a1c3008814c727f098ef2df941cf))
+* **platform:** create each suborg's namespace and quota from the Organization composition ([#2032](https://github.com/corekraft/kore/issues/2032)) ([613733e](https://github.com/corekraft/kore/commit/613733e1f9e2fd08338e031180934606787ee1ba)), closes [#1550](https://github.com/corekraft/kore/issues/1550)
+* **platform:** deliver the release digest behind the app-delivery flag ([#2015](https://github.com/corekraft/kore/issues/2015)) ([80eeabb](https://github.com/corekraft/kore/commit/80eeabb569df835958ad505c53579f6c0a803323)), closes [#1569](https://github.com/corekraft/kore/issues/1569)
+* **platform:** give each service a Service and a ServiceAccount named after it ([#2038](https://github.com/corekraft/kore/issues/2038)) ([4f83297](https://github.com/corekraft/kore/commit/4f832972c38a8505f92d8d74cf9198e5b1b40265))
+* **platform:** give the data path Guaranteed QoS behind a flag ([#2042](https://github.com/corekraft/kore/issues/2042)) ([5e7315d](https://github.com/corekraft/kore/commit/5e7315d7cc99938c584a8381fa9554ad18bca6fa))
+* **platform:** give the data path one kore-owned PriorityClass behind a flag ([#2057](https://github.com/corekraft/kore/issues/2057)) ([5f63b87](https://github.com/corekraft/kore/commit/5f63b876e8e7724ac6b71ed82e72d54dc6cad959))
+* **platform:** issue per-suborg wildcard certificates behind acme-dns01 ([#2034](https://github.com/corekraft/kore/issues/2034)) ([3b548df](https://github.com/corekraft/kore/commit/3b548df4996d0a7958ff33f019304d6a0f43ef2c))
+* **platform:** judge a record's worst-case surge against its suborg quota behind app-sizing ([#2033](https://github.com/corekraft/kore/issues/2033)) ([3eb2758](https://github.com/corekraft/kore/commit/3eb2758ae53acaf60d93ce04c80216dd8b3f722c))
+* **platform:** prove external-dns in local through an opt-in live test ([#2014](https://github.com/corekraft/kore/issues/2014)) ([1f0b376](https://github.com/corekraft/kore/commit/1f0b376d466046a3ea449c6d426c3b0b56557ec9))
+* **platform:** refuse a record that does not fit its suborg, grant or capacity ([#2013](https://github.com/corekraft/kore/issues/2013)) ([6f9a09b](https://github.com/corekraft/kore/commit/6f9a09ba87c3914b3a5d84f68e58981bdaceaeb4))
+* **platform:** subtract the platform's pod requests from allocatable in the capacity verdict ([#2058](https://github.com/corekraft/kore/issues/2058)) ([7627d2c](https://github.com/corekraft/kore/commit/7627d2c15aea29e57616243e600ca45622b8f6a7))
+* **platform:** uninstall a turned-off flag's leftover release with consent ([#1958](https://github.com/corekraft/kore/issues/1958)) ([94c13ad](https://github.com/corekraft/kore/commit/94c13ad7d1b99f7df0dba61c90c87edd1451e6f2)), closes [#1498](https://github.com/corekraft/kore/issues/1498)
+* **vps:** place the OpenBao static seal key through the openbao role ([#2046](https://github.com/corekraft/kore/issues/2046)) ([5b490a9](https://github.com/corekraft/kore/commit/5b490a931f32d8aac858164c58f17129c5dee699))
+
+
+### Refactoring
+
+* **config:** delete the hardcoded flag dependency check now the manifest holds its edges ([#2029](https://github.com/corekraft/kore/issues/2029)) ([0d454aa](https://github.com/corekraft/kore/commit/0d454aa4fa56b9db63800772d554e52ebca19f8f))
+
+
+### Documentation
+
+* **plans:** confirm template image admission in the plan 15 outcome record ([#2035](https://github.com/corekraft/kore/issues/2035)) ([75b913c](https://github.com/corekraft/kore/commit/75b913c02a44900675cc4d45a5bc01376552272b))
+
 ## [0.27.0](https://github.com/corekraft/kore/compare/v0.26.0...v0.27.0) (2026-11-24)
 
 
