@@ -1,0 +1,77 @@
+apiVersion: templates.gatekeeper.sh/v1
+kind: ConstraintTemplate
+metadata: { name: koreworkloaddefaults }
+spec:
+  crd:
+    spec:
+      names: { kind: KoreWorkloadDefaults }
+      validation:
+        openAPIV3Schema:
+          type: object
+          properties:
+            { exemptNamespaces: { type: array, items: { type: string } } }
+  targets:
+    - target: admission.k8s.gatekeeper.sh
+      rego: |
+        package kore.workloaddefaults
+        import future.keywords.in
+        # The constraint matches application namespaces only (the activation label,
+        # set by bootstrap, in its namespaceSelector). exemptNamespaces stays as a
+        # second line of defence, as in kore-workload-identity.
+        exempt { input.review.object.metadata.namespace in object.get(input.parameters, "exemptNamespaces", []) }
+        podspec = input.review.object.spec.template.spec { input.review.kind.kind != "CronJob" }
+        podspec = input.review.object.spec.jobTemplate.spec.template.spec { input.review.kind.kind == "CronJob" }
+        workload { input.review.kind.kind in {"Deployment", "StatefulSet", "DaemonSet", "Job", "CronJob"} }
+        # The sign-in BFF is the one single-replica app workload while golden-path-signin
+        # is set (ADR 0154, #1747 option D). The chart writes the label only then, on the
+        # BFF Deployment. The exemption is for the replica rule alone, and only at exactly
+        # one replica, so zero replicas and a labelled workload with another name stay refused.
+        single_replica_bff {
+          input.review.object.metadata.labels["platform.kore.dev/single-replica"] == "sign-in-bff"
+          endswith(input.review.object.metadata.name, "-bff")
+          input.review.object.spec.replicas == 1
+        }
+        # An absent replica count passes: an autoscaled chart omits it and its
+        # HorizontalPodAutoscaler owns the count. This is a known gap, pinned by a test.
+        violation[{"msg": msg}] {
+          input.review.kind.kind in {"Deployment", "StatefulSet"}
+          not exempt
+          replicas := input.review.object.spec.replicas
+          replicas < 2
+          not single_replica_bff
+          msg := sprintf("the workload runs %v replicas; the default is at least 2, so a rollout or a drain keeps one pod serving (ADR 0154). Set spec.replicas to 2 or more, or leave it absent under an autoscaler whose minReplicas is 2", [replicas])
+        }
+        rolling_update_safe {
+          input.review.object.spec.strategy.rollingUpdate.maxUnavailable == 0
+        }
+        rolling_update_safe {
+          input.review.object.spec.strategy.rollingUpdate.maxUnavailable == "0%"
+        }
+        violation[{"msg": msg}] {
+          input.review.kind.kind == "Deployment"
+          not exempt
+          not rolling_update_safe
+          msg := "the rollout may leave a pod unavailable: set strategy.rollingUpdate.maxUnavailable to 0 with maxSurge 1; an absent maxUnavailable means 25 percent (ADR 0154)"
+        }
+        # Checks the app's containers only, as the container-security rule does. Init
+        # containers are not checked; the golden-path BFF's truststore init container has
+        # no resources, and that gap is recorded in the constraint's doc.
+        violation[{"msg": msg}] {
+          workload
+          not exempt
+          c := podspec.containers[_]
+          not memory_equal(c)
+          msg := sprintf("container %v must set a memory request equal to its memory limit; the default is both at the limit, so the pod is Guaranteed for memory (ADR 0152)", [c.name])
+        }
+        memory_equal(c) {
+          request := object.get(c, ["resources", "requests", "memory"], "")
+          request != ""
+          request == object.get(c, ["resources", "limits", "memory"], "")
+        }
+        violation[{"msg": msg}] {
+          workload
+          not exempt
+          priority := object.get(podspec, "priorityClassName", "")
+          priority != ""
+          msg := sprintf("priorityClassName %v is set; the default is no priority class, and the kore-owned class is reserved for the platform (ADR 0152)", [priority])
+        }

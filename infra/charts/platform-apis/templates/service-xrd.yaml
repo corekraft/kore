@@ -50,7 +50,18 @@ spec:
               type: object
               required: [organization, environments]
               properties:
-                organization: { type: string, enum: [platform] }
+                # The tenant name (ADR 0165): platform, or a suborg. It takes the
+                # Organization name rules in organization-xrd.yaml: a DNS label of
+                # at most 54 characters with no double hyphen, so <suborg>--preview
+                # fits 63. The pattern has no lookahead, so the double hyphen is
+                # ruled out by its shape. Whether a suborg exists is kore validate's to say.
+                organization:
+                  {
+                    type: string,
+                    maxLength: 54,
+                    pattern: "^[a-z0-9]([a-z0-9]|-[a-z0-9])*$",
+                    description: "a DNS label of lowercase letters and digits with single hyphens, at most 54 characters; platform is the tenant root"
+                  }
                 environments:
                   type: array
                   minItems: 1

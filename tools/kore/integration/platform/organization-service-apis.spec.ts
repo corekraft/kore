@@ -113,11 +113,13 @@ test("both XRDs follow the PostgreSQL API layout in the platform.kore.dev group"
   }
 });
 
-test("Service identifies its organization and environments by label-safe names, platform only", async () => {
+test("Service identifies its organization by a label-safe name of at most 54 characters, and its environments by label-safe names", async () => {
   const xrd = await read(
     "infra/charts/platform-apis/templates/service-xrd.yaml",
   );
-  assert.match(xrd, /organization: \{ type: string, enum: \[platform\] \}/);
+  assert.doesNotMatch(xrd, /enum: \[platform\]/);
+  assert.match(xrd, /maxLength: 54,/);
+  assert.match(xrd, /pattern: "\^\[a-z0-9\]\(\[a-z0-9\]\|-\[a-z0-9\]\)\*\$"/);
   assert.match(xrd, /\^\[a-z0-9\]\(\[-a-z0-9\]\{0,61\}\[a-z0-9\]\)\?\$/);
   assert.match(xrd, /minItems: 1/);
 });

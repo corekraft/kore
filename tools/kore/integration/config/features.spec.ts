@@ -129,6 +129,17 @@ test("golden-path-safety-defaults is listed false in every overlay, so no worklo
   }
 });
 
+test("workload-defaults-admission is listed false in every overlay, so the admission constraint installs nothing until a recorded live outcome turns it on (issue 1526, ADR 0154)", async () => {
+  for (const name of ["local", "vps", "managed-example"]) {
+    const repository = await loadRepository(name);
+    assert.equal(
+      repository.environment.features?.["workload-defaults-admission"],
+      false,
+      `${name} overlay`,
+    );
+  }
+});
+
 test("the managed-example overlay validates with and without flags", async () => {
   const base = await loadRepository("managed-example");
   await validateRepository(base);
@@ -142,6 +153,7 @@ test("the managed-example overlay validates with and without flags", async () =>
         "gateway-class-change-release": false,
         "gateway-rollback-order": false,
         "ingress-agentgateway": false,
+        "external-dns": false,
         "otlp-route": false,
         "platform-argocd-delivery": false,
         "platform-dns": false,
@@ -149,6 +161,7 @@ test("the managed-example overlay validates with and without flags", async () =>
         "platform-organization-service-apis": false,
         "platform-portal": false,
         "platform-shared-gateway": false,
+        "workload-defaults-admission": false,
       },
     },
   });

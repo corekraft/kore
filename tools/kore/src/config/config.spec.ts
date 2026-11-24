@@ -231,12 +231,14 @@ test("the image policy overlay is loaded when the environment names an existing 
   expect(loaded.imageTrustValues).toEqual({ trust: { type: "key" } });
 });
 
-test("loading carries the derived Service names on the repository, read from its root whatever the flags are", async () => {
+test("loading carries the derived Service names on the repository, read from its root and its environment whatever the flags are", async () => {
   filesPresent("/repo/infra/catalog/components.yaml");
   vi.mocked(loadServiceRegistrations).mockResolvedValue(["blog", "shop"]);
   const loaded = await loadRepository("local", "/repo");
   expect(loaded.registeredServices).toEqual(["blog", "shop"]);
-  expect(vi.mocked(loadServiceRegistrations).mock.calls).toEqual([["/repo"]]);
+  expect(vi.mocked(loadServiceRegistrations).mock.calls).toEqual([
+    ["/repo", "local"],
+  ]);
 });
 
 test("a registry consumer's overlays that exist are merged in order, later files winning", async () => {

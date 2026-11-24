@@ -66,9 +66,14 @@ test("the app record fields exist in the Service XRD, and none of them is requir
   );
 });
 
-test("the existing organization and environments fields keep their shape: the platform enum and the environment bounds", () => {
+test("organization is a label-safe name of at most 54 characters, not an enum, and the environment bounds stay", () => {
   const spec = serviceSpec();
-  expect(spec.properties?.organization?.enum).toEqual(["platform"]);
+  expect(spec.properties?.organization?.enum).toBeUndefined();
+  expect(spec.properties?.organization).toMatchObject({
+    type: "string",
+    maxLength: 54,
+    pattern: "^[a-z0-9]([a-z0-9]|-[a-z0-9])*$",
+  });
   expect(spec.properties?.environments).toMatchObject({
     minItems: 1,
     maxItems: 16,
