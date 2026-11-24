@@ -282,3 +282,31 @@ test("vps loads no suborg names, because it has no Organization manifest yet, so
   const repository = await loadRepository("vps");
   assert.deepEqual(repository.suborgs, []);
 });
+
+test("suborgs x and x-internal render distinct Certificates and secrets, because the kind comes before the suborg name", async () => {
+  const rendered = await renderCertificate(await withAcme("vps", true), [
+    "x",
+    "x-internal",
+  ]);
+  const pairs = wildcards(rendered);
+  assert.deepEqual(pairs.map(dnsNames), [
+    ["*.x.example.com"],
+    ["*.x.internal.example.com"],
+    ["*.x-internal.example.com"],
+    ["*.x-internal.internal.example.com"],
+  ]);
+  const names = pairs.map((document) => /^  name: (.+)$/m.exec(document)![1]);
+  assert.deepEqual(names, [
+    "suborg-wildcard-x",
+    "suborg-internal-wildcard-x",
+    "suborg-wildcard-x-internal",
+    "suborg-internal-wildcard-x-internal",
+  ]);
+  const secrets = pairs.map(
+    (document) => /^  secretName: (.+)$/m.exec(document)![1],
+  );
+  assert.deepEqual(
+    secrets,
+    names.map((name) => `${name}-tls`),
+  );
+});
