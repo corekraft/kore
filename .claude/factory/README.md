@@ -28,7 +28,7 @@ ticket review.
 | Role | Model in the lab | Cases |
 | --- | --- | --- |
 | orchestrator | claude-haiku-5-5 | 2 |
-| griller | claude-sonnet-5-5 | 4 |
+| griller | claude-sonnet-5-5 | 5 |
 | answerer | claude-haiku-5-5 | 4 |
 | reader | claude-haiku-5-5 | 3 |
 | advisor | claude-sonnet-5-5 | 5 |
