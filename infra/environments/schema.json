@@ -206,6 +206,80 @@
       },
       "additionalProperties": { "type": "string", "minLength": 1 }
     },
+    "backup": {
+      "type": "object",
+      "description": "The backup declaration of the scheduled backup job (ADR 0155). kore validate checks it against this shape and refuses an off-host endpoint on the box, a backup flag on without it, and a target with no age recipient in .sops.yaml. The vps overlay declares none until the interim target ticket supplies one.",
+      "required": ["target", "retention", "schedule"],
+      "additionalProperties": false,
+      "properties": {
+        "target": {
+          "type": "object",
+          "required": [
+            "endpoint",
+            "bucket",
+            "region",
+            "pathStyle",
+            "credentials",
+            "kind"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "endpoint": {
+              "type": "string",
+              "description": "The endpoint's origin over https, for example https://s3.example.com.",
+              "pattern": "^https://[a-z0-9]([a-z0-9.-]*[a-z0-9])?(:[0-9]{1,5})?$"
+            },
+            "bucket": {
+              "type": "string",
+              "pattern": "^[a-z0-9][a-z0-9.-]{1,61}[a-z0-9]$"
+            },
+            "region": { "type": "string", "pattern": "^[a-z0-9-]+$" },
+            "pathStyle": {
+              "type": "boolean",
+              "description": "Path-style addresses the bucket in the path; otherwise in the host name."
+            },
+            "caBundle": {
+              "type": "string",
+              "minLength": 1,
+              "description": "An optional repository path to a PEM bundle the endpoint's certificate chains to."
+            },
+            "credentials": {
+              "type": "object",
+              "required": ["secret"],
+              "additionalProperties": false,
+              "properties": {
+                "secret": {
+                  "type": "string",
+                  "description": "The platform secret that holds the write-only credential.",
+                  "pattern": "^[a-z0-9]([-a-z0-9]{0,61}[a-z0-9])?$"
+                }
+              }
+            },
+            "kind": {
+              "enum": ["interim", "off-host"],
+              "description": "interim stays on the box until an off-host target exists; off-host must lie outside the box and its cluster."
+            }
+          }
+        },
+        "retention": {
+          "type": "object",
+          "required": ["daily"],
+          "additionalProperties": false,
+          "properties": {
+            "daily": {
+              "type": "integer",
+              "const": 14,
+              "description": "The newest daily backups kept per database and per snapshot (ADR 0155)."
+            }
+          }
+        },
+        "schedule": {
+          "type": "string",
+          "description": "The daily time the job runs, HH:MM in UTC.",
+          "pattern": "^([01][0-9]|2[0-3]):[0-5][0-9]$"
+        }
+      }
+    },
     "features": {
       "type": "object",
       "description": "Feature flags (ADR 0077): flag name to boolean, off unless true. Passed into local chart values as features.<name>.",
