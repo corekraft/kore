@@ -1,9 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { run } from "../cli/index.js";
-import { testHarness } from "../testing/index.js";
-import { committedInventoryText } from "../testing/index.js";
-import { INVENTORY_PATH } from "../guardrail/index.js";
+import { run } from "../../src/cli/index.js";
+import { testHarness } from "../../src/testing/index.js";
+import { committedInventoryText } from "../../src/testing/index.js";
+import { INVENTORY_PATH } from "../../src/guardrail/index.js";
 
+// The platform-domain leak rule through the real hook: the guard, the rule and the inventory
+// together, so an integration spec rather than a unit (ADR 0098). It sits in the guardrail
+// integration folder beside the other guardrail specs.
 // The hook as the host runs it, with the platform domain in the hook's environment or not. The
 // rule warns through additional context, never blocks (audit mode), and never echoes the value.
 const DOMAIN = "platform.example.com";

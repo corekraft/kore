@@ -4,6 +4,7 @@ import { homedir } from "node:os";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { environments, FlagError, readOverlay } from "../flag/index.js";
 import type { CliDeps, FileSystem } from "../runtime/index.js";
+import { platformDomainOf } from "./guard-leak.js";
 import { sessionIdentity, sessionNotice } from "./guard-identity.js";
 import {
   hostFacts,
@@ -14,6 +15,7 @@ import {
 
 vi.mock("node:os", () => ({ homedir: vi.fn(() => "/os/home") }));
 vi.mock("./guard-identity.js");
+vi.mock("./guard-leak.js");
 vi.mock("../flag/index.js", async (importOriginal) => ({
   ...(await importOriginal<typeof import("../flag/index.js")>()),
   environments: vi.fn(),
@@ -76,21 +78,24 @@ beforeEach(() => {
 });
 
 describe("hostFacts and the platform domain", () => {
-  it("reads the platform domain the run-time variable names", async () => {
-    expect(
-      await hostFacts(
-        { HOME: "/home/test", KORE_PLATFORM_DOMAIN: "platform.example.com" },
-        fs,
-        "/repo",
-      ),
-    ).toEqual({
+  it("takes the platform domain from the leak rule, reading the run-time variable", async () => {
+    const env = {
+      HOME: "/home/test",
+      KORE_PLATFORM_DOMAIN: "platform.example.com",
+    };
+    vi.mocked(platformDomainOf).mockReturnValue("platform.example.com");
+
+    expect(await hostFacts(env, fs, "/repo")).toEqual({
       home: "/home/test",
       verifiedBash: false,
       platformDomain: "platform.example.com",
     });
+    expect(platformDomainOf).toHaveBeenCalledWith(env);
   });
 
-  it("carries no platform domain when the run-time variable is unset", async () => {
+  it("carries no platform domain when the leak rule names none", async () => {
+    vi.mocked(platformDomainOf).mockReturnValue(undefined);
+
     const facts = await hostFacts({ HOME: "/home/test" }, fs, "/repo");
     expect("platformDomain" in facts).toBe(false);
   });
