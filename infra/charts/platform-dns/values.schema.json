@@ -41,6 +41,11 @@
         "memory": { "type": "string", "minLength": 1 }
       }
     },
+    "priorityClass": {
+      "description": "The kore-owned PriorityClass the pod names while data-path-priority-class is on (ADR 0152, issue 1531).",
+      "type": "string",
+      "minLength": 1
+    },
     "service": {
       "type": "object",
       "additionalProperties": false,

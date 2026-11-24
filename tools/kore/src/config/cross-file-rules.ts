@@ -7,6 +7,7 @@
 // Docs: docs/decisions/0166-an-app-is-a-service-with-a-two-file-record-in-kore-and-its-source-in-its-own-repository.md
 // Docs: docs/decisions/0152-one-node-capacity-is-a-declared-budget-that-quotas-enforce-and-memory-favours-the-cluster.md
 
+import { renderSizing, type SizingQuota } from "./app-sizing.js";
 import { capacityFit, type Amount } from "./capacity-fit.js";
 import { committedFraction, nodeBudget } from "./node-capacity.js";
 import { cpuMillis, formatCpu, formatMemory, memoryMiB } from "./quantity.js";
@@ -23,6 +24,13 @@ export interface ComponentRequests {
   component: string;
   cpu: string | undefined;
   memory: string | undefined;
+  /** resources.limits.memory; with sizing on it must equal the request (#1525). */
+  memoryLimit?: string | undefined;
+  /** resources.requests.ephemeralStorage (#1525). */
+  ephemeralStorage?: string | undefined;
+  /** autoscaling.minReplicas and maxReplicas, when written as numbers (#1525). */
+  minReplicas?: number | undefined;
+  maxReplicas?: number | undefined;
 }
 
 /** A service spec file, as the rules read it: what it names, grants and requests. */
@@ -45,6 +53,10 @@ export interface SuborgFacts {
   file: string;
   /** spec.quota.requests, when the record carries both; the record's own check refuses the rest. */
   quota: { cpu: string; memory: string } | undefined;
+  /** spec.quota.pods, when it is a whole number; read by the sizing judge (#1525). */
+  pods?: number | undefined;
+  /** spec.quota.storage, when it is written; read by the sizing judge as the ephemeral storage budget. */
+  storage?: string | undefined;
 }
 
 export interface CrossFileRulesInput {
@@ -53,6 +65,8 @@ export interface CrossFileRulesInput {
   organizationsDirectory: string;
   services: readonly ServiceFacts[];
   suborgs: readonly SuborgFacts[];
+  /** The app-sizing flag (#1525): on, each service is judged by its worst case instead of its declared requests. */
+  sizing?: boolean;
 }
 
 export interface CrossFileRulesReport {
@@ -90,6 +104,29 @@ function quotaAmount(quota: {
   return cpu === undefined || memory === undefined
     ? undefined
     : { cpuMillis: cpu, memoryMiB: memory };
+}
+
+/** A suborg's quota for the sizing judge, or undefined when a field it needs cannot be read. */
+function sizingQuotaOf(suborg: SuborgFacts): SizingQuota | undefined {
+  const amount =
+    suborg.quota === undefined ? undefined : quotaAmount(suborg.quota);
+  const ephemeral =
+    suborg.storage === undefined ? undefined : memoryMiB(suborg.storage);
+  if (
+    amount === undefined ||
+    ephemeral === undefined ||
+    suborg.pods === undefined
+  ) {
+    return undefined;
+  }
+  return {
+    name: suborg.name,
+    file: suborg.file,
+    cpuMillis: amount.cpuMillis,
+    memoryMiB: amount.memoryMiB,
+    ephemeralMiB: ephemeral,
+    pods: suborg.pods,
+  };
 }
 
 /** The request fields a record writes that cannot be read, each named with the form it must take. */
@@ -320,7 +357,10 @@ export function crossFileRules(
       service.organization === undefined
         ? undefined
         : suborgByName.get(service.organization);
-    if (suborg !== undefined) {
+    if (input.sizing === true) {
+      const quota = suborg === undefined ? undefined : sizingQuotaOf(suborg);
+      errors.push(...renderSizing(service, quota).errors);
+    } else if (suborg !== undefined) {
       errors.push(...quotaFitErrors(service, suborg));
     }
     errors.push(...grantErrors(service, services, environment.name));
