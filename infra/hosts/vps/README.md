@@ -102,7 +102,7 @@ with it). It refuses a file that holds a private key.
 ## The OpenBao static seal key
 
 The `openbao` role places the static seal key that OpenBao unseals itself with
-after a reboot ([ADR 0168](../../decisions/0168-the-openbao-static-seal-key-is-a-recorded-exception-to-no-plaintext-on-disk.md),
+after a reboot ([ADR 0168](../../../docs/decisions/0168-the-openbao-static-seal-key-is-a-recorded-exception-to-no-plaintext-on-disk.md),
 the one recorded exception to no plaintext on disk). It runs last in the play and
 does nothing while the `openbao` flag in `infra/environments/vps/environment.yaml`
 is off (off until a live run and `harness flag activate`).
