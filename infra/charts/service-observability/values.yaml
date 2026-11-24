@@ -2,8 +2,10 @@
 # namespace <service>--<environment> that the Service composition creates.
 environment: local
 
-# The names of the registered Services (infra/services/*.yaml, one Service
-# manifest each). One dashboard and one alert group are rendered for each.
+# The names of the Services this environment serves: the registrations in
+# infra/services/*.yaml (one Service manifest each) and the spec files in the
+# environment's infra/environments/<env>/services (ADR 0166), each name once.
+# One dashboard and one alert group are rendered for each.
 services: []
 
 # alerts.destination is the name of the platform contact point, set by kore only

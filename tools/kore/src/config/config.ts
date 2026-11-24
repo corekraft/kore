@@ -99,7 +99,7 @@ export async function loadRepository(
       root,
       environment,
     ),
-    registeredServices: await loadServiceRegistrations(root),
+    registeredServices: await loadServiceRegistrations(root, environmentName),
   };
   const exemptions = new ExemptionCheck(new FileExemptionSource(root));
   const warnings = await validateRepository(repository, [], (repo) =>
