@@ -73,7 +73,8 @@
       {
         "name": "external-dns",
         "kind": "feature",
-        "applies": ["local", "vps", "managed-example"]
+        "applies": ["local", "vps", "managed-example"],
+        "requires": ["external-gateway"]
       },
       { "name": "acme-dns01", "kind": "feature", "applies": ["vps"] },
       {

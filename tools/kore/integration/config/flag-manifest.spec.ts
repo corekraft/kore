@@ -151,6 +151,7 @@ test("the real manifest declares each prerequisite the overlay check enforces, s
   assert.deepEqual(requiredFlags(flags, "external-gateway-limits"), [
     "external-gateway",
   ]);
+  assert.deepEqual(requiredFlags(flags, "external-dns"), ["external-gateway"]);
   assert.deepEqual(requiredFlags(flags, "autoscaling-defaults"), []);
 });
 
