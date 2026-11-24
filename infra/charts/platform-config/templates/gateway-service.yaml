@@ -1,4 +1,5 @@
-{{- if and .Values.gateway.service.type (eq .Values.gateway.className "istio") }}
+{{- /* The deployment key carries the shared proxy's app defaults while gateway-proxy-defaults is on (ADR 0154). */}}
+{{- if and (or .Values.gateway.service.type (include "platform-config.proxyDefaults" .)) (eq .Values.gateway.className "istio") }}
 # Istio generates the Gateway's Service and merges this overlay into it. The
 # environment decides how the Service is published (an overlay that reaches the
 # Gateway through a node port, say); the chart names no provider.
@@ -9,6 +10,7 @@ metadata:
   namespace: kore-system
   labels: {app.kubernetes.io/managed-by: Helm}
 data:
+{{- if .Values.gateway.service.type }}
   service: |
     spec:
       type: {{ .Values.gateway.service.type }}
@@ -17,7 +19,20 @@ data:
         {{- . | nindent 8 }}
       {{- end }}
 {{- end }}
-{{- if and .Values.gateway.service.type (eq .Values.gateway.className "agentgateway") }}
+{{- if include "platform-config.proxyDefaults" . }}
+  deployment: |
+    spec:
+      replicas: {{ .Values.gateway.proxy.replicas }}
+      minReadySeconds: {{ .Values.gateway.proxy.minReadySeconds }}
+      progressDeadlineSeconds: {{ .Values.gateway.proxy.progressDeadlineSeconds }}
+      strategy:
+        type: RollingUpdate
+        rollingUpdate:
+          maxUnavailable: {{ .Values.gateway.proxy.maxUnavailable }}
+          maxSurge: {{ .Values.gateway.proxy.maxSurge }}
+{{- end }}
+{{- end }}
+{{- if and (eq .Values.gateway.className "agentgateway") (or .Values.gateway.service.type (include "platform-config.proxyDefaults" .)) }}
 ---
 # agentgateway generates the Gateway's Service and merges this overlay into it,
 # the same settings the Istio ConfigMap above carries, so the environment still
@@ -29,6 +44,7 @@ metadata:
   namespace: kore-system
   labels: {app.kubernetes.io/managed-by: Helm}
 spec:
+{{- if .Values.gateway.service.type }}
   service:
     spec:
       type: {{ .Values.gateway.service.type }}
@@ -36,4 +52,17 @@ spec:
       ports:
         {{- . | nindent 8 }}
       {{- end }}
+{{- end }}
+{{- if include "platform-config.proxyDefaults" . }}
+  deployment:
+    spec:
+      replicas: {{ .Values.gateway.proxy.replicas }}
+      minReadySeconds: {{ .Values.gateway.proxy.minReadySeconds }}
+      progressDeadlineSeconds: {{ .Values.gateway.proxy.progressDeadlineSeconds }}
+      strategy:
+        type: RollingUpdate
+        rollingUpdate:
+          maxUnavailable: {{ .Values.gateway.proxy.maxUnavailable }}
+          maxSurge: {{ .Values.gateway.proxy.maxSurge }}
+{{- end }}
 {{- end }}

@@ -27,6 +27,16 @@ changes.
 {{- end -}}
 
 {{/*
+True (a non-empty string) only while the gateway-proxy-defaults flag is on: the
+shared proxy runs the app defaults (two replicas, one surge pod, a readiness
+gate and a PodDisruptionBudget), for either GatewayClass (ADR 0154). Off, nothing
+it renders changes.
+*/}}
+{{- define "platform-config.proxyDefaults" -}}
+{{- if index (.Values.features | default dict) "gateway-proxy-defaults" -}}true{{- end -}}
+{{- end -}}
+
+{{/*
 The namespaces a Gateway listener admits routes from. Off, every namespace, as
 before. On, only namespaces carrying the platform-owned label that the platform
 charts and the delivery ApplicationSet set (ADR 0133).
