@@ -25,6 +25,16 @@ export interface OverDimension {
   allowed: number;
 }
 
+/**
+ * The platform's own pod requests, summed from its rendered releases (#1596), and the inputs
+ * the sum could not read: a pod with no request, or a request it cannot read. Any missing input
+ * leaves the budget unjudged; the sum is never taken on a guess.
+ */
+export interface PlatformRequests {
+  requests: Amount;
+  missing: readonly string[];
+}
+
 export interface CapacityFitInput {
   /** The quotas to sum: the suborgs' quotas, or any other amounts a caller commits. */
   quotas: readonly Amount[];
@@ -32,8 +42,8 @@ export interface CapacityFitInput {
   budget: NodeBudget;
   /** The share of the budget that may be committed, from 0 to 1 (ADR 0152). */
   committedFraction: number;
-  /** The platform's own pod requests, once they are subtracted (#1596); unset means not yet subtracted. */
-  platform?: Amount | undefined;
+  /** The platform's pod requests, subtracted from allocatable before the share is taken (#1596); unset means not yet subtracted. */
+  platform?: PlatformRequests | undefined;
 }
 
 export type CapacityFit =
@@ -42,37 +52,55 @@ export type CapacityFit =
   | { status: "fits"; platformSubtracted: boolean; headroom: Amount };
 
 /**
- * The most a dimension may commit: its allocatable amount on every node times the committed
- * share, rounded down. The float product is rounded to six places first, so a bound that is
- * exact in decimal (0.29 of 1000 is 290) is not lost to floating-point error.
+ * The most a dimension may commit: what is left of its allocatable amount on every node once the
+ * platform's requests are taken out, times the committed share, rounded down. The float product
+ * is rounded to six places first, so a bound that is exact in decimal (0.29 of 1000 is 290) is
+ * not lost to floating-point error. Platform requests larger than allocatable leave nothing.
  */
 function allowance(
   allocatable: number,
   nodes: number,
+  platformRequested: number,
   fraction: number,
 ): number {
-  return Math.floor(Number((allocatable * nodes * fraction).toFixed(6)));
+  const remaining = Math.max(0, allocatable * nodes - platformRequested);
+  return Math.floor(Number((remaining * fraction).toFixed(6)));
 }
 
 /**
- * Judges the sum of the quotas, plus the platform's requests when they are given, against the
- * committed share of the environment's node budget. Unjudged when a reserve is missing; over
- * naming each dimension past its share; otherwise fits, with what is left.
+ * Judges the sum of the quotas against the committed share of the environment's node budget,
+ * after the platform's requests come out of allocatable. Unjudged when a reserve is missing or
+ * the platform's sum could not be read; over naming each dimension past its share; otherwise
+ * fits, with what is left.
  */
 export function capacityFit(input: CapacityFitInput): CapacityFit {
   const { quotas, budget, committedFraction, platform } = input;
-  if (!budget.judged) {
-    return { status: "unjudged", missing: budget.missing };
+  const missing = [
+    ...(budget.judged ? [] : budget.missing),
+    ...(platform?.missing ?? []),
+  ];
+  if (!budget.judged || missing.length > 0) {
+    return { status: "unjudged", missing };
   }
   const { nodes, perNode } = budget;
+  const platformRequests = platform?.requests ?? { cpuMillis: 0, memoryMiB: 0 };
   const allowed: Amount = {
-    cpuMillis: allowance(perNode.cpuMillis, nodes, committedFraction),
-    memoryMiB: allowance(perNode.memoryMiB, nodes, committedFraction),
+    cpuMillis: allowance(
+      perNode.cpuMillis,
+      nodes,
+      platformRequests.cpuMillis,
+      committedFraction,
+    ),
+    memoryMiB: allowance(
+      perNode.memoryMiB,
+      nodes,
+      platformRequests.memoryMiB,
+      committedFraction,
+    ),
   };
-  const committed = [...quotas, ...(platform === undefined ? [] : [platform])];
   const requested: Amount = {
-    cpuMillis: committed.reduce((sum, amount) => sum + amount.cpuMillis, 0),
-    memoryMiB: committed.reduce((sum, amount) => sum + amount.memoryMiB, 0),
+    cpuMillis: quotas.reduce((sum, amount) => sum + amount.cpuMillis, 0),
+    memoryMiB: quotas.reduce((sum, amount) => sum + amount.memoryMiB, 0),
   };
   const platformSubtracted = platform !== undefined;
   const over: OverDimension[] = [];
