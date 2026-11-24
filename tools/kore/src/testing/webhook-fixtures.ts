@@ -24,6 +24,7 @@ const gatedOffReleases = [
   "agentgateway",
   "agentgateway-crds",
   "external-dns",
+  "openbao",
   "metrics-server",
   "argocd",
   "keycloak-operator",
