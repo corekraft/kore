@@ -303,3 +303,19 @@ test("with workload-defaults-admission on the values carry workloadDefaults, so 
     "workloadDefaults",
   );
 });
+
+test("with pvc-ownership-admission on the values carry pvcOwnership, so the AppProject admits the constraint kind; off they carry none, so the project is unchanged (issue 1666)", () => {
+  vi.mocked(featureEnabled).mockImplementation(
+    (_environment, flag) => flag === "pvc-ownership-admission",
+  );
+  try {
+    expect(chartDeliveryValues(repository, lock())).toMatchObject({
+      pvcOwnership: true,
+    });
+  } finally {
+    vi.mocked(featureEnabled).mockReset();
+  }
+  expect(chartDeliveryValues(repository, lock())).not.toHaveProperty(
+    "pvcOwnership",
+  );
+});

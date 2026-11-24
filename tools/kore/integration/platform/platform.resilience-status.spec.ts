@@ -134,6 +134,8 @@ test("the same status run is fully ready once the controller is back", async () 
       "kore-hostname-ownership",
       "kore-platform-keycloak",
       "kore-platform-backstage",
+      "kore-pvc-ownership-templates",
+      "kore-pvc-ownership",
       "kore-service-observability",
       "kore-workload-defaults-templates",
       "kore-workload-defaults",

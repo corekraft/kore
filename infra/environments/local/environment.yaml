@@ -93,6 +93,7 @@
       "golden-path-safety-defaults": false,
       "app-delivery": false,
       "workload-defaults-admission": false,
+      "pvc-ownership-admission": false,
       "decision-advisor": true
     },
   "imageInventory": "audit",

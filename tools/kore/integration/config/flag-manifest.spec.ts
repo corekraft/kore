@@ -114,6 +114,7 @@ test("the flags that apply to vps are the ones the manifest declares, pending fl
     "golden-path-safety-defaults",
     "app-delivery",
     "workload-defaults-admission",
+    "pvc-ownership-admission",
     "release-recovery-argocd-refusal",
     "host-published-ports",
     "platform-dns",
