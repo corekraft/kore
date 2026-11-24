@@ -113,6 +113,7 @@ export {
   gatewayRollbackOrderFlag,
   gatewayClassName,
   ingressFlag,
+  keycloakRealmWaitFlag,
   keycloakWaitFlag,
   localImageReuseFlag,
   organizationServiceApisFlag,

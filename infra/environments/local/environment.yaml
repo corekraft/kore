@@ -87,6 +87,7 @@
       "postgresql-service-class-instances": false,
       "gateway-proxy-defaults": false,
       "platform-keycloak-wait": false,
+      "platform-keycloak-realm-wait": false,
       "golden-path-safety-defaults": false,
       "decision-advisor": true
     },
