@@ -4,6 +4,7 @@
 // cases are in app-record-base.spec.ts.
 import { afterEach, expect, test } from "vitest";
 import {
+  attestation,
   digest,
   dir,
   fixture,
@@ -81,12 +82,61 @@ test("a malformed digest fails, naming the field and the pattern it must match",
   const f = await repo({
     [`${dir}/leads.json`]: record("leads"),
     [`${dir}/leads.release.json`]: release("leads", {
-      components: { frontend: { digest: "sha256:abc" } },
+      components: { frontend: { digest: "sha256:abc", attestation } },
     }),
   });
   expect((await f.check()).errors).toEqual([
     `${dir}/leads.release.json: spec.components.frontend.digest must match ^sha256:[0-9a-f]{64}$ (the image digest: sha256, a colon, then 64 lowercase hex characters)`,
   ]);
+});
+
+test("a digest without its attestation reference fails, naming the attestation field (ADR 0166)", async () => {
+  const f = await repo({
+    [`${dir}/leads.json`]: record("leads"),
+    [`${dir}/leads.release.json`]: release("leads", {
+      components: { frontend: { digest } },
+    }),
+  });
+  expect((await f.check()).errors).toEqual([
+    `${dir}/leads.release.json: spec.components.frontend.attestation is required (an OCI reference of the form <registry>/<repository>@sha256:<64 hex characters>)`,
+  ]);
+});
+
+test("a malformed rejected digest fails, naming the entry and the pattern it must match", async () => {
+  const f = await repo({
+    [`${dir}/leads.json`]: record("leads"),
+    [`${dir}/leads.release.json`]: release("leads", {
+      components: {
+        frontend: { digest, attestation, rejected: ["sha256:abc"] },
+      },
+    }),
+  });
+  expect((await f.check()).errors).toEqual([
+    `${dir}/leads.release.json: spec.components.frontend.rejected[0] must match ^sha256:[0-9a-f]{64}$`,
+  ]);
+});
+
+test("a rejected list that holds the digest the component deploys fails, naming the component and the digest (ADR 0172)", async () => {
+  const f = await repo({
+    [`${dir}/leads.json`]: record("leads"),
+    [`${dir}/leads.release.json`]: release("leads", {
+      components: { frontend: { digest, attestation, rejected: [digest] } },
+    }),
+  });
+  expect((await f.check()).errors).toEqual([
+    `${dir}/leads.release.json: spec.components.frontend.rejected lists the current digest ${digest}; a rejected digest must differ from the one the release deploys (ADR 0172)`,
+  ]);
+});
+
+test("a release with its attestation and a rejected list of other digests passes", async () => {
+  const other = `sha256:${"d".repeat(64)}`;
+  const f = await repo({
+    [`${dir}/leads.json`]: record("leads"),
+    [`${dir}/leads.release.json`]: release("leads", {
+      components: { frontend: { digest, attestation, rejected: [other] } },
+    }),
+  });
+  expect(await f.check()).toEqual({ errors: [], warnings: [] });
 });
 
 test("a source commit that is not 40 lowercase hex characters fails, naming the field", async () => {
@@ -121,7 +171,7 @@ test("a release component the spec does not declare fails, naming the component 
   const f = await repo({
     [`${dir}/leads.json`]: record("leads"),
     [`${dir}/leads.release.json`]: release("leads", {
-      components: { bff: { digest } },
+      components: { bff: { digest, attestation } },
     }),
   });
   expect((await f.check()).errors).toEqual([

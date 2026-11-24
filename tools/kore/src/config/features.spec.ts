@@ -2,6 +2,7 @@ import { beforeEach, expect, test, vi } from "vitest";
 import { orderedComponents } from "./order.js";
 import {
   agentgatewayMeshEnrollmentFlag,
+  appDeliveryFlag,
   autoscalingFlag,
   platformArgocdDeliveryFlag,
   platformPortalFlag,
@@ -257,6 +258,14 @@ test("the recovery refusal flag is named release-recovery-argocd-refusal and is 
   expect(
     featureEnabled(environment(undefined), releaseRecoveryArgocdRefusalFlag),
   ).toBe(false);
+});
+
+test("the app delivery flag is named app-delivery and is off while an overlay omits it (ADR 0172)", () => {
+  expect(appDeliveryFlag).toBe("app-delivery");
+  expect(featureEnabled(environment(undefined), appDeliveryFlag)).toBe(false);
+  expect(
+    featureEnabled(environment({ [appDeliveryFlag]: true }), appDeliveryFlag),
+  ).toBe(true);
 });
 
 test("the safety defaults flag is named golden-path-safety-defaults and is off while an overlay omits it (ADR 0154)", () => {

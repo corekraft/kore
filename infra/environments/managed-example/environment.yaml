@@ -67,7 +67,8 @@
       "golden-path-signin-after-portal": false,
       "postgresql-service-class-instances": false,
       "gateway-proxy-defaults": false,
-      "golden-path-safety-defaults": false
+      "golden-path-safety-defaults": false,
+      "app-delivery": false
     },
   "secrets": { "storeName": "platform-secrets", "sourceNamespace": "external" },
   "telemetry":

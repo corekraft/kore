@@ -45,7 +45,7 @@
   "$defs": {
     "component": {
       "type": "object",
-      "required": ["digest"],
+      "required": ["digest", "attestation"],
       "additionalProperties": false,
       "properties": {
         "digest": {
@@ -57,6 +57,14 @@
           "type": "string",
           "pattern": "^[a-z0-9][a-z0-9.:-]*(/[a-z0-9._-]+)+@sha256:[0-9a-f]{64}$",
           "description": "an OCI reference of the form <registry>/<repository>@sha256:<64 hex characters>"
+        },
+        "rejected": {
+          "type": "array",
+          "description": "digests the platform must not deploy again (a rollback returns to a digest that is not on this list); a list never holds the component's own digest (ADR 0172)",
+          "items": {
+            "type": "string",
+            "pattern": "^sha256:[0-9a-f]{64}$"
+          }
         }
       }
     }

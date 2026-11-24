@@ -45,3 +45,10 @@ rolloutDefaults:
   progressDeadlineSeconds: 600
   preStopSleepSeconds: 10
   terminationGracePeriodSeconds: 30
+
+# The spec of the service's release file (ADR 0166, ADR 0172), passed as an optional values
+# file by the golden-path ApplicationSet only while app-delivery is on. A component with a
+# digest here deploys that digest on its lock image's repository; a component without one,
+# and a service with no release, keep the lock image. The release file is the source; do not
+# set this by hand. Off, no release is passed and nothing here is read.
+# spec: {}
