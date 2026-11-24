@@ -195,6 +195,7 @@
         "applies": ["local"]
       },
       { "name": "host-published-ports", "kind": "feature", "applies": ["vps"] },
+      { "name": "openbao", "kind": "feature", "applies": ["vps"] },
       {
         "name": "registry-tag-pruning",
         "kind": "feature",
