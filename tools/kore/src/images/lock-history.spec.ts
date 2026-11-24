@@ -141,6 +141,15 @@ describe("reading the release lock's history refuses what it cannot read whole",
     ).rejects.toThrow("path missing at c1");
   });
 
+  it("refuses a committed file that has no entries, since it is not a release lock", async () => {
+    await expect(
+      readRevertRecord(
+        repository,
+        gitOver({ commits: ["c1"], locks: { c1: '{"version": 1}' } }),
+      ),
+    ).rejects.toThrow("has no entries object");
+  });
+
   it("refuses a lock whose entry names no sha256 digest", async () => {
     await expect(
       readRevertRecord(

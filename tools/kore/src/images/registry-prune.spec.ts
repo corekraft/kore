@@ -233,6 +233,21 @@ describe("registry tag pruning keeps a soaking digest and a kept digest's attach
   });
 });
 
+describe("registry tag pruning's revert keep has its own flag", () => {
+  it("reads no lock history, and prunes as before, while the revert-keep flag is off", async () => {
+    vi.mocked(featureEnabled).mockImplementation(
+      (_environment, flag) => flag === "registry-tag-pruning",
+    );
+    const { dependencies, remove, collectGarbage } = setup({
+      tags: { [oldRun]: { digest: digest("d"), age: 30 } },
+      failHistory: true,
+    });
+    await pruneRegistryTags(repository, dependencies);
+    expect(remove.mock.calls).toEqual([["reference", digest("d")]]);
+    expect(collectGarbage).toHaveBeenCalledOnce();
+  });
+});
+
 describe("registry tag pruning refusals", () => {
   it("deletes nothing without the host lease", async () => {
     const { dependencies, remove } = setup({

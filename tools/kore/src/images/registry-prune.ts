@@ -1,6 +1,7 @@
 import {
   featureEnabled,
   registryPruneFlag,
+  revertKeepFlag,
   type Repository,
 } from "../config/index.js";
 import { RegistryPruneError } from "./registry-prune-error.js";
@@ -117,9 +118,10 @@ async function pruneRepository(
  * collects garbage. A delete removes every tag on a digest, so a digest is
  * spared when a pod uses it, a lock file references it, or any other tag
  * (a `kore-src-*` source tag, a young per-run tag, a signature or attestation
- * tag) names it. A revert also needs its digests (ADR 0153): each service's
- * last three distinct digests in the release lock's history and every digest
- * still soaking are spared too, with their signature and attestation tags.
+ * tag) names it. Behind the `registry-revert-keep` flag, a revert also needs
+ * its digests (ADR 0153): each service's last three distinct digests in the
+ * release lock's history and every digest still soaking are spared too, with
+ * their signature and attestation tags.
  * Off unless the `registry-tag-pruning` flag is on; refuses without the host
  * lease; deletes nothing when the pods or the lock history cannot be read.
  * Returns the digests deleted.
@@ -138,8 +140,10 @@ export async function pruneRegistryTags(
   }
   const pods = await dependencies.podImages();
   const spared = await protectedDigests(pods, dependencies);
-  for (const digest of revertKept(await dependencies.revert())) {
-    spared.add(digest);
+  if (featureEnabled(repository.environment, revertKeepFlag)) {
+    for (const digest of revertKept(await dependencies.revert())) {
+      spared.add(digest);
+    }
   }
   let removed = 0;
   for (const name of await dependencies.admin.repositories()) {

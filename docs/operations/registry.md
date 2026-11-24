@@ -82,8 +82,9 @@ to reclaim space is to recreate the registry claim or the profile and republish
 (`kore local up`). Watch the claim with `kubectl --context kore-local --namespace
 kore-registry get pvc`; `kore platform status` does not report its usage.
 
-With the `registry-tag-pruning` flag on (off in every overlay), `kore local up`
-spares, whatever their per-run tags' age, every digest a revert needs
+With the `registry-tag-pruning` flag on and the `registry-revert-keep` flag on
+(both off in every overlay), `kore local up` spares, whatever their per-run
+tags' age, every digest a revert needs
 ([ADR 0153](../decisions/0153-rollback-goes-through-the-release-owner-and-host-maintenance-never-drains.md)):
 each service's last three distinct digests in the release lock's git history
 (`infra/catalog/images.lock.json`), every digest still soaking, and the

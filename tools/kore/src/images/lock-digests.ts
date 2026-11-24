@@ -45,13 +45,23 @@ export async function lockedDigests(
   );
 }
 
-/** Each service's digest in one committed release lock. Throws when a service names no sha256 digest. */
+/** Each service's digest in one committed release lock. Throws when the file is not a release lock or a service names no sha256 digest. */
 function digestsOf(text: string, commit: string): [string, string][] {
-  const lock = JSON.parse(text) as {
-    entries?: Record<string, { digest?: unknown } | null>;
-  };
-  return Object.entries(lock.entries ?? {}).map(([name, entry]) => {
-    const digest = entry?.digest;
+  const lock: unknown = JSON.parse(text);
+  const entries =
+    typeof lock === "object" && lock !== null && "entries" in lock
+      ? lock.entries
+      : undefined;
+  if (typeof entries !== "object" || entries === null) {
+    throw new RegistryPruneError(
+      `the file at ${commit} has no entries object, so it is not a release lock; nothing is pruned on a guess`,
+    );
+  }
+  return Object.entries(entries).map(([name, entry]) => {
+    const digest: unknown =
+      typeof entry === "object" && entry !== null && "digest" in entry
+        ? entry.digest
+        : undefined;
     if (typeof digest !== "string" || !sha256.test(digest)) {
       throw new RegistryPruneError(
         `the release lock at ${commit} names no sha256 digest for ${name}; nothing is pruned on a guess`,
