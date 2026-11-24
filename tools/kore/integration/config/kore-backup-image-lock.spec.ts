@@ -94,9 +94,10 @@ test("a separate job attaches the kore-backup lock with only the write-assets sc
   assert.match(attach, /refusing to replace it/);
 });
 
-test("nothing deploys the kore-backup image: no chart or environment names it, and the approved list is its only catalog entry", async () => {
+test("nothing deploys the kore-backup image: no chart, environment or local image lock names it", async () => {
   const root = await findRoot();
   const files = [
+    "infra/catalog/images.lock.json",
     ...(await readdir(join(root, "infra/charts"), { recursive: true }))
       .filter((name) => /\.(ya?ml|tpl)$/.test(name))
       .map((name) => join("infra/charts", name)),
