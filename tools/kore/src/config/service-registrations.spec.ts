@@ -25,15 +25,24 @@ function registration(name: string, kind = "Service"): string {
   });
 }
 
+/** The file names directly inside a directory of the fake repository. */
+function entriesOf(directory: string): string[] {
+  const prefix = `${directory}/`;
+  return Object.keys(files)
+    .filter((path) => path.startsWith(prefix))
+    .map((path) => path.slice(prefix.length))
+    .filter((entry) => !entry.includes("/"));
+}
+
 beforeEach(() => {
   files = {};
   vi.mocked(featureEnabled).mockClear();
-  vi.mocked(readdir).mockImplementation(async () => {
-    const error = Object.assign(new Error("ENOENT"), { code: "ENOENT" });
-    if (Object.keys(files).length === 0) {
-      throw error;
+  vi.mocked(readdir).mockImplementation(async (path) => {
+    const entries = entriesOf(path as string);
+    if (entries.length === 0) {
+      throw Object.assign(new Error("ENOENT"), { code: "ENOENT" });
     }
-    return Object.keys(files).map((path) => path.split("/").at(-1)!) as never;
+    return entries as never;
   });
   vi.mocked(readFile).mockImplementation(async (path) => {
     const text = files[path as string];
@@ -52,7 +61,10 @@ test("the derived names are exactly the registered Service names, sorted, with n
     "/repo/infra/services/blog.yaml": registration("blog"),
     "/repo/infra/services/notes.txt": "not a registration",
   };
-  expect(await loadServiceRegistrations("/repo")).toEqual(["blog", "shop"]);
+  expect(await loadServiceRegistrations("/repo", "local")).toEqual([
+    "blog",
+    "shop",
+  ]);
 });
 
 test.each([
@@ -81,26 +93,99 @@ test.each([
     files = {
       "/repo/infra/services/shop.yaml": JSON.stringify(manifest),
     };
-    await expect(loadServiceRegistrations("/repo")).rejects.toThrow(
+    await expect(loadServiceRegistrations("/repo", "local")).rejects.toThrow(
       "infra/services/shop.yaml: a limits field is platform-owned: the external Gateway's limits are set by the platform in the environment overlay, so a service record cannot tune, lower or raise them (ADR 0160)",
     );
   },
 );
 
 test("with no registrations directory the derived list is empty, so the profile still converges", async () => {
-  expect(await loadServiceRegistrations("/repo")).toEqual([]);
+  expect(await loadServiceRegistrations("/repo", "local")).toEqual([]);
+});
+
+/** The per-environment spec file of a Service, as the environment overlay holds it (ADR 0166). */
+function record(name: string, spec: Record<string, unknown> = {}): string {
+  return JSON.stringify({
+    apiVersion: "platform.kore.dev/v1alpha1",
+    kind: "Service",
+    metadata: { name },
+    spec: { organization: "platform", components: { frontend: {} }, ...spec },
+  });
+}
+
+test("the names are the legacy registrations and this environment's spec files, sorted, and the other environments' records are not read", async () => {
+  files = {
+    "/repo/infra/services/shop.yaml": registration("shop"),
+    "/repo/infra/environments/local/services/blog.json": record("blog", {
+      environments: ["local"],
+    }),
+    "/repo/infra/environments/local/services/blog.release.json": "{}",
+    "/repo/infra/environments/vps/services/other.json": record("other"),
+  };
+  expect(await loadServiceRegistrations("/repo", "local")).toEqual([
+    "blog",
+    "shop",
+  ]);
+  expect(await loadServiceRegistrations("/repo", "vps")).toEqual([
+    "other",
+    "shop",
+  ]);
+});
+
+test("a Service in both the legacy registrations and the environment's records is listed once, not refused here", async () => {
+  files = {
+    "/repo/infra/services/shop.yaml": registration("shop"),
+    "/repo/infra/environments/local/services/shop.json": record("shop"),
+  };
+  expect(await loadServiceRegistrations("/repo", "local")).toEqual(["shop"]);
+});
+
+test("a spec file needs no environments list to be listed, so the derivation does not require one", async () => {
+  files = {
+    "/repo/infra/environments/local/services/blog.json": record("blog"),
+  };
+  expect(await loadServiceRegistrations("/repo", "local")).toEqual(["blog"]);
+});
+
+test("a spec file whose metadata.name is not its file name fails, naming the file", async () => {
+  files = {
+    "/repo/infra/environments/local/services/blog.json": record("shop"),
+  };
+  await expect(loadServiceRegistrations("/repo", "local")).rejects.toThrow(
+    "infra/environments/local/services/blog.json: metadata.name shop must equal the file name blog, so the record is named after its file",
+  );
+});
+
+test("a spec file whose name is not a DNS label fails, naming the file", async () => {
+  files = {
+    "/repo/infra/environments/local/services/Shop_1.json": record("Shop_1"),
+  };
+  await expect(loadServiceRegistrations("/repo", "local")).rejects.toThrow(
+    "infra/environments/local/services/Shop_1.json: the registered Service name Shop_1 must be a DNS label",
+  );
+});
+
+test("a spec file carrying a limits field is refused as the legacy registrations are", async () => {
+  files = {
+    "/repo/infra/environments/local/services/shop.json": record("shop", {
+      limits: {},
+    }),
+  };
+  await expect(loadServiceRegistrations("/repo", "local")).rejects.toThrow(
+    "infra/environments/local/services/shop.json: a limits field is platform-owned",
+  );
 });
 
 test("a registration whose name is not a DNS label fails, naming the file", async () => {
   files = { "/repo/infra/services/Shop_1.yaml": registration("Shop_1") };
-  await expect(loadServiceRegistrations("/repo")).rejects.toThrow(
+  await expect(loadServiceRegistrations("/repo", "local")).rejects.toThrow(
     "infra/services/Shop_1.yaml: the registered Service name Shop_1 must be a DNS label of 61 characters or fewer, lowercase letters, digits and single hyphens",
   );
 });
 
 test("a registration whose name holds a double hyphen fails, naming the file", async () => {
   files = { "/repo/infra/services/a--b.yaml": registration("a--b") };
-  await expect(loadServiceRegistrations("/repo")).rejects.toThrow(
+  await expect(loadServiceRegistrations("/repo", "local")).rejects.toThrow(
     "infra/services/a--b.yaml: the registered Service name a--b must be a DNS label",
   );
 });
@@ -110,21 +195,21 @@ test("two registrations with the same name fail, naming both files", async () =>
     "/repo/infra/services/shop.yaml": registration("shop"),
     "/repo/infra/services/shop-copy.yaml": registration("shop"),
   };
-  await expect(loadServiceRegistrations("/repo")).rejects.toThrow(
+  await expect(loadServiceRegistrations("/repo", "local")).rejects.toThrow(
     "infra/services/shop.yaml: the registered Service name shop is already registered in infra/services/shop-copy.yaml",
   );
 });
 
 test("a registration that is not a Service manifest fails, naming the file", async () => {
   files = { "/repo/infra/services/shop.yaml": registration("shop", "Bucket") };
-  await expect(loadServiceRegistrations("/repo")).rejects.toThrow(
+  await expect(loadServiceRegistrations("/repo", "local")).rejects.toThrow(
     "infra/services/shop.yaml: a registration must be a Service manifest (kind Service)",
   );
 });
 
 test("a registration that is not JSON-compatible YAML fails, naming the file", async () => {
   files = { "/repo/infra/services/shop.yaml": "kind: Service" };
-  await expect(loadServiceRegistrations("/repo")).rejects.toThrow(
+  await expect(loadServiceRegistrations("/repo", "local")).rejects.toThrow(
     "infra/services/shop.yaml: registrations must use JSON-compatible YAML",
   );
 });

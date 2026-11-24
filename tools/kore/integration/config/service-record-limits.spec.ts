@@ -24,7 +24,7 @@ test("a Service registration on disk that carries a limits field is refused, nam
       },
     }),
   );
-  await expect(loadServiceRegistrations(root)).rejects.toThrow(
+  await expect(loadServiceRegistrations(root, "vps")).rejects.toThrow(
     "infra/services/shop.yaml: a limits field is platform-owned: the external Gateway's limits are set by the platform in the environment overlay, so a service record cannot tune, lower or raise them (ADR 0160)",
   );
 });

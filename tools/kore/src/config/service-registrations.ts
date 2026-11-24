@@ -4,9 +4,21 @@ import type { Environment } from "./types.js";
 
 // Docs: docs/decisions/0115-scope-the-organization-and-service-platform-apis-to-the-cluster.md
 // Docs: docs/decisions/0114-give-the-platform-organization-default-dashboards-notify-only-alerts-and-default-retention.md
+// Docs: docs/decisions/0166-an-app-is-a-service-with-a-two-file-record-in-kore-and-its-source-in-its-own-repository.md
 
-/** The directory, in git, that holds one Service registration per file. */
+/**
+ * The legacy directory, in git, that holds one Service registration per file. It
+ * stays until the contract step of ADR 0166 drops it.
+ */
 export const serviceRegistrationsDirectory = "infra/services";
+
+/**
+ * The services directory of one environment overlay (ADR 0166). Its
+ * <service>.json spec files are registrations beside the legacy directory; its
+ * <service>.release.json files carry no name and are not registrations.
+ */
+const environmentServicesDirectory = (environment: string): string =>
+  `infra/environments/${environment}/services`;
 
 /** The chart that renders one dashboard and one alert group per registered Service. */
 const serviceObservabilityComponent = "kore-service-observability";
@@ -27,15 +39,18 @@ function nameErrors(name: string): string | undefined {
   return undefined;
 }
 
-/** The name one registration file declares, or a failure that names the file. */
+/**
+ * The name one registration file declares, or a failure that names the file. The
+ * same rules apply to a legacy registration and to a spec file in an overlay.
+ * `relative` is the file's path in the repository.
+ */
 async function registrationName(
-  directory: string,
-  file: string,
+  root: string,
+  relative: string,
 ): Promise<string> {
-  const relative = `${serviceRegistrationsDirectory}/${file}`;
   let manifest: unknown;
   try {
-    manifest = JSON.parse(await readFile(`${directory}/${file}`, "utf8"));
+    manifest = JSON.parse(await readFile(`${root}/${relative}`, "utf8"));
   } catch (error) {
     throw new Error(
       `${relative}: registrations must use JSON-compatible YAML: ${String(error)}`,
@@ -72,12 +87,10 @@ async function registrationName(
   return name;
 }
 
-/** The registration files in the directory, sorted; none when the directory is absent. */
-async function registrationFiles(directory: string): Promise<string[]> {
+/** The entries of a directory, sorted; none when the directory is absent. */
+async function entriesOf(directory: string): Promise<string[]> {
   try {
-    return (await readdir(directory))
-      .filter((entry) => entry.endsWith(".yaml"))
-      .sort();
+    return (await readdir(directory)).sort();
   } catch (error) {
     if ((error as NodeJS.ErrnoException).code === "ENOENT") {
       return [];
@@ -87,46 +100,89 @@ async function registrationFiles(directory: string): Promise<string[]> {
 }
 
 /**
- * The Service names the registrations in git declare, sorted. The derivation
- * reads no feature flag: any later consumer reads the names from here. An
- * invalid registration fails here, naming its file, before anything renders.
- * A repository with no registrations directory has no names.
+ * The legacy registrations by name, each keyed to its repository path. A name
+ * declared by two legacy files fails, naming both.
  */
-export async function loadServiceRegistrations(
-  root: string,
-): Promise<string[]> {
-  const directory = `${root}/${serviceRegistrationsDirectory}`;
+async function legacyRegistrations(root: string): Promise<Map<string, string>> {
   const owners = new Map<string, string>();
-  for (const file of await registrationFiles(directory)) {
-    const name = await registrationName(directory, file);
+  for (const entry of await entriesOf(
+    `${root}/${serviceRegistrationsDirectory}`,
+  )) {
+    if (!entry.endsWith(".yaml")) {
+      continue;
+    }
+    const relative = `${serviceRegistrationsDirectory}/${entry}`;
+    const name = await registrationName(root, relative);
     const owner = owners.get(name);
     if (owner !== undefined) {
       throw new Error(
-        `${serviceRegistrationsDirectory}/${file}: the registered Service name ${name} is already registered in ${owner}`,
+        `${relative}: the registered Service name ${name} is already registered in ${owner}`,
       );
     }
-    owners.set(name, `${serviceRegistrationsDirectory}/${file}`);
+    owners.set(name, relative);
   }
-  return [...owners.keys()].sort();
+  return owners;
 }
 
 /**
- * The file that declares each registered Service name, keyed by name, each file
- * a repository path. loadRepository has already refused an invalid registration
- * and a duplicate name, so this reads the same files without repeating those checks.
+ * This environment's spec files by name, each keyed to its repository path. A spec
+ * file is named after its file, so its metadata.name must equal the file name. Its
+ * spec need not carry an environments list to be listed here.
+ */
+async function environmentRegistrations(
+  root: string,
+  environment: string,
+): Promise<Map<string, string>> {
+  const directory = environmentServicesDirectory(environment);
+  const names = new Map<string, string>();
+  for (const entry of await entriesOf(`${root}/${directory}`)) {
+    if (
+      entry.startsWith(".") ||
+      !entry.endsWith(".json") ||
+      entry.endsWith(".release.json")
+    ) {
+      continue;
+    }
+    const relative = `${directory}/${entry}`;
+    const stem = entry.slice(0, -".json".length);
+    const name = await registrationName(root, relative);
+    if (name !== stem) {
+      throw new Error(
+        `${relative}: metadata.name ${name} must equal the file name ${stem}, so the record is named after its file`,
+      );
+    }
+    names.set(name, relative);
+  }
+  return names;
+}
+
+/**
+ * The Service names this environment serves: the legacy registrations and the
+ * environment's spec files (ADR 0166), sorted, each name once. A name in both
+ * places is listed once here; kore validate still refuses it (app-records.ts).
+ * The derivation reads no feature flag. An invalid registration fails here,
+ * naming its file, before anything renders. A repository with neither directory
+ * has no names.
+ */
+export async function loadServiceRegistrations(
+  root: string,
+  environment: string,
+): Promise<string[]> {
+  const names = new Set<string>([
+    ...(await legacyRegistrations(root)).keys(),
+    ...(await environmentRegistrations(root, environment)).keys(),
+  ]);
+  return [...names].sort();
+}
+
+/**
+ * The file that declares each legacy registration, keyed by name. The uniqueness
+ * check reads it beside this environment's spec files (app-records.ts).
  */
 export async function registrationPaths(
   root: string,
 ): Promise<Map<string, string>> {
-  const directory = `${root}/${serviceRegistrationsDirectory}`;
-  const paths = new Map<string, string>();
-  for (const file of await registrationFiles(directory)) {
-    paths.set(
-      await registrationName(directory, file),
-      `${serviceRegistrationsDirectory}/${file}`,
-    );
-  }
-  return paths;
+  return legacyRegistrations(root);
 }
 
 /**
