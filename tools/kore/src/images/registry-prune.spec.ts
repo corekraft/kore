@@ -16,6 +16,7 @@ const now = 100 * DAY;
 const digest = (letter: string): string => `sha256:${letter.repeat(64)}`;
 const oldRun = "kore-local-aaaaaaaaaaaa";
 const youngRun = "kore-local-bbbbbbbbbbbb";
+const otherOldRun = "kore-local-cccccccccccc";
 
 interface Registry {
   tags: Record<string, { digest: string; age: number }>;
@@ -23,6 +24,11 @@ interface Registry {
   locked?: string[];
   lease?: boolean;
   failPods?: boolean;
+  /** Each service's digests from the release lock's history, newest first. */
+  history?: Record<string, string[]>;
+  /** Digests whose soak has not ended. */
+  soaking?: string[];
+  failHistory?: boolean;
 }
 
 /** A registry holding one repository, and the dependencies around it. */
@@ -45,6 +51,15 @@ function setup(registry: Registry) {
       return new Set(registry.pods ?? []);
     },
     lockedDigests: async () => new Set(registry.locked ?? []),
+    revert: async () => {
+      if (registry.failHistory === true) {
+        throw new Error("release lock history unreadable");
+      }
+      return {
+        services: new Map(Object.entries(registry.history ?? {})),
+        soaking: new Set(registry.soaking ?? []),
+      };
+    },
     admin,
     collectGarbage,
     now: () => now,
@@ -109,6 +124,127 @@ describe("registry tag pruning", () => {
     });
     await pruneRegistryTags(repository, dependencies);
     expect(remove).not.toHaveBeenCalled();
+  });
+});
+
+describe("registry tag pruning keeps the digests a revert needs", () => {
+  it("keeps a service's current digest", async () => {
+    const { dependencies, remove } = setup({
+      tags: { [oldRun]: { digest: digest("a"), age: 30 } },
+      history: { reference: [digest("a")] },
+    });
+    await pruneRegistryTags(repository, dependencies);
+    expect(remove).not.toHaveBeenCalled();
+  });
+
+  it("deletes an old per-run digest that is not among a service's last three distinct digests", async () => {
+    const { dependencies, remove, collectGarbage } = setup({
+      tags: { [oldRun]: { digest: digest("d"), age: 30 } },
+      history: { reference: [digest("a"), digest("b"), digest("c")] },
+    });
+    await pruneRegistryTags(repository, dependencies);
+    expect(remove.mock.calls).toEqual([["reference", digest("d")]]);
+    expect(collectGarbage).toHaveBeenCalledOnce();
+  });
+
+  it("keeps the third distinct digest of a service", async () => {
+    const { dependencies, remove } = setup({
+      tags: { [oldRun]: { digest: digest("c"), age: 30 } },
+      history: { reference: [digest("a"), digest("b"), digest("c")] },
+    });
+    await pruneRegistryTags(repository, dependencies);
+    expect(remove).not.toHaveBeenCalled();
+  });
+
+  it("counts distinct digests, so re-bumping one image does not use up the three", async () => {
+    const { dependencies, remove } = setup({
+      tags: { [oldRun]: { digest: digest("c"), age: 30 } },
+      history: {
+        reference: [
+          digest("a"),
+          digest("a"),
+          digest("a"),
+          digest("b"),
+          digest("c"),
+        ],
+      },
+    });
+    await pruneRegistryTags(repository, dependencies);
+    expect(remove).not.toHaveBeenCalled();
+  });
+
+  it("deletes the fourth distinct digest of a service, once the three newer ones are kept", async () => {
+    const { dependencies, remove } = setup({
+      tags: { [oldRun]: { digest: digest("d"), age: 30 } },
+      history: {
+        reference: [
+          digest("a"),
+          digest("a"),
+          digest("b"),
+          digest("c"),
+          digest("d"),
+        ],
+      },
+    });
+    await pruneRegistryTags(repository, dependencies);
+    expect(remove.mock.calls).toEqual([["reference", digest("d")]]);
+  });
+});
+
+describe("registry tag pruning keeps a soaking digest and a kept digest's attachments", () => {
+  it("keeps a digest whose soak has not ended, even beyond the last three", async () => {
+    const { dependencies, remove } = setup({
+      tags: { [oldRun]: { digest: digest("e"), age: 30 } },
+      history: {
+        reference: [digest("a"), digest("b"), digest("c"), digest("e")],
+      },
+      soaking: [digest("e")],
+    });
+    await pruneRegistryTags(repository, dependencies);
+    expect(remove).not.toHaveBeenCalled();
+  });
+
+  it("keeps a kept digest's signature and attestation, and collects garbage once for the digest it deletes", async () => {
+    const kept = "c".repeat(64);
+    const { dependencies, remove, collectGarbage } = setup({
+      tags: {
+        [oldRun]: { digest: digest("c"), age: 30 },
+        [otherOldRun]: { digest: digest("d"), age: 30 },
+        [`sha256-${kept}.sig`]: { digest: digest("s"), age: 30 },
+        [`sha256-${kept}.att`]: { digest: digest("t"), age: 30 },
+      },
+      history: { reference: [digest("a"), digest("b"), digest("c")] },
+    });
+    await pruneRegistryTags(repository, dependencies);
+    expect(remove.mock.calls).toEqual([["reference", digest("d")]]);
+    expect(collectGarbage).toHaveBeenCalledOnce();
+  });
+
+  it("deletes nothing and collects no garbage when the release lock history cannot be read", async () => {
+    const { dependencies, remove, collectGarbage } = setup({
+      tags: { [oldRun]: { digest: digest("d"), age: 30 } },
+      failHistory: true,
+    });
+    await expect(pruneRegistryTags(repository, dependencies)).rejects.toThrow(
+      "release lock history unreadable",
+    );
+    expect(remove).not.toHaveBeenCalled();
+    expect(collectGarbage).not.toHaveBeenCalled();
+  });
+});
+
+describe("registry tag pruning's revert keep has its own flag", () => {
+  it("reads no lock history, and prunes as before, while the revert-keep flag is off", async () => {
+    vi.mocked(featureEnabled).mockImplementation(
+      (_environment, flag) => flag === "registry-tag-pruning",
+    );
+    const { dependencies, remove, collectGarbage } = setup({
+      tags: { [oldRun]: { digest: digest("d"), age: 30 } },
+      failHistory: true,
+    });
+    await pruneRegistryTags(repository, dependencies);
+    expect(remove.mock.calls).toEqual([["reference", digest("d")]]);
+    expect(collectGarbage).toHaveBeenCalledOnce();
   });
 });
 
