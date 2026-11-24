@@ -116,6 +116,7 @@ function chartDeliveryArgs(
     `platformHostname=${delivery.platformHostname}`,
     ...databaseRoutesDeliveryArgs(delivery),
     ...(delivery.inClusterCa === true ? ["--set", "inClusterCa=true"] : []),
+    ...(delivery.syncWindow === true ? ["--set", "syncWindow=true"] : []),
     ...(delivery.serviceClassInstances === true
       ? ["--set", "serviceClassInstances=true"]
       : []),

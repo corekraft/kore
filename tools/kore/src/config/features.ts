@@ -84,6 +84,9 @@ export const organizationServiceApisFlag = "platform-organization-service-apis";
 /** The flag that installs the platform organization's Argo CD in the core phase (ADR 0043, plan 15 step 5). */
 export const platformArgocdDeliveryFlag = "platform-argocd-delivery";
 
+/** The flag that lets the configuration AppProject carry a maintenance deny window, which a held maintenance run denies every sync with (ADR 0153, issue 1540). Off in every overlay until a live run proves it refuses a sync. */
+export const platformSyncWindowFlag = "platform-sync-window";
+
 /** The flag that makes a recovery refuse a helm rollback of a release Argo CD owns, naming its git revert (ADR 0153, issue 1541). Off in every overlay until a recorded live outcome. */
 export const releaseRecoveryArgocdRefusalFlag =
   "release-recovery-argocd-refusal";

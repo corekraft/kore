@@ -63,8 +63,11 @@ export const argocdOwned = (repository: Repository): string[] =>
     .filter((c) => c.owner === "argocd")
     .map((c) => c.name);
 
-/** Renders the delivery chart with the values `kore` composes, so Helm checks them against the chart's schema. */
-export async function renderDelivery(repository: Repository): Promise<{
+/** Renders the delivery chart with the values `kore` composes, plus any extra Helm arguments, so Helm checks them against the chart's schema. */
+export async function renderDelivery(
+  repository: Repository,
+  extra: string[] = [],
+): Promise<{
   handedOver: string[];
   applications: string[];
   docs: string[];
@@ -91,9 +94,11 @@ export async function renderDelivery(repository: Repository): Promise<{
     ...(chartDelivery.inClusterCa === true
       ? ["--set", "inClusterCa=true"]
       : []),
+    ...(chartDelivery.syncWindow === true ? ["--set", "syncWindow=true"] : []),
     ...(chartDelivery.serviceClassInstances === true
       ? ["--set", "serviceClassInstances=true"]
       : []),
+    ...extra,
   ]);
   return {
     handedOver: argocdOwned(repository),
