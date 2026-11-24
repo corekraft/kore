@@ -121,11 +121,17 @@ export async function retainedResources(
   return [...new Set(retained)].sort();
 }
 
+/**
+ * Deletes the retained databases and claims: in every namespace, or only in
+ * `namespace` when a single release's data is purged.
+ */
 export async function purgeRetainedResources(
   repository: Repository,
   runner: Runner,
+  namespace?: string,
 ): Promise<void> {
   const context = repository.environment.kubeContext;
+  const scope = namespace ? ["--namespace", namespace] : ["--all-namespaces"];
   const selector = "platform.kore.dev/retention=Retain";
   // A claim still mounted by a running pod stays Terminating until the pod
   // goes, so waiting on it would hang; the profile deletion that follows
@@ -143,7 +149,7 @@ export async function purgeRetainedResources(
           context,
           "delete",
           resource,
-          "--all-namespaces",
+          ...scope,
           "--selector",
           selector,
           "--ignore-not-found",
