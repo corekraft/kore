@@ -72,9 +72,9 @@ export const driftHelp: CommandHelp = {
   examples: [
     {
       command:
-        "kore platform status --environment vps --json | harness platform rollout-drift --environment vps",
+        "harness platform rollout-drift --environment vps < vps-status.json",
       shows:
-        "No drift: and the compared chart count, or one line per chart whose installed version differs from the recorded one",
+        "with vps-status.json saved from `kore platform status --environment vps --json` (a pipe works too): No drift: and the compared chart count, or one line per chart whose installed version differs from the recorded one",
     },
     {
       command:
