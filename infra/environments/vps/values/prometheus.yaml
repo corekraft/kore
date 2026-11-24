@@ -11,7 +11,8 @@
             [
               "/etc/config/recording_rules.yml",
               "/etc/config/alerting_rules.yml",
-              "/etc/kore/rules/platform.yaml"
+              "/etc/kore/rules/platform.yaml",
+              "/etc/kore/rules/services.yaml"
             ]
         }
     },

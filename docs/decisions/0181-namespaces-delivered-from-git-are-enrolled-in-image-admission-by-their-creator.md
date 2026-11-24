@@ -66,6 +66,11 @@ v0.4.0); the template policy admits v0.22.0 through `templates.trust`. The
 `templates.mode` key is replaced by `templates.trust.mode`, so one setting holds
 the template policy's trust and its mode.
 
+The template authority sets `signatureFormat: bundle` because the release signs
+the template images as an OCI-referrer bundle with no legacy `.sig` tag, which
+the default format would look for and never find (Policy Controller v0.13.1
+verifies a bundle only on a keyless authority).
+
 ## Consequences
 
 - Enrolment of the golden-path namespaces is a git change behind a flag, so it is

@@ -10,6 +10,11 @@ The policy exists only while the golden-path-template-admission feature flag is
 on, and it starts in templates.trust.mode (warn while auditing, enforce after a
 recorded live outcome). Its glob is the template repository and nothing else, so
 no other image matches it.
+
+The authority reads Sigstore bundles (signatureFormat: bundle, issue 1884): cosign
+3 stores the release signature as an OCI-referrer bundle and writes no legacy
+sha256-<digest>.sig tag, which the default format would look for. Policy
+Controller v0.13.1 verifies a bundle only for a keyless authority.
 */ -}}
 {{- $features := .Values.features | default dict }}
 {{- $template := .Values.templates.trust | default dict }}
@@ -25,6 +30,7 @@ spec:
     - glob: {{ printf "%s/**" .Values.templates.repository | quote }}
   authorities:
     - name: release-workflow
+      signatureFormat: bundle
       keyless:
         url: https://fulcio.sigstore.dev
         identities:

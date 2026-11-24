@@ -21,6 +21,11 @@
   "kube-state-metrics":
     {
       "collectorsExclude": ["secrets"],
+      "metricLabelsAllowlist":
+        [
+          "deployments=[app.kubernetes.io/part-of]",
+          "pods=[app.kubernetes.io/part-of]"
+        ],
       "image":
         {
           "registry": "registry.k8s.io",

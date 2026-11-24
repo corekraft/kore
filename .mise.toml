@@ -123,7 +123,7 @@ depends = ["build"]
 
 [tasks.test-promtool]
 description = "Check and unit test Prometheus rule files with promtool"
-run = ["promtool check rules infra/observability/config/files/rules/platform.yaml", "promtool test rules infra/observability/config/tests/platform.test.yaml"]
+run = ["promtool check rules infra/observability/config/files/rules/platform.yaml", "promtool check rules infra/observability/config/files/rules/services.yaml", "promtool test rules infra/observability/config/tests/platform.test.yaml", "promtool test rules infra/observability/config/tests/services.test.yaml"]
 
 [tasks.scan-secrets]
 description = "Scan git history and tracked files for secrets with TruffleHog (verification needs network); .kore/ and SOPS ciphertext are excluded"
