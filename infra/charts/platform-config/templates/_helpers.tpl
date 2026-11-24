@@ -27,6 +27,25 @@ changes.
 {{- end -}}
 
 {{/*
+True (a non-empty string) only while the external-gateway flag is on: the chart
+renders the external Gateway, its HTTP redirect and its Service's node port
+(ADR 0160, issue 1633). Off, nothing it renders changes.
+*/}}
+{{- define "platform-config.externalGateway" -}}
+{{- if index (.Values.features | default dict) "external-gateway" -}}true{{- end -}}
+{{- end -}}
+
+{{/*
+True (a non-empty string) only while the service-listener-sets flag is on: each
+Gateway admits ListenerSets only from namespaces carrying the platform's
+shared-Gateway label (ADR 0159, issue 1633). Off, the Gateways carry no
+allowedListeners, as before.
+*/}}
+{{- define "platform-config.serviceListenerSets" -}}
+{{- if index (.Values.features | default dict) "service-listener-sets" -}}true{{- end -}}
+{{- end -}}
+
+{{/*
 The namespaces a Gateway listener admits routes from. Off, every namespace, as
 before. On, only namespaces carrying the platform-owned label that the platform
 charts and the delivery ApplicationSet set (ADR 0133).

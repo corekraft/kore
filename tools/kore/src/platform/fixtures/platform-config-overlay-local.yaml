@@ -1,0 +1,223 @@
+---
+# Source: platform-config/templates/namespaces.yaml
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: kore-system
+  labels: {app.kubernetes.io/managed-by: Helm, platform.kore.dev/shared-gateway: "true"}
+
+---
+# Source: platform-config/templates/namespaces.yaml
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: kore-secret-source
+  labels:
+    app.kubernetes.io/managed-by: Helm
+    platform.kore.dev/secret-source: "true"
+
+
+---
+# Source: platform-config/templates/gateway-service.yaml
+# agentgateway generates the Gateway's Service and merges this overlay into it,
+# the same settings the Istio ConfigMap above carries, so the environment still
+# decides how the Service is published.
+apiVersion: agentgateway.dev/v1alpha1
+kind: AgentgatewayParameters
+metadata:
+  name: kore-gateway-service
+  namespace: kore-system
+  labels: {app.kubernetes.io/managed-by: Helm}
+spec:
+  service:
+    spec:
+      type: NodePort
+      ports:
+        - port: 443
+          name: https-standard
+          targetPort: 8443
+          nodePort: 30443
+        - port: 5432
+          name: postgres
+          nodePort: 30432
+
+---
+# Source: platform-config/templates/mesh-policy.yaml
+apiVersion: security.istio.io/v1
+kind: AuthorizationPolicy
+metadata: {name: default-deny, namespace: kore-system}
+spec: {}
+
+---
+# Source: platform-config/templates/mesh-policy.yaml
+# The Gateway is the intentional public entry point; keep the rest of
+# kore-system denied by default while allowing HTTPS traffic to this Gateway.
+apiVersion: security.istio.io/v1
+kind: AuthorizationPolicy
+metadata: {name: gateway-allow-https, namespace: kore-system}
+spec:
+  selector:
+    matchLabels:
+      gateway.networking.k8s.io/gateway-name: kore-gateway
+  action: ALLOW
+  rules:
+    - to:
+        - operation:
+            ports: ["8443", "5432"]
+
+---
+# Source: platform-config/templates/wildcard-certificate.yaml
+# The platform organization's wildcard for the shared Gateway (ADR 0132): one
+# certificate from the local CA, in the Gateway's namespace, beside kore-local.
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: kore-platform-wildcard
+  namespace: kore-system
+  labels: {app.kubernetes.io/managed-by: Helm}
+spec:
+  secretName: kore-platform-wildcard-tls
+  dnsNames:
+    - "*.platform.kore.internal"
+  issuerRef:
+    kind: ClusterIssuer
+    name: kore-local-ca
+
+---
+# Source: platform-config/templates/wildcard-certificate.yaml
+# Keycloak's certificate for its name under the platform organization (ADR 0133).
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: kore-keycloak
+  namespace: kore-system
+  labels: {app.kubernetes.io/managed-by: Helm}
+spec:
+  secretName: keycloak-tls
+  dnsNames:
+    - "keycloak.platform.kore.internal"
+  issuerRef:
+    kind: ClusterIssuer
+    name: kore-local-ca
+
+---
+# Source: platform-config/templates/secret-store.yaml
+apiVersion: external-secrets.io/v1
+kind: ClusterSecretStore
+metadata:
+  name: platform-secrets
+spec:
+  provider:
+    kubernetes:
+      remoteNamespace: kore-secret-source
+      server:
+        url: https://kubernetes.default.svc
+        caProvider: {type: ConfigMap, name: kube-root-ca.crt, key: ca.crt, namespace: kore-secret-source}
+      auth:
+        serviceAccount:
+          name: external-secrets
+          namespace: external-secrets
+
+
+---
+# Source: platform-config/templates/gateway.yaml
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+  name: kore-gateway
+  namespace: kore-system
+  labels: {app.kubernetes.io/managed-by: Helm}
+spec:
+  infrastructure:
+    # Enrols only the data-plane pod in the ambient mesh (ADR 0081): agentgateway
+    # copies Gateway infrastructure labels onto the generated pod, and the pod
+    # runs as the ServiceAccount named after the Gateway.
+    labels: {istio.io/dataplane-mode: ambient}
+    parametersRef: {group: agentgateway.dev, kind: AgentgatewayParameters, name: kore-gateway-service}
+  gatewayClassName: agentgateway
+  listeners:
+    - name: https
+      hostname: "kore.internal"
+      port: 8443
+      protocol: HTTPS
+      tls:
+        mode: Terminate
+        certificateRefs:
+          - {kind: Secret, name: kore-local-tls}
+      allowedRoutes:
+        namespaces: {from: Selector, selector: {matchLabels: {platform.kore.dev/shared-gateway: "true"}}}
+    # A listener holds one hostname, so the platform organization's wildcard is a
+    # second HTTPS listener on the same port, with its own certificate (ADR 0132).
+    - name: https-platform
+      hostname: "*.platform.kore.internal"
+      port: 8443
+      protocol: HTTPS
+      tls:
+        mode: Terminate
+        certificateRefs:
+          - {kind: Secret, name: kore-platform-wildcard-tls}
+      allowedRoutes:
+        namespaces: {from: Selector, selector: {matchLabels: {platform.kore.dev/shared-gateway: "true"}}}
+    # Keycloak answers to its own name under the platform organization, with its own
+    # listener and certificate (ADR 0133). Its HTTPRoute is the Keycloak chart's.
+    - name: https-keycloak
+      hostname: "keycloak.platform.kore.internal"
+      port: 8443
+      protocol: HTTPS
+      tls:
+        mode: Terminate
+        certificateRefs:
+          - {kind: Secret, name: keycloak-tls}
+      allowedRoutes:
+        namespaces: {from: Selector, selector: {matchLabels: {platform.kore.dev/shared-gateway: "true"}}}
+    # A TLS passthrough listener for databases reached by name: the database
+    # keeps its own certificate, and a TLSRoute in the database's namespace picks
+    # the backend by the name the client sends. It sits on its own port, so it
+    # never shares one with the HTTPS listeners.
+    - name: postgres
+      hostname: "*.platform.kore.internal"
+      port: 5432
+      protocol: TLS
+      tls:
+        mode: Passthrough
+      allowedRoutes:
+        namespaces: {from: Selector, selector: {matchLabels: {platform.kore.dev/shared-gateway: "true"}}}
+    # The registry keeps its own certificate, authentication and end-to-end
+    # verification (ADR 0058): the Gateway never terminates its TLS. Routing is by
+    # the SNI name, on the same port as the HTTPS listeners (agentgateway serves
+    # both on one port, issue 1218).
+    - name: tls-registry
+      hostname: "registry.platform.kore.internal"
+      port: 8443
+      protocol: TLS
+      tls:
+        mode: Passthrough
+      allowedRoutes:
+        kinds: [{kind: TLSRoute}]
+        namespaces: {from: Selector, selector: {matchLabels: {platform.kore.dev/shared-gateway: "true"}}}
+
+---
+# Source: platform-config/templates/mesh-policy.yaml
+apiVersion: security.istio.io/v1
+kind: PeerAuthentication
+metadata: {name: default, namespace: kore-system}
+spec: {mtls: {mode: STRICT}}
+
+---
+# Source: platform-config/templates/mesh-policy.yaml
+# The gateway pod is enrolled in the ambient mesh (ADR 0081), so kore-system's
+# STRICT default would reject the load balancer's plaintext connection to it.
+# Only the gateway's listener port and, behind database-routes, the database
+# listener's port are permissive, the same exposure the Istio gateway has; every
+# other port and workload stays STRICT.
+apiVersion: security.istio.io/v1
+kind: PeerAuthentication
+metadata: {name: kore-gateway-listener, namespace: kore-system}
+spec:
+  selector:
+    matchLabels:
+      gateway.networking.k8s.io/gateway-name: kore-gateway
+  mtls: {mode: STRICT}
+  portLevelMtls:
+    "8443": {mode: PERMISSIVE}
+    "5432": {mode: PERMISSIVE}

@@ -53,6 +53,8 @@
       "platform-dns": false,
       "drift-listing-mappings": false,
       "platform-shared-gateway": false,
+      "service-listener-sets": false,
+      "external-gateway": false,
       "registry-by-name": false,
       "registry-tailnet-forward": false,
       "otlp-route": false,

@@ -149,6 +149,12 @@ export function startsAfterDelivery(
 /** The flag that adds the shared Gateway's wildcard listener, and so lets the golden-path and portal charts attach routes to it beside their own Gateways (ADR 0132, ADR 0133). */
 export const platformSharedGatewayFlag = "platform-shared-gateway";
 
+/** The flag that makes each Gateway admit ListenerSets only from the namespaces the platform labels as shared, so a service's ListenerSet attaches to a platform Gateway (ADR 0159, issue 1633). Needs platform-shared-gateway, which sets the label. Off in every overlay until a recorded live outcome. */
+export const serviceListenerSetsFlag = "service-listener-sets";
+
+/** The flag that renders the external Gateway, kore-gateway-external: one HTTP listener on 80 that redirects to HTTPS, and no HTTPS listener until a service claims a name (ADR 0160, issue 1633). Needs service-listener-sets. Off in every overlay until a recorded live outcome. */
+export const externalGatewayFlag = "external-gateway";
+
 /** The flag that renders the kore-template-images policy, which admits the golden-path template images by signature under the release identity (plan 15 Step 4, issue 1884), and labels the golden-path namespaces its creators make (the golden-path sync and the Service composition) for policy.sigstore.dev/include (ADR 0181). The policy admits only the template repository; off in every overlay until a recorded live outcome. */
 export const goldenPathTemplateAdmissionFlag = "golden-path-template-admission";
 
