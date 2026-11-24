@@ -2,9 +2,9 @@
 import { readFile } from "node:fs/promises";
 import { dirname, isAbsolute, join, resolve } from "node:path";
 import { afterEach, beforeEach, expect, test, vi } from "vitest";
+import { componentValues } from "./component-values.js";
 import {
   absolute,
-  componentValues,
   componentVersion,
   expandVersions,
   findRoot,
@@ -14,6 +14,7 @@ import {
 } from "./config.js";
 import { exists } from "./files.js";
 import { orderedComponents } from "./order.js";
+import { suborgNames } from "./organization-records.js";
 import { loadServiceRegistrations } from "./service-registrations.js";
 import { FileExemptionSource } from "./exemption-source.js";
 import { validateRepository } from "./validate.js";
@@ -31,6 +32,7 @@ vi.mock("./files.js", () => ({ exists: vi.fn() }));
 vi.mock("./service-registrations.js", () => ({
   loadServiceRegistrations: vi.fn(),
 }));
+vi.mock("./organization-records.js", () => ({ suborgNames: vi.fn() }));
 vi.mock("./order.js", () => ({ orderedComponents: vi.fn() }));
 vi.mock("./validate.js", () => ({ validateRepository: vi.fn() }));
 vi.mock("./exemption-check.js", () => ({
@@ -72,6 +74,7 @@ function filesPresent(...present: string[]): void {
 
 beforeEach(() => {
   files = localFiles();
+  vi.mocked(suborgNames).mockResolvedValue([]);
   vi.stubEnv("KORE_ROOT", "");
   vi.mocked(join).mockImplementation((...parts: string[]) =>
     parts.join("/").replace(/\/+/g, "/"),
@@ -238,6 +241,22 @@ test("loading carries the derived Service names on the repository, read from its
   expect(loaded.registeredServices).toEqual(["blog", "shop"]);
   expect(vi.mocked(loadServiceRegistrations).mock.calls).toEqual([
     ["/repo", "local"],
+  ]);
+});
+
+test("loading carries the suborg names the Organization records give, read from its root, its environment and its catalog's namespaces", async () => {
+  filesPresent("/repo/infra/catalog/components.yaml");
+  vi.mocked(suborgNames).mockResolvedValue(["reference"]);
+  const loaded = await loadRepository("local", "/repo");
+  expect(loaded.suborgs).toEqual(["reference"]);
+  expect(vi.mocked(suborgNames).mock.calls).toEqual([
+    [
+      {
+        root: "/repo",
+        environment: expect.objectContaining({ name: "local" }),
+        catalogNamespaces: [],
+      },
+    ],
   ]);
 });
 
