@@ -10,7 +10,7 @@ import type { Environment } from "../config/index.js";
 export const proofDomain = "example.com";
 
 /**
- * The flags the throwaway copy turns on, each after the one it needs (flag-dependencies.ts): the external
+ * The flags the throwaway copy turns on, each after the one it needs (the manifest's requires): the external
  * Gateway needs service-listener-sets, and external-dns needs the external Gateway.
  */
 export const proofFlags = [

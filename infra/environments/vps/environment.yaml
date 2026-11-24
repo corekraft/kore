@@ -76,6 +76,7 @@
       "golden-path-safety-defaults": false,
       "golden-path-service-identity": false,
       "app-delivery": false,
+      "app-sizing": false,
       "workload-defaults-admission": false,
       "openbao": false
     },

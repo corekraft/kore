@@ -10,6 +10,7 @@ const chart = "infra/charts/platform-apis";
 const releaseSchemaPath = "infra/catalog/schemas/service-release.schema.json";
 
 type Schema = {
+  type?: string;
   required?: string[];
   properties?: Record<string, Schema>;
   additionalProperties?: boolean;
@@ -90,20 +91,51 @@ test("components declares frontend and bff, each optional, and at least one of t
   expect(components?.required).toBeUndefined();
 });
 
-test("each component takes resource requests and nothing else: no digest, no attestation, no flag state", () => {
+test("each component takes resource requests, a memory limit and an autoscaler, and nothing else: no digest, no attestation, no flag state", () => {
   const frontend = serviceSpec().properties?.components?.properties?.frontend;
-  expect(Object.keys(frontend?.properties ?? {})).toEqual(["resources"]);
-  expect(
-    Object.keys(
-      frontend?.properties?.resources?.properties?.requests?.properties ?? {},
-    ),
-  ).toEqual(["cpu", "memory"]);
+  expect(Object.keys(frontend?.properties ?? {})).toEqual([
+    "resources",
+    "autoscaling",
+  ]);
+  const resources = frontend?.properties?.resources?.properties;
+  expect(Object.keys(resources?.requests?.properties ?? {})).toEqual([
+    "cpu",
+    "memory",
+    "ephemeralStorage",
+  ]);
+  expect(Object.keys(resources?.limits?.properties ?? {})).toEqual(["memory"]);
 });
 
 test("gateway defaults to internal and takes only internal or external", () => {
   const gateway = serviceSpec().properties?.gateway;
   expect(gateway?.default).toBe("internal");
   expect(gateway?.enum).toEqual(["internal", "external"]);
+});
+
+test("soak is an optional object with exactly duration and minRequests, and no CRD default", () => {
+  const soak = serviceSpec().properties?.soak;
+  expect(soak?.type).toBe("object");
+  expect(soak?.additionalProperties).toBe(false);
+  expect(soak?.required).toBeUndefined();
+  expect(soak?.default).toBeUndefined();
+  expect(Object.keys(soak?.properties ?? {})).toEqual([
+    "duration",
+    "minRequests",
+  ]);
+});
+
+test("soak.duration is a whole number of minutes, hours or days with no CRD default, and soak.minRequests is a whole number of at least one", () => {
+  const soak = serviceSpec().properties?.soak;
+  expect(soak?.properties?.duration).toMatchObject({
+    type: "string",
+    pattern: "^[1-9][0-9]*[mhd]$",
+  });
+  expect(soak?.properties?.duration?.default).toBeUndefined();
+  expect(soak?.properties?.minRequests).toMatchObject({
+    type: "integer",
+    minimum: 1,
+  });
+  expect(soak?.properties?.minRequests?.default).toBeUndefined();
 });
 
 test("the spec has no release-only field: no digest, source commit, attestation or flag state", () => {

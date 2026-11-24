@@ -156,7 +156,7 @@ const suborg = {
   },
 };
 
-test("with suborg-tenancy off the platform-apis render is byte-identical to the golden rendered from main", async () => {
+test("with suborg-tenancy off the platform-apis render equals the checked-in golden (main plus the additive Service XRD sizing fields)", async () => {
   const repository = await loadRepository("local");
   const component = repository.catalog.components.find(
     (c) => c.name === "kore-platform-apis",
@@ -176,6 +176,11 @@ test("with suborg-tenancy off the platform-apis render is byte-identical to the 
       join(root, "tools/kore/src/platform/fixtures/platform-apis.local.yaml"),
       "utf8",
     ),
+  );
+  assert.doesNotMatch(
+    rendered,
+    /compose-suborg-namespace/,
+    "with suborg-tenancy off no suborg namespace step is rendered",
   );
   assert.equal(
     render("--set", "features.suborg-tenancy=false"),
