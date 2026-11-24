@@ -121,7 +121,7 @@ function quotaErrors(quota: unknown, path: string): string[] {
     errors.push(
       `${field}.pods: is required; set a whole number of at least 1, for example 50`,
     );
-  } else if (!Number.isInteger(pods) || (pods as number) < 1) {
+  } else if (typeof pods !== "number" || !Number.isInteger(pods) || pods < 1) {
     errors.push(
       `${field}.pods: must be a whole number of at least 1, for example 50`,
     );
