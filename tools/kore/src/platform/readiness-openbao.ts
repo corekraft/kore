@@ -79,10 +79,15 @@ function parseStatus(
 ): { initialized: boolean; sealed: boolean } | undefined {
   try {
     const parsed: unknown = JSON.parse(output);
-    if (typeof parsed !== "object" || parsed === null) {
+    if (
+      typeof parsed !== "object" ||
+      parsed === null ||
+      !("initialized" in parsed) ||
+      !("sealed" in parsed)
+    ) {
       return undefined;
     }
-    const { initialized, sealed } = parsed as Record<string, unknown>;
+    const { initialized, sealed } = parsed;
     return typeof initialized === "boolean" && typeof sealed === "boolean"
       ? { initialized, sealed }
       : undefined;

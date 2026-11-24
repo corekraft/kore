@@ -115,12 +115,13 @@ test("the vps render pulls the image by its approved digest, from the upstream r
   assert.equal(values.server.image.registry, "ghcr.io");
   assert.equal(values.server.image.repository, "corekraft/kore/mirror/openbao");
   assert.equal(values.server.image.tag, `2.7.3@${digest}`);
-  const common = JSON.parse(
+  const common: unknown = JSON.parse(
     await readFile(
       join(repository.root, "infra/environments/common/values/openbao.yaml"),
       "utf8",
     ),
-  ) as Json;
+  );
+  assert.ok(isMap(common));
   assert.equal(common["server"].image.repository, "openbao/openbao");
   assert.equal(common["server"].image.tag, `2.7.3@${digest}`);
 });
