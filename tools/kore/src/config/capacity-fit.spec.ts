@@ -1,6 +1,17 @@
 import { expect, test } from "vitest";
-import { capacityFit, type CapacityFitInput } from "./capacity-fit.js";
+import {
+  capacityFit,
+  type CapacityFitInput,
+  type PlatformRequests,
+} from "./capacity-fit.js";
 import type { NodeBudget } from "./node-capacity.js";
+
+/** The platform's summed pod requests, with the inputs it could not read (none unless given). */
+const platform = (
+  cpuMillis: number,
+  memoryMiB = 0,
+  missing: string[] = [],
+): PlatformRequests => ({ requests: { cpuMillis, memoryMiB }, missing });
 
 /** A judged budget for one node unless nodes says more: 1000m and 4096Mi allocatable per node. */
 const judged = (
@@ -103,18 +114,115 @@ test("capacityFit keeps a bound that is exact in decimal despite floating-point 
   });
 });
 
-test("capacityFit counts the platform's requests against the share when they are given", () => {
+test("capacityFit takes the platform's requests out of allocatable before the share, so a sum at the reduced share fits", () => {
   expect(
     capacityFit(
       input({
-        quotas: [{ cpuMillis: 500, memoryMiB: 0 }],
-        platform: { cpuMillis: 400, memoryMiB: 0 },
+        quotas: [{ cpuMillis: 640, memoryMiB: 0 }],
+        platform: platform(200),
+      }),
+    ),
+  ).toEqual({
+    status: "fits",
+    platformSubtracted: true,
+    headroom: { cpuMillis: 0, memoryMiB: 3276 },
+  });
+});
+
+test("capacityFit refuses a sum one millicore past the share left after the platform's requests", () => {
+  expect(
+    capacityFit(
+      input({
+        quotas: [{ cpuMillis: 641, memoryMiB: 0 }],
+        platform: platform(200),
       }),
     ),
   ).toEqual({
     status: "over",
-    over: [{ dimension: "cpu", requested: 900, allowed: 800 }],
+    over: [{ dimension: "cpu", requested: 641, allowed: 640 }],
     platformSubtracted: true,
+  });
+});
+
+test("capacityFit subtracts the platform's memory from allocatable before the memory share", () => {
+  const withMemory = (memoryMiB: number) =>
+    input({
+      quotas: [{ cpuMillis: 0, memoryMiB }],
+      platform: platform(0, 1024),
+    });
+  expect(capacityFit(withMemory(2457))).toMatchObject({
+    status: "fits",
+    headroom: { memoryMiB: 0 },
+  });
+  expect(capacityFit(withMemory(2458))).toEqual({
+    status: "over",
+    over: [{ dimension: "memory", requested: 2458, allowed: 2457 }],
+    platformSubtracted: true,
+  });
+});
+
+test("capacityFit subtracts the platform's requests once from the total over every node", () => {
+  const twoNodes = (cpuMillis: number) =>
+    input({
+      budget: judged(1000, 4096, 2),
+      quotas: [{ cpuMillis, memoryMiB: 0 }],
+      platform: platform(500),
+    });
+  expect(capacityFit(twoNodes(1200))).toMatchObject({
+    status: "fits",
+    headroom: { cpuMillis: 0 },
+  });
+  expect(capacityFit(twoNodes(1201))).toEqual({
+    status: "over",
+    over: [{ dimension: "cpu", requested: 1201, allowed: 1200 }],
+    platformSubtracted: true,
+  });
+});
+
+test("capacityFit refuses any suborg quota when the platform's requests fill the whole share", () => {
+  expect(
+    capacityFit(
+      input({
+        quotas: [{ cpuMillis: 1, memoryMiB: 0 }],
+        platform: platform(1500),
+      }),
+    ),
+  ).toEqual({
+    status: "over",
+    over: [{ dimension: "cpu", requested: 1, allowed: 0 }],
+    platformSubtracted: true,
+  });
+});
+
+test("capacityFit names the platform's pods it could not size and gives no verdict, even when the sum would fit", () => {
+  const unsized =
+    "Deployment/kore-gateway-proxy container proxy declares no cpu request";
+  expect(
+    capacityFit(
+      input({
+        quotas: [{ cpuMillis: 1, memoryMiB: 1 }],
+        platform: platform(0, 0, [unsized]),
+      }),
+    ),
+  ).toEqual({ status: "unjudged", missing: [unsized] });
+});
+
+test("capacityFit names the missing reserves and the unsized platform pods together", () => {
+  const unsized =
+    "DaemonSet/kore-agent container agent declares no memory request";
+  expect(
+    capacityFit(
+      input({
+        budget: {
+          judged: false,
+          missing: ["environment.cluster.kubelet.kubeReserved.cpu"],
+        },
+        platform: platform(0, 0, [unsized]),
+      }),
+    ),
+  ).toEqual({
+    status: "unjudged",
+    missing: ["environment.cluster.kubelet.kubeReserved.cpu", unsized],
   });
 });
 
@@ -124,16 +232,6 @@ test("capacityFit says the platform's requests were not subtracted when none are
   ).toMatchObject({
     status: "fits",
     platformSubtracted: false,
-  });
-});
-
-test("capacityFit refuses platform requests alone over the share, with no quota at all", () => {
-  expect(
-    capacityFit(input({ platform: { cpuMillis: 900, memoryMiB: 0 } })),
-  ).toEqual({
-    status: "over",
-    over: [{ dimension: "cpu", requested: 900, allowed: 800 }],
-    platformSubtracted: true,
   });
 });
 

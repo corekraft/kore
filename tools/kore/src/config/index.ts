@@ -5,6 +5,10 @@ export {
   smtpSecretNamespace,
 } from "./alert-email.js";
 export { alertForwardingHelmArgs } from "./alert-forwarding.js";
+export {
+  acmeCertificateIssuer,
+  externalGatewayAcmeIssuersErrors,
+} from "./acme-issuers.js";
 export { dashboardSidecarHelmArgs } from "./dashboard-sidecar.js";
 export { keycloakOperatorProbeHelmArgs } from "./keycloak-operator-probe.js";
 export { prometheusPortalHelmArgs } from "./prometheus-memory.js";
@@ -144,8 +148,15 @@ export {
 } from "./ownership.js";
 export { managedCluster } from "./managed-cluster.js";
 export type { ManagedCluster } from "./managed-cluster.js";
-export { committedFraction, nodeBudget, nodeCount } from "./node-capacity.js";
+export {
+  committedFraction,
+  cpuMillis,
+  memoryMiB,
+  nodeBudget,
+  nodeCount,
+} from "./node-capacity.js";
 export type { NodeBudget } from "./node-capacity.js";
+export type { Amount, PlatformRequests } from "./capacity-fit.js";
 export { findRoot } from "./config.js";
 export {
   appliedFlags,

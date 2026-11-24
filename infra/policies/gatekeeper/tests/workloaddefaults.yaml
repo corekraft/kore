@@ -130,6 +130,12 @@ tests:
           assertions: [{ violations: 0 }]
         }
       - {
+          name: does-not-match-platform-namespaces-naming-the-kore-class,
+          object: objects/wd-platform-kore-class.yaml,
+          inventory: [objects/wi-ns-kore-registry.yaml],
+          assertions: [{ violations: 0 }]
+        }
+      - {
           name: does-not-match-system-namespaces,
           object: objects/wd-system-single.yaml,
           inventory: [objects/wi-ns-kube-system.yaml],

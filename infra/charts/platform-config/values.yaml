@@ -12,14 +12,16 @@ gateway: {
     # readiness gate (minReadySeconds, progressDeadlineSeconds) and a
     # PodDisruptionBudget. They are implementation defaults, not owner decisions;
     # an environment's values file may set them.
-    proxy:
-      {
+    proxy: {
         replicas: 2,
         maxSurge: 1,
         maxUnavailable: 0,
         minReadySeconds: 10,
         progressDeadlineSeconds: 600,
         budgetMaxUnavailable: 1,
+        # The kore-owned PriorityClass the proxy names while data-path-priority-class
+        # is on; the oci-registry release creates it (ADR 0152, issue 1531).
+        priorityClass: kore-platform-critical,
         # The sizes the proxy requests and limits while data-path-guaranteed-qos
         # is on (ADR 0152, issue 1593): the request equals the limit, so the pod is
         # Guaranteed. The limit is the Istio gateway chart's own default, so no

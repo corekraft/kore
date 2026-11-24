@@ -46,6 +46,9 @@ spec:
     spec:
       serviceAccountName: oci-registry
       automountServiceAccountToken: false
+      {{- if index (.Values.features | default dict) "data-path-priority-class" }}
+      priorityClassName: {{ .Values.priorityClass.name }}
+      {{- end }}
       containers:
         # The registry listens on loopback only; the proxy is the sole way in
         # and enforces who may read and who may write (ADR 0034).

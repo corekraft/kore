@@ -136,11 +136,13 @@
         "values":
           [
             "infra/environments/common/values/policy-controller.yaml",
-            "infra/environments/common/values/policy-controller-qos.yaml"
+            "infra/environments/common/values/policy-controller-qos.yaml",
+            "infra/environments/common/values/policy-controller-priority.yaml"
           ],
         "valuesFlags":
           {
-            "infra/environments/common/values/policy-controller-qos.yaml": "data-path-guaranteed-qos"
+            "infra/environments/common/values/policy-controller-qos.yaml": "data-path-guaranteed-qos",
+            "infra/environments/common/values/policy-controller-priority.yaml": "data-path-priority-class"
           },
         "readiness":
           [
