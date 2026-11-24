@@ -87,10 +87,13 @@ async function registrationName(
   return name;
 }
 
-/** The entries of a directory, sorted; none when the directory is absent. */
-async function entriesOf(directory: string): Promise<string[]> {
+/** The entries of a directory that pass keep, sorted; none when the directory is absent. */
+async function entriesOf(
+  directory: string,
+  keep: (entry: string) => boolean,
+): Promise<string[]> {
   try {
-    return (await readdir(directory)).sort();
+    return (await readdir(directory)).filter(keep).sort();
   } catch (error) {
     if ((error as NodeJS.ErrnoException).code === "ENOENT") {
       return [];
@@ -107,10 +110,8 @@ async function legacyRegistrations(root: string): Promise<Map<string, string>> {
   const owners = new Map<string, string>();
   for (const entry of await entriesOf(
     `${root}/${serviceRegistrationsDirectory}`,
+    (file) => file.endsWith(".yaml"),
   )) {
-    if (!entry.endsWith(".yaml")) {
-      continue;
-    }
     const relative = `${serviceRegistrationsDirectory}/${entry}`;
     const name = await registrationName(root, relative);
     const owner = owners.get(name);
@@ -124,6 +125,12 @@ async function legacyRegistrations(root: string): Promise<Map<string, string>> {
   return owners;
 }
 
+/** A spec file of an overlay: a JSON file that is neither hidden nor a release file. */
+const isSpecFile = (entry: string): boolean =>
+  !entry.startsWith(".") &&
+  entry.endsWith(".json") &&
+  !entry.endsWith(".release.json");
+
 /**
  * This environment's spec files by name, each keyed to its repository path. A spec
  * file is named after its file, so its metadata.name must equal the file name. Its
@@ -135,14 +142,7 @@ async function environmentRegistrations(
 ): Promise<Map<string, string>> {
   const directory = environmentServicesDirectory(environment);
   const names = new Map<string, string>();
-  for (const entry of await entriesOf(`${root}/${directory}`)) {
-    if (
-      entry.startsWith(".") ||
-      !entry.endsWith(".json") ||
-      entry.endsWith(".release.json")
-    ) {
-      continue;
-    }
+  for (const entry of await entriesOf(`${root}/${directory}`, isSpecFile)) {
     const relative = `${directory}/${entry}`;
     const stem = entry.slice(0, -".json".length);
     const name = await registrationName(root, relative);

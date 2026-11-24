@@ -38,7 +38,7 @@ beforeEach(() => {
   files = {};
   vi.mocked(featureEnabled).mockClear();
   vi.mocked(readdir).mockImplementation(async (path) => {
-    const entries = entriesOf(path as string);
+    const entries = entriesOf(String(path));
     if (entries.length === 0) {
       throw Object.assign(new Error("ENOENT"), { code: "ENOENT" });
     }
