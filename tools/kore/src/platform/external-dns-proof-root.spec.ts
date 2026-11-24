@@ -3,6 +3,17 @@ import { describe, expect, it, vi } from "vitest";
 import type { Runner } from "../runtime/index.js";
 import { prepareProofRoot } from "./external-dns-proof-root.live.js";
 
+// The throwaway environment is the proof module's business (external-dns-proof.spec.ts checks the flags and
+// the domain); here it is a sentinel, so this spec checks only where the copy writes it and what it refuses.
+const sentinel = vi.hoisted(() => ({ name: "local", sentinel: true }));
+const received = vi.hoisted(() => [] as unknown[]);
+vi.mock("./external-dns-proof.live.js", () => ({
+  throwawayEnvironment: (environment: unknown) => {
+    received.push(environment);
+    return sentinel;
+  },
+}));
+
 const root = "/work/kore";
 const dest = "/work/kore/.claude/worktrees/external-dns-proof";
 const environmentPath = join(dest, "infra/environments/local/environment.yaml");
@@ -47,17 +58,11 @@ describe("the throwaway proof root", () => {
     expect(gitArgs).toEqual(["worktree", "add", "--detach", dest, "HEAD"]);
     expect(options).toEqual(expect.objectContaining({ cwd: root }));
     expect(files.read).toHaveBeenCalledWith(environmentPath);
+    expect(received).toContainEqual(overlay);
     expect(write).toHaveBeenCalledTimes(1);
     const [path, text] = write.mock.calls[0] as unknown as [string, string];
     expect(path).toBe(environmentPath);
-    const written = JSON.parse(text) as {
-      features: Record<string, boolean>;
-      platform: { domain: string };
-    };
-    expect(written.features["external-dns"]).toBe(true);
-    expect(written.features["external-gateway"]).toBe(true);
-    expect(written.features["service-listener-sets"]).toBe(true);
-    expect(written.platform.domain).toBe("example.com");
+    expect(text).toBe(`${JSON.stringify(sentinel, null, 2)}\n`);
   });
 
   it("writes only inside the throwaway copy, never into the checkout it was started from", async () => {
