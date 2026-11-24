@@ -13,9 +13,10 @@ Grafana reads as YAML, so the document is built as a value and never hand-quoted
 {{- $service := . }}
 {{- $namespace := printf "%s--%s" . $.Values.environment }}
 {{- $alerts := list }}
-{{- $alerts = append $alerts (dict "name" "ServiceUnavailable" "severity" "critical" "for" "5m" "type" "lt" "params" (list 1) "expr" (printf "sum(kube_deployment_status_replicas_available{namespace=\"%s\"})" $namespace) "summary" (printf "Service %s has no available replica" $service)) }}
-{{- $alerts = append $alerts (dict "name" "ServiceHighErrorRatio" "severity" "warning" "for" "10m" "type" "gt" "params" (list 0.05) "expr" (printf "sum(rate(istio_requests_total{destination_service_namespace=\"%s\",response_code=~\"5..\"}[5m])) / sum(rate(istio_requests_total{destination_service_namespace=\"%s\"}[5m]))" $namespace $namespace) "summary" (printf "Service %s answers more than 5 percent of requests with a server error" $service)) }}
-{{- $alerts = append $alerts (dict "name" "ServiceRestartLoop" "severity" "warning" "for" "5m" "type" "gt" "params" (list 3) "expr" (printf "sum(increase(kube_pod_container_status_restarts_total{namespace=\"%s\"}[15m]))" $namespace) "summary" (printf "Containers of service %s restarted more than 3 times in 15 minutes" $service)) }}
+{{- /* Every expression reads a recorded series (services.yaml, ADR 0174). The error alert compares the recorded ratio with the recorded five percent cap: it fires when the ratio is above zero after the cap is taken away. */}}
+{{- $alerts = append $alerts (dict "name" "ServiceUnavailable" "severity" "critical" "for" "5m" "type" "lt" "params" (list 1) "expr" (printf "kore:namespace_available_replicas{namespace=\"%s\"}" $namespace) "summary" (printf "Service %s has no available replica" $service)) }}
+{{- $alerts = append $alerts (dict "name" "ServiceHighErrorRatio" "severity" "warning" "for" "10m" "type" "gt" "params" (list 0) "expr" (printf "kore:namespace_error_ratio_5m{namespace=\"%s\"} - on() group_left() kore:error_ratio_cap" $namespace) "summary" (printf "Service %s answers more than 5 percent of requests with a server error" $service)) }}
+{{- $alerts = append $alerts (dict "name" "ServiceRestartLoop" "severity" "warning" "for" "5m" "type" "gt" "params" (list 3) "expr" (printf "kore:namespace_restarts_increase15m{namespace=\"%s\"}" $namespace) "summary" (printf "Containers of service %s restarted more than 3 times in 15 minutes" $service)) }}
 {{- $rules := list }}
 {{- range $alerts }}
 {{- $labels := dict "severity" .severity "service" $service "enforcement" "notify-only" }}
