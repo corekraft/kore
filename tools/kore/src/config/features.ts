@@ -78,6 +78,9 @@ export const registryPruneFlag = "registry-tag-pruning";
 /** The flag that installs metrics-server and turns on autoscaling defaults (ADR 0047). */
 export const autoscalingFlag = "autoscaling-defaults";
 
+/** The app sizing flag (#1525): the record's worst-case judge at kore validate; off, validation is unchanged. */
+export const appSizingFlag = "app-sizing";
+
 /** The flag that installs the Organization and Service platform APIs, for the platform organization only (plan 15 step 2). */
 export const organizationServiceApisFlag = "platform-organization-service-apis";
 
