@@ -1,11 +1,27 @@
 // Docs: docs/decisions/0159-services-attach-to-the-platform-gateways-through-listener-sets-and-hostname-claims.md
-import { expect, test } from "vitest";
+import { expect, test, vi } from "vitest";
 import {
   hostnameClaimErrors,
   type ClaimEnvironment,
   type ServiceClaim,
   type SuborgRecord,
 } from "./hostname-claims.js";
+
+// The name derivation is a unit of its own (service-names.spec.ts). Here it is stood in
+// for by explicit implementations that state the rule it applies.
+vi.mock("./service-names.js", () => ({
+  placeholderPlatformDomain: "kore.internal",
+  suborgZone: (organization: string, domain: string): string =>
+    `${organization}.${domain}`,
+  isClaim: (host: string, organization: string, domain: string): boolean => {
+    const suffix = `.${domain}`;
+    if (!host.endsWith(suffix)) {
+      return false;
+    }
+    const rest = host.slice(0, -suffix.length);
+    return !rest.includes(".") && rest !== organization;
+  },
+}));
 
 const local: ClaimEnvironment = {
   domain: "example.com",

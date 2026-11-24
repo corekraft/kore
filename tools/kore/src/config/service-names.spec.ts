@@ -1,6 +1,20 @@
 // Docs: docs/decisions/0159-services-attach-to-the-platform-gateways-through-listener-sets-and-hostname-claims.md
 import { expect, test } from "vitest";
-import { serviceNames } from "./service-names.js";
+import { isClaim, serviceNames, suborgZone } from "./service-names.js";
+
+test("a suborg's zone is its name under the domain", () => {
+  expect(suborgZone("api", "example.com")).toBe("api.example.com");
+});
+
+test("a name directly under the platform domain, outside the claimant's zone, is a claim", () => {
+  expect(isClaim("login.example.com", "api", "example.com")).toBe(true);
+});
+
+test("the apex of the claimant's own zone, a name in a zone, and a name outside the domain are not claims", () => {
+  expect(isClaim("api.example.com", "api", "example.com")).toBe(false);
+  expect(isClaim("shop.api.example.com", "api", "example.com")).toBe(false);
+  expect(isClaim("login.example.org", "api", "example.com")).toBe(false);
+});
 
 const service = {
   name: "leads",
