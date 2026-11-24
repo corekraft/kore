@@ -6,6 +6,7 @@ export {
 } from "./alert-email.js";
 export { alertForwardingHelmArgs } from "./alert-forwarding.js";
 export { dashboardSidecarHelmArgs } from "./dashboard-sidecar.js";
+export { keycloakOperatorProbeHelmArgs } from "./keycloak-operator-probe.js";
 export { prometheusPortalHelmArgs } from "./prometheus-memory.js";
 export {
   loadServiceRegistrations,
@@ -102,6 +103,7 @@ export { approvedImageList } from "./approved.js";
 export type { ApprovedEntry } from "./approved.js";
 export {
   agentgatewayMeshEnrollmentFlag,
+  apiserverReadyFlag,
   autoscalingFlag,
   componentGatedOff,
   readinessGatedOff,

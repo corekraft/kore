@@ -9,6 +9,7 @@ import {
   expandVersions,
   featureHelmArgs,
   gatewayClassName,
+  keycloakOperatorProbeHelmArgs,
   noMatchPolicy,
   platformHelmArgs,
   prometheusPortalHelmArgs,
@@ -79,6 +80,7 @@ function trailingArgs(repository: Repository, component: Component): string[] {
     ...alertAndServiceArgs(repository, component),
     ...dashboardSidecarHelmArgs(repository.environment, component.name),
     ...prometheusPortalHelmArgs(repository.environment, component.name),
+    ...keycloakOperatorProbeHelmArgs(repository.environment, component.name),
   ];
 }
 

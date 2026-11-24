@@ -1,5 +1,6 @@
 export {
   loadLocalGatewayFlagsOff,
+  withDriftListingMappingsOff,
   withGatewayFlagsOff,
   withPlatformDnsOn,
 } from "./gateway-flags-off.fixtures.js";
