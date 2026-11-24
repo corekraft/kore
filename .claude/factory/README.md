@@ -14,9 +14,16 @@ role in is a separate change that must:
   new definition with front matter;
 - give a new role a guard group in `tools/harness/src/hook/guard-roles.ts` and
   its bypass-corpus cases before it can be spawned;
-- record an ADR where the factory differs from a current one, notably the
-  deterministic merge tool in place of the judge's merge, and the orchestrator
-  routing to Advisor in place of judgment panes (ADR 0120, ADR 0121).
+- turn on the flag its ADR names: `factory-orchestrator` (ADR 0182),
+  `factory-merge` (ADR 0183), the release gate's clearance in
+  `flag activate` (ADR 0184); goal check records outcomes (ADR 0185).
+
+Open work is tracked as ideas: the writer's 100K cumulative token budget
+(idea 0084, #1988) and the provenance evidence freshness needs (idea 0085,
+#1989). Griller runs only on the owner's machine, where the
+`/mattpocock:grill-with-docs`, `/mattpocock:to-spec` and
+`/mattpocock:to-tickets` skills are installed; it chains every ticket to
+ticket review.
 
 | Role | Model in the lab | Cases |
 | --- | --- | --- |
