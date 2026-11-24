@@ -28,7 +28,6 @@ on:
           - admission
           - database
           - docs
-          - external-dns
           - gate
           - gateway
           - identity
