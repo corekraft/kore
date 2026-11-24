@@ -33,14 +33,17 @@ function tasksOf(tasks: string): { name: string; text: string }[] {
     });
 }
 
-test("the openbao flag is one feature for the vps OpenBao component: declared for vps only, and off in the vps overlay", async () => {
+test("the openbao flag is one feature for the vps OpenBao component: off in every overlay, and applicable to vps alone", async () => {
   const { environment, flags } = await loadRepository("vps");
-  assert.deepEqual(flagEntry(flags, "openbao"), {
-    name: "openbao",
-    kind: "feature",
-    applies: ["vps"],
-  });
+  const entry = flagEntry(flags, "openbao");
+  assert.equal(entry?.name, "openbao");
+  assert.equal(entry?.kind, "feature");
+  assert.deepEqual(entry?.notApplicable, ["local", "managed-example"]);
   assert.equal(environment.features?.openbao, false);
+  for (const name of ["local", "managed-example"]) {
+    const other = await loadRepository(name);
+    assert.equal(other.environment.features?.openbao, false, name);
+  }
 });
 
 test("the openbao role runs on the vps host after k3s, so the key is placed once the node's cluster is converged", async () => {

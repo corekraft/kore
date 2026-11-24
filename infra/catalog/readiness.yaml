@@ -40,6 +40,8 @@
             "kore-hostname-ownership",
             "kore-workload-defaults-templates",
             "kore-workload-defaults",
+            "kore-pvc-ownership-templates",
+            "kore-pvc-ownership",
             "kore-admission-gate"
           ]
       },
@@ -102,6 +104,12 @@
         "step": 8,
         "capability": "endpoint",
         "components": ["external-dns"]
+      },
+      {
+        "name": "openbao",
+        "step": 8,
+        "capability": "health-condition",
+        "components": ["openbao"]
       },
       {
         "name": "keycloak-operator",

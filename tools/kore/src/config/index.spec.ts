@@ -224,6 +224,7 @@ const entryPoints = [
   "requiredFlags",
   "revertKeepFlag",
   "rollbackConstraint",
+  "runTimeDomain",
   "runTimeDomainErrors",
   "runTimeFilePath",
   "runTimeNeededBy",

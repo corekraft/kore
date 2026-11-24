@@ -183,6 +183,14 @@ test("platform status exits non-zero while the gate or any prerequisite is not r
     row("backups", "degraded"),
   ] as never);
   expect(await main(["platform", "status"])).toBe(0);
+
+  // An unreadable chart row is an audit too: it feeds the rollout drift check, never the gate.
+  vi.mocked(platformStatusReport).mockResolvedValue([
+    row("gatekeeper", "ready"),
+    row("application-admission-gate", "ready"),
+    row("chart:cert-manager", "missing"),
+  ] as never);
+  expect(await main(["platform", "status"])).toBe(0);
 });
 
 test("platform status does not fail for a gated-off row, but still fails for a degraded one", async () => {

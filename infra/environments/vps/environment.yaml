@@ -59,6 +59,7 @@
       "external-gateway-limits": false,
       "external-dns": false,
       "acme-dns01": false,
+      "domain-expiry-alert": false,
       "acme-issuers": false,
       "registry-by-name": false,
       "registry-tailnet-forward": false,
@@ -81,6 +82,7 @@
       "app-delivery": false,
       "app-sizing": false,
       "workload-defaults-admission": false,
+      "pvc-ownership-admission": false,
       "openbao": false
     },
   "secrets": { "storeName": "platform-secrets", "sourceNamespace": "external" },
@@ -104,6 +106,11 @@
         [
           "infra/environments/vps/values/mirror/external-dns.yaml",
           "infra/environments/vps/values/external-dns.yaml"
+        ],
+      "openbao":
+        [
+          "infra/environments/vps/values/mirror/openbao.yaml",
+          "infra/environments/vps/values/openbao.yaml"
         ],
       "kore-platform-config":
         ["infra/environments/vps/values/platform-config.yaml"],

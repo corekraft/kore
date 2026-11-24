@@ -18,6 +18,7 @@ export const KINDS = [
   "pr.checked",
   "outcome",
   "flag.activated",
+  "platform.rolled-out",
   "token.usage",
   "token.split",
   "session.launch",

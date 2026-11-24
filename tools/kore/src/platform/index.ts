@@ -10,6 +10,7 @@ export { applyProbePatches } from "./patches.js";
 export { platformStatusReport } from "./crd-ownership-status.js";
 export type { CrdOwnershipStatus } from "./crd-ownership-status.js";
 export { platformStatus } from "./status.js";
+export { chartVersionRowPrefix } from "./chart-version-status.js";
 export { platformClaimsStatus } from "./platform-claims-status.js";
 export type {
   ClaimStatus,

@@ -125,3 +125,36 @@ A missing or short controller key stops the run and changes nothing. After every
 apply the role checks the node's file: mode, owner, group, location and content.
 It never overwrites a key that is already there, and a drift stops the run
 without a repair.
+
+## OpenBao in the cluster
+
+The platform deploys one OpenBao in the `openbao` namespace behind the same
+`openbao` flag, off in every overlay
+([ADR 0167](../../../docs/decisions/0167-application-secrets-come-from-openbao-behind-the-platform-secrets-contract-one-path-per-suborg.md)).
+It is one replica with Raft storage on the `kore-retained` class, the injector
+and CSI sub-charts off, the chart and the image pinned in
+`infra/catalog/versions.yaml` with their evidence in `infra/catalog/compatibility.md`.
+
+The pod cannot read the root-only seal key the role placed, because OpenBao runs
+as a non-root user. An init container copies it from `/etc/kore/openbao` to a
+memory volume owned by that user, and the static seal reads the copy. The copy
+never reaches a disk, a Secret or a log.
+
+Self-initialization runs once, on the first start, and enables one file audit
+device at `/openbao/audit/audit.log` on its own volume. Nothing else is configured:
+no auth method, policy or mount. The audit log has no rotation yet, so the volume
+is the limit until the backup decision sets one.
+
+`kore platform up` waits for `statefulset/openbao` with a check that fails closed
+and names the cause: `OpenBao is uninitialised`, `OpenBao is sealed`, or
+`OpenBao has no audit device`. A Ready pod alone proves none of the three.
+
+The recovery shares do not exist after self-initialization: the root token is
+revoked and no share is generated. The owner creates them when the first
+authenticated identity exists, with `bao operator rotate-keys -init -target=recovery`
+run by the owner in their own terminal, so the shares print once to that terminal.
+No script, agent session, CI job or `tee` touches them, and nobody copies them
+into a file or a log: the owner moves each share by hand into the recovery kit
+([ADR 0168](../../../docs/decisions/0168-the-openbao-static-seal-key-is-a-recorded-exception-to-no-plaintext-on-disk.md)).
+The single-voter Raft setup through this chart is proven only by the live proof
+ticket [#1603](https://github.com/corekraft/kore/issues/1603).

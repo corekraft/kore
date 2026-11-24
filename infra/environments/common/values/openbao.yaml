@@ -1,0 +1,33 @@
+{
+  "global": { "enabled": true, "tlsDisable": true },
+  "injector": { "enabled": false },
+  "csi": { "enabled": false },
+  "ui": { "enabled": false },
+  "server":
+    {
+      "image":
+        {
+          "registry": "quay.io",
+          "repository": "openbao/openbao",
+          "tag": "2.7.3@sha256:ba4b133eb9586630024e71a617e66f37f29cc3534cdd46a6233e098ceded8dc9"
+        },
+      "updateStrategyType": "RollingUpdate",
+      "authDelegator": { "enabled": false },
+      "ha":
+        {
+          "enabled": true,
+          "replicas": 1,
+          "raft": { "enabled": true, "setNodeId": true },
+          "disruptionBudget": { "enabled": false }
+        },
+      "dataStorage":
+        { "enabled": true, "size": "2Gi", "storageClass": "kore-retained" },
+      "auditStorage":
+        { "enabled": true, "size": "1Gi", "storageClass": "kore-retained" },
+      "resources":
+        {
+          "requests": { "cpu": "100m", "memory": "256Mi" },
+          "limits": { "memory": "512Mi" }
+        }
+    }
+}

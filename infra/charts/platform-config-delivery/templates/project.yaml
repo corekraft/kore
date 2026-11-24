@@ -56,6 +56,11 @@ spec:
     - group: constraints.gatekeeper.sh
       kind: KoreWorkloadDefaults
     {{- end }}
+    {{- /* Passed true by kore only while pvc-ownership-admission is on (issue 1666): with the flag off the project is unchanged. */}}
+    {{- if .Values.pvcOwnership }}
+    - group: constraints.gatekeeper.sh
+      kind: KorePVCOwnership
+    {{- end }}
   roles:
     - name: operators
       description: Platform operators change and sync the configuration

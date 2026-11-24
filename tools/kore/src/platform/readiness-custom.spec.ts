@@ -5,12 +5,14 @@ import { customCheck } from "./readiness-custom.js";
 import { argocdApplicationsCheck } from "./readiness-argocd.js";
 import { existenceCheck } from "./readiness-existence.js";
 import { gatewayCheck } from "./readiness-gateway.js";
+import { openbaoCheck } from "./readiness-openbao.js";
 import { organizationCheck } from "./readiness-organization.js";
 
 vi.mock("./readiness-argocd.js");
 vi.mock("./readiness-client.js");
 vi.mock("./readiness-existence.js");
 vi.mock("./readiness-gateway.js");
+vi.mock("./readiness-openbao.js");
 vi.mock("./readiness-organization.js");
 
 const context = { repository: {}, runner: {} as Runner, base: [] } as never;
@@ -24,6 +26,7 @@ beforeEach(() => {
   vi.mocked(existenceCheck).mockReturnValue(undefined);
   vi.mocked(organizationCheck).mockReturnValue(undefined);
   vi.mocked(clientCheck).mockReturnValue(undefined);
+  vi.mocked(openbaoCheck).mockReturnValue(undefined);
 });
 
 test("an operator-created resource gets the existence check, asked with the context and the resource", () => {
@@ -91,4 +94,12 @@ test("the Backstage client gets the client check, so a missing client is named r
       "client.openidclient.keycloak.m.crossplane.io/backstage",
     ),
   ).toBe(client);
+});
+
+test("the OpenBao StatefulSet gets the OpenBao check, asked with the context and the resource, so a sealed or audit-less pod is named", () => {
+  const openbao = { condition: "initialised and unsealed", run: vi.fn() };
+  vi.mocked(openbaoCheck).mockReturnValue(openbao);
+
+  expect(customCheck(context, "statefulset/openbao")).toBe(openbao);
+  expect(openbaoCheck).toHaveBeenCalledWith(context, "statefulset/openbao");
 });

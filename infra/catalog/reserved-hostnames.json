@@ -27,6 +27,7 @@
     "ns1",
     "ns2",
     "observability",
+    "openbao",
     "opa-system",
     "opentelemetry-operator-system",
     "platform",

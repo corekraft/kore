@@ -64,6 +64,7 @@
       "external-gateway": false,
       "external-gateway-limits": false,
       "external-dns": false,
+      "openbao": false,
       "registry-by-name": true,
       "otlp-route": true,
       "platform-hostname-ownership": false,
@@ -98,6 +99,7 @@
       "app-delivery": false,
       "app-sizing": false,
       "workload-defaults-admission": false,
+      "pvc-ownership-admission": false,
       "decision-advisor": true
     },
   "imageInventory": "audit",

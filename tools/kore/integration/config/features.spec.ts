@@ -162,6 +162,17 @@ test("workload-defaults-admission is listed false in every overlay, so the admis
   }
 });
 
+test("pvc-ownership-admission is listed false in every overlay, so the PVC-ownership constraint installs nothing until a recorded live outcome turns it on (issue 1666, ADR 0072)", async () => {
+  for (const name of ["local", "vps", "managed-example"]) {
+    const repository = await loadRepository(name);
+    assert.equal(
+      repository.environment.features?.["pvc-ownership-admission"],
+      false,
+      `${name} overlay`,
+    );
+  }
+});
+
 test("the managed-example overlay validates with and without flags", async () => {
   const base = await loadRepository("managed-example");
   await validateRepository(base);
@@ -176,6 +187,7 @@ test("the managed-example overlay validates with and without flags", async () =>
         "gateway-rollback-order": false,
         "ingress-agentgateway": false,
         "external-dns": false,
+        openbao: false,
         "otlp-route": false,
         "platform-argocd-delivery": false,
         "platform-dns": false,
@@ -184,6 +196,7 @@ test("the managed-example overlay validates with and without flags", async () =>
         "platform-portal": false,
         "platform-shared-gateway": false,
         "workload-defaults-admission": false,
+        "pvc-ownership-admission": false,
       },
     },
   });

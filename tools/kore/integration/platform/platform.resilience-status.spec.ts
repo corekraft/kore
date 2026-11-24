@@ -134,6 +134,8 @@ test("the same status run is fully ready once the controller is back", async () 
       "kore-hostname-ownership",
       "kore-platform-keycloak",
       "kore-platform-backstage",
+      "kore-pvc-ownership-templates",
+      "kore-pvc-ownership",
       "kore-service-observability",
       "kore-workload-defaults-templates",
       "kore-workload-defaults",
@@ -141,6 +143,7 @@ test("the same status run is fully ready once the controller is back", async () 
       "kore-otlp-route",
       // Last: the zone rewrite needs the Gateway that kore-platform-config creates.
       "kore-platform-dns",
+      "openbao",
     ],
     "the components the local feature flag gates off report gated-off, not ready",
   );
