@@ -98,6 +98,7 @@
       "app-delivery": false,
       "app-sizing": false,
       "workload-defaults-admission": false,
+      "pvc-ownership-admission": false,
       "decision-advisor": true
     },
   "imageInventory": "audit",

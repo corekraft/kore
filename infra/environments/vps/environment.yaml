@@ -81,6 +81,7 @@
       "app-delivery": false,
       "app-sizing": false,
       "workload-defaults-admission": false,
+      "pvc-ownership-admission": false,
       "openbao": false
     },
   "secrets": { "storeName": "platform-secrets", "sourceNamespace": "external" },

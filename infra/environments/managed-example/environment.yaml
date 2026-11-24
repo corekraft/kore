@@ -76,7 +76,8 @@
       "golden-path-service-identity": false,
       "app-delivery": false,
       "app-sizing": false,
-      "workload-defaults-admission": false
+      "workload-defaults-admission": false,
+      "pvc-ownership-admission": false
     },
   "secrets": { "storeName": "platform-secrets", "sourceNamespace": "external" },
   "telemetry":

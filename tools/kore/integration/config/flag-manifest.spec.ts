@@ -120,6 +120,7 @@ test("the flags that apply to vps are the ones the manifest declares, pending fl
     "app-delivery",
     "app-sizing",
     "workload-defaults-admission",
+    "pvc-ownership-admission",
     "release-recovery-argocd-refusal",
     "host-published-ports",
     "openbao",
