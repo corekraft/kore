@@ -2,7 +2,7 @@
 status: accepted
 summary: In Next, services get default dashboards and notify-only alerts in the platform Grafana, logs keep 14 days and traces 7, metrics keep one platform retention, and Alertmanager serves platform alerts only.
 date: 2026-11-14
-last-verified: 2026-11-14
+last-verified: 2026-11-24
 ---
 
 # ADR 0114: Give the platform organization default dashboards, notify-only alerts and default retention
@@ -43,3 +43,18 @@ ADR 0051 keeps the per-tenant clauses, which stay in Then.
 - Alert rules for services and for the platform live in two places by design;
   the platform rules stay in the observability configuration chart.
 - ADR 0051's per-tenant design builds on this one rather than replacing it.
+
+## Refinement 2026-11-23: vps sets each store's retention
+
+Source: [GitHub issue #1532](https://github.com/corekraft/kore/issues/1532), under [#1513](https://github.com/corekraft/kore/issues/1513), whose [PR #1927](https://github.com/corekraft/kore/pull/1927) sets the vps values; [ADR 0174](0174-the-platform-turns-an-app-flag-on-from-evidence-it-collected-itself.md) needs them to be explicit.
+
+On vps, the Next defaults above take these values, one per store, as set by #1513:
+
+- **Logs:** 14 days (Loki `retention_period` 336h, enforced by the compactor).
+- **Traces:** 7 days (Tempo `retention` 168h).
+- **Metrics:** 15 days (Prometheus `retention`), with a size limit of 16GB, which Prometheus reads as 16 GiB: 80 percent of its 20 GiB volume. Prometheus drops its oldest blocks when either limit is reached.
+
+Why: an activation window reads metrics back over a known span, so retention
+cannot be left to chart defaults on vps. The local environment keeps its own
+shorter values (Prometheus 3 days; Loki and Tempo 72 hours), which this
+refinement does not change.
