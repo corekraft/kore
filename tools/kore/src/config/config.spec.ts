@@ -2,9 +2,9 @@
 import { readFile } from "node:fs/promises";
 import { dirname, isAbsolute, join, resolve } from "node:path";
 import { afterEach, beforeEach, expect, test, vi } from "vitest";
+import { componentValues } from "./component-values.js";
 import {
   absolute,
-  componentValues,
   componentVersion,
   expandVersions,
   findRoot,
@@ -14,6 +14,7 @@ import {
 } from "./config.js";
 import { exists } from "./files.js";
 import { orderedComponents } from "./order.js";
+import { suborgNames } from "./organization-records.js";
 import { loadServiceRegistrations } from "./service-registrations.js";
 import { FileExemptionSource } from "./exemption-source.js";
 import { validateRepository } from "./validate.js";
@@ -31,6 +32,7 @@ vi.mock("./files.js", () => ({ exists: vi.fn() }));
 vi.mock("./service-registrations.js", () => ({
   loadServiceRegistrations: vi.fn(),
 }));
+vi.mock("./organization-records.js", () => ({ suborgNames: vi.fn() }));
 vi.mock("./order.js", () => ({ orderedComponents: vi.fn() }));
 vi.mock("./validate.js", () => ({ validateRepository: vi.fn() }));
 vi.mock("./exemption-check.js", () => ({
@@ -57,6 +59,7 @@ const localFiles = (): Record<string, string> => ({
   "/repo/infra/catalog/readiness.yaml": '{"checks":[]}',
   "/repo/infra/catalog/approved-images.yaml": '{"images":[]}',
   "/repo/infra/catalog/components.yaml": '{"components":[]}',
+  "/repo/infra/catalog/flags.yaml": '{"flags":[]}',
   "/repo/infra/environments/local/environment.yaml":
     '{"name":"local","componentValues":{}}',
 });
@@ -71,6 +74,7 @@ function filesPresent(...present: string[]): void {
 
 beforeEach(() => {
   files = localFiles();
+  vi.mocked(suborgNames).mockResolvedValue([]);
   vi.stubEnv("KORE_ROOT", "");
   vi.mocked(join).mockImplementation((...parts: string[]) =>
     parts.join("/").replace(/\/+/g, "/"),
@@ -178,7 +182,7 @@ test("loading carries the warnings validation reports on the repository", async 
   ]);
 });
 
-test("loading reads the six catalog and overlay files, validates the whole repository, and returns it", async () => {
+test("loading reads the catalog, the flag manifest and the overlay, validates the whole repository, and returns it", async () => {
   filesPresent("/repo/infra/catalog/components.yaml");
   const loaded = await loadRepository("local", "/repo");
   expect(loaded).toMatchObject({
@@ -202,6 +206,7 @@ test("loading reads the six catalog and overlay files, validates the whole repos
     "/repo/infra/catalog/readiness.yaml",
     "/repo/infra/catalog/approved-images.yaml",
     "/repo/infra/catalog/components.yaml",
+    "/repo/infra/catalog/flags.yaml",
     "/repo/infra/environments/local/environment.yaml",
   ]);
 });
@@ -229,12 +234,30 @@ test("the image policy overlay is loaded when the environment names an existing 
   expect(loaded.imageTrustValues).toEqual({ trust: { type: "key" } });
 });
 
-test("loading carries the derived Service names on the repository, read from its root whatever the flags are", async () => {
+test("loading carries the derived Service names on the repository, read from its root and its environment whatever the flags are", async () => {
   filesPresent("/repo/infra/catalog/components.yaml");
   vi.mocked(loadServiceRegistrations).mockResolvedValue(["blog", "shop"]);
   const loaded = await loadRepository("local", "/repo");
   expect(loaded.registeredServices).toEqual(["blog", "shop"]);
-  expect(vi.mocked(loadServiceRegistrations).mock.calls).toEqual([["/repo"]]);
+  expect(vi.mocked(loadServiceRegistrations).mock.calls).toEqual([
+    ["/repo", "local"],
+  ]);
+});
+
+test("loading carries the suborg names the Organization records give, read from its root, its environment and its catalog's namespaces", async () => {
+  filesPresent("/repo/infra/catalog/components.yaml");
+  vi.mocked(suborgNames).mockResolvedValue(["reference"]);
+  const loaded = await loadRepository("local", "/repo");
+  expect(loaded.suborgs).toEqual(["reference"]);
+  expect(vi.mocked(suborgNames).mock.calls).toEqual([
+    [
+      {
+        root: "/repo",
+        environment: expect.objectContaining({ name: "local" }),
+        catalogNamespaces: [],
+      },
+    ],
+  ]);
 });
 
 test("a registry consumer's overlays that exist are merged in order, later files winning", async () => {

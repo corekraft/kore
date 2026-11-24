@@ -1,7 +1,7 @@
 import type { Command } from "../runtime/index.js";
 import { ideaRecordCommands } from "./idea-commands.js";
 import { rulesetCommands } from "../ruleset/index.js";
-import { flagCommands } from "./flag-commands.js";
+import { releaseRecords } from "./release-records.js";
 import { statusCommand } from "./status-command.js";
 import { judgeCommands, prCommands, reviewCommands } from "./judge-commands.js";
 import { decisionCommands } from "./decision-commands.js";
@@ -12,7 +12,7 @@ export const records = {
   idea: ideaRecordCommands,
   outcome: outcomeCommands,
   decision: decisionCommands,
-  flag: flagCommands,
+  ...releaseRecords,
   ruleset: rulesetCommands,
   // `harness status`: the one command of its domain, so it takes no command word.
   status: { "": statusCommand },

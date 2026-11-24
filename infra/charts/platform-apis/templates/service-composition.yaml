@@ -33,7 +33,7 @@ spec:
             apiVersion: platform.kore.dev/v1alpha1
             kind: Service
             status:
-              defaultHost: {{ $host }}
+              defaultHost: {{ $host }}`}}{{- if not (and .Values.features (index .Values.features "suborg-tenancy")) }}{{`
             {{- range $env := .observed.composite.resource.spec.environments }}
             ---
             apiVersion: v1
@@ -48,6 +48,6 @@ spec:
                 platform.kore.dev/organization: {{ $org }}`}}{{- if and .Values.features (index .Values.features "platform-shared-gateway") }}
                 platform.kore.dev/shared-gateway: "true"{{ end }}{{- if and .Values.features (index .Values.features "golden-path-template-admission") }}
                 policy.sigstore.dev/include: "true"{{ end }}{{`
-            {{- end }}`}}
+            {{- end }}`}}{{- end }}
     - step: mark-ready
       functionRef: { name: function-auto-ready }

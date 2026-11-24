@@ -61,3 +61,34 @@ test("a Gateway status read still answers the healthy conditions", () => {
     { type: "Programmed", status: "True" },
   ]);
 });
+
+const exec = (command: string) => [
+  "--context",
+  "k3d-kore-local",
+  "--namespace",
+  "openbao",
+  "exec",
+  "openbao-0",
+  "--container",
+  "openbao",
+  "--",
+  "/bin/sh",
+  "-c",
+  command,
+];
+
+test("a healthy cluster answers the OpenBao status read as initialised and unsealed, so the OpenBao readiness check passes", () => {
+  expect(
+    JSON.parse(healthyClusterOutput(exec("bao status -format=json || true"))),
+  ).toEqual({ initialized: true, sealed: false });
+});
+
+test("a healthy cluster answers the OpenBao audit file read as present, so the OpenBao readiness check passes", () => {
+  expect(
+    healthyClusterOutput(
+      exec(
+        "if [ -s /openbao/audit/audit.log ]; then echo audit; else echo none; fi",
+      ),
+    ),
+  ).toBe("audit");
+});

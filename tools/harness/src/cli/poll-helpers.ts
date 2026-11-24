@@ -1,6 +1,7 @@
 import { join } from "node:path";
 import { HARNESS_CONFIG, parseHarnessConfig } from "../flow/index.js";
 import {
+  COMMAND_OWNED_KINDS,
   POLLER_KINDS,
   pollSignals,
   type Kind,
@@ -59,6 +60,9 @@ export function pollerOnly(input: unknown): string | undefined {
   const { source, kind } = (input ?? {}) as Record<string, unknown>;
   if (source === "github" || POLLER_KINDS.includes(kind as Kind)) {
     return `Events from source github, and kinds ${POLLER_KINDS.join(", ")}, are not recordable by hand: only \`ledger poll-github\` writes them, from GitHub's own records.`;
+  }
+  if (COMMAND_OWNED_KINDS.includes(kind as Kind)) {
+    return `${String(kind)} is written only by \`harness platform rollout-record\`, which checks the release locks first; it is not recordable by hand.`;
   }
   return undefined;
 }

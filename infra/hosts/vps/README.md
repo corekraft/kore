@@ -17,6 +17,13 @@ Desired state for the rented VPS host `kore-vps`, converged by Ansible
    The playbook signs the host in through stdin and closes public SSH. Then
    `mise run vps-apply` for the agents VM, and `unset TAILSCALE_AUTH_KEY`.
 4. `tofu apply` in `infra/tofu/stacks/tailnet` tags the new machines.
+5. On the agents VM, sign the logins in by hand, as `agent`: `gh auth login`
+   and `claude` (see [The agents VM](#the-agents-vm)). They are never backed up.
+
+The whole rebuild, with the restores and what is still planned, is in
+[rebuilding the box](../../../docs/operations/rebuild-the-box.md). Hold the
+items in the [recovery kit](../../../docs/operations/recovery-kit.md) before you
+start.
 
 Without a key, the playbook stops at the sign-in check: run
 `sudo tailscale up --ssh --hostname=kore-vps` on the host, approve the link,
@@ -48,6 +55,20 @@ Tailscale SSH is off on the VM (`tailscale_ssh: false`): its own sshd checks
 1. `gh auth login` with a fine-grained token limited to `corekraft/kore`.
 2. `claude` and sign in.
 
+## Published ports
+
+`port-table.yaml` is the one table of what the host publishes: each public or
+tailnet port, the node port it maps to and the Service that owns it. The
+`network` role redirects each port to its node port, per address, and drops
+every other node port that arrives off the tailnet, except the external
+Gateway's. The host's public and tailnet addresses come from the play's facts
+(`kore_host_addresses` in `site.yaml`); the `k3s` role publishes them to the
+cluster as the `kore-host-addresses` ConfigMap. Neither address is in the
+repository, and that task's output is suppressed. All of it sits behind the
+`host-published-ports` flag in the vps overlay, off until a live run on kore-vps
+and `harness flag activate`; with it off the run writes today's firewall and no
+ConfigMap.
+
 ## k3s
 
 The `k3s` role runs a single-node k3s on the host for the persistent kore: the
@@ -77,3 +98,63 @@ mise run vps-apply
 The run installs the CA at `/etc/rancher/k3s/registry-ca.crt`, writes
 `/etc/rancher/k3s/registries.yaml`, and restarts k3s once (the pods restart
 with it). It refuses a file that holds a private key.
+
+## The OpenBao static seal key
+
+The `openbao` role places the static seal key that OpenBao unseals itself with
+after a reboot ([ADR 0168](../../../docs/decisions/0168-the-openbao-static-seal-key-is-a-recorded-exception-to-no-plaintext-on-disk.md),
+the one recorded exception to no plaintext on disk). It runs last in the play and
+does nothing while the `openbao` flag in `infra/environments/vps/environment.yaml`
+is off (off until a live run and `harness flag activate`).
+
+The key is base64 text that decodes to 32 bytes. The controller keeps it at
+`~/.config/kore/openbao-static-seal.key`, outside the repository, and the role
+streams it to the node through stdin, never logged, to
+`/etc/kore/openbao/static-seal.key`: a root-only file (mode 0400) on the root
+filesystem, not on the k3s data volume. Create the controller copy on a first
+placement only; on a rebuild, copy it from the recovery kit instead, because a
+new key cannot unseal an OpenBao that holds the old one.
+
+```sh
+install -d -m 0700 ~/.config/kore
+openssl rand -base64 32 > ~/.config/kore/openbao-static-seal.key
+chmod 0400 ~/.config/kore/openbao-static-seal.key
+```
+
+A missing or short controller key stops the run and changes nothing. After every
+apply the role checks the node's file: mode, owner, group, location and content.
+It never overwrites a key that is already there, and a drift stops the run
+without a repair.
+
+## OpenBao in the cluster
+
+The platform deploys one OpenBao in the `openbao` namespace behind the same
+`openbao` flag, off in every overlay
+([ADR 0167](../../../docs/decisions/0167-application-secrets-come-from-openbao-behind-the-platform-secrets-contract-one-path-per-suborg.md)).
+It is one replica with Raft storage on the `kore-retained` class, the injector
+and CSI sub-charts off, the chart and the image pinned in
+`infra/catalog/versions.yaml` with their evidence in `infra/catalog/compatibility.md`.
+
+The pod cannot read the root-only seal key the role placed, because OpenBao runs
+as a non-root user. An init container copies it from `/etc/kore/openbao` to a
+memory volume owned by that user, and the static seal reads the copy. The copy
+never reaches a disk, a Secret or a log.
+
+Self-initialization runs once, on the first start, and enables one file audit
+device at `/openbao/audit/audit.log` on its own volume. Nothing else is configured:
+no auth method, policy or mount. The audit log has no rotation yet, so the volume
+is the limit until the backup decision sets one.
+
+`kore platform up` waits for `statefulset/openbao` with a check that fails closed
+and names the cause: `OpenBao is uninitialised`, `OpenBao is sealed`, or
+`OpenBao has no audit device`. A Ready pod alone proves none of the three.
+
+The recovery shares do not exist after self-initialization: the root token is
+revoked and no share is generated. The owner creates them when the first
+authenticated identity exists, with `bao operator rotate-keys -init -target=recovery`
+run by the owner in their own terminal, so the shares print once to that terminal.
+No script, agent session, CI job or `tee` touches them, and nobody copies them
+into a file or a log: the owner moves each share by hand into the recovery kit
+([ADR 0168](../../../docs/decisions/0168-the-openbao-static-seal-key-is-a-recorded-exception-to-no-plaintext-on-disk.md)).
+The single-voter Raft setup through this chart is proven only by the live proof
+ticket [#1603](https://github.com/corekraft/kore/issues/1603).

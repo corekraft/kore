@@ -22,6 +22,31 @@ Storage budgets are the claims' sizes: the registry store is 10Gi
 in `infra/environments/local/values`. Claims are on `kore-standard` (`Delete`)
 unless they hold retained data ([storage classes](../../README.md#storage-classes)).
 
+## Declared node count, reserves and committed fraction
+
+An environment states what its one-node budget is made of
+([ADR 0152](../decisions/0152-one-node-capacity-is-a-declared-budget-that-quotas-enforce-and-memory-favours-the-cluster.md)),
+so the feasibility check, the disruption budget and the capacity budget read
+the same facts. The fields are in the overlay and the
+[schema](../../infra/environments/schema.json):
+
+- `nodeCount` (top level): whole nodes the environment runs. Unset reads as `1`,
+  so every existing overlay keeps its meaning. The vps overlay declares `1`.
+- `committedFraction` (top level): the share of the budget app quotas may
+  commit, from `0` to `1`. Unset reads as `0.8`.
+- `cluster.kubelet` (managed only): the kubelet's `kubeReserved` and
+  `systemReserved` (`cpu` as `500m` or `1`, `memory` as `512Mi` or `1Gi`) and its
+  `evictionHard.memory` floor.
+- `cluster.diskReserve` (managed only): disk kept back from `cluster.diskSize`,
+  in GiB such as `20g`.
+
+Allocatable is the declared compute less those reserves, per node. The vps
+reserves and disk reserve stay absent until the vps measurement records them,
+so its budget is not judged: no capacity verdict is made on an absent reserve.
+`kore validate` refuses a `nodeCount` below 1, a `committedFraction` outside
+0 to 1, an unreadable quantity, and reserves that leave no allocatable CPU,
+memory or disk, naming the field each time.
+
 ## Capacity warning
 
 `kore platform status --environment local` includes a `capacity` row. It

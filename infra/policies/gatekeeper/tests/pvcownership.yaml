@@ -1,0 +1,55 @@
+kind: Suite
+apiVersion: test.gatekeeper.sh/v1alpha1
+tests:
+  - name: pvc-ownership
+    template: ../../../charts/kore-pvc-ownership-templates/templates/korepvcownership.yaml
+    constraint: ../../../charts/kore-pvc-ownership/templates/korepvcownership.yaml
+    cases:
+      - {
+          name: admits-claim-owned-by-cloudnative-pg,
+          object: objects/pvc-cnpg-owned.yaml,
+          inventory: [objects/wi-ns-app.yaml],
+          assertions: [{ violations: 0 }]
+        }
+      - {
+          name: rejects-claim-without-an-owner,
+          object: objects/pvc-unowned.yaml,
+          inventory: [objects/wi-ns-app.yaml],
+          assertions:
+            [
+              {
+                violations: 1,
+                message: "PersistentVolumeClaim uploads is not owned by CloudNativePG, and v1 backs up PostgreSQL and OpenBao only"
+              }
+            ]
+        }
+      - {
+          name: rejects-claim-whose-cloudnative-pg-owner-is-not-the-controller,
+          object: objects/pvc-owner-not-controller.yaml,
+          inventory: [objects/wi-ns-app.yaml],
+          assertions: [{ violations: 1, message: CloudNativePG }]
+        }
+      - {
+          name: rejects-claim-owned-by-a-cluster-of-another-api-group,
+          object: objects/pvc-owner-other-group.yaml,
+          inventory: [objects/wi-ns-app.yaml],
+          assertions: [{ violations: 1, message: CloudNativePG }]
+        }
+      - {
+          name: rejects-claim-owned-by-a-workload-not-a-cluster,
+          object: objects/pvc-owner-other-kind.yaml,
+          inventory: [objects/wi-ns-app.yaml],
+          assertions: [{ violations: 1, message: CloudNativePG }]
+        }
+      - {
+          name: does-not-match-platform-namespaces,
+          object: objects/pvc-platform-unowned.yaml,
+          inventory: [objects/wi-ns-observability.yaml],
+          assertions: [{ violations: 0 }]
+        }
+      - {
+          name: exempts-system-namespaces-even-when-activated,
+          object: objects/pvc-exempt-ns.yaml,
+          inventory: [objects/pvc-ns-cert-manager-activated.yaml],
+          assertions: [{ violations: 0 }]
+        }

@@ -1,0 +1,23 @@
+{
+  "apiVersion": "platform.kore.dev/v1alpha1",
+  "kind": "ServiceRelease",
+  "metadata": {
+    "name": "auth"
+  },
+  "spec": {
+    "commit": "cccccccccccccccccccccccccccccccccccccccc",
+    "components": {
+      "frontend": {
+        "digest": "sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+        "attestation": "ghcr.io/corekraft/kore/auth-attestation@sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
+      },
+      "bff": {
+        "digest": "sha256:fedcba9876543210fedcba9876543210fedcba9876543210fedcba9876543210",
+        "attestation": "ghcr.io/corekraft/kore/auth-attestation@sha256:fedcba9876543210fedcba9876543210fedcba9876543210fedcba9876543210",
+        "rejected": [
+          "sha256:1111111111111111111111111111111111111111111111111111111111111111"
+        ]
+      }
+    }
+  }
+}

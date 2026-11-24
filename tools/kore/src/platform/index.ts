@@ -3,11 +3,14 @@ export { bootstrapControllers, closeGateIfDegraded } from "./bootstrap.js";
 export type { GateCheckResult } from "./bootstrap.js";
 export { readinessFailureSummary } from "./readiness-manifest.js";
 export { platformStop, platformDestroy } from "./lifecycle.js";
+export { uninstallGatedRelease } from "./gated-uninstall.js";
+export type { UninstallOptions, UninstallResult } from "./gated-uninstall.js";
 export { platformRender } from "./render.js";
 export { applyProbePatches } from "./patches.js";
 export { platformStatusReport } from "./crd-ownership-status.js";
 export type { CrdOwnershipStatus } from "./crd-ownership-status.js";
 export { platformStatus } from "./status.js";
+export { chartVersionRowPrefix } from "./chart-version-status.js";
 export { platformClaimsStatus } from "./platform-claims-status.js";
 export type {
   ClaimStatus,
@@ -50,3 +53,10 @@ export {
 export { capacityWarningPercent } from "./capacity-status.js";
 export { routeHostErrors } from "./route-hosts.js";
 export type { GatewayRef } from "./route-hosts.js";
+export { readEvidence } from "./evidence-reader.js";
+export type {
+  EvidenceReading,
+  EvidenceSample,
+  EvidenceSeries,
+  EvidenceWindow,
+} from "./evidence-reader.js";

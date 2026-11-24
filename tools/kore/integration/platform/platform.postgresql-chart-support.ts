@@ -84,6 +84,7 @@ export async function renderStep(
   version: number,
   database?: object,
   route?: object,
+  serviceClass = "development",
 ) {
   const directory = await mkdtemp(join(tmpdir(), "kore-postgresql-chart-"));
   try {
@@ -103,6 +104,7 @@ export async function renderStep(
           spec: {
             retentionPolicy: "Delete",
             compatibilityVersion: version,
+            serviceClass,
             storageSize: "5Gi",
             connectionSecretName: "orders-db-conn",
           },

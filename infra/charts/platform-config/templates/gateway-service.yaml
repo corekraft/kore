@@ -1,4 +1,7 @@
-{{- if and .Values.gateway.service.type (eq .Values.gateway.className "istio") }}
+{{- /* The deployment key carries the shared proxy's app defaults while gateway-proxy-defaults is on (ADR 0154), its resources while data-path-guaranteed-qos is on (ADR 0152), and its priority class while data-path-priority-class is on (issue 1531). */}}
+{{- $qos := include "platform-config.dataPathQos" . -}}
+{{- $prio := include "platform-config.dataPathPriority" . -}}
+{{- if and (or .Values.gateway.service.type (include "platform-config.proxyDefaults" .) $qos $prio) (eq .Values.gateway.className "istio") }}
 # Istio generates the Gateway's Service and merges this overlay into it. The
 # environment decides how the Service is published (an overlay that reaches the
 # Gateway through a node port, say); the chart names no provider.
@@ -9,6 +12,7 @@ metadata:
   namespace: kore-system
   labels: {app.kubernetes.io/managed-by: Helm}
 data:
+{{- if .Values.gateway.service.type }}
   service: |
     spec:
       type: {{ .Values.gateway.service.type }}
@@ -17,7 +21,34 @@ data:
         {{- . | nindent 8 }}
       {{- end }}
 {{- end }}
-{{- if and .Values.gateway.service.type (eq .Values.gateway.className "agentgateway") }}
+{{- if or (include "platform-config.proxyDefaults" .) $qos $prio }}
+  deployment: |
+    spec:
+{{- if include "platform-config.proxyDefaults" . }}
+      replicas: {{ .Values.gateway.proxy.replicas }}
+      minReadySeconds: {{ .Values.gateway.proxy.minReadySeconds }}
+      progressDeadlineSeconds: {{ .Values.gateway.proxy.progressDeadlineSeconds }}
+      strategy:
+        type: RollingUpdate
+        rollingUpdate:
+          maxUnavailable: {{ .Values.gateway.proxy.maxUnavailable }}
+          maxSurge: {{ .Values.gateway.proxy.maxSurge }}
+{{- end }}
+{{- if or $qos $prio }}
+      template:
+        spec:
+{{- if $prio }}
+          priorityClassName: {{ .Values.gateway.proxy.priorityClass }}
+{{- end }}
+{{- if $qos }}
+          containers:
+            - name: istio-proxy
+              resources: {{ include "platform-config.guaranteedResources" . }}
+{{- end }}
+{{- end }}
+{{- end }}
+{{- end }}
+{{- if and (eq .Values.gateway.className "agentgateway") (or .Values.gateway.service.type (include "platform-config.proxyDefaults" .) $qos $prio) }}
 ---
 # agentgateway generates the Gateway's Service and merges this overlay into it,
 # the same settings the Istio ConfigMap above carries, so the environment still
@@ -29,6 +60,7 @@ metadata:
   namespace: kore-system
   labels: {app.kubernetes.io/managed-by: Helm}
 spec:
+{{- if .Values.gateway.service.type }}
   service:
     spec:
       type: {{ .Values.gateway.service.type }}
@@ -36,4 +68,62 @@ spec:
       ports:
         {{- . | nindent 8 }}
       {{- end }}
+{{- end }}
+{{- if or (include "platform-config.proxyDefaults" .) $prio }}
+  deployment:
+    spec:
+{{- if include "platform-config.proxyDefaults" . }}
+      replicas: {{ .Values.gateway.proxy.replicas }}
+      minReadySeconds: {{ .Values.gateway.proxy.minReadySeconds }}
+      progressDeadlineSeconds: {{ .Values.gateway.proxy.progressDeadlineSeconds }}
+      strategy:
+        type: RollingUpdate
+        rollingUpdate:
+          maxUnavailable: {{ .Values.gateway.proxy.maxUnavailable }}
+          maxSurge: {{ .Values.gateway.proxy.maxSurge }}
+{{- end }}
+{{- if $prio }}
+      template:
+        spec:
+          priorityClassName: {{ .Values.gateway.proxy.priorityClass }}
+{{- end }}
+{{- end }}
+{{- if $qos }}
+  resources: {{ include "platform-config.guaranteedResources" . }}
+{{- end }}
+{{- end }}
+{{- if and (include "platform-config.externalGateway" .) .Values.externalGateway.service.nodePort }}
+{{- if eq .Values.gateway.className "istio" }}
+---
+# The external Gateway's Service, published as the overlay's node port (ADR 0160).
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: kore-gateway-external-service
+  namespace: kore-system
+  labels: {app.kubernetes.io/managed-by: Helm}
+data:
+  service: |
+    spec:
+      type: NodePort
+      ports:
+        - port: {{ .Values.externalGateway.port }}
+          nodePort: {{ .Values.externalGateway.service.nodePort }}
+{{- else if eq .Values.gateway.className "agentgateway" }}
+---
+# The external Gateway's Service, published as the overlay's node port (ADR 0160).
+apiVersion: agentgateway.dev/v1alpha1
+kind: AgentgatewayParameters
+metadata:
+  name: kore-gateway-external-service
+  namespace: kore-system
+  labels: {app.kubernetes.io/managed-by: Helm}
+spec:
+  service:
+    spec:
+      type: NodePort
+      ports:
+        - port: {{ .Values.externalGateway.port }}
+          nodePort: {{ .Values.externalGateway.service.nodePort }}
+{{- end }}
 {{- end }}

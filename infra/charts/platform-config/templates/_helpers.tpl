@@ -8,6 +8,15 @@ before. kore hands every declared flag to this chart as features.<flag>.
 {{- end -}}
 
 {{/*
+True (a non-empty string) only for the agentgateway class with the
+agentgateway-data-plane-metrics flag on. The Gateway then asks the data-plane
+pods to be scraped (issue 1514); any other state renders as before.
+*/}}
+{{- define "platform-config.agentgatewayMetrics" -}}
+{{- if and (eq .Values.gateway.className "agentgateway") (index (.Values.features | default dict) "agentgateway-data-plane-metrics") -}}true{{- end -}}
+{{- end -}}
+
+{{/*
 True (a non-empty string) only while the platform-shared-gateway flag is on: the
 Gateway gains the platform organization's wildcard listener and its certificate,
 and its Service serves the standard port (ADR 0132). Off, nothing it renders
@@ -15,6 +24,99 @@ changes.
 */}}
 {{- define "platform-config.sharedGateway" -}}
 {{- if index (.Values.features | default dict) "platform-shared-gateway" -}}true{{- end -}}
+{{- end -}}
+
+{{/*
+True (a non-empty string) only while the gateway-proxy-defaults flag is on: the
+shared proxy runs the app defaults (two replicas, one surge pod, a readiness
+gate and a PodDisruptionBudget), for either GatewayClass (ADR 0154). Off, nothing
+it renders changes.
+*/}}
+{{- define "platform-config.proxyDefaults" -}}
+{{- if index (.Values.features | default dict) "gateway-proxy-defaults" -}}true{{- end -}}
+{{- end -}}
+
+{{/*
+True (a non-empty string) only while the data-path-guaranteed-qos flag is on: the
+shared proxy requests its limit for CPU and memory, so its pods are Guaranteed
+(ADR 0152, issue 1593), for either GatewayClass. Off, nothing it renders changes.
+*/}}
+{{- define "platform-config.dataPathQos" -}}
+{{- if index (.Values.features | default dict) "data-path-guaranteed-qos" -}}true{{- end -}}
+{{- end -}}
+
+{{/*
+True (a non-empty string) only while the data-path-priority-class flag is on: the
+shared proxy names the kore-owned PriorityClass, which the oci-registry release
+creates (ADR 0152, issue 1531), for either GatewayClass. Off, nothing it renders changes.
+*/}}
+{{- define "platform-config.dataPathPriority" -}}
+{{- if index (.Values.features | default dict) "data-path-priority-class" -}}true{{- end -}}
+{{- end -}}
+
+{{/*
+The shared proxy's Guaranteed resources as one flow mapping, the request and the
+limit alike, so the same text serves the Istio deployment patch and the
+AgentgatewayParameters spec. Each size is required while the flag is on, so an
+overlay that omits one is refused before anything renders, naming the field.
+*/}}
+{{- define "platform-config.guaranteedResources" -}}
+{{- $cpu := required "gateway.proxy.guaranteed.cpu must be set in the environment's values, for example 2000m, while data-path-guaranteed-qos is on" .Values.gateway.proxy.guaranteed.cpu -}}
+{{- $memory := required "gateway.proxy.guaranteed.memory must be set in the environment's values, for example 1024Mi, while data-path-guaranteed-qos is on" .Values.gateway.proxy.guaranteed.memory -}}
+{requests: {cpu: {{ $cpu }}, memory: {{ $memory }}}, limits: {cpu: {{ $cpu }}, memory: {{ $memory }}}}
+{{- end -}}
+
+{{/*
+True (a non-empty string) only while the external-gateway flag is on: the chart
+renders the external Gateway, its HTTP redirect and its Service's node port
+(ADR 0160, issue 1633). Off, nothing it renders changes.
+*/}}
+{{- define "platform-config.externalGateway" -}}
+{{- if index (.Values.features | default dict) "external-gateway" -}}true{{- end -}}
+{{- end -}}
+
+{{/*
+True (a non-empty string) only while external-gateway-limits and external-gateway
+are both on: the one platform-owned policy limits the external Gateway (ADR 0160,
+issue 1674). Off, nothing it renders changes.
+*/}}
+{{- define "platform-config.externalGatewayLimits" -}}
+{{- if and (include "platform-config.externalGateway" .) (index (.Values.features | default dict) "external-gateway-limits") -}}true{{- end -}}
+{{- end -}}
+
+{{/*
+A limit read from externalGateway.limits in the environment's values. It must be
+set and a positive whole number; the failure names the field and an example, so
+an overlay that omits a limit or sets it to zero is refused before anything
+renders. Called with dict "path" (the field under limits), "value" and "example".
+*/}}
+{{- define "platform-config.limitNumber" -}}
+{{- $field := printf "externalGateway.limits.%s" .path -}}
+{{- $value := required (printf "%s must be set in the environment's values, a positive whole number such as %s, while external-gateway-limits is on" $field .example) .value -}}
+{{- if le (int64 $value) 0 -}}
+{{- fail (printf "%s must be a positive whole number such as %s, got %v" $field .example $value) -}}
+{{- end -}}
+{{- int64 $value -}}
+{{- end -}}
+
+{{/*
+A limit read from externalGateway.limits that is a duration or a quantity, which
+the CRD validates in form: it must be set. Called with dict "path", "value" and
+"example".
+*/}}
+{{- define "platform-config.limitText" -}}
+{{- $field := printf "externalGateway.limits.%s" .path -}}
+{{- required (printf "%s must be set in the environment's values, for example %s, while external-gateway-limits is on" $field .example) .value -}}
+{{- end -}}
+
+{{/*
+True (a non-empty string) only while the service-listener-sets flag is on: each
+Gateway admits ListenerSets only from namespaces carrying the platform's
+shared-Gateway label (ADR 0159, issue 1633). Off, the Gateways carry no
+allowedListeners, as before.
+*/}}
+{{- define "platform-config.serviceListenerSets" -}}
+{{- if index (.Values.features | default dict) "service-listener-sets" -}}true{{- end -}}
 {{- end -}}
 
 {{/*

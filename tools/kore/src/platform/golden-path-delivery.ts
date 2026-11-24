@@ -48,6 +48,41 @@ function templateImages(lock: unknown) {
   return result;
 }
 
+/** Only while app-delivery is on, so the flag-off values are unchanged (ADR 0172). */
+function appDeliveryValues(repository: Repository): { appDelivery?: true } {
+  return repository.environment.features?.["app-delivery"] === true
+    ? { appDelivery: true }
+    : {};
+}
+
+/** Only while golden-path-safety-defaults is on, so the flag-off values are unchanged (ADR 0154). */
+function safetyDefaultsValues(repository: Repository): {
+  safetyDefaults?: true;
+} {
+  return repository.environment.features?.["golden-path-safety-defaults"] ===
+    true
+    ? { safetyDefaults: true }
+    : {};
+}
+
+/** Only while golden-path-service-identity is on, so the flag-off values are unchanged (issue 1551). */
+function serviceIdentityValues(repository: Repository): {
+  serviceIdentity?: true;
+} {
+  return repository.environment.features?.["golden-path-service-identity"] ===
+    true
+    ? { serviceIdentity: true }
+    : {};
+}
+
+/** The workload flags the sync passes on, each only while its flag is on. */
+function workloadFlagValues(repository: Repository) {
+  return {
+    ...safetyDefaultsValues(repository),
+    ...serviceIdentityValues(repository),
+  };
+}
+
 async function git(
   repository: Repository,
   runner: Runner,
@@ -122,6 +157,8 @@ export async function composeGoldenPathDelivery(
         repository.environment.features?.["golden-path-template-admission"] ===
         true,
       autoscaling: repository.environment.features?.[autoscalingFlag] === true,
+      ...workloadFlagValues(repository),
+      ...appDeliveryValues(repository),
       // All three flags on: the sync also applies the Service records (ADR 0166).
       serviceRecords:
         repository.environment.features?.[platformPortalFlag] === true &&

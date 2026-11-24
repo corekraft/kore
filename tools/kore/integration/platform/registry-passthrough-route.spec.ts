@@ -6,6 +6,7 @@ import {
   loadRepository,
   validateRepository,
   type Repository,
+  internalGateway,
 } from "../../src/config/index.js";
 import { helmTemplateArgs } from "../../src/platform/index.js";
 import {
@@ -65,7 +66,7 @@ test("with registry-by-name on the Gateway gains a TLS passthrough listener for 
     "registry-by-name": true,
   });
   const output = render(repository, "kore-platform-config");
-  const port = repository.environment.gateway.port;
+  const port = internalGateway(repository.environment).port;
   assert.match(
     output,
     new RegExp(
@@ -180,7 +181,7 @@ test("the registry chart's route attaches to the listener the platform chart dec
   assert.match(
     gateway,
     new RegExp(
-      `kind: Gateway\\s+metadata:\\s+name: ${repository.environment.gateway.name}\\s+namespace: ${repository.environment.gateway.namespace}`,
+      `kind: Gateway\\s+metadata:\\s+name: ${internalGateway(repository.environment).name}\\s+namespace: ${internalGateway(repository.environment).namespace}`,
     ),
   );
 });
@@ -193,7 +194,7 @@ test("registry-by-name on with platform-shared-gateway off is refused by validat
         "registry-by-name": true,
       }),
     ),
-    /turns on registry-by-name, which needs platform-shared-gateway/,
+    /flag registry-by-name is on in the local overlay but requires platform-shared-gateway, which is off there/,
   );
   await validateRepository(
     await repositoryWith({ ...sharedGatewayOn, "registry-by-name": true }),

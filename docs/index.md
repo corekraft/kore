@@ -253,6 +253,7 @@ repository root; `mise run kb-check` keeps this list complete.
 - [`docs/decisions/0179-a-session-s-token-is-made-inside-its-launch-wrapper-from-the-identity-store.md`](decisions/0179-a-session-s-token-is-made-inside-its-launch-wrapper-from-the-identity-store.md) — Accepted, supersedes ADR 0096: a session's GitHub token is minted inside its launch wrapper from the identity store, not passed through a FIFO or an API environment. Read when changing how a role gets its GitHub token.
 - [`docs/decisions/0180-backstage-reads-the-argo-cd-view-as-its-own-service-account-gated-by-the-operators-policy.md`](decisions/0180-backstage-reads-the-argo-cd-view-as-its-own-service-account-gated-by-the-operators-policy.md) — The Kubernetes plugin reads Argo CD Applications and Deployments with the Backstage service account while the operators-only permission policy decides who may ask, because the local apiserver cannot accept Keycloak tokens.
 - [`docs/decisions/0181-namespaces-delivered-from-git-are-enrolled-in-image-admission-by-their-creator.md`](decisions/0181-namespaces-delivered-from-git-are-enrolled-in-image-admission-by-their-creator.md) — A namespace that git delivers is enrolled in Sigstore admission by the component that creates it, behind golden-path-template-admission, and kore app up still enrols application namespaces.
+- [`docs/decisions/0182-platform-alerts-for-external-dns-and-certificates-are-grafana-managed-rules.md`](decisions/0182-platform-alerts-for-external-dns-and-certificates-are-grafana-managed-rules.md) — The external-dns sync-error and certificate alerts render as Grafana-managed rules in the observability configuration chart, behind their flags, because Grafana's one contact point is the only route a notify-only alert reaches.
 
 ## Proposed Decisions
 
@@ -352,6 +353,10 @@ decisions; read one only when planning that area, and expect it to change.
 - [`docs/ideas/0080-the-golden-path-sign-in-passes-live-a-signed-in-call-succeed.md`](ideas/0080-the-golden-path-sign-in-passes-live-a-signed-in-call-succeed.md) — The golden-path sign-in passes live: a signed-in call succeeds and an anonymous call is refused
 - [`docs/ideas/0079-the-browser-token-check-passes-live-no-token-reaches-the-pag.md`](ideas/0079-the-browser-token-check-passes-live-no-token-reaches-the-pag.md) — The browser token check passes live: no token reaches the page and the session cookie is locked down
 - [`docs/ideas/0081-hc-sessions-verification.md`](ideas/0081-hc-sessions-verification.md) — Verification that the hc-sessions flag runs harness sessions on hc terminals in local, so it can be activated. Turning it on needs this idea's recorded verification outcome.
+- [`docs/ideas/0082-drift-listing-mappings-works-live-in-local.md`](ideas/0082-drift-listing-mappings-works-live-in-local.md) — drift-listing-mappings works live in local
+- [`docs/ideas/0083-golden-path-signin-after-portal-works-live-in-local.md`](ideas/0083-golden-path-signin-after-portal-works-live-in-local.md) — golden-path-signin-after-portal works live in local
+- [`docs/ideas/0084-drift-listing-mappings-works-live-on-release-locks.md`](ideas/0084-drift-listing-mappings-works-live-on-release-locks.md) — drift-listing-mappings works live in local on the v0.26.0 locks
+- [`docs/ideas/0085-golden-path-signin-after-portal-works-live-on-release-locks.md`](ideas/0085-golden-path-signin-after-portal-works-live-on-release-locks.md) — golden-path-signin-after-portal works live in local on the v0.26.0 locks
 
 ## Operations and Guides
 
@@ -365,11 +370,16 @@ decisions; read one only when planning that area, and expect it to change.
 - [`docs/operations/signing-and-keys.md`](operations/signing-and-keys.md) — signing identities, key and identity rotation, compromise response, pipeline controls, and break-glass. Read when changing who may sign.
 - [`docs/operations/trust-and-rotation.md`](operations/trust-and-rotation.md) — every trust root, certificate and secret rotation, and workload identity incident response. Read when rotating or revoking anything.
 - [`docs/operations/policy-changes.md`](operations/policy-changes.md) — policy review, audit-to-enforce promotion, rollback, and emergency exemptions. Read when changing or promoting a policy.
+- [`docs/operations/workload-defaults-admission.md`](operations/workload-defaults-admission.md) — the admission constraint that audits app workloads against the replica, rollout, memory and priority defaults, its sign-in BFF exemption, and what it does not yet cover. Read when changing or promoting it.
+- [`docs/operations/pvc-ownership-admission.md`](operations/pvc-ownership-admission.md) — the admission constraint that audits PersistentVolumeClaims in app namespaces CloudNativePG does not own, because v1 backs up PostgreSQL and OpenBao only; its flag, what it does not yet cover, and the promotion steps. Read when changing or promoting it.
 - [`docs/operations/role-identities.md`](operations/role-identities.md) — where the role identities live on macOS and on a Linux delivery host (a sops-encrypted store) and how the wizard's `--transfer` step fills it. Read when a Linux host cannot start a reviewer, judge or orchestrator pane.
 - [`docs/operations/resource-budgets.md`](operations/resource-budgets.md) — profile sizing and the `capacity` status warning. Read when the platform runs short of CPU or memory.
-- [`docs/operations/backups.md`](operations/backups.md) — the export backup target, the RPO objective, and the audit-only `backups` status row. Read when exporting, restoring, or when `backups` is degraded.
+- [`docs/operations/backups.md`](operations/backups.md) — the export backup target, the RPO objective, the planned vps backups, and the audit-only `backups` status row. Read when exporting, restoring, or when `backups` is degraded.
+- [`docs/operations/rebuild-the-box.md`](operations/rebuild-the-box.md) — how to rebuild `kore-vps` from nothing, in order, with each step marked by hand or automated, the planned restores, and the 8-hour objective. Read when the box is lost or a rebuild drill runs.
+- [`docs/operations/recovery-kit.md`](operations/recovery-kit.md) — the items the owner holds off the box, who holds each one and where, never a value, and the attestation. Read before a rebuild, or when a key or login is lost.
 - [`docs/operations/hc-pin.md`](operations/hc-pin.md) — the exact hc pin (0.1.21), where it is checked, how a host installs it, and the open release-source question. Read when installing or upgrading hc, or when the hc version check fails.
 - [`docs/operations/agentgateway-listener-probe.md`](operations/agentgateway-listener-probe.md) — the opt-in probe for a passthrough and an HTTPS listener on one port, and listener sets, and how to read its result. Read before running it or deciding the registry and database routes.
+- [`docs/operations/agentgateway-data-plane-series.md`](operations/agentgateway-data-plane-series.md) — which agentgateway data-plane series carry request count, errors and latency, what carries the service key, the candidate names (unverified), the data-plane scrape, and the live query the coordinator runs. Read before writing an evidence window that reads request series, or before changing the agentgateway scrape.
 
 ## Reference
 

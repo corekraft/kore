@@ -1,5 +1,6 @@
 export {
   loadLocalGatewayFlagsOff,
+  withDriftListingMappingsOff,
   withGatewayFlagsOff,
   withPlatformDnsOn,
 } from "./gateway-flags-off.fixtures.js";
@@ -74,6 +75,7 @@ export { retryBudget } from "../platform/readiness-poll.js";
 export { openApplicationAdmission } from "../platform/readiness-gate.js";
 export { gatewayCheck, waitForGateway } from "../platform/readiness-gateway.js";
 export { backupStatus } from "../platform/backup-status.js";
+export { uninstallGatedRelease } from "../platform/gated-uninstall.js";
 export {
   capacityStatus,
   parseCpu,
@@ -178,6 +180,10 @@ export {
 } from "../platform/container-smoke.js";
 export { renderChart, yamlDocuments } from "../platform/upstream.live.js";
 export { rolloutProblems } from "../platform/rollout-feasibility.js";
+export {
+  goldenPathFeasibility,
+  renderGoldenPathWorkload,
+} from "../platform/golden-path-feasibility.live.js";
 // Internals of the cli, config, images and runtime domains that the integration
 // specs reach through this barrel (plan 14, #579). Names a domain's own index.ts
 // already exports are imported from that index. Production code never imports

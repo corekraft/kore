@@ -113,11 +113,13 @@ test("both XRDs follow the PostgreSQL API layout in the platform.kore.dev group"
   }
 });
 
-test("Service identifies its organization and environments by label-safe names, platform only", async () => {
+test("Service identifies its organization by a label-safe name of at most 54 characters, and its environments by label-safe names", async () => {
   const xrd = await read(
     "infra/charts/platform-apis/templates/service-xrd.yaml",
   );
-  assert.match(xrd, /organization: \{ type: string, enum: \[platform\] \}/);
+  assert.doesNotMatch(xrd, /enum: \[platform\]/);
+  assert.match(xrd, /maxLength: 54,/);
+  assert.match(xrd, /pattern: "\^\[a-z0-9\]\(\[a-z0-9\]\|-\[a-z0-9\]\)\*\$"/);
   assert.match(xrd, /\^\[a-z0-9\]\(\[-a-z0-9\]\{0,61\}\[a-z0-9\]\)\?\$/);
   assert.match(xrd, /minItems: 1/);
 });
@@ -135,7 +137,12 @@ test("the Organization composition is a skeleton that composes no resource until
   );
   assert.match(source, /^  name: organization-local$/m);
   assert.match(source, /function-auto-ready/);
-  assert.doesNotMatch(source, /kind: Namespace/);
+  // The suborg namespace is composed only behind suborg-tenancy (ADR 0165), after the skeleton.
+  const [beforeSuborg = "", suborg = ""] = source.split(
+    /^\{\{- if index \$features "suborg-tenancy" \}\}$/m,
+  );
+  assert.doesNotMatch(beforeSuborg, /kind: Namespace/);
+  assert.match(suborg, /kind: Namespace/);
   const [always = "", gated = ""] = source.split(
     /^\{\{- if index \$features "platform-portal" \}\}$/m,
   );

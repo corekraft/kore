@@ -1,4 +1,4 @@
-import { HOST_RULES } from "./schema-host.js";
+import { PAYLOAD_RULES, type RolloutOrigin } from "./schema-payload.js";
 import {
   DECISION_ROUTE_RULES,
   KINDS,
@@ -69,7 +69,8 @@ export interface EventInput
     Partial<DecisionRouteOrigin>,
     Partial<SplitOrigin>,
     Partial<CompactionOrigin>,
-    Partial<TerminalOrigin> {
+    Partial<TerminalOrigin>,
+    Partial<RolloutOrigin> {
   id?: string;
   source: Source;
   kind: Kind;
@@ -172,11 +173,7 @@ const ALLOWED = new Set<string>([
   ...SPLIT_RULES.map((rule) => rule.field),
   ...COMPACTION_RULES.map((rule) => rule.field),
   ...TERMINAL_RULES.map((rule) => rule.field),
-  "load",
-  "memory",
-  "swap",
-  "sessions",
-  "platform",
+  ...PAYLOAD_RULES.map((rule) => rule.field),
   "background",
 ]);
 
@@ -270,7 +267,7 @@ const RULES: readonly Rule[] = [
   ...SENDER_RULES,
   ...MERGED_RULES,
   ...RESULT_RULES,
-  ...HOST_RULES,
+  ...PAYLOAD_RULES,
   ...DECISION_ROUTE_RULES,
   ...SPLIT_RULES,
   ...COMPACTION_RULES,

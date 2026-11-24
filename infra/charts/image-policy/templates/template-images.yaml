@@ -10,6 +10,11 @@ The policy exists only while the golden-path-template-admission feature flag is
 on, and it starts in templates.trust.mode (warn while auditing, enforce after a
 recorded live outcome). Its glob is the template repository and nothing else, so
 no other image matches it.
+
+The release signs each template image twice, keyless under the same identity: the
+Sigstore bundle, and the legacy sha256-<digest>.sig tag (issue 1884). Policy
+Controller reads only the legacy tag, so the authority keeps the default signature
+format.
 */ -}}
 {{- $features := .Values.features | default dict }}
 {{- $template := .Values.templates.trust | default dict }}

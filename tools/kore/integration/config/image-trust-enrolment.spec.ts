@@ -14,9 +14,13 @@ const v022 =
   "https://github.com/corekraft/kore/.github/workflows/release.yaml@refs/tags/v0.22.0";
 const v025 =
   "https://github.com/corekraft/kore/.github/workflows/release.yaml@refs/tags/v0.25.0";
+const v027 =
+  "https://github.com/corekraft/kore/.github/workflows/release.yaml@refs/tags/v0.27.0";
 
-test("every overlay gives the template policy its own keyless trust, admitting v0.25.0 and v0.22.0, in warn", async () => {
+test("every overlay gives the template policy its own keyless trust, admitting v0.25.0 and v0.22.0 (local also v0.27.0, trusted there alone), in warn", async () => {
   for (const environment of ["local", "vps", "managed-example"]) {
+    const admitted =
+      environment === "local" ? [v027, v025, v022] : [v025, v022];
     const repository = await loadRepository(environment);
     const templates: unknown = repository.imageTrustValues?.["templates"];
     const trust: unknown = isRecord(templates) ? templates["trust"] : undefined;
@@ -33,8 +37,8 @@ test("every overlay gives the template policy its own keyless trust, admitting v
     );
     assert.deepEqual(
       trust["subjects"],
-      [v025, v022],
-      `${environment} templates.trust admits the v0.25.0 and v0.22.0 release signers`,
+      admitted,
+      `${environment} templates.trust admits the release signers ${admitted.join(", ")}`,
     );
     assert.equal(
       trust["mode"],
@@ -70,14 +74,17 @@ test("local keeps its key platform trust untouched", async () => {
 const enrolmentLabel = "policy.sigstore.dev/include";
 
 // The only files that may carry the enrolment label: the two creators of the
-// golden-path namespaces, each behind golden-path-template-admission (ADR 0181).
-// Any other chart or overlay that carries it fails this guard.
+// golden-path namespaces, behind golden-path-template-admission (ADR 0181), and
+// the Organization composition, which enrols each suborg namespace behind
+// suborg-tenancy (ADR 0165, issue 1550). Any other chart or overlay that carries
+// it fails this guard.
 const flagGatedEnrolmentFiles = [
   "infra/charts/golden-path-delivery/templates/applicationset.yaml",
   "infra/charts/platform-apis/templates/service-composition.yaml",
+  "infra/charts/platform-apis/templates/organization-composition.yaml",
 ];
 
-test("the only namespace enrolment in git is the golden-path creators' label, behind golden-path-template-admission", async () => {
+test("the only namespace enrolment in git is a namespace creator's label, each behind its own flag (ADR 0181, ADR 0165)", async () => {
   const root = await findRoot();
   const carriers: string[] = [];
   for (const dir of ["infra/charts", "infra/environments"]) {

@@ -48,6 +48,14 @@ test("the release job signs the static frontend template image by digest and ver
   );
 });
 
+test("the release job also signs the static frontend template image in the legacy .sig form, keyless under the same identity, since policy-controller reads only that form (issue 1884)", async () => {
+  const workflow = await read(".github/workflows/release.yaml");
+  assert.match(
+    workflow,
+    /cosign sign --yes --new-bundle-format=false --use-signing-config=false "\$\{TEMPLATE_IMAGE\}@\$\{TEMPLATE_DIGEST\}"/,
+  );
+});
+
 test("the static frontend base is the digest the catalog already records for the registry proxy seed", async () => {
   const dockerfile = await read("templates/static-frontend/Dockerfile");
   const base = /^FROM (\S+)$/m.exec(dockerfile)?.[1];

@@ -3,8 +3,10 @@ import { run } from "../src/cli/index.js";
 import { harness } from "../src/testing/index.js";
 import {
   LEDGER,
+  MANIFEST,
   OVERLAY,
   activate,
+  flagManifest,
   overlay,
   provenIdea,
   repository,
@@ -117,6 +119,34 @@ describe("harness flag activate reruns", () => {
     h.fs.appendFile = before;
     expect(await run(activate(), h.deps)).toBe(0);
     expect(events(h)).toHaveLength(1);
+  });
+});
+
+describe("harness flag activate prerequisites", () => {
+  it("refuses a flag whose required flag is off, naming it, and leaves the overlay and the ledger unchanged", async () => {
+    const h = repository({
+      [MANIFEST]: flagManifest({ "ingress-agentgateway": ["other-flag"] }),
+      "docs/ideas/0001-proof.md": provenIdea(),
+    });
+    const before = h.snapshot();
+    expect(await run(activate(), h.deps)).toBe(1);
+    expect(h.err()).toMatch(
+      /ingress-agentgateway requires other-flag on in local, but it is off/,
+    );
+    expect(h.snapshot()).toEqual(before);
+  });
+
+  it("turns the flag on once the flag it requires is on", async () => {
+    const h = repository({
+      [MANIFEST]: flagManifest({ "ingress-agentgateway": ["other-flag"] }),
+      [OVERLAY]: overlay({ "ingress-agentgateway": false, "other-flag": true }),
+      "docs/ideas/0001-proof.md": provenIdea(),
+    });
+    expect(await run(activate(), h.deps)).toBe(0);
+    expect(JSON.parse(h.get(OVERLAY) ?? "").features).toEqual({
+      "ingress-agentgateway": true,
+      "other-flag": true,
+    });
   });
 });
 

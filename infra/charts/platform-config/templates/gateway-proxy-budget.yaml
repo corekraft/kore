@@ -1,0 +1,14 @@
+{{- /* The shared proxy's PodDisruptionBudget while gateway-proxy-defaults is on (ADR 0154). Both GatewayClasses label the proxy pods with the Gateway's name, so one budget selects them; the agentgateway parameters carry no budget of their own, so there is one owner. Off, the file renders nothing. */}}
+{{- if include "platform-config.proxyDefaults" . }}
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: kore-gateway-proxy
+  namespace: kore-system
+  labels: {app.kubernetes.io/managed-by: Helm}
+spec:
+  maxUnavailable: {{ .Values.gateway.proxy.budgetMaxUnavailable }}
+  selector:
+    matchLabels:
+      gateway.networking.k8s.io/gateway-name: kore-gateway
+{{- end }}

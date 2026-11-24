@@ -1,6 +1,14 @@
 // A typed CliDeps for the precheck specs: the runner is the caller's mock, and every other
 // dependency is a stub that rejects, so a precheck that reaches for one fails the test.
 import type { CliDeps, FileSystem, Runner } from "../runtime/index.js";
+import type { HostnameClaimReport } from "./hostname-claims.js";
+
+/** The hostname claims of a PR that touches none: the default the precheck specs give the check. */
+export const NO_CLAIMS: HostnameClaimReport = {
+  touches: false,
+  behindBy: 0,
+  refusals: [],
+};
 
 const untouched = (name: string) => (): Promise<never> =>
   Promise.reject(new Error(`the precheck does not use ${name}`));

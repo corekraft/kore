@@ -8,16 +8,9 @@ test("the local image reuse flag is named local-image-reuse", () => {
   assert.equal(localImageReuseFlag, "local-image-reuse");
 });
 
-test("the flag is on in local and off in managed-example", async () => {
-  for (const [name, expected] of [
-    ["local", true],
-    ["managed-example", false],
-  ] as const) {
-    const repository = await loadRepository(name);
-    assert.equal(
-      repository.environment.features?.[localImageReuseFlag],
-      expected,
-      `${name} must declare ${localImageReuseFlag} as ${expected}`,
-    );
-  }
+test("the flag is on in local, and managed-example does not declare it, since the manifest applies it to local only", async () => {
+  const local = await loadRepository("local");
+  assert.equal(local.environment.features?.[localImageReuseFlag], true);
+  const managed = await loadRepository("managed-example");
+  assert.equal(managed.environment.features?.[localImageReuseFlag], undefined);
 });

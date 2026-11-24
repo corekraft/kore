@@ -9,6 +9,7 @@ import {
 } from "../cluster/index.js";
 import {
   bootstrapControllers,
+  chartVersionRowPrefix,
   closeGateIfDegraded,
   platformClaimsStatus,
   platformDestroy,
@@ -19,7 +20,9 @@ import {
   composeGoldenPathDelivery,
   platformUp,
   readinessFailureSummary,
+  uninstallGatedRelease,
 } from "../platform/index.js";
+import type { Runner } from "../runtime/index.js";
 import { mutateAction } from "./context.js";
 import type { CommandContext } from "./context.js";
 import { boolFlag, stringFlag } from "./flags.js";
@@ -83,12 +86,13 @@ export async function platformCommand(
     const rows = await platformStatusReport(repository, runner);
     print(rows, json);
     // Success is never reported before the gate is open, nor while any
-    // prerequisite is unready (ADR 0067). CRD ownership and backup freshness
-    // are audit-only: neither is a prerequisite of admitting applications.
+    // prerequisite is unready (ADR 0067). CRD ownership, backup freshness and
+    // the chart rows are audit-only: none is a prerequisite of admitting applications.
     return rows.some(
       ({ name, status }) =>
         name !== "crd-ownership" &&
         name !== "backups" &&
+        !name.startsWith(chartVersionRowPrefix) &&
         status !== "ready" &&
         status !== "gated-off",
     )
@@ -143,7 +147,32 @@ export async function platformCommand(
         mutationRunner,
         destroyOptions(context),
       ),
+    uninstall: async (_context, mutationRunner) =>
+      await platformUninstall(context, mutationRunner),
   });
+}
+
+/**
+ * Uninstalls the release of a turned-off feature flag, named by the positional
+ * argument. Without --yes it removes nothing and says what it would remove.
+ */
+async function platformUninstall(
+  context: CommandContext,
+  runner: Runner,
+): Promise<void> {
+  const name = context.parsed.positional[0];
+  if (!name) {
+    throw new Error(
+      "platform uninstall requires the component name: kore platform uninstall <component> --environment <name> [--yes] [--purge-data]",
+    );
+  }
+  print(
+    await uninstallGatedRelease(context.repository, runner, name, {
+      yes: boolFlag(context.parsed, "yes"),
+      purgeData: boolFlag(context.parsed, "purge-data"),
+    }),
+    context.json,
+  );
 }
 
 export async function appCommand(context: CommandContext): Promise<number> {

@@ -2,9 +2,11 @@ import { beforeEach, expect, test, vi } from "vitest";
 import { orderedComponents } from "./order.js";
 import {
   agentgatewayMeshEnrollmentFlag,
+  appDeliveryFlag,
   autoscalingFlag,
   platformArgocdDeliveryFlag,
   platformPortalFlag,
+  platformSyncWindowFlag,
   portalStagedInstallFlag,
   startsAfterDelivery,
   componentGatedOff,
@@ -14,11 +16,13 @@ import {
   gatewayClassName,
   gatewayClassChangeFlag,
   gatewayRollbackOrderFlag,
+  goldenPathSafetyDefaultsFlag,
   goldenPathSigninAfterPortalFlag,
   goldenPathSigninFlag,
   goldenPathTemplateAdmissionFlag,
   ingressFlag,
   readinessGatedOff,
+  releaseRecoveryArgocdRefusalFlag,
   signinAwaitsPortal,
 } from "./features.js";
 import type { Environment } from "./types.js";
@@ -145,6 +149,10 @@ test("the platform Argo CD delivery flag gates a component off until an overlay 
   ).toBe(false);
 });
 
+test("the platform sync window flag is named for the AppProject's maintenance deny window (issue 1540)", () => {
+  expect(platformSyncWindowFlag).toBe("platform-sync-window");
+});
+
 test("the platform portal flag gates a component off until an overlay turns it on, and an omitted flag is off", () => {
   expect(platformPortalFlag).toBe("platform-portal");
   const gated = fakeComponent({ featureFlag: platformPortalFlag });
@@ -241,6 +249,36 @@ test("the after-portal flag is named golden-path-signin-after-portal and is off 
   expect(
     featureEnabled(environment(undefined), goldenPathSigninAfterPortalFlag),
   ).toBe(false);
+});
+
+test("the recovery refusal flag is named release-recovery-argocd-refusal and is off while an overlay omits it", () => {
+  expect(releaseRecoveryArgocdRefusalFlag).toBe(
+    "release-recovery-argocd-refusal",
+  );
+  expect(
+    featureEnabled(environment(undefined), releaseRecoveryArgocdRefusalFlag),
+  ).toBe(false);
+});
+
+test("the app delivery flag is named app-delivery and is off while an overlay omits it (ADR 0172)", () => {
+  expect(appDeliveryFlag).toBe("app-delivery");
+  expect(featureEnabled(environment(undefined), appDeliveryFlag)).toBe(false);
+  expect(
+    featureEnabled(environment({ [appDeliveryFlag]: true }), appDeliveryFlag),
+  ).toBe(true);
+});
+
+test("the safety defaults flag is named golden-path-safety-defaults and is off while an overlay omits it (ADR 0154)", () => {
+  expect(goldenPathSafetyDefaultsFlag).toBe("golden-path-safety-defaults");
+  expect(
+    featureEnabled(environment(undefined), goldenPathSafetyDefaultsFlag),
+  ).toBe(false);
+  expect(
+    featureEnabled(
+      environment({ [goldenPathSafetyDefaultsFlag]: true }),
+      goldenPathSafetyDefaultsFlag,
+    ),
+  ).toBe(true);
 });
 
 test("the template admission flag is named golden-path-template-admission and is off while an overlay omits it", () => {

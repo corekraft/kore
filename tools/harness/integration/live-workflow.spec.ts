@@ -50,6 +50,8 @@ it("runs on workflow_dispatch only, with no schedule, push or pull_request trigg
 it("offers a choice input whose options are the real test:live suites minus the ones nightly.sh excludes", () => {
   expect(live).toMatch(/^ {6}suite:\n(?:.*\n)*?^ {8}type: choice$/m);
   expect(excluded).toContain("footprint");
+  // The external-dns proof needs a throwaway copy and an idea at run time, so it runs by hand only.
+  expect(excluded).toContain("external-dns");
   expect([...options].sort()).toEqual(
     realSuites.filter((name) => !excluded.includes(name)).sort(),
   );

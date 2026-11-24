@@ -50,6 +50,7 @@ it("the judge barrel exposes exactly the names its callers import", () => {
     "findingsFrom",
     "harnessFreshness",
     "hasSentBack",
+    "hostnameClaims",
     "modesFrom",
     "parseDeclaration",
     "postReview",

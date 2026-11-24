@@ -1,13 +1,39 @@
 environment: local
-gateway:
-  {
+gateway: {
     port: 443,
     certificateSecret: kore-local-tls,
     service: {},
     platformCertificateSecret: kore-platform-wildcard-tls,
     keycloakCertificateSecret: keycloak-tls,
     sharedServicePort: 443,
-    database: { port: 5432, nodePort: null }
+    database: { port: 5432, nodePort: null },
+    # The shared proxy's app defaults, rendered only while gateway-proxy-defaults
+    # is on (ADR 0154): two replicas, one surge pod and no unavailable one, a
+    # readiness gate (minReadySeconds, progressDeadlineSeconds) and a
+    # PodDisruptionBudget. They are implementation defaults, not owner decisions;
+    # an environment's values file may set them.
+    proxy: {
+        replicas: 2,
+        maxSurge: 1,
+        maxUnavailable: 0,
+        minReadySeconds: 10,
+        progressDeadlineSeconds: 600,
+        budgetMaxUnavailable: 1,
+        # The kore-owned PriorityClass the proxy names while data-path-priority-class
+        # is on; the oci-registry release creates it (ADR 0152, issue 1531).
+        priorityClass: kore-platform-critical,
+        # The sizes the proxy requests and limits while data-path-guaranteed-qos
+        # is on (ADR 0152, issue 1593): the request equals the limit, so the pod is
+        # Guaranteed. The limit is the Istio gateway chart's own default, so no
+        # ceiling is lost; an environment's values may set them.
+        guaranteed: { cpu: 2000m, memory: 1024Mi }
+      }
   }
+# The external Gateway (ADR 0160, issue 1633), rendered only while external-gateway
+# is on. Its HTTP listener is on port 80; the overlay sets the node port its
+# Service is published on, which the host's port table maps to public 80.
+externalGateway:
+  port: 80
+  service: { nodePort: null }
 issuer: { name: kore-local-ca }
 secrets: { sourceNamespace: kore-secret-source, storeName: platform-secrets }

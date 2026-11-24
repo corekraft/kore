@@ -50,7 +50,9 @@
       "loki": "7.5.0",
       "tempo": "1.24.4",
       "grafana": "10.5.15",
-      "opentelemetry-collector": "0.178.2"
+      "opentelemetry-collector": "0.178.2",
+      "external-dns": "1.24.0",
+      "openbao": "0.30.8"
     },
   "images":
     {
@@ -61,6 +63,8 @@
       "backstage-runtime": "gcr.io/distroless/nodejs26-debian13:nonroot@sha256:1d736cf8b5716c07a245301f92717143215d248fd55771ee1936ef4b3302e531",
       "backstage-build": "node:26.13.0-alpine3.24@sha256:8996bb5821d62a8fd9bb27c1cb07462f3fdce6e47d640c6a881ead0b064ce216",
       "platform-dns": "docker.io/coredns/coredns:1.14.7@sha256:7efd3c635b03efd68c4e8398fc45f0d993d0e9ab016f72c1cefb0fd6d01aa286",
+      "external-dns": "registry.k8s.io/external-dns/external-dns:v0.24.0@sha256:a80a146d2540fa138565e404f0625157271071a06093021f27ae19d8316d10f9",
+      "openbao": "quay.io/openbao/openbao:2.7.3@sha256:ba4b133eb9586630024e71a617e66f37f29cc3534cdd46a6233e098ceded8dc9",
       "k3s": "rancher/k3s:v1.37.2-k3s1@sha256:21ea6e0fac4e3930c2ce8aa40ddd41a8b18cb3e9a0222c030dc005e7e88c4332",
       "browser-test": "mcr.microsoft.com/playwright:v1.65.1-noble@sha256:1507cbfc550a63a6b7396791ca4f00df17beb56342d2447b3f106c306f525579",
       "reference": "kore/reference:0.1.0"

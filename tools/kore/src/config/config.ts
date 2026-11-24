@@ -1,10 +1,12 @@
 import { dirname, isAbsolute, join, resolve } from "node:path";
 import { exists } from "./files.js";
 import {
+  loadFlagManifest,
   loadImageTrustValues,
   loadJSON,
   loadK3sHostPin,
   loadRegistryComponentValues,
+  loadSuborgNames,
 } from "./overlay-files.js";
 import { loadServiceRegistrations } from "./service-registrations.js";
 import { validateRepository } from "./validate.js";
@@ -28,6 +30,9 @@ export type {
   Component,
   ComponentKind,
   Environment,
+  FlagEntry,
+  FlagKind,
+  FlagManifest,
   K3dCluster,
   Phase,
   ProbePatch,
@@ -67,7 +72,7 @@ export async function loadRepository(
   start?: string,
 ): Promise<Repository> {
   const root = await findRoot(start);
-  const [versions, seeds, readiness, approved, catalog, environment] =
+  const [versions, seeds, readiness, approved, catalog, flags, environment] =
     await Promise.all([
       loadJSON<Versions>(join(root, "infra/catalog/versions.yaml")),
       loadJSON<SeedManifest>(join(root, "infra/catalog/seeds.yaml")),
@@ -76,6 +81,7 @@ export async function loadRepository(
         join(root, "infra/catalog/approved-images.yaml"),
       ),
       loadJSON<Catalog>(join(root, "infra/catalog/components.yaml")),
+      loadFlagManifest(root),
       loadJSON<Environment>(
         join(root, "infra/environments", environmentName, "environment.yaml"),
       ),
@@ -88,6 +94,7 @@ export async function loadRepository(
     readiness,
     approved,
     catalog,
+    flags,
     environment,
     imageTrustValues,
     k3sHostPin: await loadK3sHostPin(root, environment.name),
@@ -95,7 +102,12 @@ export async function loadRepository(
       root,
       environment,
     ),
-    registeredServices: await loadServiceRegistrations(root),
+    registeredServices: await loadServiceRegistrations(root, environmentName),
+    suborgs: await loadSuborgNames(
+      root,
+      environment,
+      catalog.components.map((component) => component.namespace),
+    ),
   };
   const exemptions = new ExemptionCheck(new FileExemptionSource(root));
   const warnings = await validateRepository(repository, [], (repo) =>
@@ -124,14 +136,4 @@ export function expandVersions(repository: Repository, value: string): string {
 
 export function absolute(repository: Repository, path: string): string {
   return isAbsolute(path) ? path : join(repository.root, path);
-}
-
-export function componentValues(
-  repository: Repository,
-  component: Component,
-): string[] {
-  return [
-    ...(component.values ?? []),
-    ...(repository.environment.componentValues?.[component.name] ?? []),
-  ];
 }

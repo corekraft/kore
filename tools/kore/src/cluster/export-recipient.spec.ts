@@ -1,7 +1,11 @@
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { beforeEach, expect, test, vi } from "vitest";
-import { exportRecipients, PLACEHOLDER_RECIPIENT } from "./export-recipient.js";
+import {
+  exportRecipients,
+  isAgeRecipient,
+  PLACEHOLDER_RECIPIENT,
+} from "./export-recipient.js";
 import { fakeRepository } from "./cluster-support.js";
 
 vi.mock("node:fs/promises");
@@ -111,6 +115,12 @@ test("a bad second entry is refused, and the error names that entry, so the expo
   await expect(exportRecipients(repository)).rejects.toThrow(
     '"not-an-age-key" in .sops.yaml is not a valid age recipient (expected age1 followed by 58 characters)',
   );
+});
+
+test("a public age key is accepted, and anything else, the placeholder included, is not", () => {
+  expect(isAgeRecipient(RECIPIENT)).toBe(true);
+  expect(isAgeRecipient("not-an-age-key")).toBe(false);
+  expect(isAgeRecipient(PLACEHOLDER_RECIPIENT)).toBe(false);
 });
 
 test("an empty entry in the list is refused, and the error names the empty entry", async () => {

@@ -1,0 +1,52 @@
+{{- if index .Values.features "acme-dns01" }}
+{{- /*
+Let's Encrypt staging and production ClusterIssuers that solve DNS-01 through
+Cloudflare for one zone (ADR 0161). Each selects only the platform zone through
+dnsZones, so it never handles another domain, and reads its token from the
+consumer's own cloudflare-token Secret in cert-manager, which cert-manager reads
+when it solves a challenge. Neither issuer carries an email: none is committed.
+
+While acme-issuers is on (ADR 0157), each issuer also lists an HTTP-01 solver first.
+It is chosen only by the Certificate label in acmeIssuers.http01, and routes the
+challenge through the external Gateway's port 80 listener, so a name the public
+reaches is proved over HTTP and needs no DNS token. The HTTP-01 solver is listed
+first: cert-manager's docs rank dnsNames above dnsZones and do not rank a label
+match against dnsZones, so the first live proof must show a labelled Certificate
+under the platform zone taking HTTP-01.
+*/}}
+{{- $zone := required "set acmeDns01.zone, which kore passes as the platform domain while acme-dns01 is on" .Values.acmeDns01.zone }}
+{{- range .Values.acmeDns01.issuers }}
+---
+apiVersion: cert-manager.io/v1
+kind: ClusterIssuer
+metadata:
+  name: {{ .name }}
+spec:
+  acme:
+    server: {{ .server }}
+    privateKeySecretRef:
+      name: {{ .accountKeySecretName }}
+    solvers:
+{{- if index $.Values.features "acme-issuers" }}
+      - selector:
+          matchLabels:
+            {{ $.Values.acmeIssuers.http01.labelKey }}: {{ $.Values.acmeIssuers.http01.labelValue | quote }}
+        http01:
+          gatewayHTTPRoute:
+            parentRefs:
+              - group: gateway.networking.k8s.io
+                kind: Gateway
+                name: {{ $.Values.acmeIssuers.http01.gateway.name }}
+                namespace: {{ $.Values.acmeIssuers.http01.gateway.namespace }}
+                sectionName: {{ $.Values.acmeIssuers.http01.gateway.sectionName }}
+{{- end }}
+      - selector:
+          dnsZones:
+            - {{ $zone | quote }}
+        dns01:
+          cloudflare:
+            apiTokenSecretRef:
+              name: {{ $.Values.acmeDns01.tokenSecretName }}
+              key: {{ $.Values.acmeDns01.tokenKey }}
+{{- end }}
+{{- end }}

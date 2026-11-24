@@ -32,8 +32,28 @@
       "description": "Only while database-routes is on, kore passes true, and the PostgreSQL API's Application takes it with the platform domain and organizationId as Helm parameters (ADR 0137). Absent, the Application carries none.",
       "type": "boolean"
     },
+    "serviceClassInstances": {
+      "description": "Only while postgresql-service-class-instances is on, kore passes true, and the PostgreSQL API's Application takes it as a Helm parameter, so its instances and sizing derive from the serviceClass (ADR 0154). Absent, the Application carries none.",
+      "type": "boolean"
+    },
     "inClusterCa": {
       "description": "Only while in-cluster-ca is on, kore passes true, and the AppProject admits the cert-manager ClusterIssuer kind and the cert-manager namespace that kore-local-tls renders the CA into (ADR 0142). Absent, the project is unchanged.",
+      "type": "boolean"
+    },
+    "workloadDefaults": {
+      "description": "Only while workload-defaults-admission is on, kore passes true, and the AppProject admits the workload-defaults constraint kind (issue 1526). Absent, the project is unchanged.",
+      "type": "boolean"
+    },
+    "pvcOwnership": {
+      "description": "Only while pvc-ownership-admission is on, kore passes true, and the AppProject admits the PVC-ownership constraint kind (issue 1666). Absent, the project is unchanged.",
+      "type": "boolean"
+    },
+    "syncWindow": {
+      "description": "Only while platform-sync-window is on, kore passes true, and the AppProject may carry the maintenance deny window (ADR 0153, issue 1540). Absent, the project is unchanged.",
+      "type": "boolean"
+    },
+    "maintenanceHold": {
+      "description": "Set true by a maintenance run to hold the configuration project: with syncWindow, the AppProject then denies every sync in it, manual ones too (ADR 0153, issue 1540). Absent or false, the project carries no window.",
       "type": "boolean"
     },
     "organizationId": {
@@ -54,7 +74,7 @@
     "project": { "type": "string", "minLength": 1 },
     "operatorsGroup": { "type": "string", "minLength": 1 },
     "charts": {
-      "description": "One lock entry per handed-over release. The image policy is not one: kore keeps it (ADR 0028). The feature-gated releases (kore-policy-sync, kore-hostname-ownership-templates, kore-hostname-ownership) are allowed but never required: with their flag off kore hands over none of them.",
+      "description": "One lock entry per handed-over release. The image policy is not one: kore keeps it (ADR 0028). The feature-gated releases (kore-policy-sync, kore-hostname-ownership-templates, kore-hostname-ownership, kore-workload-defaults-templates, kore-workload-defaults, kore-pvc-ownership-templates, kore-pvc-ownership) are allowed but never required: with their flag off kore hands over none of them.",
       "type": "object",
       "required": [
         "opa-authorizer",
@@ -74,7 +94,11 @@
         "kore-platform-config": { "$ref": "#/definitions/entry" },
         "kore-policy-sync": { "$ref": "#/definitions/entry" },
         "kore-hostname-ownership-templates": { "$ref": "#/definitions/entry" },
-        "kore-hostname-ownership": { "$ref": "#/definitions/entry" }
+        "kore-hostname-ownership": { "$ref": "#/definitions/entry" },
+        "kore-workload-defaults-templates": { "$ref": "#/definitions/entry" },
+        "kore-workload-defaults": { "$ref": "#/definitions/entry" },
+        "kore-pvc-ownership-templates": { "$ref": "#/definitions/entry" },
+        "kore-pvc-ownership": { "$ref": "#/definitions/entry" }
       }
     },
     "releaseValues": {
@@ -92,7 +116,13 @@
         "kore-hostname-ownership-templates": {
           "$ref": "#/definitions/valuesFiles"
         },
-        "kore-hostname-ownership": { "$ref": "#/definitions/valuesFiles" }
+        "kore-hostname-ownership": { "$ref": "#/definitions/valuesFiles" },
+        "kore-workload-defaults-templates": {
+          "$ref": "#/definitions/valuesFiles"
+        },
+        "kore-workload-defaults": { "$ref": "#/definitions/valuesFiles" },
+        "kore-pvc-ownership-templates": { "$ref": "#/definitions/valuesFiles" },
+        "kore-pvc-ownership": { "$ref": "#/definitions/valuesFiles" }
       }
     },
     "namespaces": {
@@ -117,7 +147,13 @@
         "kore-hostname-ownership-templates": {
           "$ref": "#/definitions/namespace"
         },
-        "kore-hostname-ownership": { "$ref": "#/definitions/namespace" }
+        "kore-hostname-ownership": { "$ref": "#/definitions/namespace" },
+        "kore-workload-defaults-templates": {
+          "$ref": "#/definitions/namespace"
+        },
+        "kore-workload-defaults": { "$ref": "#/definitions/namespace" },
+        "kore-pvc-ownership-templates": { "$ref": "#/definitions/namespace" },
+        "kore-pvc-ownership": { "$ref": "#/definitions/namespace" }
       }
     }
   },

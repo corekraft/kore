@@ -66,6 +66,11 @@ v0.4.0); the template policy admits v0.22.0 through `templates.trust`. The
 `templates.mode` key is replaced by `templates.trust.mode`, so one setting holds
 the template policy's trust and its mode.
 
+The release also signs each template image in the legacy `sha256-<digest>.sig`
+form, keyless under the same identity, beside cosign 3's default Sigstore
+bundle (issue 1884). Policy Controller reads only the legacy form, so the
+template authority keeps the default signature format.
+
 ## Consequences
 
 - Enrolment of the golden-path namespaces is a git change behind a flag, so it is

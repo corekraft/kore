@@ -7,6 +7,8 @@ last-verified: 2026-11-19
 
 # ADR 0138: Publish signed configuration charts from main for local proofs
 
+> Refined by [ADR 0147](0147-vps-v1-is-every-applicable-flag-proven-live-one-per-run-from-release-locks.md) (proposed): `kore platform up` for a managed environment refuses a main chart lock until a chart-signature check exists, so release-only moves from by convention to enforced.
+
 Source: [`infra/plans/15-next-horizon.md` § Step 1](../../infra/plans/15-next-horizon.md#step-1-accept-the-next-adrs), under [GitHub issue #1356](https://github.com/corekraft/kore/issues/1356) (ticket #1368).
 
 Refines: [ADR 0043](0043-platform-configuration-through-argo-cd.md) (a main chart lock may feed a local proof), [ADR 0044](0044-managed-platform-images-from-the-mirror.md) (where the lock comes from, and how long it is kept), [ADR 0028](0028-image-trust-authority.md) (a second signing identity, local only, and a per-job gate), [ADR 0077](0077-live-proof-gates-activation-not-merge.md) (only the release chart lock counts for activation, with digests compared).

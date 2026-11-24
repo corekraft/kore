@@ -11,14 +11,16 @@ import {
 import { alertEmailErrors, alertEmailWarnings } from "./alert-email.js";
 import { componentGatedOff } from "./features.js";
 import { exists } from "./files.js";
-import { flagDependencyErrors } from "./flag-dependencies.js";
+import { providerFlagErrors } from "./provider-flag-errors.js";
+import { flagManifestErrors } from "./flag-manifest.js";
 import { overlayErrors, overlayWarnings } from "./overlay-errors.js";
 
 vi.mock("node:path");
 vi.mock("./alert-email.js");
 vi.mock("./features.js");
 vi.mock("./files.js");
-vi.mock("./flag-dependencies.js");
+vi.mock("./provider-flag-errors.js");
+vi.mock("./flag-manifest.js", () => ({ flagManifestErrors: vi.fn() }));
 
 /** Paths in this set do not exist; every other path does. */
 let absent = new Set<string>();
@@ -30,7 +32,8 @@ beforeEach(() => {
   vi.mocked(componentGatedOff).mockReturnValue(false);
   vi.mocked(alertEmailErrors).mockReturnValue([]);
   vi.mocked(alertEmailWarnings).mockReturnValue([]);
-  vi.mocked(flagDependencyErrors).mockReturnValue([]);
+  vi.mocked(providerFlagErrors).mockReturnValue([]);
+  vi.mocked(flagManifestErrors).mockReturnValue([]);
 });
 
 const repository = (
@@ -46,6 +49,30 @@ test("an overlay with sound features, sources and values has no errors", async (
     featureFlag: "ingress",
   });
   expect(await overlayErrors(repository([component], environment))).toEqual([]);
+});
+
+test("the vps overlay's Kubernetes version must match the k3s pin, so a move of one is made with the other", async () => {
+  const environment = fakeEnvironment({
+    name: "vps",
+    provider: "managed",
+    kubeContext: "kore-vps",
+    cluster: {
+      profile: "external",
+      kubernetesVersion: "1.37.2",
+      driver: "external",
+      containerRuntime: "containerd",
+      cpus: 4,
+      memoryMB: 20480,
+      diskSize: "300g",
+    },
+  });
+  const errors = await overlayErrors({
+    ...repository([], environment),
+    k3sHostPin: "v1.38.2+k3s1",
+  });
+  expect(errors).toHaveLength(1);
+  expect(errors[0]).toContain("v1.38.2+k3s1");
+  expect(errors[0]).toContain("same pull request");
 });
 
 test("the features map must be a map of flag names to booleans", async () => {
@@ -201,14 +228,23 @@ test("the overlay's warnings are the alert email warnings", () => {
   expect(alertEmailWarnings).toHaveBeenCalledWith(repo);
 });
 
-test("a flag turned on without the flag it needs is an overlay error, read from the environment", async () => {
-  vi.mocked(flagDependencyErrors).mockReturnValue([
-    "environment local turns on registry-by-name, which needs platform-shared-gateway",
+test("a flag a provider refuses is an overlay error, read from the environment", async () => {
+  vi.mocked(providerFlagErrors).mockReturnValue([
+    "environment local turns on in-cluster-ca, which creates the cluster's own root CA",
   ]);
   const environment = fakeEnvironment();
 
   expect(await overlayErrors(repository([], environment))).toEqual([
-    "environment local turns on registry-by-name, which needs platform-shared-gateway",
+    "environment local turns on in-cluster-ca, which creates the cluster's own root CA",
   ]);
-  expect(flagDependencyErrors).toHaveBeenCalledWith(environment);
+  expect(providerFlagErrors).toHaveBeenCalledWith(environment);
+});
+
+test("the flag manifest's errors for the overlay's flags are overlay errors, reported with the rest", async () => {
+  vi.mocked(flagManifestErrors).mockReturnValue([
+    "flag ingress has no entry in infra/catalog/flags.yaml",
+  ]);
+  expect(
+    await overlayErrors(repository([fakeComponent({ name: "kore-ui" })])),
+  ).toEqual(["flag ingress has no entry in infra/catalog/flags.yaml"]);
 });

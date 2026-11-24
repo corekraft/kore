@@ -1,0 +1,13 @@
+# A platform release names the kore-owned class (ADR 0152). Platform namespaces are not app namespaces,
+# so the constraint leaves the workload alone, class included.
+apiVersion: apps/v1
+kind: Deployment
+metadata: { name: oci-registry, namespace: kore-registry }
+spec:
+  replicas: 1
+  template:
+    spec:
+      priorityClassName: kore-platform-critical
+      containers:
+        - name: registry
+          image: invalid

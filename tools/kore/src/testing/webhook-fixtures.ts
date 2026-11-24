@@ -23,6 +23,8 @@ const runsInLocal = [
 const gatedOffReleases = [
   "agentgateway",
   "agentgateway-crds",
+  "external-dns",
+  "openbao",
   "metrics-server",
   "argocd",
   "keycloak-operator",
@@ -37,6 +39,10 @@ const gatedOffReleases = [
   "kore-policy-sync",
   "kore-hostname-ownership-templates",
   "kore-hostname-ownership",
+  "kore-workload-defaults-templates",
+  "kore-workload-defaults",
+  "kore-pvc-ownership-templates",
+  "kore-pvc-ownership",
   "kore-otlp-route",
 ];
 

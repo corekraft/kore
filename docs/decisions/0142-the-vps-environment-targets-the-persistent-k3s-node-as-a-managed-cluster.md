@@ -7,6 +7,12 @@ last-verified: 2026-11-20
 
 # ADR 0142: The vps environment targets the persistent k3s node as a managed cluster
 
+> Refined by [ADR 0147](0147-vps-v1-is-every-applicable-flag-proven-live-one-per-run-from-release-locks.md) (proposed): the flags stay off only until vps v1 activates each applicable flag from its own live run, and vps turns `platform-argocd-delivery` on as one of them.
+
+> Refined by [ADR 0148](0148-a-flag-manifest-declares-each-flags-kind-environments-and-prerequisites.md) (proposed): the all-off assertion in the vps spec is replaced by a check against the flag manifest, and harness flags leave the vps overlay.
+
+> Refined by [ADR 0151](0151-host-and-k3s-changes-follow-the-same-safety-patterns-and-run-in-a-maintenance-window.md) (proposed): the k3s role installs the registry CA on the node, so the controller no longer receives an exported CA file.
+
 Refines [ADR 0012](0012-environment-overlays-hold-provider-specifics.md), which keeps provider specifics in overlays, and builds on [ADR 0141](0141-the-vps-host-is-converged-by-an-ansible-playbook-in-the-repository.md), which converges the host and its k3s.
 
 ## Context

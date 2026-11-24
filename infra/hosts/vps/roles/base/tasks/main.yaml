@@ -7,9 +7,31 @@
       - ca-certificates
       - curl
       - locales
+      - reboot-notifier
     state: present
     update_cache: true
     cache_valid_time: 3600
+
+# A kernel install runs this hook, which writes /var/run/reboot-required: the
+# sentinel the reboot window reads. The sentinel itself appears only after a
+# kernel update, so the role checks the hook that writes it.
+- name: Check that the kernel hook which writes the reboot sentinel is installed
+  ansible.builtin.stat:
+    path: /etc/kernel/postinst.d/reboot-notifier
+  register: base_reboot_hook
+  check_mode: false
+
+- name: Fail when the kernel hook that writes the reboot sentinel is missing
+  ansible.builtin.assert:
+    that:
+      - base_reboot_hook.stat.exists
+      - base_reboot_hook.stat.islnk
+    fail_msg: >-
+      /etc/kernel/postinst.d/reboot-notifier is missing or is not the
+      reboot-notifier symlink. A kernel update would not write
+      /var/run/reboot-required, so the reboot window would never see a reboot
+      as required. Reinstall the reboot-notifier package.
+  when: not ansible_check_mode
 
 - name: Turn on daily unattended security upgrades
   ansible.builtin.copy:
