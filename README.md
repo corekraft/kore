@@ -97,6 +97,10 @@ validated, pinned and rendered like any other, but `kore local up` and
 as `gated-off` without failing. If a flag is turned off after the component
 was installed, status reports it `degraded` with the fix in its detail, and
 `up` fails fast until the release is removed or the flag is turned back on.
+`kore platform uninstall <component> --environment <name>` names the release
+and the context it would remove and removes nothing; `--yes` removes it. Retained
+data in its namespace also needs `--purge-data`, and a namespace shared with
+another component is refused.
 
 Kore records per-machine image digests under ignored `.kore/` state and keeps its
 local-only signing key as the `kore-system/kore-local-signing-key` Secret, never
@@ -294,6 +298,15 @@ consumes it is a later ticket under #613.
 additionally checks a release's `platform-images.lock.json` (attached to the
 GitHub release as an asset) against the committed overlay and image policy
 ([ADR 0044](docs/decisions/0044-managed-platform-images-from-the-mirror.md)).
+`kore validate --environment <name>` also checks each app record in
+`infra/environments/<name>/services/`: the spec file `<service>.json` against the
+Service schema of the platform-apis chart (read with `yq`, at the pinned
+version), and the release file `<service>.release.json` against the
+ServiceRelease schema. Only the release file carries image digests, the source
+commit and flag state. An existing service's `organization` is immutable,
+compared with `origin/main` or with `--record-base <ref>`; a base that does not
+resolve is a warning, or a failure when the flag names it
+([ADR 0166](docs/decisions/0166-an-app-is-a-service-with-a-two-file-record-in-kore-and-its-source-in-its-own-repository.md)).
 
 The catalog and environment files intentionally use JSON-compatible YAML. This
 makes schema failures deterministic before any cluster mutation while remaining
@@ -351,7 +364,7 @@ recent operations and any that were interrupted.
 Run `kore --help` for every flag; the usage text in `tools/kore/src/cli/usage.ts`
 is the source of truth.
 
-`kore local fetch-lock --output <file> [--commit <sha>]` is read-only: it writes the main chart lock of a commit (default: the checkout's HEAD) from its `charts-main` artifact, which is kept 30 days, to the path you name, so a local proof can pass it to `--platform-chart-lock`. It names the cause and the fix when the artifact has expired or is missing, or when `gh` is not signed in. `--require-fresh-lock` still gates the proof.
+`kore local fetch-lock --output <file> [--commit <sha>]` is read-only: it writes the main chart lock of a commit (default: the checkout's HEAD) from its `charts-main` artifact, which is kept 30 days, to the path you name, so a local proof can pass it to `--platform-chart-lock`. It names the cause and the fix when the artifact has expired or is missing, or when `gh` is not signed in. `--require-fresh-lock` still gates the proof. A managed environment refuses this lock: `platform up` takes only the `platform-charts.lock.json` attached to a release.
 
 | Command         | Does                                                                                                                                                                                                                                                                                                                                                           |
 | --------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |

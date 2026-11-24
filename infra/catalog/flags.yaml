@@ -1,0 +1,300 @@
+{
+  "$schema": "./schemas/flags.schema.json",
+  "flags":
+    [
+      {
+        "name": "agentgateway-mesh-enrollment",
+        "kind": "feature",
+        "applies": ["local", "vps", "managed-example"]
+      },
+      {
+        "name": "autoscaling-defaults",
+        "kind": "feature",
+        "applies": ["local", "vps", "managed-example"]
+      },
+      {
+        "name": "gateway-class-change-release",
+        "kind": "feature",
+        "applies": ["local", "vps", "managed-example"]
+      },
+      {
+        "name": "gateway-rollback-order",
+        "kind": "feature",
+        "applies": ["local", "vps", "managed-example"]
+      },
+      {
+        "name": "ingress-agentgateway",
+        "kind": "feature",
+        "applies": ["local", "vps", "managed-example"]
+      },
+      {
+        "name": "agentgateway-data-plane-metrics",
+        "kind": "feature",
+        "applies": ["local", "vps", "managed-example"]
+      },
+      {
+        "name": "platform-organization-service-apis",
+        "kind": "feature",
+        "applies": ["local", "vps", "managed-example"]
+      },
+      {
+        "name": "platform-argocd-delivery",
+        "kind": "feature",
+        "applies": ["local", "vps", "managed-example"]
+      },
+      {
+        "name": "suborg-tenancy",
+        "kind": "feature",
+        "applies": ["local", "vps", "managed-example"],
+        "requires":
+          [
+            "platform-organization-service-apis",
+            "platform-argocd-delivery",
+            "platform-portal"
+          ]
+      },
+      {
+        "name": "platform-sync-window",
+        "kind": "feature",
+        "applies": ["local", "vps", "managed-example"]
+      },
+      {
+        "name": "platform-shared-gateway",
+        "kind": "feature",
+        "applies": ["local", "vps", "managed-example"]
+      },
+      {
+        "name": "service-listener-sets",
+        "kind": "feature",
+        "applies": ["local", "vps", "managed-example"],
+        "requires": ["platform-shared-gateway"]
+      },
+      {
+        "name": "external-gateway",
+        "kind": "feature",
+        "applies": ["local", "vps", "managed-example"],
+        "requires": ["service-listener-sets"]
+      },
+      {
+        "name": "external-gateway-limits",
+        "kind": "feature",
+        "applies": ["local", "vps", "managed-example"],
+        "requires": ["external-gateway"]
+      },
+      {
+        "name": "external-dns",
+        "kind": "feature",
+        "applies": ["local", "vps", "managed-example"],
+        "requires": ["external-gateway"]
+      },
+      { "name": "acme-dns01", "kind": "feature", "applies": ["vps"] },
+      { "name": "domain-expiry-alert", "kind": "feature", "applies": ["vps"] },
+      {
+        "name": "acme-issuers",
+        "kind": "feature",
+        "applies": ["vps"],
+        "requires": ["acme-dns01"]
+      },
+      {
+        "name": "database-routes",
+        "kind": "feature",
+        "applies": ["local", "vps", "managed-example"],
+        "notApplicable": ["vps"],
+        "reason": "v1 keeps the 5432 passthrough off the vps Gateways; databases stay internal (ADR 0160)."
+      },
+      {
+        "name": "otlp-route",
+        "kind": "feature",
+        "applies": ["local", "vps", "managed-example"],
+        "requires": ["platform-shared-gateway"],
+        "notApplicable": ["vps"],
+        "reason": "pods send OTLP to the in-cluster collector, and no route goes on a Gateway reachable without OTLP authentication (ADR 0174, ADR 0140)."
+      },
+      {
+        "name": "platform-hostname-ownership",
+        "kind": "feature",
+        "applies": ["local", "vps", "managed-example"]
+      },
+      {
+        "name": "platform-portal",
+        "kind": "feature",
+        "applies": ["local", "vps", "managed-example"]
+      },
+      {
+        "name": "portal-staged-install",
+        "kind": "feature",
+        "applies": ["local", "vps", "managed-example"]
+      },
+      {
+        "name": "drift-listing-mappings",
+        "kind": "feature",
+        "applies": ["local", "vps", "managed-example"]
+      },
+      {
+        "name": "golden-path-signin",
+        "kind": "feature",
+        "applies": ["local", "vps", "managed-example"]
+      },
+      {
+        "name": "golden-path-template-admission",
+        "kind": "feature",
+        "applies": ["local", "vps", "managed-example"]
+      },
+      {
+        "name": "golden-path-signin-after-portal",
+        "kind": "feature",
+        "applies": ["local", "vps", "managed-example"]
+      },
+      {
+        "name": "postgresql-service-class-instances",
+        "kind": "feature",
+        "applies": ["local", "vps", "managed-example"]
+      },
+      {
+        "name": "gateway-proxy-defaults",
+        "kind": "feature",
+        "applies": ["local", "vps", "managed-example"]
+      },
+      {
+        "name": "data-path-guaranteed-qos",
+        "kind": "feature",
+        "applies": ["local", "vps", "managed-example"]
+      },
+      {
+        "name": "data-path-priority-class",
+        "kind": "feature",
+        "applies": ["local", "vps", "managed-example"]
+      },
+      {
+        "name": "golden-path-safety-defaults",
+        "kind": "feature",
+        "applies": ["local", "vps", "managed-example"]
+      },
+      {
+        "name": "golden-path-service-identity",
+        "kind": "feature",
+        "applies": ["local", "vps", "managed-example"],
+        "requires": ["platform-argocd-delivery"]
+      },
+      {
+        "name": "app-delivery",
+        "kind": "feature",
+        "applies": ["local", "vps", "managed-example"]
+      },
+      {
+        "name": "app-sizing",
+        "kind": "feature",
+        "applies": ["local", "vps", "managed-example"]
+      },
+      {
+        "name": "workload-defaults-admission",
+        "kind": "feature",
+        "applies": ["local", "vps", "managed-example"]
+      },
+      {
+        "name": "pvc-ownership-admission",
+        "kind": "feature",
+        "applies": ["local", "vps", "managed-example"]
+      },
+      {
+        "name": "release-recovery-argocd-refusal",
+        "kind": "feature",
+        "applies": ["local", "vps", "managed-example"]
+      },
+      {
+        "name": "platform-keycloak-wait",
+        "kind": "feature",
+        "applies": ["local"]
+      },
+      {
+        "name": "platform-keycloak-realm-wait",
+        "kind": "feature",
+        "applies": ["local"]
+      },
+      {
+        "name": "platform-apiserver-ready",
+        "kind": "feature",
+        "applies": ["local"]
+      },
+      { "name": "host-published-ports", "kind": "feature", "applies": ["vps"] },
+      {
+        "name": "openbao",
+        "kind": "feature",
+        "applies": ["local", "vps", "managed-example"],
+        "notApplicable": ["local", "managed-example"],
+        "reason": "OpenBao holds application secrets on vps only; local keeps sops with age and managed-example has no host role to place the seal key (ADR 0167)."
+      },
+      {
+        "name": "registry-tag-pruning",
+        "kind": "feature",
+        "applies": ["local"]
+      },
+      {
+        "name": "platform-dns",
+        "kind": "feature",
+        "applies": ["local", "vps", "managed-example"]
+      },
+      {
+        "name": "registry-by-name",
+        "kind": "feature",
+        "applies": ["local", "vps", "managed-example"],
+        "requires": ["platform-shared-gateway"],
+        "pending": true,
+        "notApplicable": ["vps"],
+        "reason": "vps serves the registry as an in-cluster ClusterIP, not by name (ADR 0143)."
+      },
+      {
+        "name": "in-cluster-ca",
+        "kind": "environment",
+        "applies": ["vps", "managed-example"],
+        "neverRetire": true
+      },
+      {
+        "name": "k3s-registry-trust",
+        "kind": "environment",
+        "applies": ["vps", "managed-example"],
+        "neverRetire": true
+      },
+      {
+        "name": "registry-tailnet-forward",
+        "kind": "environment",
+        "applies": ["vps", "managed-example"],
+        "neverRetire": true
+      },
+      {
+        "name": "local-image-reuse",
+        "kind": "environment",
+        "applies": ["local"],
+        "neverRetire": true
+      },
+      { "name": "automatic-retro", "kind": "harness", "applies": ["local"] },
+      { "name": "automatic-approval", "kind": "harness", "applies": ["local"] },
+      { "name": "automatic-revert", "kind": "harness", "applies": ["local"] },
+      { "name": "orchestrator-tick", "kind": "harness", "applies": ["local"] },
+      { "name": "behind-main-notice", "kind": "harness", "applies": ["local"] },
+      { "name": "tick-live-proofs", "kind": "harness", "applies": ["local"] },
+      { "name": "tick-ticket-queue", "kind": "harness", "applies": ["local"] },
+      {
+        "name": "shell-aware-zsh-rules",
+        "kind": "harness",
+        "applies": ["local"]
+      },
+      { "name": "gated-help-exempt", "kind": "harness", "applies": ["local"] },
+      {
+        "name": "main-session-figures",
+        "kind": "harness",
+        "applies": ["local"]
+      },
+      {
+        "name": "pane-result-summary",
+        "kind": "harness",
+        "applies": ["local"]
+      },
+      { "name": "signed-main-sends", "kind": "harness", "applies": ["local"] },
+      { "name": "main-session-wait", "kind": "harness", "applies": ["local"] },
+      { "name": "decision-advisor", "kind": "harness", "applies": ["local"] },
+      { "name": "role-tokens", "kind": "harness", "applies": ["local"] },
+      { "name": "owner-writer", "kind": "harness", "applies": ["local"] },
+      { "name": "tick-self-update", "kind": "harness", "applies": ["local"] }
+    ]
+}

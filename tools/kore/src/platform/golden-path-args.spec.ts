@@ -77,6 +77,50 @@ test("with safetyDefaults off, the golden-path arguments carry no safetyDefaults
   expect(args.some((arg) => arg.includes("safetyDefaults"))).toBe(false);
 });
 
+test("with serviceIdentity on, the golden-path arguments end with the serviceIdentity pair, so the sync sets each workload's service identity (issue 1551)", () => {
+  const args = goldenPathArgs(
+    {
+      ...fakeRepository(),
+      goldenPathDelivery: { ...golden, serviceIdentity: true },
+    },
+    goldenComponent,
+  );
+  expect(args.slice(-2)).toEqual(["--set", "serviceIdentity=true"]);
+});
+
+test("with serviceIdentity off, the golden-path arguments carry no serviceIdentity argument, so the flag-off render is unchanged", () => {
+  const args = goldenPathArgs(
+    {
+      ...fakeRepository(),
+      goldenPathDelivery: { ...golden, serviceIdentity: false },
+    },
+    goldenComponent,
+  );
+  expect(args.some((arg) => arg.includes("serviceIdentity"))).toBe(false);
+});
+
+test("with appDelivery on, the golden-path arguments end with the appDelivery pair, so the sync gives each Application its release file (ADR 0172)", () => {
+  const args = goldenPathArgs(
+    {
+      ...fakeRepository(),
+      goldenPathDelivery: { ...golden, appDelivery: true },
+    },
+    goldenComponent,
+  );
+  expect(args.slice(-2)).toEqual(["--set", "appDelivery=true"]);
+});
+
+test("with appDelivery off, the golden-path arguments carry no appDelivery argument, so the flag-off render is unchanged", () => {
+  const args = goldenPathArgs(
+    {
+      ...fakeRepository(),
+      goldenPathDelivery: { ...golden, appDelivery: false },
+    },
+    goldenComponent,
+  );
+  expect(args.some((arg) => arg.includes("appDelivery"))).toBe(false);
+});
+
 test("with serviceRecords off, the golden-path arguments carry no serviceRecords argument, so the flag-off render is unchanged", () => {
   const args = goldenPathArgs(
     {

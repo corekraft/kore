@@ -63,6 +63,10 @@ spec:
             - name: safetyDefaults
               value: "true"
             {{- end }}
+            {{- if .Values.serviceIdentity }}
+            - name: serviceIdentity
+              value: "true"
+            {{- end }}
             {{- with .Values.ingress }}
             - name: ingress.host
               value: '{{`{{ .metadata.name }}`}}.{{`{{ .spec.organization }}`}}.{{ .platformDomain }}'
@@ -84,6 +88,16 @@ spec:
               value: "true"
             - name: signin.issuerUri
               value: {{ .issuerUri | quote }}
+            {{- end }}
+            {{- if .Values.appDelivery }}
+            {{- /* The release file sits at the repository root, so the path climbs out of the workload chart once per segment of workloadPath (ADR 0172). A missing release is ignored: the lock images stay. */}}
+            {{- $up := "" }}
+            {{- range splitList "/" .Values.workloadPath }}
+            {{- $up = printf "%s../" $up }}
+            {{- end }}
+          ignoreMissingValueFiles: true
+          valueFiles:
+            - "{{ $up }}infra/environments/{{ .Values.environment }}/services/{{`{{ .metadata.name }}`}}.release.json"
             {{- end }}
       destination:
         server: https://kubernetes.default.svc

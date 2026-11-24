@@ -94,6 +94,12 @@ export async function renderDelivery(
     ...(chartDelivery.inClusterCa === true
       ? ["--set", "inClusterCa=true"]
       : []),
+    ...(chartDelivery.workloadDefaults === true
+      ? ["--set", "workloadDefaults=true"]
+      : []),
+    ...(chartDelivery.pvcOwnership === true
+      ? ["--set", "pvcOwnership=true"]
+      : []),
     ...(chartDelivery.syncWindow === true ? ["--set", "syncWindow=true"] : []),
     ...(chartDelivery.serviceClassInstances === true
       ? ["--set", "serviceClassInstances=true"]

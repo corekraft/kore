@@ -2,7 +2,7 @@ import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, expect, test, vi } from "vitest";
-import { dispatch } from "./cli-dispatch-support.js";
+import { dispatch, recordBases } from "./cli-dispatch-support.js";
 
 vi.mock("../src/app/index.js", async () =>
   (await import("./cli-dispatch-support.js")).appModule(),
@@ -41,6 +41,7 @@ let directory: string;
 
 beforeEach(async () => {
   dispatch.length = 0;
+  recordBases.length = 0;
   vi.spyOn(process.stdout, "write").mockImplementation(() => true);
   directory = await mkdtemp(join(tmpdir(), "kore-lock-"));
 });
@@ -83,4 +84,26 @@ test("validate names the file when the lock is not JSON", async () => {
   await expect(
     main(["validate", "--platform-image-lock", path]),
   ).rejects.toThrow(/broken\.json/);
+});
+
+test("validate checks the app records against the base ref it is given, read-only", async () => {
+  expect(
+    await main(["validate", "--record-base", "origin/release", "--json"]),
+  ).toBe(0);
+  expect(recordBases).toEqual(["origin/release"]);
+  expect(dispatch).toEqual(["validatePortability"]);
+});
+
+test("validate fails with the app record errors, and names every one", async () => {
+  const { checkAppRecords } = await import("../src/config/index.js");
+  vi.mocked(checkAppRecords).mockResolvedValueOnce({
+    errors: [
+      "infra/environments/local/services/leads.json: spec.replicas is not a field of this record",
+      "infra/environments/local/services/leads.release.json: spec.flags: flag state is not in the release file",
+    ],
+    warnings: [],
+  });
+  await expect(main(["validate"])).rejects.toThrow(
+    /spec\.replicas[\s\S]*spec\.flags: flag state is not in the release file/,
+  );
 });

@@ -11,9 +11,12 @@ import {
 } from "./cluster.js";
 import { exportRetainedData } from "./export.js";
 import { hasVerifiedExport, newestVerifiedExport } from "./export-manifest.js";
-import { k3dClusterInfo } from "./k3d-cluster.js";
+import {
+  assertRunningK3dMatchesOverlay,
+  k3dClusterInfo,
+} from "./k3d-cluster.js";
 import { restoreRetainedData } from "./restore.js";
-import { retainedResources } from "./retained.js";
+import { purgeRetainedResources, retainedResources } from "./retained.js";
 
 vi.mock("./cluster.js");
 vi.mock("./export.js");
@@ -26,6 +29,7 @@ test("the cluster barrel exposes exactly the cluster domain's public entry point
   expect(Object.keys(cluster).sort()).toEqual([
     "ClusterUnavailableError",
     "assertExpectedCluster",
+    "assertRunningK3dMatchesOverlay",
     "backupObject",
     "backupStamp",
     "buildBackupManifest",
@@ -38,6 +42,7 @@ test("the cluster barrel exposes exactly the cluster domain's public entry point
     "hasVerifiedExport",
     "k3dClusterInfo",
     "newestVerifiedExport",
+    "purgeRetainedResources",
     "restoreRetainedData",
     "retainedResources",
   ]);
@@ -45,6 +50,9 @@ test("the cluster barrel exposes exactly the cluster domain's public entry point
 
 test("each cluster barrel entry is the function or class its module exports", () => {
   expect(cluster.assertExpectedCluster).toBe(assertExpectedCluster);
+  expect(cluster.assertRunningK3dMatchesOverlay).toBe(
+    assertRunningK3dMatchesOverlay,
+  );
   expect(cluster.clusterDestroy).toBe(clusterDestroy);
   expect(cluster.clusterStatus).toBe(clusterStatus);
   expect(cluster.clusterStop).toBe(clusterStop);
@@ -56,4 +64,5 @@ test("each cluster barrel entry is the function or class its module exports", ()
   expect(cluster.newestVerifiedExport).toBe(newestVerifiedExport);
   expect(cluster.restoreRetainedData).toBe(restoreRetainedData);
   expect(cluster.retainedResources).toBe(retainedResources);
+  expect(cluster.purgeRetainedResources).toBe(purgeRetainedResources);
 });

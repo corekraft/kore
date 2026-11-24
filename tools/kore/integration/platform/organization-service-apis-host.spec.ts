@@ -37,7 +37,8 @@ test("the Service composition composes the default host service.organization.pla
   );
   // A status field on the Service, and an annotation on each composed namespace.
   assert.match(source, /^ {12}kind: Service$/m);
-  assert.match(source, /^ {14}defaultHost: \{\{ \$host \}\}$/m);
+  // No end anchor: the line also closes the Helm raw string that the suborg-tenancy gate reopens (issue 1550).
+  assert.match(source, /^ {14}defaultHost: \{\{ \$host \}\}/m);
   assert.match(source, /platform\.kore\.dev\/default-host: \{\{ \$host \}\}/);
 });
 

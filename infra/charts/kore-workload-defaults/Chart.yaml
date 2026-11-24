@@ -1,0 +1,6 @@
+apiVersion: v2
+name: kore-workload-defaults
+description: The Gatekeeper constraint that audits app workloads against the replica, rollout, memory and priority defaults (ADR 0154), in dryrun, behind the workload-defaults-admission flag
+type: application
+version: 0.1.0
+appVersion: 0.1.0

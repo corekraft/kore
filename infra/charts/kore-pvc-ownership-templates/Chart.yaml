@@ -1,0 +1,6 @@
+apiVersion: v2
+name: kore-pvc-ownership-templates
+description: The Gatekeeper ConstraintTemplate that refuses a PersistentVolumeClaim in an app namespace CloudNativePG does not own (ADR 0072, issue 1666), behind the pvc-ownership-admission flag
+type: application
+version: 0.1.0
+appVersion: 0.1.0

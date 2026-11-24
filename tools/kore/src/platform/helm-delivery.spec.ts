@@ -20,6 +20,7 @@ vi.mock("../config/index.js", () => ({
   componentVersion: vi.fn(),
   dashboardSidecarHelmArgs: vi.fn(),
   prometheusPortalHelmArgs: vi.fn(),
+  keycloakOperatorProbeHelmArgs: vi.fn(),
   databaseRoutesDeliveryArgs: vi.fn(() => []),
   expandVersions: vi.fn(),
   featureHelmArgs: vi.fn(),
@@ -240,5 +241,20 @@ test("a component that names the platform domain is handed the environment's val
   expect(platformHelmArgs).toHaveBeenCalledWith(
     repository.environment,
     "kore-platform-apis",
+    process.env,
+    [],
+  );
+});
+
+test("the platform certificate is handed the suborg names of the Organization records, so a dropped name fails", () => {
+  vi.mocked(componentValues).mockReturnValue([]);
+  vi.mocked(platformHelmArgs).mockReturnValue([]);
+  const withSuborgs = { ...repository, suborgs: ["reference"] };
+  helmUpgradeArgs(withSuborgs, fakeComponent({ name: "kore-local-tls" }));
+  expect(platformHelmArgs).toHaveBeenCalledWith(
+    repository.environment,
+    "kore-local-tls",
+    process.env,
+    ["reference"],
   );
 });

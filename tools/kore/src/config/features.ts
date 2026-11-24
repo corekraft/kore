@@ -62,6 +62,20 @@ export function readinessGatedOff(
   return flag !== undefined && !featureEnabled(environment, flag);
 }
 
+/**
+ * Whether a component's value file is left out of its Helm arguments because the
+ * flag that gates it is off: a component's valuesFlags names the flag per file, so a
+ * file that carries only a flag's numbers is not passed to Helm while the flag is off (issue 1593).
+ */
+export function valuesGatedOff(
+  environment: Pick<Environment, "features">,
+  component: { valuesFlags?: Record<string, string> | undefined },
+  path: string,
+): boolean {
+  const flag = component.valuesFlags?.[path];
+  return flag !== undefined && !featureEnabled(environment, flag);
+}
+
 /** Catalog components the environment installs, in dependency order. */
 export function enabledComponents(repository: Repository): Component[] {
   return orderedComponents(repository.catalog).filter(
@@ -77,6 +91,12 @@ export const registryPruneFlag = "registry-tag-pruning";
 
 /** The flag that installs metrics-server and turns on autoscaling defaults (ADR 0047). */
 export const autoscalingFlag = "autoscaling-defaults";
+
+/** The app sizing flag (#1525): the record's worst-case judge at kore validate; off, validation is unchanged. */
+export const appSizingFlag = "app-sizing";
+
+/** The flag that creates each suborg's namespace, labels, ResourceQuota and LimitRange from the Organization composition, and stops the Service composition creating a namespace per environment (ADR 0165, issue 1550). Needs the Organization API, the records Application and the portal, which together make the Organization the one namespace owner. Off in every overlay until a recorded live outcome. */
+export const suborgTenancyFlag = "suborg-tenancy";
 
 /** The flag that installs the Organization and Service platform APIs, for the platform organization only (plan 15 step 2). */
 export const organizationServiceApisFlag = "platform-organization-service-apis";
@@ -115,6 +135,12 @@ export const platformPortalFlag = "platform-portal";
 /** The flag that makes the portal's pod wait for the Keycloak realm's OIDC discovery before its proxy starts, so a restart after a stop converges (issue 1788). Off in every overlay until a recorded live run proves the restart converges. */
 export const keycloakWaitFlag = "platform-keycloak-wait";
 
+/** The flag that makes kore wait for the Keycloak realm's OIDC discovery before it applies the portal's release, so a Keycloak upgrade converges or fails naming the cause (issue 1984). Off in every overlay until a recorded live run proves an upgrade converges. */
+export const keycloakRealmWaitFlag = "platform-keycloak-realm-wait";
+
+/** The flag that makes kore wait for the Kubernetes API server to answer /readyz before it rolls out the Keycloak operator, agentgateway, istio-cni and ztunnel, so a cold-start API server converges or fails naming the cause (issue 2011). Off in every overlay until a recorded live run proves `kore local up` converges over an existing cluster. */
+export const apiserverReadyFlag = "platform-apiserver-ready";
+
 /** The flag that makes the golden-path sign-in wait for the portal's Keycloak instead of the delivery gate (ADR 0113, issue 1880). Off in every overlay until a live run proves the local gate converges. */
 export const goldenPathSigninAfterPortalFlag =
   "golden-path-signin-after-portal";
@@ -149,6 +175,24 @@ export function startsAfterDelivery(
 /** The flag that adds the shared Gateway's wildcard listener, and so lets the golden-path and portal charts attach routes to it beside their own Gateways (ADR 0132, ADR 0133). */
 export const platformSharedGatewayFlag = "platform-shared-gateway";
 
+/** The flag that makes each Gateway admit ListenerSets only from the namespaces the platform labels as shared, so a service's ListenerSet attaches to a platform Gateway (ADR 0159, issue 1633). Needs platform-shared-gateway, which sets the label. Off in every overlay until a recorded live outcome. */
+export const serviceListenerSetsFlag = "service-listener-sets";
+
+/** The flag that renders the external Gateway, kore-gateway-external: one HTTP listener on 80 that redirects to HTTPS, and no HTTPS listener until a service claims a name (ADR 0160, issue 1633). Needs service-listener-sets. Off in every overlay until a recorded live outcome. */
+export const externalGatewayFlag = "external-gateway";
+
+/** The flag that renders the one platform-owned AgentgatewayPolicy on the external Gateway, which sets its concurrency, rate, 1 MiB body, header and timeout limits with Override inheritance, so no route policy can loosen them (ADR 0160, issue 1674). Needs external-gateway; the numbers are read from the environment's values. Off in every overlay until a recorded live outcome of the public probe (429, 503, 413 and served). */
+export const externalGatewayLimitsFlag = "external-gateway-limits";
+
+/** The flag that renders external-dns, which publishes A records for the routes of the external Gateway into the platform domain's one zone (ADR 0162, issue 1616). Needs external-gateway. Off in every overlay until a recorded live outcome; local runs the inmemory provider, vps the Cloudflare one. */
+export const externalDnsFlag = "external-dns";
+
+/** The flag that renders the Let's Encrypt staging and production ClusterIssuers, which solve DNS-01 through Cloudflare for the platform domain's one zone, and the cert-manager resolvers that let the challenge record be seen (ADR 0161, issue 1618). vps only, because it needs a real zone; off in the vps overlay until a recorded live outcome. */
+export const acmeDns01Flag = "acme-dns01";
+
+/** The flag that adds an HTTP-01 solver to the two issuers acme-dns01 renders, so a name the external Gateway serves is proved through its port 80 listener and needs no DNS token (ADR 0157, issue 1637). Needs acme-dns01, which renders the issuers it adds the solver to, and is needed by external-gateway. vps only; off in the vps overlay until a recorded live outcome. */
+export const acmeIssuersFlag = "acme-issuers";
+
 /** The flag that renders the kore-template-images policy, which admits the golden-path template images by signature under the release identity (plan 15 Step 4, issue 1884), and labels the golden-path namespaces its creators make (the golden-path sync and the Service composition) for policy.sigstore.dev/include (ADR 0181). The policy admits only the template repository; off in every overlay until a recorded live outcome. */
 export const goldenPathTemplateAdmissionFlag = "golden-path-template-admission";
 
@@ -159,11 +203,27 @@ export const databaseRoutesFlag = "database-routes";
 export const postgresqlServiceClassInstancesFlag =
   "postgresql-service-class-instances";
 
+/** The flag that gives the shared gateway proxy the app defaults: two replicas, a RollingUpdate with maxUnavailable 0 and maxSurge 1, a readiness gate (minReadySeconds, progressDeadlineSeconds) and a PodDisruptionBudget (ADR 0154, issue 1529). Off in every overlay until a recorded live outcome. */
+export const gatewayProxyDefaultsFlag = "gateway-proxy-defaults";
+
+/** The flag that gives the gateway proxy, platform DNS, the policy controller and the registry Guaranteed QoS: each requests its limit for CPU and memory, so its pods are Guaranteed (ADR 0152, issue 1593). Off in every overlay until a recorded live outcome; the numbers are the environment's values. */
+export const dataPathGuaranteedQosFlag = "data-path-guaranteed-qos";
+
 /** The flag that routes OTLP by name through the shared Gateway to the standard collector receiver on 4318 (ADR 0140, issue 1224). */
 export const otlpRouteFlag = "otlp-route";
 
 /** The flag that renders the golden-path workload safety defaults: two replicas, an explicit rolling update, a PodDisruptionBudget, separate readiness and liveness endpoints and the termination settings (ADR 0154, issue 1521). Off in every overlay until a recorded live outcome. */
 export const goldenPathSafetyDefaultsFlag = "golden-path-safety-defaults";
+
+/** The flag that renders each golden-path service's identity: a Service and a ServiceAccount named after the service, and each Deployment running as that account with its API token not mounted (issue 1551). Off in every overlay until a recorded live outcome. */
+export const goldenPathServiceIdentityFlag = "golden-path-service-identity";
+export const workloadDefaultsAdmissionFlag = "workload-defaults-admission";
+
+/** The flag that installs the Gatekeeper constraint refusing a PersistentVolumeClaim in an app namespace CloudNativePG does not own, in dryrun, so v1 backup gaps show in an audit before any refusal (ADR 0072, issue 1666). Off in every overlay until a recorded live outcome. */
+export const pvcOwnershipAdmissionFlag = "pvc-ownership-admission";
+
+/** The flag that delivers each app's record through the golden-path ApplicationSet: a release file is a values file of its Application and the workload deploys its digest (ADR 0166, ADR 0172, issue 1569). Off in every overlay until a recorded live outcome turns it on. */
+export const appDeliveryFlag = "app-delivery";
 
 /** The flag that turns on the golden-path sign-in flow in the Kotlin BFF template: an OIDC sign-in behind a server-side session, off in every overlay until a live run proves it (plan 15 Step 7, issue 1745). */
 export const goldenPathSigninFlag = "golden-path-signin";

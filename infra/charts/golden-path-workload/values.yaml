@@ -34,6 +34,13 @@ signin:
 # render it was before.
 safetyDefaults: false
 
+# Set by the golden-path ApplicationSet only while golden-path-service-identity is
+# on (issue 1551). Then the chart renders a Service and a ServiceAccount named
+# after the service, and each Deployment runs as that account with
+# automountServiceAccountToken: false. Off, every render is the render it was
+# before.
+serviceIdentity: false
+
 # The numbers of the safety defaults, rendered only while safetyDefaults is on.
 # They are implementation defaults, not owner decisions. minReadySeconds is how
 # long a new pod must stay ready before the rollout counts it; the progress
@@ -45,3 +52,10 @@ rolloutDefaults:
   progressDeadlineSeconds: 600
   preStopSleepSeconds: 10
   terminationGracePeriodSeconds: 30
+
+# The spec of the service's release file (ADR 0166, ADR 0172), passed as an optional values
+# file by the golden-path ApplicationSet only while app-delivery is on. A component with a
+# digest here deploys that digest on its lock image's repository; a component without one,
+# and a service with no release, keep the lock image. The release file is the source; do not
+# set this by hand. Off, no release is passed and nothing here is read.
+# spec: {}

@@ -5,6 +5,7 @@ export const dispatch: string[] = [];
 export const repository = {
   root: "/tmp/kore-cli-test",
   catalog: { components: [] },
+  versions: { tools: { yq: "4.54.2" } },
   environment: {
     name: "local",
     provider: "k3d",
@@ -47,7 +48,19 @@ export const clusterModule = () => ({
   }),
 });
 
+/** The base ref each app record check was given: undefined when --record-base was not passed. */
+export const recordBases: (string | undefined)[] = [];
+
 export const configModule = () => ({
+  checkAppRecords: vi.fn(async (options) => {
+    recordBases.push(options.recordBase);
+    return { errors: [], warnings: [] };
+  }),
+  checkCrossFileRules: vi.fn(async () => ({ errors: [], warnings: [] })),
+  checkOrganizationRecords: vi.fn(async () => ({
+    errors: [],
+    organizations: [],
+  })),
   loadRepository: vi.fn(async (environment) => ({
     ...repository,
     environment: { ...repository.environment, name: environment },
@@ -103,6 +116,7 @@ export const runtimeModule = () => ({
 });
 
 export const platformModule = () => ({
+  chartVersionRowPrefix: "chart:",
   // The testing barrel's app fixtures read this at import time; the dispatch specs never use its value.
   platformGeneration: () => "dispatch-generation",
   readinessFailureSummary: (evidence: {

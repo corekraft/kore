@@ -15,6 +15,10 @@ const CHARTS = [
   "kore-policy-sync",
   "kore-hostname-ownership-templates",
   "kore-hostname-ownership",
+  "kore-workload-defaults-templates",
+  "kore-workload-defaults",
+  "kore-pvc-ownership-templates",
+  "kore-pvc-ownership",
   "kore-local-tls",
   "kore-platform-config",
 ];

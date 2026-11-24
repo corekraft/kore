@@ -1,8 +1,28 @@
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { exists } from "./files.js";
+import { flagManifestPath } from "./flag-manifest.js";
+import { suborgNames } from "./organization-records.js";
 import { registryConsumers } from "./registry-address.js";
-import type { Environment } from "./types.js";
+import type { Environment, FlagManifest } from "./types.js";
+
+/**
+ * The suborg names of an environment's Organization records, in name order: the
+ * records that pass the checks (ADR 0161). The catalog's namespaces are what the
+ * reserved names are built from.
+ */
+export async function loadSuborgNames(
+  root: string,
+  environment: Environment,
+  catalogNamespaces: readonly string[],
+): Promise<string[]> {
+  return suborgNames({ root, environment, catalogNamespaces });
+}
+
+/** The flag manifest of the repository root, JSON-compatible YAML (ADR 0148). */
+export async function loadFlagManifest(root: string): Promise<FlagManifest> {
+  return loadJSON<FlagManifest>(join(root, flagManifestPath));
+}
 
 export async function loadJSON<T>(path: string): Promise<T> {
   try {

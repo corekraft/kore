@@ -1,0 +1,7 @@
+# The build context is tools/kore: send only what the program's build reads.
+*
+!package.json
+!package-lock.json
+!tsconfig.json
+!src/**
+!integration/**

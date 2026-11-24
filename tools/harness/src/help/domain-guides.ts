@@ -62,6 +62,12 @@ export const domainGuides: Record<DomainName, DomainGuide> = {
       "The feature flags: an audit of each flag's proof, and activation, which turns a flag on only after its outcome is recorded.",
     flow: "Run flag audit to fail on any flag that is on without a recorded proof, then flag activate for a flag whose verification outcome (a live run, or an owner waiver) is recorded for that environment.",
   },
+  platform: {
+    purpose:
+      "The platform rollout record: one ledger event per rollout of a release to an environment, and the drift check that compares the last one with the cluster's installed charts.",
+    flow: "After `kore platform up --environment vps` from a release's locks, run platform rollout-record with the tag and both locks; to check for drift, pipe `kore platform status --environment vps --json` into platform rollout-drift.",
+    seeAlso: ["platform rollout-record", "platform rollout-drift"],
+  },
   ruleset: {
     purpose:
       "Syncs the repository's GitHub rulesets from .github/rulesets and summarizes what a candidate ruleset would block.",

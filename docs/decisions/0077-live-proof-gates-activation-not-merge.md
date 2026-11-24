@@ -2,7 +2,7 @@
 status: accepted
 summary: Live proof of a cluster-facing change gates turning it on in an environment, not merging it, except for changes declared no-behaviour-change.
 date: 2026-11-11
-last-verified: 2026-11-12
+last-verified: 2026-11-23
 ---
 
 # ADR 0077: Live proof gates activation, not merge
@@ -72,3 +72,22 @@ the environment's `features:` map.
 - A gated-off status does not fail `kore platform status`. A readiness
   requirement whose components are all gated off is recorded `skipped`, not
   `ready`. The platform generation includes each gating flag's value.
+
+## Refinement 2026-11-23: an app flag is proven by platform evidence
+
+Source: [GitHub issue #1532](https://github.com/corekraft/kore/issues/1532), under [#1510](https://github.com/corekraft/kore/issues/1510) and [#1486](https://github.com/corekraft/kore/issues/1486); [ADR 0174](0174-the-platform-turns-an-app-flag-on-from-evidence-it-collected-itself.md) sets the evidence.
+
+An app flag is not a `features:` entry in an overlay. Its state is a map in the
+app's record in git, which Argo renders into a file the app mounts. Reading the
+flag at run time means reading that mounted file, so a git revert rolls the flag
+back. This keeps the "no runtime flag service" statement above: there is still
+no service, only a file.
+
+- An app flag's proof is an outcome with the source `platform-window`: an
+  activation window over series the platform produces, never series an app
+  pushes. `live-run` and `owner-waiver` remain valid sources for it.
+- The overlay rule above is unchanged. Features in a `features:` map are still
+  proven by a live run or an owner waiver.
+- Why this changed: a harness outcome closes a numbered idea once, and an app
+  flag is activated far more often, so the idea shape cannot carry it. The
+  evidence rules sit in ADR 0174.

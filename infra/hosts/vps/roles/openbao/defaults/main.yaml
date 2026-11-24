@@ -1,0 +1,20 @@
+# The OpenBao static seal key (ADR 0168), the one recorded exception to no
+# plaintext on disk. The controller holds the copy the owner supplies from the
+# recovery kit; the role places it on the node through stdin and nowhere else.
+
+# The vps environment overlay is the one owner of the flag below; the role
+# reads it and holds no second copy.
+openbao_vps_environment: "{{ lookup('ansible.builtin.file', playbook_dir ~ '/../../environments/vps/environment.yaml') | from_yaml }}"
+
+# Dark launch: with the overlay's openbao flag off (it is, until a live run on
+# kore-vps and harness flag activate), the role changes nothing on the
+# controller or the node.
+openbao_seal_enabled: "{{ openbao_vps_environment.features['openbao'] | default(false) }}"
+
+# Base64 text of the 32-byte key, on the controller, outside the repository.
+openbao_seal_controller_key: "{{ lookup('ansible.builtin.env', 'HOME') }}/.config/kore/openbao-static-seal.key"
+
+# On the node: a root-only file on the root filesystem, never on the k3s data
+# volume, so a stolen data volume or Raft snapshot is useless without it.
+openbao_seal_key_dir: /etc/kore/openbao
+openbao_seal_key_path: /etc/kore/openbao/static-seal.key

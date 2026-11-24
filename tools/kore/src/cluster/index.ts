@@ -5,9 +5,12 @@ export {
   clusterStop,
   clusterUp,
 } from "./cluster.js";
-export { k3dClusterInfo } from "./k3d-cluster.js";
+export {
+  assertRunningK3dMatchesOverlay,
+  k3dClusterInfo,
+} from "./k3d-cluster.js";
 export { assertExpectedCluster, ClusterUnavailableError } from "./cluster.js";
-export { retainedResources } from "./retained.js";
+export { purgeRetainedResources, retainedResources } from "./retained.js";
 export { exportRetainedData } from "./export.js";
 export { restoreRetainedData } from "./restore.js";
 export { hasVerifiedExport, newestVerifiedExport } from "./export-manifest.js";

@@ -68,6 +68,8 @@ export interface Component {
   readiness: string[];
   /** Readiness resources that exist only while a flag is on, keyed by resource (issue 1884). */
   readinessFlags?: Record<string, string>;
+  /** Value files that carry only a flag's numbers, keyed by the file in values, with the flag as value; a flag-off file is not passed to Helm (issue 1593). */
+  valuesFlags?: Record<string, string>;
   helm?: HelmOptions;
   /** Probe fields a chart gives no value for, applied by a Helm post-renderer (see the probe patches ADR). */
   patches?: ProbePatch[];
@@ -155,6 +157,37 @@ export interface K3dPort {
    * the rest of the platform comes up. Unset means opted in.
    */
   optOut?: boolean;
+}
+
+/**
+ * What a feature flag is: a capability that retires once it soaks everywhere it
+ * applies, an environment flag that chooses how an environment is built and
+ * never retires, or a harness flag that only the local harness reads (ADR 0148).
+ */
+export type FlagKind = "feature" | "environment" | "harness";
+
+/** One flag in the flag manifest: its kind, the environments it applies to, and its marks (ADR 0148). */
+export interface FlagEntry {
+  name: string;
+  kind: FlagKind;
+  /** The environments the flag applies to, by environment name. */
+  applies: string[];
+  /** An environment flag that is never retired. */
+  neverRetire?: boolean;
+  /** The flags that must be on in an environment before this flag may be turned on there (ADR 0148). */
+  requires?: string[];
+  /** Declared but not yet applicable: left out of what applies, pending a decision. */
+  pending?: boolean;
+  /** The environments of `applies` where the flag is not applicable in v1; it is left out of what applies there (ADR 0148). */
+  notApplicable?: string[];
+  /** Why the flag is not applicable, one line; the progress report prints it (ADR 0148). */
+  reason?: string;
+}
+
+/** The flag manifest, `infra/catalog/flags.yaml` (ADR 0148). */
+export interface FlagManifest {
+  $schema?: string;
+  flags: FlagEntry[];
 }
 
 /** A Gateway the environment names: its object, its namespace and the port it listens on. */
@@ -392,6 +425,10 @@ export interface GoldenPathDeliveryValues {
   templateAdmission?: boolean;
   /** Set only while golden-path-safety-defaults is on: the sync sets safetyDefaults on each workload (ADR 0154). */
   safetyDefaults?: boolean;
+  /** Set only while golden-path-service-identity is on: the sync sets serviceIdentity on each workload, so it renders its Service, ServiceAccount and pod-spec identity (issue 1551). */
+  serviceIdentity?: boolean;
+  /** Set only while app-delivery is on: each Application takes its service's release file as an optional values file, so the workload deploys the release's digest (ADR 0166, ADR 0172). */
+  appDelivery?: boolean;
   autoscaling?: boolean;
   /** True while platform-portal, platform-organization-service-apis and platform-argocd-delivery are all on: the sync also applies the Service records (ADR 0166). */
   serviceRecords?: boolean;
@@ -407,6 +444,8 @@ export interface Repository {
   approved: ApprovedImageManifest;
   catalog: Catalog;
   environment: Environment;
+  /** The flag manifest: every flag an overlay may list, with its kind and environments (ADR 0148). */
+  flags: FlagManifest;
   /** Parsed environment overlay of the kore-image-policy component. */
   imageTrustValues?: Record<string, unknown> | undefined;
   /**
@@ -431,6 +470,12 @@ export interface Repository {
    * Services from here (plan 15, #1235).
    */
   registeredServices?: readonly string[] | undefined;
+  /**
+   * The suborg names the Organization records of the environment give, in name
+   * order, each a record that passes the checks; set by `loadRepository` whatever
+   * the flags are. The acme-dns01 flag renders a wildcard pair for each (ADR 0161).
+   */
+  suborgs?: readonly string[] | undefined;
   /** Findings that warn without failing validation; set by `loadRepository`. */
   warnings?: string[] | undefined;
 }

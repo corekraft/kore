@@ -7,6 +7,8 @@ import {
   gatewayClassName,
   platformSyncWindowFlag,
   postgresqlServiceClassInstancesFlag,
+  pvcOwnershipAdmissionFlag,
+  workloadDefaultsAdmissionFlag,
 } from "./features.js";
 import { platformPlan, platformWildcard } from "./platform-domain.js";
 import type { Repository } from "./types.js";
@@ -54,6 +56,18 @@ export interface ChartDeliveryValues {
    * the project is exactly what it was.
    */
   inClusterCa?: true;
+  /**
+   * Only while workload-defaults-admission is on: the AppProject admits the
+   * workload-defaults constraint kind (issue 1526). Absent, the project is exactly
+   * what it was.
+   */
+  workloadDefaults?: true;
+  /**
+   * Only while pvc-ownership-admission is on: the AppProject admits the
+   * PVC-ownership constraint kind (issue 1666). Absent, the project is exactly
+   * what it was.
+   */
+  pvcOwnership?: true;
   /**
    * Only while platform-sync-window is on: the AppProject may carry the
    * maintenance deny window, which renders only while a maintenance run holds
@@ -165,6 +179,12 @@ export function chartDeliveryValues(
       : {}),
     ...(featureEnabled(repository.environment, inClusterCaFlag)
       ? { inClusterCa: true as const }
+      : {}),
+    ...(featureEnabled(repository.environment, workloadDefaultsAdmissionFlag)
+      ? { workloadDefaults: true as const }
+      : {}),
+    ...(featureEnabled(repository.environment, pvcOwnershipAdmissionFlag)
+      ? { pvcOwnership: true as const }
       : {}),
     ...(featureEnabled(repository.environment, platformSyncWindowFlag)
       ? { syncWindow: true as const }

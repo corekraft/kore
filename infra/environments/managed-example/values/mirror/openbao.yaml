@@ -1,0 +1,11 @@
+{
+  "server":
+    {
+      "image":
+        {
+          "registry": "ghcr.io",
+          "repository": "corekraft/kore/mirror/openbao",
+          "tag": "2.7.3@sha256:ba4b133eb9586630024e71a617e66f37f29cc3534cdd46a6233e098ceded8dc9"
+        }
+    }
+}

@@ -72,7 +72,7 @@ const diskUnits = new Map<string, number>([
 ]);
 
 /** A CPU quantity in millicores: `500m` is 500, `1` and `0.5` are 1000 and 500. */
-function cpuMillis(text: string): number | undefined {
+export function cpuMillis(text: string): number | undefined {
   const match = cpuQuantity.exec(text);
   if (!match) {
     return undefined;
@@ -82,7 +82,7 @@ function cpuMillis(text: string): number | undefined {
 }
 
 /** A memory quantity in mebibytes, such as `512Mi` or `1Gi`. */
-function memoryMiB(text: string): number | undefined {
+export function memoryMiB(text: string): number | undefined {
   const match = memoryQuantity.exec(text);
   const unit = match ? memoryUnits.get(match[2] ?? "") : undefined;
   return match && unit !== undefined ? Number(match[1]) * unit : undefined;

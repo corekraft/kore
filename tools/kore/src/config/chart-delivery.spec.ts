@@ -287,3 +287,35 @@ test("with in-cluster-ca on the values carry the flag the AppProject needs to ad
     "inClusterCa",
   );
 });
+
+test("with workload-defaults-admission on the values carry workloadDefaults, so the AppProject admits the constraint kind; off they carry none, so the project is unchanged (issue 1526)", () => {
+  vi.mocked(featureEnabled).mockImplementation(
+    (_environment, flag) => flag === "workload-defaults-admission",
+  );
+  try {
+    expect(chartDeliveryValues(repository, lock())).toMatchObject({
+      workloadDefaults: true,
+    });
+  } finally {
+    vi.mocked(featureEnabled).mockReset();
+  }
+  expect(chartDeliveryValues(repository, lock())).not.toHaveProperty(
+    "workloadDefaults",
+  );
+});
+
+test("with pvc-ownership-admission on the values carry pvcOwnership, so the AppProject admits the constraint kind; off they carry none, so the project is unchanged (issue 1666)", () => {
+  vi.mocked(featureEnabled).mockImplementation(
+    (_environment, flag) => flag === "pvc-ownership-admission",
+  );
+  try {
+    expect(chartDeliveryValues(repository, lock())).toMatchObject({
+      pvcOwnership: true,
+    });
+  } finally {
+    vi.mocked(featureEnabled).mockReset();
+  }
+  expect(chartDeliveryValues(repository, lock())).not.toHaveProperty(
+    "pvcOwnership",
+  );
+});

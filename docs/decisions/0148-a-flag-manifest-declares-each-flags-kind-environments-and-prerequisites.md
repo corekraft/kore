@@ -23,7 +23,7 @@ A flag today is a name in each overlay's `features:` map and a constant in code.
 ## Decision
 
 - **One manifest, JSON-compatible YAML.** One entry per flag: `name`, `kind` (`feature`, `environment`, `harness`), `applies` (the environments it applies to), `requires` (other flags) and, for an environment flag, the mark that it is never retired. `flag audit`, `flag activate`, validation and the retirement tool read it. Nothing about a flag's kind or reach lives anywhere else.
-- **Prerequisites move into it.** `requires` replaces `flagDependencyErrors`. `harness flag activate` refuses to turn a flag on in an environment where a required flag is off, so the vps order is computed: environment flags first (`in-cluster-ca`, `k3s-registry-trust`, `registry-tailnet-forward`), then `platform-argocd-delivery` and `platform-shared-gateway`, then the flags that need them.
+- **Prerequisites move into it.** `requires` replaces `flagDependencyErrors`. The two refusals that are provider facts rather than flag edges (`in-cluster-ca` and `acme-dns01` on a k3d environment) are not `requires`; they live in `tools/kore/src/config/provider-flag-errors.ts`, which configuration validation runs. `harness flag activate` refuses to turn a flag on in an environment where a required flag is off, so the vps order is computed: environment flags first (`in-cluster-ca`, `k3s-registry-trust`, `registry-tailnet-forward`), then `platform-argocd-delivery` and `platform-shared-gateway`, then the flags that need them.
 - **Seed classification** (derived from the repository, not decided by the owner):
   - harness, absent from vps: the 14 harness flags in the vps overlay, and `role-tokens`, `owner-writer`, `tick-self-update`;
   - environment: `in-cluster-ca`, `k3s-registry-trust`, `registry-tailnet-forward` apply to vps only, `local-image-reuse` to local only;
@@ -47,6 +47,16 @@ Settled by the owner on 2026-11-20:
 - `registry-tag-pruning` is local only for v1: it prunes the tags `kore local up` makes, and pruning the vps registry on the shared disk is a capacity follow-up.
 - Enforcing the vps flag audit goes through a guardrail request (ADR 0080). The owner said yes in principle; `harness guardrail activate` still needs the approving comment line on the idea's issue.
 
+## Refinement: not-applicable marks and a reason (#1676)
+
+Refines the seed classification above, decided on [issue #1676](https://github.com/corekraft/kore/issues/1676) from the owner's #1590 record (2026-11-23) and [ADR 0160](0160-vps-has-an-internal-gateway-on-the-tailnet-and-an-external-gateway-on-public-443.md).
+
+- **A not-applicable mark.** An entry may list `notApplicable`: the environments of its `applies` where the flag does not apply in v1. Such an environment is left out of what applies there, so it stays out of the "all on" count. The overlay keeps the flag false, and turning it on there fails validation, naming the manifest and the reason.
+- **A one-line reason.** Each not-applicable entry carries `reason`, one non-empty line that the progress report ([#1494](https://github.com/corekraft/kore/issues/1494)) prints. A missing or multi-line reason fails validation.
+- **`database-routes`, `otlp-route` and `registry-by-name` are not applicable to vps** in v1, with their reasons in the manifest. `registry-by-name` stays pending for local until the naming concept settles.
+- **`platform-dns` applies to vps.** Its pending mark is removed, as ADR 0158 decided it applies to vps. It stays off in the vps overlay.
+- **`platform-keycloak-realm-wait`** (#1994) is declared a feature flag that applies to local, the one overlay that sets it.
+
 Still open:
 
-- `platform-dns` and `registry-by-name` stay pending until the naming concept settles whether the platform DNS and a name-routed registry serve the tailnet.
+- `registry-by-name` stays pending for local until the naming concept settles whether a name-routed registry serves the tailnet.

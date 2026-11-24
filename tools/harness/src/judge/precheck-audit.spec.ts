@@ -4,6 +4,7 @@ import {
   castAudit,
   closingAudit,
   gatherChecks,
+  hostnameClaims,
   lengthAudit,
   parsePrView,
   type AuditFinding,
@@ -15,7 +16,7 @@ import { parseDiff, type ChangedFile } from "./diff.js";
 import { hintsFor, type Hints } from "./hints.js";
 import { withManifestSides } from "./manifest-source.js";
 import { precheck } from "./precheck.js";
-import { fakeDeps } from "./precheck-support.js";
+import { fakeDeps, NO_CLAIMS } from "./precheck-support.js";
 import { assess } from "./verdict.js";
 
 // The audit items of the precheck: the collaborators are mocked, so each test states what the
@@ -98,6 +99,7 @@ function ready(): void {
     clusterFacing: false,
     unverified: [],
   });
+  vi.mocked(hostnameClaims).mockResolvedValue(NO_CLAIMS);
 }
 
 describe("precheck carries the audit findings the changed files make", () => {

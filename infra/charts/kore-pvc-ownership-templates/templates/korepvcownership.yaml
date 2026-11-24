@@ -1,0 +1,37 @@
+apiVersion: templates.gatekeeper.sh/v1
+kind: ConstraintTemplate
+metadata: { name: korepvcownership }
+spec:
+  crd:
+    spec:
+      names: { kind: KorePVCOwnership }
+      validation:
+        openAPIV3Schema:
+          type: object
+          properties:
+            { exemptNamespaces: { type: array, items: { type: string } } }
+  targets:
+    - target: admission.k8s.gatekeeper.sh
+      rego: |
+        package kore.pvcownership
+        import future.keywords.in
+        # The constraint matches application namespaces only (the activation label,
+        # set by bootstrap, in its namespaceSelector). exemptNamespaces stays as a
+        # second line of defence, as in kore-workload-defaults.
+        exempt { input.review.object.metadata.namespace in object.get(input.parameters, "exemptNamespaces", []) }
+        # CloudNativePG writes a controller owner reference to its Cluster on each claim
+        # it creates. The same shape is the one koresecrets accepts for the Secrets
+        # CloudNativePG writes. A hand-written claim can copy it; that gap is in the doc.
+        cnpg_owned {
+          owner := input.review.object.metadata.ownerReferences[_]
+          owner.controller == true
+          owner.kind == "Cluster"
+          startswith(owner.apiVersion, "postgresql.cnpg.io/")
+        }
+        violation[{"msg": msg}] {
+          input.review.kind.kind == "PersistentVolumeClaim"
+          not exempt
+          not cnpg_owned
+          name := input.review.object.metadata.name
+          msg := sprintf("PersistentVolumeClaim %v is not owned by CloudNativePG, and v1 backs up PostgreSQL and OpenBao only, so its data would not be restored. Keep the data in a PostgreSQLInstance or in OpenBao, and remove this claim", [name])
+        }

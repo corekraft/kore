@@ -2,11 +2,12 @@ import { internalGateway } from "./gateways.js";
 import {
   databaseRoutesFlag,
   featureEnabled,
-  platformDnsFlag,
   otlpRouteFlag,
   platformHostnameOwnershipFlag,
   platformSharedGatewayFlag,
 } from "./features.js";
+import { dnsHelmArgs } from "./dns-helm-args.js";
+import { clusterResolutionArgs } from "./platform-cluster-resolution.js";
 import { keycloakWaitArgs } from "./platform-keycloak-wait.js";
 import { platformDomainVariable, runTimeDomain } from "./run-time-domain.js";
 import { serviceClassArgs } from "./service-class-args.js";
@@ -344,35 +345,7 @@ function databaseRoutesArgs(
   return [];
 }
 
-/** The ConfigMap, in the portal's namespace, that carries the local CA its pods trust (ADR 0132). */
-export const localCaConfigMap = "kore-local-ca";
-
-/**
- * With platform-dns on, the arguments the platform-dns and portal charts take
- * for in-cluster name resolution: the Gateway whose Service the zone rewrites
- * to, and the CA bundle the portal's pods trust. Off, none.
- */
-function clusterResolutionArgs(
-  environment: Environment,
-  component: string,
-): string[] {
-  if (!featureEnabled(environment, platformDnsFlag)) {
-    return [];
-  }
-  if (component === "kore-platform-backstage") {
-    return ["--set-string", `localCa.configMap=${localCaConfigMap}`];
-  }
-  if (component === "kore-platform-dns") {
-    const { name, namespace } = internalGateway(environment);
-    return [
-      "--set-string",
-      `gateway.name=${name}`,
-      "--set-string",
-      `gateway.namespace=${namespace}`,
-    ];
-  }
-  return [];
-}
+export { localCaConfigMap } from "./platform-cluster-resolution.js";
 
 /**
  * With platform-hostname-ownership on, the organization identifier the
@@ -399,12 +372,14 @@ function zoneArgs(
 /**
  * Helm arguments that hand the platform domain to a component that names it:
  * the overlay's values files and the chart defaults hold no copy, so the
- * environment's field is the one source.
+ * environment's field is the one source. `suborgs` are the names the Organization
+ * records give (ADR 0161), which only the acme-dns01 flag reads.
  */
 export function platformHelmArgs(
   environment: Environment,
   component: string,
   env: NodeJS.ProcessEnv = process.env,
+  suborgs: readonly string[] = [],
 ): string[] {
   const key = domainValueKeys[component];
   const wildcard = wildcardValueKeys[component];
@@ -418,6 +393,7 @@ export function platformHelmArgs(
     ...databaseRoutesArgs(environment, component, env),
     ...serviceClassArgs(environment, component),
     ...otlpRouteArgs(environment, component, env),
+    ...dnsHelmArgs(environment, component, env, suborgs),
   ];
   if (key === undefined && wildcard === undefined) {
     return shared;

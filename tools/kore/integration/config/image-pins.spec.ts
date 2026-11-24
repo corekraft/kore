@@ -18,6 +18,14 @@ const DIGEST = /@sha256:[0-9a-f]{64}$/;
 // The locally built reference image is the only entry allowed without a digest.
 const NOT_YET_DIGEST_PINNED = new Set(["reference"]);
 
+// Approved images that no chart, values file or composition uses yet, each with
+// its reason. The release mirror copies them; nothing deploys them until the job
+// that uses them lands (kore-backup: ADR 0155).
+const UNUSED_UNTIL_DEPLOYED: Record<string, string> = {
+  "kore-backup":
+    "nothing deploys the backup image until the scheduled backup job is built (ADR 0155)",
+};
+
 test("every platform image in the version catalog is pinned tag@sha256 digest", async () => {
   const repository = await loadRepository("local");
   const unpinned = Object.entries(repository.versions.images).filter(
@@ -148,7 +156,16 @@ test("every approved image is used: its digest appears in a chart, values file, 
   const unused = repository.approved.images
     .filter(({ image }) => !text.includes(image.split("@sha256:")[1]!))
     .map(({ name }) => name);
-  assert.deepEqual(unused, []);
+  assert.deepEqual(
+    unused.filter((name) => !(name in UNUSED_UNTIL_DEPLOYED)),
+    [],
+  );
+  // An exemption ends with its image's first use: a stale one fails here.
+  assert.deepEqual(
+    Object.keys(UNUSED_UNTIL_DEPLOYED).filter((name) => !unused.includes(name)),
+    [],
+    "a file now names the image's digest: remove it from UNUSED_UNTIL_DEPLOYED",
+  );
 });
 
 const KORE_BUILT_DOCKERFILES = [

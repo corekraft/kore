@@ -20,9 +20,33 @@ spec:
         openAPIV3Schema:
           type: object
           required: [spec]
+          # A suborg is an Organization one level below the tenant root `platform` (ADR 0165).
+          # Its name is its namespace, so it is a DNS label of at most 54 characters
+          # (<suborg>--preview fits 63), with no double hyphen; its quota has no default,
+          # so an unbounded suborg cannot be written. Reserved names are refused by
+          # kore validate, which holds the platform namespaces (ADR 0165).
           x-kubernetes-validations:
-            - rule: "self.metadata.name == 'platform'"
-              message: "only the platform organization is supported"
+            - rule: "self.metadata.name.matches('^[a-z0-9]([-a-z0-9]{0,61}[a-z0-9])?$')"
+              message: "metadata.name must be a single DNS label (lowercase letters, digits and hyphens, at most 63 characters, no dots)"
+            - rule: "self.metadata.name == 'platform' || self.metadata.name.size() <= 54"
+              message: "metadata.name must be at most 54 characters, so <suborg>--preview fits 63; shorten it"
+            - rule: "!self.metadata.name.contains('--')"
+              message: "metadata.name must not contain a double hyphen: the suborg namespace is <suborg> and its preview is <suborg>--preview; rename it"
+            - rule: "self.metadata.name != 'platform' || !has(self.spec.parent)"
+              message: "the platform organization is the tenant root and has no parent; remove spec.parent"
+            - rule: "self.metadata.name == 'platform' || has(self.spec.parent)"
+              message: 'spec.parent is required for a suborg; set it to "platform", the tenant root'
+            - rule: "!has(self.spec.parent) || self.spec.parent == 'platform'"
+              message: 'spec.parent must be "platform", the tenant root: v1 places a suborg one level below it; set it to "platform"'
+            - rule: "self.metadata.name == 'platform' || has(self.spec.quota)"
+              message: "spec.quota is required for a suborg, and has no default: set requests.cpu, requests.memory, pods and storage"
+{{- if index $features "platform-hostname-ownership" }}
+            # A suborg's default zone is <suborg>.<platform domain> (ADR 0042, ADR 0163). An
+            # OpenAPI default cannot depend on the name, so a suborg that does not state that
+            # zone is refused rather than given the platform's zone by the default below.
+            - rule: {{ printf "self.metadata.name == 'platform' || (has(self.spec.zone) && self.spec.zone == self.metadata.name + '.%s')" .Values.platformDomain | quote }}
+              message: {{ printf "spec.zone must be the suborg's default zone, <suborg>.%s: the platform zone default is for the platform organization only" .Values.platformDomain | quote }}
+{{- end }}
           properties:
             spec:
               type: object
@@ -34,6 +58,23 @@ spec:
                 parent:
                   type: string
                   pattern: "^[a-z0-9]([-a-z0-9]{0,61}[a-z0-9])?$"
+                # The quota of a suborg: requests for cpu and memory, a pod count and the
+                # storage it may request. Required for a suborg by the rules above, with no
+                # default; the platform organization carries none.
+                quota:
+                  type: object
+                  required: [requests, pods, storage]
+                  additionalProperties: false
+                  properties:
+                    requests:
+                      type: object
+                      required: [cpu, memory]
+                      additionalProperties: false
+                      properties:
+                        cpu: { type: string, pattern: "^[0-9]+(\\.[0-9]+)?m?$" }
+                        memory: { type: string, pattern: "^[0-9]+(\\.[0-9]+)?(Mi|Gi|Ti)$" }
+                    pods: { type: integer, minimum: 1 }
+                    storage: { type: string, pattern: "^[0-9]+(\\.[0-9]+)?(Gi|Ti)$" }
 {{- if index $features "platform-hostname-ownership" }}
                 # The zone the organization owns (ADR 0042): the one place the
                 # hostname-ownership constraint reads it, with no parameter list

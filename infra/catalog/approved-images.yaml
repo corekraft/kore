@@ -210,6 +210,40 @@
           }
       },
       {
+        "image": "registry.k8s.io/external-dns/external-dns:v0.24.0@sha256:a80a146d2540fa138565e404f0625157271071a06093021f27ae19d8316d10f9",
+        "name": "external-dns",
+        "component": "external-dns",
+        "evidence":
+          {
+            "method": "cosign-keyless",
+            "source": "crane digest registry.k8s.io/external-dns/external-dns:v0.24.0 resolves to this index digest. cosign verify --certificate-identity krel-trust@k8s-releng-prod.iam.gserviceaccount.com --certificate-oidc-issuer https://accounts.google.com passes, with the Kubernetes promotion predicate (https://k8s.io/promo-tools/promotion/v1) and a Rekor entry verified offline. Runs only under external-dns, off in every overlay until its flag is turned on.",
+            "checked": "2026-11-24",
+            "provenance":
+              {
+                "signed": true,
+                "issuer": "https://accounts.google.com",
+                "identity": "krel-trust@k8s-releng-prod.iam.gserviceaccount.com"
+              }
+          }
+      },
+      {
+        "image": "quay.io/openbao/openbao:2.7.3@sha256:ba4b133eb9586630024e71a617e66f37f29cc3534cdd46a6233e098ceded8dc9",
+        "name": "openbao",
+        "component": "openbao",
+        "evidence":
+          {
+            "method": "cosign-keyless",
+            "source": "crane digest quay.io/openbao/openbao:2.7.3 resolves to this index digest. cosign verify --certificate-identity https://github.com/openbao/openbao/.github/workflows/release-images.yml@refs/tags/v2.7.3 --certificate-oidc-issuer https://token.actions.githubusercontent.com passes at this digest, with the Rekor entry verified offline. Runs only under openbao, off in every overlay until its flag is turned on.",
+            "checked": "2026-11-24",
+            "provenance":
+              {
+                "signed": true,
+                "issuer": "https://token.actions.githubusercontent.com",
+                "identity": "https://github.com/openbao/openbao/.github/workflows/release-images.yml@refs/tags/v2.7.3"
+              }
+          }
+      },
+      {
         "image": "quay.io/kiwigrid/k8s-sidecar:2.5.0@sha256:a6b3f707f883108376514489a94d6629109a327b2978e1d826cd104c4ca436df",
         "name": "grafana-sidecar",
         "component": "grafana",
@@ -617,6 +651,23 @@
             "source": "crane digest xpkg.crossplane.io/crossplane-contrib/function-auto-ready:v0.7.3 resolves to this digest. Crossplane Function package (an OCI image). No cosign signature published (cosign verify: no signatures found).",
             "checked": "2026-11-08",
             "provenance": { "signed": false }
+          }
+      },
+      {
+        "image": "ghcr.io/corekraft/kore/kore-backup@sha256:f14a740bf3c4a4e461bd8fcbf73ecb7c6cd6318c55497a02d0522fbfe17fe448",
+        "name": "kore-backup",
+        "component": "kore-postgresql-api",
+        "evidence":
+          {
+            "method": "registry-digest",
+            "source": "Built, pushed and signed by the release workflow of the v0.26.0 tag (release.yaml, the kore-backup image step). kore-backup-image.lock.json on the v0.26.0 release records this digest and the signer identity; crane digest of ghcr.io/corekraft/kore/kore-backup:v0.26.0 resolves to it, and cosign verify with that tag's release identity passes. The distroless image (ADR 0116: no shell, no package manager) carries the kore-backup program, pg_dump 18 and age. Nothing deploys it: no chart or environment names it, and the scheduled backup job (ADR 0155) is not built yet. The mirror copy is made by the mirror job of the next release tag.",
+            "checked": "2026-11-24",
+            "provenance":
+              {
+                "signed": true,
+                "issuer": "https://token.actions.githubusercontent.com",
+                "identity": "https://github.com/corekraft/kore/.github/workflows/release.yaml@refs/tags/v0.26.0"
+              }
           }
       }
     ]

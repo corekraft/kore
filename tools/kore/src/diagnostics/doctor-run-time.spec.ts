@@ -9,6 +9,9 @@ vi.mock("../cluster/index.js", () => ({
   k3dClusterInfo: async () => ({ state: "running" }),
 }));
 vi.mock("../config/index.js", () => ({ managedCluster: vi.fn() }));
+vi.mock("./token-secret-check.js", () => ({
+  tokenSecretChecks: async () => [],
+}));
 vi.mock("./registry-name-check.js", () => ({
   registryNameCheck: async () => [],
 }));

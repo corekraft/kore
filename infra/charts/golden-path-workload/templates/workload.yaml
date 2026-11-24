@@ -29,8 +29,15 @@
 {{- end }}
 {{- range $name, $path := dict "frontend" "/healthz" "bff" "/actuator/health" }}
 {{- $workload := index $.Values $name }}
+{{- if $workload }}
+{{- /* The image this component deploys (ADR 0172): the lock image's repository with the release's digest when the release carries one for this component, else the lock image as it is. Without a release this is the lock image, so the render is unchanged. */}}
+{{- $image := $workload.image }}
+{{- with $.Values.spec }}{{- with .components }}{{- with (index . $name) }}{{- with .digest }}
+{{- $image = printf "%s@%s" (splitList "@" $workload.image | first) . }}
+{{- end }}{{- end }}{{- end }}{{- end }}
 {{- /* The BFF keeps its sign-in session in memory, so a callback that lands on another pod loses it. While sign-in is on the BFF runs as one pod with no autoscaler, until a shared session store lands; the frontend keeps its autoscaling. */}}
 {{- $singleBff := and $signin.enabled (eq $name "bff") }}
+{{- /* While sign-in is on, the BFF Deployment carries the label platform.kore.dev/single-replica: sign-in-bff. The workload-defaults admission constraint (issue 1526, ADR 0154) reads it to exempt the BFF from its replica rule alone; with sign-in off no label renders. */}}
 {{- /* With safetyDefaults the BFF's probes read its own readiness and liveness health groups (ADR 0154); the frontend keeps its health path for both. */}}
 {{- $readinessPath := $path }}
 {{- $livenessPath := $path }}
@@ -46,6 +53,9 @@ metadata:
   labels:
     app.kubernetes.io/name: {{ $.Values.service }}-{{ $name }}
     app.kubernetes.io/part-of: {{ $.Values.service }}
+    {{- if $singleBff }}
+    platform.kore.dev/single-replica: sign-in-bff
+    {{- end }}
 spec:
   {{- if or (not $autoscaling.enabled) $singleBff }}
   replicas: {{ if and $safety (not $singleBff) }}2{{ else }}1{{ end }}
@@ -68,6 +78,10 @@ spec:
         app.kubernetes.io/name: {{ $.Values.service }}-{{ $name }}
         app.kubernetes.io/part-of: {{ $.Values.service }}
     spec:
+{{- if $.Values.serviceIdentity }}
+      serviceAccountName: {{ $.Values.service }}
+      automountServiceAccountToken: false
+{{- end }}
       securityContext:
         runAsNonRoot: true
         seccompProfile:
@@ -79,7 +93,7 @@ spec:
       {{- /* The JVM does not trust the cluster's local CA, so Spring's discovery of the Keycloak issuer fails PKIX path building. A same-image init container builds a truststore of the JDK roots plus the CA into an emptyDir; only ca.crt is mounted, never tls.key. */}}
       initContainers:
         - name: truststore
-          image: {{ $workload.image | quote }}
+          image: {{ $image | quote }}
           command:
             - sh
             - -c
@@ -98,7 +112,7 @@ spec:
       {{- end }}
       containers:
         - name: {{ $name }}
-          image: {{ $workload.image | quote }}
+          image: {{ $image | quote }}
           ports:
             - name: http
               containerPort: 8080
@@ -203,6 +217,33 @@ spec:
         name: cpu
         target: {type: Utilization, averageUtilization: {{ $autoscaling.targetCPUUtilizationPercentage }}}
 {{- end }}
+{{- end }}
+{{- end }}
+{{- if $.Values.serviceIdentity }}
+{{- $backend := "frontend" }}
+{{- if $.Values.bff }}{{ $backend = "bff" }}{{- end }}
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: {{ $.Values.service }}
+  labels:
+    app.kubernetes.io/part-of: {{ $.Values.service }}
+automountServiceAccountToken: false
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ $.Values.service }}
+  labels:
+    app.kubernetes.io/part-of: {{ $.Values.service }}
+spec:
+  selector:
+    app.kubernetes.io/name: {{ printf "%s-%s" $.Values.service $backend }}
+  ports:
+    - name: http
+      port: 80
+      targetPort: http
 {{- end }}
 {{- if $signin.enabled }}
 ---

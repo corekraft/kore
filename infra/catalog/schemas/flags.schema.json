@@ -1,0 +1,49 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "required": ["flags"],
+  "properties": {
+    "$schema": { "type": "string" },
+    "flags": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["name", "kind", "applies"],
+        "properties": {
+          "name": { "type": "string", "pattern": "^[a-z][a-z0-9-]*$" },
+          "kind": { "enum": ["feature", "environment", "harness"] },
+          "applies": {
+            "type": "array",
+            "minItems": 1,
+            "items": { "type": "string", "pattern": "^[a-z0-9-]+$" }
+          },
+          "neverRetire": {
+            "type": "boolean",
+            "description": "Only an environment flag is marked never-retire (ADR 0148)."
+          },
+          "requires": {
+            "type": "array",
+            "description": "The flags that must be on in an environment before this flag may be turned on there (ADR 0148).",
+            "items": { "type": "string", "pattern": "^[a-z][a-z0-9-]*$" }
+          },
+          "pending": {
+            "type": "boolean",
+            "description": "Declared but left out of what applies until its naming decision lands (ADR 0148)."
+          },
+          "notApplicable": {
+            "type": "array",
+            "items": { "type": "string", "pattern": "^[a-z0-9-]+$" },
+            "description": "The environments of applies where the flag is not applicable in v1, left out of what applies there; each needs a reason (ADR 0148)."
+          },
+          "reason": {
+            "type": "string",
+            "pattern": "^[^\\n]*[^\\s][^\\n]*$",
+            "description": "Why the flag is not applicable, one line (ADR 0148)."
+          }
+        },
+        "additionalProperties": false
+      }
+    }
+  },
+  "additionalProperties": true
+}

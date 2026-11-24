@@ -19,7 +19,7 @@ export async function gatedReleaseProblem(
     return undefined;
   }
   const { name, namespace, featureFlag } = component;
-  const { kubeContext, name: environment } = repository.environment;
+  const { name: environment } = repository.environment;
   try {
     await helmReleaseStatus(repository, runner, component);
   } catch (error) {
@@ -31,7 +31,7 @@ export async function gatedReleaseProblem(
     }
     return `${name} is gated off (feature ${featureFlag} is off in ${environment}) but kore cannot check whether its release remains in ${namespace}: ${errorMessage(error)}`;
   }
-  return `${name} is gated off (feature ${featureFlag} is off in ${environment}) but its release is still installed in ${namespace}; run helm uninstall ${name} --namespace ${namespace} --kube-context ${kubeContext}, or turn feature ${featureFlag} back on`;
+  return `${name} is gated off (feature ${featureFlag} is off in ${environment}) but its release is still installed in ${namespace}; run kore platform uninstall ${name} --environment ${environment} --yes to remove it, or turn feature ${featureFlag} back on`;
 }
 
 /** Gated-off components whose release still exists, each with its problem. */

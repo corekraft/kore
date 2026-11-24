@@ -1,0 +1,54 @@
+{
+  "server":
+    {
+      "ha":
+        {
+          "raft":
+            {
+              "config": "ui = false\ndisable_mlock = true\n\nlistener \"tcp\" {\n  tls_disable = 1\n  address = \"[::]:8200\"\n  cluster_address = \"[::]:8201\"\n}\n\nstorage \"raft\" {\n  path = \"/openbao/data\"\n}\n\nservice_registration \"kubernetes\" {}\n\nseal \"static\" {\n  current_key_id = \"kore-vps-static-seal-1\"\n  current_key = \"file:///openbao/seal/static-seal.key\"\n}\n\ninitialize \"audit\" {\n  request \"enable-audit\" {\n    operation = \"update\"\n    path = \"sys/audit/file\"\n    data = {\n      type = \"file\"\n      options = {\n        file_path = \"/openbao/audit/audit.log\"\n      }\n    }\n  }\n}\n"
+            }
+        },
+      "volumes":
+        [
+          {
+            "name": "seal-host",
+            "hostPath": { "path": "/etc/kore/openbao", "type": "Directory" }
+          },
+          {
+            "name": "seal",
+            "emptyDir": { "medium": "Memory", "sizeLimit": "1Mi" }
+          }
+        ],
+      "volumeMounts":
+        [{ "name": "seal", "mountPath": "/openbao/seal", "readOnly": true }],
+      "extraInitContainers":
+        [
+          {
+            "name": "place-seal-key",
+            "image": "{{ .Values.server.image.registry }}/{{ .Values.server.image.repository }}:{{ .Values.server.image.tag }}",
+            "command": ["/bin/sh", "-ec"],
+            "args":
+              [
+                "umask 077; cp /seal-host/static-seal.key /seal/static-seal.key; chown 100:1000 /seal/static-seal.key; chmod 0400 /seal/static-seal.key"
+              ],
+            "securityContext":
+              {
+                "runAsUser": 0,
+                "runAsNonRoot": false,
+                "allowPrivilegeEscalation": false,
+                "readOnlyRootFilesystem": true,
+                "capabilities": { "drop": ["ALL"], "add": ["CHOWN"] }
+              },
+            "volumeMounts":
+              [
+                {
+                  "name": "seal-host",
+                  "mountPath": "/seal-host",
+                  "readOnly": true
+                },
+                { "name": "seal", "mountPath": "/seal" }
+              ]
+          }
+        ]
+    }
+}

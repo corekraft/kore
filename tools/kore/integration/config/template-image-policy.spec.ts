@@ -122,20 +122,19 @@ test("the template policy takes its mode from templates.trust, whatever the plat
   assert.match(enforceTemplates, /mode: enforce/);
 });
 
-test("with the flag on, the template authority reads Sigstore bundles, since the template images carry only an OCI-referrer bundle and no legacy .sig tag (issue 1884)", async () => {
+test("with the flag on, the template authority keeps the default signature format, since the release also writes the legacy .sig tag that policy-controller reads (issue 1884)", async () => {
   const policy = templatePolicy(
     await render(keyless(), { [templateFlag]: true }),
   );
   assert.ok(
     policy.includes(
-      "  authorities:\n    - name: release-workflow\n      signatureFormat: bundle\n      keyless:\n",
+      "  authorities:\n    - name: release-workflow\n      keyless:\n",
     ),
-    "the release-workflow authority sets signatureFormat: bundle beside its keyless identities",
+    "the release-workflow authority sets no signatureFormat beside its keyless identities",
   );
-  assert.equal(
-    policy.match(/signatureFormat:/g)?.length,
-    1,
-    "exactly one authority sets the format",
+  assert.ok(
+    !policy.includes("signatureFormat"),
+    "no authority overrides the default signature format",
   );
 });
 

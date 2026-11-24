@@ -1,4 +1,8 @@
 export { FlagError, environments, readOverlay, withFlagOn } from "./overlay.js";
+export { assertMayTurnOn, flagRequires } from "./requirements.js";
+export { platformWindows } from "./app-window-store.js";
+export { recordAppFlagWindow } from "./app-window-writer.js";
+export type { AppWindowInput } from "./app-window-writer.js";
 export { activationProof, findProof } from "./proof.js";
 export type { ActivationProof, Proof, ProofSource } from "./proof.js";
 export { parseCharts, renderCharts } from "./recorded-lock.js";

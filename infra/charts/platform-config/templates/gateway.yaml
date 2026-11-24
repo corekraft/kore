@@ -5,7 +5,7 @@ metadata:
   namespace: kore-system
   labels: {app.kubernetes.io/managed-by: Helm}
 spec:
-{{- if or .Values.gateway.service.type (include "platform-config.agentgatewayEnrolled" .) (include "platform-config.agentgatewayMetrics" .) }}
+{{- if or .Values.gateway.service.type (include "platform-config.agentgatewayEnrolled" .) (include "platform-config.agentgatewayMetrics" .) (include "platform-config.proxyDefaults" .) }}
   infrastructure:
 {{- end }}
 {{- if include "platform-config.agentgatewayEnrolled" . }}
@@ -22,7 +22,7 @@ spec:
       prometheus.io/scrape: "true"
       prometheus.io/port: "15020"
 {{- end }}
-{{- if .Values.gateway.service.type }}
+{{- if or .Values.gateway.service.type (include "platform-config.proxyDefaults" .) }}
 {{- if eq .Values.gateway.className "istio" }}
     parametersRef: {group: "", kind: ConfigMap, name: kore-gateway-service}
 {{- else if eq .Values.gateway.className "agentgateway" }}
@@ -30,6 +30,16 @@ spec:
 {{- end }}
 {{- end }}
   gatewayClassName: {{ required "set gateway.className, or render through kore, which derives it from the ingress-agentgateway feature flag" .Values.gateway.className }}
+{{- if include "platform-config.serviceListenerSets" . }}
+  # The Gateway admits ListenerSets only from namespaces the platform labels as
+  # shared (ADR 0159), so a service's ListenerSet attaches to this Gateway only.
+  allowedListeners:
+    namespaces:
+      from: Selector
+      selector:
+        matchLabels:
+          platform.kore.dev/shared-gateway: "true"
+{{- end }}
   listeners:
     - name: https
       hostname: {{ required "set gateway.hostname, or render through kore, which derives it from the environment's platform.domain" .Values.gateway.hostname | quote }}

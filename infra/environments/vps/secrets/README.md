@@ -27,3 +27,39 @@ encrypted document yet.
 
 `kore` reads the public recipient from `.sops.yaml` (`exportRecipient`) and
 never reads the private key.
+
+## Cloudflare token documents
+
+Each consumer of a Cloudflare token has its own document, so a revoked token
+fails one consumer and not both. The owner makes each token by hand in
+Cloudflare, with Zone Read and DNS Edit on the one platform zone and a 12-month
+expiry, then stores it through sops:
+
+| Document                           | Consumer     | Flag           | Namespace           |
+| ---------------------------------- | ------------ | -------------- | ------------------- |
+| `cloudflare-external-dns.enc.yaml` | external-dns | `external-dns` | `kore-external-dns` |
+| `cloudflare-acme-dns01.enc.yaml`   | cert-manager | `acme-dns01`   | `cert-manager`      |
+
+Each document is a Kubernetes Secret manifest whose value sits under
+`stringData`, encrypted by sops like the rest:
+
+    apiVersion: v1
+    kind: Secret
+    metadata:
+      name: cloudflare-token
+      namespace: kore-external-dns
+    type: Opaque
+    stringData:
+      api-token: <the token made in Cloudflare>
+
+`kore secrets tokens --environment vps` decrypts each document whose flag is on
+and streams the value to kubectl on stdin, so no plaintext touches disk or an
+argument. A flag that is off applies nothing. A missing or undecryptable
+document, or one that names another namespace, stops the run before the cluster
+is touched and names the document and the fix.
+
+Rotation is replacing the document with `sops`, then running
+`kore secrets tokens --environment vps` again. The Secret's
+`platform.kore.dev/document-sha256` annotation changes with the document, and an
+unchanged document applies nothing new. The consumer pod rolls on rotation only
+once its chart carries that checksum in its pod template.

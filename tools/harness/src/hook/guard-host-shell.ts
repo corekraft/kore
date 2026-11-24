@@ -10,6 +10,7 @@
 // is not a clear yes is not verified, so the rules keep guarding (fail closed).
 import { homedir } from "node:os";
 import { localFlagOn } from "./guard-local-flag.js";
+import { platformDomainOf } from "./guard-leak.js";
 import type { CliDeps, FileSystem } from "../runtime/index.js";
 import { sessionIdentity, sessionNotice } from "./guard-identity.js";
 
@@ -32,16 +33,24 @@ export function verifiedBash(env: Env): boolean {
 const flagOn = (fs: FileSystem, root: string): Promise<boolean> =>
   localFlagOn(fs, root, SHELL_AWARE_FLAG);
 
-/** The home directory and the verified shell, as the guard's rules read them. */
+/** The platform domain fact: present only when the run-time variable names one. */
+const domainFact = (env: Env): { platformDomain?: string } => {
+  const platformDomain = platformDomainOf(env);
+  return platformDomain === undefined ? {} : { platformDomain };
+};
+
+/** The home directory, the verified shell and the run-time platform domain, as the guard's rules read them. */
 export async function hostFacts(
   env: Env,
   fs: FileSystem,
   root: string,
-): Promise<{ home: string; verifiedBash: boolean }> {
+): Promise<{ home: string; verifiedBash: boolean; platformDomain?: string }> {
   return {
     home: env["HOME"] || homedir(),
     // The overlay is read only once the shell names bash, so every other call pays nothing.
     verifiedBash: verifiedBash(env) && (await flagOn(fs, root)),
+    // The platform domain the run-time variable names, for the leak rule (ADR 0164); absent when unset.
+    ...domainFact(env),
   };
 }
 

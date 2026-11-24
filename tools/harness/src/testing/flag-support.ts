@@ -18,11 +18,25 @@ export function overlay(features: Record<string, boolean>): string {
   ].join("\n");
 }
 
-/** A fake repository whose local overlay declares two flags, both off. */
+export const MANIFEST = "infra/catalog/flags.yaml";
+
+/** The flag manifest of the two fixture flags, each with the requires the given map names. */
+export function flagManifest(requires: Record<string, string[]> = {}): string {
+  const entries = ["ingress-agentgateway", "other-flag"].map((name) => ({
+    name,
+    kind: "feature",
+    applies: ["local"],
+    ...(requires[name] === undefined ? {} : { requires: requires[name] }),
+  }));
+  return `${JSON.stringify({ flags: entries }, null, 2)}\n`;
+}
+
+/** A fake repository whose local overlay declares two flags, both off, and whose manifest declares them. */
 export function repository(files: Record<string, string> = {}) {
   return harness({
     "docs/index.md": INDEX,
     [OVERLAY]: overlay({ "ingress-agentgateway": false, "other-flag": false }),
+    [MANIFEST]: flagManifest(),
     ...files,
   });
 }
