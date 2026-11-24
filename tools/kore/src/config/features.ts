@@ -152,6 +152,10 @@ export const goldenPathTemplateAdmissionFlag = "golden-path-template-admission";
 /** The flag that routes databases by name through the shared Gateway's passthrough listener, and gives each database its certificate from the local CA (ADR 0136, ADR 0137). */
 export const databaseRoutesFlag = "database-routes";
 
+/** The flag that derives a PostgreSQL's CloudNativePG instances from its serviceClass (standard 2 with the disruption budget, development 1 without), switchover, and a memory request equal to limit (ADR 0154). Off in every overlay until a recorded live outcome. */
+export const postgresqlServiceClassInstancesFlag =
+  "postgresql-service-class-instances";
+
 /** The flag that routes OTLP by name through the shared Gateway to the standard collector receiver on 4318 (ADR 0140, issue 1224). */
 export const otlpRouteFlag = "otlp-route";
 

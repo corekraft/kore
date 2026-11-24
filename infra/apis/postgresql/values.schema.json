@@ -7,6 +7,10 @@
       "description": "Whether the composition routes databases by name (database-routes, ADR 0137). kore sets it only while the flag is on; off renders the manifests as before.",
       "type": "boolean"
     },
+    "serviceClassInstances": {
+      "description": "Whether the composition derives instances and sizing from the claim's serviceClass (postgresql-service-class-instances, ADR 0154). kore sets it only while the flag is on; off renders one instance as before.",
+      "type": "boolean"
+    },
     "platformDomain": {
       "description": "The environment's platform.domain, which kore passes with databaseRoutes.",
       "type": "string"

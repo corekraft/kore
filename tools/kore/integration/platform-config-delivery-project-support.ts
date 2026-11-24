@@ -91,6 +91,9 @@ export async function renderDelivery(repository: Repository): Promise<{
     ...(chartDelivery.inClusterCa === true
       ? ["--set", "inClusterCa=true"]
       : []),
+    ...(chartDelivery.serviceClassInstances === true
+      ? ["--set", "serviceClassInstances=true"]
+      : []),
   ]);
   return {
     handedOver: argocdOwned(repository),

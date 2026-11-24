@@ -240,6 +240,22 @@ test("the delivery arguments hand the kore-config-delivery chart the flag, the o
   expect(databaseRoutesDeliveryArgs(base)).toEqual([]);
 });
 
+test("with postgresql-service-class-instances on the values carry the flag the PostgreSQL API's Application takes; off they carry none", () => {
+  vi.mocked(featureEnabled).mockImplementation(
+    (_environment, flag) => flag === "postgresql-service-class-instances",
+  );
+  try {
+    expect(chartDeliveryValues(repository, lock())).toMatchObject({
+      serviceClassInstances: true,
+    });
+  } finally {
+    vi.mocked(featureEnabled).mockReset();
+  }
+  expect(chartDeliveryValues(repository, lock())).not.toHaveProperty(
+    "serviceClassInstances",
+  );
+});
+
 test("with in-cluster-ca on the values carry the flag the AppProject needs to admit the CA objects; off they carry none, so local's project is unchanged", () => {
   vi.mocked(featureEnabled).mockImplementation(
     (_environment, flag) => flag === "in-cluster-ca",
