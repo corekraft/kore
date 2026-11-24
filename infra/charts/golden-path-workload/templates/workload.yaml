@@ -29,6 +29,7 @@
 {{- end }}
 {{- range $name, $path := dict "frontend" "/healthz" "bff" "/actuator/health" }}
 {{- $workload := index $.Values $name }}
+{{- if $workload }}
 {{- /* The image this component deploys (ADR 0172): the lock image's repository with the release's digest when the release carries one for this component, else the lock image as it is. Without a release this is the lock image, so the render is unchanged. */}}
 {{- $image := $workload.image }}
 {{- with $.Values.spec }}{{- with .components }}{{- with (index . $name) }}{{- with .digest }}
@@ -77,6 +78,10 @@ spec:
         app.kubernetes.io/name: {{ $.Values.service }}-{{ $name }}
         app.kubernetes.io/part-of: {{ $.Values.service }}
     spec:
+{{- if $.Values.serviceIdentity }}
+      serviceAccountName: {{ $.Values.service }}
+      automountServiceAccountToken: false
+{{- end }}
       securityContext:
         runAsNonRoot: true
         seccompProfile:
@@ -212,6 +217,33 @@ spec:
         name: cpu
         target: {type: Utilization, averageUtilization: {{ $autoscaling.targetCPUUtilizationPercentage }}}
 {{- end }}
+{{- end }}
+{{- end }}
+{{- if $.Values.serviceIdentity }}
+{{- $backend := "frontend" }}
+{{- if $.Values.bff }}{{ $backend = "bff" }}{{- end }}
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: {{ $.Values.service }}
+  labels:
+    app.kubernetes.io/part-of: {{ $.Values.service }}
+automountServiceAccountToken: false
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ $.Values.service }}
+  labels:
+    app.kubernetes.io/part-of: {{ $.Values.service }}
+spec:
+  selector:
+    app.kubernetes.io/name: {{ printf "%s-%s" $.Values.service $backend }}
+  ports:
+    - name: http
+      port: 80
+      targetPort: http
 {{- end }}
 {{- if $signin.enabled }}
 ---

@@ -104,6 +104,14 @@
               "pattern": "^[a-z][a-z0-9-]*$"
             }
           },
+          "valuesFlags": {
+            "type": "object",
+            "description": "Value files that carry only a flag's numbers, keyed by a file in values with the flag as value; a flag-off file is not passed to Helm (issue 1593).",
+            "additionalProperties": {
+              "type": "string",
+              "pattern": "^[a-z][a-z0-9-]*$"
+            }
+          },
           "patches": {
             "type": "array",
             "items": {

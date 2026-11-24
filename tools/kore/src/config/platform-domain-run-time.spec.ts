@@ -94,3 +94,23 @@ test("with the variable unset the Helm parameters are the placeholder's, unchang
     "gateway.platformHostname=*.platform.kore.internal",
   ]);
 });
+
+test("with acme-dns01 on, the suborg names reach the platform certificate's Helm parameters, so a dropped name fails", () => {
+  const on = fakeEnvironment({
+    ...vps,
+    features: { "acme-dns01": true },
+  });
+  const args = platformHelmArgs(on, "kore-local-tls", overridden, [
+    "reference",
+  ]);
+  const index = args.indexOf(`acmeDns01.suborgs=["reference"]`);
+  expect(index).toBeGreaterThan(0);
+  expect(args[index - 1]).toBe("--set-json");
+});
+
+test("the suborg names are passed on only while acme-dns01 is on: with the flag off they add no parameter", () => {
+  const off = platformHelmArgs(vps, "kore-local-tls", overridden, [
+    "reference",
+  ]);
+  expect(off.some((arg) => arg.startsWith("acmeDns01.suborgs="))).toBe(false);
+});

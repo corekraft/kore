@@ -65,6 +65,24 @@ function safetyDefaultsValues(repository: Repository): {
     : {};
 }
 
+/** Only while golden-path-service-identity is on, so the flag-off values are unchanged (issue 1551). */
+function serviceIdentityValues(repository: Repository): {
+  serviceIdentity?: true;
+} {
+  return repository.environment.features?.["golden-path-service-identity"] ===
+    true
+    ? { serviceIdentity: true }
+    : {};
+}
+
+/** The workload flags the sync passes on, each only while its flag is on. */
+function workloadFlagValues(repository: Repository) {
+  return {
+    ...safetyDefaultsValues(repository),
+    ...serviceIdentityValues(repository),
+  };
+}
+
 async function git(
   repository: Repository,
   runner: Runner,
@@ -139,7 +157,7 @@ export async function composeGoldenPathDelivery(
         repository.environment.features?.["golden-path-template-admission"] ===
         true,
       autoscaling: repository.environment.features?.[autoscalingFlag] === true,
-      ...safetyDefaultsValues(repository),
+      ...workloadFlagValues(repository),
       ...appDeliveryValues(repository),
       // All three flags on: the sync also applies the Service records (ADR 0166).
       serviceRecords:

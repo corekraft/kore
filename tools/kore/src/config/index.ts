@@ -15,12 +15,12 @@ export {
 export { isLocalProvider } from "./provider.js";
 export {
   absolute,
-  componentValues,
   componentVersion,
   expandVersions,
   loadRepository,
   orderedComponents,
 } from "./config.js";
+export { componentValues } from "./component-values.js";
 export {
   checkCrdOwnership,
   providerCrdGroupErrors,

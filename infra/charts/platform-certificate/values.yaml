@@ -15,8 +15,15 @@ features:
 # The token is the consumer's own cloudflare-token Secret in cert-manager, applied
 # by kore secrets tokens (ADR 0161, #1969); this chart renders no Secret. No ACME
 # account email is set: none is committed, so the issuers carry none.
+# suborgs is the list kore reads from the Organization records; while acme-dns01 is
+# on, each name renders a platform and an internal wildcard Certificate (two issuances
+# per suborg, against Let's Encrypt's 50 new certificates per registered domain per 7
+# days, ADR 0161). certificateIssuer is the issuer those Certificates reference: staging
+# first, and production only by a later change to this value after staging is Ready.
 acmeDns01:
   zone: ""
+  suborgs: []
+  certificateIssuer: letsencrypt-staging
   tokenSecretName: cloudflare-token
   tokenKey: api-token
   issuers:

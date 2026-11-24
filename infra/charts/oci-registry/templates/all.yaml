@@ -68,8 +68,13 @@ spec:
             periodSeconds: 2
             timeoutSeconds: 2
           resources:
+            {{- if index (.Values.features | default dict) "data-path-guaranteed-qos" }}
+            requests: {cpu: {{ required "guaranteed.registry.cpu must be set in the environment's values, for example 250m, while data-path-guaranteed-qos is on" .Values.guaranteed.registry.cpu }}, memory: {{ required "guaranteed.registry.memory must be set in the environment's values, for example 512Mi, while data-path-guaranteed-qos is on" .Values.guaranteed.registry.memory }}}
+            limits: {cpu: {{ .Values.guaranteed.registry.cpu }}, memory: {{ .Values.guaranteed.registry.memory }}}
+            {{- else }}
             requests: {cpu: 50m, memory: 128Mi}
             limits: {cpu: 250m, memory: 512Mi}
+            {{- end }}
           volumeMounts:
             - {name: data, mountPath: /var/lib/registry}
         - name: proxy
@@ -89,8 +94,13 @@ spec:
             periodSeconds: 2
             timeoutSeconds: 2
           resources:
+            {{- if index (.Values.features | default dict) "data-path-guaranteed-qos" }}
+            requests: {cpu: {{ required "guaranteed.proxy.cpu must be set in the environment's values, for example 250m, while data-path-guaranteed-qos is on" .Values.guaranteed.proxy.cpu }}, memory: {{ required "guaranteed.proxy.memory must be set in the environment's values, for example 128Mi, while data-path-guaranteed-qos is on" .Values.guaranteed.proxy.memory }}}
+            limits: {cpu: {{ .Values.guaranteed.proxy.cpu }}, memory: {{ .Values.guaranteed.proxy.memory }}}
+            {{- else }}
             requests: {cpu: 25m, memory: 32Mi}
             limits: {cpu: 250m, memory: 128Mi}
+            {{- end }}
           volumeMounts:
             - {name: proxy-config, mountPath: /etc/nginx/conf.d/default.conf, subPath: default.conf, readOnly: true}
             - {name: auth, mountPath: /etc/nginx/auth, readOnly: true}
