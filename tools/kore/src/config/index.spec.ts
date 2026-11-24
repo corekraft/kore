@@ -136,6 +136,7 @@ const entryPoints = [
   "chartRepositoryUrls",
   "checkAppRecords",
   "checkCrdOwnership",
+  "checkCrossFileRules",
   "checkOrganizationRecords",
   "committedFraction",
   "componentGatedOff",

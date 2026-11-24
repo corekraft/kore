@@ -164,6 +164,11 @@ export {
   type AppRecordReport,
 } from "./app-records.js";
 export {
+  checkCrossFileRules,
+  type CrossFileCheck,
+} from "./cross-file-check.js";
+export type { CrossFileRulesReport } from "./cross-file-rules.js";
+export {
   checkOrganizationRecords,
   type OrganizationRecordCheck,
   type OrganizationRecordReport,

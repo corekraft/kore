@@ -1,6 +1,7 @@
 import { readFile } from "node:fs/promises";
 import {
   checkAppRecords,
+  checkCrossFileRules,
   checkOrganizationRecords,
   featureEnabled,
   orderedComponents,
@@ -111,11 +112,19 @@ export async function validateCommand(
     environment: repository.environment,
     catalogNamespaces,
   });
-  const failures = [...suborgs.errors, ...records.errors];
+  const crossFile = await checkCrossFileRules({
+    root: repository.root,
+    environment: repository.environment,
+  });
+  const failures = [...suborgs.errors, ...records.errors, ...crossFile.errors];
   if (failures.length > 0) {
     throw new Error(failures.join("\n"));
   }
-  const warnings = [...(repository.warnings ?? []), ...records.warnings];
+  const warnings = [
+    ...(repository.warnings ?? []),
+    ...records.warnings,
+    ...crossFile.warnings,
+  ];
   for (const warning of warnings) {
     console.error(`warning: ${warning}`);
   }
