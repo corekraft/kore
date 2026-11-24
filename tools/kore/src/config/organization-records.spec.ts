@@ -6,6 +6,7 @@ import {
   organizationRecordErrors,
   suborgNames,
 } from "./organization-records.js";
+import { suborgInternalZoneErrors } from "./internal-zone.js";
 import { platformClaimErrors } from "./platform-claims.js";
 import { platformPlan } from "./platform-domain.js";
 import {
@@ -16,6 +17,7 @@ import {
 import type { Environment } from "./types.js";
 
 vi.mock("node:fs/promises");
+vi.mock("./internal-zone.js");
 vi.mock("./platform-claims.js");
 vi.mock("./platform-domain.js");
 vi.mock("./suborg-names.js");
@@ -81,6 +83,7 @@ function report() {
 beforeEach(() => {
   vi.resetAllMocks();
   vi.mocked(platformClaimErrors).mockReturnValue([]);
+  vi.mocked(suborgInternalZoneErrors).mockReturnValue([]);
   vi.mocked(reservedNameErrors).mockReturnValue([]);
   vi.mocked(reservedSuborgNames).mockReturnValue(reserved);
   vi.mocked(platformPlan).mockReturnValue({
@@ -248,6 +251,22 @@ test("the suborg names are the valid records' names in name order, so a record t
       catalogNamespaces: ["argocd", "keycloak"],
     }),
   ).toEqual(["api", "team-b"]);
+});
+
+test("each suborg record's internal zone is checked in its environment, and its refusals join the record's", async () => {
+  const refusal = `${file}.spec.internalZone: is required while platform-hostname-ownership is on`;
+  vi.mocked(suborgInternalZoneErrors).mockReturnValue([refusal]);
+  directory({ "api.json": JSON.stringify(suborg) });
+  expect(await report()).toEqual({
+    errors: [refusal],
+    organizations: [{ name: "api", zone: "api.kore.internal" }],
+  });
+  expect(suborgInternalZoneErrors).toHaveBeenCalledWith({
+    environment,
+    file,
+    organization: "api",
+    manifest: suborg,
+  });
 });
 
 test("an environment with no organizations directory has no suborg names", async () => {

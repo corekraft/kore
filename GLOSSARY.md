@@ -540,6 +540,10 @@ _Avoid_: External domain, custom domain
 The name every service has under the internal zone of its suborg. It never reaches public DNS.
 _Avoid_: Private name, tailnet name
 
+**Internal zone**:
+The name an organization owns under the internal domain, beside its public zone: `<organizationId>.<internal domain>`, so suborg `api` owns `api.internal.example.com` on a platform with an external Gateway. On a one-domain platform the internal zone is the public zone. A suborg states its internal zone in its record, as it states its zone; the two never coincide where the domains differ.
+_Avoid_: Private zone, tailnet zone
+
 ## DNS and the domain
 
 **Platform domain**:
