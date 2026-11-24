@@ -13,10 +13,9 @@ test("cpuMillis refuses a quantity it cannot read, so the record names the field
   expect(cpuMillis("")).toBeUndefined();
 });
 
-test("memoryMiB reads Ki, Mi, Gi and Ti, decimals included, in mebibytes", () => {
+test("memoryMiB reads Ki, Mi, Gi and Ti in mebibytes", () => {
   expect(memoryMiB("512Mi")).toBe(512);
   expect(memoryMiB("1Gi")).toBe(1024);
-  expect(memoryMiB("1.5Gi")).toBe(1536);
   expect(memoryMiB("1Ti")).toBe(1024 * 1024);
   expect(memoryMiB("1024Ki")).toBe(1);
 });
@@ -25,6 +24,7 @@ test("memoryMiB refuses a bare byte count or a unit it does not know", () => {
   expect(memoryMiB("512M")).toBeUndefined();
   expect(memoryMiB("512")).toBeUndefined();
   expect(memoryMiB("1GB")).toBeUndefined();
+  expect(memoryMiB("1.5Gi")).toBeUndefined();
 });
 
 test("formatCpu and formatMemory name a quantity in the form a record writes", () => {
