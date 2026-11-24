@@ -5,7 +5,7 @@ import {
   type Environment,
   type Repository,
 } from "../config/index.js";
-import type { Runner } from "../runtime/index.js";
+import { CommandError, type Runner } from "../runtime/index.js";
 import { registryNamespace } from "./registry-auth.js";
 import { registryRequest } from "./registry-https.js";
 import { loadRegistryCa } from "./registry-tls.js";
@@ -154,10 +154,22 @@ async function restartRegistryProxy(
     "kubectl",
     kubectl("rollout", "restart", "deployment/oci-registry"),
   );
-  await runner.run(
-    "kubectl",
-    kubectl("rollout", "status", "deployment/oci-registry", "--timeout=2m"),
-  );
+  try {
+    await runner.run(
+      "kubectl",
+      kubectl("rollout", "status", "deployment/oci-registry", "--timeout=2m"),
+    );
+  } catch (error) {
+    if (!(error instanceof CommandError)) {
+      throw error;
+    }
+    const output = error.result.stderr.trim() || error.result.stdout.trim();
+    const { kubeContext } = repository.environment;
+    throw new Error(
+      `deployment/oci-registry in ${registryNamespace} on context ${kubeContext} did not finish rolling out within 2m after the restart (${output}). The likely cause is that the new registry pod is not Ready; inspect it with \`kubectl --context ${kubeContext} --namespace ${registryNamespace} describe pod -l app.kubernetes.io/name=oci-registry\`, then run \`kore local up\` again`,
+      { cause: error },
+    );
+  }
 }
 
 /**

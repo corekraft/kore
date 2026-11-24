@@ -2,6 +2,7 @@
 import { lookup } from "node:dns/promises";
 import { beforeEach, expect, test, vi } from "vitest";
 import { registryByName, registryHostname } from "../config/index.js";
+import { CommandError } from "../runtime/index.js";
 import { fakeRepository, fakeRunner } from "./images-support.js";
 import { registryRequest } from "./registry-https.js";
 import {
@@ -153,6 +154,32 @@ test("a certificate that gained the name restarts the registry proxy in the envi
     ],
   ]);
   expect(registryRequest).toHaveBeenCalledTimes(2);
+});
+
+test("a registry proxy whose new pod never becomes ready fails naming the deployment, namespace, context, the likely cause and how to inspect the pod, and checks the name no further", async () => {
+  vi.mocked(registryRequest).mockRejectedValue(
+    failure("ERR_TLS_CERT_ALTNAME_INVALID"),
+  );
+  const { runner, run } = fakeRunner();
+  const timedOut = new CommandError(
+    "kubectl",
+    ["rollout", "status", "deployment/oci-registry", "--timeout=2m"],
+    {
+      stdout: "",
+      stderr: "error: timed out waiting for the condition",
+      code: 1,
+    },
+  );
+  run
+    .mockResolvedValueOnce({ stdout: "", stderr: "", code: 0 })
+    .mockRejectedValueOnce(timedOut);
+  await expect(ensureRegistryName(repository, runner)).rejects.toThrow(
+    new Error(
+      "deployment/oci-registry in kore-registry on context k3d-kore-local did not finish rolling out within 2m after the restart (error: timed out waiting for the condition). The likely cause is that the new registry pod is not Ready; inspect it with `kubectl --context k3d-kore-local --namespace kore-registry describe pod -l app.kubernetes.io/name=oci-registry`, then run `kore local up` again",
+    ),
+  );
+  expect(run).toHaveBeenCalledTimes(2);
+  expect(registryRequest).toHaveBeenCalledTimes(1);
 });
 
 test("a certificate that still lacks the name after the proxy restarts names the Certificate to check, and does not restart again", async () => {
