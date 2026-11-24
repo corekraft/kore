@@ -4,6 +4,7 @@ import {
   loadFlagManifest,
   loadImageTrustValues,
   loadJSON,
+  loadK3sHostPin,
   loadRegistryComponentValues,
   loadSuborgNames,
 } from "./overlay-files.js";
@@ -96,6 +97,7 @@ export async function loadRepository(
     flags,
     environment,
     imageTrustValues,
+    k3sHostPin: await loadK3sHostPin(root, environment.name),
     registryComponentValues: await loadRegistryComponentValues(
       root,
       environment,

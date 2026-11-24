@@ -3,6 +3,7 @@ import { alertEmailErrors, alertEmailWarnings } from "./alert-email.js";
 import { componentGatedOff } from "./features.js";
 import { exists } from "./files.js";
 import { flagManifestErrors } from "./flag-manifest.js";
+import { k3sPinErrors } from "./k3s-pin.js";
 import { providerFlagErrors } from "./provider-flag-errors.js";
 import type { Component, Environment, Repository } from "./types.js";
 
@@ -149,6 +150,7 @@ export async function overlayErrors(repository: Repository): Promise<string[]> {
     ...alertEmailErrors(environment),
     ...providerFlagErrors(environment),
     ...flagManifestErrors(repository),
+    ...k3sPinErrors(repository),
     ...featureFlagErrors(environment, components),
     ...gatedDependencyErrors(environment, components),
     ...unknownOverlayErrors(environment, names),

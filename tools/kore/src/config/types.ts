@@ -449,6 +449,12 @@ export interface Repository {
   /** Parsed environment overlay of the kore-image-policy component. */
   imageTrustValues?: Record<string, unknown> | undefined;
   /**
+   * The k3s release the vps host role pins (ADR 0141), loaded for the host
+   * environment only; validation checks it against the overlay's Kubernetes
+   * version.
+   */
+  k3sHostPin?: string | undefined;
+  /**
    * Parsed environment overlays of the components that receive the registry
    * address as a platform value; validation rejects hardcoded registry values.
    */

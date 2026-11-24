@@ -13,6 +13,11 @@
       "type": "string",
       "pattern": "^[a-z0-9]([-a-z0-9]{0,61}[a-z0-9])?$"
     },
+    "platformInternalDomain": {
+      "description": "The environment's internal domain (spec #1612), passed only while platform-hostname-ownership is on: the platform domain on a one-domain platform, internal.<platformDomain> with an external Gateway. The Organization's internal zone defaults to <platformOrganizationId>.<platformInternalDomain>, and a suborg's must be <suborg>.<platformInternalDomain>.",
+      "type": "string",
+      "pattern": "^([a-z0-9]([-a-z0-9]{0,61}[a-z0-9])?\\.)+[a-z0-9]([-a-z0-9]{0,61}[a-z0-9])?$"
+    },
     "platformDomain": {
       "description": "The environment's platform domain (ADR 0042). A service host is <service>.<organization>.<platformDomain>, so with a 63-character service and the organization the whole host stays within 253 characters.",
       "type": "string",
