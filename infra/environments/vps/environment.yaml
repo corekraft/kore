@@ -58,6 +58,7 @@
       "external-gateway-limits": false,
       "external-dns": false,
       "acme-dns01": false,
+      "domain-expiry-alert": false,
       "acme-issuers": false,
       "registry-by-name": false,
       "registry-tailnet-forward": false,

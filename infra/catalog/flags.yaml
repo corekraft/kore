@@ -88,6 +88,7 @@
         "requires": ["external-gateway"]
       },
       { "name": "acme-dns01", "kind": "feature", "applies": ["vps"] },
+      { "name": "domain-expiry-alert", "kind": "feature", "applies": ["vps"] },
       {
         "name": "acme-issuers",
         "kind": "feature",
