@@ -2,6 +2,7 @@ import { readFile } from "node:fs/promises";
 import { beforeEach, expect, test, vi } from "vitest";
 import {
   checkAppRecords,
+  checkOrganizationRecords,
   featureEnabled,
   orderedComponents,
   platformClaimErrors,
@@ -64,6 +65,10 @@ beforeEach(() => {
   vi.mocked(readJournal).mockResolvedValue([] as never);
   vi.mocked(managedLockErrors).mockReturnValue([]);
   vi.mocked(checkAppRecords).mockResolvedValue({ errors: [], warnings: [] });
+  vi.mocked(checkOrganizationRecords).mockResolvedValue({
+    errors: [],
+    organizations: [],
+  });
 });
 
 test("validate passes --record-base to the app record check, and an app record error fails it", async () => {

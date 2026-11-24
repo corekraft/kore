@@ -79,10 +79,11 @@ test("with the flag off the Organization XRD names no zone", async () => {
 test("with the flag on the XRD differs from the flag-off XRD only by the zone, so tenant and parent are unchanged", async () => {
   const on = await organizationXrd(await localWith(true));
   const off = await organizationXrd(await localWith(false));
-  const withoutZone = on.replace(
-    /^ {16}# The zone[\s\S]*?^ {18}pattern: .*\n/m,
-    "",
-  );
+  // The flag adds the zone property and the suborg zone rule that refuses a suborg zone other
+  // than <suborg>.<platform domain> (ADR 0165); both are zone rules, so both come out here.
+  const withoutZone = on
+    .replace(/^ {16}# The zone[\s\S]*?^ {18}pattern: .*\n/m, "")
+    .replace(/\n {12}# A suborg's default zone[\s\S]*?message: [^\n]*/, "");
   assert.notEqual(withoutZone, on, "the zone block was found and removed");
   assert.equal(withoutZone, off);
 });

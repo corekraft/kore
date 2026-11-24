@@ -159,6 +159,12 @@ export {
   type AppRecordCheck,
   type AppRecordReport,
 } from "./app-records.js";
+export {
+  checkOrganizationRecords,
+  type OrganizationRecordCheck,
+  type OrganizationRecordReport,
+  type OrganizationSummary,
+} from "./organization-records.js";
 
 // Golden-path template session cookie policy (plan 15 Step 4).
 export { sessionCookieViolations } from "./template-cookie.js";
