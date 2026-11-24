@@ -9,6 +9,7 @@ import {
 } from "../cluster/index.js";
 import {
   bootstrapControllers,
+  chartVersionRowPrefix,
   closeGateIfDegraded,
   platformClaimsStatus,
   platformDestroy,
@@ -85,12 +86,13 @@ export async function platformCommand(
     const rows = await platformStatusReport(repository, runner);
     print(rows, json);
     // Success is never reported before the gate is open, nor while any
-    // prerequisite is unready (ADR 0067). CRD ownership and backup freshness
-    // are audit-only: neither is a prerequisite of admitting applications.
+    // prerequisite is unready (ADR 0067). CRD ownership, backup freshness and
+    // the chart rows are audit-only: none is a prerequisite of admitting applications.
     return rows.some(
       ({ name, status }) =>
         name !== "crd-ownership" &&
         name !== "backups" &&
+        !name.startsWith(chartVersionRowPrefix) &&
         status !== "ready" &&
         status !== "gated-off",
     )

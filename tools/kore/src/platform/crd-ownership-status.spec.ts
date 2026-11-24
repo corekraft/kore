@@ -8,6 +8,7 @@ import {
 import type { Runner } from "../runtime/index.js";
 import { backupStatus } from "./backup-status.js";
 import { capacityStatus } from "./capacity-status.js";
+import { chartVersionStatus } from "./chart-version-status.js";
 import {
   crdOwnershipStatus,
   platformStatusReport,
@@ -18,6 +19,7 @@ import { platformStatus } from "./status.js";
 vi.mock("../config/index.js");
 vi.mock("./backup-status.js");
 vi.mock("./capacity-status.js");
+vi.mock("./chart-version-status.js");
 vi.mock("./probe.js");
 vi.mock("./status.js");
 
@@ -57,6 +59,7 @@ beforeEach(() => {
   vi.mocked(platformStatus).mockResolvedValue([]);
   vi.mocked(capacityStatus).mockResolvedValue({ name: "capacity" } as never);
   vi.mocked(backupStatus).mockResolvedValue(undefined);
+  vi.mocked(chartVersionStatus).mockResolvedValue([]);
 });
 
 test("the CRD list is read with the environment's context, in JSON, and sorted by name", async () => {
@@ -186,6 +189,23 @@ test("the report appends the CRD, capacity and backup rows after the platform ro
   ]);
 });
 
+test("the report ends with one chart row per installed Helm release, so the drift check reads each release's chart and version", async () => {
+  vi.mocked(platformStatus).mockResolvedValue([{ name: "gateway" } as never]);
+  vi.mocked(chartVersionStatus).mockResolvedValue([
+    { name: "chart:gateway" } as never,
+  ]);
+  const { runner } = fakeRunner(crdList("a.example.io"));
+
+  const rows = await platformStatusReport(repository, runner);
+
+  expect(rows.map((row) => row.name)).toEqual([
+    "gateway",
+    "crd-ownership",
+    "capacity",
+    "chart:gateway",
+  ]);
+});
+
 test("the report omits the backup row when the environment has no objective", async () => {
   vi.mocked(platformStatus).mockResolvedValue([{ name: "gateway" } as never]);
   vi.mocked(backupStatus).mockResolvedValue(undefined);
@@ -211,4 +231,5 @@ test("a filtered report returns only the component rows and reads none of the au
   expect(run).not.toHaveBeenCalled();
   expect(capacityStatus).not.toHaveBeenCalled();
   expect(backupStatus).not.toHaveBeenCalled();
+  expect(chartVersionStatus).not.toHaveBeenCalled();
 });

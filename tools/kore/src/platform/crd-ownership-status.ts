@@ -6,6 +6,10 @@ import {
 import type { Runner } from "../runtime/index.js";
 import { backupStatus, type BackupStatus } from "./backup-status.js";
 import { capacityStatus, type CapacityStatus } from "./capacity-status.js";
+import {
+  chartVersionStatus,
+  type ChartVersionStatus,
+} from "./chart-version-status.js";
 import { errorMessage } from "./probe.js";
 import { platformStatus, type ComponentStatus } from "./status.js";
 
@@ -120,7 +124,7 @@ export async function crdOwnershipStatus(
 
 /**
  * `kore platform status` output: the gating rows of `platformStatus` plus the
- * audit-only CRD ownership row (ADR 0057), capacity row (resource budgets), and backups row (ADR 0074). Bootstrap and `app up` call
+ * audit-only CRD ownership row (ADR 0057), capacity row (resource budgets), backups row (ADR 0074), and one chart row per Helm release (ADR 0150). Bootstrap and `app up` call
  * `platformStatus` directly, so the audit never gates them. A filtered query
  * omits the platform-wide row.
  */
@@ -129,10 +133,20 @@ export async function platformStatusReport(
   runner: Runner,
   only?: readonly string[],
 ): Promise<
-  (ComponentStatus | CrdOwnershipStatus | CapacityStatus | BackupStatus)[]
+  (
+    | ComponentStatus
+    | CrdOwnershipStatus
+    | CapacityStatus
+    | BackupStatus
+    | ChartVersionStatus
+  )[]
 > {
   const rows: (
-    ComponentStatus | CrdOwnershipStatus | CapacityStatus | BackupStatus
+    | ComponentStatus
+    | CrdOwnershipStatus
+    | CapacityStatus
+    | BackupStatus
+    | ChartVersionStatus
   )[] = await platformStatus(repository, runner, only);
   if (!only) {
     rows.push(await crdOwnershipStatus(repository, runner));
@@ -142,6 +156,8 @@ export async function platformStatusReport(
     if (backups) {
       rows.push(backups);
     }
+    // Read-only chart name and version per release, for the rollout drift check (ADR 0150).
+    rows.push(...(await chartVersionStatus(repository, runner)));
   }
   return rows;
 }
