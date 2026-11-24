@@ -258,3 +258,49 @@ test("the immutability report's errors and warnings are returned with the record
     warnings: ["skipped"],
   });
 });
+
+/** The environment a hostname check reads: the platform field and no external Gateway. */
+const hostnameEnvironment = {
+  name: "local",
+  provider: "local",
+  platform: { domain: "example.com", organizationId: "platform" },
+} as never;
+
+test("a record's hostname claim that the rules refuse is an error of the record check, naming the file", async () => {
+  files = {
+    [`${dir}/leads.json`]: JSON.stringify({
+      apiVersion: "platform.kore.dev/v1alpha1",
+      kind: "Service",
+      metadata: { name: "leads" },
+      spec: {
+        organization: "platform",
+        environments: ["local"],
+        components: {},
+        hostnames: ["www.example.com"],
+      },
+    }),
+    [`${root}/infra/catalog/reserved-hostnames.json`]: JSON.stringify({
+      names: ["argocd", "default", "internal", "reference", "www"],
+    }),
+    [`${root}/infra/catalog/schemas/reserved-hostnames.schema.json`]:
+      JSON.stringify({ type: "object" }),
+  };
+  expect(
+    await checkAppRecords({
+      root,
+      environment: "local",
+      runner,
+      yqVersion: "4.54.2",
+      hostnames: {
+        root,
+        environment: hostnameEnvironment,
+        catalogNamespaces: ["argocd"],
+      },
+    }),
+  ).toEqual({
+    errors: [
+      'infra/environments/local/services/leads.json: spec.hostnames[0] "www.example.com" is a reserved name: www cannot be claimed; the reserved names are in infra/catalog/reserved-hostnames.json; choose another name, for example www-app.example.com',
+    ],
+    warnings: [],
+  });
+});
