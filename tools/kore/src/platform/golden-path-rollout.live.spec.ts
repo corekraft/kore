@@ -15,7 +15,7 @@ import {
   drillRecordOf,
   rolloutDrill,
   type RolloutRecord,
-} from "./golden-path-rollout.js";
+} from "./golden-path-rollout-support.js";
 import {
   probeUntil,
   reason,
@@ -37,7 +37,7 @@ import { loadArgs, type LoadTarget } from "./route-load.js";
 // golden-path service and the shared Gateway's proxy roll, a probe through the
 // shared Gateway sees zero failed requests with no retries, and no Deployment's
 // ready replicas drop below its count before its own rollout. The rules are in
-// golden-path-rollout.ts, the cluster steps in golden-path-rollout-cluster.live.ts. Rollouts
+// golden-path-rollout-support.ts, the cluster steps in golden-path-rollout-cluster.live.ts. Rollouts
 // are `kubectl rollout restart`; Argo CD's selfHeal may revert that annotation as
 // drift, and the record shows every rollout seen. Refused before any restart: a busy
 // host, a service with its own Gateway, a missing Deployment or proxy, or a

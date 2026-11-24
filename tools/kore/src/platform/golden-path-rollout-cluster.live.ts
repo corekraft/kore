@@ -9,14 +9,14 @@ import {
   type Deployment,
   type DeploymentDocument,
   type RolloutRecord,
-} from "./golden-path-rollout.js";
+} from "./golden-path-rollout-support.js";
 import { countRound, loadArgs, type LoadTarget } from "./route-load.js";
 
 // Docs: infra/plans/13-agentgateway-ingress.md#golden-path-route-set
 //
 // The cluster half of the golden-path rollout drill, used by
 // golden-path-rollout.live.spec.ts: the reads, the restarts, the probe loop and
-// the rollout waits. The rules it applies are in golden-path-rollout.ts.
+// the rollout waits. The rules it applies are in golden-path-rollout-support.ts.
 
 export interface RolloutContext {
   runner: Runner;

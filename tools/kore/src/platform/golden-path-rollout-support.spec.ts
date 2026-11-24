@@ -7,7 +7,7 @@ import {
   settled,
   type Deployment,
   type RolloutRecord,
-} from "./golden-path-rollout.js";
+} from "./golden-path-rollout-support.js";
 
 const steady: Deployment = {
   name: "golden-path-example-bff",
