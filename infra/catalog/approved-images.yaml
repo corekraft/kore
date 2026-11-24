@@ -618,6 +618,23 @@
             "checked": "2026-11-08",
             "provenance": { "signed": false }
           }
+      },
+      {
+        "image": "ghcr.io/corekraft/kore/kore-backup@sha256:f14a740bf3c4a4e461bd8fcbf73ecb7c6cd6318c55497a02d0522fbfe17fe448",
+        "name": "kore-backup",
+        "component": "kore-postgresql-api",
+        "evidence":
+          {
+            "method": "registry-digest",
+            "source": "Built, pushed and signed by the release workflow of the v0.26.0 tag (release.yaml, the kore-backup image step). kore-backup-image.lock.json on the v0.26.0 release records this digest and the signer identity; crane digest of ghcr.io/corekraft/kore/kore-backup:v0.26.0 resolves to it, and cosign verify with that tag's release identity passes. The distroless image (ADR 0116: no shell, no package manager) carries the kore-backup program, pg_dump 18 and age. Nothing deploys it: no chart or environment names it, and the scheduled backup job (ADR 0155) is not built yet. The mirror copy is made by the mirror job of the next release tag.",
+            "checked": "2026-11-24",
+            "provenance":
+              {
+                "signed": true,
+                "issuer": "https://token.actions.githubusercontent.com",
+                "identity": "https://github.com/corekraft/kore/.github/workflows/release.yaml@refs/tags/v0.26.0"
+              }
+          }
       }
     ]
 }
