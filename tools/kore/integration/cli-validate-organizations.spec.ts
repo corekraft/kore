@@ -2,7 +2,7 @@
 // Organization records written into the environment's organizations directory. The
 // platform chart, the catalog and the overlays are copied, so the reserved names come
 // from the real catalog. Real yq and git; no cluster is touched.
-import { cp, mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
+import { cp, mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import {
@@ -178,4 +178,96 @@ test("kore validate refuses a record whose metadata.name differs from its file n
   await expect(main(["validate"])).rejects.toThrow(
     `${dir}/payments.json: metadata.name "api" must equal the file name "payments" without .json; rename the file or the name`,
   );
+});
+
+/** The copied local overlay with platform-hostname-ownership on; split puts it on a split domain with an external Gateway. */
+async function flagOn(split: boolean): Promise<void> {
+  const path = join(root, "infra/environments/local/environment.yaml");
+  const overlay = JSON.parse(await readFile(path, "utf8")) as Overlay;
+  overlay.features = {
+    ...overlay.features,
+    "platform-hostname-ownership": true,
+    "service-listener-sets": true,
+  };
+  if (split) {
+    overlay.platform = {
+      domain: "example.com",
+      organizationId: "platform",
+      internalDomain: "internal.example.com",
+    };
+    overlay.gateways = {
+      ...overlay.gateways,
+      external: {
+        namespace: "kore-system",
+        name: "kore-gateway-external",
+        port: 443,
+        issuer: "acme-production",
+      },
+    };
+  }
+  await writeFile(path, JSON.stringify(overlay, null, 2));
+}
+
+interface Overlay {
+  features: Record<string, boolean>;
+  platform?: unknown;
+  gateways: Record<string, unknown>;
+}
+
+test("kore validate with platform-hostname-ownership on refuses a suborg with no internal zone, naming the default it must state", async () => {
+  await flagOn(true);
+  await records({ [`${dir}/api.json`]: suborg("api") });
+  await expect(main(["validate"])).rejects.toThrow(
+    `${dir}/api.json.spec.internalZone: is required while platform-hostname-ownership is on; set it to api.internal.example.com, the suborg's default internal zone`,
+  );
+});
+
+test("kore validate with platform-hostname-ownership on passes a suborg whose internal zone is its default, and reports its public zone", async () => {
+  await flagOn(true);
+  await records({
+    [`${dir}/api.json`]: suborg("api", {
+      internalZone: "api.internal.example.com",
+    }),
+  });
+  expect(await main(["validate", "--json"])).toBe(0);
+  const report = JSON.parse(output()) as {
+    organizations: { name: string; zone: string }[];
+  };
+  expect(report.organizations).toEqual([
+    { name: "api", zone: "api.example.com" },
+  ]);
+});
+
+test("kore validate refuses a suborg internal zone equal to its public zone on a split-domain platform, with the exact text", async () => {
+  await flagOn(true);
+  await records({
+    [`${dir}/api.json`]: suborg("api", { internalZone: "api.example.com" }),
+  });
+  await expect(main(["validate"])).rejects.toThrow(
+    `${dir}/api.json.spec.internalZone "api.example.com" equals the public zone api.example.com: the two zones of one organization never coincide on a platform with an external Gateway; set it to api.internal.example.com, the suborg's default internal zone`,
+  );
+});
+
+test("kore validate refuses a suborg internal zone outside the internal domain, naming the domain and the default", async () => {
+  await flagOn(true);
+  await records({
+    [`${dir}/api.json`]: suborg("api", { internalZone: "api.example.org" }),
+  });
+  await expect(main(["validate"])).rejects.toThrow(
+    `${dir}/api.json.spec.internalZone "api.example.org" is outside the internal domain internal.example.com: set it to api.internal.example.com, the suborg's default internal zone`,
+  );
+});
+
+test("kore validate on a one-domain platform with the flag on passes a suborg whose internal zone is its public zone", async () => {
+  await flagOn(false);
+  await records({
+    [`${dir}/api.json`]: suborg("api", { internalZone: "api.kore.internal" }),
+  });
+  expect(await main(["validate", "--json"])).toBe(0);
+  const report = JSON.parse(output()) as {
+    organizations: { name: string; zone: string }[];
+  };
+  expect(report.organizations).toEqual([
+    { name: "api", zone: "api.kore.internal" },
+  ]);
 });
