@@ -1,12 +1,12 @@
 export const usage = `Kore local platform orchestration
 
 Usage:
-  kore doctor [--environment local] [--json]
+  kore doctor [--environment local] [--json]   (read-only; reports whether the platform domain is the placeholder or set, never its value, and the run-time values the flags that are on need, read from the environment and then ~/.kore/runtime.env, which must be owner-only)
   kore validate [--environment local] [--platform-image-lock <file>] [--platform-claims <file>] [--json]   (warnings print as "warning:" lines on stderr and in --json as warnings; they never change the exit status; environment exemptionCheck: audit|enforce, unset reads as audit; --platform-claims checks a JSON array of Organization and Service claims against their schema, offline, and is skipped with a warning while the platform-organization-service-apis flag is off)
   kore status [--environment local] [--json]   (reports each Organization and Service claim's Ready condition, read-only; exits 1 while one is not ready; reports gated-off, without reading the cluster, while the platform-organization-service-apis flag is off)
   kore cluster up|stop|destroy --environment <name> [--yes] [--purge-data]
   kore cluster status [--environment <name>] [--json]
-  kore platform bootstrap|up|gate-check|stop|destroy --environment <name> [--yes] [--purge-data] [--force] [--platform-chart-lock <platform-charts.lock.json>] [--platform-template-lock <template-images.lock.json>]   (the locks are read only by "up", and only while platform-argocd-delivery is on, when it is required: kore checks it against the catalog before touching the cluster, composes the kore-config-delivery chart values from the chart lock, the kore-golden-path-delivery values from the template lock, the checked-out commit and the environment, and gives Argo CD the registry's read credential through stdin)
+  kore platform bootstrap|up|gate-check|stop|destroy --environment <name> [--yes] [--purge-data] [--force] [--platform-chart-lock <platform-charts.lock.json>] [--platform-template-lock <template-images.lock.json>]   (the locks are read only by "up", and only while platform-argocd-delivery is on, when it is required: kore checks it against the catalog before touching the cluster, composes the kore-config-delivery chart values from the chart lock, the kore-golden-path-delivery values from the template lock, the checked-out commit and the environment, and gives Argo CD the registry's read credential through stdin; with release-recovery-argocd-refusal on, a canceled upgrade of a release Argo CD owns is refused, naming its git revert, because helm rollback never runs under Argo CD; off, it rolls back as before)
   kore platform status|render [--environment <name>] [--output <directory>] [--json]   (a component gated off by its catalog featureFlag reports gated-off)
   kore app up <name> --environment <name> [--image-lock <release images.lock.json>]
   kore app down <name> --environment <name> [--json]
@@ -27,6 +27,7 @@ Usage:
   kore ops upgrade-check|crd-check [--from <release-tag>] [--environment local] [--json]
   kore policy record <constraint> --environment <name> --audit <file|-> [--json]
   kore policy promote|rollback <constraint> --environment <name> [--json]
+  kore eval <dir> --base <ref> --version <semver>+<sha> --digest sha256:<hex> [--published <file>] [--today <YYYY-MM-DD>] [--carries-plan --n1-apply <exe> --n1-previous-suite <exe>]   (runs the deterministic evals on one application repository and prints a JSON report; exits 1 on a failing verdict; see "eval" below)
 
 "cluster destroy" refuses while data labeled platform.kore.dev/retention=Retain
 (databases) exists; --purge-data deletes it.
@@ -125,6 +126,60 @@ in infra/policies/gatekeeper/promotions/<constraint>.json. "promote" moves one
 dryrun constraint to deny only when that evidence shows zero violations and is
 under 14 days old. "rollback" sets one constraint back to dryrun and keeps its
 evidence. Review the resulting diff in a pull request.
+
+"eval" checks one candidate of an application in its own repository, with git
+and no network. It reads flags.yaml at the app root, the Safety-pattern trailer
+of the head commit, the files changed from --base to HEAD, and --published (a
+JSON object of version to digest). It refuses a flags.yaml that is not
+schema-valid: a service-prefixed flag name, default false, an owner, a safety
+pattern of no-behaviour-change, feature-flagged, dark-launched or
+expand-contract, an expiry date as YYYY-MM-DD, and a complete rollout (kind flag,
+canary or dark-launch; criteria; soakHours of at least 1). It refuses a pattern
+the diff contradicts: a migration under migrations/ forces expand-contract, a new
+flag forces feature-flagged, and only tests and docs may claim no-behaviour-change.
+It refuses a version already published for another digest. A flag past its
+expiry only warns and never fails. --version is the manifest semver plus the
+commit SHA; --digest is the candidate image's sha256.
+
+The migration checks run only for the image that carries the plan, given
+--carries-plan; every other image attests the empty plan and reads no migration.
+A migration is a .sql file under migrations/, one migration per file, and is
+expand only when every statement is on the allowlist: CREATE TABLE, ALTER TABLE
+ADD COLUMN that is nullable or has a default, ALTER TABLE ADD CONSTRAINT NOT
+VALID, and CREATE INDEX CONCURRENTLY that is not unique. Any other statement,
+any unreadable file and any non-.sql file is a contract. Migrations are
+append-only: a modified, renamed or deleted file under migrations/ is refused.
+A normal release carries only expand migrations. A contract ships alone, named
+by git trailers on the head commit, beside Safety-pattern (which it must set to
+expand-contract): Contract-release: data or code, Contract-last-used:
+<semver>+<sha> (an earlier release) and Contract-soak-hours: a positive number
+of hours. A data contract carries contract migrations only and touches nothing
+but migrations/ and tests, so flags.yaml is unchanged; a code contract touches
+no migration, retires at least one flag the base manifest declares, and adds
+none. The eval checks the trailers' shape only; the platform checks the soak.
+A release that adds a migration runs the N-1 check: --n1-apply names an
+executable that applies the new migrations, and --n1-previous-suite names one
+that runs the previous release's suite; both run in the app directory with
+DATABASE_URL set to the scratch database URL, which is read from
+KORE_EVAL_SCRATCH_DATABASE_URL, never from argv, and is redacted from every
+failure. The caller provisions and drops the scratch database; the eval creates
+and destroys nothing. Missing N-1 inputs fail the release and name the three.
+
+The report is JSON: verdict (pass or fail), failures, warnings, and on a pass
+only attestations, three in-toto v1 statements whose subject is the image digest
+(name: the version, digest.sha256: the hex without the prefix):
+  - predicateType urn:kore:eval-result:v1, predicate {verdict, version,
+    safetyPattern, checks, warnings, expiredFlags}
+  - predicateType urn:kore:flags-manifest:v1, predicate {service, flags}, where
+    each flag is {name, default: false, owner, safetyPattern, expiry, rollout:
+    {kind, criteria, soakHours}}
+  - predicateType urn:kore:migration-plan:v1, predicate {release, migrationsPath,
+    migrations, contract, n1}, where release is none, expand, data-contract or
+    code-contract; migrationsPath is migrations/ or null (null for none);
+    migrations is [{path, class}] sorted by path, class expand or contract;
+    contract is null or {lastUsed, soakHours, retiredFlags}; n1 is passed or
+    not-applicable
+A failing eval prints no attestations, so there is no payload to sign.
 
 Every mutation requires --environment and is recorded in
 .kore/state/journal/<environment>.jsonl. Status, doctor, validate, render, ops,

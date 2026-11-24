@@ -1,3 +1,4 @@
+import { internalGateway } from "./gateways.js";
 import { featureEnabled, registryByNameFlag } from "./features.js";
 import { platformPlan } from "./platform-domain.js";
 import type { Environment } from "./types.js";
@@ -36,8 +37,8 @@ export function registryRouteHelmArgs(
     "--set-string",
     `registryRoute.hostname=${registryHostname(environment)}`,
     "--set-string",
-    `registryRoute.gateway.name=${environment.gateway.name}`,
+    `registryRoute.gateway.name=${internalGateway(environment).name}`,
     "--set-string",
-    `registryRoute.gateway.namespace=${environment.gateway.namespace}`,
+    `registryRoute.gateway.namespace=${internalGateway(environment).namespace}`,
   ];
 }

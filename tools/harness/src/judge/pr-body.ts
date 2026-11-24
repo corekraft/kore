@@ -9,7 +9,11 @@ export interface PrBodyInput {
   issue?: number;
   closes?: boolean;
   idea?: string;
-  expandStep?: number;
+  /**
+   * The merged expand PR a contract names, or `none` for an expand step, which names no earlier
+   * expand PR and so writes no `Expand step:` line.
+   */
+  expandStep?: number | "none";
 }
 
 export interface PrBody {
@@ -31,7 +35,7 @@ export function renderPrBody(input: PrBodyInput): PrBody {
   }
   if (pattern === "expand-contract" && expandStep === undefined) {
     throw new JudgeError(
-      "An expand-contract PR names its merged expand step. Pass --expand-step <PR number> for the merged expand PR.",
+      "An expand-contract PR names its merged expand step. Pass --expand-step <PR number> for the merged expand PR, or --expand-step none when this PR is the expand step.",
     );
   }
   if (pattern !== "expand-contract" && expandStep !== undefined) {
@@ -49,7 +53,9 @@ export function renderPrBody(input: PrBodyInput): PrBody {
   const lines = [
     input.issue === undefined ? undefined : `${keyword} #${input.issue}`,
     input.idea === undefined ? undefined : `Idea: ${input.idea}`,
-    expandStep === undefined ? undefined : `Expand step: #${expandStep}`,
+    expandStep === undefined || expandStep === "none"
+      ? undefined
+      : `Expand step: #${expandStep}`,
     `Safety pattern: ${pattern}`,
   ].filter((line): line is string => line !== undefined);
   const summary = input.body.trim();

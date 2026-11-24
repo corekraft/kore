@@ -1,0 +1,17 @@
+{
+  "service": "leads",
+  "flags": [
+    {
+      "name": "leads.new-checkout",
+      "default": false,
+      "owner": "checkout-team",
+      "safetyPattern": "feature-flagged",
+      "expiry": "2027-06-30",
+      "rollout": {
+        "kind": "flag",
+        "criteria": ["checkout-errors-below-0.5-percent"],
+        "soakHours": 4
+      }
+    }
+  ]
+}

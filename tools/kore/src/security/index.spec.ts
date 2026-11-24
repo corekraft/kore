@@ -4,7 +4,11 @@ import * as security from "./index.js";
 import { syncLocalSecrets } from "./secrets.js";
 import { applySmtpCredentials, parseSmtpCredentials } from "./smtp-secret.js";
 import { ensureLocalCaTrust, loadLocalCa } from "./local-ca-trust.js";
-import { installLocalTrust, removeLocalTrustArtifacts } from "./trust.js";
+import {
+  installLocalTrust,
+  removeLocalTrustArtifacts,
+  trustIssuer,
+} from "./trust.js";
 
 vi.mock("./local-ca-trust.js");
 vi.mock("./secrets.js");
@@ -20,6 +24,7 @@ test("the security barrel exposes exactly the local secret sync, local trust, lo
     "parseSmtpCredentials",
     "removeLocalTrustArtifacts",
     "syncLocalSecrets",
+    "trustIssuer",
   ]);
   expect(security.applySmtpCredentials).toBe(applySmtpCredentials);
   expect(security.parseSmtpCredentials).toBe(parseSmtpCredentials);
@@ -28,4 +33,5 @@ test("the security barrel exposes exactly the local secret sync, local trust, lo
   expect(security.syncLocalSecrets).toBe(syncLocalSecrets);
   expect(security.installLocalTrust).toBe(installLocalTrust);
   expect(security.removeLocalTrustArtifacts).toBe(removeLocalTrustArtifacts);
+  expect(security.trustIssuer).toBe(trustIssuer);
 });

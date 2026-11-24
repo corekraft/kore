@@ -32,8 +32,20 @@
       "description": "Only while database-routes is on, kore passes true, and the PostgreSQL API's Application takes it with the platform domain and organizationId as Helm parameters (ADR 0137). Absent, the Application carries none.",
       "type": "boolean"
     },
+    "serviceClassInstances": {
+      "description": "Only while postgresql-service-class-instances is on, kore passes true, and the PostgreSQL API's Application takes it as a Helm parameter, so its instances and sizing derive from the serviceClass (ADR 0154). Absent, the Application carries none.",
+      "type": "boolean"
+    },
     "inClusterCa": {
       "description": "Only while in-cluster-ca is on, kore passes true, and the AppProject admits the cert-manager ClusterIssuer kind and the cert-manager namespace that kore-local-tls renders the CA into (ADR 0142). Absent, the project is unchanged.",
+      "type": "boolean"
+    },
+    "syncWindow": {
+      "description": "Only while platform-sync-window is on, kore passes true, and the AppProject may carry the maintenance deny window (ADR 0153, issue 1540). Absent, the project is unchanged.",
+      "type": "boolean"
+    },
+    "maintenanceHold": {
+      "description": "Set true by a maintenance run to hold the configuration project: with syncWindow, the AppProject then denies every sync in it, manual ones too (ADR 0153, issue 1540). Absent or false, the project carries no window.",
       "type": "boolean"
     },
     "organizationId": {
