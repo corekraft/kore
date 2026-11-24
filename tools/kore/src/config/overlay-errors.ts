@@ -1,5 +1,6 @@
 import { join } from "node:path";
 import { alertEmailErrors, alertEmailWarnings } from "./alert-email.js";
+import { backupTargetErrors } from "./backup-target.js";
 import { componentGatedOff } from "./features.js";
 import { exists } from "./files.js";
 import { flagManifestErrors } from "./flag-manifest.js";
@@ -149,6 +150,7 @@ export async function overlayErrors(repository: Repository): Promise<string[]> {
     ...alertEmailErrors(environment),
     ...providerFlagErrors(environment),
     ...flagManifestErrors(repository),
+    ...backupTargetErrors(repository),
     ...featureFlagErrors(environment, components),
     ...gatedDependencyErrors(environment, components),
     ...unknownOverlayErrors(environment, names),

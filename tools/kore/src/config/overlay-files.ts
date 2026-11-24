@@ -6,6 +6,9 @@ import { suborgNames } from "./organization-records.js";
 import { registryConsumers } from "./registry-address.js";
 import type { Environment, FlagManifest } from "./types.js";
 
+/** The age recipients `.sops.yaml` names for an environment, read by the loader (ADR 0155). */
+export { loadSopsRecipients } from "./sops-recipients.js";
+
 /**
  * The suborg names of an environment's Organization records, in name order: the
  * records that pass the checks (ADR 0161). The catalog's namespaces are what the

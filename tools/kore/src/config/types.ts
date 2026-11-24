@@ -202,6 +202,31 @@ export interface GatewayEntry extends GatewayRef {
   issuer: string;
 }
 
+/** The typed backup target an overlay declares, with its endpoint, bucket and credentials reference (ADR 0155). */
+export interface BackupTargetDeclaration {
+  /** The endpoint's origin over https, for example https://s3.example.com. */
+  endpoint: string;
+  bucket: string;
+  region: string;
+  /** Path-style addresses the bucket in the path; otherwise in the host name. */
+  pathStyle: boolean;
+  /** An optional repository path to a PEM bundle the endpoint's certificate chains to. */
+  caBundle?: string;
+  /** The name of the platform secret that holds the write-only credential. */
+  credentials: { secret: string };
+  /** `interim` stays on the box until an off-host target exists; `off-host` must lie outside it. */
+  kind: "interim" | "off-host";
+}
+
+/** The backup declaration of an overlay: the target, the retention and the daily schedule (ADR 0155). */
+export interface BackupDeclaration {
+  target: BackupTargetDeclaration;
+  /** The newest daily backups kept per database and per snapshot; ADR 0155 fixes it at 14. */
+  retention: { daily: number };
+  /** The daily time the job runs, `HH:MM` in UTC. */
+  schedule: string;
+}
+
 export interface Environment {
   $schema?: string;
   name: string;
@@ -289,6 +314,12 @@ export interface Environment {
    * by the CLI and passed into local chart values as `features.<name>`.
    */
   features?: Record<string, boolean>;
+  /**
+   * The backup declaration: the typed target the scheduled backup job writes
+   * to, its retention and its daily schedule (ADR 0155). Unset on an overlay
+   * that declares no backups; the backup flags then must be off.
+   */
+  backup?: BackupDeclaration;
   /**
    * Where the platform's default alerts email (plan 15 step 6). Unset until the
    * owner names an address; then the alerts have no contact point. SMTP
@@ -464,6 +495,12 @@ export interface Repository {
    * touches the cluster (ADR 0043).
    */
   goldenPathDelivery?: GoldenPathDeliveryValues | undefined;
+  /**
+   * The age recipients `.sops.yaml` names for this environment's secrets, read
+   * by `loadRepository`; undefined when the file has no creation rule for it
+   * (ADR 0155). Checked only when the overlay declares a backup target.
+   */
+  sopsRecipients?: string[] | undefined;
   /**
    * The Service names the registrations in git declare, sorted; set by
    * `loadRepository` whatever the flags are. Every consumer reads the registered

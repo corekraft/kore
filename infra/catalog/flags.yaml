@@ -219,6 +219,21 @@
         "reason": "OpenBao holds application secrets on vps only; local keeps sops with age and managed-example has no host role to place the seal key (ADR 0167)."
       },
       {
+        "name": "database-backups",
+        "kind": "feature",
+        "applies": ["local", "vps", "managed-example"],
+        "notApplicable": ["local", "managed-example"],
+        "reason": "The scheduled backup job is a vps job; local backs up with kore data export (ADR 0155)."
+      },
+      {
+        "name": "openbao-snapshots",
+        "kind": "feature",
+        "applies": ["local", "vps", "managed-example"],
+        "requires": ["openbao", "database-backups"],
+        "notApplicable": ["local", "managed-example"],
+        "reason": "The OpenBao snapshot job is a vps job, beside the OpenBao that holds application secrets there (ADR 0155)."
+      },
+      {
         "name": "registry-tag-pruning",
         "kind": "feature",
         "applies": ["local"]

@@ -166,6 +166,11 @@ export {
 } from "./flag-manifest.js";
 export { exemptionCheckMode, validateRepository } from "./validate.js";
 export type { WarningSource } from "./validate.js";
+export {
+  environmentRecipients,
+  isAgeRecipient,
+  PLACEHOLDER_RECIPIENT,
+} from "./sops-recipients.js";
 export { exists } from "./files.js";
 export { platformClaimErrors } from "./platform-claims.js";
 export {

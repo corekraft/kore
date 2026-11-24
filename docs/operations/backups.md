@@ -69,6 +69,10 @@ Nothing here is built yet, and both flags are off in every overlay.
   it does not survive the loss of the box. Every report names it "mechanics proven,
   not off-host". The off-host target is an S3-compatible bucket outside the box's
   failure domain. The provider is not yet chosen, so no page names one.
+  `kore validate` checks the declaration: its fields, an off-host endpoint that
+  names the box or its cluster, a backup flag on without a target, and a target
+  with no usable age recipient in `.sops.yaml`. The vps overlay declares no
+  target yet, and both backup flags are off in every overlay.
 - **Who holds what.** The box holds only public recipients and a write-only
   credential, so it can write backups and never read or delete them. Restore,
   decryption and deletion run only on the controller, which holds the read and
