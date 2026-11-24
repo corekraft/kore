@@ -76,7 +76,12 @@ const gatewayClassKeys: Record<string, string | undefined> = {
 function trailingArgs(repository: Repository, component: Component): string[] {
   return [
     ...goldenPathArgs(repository, component),
-    ...platformHelmArgs(repository.environment, component.name),
+    ...platformHelmArgs(
+      repository.environment,
+      component.name,
+      process.env,
+      repository.suborgs ?? [],
+    ),
     ...alertAndServiceArgs(repository, component),
     ...dashboardSidecarHelmArgs(repository.environment, component.name),
     ...prometheusPortalHelmArgs(repository.environment, component.name),

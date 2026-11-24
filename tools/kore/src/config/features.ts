@@ -191,6 +191,9 @@ export const otlpRouteFlag = "otlp-route";
 
 /** The flag that renders the golden-path workload safety defaults: two replicas, an explicit rolling update, a PodDisruptionBudget, separate readiness and liveness endpoints and the termination settings (ADR 0154, issue 1521). Off in every overlay until a recorded live outcome. */
 export const goldenPathSafetyDefaultsFlag = "golden-path-safety-defaults";
+
+/** The flag that renders each golden-path service's identity: a Service and a ServiceAccount named after the service, and each Deployment running as that account with its API token not mounted (issue 1551). Off in every overlay until a recorded live outcome. */
+export const goldenPathServiceIdentityFlag = "golden-path-service-identity";
 export const workloadDefaultsAdmissionFlag = "workload-defaults-admission";
 
 /** The flag that delivers each app's record through the golden-path ApplicationSet: a release file is a values file of its Application and the workload deploys its digest (ADR 0166, ADR 0172, issue 1569). Off in every overlay until a recorded live outcome turns it on. */
