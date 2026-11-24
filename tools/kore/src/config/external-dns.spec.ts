@@ -1,10 +1,6 @@
 // Docs: docs/decisions/0162-external-dns-publishes-route-records-for-the-external-gateway-behind-external-dns.md
 import { beforeEach, expect, test, vi } from "vitest";
-import {
-  externalDnsErrors,
-  externalDnsHelmArgs,
-  externalDnsMetricsPort,
-} from "./external-dns.js";
+import { externalDnsErrors, externalDnsHelmArgs } from "./external-dns.js";
 import { featureEnabled } from "./features.js";
 import { isLocalProvider } from "./provider.js";
 import { runTimeDomain } from "./run-time-domain.js";
@@ -29,7 +25,8 @@ vi.mock("./run-time.js", () => ({
   },
 }));
 
-// The domain, zone and address below are documentation values (example.com, RFC 5737), never real ones.
+// The domain, zone and address below are documentation values (the reserved .test domain, RFC 5737 address), never real ones.
+const exampleDomain = "kore.test";
 const exampleIPv4 = "203.0.113.10";
 const exampleZone = "example-zone-id";
 
@@ -59,7 +56,7 @@ const managed: Environment = {
 };
 
 const runTime = {
-  KORE_PLATFORM_DOMAIN: "example.com",
+  KORE_PLATFORM_DOMAIN: exampleDomain,
   KORE_PUBLIC_IPV4: exampleIPv4,
   KORE_CLOUDFLARE_ZONE_ID: exampleZone,
 };
@@ -94,20 +91,6 @@ test("a component other than external-dns takes no external-dns arguments, even 
   expect(externalDnsErrors(managed, "kore-platform-config", {})).toEqual([]);
 });
 
-// The pod annotations that let Prometheus scrape external-dns's metrics while the flag is on (no ServiceMonitor, its CRD is not installed).
-const scrapeAnnotations = [
-  "--set-json",
-  'podAnnotations={"prometheus.io/scrape":"true","prometheus.io/port":"7979"}',
-];
-
-/** The pod annotations the Helm arguments set, or undefined when none are set. */
-function podAnnotationsOf(args: string[]): Record<string, string> | undefined {
-  const entry = args.find((arg) => arg.startsWith("podAnnotations="));
-  return entry === undefined
-    ? undefined
-    : JSON.parse(entry.slice("podAnnotations=".length));
-}
-
 test("the inmemory provider in local filters to the platform domain and excludes internal names by configuration", () => {
   expect(externalDnsHelmArgs(local, "external-dns", {})).toEqual([
     "--set-string",
@@ -116,61 +99,36 @@ test("the inmemory provider in local filters to the platform domain and excludes
     "excludeDomains[0]=internal.kore.internal",
     "--set-string",
     "extraArgs.default-targets=127.0.0.1",
-    ...scrapeAnnotations,
   ]);
 });
 
 test("the Cloudflare provider adds the one zone as a zone-id filter, the domain and the address from run-time values", () => {
   expect(externalDnsHelmArgs(managed, "external-dns", runTime)).toEqual([
     "--set-string",
-    "domainFilters[0]=example.com",
+    `domainFilters[0]=${exampleDomain}`,
     "--set-string",
-    "excludeDomains[0]=internal.example.com",
+    `excludeDomains[0]=internal.${exampleDomain}`,
     "--set-string",
     `extraArgs.default-targets=${exampleIPv4}`,
     "--set-string",
     `extraArgs.zone-id-filter=${exampleZone}`,
-    ...scrapeAnnotations,
   ]);
 });
 
-test("with the external-dns flag on, the pod template carries the Prometheus scrape annotation and the chart's metrics port", () => {
-  const annotations = podAnnotationsOf(
-    externalDnsHelmArgs(managed, "external-dns", runTime),
-  );
-  expect(annotations).toEqual({
-    "prometheus.io/scrape": "true",
-    "prometheus.io/port": String(externalDnsMetricsPort),
-  });
-  expect(annotations).toEqual(
-    expect.objectContaining({ "prometheus.io/port": "7979" }),
-  );
-});
-
-test("the metrics port is 7979, the port the pinned chart 1.24.0 serves its metrics on (service.port and the http container port)", () => {
-  expect(externalDnsMetricsPort).toBe(7979);
-});
-
-test("with the external-dns flag off, no pod annotation is set, so the scrape annotation is absent", () => {
-  vi.mocked(featureEnabled).mockReturnValue(false);
-  expect(
-    podAnnotationsOf(externalDnsHelmArgs(managed, "external-dns", runTime)),
-  ).toBeUndefined();
-  expect(
-    podAnnotationsOf(externalDnsHelmArgs(local, "external-dns", {})),
-  ).toBeUndefined();
-});
-
-test("with the external-dns flag on, the scrape is set through the pod annotations and renders no ServiceMonitor", () => {
-  const args = externalDnsHelmArgs(local, "external-dns", {});
-  expect(args.join(" ")).not.toContain("serviceMonitor");
-  expect(args.join(" ")).not.toContain("ServiceMonitor");
+test("the Helm arguments never set pod annotations or a ServiceMonitor: the scrape is a values-file setting (external-dns.yaml)", () => {
+  const args = [
+    ...externalDnsHelmArgs(local, "external-dns", {}),
+    ...externalDnsHelmArgs(managed, "external-dns", runTime),
+  ].join(" ");
+  expect(args).not.toContain("podAnnotations");
+  expect(args).not.toContain("prometheus.io");
+  expect(args).not.toMatch(/serviceMonitor/i);
 });
 
 test("the exclusion is internal.<domain>, so an internal name is excluded by the configured list, not by luck", () => {
   const args = externalDnsHelmArgs(managed, "external-dns", runTime);
-  expect(args).toContain("excludeDomains[0]=internal.example.com");
-  expect(args).not.toContain("domainFilters[0]=internal.example.com");
+  expect(args).toContain(`excludeDomains[0]=internal.${exampleDomain}`);
+  expect(args).not.toContain(`domainFilters[0]=internal.${exampleDomain}`);
 });
 
 test("the Cloudflare provider on vps refuses while the placeholder domain is in force, naming the variable", () => {
@@ -187,7 +145,7 @@ test("the Cloudflare provider on vps refuses while the placeholder domain is in 
 test("the Cloudflare provider refuses a missing public IPv4 or zone id, naming each variable", () => {
   expect(
     externalDnsErrors(managed, "external-dns", {
-      KORE_PLATFORM_DOMAIN: "example.com",
+      KORE_PLATFORM_DOMAIN: exampleDomain,
       KORE_CLOUDFLARE_ZONE_ID: exampleZone,
     }),
   ).toEqual([
@@ -195,7 +153,7 @@ test("the Cloudflare provider refuses a missing public IPv4 or zone id, naming e
   ]);
   expect(
     externalDnsErrors(managed, "external-dns", {
-      KORE_PLATFORM_DOMAIN: "example.com",
+      KORE_PLATFORM_DOMAIN: exampleDomain,
       KORE_PUBLIC_IPV4: exampleIPv4,
     }),
   ).toEqual([

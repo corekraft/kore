@@ -11,26 +11,6 @@ export const externalDnsComponent = "external-dns";
 /** The address a local run's records target: the loopback entry point (ADR 0132). */
 const localTarget = "127.0.0.1";
 
-/**
- * The port external-dns serves its Prometheus metrics on: the pinned chart's
- * service.port and its http container port, both 7979 (chart 1.24.0, helm template).
- */
-export const externalDnsMetricsPort = 7979;
-
-/**
- * The pod annotations that let Prometheus scrape external-dns's metrics, set through
- * the chart's podAnnotations value. A ServiceMonitor is not used: its CRD is not installed.
- */
-function scrapeAnnotationArgs(): string[] {
-  return [
-    "--set-json",
-    `podAnnotations=${JSON.stringify({
-      "prometheus.io/scrape": "true",
-      "prometheus.io/port": String(externalDnsMetricsPort),
-    })}`,
-  ];
-}
-
 /** The platform domain in force: the run-time variable on a managed environment, else the overlay's field. */
 function domainInForce(
   environment: Environment,
@@ -91,9 +71,8 @@ export function externalDnsErrors(
  * domain as its domain filter, internal.<domain> as its exclusion (by
  * configuration, ADR 0162), the target address (the loopback address locally,
  * the run-time public IPv4 otherwise), and on the Cloudflare provider the one
- * zone as its zone-id filter, and the pod annotations that let Prometheus scrape
- * its metrics. Off, or for another component, none. Refuses with the errors
- * above rather than rendering a partial set.
+ * zone as its zone-id filter. Off, or for another component, none. Refuses
+ * with the errors above rather than rendering a partial set.
  */
 export function externalDnsHelmArgs(
   environment: Environment,
@@ -128,6 +107,5 @@ export function externalDnsHelmArgs(
     ...(zone === undefined
       ? []
       : ["--set-string", `extraArgs.zone-id-filter=${zone}`]),
-    ...scrapeAnnotationArgs(),
   ];
 }
