@@ -13,6 +13,7 @@ vi.mock("../config/index.js", () => ({
   componentVersion: vi.fn(),
   dashboardSidecarHelmArgs: vi.fn(),
   prometheusPortalHelmArgs: vi.fn(),
+  keycloakOperatorProbeHelmArgs: vi.fn(),
   expandVersions: vi.fn(),
   featureHelmArgs: vi.fn(),
   gatewayClassName: vi.fn(),

@@ -12,6 +12,16 @@
         "image": {
           "type": "string",
           "pattern": "@sha256:[0-9a-f]{64}$"
+        },
+        "startupProbe": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "failureThreshold": {
+              "type": "integer",
+              "minimum": 1
+            }
+          }
         }
       }
     },

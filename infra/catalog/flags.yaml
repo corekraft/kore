@@ -157,6 +157,11 @@
         "kind": "feature",
         "applies": ["local"]
       },
+      {
+        "name": "platform-apiserver-ready",
+        "kind": "feature",
+        "applies": ["local"]
+      },
       { "name": "host-published-ports", "kind": "feature", "applies": ["vps"] },
       {
         "name": "registry-tag-pruning",
