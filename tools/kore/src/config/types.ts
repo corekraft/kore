@@ -200,6 +200,17 @@ export interface Environment {
   provider: "k3d" | "managed";
   kubeContext: string;
   /**
+   * How many nodes the environment runs. Unset reads as one (ADR 0152), so
+   * every existing overlay, local included, keeps its meaning. Read it through
+   * `nodeCount`.
+   */
+  nodeCount?: number;
+  /**
+   * The share of the one-node budget that app quotas may commit, from 0 to 1.
+   * Unset reads as 0.8 (ADR 0152). Read it through `committedFraction`.
+   */
+  committedFraction?: number;
+  /**
    * Cluster settings of a managed environment. A k3d overlay declares `k3d`
    * instead and validation rejects this block there. Read it through
    * `managedCluster`.
@@ -214,6 +225,21 @@ export interface Environment {
     diskSize: string;
     /** Service ClusterIP range of the cluster; an in-cluster registry address must lie inside it. */
     serviceCidr?: string;
+    /**
+     * The kubelet's measured reserves and memory eviction floor (ADR 0152).
+     * Absent until the vps measurement records them; a budget with an absent
+     * reserve is not judged.
+     */
+    kubelet?: {
+      kubeReserved?: { cpu?: string; memory?: string };
+      systemReserved?: { cpu?: string; memory?: string };
+      evictionHard?: { memory?: string };
+    };
+    /**
+     * The disk the platform keeps back from `diskSize` for the kubelet and the
+     * node's own use, a size in GiB such as `20g`. Absent until measured.
+     */
+    diskReserve?: string;
   };
   /** The k3d cluster; required when provider is k3d, rejected otherwise. */
   k3d?: K3dCluster;

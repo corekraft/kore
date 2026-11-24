@@ -43,7 +43,27 @@
         "applies": ["local", "vps", "managed-example"]
       },
       {
+        "name": "platform-sync-window",
+        "kind": "feature",
+        "applies": ["local", "vps", "managed-example"]
+      },
+      {
         "name": "platform-shared-gateway",
+        "kind": "feature",
+        "applies": ["local", "vps", "managed-example"]
+      },
+      {
+        "name": "service-listener-sets",
+        "kind": "feature",
+        "applies": ["local", "vps", "managed-example"]
+      },
+      {
+        "name": "external-gateway",
+        "kind": "feature",
+        "applies": ["local", "vps", "managed-example"]
+      },
+      {
+        "name": "external-gateway-limits",
         "kind": "feature",
         "applies": ["local", "vps", "managed-example"]
       },
@@ -89,6 +109,16 @@
       },
       {
         "name": "golden-path-signin-after-portal",
+        "kind": "feature",
+        "applies": ["local", "vps", "managed-example"]
+      },
+      {
+        "name": "postgresql-service-class-instances",
+        "kind": "feature",
+        "applies": ["local", "vps", "managed-example"]
+      },
+      {
+        "name": "gateway-proxy-defaults",
         "kind": "feature",
         "applies": ["local", "vps", "managed-example"]
       },

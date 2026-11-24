@@ -109,6 +109,14 @@ test("the release job builds, signs and verifies the Kotlin BFF template image w
   );
 });
 
+test("the release job also signs the Kotlin BFF template image in the legacy .sig form, keyless under the same identity, since policy-controller reads only that form (issue 1884)", async () => {
+  const workflow = await read(".github/workflows/release.yaml");
+  assert.match(
+    workflow,
+    /cosign sign --yes --new-bundle-format=false --use-signing-config=false "\$\{BFF_TEMPLATE_IMAGE\}@\$\{BFF_TEMPLATE_DIGEST\}"/,
+  );
+});
+
 test("the build refuses and deletes an agent jar whose checksum differs from the pin", async () => {
   const script = await read(build);
   assert.match(

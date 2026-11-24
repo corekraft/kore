@@ -21,10 +21,15 @@ export const namespacedKinds = new Set([
   "/ServiceAccount",
   "cert-manager.io/Certificate",
   "gateway.networking.k8s.io/Gateway",
+  "gateway.networking.k8s.io/HTTPRoute",
   "security.istio.io/AuthorizationPolicy",
   "security.istio.io/PeerAuthentication",
   "config.gatekeeper.sh/Config",
   "agentgateway.dev/AgentgatewayParameters",
+  // The external Gateway's one platform-owned limits policy, rendered only with external-gateway-limits on (ADR 0160, issue 1674).
+  "agentgateway.dev/AgentgatewayPolicy",
+  // The shared proxy's budget, rendered by platform-config only with gateway-proxy-defaults on (ADR 0154).
+  "policy/PodDisruptionBudget",
 ]);
 
 async function yamlFiles(dir: string): Promise<string[]> {

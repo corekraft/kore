@@ -1,13 +1,32 @@
 environment: local
-gateway:
-  {
+gateway: {
     port: 443,
     certificateSecret: kore-local-tls,
     service: {},
     platformCertificateSecret: kore-platform-wildcard-tls,
     keycloakCertificateSecret: keycloak-tls,
     sharedServicePort: 443,
-    database: { port: 5432, nodePort: null }
+    database: { port: 5432, nodePort: null },
+    # The shared proxy's app defaults, rendered only while gateway-proxy-defaults
+    # is on (ADR 0154): two replicas, one surge pod and no unavailable one, a
+    # readiness gate (minReadySeconds, progressDeadlineSeconds) and a
+    # PodDisruptionBudget. They are implementation defaults, not owner decisions;
+    # an environment's values file may set them.
+    proxy:
+      {
+        replicas: 2,
+        maxSurge: 1,
+        maxUnavailable: 0,
+        minReadySeconds: 10,
+        progressDeadlineSeconds: 600,
+        budgetMaxUnavailable: 1
+      }
   }
+# The external Gateway (ADR 0160, issue 1633), rendered only while external-gateway
+# is on. Its HTTP listener is on port 80; the overlay sets the node port its
+# Service is published on, which the host's port table maps to public 80.
+externalGateway:
+  port: 80
+  service: { nodePort: null }
 issuer: { name: kore-local-ca }
 secrets: { sourceNamespace: kore-secret-source, storeName: platform-secrets }

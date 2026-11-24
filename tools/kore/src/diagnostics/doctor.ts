@@ -5,7 +5,7 @@ import { managedCluster } from "../config/index.js";
 import { k3dClusterInfo } from "../cluster/index.js";
 import type { Runner } from "../runtime/index.js";
 import { resolverChecks, systemResolverHost } from "../resolver/index.js";
-import { registryNameCheck } from "./registry-name-check.js";
+import { environmentChecks } from "./environment-checks.js";
 import { runTimeChecks } from "./run-time-check.js";
 
 export type CheckStatus = "pass" | "warn" | "fail";
@@ -257,7 +257,7 @@ export async function doctor(
       runner,
       systemResolverHost(),
     )),
-    ...(await registryNameCheck(repository, runner)),
+    ...(await environmentChecks(repository, runner)),
     ...(await runTimeChecks(repository.environment, env, home)),
   ];
 }

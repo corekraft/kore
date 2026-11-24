@@ -51,7 +51,7 @@ backup of its own ([ADR 0156](../decisions/0156-the-box-is-rebuilt-from-git-ghcr
   every digest a current record names, plus the revert targets the retention rule
   keeps. GHCR must keep those versions. A GitHub outage during a rebuild halts the
   copy, as it halts app delivery. **Planned**: the copy is the controller's step
-  of `kore platform up --environment vps --recover`, which is not built yet.
+  of kore platform up --environment vps --recover, which is not built yet.
 - **Credentials and the CA are regenerated.** The registry's push and read
   credentials and its CA are made again on install and never backed up. After a
   rebuild, k3s must trust the new CA. That is a by-hand step, gated by the

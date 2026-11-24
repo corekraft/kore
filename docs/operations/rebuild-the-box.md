@@ -69,7 +69,7 @@ from; it holds the vps age identity, the kubeconfig and the sops checkout.
 | 5   | Sign the agents VM logins in, as `agent` on `kore-agents`: `gh auth login` with a fine-grained token limited to the repository, and `claude`. Never backed up.                                                                                                                                                                                                         | By hand                             | Manual step                                                                                                                                                           |
 | 6   | Tag the new tailnet machines: `tofu apply` in `infra/tofu/stacks/tailnet`, from the controller's OpenTofu state.                                                                                                                                                                                                                                                       | Automated                           | Built (run by hand)                                                                                                                                                   |
 | 7   | Place the OpenBao static seal key. You supply the key from the kit, and the Ansible role writes it root-only through stdin, never logged. The file is not on the k3s data volume.                                                                                                                                                                                      | By hand supply, automated placement | Planned: [ADR 0168](../decisions/0168-the-openbao-static-seal-key-is-a-recorded-exception-to-no-plaintext-on-disk.md) is proposed and the role has no task for it yet |
-| 8   | Install the platform under the recovery hold: `kore platform up --environment vps --recover`. It installs the platform and an Argo CD sync window that denies app syncs. It needs `platform-argocd-delivery` active, which the vps overlay has off today. Without `--recover`, `kore platform up --environment vps` installs the platform with no hold.                | Automated                           | **Planned** (`--recover`)                                                                                                                                             |
+| 8   | Install the platform under the recovery hold: kore platform up --environment vps --recover. It installs the platform and an Argo CD sync window that denies app syncs. It needs `platform-argocd-delivery` active, which the vps overlay has off today. Without `--recover`, `kore platform up --environment vps` installs the platform with no hold.                  | Automated                           | **Planned** (`--recover`)                                                                                                                                             |
 | 9   | Copy the registry CA for k3s, from the controller: write only the public `ca.crt` to a file outside the repository, then `mise run vps-apply`. This step is gated by the `k3s-registry-trust` flag, off today.                                                                                                                                                         | By hand                             | Built behind a flag                                                                                                                                                   |
 | 10  | Restore OpenBao from the newest snapshot on the target, into the freshly initialised instance, before External Secrets resyncs.                                                                                                                                                                                                                                        | Automated                           | **Planned**. Restore into a self-initialised instance is unproven until the rebuild drill                                                                             |
 | 11  | Restore each backed-up database from the controller: `kore data restore --environment vps --from <object>`. It decrypts on the controller and streams into the primary. A non-empty database is refused without `--overwrite-data --yes`. A database the owner names empty on purpose is the only other way out of the hold.                                           | Automated                           | **Planned**. `kore data restore` is built for local exports only                                                                                                      |
@@ -113,17 +113,17 @@ Two drills, each recorded as a live-run outcome, gate turning the `database-back
 
 ## Commands
 
-| Command                                                 | Status                                             |
-| ------------------------------------------------------- | -------------------------------------------------- |
-| `kore platform up --environment vps`                    | Built. It installs the platform without a hold     |
-| `kore platform up --environment vps --recover`          | **Planned**. Installs under the recovery hold      |
-| `kore platform status --environment vps`                | Built. The vps `backups` row is **planned**        |
-| `kore data restore --environment vps --from <object>`   | **Planned**. Built for local exports only          |
-| `kore data backup --environment vps [--service <name>]` | **Planned**                                        |
-| `kore data export --environment <name>`                 | Built. A manual extra copy that counts for no gate |
-| The OpenBao snapshot restore (step 10)                  | **Planned**                                        |
-| The controller's image copy (step 12)                   | **Planned**. Part of `--recover`                   |
-| Lifting the hold (step 13)                              | **Planned**. Part of `--recover`                   |
+| Command                                                        | Status                                             |
+| -------------------------------------------------------------- | -------------------------------------------------- |
+| `kore platform up --environment vps`                           | Built. It installs the platform without a hold     |
+| kore platform up --environment vps --recover                   | **Planned**. Installs under the recovery hold      |
+| `kore platform status --environment vps`                       | Built. The vps `backups` row is **planned**        |
+| `kore data restore --environment vps --from <object>`          | **Planned**. Built for local exports only          |
+| kore data backup --environment vps, optionally for one service | **Planned**                                        |
+| `kore data export --environment <name>`                        | Built. A manual extra copy that counts for no gate |
+| The OpenBao snapshot restore (step 10)                         | **Planned**                                        |
+| The controller's image copy (step 12)                          | **Planned**. Part of `--recover`                   |
+| Lifting the hold (step 13)                                     | **Planned**. Part of `--recover`                   |
 
 ## Not in the rebuild
 

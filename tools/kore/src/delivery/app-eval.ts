@@ -8,6 +8,11 @@ import {
   type FlagsManifest,
   type ParsedManifest,
 } from "./flags-manifest.js";
+import {
+  migrationCarrier,
+  type CarrierInput,
+  type CarrierResult,
+} from "./migration-carrier.js";
 import { patternFailures, safetyTrailer } from "./safety-pattern.js";
 
 const CHECKS = [
@@ -22,11 +27,16 @@ export interface EvalInput {
   digest: string;
   published?: Record<string, string> | undefined;
   today: string;
+  /** True only for the image that carries the migration plan (--carries-plan). */
+  carriesPlan?: boolean | undefined;
+  /** The N-1 inputs; the carrier needs them when the release adds a migration. */
+  n1?: CarrierInput["n1"];
 }
 
 export interface EvalAttestations {
   "eval-result": Statement;
   "flags-manifest": Statement;
+  "migration-plan": Statement;
 }
 
 export interface EvalReport {
@@ -53,16 +63,27 @@ export async function evaluateApp(
     published: input.published,
   });
   const flags = await readManifest(source);
-  const pattern = safetyTrailer(await source.headMessage());
-  const newFlags = await newFlagNames(source, flags.manifest);
+  const message = await source.headMessage();
+  const pattern = safetyTrailer(message);
+  const base = await baseManifest(source);
+  const newFlags = newFlagNames(flags.manifest, base);
+  const changedPaths = await source.changedPaths();
+  const migrations = await migrationCarrier({
+    carries: input.carriesPlan === true,
+    source,
+    message,
+    version: input.version,
+    pattern,
+    changedPaths,
+    newFlags,
+    retiredFlags: retiredFlagNames(base, flags.manifest),
+    n1: input.n1,
+  });
   const failures = [
     ...candidate.failures,
     ...flags.failures,
-    ...patternFailures({
-      pattern,
-      changedPaths: await source.changedPaths(),
-      newFlags,
-    }),
+    ...patternFailures({ pattern, changedPaths, newFlags }),
+    ...migrations.failures,
   ];
   const warnings = [
     ...candidate.warnings,
@@ -70,7 +91,7 @@ export async function evaluateApp(
       ? []
       : expiryWarnings(flags.manifest.flags, input.today)),
   ];
-  const base = {
+  const shared = {
     version: input.version,
     digest: input.digest,
     failures,
@@ -78,11 +99,11 @@ export async function evaluateApp(
   };
   const { manifest } = flags;
   if (failures.length > 0 || manifest === undefined || pattern === undefined) {
-    return { verdict: "fail", ...base };
+    return { verdict: "fail", ...shared };
   }
   return {
     verdict: "pass",
-    ...base,
+    ...shared,
     attestations: attestationsFor({
       version: input.version,
       digest: input.digest,
@@ -90,6 +111,7 @@ export async function evaluateApp(
       pattern,
       warnings,
       expired: expiredFlags(manifest.flags, input.today),
+      plan: migrations.plan,
     }),
   };
 }
@@ -106,28 +128,41 @@ async function readManifest(source: AppSource): Promise<ParsedManifest> {
   return parseFlagsManifest(text);
 }
 
+/** The base commit's manifest, or undefined when the base has none or it does not parse. */
+async function baseManifest(
+  source: AppSource,
+): Promise<FlagsManifest | undefined> {
+  const text = await source.baseFlagsText();
+  return text === undefined ? undefined : parseFlagsManifest(text).manifest;
+}
+
 /**
  * The flags this release adds. With no base manifest every flag is new, which conservatively
  * forces feature-flagged; with an unreadable base manifest the same applies.
  */
-async function newFlagNames(
-  source: AppSource,
+function newFlagNames(
   manifest: FlagsManifest | undefined,
-): Promise<string[]> {
+  base: FlagsManifest | undefined,
+): string[] {
   if (manifest === undefined) {
     return [];
   }
-  const baseText = await source.baseFlagsText();
-  const known = new Set(
-    baseText === undefined
-      ? []
-      : (parseFlagsManifest(baseText).manifest?.flags ?? []).map(
-          (flag) => flag.name,
-        ),
-  );
+  const known = new Set((base?.flags ?? []).map((flag) => flag.name));
   return manifest.flags
     .map((flag) => flag.name)
     .filter((name) => !known.has(name));
+}
+
+/** The flags the base manifest declares and the head does not: what a code contract retires. */
+function retiredFlagNames(
+  base: FlagsManifest | undefined,
+  head: FlagsManifest | undefined,
+): string[] {
+  if (base === undefined || head === undefined) {
+    return [];
+  }
+  const kept = new Set(head.flags.map((flag) => flag.name));
+  return base.flags.map((flag) => flag.name).filter((name) => !kept.has(name));
 }
 
 interface AttestInput {
@@ -137,6 +172,7 @@ interface AttestInput {
   pattern: string;
   warnings: string[];
   expired: string[];
+  plan: CarrierResult["plan"];
 }
 
 function attestationsFor(input: AttestInput): EvalAttestations {
@@ -158,6 +194,11 @@ function attestationsFor(input: AttestInput): EvalAttestations {
       predicateType: PREDICATE_TYPES.flagsManifest,
       ...subject,
       predicate: input.manifest,
+    }),
+    "migration-plan": statement({
+      predicateType: PREDICATE_TYPES.migrationPlan,
+      ...subject,
+      predicate: input.plan,
     }),
   };
 }

@@ -3,10 +3,12 @@ import { beforeEach, expect, test, vi } from "vitest";
 import { fakeEnvironment, fakeRepository } from "./config-support.js";
 import { environmentFieldErrors } from "./environment-errors.js";
 import { gatewayErrors } from "./gateways.js";
+import { nodeCapacityErrors } from "./node-capacity.js";
 import { platformDomainErrors } from "./platform-domain.js";
 import { registryAddressErrors } from "./registry-address.js";
 
 vi.mock("./gateways.js", () => ({ gatewayErrors: vi.fn() }));
+vi.mock("./node-capacity.js", () => ({ nodeCapacityErrors: vi.fn() }));
 vi.mock("./platform-domain.js", () => ({ platformDomainErrors: vi.fn() }));
 vi.mock("./registry-address.js", () => ({ registryAddressErrors: vi.fn() }));
 
@@ -17,6 +19,15 @@ beforeEach(() => {
   vi.mocked(registryAddressErrors).mockReturnValue([]);
   vi.mocked(platformDomainErrors).mockReturnValue([]);
   vi.mocked(gatewayErrors).mockReturnValue([]);
+  vi.mocked(nodeCapacityErrors).mockReturnValue([]);
+});
+
+test("the node count, committed fraction and reserves are checked once, against the environment, and their errors join the field errors", () => {
+  vi.mocked(nodeCapacityErrors).mockReturnValue(["environment.nodeCount bad"]);
+  expect(environmentFieldErrors(repository)).toEqual([
+    "environment.nodeCount bad",
+  ]);
+  expect(vi.mocked(nodeCapacityErrors).mock.calls).toEqual([[environment]]);
 });
 
 test("an environment whose one-place fields are sound reports nothing", () => {

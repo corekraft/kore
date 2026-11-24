@@ -29,6 +29,14 @@
 # need. Absent, the project is unchanged.
 # inClusterCa: true
 
+# Passed true by kore only while platform-sync-window is on (issue 1540). With
+# maintenanceHold also true, the AppProject carries a deny sync window that
+# refuses every sync in the project, manual ones too, from before a reboot
+# until every release is Ready (ADR 0153). Absent, or with no hold, the project
+# is unchanged. The maintenance run that sets the hold is not built.
+# syncWindow: true
+# maintenanceHold: true
+
 # The text of each release's environment values files, in order, which kore
 # reads from the repository so Argo CD renders a release with the values the
 # Helm path gives it. Optional: a release with none takes the chart's defaults.
