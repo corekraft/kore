@@ -154,6 +154,7 @@ const entryPoints = [
   "exemptionCheckMode",
   "exists",
   "expandVersions",
+  "externalGatewayAcmeIssuersErrors",
   "featureEnabled",
   "featureHelmArgs",
   "findRoot",

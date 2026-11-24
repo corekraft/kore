@@ -5,6 +5,7 @@ import { promisify } from "node:util";
 import { test } from "vitest";
 import {
   acmeCertificateIssuer,
+  externalGatewayAcmeIssuersErrors,
   featureEnabled,
   featureHelmArgs,
   loadRepository,
@@ -171,7 +172,7 @@ test("every Certificate in the render that names a Let's Encrypt issuer names th
   }
 });
 
-test("external-gateway on without acme-issuers is refused by validation, naming both flags", async () => {
+test("external-gateway on in vps without acme-issuers is refused by validation, naming both flags and the fix", async () => {
   await assert.rejects(
     validateRepository(
       await withFlags("vps", {
@@ -181,7 +182,33 @@ test("external-gateway on without acme-issuers is refused by validation, naming 
         [dnsFlag]: true,
       }),
     ),
-    /flag external-gateway is on in the vps overlay but requires acme-issuers, which is off there; set "acme-issuers": true in the vps overlay/,
+    /environment vps turns on external-gateway, which needs acme-issuers, but acme-issuers is off there; set "acme-issuers": true in the vps overlay, or turn external-gateway off/,
+  );
+});
+
+test("external-gateway on in local and managed-example is not refused for acme-issuers, because acme-issuers does not apply there", async () => {
+  for (const name of ["local", "managed-example"]) {
+    const repository = await withFlags(name, {
+      "service-listener-sets": true,
+      "platform-shared-gateway": true,
+      "external-gateway": true,
+    });
+    assert.deepEqual(
+      externalGatewayAcmeIssuersErrors(
+        repository.environment,
+        repository.flags,
+      ),
+      [],
+      name,
+    );
+  }
+});
+
+test("the real vps overlay, with external-gateway and acme-issuers both off, has no external-gateway error", async () => {
+  const repository = await loadRepository("vps");
+  assert.deepEqual(
+    externalGatewayAcmeIssuersErrors(repository.environment, repository.flags),
+    [],
   );
 });
 

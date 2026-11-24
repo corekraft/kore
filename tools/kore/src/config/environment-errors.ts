@@ -1,5 +1,8 @@
 import { acmeDns01Errors } from "./acme-dns01.js";
-import { acmeIssuersErrors } from "./acme-issuers.js";
+import {
+  acmeIssuersErrors,
+  externalGatewayAcmeIssuersErrors,
+} from "./acme-issuers.js";
 import { gatewayErrors } from "./gateways.js";
 import { externalDnsComponent, externalDnsErrors } from "./external-dns.js";
 import { nodeCapacityErrors } from "./node-capacity.js";
@@ -29,5 +32,9 @@ export function environmentFieldErrors(repository: Repository): string[] {
     ),
     ...acmeDns01Errors(repository.environment, process.env),
     ...acmeIssuersErrors(repository.environment, process.env),
+    ...externalGatewayAcmeIssuersErrors(
+      repository.environment,
+      repository.flags,
+    ),
   ];
 }

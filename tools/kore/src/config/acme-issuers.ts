@@ -1,7 +1,12 @@
 // Docs: docs/decisions/0157-a-name-under-another-domain-is-served-after-an-http-01-proof-and-certificates-come-from-acme.md
-import { acmeIssuersFlag, featureEnabled } from "./features.js";
+import { appliedFlags } from "./flag-manifest.js";
+import {
+  acmeIssuersFlag,
+  externalGatewayFlag,
+  featureEnabled,
+} from "./features.js";
 import { platformDomainVariable, runTimeDomain } from "./run-time-domain.js";
-import type { Environment } from "./types.js";
+import type { Environment, FlagManifest } from "./types.js";
 
 /**
  * The staging ClusterIssuer acme-dns01 renders, which is the issuer every ACME
@@ -18,6 +23,30 @@ const stagingIssuer = "letsencrypt-staging";
  */
 export function acmeCertificateIssuer(): string {
   return stagingIssuer;
+}
+
+/**
+ * The prerequisite external-gateway needs on acme-issuers, checked where the
+ * manifest says acme-issuers applies (ADR 0157, issue 1637). The manifest's
+ * requires cannot bind only there yet (ADR 0148), so this check holds the
+ * edge: external-gateway on, acme-issuers applying to the environment and
+ * acme-issuers off is refused, naming both flags and the fix. Where
+ * acme-issuers does not apply, as in local and managed-example, it is silent.
+ */
+export function externalGatewayAcmeIssuersErrors(
+  environment: Environment,
+  flags: FlagManifest,
+): string[] {
+  if (
+    !featureEnabled(environment, externalGatewayFlag) ||
+    !appliedFlags(flags, environment.name).includes(acmeIssuersFlag) ||
+    featureEnabled(environment, acmeIssuersFlag)
+  ) {
+    return [];
+  }
+  return [
+    `environment ${environment.name} turns on ${externalGatewayFlag}, which needs ${acmeIssuersFlag}, but ${acmeIssuersFlag} is off there; set "${acmeIssuersFlag}": true in the ${environment.name} overlay, or turn ${externalGatewayFlag} off (ADR 0157)`,
+  ];
 }
 
 /**

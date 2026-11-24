@@ -2,7 +2,10 @@
 import { beforeEach, expect, test, vi } from "vitest";
 import { fakeEnvironment, fakeRepository } from "./config-support.js";
 import { acmeDns01Errors } from "./acme-dns01.js";
-import { acmeIssuersErrors } from "./acme-issuers.js";
+import {
+  acmeIssuersErrors,
+  externalGatewayAcmeIssuersErrors,
+} from "./acme-issuers.js";
 import { environmentFieldErrors } from "./environment-errors.js";
 import { gatewayErrors } from "./gateways.js";
 import { nodeCapacityErrors } from "./node-capacity.js";
@@ -10,7 +13,10 @@ import { platformDomainErrors } from "./platform-domain.js";
 import { registryAddressErrors } from "./registry-address.js";
 
 vi.mock("./acme-dns01.js", () => ({ acmeDns01Errors: vi.fn() }));
-vi.mock("./acme-issuers.js", () => ({ acmeIssuersErrors: vi.fn() }));
+vi.mock("./acme-issuers.js", () => ({
+  acmeIssuersErrors: vi.fn(),
+  externalGatewayAcmeIssuersErrors: vi.fn(),
+}));
 vi.mock("./gateways.js", () => ({ gatewayErrors: vi.fn() }));
 vi.mock("./node-capacity.js", () => ({ nodeCapacityErrors: vi.fn() }));
 vi.mock("./platform-domain.js", () => ({ platformDomainErrors: vi.fn() }));
@@ -26,6 +32,7 @@ beforeEach(() => {
   vi.mocked(nodeCapacityErrors).mockReturnValue([]);
   vi.mocked(acmeDns01Errors).mockReturnValue([]);
   vi.mocked(acmeIssuersErrors).mockReturnValue([]);
+  vi.mocked(externalGatewayAcmeIssuersErrors).mockReturnValue([]);
 });
 
 test("the node count, committed fraction and reserves are checked once, against the environment, and their errors join the field errors", () => {
@@ -77,5 +84,17 @@ test("the acme-issuers placeholder refusal is checked against the environment an
   ]);
   expect(vi.mocked(acmeIssuersErrors).mock.calls).toEqual([
     [environment, process.env],
+  ]);
+});
+
+test("the external-gateway prerequisite on acme-issuers is checked against the environment and the manifest, and its error joins the field errors", () => {
+  vi.mocked(externalGatewayAcmeIssuersErrors).mockReturnValue([
+    "external-gateway needs acme-issuers",
+  ]);
+  expect(environmentFieldErrors(repository)).toEqual([
+    "external-gateway needs acme-issuers",
+  ]);
+  expect(vi.mocked(externalGatewayAcmeIssuersErrors).mock.calls).toEqual([
+    [environment, repository.flags],
   ]);
 });

@@ -73,7 +73,7 @@
         "name": "external-gateway",
         "kind": "feature",
         "applies": ["local", "vps", "managed-example"],
-        "requires": ["service-listener-sets", "acme-issuers"]
+        "requires": ["service-listener-sets"]
       },
       {
         "name": "external-gateway-limits",

@@ -154,7 +154,6 @@ test("the real manifest declares each prerequisite the overlay check enforces, s
   ]);
   assert.deepEqual(requiredFlags(flags, "external-gateway"), [
     "service-listener-sets",
-    "acme-issuers",
   ]);
   assert.deepEqual(requiredFlags(flags, "acme-issuers"), ["acme-dns01"]);
   assert.deepEqual(requiredFlags(flags, "external-gateway-limits"), [
@@ -211,8 +210,9 @@ test("each prerequisite edge is refused by validation when the flag is on and it
   }
 });
 
-// Issue 1637: external-gateway keeps the environments it applies to, and its edge to acme-issuers is declared in the
-// manifest's requires only. acme-issuers applies to vps alone, so the edge is checked where both flags are on.
+// Issue 1637: external-gateway keeps the environments it applies to, and its requires holds service-listener-sets only.
+// Its prerequisite acme-issuers applies to vps alone, and a requires edge cannot yet bind only where the required flag
+// applies (ADR 0148), so vps refuses the pair in the environment check instead (acme-issuers.ts, ADR 0157).
 test("external-gateway applies to local, vps and managed-example, and every one of those overlays lists it false", async () => {
   const { flags } = await loadRepository("vps");
   assert.deepEqual(flagEntry(flags, "external-gateway")?.applies, [
