@@ -24,6 +24,10 @@ dependencies {
     implementation("org.jetbrains.kotlin:kotlin-reflect")
     implementation("org.springframework.boot:spring-boot-starter-security:4.1.2")
     implementation("org.springframework.boot:spring-boot-starter-oauth2-client:4.1.2")
+    implementation("org.springframework.boot:spring-boot-starter-jdbc:4.1.2")
+    implementation("org.springframework.boot:spring-boot-starter-session-jdbc:4.1.2")
+    runtimeOnly("org.postgresql:postgresql:42.7.14")
+    testImplementation("com.h2database:h2:2.4.240")
     testImplementation("org.springframework.boot:spring-boot-starter-test:4.1.2")
 }
 

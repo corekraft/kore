@@ -186,12 +186,13 @@ test("with safety defaults on and autoscaling on, the Deployments carry no repli
   }
 });
 
-test("with safety defaults on and golden-path-signin on, the BFF stays at one replica with no autoscaler, since its sign-in session is in memory (issue 1747), and the frontend runs two", async () => {
+test("with safety defaults on and golden-path-signin on, the BFF runs two replicas like the frontend, since its sign-in session is in the shared database (issue 1841)", async () => {
   const docs = await workload(...safe, ...signin);
-  expect(named(docs, "Deployment", "auth-bff")).toContain("\n  replicas: 1\n");
-  expect(named(docs, "Deployment", "auth-frontend")).toContain(
-    "\n  replicas: 2\n",
-  );
+  for (const name of ["auth-bff", "auth-frontend"]) {
+    expect(named(docs, "Deployment", name), name).toContain(
+      "\n  replicas: 2\n",
+    );
+  }
 });
 
 test("with safety defaults on a termination grace period no longer than the preStop sleep is refused, since the pod would be killed mid-sleep", async () => {

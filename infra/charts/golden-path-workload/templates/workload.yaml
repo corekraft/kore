@@ -29,8 +29,6 @@
 {{- end }}
 {{- range $name, $path := dict "frontend" "/healthz" "bff" "/actuator/health" }}
 {{- $workload := index $.Values $name }}
-{{- /* The BFF keeps its sign-in session in memory, so a callback that lands on another pod loses it. While sign-in is on the BFF runs as one pod with no autoscaler, until a shared session store lands; the frontend keeps its autoscaling. */}}
-{{- $singleBff := and $signin.enabled (eq $name "bff") }}
 {{- /* With safetyDefaults the BFF's probes read its own readiness and liveness health groups (ADR 0154); the frontend keeps its health path for both. */}}
 {{- $readinessPath := $path }}
 {{- $livenessPath := $path }}
@@ -47,8 +45,8 @@ metadata:
     app.kubernetes.io/name: {{ $.Values.service }}-{{ $name }}
     app.kubernetes.io/part-of: {{ $.Values.service }}
 spec:
-  {{- if or (not $autoscaling.enabled) $singleBff }}
-  replicas: {{ if and $safety (not $singleBff) }}2{{ else }}1{{ end }}
+  {{- if not $autoscaling.enabled }}
+  replicas: {{ if $safety }}2{{ else }}1{{ end }}
   {{- end }}
   {{- if $safety }}
   minReadySeconds: {{ $rollout.minReadySeconds }}
@@ -119,6 +117,39 @@ spec:
               value: framework
             - name: JAVA_TOOL_OPTIONS
               value: "-Djavax.net.ssl.trustStore=/truststore/cacerts -Djavax.net.ssl.trustStorePassword=changeit"
+            {{- /* The session store: the database the PostgreSQL API claimed for the Service (ADR 0182). The connection output names the host, port, database and username; the password is in the Secret the API's cluster owns, read by reference like Backstage's. The URL expands the first four, so they are defined before it. */}}
+            - name: SESSION_DB_HOST
+              valueFrom:
+                secretKeyRef:
+                  name: {{ printf "%s-db-connection" $.Values.service }}
+                  key: host
+            - name: SESSION_DB_PORT
+              valueFrom:
+                secretKeyRef:
+                  name: {{ printf "%s-db-connection" $.Values.service }}
+                  key: port
+            - name: SESSION_DB_NAME
+              valueFrom:
+                secretKeyRef:
+                  name: {{ printf "%s-db-connection" $.Values.service }}
+                  key: database
+            - name: SESSION_DB_SSLMODE
+              valueFrom:
+                secretKeyRef:
+                  name: {{ printf "%s-db-connection" $.Values.service }}
+                  key: sslmode
+            - name: SPRING_DATASOURCE_URL
+              value: {{ printf "jdbc:postgresql:%s" "//$(SESSION_DB_HOST):$(SESSION_DB_PORT)/$(SESSION_DB_NAME)?sslmode=$(SESSION_DB_SSLMODE)" | quote }}
+            - name: SPRING_DATASOURCE_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: {{ printf "%s-db-connection" $.Values.service }}
+                  key: username
+            - name: SPRING_DATASOURCE_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ printf "%s-db-app" $.Values.service }}
+                  key: password
           volumeMounts:
             - {name: truststore, mountPath: /truststore, readOnly: true}
           {{- end }}
@@ -184,7 +215,7 @@ spec:
     matchLabels:
       app.kubernetes.io/name: {{ $.Values.service }}-{{ $name }}
 {{- end }}
-{{- if and $autoscaling.enabled (not $singleBff) }}
+{{- if $autoscaling.enabled }}
 ---
 apiVersion: autoscaling/v2
 kind: HorizontalPodAutoscaler
@@ -205,6 +236,20 @@ spec:
 {{- end }}
 {{- end }}
 {{- if $signin.enabled }}
+---
+{{- /* The BFF's session store (ADR 0182): one database per signed-in Service, claimed through the platform PostgreSQL API like Backstage's. A session is rebuilt by signing in again, so the content is not retained data and the claim deletes with the release. The composition creates the CloudNativePG Cluster <service>-db, its Service <service>-db-rw and the Secret <service>-db-app. */}}
+apiVersion: platform.kore.dev/v1alpha1
+kind: PostgreSQLInstance
+metadata:
+  name: {{ $.Values.service }}-db
+  labels:
+    app.kubernetes.io/part-of: {{ $.Values.service }}
+spec:
+  serviceClass: standard
+  storageSize: {{ $.Values.database.storageSize }}
+  compatibilityVersion: {{ $.Values.database.compatibilityVersion }}
+  connectionSecretName: {{ $.Values.service }}-db-connection
+  retentionPolicy: Delete
 ---
 apiVersion: cert-manager.io/v1
 kind: Certificate

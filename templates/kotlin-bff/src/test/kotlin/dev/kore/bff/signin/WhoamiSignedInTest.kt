@@ -31,6 +31,9 @@ import org.springframework.web.context.WebApplicationContext
         "GOLDEN_PATH_SIGNIN=true",
         "OIDC_CLIENT_ID=golden-path",
         "OIDC_CLIENT_SECRET=test-only-secret-value",
+        "spring.datasource.url=jdbc:h2:mem:whoami;DB_CLOSE_DELAY=-1",
+        "spring.datasource.username=sa",
+        "spring.datasource.password=test-only-password-value",
     ],
 )
 class WhoamiSignedInTest {

@@ -4,10 +4,11 @@ import { promisify } from "node:util";
 import { expect, test } from "vitest";
 import { findRoot } from "../../src/config/index.js";
 
-// Context: issue #1747. The BFF keeps its sign-in session in memory, so while
-// golden-path-signin is on the BFF runs as one pod with no autoscaler until a
-// shared session store lands; the frontend keeps its autoscaling. With sign-in
-// off, both Deployments and both autoscalers render as before.
+// Context: issue #1841 (for #1747). The BFF keeps its sign-in session in the
+// database the platform PostgreSQL API claims for it (Spring Session JDBC), so
+// with golden-path-signin on the BFF autoscales like the frontend, and the
+// two-replica minimum guards it again. With sign-in off, both Deployments and
+// both autoscalers render as before.
 
 const run = promisify(execFile);
 const frontendImage = `ghcr.io/corekraft/kore/static-frontend-template@sha256:${"a".repeat(64)}`;
@@ -62,12 +63,28 @@ const named = (docs: string[], kind: string, name: string) =>
       doc.includes(`\n  name: ${name}\n`),
   );
 
-test("with golden-path-signin on the BFF runs as one replica with no autoscaler, and the frontend keeps its autoscaler", async () => {
+test("with golden-path-signin on both Deployments carry no replica count and both autoscalers render, so the signed-in BFF scales", async () => {
   const docs = await render(...workload, ...signinOn);
-  expect(named(docs, "Deployment", "auth-bff")).toContain("\n  replicas: 1\n");
-  expect(named(docs, "HorizontalPodAutoscaler", "auth-bff")).toBeUndefined();
-  expect(named(docs, "Deployment", "auth-frontend")).not.toContain("replicas:");
-  expect(named(docs, "HorizontalPodAutoscaler", "auth-frontend")).toBeDefined();
+  for (const name of ["auth-bff", "auth-frontend"]) {
+    expect(named(docs, "Deployment", name)).not.toContain("replicas:");
+    expect(named(docs, "HorizontalPodAutoscaler", name)).toBeDefined();
+  }
+  expect(named(docs, "HorizontalPodAutoscaler", "auth-bff")).toContain(
+    "minReplicas: 2\n",
+  );
+});
+
+test("with golden-path-signin on a BFF autoscaler below two replicas is refused, naming minReplicas", async () => {
+  const failure = await render(
+    ...workload,
+    ...signinOn,
+    "--set",
+    "autoscaling.minReplicas=1",
+  ).then(
+    () => "",
+    (error: { stderr: string }) => error.stderr,
+  );
+  expect(failure).toContain("autoscaling.minReplicas must be at least 2");
 });
 
 test("with golden-path-signin off both Deployments carry no replica count and both autoscalers render", async () => {

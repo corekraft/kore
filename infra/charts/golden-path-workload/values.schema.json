@@ -37,6 +37,15 @@
         "issuerUri": { "type": "string", "minLength": 1 }
       }
     },
+    "database": {
+      "description": "The session database the workload claims through the platform PostgreSQL API while signin.enabled (issue 1841); the claim is not retained data.",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "storageSize": { "type": "string", "pattern": "^[1-9][0-9]*Gi$" },
+        "compatibilityVersion": { "type": "integer", "enum": [16, 17, 18] }
+      }
+    },
     "safetyDefaults": {
       "description": "Set by the golden-path ApplicationSet only while golden-path-safety-defaults is on (ADR 0154). Then each workload renders the safety defaults; off, every render is unchanged.",
       "type": "boolean"

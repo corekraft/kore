@@ -63,6 +63,9 @@ class SigninOffFlowTest {
         "GOLDEN_PATH_SIGNIN=true",
         "OIDC_CLIENT_ID=golden-path",
         "OIDC_CLIENT_SECRET=test-only-secret-value",
+        "spring.datasource.url=jdbc:h2:mem:flow;DB_CLOSE_DELAY=-1",
+        "spring.datasource.username=sa",
+        "spring.datasource.password=test-only-password-value",
     ],
 )
 class SigninOnFlowTest {
@@ -103,7 +106,7 @@ class SigninOnFlowTest {
     @Test
     fun `the session cookie is host-only, HttpOnly, Secure and SameSite lax`() {
         val response = Http("http://localhost:$port").get("/oauth2/authorization/golden-path")
-        val cookie = response.headers().allValues("Set-Cookie").single { it.startsWith("JSESSIONID=") }
+        val cookie = response.headers().allValues("Set-Cookie").single { it.startsWith("SESSION=") }
         val attributes = cookie.split(";").map { it.trim() }.drop(1)
         assertEquals(setOf("Path=/", "Secure", "HttpOnly", "SameSite=Lax"), attributes.toSet())
         assertFalse(cookie.contains("Domain=", ignoreCase = true), cookie)
