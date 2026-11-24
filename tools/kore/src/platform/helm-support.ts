@@ -11,6 +11,7 @@ import {
   expandVersions,
   featureHelmArgs,
   gatewayClassName,
+  keycloakOperatorProbeHelmArgs,
   noMatchPolicy,
   platformHelmArgs,
   prometheusPortalHelmArgs,
@@ -31,6 +32,7 @@ export function configAnswers(): void {
   vi.mocked(expandVersions).mockImplementation((_repo, value) => value);
   vi.mocked(featureHelmArgs).mockReturnValue([]);
   vi.mocked(gatewayClassName).mockReturnValue("kore-gateway");
+  vi.mocked(keycloakOperatorProbeHelmArgs).mockReturnValue([]);
   vi.mocked(noMatchPolicy).mockReturnValue("warn");
   vi.mocked(platformHelmArgs).mockReturnValue([]);
   vi.mocked(prometheusPortalHelmArgs).mockReturnValue([]);

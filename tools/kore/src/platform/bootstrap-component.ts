@@ -1,3 +1,4 @@
+// oxlint-disable import/max-dependencies -- bootstrapping one component orders every prerequisite step before its release, and each step is its own module
 import type { Component, Repository } from "../config/index.js";
 import {
   applyChartCredential,
@@ -5,6 +6,7 @@ import {
   ensureRegistryTrust,
 } from "../images/index.js";
 import type { Runner } from "../runtime/index.js";
+import { waitForApiserverReady } from "./apiserver-ready.js";
 import { enrollSharedGatewayRoute } from "./enrollment.js";
 import { waitForGatekeeperAdmission } from "./gatekeeper-admission.js";
 import {
@@ -13,6 +15,19 @@ import {
 } from "./portal-secrets.js";
 import { assertMetricsServerUnowned } from "./metrics-server-ownership.js";
 import { reconcileIfNeeded } from "./reconcile.js";
+
+/**
+ * The controllers and CNI components whose rollouts crash when the API server
+ * is not answering yet: they dial it at start and exit, then sit in a restart
+ * back-off that kore's rollout wait reports as a crash loop or a timeout
+ * (issue 2011).
+ */
+const NEEDS_APISERVER: ReadonlySet<string> = new Set([
+  "keycloak-operator",
+  "agentgateway",
+  "istio-cni",
+  "ztunnel",
+]);
 
 /**
  * Reconciles one bootstrap component with the secrets and trust that must
@@ -39,6 +54,12 @@ export async function bootstrapComponent(
   // owns the ClusterRole the release must own; fail before Helm does.
   if (component.name === "metrics-server") {
     await assertMetricsServerUnowned(repository, runner);
+  }
+  // The controllers and CNI components crash when the API server is not
+  // answering yet, so their rollouts follow one readiness step (issue 2011).
+  // A no-op with platform-apiserver-ready off.
+  if (NEEDS_APISERVER.has(component.name)) {
+    await waitForApiserverReady(repository, runner, component);
   }
   // A route-bearing component's namespace carries the shared Gateway label
   // before its release is applied and waited on (#1388).
