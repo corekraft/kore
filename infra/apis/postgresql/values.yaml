@@ -2,6 +2,11 @@
 # composition exactly as they were (compositions/local.yaml). database-routes sets
 # the three values below; kore passes them only while that flag is on (ADR 0137).
 databaseRoutes: false
+# Whether the composition derives each database's CloudNativePG instances and sizing
+# from its serviceClass: standard two instances with the disruption budget, development
+# one without; switchover; a memory request equal to the limit (ADR 0154). kore sets it
+# only while postgresql-service-class-instances is on; off renders one instance as before.
+serviceClassInstances: false
 # The environment's platform.domain and platform.organizationId, which kore passes.
 # No default: a database route needs them, and the chart refuses to render without.
 platformDomain: ""

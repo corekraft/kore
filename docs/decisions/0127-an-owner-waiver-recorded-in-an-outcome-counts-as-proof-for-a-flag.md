@@ -7,6 +7,8 @@ last-verified: 2026-11-18
 
 # ADR 0127: An owner waiver recorded in an outcome counts as proof for a flag
 
+> Refined by [ADR 0147](0147-vps-v1-is-every-applicable-flag-proven-live-one-per-run-from-release-locks.md) (proposed): on vps, `flag activate` refuses `--source owner-waiver`, so the waiver narrows to local. It stays valid for local.
+
 Source: ticket [#1265](https://github.com/corekraft/kore/issues/1265); the owner waived live verification of automatic-revert in local on issue [#225](https://github.com/corekraft/kore/issues/225) (comment 6984120814).
 
 Refines: [ADR 0077](0077-live-proof-gates-activation-not-merge.md), which makes a confirmed live-run verification the only proof that turns a flag on. The owner chose this route on 2026-11-18 ("A") in the main session; the ticket records that choice.

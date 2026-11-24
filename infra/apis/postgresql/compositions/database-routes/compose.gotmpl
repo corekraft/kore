@@ -4,6 +4,8 @@
 {{- $version := .observed.composite.resource.spec.compatibilityVersion | int }}
 {{- $host := printf "%s.%s.%s" $name $routes.organizationId $routes.domain }}
 {{- $certificates := ne $version 16 }}
+{{- $standard := eq (default "development" .observed.composite.resource.spec.serviceClass) "standard" }}
+{{- $memory := ternary "1Gi" "512Mi" $standard }}
 apiVersion: postgresql.cnpg.io/v1
 kind: Cluster
 metadata:
@@ -14,7 +16,16 @@ metadata:
   labels:
     platform.kore.dev/retention: {{ .observed.composite.resource.spec.retentionPolicy }}
 spec:
-  instances: 1
+  instances: {{ if $serviceClassInstances }}{{ ternary 2 1 $standard }}{{ else }}1{{ end }}
+{{- if $serviceClassInstances }}
+  enablePDB: {{ $standard }}
+  primaryUpdateMethod: switchover
+  resources:
+    requests:
+      memory: {{ $memory }}
+    limits:
+      memory: {{ $memory }}
+{{- end }}
   inheritedMetadata:
     labels:
       platform.kore.dev/retention: {{ .observed.composite.resource.spec.retentionPolicy }}

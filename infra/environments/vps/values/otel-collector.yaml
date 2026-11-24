@@ -9,7 +9,7 @@
                 [
                   {
                     "key": "k8s.cluster.name",
-                    "value": "REQUIRED",
+                    "value": "kore-vps",
                     "action": "upsert"
                   },
                   {
