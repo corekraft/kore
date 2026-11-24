@@ -1,8 +1,8 @@
 import { SAFETY_PATTERNS, isSafetyPattern } from "./flags-manifest.js";
+import { MIGRATIONS_PATH } from "./migration-paths.js";
 
 // Docs: AGENTS.md (Safety); the pattern is a git trailer on the head commit.
 const TRAILER = /^Safety-pattern:[ \t]*(\S+)[ \t]*$/im;
-const MIGRATIONS = "migrations/";
 const TEST_OR_DOC = [
   /(^|\/)(tests?|__tests__)\//,
   /\.(spec|test)\.[cm]?[jt]sx?$/,
@@ -39,11 +39,11 @@ export function patternFailures(input: PatternInput): string[] {
   }
   const failures: string[] = [];
   if (
-    changedPaths.some((path) => path.startsWith(MIGRATIONS)) &&
+    changedPaths.some((path) => path.startsWith(MIGRATIONS_PATH)) &&
     pattern !== "expand-contract"
   ) {
     failures.push(
-      `a migration under ${MIGRATIONS} needs the safety pattern expand-contract, not ${pattern}`,
+      `a migration under ${MIGRATIONS_PATH} needs the safety pattern expand-contract, not ${pattern}`,
     );
   }
   if (newFlags.length > 0 && pattern !== "feature-flagged") {
