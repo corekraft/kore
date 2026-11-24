@@ -10,6 +10,7 @@ vi.mock("../../src/platform/admission-gate.js", async (importOriginal) => ({
   openAdmissionGate: async () => undefined,
 }));
 import { loadRepository } from "../../src/config/index.js";
+import { withDriftListingMappingsOff } from "../../src/testing/index.js";
 import {
   desiredFingerprint,
   loadLocalGatewayFlagsOff,
@@ -46,7 +47,7 @@ test("controller bootstrap reconciles controllers before shared Gateway configur
 });
 
 test("controller bootstrap resumes a deployed component without another Helm upgrade", async () => {
-  const repository = await loadRepository("local");
+  const repository = withDriftListingMappingsOff(await loadRepository("local"));
   const component = repository.catalog.components.find(
     ({ name }) => name === "kore-postgresql-rbac",
   )!;
@@ -96,7 +97,7 @@ function k3dLifecycleRunner(): Runner {
 }
 
 test("platform stop stops the k3d cluster", async () => {
-  const repository = await loadRepository("local");
+  const repository = withDriftListingMappingsOff(await loadRepository("local"));
   const calls: { command: string; args: readonly string[] }[] = [];
   const runner: Runner = {
     run: async (command, args, options) => {
@@ -114,7 +115,7 @@ test("platform stop stops the k3d cluster", async () => {
 });
 
 test("platform destroy purges and then deletes the k3d cluster", async () => {
-  const repository = await loadRepository("local");
+  const repository = withDriftListingMappingsOff(await loadRepository("local"));
   const home = await mkdtemp(join(tmpdir(), "kore-platform-destroy-home-"));
   const previousHome = process.env["HOME"];
   process.env["HOME"] = home;

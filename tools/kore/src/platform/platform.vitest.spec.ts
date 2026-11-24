@@ -6,7 +6,19 @@ import { platformUp } from "./up.js";
 
 describe("platform safety boundaries", () => {
   it("does not start the k3d cluster when the configured context identifies another cluster", async () => {
-    const repository = await loadRepository("local");
+    const loaded = await loadRepository("local");
+    // This test is about the context boundary, not the drift check: turn the
+    // drift-listing-mappings flag off so the faked k3d listing is not read for mappings.
+    const repository = {
+      ...loaded,
+      environment: {
+        ...loaded.environment,
+        features: {
+          ...loaded.environment.features,
+          "drift-listing-mappings": false,
+        },
+      },
+    };
     const run = vi.fn(async (command: string) => {
       if (command === "k3d") {
         return runningK3d();
