@@ -4,7 +4,11 @@ import {
   ClusterUnavailableError,
   clusterUp,
 } from "../cluster/index.js";
-import { enabledComponents, isLocalProvider } from "../config/index.js";
+import {
+  enabledComponents,
+  featureEnabled,
+  isLocalProvider,
+} from "../config/index.js";
 import { ensureLocalSigningPublicKey } from "../images/index.js";
 import { closeExistingAdmissionGate } from "./admission-gate.js";
 import {
@@ -72,6 +76,131 @@ beforeEach(() => {
 
 test("a local cluster that is up is used as it is, with nothing created", async () => {
   await bootstrapControllers(local, fakeRunner().runner);
+  expect(clusterUp).not.toHaveBeenCalled();
+  expect(order[0]).toBe("cluster");
+});
+
+/** A running kore-local entry in the shape `k3d cluster list --output json` reports, with its load balancer's mappings. */
+function listedCluster(portMappings: Record<string, Binding[]>): string {
+  return JSON.stringify([
+    {
+      name: "kore-local",
+      serversCount: 1,
+      serversRunning: 1,
+      agentsCount: 0,
+      agentsRunning: 0,
+      hasLoadBalancer: true,
+      nodes: [
+        {
+          name: "k3d-kore-local-serverlb",
+          role: "loadbalancer",
+          portMappings,
+        },
+      ],
+    },
+  ]);
+}
+
+interface Binding {
+  HostIp: string;
+  HostPort: string;
+}
+
+/** The mappings of a cluster created before the 443 cutover: 8443 on the entry point and no 443 (#1683). */
+const preCutoverMappings: Record<string, Binding[]> = {
+  "30443/tcp": [{ HostIp: "127.0.0.1", HostPort: "8443" }],
+  "31053/tcp": [{ HostIp: "127.0.0.1", HostPort: "1053" }],
+  "31053/udp": [{ HostIp: "127.0.0.1", HostPort: "1053" }],
+  "30432/tcp": [{ HostIp: "127.0.0.1", HostPort: "5432" }],
+  "6443/tcp": [{ HostIp: "127.0.0.1", HostPort: "41234" }],
+};
+
+/** The same cluster after the cutover: the 443 entry point published. */
+const cutoverMappings: Record<string, Binding[]> = {
+  ...preCutoverMappings,
+  "30443/tcp": [{ HostIp: "127.0.0.1", HostPort: "443" }],
+};
+
+/** The local overlay's published ports, with platform-dns and database-routes on, as the running cluster is compared. */
+const localWithPorts = fakeRepository({
+  provider: "k3d",
+  k3d: {
+    clusterName: "kore-local",
+    serviceCidr: "10.96.0.0/12",
+    ports: [
+      {
+        hostAddress: "127.0.0.1",
+        hostPort: 443,
+        loadBalancerPort: 30443,
+        featureFlag: "platform-dns",
+      },
+      {
+        hostAddress: "127.0.0.1",
+        hostPort: 1053,
+        loadBalancerPort: 31053,
+        protocol: "tcp",
+        featureFlag: "platform-dns",
+      },
+      {
+        hostAddress: "127.0.0.1",
+        hostPort: 1053,
+        loadBalancerPort: 31053,
+        protocol: "udp",
+        featureFlag: "platform-dns",
+      },
+      {
+        hostAddress: "127.0.0.1",
+        hostPort: 5432,
+        loadBalancerPort: 30432,
+        featureFlag: "database-routes",
+      },
+    ],
+  },
+});
+
+/** Sets the flags the running-cluster check reads: the ports' flags on, and drift-listing-mappings as given. */
+function setDriftFlag(on: boolean): void {
+  vi.mocked(featureEnabled).mockImplementation(
+    (_environment, flag) =>
+      flag === "platform-dns" ||
+      flag === "database-routes" ||
+      (on && flag === "drift-listing-mappings"),
+  );
+}
+
+/** A runner whose `k3d cluster list` answers the given listing, and whose every other command answers nothing. */
+function listingRunner(listing: string) {
+  return fakeRunner((command) => (command === "k3d" ? listing : "")).runner;
+}
+
+test("with drift-listing-mappings on, a running cluster whose listing differs from the overlay is refused before bootstrap touches it (#1683)", async () => {
+  setDriftFlag(true);
+  const runner = listingRunner(listedCluster(preCutoverMappings));
+
+  await expect(bootstrapControllers(localWithPorts, runner)).rejects.toThrow(
+    "port 30443 (platform-dns): 8443 != 443",
+  );
+
+  expect(clusterUp).not.toHaveBeenCalled();
+  expect(order).toEqual([]);
+});
+
+test("with drift-listing-mappings off, the same running cluster is used as it was before the check (#1683)", async () => {
+  setDriftFlag(false);
+  const runner = listingRunner(listedCluster(preCutoverMappings));
+
+  await bootstrapControllers(localWithPorts, runner);
+
+  expect(clusterUp).not.toHaveBeenCalled();
+  expect(order[0]).toBe("cluster");
+});
+
+test("with drift-listing-mappings on, a running cluster whose listing matches the overlay is used as it is", async () => {
+  setDriftFlag(true);
+  const runner = listingRunner(listedCluster(cutoverMappings));
+
+  await bootstrapControllers(localWithPorts, runner);
+
   expect(clusterUp).not.toHaveBeenCalled();
   expect(order[0]).toBe("cluster");
 });

@@ -8,10 +8,12 @@ import { isLocalProvider } from "./provider.js";
 vi.mock("./provider.js", () => ({ isLocalProvider: vi.fn() }));
 vi.mock("./features.js", () => ({
   featureEnabled: vi.fn(),
+  externalGatewayFlag: "external-gateway",
   inClusterCaFlag: "in-cluster-ca",
   otlpRouteFlag: "otlp-route",
   registryByNameFlag: "registry-by-name",
   platformSharedGatewayFlag: "platform-shared-gateway",
+  serviceListenerSetsFlag: "service-listener-sets",
 }));
 
 const environment = fakeEnvironment({ name: "local" });
@@ -63,6 +65,34 @@ test("registry-by-name off needs nothing, whether or not the shared Gateway is o
   flagsOn();
   expect(flagDependencyErrors(environment)).toEqual([]);
   flagsOn("platform-shared-gateway");
+  expect(flagDependencyErrors(environment)).toEqual([]);
+});
+
+test("external-gateway on with service-listener-sets off is refused, naming both flags and the fix", () => {
+  flagsOn("external-gateway", "platform-shared-gateway");
+  expect(flagDependencyErrors(environment)).toEqual([
+    'environment local turns on external-gateway, which needs service-listener-sets: the external Gateway admits ListenerSets only from the namespaces the platform labels as shared; set "service-listener-sets": true in the local environment overlay, or turn external-gateway off',
+  ]);
+});
+
+test("external-gateway on with service-listener-sets on has no error", () => {
+  flagsOn(
+    "external-gateway",
+    "service-listener-sets",
+    "platform-shared-gateway",
+  );
+  expect(flagDependencyErrors(environment)).toEqual([]);
+});
+
+test("service-listener-sets on with platform-shared-gateway off is refused, naming both flags and the fix", () => {
+  flagsOn("service-listener-sets");
+  expect(flagDependencyErrors(environment)).toEqual([
+    'environment local turns on service-listener-sets, which needs platform-shared-gateway: the Gateways admit ListenerSets only from the namespaces the shared-Gateway label marks, which only platform-shared-gateway sets; set "platform-shared-gateway": true in the local environment overlay, or turn service-listener-sets off',
+  ]);
+});
+
+test("service-listener-sets on with platform-shared-gateway on has no error", () => {
+  flagsOn("service-listener-sets", "platform-shared-gateway");
   expect(flagDependencyErrors(environment)).toEqual([]);
 });
 

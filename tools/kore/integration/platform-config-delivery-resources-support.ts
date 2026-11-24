@@ -21,6 +21,7 @@ export const namespacedKinds = new Set([
   "/ServiceAccount",
   "cert-manager.io/Certificate",
   "gateway.networking.k8s.io/Gateway",
+  "gateway.networking.k8s.io/HTTPRoute",
   "security.istio.io/AuthorizationPolicy",
   "security.istio.io/PeerAuthentication",
   "config.gatekeeper.sh/Config",

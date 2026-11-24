@@ -4,3 +4,7 @@ gateway: { port: 443, certificateSecret: kore-local-tls }
 # the cluster, not an ACME issuer, because the cluster has no public ingress.
 issuer: { name: kore-local-ca }
 secrets: { sourceNamespace: external, storeName: platform-secrets }
+# The node port the external Gateway's Service is published on (ADR 0160,
+# issue 1633); the host's port table maps it to public 80. Read only while
+# external-gateway is on.
+externalGateway: { service: { nodePort: 30080 } }

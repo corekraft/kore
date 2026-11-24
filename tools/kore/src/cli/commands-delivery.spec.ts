@@ -38,6 +38,8 @@ beforeEach(() => {
     flagsText: async () => undefined,
     baseFlagsText: async () => undefined,
     changedPaths: async () => [],
+    changes: async () => [],
+    headText: async () => "",
     headMessage: async () => "",
   });
 });
@@ -126,12 +128,90 @@ test("the candidate's version, digest and --today date are passed to the evaluat
   await evalCommand(
     fakeContext({ parsed: parsedArgs(flags, ["/work/leads"]) }),
   );
-  expect(evaluateApp).toHaveBeenCalledWith(expect.anything(), {
-    version: "1.2.3+abc1234",
-    digest,
-    published: undefined,
-    today: "2026-11-23",
-  });
+  expect(evaluateApp).toHaveBeenCalledWith(
+    expect.anything(),
+    expect.objectContaining({
+      version: "1.2.3+abc1234",
+      digest,
+      published: undefined,
+      today: "2026-11-23",
+    }),
+  );
+});
+
+test("an eval without --carries-plan is not the carrier, so it attests the empty plan", async () => {
+  await evalCommand(
+    fakeContext({ parsed: parsedArgs(flags, ["/work/leads"]) }),
+  );
+  expect(evaluateApp).toHaveBeenCalledWith(
+    expect.anything(),
+    expect.objectContaining({ carriesPlan: false }),
+  );
+});
+
+test("--carries-plan marks the carrier, and the N-1 steps come from flags while the scratch URL comes from the environment", async () => {
+  const before = process.env.KORE_EVAL_SCRATCH_DATABASE_URL;
+  process.env.KORE_EVAL_SCRATCH_DATABASE_URL = "scratch-database-placeholder";
+  try {
+    const context = fakeContext({
+      parsed: parsedArgs(
+        {
+          ...flags,
+          "carries-plan": true,
+          "n1-apply": "/eval/apply-migrations",
+          "n1-previous-suite": "/eval/previous-suite",
+        },
+        ["/work/leads"],
+      ),
+    });
+    await evalCommand(context);
+    expect(evaluateApp).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({
+        carriesPlan: true,
+        n1: {
+          runner: context.runner,
+          dir: "/work/leads",
+          baseEnv: process.env,
+          apply: "/eval/apply-migrations",
+          previousSuite: "/eval/previous-suite",
+          databaseUrl: "scratch-database-placeholder",
+        },
+      }),
+    );
+  } finally {
+    if (before === undefined) {
+      delete process.env.KORE_EVAL_SCRATCH_DATABASE_URL;
+    } else {
+      process.env.KORE_EVAL_SCRATCH_DATABASE_URL = before;
+    }
+  }
+});
+
+test("the N-1 inputs that were not given are passed as undefined, so the check names them as missing", async () => {
+  const before = process.env.KORE_EVAL_SCRATCH_DATABASE_URL;
+  delete process.env.KORE_EVAL_SCRATCH_DATABASE_URL;
+  try {
+    await evalCommand(
+      fakeContext({
+        parsed: parsedArgs({ ...flags, "carries-plan": true }, ["/work/leads"]),
+      }),
+    );
+    expect(evaluateApp).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({
+        n1: expect.objectContaining({
+          apply: undefined,
+          previousSuite: undefined,
+          databaseUrl: undefined,
+        }),
+      }),
+    );
+  } finally {
+    if (before !== undefined) {
+      process.env.KORE_EVAL_SCRATCH_DATABASE_URL = before;
+    }
+  }
 });
 
 test("--published is read as a JSON map of version to digest", async () => {

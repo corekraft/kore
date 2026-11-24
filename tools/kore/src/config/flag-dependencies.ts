@@ -1,33 +1,65 @@
 import {
+  externalGatewayFlag,
   featureEnabled,
   inClusterCaFlag,
   otlpRouteFlag,
   platformSharedGatewayFlag,
   registryByNameFlag,
+  serviceListenerSetsFlag,
 } from "./features.js";
 import { isLocalProvider } from "./provider.js";
 import type { Environment } from "./types.js";
 
 // Docs: docs/decisions/0132-local-names-resolve-through-platform-dns-and-one-loopback-entry-point.md
+// Docs: docs/decisions/0159-services-attach-to-the-platform-gateways-through-listener-sets-and-hostname-claims.md
+// Docs: docs/decisions/0160-vps-has-an-internal-gateway-on-the-tailnet-and-an-external-gateway-on-public-443.md
 
-/** What each flag served through the shared Gateway, for the refusal's message. */
-const sharedGatewayReasons: Record<string, string> = {
-  [registryByNameFlag]:
-    "its passthrough listener and the registry's name are served only through the shared Gateway",
-  [otlpRouteFlag]: "its route is served only through the shared Gateway",
-};
+/** A flag that is refused on without the flag it needs, and why it needs it. */
+interface Requirement {
+  flag: string;
+  needs: string;
+  reason: string;
+}
+
+/** The requirements between flags. Each is checked on its own, so a chain reports every broken link. */
+const requirements: Requirement[] = [
+  {
+    flag: registryByNameFlag,
+    needs: platformSharedGatewayFlag,
+    reason:
+      "its passthrough listener and the registry's name are served only through the shared Gateway",
+  },
+  {
+    flag: otlpRouteFlag,
+    needs: platformSharedGatewayFlag,
+    reason: "its route is served only through the shared Gateway",
+  },
+  {
+    flag: serviceListenerSetsFlag,
+    needs: platformSharedGatewayFlag,
+    reason:
+      "the Gateways admit ListenerSets only from the namespaces the shared-Gateway label marks, which only platform-shared-gateway sets",
+  },
+  {
+    flag: externalGatewayFlag,
+    needs: serviceListenerSetsFlag,
+    reason:
+      "the external Gateway admits ListenerSets only from the namespaces the platform labels as shared",
+  },
+];
 
 /**
  * Errors of a flag turned on without a flag it needs, found before any
  * mutation: registry-by-name and otlp-route serve a name through the shared
- * Gateway, so each needs platform-shared-gateway (ADR 0132, ADR 0140).
+ * Gateway (ADR 0132, ADR 0140), service-listener-sets admits ListenerSets only
+ * from the shared-Gateway namespaces (ADR 0159), and the external Gateway needs
+ * service-listener-sets (ADR 0160).
  */
 export function flagDependencyErrors(environment: Environment): string[] {
-  const sharedGateway = Object.keys(sharedGatewayReasons).flatMap((flag) =>
-    featureEnabled(environment, flag) &&
-    !featureEnabled(environment, platformSharedGatewayFlag)
+  const needed = requirements.flatMap(({ flag, needs, reason }) =>
+    featureEnabled(environment, flag) && !featureEnabled(environment, needs)
       ? [
-          `environment ${environment.name} turns on ${flag}, which needs ${platformSharedGatewayFlag}: ${sharedGatewayReasons[flag]}; set "${platformSharedGatewayFlag}": true in the ${environment.name} environment overlay, or turn ${flag} off`,
+          `environment ${environment.name} turns on ${flag}, which needs ${needs}: ${reason}; set "${needs}": true in the ${environment.name} environment overlay, or turn ${flag} off`,
         ]
       : [],
   );
@@ -37,5 +69,5 @@ export function flagDependencyErrors(environment: Environment): string[] {
           `environment ${environment.name} turns on ${inClusterCaFlag}, which creates the cluster's own root CA, but a k3d environment's CA comes from kore trust install and the two would own one ClusterIssuer; turn ${inClusterCaFlag} off in the ${environment.name} environment overlay`,
         ]
       : [];
-  return [...sharedGateway, ...twoCaOwners];
+  return [...needed, ...twoCaOwners];
 }

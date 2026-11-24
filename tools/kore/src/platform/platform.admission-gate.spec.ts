@@ -19,6 +19,7 @@ const control = vi.hoisted(() => ({
 
 vi.mock("../cluster/index.js", () => ({
   assertExpectedCluster: async () => undefined,
+  assertRunningK3dMatchesOverlay: async () => undefined,
   ClusterUnavailableError: class extends Error {},
   clusterUp: async () => undefined,
 }));
