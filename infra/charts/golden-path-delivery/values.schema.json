@@ -41,6 +41,10 @@
       "description": "Set by kore only while golden-path-safety-defaults is on (ADR 0154). The sync then passes safetyDefaults=true to each workload, so its chart renders the workload safety defaults. Off, the sync sets no such parameter.",
       "type": "boolean"
     },
+    "serviceIdentity": {
+      "description": "Set by kore only while golden-path-service-identity is on (issue 1551). The sync then passes serviceIdentity=true to each workload, so its chart renders a Service and a ServiceAccount named after the service and runs each Deployment as that account. Off, the sync sets no such parameter.",
+      "type": "boolean"
+    },
     "appDelivery": {
       "description": "Set by kore only while app-delivery is on (ADR 0166, ADR 0172). The sync then gives each Application its service's release file as an optional values file, so the workload deploys the release's digest. Off, the sync sets no values file.",
       "type": "boolean"

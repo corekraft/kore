@@ -46,6 +46,7 @@
       "agentgateway-data-plane-metrics": false,
       "platform-organization-service-apis": false,
       "platform-argocd-delivery": false,
+      "suborg-tenancy": false,
       "platform-sync-window": false,
       "release-recovery-argocd-refusal": false,
       "database-routes": false,
@@ -72,9 +73,12 @@
       "golden-path-signin-after-portal": false,
       "postgresql-service-class-instances": false,
       "gateway-proxy-defaults": false,
+      "data-path-guaranteed-qos": false,
       "golden-path-safety-defaults": false,
+      "golden-path-service-identity": false,
       "app-delivery": false,
-      "workload-defaults-admission": false
+      "workload-defaults-admission": false,
+      "openbao": false
     },
   "secrets": { "storeName": "platform-secrets", "sourceNamespace": "external" },
   "telemetry":

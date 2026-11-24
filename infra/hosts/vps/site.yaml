@@ -19,6 +19,9 @@
     - neovim
     - incus
     - k3s
+    # The OpenBao static seal key (ADR 0168), placed only while the vps overlay's
+    # openbao flag is on. Last: the node's cluster is converged before the key lands.
+    - openbao
 
 - name: Converge the agents VM
   hosts: kore-agents

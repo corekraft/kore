@@ -176,6 +176,15 @@ test("purging deletes the PostgreSQL instances with --wait and the claims withou
   ]);
 });
 
+test("purging one namespace deletes only that namespace's PostgreSQL instances and claims", async () => {
+  const { runner, run } = fakeRunner();
+  await purgeRetainedResources(repository, runner, "registry-ns");
+  expect(commandLines(run)).toEqual([
+    `kubectl --context k3d-kore-local delete postgresqlinstances.platform.kore.dev --namespace registry-ns --selector ${RETAIN} --ignore-not-found --wait`,
+    `kubectl --context k3d-kore-local delete pvc --namespace registry-ns --selector ${RETAIN} --ignore-not-found --wait=false`,
+  ]);
+});
+
 test("a PostgreSQL CRD that was never installed is skipped, and the claims are still purged", async () => {
   const { runner, run } = fakeRunner((_command, args) => {
     if (args.includes("postgresqlinstances.platform.kore.dev")) {

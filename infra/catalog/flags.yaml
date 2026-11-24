@@ -43,6 +43,17 @@
         "applies": ["local", "vps", "managed-example"]
       },
       {
+        "name": "suborg-tenancy",
+        "kind": "feature",
+        "applies": ["local", "vps", "managed-example"],
+        "requires":
+          [
+            "platform-organization-service-apis",
+            "platform-argocd-delivery",
+            "platform-portal"
+          ]
+      },
+      {
         "name": "platform-sync-window",
         "kind": "feature",
         "applies": ["local", "vps", "managed-example"]
@@ -61,7 +72,7 @@
       {
         "name": "external-gateway",
         "kind": "feature",
-        "applies": ["vps"],
+        "applies": ["local", "vps", "managed-example"],
         "requires": ["service-listener-sets", "acme-issuers"]
       },
       {
@@ -144,9 +155,20 @@
         "applies": ["local", "vps", "managed-example"]
       },
       {
+        "name": "data-path-guaranteed-qos",
+        "kind": "feature",
+        "applies": ["local", "vps", "managed-example"]
+      },
+      {
         "name": "golden-path-safety-defaults",
         "kind": "feature",
         "applies": ["local", "vps", "managed-example"]
+      },
+      {
+        "name": "golden-path-service-identity",
+        "kind": "feature",
+        "applies": ["local", "vps", "managed-example"],
+        "requires": ["platform-argocd-delivery"]
       },
       {
         "name": "app-delivery",
@@ -179,6 +201,7 @@
         "applies": ["local"]
       },
       { "name": "host-published-ports", "kind": "feature", "applies": ["vps"] },
+      { "name": "openbao", "kind": "feature", "applies": ["vps"] },
       {
         "name": "registry-tag-pruning",
         "kind": "feature",

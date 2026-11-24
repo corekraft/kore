@@ -44,7 +44,14 @@ export const COMMANDS: ReadonlyMap<string, CommandSpec> = new Map<
   [
     "platform",
     {
-      mutations: ["bootstrap", "up", "gate-check", "stop", "destroy"],
+      mutations: [
+        "bootstrap",
+        "up",
+        "gate-check",
+        "stop",
+        "destroy",
+        "uninstall",
+      ],
       run: platformCommand,
     },
   ],

@@ -68,6 +68,8 @@ export interface Component {
   readiness: string[];
   /** Readiness resources that exist only while a flag is on, keyed by resource (issue 1884). */
   readinessFlags?: Record<string, string>;
+  /** Value files that carry only a flag's numbers, keyed by the file in values, with the flag as value; a flag-off file is not passed to Helm (issue 1593). */
+  valuesFlags?: Record<string, string>;
   helm?: HelmOptions;
   /** Probe fields a chart gives no value for, applied by a Helm post-renderer (see the probe patches ADR). */
   patches?: ProbePatch[];
@@ -423,6 +425,8 @@ export interface GoldenPathDeliveryValues {
   templateAdmission?: boolean;
   /** Set only while golden-path-safety-defaults is on: the sync sets safetyDefaults on each workload (ADR 0154). */
   safetyDefaults?: boolean;
+  /** Set only while golden-path-service-identity is on: the sync sets serviceIdentity on each workload, so it renders its Service, ServiceAccount and pod-spec identity (issue 1551). */
+  serviceIdentity?: boolean;
   /** Set only while app-delivery is on: each Application takes its service's release file as an optional values file, so the workload deploys the release's digest (ADR 0166, ADR 0172). */
   appDelivery?: boolean;
   autoscaling?: boolean;
@@ -466,6 +470,12 @@ export interface Repository {
    * Services from here (plan 15, #1235).
    */
   registeredServices?: readonly string[] | undefined;
+  /**
+   * The suborg names the Organization records of the environment give, in name
+   * order, each a record that passes the checks; set by `loadRepository` whatever
+   * the flags are. The acme-dns01 flag renders a wildcard pair for each (ADR 0161).
+   */
+  suborgs?: readonly string[] | undefined;
   /** Findings that warn without failing validation; set by `loadRepository`. */
   warnings?: string[] | undefined;
 }

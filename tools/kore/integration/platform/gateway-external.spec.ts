@@ -2,7 +2,6 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import { test } from "vitest";
 import {
-  featureEnabled,
   loadRepository,
   validateRepository,
   type Repository,
@@ -64,11 +63,7 @@ test.each([
   "with both new flags off the %s platform-config render is byte-identical to the render taken from main",
   async (name, file) => {
     const repository = await loadRepository(name);
-    // Issue 1637: external-gateway applies to vps only, so local and managed-example do not list it; off is the same.
-    assert.equal(
-      featureEnabled(repository.environment, "external-gateway"),
-      false,
-    );
+    assert.equal(repository.environment.features?.["external-gateway"], false);
     assert.equal(
       repository.environment.features?.["service-listener-sets"],
       false,
@@ -235,12 +230,14 @@ test("service-listener-sets on with platform-shared-gateway off is refused, nami
   );
 });
 
-test("the two flags are listed false in every overlay they apply to, and external-gateway applies to vps only", async () => {
-  // Issue 1637: external-gateway needs acme-issuers, which applies to vps only, so it is not listed elsewhere.
-  const vps = await loadRepository("vps");
-  assert.equal(vps.environment.features?.["external-gateway"], false, "vps");
+test("the two flags are listed false in every overlay", async () => {
   for (const name of ["local", "vps", "managed-example"]) {
     const repository = await loadRepository(name);
+    assert.equal(
+      repository.environment.features?.["external-gateway"],
+      false,
+      `${name} external-gateway`,
+    );
     assert.equal(
       repository.environment.features?.["service-listener-sets"],
       false,

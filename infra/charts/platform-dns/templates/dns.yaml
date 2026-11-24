@@ -59,8 +59,13 @@ spec:
             periodSeconds: 5
             timeoutSeconds: 2
           resources:
+            {{- if index (.Values.features | default dict) "data-path-guaranteed-qos" }}
+            requests: {cpu: {{ required "guaranteed.cpu must be set in the environment's values, for example 200m, while data-path-guaranteed-qos is on" .Values.guaranteed.cpu }}, memory: {{ required "guaranteed.memory must be set in the environment's values, for example 64Mi, while data-path-guaranteed-qos is on" .Values.guaranteed.memory }}}
+            limits: {cpu: {{ .Values.guaranteed.cpu }}, memory: {{ .Values.guaranteed.memory }}}
+            {{- else }}
             requests: {cpu: 25m, memory: 32Mi}
             limits: {cpu: 200m, memory: 64Mi}
+            {{- end }}
           volumeMounts:
             - {name: corefile, mountPath: /etc/coredns, readOnly: true}
       volumes:

@@ -1,0 +1,165 @@
+# Dark launch: every task here is gated by the openbao flag in the vps overlay
+# (off until a live run and harness flag activate). With it off a run changes
+# nothing, on the controller or on the node.
+#
+# The key's value is never printed: the tasks that touch it are no_log, and the
+# checks below read only counts, modes, owners, devices and SHA-256 digests.
+
+- name: Find the OpenBao seal key on the controller
+  ansible.builtin.stat:
+    path: "{{ openbao_seal_controller_key }}"
+  delegate_to: localhost
+  become: false
+  run_once: true
+  register: openbao_controller_key
+  when: openbao_seal_enabled | bool
+
+- name: Require the OpenBao seal key on the controller
+  ansible.builtin.assert:
+    that:
+      - openbao_controller_key.stat.exists
+    fail_msg: >-
+      The OpenBao static seal key is missing on the controller at
+      {{ openbao_seal_controller_key }}. Create it on a first placement only, with:
+      install -d -m 0700 ~/.config/kore && openssl rand -base64 32 >
+      ~/.config/kore/openbao-static-seal.key && chmod 0400
+      ~/.config/kore/openbao-static-seal.key
+      On a rebuild, copy the key from the recovery kit instead: a new key cannot
+      unseal the OpenBao that already holds the old one (ADR 0168).
+    success_msg: The OpenBao static seal key is on the controller.
+  run_once: true
+  when: openbao_seal_enabled | bool
+
+- name: Measure the controller key's decoded length
+  ansible.builtin.command:
+    argv:
+      - bash
+      - -o
+      - pipefail
+      - -c
+      - base64 -d < "$1" | wc -c
+      - bash
+      - "{{ openbao_seal_controller_key }}"
+  delegate_to: localhost
+  become: false
+  run_once: true
+  changed_when: false
+  failed_when: false
+  register: openbao_controller_key_bytes
+  when: openbao_seal_enabled | bool
+
+- name: Require the controller key to decode to 32 bytes
+  ansible.builtin.assert:
+    that:
+      - openbao_controller_key_bytes.rc == 0
+      - openbao_controller_key_bytes.stdout | trim == "32"
+    fail_msg: >-
+      The OpenBao static seal key on the controller does not decode to 32 bytes.
+      Nothing was placed. Replace the controller copy from the recovery kit; do not
+      generate a new key over an OpenBao that already holds one (ADR 0168).
+    success_msg: The OpenBao static seal key decodes to 32 bytes.
+  run_once: true
+  when: openbao_seal_enabled | bool
+
+- name: Stat the OpenBao seal key's directory on the node
+  ansible.builtin.stat:
+    path: "{{ openbao_seal_key_dir }}"
+  register: openbao_seal_dir
+  when: openbao_seal_enabled | bool
+
+- name: Stat the root filesystem so the key's location can be checked
+  ansible.builtin.stat:
+    path: /
+  register: openbao_root_fs
+  when: openbao_seal_enabled | bool
+
+- name: Require the OpenBao seal key directory to match its contract
+  ansible.builtin.assert:
+    that:
+      - openbao_seal_dir.stat.mode == "0700"
+      - openbao_seal_dir.stat.pw_name == "root"
+      - openbao_seal_dir.stat.dev == openbao_root_fs.stat.dev
+    fail_msg: >-
+      {{ openbao_seal_key_dir }} exists but is not a root-only directory on the root
+      filesystem (mode 0700, owner root, not on the k3s data volume). The run stops
+      and changes nothing; check it by hand (ADR 0168).
+    success_msg: The OpenBao seal key directory matches its contract.
+  when:
+    - openbao_seal_enabled | bool
+    - openbao_seal_dir.stat.exists
+
+- name: Create the OpenBao seal key directory
+  ansible.builtin.file:
+    path: "{{ openbao_seal_key_dir }}"
+    state: directory
+    owner: root
+    group: root
+    mode: "0700"
+  when:
+    - openbao_seal_enabled | bool
+    - not openbao_seal_dir.stat.exists
+    - not ansible_check_mode
+
+- name: Stat the OpenBao seal key on the node
+  ansible.builtin.stat:
+    path: "{{ openbao_seal_key_path }}"
+    checksum_algorithm: sha256
+    get_checksum: true
+  register: openbao_seal_key_before
+  no_log: true
+  when: openbao_seal_enabled | bool
+
+- name: Read the controller key's SHA-256 without printing it
+  ansible.builtin.set_fact:
+    openbao_seal_key_sha256: "{{ lookup('ansible.builtin.file', openbao_seal_controller_key) | trim | hash('sha256') }}"
+  no_log: true
+  when: openbao_seal_enabled | bool
+
+# The key is written only when no file is there, and noclobber makes the write
+# fail rather than replace a key that appeared since the stat above. The umask
+# keeps it private from the first byte.
+- name: Place the OpenBao seal key through stdin
+  ansible.builtin.command:
+    argv:
+      - bash
+      - -c
+      - umask 077 && set -o noclobber && cat > "$1" && chmod 0400 "$1"
+      - bash
+      - "{{ openbao_seal_key_path }}"
+    stdin: "{{ lookup('ansible.builtin.file', openbao_seal_controller_key) | trim }}"
+    stdin_add_newline: false
+  changed_when: true
+  no_log: true
+  when:
+    - openbao_seal_enabled | bool
+    - not openbao_seal_key_before.stat.exists
+    - not ansible_check_mode
+
+- name: Stat the OpenBao seal key on the node after placement
+  ansible.builtin.stat:
+    path: "{{ openbao_seal_key_path }}"
+    checksum_algorithm: sha256
+    get_checksum: true
+  register: openbao_seal_key
+  no_log: true
+  when: openbao_seal_enabled | bool
+
+# Runs after every apply, placed now or earlier. A drifted mode, owner, location
+# or content fails the run; the role never repairs the key into a looser state.
+- name: Require the OpenBao seal key to match its contract
+  ansible.builtin.assert:
+    that:
+      - openbao_seal_key.stat.mode == "0400"
+      - openbao_seal_key.stat.pw_name == "root"
+      - openbao_seal_key.stat.gr_name == "root"
+      - openbao_seal_key.stat.dev == openbao_root_fs.stat.dev
+      - openbao_seal_key.stat.checksum == openbao_seal_key_sha256
+    fail_msg: >-
+      The OpenBao static seal key on the node does not match its contract (mode 0400,
+      owner and group root, on the root filesystem, the same content as the
+      controller's copy). The run stops and changes nothing; check it by hand
+      (ADR 0168).
+    success_msg: The OpenBao static seal key matches its contract.
+  when:
+    - openbao_seal_enabled | bool
+    - openbao_seal_key.stat.exists

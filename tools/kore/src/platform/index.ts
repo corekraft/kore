@@ -3,6 +3,8 @@ export { bootstrapControllers, closeGateIfDegraded } from "./bootstrap.js";
 export type { GateCheckResult } from "./bootstrap.js";
 export { readinessFailureSummary } from "./readiness-manifest.js";
 export { platformStop, platformDestroy } from "./lifecycle.js";
+export { uninstallGatedRelease } from "./gated-uninstall.js";
+export type { UninstallOptions, UninstallResult } from "./gated-uninstall.js";
 export { platformRender } from "./render.js";
 export { applyProbePatches } from "./patches.js";
 export { platformStatusReport } from "./crd-ownership-status.js";

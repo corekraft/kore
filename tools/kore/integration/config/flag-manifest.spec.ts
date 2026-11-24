@@ -94,6 +94,7 @@ test("the flags that apply to vps are the ones the manifest declares, pending fl
     "agentgateway-data-plane-metrics",
     "platform-organization-service-apis",
     "platform-argocd-delivery",
+    "suborg-tenancy",
     "platform-sync-window",
     "platform-shared-gateway",
     "service-listener-sets",
@@ -111,11 +112,14 @@ test("the flags that apply to vps are the ones the manifest declares, pending fl
     "golden-path-signin-after-portal",
     "postgresql-service-class-instances",
     "gateway-proxy-defaults",
+    "data-path-guaranteed-qos",
     "golden-path-safety-defaults",
+    "golden-path-service-identity",
     "app-delivery",
     "workload-defaults-admission",
     "release-recovery-argocd-refusal",
     "host-published-ports",
+    "openbao",
     "platform-dns",
     "in-cluster-ca",
     "k3s-registry-trust",
@@ -159,52 +163,70 @@ test("the real manifest declares each prerequisite the overlay check enforces, s
   assert.deepEqual(requiredFlags(flags, "autoscaling-defaults"), []);
 });
 
-test("in-cluster-ca is refused in the local overlay through the manifest, because its entry applies to vps and managed-example only", async () => {
+test("in-cluster-ca is refused in the local overlay by the manifest and by the provider check, each in its own words", async () => {
   const message = await rejectionOf(
     await withFeatures("local", {
       ...(await loadRepository("local")).environment.features,
       "in-cluster-ca": true,
     }),
   );
-  // The old k3d refusal still reports alongside the manifest's until the contract step deletes it.
   assert.ok(
     message.includes(
       "flag in-cluster-ca is in the local overlay but its entry applies to vps, managed-example only; add local to its applies or remove it from the local overlay (ADR 0148)",
     ),
     message,
   );
+  assert.ok(
+    message.includes(
+      "environment local turns on in-cluster-ca, which creates the cluster's own root CA, but a k3d environment's CA comes from kore trust install and the two would own one ClusterIssuer; turn in-cluster-ca off in the local environment overlay",
+    ),
+    message,
+  );
 });
 
-// Issue 1637: external-gateway needs acme-issuers, which applies to vps only, so the external Gateway is a vps
-// flag: a local or managed-example overlay that carries it, or turns it on, is refused through the manifest.
-test("external-gateway applies to vps only, so no local or managed-example overlay lists it, and turning it on there is refused by the manifest", async () => {
+test("each prerequisite edge is refused by validation when the flag is on and its required flag is off, naming both flags", async () => {
+  const edges = [
+    ["registry-by-name", "platform-shared-gateway"],
+    ["otlp-route", "platform-shared-gateway"],
+    ["service-listener-sets", "platform-shared-gateway"],
+    ["external-gateway", "service-listener-sets"],
+    ["external-gateway-limits", "external-gateway"],
+    ["external-dns", "external-gateway"],
+  ] as const;
+  const { environment } = await loadRepository("local");
+  const allOff = Object.fromEntries(
+    Object.keys(environment.features ?? {}).map((name) => [name, false]),
+  );
+  for (const [flag, needed] of edges) {
+    const message = await rejectionOf(
+      await withFeatures("local", { ...allOff, [flag]: true }),
+    );
+    assert.ok(
+      message.includes(
+        `flag ${flag} is on in the local overlay but requires ${needed}, which is off there; set "${needed}": true in the local overlay, or turn ${flag} off (ADR 0148)`,
+      ),
+      `${flag} needs ${needed}: ${message}`,
+    );
+  }
+});
+
+// Issue 1637: external-gateway keeps the environments it applies to, and its edge to acme-issuers is declared in the
+// manifest's requires only. acme-issuers applies to vps alone, so the edge is checked where both flags are on.
+test("external-gateway applies to local, vps and managed-example, and every one of those overlays lists it false", async () => {
   const { flags } = await loadRepository("vps");
-  assert.deepEqual(flagEntry(flags, "external-gateway")?.applies, ["vps"]);
-  for (const name of ["local", "managed-example"]) {
+  assert.deepEqual(flagEntry(flags, "external-gateway")?.applies, [
+    "local",
+    "vps",
+    "managed-example",
+  ]);
+  for (const name of ["local", "vps", "managed-example"]) {
     const repository = await loadRepository(name);
     assert.equal(
       repository.environment.features?.["external-gateway"],
-      undefined,
-      name,
-    );
-    assert.equal(
-      appliedFlags(repository.flags, name).includes("external-gateway"),
       false,
       name,
     );
   }
-  const message = await rejectionOf(
-    await withFeatures("local", {
-      ...(await loadRepository("local")).environment.features,
-      "external-gateway": true,
-    }),
-  );
-  assert.ok(
-    message.includes(
-      "flag external-gateway is in the local overlay but its entry applies to vps only; add local to its applies or remove it from the local overlay (ADR 0148)",
-    ),
-    message,
-  );
 });
 
 test("a fixture overlay that turns a flag on still validates, so activating a flag does not break the vps overlay", async () => {
@@ -245,8 +267,8 @@ test("a fixture that turns one of the not-applicable flags on for vps fails vali
   assert.equal(
     message,
     [
-      'environment vps turns on otlp-route, which needs platform-shared-gateway: its route is served only through the shared Gateway; set "platform-shared-gateway": true in the vps environment overlay, or turn otlp-route off',
       "flag otlp-route is on in the vps overlay but infra/catalog/flags.yaml marks it not applicable to vps (pods send OTLP to the in-cluster collector, and no route goes on a Gateway reachable without OTLP authentication (ADR 0174, ADR 0140).); keep it off there (ADR 0148)",
+      'flag otlp-route is on in the vps overlay but requires platform-shared-gateway, which is off there; set "platform-shared-gateway": true in the vps overlay, or turn otlp-route off (ADR 0148)',
     ].join("\n"),
   );
 });

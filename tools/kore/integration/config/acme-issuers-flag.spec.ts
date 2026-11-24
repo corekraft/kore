@@ -181,14 +181,14 @@ test("external-gateway on without acme-issuers is refused by validation, naming 
         [dnsFlag]: true,
       }),
     ),
-    /turns on external-gateway, which needs acme-issuers[\s\S]*set "acme-issuers": true in the vps environment overlay/,
+    /flag external-gateway is on in the vps overlay but requires acme-issuers, which is off there; set "acme-issuers": true in the vps overlay/,
   );
 });
 
 test("acme-issuers on without acme-dns01 is refused by validation, naming both flags", async () => {
   await assert.rejects(
     validateRepository(await withFlags("vps", { [flag]: true })),
-    /turns on acme-issuers, which needs acme-dns01[\s\S]*set "acme-dns01": true in the vps environment overlay/,
+    /flag acme-issuers is on in the vps overlay but requires acme-dns01, which is off there; set "acme-dns01": true in the vps overlay/,
   );
 });
 

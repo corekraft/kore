@@ -62,6 +62,20 @@ export function readinessGatedOff(
   return flag !== undefined && !featureEnabled(environment, flag);
 }
 
+/**
+ * Whether a component's value file is left out of its Helm arguments because the
+ * flag that gates it is off: a component's valuesFlags names the flag per file, so a
+ * file that carries only a flag's numbers is not passed to Helm while the flag is off (issue 1593).
+ */
+export function valuesGatedOff(
+  environment: Pick<Environment, "features">,
+  component: { valuesFlags?: Record<string, string> | undefined },
+  path: string,
+): boolean {
+  const flag = component.valuesFlags?.[path];
+  return flag !== undefined && !featureEnabled(environment, flag);
+}
+
 /** Catalog components the environment installs, in dependency order. */
 export function enabledComponents(repository: Repository): Component[] {
   return orderedComponents(repository.catalog).filter(
@@ -77,6 +91,9 @@ export const registryPruneFlag = "registry-tag-pruning";
 
 /** The flag that installs metrics-server and turns on autoscaling defaults (ADR 0047). */
 export const autoscalingFlag = "autoscaling-defaults";
+
+/** The flag that creates each suborg's namespace, labels, ResourceQuota and LimitRange from the Organization composition, and stops the Service composition creating a namespace per environment (ADR 0165, issue 1550). Needs the Organization API, the records Application and the portal, which together make the Organization the one namespace owner. Off in every overlay until a recorded live outcome. */
+export const suborgTenancyFlag = "suborg-tenancy";
 
 /** The flag that installs the Organization and Service platform APIs, for the platform organization only (plan 15 step 2). */
 export const organizationServiceApisFlag = "platform-organization-service-apis";
@@ -186,11 +203,17 @@ export const postgresqlServiceClassInstancesFlag =
 /** The flag that gives the shared gateway proxy the app defaults: two replicas, a RollingUpdate with maxUnavailable 0 and maxSurge 1, a readiness gate (minReadySeconds, progressDeadlineSeconds) and a PodDisruptionBudget (ADR 0154, issue 1529). Off in every overlay until a recorded live outcome. */
 export const gatewayProxyDefaultsFlag = "gateway-proxy-defaults";
 
+/** The flag that gives the gateway proxy, platform DNS, the policy controller and the registry Guaranteed QoS: each requests its limit for CPU and memory, so its pods are Guaranteed (ADR 0152, issue 1593). Off in every overlay until a recorded live outcome; the numbers are the environment's values. */
+export const dataPathGuaranteedQosFlag = "data-path-guaranteed-qos";
+
 /** The flag that routes OTLP by name through the shared Gateway to the standard collector receiver on 4318 (ADR 0140, issue 1224). */
 export const otlpRouteFlag = "otlp-route";
 
 /** The flag that renders the golden-path workload safety defaults: two replicas, an explicit rolling update, a PodDisruptionBudget, separate readiness and liveness endpoints and the termination settings (ADR 0154, issue 1521). Off in every overlay until a recorded live outcome. */
 export const goldenPathSafetyDefaultsFlag = "golden-path-safety-defaults";
+
+/** The flag that renders each golden-path service's identity: a Service and a ServiceAccount named after the service, and each Deployment running as that account with its API token not mounted (issue 1551). Off in every overlay until a recorded live outcome. */
+export const goldenPathServiceIdentityFlag = "golden-path-service-identity";
 export const workloadDefaultsAdmissionFlag = "workload-defaults-admission";
 
 /** The flag that delivers each app's record through the golden-path ApplicationSet: a release file is a values file of its Application and the workload deploys its digest (ADR 0166, ADR 0172, issue 1569). Off in every overlay until a recorded live outcome turns it on. */

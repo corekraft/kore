@@ -31,7 +31,7 @@ export const acmeResolverArgs: readonly string[] = [
  * The problems that refuse a mutation while acme-dns01 is on (ADR 0164): a
  * managed environment still on the placeholder domain, which would issue for a
  * zone the platform does not own. Empty while the flag is off, and for a local
- * environment, which validation refuses on its own (flag-dependencies.ts).
+ * environment, which validation refuses on its own (provider-flag-errors.ts).
  */
 export function acmeDns01Errors(
   environment: Environment,
@@ -52,14 +52,17 @@ export function acmeDns01Errors(
 /**
  * The Helm arguments the acme-dns01 flag adds: cert-manager's pinned resolvers,
  * and the platform certificate chart's one zone, the platform domain the two
- * issuers select (ADR 0161). Off, or for another component, none, so the flag
- * off renders what it rendered before. Refuses with the error above rather than
+ * issuers select (ADR 0161), and the suborg names whose wildcard pair the chart
+ * renders (the suborg names come from the Organization records, so a suborg with
+ * no record gets none). Off, or for another component, none, so the flag off
+ * renders what it rendered before. Refuses with the error above rather than
  * rendering an issuer for the placeholder zone.
  */
 export function acmeDns01HelmArgs(
   environment: Environment,
   component: string,
   env: NodeJS.ProcessEnv,
+  suborgs: readonly string[] = [],
 ): string[] {
   if (!featureEnabled(environment, acmeDns01Flag)) {
     return [];
@@ -76,5 +79,11 @@ export function acmeDns01HelmArgs(
   }
   const domain =
     runTimeDomain(environment, env) ?? environment.platform?.domain;
-  return ["--set-string", `acmeDns01.zone=${domain ?? ""}`];
+  return [
+    "--set-string",
+    `acmeDns01.zone=${domain ?? ""}`,
+    ...(suborgs.length > 0
+      ? ["--set-json", `acmeDns01.suborgs=${JSON.stringify(suborgs)}`]
+      : []),
+  ];
 }
