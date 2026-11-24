@@ -75,12 +75,16 @@
       {
         "name": "database-routes",
         "kind": "feature",
-        "applies": ["local", "vps", "managed-example"]
+        "applies": ["local", "vps", "managed-example"],
+        "notApplicable": ["vps"],
+        "reason": "v1 keeps the 5432 passthrough off the vps Gateways; databases stay internal (ADR 0160)."
       },
       {
         "name": "otlp-route",
         "kind": "feature",
-        "applies": ["local", "vps", "managed-example"]
+        "applies": ["local", "vps", "managed-example"],
+        "notApplicable": ["vps"],
+        "reason": "pods send OTLP to the in-cluster collector, and no route goes on a Gateway reachable without OTLP authentication (ADR 0174, ADR 0140)."
       },
       {
         "name": "platform-hostname-ownership",
@@ -156,14 +160,15 @@
       {
         "name": "platform-dns",
         "kind": "feature",
-        "applies": ["local", "vps", "managed-example"],
-        "pending": true
+        "applies": ["local", "vps", "managed-example"]
       },
       {
         "name": "registry-by-name",
         "kind": "feature",
         "applies": ["local", "vps", "managed-example"],
-        "pending": true
+        "pending": true,
+        "notApplicable": ["vps"],
+        "reason": "vps serves the registry as an in-cluster ClusterIP, not by name (ADR 0143)."
       },
       {
         "name": "in-cluster-ca",
