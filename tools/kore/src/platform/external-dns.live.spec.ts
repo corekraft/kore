@@ -14,7 +14,7 @@ import {
   proofFlags,
   proofRoutes,
   proofRoutesManifest,
-} from "./external-dns-proof.js";
+} from "./external-dns-proof.live.js";
 
 // Docs: docs/decisions/0162-external-dns-publishes-route-records-for-the-external-gateway-behind-external-dns.md
 // Live and opt-in: local only, on the throwaway copy from `npm run external-dns:proof-root -- <new directory>`,

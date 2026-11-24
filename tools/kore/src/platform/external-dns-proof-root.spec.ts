@@ -1,7 +1,7 @@
 import { join } from "node:path";
 import { describe, expect, it, vi } from "vitest";
 import type { Runner } from "../runtime/index.js";
-import { prepareProofRoot } from "./external-dns-proof-root.js";
+import { prepareProofRoot } from "./external-dns-proof-root.live.js";
 
 const root = "/work/kore";
 const dest = "/work/kore/.claude/worktrees/external-dns-proof";

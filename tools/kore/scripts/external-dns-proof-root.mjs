@@ -5,7 +5,7 @@
 import { readFile, writeFile } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { prepareProofRoot } from "../dist/src/platform/external-dns-proof-root.js";
+import { prepareProofRoot } from "../dist/src/platform/external-dns-proof-root.live.js";
 import { ProcessRunner } from "../dist/src/runtime/index.js";
 
 const dest = process.argv[2];

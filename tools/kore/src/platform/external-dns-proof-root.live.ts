@@ -4,7 +4,7 @@
 import { join } from "node:path";
 import type { Environment } from "../config/index.js";
 import type { Runner } from "../runtime/index.js";
-import { throwawayEnvironment } from "./external-dns-proof.js";
+import { throwawayEnvironment } from "./external-dns-proof.live.js";
 
 /** The file access the copy needs: reading and writing the environment inside the throwaway worktree. */
 export interface ProofRootFiles {

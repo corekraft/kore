@@ -8,7 +8,7 @@ import {
   proofRoutes,
   proofRoutesManifest,
   throwawayEnvironment,
-} from "./external-dns-proof.js";
+} from "./external-dns-proof.live.js";
 
 function localWith(features: Record<string, boolean>): Environment {
   return {
