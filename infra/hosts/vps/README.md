@@ -17,6 +17,13 @@ Desired state for the rented VPS host `kore-vps`, converged by Ansible
    The playbook signs the host in through stdin and closes public SSH. Then
    `mise run vps-apply` for the agents VM, and `unset TAILSCALE_AUTH_KEY`.
 4. `tofu apply` in `infra/tofu/stacks/tailnet` tags the new machines.
+5. On the agents VM, sign the logins in by hand, as `agent`: `gh auth login`
+   and `claude` (see [The agents VM](#the-agents-vm)). They are never backed up.
+
+The whole rebuild, with the restores and what is still planned, is in
+[rebuilding the box](../../../docs/operations/rebuild-the-box.md). Hold the
+items in the [recovery kit](../../../docs/operations/recovery-kit.md) before you
+start.
 
 Without a key, the playbook stops at the sign-in check: run
 `sudo tailscale up --ssh --hostname=kore-vps` on the host, approve the link,
@@ -47,6 +54,20 @@ Tailscale SSH is off on the VM (`tailscale_ssh: false`): its own sshd checks
 
 1. `gh auth login` with a fine-grained token limited to `corekraft/kore`.
 2. `claude` and sign in.
+
+## Published ports
+
+`port-table.yaml` is the one table of what the host publishes: each public or
+tailnet port, the node port it maps to and the Service that owns it. The
+`network` role redirects each port to its node port, per address, and drops
+every other node port that arrives off the tailnet, except the external
+Gateway's. The host's public and tailnet addresses come from the play's facts
+(`kore_host_addresses` in `site.yaml`); the `k3s` role publishes them to the
+cluster as the `kore-host-addresses` ConfigMap. Neither address is in the
+repository, and that task's output is suppressed. All of it sits behind the
+`host-published-ports` flag in the vps overlay, off until a live run on kore-vps
+and `harness flag activate`; with it off the run writes today's firewall and no
+ConfigMap.
 
 ## k3s
 

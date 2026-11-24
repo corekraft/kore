@@ -6,6 +6,7 @@ import {
   gatewayEntryPort,
   loadRepository,
   platformPlan,
+  internalGateway,
 } from "../config/index.js";
 import { ProcessRunner, liveEnvironment } from "../runtime/index.js";
 import { mkcertRoot } from "./gateway-cluster.live.js";
@@ -80,7 +81,7 @@ async function context() {
     namespace: `${service}--${name}`,
     service,
     sharedGateway: {
-      ...repository.environment.gateway,
+      ...internalGateway(repository.environment),
       port: gatewayEntryPort,
     },
   });

@@ -32,7 +32,7 @@
             "items": { "type": "string" }
           },
           "data": { "type": "string", "minLength": 1 },
-          "environment": { "enum": ["local", "managed"] },
+          "environment": { "enum": ["local", "managed", "vps"] },
           "status": { "enum": ["planned", "active"] },
           "protection": {
             "enum": ["data-export", "rebuild", "scheduled-backup"]

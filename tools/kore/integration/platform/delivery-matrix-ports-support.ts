@@ -1,6 +1,10 @@
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
-import { enabledComponents, type Repository } from "../../src/config/index.js";
+import {
+  enabledComponents,
+  type Repository,
+  internalGateway,
+} from "../../src/config/index.js";
 import { helmTemplateArgs } from "../../src/platform/index.js";
 import { withAbsoluteChart } from "../../src/testing/index.js";
 import { renderDelivery } from "../platform-config-delivery-project-support.js";
@@ -94,7 +98,7 @@ export async function portProblems(
       const merged = merge(
         generatedPorts(
           application.parameters["gateway.className"]!,
-          repository.environment.gateway.port,
+          internalGateway(repository.environment).port,
         ),
         overlayPorts(text),
       );

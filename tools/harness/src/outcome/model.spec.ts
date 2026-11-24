@@ -29,6 +29,7 @@ describe("the outcome vocabulary", () => {
       "eval-history",
       "comparison",
       "owner-waiver",
+      "platform-window",
     ]);
     expect(RESULTS).toEqual(["confirmed", "refuted", "inconclusive"]);
   });
@@ -98,7 +99,7 @@ describe("parseOutcome refusals of kind, source and result", () => {
   it("rejects an unknown source with the allowed values", () => {
     expect(() => parseOutcome({ ...valid, source: "vibes" })).toThrow(
       new IdeaError(
-        '--source "vibes" is not recognised; use one of live-run, journal, eval-history, comparison, owner-waiver.',
+        '--source "vibes" is not recognised; use one of live-run, journal, eval-history, comparison, owner-waiver, platform-window.',
       ),
     );
   });

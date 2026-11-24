@@ -1,6 +1,7 @@
 // Docs: docs/decisions/0063-lifecycle-resume-and-release-only-app-up.md
 import { beforeEach, expect, test, vi } from "vitest";
 import {
+  internalGateway,
   isLocalProvider,
   platformPlan,
   registryPlan,
@@ -25,6 +26,11 @@ beforeEach(() => {
   vi.mocked(registryPlan).mockReturnValue({
     address: "registry.kore.local:30500",
   } as ReturnType<typeof registryPlan>);
+  vi.mocked(internalGateway).mockReturnValue({
+    namespace: "kore-system",
+    name: "kore-gateway",
+    port: 443,
+  });
 });
 
 test("a release upgrades in the configured context, waits, and rolls back a failed upgrade", () => {
