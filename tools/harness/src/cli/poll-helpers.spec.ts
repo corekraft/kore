@@ -160,6 +160,12 @@ describe("pollerOnly", () => {
     expect(pollerOnly({ source: "claude", kind: "pr.merged" })).toBe(MESSAGE);
   });
 
+  it("refuses a rollout event typed by hand, naming the command that writes it", () => {
+    expect(pollerOnly({ source: "claude", kind: "platform.rolled-out" })).toBe(
+      "platform.rolled-out is written only by `harness platform rollout-record`, which checks the release locks first; it is not recordable by hand.",
+    );
+  });
+
   it("allows an ordinary event from an agent source", () => {
     expect(pollerOnly({ source: "claude", kind: "session.start" })).toBe(
       undefined,
