@@ -97,11 +97,24 @@ export function alertDocument(rendered: string): string | undefined {
     .find((document) => document.includes(`name: ${configMapName}`));
 }
 
-/** The Grafana alerting file the ConfigMap holds, parsed. */
-export function alertFile(rendered: string): {
+export interface AlertFile {
   apiVersion: number;
   groups: PlatformGroup[];
-} {
+}
+
+/** Whether a parsed value has the shape of a Grafana alerting provisioning file. */
+function isAlertFile(value: unknown): value is AlertFile {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    "apiVersion" in value &&
+    "groups" in value &&
+    Array.isArray(value.groups)
+  );
+}
+
+/** The Grafana alerting file the ConfigMap holds, parsed. */
+export function alertFile(rendered: string): AlertFile {
   const doc = alertDocument(rendered);
   assert.ok(doc, "the platform alert ConfigMap is rendered");
   const marker = `  ${fileKey}: |\n`;
@@ -110,7 +123,9 @@ export function alertFile(rendered: string): {
     .split("\n")
     .map((line) => line.replace(/^ {4}/, ""))
     .join("\n");
-  return JSON.parse(text) as { apiVersion: number; groups: PlatformGroup[] };
+  const parsed: unknown = JSON.parse(text);
+  assert.ok(isAlertFile(parsed), "the ConfigMap holds a Grafana alerting file");
+  return parsed;
 }
 
 export const allRules = (rendered: string): PlatformAlert[] =>
