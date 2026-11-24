@@ -271,6 +271,49 @@ jobs:
           name: backstage-image.lock.json
           path: backstage-image.lock.json
           if-no-files-found: error
+      # The kore-backup image (issue 1639, spec 1610): the kore-backup program on a
+      # distroless runtime with pg_dump and age (ADR 0116), built from the program's
+      # context with its own Dockerfile and signed by the same keyless identity.
+      # Published and recorded in its own lock only: nothing deploys it, and its
+      # digest is pinned in the catalog by a later pull request, as the Backstage
+      # image's is.
+      - name: Build, push, sign and verify the kore-backup image
+        env:
+          KORE_BACKUP_IMAGE: ghcr.io/corekraft/kore/kore-backup
+        run: |
+          docker build --file images/kore-backup/Dockerfile --tag "$KORE_BACKUP_IMAGE:$TAG" tools/kore
+          docker push "$KORE_BACKUP_IMAGE:$TAG"
+          KORE_BACKUP_DIGEST="$(docker inspect --format '{{ index .RepoDigests 0 }}' "$KORE_BACKUP_IMAGE:$TAG")"
+          KORE_BACKUP_DIGEST="${KORE_BACKUP_DIGEST##*@}"
+          echo "KORE_BACKUP_IMAGE=$KORE_BACKUP_IMAGE" >> "$GITHUB_ENV"
+          echo "KORE_BACKUP_DIGEST=$KORE_BACKUP_DIGEST" >> "$GITHUB_ENV"
+          mise exec -- cosign sign --yes "${KORE_BACKUP_IMAGE}@${KORE_BACKUP_DIGEST}"
+          mise exec -- cosign verify \
+            --certificate-identity "$IDENTITY" \
+            --certificate-oidc-issuer "$ISSUER" \
+            "${KORE_BACKUP_IMAGE}@${KORE_BACKUP_DIGEST}"
+      - name: Write the kore-backup image lock
+        run: |
+          jq -n --arg signer "$IDENTITY" \
+            --arg image "$KORE_BACKUP_IMAGE" --arg digest "$KORE_BACKUP_DIGEST" \
+            '{version: 1, authorizedSigners: [$signer], entries: {
+              "kore-backup": {image: $image, digest: $digest, signer: $signer}}}' \
+            > kore-backup-image.lock.json
+          cat kore-backup-image.lock.json
+      - name: Verify every kore-backup lock entry
+        run: |
+          set -euo pipefail
+          jq -r '.entries[] | "\(.image)@\(.digest)"' kore-backup-image.lock.json | while IFS= read -r ref; do
+            mise exec -- cosign verify \
+              --certificate-identity "$IDENTITY" \
+              --certificate-oidc-issuer "$ISSUER" \
+              "$ref" > /dev/null
+          done
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: kore-backup-image.lock.json
+          path: kore-backup-image.lock.json
+          if-no-files-found: error
 
   # Mirrors the approved platform images (infra/catalog/seeds.yaml and
   # approved-images.yaml, the owners of the digest pins) into the internal
@@ -475,6 +518,39 @@ jobs:
             echo "release $TAG already carries this lock"
           else
             gh release upload "$TAG" backstage-image.lock.json
+          fi
+
+  # Attaches the kore-backup image lock to the GitHub release, as
+  # attach-backstage-lock does: from a job with only the scope to write release
+  # assets. A rerun may repeat an identical upload; a different lock never
+  # replaces a published one.
+  attach-kore-backup-lock:
+    needs: release
+    if: github.ref_type == 'tag'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: write
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      GH_REPO: ${{ github.repository }}
+      TAG: ${{ github.ref_name }}
+    steps:
+      - uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7.0.0
+        with:
+          name: kore-backup-image.lock.json
+      - name: Attach the kore-backup lock to the release
+        run: |
+          set -euo pipefail
+          if gh release view "$TAG" --json assets --jq '.assets[].name' | grep -qx kore-backup-image.lock.json; then
+            gh release download "$TAG" --pattern kore-backup-image.lock.json --dir published
+            cmp published/kore-backup-image.lock.json kore-backup-image.lock.json || {
+              echo "release $TAG already has a different kore-backup-image.lock.json; refusing to replace it" >&2
+              exit 1
+            }
+            echo "release $TAG already carries this lock"
+          else
+            gh release upload "$TAG" kore-backup-image.lock.json
           fi
 
   # Packages the configuration-phase releases Argo CD takes over (ADR 0043) as
