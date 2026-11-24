@@ -4,6 +4,7 @@ import { beforeEach, expect, test, vi } from "vitest";
 import {
   checkOrganizationRecords,
   organizationRecordErrors,
+  suborgNames,
 } from "./organization-records.js";
 import { platformClaimErrors } from "./platform-claims.js";
 import { platformPlan } from "./platform-domain.js";
@@ -227,6 +228,40 @@ test("an environment with no organizations directory has nothing to check", asyn
   );
   expect(await report()).toEqual({ errors: [], organizations: [] });
   expect(readFile).not.toHaveBeenCalled();
+});
+
+test("the suborg names are the valid records' names in name order, so a record that fails the rules is no suborg and a suborg with no record has no name", async () => {
+  directory({
+    "team-b.json": JSON.stringify({ ...suborg, metadata: { name: "team-b" } }),
+    "broken.json": JSON.stringify({ ...suborg, metadata: { name: "broken" } }),
+    "api.json": JSON.stringify(suborg),
+  });
+  vi.mocked(platformClaimErrors).mockImplementation((manifests) =>
+    (manifests as Array<{ metadata: { name: string } }>)[0]?.metadata.name ===
+    "broken"
+      ? ["claims[0].spec.quota: is required for a suborg, and has no default"]
+      : [],
+  );
+  expect(
+    await suborgNames({
+      root,
+      environment,
+      catalogNamespaces: ["argocd", "keycloak"],
+    }),
+  ).toEqual(["api", "team-b"]);
+});
+
+test("an environment with no organizations directory has no suborg names", async () => {
+  vi.mocked(readdir).mockRejectedValue(
+    Object.assign(new Error("ENOENT"), { code: "ENOENT" }),
+  );
+  expect(
+    await suborgNames({
+      root,
+      environment,
+      catalogNamespaces: ["argocd", "keycloak"],
+    }),
+  ).toEqual([]);
 });
 
 test("a file in the organizations directory that is not <suborg>.json is refused and not read", async () => {

@@ -466,6 +466,12 @@ export interface Repository {
    * Services from here (plan 15, #1235).
    */
   registeredServices?: readonly string[] | undefined;
+  /**
+   * The suborg names the Organization records of the environment give, in name
+   * order, each a record that passes the checks; set by `loadRepository` whatever
+   * the flags are. The acme-dns01 flag renders a wildcard pair for each (ADR 0161).
+   */
+  suborgs?: readonly string[] | undefined;
   /** Findings that warn without failing validation; set by `loadRepository`. */
   warnings?: string[] | undefined;
 }

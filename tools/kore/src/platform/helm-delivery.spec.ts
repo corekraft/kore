@@ -241,5 +241,7 @@ test("a component that names the platform domain is handed the environment's val
   expect(platformHelmArgs).toHaveBeenCalledWith(
     repository.environment,
     "kore-platform-apis",
+    process.env,
+    [],
   );
 });

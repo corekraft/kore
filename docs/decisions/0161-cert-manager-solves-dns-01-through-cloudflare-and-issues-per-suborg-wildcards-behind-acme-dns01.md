@@ -63,6 +63,16 @@ without approval (#1484).
   production issuer is added only after staging is Ready, and the one flag outcome
   records both. The in-cluster CA keeps its role for the registry and other
   non-public names (concept 4 settles the rest).
+- **Issuance budget (#1679).** The platform chart renders, for each suborg in the
+  Organization records, two Certificates: `*.<suborg>.<domain>` and
+  `*.<suborg>.internal.<domain>`. Both reference `acmeDns01.certificateIssuer`, which
+  is `letsencrypt-staging` until a staging Ready outcome is recorded, and no
+  Certificate references production before then. Each new suborg is therefore two new
+  certificates. Let's Encrypt allows 50 new certificates per registered domain per 7
+  days, and every pair of the platform domain counts against that one domain, so the
+  budget is 25 new suborgs per 7 days (2 issuances each, 50 in all). Renewals of an
+  existing pair are not new certificates under that limit. A suborg with no
+  Organization record has no name, so it costs nothing.
 - **Failure is an infrastructure event.** A revoked token or an unreachable
   Cloudflare stops new issuance and renewals; running certificates keep serving, and
   renewal starts 30 days before expiry. Notify-only alerts fire on a certificate not

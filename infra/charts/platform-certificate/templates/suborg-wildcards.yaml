@@ -1,0 +1,38 @@
+{{- if index .Values.features "acme-dns01" }}
+{{- /*
+One wildcard Certificate for each suborg's platform names and one for its internal
+names (ADR 0161): *.<suborg>.<zone> and *.<suborg>.internal.<zone>, two issuances per
+suborg. The suborg names are the Organization records kore reads, so a suborg with no
+record is not listed and renders nothing; the names carry no service name and no
+internal address, only the suborg's own labels. Each Certificate references
+acmeDns01.certificateIssuer, which defaults to the staging issuer: production is
+referenced only by a later change to that value, after staging is Ready.
+*/}}
+{{- $zone := required "set acmeDns01.zone, which kore passes as the platform domain while acme-dns01 is on" .Values.acmeDns01.zone }}
+{{- range .Values.acmeDns01.suborgs }}
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: suborg-{{ . }}-wildcard
+spec:
+  secretName: suborg-{{ . }}-wildcard-tls
+  dnsNames:
+    - {{ printf "*.%s.%s" . $zone | quote }}
+  issuerRef:
+    kind: ClusterIssuer
+    name: {{ $.Values.acmeDns01.certificateIssuer }}
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: suborg-{{ . }}-internal-wildcard
+spec:
+  secretName: suborg-{{ . }}-internal-wildcard-tls
+  dnsNames:
+    - {{ printf "*.%s.internal.%s" . $zone | quote }}
+  issuerRef:
+    kind: ClusterIssuer
+    name: {{ $.Values.acmeDns01.certificateIssuer }}
+{{- end }}
+{{- end }}
