@@ -25,7 +25,6 @@ vi.mock("./lock-digests.js");
 vi.mock("./local-publish.js");
 vi.mock("./registry-prune.js");
 vi.mock("./registry-service.js");
-vi.mock("./revert-history.js");
 
 const repository = asFake<Repository>({
   environment: { kubeContext: "k3d-kore-local" },
