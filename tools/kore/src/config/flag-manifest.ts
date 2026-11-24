@@ -213,10 +213,35 @@ function overlayFlagErrors(repository: Repository): string[] {
   });
 }
 
+/**
+ * Errors of each overlay flag turned on while a flag it requires is off in the
+ * same overlay. A required flag the overlay leaves out counts as off. Each
+ * broken link is reported on its own flag, so a chain names every link (ADR 0148).
+ */
+function requiresOverlayErrors(repository: Repository): string[] {
+  const { environment, flags } = repository;
+  const env = environment.name;
+  const features = environment.features ?? {};
+  return Object.keys(features).flatMap((name) =>
+    features[name] === true
+      ? requiredFlags(flags, name)
+          .filter((needed) => features[needed] !== true)
+          .map(
+            (needed) =>
+              `flag ${name} is on in the ${env} overlay but requires ${needed}, which is off there; set "${needed}": true in the ${env} overlay, or turn ${name} off (ADR 0148)`,
+          )
+      : [],
+  );
+}
+
 /** Every error of the flag manifest and of the overlay's flags checked against it. */
 export function flagManifestErrors(repository: Repository): string[] {
   if (!Array.isArray(repository.flags?.flags)) {
     return [`${flagManifestPath} must declare a flags list`];
   }
-  return [...entryErrors(repository.flags), ...overlayFlagErrors(repository)];
+  return [
+    ...entryErrors(repository.flags),
+    ...overlayFlagErrors(repository),
+    ...requiresOverlayErrors(repository),
+  ];
 }

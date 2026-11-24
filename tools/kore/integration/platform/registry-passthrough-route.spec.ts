@@ -194,7 +194,7 @@ test("registry-by-name on with platform-shared-gateway off is refused by validat
         "registry-by-name": true,
       }),
     ),
-    /turns on registry-by-name, which needs platform-shared-gateway/,
+    /flag registry-by-name is on in the local overlay but requires platform-shared-gateway, which is off there/,
   );
   await validateRepository(
     await repositoryWith({ ...sharedGatewayOn, "registry-by-name": true }),
