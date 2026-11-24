@@ -10,7 +10,7 @@ vi.mock("../../src/platform/admission-gate.js", async (importOriginal) => ({
   openAdmissionGate: async () => undefined,
 }));
 import { loadRepository } from "../../src/config/index.js";
-import { withDriftListingMappingsOff } from "../../src/testing/gateway-flags-off.fixtures.js";
+import { withDriftListingMappingsOff } from "../../src/testing/index.js";
 import {
   desiredFingerprint,
   loadLocalGatewayFlagsOff,
