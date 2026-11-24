@@ -267,6 +267,9 @@ destructive_suites=(test:live:signer test:live:lifecycle)
 # a delivered golden-path service under load on an idle host, and the night
 # delivers none. Add a future measurement suite here deliberately; each one found
 # is named in the summary.
+# test:live:golden-path-rollout rolls every Deployment of a delivered golden-path
+# service and the shared gateway proxy while it sends load, on an idle host, and
+# the night delivers no service, so it runs by hand against kore-vps.
 # The golden-path sign-in check and its browser token test need the one delivered
 # Service's name at run time (KORE_SIGNIN_SERVICE), and the night delivers none, so
 # they run by hand.
@@ -276,7 +279,7 @@ destructive_suites=(test:live:signer test:live:lifecycle)
 # address at run time; the night delivers none, so it runs by hand.
 # The external-dns proof needs a throwaway KORE_ROOT copy and an idea at run time
 # (KORE_EXTERNAL_DNS_IDEA), so it runs by hand too.
-excluded_suites=(test:live:footprint test:live:golden-path-load test:live:delivery-stage test:live:alert-delivery test:live:golden-path-signin test:live:golden-path-token test:live:backstage-delivery test:live:external-dns)
+excluded_suites=(test:live:footprint test:live:golden-path-load test:live:golden-path-rollout test:live:delivery-stage test:live:alert-delivery test:live:golden-path-signin test:live:golden-path-token test:live:backstage-delivery test:live:external-dns)
 suites_all="$suites"
 for excluded in "${excluded_suites[@]}"; do
   if printf '%s\n' "$suites_all" | grep -qxF "$excluded"; then

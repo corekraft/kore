@@ -185,6 +185,18 @@ test("the golden-path load suite is skipped like the footprint one: it scales a 
   expect(stderr).toMatch(/^skipped: test:live:golden-path-load$/m);
 });
 
+test("the golden-path rollout drill is skipped like the load one: it rolls a delivered service and the shared proxy, which the night does not deliver", () => {
+  const { status, stderr, calls } = run([
+    "test:live:a",
+    "test:live:golden-path-rollout",
+  ]);
+  expect(status).toBe(0);
+  expect(calls.filter((call) => call.startsWith("suite"))).toEqual([
+    "suite test:live:a",
+  ]);
+  expect(stderr).toMatch(/^skipped: test:live:golden-path-rollout$/m);
+});
+
 test("a night with no excluded suite reports nothing as skipped", () => {
   const { status, stderr } = run(["test:live:a"]);
   expect(status).toBe(0);
