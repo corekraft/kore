@@ -46,11 +46,26 @@ export function fsError(code: string, path: string): Error {
   return Object.assign(new Error(`${code}: ${path}`), { code });
 }
 
+/** Git's answers for the fake repository: the checkout is ROOT, and its main checkout is ROOT too. */
+export function gitAnswer(args: readonly string[]) {
+  if (args.includes("--show-toplevel")) {
+    return { code: 0, stderr: "", stdout: `${ROOT}\n` };
+  }
+  if (args.includes("--git-common-dir")) {
+    return { code: 0, stderr: "", stdout: `${ROOT}/.git\n` };
+  }
+  return { code: 0, stderr: "", stdout: "" };
+}
+
 export function depsOf({ files }: World) {
   const out: string[] = [];
   const err: string[] = [];
   const deps: CliDeps = {
-    runner: { run: vi.fn(notUsed) },
+    runner: {
+      run: vi.fn(async (_command: string, args: readonly string[]) =>
+        gitAnswer(args),
+      ),
+    },
     clock: { now: vi.fn(notUsed), sleep: vi.fn(notUsed) },
     ids: { next: vi.fn(notUsed) },
     env: {},

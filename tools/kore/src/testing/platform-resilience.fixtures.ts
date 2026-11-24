@@ -57,6 +57,20 @@ export function healthyRouteOutput(
   });
 }
 
+/** An initialised, unsealed OpenBao that has its audit file, as the in-pod reads of its readiness check see it. */
+export function healthyOpenbaoOutput(
+  args: readonly string[],
+): string | undefined {
+  const command = args.at(-1) ?? "";
+  if (!args.includes("openbao-0")) {
+    return undefined;
+  }
+  if (command.includes("bao status")) {
+    return JSON.stringify({ initialized: true, sealed: false });
+  }
+  return command.includes("audit.log") ? "audit" : undefined;
+}
+
 /** What a healthy cluster answers to any read-only readiness check, if args are one. */
 export function healthyClusterOutput(args: readonly string[]): string {
   return (
@@ -65,6 +79,7 @@ export function healthyClusterOutput(args: readonly string[]): string {
     healthyRouteOutput(args) ??
     healthyDaemonSetOutput(args) ??
     healthyWebhookOutput(args) ??
+    healthyOpenbaoOutput(args) ??
     "ready"
   );
 }

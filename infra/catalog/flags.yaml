@@ -88,6 +88,7 @@
         "requires": ["external-gateway"]
       },
       { "name": "acme-dns01", "kind": "feature", "applies": ["vps"] },
+      { "name": "domain-expiry-alert", "kind": "feature", "applies": ["vps"] },
       {
         "name": "acme-issuers",
         "kind": "feature",
@@ -216,7 +217,13 @@
         "applies": ["local"]
       },
       { "name": "host-published-ports", "kind": "feature", "applies": ["vps"] },
-      { "name": "openbao", "kind": "feature", "applies": ["vps"] },
+      {
+        "name": "openbao",
+        "kind": "feature",
+        "applies": ["local", "vps", "managed-example"],
+        "notApplicable": ["local", "managed-example"],
+        "reason": "OpenBao holds application secrets on vps only; local keeps sops with age and managed-example has no host role to place the seal key (ADR 0167)."
+      },
       {
         "name": "registry-tag-pruning",
         "kind": "feature",

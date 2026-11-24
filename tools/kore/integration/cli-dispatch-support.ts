@@ -116,6 +116,7 @@ export const runtimeModule = () => ({
 });
 
 export const platformModule = () => ({
+  chartVersionRowPrefix: "chart:",
   // The testing barrel's app fixtures read this at import time; the dispatch specs never use its value.
   platformGeneration: () => "dispatch-generation",
   readinessFailureSummary: (evidence: {

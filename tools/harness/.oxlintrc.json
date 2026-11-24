@@ -153,6 +153,10 @@
             "message": "import from the ruleset barrel (ruleset/index.js), not one of its files"
           },
           {
+            "group": ["**/rollout/**", "!**/rollout/index.js"],
+            "message": "import from the rollout barrel (rollout/index.js), not one of its files"
+          },
+          {
             "group": ["**/runtime/**", "!**/runtime/index.js"],
             "message": "import from the runtime barrel (runtime/index.js), not one of its files"
           },
@@ -290,6 +294,10 @@
               {
                 "group": ["**/ruleset/**", "!**/ruleset/index.js"],
                 "message": "import from the ruleset barrel (ruleset/index.js), not one of its files"
+              },
+              {
+                "group": ["**/rollout/**", "!**/rollout/index.js"],
+                "message": "import from the rollout barrel (rollout/index.js), not one of its files"
               },
               {
                 "group": ["**/runtime/**", "!**/runtime/index.js"],

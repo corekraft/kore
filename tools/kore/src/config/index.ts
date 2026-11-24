@@ -68,6 +68,7 @@ export type { PlatformPlan } from "./platform-domain.js";
 export {
   platformDomainOrigin,
   platformDomainVariable,
+  runTimeDomain,
 } from "./run-time-domain.js";
 export {
   loadRunTimeFile,
@@ -147,8 +148,15 @@ export {
 } from "./ownership.js";
 export { managedCluster } from "./managed-cluster.js";
 export type { ManagedCluster } from "./managed-cluster.js";
-export { committedFraction, nodeBudget, nodeCount } from "./node-capacity.js";
+export {
+  committedFraction,
+  cpuMillis,
+  memoryMiB,
+  nodeBudget,
+  nodeCount,
+} from "./node-capacity.js";
 export type { NodeBudget } from "./node-capacity.js";
+export type { Amount, PlatformRequests } from "./capacity-fit.js";
 export { findRoot } from "./config.js";
 export {
   appliedFlags,
