@@ -4,6 +4,7 @@
 export const PREDICATE_TYPES = {
   evalResult: "urn:kore:eval-result:v1",
   flagsManifest: "urn:kore:flags-manifest:v1",
+  migrationPlan: "urn:kore:migration-plan:v1",
 } as const;
 
 const STATEMENT_TYPE = "https://in-toto.io/Statement/v1";

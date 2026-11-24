@@ -22,3 +22,18 @@ test("a statement binds the predicate to the image digest, with the sha256 hex a
 test("the eval-result predicate type is urn:kore:eval-result:v1", () => {
   expect(PREDICATE_TYPES.evalResult).toBe("urn:kore:eval-result:v1");
 });
+
+test("the migration-plan predicate type is urn:kore:migration-plan:v1, in the same statement as the others", () => {
+  expect(PREDICATE_TYPES.migrationPlan).toBe("urn:kore:migration-plan:v1");
+  expect(
+    statement({
+      predicateType: PREDICATE_TYPES.migrationPlan,
+      version: "1.2.3+abc1234",
+      digest,
+      predicate: { release: "none" },
+    }),
+  ).toMatchObject({
+    subject: [{ name: "1.2.3+abc1234", digest: { sha256: "c".repeat(64) } }],
+    predicateType: "urn:kore:migration-plan:v1",
+  });
+});
