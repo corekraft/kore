@@ -98,10 +98,13 @@ test("chart image defaults and the reference base image match the catalog pins",
   );
 });
 
-// Paths under infra/ of the two templates that enrol the golden-path namespaces.
+// Paths under infra/ of the templates that enrol namespaces: the two golden-path
+// creators (ADR 0181), and the Organization composition, which enrols each suborg
+// namespace only behind suborg-tenancy (ADR 0165, issue 1550).
 const enrolmentCreators = [
   "charts/golden-path-delivery/templates/applicationset.yaml",
   "charts/platform-apis/templates/service-composition.yaml",
+  "charts/platform-apis/templates/organization-composition.yaml",
 ];
 
 test("the catalog declares Sigstore Policy Controller as a bootstrap component with readiness and CRD ownership, enforcing nothing", async () => {
