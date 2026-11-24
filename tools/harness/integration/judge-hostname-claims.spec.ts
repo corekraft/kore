@@ -7,6 +7,7 @@ import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 import { hostnameClaims, type ChangedFile } from "../src/judge/index.js";
 import { ProcessRunner } from "../src/runtime/index.js";
+import { cleanGitEnv } from "../src/testing/index.js";
 
 // The judge's hostname claims over a real repository. A local origin holds the tracked files
 // of this checkout plus the commits that make each scenario; a judge checkout clones it with
@@ -27,7 +28,12 @@ const git = (cwd: string, args: readonly string[]) =>
       "user.email=claims@example.invalid",
       ...args,
     ],
-    { cwd, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] },
+    {
+      cwd,
+      encoding: "utf8",
+      stdio: ["ignore", "pipe", "pipe"],
+      env: cleanGitEnv(),
+    },
   ).trim();
 
 const LOGIN = "infra/environments/local/services/login.json";

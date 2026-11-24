@@ -24,6 +24,7 @@ const ORIGIN = "https://github.com/corekraft/kore.git";
 const MAIN = "main-sha";
 const HEAD = "head-sha";
 const CLI = `${ROOT}/${KORE_CLI}`;
+const GIT = "git";
 const B = "infra/environments/local/services/b.json";
 
 const ok = (stdout = ""): RunResult => ({ stdout, stderr: "", code: 0 });
@@ -162,7 +163,7 @@ describe("validateRefusals builds the merge in a scratch checkout", () => {
       ],
     });
     expect(run).toHaveBeenCalledWith(
-      "git",
+      GIT,
       ["checkout", HEAD, "--", B, "infra/environments/local/services/new.json"],
       { cwd: SCRATCH },
     );
@@ -187,12 +188,12 @@ describe("validateRefusals fetches what it merges by commit", () => {
       headSha: HEAD,
       files: [change(B)],
     });
-    expect(run).toHaveBeenCalledWith("git", ["remote", "get-url", "origin"], {
+    expect(run).toHaveBeenCalledWith(GIT, ["remote", "get-url", "origin"], {
       cwd: ROOT,
     });
     for (const sha of [MAIN, HEAD]) {
       expect(run).toHaveBeenCalledWith(
-        "git",
+        GIT,
         ["fetch", "--quiet", "--depth", "1", "origin", sha],
         { cwd: SCRATCH },
       );
