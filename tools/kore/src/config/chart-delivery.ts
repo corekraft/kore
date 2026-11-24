@@ -5,6 +5,7 @@ import {
   inClusterCaFlag,
   featureEnabled,
   gatewayClassName,
+  platformSyncWindowFlag,
   postgresqlServiceClassInstancesFlag,
 } from "./features.js";
 import { platformPlan, platformWildcard } from "./platform-domain.js";
@@ -53,6 +54,12 @@ export interface ChartDeliveryValues {
    * the project is exactly what it was.
    */
   inClusterCa?: true;
+  /**
+   * Only while platform-sync-window is on: the AppProject may carry the
+   * maintenance deny window, which renders only while a maintenance run holds
+   * it (ADR 0153, issue 1540). Absent, the project is exactly what it was.
+   */
+  syncWindow?: true;
   organizationId?: string;
   /** With databaseRoutes: the shared Gateway each database's TLS route attaches to (ADR 0139). */
   gatewayName?: string;
@@ -158,6 +165,9 @@ export function chartDeliveryValues(
       : {}),
     ...(featureEnabled(repository.environment, inClusterCaFlag)
       ? { inClusterCa: true as const }
+      : {}),
+    ...(featureEnabled(repository.environment, platformSyncWindowFlag)
+      ? { syncWindow: true as const }
       : {}),
     ...(routes
       ? {
