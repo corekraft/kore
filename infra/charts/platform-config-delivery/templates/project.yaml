@@ -47,7 +47,7 @@ spec:
       kind: Composition
     - group: templates.gatekeeper.sh
       kind: ConstraintTemplate
-    {{- range $kind := list "KoreContainerSecurity" "KoreHostnameOwnership" "KoreImageDigest" "KoreMeshEnrollment" "KoreRBAC" "KoreRetention" "KoreSecrets" "KoreWorkloadIdentity" }}
+    {{- range $kind := list "KoreContainerSecurity" "KoreHostnameOwnership" "KoreImageDigest" "KoreMeshEnrollment" "KoreRBAC" "KoreRetention" "KoreSecrets" "KoreWorkloadDefaults" "KoreWorkloadIdentity" }}
     - group: constraints.gatekeeper.sh
       kind: {{ $kind }}
     {{- end }}
