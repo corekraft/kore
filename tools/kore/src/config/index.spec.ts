@@ -122,6 +122,7 @@ vi.mock("./validate.js", () => ({ validateRepository: vi.fn() }));
 const entryPoints = [
   "RunTimeFileError",
   "absolute",
+  "acmeCertificateIssuer",
   "agentgatewayMeshEnrollmentFlag",
   "alertEmailHelmArgs",
   "alertForwardingHelmArgs",
@@ -153,6 +154,7 @@ const entryPoints = [
   "exemptionCheckMode",
   "exists",
   "expandVersions",
+  "externalGatewayAcmeIssuersErrors",
   "featureEnabled",
   "featureHelmArgs",
   "findRoot",
