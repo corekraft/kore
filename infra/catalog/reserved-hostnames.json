@@ -19,6 +19,7 @@
     "keycloak",
     "kore",
     "kore-dns",
+    "kore-external-dns",
     "kore-registry",
     "kore-system",
     "mail",
