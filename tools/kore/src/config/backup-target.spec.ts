@@ -1,15 +1,31 @@
 // Docs: docs/decisions/0155-retained-databases-are-backed-up-by-a-scheduled-age-encrypted-dump-and-restored-only-from-the-controller.md
-import { expect, test } from "vitest";
-import { backupTargetErrors } from "./backup-target.js";
+import { beforeEach, expect, test, vi } from "vitest";
+import { backupSchema, backupTargetErrors } from "./backup-target.js";
 import {
   fakeEnvironment,
   fakeRepository,
   malformed,
 } from "./config-support.js";
+import { schemaErrors } from "./schema-subset.js";
+import { isAgeRecipient } from "./sops-recipients.js";
 import type { BackupDeclaration, Repository } from "./types.js";
+
+vi.mock("./schema-subset.js", () => ({ schemaErrors: vi.fn() }));
+vi.mock("./sops-recipients.js", async (importOriginal) => ({
+  PLACEHOLDER_RECIPIENT: (
+    await importOriginal<typeof import("./sops-recipients.js")>()
+  ).PLACEHOLDER_RECIPIENT,
+  isAgeRecipient: vi.fn(),
+}));
 
 const RECIPIENT = `age1${"q".repeat(58)}`;
 const PLACEHOLDER = "AGE-RECIPIENT-MUST-BE-CONFIGURED";
+
+beforeEach(() => {
+  vi.resetAllMocks();
+  vi.mocked(schemaErrors).mockReturnValue([]);
+  vi.mocked(isAgeRecipient).mockReturnValue(true);
+});
 
 const declaration: BackupDeclaration = {
   target: {
@@ -54,6 +70,18 @@ function vpsRepository(
   });
 }
 
+test("the declaration is checked against backupSchema under the name backup, and the schema errors it finds are reported", () => {
+  vi.mocked(schemaErrors).mockReturnValueOnce(["backup.target.kind bad"]);
+  expect(backupTargetErrors(vpsRepository(declaration))).toEqual([
+    "backup.target.kind bad",
+  ]);
+  expect(schemaErrors).toHaveBeenCalledWith(
+    backupSchema,
+    declaration,
+    "backup",
+  );
+});
+
 test("a declared off-host target outside the box and its cluster, with its retention and schedule, reports nothing", () => {
   expect(backupTargetErrors(vpsRepository(declaration))).toEqual([]);
 });
@@ -68,43 +96,7 @@ test("an overlay with no backup declaration and its backup flags off reports not
     ),
   ).toEqual([]);
   expect(backupTargetErrors(vpsRepository(undefined, {}, null))).toEqual([]);
-});
-
-test("an unknown field under backup.target is refused, and the message names the fields it may take", () => {
-  expect(
-    backupTargetErrors(vpsRepository(withTarget({ region2: "eu-west-1" }))),
-  ).toEqual([
-    "backup.target.region2 is not a field of this record; the fields here are endpoint, bucket, region, pathStyle, caBundle, credentials, kind",
-  ]);
-});
-
-test("the kind is a closed choice of interim or off-host", () => {
-  expect(
-    backupTargetErrors(vpsRepository(withTarget({ kind: "local" }))),
-  ).toEqual(["backup.target.kind must be one of interim, off-host"]);
-});
-
-test("the endpoint is an https origin, and a plain http one is refused by its pattern", () => {
-  expect(
-    backupTargetErrors(
-      vpsRepository(withTarget({ endpoint: "http://s3.example.com" })),
-    ),
-  ).toEqual([
-    "backup.target.endpoint must match ^https://[a-z0-9]([a-z0-9.-]*[a-z0-9])?(:[0-9]{1,5})?$",
-  ]);
-});
-
-test("the retention is fixed at the newest 14 daily backups", () => {
-  expect(
-    backupTargetErrors(
-      vpsRepository(
-        malformed<BackupDeclaration>({
-          ...declaration,
-          retention: { daily: 7 },
-        }),
-      ),
-    ),
-  ).toEqual(["backup.retention.daily must be 14"]);
+  expect(isAgeRecipient).not.toHaveBeenCalled();
 });
 
 test("an off-host endpoint under a cluster-internal name is refused, and names the interim kind as the alternative", () => {
@@ -204,6 +196,7 @@ test("a declared target whose .sops.yaml recipient is still the placeholder is r
 });
 
 test("a declared target whose .sops.yaml recipient is not an age key is refused, naming the entry", () => {
+  vi.mocked(isAgeRecipient).mockReturnValueOnce(false);
   expect(
     backupTargetErrors(vpsRepository(declaration, {}, ["age1short"])),
   ).toEqual([

@@ -6,9 +6,11 @@ import {
   requiredFlags,
   validateRepository,
 } from "../../src/config/index.js";
-import type { Repository } from "../../src/config/index.js";
+import type { Environment, Repository } from "../../src/config/index.js";
 
 // Docs: docs/decisions/0155-retained-databases-are-backed-up-by-a-scheduled-age-encrypted-dump-and-restored-only-from-the-controller.md
+
+type Backup = NonNullable<Environment["backup"]>;
 
 async function rejectionOf(repository: Repository): Promise<string> {
   try {
@@ -40,6 +42,64 @@ test("a vps overlay declaring an off-host backup target on s3.example.com valida
       },
     },
   });
+});
+
+/** The vps overlay with its backup target's fields replaced; a test passes the bad field it checks. */
+async function vpsWithTarget(
+  fields: Record<string, unknown>,
+  retention: unknown = { daily: 14 },
+): Promise<Repository> {
+  const base = await loadRepository("vps");
+  return {
+    ...base,
+    environment: {
+      ...base.environment,
+      // A deliberately malformed declaration: the schema, not the type, must refuse it.
+      backup: {
+        target: {
+          endpoint: "https://s3.example.com",
+          bucket: "kore-backups",
+          region: "us-east-1",
+          pathStyle: false,
+          credentials: { secret: "kore-backup-target" },
+          kind: "off-host",
+          ...fields,
+        },
+        retention,
+        schedule: "03:30",
+      } as unknown as Backup,
+    },
+  };
+}
+
+test("a backup target with a field the record does not take is refused, and the message names the fields it may take", async () => {
+  assert.equal(
+    await rejectionOf(await vpsWithTarget({ region2: "eu-west-1" })),
+    "backup.target.region2 is not a field of this record; the fields here are endpoint, bucket, region, pathStyle, caBundle, credentials, kind",
+  );
+});
+
+test("the backup target kind is a closed choice of interim or off-host", async () => {
+  assert.equal(
+    await rejectionOf(await vpsWithTarget({ kind: "local" })),
+    "backup.target.kind must be one of interim, off-host",
+  );
+});
+
+test("the backup target endpoint is an https origin, and a plain http one is refused by its pattern", async () => {
+  assert.equal(
+    await rejectionOf(
+      await vpsWithTarget({ endpoint: "http://s3.example.com" }),
+    ),
+    "backup.target.endpoint must match ^https://[a-z0-9]([a-z0-9.-]*[a-z0-9])?(:[0-9]{1,5})?$",
+  );
+});
+
+test("the backup retention is fixed at the newest 14 daily backups", async () => {
+  assert.equal(
+    await rejectionOf(await vpsWithTarget({}, { daily: 7 })),
+    "backup.retention.daily must be 14",
+  );
 });
 
 test("the backup flags are declared as features, openbao-snapshots requires openbao and database-backups, and both are off in every overlay", async () => {
