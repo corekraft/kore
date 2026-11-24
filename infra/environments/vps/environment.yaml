@@ -2,6 +2,7 @@
   "$schema": "../schema.json",
   "name": "vps",
   "provider": "managed",
+  "production": true,
   "kubeContext": "kore-vps",
   "nodeCount": 1,
   "cluster":

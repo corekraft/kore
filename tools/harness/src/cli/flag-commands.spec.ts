@@ -61,6 +61,7 @@ function overlay(on: boolean) {
     path: OVERLAY,
     text: "",
     features: { [FLAG]: on },
+    production: false,
   };
 }
 

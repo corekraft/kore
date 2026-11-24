@@ -12,6 +12,11 @@
   "properties": {
     "name": { "type": "string", "pattern": "^[a-z0-9-]+$" },
     "provider": { "enum": ["k3d", "managed"] },
+    "production": {
+      "type": "boolean",
+      "default": false,
+      "description": "Marks the environment production (ADR 0147): flag activate and flag audit refuse an owner waiver as proof here, so a flag rests on a live run. Unset reads as false; the local environment keeps the waiver (ADR 0127)."
+    },
     "kubeContext": { "type": "string", "minLength": 1 },
     "nodeCount": {
       "type": "integer",

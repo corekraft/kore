@@ -54,12 +54,21 @@ export interface ActivationProof {
 /** Why a live-run outcome's recorded lock does not count, or undefined when it does. */
 type Judge = (path: string, fields: Map<string, string>) => string | undefined;
 
-/** Reads every matching outcome, a live run over a waiver, skipping each live run the judge refuses. */
+/** Why an owner waiver does not count in a production environment: the live run it stands in for is required (ADR 0147). */
+function waiverRefusal(path: string, environment: string): string {
+  return `${path}: an owner waiver is not accepted in production environment ${environment} (ADR 0147), so a live run is required`;
+}
+
+/**
+ * Reads every matching outcome, a live run over a waiver, skipping each live run the judge refuses.
+ * In a production environment a waiver is refused, not counted, and the refusal is named (ADR 0147).
+ */
 async function scan(
   repo: IdeaRepository,
   flag: string,
   environment: string,
   judge: Judge,
+  production: boolean,
 ): Promise<ActivationProof> {
   let waived: Proof | undefined;
   const refused: string[] = [];
@@ -88,8 +97,12 @@ async function scan(
       }
       refused.push(reason);
     }
-    if (source === "owner-waiver" && waived === undefined) {
-      waived = { idea: record.number, path: record.path, source };
+    if (source === "owner-waiver") {
+      if (production) {
+        refused.push(waiverRefusal(record.path, environment));
+      } else if (waived === undefined) {
+        waived = { idea: record.number, path: record.path, source };
+      }
     }
   }
   return { proof: waived, refused };
@@ -121,15 +134,20 @@ async function platformWindow(
  * writes the idea block, and it rejects summary lines shaped like a field, so a
  * match is proof on record (ADR 0077). A platform flag never takes a window.
  * It does not compare charts: the audit has no release lock, and activation,
- * which does, uses `activationProof`.
+ * which does, uses `activationProof`. `production` is the overlay's mark: in a
+ * production environment an owner waiver is not proof (ADR 0147); local keeps
+ * it (ADR 0127), so a caller that names no environment keeps the local rule.
  */
 export async function findProof(
   repo: IdeaRepository,
   flag: string,
   environment: string,
   sources: ProofSources = NO_SOURCES,
+  production = false,
 ): Promise<FoundProof | undefined> {
-  const idea = (await scan(repo, flag, environment, () => undefined)).proof;
+  const idea = (
+    await scan(repo, flag, environment, () => undefined, production)
+  ).proof;
   if (idea !== undefined) {
     return idea;
   }
@@ -145,28 +163,36 @@ export async function findProof(
  * release lock, and an owner waiver, count as in `findProof` (ADR 0138).
  * `refused` names why each matching live run was refused. It is empty when a
  * live run counts, and kept when an owner waiver stands in, so the caller can
- * warn that the waiver replaced a refused run.
+ * warn that the waiver replaced a refused run. In a production environment
+ * (`production`, ADR 0147) an owner waiver is refused and named in `refused`.
  */
 export function activationProof(
   repo: IdeaRepository,
   flag: string,
   environment: string,
   release: ReleaseLock | undefined,
+  production = false,
 ): Promise<ActivationProof> {
-  return scan(repo, flag, environment, (path, fields) => {
-    const lock = readProofLock(fields);
-    if (lock.kind === "invalid") {
-      return `${path}: ${lock.reason}`;
-    }
-    if (lock.kind !== "main") {
-      return undefined;
-    }
-    if (release === undefined) {
-      return `${path}: it is a main-lock proof, so activation compares it with the release chart lock; pass --chart-lock <platform-charts.lock.json> of the release`;
-    }
-    const differing = chartDifferences(lock.charts, release);
-    return differing.length === 0
-      ? undefined
-      : `${path}: its main-lock charts differ from the release lock: ${differing.join(", ")}`;
-  });
+  return scan(
+    repo,
+    flag,
+    environment,
+    (path, fields) => {
+      const lock = readProofLock(fields);
+      if (lock.kind === "invalid") {
+        return `${path}: ${lock.reason}`;
+      }
+      if (lock.kind !== "main") {
+        return undefined;
+      }
+      if (release === undefined) {
+        return `${path}: it is a main-lock proof, so activation compares it with the release chart lock; pass --chart-lock <platform-charts.lock.json> of the release`;
+      }
+      const differing = chartDifferences(lock.charts, release);
+      return differing.length === 0
+        ? undefined
+        : `${path}: its main-lock charts differ from the release lock: ${differing.join(", ")}`;
+    },
+    production,
+  );
 }

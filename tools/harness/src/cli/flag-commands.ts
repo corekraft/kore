@@ -1,6 +1,7 @@
 import { IdeaRepository } from "../idea/index.js";
 import { Ledger } from "../ledger/index.js";
 import { openLedger } from "./ledger-commands.js";
+import { noOutcomeMessage } from "./flag-activate-messages.js";
 import type { Command, CommandContext, CommandHelp } from "../runtime/index.js";
 import {
   FlagError,
@@ -134,6 +135,7 @@ async function activateFlag(context: CommandContext): Promise<number> {
     flag,
     environment,
     await releaseLock(context, base),
+    overlay.production,
   );
   if (proof === undefined && refused.length > 0) {
     throw new FlagError(
@@ -141,9 +143,7 @@ async function activateFlag(context: CommandContext): Promise<number> {
     );
   }
   if (proof === undefined) {
-    throw new FlagError(
-      `No verification outcome records a live run or an owner waiver of ${flag} in ${environment}, so ${overlay.path} is unchanged. Prove it live, then run \`harness outcome record --idea <number> --kind verification --source live-run --result confirmed --flag ${flag} --environment ${environment} --evidence <run> --summary <text>\`. Or, when the owner has waived the live run in a GitHub comment, use \`--source owner-waiver --evidence <comment url>\`.`,
-    );
+    throw new FlagError(noOutcomeMessage(flag, environment, overlay));
   }
   // The ledger opens before the write, so a missing ledger fails with the flag still off.
   const opened = await openLedger(context);
@@ -198,7 +198,7 @@ async function auditFlags(context: CommandContext): Promise<number> {
 /** The help record for `flag activate`: turns a flag on only after its verification outcome is recorded. */
 const activateHelp: CommandHelp = {
   purpose:
-    "Turns a feature flag on in an environment overlay (infra/environments/<environment>/environment.yaml) and records a flag.activated ledger event. It turns the flag on only when a confirmed verification outcome for that flag and environment is recorded, from a live run or an owner waiver; without one it changes nothing.",
+    "Turns a feature flag on in an environment overlay (infra/environments/<environment>/environment.yaml) and records a flag.activated ledger event. It turns the flag on only when a confirmed verification outcome for that flag and environment is recorded, from a live run or an owner waiver; without one it changes nothing. In an environment the overlay marks production (ADR 0147) an owner waiver is not accepted: only a live run turns the flag on there.",
   when: "After a live run of the flag in the environment has been recorded with harness outcome record, to turn the flag on in that environment.",
   whenNot:
     "To see which flags that are on lack proof: use flag audit. To record a live run or a waiver: use outcome record, then return here. Do not edit the overlay by hand to turn a flag on: a flag the overlay does not declare is refused; declare it as false first.",
@@ -234,7 +234,7 @@ const activateHelp: CommandHelp = {
     {
       code: 1,
       meaning:
-        "refused and the overlay is unchanged: a missing operand or --environment, an environment with no overlay, a flag the overlay does not declare, a flag whose required flag (infra/catalog/flags.yaml) is off in the environment, no confirmed verification outcome, a live run whose charts differ from --chart-lock, an unreadable chart lock, or a ledger that cannot be opened. Also when the flag is on but its ledger event is rejected: the flag stays on, and a rerun records the event",
+        "refused and the overlay is unchanged: a missing operand or --environment, an environment with no overlay, a flag the overlay does not declare, a flag whose required flag (infra/catalog/flags.yaml) is off in the environment, no confirmed verification outcome, an owner waiver in a production environment, a live run whose charts differ from --chart-lock, an unreadable chart lock, or a ledger that cannot be opened. Also when the flag is on but its ledger event is rejected: the flag stays on, and a rerun records the event",
     },
     {
       code: 2,
@@ -261,7 +261,7 @@ const activate: Command = {
 /** The help record for `flag audit`: fails on any flag that is on without recorded proof. */
 const auditHelp: CommandHelp = {
   purpose:
-    "Checks every flag that is on in any environment overlay for its recorded proof. It fails when a flag is on with no confirmed verification outcome, from a live run or an owner waiver, and names each flag that rests on a waiver rather than a live run. kb-check reports the same flags as warnings (ADR 0080).",
+    "Checks every flag that is on in any environment overlay for its recorded proof. It fails when a flag is on with no confirmed verification outcome, from a live run or an owner waiver, and names each flag that rests on a waiver rather than a live run. In a production environment (ADR 0147) a waiver does not count, so a flag on there that rests on one fails. kb-check reports the same flags as warnings (ADR 0080).",
   when: "Before a release, or when kb-check warns about a flag, to find flags that are on without proof.",
   whenNot:
     "To turn a flag on: use flag activate, which refuses without proof. To read the recorded outcome itself: use idea show for the idea that holds it.",

@@ -62,6 +62,7 @@ function overlay(on: boolean) {
     path: OVERLAY,
     text: "",
     features: { [FLAG]: on },
+    production: false,
   };
 }
 
@@ -105,6 +106,7 @@ describe("flag activate compares a main-lock proof with the release chart lock",
       FLAG,
       "local",
       RELEASE,
+      false,
     );
   });
 
@@ -116,6 +118,7 @@ describe("flag activate compares a main-lock proof with the release chart lock",
       FLAG,
       "local",
       undefined,
+      false,
     );
     expect(parseReleaseLock).not.toHaveBeenCalled();
   });

@@ -132,6 +132,60 @@ describe("activationProof counting a main-lock proof", () => {
   });
 });
 
+describe("activationProof in a production environment (ADR 0147)", () => {
+  const PRODUCTION = "vps";
+  const waiver = (number: string) =>
+    idea(
+      number,
+      section({ ...proven, Source: "owner-waiver", Environment: PRODUCTION }),
+    );
+
+  it("refuses an owner waiver and says a live run is required", async () => {
+    const repo = fakeRepository([waiver("0001")]);
+    expect(
+      await activationProof(repo, FLAG, PRODUCTION, RELEASE, true),
+    ).toEqual({
+      proof: undefined,
+      refused: [
+        "docs/ideas/0001-proof.md: an owner waiver is not accepted in production environment vps (ADR 0147), so a live run is required",
+      ],
+    });
+  });
+
+  it("counts a live run there, even with an owner waiver recorded before it", async () => {
+    const repo = fakeRepository([
+      waiver("0001"),
+      idea("0002", section({ ...proven, Environment: PRODUCTION })),
+    ]);
+    expect(
+      await activationProof(repo, FLAG, PRODUCTION, undefined, true),
+    ).toEqual({
+      proof: {
+        idea: "0002",
+        path: "docs/ideas/0002-proof.md",
+        source: "live-run",
+      },
+      refused: [],
+    });
+  });
+
+  it("keeps accepting the waiver in a local environment (ADR 0127)", async () => {
+    const repo = fakeRepository([
+      idea("0001", section({ ...proven, Source: "owner-waiver" })),
+    ]);
+    expect(
+      await activationProof(repo, FLAG, ENVIRONMENT, undefined, false),
+    ).toEqual({
+      proof: {
+        idea: "0001",
+        path: "docs/ideas/0001-proof.md",
+        source: "owner-waiver",
+      },
+      refused: [],
+    });
+  });
+});
+
 describe("activationProof outcomes that behave as before", () => {
   it.each([
     ["states no lock", "none"],
