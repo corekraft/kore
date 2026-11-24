@@ -5,10 +5,14 @@ import {
   externalGatewayLimitsFlag,
   featureEnabled,
   inClusterCaFlag,
+  organizationServiceApisFlag,
   otlpRouteFlag,
+  platformArgocdDeliveryFlag,
+  platformPortalFlag,
   platformSharedGatewayFlag,
   registryByNameFlag,
   serviceListenerSetsFlag,
+  suborgTenancyFlag,
 } from "./features.js";
 import { isLocalProvider } from "./provider.js";
 import type { Environment } from "./types.js";
@@ -60,6 +64,24 @@ const requirements: Requirement[] = [
     needs: externalGatewayFlag,
     reason:
       "external-dns publishes the records of the external Gateway's routes, so it has no records to publish without it",
+  },
+  {
+    flag: suborgTenancyFlag,
+    needs: organizationServiceApisFlag,
+    reason:
+      "the suborg namespace and its quota are composed by the Organization composition, which only that flag renders (ADR 0165)",
+  },
+  {
+    flag: suborgTenancyFlag,
+    needs: platformArgocdDeliveryFlag,
+    reason:
+      "Services are applied from their records only while platform-portal, platform-organization-service-apis and platform-argocd-delivery are all on (ADR 0166), so without this flag the sync would create the Service namespaces itself, which suborg-tenancy forbids",
+  },
+  {
+    flag: suborgTenancyFlag,
+    needs: platformPortalFlag,
+    reason:
+      "Services are applied from their records only while platform-portal, platform-organization-service-apis and platform-argocd-delivery are all on (ADR 0166), so without this flag the sync would create the Service namespaces itself, which suborg-tenancy forbids",
   },
 ];
 
