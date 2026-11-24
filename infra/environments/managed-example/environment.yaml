@@ -37,6 +37,7 @@
     },
   "features":
     {
+      "registry-revert-keep": false,
       "agentgateway-mesh-enrollment": false,
       "autoscaling-defaults": false,
       "gateway-class-change-release": false,
@@ -76,7 +77,8 @@
       "golden-path-service-identity": false,
       "app-delivery": false,
       "app-sizing": false,
-      "workload-defaults-admission": false
+      "workload-defaults-admission": false,
+      "pvc-ownership-admission": false
     },
   "secrets": { "storeName": "platform-secrets", "sourceNamespace": "external" },
   "telemetry":

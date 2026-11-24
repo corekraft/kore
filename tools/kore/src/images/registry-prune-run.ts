@@ -5,7 +5,7 @@ import {
 } from "../config/index.js";
 import { holdsHostLease, type Runner } from "../runtime/index.js";
 import { imagesInUse } from "./image-prune.js";
-import { lockedDigests } from "./lock-digests.js";
+import { lockedDigests, readRevertRecord } from "./lock-digests.js";
 import { withPublishSession } from "./local-publish.js";
 import { createRegistryAdmin } from "./registry-admin.js";
 import { pruneRegistryTags } from "./registry-prune.js";
@@ -33,6 +33,7 @@ export async function pruneRegistryTagsInCluster(
       holdsLease: holdsHostLease,
       podImages: async () => await imagesInUse(repository, runner),
       lockedDigests: async () => await lockedDigests(repository),
+      revert: async () => await readRevertRecord(repository, runner),
       admin: createRegistryAdmin({
         address: client.address,
         authorization: client.authorization,

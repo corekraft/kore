@@ -1,0 +1,22 @@
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: reference-1
+  namespace: app
+  labels: { cnpg.io/cluster: reference }
+  ownerReferences:
+    [
+      {
+        apiVersion: postgresql.cnpg.io/v1,
+        kind: Cluster,
+        name: reference,
+        uid: u,
+        controller: true
+      }
+    ]
+spec:
+  {
+    accessModes: [ReadWriteOnce],
+    storageClassName: kore-retained,
+    resources: { requests: { storage: 1Gi } }
+  }

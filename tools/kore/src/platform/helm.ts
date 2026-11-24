@@ -130,6 +130,7 @@ function chartDeliveryArgs(
     ...(delivery.workloadDefaults === true
       ? ["--set", "workloadDefaults=true"]
       : []),
+    ...(delivery.pvcOwnership === true ? ["--set", "pvcOwnership=true"] : []),
     ...(delivery.syncWindow === true ? ["--set", "syncWindow=true"] : []),
     ...(delivery.serviceClassInstances === true
       ? ["--set", "serviceClassInstances=true"]

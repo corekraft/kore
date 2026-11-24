@@ -80,6 +80,7 @@ vi.mock("./features.js", () => ({
   platformDnsFlag: "platform-dns",
   platformPortalFlag: "platform-portal",
   registryPruneFlag: "registry-tag-pruning",
+  revertKeepFlag: "registry-revert-keep",
 }));
 vi.mock("./ownership.js", () => ({
   helmInstalledComponents: vi.fn(),
@@ -221,7 +222,9 @@ const entryPoints = [
   "releaseRecoveryArgocdRefusalFlag",
   "renderedCrdNames",
   "requiredFlags",
+  "revertKeepFlag",
   "rollbackConstraint",
+  "runTimeDomain",
   "runTimeDomainErrors",
   "runTimeFilePath",
   "runTimeNeededBy",

@@ -88,6 +88,7 @@
         "requires": ["external-gateway"]
       },
       { "name": "acme-dns01", "kind": "feature", "applies": ["vps"] },
+      { "name": "domain-expiry-alert", "kind": "feature", "applies": ["vps"] },
       {
         "name": "acme-issuers",
         "kind": "feature",
@@ -191,6 +192,11 @@
         "applies": ["local", "vps", "managed-example"]
       },
       {
+        "name": "pvc-ownership-admission",
+        "kind": "feature",
+        "applies": ["local", "vps", "managed-example"]
+      },
+      {
         "name": "release-recovery-argocd-refusal",
         "kind": "feature",
         "applies": ["local", "vps", "managed-example"]
@@ -222,6 +228,11 @@
         "name": "registry-tag-pruning",
         "kind": "feature",
         "applies": ["local"]
+      },
+      {
+        "name": "registry-revert-keep",
+        "kind": "feature",
+        "applies": ["local", "vps", "managed-example"]
       },
       {
         "name": "platform-dns",
