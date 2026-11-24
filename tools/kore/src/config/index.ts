@@ -68,6 +68,7 @@ export type { PlatformPlan } from "./platform-domain.js";
 export {
   platformDomainOrigin,
   platformDomainVariable,
+  runTimeDomain,
 } from "./run-time-domain.js";
 export {
   loadRunTimeFile,
@@ -131,6 +132,7 @@ export {
   startsAfterDelivery,
   registryPruneFlag,
   registryTailnetForwardFlag,
+  revertKeepFlag,
   signinAwaitsPortal,
 } from "./features.js";
 export {
@@ -166,6 +168,11 @@ export {
 } from "./flag-manifest.js";
 export { exemptionCheckMode, validateRepository } from "./validate.js";
 export type { WarningSource } from "./validate.js";
+export {
+  environmentRecipients,
+  isAgeRecipient,
+  PLACEHOLDER_RECIPIENT,
+} from "./sops-recipients.js";
 export { exists } from "./files.js";
 export { platformClaimErrors } from "./platform-claims.js";
 export {

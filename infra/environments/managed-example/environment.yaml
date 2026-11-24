@@ -37,6 +37,7 @@
     },
   "features":
     {
+      "registry-revert-keep": false,
       "agentgateway-mesh-enrollment": false,
       "autoscaling-defaults": false,
       "gateway-class-change-release": false,
@@ -57,6 +58,8 @@
       "external-gateway-limits": false,
       "external-dns": false,
       "openbao": false,
+      "database-backups": false,
+      "openbao-snapshots": false,
       "registry-by-name": false,
       "registry-tailnet-forward": false,
       "otlp-route": false,
@@ -76,7 +79,8 @@
       "golden-path-service-identity": false,
       "app-delivery": false,
       "app-sizing": false,
-      "workload-defaults-admission": false
+      "workload-defaults-admission": false,
+      "pvc-ownership-admission": false
     },
   "secrets": { "storeName": "platform-secrets", "sourceNamespace": "external" },
   "telemetry":

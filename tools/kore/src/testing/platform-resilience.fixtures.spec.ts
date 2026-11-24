@@ -92,3 +92,28 @@ test("a healthy cluster answers the OpenBao audit file read as present, so the O
     ),
   ).toBe("audit");
 });
+
+test("a healthy cluster answers an XRD read as rendered, its condition observing its generation, so the XRD readiness check passes", () => {
+  const xrd = JSON.parse(
+    healthyClusterOutput(
+      read(
+        "compositeresourcedefinition.apiextensions.crossplane.io/services.platform.kore.dev",
+        "--output",
+        "json",
+      ),
+    ),
+  );
+  expect(xrd.status.conditions).toEqual([
+    { type: "Established", status: "True", observedGeneration: 1 },
+  ]);
+  expect(xrd.metadata.generation).toBe(1);
+});
+
+test("a healthy cluster answers a CRD read with a CRD that declares no field the fake XRD lacks", () => {
+  const crd = JSON.parse(
+    healthyClusterOutput(
+      read("crd/services.platform.kore.dev", "--output", "json"),
+    ),
+  );
+  expect(crd.spec.versions).toEqual([]);
+});

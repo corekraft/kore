@@ -1,6 +1,10 @@
 // Docs: docs/decisions/0132-local-names-resolve-through-platform-dns-and-one-loopback-entry-point.md
 import { internalGateway } from "./gateways.js";
-import { featureEnabled, platformDnsFlag } from "./features.js";
+import {
+  featureEnabled,
+  platformDnsFlag,
+  suborgTenancyFlag,
+} from "./features.js";
 import type { Environment } from "./types.js";
 
 /** The ConfigMap, in the portal's namespace, that carries the local CA its pods trust (ADR 0132). */
@@ -31,4 +35,23 @@ export function clusterResolutionArgs(
     ];
   }
   return [];
+}
+
+/**
+ * With suborg-tenancy on (ADR 0165, issue 1552), the cluster's service range, which
+ * the suborg NetworkPolicies exclude from open egress: the k3d cluster's range on k3d,
+ * the overlay's otherwise. Absent, none is passed and the chart refuses to render.
+ */
+export function suborgNetworkArgs(
+  environment: Environment,
+  component: string,
+): string[] {
+  const cluster =
+    environment.provider === "k3d" ? environment.k3d : environment.cluster;
+  const on =
+    component === "kore-platform-apis" &&
+    featureEnabled(environment, suborgTenancyFlag);
+  return on && cluster?.serviceCidr !== undefined
+    ? ["--set-string", `suborgNetwork.serviceCidr=${cluster.serviceCidr}`]
+    : [];
 }

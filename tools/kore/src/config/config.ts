@@ -4,7 +4,9 @@ import {
   loadFlagManifest,
   loadImageTrustValues,
   loadJSON,
+  loadK3sHostPin,
   loadRegistryComponentValues,
+  loadSopsRecipients,
   loadSuborgNames,
 } from "./overlay-files.js";
 import { loadServiceRegistrations } from "./service-registrations.js";
@@ -96,11 +98,13 @@ export async function loadRepository(
     flags,
     environment,
     imageTrustValues,
+    k3sHostPin: await loadK3sHostPin(root, environment.name),
     registryComponentValues: await loadRegistryComponentValues(
       root,
       environment,
     ),
     registeredServices: await loadServiceRegistrations(root, environmentName),
+    sopsRecipients: await loadSopsRecipients(root, environmentName),
     suborgs: await loadSuborgNames(
       root,
       environment,

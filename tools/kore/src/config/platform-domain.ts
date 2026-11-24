@@ -1,14 +1,16 @@
-import { internalGateway } from "./gateways.js";
+import { externalGateway, internalGateway } from "./gateways.js";
 import {
   databaseRoutesFlag,
   featureEnabled,
   otlpRouteFlag,
   platformHostnameOwnershipFlag,
   platformSharedGatewayFlag,
-  suborgTenancyFlag,
 } from "./features.js";
 import { dnsHelmArgs } from "./dns-helm-args.js";
-import { clusterResolutionArgs } from "./platform-cluster-resolution.js";
+import {
+  clusterResolutionArgs,
+  suborgNetworkArgs,
+} from "./platform-cluster-resolution.js";
 import { keycloakWaitArgs } from "./platform-keycloak-wait.js";
 import { platformDomainVariable, runTimeDomain } from "./run-time-domain.js";
 import { serviceClassArgs } from "./service-class-args.js";
@@ -192,25 +194,6 @@ function otlpRouteArgs(
   ];
 }
 
-/**
- * With suborg-tenancy on (ADR 0165, issue 1552), the cluster's service range, which
- * the suborg NetworkPolicies exclude from open egress: the k3d cluster's range on k3d,
- * the overlay's otherwise. Absent, none is passed and the chart refuses to render.
- */
-function suborgNetworkArgs(
-  environment: Environment,
-  component: string,
-): string[] {
-  const cluster =
-    environment.provider === "k3d" ? environment.k3d : environment.cluster;
-  const on =
-    component === "kore-platform-apis" &&
-    featureEnabled(environment, suborgTenancyFlag);
-  return on && cluster?.serviceCidr !== undefined
-    ? ["--set-string", `suborgNetwork.serviceCidr=${cluster.serviceCidr}`]
-    : [];
-}
-
 /** The chart value each component that names the platform domain reads it through. */
 const domainValueKeys: Record<string, string | undefined> = {
   "kore-platform-apis": "platformDomain",
@@ -368,8 +351,24 @@ function databaseRoutesArgs(
 export { localCaConfigMap } from "./platform-cluster-resolution.js";
 
 /**
+ * The internal domain in force (spec #1612): internal.<domain> with an external
+ * Gateway, else the platform domain, the run-time domain over the overlay's as
+ * platformPlan reads it. A suborg's internal zone is <organization>.<internal domain>.
+ */
+export function internalDomainOf(
+  environment: Environment,
+  env: NodeJS.ProcessEnv = process.env,
+): string {
+  const { domain } = platformPlan(environment, env);
+  return externalGateway(environment) === undefined
+    ? domain
+    : `internal.${domain}`;
+}
+
+/**
  * With platform-hostname-ownership on, the organization identifier the
- * Organization API builds its zone default from, `<organizationId>.<domain>`;
+ * Organization API builds its zone default from, `<organizationId>.<domain>`, and
+ * the internal domain its internal zone default is built from (spec #1612);
  * otherwise none, so the flag off renders what it rendered before.
  */
 function zoneArgs(
@@ -386,6 +385,8 @@ function zoneArgs(
   return [
     "--set-string",
     `platformOrganizationId=${platformPlan(environment, env).organizationId}`,
+    "--set-string",
+    `platformInternalDomain=${internalDomainOf(environment, env)}`,
   ];
 }
 
