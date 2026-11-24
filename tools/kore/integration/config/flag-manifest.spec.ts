@@ -5,6 +5,7 @@ import {
   flagEntry,
   loadRepository,
   neverRetires,
+  notApplicableReason,
   validateRepository,
 } from "../../src/config/index.js";
 import type { Repository } from "../../src/config/index.js";
@@ -97,8 +98,6 @@ test("the flags that apply to vps are the ones the manifest declares, pending fl
     "service-listener-sets",
     "external-gateway",
     "external-gateway-limits",
-    "database-routes",
-    "otlp-route",
     "platform-hostname-ownership",
     "platform-portal",
     "portal-staged-install",
@@ -111,6 +110,7 @@ test("the flags that apply to vps are the ones the manifest declares, pending fl
     "golden-path-safety-defaults",
     "release-recovery-argocd-refusal",
     "host-published-ports",
+    "platform-dns",
     "in-cluster-ca",
     "k3s-registry-trust",
     "registry-tailnet-forward",
@@ -136,4 +136,40 @@ test("a fixture overlay that turns a flag on still validates, so activating a fl
     "autoscaling-defaults": true,
   });
   assert.deepEqual(await validateRepository(repository), []);
+});
+
+test("database-routes, otlp-route and registry-by-name are not applicable to vps, each reporting its one-line reason from the manifest, and platform-dns applies to vps", async () => {
+  const { flags } = await loadRepository("vps");
+  assert.equal(
+    notApplicableReason(flags, "database-routes", "vps"),
+    "v1 keeps the 5432 passthrough off the vps Gateways; databases stay internal (ADR 0160).",
+  );
+  assert.equal(
+    notApplicableReason(flags, "otlp-route", "vps"),
+    "pods send OTLP to the in-cluster collector, and no route goes on a Gateway reachable without OTLP authentication (ADR 0174, ADR 0140).",
+  );
+  assert.equal(
+    notApplicableReason(flags, "registry-by-name", "vps"),
+    "vps serves the registry as an in-cluster ClusterIP, not by name (ADR 0143).",
+  );
+  assert.equal(notApplicableReason(flags, "platform-dns", "vps"), undefined);
+  assert.ok(appliedFlags(flags, "vps").includes("platform-dns"));
+});
+
+test("a fixture that turns one of the not-applicable flags on for vps fails validation, naming the manifest and the reason", async () => {
+  const base = await loadRepository("vps");
+  const message = await rejectionOf({
+    ...base,
+    environment: {
+      ...base.environment,
+      features: { ...base.environment.features, "otlp-route": true },
+    },
+  });
+  assert.equal(
+    message,
+    [
+      'environment vps turns on otlp-route, which needs platform-shared-gateway: its route is served only through the shared Gateway; set "platform-shared-gateway": true in the vps environment overlay, or turn otlp-route off',
+      "flag otlp-route is on in the vps overlay but infra/catalog/flags.yaml marks it not applicable to vps (pods send OTLP to the in-cluster collector, and no route goes on a Gateway reachable without OTLP authentication (ADR 0174, ADR 0140).); keep it off there (ADR 0148)",
+    ].join("\n"),
+  );
 });
