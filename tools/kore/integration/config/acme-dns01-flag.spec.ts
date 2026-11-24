@@ -34,8 +34,14 @@ async function withAcme(name: string, on: boolean): Promise<Repository> {
   };
 }
 
-/** The platform certificate chart rendered as kore renders it, with the run-time domain in force. */
-async function renderCertificate(repository: Repository): Promise<string> {
+/**
+ * The platform certificate chart rendered as kore renders it, with the run-time domain
+ * in force and the suborg names kore reads from the Organization records.
+ */
+async function renderCertificate(
+  repository: Repository,
+  suborgs: readonly string[] = [],
+): Promise<string> {
   const component = repository.catalog.components.find(
     (c) => c.name === "kore-local-tls",
   )!;
@@ -46,7 +52,12 @@ async function renderCertificate(repository: Repository): Promise<string> {
     "--namespace",
     component.namespace,
     ...featureHelmArgs(repository.environment),
-    ...platformHelmArgs(repository.environment, component.name, runTime),
+    ...platformHelmArgs(
+      repository.environment,
+      component.name,
+      runTime,
+      suborgs,
+    ),
   ]);
   return stdout;
 }
@@ -56,6 +67,25 @@ function clusterIssuers(rendered: string): string[] {
   return rendered
     .split(/^---$/m)
     .filter((document) => /^kind: ClusterIssuer$/m.test(document));
+}
+
+/** Each Certificate document in a render, split on the document separator. */
+function certificates(rendered: string): string[] {
+  return rendered
+    .split(/^---$/m)
+    .filter((document) => /^kind: Certificate$/m.test(document));
+}
+
+/** The names a Certificate document covers, its dnsNames. */
+function dnsNames(document: string): string[] {
+  return [...document.matchAll(/^\s+- "([^"]+)"$/gm)].map((m) => m[1]!);
+}
+
+/** The wildcard Certificates of a render: those whose names are wildcards. */
+function wildcards(rendered: string): string[] {
+  return certificates(rendered).filter((document) =>
+    dnsNames(document).some((name) => name.startsWith("*.")),
+  );
 }
 
 test("vps declares acme-dns01 off, so no Let's Encrypt issuer is rendered (dark until a live outcome)", async () => {
@@ -163,4 +193,120 @@ test("the issuers are gated by the flag in the readiness list, so none is waited
       `${resource} with the flag on`,
     );
   }
+});
+
+test("with the flag on and two suborgs, the render holds exactly four wildcard Certificates: a platform and an internal wildcard for each suborg", async () => {
+  const rendered = await renderCertificate(await withAcme("vps", true), [
+    "reference",
+    "team-a",
+  ]);
+  assert.deepEqual(wildcards(rendered).map(dnsNames), [
+    ["*.reference.example.com"],
+    ["*.reference.internal.example.com"],
+    ["*.team-a.example.com"],
+    ["*.team-a.internal.example.com"],
+  ]);
+});
+
+test("the issuance count is two per suborg: a render holds 2N wildcard Certificates for N suborgs", async () => {
+  for (const suborgs of [
+    [],
+    ["reference"],
+    ["reference", "team-a", "team-b"],
+  ]) {
+    const rendered = await renderCertificate(
+      await withAcme("vps", true),
+      suborgs,
+    );
+    assert.equal(
+      wildcards(rendered).length,
+      2 * suborgs.length,
+      suborgs.join(","),
+    );
+  }
+});
+
+test("every wildcard Certificate is issued by the staging issuer, and no Certificate references production (production waits for a staging Ready outcome)", async () => {
+  const rendered = await renderCertificate(await withAcme("vps", true), [
+    "reference",
+  ]);
+  for (const document of wildcards(rendered)) {
+    assert.match(
+      document,
+      /issuerRef:\n\s+kind: ClusterIssuer\n\s+name: letsencrypt-staging/,
+    );
+  }
+  assert.equal(
+    certificates(rendered).some((document) =>
+      /name: letsencrypt-production/.test(document),
+    ),
+    false,
+  );
+});
+
+test("no per-service Certificate exists for a platform or internal name: every Certificate but the Gateway's own names a wildcard of a listed suborg", async () => {
+  const rendered = await renderCertificate(await withAcme("vps", true), [
+    "reference",
+    "team-a",
+  ]);
+  const perName = certificates(rendered).filter(
+    (document) => !/^  name: kore-local$/m.test(document),
+  );
+  assert.equal(perName.length, 4);
+  for (const document of perName) {
+    for (const name of dnsNames(document)) {
+      assert.match(name, /^\*\.(reference|team-a)(\.internal)?\.example\.com$/);
+    }
+  }
+  assert.match(
+    rendered,
+    /kind: Certificate\n[\s\S]*issuerRef:\n\s+kind: ClusterIssuer\n\s+name: kore-local-ca/,
+  );
+});
+
+test("a suborg with no Organization manifest renders nothing: with no suborg names the render holds no wildcard and the issuers still render", async () => {
+  const rendered = await renderCertificate(await withAcme("vps", true), []);
+  assert.deepEqual(wildcards(rendered), []);
+  assert.equal(clusterIssuers(rendered).length, 2);
+});
+
+test("with the flag off, suborg names change nothing: the render is byte-identical to the render without them", async () => {
+  const off = await withAcme("vps", false);
+  assert.equal(
+    await renderCertificate(off, ["reference", "team-a"]),
+    await renderCertificate(off),
+  );
+});
+
+test("vps loads no suborg names, because it has no Organization manifest yet, so its render holds no wildcard", async () => {
+  const repository = await loadRepository("vps");
+  assert.deepEqual(repository.suborgs, []);
+});
+
+test("suborgs x and x-internal render distinct Certificates and secrets, because the kind comes before the suborg name", async () => {
+  const rendered = await renderCertificate(await withAcme("vps", true), [
+    "x",
+    "x-internal",
+  ]);
+  const pairs = wildcards(rendered);
+  assert.deepEqual(pairs.map(dnsNames), [
+    ["*.x.example.com"],
+    ["*.x.internal.example.com"],
+    ["*.x-internal.example.com"],
+    ["*.x-internal.internal.example.com"],
+  ]);
+  const names = pairs.map((document) => /^  name: (.+)$/m.exec(document)![1]);
+  assert.deepEqual(names, [
+    "suborg-wildcard-x",
+    "suborg-internal-wildcard-x",
+    "suborg-wildcard-x-internal",
+    "suborg-internal-wildcard-x-internal",
+  ]);
+  const secrets = pairs.map(
+    (document) => /^  secretName: (.+)$/m.exec(document)![1],
+  );
+  assert.deepEqual(
+    secrets,
+    names.map((name) => `${name}-tls`),
+  );
 });
