@@ -56,6 +56,10 @@ export const configModule = () => ({
     recordBases.push(options.recordBase);
     return { errors: [], warnings: [] };
   }),
+  checkOrganizationRecords: vi.fn(async () => ({
+    errors: [],
+    organizations: [],
+  })),
   loadRepository: vi.fn(async (environment) => ({
     ...repository,
     environment: { ...repository.environment, name: environment },
