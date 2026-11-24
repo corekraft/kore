@@ -2,7 +2,7 @@
 status: proposed
 summary: Behind the flag acme-dns01, vps only, cert-manager gets a Let's Encrypt staging and a production ClusterIssuer that solve DNS-01 through Cloudflare for the platform zone, with the DNS-01 self-check pointed at public resolvers so the in-cluster rewrite cannot hide the challenge; platform names get per-suborg wildcard certificates, foreign names get HTTP-01 per-name certificates, and the first live proof uses staging then production under one outcome.
 date: 2026-11-20
-last-verified: 2026-11-20
+last-verified: 2026-11-24
 ---
 
 # ADR 0161: cert-manager solves DNS-01 through Cloudflare and issues per-suborg wildcards behind acme-dns01

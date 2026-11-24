@@ -245,3 +245,16 @@ test("a component that names the platform domain is handed the environment's val
     [],
   );
 });
+
+test("the platform certificate is handed the suborg names of the Organization records, so a dropped name fails", () => {
+  vi.mocked(componentValues).mockReturnValue([]);
+  vi.mocked(platformHelmArgs).mockReturnValue([]);
+  const withSuborgs = { ...repository, suborgs: ["reference"] };
+  helmUpgradeArgs(withSuborgs, fakeComponent({ name: "kore-local-tls" }));
+  expect(platformHelmArgs).toHaveBeenCalledWith(
+    repository.environment,
+    "kore-local-tls",
+    process.env,
+    ["reference"],
+  );
+});
