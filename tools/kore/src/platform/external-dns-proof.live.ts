@@ -181,7 +181,11 @@ const summary =
  * run (ADR 0077). The evidence names the checkout and the logs read. Refuses an empty idea, and evidence that
  * is not one line or holds an HTML comment, since outcome record refuses those too.
  */
-export function outcomeArgs(idea: string, evidence: string): string[] {
+export function outcomeArgs(
+  idea: string,
+  evidence: string,
+  environment: string,
+): string[] {
   if (idea.trim() === "") {
     throw new Error(
       "the outcome needs an idea: set KORE_EXTERNAL_DNS_IDEA to the idea's number or slug (harness idea list shows them)",
@@ -206,7 +210,7 @@ export function outcomeArgs(idea: string, evidence: string): string[] {
     "--flag",
     "external-dns",
     "--environment",
-    "local",
+    environment,
     "--evidence",
     evidence,
     "--summary",

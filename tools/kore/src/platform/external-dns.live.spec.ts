@@ -111,7 +111,7 @@ async function recordOutcome(
     process.execPath,
     [
       resolve(checkout, "skills/bin/harness.mjs"),
-      ...outcomeArgs(idea, evidence),
+      ...outcomeArgs(idea, evidence, repository.environment.name),
     ],
     { cwd: checkout, capture: true },
   );

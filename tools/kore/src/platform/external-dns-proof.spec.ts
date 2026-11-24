@@ -181,7 +181,9 @@ describe("the external-dns log check", () => {
 
 describe("the outcome record", () => {
   it("records a verification of external-dns in local from a live run, through outcome record", () => {
-    expect(outcomeArgs("412", "external-dns live proof on abc1234")).toEqual([
+    expect(
+      outcomeArgs("412", "external-dns live proof on abc1234", "local"),
+    ).toEqual([
       "outcome",
       "record",
       "--idea",
@@ -204,7 +206,11 @@ describe("the outcome record", () => {
   });
 
   it("states that the record-without-TXT check is not covered on the inmemory provider", () => {
-    const args = outcomeArgs("412", "external-dns live proof on abc1234");
+    const args = outcomeArgs(
+      "412",
+      "external-dns live proof on abc1234",
+      "local",
+    );
 
     expect(args[args.indexOf("--summary") + 1]).toContain(
       "not covered on the inmemory provider",
@@ -212,11 +218,17 @@ describe("the outcome record", () => {
   });
 
   it("refuses evidence that is not one line, or that holds an HTML comment, since outcome record refuses it", () => {
-    expect(() => outcomeArgs("412", "line one\nline two")).toThrow(/evidence/);
-    expect(() => outcomeArgs("412", "run <!-- hidden -->")).toThrow(/evidence/);
+    expect(() => outcomeArgs("412", "line one\nline two", "local")).toThrow(
+      /evidence/,
+    );
+    expect(() => outcomeArgs("412", "run <!-- hidden -->", "local")).toThrow(
+      /evidence/,
+    );
   });
 
   it("refuses an idea that is empty, since the outcome needs one", () => {
-    expect(() => outcomeArgs("  ", "external-dns live proof")).toThrow(/idea/);
+    expect(() => outcomeArgs("  ", "external-dns live proof", "local")).toThrow(
+      /idea/,
+    );
   });
 });
