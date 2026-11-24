@@ -14,6 +14,9 @@ vi.mock("../resolver/index.js", () => ({
 }));
 vi.mock("./registry-name-check.js", () => ({ registryNameCheck: vi.fn() }));
 vi.mock("./run-time-check.js", () => ({ runTimeChecks: async () => [] }));
+vi.mock("./token-secret-check.js", () => ({
+  tokenSecretChecks: async () => [],
+}));
 
 const finding: Check = {
   name: "registry:name",

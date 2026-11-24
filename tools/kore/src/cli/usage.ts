@@ -20,6 +20,7 @@ Usage:
   kore signer swap-key --environment local --yes [--json]
   kore secrets sync --environment local [--rotate --yes]
   kore secrets smtp --environment <name>   (streams {"user": "...", "password": "..."} on stdin into the grafana-smtp Secret that the alert email settings read; run it after the platform is up; the login is never read from a flag, file or config)
+  kore secrets tokens --environment <name>   (applies the cloudflare-token Secret of each consumer whose flag is on, external-dns or acme-dns01: sops decrypts its document under infra/environments/<name>/secrets and the value is streamed on kubectl's stdin; a flag that is off applies nothing, and a local environment applies nothing)
   kore trust install --environment local
   kore dns install|uninstall --environment local [--yes] [--json]
   kore journal [--environment <name>] [--limit <n>] [--json]

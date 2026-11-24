@@ -63,7 +63,7 @@ test("each command's mutating actions are exactly the actions that change its en
     local: ["up", "down"],
     signer: ["swap-key"],
     registry: ["rotate-credentials"],
-    secrets: ["sync", "smtp"],
+    secrets: ["sync", "smtp", "tokens"],
     trust: ["install"],
     dns: ["install", "uninstall"],
     eval: [],
