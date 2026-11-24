@@ -60,7 +60,7 @@ test("a gated-off release still installed is named with the uninstall and the fl
   const problem = await gatedReleaseProblem(repository, runner, gatedOff);
 
   expect(problem).toBe(
-    "registry is gated off (feature registry is off in k3d-local) but its release is still installed in registry-ns; run helm uninstall registry --namespace registry-ns --kube-context k3d-kore-local, or turn feature registry back on",
+    "registry is gated off (feature registry is off in k3d-local) but its release is still installed in registry-ns; run kore platform uninstall registry --environment k3d-local --yes to remove it, or turn feature registry back on",
   );
 });
 

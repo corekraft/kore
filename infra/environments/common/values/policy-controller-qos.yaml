@@ -1,0 +1,12 @@
+# Guaranteed QoS for the policy controller (ADR 0152, issue 1593): the webhook and the
+# leases-cleanup Job each request their limit for CPU and memory, so their pods are
+# Guaranteed. The catalog passes this file to Helm only while data-path-guaranteed-qos
+# is on; off, the chart renders the sizes it renders today.
+webhook:
+  resources:
+    requests: { cpu: 200m, memory: 512Mi }
+    limits: { cpu: 200m, memory: 512Mi }
+leasescleanup:
+  resources:
+    requests: { cpu: 100m, memory: 128Mi }
+    limits: { cpu: 100m, memory: 128Mi }

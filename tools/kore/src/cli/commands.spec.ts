@@ -57,7 +57,7 @@ test("each command's mutating actions are exactly the actions that change its en
     ops: [],
     policy: [],
     cluster: ["up", "stop", "destroy"],
-    platform: ["bootstrap", "up", "gate-check", "stop", "destroy"],
+    platform: ["bootstrap", "up", "gate-check", "stop", "destroy", "uninstall"],
     data: ["export", "restore"],
     app: ["up", "down"],
     local: ["up", "down"],
