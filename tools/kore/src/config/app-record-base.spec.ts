@@ -1,5 +1,5 @@
 import { beforeEach, expect, test, vi } from "vitest";
-import type { Runner } from "../runtime/index.js";
+import { CommandError, type Runner } from "../runtime/index.js";
 import { immutabilityReport } from "./app-record-base.js";
 import { organizationChangeErrors } from "./app-record-rules.js";
 
@@ -10,13 +10,35 @@ const record = { stem: "leads", file, organization: "platform" };
 /** The command the base reader runs; a name, so an assertion's first argument is not a literal. */
 const gitCommand = "git";
 
-/** A runner whose git answers from `refs` (which refs resolve) and `blobs` (a file at a ref). */
-function gitRunner(refs: string[], blobs: Record<string, string> = {}) {
+/** A git subcommand that fails with git's own stderr instead of answering. */
+interface GitBreak {
+  subcommand: "ls-tree" | "show";
+  stderr: string;
+}
+
+/**
+ * A runner whose git answers from `refs` (which refs resolve) and `blobs` (a file at a
+ * ref). `ls-tree` prints the file's name when the ref has it and nothing when it does
+ * not, as git does; `show` reads a blob. `broken` makes one subcommand fail as git does.
+ */
+function gitRunner(
+  refs: string[],
+  blobs: Record<string, string> = {},
+  broken?: GitBreak,
+) {
   const run = vi.fn(async (command: string, args: readonly string[]) => {
-    if (command !== "git") {
+    if (command !== gitCommand) {
       throw new Error(`unexpected command ${command}`);
     }
-    if (args[0] === "rev-parse") {
+    const [subcommand] = args;
+    if (broken !== undefined && subcommand === broken.subcommand) {
+      throw new CommandError(gitCommand, args, {
+        stdout: "",
+        stderr: broken.stderr,
+        code: 128,
+      });
+    }
+    if (subcommand === "rev-parse") {
       const ref = args[args.indexOf("--quiet") + 1]!.replace(
         /\^\{commit\}$/,
         "",
@@ -25,6 +47,13 @@ function gitRunner(refs: string[], blobs: Record<string, string> = {}) {
         return { stdout: "", stderr: "", code: 0 };
       }
       throw new Error(`git rev-parse ${ref} failed`);
+    }
+    if (subcommand === "ls-tree") {
+      // ls-tree --full-tree --name-only <ref> -- <file>
+      const ref = args[3]!;
+      const path = args.at(-1)!;
+      const present = blobs[`${ref}:${path}`] !== undefined;
+      return { stdout: present ? `${path}\n` : "", stderr: "", code: 0 };
     }
     const blob = blobs[args[1]!];
     if (blob === undefined) {
@@ -66,6 +95,61 @@ test("a service absent at the base ref has no base organization, so it is new", 
   expect(organizationChangeErrors).toHaveBeenCalledWith(
     expect.objectContaining({ base: undefined }),
   );
+});
+
+test("a service absent at the base ref reads nothing from the base, so it passes as new", async () => {
+  const runner = gitRunner(["origin/main"]);
+  await immutabilityReport({ root: "/repo", runner, records: [record] });
+  expect(runner.run).not.toHaveBeenCalledWith(
+    gitCommand,
+    ["show", `origin/main:${file}`],
+    expect.anything(),
+  );
+});
+
+test("a git failure other than absence while looking up the base file fails the check with the fix, and no organization is compared", async () => {
+  const runner = gitRunner(
+    ["origin/main"],
+    {},
+    {
+      subcommand: "ls-tree",
+      stderr: "fatal: unable to read tree (5f1c0e2)",
+    },
+  );
+  const outcome = immutabilityReport({
+    root: "/repo",
+    runner,
+    records: [record],
+  });
+  await expect(outcome).rejects.toThrow(
+    `could not read ${file} at origin/main`,
+  );
+  await expect(outcome).rejects.toThrow("fatal: unable to read tree");
+  await expect(outcome).rejects.toThrow("git fsck");
+  await expect(outcome).rejects.toThrow("--record-base <ref>");
+  expect(organizationChangeErrors).not.toHaveBeenCalled();
+});
+
+test("a git failure reading a base file that exists is rethrown, so a broken base cannot pass as a new service", async () => {
+  const runner = gitRunner(
+    ["origin/main"],
+    {
+      [`origin/main:${file}`]: JSON.stringify({
+        spec: { organization: "sales" },
+      }),
+    },
+    { subcommand: "show", stderr: "fatal: unable to read blob" },
+  );
+  const outcome = immutabilityReport({
+    root: "/repo",
+    runner,
+    records: [record],
+  });
+  await expect(outcome).rejects.toThrow(
+    `could not read ${file} at origin/main`,
+  );
+  await expect(outcome).rejects.toThrow("fatal: unable to read blob");
+  expect(organizationChangeErrors).not.toHaveBeenCalled();
 });
 
 test("a base copy that is not strict JSON has no organization to compare", async () => {

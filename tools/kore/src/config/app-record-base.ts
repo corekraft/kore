@@ -48,7 +48,30 @@ async function resolves(
   }
 }
 
-/** The text of a file at a base ref, or undefined when the file is absent there. */
+/**
+ * Whether the base ref's tree has the file. `ls-tree` prints nothing for a path the
+ * ref does not have and exits 0; it fails for anything else, so only absence reads
+ * as absent.
+ */
+async function presentAt(
+  runner: Runner,
+  root: string,
+  ref: string,
+  file: string,
+): Promise<boolean> {
+  const listing = await runner.run(
+    "git",
+    ["ls-tree", "--full-tree", "--name-only", ref, "--", file],
+    { capture: true, cwd: root },
+  );
+  return listing.stdout.split("\n").includes(file);
+}
+
+/**
+ * The text of a file at a base ref, or undefined when the file is absent there. Any
+ * other git failure is rethrown with the fix: a corrupt repository or an unreadable
+ * ref must fail the check, never pass it as a new service.
+ */
 async function baseText(
   runner: Runner,
   root: string,
@@ -56,14 +79,21 @@ async function baseText(
   file: string,
 ): Promise<string | undefined> {
   try {
+    if (!(await presentAt(runner, root, ref, file))) {
+      return undefined;
+    }
     return (
       await runner.run("git", ["show", `${ref}:${file}`], {
         capture: true,
         cwd: root,
       })
     ).stdout;
-  } catch {
-    return undefined;
+  } catch (error) {
+    const detail = error instanceof Error ? error.message : String(error);
+    throw new Error(
+      `could not read ${file} at ${ref} to compare its organization: ${detail}. Repair the git repository at ${root} (git fsck names corrupt objects), or pass --record-base <ref> to compare against a ref that reads cleanly.`,
+      { cause: error },
+    );
   }
 }
 
