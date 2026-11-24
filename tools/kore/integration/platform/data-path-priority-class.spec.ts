@@ -40,25 +40,14 @@ function withPriority(repository: Repository, on: boolean): Repository {
   };
 }
 
-/** A PriorityClass as the registry release renders it. */
-interface PriorityClassDoc {
-  kind?: string;
-  metadata?: { name?: string };
-  value?: number;
-  globalDefault?: boolean;
-}
-
 /** The priority class a pod spec names; absent when it names none. */
 function priorityOf(podSpec: PodSpec | undefined): string | undefined {
-  return (podSpec as { priorityClassName?: string } | undefined)
-    ?.priorityClassName;
+  return podSpec?.priorityClassName;
 }
 
 /** Every PriorityClass a render holds. */
-function priorityClassesOf(text: string): PriorityClassDoc[] {
-  return (documents(text) as PriorityClassDoc[]).filter(
-    (doc) => doc.kind === "PriorityClass",
-  );
+function priorityClassesOf(text: string): Doc[] {
+  return documents(text).filter((doc) => doc.kind === "PriorityClass");
 }
 
 /** The pod spec of the registry Deployment, found by its name. */
@@ -88,11 +77,7 @@ function gatewayPriority(
     (doc) =>
       doc.kind === "AgentgatewayParameters" &&
       doc.metadata?.name === "kore-gateway-service",
-  ) as
-    | (Doc & {
-        spec?: { deployment?: { spec?: { template?: { spec?: PodSpec } } } };
-      })
-    | undefined;
+  );
   return priorityOf(parameters?.spec?.deployment?.spec?.template?.spec);
 }
 
@@ -111,12 +96,13 @@ function priorityValuesOf(repository: Repository): PriorityValues {
     path.endsWith("policy-controller-priority.yaml"),
   );
   assert.ok(file, "the policy controller takes its priority values file");
-  return JSON.parse(
+  const values: PriorityValues = JSON.parse(
     execFileSync("yq", ["-o=json", "-I=0", "."], {
       input: readFileSync(join(repository.root, file), "utf8"),
       encoding: "utf8",
     }),
-  ) as PriorityValues;
+  );
+  return values;
 }
 
 // Flag off: nothing kore-owned is rendered and no pod names a class.
