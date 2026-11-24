@@ -1,0 +1,8 @@
+# The kore-owned PriorityClass the policy controller's webhook and leases-cleanup Job
+# name (ADR 0152, issue 1531); the oci-registry release creates the class. The catalog
+# passes this file to Helm only while data-path-priority-class is on; off, the chart
+# renders no priority class, as it does today.
+webhook:
+  priorityClass: kore-platform-critical
+leasescleanup:
+  priorityClass: kore-platform-critical

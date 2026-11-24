@@ -1,0 +1,11 @@
+{{- /* The one kore-owned PriorityClass (ADR 0152, issue 1531). This release owns it: the gateway proxy, platform DNS and the policy controller, which already wait on this registry, name it. Off, nothing is rendered. */}}
+{{- if index (.Values.features | default dict) "data-path-priority-class" }}
+apiVersion: scheduling.k8s.io/v1
+kind: PriorityClass
+metadata:
+  name: {{ .Values.priorityClass.name }}
+  labels: {app.kubernetes.io/managed-by: Helm}
+description: The platform data path (gateway proxy, platform DNS, policy controller, registry) outranks app workloads, which keep the default class (ADR 0152).
+value: {{ .Values.priorityClass.value }}
+globalDefault: false
+{{- end }}

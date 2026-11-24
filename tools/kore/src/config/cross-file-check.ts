@@ -8,6 +8,7 @@
 import { readdir, readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { servicesDirectory } from "./app-records.js";
+import { appSizingFlag, featureEnabled } from "./features.js";
 import {
   crossFileRules,
   type ComponentRequests,
@@ -105,10 +106,23 @@ function serviceFacts(
       const resources =
         isRecord(value) && isRecord(value.resources) ? value.resources : {};
       const written = isRecord(resources.requests) ? resources.requests : {};
+      const limits = isRecord(resources.limits) ? resources.limits : {};
+      const scaling =
+        isRecord(value) && isRecord(value.autoscaling) ? value.autoscaling : {};
       return {
         component,
         cpu: textOf(written.cpu),
         memory: textOf(written.memory),
+        memoryLimit: textOf(limits.memory),
+        ephemeralStorage: textOf(written.ephemeralStorage),
+        minReplicas:
+          typeof scaling.minReplicas === "number"
+            ? scaling.minReplicas
+            : undefined,
+        maxReplicas:
+          typeof scaling.maxReplicas === "number"
+            ? scaling.maxReplicas
+            : undefined,
       };
     },
   );
@@ -139,6 +153,8 @@ function suborgFacts(name: string, file: string, manifest: Json): SuborgFacts {
     file,
     quota:
       cpu === undefined || memory === undefined ? undefined : { cpu, memory },
+    pods: typeof quota.pods === "number" ? quota.pods : undefined,
+    storage: textOf(quota.storage),
   };
 }
 
@@ -184,6 +200,7 @@ export async function checkCrossFileRules(
     organizationsDirectory: suborgsDir,
     services,
     suborgs,
+    sizing: featureEnabled(environment, appSizingFlag),
   });
   return {
     errors: [...readErrors, ...report.errors],

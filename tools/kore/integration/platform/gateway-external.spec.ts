@@ -245,3 +245,22 @@ test("the two flags are listed false in every overlay", async () => {
     );
   }
 });
+
+// Issue 1637 (ADR 0157): the HTTP-01 solver's route is admitted only from kore-system, so the
+// external Gateway's HTTP listener must keep allowedRoutes from Same rather than widen to other namespaces.
+test("the external Gateway's HTTP listener still admits routes from its own namespace only, so an HTTP-01 solver's route must live in kore-system", async () => {
+  const base = await loadRepository("vps");
+  const output = render(
+    withFeatures(base, {
+      "platform-shared-gateway": true,
+      "service-listener-sets": true,
+      "external-gateway": true,
+      "acme-dns01": true,
+      "acme-issuers": true,
+    }),
+  );
+  const gateway = documentNamed(output, "Gateway", "kore-gateway-external");
+  assert.ok(gateway, "the external Gateway renders");
+  assert.match(gateway, /^    - name: http$/m);
+  assert.match(gateway, /namespaces: \{from: Same\}/);
+});

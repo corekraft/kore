@@ -89,6 +89,12 @@
       },
       { "name": "acme-dns01", "kind": "feature", "applies": ["vps"] },
       {
+        "name": "acme-issuers",
+        "kind": "feature",
+        "applies": ["vps"],
+        "requires": ["acme-dns01"]
+      },
+      {
         "name": "database-routes",
         "kind": "feature",
         "applies": ["local", "vps", "managed-example"],
@@ -154,6 +160,11 @@
         "applies": ["local", "vps", "managed-example"]
       },
       {
+        "name": "data-path-priority-class",
+        "kind": "feature",
+        "applies": ["local", "vps", "managed-example"]
+      },
+      {
         "name": "golden-path-safety-defaults",
         "kind": "feature",
         "applies": ["local", "vps", "managed-example"]
@@ -166,6 +177,11 @@
       },
       {
         "name": "app-delivery",
+        "kind": "feature",
+        "applies": ["local", "vps", "managed-example"]
+      },
+      {
+        "name": "app-sizing",
         "kind": "feature",
         "applies": ["local", "vps", "managed-example"]
       },
