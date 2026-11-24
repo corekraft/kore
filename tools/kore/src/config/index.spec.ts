@@ -121,6 +121,7 @@ vi.mock("./registry-name.js", () => ({
 vi.mock("./validate.js", () => ({ validateRepository: vi.fn() }));
 
 const entryPoints = [
+  "PLACEHOLDER_RECIPIENT",
   "RunTimeFileError",
   "absolute",
   "acmeCertificateIssuer",
@@ -152,6 +153,7 @@ const entryPoints = [
   "databaseRoutesDeliveryArgs",
   "driftListingMappingsFlag",
   "enabledComponents",
+  "environmentRecipients",
   "evaluateAudit",
   "exemptionCheckMode",
   "exists",
@@ -168,6 +170,7 @@ const entryPoints = [
   "helmInstalledComponents",
   "ingressFlag",
   "internalGateway",
+  "isAgeRecipient",
   "isLocalProvider",
   "keycloakHostname",
   "keycloakOperatorProbeHelmArgs",

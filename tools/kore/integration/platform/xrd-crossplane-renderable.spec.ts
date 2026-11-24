@@ -73,6 +73,8 @@ const featureSets: Record<string, string[]> = {
   "every schema-shaping feature on": [
     "--set",
     "platformOrganizationId=platform",
+    "--set-string",
+    "platformInternalDomain=internal.kore.internal",
     "--set",
     "features.platform-hostname-ownership=true",
     "--set",
