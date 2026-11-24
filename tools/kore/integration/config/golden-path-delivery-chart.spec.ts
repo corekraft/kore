@@ -166,9 +166,7 @@ test("a branch name is refused as the revision so the sync follows a reviewed co
 test("the workload chart deploys the frontend and the BFF by digest, each with its Service", async () => {
   const docs = await workload();
   const kinds = docs.map((d) => /^kind: (\w+)$/m.exec(d)![1]).sort();
-  // One line, so the spec stays within the max-lines rule (issue 1551).
-  // prettier-ignore
-  assert.deepEqual(kinds, ["Deployment", "Deployment", "Service", "Service", "Service", "ServiceAccount"]);
+  assert.deepEqual(kinds, ["Deployment", "Deployment", "Service", "Service"]);
   const joined = docs.join("\n");
   assert.ok(joined.includes(`image: "${frontend}"`));
   assert.ok(joined.includes(`image: "${bff}"`));
@@ -246,8 +244,6 @@ test("a service host gets a Gateway listener, a Certificate and an HTTPRoute, al
     "HTTPRoute",
     "Service",
     "Service",
-    "Service",
-    "ServiceAccount",
   ]);
   const gateway = docs.find((d) => kindOf(d) === "Gateway")!;
   assert.match(gateway, /gatewayClassName: "agentgateway"/);

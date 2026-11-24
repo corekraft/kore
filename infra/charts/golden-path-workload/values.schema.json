@@ -60,6 +60,10 @@
       "description": "Set by the golden-path ApplicationSet only while golden-path-safety-defaults is on (ADR 0154). Then each workload renders the safety defaults; off, every render is unchanged.",
       "type": "boolean"
     },
+    "serviceIdentity": {
+      "description": "Set by the golden-path ApplicationSet only while golden-path-service-identity is on (issue 1551). Then the workload renders a Service and a ServiceAccount named after the service, and each Deployment runs as that account with its API token not mounted; off, every render is unchanged.",
+      "type": "boolean"
+    },
     "rolloutDefaults": {
       "description": "The numbers of the safety defaults, rendered only while safetyDefaults is on (ADR 0154).",
       "type": "object",

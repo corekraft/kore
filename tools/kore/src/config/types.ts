@@ -423,6 +423,8 @@ export interface GoldenPathDeliveryValues {
   templateAdmission?: boolean;
   /** Set only while golden-path-safety-defaults is on: the sync sets safetyDefaults on each workload (ADR 0154). */
   safetyDefaults?: boolean;
+  /** Set only while golden-path-service-identity is on: the sync sets serviceIdentity on each workload, so it renders its Service, ServiceAccount and pod-spec identity (issue 1551). */
+  serviceIdentity?: boolean;
   /** Set only while app-delivery is on: each Application takes its service's release file as an optional values file, so the workload deploys the release's digest (ADR 0166, ADR 0172). */
   appDelivery?: boolean;
   autoscaling?: boolean;

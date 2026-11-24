@@ -206,12 +206,7 @@ test("with platform-shared-gateway on a delivered Service under the organization
   assert.doesNotMatch(output, /^kind: Gateway$/m);
   assert.doesNotMatch(output, /^kind: Certificate$/m);
   assert.doesNotMatch(output, /web-tls/);
-  // Only the service's own Service and ServiceAccount are named web (issue 1551); nothing else is.
-  const othersNamedWeb = output
-    .split("\n---\n")
-    .filter((doc) => /^ {2}name: web$/m.test(doc))
-    .filter((doc) => !/^kind: (Service|ServiceAccount)$/m.test(doc));
-  assert.deepEqual(othersNamedWeb, []);
+  assert.doesNotMatch(output, /^ {2}name: web$/m);
   assert.equal(output.match(/kind: HTTPRoute/g)?.length, 1);
   const route = sharedRoute(output, "web-shared");
   assert.match(

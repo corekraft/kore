@@ -31,16 +31,6 @@ spec:
 ---
 # Source: golden-path-workload/templates/workload.yaml
 apiVersion: v1
-kind: ServiceAccount
-metadata:
-  name: auth
-  labels:
-    app.kubernetes.io/part-of: auth
-automountServiceAccountToken: false
-
----
-# Source: golden-path-workload/templates/workload.yaml
-apiVersion: v1
 kind: Service
 metadata:
   name: auth-bff
@@ -65,22 +55,6 @@ metadata:
 spec:
   selector:
     app.kubernetes.io/name: auth-frontend
-  ports:
-    - name: http
-      port: 80
-      targetPort: http
-
----
-# Source: golden-path-workload/templates/workload.yaml
-apiVersion: v1
-kind: Service
-metadata:
-  name: auth
-  labels:
-    app.kubernetes.io/part-of: auth
-spec:
-  selector:
-    app.kubernetes.io/name: auth-bff
   ports:
     - name: http
       port: 80
@@ -113,8 +87,6 @@ spec:
         app.kubernetes.io/name: auth-bff
         app.kubernetes.io/part-of: auth
     spec:
-      serviceAccountName: auth
-      automountServiceAccountToken: false
       securityContext:
         runAsNonRoot: true
         seccompProfile:
@@ -170,8 +142,6 @@ spec:
         app.kubernetes.io/name: auth-frontend
         app.kubernetes.io/part-of: auth
     spec:
-      serviceAccountName: auth
-      automountServiceAccountToken: false
       securityContext:
         runAsNonRoot: true
         seccompProfile:

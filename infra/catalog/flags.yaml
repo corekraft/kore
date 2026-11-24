@@ -154,6 +154,12 @@
         "applies": ["local", "vps", "managed-example"]
       },
       {
+        "name": "golden-path-service-identity",
+        "kind": "feature",
+        "applies": ["local", "vps", "managed-example"],
+        "requires": ["platform-argocd-delivery"]
+      },
+      {
         "name": "app-delivery",
         "kind": "feature",
         "applies": ["local", "vps", "managed-example"]
