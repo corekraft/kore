@@ -68,6 +68,16 @@ function check(
       match: (_command, args) => args[1] === "diff",
       result: { stdout: diff },
     },
+    // The hostname claims read the merge base; an empty file at every path reads as no claim change.
+    {
+      match: (_command, args) => args.some((a) => a.includes("/compare/")),
+      result: {
+        stdout: JSON.stringify({
+          behind_by: 0,
+          merge_base_commit: { sha: BASE },
+        }),
+      },
+    },
   ]);
   const context: CommandContext = {
     json: false,
