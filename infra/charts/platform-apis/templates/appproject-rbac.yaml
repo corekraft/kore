@@ -1,0 +1,30 @@
+{{- $features := .Values.features | default dict }}
+{{- if and (index $features "suborg-tenancy") (index $features "suborg-delivery-project") }}
+# Namespaced: the Organization composition creates each suborg's Argo CD AppProject in
+# the argocd namespace (ADR 0165, ADR 0043, issue 1553).
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: crossplane-suborg-appprojects
+  namespace: argocd
+  labels: { app.kubernetes.io/managed-by: Helm }
+rules:
+  - apiGroups: [argoproj.io]
+    resources: [appprojects]
+    verbs: [get, list, watch, create, update, patch, delete]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: crossplane-suborg-appprojects
+  namespace: argocd
+  labels: { app.kubernetes.io/managed-by: Helm }
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: crossplane-suborg-appprojects
+subjects:
+  - kind: ServiceAccount
+    name: crossplane
+    namespace: crossplane-system
+{{- end }}
