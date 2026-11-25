@@ -123,6 +123,52 @@ function notApplicableErrors(entry: FlagEntry): string[] {
   return [...notListed, ...reasonless];
 }
 
+/**
+ * Whether a flag applies in an environment: it lists the environment in its
+ * applies and is not marked not applicable there (ADR 0148).
+ */
+function appliesIn(entry: FlagEntry, environment: string): boolean {
+  const applies = Array.isArray(entry.applies) ? entry.applies : [];
+  const notApplicable = Array.isArray(entry.notApplicable)
+    ? entry.notApplicable
+    : [];
+  return applies.includes(environment) && !notApplicable.includes(environment);
+}
+
+/**
+ * Errors of each requires edge that can never bind: an edge is live where the
+ * requiring flag applies, so it is dead in such an environment when the required
+ * flag does not apply there (ADR 0148). An edge whose requiring flag is not
+ * applicable in an environment never binds there and is not reported there. A
+ * required flag with no entry is left to requiresErrors.
+ */
+function deadEdgeErrors(manifest: FlagManifest): string[] {
+  return manifest.flags.flatMap((entry) => {
+    if (!Array.isArray(entry.requires) || !Array.isArray(entry.applies)) {
+      return [];
+    }
+    const requires: string[] = entry.requires;
+    return entry.applies
+      .filter((env) => appliesIn(entry, env))
+      .flatMap((env) =>
+        requires.flatMap((needed) => {
+          const required = flagEntry(manifest, needed);
+          if (!required || appliesIn(required, env)) {
+            return [];
+          }
+          const why =
+            Array.isArray(required.notApplicable) &&
+            required.notApplicable.includes(env)
+              ? `is not applicable to ${env} (${required.reason ?? "no reason given"})`
+              : `does not apply to ${env}`;
+          return [
+            `flag ${entry.name} requires ${needed}, which ${why}, so the edge can never bind there; remove ${needed} from the requires of ${entry.name}, or mark ${entry.name} not applicable to ${env} with a reason (ADR 0148)`,
+          ];
+        }),
+      );
+  });
+}
+
 /** Errors of the manifest's own entries: names, kinds, environments and marks. */
 function entryErrors(manifest: FlagManifest): string[] {
   const seen = new Set<string>();
@@ -241,6 +287,7 @@ export function flagManifestErrors(repository: Repository): string[] {
   }
   return [
     ...entryErrors(repository.flags),
+    ...deadEdgeErrors(repository.flags),
     ...overlayFlagErrors(repository),
     ...requiresOverlayErrors(repository),
   ];

@@ -60,3 +60,7 @@ Refines the seed classification above, decided on [issue #1676](https://github.c
 Still open:
 
 - `registry-by-name` stays pending for local until the naming concept settles whether a name-routed registry serves the tailnet.
+
+## Refinement: a requires edge binds only where the required flag applies (#2055)
+
+A `requires` edge is live only where the requiring flag applies, so an edge whose required flag does not apply there (not in its `applies`, or marked `notApplicable`) can never bind and is refused by validation, naming both flags and the environment, because such an edge would make "turn on" impossible there and hide a broken prerequisite until activation.
