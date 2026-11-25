@@ -302,5 +302,57 @@ spec:
             {{`{{- end }}`}}
 {{- end }}
 {{- end }}
+{{- if and (index $features "suborg-tenancy") (index $features "suborg-secret-store") }}
+    # With suborg-tenancy and suborg-secret-store on (ADR 0167, issue 1555) each suborg gets one
+    # External Secrets ClusterSecretStore, named suborg-<name>, which admits only the suborg's own
+    # namespace and reads only its own source namespace, kore-suborg-<name>. That source namespace
+    # is composed here too, so the store's CA reference exists. This step is the one owner of both
+    # objects. The shared platform-secrets store is not touched, and the store's prefix keeps any
+    # suborg from taking its name. Nothing is spliced in by Helm, so the whole step is one raw Go
+    # template, which Crossplane evaluates.
+    - step: compose-suborg-secret-store
+      functionRef: { name: function-go-templating }
+      input:
+        apiVersion: gotemplating.fn.crossplane.io/v1beta1
+        kind: GoTemplate
+        source: Inline
+        inline:
+          template: |
+            {{`{{- $suborg := .observed.composite.resource }}
+            {{- with $suborg.spec.parent }}
+            {{- $source := printf "kore-suborg-%s" $suborg.metadata.name }}
+            ---
+            apiVersion: v1
+            kind: Namespace
+            metadata:
+              name: {{ $source }}
+              annotations:
+                gotemplating.fn.crossplane.io/composition-resource-name: secret-source
+              labels:
+                platform.kore.dev/secret-source: "true"
+                istio.io/dataplane-mode: ambient
+            ---
+            apiVersion: external-secrets.io/v1
+            kind: ClusterSecretStore
+            metadata:
+              name: suborg-{{ $suborg.metadata.name }}
+              annotations:
+                gotemplating.fn.crossplane.io/composition-resource-name: secret-store
+            spec:
+              conditions:
+                - namespaces:
+                    - {{ $suborg.metadata.name }}
+              provider:
+                kubernetes:
+                  remoteNamespace: {{ $source }}
+                  server:
+                    url: https://kubernetes.default.svc
+                    caProvider: {type: ConfigMap, name: kube-root-ca.crt, key: ca.crt, namespace: {{ $source }}}
+                  auth:
+                    serviceAccount:
+                      name: external-secrets
+                      namespace: external-secrets
+            {{- end }}`}}
+{{- end }}
     - step: mark-ready
       functionRef: { name: function-auto-ready }
