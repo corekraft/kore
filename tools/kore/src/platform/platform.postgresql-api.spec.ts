@@ -54,8 +54,8 @@ test("the chart binds no Secret access; kore app up binds it per application nam
   assert.doesNotMatch(rbac, /kind: RoleBinding/);
   assert.deepEqual(
     [...rbac.matchAll(/\.Values\.(\w+)/g)].map((m) => m[1]),
-    ["databaseRoutes"],
-    "the only value the chart reads is the database-routes gate",
+    ["databaseRoutes", "databaseRoleSplit"],
+    "the only values the chart reads are its database-routes and database-role-split gates (ADR 0171)",
   );
 });
 

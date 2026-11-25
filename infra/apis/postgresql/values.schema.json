@@ -11,6 +11,22 @@
       "description": "Whether the composition derives instances and sizing from the claim's serviceClass (postgresql-service-class-instances, ADR 0154). kore sets it only while the flag is on; off renders one instance as before.",
       "type": "boolean"
     },
+    "databaseRoleSplit": {
+      "description": "Whether the composition declares a DDL and a DML role beside the app role (database-role-split, ADR 0171). kore sets it only while the flag is on; off renders the composition as before.",
+      "type": "boolean"
+    },
+    "databaseRoles": {
+      "description": "The rotation period of each role's generated password (ADR 0171), used only with databaseRoleSplit.",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "rotationPeriod": {
+          "description": "A whole number of hours, such as 720h.",
+          "type": "string",
+          "pattern": "^[1-9][0-9]*h$"
+        }
+      }
+    },
     "platformDomain": {
       "description": "The environment's platform.domain, which kore passes with databaseRoutes.",
       "type": "string"

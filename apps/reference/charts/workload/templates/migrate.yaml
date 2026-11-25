@@ -22,6 +22,9 @@ spec:
   activeDeadlineSeconds: {{ .Values.migrate.activeDeadlineSeconds }}
   template:
     metadata:
+      {{- if and .Values.database.roleSplit .Values.database.ddl.secretVersion }}
+      annotations: {platform.kore.dev/ddl-secret-version: {{ .Values.database.ddl.secretVersion | quote }}}
+      {{- end }}
       labels: {app.kubernetes.io/name: reference-migrate, app.kubernetes.io/part-of: reference, platform.kore.dev/service-account: reference-migrate, istio.io/dataplane-mode: ambient}
     spec:
       serviceAccountName: reference-migrate
@@ -36,8 +39,14 @@ spec:
             - {name: PGHOST, valueFrom: {secretKeyRef: {name: reference-db-connection, key: host}}}
             - {name: PGPORT, valueFrom: {secretKeyRef: {name: reference-db-connection, key: port}}}
             - {name: PGDATABASE, valueFrom: {secretKeyRef: {name: reference-db-connection, key: database}}}
+            {{- if .Values.database.roleSplit }}
+            - {name: PGUSER, value: {{ .Values.database.ddl.username | quote }}}
+            {{- else }}
             - {name: PGUSER, valueFrom: {secretKeyRef: {name: reference-db-connection, key: username}}}
+            {{- end }}
             - {name: PGSSLMODE, valueFrom: {secretKeyRef: {name: reference-db-connection, key: sslmode}}}
-            - {name: PGPASSWORD, valueFrom: {secretKeyRef: {name: {{ .Values.database.passwordSecret.name }}, key: {{ .Values.database.passwordSecret.key }}}}}
+            {{- $dbPassword := .Values.database.passwordSecret }}
+            {{- if .Values.database.roleSplit }}{{ $dbPassword = .Values.database.ddl.passwordSecret }}{{ end }}
+            - {name: PGPASSWORD, valueFrom: {secretKeyRef: {name: {{ $dbPassword.name }}, key: {{ $dbPassword.key }}}}}
           resources: {{ toYaml .Values.resources | nindent 12 }}
           securityContext: {allowPrivilegeEscalation: false, readOnlyRootFilesystem: true, runAsNonRoot: true, runAsUser: 1000, runAsGroup: 1000, capabilities: {drop: [ALL]}}

@@ -55,3 +55,13 @@ test("kore-config-delivery is handed no serviceClassInstances while the delivery
     "serviceClassInstances",
   );
 });
+
+test("kore-config-delivery is handed databaseRoleSplit when the delivery values carry it, so the PostgreSQL API's Application takes it", () => {
+  expect(
+    deliveryArgs({ ...delivery, databaseRoleSplit: true }).slice(-2),
+  ).toEqual(["--set", "databaseRoleSplit=true"]);
+});
+
+test("kore-config-delivery is handed no databaseRoleSplit while the delivery values omit it, so the PostgreSQL Application carries no parameter", () => {
+  expect(deliveryArgs(delivery).join(" ")).not.toContain("databaseRoleSplit");
+});

@@ -137,6 +137,9 @@ function chartDeliveryArgs(
     ...(delivery.serviceClassInstances === true
       ? ["--set", "serviceClassInstances=true"]
       : []),
+    ...(delivery.databaseRoleSplit === true
+      ? ["--set", "databaseRoleSplit=true"]
+      : []),
     ...(delivery.releaseValues === undefined
       ? []
       : [

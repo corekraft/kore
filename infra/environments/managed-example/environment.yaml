@@ -74,6 +74,7 @@
       "golden-path-template-admission": false,
       "golden-path-signin-after-portal": false,
       "postgresql-service-class-instances": false,
+      "database-role-split": false,
       "gateway-proxy-defaults": false,
       "data-path-guaranteed-qos": false,
       "data-path-priority-class": false,

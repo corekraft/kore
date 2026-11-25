@@ -1,0 +1,11 @@
+managed:
+  roles:
+    - name: app_ddl
+      ensure: present
+      login: true
+      inRoles: [app]
+      passwordSecret: {name: {{ .observed.composite.resource.metadata.name }}-ddl}
+    - name: app_dml
+      ensure: present
+      login: true
+      passwordSecret: {name: {{ .observed.composite.resource.metadata.name }}-dml}
