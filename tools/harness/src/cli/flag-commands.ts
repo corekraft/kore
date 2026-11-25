@@ -9,7 +9,6 @@ import {
   assertMayTurnOn,
   flagRequires,
   isWaiverRefusal,
-  parseReleaseLock,
   readOverlay,
   proofAudit,
   unprovenLine,
@@ -17,37 +16,14 @@ import {
   withFlagOn,
 } from "../flag/index.js";
 import type { Proof } from "../flag/index.js";
-
-const FAILED = 1;
-
-function text(options: CommandContext["options"], key: string) {
-  const value = options[key];
-  return typeof value === "string" && value.trim() !== ""
-    ? value.trim()
-    : undefined;
-}
-
-async function guarded(
-  { json, deps }: CommandContext,
-  action: () => Promise<number>,
-): Promise<number> {
-  try {
-    return await action();
-  } catch (error) {
-    if (!(error instanceof FlagError)) {
-      throw error;
-    }
-    const prefix = json ? `${JSON.stringify({ error: error.message })}\n` : "";
-    deps.stderr(`${prefix}${error.message}\n`);
-    return FAILED;
-  }
-}
-
-async function root(context: CommandContext): Promise<string> {
-  return await context.deps.root().catch((cause: unknown) => {
-    throw new FlagError(cause instanceof Error ? cause.message : String(cause));
-  });
-}
+import {
+  FAILED,
+  guarded,
+  releaseLock,
+  root,
+  text,
+} from "./flag-command-helpers.js";
+import { progress } from "./flag-progress-command.js";
 
 async function recordActivation(
   ledger: Ledger,
@@ -84,22 +60,6 @@ function activationTarget(context: CommandContext) {
     );
   }
   return { flag, environment };
-}
-
-/** The release chart lock named by --chart-lock, or undefined when none is named. */
-async function releaseLock(context: CommandContext, base: string) {
-  const path = text(context.options, "chart-lock");
-  if (path === undefined) {
-    return undefined;
-  }
-  const lockText = await context.deps.fs
-    .readFile(path.startsWith("/") ? path : `${base}/${path}`)
-    .catch((cause: unknown) => {
-      throw new FlagError(
-        `Cannot read the release chart lock ${path}: ${cause instanceof Error ? cause.message : String(cause)}. Pass --chart-lock <platform-charts.lock.json> attached to the release.`,
-      );
-    });
-  return parseReleaseLock(lockText, path);
 }
 
 /** The activation's output. A waiver stands in only after a live run was refused, so each reason is a warning: the waiver is never a silent fallback. */
@@ -313,4 +273,8 @@ const audit: Command = {
   run: (context) => guarded(context, () => auditFlags(context)),
 };
 
-export const flagCommands: Record<string, Command> = { activate, audit };
+export const flagCommands: Record<string, Command> = {
+  activate,
+  audit,
+  progress,
+};

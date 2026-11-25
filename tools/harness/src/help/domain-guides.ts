@@ -60,7 +60,7 @@ export const domainGuides: Record<DomainName, DomainGuide> = {
   flag: {
     purpose:
       "The feature flags: an audit of each flag's proof, and activation, which turns a flag on only after its outcome is recorded.",
-    flow: "Run flag audit to fail on any flag that is on without a recorded proof, then flag activate for a flag whose verification outcome (a live run, or an owner waiver) is recorded for that environment.",
+    flow: "Run flag progress --environment <env> to read, for one environment, each flag that applies, its proof and the next flag to prove; run flag audit to fail on any flag that is on without a recorded proof, then flag activate for a flag whose verification outcome (a live run, or an owner waiver) is recorded for that environment.",
   },
   platform: {
     purpose:
