@@ -25,10 +25,20 @@ test("default, internal, www and reference are reserved beside the catalog names
   }
 });
 
+test("the Argo CD project the platform owns for its configuration is a reserved suborg name, so a suborg's project cannot take it", () => {
+  const reserved = reservedSuborgNames([]);
+  expect(reserved.has("platform-configuration")).toBe(true);
+  expect(
+    reservedNameErrors("platform-configuration", "api.json", reserved),
+  ).toEqual([
+    'api.json.metadata.name: "platform-configuration" is a reserved name: it is a platform namespace, an Argo CD project the platform owns, default, internal, www or reference; choose another name, for example "platform-configuration-team"',
+  ]);
+});
+
 test("a reserved suborg name names the field, the reason and a new name", () => {
   const reserved = reservedSuborgNames(["argocd"]);
   expect(reservedNameErrors("argocd", "api.json", reserved)).toEqual([
-    'api.json.metadata.name: "argocd" is a reserved name: it is a platform namespace, default, internal, www or reference; choose another name, for example "argocd-team"',
+    'api.json.metadata.name: "argocd" is a reserved name: it is a platform namespace, an Argo CD project the platform owns, default, internal, www or reference; choose another name, for example "argocd-team"',
   ]);
 });
 

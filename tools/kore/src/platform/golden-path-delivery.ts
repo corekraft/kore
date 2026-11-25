@@ -11,6 +11,7 @@ import {
   type Repository,
 } from "../config/index.js";
 import type { Runner } from "../runtime/index.js";
+import { git, koreRepositoryURL } from "./kore-repository.js";
 
 // Docs: docs/decisions/0043-platform-configuration-through-argo-cd.md (the handover values)
 
@@ -83,18 +84,6 @@ function workloadFlagValues(repository: Repository) {
   };
 }
 
-async function git(
-  repository: Repository,
-  runner: Runner,
-  args: string[],
-): Promise<string> {
-  const { stdout } = await runner.run("git", args, {
-    cwd: repository.root,
-    capture: true,
-  });
-  return stdout.trim();
-}
-
 /**
  * Composes the kore-golden-path-delivery chart's values: the template image
  * digests from the release's template lock (deployed by digest, ADR 0045), the
@@ -129,16 +118,11 @@ export async function composeGoldenPathDelivery(
     );
   }
   const templates = templateImages(lock);
-  const repoURL = await git(repository, runner, [
-    "remote",
-    "get-url",
-    "origin",
-  ]);
-  if (!repoURL.startsWith("https://")) {
-    throw new Error(
-      `the git origin ${repoURL} is not an https URL, which the golden-path ApplicationSet needs; set origin to the https URL of the repository`,
-    );
-  }
+  const repoURL = await koreRepositoryURL(
+    repository,
+    runner,
+    "the golden-path ApplicationSet needs",
+  );
   return {
     ...repository,
     goldenPathDelivery: {

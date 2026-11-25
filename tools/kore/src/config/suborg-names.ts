@@ -5,8 +5,19 @@
 // are reserved beside them, and kube- and kore- are reserved as prefixes.
 // Docs: docs/decisions/0165-a-suborg-is-the-namespace-quota-and-trust-boundary-of-its-services.md
 
-/** Names the platform reserves beside the catalog's namespaces (ADR 0165, the reference app). */
-const extraReservedNames = ["default", "internal", "www", "reference"];
+/**
+ * Names the platform reserves beside the catalog's namespaces (ADR 0165, the reference app).
+ * platform-configuration is the Argo CD AppProject the platform-config-delivery chart owns (ADR
+ * 0043): a suborg's project is named after the suborg, so a suborg with that name would have
+ * two owners for one AppProject.
+ */
+const extraReservedNames = [
+  "default",
+  "internal",
+  "www",
+  "reference",
+  "platform-configuration",
+];
 const reservedPrefixes = ["kube-", "kore-"];
 
 /** The reserved suborg names: every namespace the catalog installs, and the extra names. */
@@ -36,7 +47,7 @@ export function reservedNameErrors(
   }
   if (reserved.has(name)) {
     return [
-      `${path}.metadata.name: "${name}" is a reserved name: it is a platform namespace, default, internal, www or reference; choose another name, for example "${name}-team"`,
+      `${path}.metadata.name: "${name}" is a reserved name: it is a platform namespace, an Argo CD project the platform owns, default, internal, www or reference; choose another name, for example "${name}-team"`,
     ];
   }
   return [];

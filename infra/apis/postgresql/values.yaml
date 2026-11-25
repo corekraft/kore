@@ -7,6 +7,14 @@ databaseRoutes: false
 # one without; switchover; a memory request equal to the limit (ADR 0154). kore sets it
 # only while postgresql-service-class-instances is on; off renders one instance as before.
 serviceClassInstances: false
+# Whether the composition declares a DDL and a DML role beside the app role, their passwords
+# generated and refreshed by External Secrets and reloaded by CloudNativePG (ADR 0171). kore sets
+# it only while database-role-split is on; off renders the composition as before.
+databaseRoleSplit: false
+# The rotation period of each role's generated password. External Secrets regenerates the
+# password at this period and CloudNativePG reloads the role. Used only with databaseRoleSplit.
+databaseRoles:
+  rotationPeriod: 720h
 # The environment's platform.domain and platform.organizationId, which kore passes.
 # No default: a database route needs them, and the chart refuses to render without.
 platformDomain: ""

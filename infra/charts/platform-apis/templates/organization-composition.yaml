@@ -164,6 +164,44 @@ spec:
                   max:
                     storage: {{ $quota.storage | quote }}
             {{- end }}`}}
+{{- if index $features "suborg-delivery-project" }}
+{{- $delivery := .Values.suborgDelivery | default dict }}
+{{- $repoURL := required "suborgDelivery.repoURL is required while suborg-tenancy and suborg-delivery-project are on: kore composes it from the git origin before it renders the platform (platform render, platform up, local up), so this render did not compose it; render through kore, with the origin set to the https URL of the repository" $delivery.repoURL }}
+    # With suborg-tenancy and suborg-delivery-project on (ADR 0165, issue 1553) each suborg
+    # gets one Argo CD AppProject, named after it, in the Argo CD namespace (ADR 0043). Its
+    # only destination is the suborg's namespace on the cluster, its only source is the Kore
+    # repository, and its cluster resource allow-list is empty, so an application it hosts
+    # deploys nothing cluster-scoped and nothing past the suborg. This step is the one owner
+    # of that project. The repository URL is passed by kore from the golden-path delivery's
+    # git origin, so it is spliced in by Helm; the rest is evaluated by Crossplane.
+    - step: compose-suborg-appproject
+      functionRef: { name: function-go-templating }
+      input:
+        apiVersion: gotemplating.fn.crossplane.io/v1beta1
+        kind: GoTemplate
+        source: Inline
+        inline:
+          template: |
+            {{`{{- $suborg := .observed.composite.resource }}
+            {{- with $suborg.spec.parent }}
+            ---
+            apiVersion: argoproj.io/v1alpha1
+            kind: AppProject
+            metadata:
+              name: {{ $suborg.metadata.name }}
+              namespace: argocd
+              annotations:
+                gotemplating.fn.crossplane.io/composition-resource-name: appproject
+            spec:
+              description: The services of suborg {{ $suborg.metadata.name }}, deployed only into its own namespace (ADR 0165)
+              sourceRepos:
+                - `}}{{ $repoURL | quote }}{{`
+              destinations:
+                - server: https://kubernetes.default.svc
+                  namespace: {{ $suborg.metadata.name }}
+              clusterResourceWhitelist: []
+            {{- end }}`}}
+{{- end }}
 {{- if index $features "suborg-network-policy" }}
 {{- $net := .Values.suborgNetwork | default dict }}
 {{- $serviceCidr := required "suborgNetwork.serviceCidr is required while suborg-tenancy and suborg-network-policy are on: set cluster.serviceCidr in the environment overlay, which passes it to this chart" $net.serviceCidr }}

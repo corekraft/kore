@@ -18,6 +18,7 @@ import {
   platformStop,
   composeChartDelivery,
   composeGoldenPathDelivery,
+  composeSuborgDelivery,
   platformUp,
   readinessFailureSummary,
   uninstallGatedRelease,
@@ -80,6 +81,23 @@ export async function statusCommand(context: CommandContext): Promise<number> {
   return report.status === "degraded" ? 1 : 0;
 }
 
+/**
+ * The repository `platform up` installs: the chart lock, the template lock and the Kore
+ * URL the suborg projects admit, all composed before any cluster call (issue 1553).
+ */
+async function platformUpRepository(context: CommandContext, runner: Runner) {
+  const charts = await composeChartDelivery(
+    context.repository,
+    stringFlag(context.parsed, "platform-chart-lock"),
+  );
+  const golden = await composeGoldenPathDelivery(
+    charts,
+    runner,
+    stringFlag(context.parsed, "platform-template-lock"),
+  );
+  return await composeSuborgDelivery(golden, runner);
+}
+
 export async function platformCommand(
   context: CommandContext,
 ): Promise<number> {
@@ -111,14 +129,7 @@ export async function platformCommand(
     up: async (_context, mutationRunner) =>
       // Schema-check the chart lock before any cluster call, then install.
       await platformUp(
-        await composeGoldenPathDelivery(
-          await composeChartDelivery(
-            repository,
-            stringFlag(context.parsed, "platform-chart-lock"),
-          ),
-          mutationRunner,
-          stringFlag(context.parsed, "platform-template-lock"),
-        ),
+        await platformUpRepository(context, mutationRunner),
         mutationRunner,
       ),
     "gate-check": async (_context, mutationRunner) => {

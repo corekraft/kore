@@ -16,6 +16,7 @@ import {
   registeredServiceHelmArgs,
   registryConsumers,
   registryHelmArgs,
+  suborgDeliveryArgs,
   type Component,
   type Repository,
 } from "../config/index.js";
@@ -82,6 +83,7 @@ function trailingArgs(repository: Repository, component: Component): string[] {
       process.env,
       repository.suborgs ?? [],
     ),
+    ...suborgDeliveryArgs(repository, component.name),
     ...alertAndServiceArgs(repository, component),
     ...dashboardSidecarHelmArgs(repository.environment, component.name),
     ...prometheusPortalHelmArgs(repository.environment, component.name),
@@ -134,6 +136,9 @@ function chartDeliveryArgs(
     ...(delivery.syncWindow === true ? ["--set", "syncWindow=true"] : []),
     ...(delivery.serviceClassInstances === true
       ? ["--set", "serviceClassInstances=true"]
+      : []),
+    ...(delivery.databaseRoleSplit === true
+      ? ["--set", "databaseRoleSplit=true"]
       : []),
     ...(delivery.releaseValues === undefined
       ? []

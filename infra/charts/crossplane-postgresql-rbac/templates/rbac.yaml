@@ -24,6 +24,16 @@ rules:
     resources: [tlsroutes]
     verbs: [get, list, watch, create, update, patch, delete]
 {{- end }}
+{{- if .Values.databaseRoleSplit }}
+  # With database-role-split on, the composition creates each role's password generator
+  # and ExternalSecret (ADR 0171). No Secret rule: External Secrets writes the Secret.
+  - apiGroups: [generators.external-secrets.io]
+    resources: [passwords]
+    verbs: [get, list, watch, create, update, patch, delete]
+  - apiGroups: [external-secrets.io]
+    resources: [externalsecrets]
+    verbs: [get, list, watch, create, update, patch, delete]
+{{- end }}
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding

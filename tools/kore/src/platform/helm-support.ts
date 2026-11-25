@@ -17,6 +17,7 @@ import {
   prometheusPortalHelmArgs,
   registeredServiceHelmArgs,
   registryHelmArgs,
+  suborgDeliveryArgs,
 } from "../config/index.js";
 
 /** Sets each config answer to the value a helm argument needs, as the real barrel gives it. */
@@ -35,6 +36,7 @@ export function configAnswers(): void {
   vi.mocked(keycloakOperatorProbeHelmArgs).mockReturnValue([]);
   vi.mocked(noMatchPolicy).mockReturnValue("warn");
   vi.mocked(platformHelmArgs).mockReturnValue([]);
+  vi.mocked(suborgDeliveryArgs).mockReturnValue([]);
   vi.mocked(prometheusPortalHelmArgs).mockReturnValue([]);
   vi.mocked(registeredServiceHelmArgs).mockReturnValue([]);
   vi.mocked(registryHelmArgs).mockImplementation((_env, name) => [
