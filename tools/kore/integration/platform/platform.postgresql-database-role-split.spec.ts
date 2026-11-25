@@ -57,6 +57,16 @@ async function composedRoles(set: string[] = []): Promise<string> {
   return renderStep(template, 17, undefined, undefined, "standard");
 }
 
+/**
+ * The flag-on resources one claim composes, as one stream: the Cluster with its managed roles,
+ * then each role's password generator and ExternalSecret (the credential Secrets), in render order.
+ */
+async function composedRoleSplitResources(): Promise<string> {
+  const cluster = await composedCluster(roleSplit);
+  const roles = documents(await composedRoles(roleSplit));
+  return [cluster, ...roles].map((doc) => `---\n${doc}`).join("");
+}
+
 /** The rendered rbac chart, with the same flag the composition is given. */
 async function rbac(set: string[] = []): Promise<string> {
   const { stdout } = await promisify(execFile)("helm", [
@@ -235,6 +245,13 @@ test("the flag changes the composition, and both the local and the database-rout
   const routesOn = await chart(...databaseRoutes, ...roleSplit);
   assert.match(routesOn, /- step: compose-database-roles/);
   assert.match(routesOn, /managed:/);
+});
+
+test("with the flag on the rendered roles and both credential Secrets match the golden flag-on render", async () => {
+  assert.equal(
+    await composedRoleSplitResources(),
+    await fixture("postgresql-role-split-flag-on.yaml"),
+  );
 });
 
 test("with the flag on the RBAC role may create and update External Secrets and password generators, and no Secret", async () => {
