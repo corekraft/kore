@@ -1,2 +1,10 @@
-{{- /* The one local composition; its serviceClassInstances header is set from the value, as composition-database-routes.yaml sets compose.gotmpl's (ADR 0154). Off, the header is unchanged and the render is the file byte for byte. */ -}}
-{{- if not .Values.databaseRoutes }}{{ .Files.Get "compositions/local.yaml" | replace "$serviceClassInstances := false" (printf "$serviceClassInstances := %t" (default false .Values.serviceClassInstances)) }}{{- end }}
+{{- /* The one local composition; its serviceClassInstances header is set from the value, as composition-database-routes.yaml sets compose.gotmpl's (ADR 0154). Off, the header is unchanged and the render is the file byte for byte. With databaseRoleSplit on (ADR 0171), the Cluster gains the DDL and DML roles and the role step comes before project-status; off, neither is added. */ -}}
+{{- if not .Values.databaseRoutes }}
+{{- $composition := .Files.Get "compositions/local.yaml" | replace "$serviceClassInstances := false" (printf "$serviceClassInstances := %t" (default false .Values.serviceClassInstances)) }}
+{{- if .Values.databaseRoleSplit }}
+{{- $managed := include "postgresql.databaseRoles.managed" . | indent 14 }}
+{{- $step := include "postgresql.databaseRoles.step" . }}
+{{- $composition = $composition | replace "              bootstrap: {initdb: {database: app, owner: app}}" (printf "              bootstrap: {initdb: {database: app, owner: app}}\n%s" $managed) | replace "    - step: project-status" (printf "%s\n    - step: project-status" $step) }}
+{{- end }}
+{{- $composition }}
+{{- end }}
