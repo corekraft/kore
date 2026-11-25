@@ -30,7 +30,6 @@
               namespace: {{ $namespace }}
               annotations:
                 gotemplating.fn.crossplane.io/composition-resource-name: {{ $role }}-secret
-                gotemplating.fn.crossplane.io/ready: "True"
             spec:
               refreshInterval: __ROTATION_PERIOD__
               dataFrom:

@@ -177,6 +177,16 @@ test("with the flag on each role's ExternalSecret refreshes at the rotation peri
   }
 });
 
+test("with the flag on only the password generators are forced Ready, so a claim reports Ready only once each role's Secret exists", async () => {
+  const stdout = await composedRoles(roleSplit);
+  for (const doc of all(stdout, "Password")) {
+    assert.match(doc, /gotemplating\.fn\.crossplane\.io\/ready: "True"/);
+  }
+  for (const doc of all(stdout, "ExternalSecret")) {
+    assert.doesNotMatch(doc, /gotemplating\.fn\.crossplane\.io\/ready/);
+  }
+});
+
 test("with the flag on the role Secrets and generators are created in the claim's own namespace", async () => {
   const stdout = await composedRoles(roleSplit);
   const created = [

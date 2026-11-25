@@ -1,49 +1,45 @@
 // Docs: docs/decisions/0171-app-migrations-run-before-the-rollout-expand-first-and-contract-after-the-soak.md
-import { expect, test } from "vitest";
-import { fakeEnvironment } from "./config-support.js";
+import { beforeEach, expect, test, vi } from "vitest";
+import { databaseRoleSplitArgs } from "./database-role-split-args.js";
 import { postgresqlFlagArgs } from "./postgresql-flag-args.js";
+import { serviceClassArgs } from "./service-class-args.js";
+import type { Environment } from "./types.js";
 
-const environment = (features: Record<string, boolean>) =>
-  fakeEnvironment({
-    platform: { domain: "kore.internal", organizationId: "platform" },
-    gateway: { namespace: "kore-system", name: "kore-gateway", port: 8443 },
-    features,
-  });
+vi.mock("./service-class-args.js", () => ({ serviceClassArgs: vi.fn() }));
+vi.mock("./database-role-split-args.js", () => ({
+  databaseRoleSplitArgs: vi.fn(),
+}));
 
-test("the PostgreSQL API is handed both composition values while their flags are on", () => {
-  expect(
-    postgresqlFlagArgs(
-      environment({
-        "postgresql-service-class-instances": true,
-        "database-role-split": true,
-      }),
-      "kore-postgresql-api",
-    ),
-  ).toEqual([
+const environment = {} as unknown as Environment;
+
+beforeEach(() => {
+  vi.mocked(serviceClassArgs).mockReset();
+  vi.mocked(databaseRoleSplitArgs).mockReset();
+});
+
+test("the service-class arguments come first, then the role-split arguments, for the same environment and component", () => {
+  vi.mocked(serviceClassArgs).mockReturnValue(["--set", "a=1"]);
+  vi.mocked(databaseRoleSplitArgs).mockReturnValue(["--set", "b=2"]);
+
+  expect(postgresqlFlagArgs(environment, "kore-postgresql-api")).toEqual([
     "--set",
-    "serviceClassInstances=true",
+    "a=1",
     "--set",
-    "databaseRoleSplit=true",
+    "b=2",
   ]);
+  expect(serviceClassArgs).toHaveBeenCalledWith(
+    environment,
+    "kore-postgresql-api",
+  );
+  expect(databaseRoleSplitArgs).toHaveBeenCalledWith(
+    environment,
+    "kore-postgresql-api",
+  );
 });
 
-test("no value is passed while both flags are off", () => {
-  expect(
-    postgresqlFlagArgs(
-      environment({
-        "postgresql-service-class-instances": false,
-        "database-role-split": false,
-      }),
-      "kore-postgresql-api",
-    ),
-  ).toEqual([]);
-});
+test("no argument is added when neither underlying function passes one", () => {
+  vi.mocked(serviceClassArgs).mockReturnValue([]);
+  vi.mocked(databaseRoleSplitArgs).mockReturnValue([]);
 
-test("the role-split value reaches the PostgreSQL RBAC chart beside its own flag", () => {
-  expect(
-    postgresqlFlagArgs(
-      environment({ "database-role-split": true }),
-      "kore-postgresql-rbac",
-    ),
-  ).toEqual(["--set", "databaseRoleSplit=true"]);
+  expect(postgresqlFlagArgs(environment, "kore-postgresql-rbac")).toEqual([]);
 });
