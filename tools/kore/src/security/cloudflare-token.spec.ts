@@ -112,7 +112,9 @@ test("the external-dns token reaches kubectl only on stdin, in the configured co
     ["--decrypt", "--output-type", "json", externalDocument],
     { capture: true },
   ]);
-  const [command, args, options] = run.mock.calls[1]!;
+  const [command, args, options] = run.mock.calls.find(([, callArgs]) =>
+    callArgs.includes("apply"),
+  )!;
   expect([command, args]).toEqual([
     "kubectl",
     [

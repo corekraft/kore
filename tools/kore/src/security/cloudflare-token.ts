@@ -27,6 +27,11 @@ export interface TokenConsumer {
   flag: string;
   namespace: string;
   document: string;
+  /**
+   * The Deployment that reads the token at start. Rolled once when its document
+   * changes; a consumer that reads its token at challenge time has none.
+   */
+  deployment?: string;
 }
 
 export const tokenConsumers: readonly TokenConsumer[] = [
@@ -35,6 +40,7 @@ export const tokenConsumers: readonly TokenConsumer[] = [
     flag: "external-dns",
     namespace: "kore-external-dns",
     document: "cloudflare-external-dns.enc.yaml",
+    deployment: "external-dns",
   },
   {
     name: "acme-dns01",
@@ -142,6 +148,99 @@ interface PreparedToken {
   checksum: string;
 }
 
+/** The checksum the live token Secret carries; undefined when there is no Secret or it has none. */
+async function liveChecksum(
+  context: string,
+  consumer: TokenConsumer,
+  runner: Runner,
+): Promise<string | undefined> {
+  const { stdout } = await runner.run(
+    "kubectl",
+    [
+      "--context",
+      context,
+      "--namespace",
+      consumer.namespace,
+      "get",
+      "secret",
+      cloudflareTokenSecretName,
+      "--ignore-not-found",
+      "--output=json",
+    ],
+    { capture: true },
+  );
+  if (stdout.trim() === "") {
+    return undefined;
+  }
+  const secret = JSON.parse(stdout) as {
+    metadata?: { annotations?: Record<string, unknown> };
+  };
+  const checksum = secret.metadata?.annotations?.[checksumAnnotation];
+  return typeof checksum === "string" ? checksum : undefined;
+}
+
+/**
+ * Whether applying a document rolls its consumer: the document changed since the
+ * live Secret was last applied, and the consumer's Deployment exists. A consumer
+ * with no Deployment rolls nothing, and a first apply with no Deployment restarts nothing.
+ */
+async function rollsConsumer(
+  context: string,
+  prepared: PreparedToken,
+  runner: Runner,
+): Promise<boolean> {
+  const { consumer, checksum } = prepared;
+  if (consumer.deployment === undefined) {
+    return false;
+  }
+  if ((await liveChecksum(context, consumer, runner)) === checksum) {
+    return false;
+  }
+  const { stdout } = await runner.run(
+    "kubectl",
+    [
+      "--context",
+      context,
+      "--namespace",
+      consumer.namespace,
+      "get",
+      `deployment/${consumer.deployment}`,
+      "--ignore-not-found",
+      "--output=name",
+    ],
+    { capture: true },
+  );
+  return stdout.trim() !== "";
+}
+
+/**
+ * Rolls a consumer's Deployment once, in the configured context. The Secret is
+ * already applied, so a failed restart names the command to run by hand: a rerun
+ * would find the new checksum and not retry it.
+ */
+async function rolloutRestart(
+  context: string,
+  consumer: TokenConsumer,
+  runner: Runner,
+): Promise<void> {
+  const args = [
+    "--context",
+    context,
+    "--namespace",
+    consumer.namespace,
+    "rollout",
+    "restart",
+    `deployment/${consumer.deployment}`,
+  ];
+  try {
+    await runner.run("kubectl", args, { capture: true });
+  } catch (error) {
+    throw new Error(
+      `the ${consumer.name} token Secret was applied, but restarting its Deployment failed: ${errorText(error)}. Restart it by hand with: kubectl ${args.join(" ")}; a rerun of kore secrets tokens would not restart it, because the Secret already carries the new checksum`,
+    );
+  }
+}
+
 /**
  * Reads and decrypts one consumer's document. sops prints the plaintext only on
  * stdout, captured in memory, so it never reaches disk or an argument. The
@@ -191,7 +290,8 @@ export interface AppliedCloudflareToken {
  * decrypted before the first kubectl call, so a missing or bad document changes
  * nothing in the cluster. A local environment applies nothing: its external-dns
  * runs with the inmemory provider and needs no token. With every flag off the
- * function reads nothing.
+ * function reads nothing. A consumer whose document changed, with its Deployment
+ * in place, has that Deployment rolled once after its Secret applies.
  */
 export async function applyCloudflareTokens(
   repository: Repository,
@@ -208,6 +308,12 @@ export async function applyCloudflareTokens(
   const prepared: PreparedToken[] = [];
   for (const consumer of consumers) {
     prepared.push(await prepare(root, environment.name, consumer, runner));
+  }
+  const rolling: TokenConsumer[] = [];
+  for (const entry of prepared) {
+    if (await rollsConsumer(environment.kubeContext, entry, runner)) {
+      rolling.push(entry.consumer);
+    }
   }
   await withSecretsRedacted(
     prepared.map(({ token }) => token),
@@ -233,6 +339,9 @@ export async function applyCloudflareTokens(
       }
     },
   );
+  for (const consumer of rolling) {
+    await rolloutRestart(environment.kubeContext, consumer, runner);
+  }
   return prepared.map(({ consumer }) => ({
     consumer: consumer.name,
     namespace: consumer.namespace,

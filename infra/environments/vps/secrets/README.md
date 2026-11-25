@@ -61,5 +61,12 @@ is touched and names the document and the fix.
 Rotation is replacing the document with `sops`, then running
 `kore secrets tokens --environment vps` again. The Secret's
 `platform.kore.dev/document-sha256` annotation changes with the document, and an
-unchanged document applies nothing new. The consumer pod rolls on rotation only
-once its chart carries that checksum in its pod template.
+unchanged document applies nothing new. When the external-dns document changed
+and its Deployment exists, the same run applies the Secret and then rolls the
+external-dns Deployment once with `kubectl rollout restart`, in this
+environment's context. The upstream chart cannot carry the checksum in its pod
+template, so the restart is what rolls the pod. A first apply, before that
+Deployment exists, restarts nothing. cert-manager reads its token at challenge
+time, so the acme-dns01 document needs no restart. If the restart fails, the run
+names the command to run by hand, because a rerun would find the new checksum
+and not retry it.
