@@ -12,7 +12,7 @@ import {
   bootstrapControllers,
   closeGateIfDegraded,
   composeChartDelivery,
-  composeGoldenPathDelivery,
+  composeSuborgDelivery,
   platformClaimsStatus,
   platformDestroy,
   platformRender,
@@ -119,7 +119,7 @@ test.each(renderCases)(
 
 test("platform bootstrap and up run as environment mutations on their own handlers, up with the release's chart lock", async () => {
   flags({ "platform-chart-lock": "l.json" });
-  vi.mocked(composeGoldenPathDelivery).mockResolvedValue(repository);
+  vi.mocked(composeSuborgDelivery).mockResolvedValue(repository);
   const context = fakeContext({ command: "platform", action: "up" });
   await platformCommand(context);
   await actionsOf().bootstrap!(context, runner);

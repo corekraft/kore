@@ -128,14 +128,14 @@ test("kore validate refuses a suborg with no quota, naming spec.quota and that i
 test("kore validate refuses a reserved suborg name, naming the reason", async () => {
   await records({ [`${dir}/argocd.json`]: suborg("argocd") });
   await expect(main(["validate"])).rejects.toThrow(
-    `${dir}/argocd.json.metadata.name: "argocd" is a reserved name: it is a platform namespace, default, internal, www or reference; choose another name, for example "argocd-team"`,
+    `${dir}/argocd.json.metadata.name: "argocd" is a reserved name: it is a platform namespace, an Argo CD project the platform owns, default, internal, www or reference; choose another name, for example "argocd-team"`,
   );
 });
 
 test("kore validate refuses the OpenBao platform namespace as a suborg name, even with the openbao flag off", async () => {
   await records({ [`${dir}/openbao.json`]: suborg("openbao") });
   await expect(main(["validate"])).rejects.toThrow(
-    `${dir}/openbao.json.metadata.name: "openbao" is a reserved name: it is a platform namespace, default, internal, www or reference; choose another name, for example "openbao-team"`,
+    `${dir}/openbao.json.metadata.name: "openbao" is a reserved name: it is a platform namespace, an Argo CD project the platform owns, default, internal, www or reference; choose another name, for example "openbao-team"`,
   );
 });
 

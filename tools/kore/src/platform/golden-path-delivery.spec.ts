@@ -8,6 +8,7 @@ import {
   platformPlan,
 } from "../config/index.js";
 import { composeGoldenPathDelivery } from "./golden-path-delivery.js";
+import { git, koreRepositoryURL } from "./kore-repository.js";
 import {
   fakeComponent,
   fakeRepository,
@@ -16,6 +17,7 @@ import {
 
 vi.mock("node:fs/promises");
 vi.mock("../config/index.js");
+vi.mock("./kore-repository.js");
 
 const sha = "a".repeat(40);
 const digest = (c: string) => `sha256:${c.repeat(64)}`;
@@ -41,11 +43,8 @@ const lock = {
   },
 };
 
-function git(remote = "https://github.com/corekraft/kore.git\n") {
-  return fakeRunner((_command, args) =>
-    args.includes("rev-parse") ? `${sha}\n` : remote,
-  );
-}
+const repoURL = "https://github.com/corekraft/kore.git";
+const runner = fakeRunner().runner;
 
 beforeEach(() => {
   vi.mocked(helmInstalledComponents).mockReturnValue([
@@ -58,24 +57,20 @@ beforeEach(() => {
     organizationId: "platform",
   });
   vi.mocked(readFile).mockResolvedValue(JSON.stringify(lock));
+  vi.mocked(koreRepositoryURL).mockResolvedValue(repoURL);
+  vi.mocked(git).mockResolvedValue(sha);
 });
 
 test("the values carry the lock's digests, the checked-out commit and the environment's domain and gateway class", async () => {
-  const { runner, run } = git();
   const composed = await composeGoldenPathDelivery(
     repository,
     runner,
     "template.lock.json",
   );
   expect(readFile).toHaveBeenCalledWith("template.lock.json", "utf8");
-  expect(
-    run.mock.calls.map(([command, args]) => [command, ...args]),
-  ).toContainEqual(["git", "rev-parse", "HEAD"]);
-  expect(
-    run.mock.calls.every(([, , options]) => options?.cwd === repository.root),
-  ).toBe(true);
+  expect(git).toHaveBeenCalledWith(repository, runner, ["rev-parse", "HEAD"]);
   expect(composed.goldenPathDelivery).toEqual({
-    repoURL: "https://github.com/corekraft/kore.git",
+    repoURL,
     revision: sha,
     environment: repository.environment.name,
     templateImages: {
@@ -101,7 +96,6 @@ test("with golden-path-template-admission on the values carry templateAdmission,
       features: { "golden-path-template-admission": true },
     },
   };
-  const { runner } = git();
   const composed = await composeGoldenPathDelivery(
     admitted,
     runner,
@@ -118,7 +112,6 @@ test("with platform-shared-gateway on the values carry sharedGateway, so the syn
       features: { "platform-shared-gateway": true },
     },
   };
-  const { runner } = git();
   const composed = await composeGoldenPathDelivery(
     shared,
     runner,
@@ -135,7 +128,6 @@ test("with autoscaling-defaults on the values carry autoscaling, so the Applicat
       features: { "autoscaling-defaults": true },
     },
   };
-  const { runner } = git();
   const composed = await composeGoldenPathDelivery(
     autoscaled,
     runner,
@@ -145,7 +137,6 @@ test("with autoscaling-defaults on the values carry autoscaling, so the Applicat
 });
 
 test("with autoscaling-defaults off the values carry autoscaling false, so the Application sets no autoscaler", async () => {
-  const { runner } = git();
   const composed = await composeGoldenPathDelivery(
     repository,
     runner,
@@ -156,17 +147,17 @@ test("with autoscaling-defaults off the values carry autoscaling false, so the A
 
 test("with the flag off the repository is untouched and neither a file nor git is read", async () => {
   vi.mocked(helmInstalledComponents).mockReturnValue([fakeComponent()]);
-  const { runner, run } = git();
   await expect(
     composeGoldenPathDelivery(repository, runner, "t.json"),
   ).resolves.toBe(repository);
   expect(readFile).not.toHaveBeenCalled();
-  expect(run).not.toHaveBeenCalled();
+  expect(koreRepositoryURL).not.toHaveBeenCalled();
+  expect(git).not.toHaveBeenCalled();
 });
 
 test("a missing template lock flag names the flag and where the lock comes from", async () => {
   await expect(
-    composeGoldenPathDelivery(repository, git().runner, undefined),
+    composeGoldenPathDelivery(repository, runner, undefined),
   ).rejects.toThrow(
     "--platform-template-lock <file> is required while platform-argocd-delivery is on in local; pass the template-images.lock.json attached to the release",
   );
@@ -175,7 +166,7 @@ test("a missing template lock flag names the flag and where the lock comes from"
 test("an unreadable lock names the path", async () => {
   vi.mocked(readFile).mockResolvedValue("nope");
   await expect(
-    composeGoldenPathDelivery(repository, git().runner, "t.json"),
+    composeGoldenPathDelivery(repository, runner, "t.json"),
   ).rejects.toThrow(
     /^--platform-template-lock t\.json must be the template-images\.lock\.json of a release: /,
   );
@@ -198,23 +189,29 @@ test.each([
   ],
 ])("%s in the lock is refused before git is asked", async (_title, bad) => {
   vi.mocked(readFile).mockResolvedValue(JSON.stringify(bad));
-  const { runner, run } = git();
   await expect(
     composeGoldenPathDelivery(repository, runner, "t.json"),
   ).rejects.toThrow(/template image lock: /);
-  expect(run).not.toHaveBeenCalled();
+  expect(koreRepositoryURL).not.toHaveBeenCalled();
+  expect(git).not.toHaveBeenCalled();
 });
 
-test("an origin that is not https is refused with the fix", async () => {
-  await expect(
-    composeGoldenPathDelivery(
-      repository,
-      git("git@github.com:corekraft/kore.git\n").runner,
-      "t.json",
-    ),
-  ).rejects.toThrow(
-    "the git origin git@github.com:corekraft/kore.git is not an https URL, which the golden-path ApplicationSet needs; set origin to the https URL of the repository",
+test("the repository URL is read from the Kore repository naming the golden-path ApplicationSet, so its refusal says what needs https", async () => {
+  await composeGoldenPathDelivery(repository, runner, "template.lock.json");
+  expect(koreRepositoryURL).toHaveBeenCalledWith(
+    repository,
+    runner,
+    "the golden-path ApplicationSet needs",
   );
+});
+
+test("a refused repository URL stops the composition before the commit is read", async () => {
+  const refusal = new Error("the git origin is not an https URL");
+  vi.mocked(koreRepositoryURL).mockRejectedValue(refusal);
+  await expect(
+    composeGoldenPathDelivery(repository, runner, "template.lock.json"),
+  ).rejects.toBe(refusal);
+  expect(git).not.toHaveBeenCalled();
 });
 
 test("with platform-portal, platform-organization-service-apis and platform-argocd-delivery all on, the values carry serviceRecords so the sync also applies the Service records", async () => {
@@ -229,7 +226,6 @@ test("with platform-portal, platform-organization-service-apis and platform-argo
       },
     },
   };
-  const { runner } = git();
   const composed = await composeGoldenPathDelivery(
     all,
     runner,
@@ -250,7 +246,6 @@ test("with platform-portal off the values carry serviceRecords false, even with 
       },
     },
   };
-  const { runner } = git();
   const composed = await composeGoldenPathDelivery(
     portalOff,
     runner,
@@ -270,7 +265,6 @@ test("with platform-organization-service-apis off the values carry serviceRecord
       },
     },
   };
-  const { runner } = git();
   const composed = await composeGoldenPathDelivery(
     apiOff,
     runner,
@@ -287,7 +281,6 @@ test("with golden-path-signin on the values carry the platform realm's issuer, s
       features: { "golden-path-signin": true },
     },
   };
-  const { runner } = git();
   const composed = await composeGoldenPathDelivery(
     signin,
     runner,
@@ -300,7 +293,6 @@ test("with golden-path-signin on the values carry the platform realm's issuer, s
 });
 
 test("with golden-path-signin off the values carry no signin key, so the flag-off render is unchanged", async () => {
-  const { runner } = git();
   const composed = await composeGoldenPathDelivery(
     repository,
     runner,

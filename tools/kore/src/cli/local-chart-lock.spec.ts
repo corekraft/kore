@@ -5,6 +5,7 @@ import {
   chartLockDriftMessage,
   composeChartDelivery,
   composeGoldenPathDelivery,
+  composeSuborgDelivery,
   fetchMainChartLock,
   upChartLockDrift,
 } from "../platform/index.js";
@@ -28,6 +29,7 @@ vi.mock("../platform/index.js", () => ({
   chartLockDriftMessage: vi.fn(),
   composeChartDelivery: vi.fn(),
   composeGoldenPathDelivery: vi.fn(),
+  composeSuborgDelivery: vi.fn(),
   upChartLockDrift: vi.fn(),
   fetchMainChartLock: vi.fn(),
 }));
@@ -78,6 +80,7 @@ beforeEach(() => {
   );
   vi.mocked(composeChartDelivery).mockResolvedValue(charts);
   vi.mocked(composeGoldenPathDelivery).mockResolvedValue(delivered);
+  vi.mocked(composeSuborgDelivery).mockImplementation(async (repo) => repo);
   vi.mocked(upChartLockDrift).mockResolvedValue([row]);
 });
 
@@ -98,6 +101,7 @@ test("both locks are composed in order, the chart lock compared with the checkou
     runner,
     "templates.json",
   );
+  expect(composeSuborgDelivery).toHaveBeenCalledWith(delivered, runner);
   expect(stderr).not.toHaveBeenCalled();
 });
 

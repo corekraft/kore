@@ -31,6 +31,7 @@
     "opa-system",
     "opentelemetry-operator-system",
     "platform",
+    "platform-configuration",
     "reference",
     "smtp",
     "www"
