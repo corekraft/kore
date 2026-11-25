@@ -80,7 +80,11 @@ const featureSets: Record<string, string[]> = {
     "--set",
     "features.suborg-tenancy=true",
     "--set",
+    "features.suborg-network-policy=true",
+    "--set",
     "features.platform-shared-gateway=true",
+    "--set-string",
+    "suborgNetwork.serviceCidr=10.96.0.0/12",
   ],
 };
 
