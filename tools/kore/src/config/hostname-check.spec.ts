@@ -140,6 +140,38 @@ test("the reserved list's own errors come first, then its coverage of the app mo
   ]);
 });
 
+test("the platform domain comes from the injected env map, read through the platform plan", async () => {
+  const env = { KORE_PLATFORM_DOMAIN: "example.com" };
+  await hostnameFileErrors({ ...check, env }, new Map());
+  expect(platformPlan).toHaveBeenCalledWith(environment, env);
+});
+
+test("a claim message never prints the run-time domain value, whatever rule it came from", async () => {
+  vi.mocked(hostnameClaimErrors).mockReturnValue([
+    'infra/environments/local/services/leads.json: spec.hostnames[0] "www.example.com" is a reserved name: www cannot be claimed; choose another name, for example www-app.example.com',
+    'infra/environments/local/services/quotes.json: spec.hostnames[0] "EXAMPLE.com" is the apex of example.com',
+  ]);
+  const errors = await hostnameFileErrors(check, new Map());
+  expect(errors.join("\n")).not.toMatch(/example\.com/i);
+  expect(errors).toEqual([
+    'infra/environments/local/services/leads.json: spec.hostnames[0] "www.<platform domain>" is a reserved name: www cannot be claimed; choose another name, for example www-app.<platform domain>',
+    'infra/environments/local/services/quotes.json: spec.hostnames[0] "<platform domain>" is the apex of <platform domain>',
+  ]);
+});
+
+test("the placeholder is public, so a claim message names it as written", async () => {
+  vi.mocked(platformPlan).mockReturnValue({
+    domain: "kore.internal",
+    organizationId: "platform",
+  });
+  vi.mocked(hostnameClaimErrors).mockReturnValue([
+    'infra/environments/local/services/leads.json: spec.hostnames[0] "www.kore.internal" is a reserved name',
+  ]);
+  expect(await hostnameFileErrors(check, new Map())).toEqual([
+    'infra/environments/local/services/leads.json: spec.hostnames[0] "www.kore.internal" is a reserved name',
+  ]);
+});
+
 test("the coverage check reads the app model's reserved suborg names from the catalog's namespaces", async () => {
   await hostnameFileErrors(check, new Map());
   expect(reservedSuborgNames).toHaveBeenCalledWith(["argocd"]);

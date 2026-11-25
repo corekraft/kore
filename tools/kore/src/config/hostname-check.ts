@@ -81,14 +81,59 @@ export async function hostnameFileErrors(
   };
   const claims = [...services].map(([name, service]) => claimOf(name, service));
   const suborgs = await suborgRecords(root, environment);
+  const claimErrors = hostnameClaimErrors({
+    environment: claimEnvironment,
+    services: claims,
+    suborgs,
+    reserved: reserved.names,
+  });
   return [
     ...reserved.errors,
     ...coverage,
-    ...hostnameClaimErrors({
-      environment: claimEnvironment,
-      services: claims,
-      suborgs,
-      reserved: reserved.names,
-    }),
+    ...withoutRunTimeDomain(claimErrors, plan.domain),
   ];
+}
+
+/** The text that stands for a run-time domain value a message would otherwise print. */
+const hiddenPlatformDomain = "<platform domain>";
+
+/** Lower-cases ASCII letters only, so the text keeps its length and its indexes. */
+const asciiLower = (text: string): string =>
+  text.replace(/[A-Z]/g, (letter) => letter.toLowerCase());
+
+/** The text with each occurrence of the needle replaced; ASCII letters match in either case. */
+function replaceIgnoringAsciiCase(
+  text: string,
+  needle: string,
+  replacement: string,
+): string {
+  const folded = asciiLower(text);
+  const target = asciiLower(needle);
+  const parts: string[] = [];
+  let from = 0;
+  let at = folded.indexOf(target);
+  while (at !== -1) {
+    parts.push(text.slice(from, at), replacement);
+    from = at + target.length;
+    at = folded.indexOf(target, from);
+  }
+  parts.push(text.slice(from));
+  return parts.join("");
+}
+
+/**
+ * The claim messages with the run-time domain value replaced, so a message never prints
+ * it (ADR 0164). A rule names the names it checked, and a relative label's name ends in
+ * the domain. The public placeholder is printed as written: it is not a secret.
+ */
+function withoutRunTimeDomain(
+  messages: readonly string[],
+  domain: string,
+): string[] {
+  if (domain === placeholderPlatformDomain) {
+    return [...messages];
+  }
+  return messages.map((message) =>
+    replaceIgnoringAsciiCase(message, domain, hiddenPlatformDomain),
+  );
 }
