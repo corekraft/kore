@@ -51,6 +51,7 @@ test("the platform barrel exposes exactly the runtime names its callers use", ()
       "platformClaimsStatus",
       "platformDestroy",
       "platformGeneration",
+      "platformPreflight",
       "platformRender",
       "platformStatus",
       "platformStatusReport",

@@ -29,6 +29,8 @@ export { composeGoldenPathDelivery } from "./golden-path-delivery.js";
 export { fetchMainChartLock } from "./chart-lock-fetch.js";
 export type { MainChartLock } from "./chart-lock-fetch.js";
 export { platformUp } from "./up.js";
+export { platformPreflight } from "./preflight.js";
+export type { PreflightLocks } from "./preflight.js";
 export { argsFingerprint } from "./fingerprint.js";
 export { releaseMatchesFingerprint } from "./reconcile.js";
 export {
