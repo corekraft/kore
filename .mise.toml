@@ -110,8 +110,11 @@ description = "Run tofu validate in every infra/tofu/stacks directory that holds
 run = "infra/tofu/validate-stacks.sh"
 
 [tasks.test-opa]
-description = "Run colocated Rego policy specifications with the OPA CLI"
-run = "opa test infra/policies/opa/bundles/v1 -v"
+description = "Run colocated Rego policy specifications with the OPA CLI; the image-policy chart's rules run as Rego v0, the way Policy Controller parses them"
+run = [
+  "opa test infra/policies/opa/bundles/v1 -v",
+  "opa test --v0-compatible infra/charts/image-policy/policies -v",
+]
 
 [tasks.test-gatekeeper]
 description = "Run Gatekeeper constraint template suites with the pinned gator CLI"

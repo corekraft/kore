@@ -521,6 +521,24 @@ export interface Repository {
    * the flags are. The acme-dns01 flag renders a wildcard pair for each (ADR 0161).
    */
   suborgs?: readonly string[] | undefined;
+  /**
+   * The app records' images while suborg-image-policy is on (issue 1556): each
+   * record with a release digest, read by `loadRepository` only while the flag is
+   * on. The image-policy chart renders one enforce policy per entry.
+   */
+  applicationImages?: readonly ApplicationImage[] | undefined;
   /** Findings that warn without failing validation; set by `loadRepository`. */
   warnings?: string[] | undefined;
+}
+
+/** One app record's application images (issue 1556): its release digests, bound to its repository. */
+export interface ApplicationImage {
+  /** The service name, the record's file stem. */
+  service: string;
+  /** The spec file, as a repository path, for the messages. */
+  file: string;
+  /** The spec's repository, github.com/<owner>/<name>; absent when the spec names none. */
+  repository?: string | undefined;
+  /** The release digests, frontend first. */
+  digests: string[];
 }

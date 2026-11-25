@@ -2,6 +2,7 @@
 import { readFile } from "node:fs/promises";
 import { dirname, isAbsolute, join, resolve } from "node:path";
 import { afterEach, beforeEach, expect, test, vi } from "vitest";
+import { loadApplicationImages } from "./application-image-records.js";
 import { componentValues } from "./component-values.js";
 import {
   absolute,
@@ -33,6 +34,9 @@ vi.mock("./service-registrations.js", () => ({
   loadServiceRegistrations: vi.fn(),
 }));
 vi.mock("./organization-records.js", () => ({ suborgNames: vi.fn() }));
+vi.mock("./application-image-records.js", () => ({
+  loadApplicationImages: vi.fn(),
+}));
 vi.mock("./order.js", () => ({ orderedComponents: vi.fn() }));
 vi.mock("./validate.js", () => ({ validateRepository: vi.fn() }));
 vi.mock("./exemption-check.js", () => ({
@@ -75,6 +79,7 @@ function filesPresent(...present: string[]): void {
 beforeEach(() => {
   files = localFiles();
   vi.mocked(suborgNames).mockResolvedValue([]);
+  vi.mocked(loadApplicationImages).mockResolvedValue(undefined);
   vi.stubEnv("KORE_ROOT", "");
   vi.mocked(join).mockImplementation((...parts: string[]) =>
     parts.join("/").replace(/\/+/g, "/"),
@@ -259,6 +264,25 @@ test("loading carries the suborg names the Organization records give, read from 
       },
     ],
   ]);
+});
+
+test("loading carries the application images the reader gives, read from its root and its environment", async () => {
+  filesPresent("/repo/infra/catalog/components.yaml");
+  const images = [
+    { service: "checkout", file: "c.json", digests: ["sha256:x"] },
+  ];
+  vi.mocked(loadApplicationImages).mockResolvedValue(images);
+  const loaded = await loadRepository("local", "/repo");
+  expect(loaded.applicationImages).toEqual(images);
+  expect(vi.mocked(loadApplicationImages).mock.calls).toEqual([
+    ["/repo", expect.objectContaining({ name: "local" })],
+  ]);
+});
+
+test("while the reader gives no application images, the repository carries no applicationImages field at all", async () => {
+  filesPresent("/repo/infra/catalog/components.yaml");
+  const loaded = await loadRepository("local", "/repo");
+  expect("applicationImages" in loaded).toBe(false);
 });
 
 test("a registry consumer's overlays that exist are merged in order, later files winning", async () => {

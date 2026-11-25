@@ -1,0 +1,64 @@
+---
+# Source: image-policy/templates/clusterimagepolicy.yaml
+apiVersion: policy.sigstore.dev/v1beta1
+kind: ClusterImagePolicy
+metadata:
+  name: kore-platform-images
+  labels: {app.kubernetes.io/managed-by: Helm}
+spec:
+  mode: warn
+  images:
+    - glob: "registry.example:5000/**"
+  authorities:
+    - name: release-workflow
+      keyless:
+        url: https://fulcio.sigstore.dev
+        identities:
+          - issuer: "https://token.actions.githubusercontent.com"
+            subject: "https://github.com/corekraft/kore/.github/workflows/release.yaml@refs/tags/v0.3.2"
+          - issuer: "https://token.actions.githubusercontent.com"
+            subject: "https://github.com/corekraft/kore/.github/workflows/release.yaml@refs/tags/v0.4.0"
+      ctlog:
+        url: https://rekor.sigstore.dev
+      source:
+        - signaturePullSecrets:
+            - name: "kore-registry-read"
+
+---
+# Source: image-policy/templates/template-images.yaml
+apiVersion: policy.sigstore.dev/v1beta1
+kind: ClusterImagePolicy
+metadata:
+  name: kore-template-images
+  labels: {app.kubernetes.io/managed-by: Helm}
+spec:
+  mode: warn
+  images:
+    - glob: "ghcr.io/corekraft/kore/templates/**"
+  authorities:
+    - name: release-workflow
+      keyless:
+        url: https://fulcio.sigstore.dev
+        identities:
+          - issuer: "https://token.actions.githubusercontent.com"
+            subject: "https://github.com/corekraft/kore/.github/workflows/release.yaml@refs/tags/v0.22.0"
+      ctlog:
+        url: https://rekor.sigstore.dev
+
+---
+# Source: image-policy/templates/upstream-images.yaml
+apiVersion: policy.sigstore.dev/v1beta1
+kind: ClusterImagePolicy
+metadata:
+  name: kore-upstream-images
+  labels: {app.kubernetes.io/managed-by: Helm}
+spec:
+  mode: warn
+  images:
+    - glob: "index.docker.io/istio/proxyv2**"
+    - glob: "ghcr.io/cloudnative-pg/postgresql**"
+    - glob: "ghcr.io/cloudnative-pg/cloudnative-pg**"
+  authorities:
+    - name: kore-managed-upstream
+      static:
+        action: pass

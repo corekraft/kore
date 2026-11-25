@@ -66,6 +66,7 @@ export {
 } from "./platform-domain.js";
 export type { PlatformPlan } from "./platform-domain.js";
 export { suborgDeliveryArgs } from "./suborg-delivery-args.js";
+export { applicationImageArgs } from "./application-images.js";
 export {
   platformDomainOrigin,
   platformDomainVariable,

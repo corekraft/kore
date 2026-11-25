@@ -9,6 +9,7 @@ import type { Environment, FlagManifest } from "./types.js";
 
 /** The age recipients `.sops.yaml` names for an environment, read by the loader (ADR 0155). */
 export { loadSopsRecipients } from "./sops-recipients.js";
+export { loadApplicationImages } from "./application-image-records.js";
 
 /**
  * The suborg names of an environment's Organization records, in name order: the
