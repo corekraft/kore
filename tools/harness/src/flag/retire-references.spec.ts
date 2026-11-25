@@ -6,6 +6,7 @@ import { remainingReferences } from "./retire-references.js";
 
 const FLAG = "suborg-tenancy";
 const BASE = "/repo";
+const GIT_PROGRAM = "git";
 
 /** A runner whose one git grep answers with the given code, stdout and stderr. */
 function runnerAnswering(code: number, stdout = "", stderr = "") {
@@ -19,11 +20,10 @@ describe("remainingReferences", () => {
   it("searches the tracked files of the checkout for the flag's name, as a fixed string", async () => {
     const { runner, run } = runnerAnswering(1);
     await remainingReferences(runner, BASE, FLAG);
-    expect(run).toHaveBeenCalledWith(
-      "git",
-      ["grep", "-n", "-F", "-e", FLAG, "--"],
-      { cwd: BASE },
-    );
+    const [program, args, options] = run.mock.calls[0] ?? [];
+    expect(program).toEqual(GIT_PROGRAM);
+    expect(args).toEqual(["grep", "-n", "-F", "-e", FLAG, "--"]);
+    expect(options).toEqual({ cwd: BASE });
   });
 
   it("names each reference by its file, line and text", async () => {
