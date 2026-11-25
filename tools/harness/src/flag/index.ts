@@ -10,9 +10,12 @@ export type { RecordedChart } from "./recorded-lock.js";
 export { parseReleaseLock } from "./release-lock.js";
 export type { ReleaseLock } from "./release-lock.js";
 export {
+  VPS_ENVIRONMENT,
   proofAudit,
   unprovenFlags,
   unprovenLine,
+  vpsLine,
+  vpsUnprovenFlags,
   waivedLine,
 } from "./audit.js";
 export type { ProofAudit, UnprovenFlag, WaivedFlag } from "./audit.js";
