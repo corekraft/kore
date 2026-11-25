@@ -19,6 +19,7 @@ import {
   composeChartDelivery,
   composeGoldenPathDelivery,
   composeSuborgDelivery,
+  platformPreflight,
   platformUp,
   readinessFailureSummary,
   uninstallGatedRelease,
@@ -95,6 +96,29 @@ async function platformUpRepository(context: CommandContext, runner: Runner) {
   return await composeSuborgDelivery(golden, runner);
 }
 
+/**
+ * Installs the platform. A vps run is preflighted first, which names every
+ * missing prerequisite before the first change (ADR 0147); then the repository
+ * delivery is composed, with the chart lock schema-checked before any cluster
+ * call, and the install runs.
+ */
+async function platformUpAction(
+  context: CommandContext,
+  mutationRunner: Runner,
+): Promise<void> {
+  const { repository } = context;
+  const chartLock = stringFlag(context.parsed, "platform-chart-lock");
+  const templateLock = stringFlag(context.parsed, "platform-template-lock");
+  await platformPreflight(repository, mutationRunner, {
+    chartLock,
+    templateLock,
+  });
+  await platformUp(
+    await platformUpRepository(context, mutationRunner),
+    mutationRunner,
+  );
+}
+
 export async function platformCommand(
   context: CommandContext,
 ): Promise<number> {
@@ -124,11 +148,7 @@ export async function platformCommand(
     bootstrap: async (_context, mutationRunner) =>
       await bootstrapControllers(repository, mutationRunner),
     up: async (_context, mutationRunner) =>
-      // Schema-check the chart lock before any cluster call, then install.
-      await platformUp(
-        await platformUpRepository(context, mutationRunner),
-        mutationRunner,
-      ),
+      await platformUpAction(context, mutationRunner),
     "gate-check": async (_context, mutationRunner) => {
       const result = await closeGateIfDegraded(repository, mutationRunner);
       print(
