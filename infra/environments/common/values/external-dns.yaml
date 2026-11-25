@@ -9,5 +9,7 @@
     {
       "gateway-label-filter": "platform.kore.dev/gateway=external",
       "min-ttl": "300"
-    }
+    },
+  "podAnnotations":
+    { "prometheus.io/scrape": "true", "prometheus.io/port": "7979" }
 }
