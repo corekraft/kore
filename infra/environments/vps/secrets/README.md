@@ -63,3 +63,22 @@ Rotation is replacing the document with `sops`, then running
 `platform.kore.dev/document-sha256` annotation changes with the document, and an
 unchanged document applies nothing new. The consumer pod rolls on rotation only
 once its chart carries that checksum in its pod template.
+
+## Backup credential documents
+
+The backup target declares `credentials.secret` (for example `backup-write`).
+Three documents hold its S3 access keys, each a Kubernetes Secret manifest with
+`stringData.AWS_ACCESS_KEY_ID` and `stringData.AWS_SECRET_ACCESS_KEY`, encrypted
+by sops like the rest:
+
+| Document                                                  | Held by                   | Applied to the cluster?                                 |
+| --------------------------------------------------------- | ------------------------- | ------------------------------------------------------- |
+| `secrets/<credentials.secret>.enc.yaml`                   | the backup job            | yes, by `kore secrets backup` (flag `database-backups`) |
+| `controller-secrets/<credentials.secret>-read.enc.yaml`   | the controller, to list   | never                                                   |
+| `controller-secrets/<credentials.secret>-delete.enc.yaml` | the controller, to delete | never                                                   |
+
+The write-only document is the only one under `secrets/`, so no sync reaches the
+read or delete keys. Only `kore backup prune` decrypts the controller documents,
+in memory, and only after consent. Each Secret's `metadata.name` must match its
+file's name. The write-only Secret's `metadata.namespace` names the namespace the
+job runs in.

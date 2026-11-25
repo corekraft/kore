@@ -7,6 +7,7 @@ vi.mock("./commands-infra.js", () => ({
   platformCommand: vi.fn(),
   appCommand: vi.fn(),
   dataCommand: vi.fn(),
+  backupCommand: vi.fn(),
   statusCommand: vi.fn(),
 }));
 vi.mock("./commands-dns.js", () => ({ dnsCommand: vi.fn() }));

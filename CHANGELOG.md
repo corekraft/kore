@@ -1,5 +1,35 @@
 # Changelog
 
+## [0.29.0](https://github.com/corekraft/kore/compare/v0.28.0...v0.29.0) (2026-11-25)
+
+
+### Features
+
+* **config:** add a service's database entry with an opt-in backup ([#2078](https://github.com/corekraft/kore/issues/2078)) ([d922152](https://github.com/corekraft/kore/commit/d92215203aebbf1c211515fb076928933340652d))
+* **config:** declare the backup flags and the typed backup target, and validate them ([#2069](https://github.com/corekraft/kore/issues/2069)) ([675a8cc](https://github.com/corekraft/kore/commit/675a8ccabe4a38041b16b826f122408bdb5bbb5f))
+* **harness:** audit true vps flags for a live-run outcome in audit mode ([#2081](https://github.com/corekraft/kore/issues/2081)) ([af227c3](https://github.com/corekraft/kore/commit/af227c3e07e76993c55b3dbaeb4d9721dcbd37c7))
+* **harness:** refuse an owner waiver as proof in a production environment ([#2076](https://github.com/corekraft/kore/issues/2076)) ([83c4ce4](https://github.com/corekraft/kore/commit/83c4ce4a4541cfcfb339cd4fa2bdad8beba17694))
+* **harness:** report an environment's flag progress and the next flag to prove ([#2080](https://github.com/corekraft/kore/issues/2080)) ([a3a4f16](https://github.com/corekraft/kore/commit/a3a4f16df9294dd306f214763efba9c2ab215f2e))
+* **images:** keep the digests a revert needs when pruning registry tags ([#2063](https://github.com/corekraft/kore/issues/2063)) ([d8bd81a](https://github.com/corekraft/kore/commit/d8bd81a020f0067d17ed474904729c01fec63615))
+* **platform:** declare a DDL and a DML database role behind database-role-split ([#2082](https://github.com/corekraft/kore/issues/2082)) ([ca3d887](https://github.com/corekraft/kore/commit/ca3d8878042f636dce1a021546faf094fc540d45))
+* **platform:** deploy OpenBao on vps as a pinned platform component behind the openbao flag ([#2060](https://github.com/corekraft/kore/issues/2060)) ([6192f02](https://github.com/corekraft/kore/commit/6192f0284240b64fe2df5d5a16be647ffa05e408))
+* **platform:** give each suborg an Argo CD AppProject behind suborg-delivery-project ([#2083](https://github.com/corekraft/kore/issues/2083)) ([55cbfe7](https://github.com/corekraft/kore/commit/55cbfe74f6c127b4251b5de4e203d3c5e8718d5b))
+* **platform:** give the organization api an internal zone beside its zone ([#2073](https://github.com/corekraft/kore/issues/2073)) ([38a0831](https://github.com/corekraft/kore/commit/38a08316f4db9aa4b681e593dbfae98ee29ea7a2)), closes [#1629](https://github.com/corekraft/kore/issues/1629)
+* **platform:** read the platform domain's registration expiry behind domain-expiry-alert ([#2064](https://github.com/corekraft/kore/issues/2064)) ([c0c05f4](https://github.com/corekraft/kore/commit/c0c05f4c0eb57641d27172e788cbf1495692243e))
+* **platform:** record a platform rollout and check it for drift ([#2059](https://github.com/corekraft/kore/issues/2059)) ([ed2f42a](https://github.com/corekraft/kore/commit/ed2f42afcd08b1833d8921c61646c8b02460453c))
+* **platform:** scrape external-dns metrics through pod annotations while its flag is on ([#2075](https://github.com/corekraft/kore/issues/2075)) ([279ae10](https://github.com/corekraft/kore/commit/279ae10632c148695c48dfb7b85841adae1eff7d))
+* **platform:** turn a suborg grant into policy behind suborg-tenancy ([#2079](https://github.com/corekraft/kore/issues/2079)) ([095453c](https://github.com/corekraft/kore/commit/095453cc28ab25e13ca9045e6c264ce10813fd59))
+* **policy:** audit PVCs CloudNativePG does not own behind a flag ([#2043](https://github.com/corekraft/kore/issues/2043)) ([0f64f33](https://github.com/corekraft/kore/commit/0f64f3370b3521166d1ad9160310db6f9eb31ece)), closes [#1666](https://github.com/corekraft/kore/issues/1666)
+
+
+### Bug fixes
+
+* **config:** fail validation when the vps k3s pin and overlay disagree ([#1961](https://github.com/corekraft/kore/issues/1961)) ([178effa](https://github.com/corekraft/kore/commit/178effa0e8626b12f104ddfb0dfebbe60043ec00)), closes [#1499](https://github.com/corekraft/kore/issues/1499)
+* **harness:** judge the test budget on the commit's own unit report ([#2065](https://github.com/corekraft/kore/issues/2065)) ([07b0897](https://github.com/corekraft/kore/commit/07b08972e1b58a0c18319f13dad73cae843946f6)), closes [#2062](https://github.com/corekraft/kore/issues/2062)
+* **platform:** regenerate the suborg-tenancy golden for the databases field ([#2086](https://github.com/corekraft/kore/issues/2086)) ([eed31f2](https://github.com/corekraft/kore/commit/eed31f2c961c5bd8cb1c74dbed25ed53fb64eae3)), closes [#1552](https://github.com/corekraft/kore/issues/1552)
+* **platform:** render the platform XRD schemas in Crossplane and check they are rendered ([#2072](https://github.com/corekraft/kore/issues/2072)) ([6bd9f55](https://github.com/corekraft/kore/commit/6bd9f556446ae5bff7f1bac7ebd889770dd23520))
+* **platform:** set the internal domain in the features-on XRD render test ([#2077](https://github.com/corekraft/kore/issues/2077)) ([2fc9389](https://github.com/corekraft/kore/commit/2fc93890a6cd33ee63bf53d532b2d428fa885b70)), closes [#2047](https://github.com/corekraft/kore/issues/2047)
+
 ## [0.28.0](https://github.com/corekraft/kore/compare/v0.27.0...v0.28.0) (2026-11-24)
 
 
