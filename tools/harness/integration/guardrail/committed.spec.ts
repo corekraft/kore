@@ -77,9 +77,14 @@ describe("the committed inventory", () => {
     const byName = (a: string, b: string) => a.localeCompare(b);
     // A deny rule's code is a Claude Code permission rule or the guard's generic matcher, the
     // ruleset's is `harness ruleset sync` and a checklist item's is the judge; none is a block() call.
+    // A rule whose owner is a command, not a guard hook (ADR 0147's vps-flag-proof, in flag audit
+    // --vps), is enforced by that command and has no block() call either.
     const coded = inventory.guardrails.filter(
       (g) =>
-        g.deny === undefined && g.kind !== "ruleset" && g.kind !== "checklist",
+        g.deny === undefined &&
+        g.kind !== "ruleset" &&
+        g.kind !== "checklist" &&
+        g.owner.startsWith("tools/harness/src/hook/"),
     );
     expect(coded.map((g) => g.rule).sort(byName)).toEqual(
       [...new Set(named)].sort(byName),
@@ -102,6 +107,8 @@ describe("the committed inventory", () => {
       // New in #1620 (ADR 0164): audit until a person activates it.
       "platform-domain-leak",
       "role-hc-raw",
+      // New in #1493 (ADR 0080, ADR 0147): audit until a person activates it.
+      "vps-flag-proof",
     ]);
   });
 });
