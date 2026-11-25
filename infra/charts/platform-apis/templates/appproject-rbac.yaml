@@ -1,7 +1,33 @@
 {{- $features := .Values.features | default dict }}
 {{- if and (index $features "suborg-tenancy") (index $features "suborg-delivery-project") }}
-# Namespaced: the Organization composition creates each suborg's Argo CD AppProject in
-# the argocd namespace (ADR 0165, ADR 0043, issue 1553).
+# Cluster-wide reads: Crossplane watches the kinds it composes across every namespace, so it
+# needs get, list and watch on AppProjects cluster-wide (ADR 0165, issue 1553).
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: crossplane-suborg-appprojects
+  labels: { app.kubernetes.io/managed-by: Helm }
+rules:
+  - apiGroups: [argoproj.io]
+    resources: [appprojects]
+    verbs: [get, list, watch]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: crossplane-suborg-appprojects
+  labels: { app.kubernetes.io/managed-by: Helm }
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: crossplane-suborg-appprojects
+subjects:
+  - kind: ServiceAccount
+    name: crossplane
+    namespace: crossplane-system
+---
+# Namespaced writes: the Organization composition creates each suborg's Argo CD AppProject
+# in the argocd namespace (ADR 0165, ADR 0043, issue 1553).
 apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
 metadata:
@@ -11,7 +37,7 @@ metadata:
 rules:
   - apiGroups: [argoproj.io]
     resources: [appprojects]
-    verbs: [get, list, watch, create, update, patch, delete]
+    verbs: [create, update, patch, delete]
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding

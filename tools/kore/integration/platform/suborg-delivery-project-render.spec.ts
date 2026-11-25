@@ -151,8 +151,12 @@ test("the platform tenant root, which has no parent, gets no AppProject", async 
 });
 
 test("with suborg-delivery-project on, the platform-apis render's other documents equal the render with it off, so existing platform projects render unchanged", () => {
+  // The AppProject grant's documents are covered by suborg-delivery-project-rbac.spec.ts.
   const other = (document: string): boolean =>
-    !/^kind: (Composition|AppProject|Role|RoleBinding)$/m.test(document);
+    !/^kind: (Composition|AppProject)$/m.test(document) &&
+    !/^# Source: platform-apis\/templates\/appproject-rbac\.yaml$/m.test(
+      document,
+    );
   const withoutFlag = documents(render(...suborgOn(false))).filter(other);
   const withFlag = documents(render(...deliveryOn)).filter(other);
   assert.deepEqual(withFlag, withoutFlag);
