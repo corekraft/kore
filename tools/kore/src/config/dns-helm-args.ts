@@ -13,9 +13,10 @@ export function dnsHelmArgs(
   component: string,
   env: NodeJS.ProcessEnv,
   suborgs: readonly string[] = [],
+  foreignNames: readonly string[] = [],
 ): string[] {
   return [
     ...externalDnsHelmArgs(environment, component, env),
-    ...acmeDns01HelmArgs(environment, component, env, suborgs),
+    ...acmeDns01HelmArgs(environment, component, env, suborgs, foreignNames),
   ];
 }

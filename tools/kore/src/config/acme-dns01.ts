@@ -63,6 +63,7 @@ export function acmeDns01HelmArgs(
   component: string,
   env: NodeJS.ProcessEnv,
   suborgs: readonly string[] = [],
+  foreignNames: readonly string[] = [],
 ): string[] {
   if (!featureEnabled(environment, acmeDns01Flag)) {
     return [];
@@ -84,6 +85,9 @@ export function acmeDns01HelmArgs(
     `acmeDns01.zone=${domain ?? ""}`,
     ...(suborgs.length > 0
       ? ["--set-json", `acmeDns01.suborgs=${JSON.stringify(suborgs)}`]
+      : []),
+    ...(foreignNames.length > 0
+      ? ["--set-json", `acmeDns01.foreignNames=${JSON.stringify(foreignNames)}`]
       : []),
   ];
 }

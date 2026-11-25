@@ -30,6 +30,7 @@ vi.mock("node:path");
 // Factories, not automocks: the collaborators' real modules never load here.
 vi.mock("./files.js", () => ({ exists: vi.fn() }));
 vi.mock("./service-registrations.js", () => ({
+  loadForeignNames: vi.fn(),
   loadServiceRegistrations: vi.fn(),
 }));
 vi.mock("./organization-records.js", () => ({ suborgNames: vi.fn() }));

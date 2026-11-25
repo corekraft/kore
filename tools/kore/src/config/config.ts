@@ -9,7 +9,10 @@ import {
   loadSopsRecipients,
   loadSuborgNames,
 } from "./overlay-files.js";
-import { loadServiceRegistrations } from "./service-registrations.js";
+import {
+  loadForeignNames,
+  loadServiceRegistrations,
+} from "./service-registrations.js";
 import { validateRepository } from "./validate.js";
 import { ExemptionCheck } from "./exemption-check.js";
 import { FileExemptionSource } from "./exemption-source.js";
@@ -104,6 +107,7 @@ export async function loadRepository(
       environment,
     ),
     registeredServices: await loadServiceRegistrations(root, environmentName),
+    foreignNames: await loadForeignNames(root, environment),
     sopsRecipients: await loadSopsRecipients(root, environmentName),
     suborgs: await loadSuborgNames(
       root,

@@ -1,5 +1,11 @@
 import { readdir, readFile } from "node:fs/promises";
-import { featureEnabled, platformPortalFlag } from "./features.js";
+import { loadForeignCertificateNames } from "./foreign-certificates.js";
+import {
+  acmeDns01Flag,
+  featureEnabled,
+  platformPortalFlag,
+} from "./features.js";
+import { platformPlan } from "./platform-domain.js";
 import type { Environment } from "./types.js";
 
 // Docs: docs/decisions/0115-scope-the-organization-and-service-platform-apis-to-the-cluster.md
@@ -173,6 +179,25 @@ export async function loadServiceRegistrations(
     ...(await environmentRegistrations(root, environment)).keys(),
   ]);
   return [...names].sort();
+}
+
+/**
+ * The foreign names of one environment's service specs, sorted, while acme-dns01 is on
+ * (ADR 0157, issue 1678). Off, no spec is read, so a render with the flag off is what it
+ * was before. The platform domain in force decides which names are foreign.
+ */
+export async function loadForeignNames(
+  root: string,
+  environment: Environment,
+): Promise<string[]> {
+  if (!featureEnabled(environment, acmeDns01Flag)) {
+    return [];
+  }
+  return loadForeignCertificateNames(
+    root,
+    environmentServicesDirectory(environment.name),
+    platformPlan(environment, process.env).domain,
+  );
 }
 
 /**

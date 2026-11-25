@@ -244,6 +244,7 @@ test("a component that names the platform domain is handed the environment's val
     "kore-platform-apis",
     process.env,
     [],
+    [],
   );
 });
 
@@ -257,5 +258,20 @@ test("the platform certificate is handed the suborg names of the Organization re
     "kore-local-tls",
     process.env,
     ["reference"],
+    [],
+  );
+});
+
+test("the platform certificate is handed the foreign names of the service records, so each gets its own Certificate (issue 1678)", () => {
+  vi.mocked(componentValues).mockReturnValue([]);
+  vi.mocked(platformHelmArgs).mockReturnValue([]);
+  const withForeign = { ...repository, foreignNames: ["shop.example.org"] };
+  helmUpgradeArgs(withForeign, fakeComponent({ name: "kore-local-tls" }));
+  expect(platformHelmArgs).toHaveBeenCalledWith(
+    repository.environment,
+    "kore-local-tls",
+    process.env,
+    [],
+    ["shop.example.org"],
   );
 });

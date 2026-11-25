@@ -139,3 +139,59 @@ test("with the flag off, suborg names add no argument", () => {
     ),
   ).toEqual([]);
 });
+
+test("with the flag on, the platform certificate takes the foreign names as a JSON list, one Certificate each (issue 1678)", () => {
+  expect(
+    acmeDns01HelmArgs(
+      managed,
+      "kore-local-tls",
+      { KORE_PLATFORM_DOMAIN: exampleDomain },
+      [],
+      ["pay.example.net", "shop.example.org"],
+    ),
+  ).toEqual([
+    "--set-string",
+    `acmeDns01.zone=${exampleDomain}`,
+    "--set-json",
+    `acmeDns01.foreignNames=["pay.example.net","shop.example.org"]`,
+  ]);
+});
+
+test("with no foreign name, the argument list gains nothing, so a render with no foreign record is what it was before", () => {
+  expect(
+    acmeDns01HelmArgs(
+      managed,
+      "kore-local-tls",
+      { KORE_PLATFORM_DOMAIN: exampleDomain },
+      ["reference"],
+      [],
+    ),
+  ).toEqual([
+    "--set-string",
+    `acmeDns01.zone=${exampleDomain}`,
+    "--set-json",
+    `acmeDns01.suborgs=["reference"]`,
+  ]);
+});
+
+test("with the flag off, foreign names add no argument and no component takes them", () => {
+  vi.mocked(featureEnabled).mockReturnValue(false);
+  expect(
+    acmeDns01HelmArgs(
+      managed,
+      "kore-local-tls",
+      { KORE_PLATFORM_DOMAIN: exampleDomain },
+      [],
+      ["shop.example.org"],
+    ),
+  ).toEqual([]);
+  expect(
+    acmeDns01HelmArgs(
+      managed,
+      "cert-manager",
+      { KORE_PLATFORM_DOMAIN: exampleDomain },
+      [],
+      ["shop.example.org"],
+    ),
+  ).toEqual([]);
+});

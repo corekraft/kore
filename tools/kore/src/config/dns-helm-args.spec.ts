@@ -29,14 +29,21 @@ test("a component takes the external-dns arguments first, then the acme-dns01 ar
     [environment, "cert-manager", env],
   ]);
   expect(vi.mocked(acmeDns01HelmArgs).mock.calls).toEqual([
-    [environment, "cert-manager", env, []],
+    [environment, "cert-manager", env, [], []],
   ]);
 });
 
 test("the suborg names reach the acme-dns01 arguments, which are the only ones that read them", () => {
   dnsHelmArgs(environment, "kore-local-tls", env, ["reference", "team-a"]);
   expect(vi.mocked(acmeDns01HelmArgs).mock.calls).toEqual([
-    [environment, "kore-local-tls", env, ["reference", "team-a"]],
+    [environment, "kore-local-tls", env, ["reference", "team-a"], []],
+  ]);
+});
+
+test("the foreign names reach the acme-dns01 arguments too, so each gets its own HTTP-01 Certificate (issue 1678)", () => {
+  dnsHelmArgs(environment, "kore-local-tls", env, [], ["shop.example.org"]);
+  expect(vi.mocked(acmeDns01HelmArgs).mock.calls).toEqual([
+    [environment, "kore-local-tls", env, [], ["shop.example.org"]],
   ]);
 });
 

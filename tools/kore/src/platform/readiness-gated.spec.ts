@@ -1,6 +1,7 @@
 import { beforeEach, expect, test, vi } from "vitest";
 import { readinessGatedOff } from "../config/index.js";
 import { waitFor } from "./readiness.js";
+import { foreignCertificateResources } from "./readiness-issuer.js";
 import {
   component,
   fakeRunner,
@@ -28,6 +29,10 @@ vi.mock("./readiness-poll.js", async (importOriginal) => ({
 }));
 
 beforeEach(primeReadinessFakes);
+// The foreign names are read from the records, and none of these fixtures names one.
+beforeEach(() => {
+  vi.mocked(foreignCertificateResources).mockReturnValue([]);
+});
 
 const gated = "clusterimagepolicy.policy.sigstore.dev/kore-template-images";
 const always = "clusterimagepolicy.policy.sigstore.dev/kore-platform-images";

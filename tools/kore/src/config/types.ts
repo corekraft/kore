@@ -521,6 +521,12 @@ export interface Repository {
    * the flags are. The acme-dns01 flag renders a wildcard pair for each (ADR 0161).
    */
   suborgs?: readonly string[] | undefined;
+  /**
+   * The foreign names the service records claim on the external Gateway, sorted; set by
+   * `loadRepository` while acme-dns01 is on and empty otherwise. Each gets its own
+   * HTTP-01 Certificate, never a wildcard (ADR 0157, issue 1678).
+   */
+  foreignNames?: readonly string[] | undefined;
   /** Findings that warn without failing validation; set by `loadRepository`. */
   warnings?: string[] | undefined;
 }

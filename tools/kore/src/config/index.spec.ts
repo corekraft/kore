@@ -172,6 +172,7 @@ const entryPoints = [
   "featureHelmArgs",
   "findRoot",
   "flagEntry",
+  "foreignCertificateName",
   "gatewayClassChangeFlag",
   "gatewayClassName",
   "gatewayEntryPort",

@@ -1,6 +1,9 @@
 import { beforeEach, expect, test, vi } from "vitest";
 import { errorMessage } from "./probe.js";
-import { assertIssuerReady } from "./readiness-issuer.js";
+import {
+  assertIssuerReady,
+  foreignCertificateResources,
+} from "./readiness-issuer.js";
 import {
   failureAcrossBounds,
   pause,
@@ -38,6 +41,10 @@ vi.mock("./readiness-poll.js", async (importOriginal) => ({
 }));
 
 beforeEach(primeReadinessFakes);
+// The foreign names are read from the records, and none of these fixtures names one.
+beforeEach(() => {
+  vi.mocked(foreignCertificateResources).mockReturnValue([]);
+});
 test("a deployment is ready when its rollout completes and it has an available replica", async () => {
   const { run, wait } = waitOn(["deployment/web"], (args) =>
     args.includes("get") ? "available" : "",
