@@ -16,6 +16,8 @@ gains a per-environment platform domain and DNS provider.
 
 > Refined by [ADR 0163](0163-one-cloudflare-zone-holds-the-platform-domain-opentofu-owns-fixed-records-and-external-dns-owns-route-records.md): for vps, delegated zones are retired; a suborg's default zone is `<suborg>.<platform domain>` inside the one Cloudflare zone, with no NS delegation.
 
+> Refined by spec [#1612](https://github.com/corekraft/kore/issues/1612) (issue [#1629](https://github.com/corekraft/kore/issues/1629)): every organization also owns an internal zone, `<organizationId>.<internal domain>`, beside its default zone. The internal domain is the platform domain on a one-domain platform and `internal.<platform domain>` with an external Gateway, and the two zones of one organization never coincide where those domains differ.
+
 ## Context
 
 Services are subdomains of their organization's domain, such as

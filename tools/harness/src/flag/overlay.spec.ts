@@ -28,6 +28,7 @@ const overlayOf = (body: string): Overlay => ({
   path: PATH,
   text: body,
   features: {},
+  production: false,
 });
 
 describe("environments", () => {
@@ -88,7 +89,31 @@ describe("readOverlay", () => {
       path: PATH,
       text: TWO_FLAGS,
       features: { "ingress-agentgateway": false, "other-flag": false },
+      production: false,
     });
+  });
+
+  it("reads an overlay that marks its environment production, and one that marks it false", async () => {
+    const fs = fakeFileSystem({
+      [overlayPath("local")]: '{"name": "local", "production": true}',
+      [overlayPath("vps")]: '{"name": "vps", "production": false}',
+    });
+    expect((await readOverlay(fs, ROOT, "local")).production).toBe(true);
+    expect((await readOverlay(fs, ROOT, "vps")).production).toBe(false);
+  });
+
+  it("reads an overlay with no production mark as not production", async () => {
+    const fs = fakeFileSystem({ [overlayPath("local")]: '{"name": "local"}' });
+    expect((await readOverlay(fs, ROOT, "local")).production).toBe(false);
+  });
+
+  it("refuses a production mark that is not true or false, rather than guess the environment's kind", async () => {
+    const fs = fakeFileSystem({
+      [overlayPath("local")]: '{"name": "local", "production": "yes"}',
+    });
+    await expect(readOverlay(fs, ROOT, "local")).rejects.toThrow(
+      `${PATH} has a production mark that is not true or false (ADR 0147). Fix it, then rerun.`,
+    );
   });
 
   it("reads an overlay without a features map as having none", async () => {

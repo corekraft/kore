@@ -2,6 +2,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { outcomeSection } from "../idea/index.js";
 import { fakeRepository, type FakeIdea } from "./flag-support.js";
+import { NO_SOURCES } from "./app-windows.js";
 import { findProof } from "./proof.js";
 
 vi.mock("../idea/index.js");
@@ -180,5 +181,49 @@ describe("findProof reading the outcome block", () => {
     );
     const repo = fakeRepository([idea("0001", body)]);
     expect(await findProof(repo, FLAG, ENVIRONMENT)).toBeUndefined();
+  });
+});
+
+describe("findProof in a production environment (ADR 0147)", () => {
+  const PRODUCTION = "vps";
+
+  it("does not count an owner waiver as proof there, so the flag is unproven", async () => {
+    const repo = fakeRepository([
+      idea(
+        "0001",
+        section({
+          ...proven,
+          Source: "owner-waiver",
+          Environment: PRODUCTION,
+        }),
+      ),
+    ]);
+    expect(
+      await findProof(repo, FLAG, PRODUCTION, NO_SOURCES, true),
+    ).toBeUndefined();
+  });
+
+  it("still counts a confirmed live run there", async () => {
+    const repo = fakeRepository([
+      idea("0001", section({ ...proven, Environment: PRODUCTION })),
+    ]);
+    expect(await findProof(repo, FLAG, PRODUCTION, NO_SOURCES, true)).toEqual({
+      idea: "0001",
+      path: "docs/ideas/0001-proof.md",
+      source: "live-run",
+    });
+  });
+
+  it("keeps counting an owner waiver in a local environment (ADR 0127)", async () => {
+    const repo = fakeRepository([
+      idea("0001", section({ ...proven, Source: "owner-waiver" })),
+    ]);
+    expect(await findProof(repo, FLAG, ENVIRONMENT, NO_SOURCES, false)).toEqual(
+      {
+        idea: "0001",
+        path: "docs/ideas/0001-proof.md",
+        source: "owner-waiver",
+      },
+    );
   });
 });

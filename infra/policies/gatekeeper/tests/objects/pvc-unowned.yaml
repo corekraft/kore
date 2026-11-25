@@ -1,0 +1,9 @@
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata: { name: uploads, namespace: app, labels: { app: x } }
+spec:
+  {
+    accessModes: [ReadWriteOnce],
+    storageClassName: kore-standard,
+    resources: { requests: { storage: 1Gi } }
+  }

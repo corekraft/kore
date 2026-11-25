@@ -49,5 +49,79 @@ spec:
                 platform.kore.dev/shared-gateway: "true"{{ end }}{{- if and .Values.features (index .Values.features "golden-path-template-admission") }}
                 policy.sigstore.dev/include: "true"{{ end }}{{`
             {{- end }}`}}{{- end }}
+{{- if and .Values.features (index .Values.features "suborg-tenancy") (index .Values.features "suborg-network-policy") }}
+    # With suborg-tenancy on (ADR 0165, issue 1552) a grant in allowFrom
+    # (<suborg>/<service>) to a service in another suborg opens that service to the
+    # grantee, and this step is the one owner of those rules. An AuthorizationPolicy in
+    # the owner's suborg allows the grantees' identities (the ServiceAccount named after
+    # the grantee service in its suborg, ADR 0007) and, beside them, the owner's own
+    # suborg, platform telemetry and the shared gateway, so that a grant cuts none of
+    # them off. A NetworkPolicy per grant opens the owner's pods to the grantee's
+    # namespace only. A grant to the same suborg adds nothing, since the suborg is
+    # open inside. Removing a grant removes its rules at the next sync.
+    - step: compose-grant-policies
+      functionRef: { name: function-go-templating }
+      input:
+        apiVersion: gotemplating.fn.crossplane.io/v1beta1
+        kind: GoTemplate
+        source: Inline
+        inline:
+          template: |
+            {{`{{- $service := .observed.composite.resource.metadata.name }}
+            {{- $org := .observed.composite.resource.spec.organization }}
+            {{- $cross := list }}
+            {{- range $grant := (.observed.composite.resource.spec.allowFrom | default (list)) }}
+            {{- if ne (index (splitList "/" $grant) 0) $org }}
+            {{- $cross = append $cross $grant }}
+            {{- end }}
+            {{- end }}
+            {{- if $cross }}
+            ---
+            apiVersion: security.istio.io/v1
+            kind: AuthorizationPolicy
+            metadata:
+              name: {{ $service }}--grants
+              namespace: {{ $org }}
+              annotations:
+                gotemplating.fn.crossplane.io/composition-resource-name: grants-authorization
+            spec:
+              selector:
+                matchLabels:
+                  app.kubernetes.io/part-of: {{ $service }}
+              action: ALLOW
+              rules:
+                - from:
+                    - source:
+                        namespaces: [{{ $org }}, observability]
+                    - source:
+                        principals: ["cluster.local/ns/kore-system/sa/kore-gateway"]
+            {{- range $grant := $cross }}
+            {{- $parts := splitList "/" $grant }}
+                    - source:
+                        principals: ["cluster.local/ns/{{ index $parts 0 }}/sa/{{ index $parts 1 }}"]
+            {{- end }}
+            {{- range $grant := $cross }}
+            {{- $parts := splitList "/" $grant }}
+            ---
+            apiVersion: networking.k8s.io/v1
+            kind: NetworkPolicy
+            metadata:
+              name: {{ $service }}--grant--{{ index $parts 0 }}--{{ index $parts 1 }}
+              namespace: {{ $org }}
+              annotations:
+                gotemplating.fn.crossplane.io/composition-resource-name: grant-{{ index $parts 0 }}--{{ index $parts 1 }}
+            spec:
+              podSelector:
+                matchLabels:
+                  app.kubernetes.io/part-of: {{ $service }}
+              policyTypes: [Ingress]
+              ingress:
+                - from:
+                    - namespaceSelector:
+                        matchLabels:
+                          kubernetes.io/metadata.name: {{ index $parts 0 }}
+            {{- end }}
+            {{- end }}`}}
+{{- end }}
     - step: mark-ready
       functionRef: { name: function-auto-ready }

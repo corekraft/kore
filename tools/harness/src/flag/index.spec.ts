@@ -5,7 +5,7 @@ import { unprovenFlags, unprovenLine } from "./audit.js";
 import { platformWindows } from "./app-window-store.js";
 import { recordAppFlagWindow } from "./app-window-writer.js";
 import { FlagError, environments, readOverlay, withFlagOn } from "./overlay.js";
-import { activationProof, findProof } from "./proof.js";
+import { activationProof, findProof, isWaiverRefusal } from "./proof.js";
 import { parseCharts, renderCharts } from "./recorded-lock.js";
 import { parseReleaseLock } from "./release-lock.js";
 
@@ -24,6 +24,7 @@ test("the flag barrel exposes exactly the overlay, proof, audit and app window e
       "environments",
       "findProof",
       "flagRequires",
+      "isWaiverRefusal",
       "parseCharts",
       "parseReleaseLock",
       "platformWindows",
@@ -54,6 +55,7 @@ test("the flag barrel re-exports each module's own function, not a copy", () => 
   expect(flag.withFlagOn).toBe(withFlagOn);
   expect(flag.findProof).toBe(findProof);
   expect(flag.activationProof).toBe(activationProof);
+  expect(flag.isWaiverRefusal).toBe(isWaiverRefusal);
   expect(flag.parseCharts).toBe(parseCharts);
   expect(flag.renderCharts).toBe(renderCharts);
   expect(flag.parseReleaseLock).toBe(parseReleaseLock);

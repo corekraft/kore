@@ -9,6 +9,7 @@ import {
   malformed,
 } from "./config-support.js";
 import { alertEmailErrors, alertEmailWarnings } from "./alert-email.js";
+import { backupTargetErrors } from "./backup-target.js";
 import { componentGatedOff } from "./features.js";
 import { exists } from "./files.js";
 import { providerFlagErrors } from "./provider-flag-errors.js";
@@ -17,6 +18,7 @@ import { overlayErrors, overlayWarnings } from "./overlay-errors.js";
 
 vi.mock("node:path");
 vi.mock("./alert-email.js");
+vi.mock("./backup-target.js", () => ({ backupTargetErrors: vi.fn() }));
 vi.mock("./features.js");
 vi.mock("./files.js");
 vi.mock("./provider-flag-errors.js");
@@ -34,6 +36,7 @@ beforeEach(() => {
   vi.mocked(alertEmailWarnings).mockReturnValue([]);
   vi.mocked(providerFlagErrors).mockReturnValue([]);
   vi.mocked(flagManifestErrors).mockReturnValue([]);
+  vi.mocked(backupTargetErrors).mockReturnValue([]);
 });
 
 const repository = (
@@ -49,6 +52,37 @@ test("an overlay with sound features, sources and values has no errors", async (
     featureFlag: "ingress",
   });
   expect(await overlayErrors(repository([component], environment))).toEqual([]);
+});
+
+test("the backup declaration is checked against the repository, and its errors join the overlay's errors", async () => {
+  vi.mocked(backupTargetErrors).mockReturnValue(["backup.target.kind bad"]);
+  expect(await overlayErrors(repository([]))).toEqual([
+    "backup.target.kind bad",
+  ]);
+});
+
+test("the vps overlay's Kubernetes version must match the k3s pin, so a move of one is made with the other", async () => {
+  const environment = fakeEnvironment({
+    name: "vps",
+    provider: "managed",
+    kubeContext: "kore-vps",
+    cluster: {
+      profile: "external",
+      kubernetesVersion: "1.37.2",
+      driver: "external",
+      containerRuntime: "containerd",
+      cpus: 4,
+      memoryMB: 20480,
+      diskSize: "300g",
+    },
+  });
+  const errors = await overlayErrors({
+    ...repository([], environment),
+    k3sHostPin: "v1.38.2+k3s1",
+  });
+  expect(errors).toHaveLength(1);
+  expect(errors[0]).toContain("v1.38.2+k3s1");
+  expect(errors[0]).toContain("same pull request");
 });
 
 test("the features map must be a map of flag names to booleans", async () => {

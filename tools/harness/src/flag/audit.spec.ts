@@ -35,12 +35,14 @@ const clock: Clock = { now: () => new Date(0), sleep: () => Promise.resolve() };
 function overlayFor(
   environment: string,
   features: Record<string, boolean>,
+  production = false,
 ): Overlay {
   return {
     environment,
     path: `infra/environments/${environment}/environment.yaml`,
     text: "",
     features,
+    production,
   };
 }
 
@@ -64,6 +66,7 @@ describe("unprovenFlags", () => {
         flag: "ingress-agentgateway",
         environment: "local",
         path: "infra/environments/local/environment.yaml",
+        production: false,
       },
     ]);
   });
@@ -98,11 +101,13 @@ describe("unprovenFlags", () => {
         flag: "a",
         environment: "local",
         path: "infra/environments/local/environment.yaml",
+        production: false,
       },
       {
         flag: "b",
         environment: "managed-example",
         path: "infra/environments/managed-example/environment.yaml",
+        production: false,
       },
     ]);
   });
@@ -138,6 +143,19 @@ describe("unprovenLine", () => {
       "Flag ingress-agentgateway is on in local (infra/environments/local/environment.yaml) with no verification outcome. Set it back to false, then turn it on with `harness flag activate ingress-agentgateway --environment local` once a live run is recorded.",
     );
   });
+
+  it("says an owner waiver does not count in a production environment, and names the live run required", () => {
+    expect(
+      unprovenLine({
+        flag: "ingress-agentgateway",
+        environment: "vps",
+        path: "infra/environments/vps/environment.yaml",
+        production: true,
+      }),
+    ).toBe(
+      "Flag ingress-agentgateway is on in vps (infra/environments/vps/environment.yaml) with no live-run verification outcome. An owner waiver does not count in a production environment (ADR 0147). Set it back to false, then turn it on with `harness flag activate ingress-agentgateway --environment vps` once a live run is recorded.",
+    );
+  });
 });
 
 describe("proofAudit", () => {
@@ -162,6 +180,7 @@ describe("proofAudit", () => {
           flag: "bare",
           environment: "local",
           path: "infra/environments/local/environment.yaml",
+          production: false,
         },
       ],
       waived: [
@@ -184,6 +203,38 @@ describe("proofAudit", () => {
       source: "live-run",
     });
     expect((await proofAudit(fs, clock, BASE)).waived).toEqual([]);
+  });
+});
+
+describe("proofAudit in a production environment (ADR 0147)", () => {
+  it("asks each environment's proof with its production mark, so vps refuses a waiver", async () => {
+    overlays({
+      local: overlayFor("local", { on: true }),
+      vps: overlayFor("vps", { on: true }, true),
+    });
+    await proofAudit(fs, clock, BASE);
+    expect(
+      vi.mocked(findProof).mock.calls.map((call) => [call[2], call[4]]),
+    ).toEqual([
+      ["local", false],
+      ["vps", true],
+    ]);
+  });
+
+  it("lists a production flag that rests on an owner waiver as unproven, not waived", async () => {
+    overlays({ vps: overlayFor("vps", { waived: true }, true) });
+    vi.mocked(findProof).mockResolvedValue(undefined);
+    expect(await proofAudit(fs, clock, BASE)).toEqual({
+      unproven: [
+        {
+          flag: "waived",
+          environment: "vps",
+          path: "infra/environments/vps/environment.yaml",
+          production: true,
+        },
+      ],
+      waived: [],
+    });
   });
 });
 

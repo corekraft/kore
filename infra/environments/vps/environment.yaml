@@ -2,6 +2,7 @@
   "$schema": "../schema.json",
   "name": "vps",
   "provider": "managed",
+  "production": true,
   "kubeContext": "kore-vps",
   "nodeCount": 1,
   "cluster":
@@ -38,6 +39,7 @@
     },
   "features":
     {
+      "registry-revert-keep": false,
       "agentgateway-mesh-enrollment": false,
       "autoscaling-defaults": false,
       "gateway-class-change-release": false,
@@ -47,6 +49,7 @@
       "platform-organization-service-apis": false,
       "platform-argocd-delivery": false,
       "suborg-tenancy": false,
+      "suborg-network-policy": false,
       "platform-sync-window": false,
       "release-recovery-argocd-refusal": false,
       "database-routes": false,
@@ -58,6 +61,7 @@
       "external-gateway-limits": false,
       "external-dns": false,
       "acme-dns01": false,
+      "domain-expiry-alert": false,
       "acme-issuers": false,
       "registry-by-name": false,
       "registry-tailnet-forward": false,
@@ -80,7 +84,10 @@
       "app-delivery": false,
       "app-sizing": false,
       "workload-defaults-admission": false,
-      "openbao": false
+      "pvc-ownership-admission": false,
+      "openbao": false,
+      "database-backups": false,
+      "openbao-snapshots": false
     },
   "secrets": { "storeName": "platform-secrets", "sourceNamespace": "external" },
   "telemetry":

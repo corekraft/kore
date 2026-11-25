@@ -80,6 +80,7 @@ vi.mock("./features.js", () => ({
   platformDnsFlag: "platform-dns",
   platformPortalFlag: "platform-portal",
   registryPruneFlag: "registry-tag-pruning",
+  revertKeepFlag: "registry-revert-keep",
 }));
 vi.mock("./ownership.js", () => ({
   helmInstalledComponents: vi.fn(),
@@ -120,6 +121,7 @@ vi.mock("./registry-name.js", () => ({
 vi.mock("./validate.js", () => ({ validateRepository: vi.fn() }));
 
 const entryPoints = [
+  "PLACEHOLDER_RECIPIENT",
   "RunTimeFileError",
   "absolute",
   "acmeCertificateIssuer",
@@ -151,6 +153,7 @@ const entryPoints = [
   "databaseRoutesDeliveryArgs",
   "driftListingMappingsFlag",
   "enabledComponents",
+  "environmentRecipients",
   "evaluateAudit",
   "exemptionCheckMode",
   "exists",
@@ -167,6 +170,7 @@ const entryPoints = [
   "helmInstalledComponents",
   "ingressFlag",
   "internalGateway",
+  "isAgeRecipient",
   "isLocalProvider",
   "keycloakHostname",
   "keycloakOperatorProbeHelmArgs",
@@ -221,7 +225,9 @@ const entryPoints = [
   "releaseRecoveryArgocdRefusalFlag",
   "renderedCrdNames",
   "requiredFlags",
+  "revertKeepFlag",
   "rollbackConstraint",
+  "runTimeDomain",
   "runTimeDomainErrors",
   "runTimeFilePath",
   "runTimeNeededBy",

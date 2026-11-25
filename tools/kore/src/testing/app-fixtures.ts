@@ -1,4 +1,5 @@
 import { loadLocalGatewayFlagsOff } from "./gateway-flags-off.fixtures.js";
+import { healthyXrdOutput } from "./platform-resilience.fixtures.js";
 import { platformGeneration } from "../platform/index.js";
 import { registryTlsSecret } from "./registry-tls-fixtures.js";
 import {
@@ -88,7 +89,10 @@ export function healthyReadinessOutput(
   if (args.includes("service") && args.includes("--selector")) {
     return healthyService;
   }
-  const webhook = healthyWebhookOutput(args) ?? healthyApplicationOutput(args);
+  const webhook =
+    healthyWebhookOutput(args) ??
+    healthyApplicationOutput(args) ??
+    healthyXrdOutput(args);
   if (webhook !== undefined) {
     return webhook;
   }

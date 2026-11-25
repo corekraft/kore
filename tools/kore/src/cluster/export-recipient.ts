@@ -1,39 +1,13 @@
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
-import type { Repository } from "../config/index.js";
+import {
+  environmentRecipients,
+  isAgeRecipient,
+  PLACEHOLDER_RECIPIENT,
+  type Repository,
+} from "../config/index.js";
 
-export const PLACEHOLDER_RECIPIENT = "AGE-RECIPIENT-MUST-BE-CONFIGURED";
-const AGE_RECIPIENT = /^age1[023456789acdefghjklmnpqrstuvwxyz]{58}$/;
-
-function unquote(value: string): string {
-  return value
-    .replace(/\s+#.*$/, "")
-    .trim()
-    .replace(/^(["'])(.*)\1$/, "$2");
-}
-
-function findRecipients(text: string, name: string): string | undefined {
-  let inRule = false;
-  let matches = false;
-  for (const line of text.split("\n")) {
-    const rule = line.match(/^\s*-\s+path_regex:\s*(.*)$/);
-    if (rule) {
-      inRule = true;
-      matches = (rule[1] ?? "").includes(`environments/${name}/`);
-      continue;
-    }
-    const age = line.match(/^\s+age:\s*(.*)$/);
-    if (inRule && matches && age) {
-      return unquote(age[1] ?? "");
-    }
-  }
-  return undefined;
-}
-
-/** True for a public age key: `age1` and 58 characters from the bech32 alphabet. */
-export function isAgeRecipient(value: string): boolean {
-  return AGE_RECIPIENT.test(value);
-}
+export { isAgeRecipient, PLACEHOLDER_RECIPIENT };
 
 /** Each entry is checked alone, so one bad entry is named, never the whole list. */
 function checkRecipient(entry: string, name: string): void {
@@ -66,13 +40,12 @@ export async function exportRecipients(
       `cannot read .sops.yaml for the age recipient: ${error instanceof Error ? error.message : String(error)}`,
     );
   }
-  const value = findRecipients(text, name);
-  if (value === undefined) {
+  const recipients = environmentRecipients(text, name);
+  if (recipients === undefined) {
     throw new Error(
       `.sops.yaml has no creation rule with an age recipient for environments/${name}/; add one before exporting`,
     );
   }
-  const recipients = value.split(",").map((entry) => entry.trim());
   for (const recipient of recipients) {
     checkRecipient(recipient, name);
   }

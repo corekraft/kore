@@ -1,9 +1,13 @@
+// oxlint-disable import/max-dependencies -- the overlay check lists every validation of the environment overlay, and each one is its own module
 import { join } from "node:path";
 import { alertEmailErrors, alertEmailWarnings } from "./alert-email.js";
+import { backupTargetErrors } from "./backup-target.js";
 import { componentGatedOff } from "./features.js";
 import { exists } from "./files.js";
 import { flagManifestErrors } from "./flag-manifest.js";
+import { k3sPinErrors } from "./k3s-pin.js";
 import { providerFlagErrors } from "./provider-flag-errors.js";
+import { suborgServiceRangeErrors } from "./platform-cluster-resolution.js";
 import type { Component, Environment, Repository } from "./types.js";
 
 const flagName = /^[a-z][a-z0-9-]*$/;
@@ -148,7 +152,10 @@ export async function overlayErrors(repository: Repository): Promise<string[]> {
     ...featureErrors(environment),
     ...alertEmailErrors(environment),
     ...providerFlagErrors(environment),
+    ...suborgServiceRangeErrors(environment),
     ...flagManifestErrors(repository),
+    ...backupTargetErrors(repository),
+    ...k3sPinErrors(repository),
     ...featureFlagErrors(environment, components),
     ...gatedDependencyErrors(environment, components),
     ...unknownOverlayErrors(environment, names),

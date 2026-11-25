@@ -9,6 +9,8 @@ export interface Overlay {
   path: string;
   text: string;
   features: Record<string, boolean>;
+  /** Whether the manifest marks the environment production, where an owner waiver is not proof (ADR 0147). readOverlay always sets it; an absent mark reads as not production. */
+  production?: boolean;
 }
 
 function parse(path: string, text: string): Record<string, unknown> {
@@ -70,7 +72,8 @@ export async function readOverlay(
     );
   }
   const text = await fs.readFile(`${root}/${path}`);
-  const features = parse(path, text)["features"] ?? {};
+  const manifest = parse(path, text);
+  const features = manifest["features"] ?? {};
   const valid =
     typeof features === "object" &&
     features !== null &&
@@ -80,11 +83,19 @@ export async function readOverlay(
       `${path} has a features map that is not flag name to boolean (ADR 0077). Fix it, then rerun.`,
     );
   }
+  // Absent reads as not production, but any other value than true or false is refused, never guessed (fail closed).
+  const mark = manifest["production"];
+  if (mark !== undefined && typeof mark !== "boolean") {
+    throw new FlagError(
+      `${path} has a production mark that is not true or false (ADR 0147). Fix it, then rerun.`,
+    );
+  }
   return {
     environment,
     path,
     text,
     features: features as Record<string, boolean>,
+    production: mark === true,
   };
 }
 

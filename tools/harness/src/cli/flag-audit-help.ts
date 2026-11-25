@@ -4,7 +4,7 @@ import type { CommandHelp } from "../runtime/index.js";
 /** The help record for `flag audit`: fails on any flag that is on without recorded proof. */
 export const auditHelp: CommandHelp = {
   purpose:
-    "Checks every flag that is on in any environment overlay for its recorded proof. It fails when a flag is on with no confirmed verification outcome, from a live run or an owner waiver, and names each flag that rests on a waiver rather than a live run. kb-check reports the same flags as warnings (ADR 0080).",
+    "Checks every flag that is on in any environment overlay for its recorded proof. It fails when a flag is on with no confirmed verification outcome, from a live run or an owner waiver, and names each flag that rests on a waiver rather than a live run. In a production environment (ADR 0147) a waiver does not count, so a flag on there that rests on one fails. kb-check reports the same flags as warnings (ADR 0080).",
   when: "Before a release, or when kb-check warns about a flag, to find flags that are on without proof.",
   whenNot:
     "To turn a flag on: use flag activate, which refuses without proof. To read the recorded outcome itself: use idea show for the idea that holds it.",

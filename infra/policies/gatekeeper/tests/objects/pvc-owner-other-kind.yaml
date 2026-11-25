@@ -1,0 +1,21 @@
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: uploads
+  namespace: app
+  ownerReferences:
+    [
+      {
+        apiVersion: apps/v1,
+        kind: Deployment,
+        name: web,
+        uid: u,
+        controller: true
+      }
+    ]
+spec:
+  {
+    accessModes: [ReadWriteOnce],
+    storageClassName: kore-standard,
+    resources: { requests: { storage: 1Gi } }
+  }
