@@ -34,6 +34,10 @@ export async function withFlags(on: boolean): Promise<Repository> {
         [platformArgocdDeliveryFlag]: true,
       },
     },
+    // With every flag on, database-backups is on, so the chart needs the facts kore would hand it (ADR 0155).
+    ...(on
+      ? { backupFacts: { targetKind: "interim" as const, services: {} } }
+      : {}),
   };
 }
 

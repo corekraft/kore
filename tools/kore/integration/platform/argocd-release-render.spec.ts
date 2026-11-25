@@ -56,6 +56,10 @@ function withFlags(
   return {
     ...repository,
     environment: { ...repository.environment, features },
+    // With database-backups on, the chart needs the facts kore would hand it (ADR 0155).
+    ...(features["database-backups"] === true
+      ? { backupFacts: { targetKind: "interim" as const, services: {} } }
+      : {}),
   };
 }
 
