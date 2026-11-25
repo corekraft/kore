@@ -21,20 +21,34 @@ const externalDocument =
   "/repo/infra/environments/vps/secrets/cloudflare-external-dns.enc.yaml";
 const acmeDocument =
   "/repo/infra/environments/vps/secrets/cloudflare-acme-dns01.enc.yaml";
+const documentKey = "platform.kore.dev/document-sha256";
+const rolledKey = "platform.kore.dev/rolled-document-sha256";
 // sha256 of the encrypted bytes each test reads for the document.
 const externalChecksum =
   "4541f1c75fd2dd20fbeda0815351f473c1b88c653f99e36b3fcc0a949e2d6c69";
 const acmeChecksum =
   "7bb685bdc2d5620df2ad8efe40c627f00838bcec81a78d062d4747110033e154";
+// The checksum a Secret carries from an earlier apply, and the one it has rolled.
+const previousChecksum = "the-previous-document";
 const externalToken = "test-token-external-dns";
 
-/** The live cluster a read answers from: the token Secret and the external-dns Deployment. */
+/**
+ * The live cluster the kubectl calls read and change: the token Secret's
+ * annotations, absent until the first apply, and whether the external-dns
+ * Deployment exists. A restart that fails changes nothing.
+ */
 interface Cluster {
-  /** The live token Secret, absent until the first apply; `checksum` is its annotation, absent when it has none. */
-  secret?: { checksum?: string };
-  deployment?: boolean;
-  restartFails?: boolean;
+  secret?: Record<string, string>;
+  deployment: boolean;
+  restartFails: boolean;
 }
+
+/** A cluster whose token Secret was last applied and rolled at `checksum`. */
+const rolledAt = (checksum: string, deployment = true): Cluster => ({
+  secret: { [documentKey]: checksum, [rolledKey]: checksum },
+  deployment,
+  restartFails: false,
+});
 
 type Calls = ReturnType<typeof vi.fn<Run>>;
 
@@ -47,31 +61,27 @@ function decrypted(namespace: string, token: string) {
   });
 }
 
-/** What a kubectl read returns: the Secret's annotations, the Deployment's name, or nothing when absent. */
-function liveRead(args: readonly string[], cluster: Cluster): string {
-  if (args.includes("secret")) {
-    if (cluster.secret === undefined) {
-      return "";
-    }
-    const { checksum } = cluster.secret;
-    const annotations =
-      checksum === undefined
-        ? {}
-        : { "platform.kore.dev/document-sha256": checksum };
-    return JSON.stringify({ metadata: { annotations } });
+/** What a kubectl read returns: the Secret's annotations or the Deployment's name, or nothing when absent. */
+function read(args: readonly string[], cluster: Cluster): string {
+  if (args.includes("get") && args.includes("secret")) {
+    return cluster.secret === undefined
+      ? ""
+      : JSON.stringify({ metadata: { annotations: cluster.secret } });
   }
-  if (args.includes("deployment/external-dns")) {
+  if (args.includes("get") && args.includes("deployment/external-dns")) {
     return cluster.deployment ? "deployment.apps/external-dns\n" : "";
   }
   return "";
 }
 
 /**
- * A runner that answers sops from a table keyed by document path, answers
- * kubectl reads from the live `cluster`, and lets every other kubectl call succeed.
+ * A runner that answers sops from a table keyed by document path, and answers
+ * kubectl the way the cluster would: an apply sets the checksum it carries and
+ * keeps the rolled record, a record sets the rolled record, and a restart fails
+ * when the cluster says so.
  */
-function runnerWith(documents: Record<string, string>, cluster: Cluster = {}) {
-  const run = vi.fn<Run>(async (command, args): Promise<RunResult> => {
+function runnerWith(documents: Record<string, string>, cluster: Cluster) {
+  const run = vi.fn<Run>(async (command, args, options): Promise<RunResult> => {
     if (command === "sops") {
       return {
         stdout: documents[args.at(-1) ?? ""] ?? "",
@@ -79,12 +89,25 @@ function runnerWith(documents: Record<string, string>, cluster: Cluster = {}) {
         code: 0,
       };
     }
-    if (args.includes("rollout") && cluster.restartFails) {
+    if (args.includes("apply")) {
+      const manifest: { metadata: { annotations: Record<string, string> } } =
+        JSON.parse(options?.input ?? "{}");
+      cluster.secret = { ...cluster.secret, ...manifest.metadata.annotations };
+    } else if (args.includes("annotate")) {
+      const assignment = args.find((arg) => arg.startsWith(`${rolledKey}=`));
+      if (assignment !== undefined) {
+        cluster.secret = {
+          ...cluster.secret,
+          [rolledKey]: assignment.slice(rolledKey.length + 1),
+        };
+      }
+    } else if (args.includes("rollout") && cluster.restartFails) {
       throw new Error("the connection to the server was refused");
     }
-    return { stdout: liveRead(args, cluster), stderr: "", code: 0 };
+    return { stdout: read(args, cluster), stderr: "", code: 0 };
   });
-  return { runner: { run } as Runner, run };
+  const runner: Runner = { run };
+  return { runner, run };
 }
 
 /** The arguments of each kubectl call that rolls a Deployment, in call order. */
@@ -94,13 +117,26 @@ function restarts(run: Calls) {
   );
 }
 
-/** Each call as apply, restart, or read, in call order. */
+/** The arguments of each kubectl call that records a rolled checksum, in call order. */
+function records(run: Calls) {
+  return run.mock.calls.flatMap(([command, args]) =>
+    command === "kubectl" && args.includes("annotate") ? [args] : [],
+  );
+}
+
+/** Each kubectl call as apply, restart, record, or read, in call order. */
 function steps(run: Calls) {
-  return run.mock.calls.map(([, args]) => {
-    if (args.includes("rollout")) {
-      return "restart";
+  return run.mock.calls.flatMap(([command, args]) => {
+    if (command !== "kubectl") {
+      return [];
     }
-    return args.includes("apply") ? "apply" : "read";
+    if (args.includes("rollout")) {
+      return ["restart"];
+    }
+    if (args.includes("annotate")) {
+      return ["record"];
+    }
+    return [args.includes("apply") ? "apply" : "read"];
   });
 }
 
@@ -115,6 +151,23 @@ const externalDnsRestart = [
   "deployment/external-dns",
 ];
 
+/** The arguments that record the rolled checksum on the token Secret, never on the Deployment. */
+const externalDnsRecord = [
+  "--context",
+  "kore-vps",
+  "--namespace",
+  "kore-external-dns",
+  "annotate",
+  "secret",
+  "cloudflare-token",
+  `${rolledKey}=${externalChecksum}`,
+  "--overwrite",
+];
+
+const externalDocuments = {
+  [externalDocument]: decrypted("kore-external-dns", externalToken),
+};
+
 const vps = (features: Record<string, boolean>) =>
   fakeRepository({
     name: "vps",
@@ -125,40 +178,34 @@ const vps = (features: Record<string, boolean>) =>
 
 beforeEach(() => {
   vi.resetAllMocks();
+  vi.mocked(readFile).mockResolvedValue(Buffer.from("ciphertext-external"));
   vi.mocked(withSecretsRedacted).mockImplementation(
     async (_secrets, operation) => await operation(),
   );
   vi.mocked(featureEnabled).mockImplementation(
-    (environment, flag) =>
-      (environment.features as Record<string, boolean> | undefined)?.[flag] ===
-      true,
+    (environment, flag) => environment.features?.[flag] === true,
   );
   vi.mocked(isLocalProvider).mockImplementation(
     (environment) => environment.provider === "k3d",
   );
 });
 
-test("a replaced external-dns document applies its Secret, then restarts the external-dns Deployment once", async () => {
-  vi.mocked(readFile).mockResolvedValue(Buffer.from("ciphertext-external"));
-  const { runner, run } = runnerWith(
-    { [externalDocument]: decrypted("kore-external-dns", externalToken) },
-    { secret: { checksum: "the-previous-document" }, deployment: true },
-  );
+test("a replaced external-dns document applies its Secret, restarts the external-dns Deployment once, then records the rolled checksum on the Secret", async () => {
+  const cluster = rolledAt(previousChecksum);
+  const { runner, run } = runnerWith(externalDocuments, cluster);
 
   await applyCloudflareTokens(vps({ "external-dns": true }), runner);
 
+  expect(steps(run)).toEqual(["read", "read", "apply", "restart", "record"]);
   expect(restarts(run)).toEqual([externalDnsRestart]);
-  expect(steps(run).filter((step) => step !== "read")).toEqual([
-    "apply",
-    "restart",
-  ]);
+  expect(records(run)).toEqual([externalDnsRecord]);
+  expect(cluster.secret?.[rolledKey]).toEqual(externalChecksum);
 });
 
-test("every kubectl call names the configured context, the restart included, never the current one", async () => {
-  vi.mocked(readFile).mockResolvedValue(Buffer.from("ciphertext-external"));
+test("every kubectl call names the configured context, the restart and the record included, never the current one", async () => {
   const { runner, run } = runnerWith(
-    { [externalDocument]: decrypted("kore-external-dns", externalToken) },
-    { secret: { checksum: "the-previous-document" }, deployment: true },
+    externalDocuments,
+    rolledAt(previousChecksum),
   );
 
   await applyCloudflareTokens(vps({ "external-dns": true }), runner);
@@ -166,46 +213,45 @@ test("every kubectl call names the configured context, the restart included, nev
   const contexts = run.mock.calls
     .filter(([command]) => command === "kubectl")
     .map(([, args]) => args[args.indexOf("--context") + 1]);
-  expect(contexts).toHaveLength(4);
+  expect(contexts).toHaveLength(5);
   expect(new Set(contexts)).toEqual(new Set(["kore-vps"]));
 });
 
 test("an unchanged external-dns document applies again and restarts nothing, so rerunning kore secrets tokens is idempotent", async () => {
-  vi.mocked(readFile).mockResolvedValue(Buffer.from("ciphertext-external"));
   const { runner, run } = runnerWith(
-    { [externalDocument]: decrypted("kore-external-dns", externalToken) },
-    { secret: { checksum: externalChecksum }, deployment: true },
+    externalDocuments,
+    rolledAt(externalChecksum),
   );
 
   await applyCloudflareTokens(vps({ "external-dns": true }), runner);
 
   expect(restarts(run)).toEqual([]);
+  expect(records(run)).toEqual([]);
   expect(steps(run).filter((step) => step === "apply")).toHaveLength(1);
 });
 
 test("a first apply, with no Secret and no external-dns Deployment yet, applies the Secret and restarts nothing", async () => {
-  vi.mocked(readFile).mockResolvedValue(Buffer.from("ciphertext-external"));
-  const { runner, run } = runnerWith(
-    { [externalDocument]: decrypted("kore-external-dns", externalToken) },
-    { deployment: false },
-  );
+  const cluster: Cluster = { deployment: false, restartFails: false };
+  const { runner, run } = runnerWith(externalDocuments, cluster);
 
   await applyCloudflareTokens(vps({ "external-dns": true }), runner);
 
   expect(restarts(run)).toEqual([]);
+  expect(records(run)).toEqual([]);
   expect(steps(run).filter((step) => step === "apply")).toHaveLength(1);
+  expect(cluster.secret?.[documentKey]).toEqual(externalChecksum);
 });
 
-test("a replaced external-dns document restarts nothing while no external-dns Deployment exists", async () => {
-  vi.mocked(readFile).mockResolvedValue(Buffer.from("ciphertext-external"));
+test("a replaced external-dns document restarts nothing while no external-dns Deployment exists, and records nothing", async () => {
   const { runner, run } = runnerWith(
-    { [externalDocument]: decrypted("kore-external-dns", externalToken) },
-    { secret: { checksum: "the-previous-document" }, deployment: false },
+    externalDocuments,
+    rolledAt(previousChecksum, false),
   );
 
   await applyCloudflareTokens(vps({ "external-dns": true }), runner);
 
   expect(restarts(run)).toEqual([]);
+  expect(records(run)).toEqual([]);
   expect(steps(run).filter((step) => step === "apply")).toHaveLength(1);
 });
 
@@ -217,10 +263,10 @@ test("a replaced acme-dns01 document restarts nothing, because cert-manager read
   );
   const { runner, run } = runnerWith(
     {
-      [externalDocument]: decrypted("kore-external-dns", externalToken),
+      ...externalDocuments,
       [acmeDocument]: decrypted("cert-manager", "test-token-cert-manager"),
     },
-    { secret: { checksum: externalChecksum }, deployment: true },
+    rolledAt(externalChecksum),
   );
 
   await applyCloudflareTokens(
@@ -230,36 +276,67 @@ test("a replaced acme-dns01 document restarts nothing, because cert-manager read
 
   expect(acmeChecksum).not.toEqual(externalChecksum);
   expect(restarts(run)).toEqual([]);
+  expect(records(run)).toEqual([]);
   expect(steps(run).filter((step) => step === "apply")).toHaveLength(2);
 });
 
-test("with the external-dns flag off nothing is restarted, even when the acme-dns01 document changed", async () => {
+test("with the external-dns flag off nothing is restarted or recorded, even when the acme-dns01 document changed", async () => {
   vi.mocked(readFile).mockResolvedValue(Buffer.from("ciphertext-acme"));
   const { runner, run } = runnerWith(
     { [acmeDocument]: decrypted("cert-manager", "test-token-cert-manager") },
-    { secret: { checksum: "the-previous-document" }, deployment: true },
+    rolledAt(previousChecksum),
   );
 
   await applyCloudflareTokens(vps({ "acme-dns01": true }), runner);
 
   expect(restarts(run)).toEqual([]);
+  expect(records(run)).toEqual([]);
   expect(steps(run).filter((step) => step === "apply")).toHaveLength(1);
 });
 
-test("a restart that fails after the Secret applied names the rollout command to run by hand, since a rerun would not retry it", async () => {
-  vi.mocked(readFile).mockResolvedValue(Buffer.from("ciphertext-external"));
-  const { runner } = runnerWith(
-    { [externalDocument]: decrypted("kore-external-dns", externalToken) },
-    {
-      secret: { checksum: "the-previous-document" },
-      deployment: true,
-      restartFails: true,
-    },
-  );
+test("a restart that fails after the Secret applied names the rollout command to run by hand, and records nothing", async () => {
+  const cluster = { ...rolledAt(previousChecksum), restartFails: true };
+  const { runner, run } = runnerWith(externalDocuments, cluster);
 
   await expect(
     applyCloudflareTokens(vps({ "external-dns": true }), runner),
   ).rejects.toThrow(
     "kubectl --context kore-vps --namespace kore-external-dns rollout restart deployment/external-dns",
   );
+  expect(records(run)).toEqual([]);
+  expect(cluster.secret?.[documentKey]).toEqual(externalChecksum);
+  expect(cluster.secret?.[rolledKey]).toEqual(previousChecksum);
+});
+
+test("a failed restart is retried by a rerun, which restarts the Deployment once and then records the rolled checksum", async () => {
+  const cluster = { ...rolledAt(previousChecksum), restartFails: true };
+  const { runner, run } = runnerWith(externalDocuments, cluster);
+  const repository = vps({ "external-dns": true });
+
+  await expect(applyCloudflareTokens(repository, runner)).rejects.toThrow(
+    "restarting its Deployment failed",
+  );
+  run.mockClear();
+  cluster.restartFails = false;
+  await applyCloudflareTokens(repository, runner);
+
+  expect(restarts(run)).toEqual([externalDnsRestart]);
+  expect(records(run)).toEqual([externalDnsRecord]);
+  expect(cluster.secret?.[rolledKey]).toEqual(externalChecksum);
+});
+
+test("a successful restart, then a rerun, restarts nothing and records nothing new", async () => {
+  const { runner, run } = runnerWith(
+    externalDocuments,
+    rolledAt(previousChecksum),
+  );
+  const repository = vps({ "external-dns": true });
+
+  await applyCloudflareTokens(repository, runner);
+  run.mockClear();
+  await applyCloudflareTokens(repository, runner);
+
+  expect(restarts(run)).toEqual([]);
+  expect(records(run)).toEqual([]);
+  expect(steps(run).filter((step) => step === "apply")).toHaveLength(1);
 });

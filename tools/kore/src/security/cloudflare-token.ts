@@ -15,6 +15,9 @@ import type { Runner } from "../runtime/index.js";
 export const cloudflareTokenSecretName = "cloudflare-token";
 export const cloudflareTokenKey = "api-token";
 const checksumAnnotation = "platform.kore.dev/document-sha256";
+// The checksum a consumer's Deployment last rolled for, set on the token Secret
+// only after that restart succeeds, so a failed restart is retried by a rerun.
+const rolledKey = "platform.kore.dev/rolled-document-sha256";
 
 /**
  * A consumer of a Cloudflare token: the flag that needs it, the namespace its
@@ -148,8 +151,17 @@ interface PreparedToken {
   checksum: string;
 }
 
-/** The checksum the live token Secret carries; undefined when there is no Secret or it has none. */
-async function liveChecksum(
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+/** The kubectl arguments that name a consumer's namespace in the configured context. */
+function inContext(context: string, consumer: TokenConsumer): string[] {
+  return ["--context", context, "--namespace", consumer.namespace];
+}
+
+/** The checksum the live token Secret records as rolled; undefined when there is no Secret or it has none. */
+async function rolledChecksum(
   context: string,
   consumer: TokenConsumer,
   runner: Runner,
@@ -157,10 +169,7 @@ async function liveChecksum(
   const { stdout } = await runner.run(
     "kubectl",
     [
-      "--context",
-      context,
-      "--namespace",
-      consumer.namespace,
+      ...inContext(context, consumer),
       "get",
       "secret",
       cloudflareTokenSecretName,
@@ -169,20 +178,17 @@ async function liveChecksum(
     ],
     { capture: true },
   );
-  if (stdout.trim() === "") {
-    return undefined;
-  }
-  const secret = JSON.parse(stdout) as {
-    metadata?: { annotations?: Record<string, unknown> };
-  };
-  const checksum = secret.metadata?.annotations?.[checksumAnnotation];
-  return typeof checksum === "string" ? checksum : undefined;
+  const secret: unknown = stdout.trim() === "" ? undefined : JSON.parse(stdout);
+  const metadata = isRecord(secret) ? secret.metadata : undefined;
+  const annotations = isRecord(metadata) ? metadata.annotations : undefined;
+  const rolled = isRecord(annotations) ? annotations[rolledKey] : undefined;
+  return typeof rolled === "string" ? rolled : undefined;
 }
 
 /**
- * Whether applying a document rolls its consumer: the document changed since the
- * live Secret was last applied, and the consumer's Deployment exists. A consumer
- * with no Deployment rolls nothing, and a first apply with no Deployment restarts nothing.
+ * Whether applying a document rolls its consumer: its Deployment exists, and the
+ * checksum recorded on the live Secret as rolled is not this document's. A failed
+ * restart records nothing, so the next run retries it.
  */
 async function rollsConsumer(
   context: string,
@@ -193,16 +199,13 @@ async function rollsConsumer(
   if (consumer.deployment === undefined) {
     return false;
   }
-  if ((await liveChecksum(context, consumer, runner)) === checksum) {
+  if ((await rolledChecksum(context, consumer, runner)) === checksum) {
     return false;
   }
   const { stdout } = await runner.run(
     "kubectl",
     [
-      "--context",
-      context,
-      "--namespace",
-      consumer.namespace,
+      ...inContext(context, consumer),
       "get",
       `deployment/${consumer.deployment}`,
       "--ignore-not-found",
@@ -214,20 +217,17 @@ async function rollsConsumer(
 }
 
 /**
- * Rolls a consumer's Deployment once, in the configured context. The Secret is
- * already applied, so a failed restart names the command to run by hand: a rerun
- * would find the new checksum and not retry it.
+ * Rolls a consumer's Deployment once, then records the rolled checksum on the token
+ * Secret, only after the restart succeeds. The Deployment is never annotated: Helm owns it.
  */
-async function rolloutRestart(
+async function rollConsumer(
   context: string,
-  consumer: TokenConsumer,
+  prepared: PreparedToken,
   runner: Runner,
 ): Promise<void> {
+  const { consumer, checksum } = prepared;
   const args = [
-    "--context",
-    context,
-    "--namespace",
-    consumer.namespace,
+    ...inContext(context, consumer),
     "rollout",
     "restart",
     `deployment/${consumer.deployment}`,
@@ -236,7 +236,25 @@ async function rolloutRestart(
     await runner.run("kubectl", args, { capture: true });
   } catch (error) {
     throw new Error(
-      `the ${consumer.name} token Secret was applied, but restarting its Deployment failed: ${errorText(error)}. Restart it by hand with: kubectl ${args.join(" ")}; a rerun of kore secrets tokens would not restart it, because the Secret already carries the new checksum`,
+      `the ${consumer.name} token Secret was applied, but restarting its Deployment failed: ${errorText(error)}. Rerun kore secrets tokens to retry the restart, because the Secret does not record the rolled checksum until a restart succeeds; or restart it by hand with: kubectl ${args.join(" ")}`,
+    );
+  }
+  try {
+    await runner.run(
+      "kubectl",
+      [
+        ...inContext(context, consumer),
+        "annotate",
+        "secret",
+        cloudflareTokenSecretName,
+        `${rolledKey}=${checksum}`,
+        "--overwrite",
+      ],
+      { capture: true },
+    );
+  } catch (error) {
+    throw new Error(
+      `the ${consumer.name} Deployment restarted, but recording the rolled checksum on its token Secret failed: ${errorText(error)}. Rerun kore secrets tokens; it restarts the Deployment once more, then records the checksum`,
     );
   }
 }
@@ -309,10 +327,10 @@ export async function applyCloudflareTokens(
   for (const consumer of consumers) {
     prepared.push(await prepare(root, environment.name, consumer, runner));
   }
-  const rolling: TokenConsumer[] = [];
+  const rolling: PreparedToken[] = [];
   for (const entry of prepared) {
     if (await rollsConsumer(environment.kubeContext, entry, runner)) {
-      rolling.push(entry.consumer);
+      rolling.push(entry);
     }
   }
   await withSecretsRedacted(
@@ -322,10 +340,7 @@ export async function applyCloudflareTokens(
         await runner.run(
           "kubectl",
           [
-            "--context",
-            environment.kubeContext,
-            "--namespace",
-            consumer.namespace,
+            ...inContext(environment.kubeContext, consumer),
             "apply",
             "--server-side",
             "--field-manager=kore-tokens",
@@ -339,8 +354,8 @@ export async function applyCloudflareTokens(
       }
     },
   );
-  for (const consumer of rolling) {
-    await rolloutRestart(environment.kubeContext, consumer, runner);
+  for (const entry of rolling) {
+    await rollConsumer(environment.kubeContext, entry, runner);
   }
   return prepared.map(({ consumer }) => ({
     consumer: consumer.name,
