@@ -157,6 +157,11 @@
         "applies": ["local", "vps", "managed-example"]
       },
       {
+        "name": "database-role-split",
+        "kind": "feature",
+        "applies": ["local", "vps", "managed-example"]
+      },
+      {
         "name": "gateway-proxy-defaults",
         "kind": "feature",
         "applies": ["local", "vps", "managed-example"]

@@ -27,6 +27,22 @@ database:
   # The connection Secret's passwordSecretRef names the Secret that holds the
   # password; Helm cannot dereference it, so the chart is told the same name.
   passwordSecret: { name: reference-db-app, key: password }
+  # With roleSplit on (database-role-split, ADR 0171) the migration Job connects as the
+  # DDL role and the api as the DML role; the frontend never sees a database credential.
+  # The usernames and Secrets are the ones the PostgreSQL composition declares.
+  roleSplit: false
+  ddl:
+    username: app_ddl
+    passwordSecret: { name: reference-db-ddl, key: password }
+    # Opaque marker of the DDL role's Secret; a new value restarts the migration's pods.
+    # Set by the deployer, never carries secret data.
+    secretVersion: ""
+  dml:
+    username: app_dml
+    passwordSecret: { name: reference-db-dml, key: password }
+    # Opaque marker of the DML role's Secret; a new value restarts the api's pods.
+    # Set by the deployer, never carries secret data.
+    secretVersion: ""
 migrate:
   activeDeadlineSeconds: 600
 
