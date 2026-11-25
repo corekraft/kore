@@ -25,7 +25,8 @@ vi.mock("./run-time.js", () => ({
   },
 }));
 
-// The domain, zone and address below are documentation values (example.com, RFC 5737), never real ones.
+// The domain, zone and address below are documentation values (the reserved .test domain, RFC 5737 address), never real ones.
+const exampleDomain = "kore.test";
 const exampleIPv4 = "203.0.113.10";
 const exampleZone = "example-zone-id";
 
@@ -55,7 +56,7 @@ const managed: Environment = {
 };
 
 const runTime = {
-  KORE_PLATFORM_DOMAIN: "example.com",
+  KORE_PLATFORM_DOMAIN: exampleDomain,
   KORE_PUBLIC_IPV4: exampleIPv4,
   KORE_CLOUDFLARE_ZONE_ID: exampleZone,
 };
@@ -104,9 +105,9 @@ test("the inmemory provider in local filters to the platform domain and excludes
 test("the Cloudflare provider adds the one zone as a zone-id filter, the domain and the address from run-time values", () => {
   expect(externalDnsHelmArgs(managed, "external-dns", runTime)).toEqual([
     "--set-string",
-    "domainFilters[0]=example.com",
+    `domainFilters[0]=${exampleDomain}`,
     "--set-string",
-    "excludeDomains[0]=internal.example.com",
+    `excludeDomains[0]=internal.${exampleDomain}`,
     "--set-string",
     `extraArgs.default-targets=${exampleIPv4}`,
     "--set-string",
@@ -114,10 +115,20 @@ test("the Cloudflare provider adds the one zone as a zone-id filter, the domain 
   ]);
 });
 
+test("the Helm arguments never set pod annotations or a ServiceMonitor: the scrape is a values-file setting (external-dns.yaml)", () => {
+  const args = [
+    ...externalDnsHelmArgs(local, "external-dns", {}),
+    ...externalDnsHelmArgs(managed, "external-dns", runTime),
+  ].join(" ");
+  expect(args).not.toContain("podAnnotations");
+  expect(args).not.toContain("prometheus.io");
+  expect(args).not.toMatch(/serviceMonitor/i);
+});
+
 test("the exclusion is internal.<domain>, so an internal name is excluded by the configured list, not by luck", () => {
   const args = externalDnsHelmArgs(managed, "external-dns", runTime);
-  expect(args).toContain("excludeDomains[0]=internal.example.com");
-  expect(args).not.toContain("domainFilters[0]=internal.example.com");
+  expect(args).toContain(`excludeDomains[0]=internal.${exampleDomain}`);
+  expect(args).not.toContain(`domainFilters[0]=internal.${exampleDomain}`);
 });
 
 test("the Cloudflare provider on vps refuses while the placeholder domain is in force, naming the variable", () => {
@@ -134,7 +145,7 @@ test("the Cloudflare provider on vps refuses while the placeholder domain is in 
 test("the Cloudflare provider refuses a missing public IPv4 or zone id, naming each variable", () => {
   expect(
     externalDnsErrors(managed, "external-dns", {
-      KORE_PLATFORM_DOMAIN: "example.com",
+      KORE_PLATFORM_DOMAIN: exampleDomain,
       KORE_CLOUDFLARE_ZONE_ID: exampleZone,
     }),
   ).toEqual([
@@ -142,7 +153,7 @@ test("the Cloudflare provider refuses a missing public IPv4 or zone id, naming e
   ]);
   expect(
     externalDnsErrors(managed, "external-dns", {
-      KORE_PLATFORM_DOMAIN: "example.com",
+      KORE_PLATFORM_DOMAIN: exampleDomain,
       KORE_PUBLIC_IPV4: exampleIPv4,
     }),
   ).toEqual([
