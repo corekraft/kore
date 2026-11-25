@@ -45,7 +45,9 @@ test("a document that is not a Secret of the expected name is refused, naming th
       PATH,
     ),
   ).toThrow(
-    `${PATH} is not a Secret named backup-write; set kind and metadata.name with sops, then rerun`,
+    new Error(
+      `${PATH} is not a Secret named backup-write; set kind and metadata.name with sops, then rerun`,
+    ),
   );
   expect(() =>
     credentialFromDocument(
@@ -57,7 +59,11 @@ test("a document that is not a Secret of the expected name is refused, naming th
       "backup-write",
       PATH,
     ),
-  ).toThrow(`${PATH} is not a Secret named backup-write`);
+  ).toThrow(
+    new Error(
+      `${PATH} is not a Secret named backup-write; set kind and metadata.name with sops, then rerun`,
+    ),
+  );
 });
 
 test("a document missing either key is refused, and the error names the key but never a value", () => {
@@ -81,5 +87,9 @@ test("a document with an empty key is refused as missing it", () => {
       "backup-write",
       PATH,
     ),
-  ).toThrow(`${PATH} has no stringData.AWS_ACCESS_KEY_ID`);
+  ).toThrow(
+    new Error(
+      `${PATH} has no stringData.AWS_ACCESS_KEY_ID; set that key with sops, then rerun`,
+    ),
+  );
 });

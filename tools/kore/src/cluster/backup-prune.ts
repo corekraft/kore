@@ -97,9 +97,12 @@ async function removeAll(
       await admin.remove(`${key}${MANIFEST_SUFFIX}`);
       await admin.remove(key);
     } catch (error) {
-      throw new Error(
-        `${errorText(error)}; ${done} of ${keys.length} backups were pruned before this; rerun kore backup prune --environment ${environment} to finish`,
-      );
+      // A rerun finishes only a partial run; a first refusal left nothing pruned to finish.
+      const progress =
+        done === 0
+          ? "no backup was pruned before this"
+          : `${done} of ${keys.length} backups were pruned before this; rerun kore backup prune --environment ${environment} to finish`;
+      throw new Error(`${errorText(error)}; ${progress}`);
     }
   }
 }
@@ -117,12 +120,12 @@ export async function pruneBackups(
   const declared = environment.backup;
   if (declared === undefined) {
     throw new Error(
-      `no backup.target is declared for ${environment.name}, so there is nothing to prune; declare it in the overlay (ADR 0155)`,
+      `no backup.target is declared for ${environment.name}, so there is nothing to prune; declare backup.target in the ${environment.name} overlay (ADR 0155)`,
     );
   }
   if (!featureEnabled(environment, "database-backups")) {
     throw new Error(
-      `database-backups is off in ${environment.name}; backup prune runs only where that flag is on, so nothing was read or deleted (ADR 0155)`,
+      `database-backups is off in ${environment.name}; backup prune runs only where that flag is on, so nothing was read or deleted; the flag turns on only through harness flag activate, after its live-run outcome is recorded (ADR 0155)`,
     );
   }
   if (options.inCluster) {
@@ -150,7 +153,9 @@ export async function pruneBackups(
   }
   const question = `Delete ${selected.length} backup object(s) from ${target.bucket} at ${target.endpoint}, keeping the newest ${DAILY_RETENTION} per database? Type y to delete: `;
   if (!(await options.confirm(question))) {
-    throw new Error("backup prune was not confirmed; nothing was deleted");
+    throw new Error(
+      `backup prune was not confirmed; nothing was deleted; rerun kore backup prune --environment ${environment.name} and type y to delete`,
+    );
   }
   const remover = options.admin(
     await controllerCredentials(

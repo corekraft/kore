@@ -78,7 +78,7 @@ export async function applyBackupCredential(
   }
   if (environment.backup === undefined) {
     throw new Error(
-      `no backup.target is declared for ${environment.name}; declare it in the overlay before applying its credential (ADR 0155)`,
+      `no backup.target is declared for ${environment.name}; declare backup.target in the ${environment.name} overlay before applying its credential (ADR 0155)`,
     );
   }
   const name = environment.backup.target.credentials.secret;

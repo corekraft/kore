@@ -16,7 +16,7 @@ export async function backupCommand(context: CommandContext): Promise<number> {
   const declared = repository.environment.backup;
   if (declared === undefined) {
     throw new Error(
-      `no backup.target is declared for ${repository.environment.name}; declare it in the overlay (ADR 0155)`,
+      `no backup.target is declared for ${repository.environment.name}; declare backup.target in the ${repository.environment.name} overlay (ADR 0155)`,
     );
   }
   if (context.action === "policy") {

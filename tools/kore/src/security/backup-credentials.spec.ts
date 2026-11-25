@@ -127,15 +127,19 @@ test("a missing document refuses before the cluster is touched, naming the docum
   vi.mocked(readFile).mockRejectedValue(errno("ENOENT"));
   const { runner: fake, run } = runner("{}");
   await expect(applyBackupCredential(vps(), fake)).rejects.toThrow(
-    `no credential document at ${DOCUMENT}; create it with sops as a Secret named backup-write, with stringData.AWS_ACCESS_KEY_ID and stringData.AWS_SECRET_ACCESS_KEY, then rerun kore secrets backup`,
+    new Error(
+      `no credential document at ${DOCUMENT}; create it with sops as a Secret named backup-write, with stringData.AWS_ACCESS_KEY_ID and stringData.AWS_SECRET_ACCESS_KEY, then rerun kore secrets backup`,
+    ),
   );
   expect(run).not.toHaveBeenCalled();
 });
 
-test("a document sops cannot decrypt refuses before the cluster is touched", async () => {
+test("a document sops cannot decrypt refuses before the cluster is touched, naming the age identity fix", async () => {
   const { runner: fake, run } = runner(new Error("no identity matched"));
   await expect(applyBackupCredential(vps(), fake)).rejects.toThrow(
-    `could not decrypt ${DOCUMENT}: no identity matched`,
+    new Error(
+      `could not decrypt ${DOCUMENT}: no identity matched; check that SOPS_AGE_KEY_FILE holds this environment's age identity, then rerun kore secrets backup`,
+    ),
   );
   expect(run.mock.calls.map(([command]) => command)).toEqual(["sops"]);
 });
@@ -147,7 +151,24 @@ test("a document that names no namespace is refused, since the Secret has nowher
   });
   const { runner: fake, run } = runner("{}");
   await expect(applyBackupCredential(vps(), fake)).rejects.toThrow(
-    `${DOCUMENT} names no namespace; set metadata.namespace with sops, then rerun kore secrets backup`,
+    new Error(
+      `${DOCUMENT} names no namespace; set metadata.namespace with sops, then rerun kore secrets backup`,
+    ),
   );
   expect(run.mock.calls.map(([command]) => command)).toEqual(["sops"]);
+});
+
+test("an environment with no backup.target is refused before anything is read, naming the overlay fix", async () => {
+  const undeclared = {
+    root: "/repo",
+    environment: { name: "vps", provider: "managed", kubeContext: "kore-vps" },
+  } as unknown as Repository;
+  const { runner: fake, run } = runner("{}");
+  await expect(applyBackupCredential(undeclared, fake)).rejects.toThrow(
+    new Error(
+      "no backup.target is declared for vps; declare backup.target in the vps overlay before applying its credential (ADR 0155)",
+    ),
+  );
+  expect(readFile).not.toHaveBeenCalled();
+  expect(run).not.toHaveBeenCalled();
 });

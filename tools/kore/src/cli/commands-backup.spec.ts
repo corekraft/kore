@@ -122,6 +122,22 @@ test("inside a pod the prune is told so, and refuses to run", async () => {
   expect(vi.mocked(pruneBackups).mock.calls[0]![1].inCluster).toBe(true);
 });
 
+test("a backup command on an environment with no backup.target refuses before anything runs, naming the overlay fix", async () => {
+  const undeclared = fakeRepository({ name: "vps", provider: "managed" });
+  const context = fakeContext({
+    command: "backup",
+    action: "prune",
+    repository: undeclared,
+  });
+  await expect(backupCommand(context)).rejects.toThrow(
+    new Error(
+      "no backup.target is declared for vps; declare backup.target in the vps overlay (ADR 0155)",
+    ),
+  );
+  expect(mutateAction).not.toHaveBeenCalled();
+  expect(pruneBackups).not.toHaveBeenCalled();
+});
+
 test("backup policy prints the job's write-only policy for the declared bucket, and mutates nothing", async () => {
   const policy = { Version: "2012-10-17", Statement: [] } as const;
   vi.mocked(backupJobPolicy).mockReturnValue(policy);

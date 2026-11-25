@@ -60,6 +60,7 @@ function world(
     decryptFails?: boolean;
     failOn?: string;
     listFailure?: string;
+    removeFailure?: string;
   } = {},
 ) {
   const log: string[] = [];
@@ -82,7 +83,10 @@ function world(
     remove: async (key) => {
       log.push(`remove:${credentials.accessKeyId}:${key}`);
       if (options.failOn === key) {
-        throw new Error(`removing ${key} from backups failed with HTTP 500`);
+        throw new Error(
+          options.removeFailure ??
+            `removing ${key} from backups failed with HTTP 500`,
+        );
       }
     },
   }));
@@ -109,21 +113,41 @@ beforeEach(() => {
   }));
 });
 
-test("prune refuses while database-backups is off, and reads no credential and touches no target", async () => {
+test("prune refuses while database-backups is off, with the flag's only way on, and reads no credential and touches no target", async () => {
   vi.mocked(featureEnabled).mockReturnValue(false);
   const { deps, run, admin } = world();
   await expect(pruneBackups(repository(), deps)).rejects.toThrow(
-    "database-backups is off in vps",
+    new Error(
+      "database-backups is off in vps; backup prune runs only where that flag is on, so nothing was read or deleted; the flag turns on only through harness flag activate, after its live-run outcome is recorded (ADR 0155)",
+    ),
   );
   expect(run).not.toHaveBeenCalled();
   expect(admin).not.toHaveBeenCalled();
+});
+
+test("prune refuses an environment with no backup.target, naming the overlay fix, before any credential is read", async () => {
+  const undeclared = {
+    root: "/repo",
+    environment: { name: "vps", provider: "managed", kubeContext: "kore-vps" },
+  } as unknown as Repository;
+  const { deps, run } = world();
+  await expect(pruneBackups(undeclared, deps)).rejects.toThrow(
+    new Error(
+      "no backup.target is declared for vps, so there is nothing to prune; declare backup.target in the vps overlay (ADR 0155)",
+    ),
+  );
+  expect(run).not.toHaveBeenCalled();
 });
 
 test("prune refuses inside a job or a pod, before any credential is read", async () => {
   const { deps, run } = world();
   await expect(
     pruneBackups(repository(), { ...deps, inCluster: true }),
-  ).rejects.toThrow("backup prune never runs from a job or a pod");
+  ).rejects.toThrow(
+    new Error(
+      "backup prune never runs from a job or a pod; run it from the controller's terminal, where the delete credential is held (ADR 0155)",
+    ),
+  );
   expect(run).not.toHaveBeenCalled();
 });
 
@@ -131,7 +155,11 @@ test("prune refuses when there is no terminal to ask consent on, before any cred
   const { deps, run } = world();
   await expect(
     pruneBackups(repository(), { ...deps, confirm: undefined }),
-  ).rejects.toThrow("backup prune needs a terminal to ask for consent");
+  ).rejects.toThrow(
+    new Error(
+      "backup prune needs a terminal to ask for consent; run it in a terminal, nothing was deleted",
+    ),
+  );
   expect(run).not.toHaveBeenCalled();
 });
 
@@ -174,11 +202,13 @@ test("only the backups retention selects are removed, each manifest before its o
   });
 });
 
-test("a refused consent deletes nothing and says so", async () => {
+test("a refused consent deletes nothing, and names the rerun that asks again", async () => {
   const { deps, confirm, log } = world();
   confirm.mockResolvedValueOnce(false);
   await expect(pruneBackups(repository(), deps)).rejects.toThrow(
-    "backup prune was not confirmed; nothing was deleted",
+    new Error(
+      "backup prune was not confirmed; nothing was deleted; rerun kore backup prune --environment vps and type y to delete",
+    ),
   );
   expect(log.some((entry) => entry.startsWith("remove:"))).toBe(false);
 });
@@ -198,7 +228,9 @@ test("when retention selects nothing, no consent is asked and nothing is removed
 test("a controller document that cannot be decrypted stops the run before the target is touched", async () => {
   const { deps, admin } = world({ decryptFails: true });
   await expect(pruneBackups(repository(), deps)).rejects.toThrow(
-    "could not decrypt /repo/infra/environments/vps/controller-secrets/backup-write-read.enc.yaml: no identity matched",
+    new Error(
+      "could not decrypt /repo/infra/environments/vps/controller-secrets/backup-write-read.enc.yaml: no identity matched; check that SOPS_AGE_KEY_FILE holds this environment's age identity and that the document exists, then rerun kore backup prune",
+    ),
   );
   expect(admin).not.toHaveBeenCalled();
 });
@@ -219,10 +251,24 @@ test("a listing that fails stops the run before consent, names the fix and the r
   expect(log.some((entry) => entry.startsWith("remove:"))).toBe(false);
 });
 
-test("a removal that fails stops the run, names how far it got, and says a rerun finishes it", async () => {
+test("a removal that fails part way stops the run, names how far it got, and says a rerun finishes it", async () => {
   vi.mocked(prunableBackups).mockReturnValue([OLDER, OLD]);
   const { deps } = world({ failOn: OLD });
   await expect(pruneBackups(repository(), deps)).rejects.toThrow(
-    `removing ${OLD} from backups failed with HTTP 500; 1 of 2 backups were pruned before this; rerun kore backup prune --environment vps to finish`,
+    new Error(
+      `removing ${OLD} from backups failed with HTTP 500; 1 of 2 backups were pruned before this; rerun kore backup prune --environment vps to finish`,
+    ),
   );
+});
+
+test("a refused first removal names the delete fix and says nothing was pruned, never a rerun to finish", async () => {
+  const refused = `removing ${OLDER} from backups failed with HTTP 403: AccessDenied; check that the delete credential may delete objects under backups/vps/ and the endpoint is right`;
+  const { deps } = world({ failOn: OLDER, removeFailure: refused });
+  const failure = await pruneBackups(repository(), deps).catch(
+    (error: unknown) => error,
+  );
+  expect((failure as Error).message).toBe(
+    `${refused}; no backup was pruned before this`,
+  );
+  expect((failure as Error).message).not.toContain("to finish");
 });

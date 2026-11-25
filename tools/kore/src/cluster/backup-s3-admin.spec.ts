@@ -159,7 +159,7 @@ test("an object already absent is not an error, so a rerun of a prune finishes",
   await expect(admin.remove(KEY)).resolves.toBeUndefined();
 });
 
-test("a refused removal names the key and status, and never the credential", async () => {
+test("a refused removal names the key, the status and the delete fix, and never the credential", async () => {
   const admin = s3ObjectAdmin({
     target: pathStyle,
     credentials: READ,
@@ -171,9 +171,26 @@ test("a refused removal names the key and status, and never the credential", asy
   const failure = await admin.remove(KEY).catch((error: unknown) => error);
   expect(failure).toBeInstanceOf(Error);
   expect((failure as Error).message).toBe(
-    `removing ${KEY} from backups failed with HTTP 403: AccessDenied`,
+    `removing ${KEY} from backups failed with HTTP 403: AccessDenied; check that the delete credential may delete objects under backups/vps/ and the endpoint is right`,
   );
   expect((failure as Error).message).not.toContain(READ.secretAccessKey);
+});
+
+test("a refused removal names the prefix its own key sits under, not another environment's", async () => {
+  const admin = s3ObjectAdmin({
+    target: pathStyle,
+    credentials: READ,
+    now: () => NOW,
+    fetch: vi.fn<typeof fetch>(
+      async () => new Response("AccessDenied", { status: 403 }),
+    ),
+  });
+  const failure = await admin
+    .remove("prod/app/2026-11-01T02-00-00Z.sql.age")
+    .catch((error: unknown) => error);
+  expect((failure as Error).message).toContain(
+    "may delete objects under backups/prod/ and the endpoint is right",
+  );
 });
 
 test("a virtual-hosted target addresses the bucket in the host name, not the path", async () => {

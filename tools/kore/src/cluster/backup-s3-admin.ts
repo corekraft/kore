@@ -75,6 +75,16 @@ function listingFix(bucket: string, prefix: string): string {
   return `check that the read credential may list ${bucket}/${prefix} and the endpoint is right`;
 }
 
+/** The environment prefix a backup key sits under: its first path segment, with the slash. */
+function environmentPrefix(key: string): string {
+  return key.slice(0, key.indexOf("/") + 1);
+}
+
+/** What the operator checks when a removal is refused: the delete credential's right to delete, and the endpoint. */
+function deleteFix(bucket: string, prefix: string): string {
+  return `check that the delete credential may delete objects under ${bucket}/${prefix} and the endpoint is right`;
+}
+
 async function failure(
   response: Response,
   bucket: string,
@@ -221,7 +231,12 @@ export function s3ObjectAdmin(options: {
       if (response.ok || response.status === 404) {
         return;
       }
-      throw await failure(response, target.bucket, `removing ${key}`);
+      throw await failure(
+        response,
+        target.bucket,
+        `removing ${key}`,
+        deleteFix(target.bucket, environmentPrefix(key)),
+      );
     },
   };
 }
