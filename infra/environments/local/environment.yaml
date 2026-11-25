@@ -54,6 +54,7 @@
       "platform-organization-service-apis": true,
       "platform-argocd-delivery": true,
       "suborg-tenancy": false,
+      "suborg-network-policy": false,
       "platform-sync-window": false,
       "release-recovery-argocd-refusal": false,
       "database-routes": true,
