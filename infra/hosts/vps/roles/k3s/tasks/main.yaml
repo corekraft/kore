@@ -55,56 +55,95 @@
     mode: "0600"
   notify: Restart k3s
 
-- name: Look for the registry's public CA on the controller
+# The registry trust is read from the cluster with the controller's kubeconfig,
+# so nothing is exported by hand. Every task is gated by the flag: off, a run
+# changes nothing here.
+- name: Look for the controller's kubeconfig
   ansible.builtin.stat:
-    path: "{{ k3s_registry_ca_source }}"
-  register: k3s_registry_ca_stat
-  delegate_to: localhost
-  become: false
-  when: k3s_registry_trust | bool
-
-- name: Require the registry's public CA on the controller
-  ansible.builtin.assert:
-    that: k3s_registry_ca_stat.stat.exists
-    fail_msg: >-
-      k3s-registry-trust is on but {{ k3s_registry_ca_source }} does not exist.
-      After kore platform up has installed the registry, export its public CA
-      on this machine: kubectl --context kore-vps -n cosign-system get
-      configmap kore-registry-ca -o jsonpath='{.data.ca\.crt}' >
-      {{ k3s_registry_ca_source }}
-  when: k3s_registry_trust | bool
-
-- name: Read the registry's public CA
-  ansible.builtin.slurp:
-    src: "{{ k3s_registry_ca_source }}"
-  register: k3s_registry_ca_slurp
+    path: "{{ k3s_controller_kubeconfig | expanduser }}"
+  register: k3s_controller_kubeconfig_stat
   delegate_to: localhost
   become: false
   check_mode: false
   when: k3s_registry_trust | bool
 
-- name: Refuse a registry CA file that is not a bare certificate
+# Read-only. An absent Secret reads as empty; a cluster the controller cannot
+# reach fails this task with kubectl's own message.
+- name: Look for the registry's TLS Secret on the cluster
+  ansible.builtin.command:
+    argv:
+      - kubectl
+      - "--kubeconfig={{ k3s_controller_kubeconfig | expanduser }}"
+      - "--context={{ k3s_context }}"
+      - "--namespace={{ k3s_registry_namespace }}"
+      - get
+      - secret
+      - "{{ k3s_registry_secret_name }}"
+      - --ignore-not-found
+      - --output=name
+  register: k3s_registry_secret
+  delegate_to: localhost
+  become: false
+  check_mode: false
+  changed_when: false
+  when: k3s_registry_trust | bool and k3s_controller_kubeconfig_stat.stat.exists
+
+- name: Note whether the registry is deployed yet
+  ansible.builtin.set_fact:
+    k3s_registry_deployed: "{{ (k3s_registry_secret.stdout | default('')) | trim != '' }}"
+  when: k3s_registry_trust | bool
+
+- name: Say the registry is not deployed yet
+  ansible.builtin.debug:
+    msg: >-
+      k3s-registry-trust is on, but the registry is not deployed yet: the Secret
+      {{ k3s_registry_namespace }}/{{ k3s_registry_secret_name }} cannot be read
+      through {{ k3s_controller_kubeconfig }}. The node's registry CA is left as it
+      is this run; the next vps-apply after kore platform up has deployed the
+      registry installs it.
+  when: k3s_registry_trust | bool and not k3s_registry_deployed | bool
+
+# Only ca.crt is read: the Secret's tls.key stays in the cluster.
+- name: Read the registry's public CA from the cluster
+  ansible.builtin.command:
+    argv:
+      - kubectl
+      - "--kubeconfig={{ k3s_controller_kubeconfig | expanduser }}"
+      - "--context={{ k3s_context }}"
+      - "--namespace={{ k3s_registry_namespace }}"
+      - get
+      - secret
+      - "{{ k3s_registry_secret_name }}"
+      - '--output=jsonpath={.data.ca\.crt}'
+  register: k3s_registry_ca_read
+  delegate_to: localhost
+  become: false
+  check_mode: false
+  changed_when: false
+  when: k3s_registry_trust | bool and k3s_registry_deployed | bool
+
+- name: Refuse a registry CA that is not a bare certificate
   ansible.builtin.assert:
     that:
       - "'-----BEGIN CERTIFICATE-----' in k3s_registry_ca_pem"
       - "'PRIVATE KEY' not in k3s_registry_ca_pem"
     fail_msg: >-
-      {{ k3s_registry_ca_source }} must hold the registry's public CA
-      certificate and no private key. Export only ca.crt from the
-      cosign-system/kore-registry-ca ConfigMap.
+      The Secret {{ k3s_registry_namespace }}/{{ k3s_registry_secret_name }} must
+      hold the registry's public CA certificate under ca.crt and no private key.
+      Re-run kore platform up --environment vps to have cert-manager issue it.
   vars:
-    k3s_registry_ca_pem: "{{ k3s_registry_ca_slurp.content | b64decode }}"
-  when: k3s_registry_trust | bool
+    k3s_registry_ca_pem: "{{ k3s_registry_ca_read.stdout | b64decode }}"
+  when: k3s_registry_trust | bool and k3s_registry_deployed | bool
 
 - name: Install the registry's public CA on the node
   ansible.builtin.copy:
-    content: "{{ k3s_registry_ca_slurp.content | b64decode }}"
+    content: "{{ k3s_registry_ca_read.stdout | b64decode }}"
     dest: "{{ k3s_registry_ca_path }}"
     owner: root
     group: root
     mode: "0644"
   notify: Restart k3s
-  when: k3s_registry_trust | bool
+  when: k3s_registry_trust | bool and k3s_registry_deployed | bool
 
 - name: Trust the registry's CA in k3s
   ansible.builtin.template:
@@ -114,7 +153,7 @@
     group: root
     mode: "0600"
   notify: Restart k3s
-  when: k3s_registry_trust | bool
+  when: k3s_registry_trust | bool and k3s_registry_deployed | bool
 
 - name: Create the k3s service drop-in directory
   ansible.builtin.file:

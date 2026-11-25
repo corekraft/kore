@@ -54,8 +54,9 @@ backup of its own ([ADR 0156](../decisions/0156-the-box-is-rebuilt-from-git-ghcr
   of kore platform up --environment vps --recover, which is not built yet.
 - **Credentials and the CA are regenerated.** The registry's push and read
   credentials and its CA are made again on install and never backed up. After a
-  rebuild, k3s must trust the new CA. That is a by-hand step, gated by the
-  `k3s-registry-trust` flag, in the [host README](../../infra/hosts/vps/README.md#trusting-the-in-cluster-registry).
+  rebuild, k3s must trust the new CA. The k3s role reads it from the registry's
+  Secret with no by-hand step, gated by the `k3s-registry-trust` flag, in the
+  [host README](../../infra/hosts/vps/README.md#trusting-the-in-cluster-registry).
 - **The order.** The registry is installed by the platform, then the image copy
   runs before apps sync. The full order is in [rebuilding the box](rebuild-the-box.md),
   steps 8 to 12.

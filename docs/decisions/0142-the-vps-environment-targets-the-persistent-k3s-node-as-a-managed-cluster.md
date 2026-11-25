@@ -130,14 +130,16 @@ not bought a domain, so no real domain belongs in it either.
 - The node's containerd must trust the in-cluster registry's CA to pull from it.
   On k3d that trust is written at create (`k3d-registry-trust.ts`). On the vps
   host the Ansible role (ADR 0141) owns it, behind the `k3s-registry-trust` flag
-  (off in every overlay; the role reads it from this overlay): with it on, and
-  the registry's public `ca.crt` (the `oci-registry` chart's CA, ADR 0058, not
-  `kore-local-ca`) on the controller at `~/.kube/kore-vps-registry-ca.crt`, the
-  `k3s` role installs it
-  at `/etc/rancher/k3s/registry-ca.crt`, writes a `registries.yaml` entry for
-  `registry.address` (read from this overlay) with that `ca_file`, and restarts
-  k3s. The role refuses a file holding a private key; with the flag off it
-  changes nothing, and with it on and no file it stops naming the export command.
+  (off in every overlay; the role reads it from this overlay). With it on, the
+  role reads the registry's public `ca.crt` (the `oci-registry` chart's CA, ADR
+  0058, not `kore-local-ca`) from the TLS Secret `kore-registry/oci-registry-tls`
+  with the controller's kubeconfig, and no one exports a file by hand (ADR 0151).
+  It installs the CA at `/etc/rancher/k3s/registry-ca.crt`, writes a
+  `registries.yaml` entry for `registry.address` (read from this overlay) with
+  that `ca_file`, and restarts k3s only when one of them changed. The role reads
+  only the `ca.crt` key and refuses a value holding a private key; with the flag
+  off it changes nothing, and with it on and the Secret absent it skips and says
+  the registry is not deployed yet, so the run succeeds.
 - The overlay copies managed-example's mirror and manifest values, so the two
   overlays drift apart whenever the release mirror changes; the copies must
   be updated together until one shared source exists.
