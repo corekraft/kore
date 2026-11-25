@@ -12,6 +12,18 @@ export const repository = {
     kubeContext: "k3d-kore-local",
     k3d: { clusterName: "kore-local" },
     gateway: { name: "kore-gateway" },
+    backup: {
+      target: {
+        endpoint: "https://s3.example.com",
+        bucket: "backups",
+        region: "eu-west-1",
+        pathStyle: true,
+        kind: "interim",
+        credentials: { secret: "backup-write" },
+      },
+      retention: { daily: 14 },
+      schedule: "02:00",
+    },
   },
 };
 
@@ -27,6 +39,11 @@ export const appModule = () => ({
 });
 
 export const clusterModule = () => ({
+  backupJobPolicy: vi.fn(() => ({ Version: "2012-10-17", Statement: [] })),
+  pruneBackups: vi.fn(async (_repo, options) => {
+    dispatch.push(`pruneBackups:${options.inCluster}`);
+    return { status: "nothing-to-prune", bucket: "backups", deleted: [] };
+  }),
   clusterDestroy: vi.fn(
     async (_repo, _runner, options) =>
       void dispatch.push(`clusterDestroy:${options.yes}:${options.purgeData}`),

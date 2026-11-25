@@ -30,6 +30,7 @@ test("the cluster barrel exposes exactly the cluster domain's public entry point
     "ClusterUnavailableError",
     "assertExpectedCluster",
     "assertRunningK3dMatchesOverlay",
+    "backupJobPolicy",
     "backupObject",
     "backupStamp",
     "buildBackupManifest",
@@ -37,14 +38,17 @@ test("the cluster barrel exposes exactly the cluster domain's public entry point
     "clusterStatus",
     "clusterStop",
     "clusterUp",
+    "credentialFromDocument",
     "decryptBackup",
     "exportRetainedData",
     "hasVerifiedExport",
     "k3dClusterInfo",
     "newestVerifiedExport",
+    "pruneBackups",
     "purgeRetainedResources",
     "restoreRetainedData",
     "retainedResources",
+    "s3ObjectAdmin",
   ]);
 });
 

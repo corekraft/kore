@@ -8,6 +8,10 @@ const CREDENTIALS = {
 };
 const EMPTY_PAYLOAD =
   "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855";
+const QUERY_HEADERS = {
+  host: "example.amazonaws.com",
+  "x-amz-date": "20150830T123600Z",
+};
 
 test("the signature of the published get-vanilla request is the one AWS publishes", () => {
   const headers = {
@@ -24,6 +28,27 @@ test("the signature of the published get-vanilla request is the one AWS publishe
   ).toBe(
     "AWS4-HMAC-SHA256 Credential=AKIDEXAMPLE/20150830/us-east-1/service/aws4_request, SignedHeaders=host;x-amz-date, Signature=5fa00fa31553b73ebf1942676e86291e8372ff2a2260956d9b8aae1d763fbf31",
   );
+});
+
+test("a canonical query is signed into the request, so a different query signs differently", () => {
+  const sign = (query?: string) =>
+    authorization(
+      {
+        method: "GET",
+        path: "/",
+        headers: QUERY_HEADERS,
+        payloadHash: EMPTY_PAYLOAD,
+        ...(query === undefined ? {} : { query }),
+      },
+      CREDENTIALS,
+      { region: "us-east-1", service: "service" },
+      "20150830T123600Z",
+    );
+  expect(sign("list-type=2&prefix=vps%2F")).not.toBe(sign());
+  expect(sign("list-type=2&prefix=vps%2F")).not.toBe(
+    sign("list-type=2&prefix=other%2F"),
+  );
+  expect(sign("")).toBe(sign());
 });
 
 test("the request time is written as the basic ISO 8601 form SigV4 signs", () => {
