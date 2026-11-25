@@ -166,6 +166,76 @@ export async function findProof(
 }
 
 /**
+ * The lock check activation and the progress report share: a live run counts
+ * unless its recorded lock is invalid, or is a main lock that the release lock
+ * does not match (ADR 0138). One judge, so the two readers never disagree.
+ */
+function lockJudge(release: ReleaseLock | undefined): Judge {
+  return (path, fields) => {
+    const lock = readProofLock(fields);
+    if (lock.kind === "invalid") {
+      return `${path}: ${lock.reason}`;
+    }
+    if (lock.kind !== "main") {
+      return undefined;
+    }
+    if (release === undefined) {
+      return `${path}: it is a main-lock proof, so activation compares it with the release chart lock; pass --chart-lock <platform-charts.lock.json> of the release`;
+    }
+    const differing = chartDifferences(lock.charts, release);
+    return differing.length === 0
+      ? undefined
+      : `${path}: its main-lock charts differ from the release lock: ${differing.join(", ")}`;
+  };
+}
+
+/**
+ * Every flag's proof on record in one environment, read in one pass over the
+ * ideas: a live run that counts under the same rules as activation, else the
+ * flag's owner waiver. A live run always wins over a waiver, and in a
+ * production environment (ADR 0147) a waiver is not kept at all. Activation
+ * reads one flag at a time with `activationProof`; this reads them all, so the
+ * progress report can show every flag without a scan per flag (ADR 0148).
+ */
+export async function recordedProofs(
+  repo: IdeaRepository,
+  environment: string,
+  release: ReleaseLock | undefined,
+  production = false,
+): Promise<Map<string, Proof>> {
+  const judge = lockJudge(release);
+  const found = new Map<string, Proof>();
+  for (const record of await repo.list()) {
+    const section = outcomeSection(await repo.source(record));
+    if (section === undefined) {
+      continue;
+    }
+    const fields = lines(section);
+    const flag = fields.get("Flag");
+    const source = fields.get("Source");
+    if (
+      flag === undefined ||
+      fields.get("Result") !== "confirmed" ||
+      fields.get("Kind") !== "verification" ||
+      fields.get("Environment") !== environment
+    ) {
+      continue;
+    }
+    const at = { idea: record.number, path: record.path };
+    if (
+      source === "live-run" &&
+      judge(record.path, fields) === undefined &&
+      found.get(flag)?.source !== "live-run"
+    ) {
+      found.set(flag, { ...at, source: "live-run" });
+    } else if (source === "owner-waiver" && !production && !found.has(flag)) {
+      found.set(flag, { ...at, source: "owner-waiver" });
+    }
+  }
+  return found;
+}
+
+/**
  * The proof activation counts. A live run that records a main chart lock
  * counts only when every recorded chart has the release lock's version and
  * digest; a partial lock record never counts; a live run with no lock or a
@@ -182,26 +252,5 @@ export function activationProof(
   release: ReleaseLock | undefined,
   production = false,
 ): Promise<ActivationProof> {
-  return scan(
-    repo,
-    flag,
-    environment,
-    (path, fields) => {
-      const lock = readProofLock(fields);
-      if (lock.kind === "invalid") {
-        return `${path}: ${lock.reason}`;
-      }
-      if (lock.kind !== "main") {
-        return undefined;
-      }
-      if (release === undefined) {
-        return `${path}: it is a main-lock proof, so activation compares it with the release chart lock; pass --chart-lock <platform-charts.lock.json> of the release`;
-      }
-      const differing = chartDifferences(lock.charts, release);
-      return differing.length === 0
-        ? undefined
-        : `${path}: its main-lock charts differ from the release lock: ${differing.join(", ")}`;
-    },
-    production,
-  );
+  return scan(repo, flag, environment, lockJudge(release), production);
 }
