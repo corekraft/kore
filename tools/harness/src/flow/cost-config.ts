@@ -35,6 +35,8 @@ export interface HarnessConfig {
   compactionCap?: number;
   /** The weekly token ceiling in plan-weighted tokens; absent when not set, which a report reads as "not set", never zero. */
   weeklyTokenCeiling?: number;
+  /** The soak, in whole days, a feature flag needs on before `harness flag retire` removes it (ADR 0149); absent when not set, so no flag retires on a guessed soak. */
+  retireSoakDays?: number;
 }
 
 function unknownKey(file: string, path: string, raw: Raw, known: string[]) {
@@ -193,7 +195,25 @@ function wholeKeyOf<K extends string>(
   return set;
 }
 
-/** The owner login, reviewer logins, retro minimums, compaction cap and weekly token ceiling, each checked; the first bad one is the error. */
+/** The retirement soak in whole days, at least 0 (ADR 0149), or nothing when it is left out. */
+function soakOf(
+  file: string,
+  value: unknown,
+): { retireSoakDays?: number } | Failure {
+  if (value === undefined) {
+    return {};
+  }
+  if (typeof value === "number" && Number.isInteger(value) && value >= 0) {
+    return { retireSoakDays: value };
+  }
+  return bad(
+    file,
+    "retireSoakDays",
+    "must be a whole number of days, at least 0 (ADR 0149). Fix the value.",
+  );
+}
+
+/** The owner login, reviewer logins, retro minimums, compaction cap, weekly token ceiling and retirement soak, each checked; the first bad one is the error. */
 function settingsOf(
   file: string,
   value: Raw,
@@ -204,6 +224,7 @@ function settingsOf(
       retro?: RetroHistoryConfig;
       compactionCap?: number;
       weeklyTokenCeiling?: number;
+      retireSoakDays?: number;
     }
   | Failure {
   const owner = loginsOf(file, value);
@@ -232,7 +253,11 @@ function settingsOf(
   if ("error" in ceiling) {
     return ceiling;
   }
-  return { ...owner, ...retro, ...cap, ...ceiling };
+  const soak = soakOf(file, value["retireSoakDays"]);
+  if ("error" in soak) {
+    return soak;
+  }
+  return { ...owner, ...retro, ...cap, ...ceiling, ...soak };
 }
 
 /** Checks the harness config text before any report uses it; a bad key names the file, the key and the fix. */
@@ -256,6 +281,7 @@ export function parseHarnessConfig(
     "retro",
     "compactionCap",
     "weeklyTokenCeiling",
+    "retireSoakDays",
   ]);
   if (top !== undefined) {
     return top;

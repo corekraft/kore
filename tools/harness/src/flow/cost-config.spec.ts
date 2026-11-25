@@ -44,6 +44,40 @@ describe("harness config compaction cap", () => {
   });
 });
 
+describe("harness config retirement soak", () => {
+  it("reads the soak as a whole number of days of at least 0, beside the other settings (ADR 0149)", () => {
+    expect(parse({ retireSoakDays: 14 })).toEqual({
+      cost: DEFAULT_COST,
+      retireSoakDays: 14,
+    });
+    expect(parse({ retireSoakDays: 0 })).toEqual({
+      cost: DEFAULT_COST,
+      retireSoakDays: 0,
+    });
+  });
+
+  it("leaves the soak out when it is not set, so no flag is retired on a guessed soak", () => {
+    expect(parse({ ownerLogin: "junners" })).not.toHaveProperty(
+      "retireSoakDays",
+    );
+  });
+
+  it.each([-1, 1.5, "14", null])(
+    "refuses a soak of %j with the key, what is wrong and the fix",
+    (soak) => {
+      expect(parse({ retireSoakDays: soak })).toEqual({
+        error: `Invalid ${HARNESS_CONFIG}: key "retireSoakDays" must be a whole number of days, at least 0 (ADR 0149). Fix the value.`,
+      });
+    },
+  );
+
+  it("names the soak among the known keys when another key is refused", () => {
+    expect(parse({ retireSoakDay: 14 })).toEqual({
+      error: expect.stringContaining("retireSoakDays"),
+    });
+  });
+});
+
 describe("harness config weekly token ceiling", () => {
   it("reads the ceiling as a whole number of plan-weighted tokens of at least 1, beside the other settings", () => {
     expect(parse({ weeklyTokenCeiling: 5000000 })).toEqual({

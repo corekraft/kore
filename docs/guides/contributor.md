@@ -289,7 +289,12 @@ Dark launch means on only in `local`.
    and reports a warning, which never fails a strict run (ADR 0080: audit before
    enforce); the `flag-activation` guard also warns on a hand edit.
 5. Removing the flag, its overlay entries and its gated code is the contract step of
-   expand-contract, after the outcome is confirmed.
+   expand-contract, after the outcome is confirmed. A feature flag that is on and
+   proven in every environment it applies to retires after its soak
+   (`node skills/bin/harness.mjs flag retire <name>`, which `harness flag retire --help`
+   names): the command refuses until then, removes the flag from the overlays and the
+   manifest, records a `flag.retired` event, and prints each reference to delete
+   ([ADR 0149](../decisions/0149-a-feature-flag-retires-after-it-soaks-on-in-every-environment-it-applies-to.md)).
 
 ## Evaluating a harness idea
 
