@@ -118,7 +118,7 @@ test("kore validate refuses an unknown field in a spec file, naming the file, th
     [`${dir}/leads.json`]: spec("leads", { replicas: 3 }),
   });
   await expect(main(["validate"])).rejects.toThrow(
-    `${dir}/leads.json: spec.replicas is not a field of this record; the fields here are organization, environments, repository, path, components, soak, gateway, hostnames, backup, allowFrom, secrets`,
+    `${dir}/leads.json: spec.replicas is not a field of this record; the fields here are organization, environments, repository, path, components, soak, gateway, databases, hostnames, backup, allowFrom, secrets`,
   );
 });
 

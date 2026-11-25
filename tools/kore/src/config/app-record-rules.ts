@@ -5,6 +5,7 @@
 // Docs: docs/decisions/0166-an-app-is-a-service-with-a-two-file-record-in-kore-and-its-source-in-its-own-repository.md
 // Docs: docs/decisions/0169-an-app-declares-its-flags-and-the-platform-holds-their-state.md
 
+import { databaseBackupErrors } from "./database-backup.js";
 import { serviceNameErrors } from "./platform-claims.js";
 import { schemaErrors, type SchemaNode } from "./schema-subset.js";
 
@@ -112,12 +113,15 @@ export interface SpecFileInput {
   manifest: unknown;
   /** The spec of the chart's Service XRD, read by the caller and never copied here. */
   xrdSpec: SchemaNode;
+  /** Whether the overlay declares a backup.target (ADR 0155); unset, a backup opt-in is refused. */
+  backupTarget?: boolean | undefined;
 }
 
 /**
  * The problems of one spec file: its shape against the chart's Service schema, the
- * release-only fields it must not carry, and its name. A new-shape spec declares
- * components, so a service with neither a frontend nor a bff is refused.
+ * release-only fields it must not carry, its name, and the backup opt-in of its
+ * databases (ADR 0155). A new-shape spec declares components, so a service with
+ * neither a frontend nor a bff is refused.
  */
 export function specFileErrors(input: SpecFileInput): string[] {
   const { file, stem, manifest, xrdSpec } = input;
@@ -130,7 +134,15 @@ export function specFileErrors(input: SpecFileInput): string[] {
       `${file}: spec.components is required: declare frontend, bff or both (a service with neither is refused)`,
     );
   }
-  return [...errors, ...nameErrors(file, stem, manifest)];
+  return [
+    ...errors,
+    ...nameErrors(file, stem, manifest),
+    ...databaseBackupErrors({
+      file,
+      manifest,
+      backupTargetDeclared: input.backupTarget === true,
+    }),
+  ];
 }
 
 export interface ReleaseFileInput {
