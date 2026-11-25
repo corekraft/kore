@@ -148,3 +148,24 @@ test("vps secrets encrypt to the environment's own age recipient, never to local
   assert.ok(vps !== undefined, "vps has its own creation rule");
   assert.notEqual(vps, local, "vps never reuses local's recipient");
 });
+
+test("vps controller-secrets have their own creation rule: the vps recipient, encrypting only data and stringData", async () => {
+  const root = await findRoot();
+  const sops = await readFile(join(root, ".sops.yaml"), "utf8");
+  const controller =
+    /path_regex: infra\/environments\/vps\/controller-secrets\/\.\*\\\.enc\\\.yaml\$\n    encrypted_regex: "\^\(data\|stringData\)\$"\n    age: (age1\S+)/.exec(
+      sops,
+    )?.[1];
+  const vps = /infra\/environments\/vps\/secrets[\s\S]*?age: (age1\S+)/.exec(
+    sops,
+  )?.[1];
+  assert.ok(
+    controller !== undefined,
+    "controller-secrets has its own creation rule, so sops can encrypt the read and delete credentials",
+  );
+  assert.equal(
+    controller,
+    vps,
+    "controller-secrets encrypts to the same vps recipient as vps secrets",
+  );
+});

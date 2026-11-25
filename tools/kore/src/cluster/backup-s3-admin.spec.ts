@@ -108,9 +108,27 @@ test("a listing that says it is truncated but names no token is refused, not sil
     now: () => NOW,
     fetch: vi.fn<typeof fetch>(async () => truncated),
   });
-  await expect(admin.list("vps/")).rejects.toThrow(
-    "the listing of vps/ in backups is truncated but names no continuation token; nothing was deleted",
+  const failure = await admin.list("vps/").catch((error: unknown) => error);
+  expect((failure as Error).message).toBe(
+    "the listing of vps/ in backups is truncated but names no continuation token; nothing was deleted; check that the read credential may list backups/vps/ and the endpoint is right",
   );
+});
+
+test("a refused listing names the status and how to fix it: the read credential's list right and the endpoint", async () => {
+  const admin = s3ObjectAdmin({
+    target: pathStyle,
+    credentials: READ,
+    now: () => NOW,
+    fetch: vi.fn<typeof fetch>(
+      async () => new Response("AccessDenied", { status: 403 }),
+    ),
+  });
+  const failure = await admin.list("vps/").catch((error: unknown) => error);
+  expect(failure).toBeInstanceOf(Error);
+  expect((failure as Error).message).toBe(
+    "listing vps/ from backups failed with HTTP 403: AccessDenied; check that the read credential may list backups/vps/ and the endpoint is right",
+  );
+  expect((failure as Error).message).not.toContain(READ.secretAccessKey);
 });
 
 test("a removal sends one signed DELETE to the object's key and reports nothing", async () => {

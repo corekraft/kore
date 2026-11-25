@@ -55,7 +55,13 @@ function repository(): Repository {
 }
 
 /** Records every call in order, so a test can assert what happened before what. */
-function world(options: { decryptFails?: boolean; failOn?: string } = {}) {
+function world(
+  options: {
+    decryptFails?: boolean;
+    failOn?: string;
+    listFailure?: string;
+  } = {},
+) {
   const log: string[] = [];
   const run = vi.fn<Runner["run"]>(async (_command, args) => {
     const path = args.at(-1) ?? "";
@@ -68,6 +74,9 @@ function world(options: { decryptFails?: boolean; failOn?: string } = {}) {
   const admin = vi.fn((credentials: S3Credentials): ObjectAdmin => ({
     list: async (prefix) => {
       log.push(`list:${credentials.accessKeyId}:${prefix}`);
+      if (options.listFailure !== undefined) {
+        throw new Error(options.listFailure);
+      }
       return LISTING;
     },
     remove: async (key) => {
@@ -192,6 +201,22 @@ test("a controller document that cannot be decrypted stops the run before the ta
     "could not decrypt /repo/infra/environments/vps/controller-secrets/backup-write-read.enc.yaml: no identity matched",
   );
   expect(admin).not.toHaveBeenCalled();
+});
+
+test("a listing that fails stops the run before consent, names the fix and the rerun, and reads no delete credential", async () => {
+  const { deps, confirm, run, log } = world({
+    listFailure:
+      "listing vps/ from backups failed with HTTP 403: AccessDenied; check that the read credential may list backups/vps/ and the endpoint is right",
+  });
+  const failure = await pruneBackups(repository(), deps).catch(
+    (error: unknown) => error,
+  );
+  expect((failure as Error).message).toBe(
+    "listing vps/ from backups failed with HTTP 403: AccessDenied; check that the read credential may list backups/vps/ and the endpoint is right; then rerun kore backup prune --environment vps",
+  );
+  expect(confirm).not.toHaveBeenCalled();
+  expect(run).toHaveBeenCalledTimes(1);
+  expect(log.some((entry) => entry.startsWith("remove:"))).toBe(false);
 });
 
 test("a removal that fails stops the run, names how far it got, and says a rerun finishes it", async () => {

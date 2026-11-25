@@ -72,6 +72,20 @@ async function controllerCredentials(
   return credentialFromDocument(text, name, path).credentials;
 }
 
+/** Lists the environment's backups with the read credential; a refused listing names the rerun, and nothing was deleted. */
+async function listBackups(
+  admin: ObjectAdmin,
+  environment: string,
+): Promise<string[]> {
+  try {
+    return await admin.list(`${environment}/`);
+  } catch (error) {
+    throw new Error(
+      `${errorText(error)}; then rerun kore backup prune --environment ${environment}`,
+    );
+  }
+}
+
 /** Removes each backup's manifest, then its object, so a manifest never names bytes that are gone. */
 async function removeAll(
   admin: ObjectAdmin,
@@ -129,7 +143,7 @@ export async function pruneBackups(
     environment.name,
     `${secret}-read`,
   );
-  const listed = await options.admin(read).list(`${environment.name}/`);
+  const listed = await listBackups(options.admin(read), environment.name);
   const selected = prunableBackups(listed);
   if (selected.length === 0) {
     return { status: "nothing-to-prune", bucket: target.bucket, deleted: [] };

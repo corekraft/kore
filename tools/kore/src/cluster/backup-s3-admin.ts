@@ -70,14 +70,21 @@ function nextTokenIn(body: string): string | undefined {
   return match === null ? undefined : unescapeXml(match[1] ?? "");
 }
 
+/** What the operator checks when a listing is refused or cut short: the read credential's right to list, and the endpoint. */
+function listingFix(bucket: string, prefix: string): string {
+  return `check that the read credential may list ${bucket}/${prefix} and the endpoint is right`;
+}
+
 async function failure(
   response: Response,
   bucket: string,
   operation: string,
+  fix?: string,
 ): Promise<Error> {
   const detail = (await response.text()).slice(0, DETAIL_CHARS).trim();
+  const suffix = fix === undefined ? "" : `; ${fix}`;
   return new Error(
-    `${operation} from ${bucket} failed with HTTP ${response.status}: ${detail}`,
+    `${operation} from ${bucket} failed with HTTP ${response.status}: ${detail}${suffix}`,
   );
 }
 
@@ -147,7 +154,12 @@ async function listPage(
     canonicalQuery(parameters),
   );
   if (!response.ok) {
-    throw await failure(response, bucket, `listing ${prefix}`);
+    throw await failure(
+      response,
+      bucket,
+      `listing ${prefix}`,
+      listingFix(bucket, prefix),
+    );
   }
   const body = await response.text();
   const keys = keysIn(body);
@@ -157,7 +169,7 @@ async function listPage(
   const next = nextTokenIn(body);
   if (next === undefined) {
     throw new Error(
-      `the listing of ${prefix} in ${bucket} is truncated but names no continuation token; nothing was deleted`,
+      `the listing of ${prefix} in ${bucket} is truncated but names no continuation token; nothing was deleted; ${listingFix(bucket, prefix)}`,
     );
   }
   return { keys, next };
