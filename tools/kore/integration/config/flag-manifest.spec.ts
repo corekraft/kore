@@ -95,6 +95,7 @@ test("the flags that apply to vps are the ones the manifest declares, pending fl
     "platform-organization-service-apis",
     "platform-argocd-delivery",
     "suborg-tenancy",
+    "suborg-network-policy",
     "platform-sync-window",
     "platform-shared-gateway",
     "service-listener-sets",

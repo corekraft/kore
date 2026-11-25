@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
   activationProof,
   flagRequires,
+  isWaiverRefusal,
   parseReleaseLock,
   readOverlay,
   proofAudit,
@@ -22,6 +23,7 @@ vi.mock("../flag/index.js", async (importOriginal) => ({
   ...(await importOriginal<typeof import("../flag/index.js")>()),
   activationProof: vi.fn(),
   flagRequires: vi.fn(),
+  isWaiverRefusal: vi.fn(),
   parseReleaseLock: vi.fn(),
   readOverlay: vi.fn(),
   proofAudit: vi.fn(),
@@ -62,6 +64,7 @@ function overlay(on: boolean) {
     path: OVERLAY,
     text: "",
     features: { [FLAG]: on },
+    production: false,
   };
 }
 
@@ -74,6 +77,7 @@ beforeEach(() => {
   vi.mocked(proofAudit).mockResolvedValue({ unproven: [], waived: [] });
   vi.mocked(unprovenLine).mockImplementation((u) => `line ${u.flag}`);
   vi.mocked(waivedLine).mockImplementation((w) => `waived ${w.flag}`);
+  vi.mocked(isWaiverRefusal).mockReturnValue(false);
 });
 
 describe("flag activate compares a main-lock proof with the release chart lock", () => {
@@ -105,6 +109,7 @@ describe("flag activate compares a main-lock proof with the release chart lock",
       FLAG,
       "local",
       RELEASE,
+      false,
     );
   });
 
@@ -116,6 +121,7 @@ describe("flag activate compares a main-lock proof with the release chart lock",
       FLAG,
       "local",
       undefined,
+      false,
     );
     expect(parseReleaseLock).not.toHaveBeenCalled();
   });

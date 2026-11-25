@@ -7,7 +7,10 @@ import {
   platformSharedGatewayFlag,
 } from "./features.js";
 import { dnsHelmArgs } from "./dns-helm-args.js";
-import { clusterResolutionArgs } from "./platform-cluster-resolution.js";
+import {
+  clusterResolutionArgs,
+  suborgNetworkArgs,
+} from "./platform-cluster-resolution.js";
 import { keycloakWaitArgs } from "./platform-keycloak-wait.js";
 import { platformDomainVariable, runTimeDomain } from "./run-time-domain.js";
 import { postgresqlFlagArgs } from "./postgresql-flag-args.js";
@@ -410,6 +413,7 @@ export function platformHelmArgs(
     ...clusterResolutionArgs(environment, component),
     ...databaseRoutesArgs(environment, component, env),
     ...postgresqlFlagArgs(environment, component),
+    ...suborgNetworkArgs(environment, component),
     ...otlpRouteArgs(environment, component, env),
     ...dnsHelmArgs(environment, component, env, suborgs),
   ];

@@ -54,12 +54,30 @@ export interface ActivationProof {
 /** Why a live-run outcome's recorded lock does not count, or undefined when it does. */
 type Judge = (path: string, fields: Map<string, string>) => string | undefined;
 
-/** Reads every matching outcome, a live run over a waiver, skipping each live run the judge refuses. */
+/** The phrase a production environment's waiver refusal names (ADR 0147). */
+const WAIVER_REFUSED =
+  "an owner waiver is not accepted in production environment";
+
+/** Why an owner waiver does not count in a production environment: the live run it stands in for is required (ADR 0147). */
+function waiverRefusal(path: string, environment: string): string {
+  return `${path}: ${WAIVER_REFUSED} ${environment} (ADR 0147), so a live run is required`;
+}
+
+/** Whether a refusal from `activationProof` is an owner waiver refused in production, so the live run is what it needs (ADR 0147). */
+export function isWaiverRefusal(reason: string): boolean {
+  return reason.includes(`: ${WAIVER_REFUSED} `);
+}
+
+/**
+ * Reads every matching outcome, a live run over a waiver, skipping each live run the judge refuses.
+ * In a production environment a waiver is refused, not counted, and the refusal is named (ADR 0147).
+ */
 async function scan(
   repo: IdeaRepository,
   flag: string,
   environment: string,
   judge: Judge,
+  production: boolean,
 ): Promise<ActivationProof> {
   let waived: Proof | undefined;
   const refused: string[] = [];
@@ -88,8 +106,12 @@ async function scan(
       }
       refused.push(reason);
     }
-    if (source === "owner-waiver" && waived === undefined) {
-      waived = { idea: record.number, path: record.path, source };
+    if (source === "owner-waiver") {
+      if (production) {
+        refused.push(waiverRefusal(record.path, environment));
+      } else if (waived === undefined) {
+        waived = { idea: record.number, path: record.path, source };
+      }
     }
   }
   return { proof: waived, refused };
@@ -121,15 +143,20 @@ async function platformWindow(
  * writes the idea block, and it rejects summary lines shaped like a field, so a
  * match is proof on record (ADR 0077). A platform flag never takes a window.
  * It does not compare charts: the audit has no release lock, and activation,
- * which does, uses `activationProof`.
+ * which does, uses `activationProof`. `production` is the overlay's mark: in a
+ * production environment an owner waiver is not proof (ADR 0147); local keeps
+ * it (ADR 0127), so a caller that names no environment keeps the local rule.
  */
 export async function findProof(
   repo: IdeaRepository,
   flag: string,
   environment: string,
   sources: ProofSources = NO_SOURCES,
+  production = false,
 ): Promise<FoundProof | undefined> {
-  const idea = (await scan(repo, flag, environment, () => undefined)).proof;
+  const idea = (
+    await scan(repo, flag, environment, () => undefined, production)
+  ).proof;
   if (idea !== undefined) {
     return idea;
   }
@@ -139,21 +166,12 @@ export async function findProof(
 }
 
 /**
- * The proof activation counts. A live run that records a main chart lock
- * counts only when every recorded chart has the release lock's version and
- * digest; a partial lock record never counts; a live run with no lock or a
- * release lock, and an owner waiver, count as in `findProof` (ADR 0138).
- * `refused` names why each matching live run was refused. It is empty when a
- * live run counts, and kept when an owner waiver stands in, so the caller can
- * warn that the waiver replaced a refused run.
+ * The lock check activation and the progress report share: a live run counts
+ * unless its recorded lock is invalid, or is a main lock that the release lock
+ * does not match (ADR 0138). One judge, so the two readers never disagree.
  */
-export function activationProof(
-  repo: IdeaRepository,
-  flag: string,
-  environment: string,
-  release: ReleaseLock | undefined,
-): Promise<ActivationProof> {
-  return scan(repo, flag, environment, (path, fields) => {
+function lockJudge(release: ReleaseLock | undefined): Judge {
+  return (path, fields) => {
     const lock = readProofLock(fields);
     if (lock.kind === "invalid") {
       return `${path}: ${lock.reason}`;
@@ -168,5 +186,71 @@ export function activationProof(
     return differing.length === 0
       ? undefined
       : `${path}: its main-lock charts differ from the release lock: ${differing.join(", ")}`;
-  });
+  };
+}
+
+/**
+ * Every flag's proof on record in one environment, read in one pass over the
+ * ideas: a live run that counts under the same rules as activation, else the
+ * flag's owner waiver. A live run always wins over a waiver, and in a
+ * production environment (ADR 0147) a waiver is not kept at all. Activation
+ * reads one flag at a time with `activationProof`; this reads them all, so the
+ * progress report can show every flag without a scan per flag (ADR 0148).
+ */
+export async function recordedProofs(
+  repo: IdeaRepository,
+  environment: string,
+  release: ReleaseLock | undefined,
+  production = false,
+): Promise<Map<string, Proof>> {
+  const judge = lockJudge(release);
+  const found = new Map<string, Proof>();
+  for (const record of await repo.list()) {
+    const section = outcomeSection(await repo.source(record));
+    if (section === undefined) {
+      continue;
+    }
+    const fields = lines(section);
+    const flag = fields.get("Flag");
+    const source = fields.get("Source");
+    if (
+      flag === undefined ||
+      fields.get("Result") !== "confirmed" ||
+      fields.get("Kind") !== "verification" ||
+      fields.get("Environment") !== environment
+    ) {
+      continue;
+    }
+    const at = { idea: record.number, path: record.path };
+    if (
+      source === "live-run" &&
+      judge(record.path, fields) === undefined &&
+      found.get(flag)?.source !== "live-run"
+    ) {
+      found.set(flag, { ...at, source: "live-run" });
+    } else if (source === "owner-waiver" && !production && !found.has(flag)) {
+      found.set(flag, { ...at, source: "owner-waiver" });
+    }
+  }
+  return found;
+}
+
+/**
+ * The proof activation counts. A live run that records a main chart lock
+ * counts only when every recorded chart has the release lock's version and
+ * digest; a partial lock record never counts; a live run with no lock or a
+ * release lock, and an owner waiver, count as in `findProof` (ADR 0138).
+ * `refused` names why each matching live run was refused. It is empty when a
+ * live run counts, and kept when an owner waiver stands in, so the caller can
+ * warn that the waiver replaced a refused run. In a production environment
+ * (`production`, ADR 0147) an owner waiver is refused and named in `refused`.
+ */
+export function activationProof(
+  repo: IdeaRepository,
+  flag: string,
+  environment: string,
+  release: ReleaseLock | undefined,
+  production = false,
+): Promise<ActivationProof> {
+  return scan(repo, flag, environment, lockJudge(release), production);
 }
