@@ -195,6 +195,7 @@ export { parseArgs } from "../cli/flags.js";
 export { createMutate } from "../cli/mutation.js";
 export type { CommandContext } from "../cli/context.js";
 export { unmirroredImages } from "../config/mirror.js";
+export { loadBackupFacts } from "../config/overlay-files.js";
 export {
   parsePrincipal,
   spiffeId,

@@ -11,6 +11,10 @@ import {
 vi.mock("./database-backup.js", () => ({
   databaseBackupErrors: vi.fn(() => []),
 }));
+// The external Gateway rule is mocked (ADR 0098); its backup-kind wiring is in app-record-rules-backup.spec.ts.
+vi.mock("./external-gateway-data.js", () => ({
+  externalDataErrors: vi.fn(() => []),
+}));
 
 const file = "infra/environments/local/services/leads.json";
 const releaseFile = "infra/environments/local/services/leads.release.json";

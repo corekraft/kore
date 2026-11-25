@@ -8,12 +8,14 @@ import {
   helmInstalledComponents,
 } from "../config/index.js";
 import { isReleaseAutomationSigner } from "../images/index.js";
+import { backupFactsValueText } from "./backup-facts-values.js";
 import { composeChartDelivery } from "./chart-delivery.js";
 import { fakeComponent, fakeRepository } from "./platform-support.js";
 
 vi.mock("node:fs/promises");
 vi.mock("../config/index.js");
 vi.mock("../images/index.js");
+vi.mock("./backup-facts-values.js");
 
 const repository = { ...fakeRepository(), catalog: { components: [] } };
 const values = {
@@ -68,6 +70,7 @@ beforeEach(() => {
   vi.mocked(readFile).mockResolvedValue('{"version":1,"entries":{}}');
   vi.mocked(chartDeliveryValues).mockReturnValue(values);
   vi.mocked(componentValues).mockReturnValue([]);
+  vi.mocked(backupFactsValueText).mockReset();
   vi.mocked(absolute).mockImplementation((_, path) => `/repo/${path}`);
 });
 
@@ -158,27 +161,25 @@ test("a delivered chart release also takes the environment's feature flags as th
   });
 });
 
-test("a delivered platform-config release takes the backup facts last, after its flags, while they are loaded (ADR 0155)", async () => {
-  const facts = {
-    targetKind: "interim",
-    services: { leads: { hasData: true } },
-  } as const;
-  const repo = {
-    ...withComponents(
-      { "database-backups": true },
-      fakeComponent({ name: "kore-platform-config", kind: "local-chart" }),
-    ),
-    backupFacts: facts,
-  };
+test("a delivered platform-config release takes the backup facts text last, after its flags, as the facts helper gives it (ADR 0155)", async () => {
+  const repo = withComponents(
+    { "database-backups": true },
+    fakeComponent({ name: "kore-platform-config", kind: "local-chart" }),
+  );
   vi.mocked(chartDeliveryValues).mockReturnValue(delivered);
   vi.mocked(componentValues).mockReturnValue(["local.yaml"]);
+  vi.mocked(backupFactsValueText).mockReturnValue('{"backupFacts":{}}');
   readsFiles({ "/repo/local.yaml": "gateway: {}\n" });
   const composed = await composeChartDelivery(repo, "lock.json");
+  expect(backupFactsValueText).toHaveBeenCalledWith(
+    repo,
+    expect.objectContaining({ name: "kore-platform-config" }),
+  );
   expect(composed.chartDelivery?.releaseValues).toEqual({
     "kore-platform-config": [
       "gateway: {}\n",
       '{"features":{"database-backups":true}}',
-      JSON.stringify({ backupFacts: facts }),
+      '{"backupFacts":{}}',
     ],
   });
 });

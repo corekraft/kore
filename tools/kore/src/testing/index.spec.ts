@@ -53,6 +53,7 @@ const FORWARDS: Record<string, readonly string[]> = {
     "exportOptions",
     "useExportRepository",
   ],
+  "../config/overlay-files.js": ["loadBackupFacts"],
   "./registry-tls-fixtures.js": ["registryCaPem", "registryTlsSecret"],
   "./platform-readiness.fixtures.js": ["readyRows"],
   "./platform-resilience.fixtures.js": ["healthyClusterOutput"],

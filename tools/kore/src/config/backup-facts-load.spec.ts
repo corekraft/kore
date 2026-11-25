@@ -3,26 +3,20 @@ import { beforeEach, expect, test, vi } from "vitest";
 
 const fs = vi.hoisted(() => ({ readdir: vi.fn(), readFile: vi.fn() }));
 vi.mock("node:fs/promises", () => fs);
+const path = vi.hoisted(() => ({ join: vi.fn() }));
+vi.mock("node:path", () => path);
+// The facts builder is its own unit (backup-facts.spec.ts), so it is mocked here (ADR 0098).
+vi.mock("./backup-facts.js", () => ({ backupFacts: vi.fn() }));
 
-import type { Environment } from "./types.js";
+import { backupFacts } from "./backup-facts.js";
 import { loadBackupFacts } from "./backup-facts-load.js";
+import type { BackupFacts, Environment } from "./types.js";
 
 const root = "/repo";
-const leads = JSON.stringify({
-  apiVersion: "platform.kore.dev/v1alpha1",
-  kind: "Service",
-  metadata: { name: "leads" },
-  spec: {
-    databases: [
-      {
-        name: "leads-db",
-        version: 17,
-        size: "10Gi",
-        retentionPolicy: "Retain",
-      },
-    ],
-  },
-});
+const services = "/repo/infra/environments/vps/services";
+const leadsManifest = { spec: { databases: [{ name: "leads-db" }] } };
+const leads = JSON.stringify(leadsManifest);
+const facts: BackupFacts = { targetKind: "off-host", services: {} };
 
 /** An overlay with the given backup flag and a declared target of the given kind. */
 function environment(options: {
@@ -41,58 +35,72 @@ function environment(options: {
 beforeEach(() => {
   fs.readdir.mockReset();
   fs.readFile.mockReset();
+  path.join.mockReset();
+  path.join.mockImplementation((...parts: string[]) => parts.join("/"));
+  vi.mocked(backupFacts).mockReset();
+  vi.mocked(backupFacts).mockReturnValue(facts);
 });
 
-test("with database-backups off nothing is read and no facts are published", async () => {
-  const facts = await loadBackupFacts(
+test("with database-backups off nothing is read and no facts are built", async () => {
+  const result = await loadBackupFacts(
     root,
     environment({ on: false, kind: "interim" }),
   );
-  expect(facts).toBeUndefined();
+  expect(result).toBeUndefined();
   expect(fs.readdir).not.toHaveBeenCalled();
+  expect(backupFacts).not.toHaveBeenCalled();
 });
 
-test("with no backup target declared there is no kind to publish, so no facts", async () => {
-  const facts = await loadBackupFacts(root, environment({ on: true }));
-  expect(facts).toBeUndefined();
+test("with no backup target declared there is no kind to publish, so no facts are built", async () => {
+  const result = await loadBackupFacts(root, environment({ on: true }));
+  expect(result).toBeUndefined();
   expect(fs.readdir).not.toHaveBeenCalled();
+  expect(backupFacts).not.toHaveBeenCalled();
 });
 
-test("the facts read the environment's spec files, skipping release files and dot files", async () => {
+test("the facts are built from the environment's spec files in name order, skipping release files and dot files, and the built facts are returned", async () => {
   fs.readdir.mockResolvedValue([
+    "shop.json",
     "leads.json",
     "leads.release.json",
     ".keep",
-    "shop.json",
   ]);
-  fs.readFile.mockImplementation(async (path: string) =>
-    path.endsWith("leads.json") ? leads : JSON.stringify({ spec: {} }),
+  fs.readFile.mockImplementation(async (file: string) =>
+    file.endsWith("leads.json") ? leads : JSON.stringify({ spec: {} }),
   );
-  const facts = await loadBackupFacts(
+  const result = await loadBackupFacts(
     root,
     environment({ on: true, kind: "off-host" }),
   );
-  expect(fs.readdir).toHaveBeenCalledWith(
-    "/repo/infra/environments/vps/services",
+  expect(path.join).toHaveBeenCalledWith(
+    root,
+    "infra/environments",
+    "vps",
+    "services",
   );
+  expect(fs.readdir).toHaveBeenCalledWith(services);
   expect(fs.readFile.mock.calls.map((call) => call[0])).toEqual([
-    "/repo/infra/environments/vps/services/leads.json",
-    "/repo/infra/environments/vps/services/shop.json",
+    `${services}/leads.json`,
+    `${services}/shop.json`,
   ]);
-  expect(facts).toEqual({
-    targetKind: "off-host",
-    services: { leads: { hasData: true }, shop: { hasData: false } },
-  });
+  expect(backupFacts).toHaveBeenCalledWith("off-host", [
+    { name: "leads", manifest: leadsManifest },
+    { name: "shop", manifest: { spec: {} } },
+  ]);
+  expect(result).toBe(facts);
 });
 
-test("a spec file that is not JSON is published as having data, so the gate fails closed", async () => {
+test("a spec file that is not JSON is passed to the facts builder as no manifest, so its record is not read as having none", async () => {
   fs.readdir.mockResolvedValue(["shop.json"]);
   fs.readFile.mockResolvedValue("{ not json");
-  const facts = await loadBackupFacts(
+  const result = await loadBackupFacts(
     root,
     environment({ on: true, kind: "interim" }),
   );
-  expect(facts?.services).toEqual({ shop: { hasData: true } });
+  expect(backupFacts).toHaveBeenCalledWith("interim", [
+    { name: "shop", manifest: undefined },
+  ]);
+  expect(result).toBe(facts);
 });
 
 test("an unreadable services directory is refused, naming the directory and the fix", async () => {
@@ -104,6 +112,7 @@ test("an unreadable services directory is refused, naming the directory and the 
   ).rejects.toThrow(
     /\/repo\/infra\/environments\/vps\/services is unreadable.*restore read access/,
   );
+  expect(backupFacts).not.toHaveBeenCalled();
 });
 
 test("an unreadable spec file is refused, naming the file and the fix", async () => {
@@ -116,15 +125,17 @@ test("an unreadable spec file is refused, naming the file and the fix", async ()
   ).rejects.toThrow(
     /\/repo\/infra\/environments\/vps\/services\/shop\.json is unreadable.*restore read access/,
   );
+  expect(backupFacts).not.toHaveBeenCalled();
 });
 
-test("a missing services directory is an environment with no services, not an error", async () => {
+test("a missing services directory is an environment with no records, built as such and returned, not an error", async () => {
   fs.readdir.mockRejectedValue(
     Object.assign(new Error("gone"), { code: "ENOENT" }),
   );
-  const facts = await loadBackupFacts(
+  const result = await loadBackupFacts(
     root,
     environment({ on: true, kind: "interim" }),
   );
-  expect(facts).toEqual({ targetKind: "interim", services: {} });
+  expect(backupFacts).toHaveBeenCalledWith("interim", []);
+  expect(result).toBe(facts);
 });

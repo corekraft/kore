@@ -1,6 +1,7 @@
 import { beforeEach, expect, test, vi } from "vitest";
 import { specFileErrors } from "./app-record-rules.js";
 import { databaseBackupErrors } from "./database-backup.js";
+import { externalDataErrors } from "./external-gateway-data.js";
 import { serviceNameErrors } from "./platform-claims.js";
 import { schemaErrors, type SchemaNode } from "./schema-subset.js";
 
@@ -9,6 +10,9 @@ import { schemaErrors, type SchemaNode } from "./schema-subset.js";
 // database-backup.spec.ts. Factories default to no errors; beforeEach sets them again.
 vi.mock("./database-backup.js", () => ({
   databaseBackupErrors: vi.fn(() => []),
+}));
+vi.mock("./external-gateway-data.js", () => ({
+  externalDataErrors: vi.fn(() => []),
 }));
 vi.mock("./platform-claims.js", () => ({ serviceNameErrors: vi.fn(() => []) }));
 vi.mock("./schema-subset.js", () => ({ schemaErrors: vi.fn(() => []) }));
@@ -54,6 +58,23 @@ test("specFileErrors reads an unset backup target as none declared, so the rule 
     file,
     manifest,
     backupTargetDeclared: false,
+  });
+});
+
+test("specFileErrors tells the external Gateway rule the overlay's backup target kind, unset when the overlay declares none", () => {
+  specFileErrors({ file, stem, manifest, xrdSpec, backupKind: "interim" });
+  expect(externalDataErrors).toHaveBeenCalledWith({
+    file,
+    stem,
+    manifest,
+    backupKind: "interim",
+  });
+  specFileErrors({ file, stem, manifest, xrdSpec });
+  expect(externalDataErrors).toHaveBeenLastCalledWith({
+    file,
+    stem,
+    manifest,
+    backupKind: undefined,
   });
 });
 
