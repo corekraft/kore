@@ -271,3 +271,14 @@ test("app up hands the app domain no tunnel hook", async () => {
   await main(["app", "up", "reference", "--environment", "local"]);
   expect(vi.mocked(appUpRelease).mock.calls.at(-1)?.[4]).toBeUndefined();
 });
+
+test("backup prune is a journaled mutation of the environment, and backup policy takes no lock and mutates nothing", async () => {
+  await main(["backup", "prune", "--environment", "local"]);
+  await main(["backup", "policy", "--environment", "local"]);
+
+  expect(dispatch).toEqual([
+    "lock",
+    "journal:backup prune:k3d-kore-local",
+    "pruneBackups:false",
+  ]);
+});
