@@ -45,13 +45,26 @@ const suborg = {
   },
 };
 
-/** The environment with the flag set, and a feature lookup that reads the set flags as the code does. */
+/** The local environment with the given feature flags set. */
 function environmentWith(flags: Record<string, boolean>): Environment {
   return {
     name: "local",
+    provider: "k3d",
+    kubeContext: "k3d-kore-local",
+    registry: { address: "registry.kore.internal:5000" },
     features: flags,
-  } as unknown as Environment;
+    platform: { domain: "kore.internal", organizationId: "org-1" },
+    secrets: {
+      storeName: "platform-secrets",
+      sourceNamespace: "kore-secret-source",
+    },
+    telemetry: { otlpEndpoint: "http://otel-collector:4317" },
+  };
 }
+
+/** The directory listing and the text read, typed by the overloads the record check calls. */
+const listNames: (path: string) => Promise<string[]> = readdir;
+const readText: (path: string, encoding: "utf8") => Promise<string> = readFile;
 
 beforeEach(() => {
   vi.resetAllMocks();
@@ -102,8 +115,8 @@ test("with suborg-secret-store off, the record check never consults the store's 
 });
 
 test("the environment's check consults the store's rule only while the environment turns suborg-secret-store on", async () => {
-  vi.mocked(readdir).mockResolvedValue(["api.json"] as never);
-  vi.mocked(readFile).mockResolvedValue(JSON.stringify(suborg) as never);
+  vi.mocked(listNames).mockResolvedValue(["api.json"]);
+  vi.mocked(readText).mockResolvedValue(JSON.stringify(suborg));
   const checkEnvironment = (environment: Environment) =>
     checkOrganizationRecords({
       root,
