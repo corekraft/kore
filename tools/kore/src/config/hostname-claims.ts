@@ -264,11 +264,11 @@ function hostnameErrors(
   service.hostnames.forEach((host: unknown, index) => {
     const at = `${service.file}: spec.hostnames[${index}]`;
     const form = entryFormErrors(host, at, domain);
-    if (form.length > 0) {
+    if (form.length > 0 || typeof host !== "string") {
       errors.push(...form);
       return;
     }
-    const { name } = resolveHostname(host as string, domain);
+    const { name } = resolveHostname(host, domain);
     if (name === base) {
       errors.push(
         `${at} "${name}" is the apex of ${base}: the apex is refused; list a name under it, for example login.${base}`,
