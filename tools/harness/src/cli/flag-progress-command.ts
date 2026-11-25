@@ -8,7 +8,7 @@ import {
   recordedProofs,
   renderProgress,
 } from "../flag/index.js";
-import { guarded, releaseLock, root, text } from "./flag-command-support.js";
+import { guarded, releaseLock, root, text } from "./flag-command-helpers.js";
 
 // Docs: docs/decisions/0148-a-flag-manifest-declares-each-flags-kind-environments-and-prerequisites.md
 

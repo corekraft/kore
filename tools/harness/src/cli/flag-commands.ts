@@ -22,7 +22,7 @@ import {
   releaseLock,
   root,
   text,
-} from "./flag-command-support.js";
+} from "./flag-command-helpers.js";
 import { progress } from "./flag-progress-command.js";
 
 async function recordActivation(

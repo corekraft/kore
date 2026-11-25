@@ -9,14 +9,16 @@ import {
   renderProgress,
   type ProgressReport,
 } from "../flag/index.js";
-import type { Command, CommandContext } from "../runtime/index.js";
+import type { CommandContext } from "../runtime/index.js";
 import { fakeContext } from "./command-support.js";
+import { guarded, releaseLock, root, text } from "./flag-command-helpers.js";
 import { openLedger } from "./ledger-commands.js";
 import { progress } from "./flag-progress-command.js";
 import { flagCommands } from "./flag-commands.js";
 
 vi.mock("../idea/index.js", () => ({ IdeaRepository: vi.fn() }));
 vi.mock("./ledger-commands.js");
+vi.mock("./flag-command-helpers.js");
 vi.mock("../flag/index.js", async (importOriginal) => ({
   ...(await importOriginal<typeof import("../flag/index.js")>()),
   progressOf: vi.fn(),
@@ -26,7 +28,6 @@ vi.mock("../flag/index.js", async (importOriginal) => ({
   renderProgress: vi.fn(),
 }));
 
-const FAILED = 1;
 const PATH = "infra/environments/vps/environment.yaml";
 const MANIFEST = [
   {
@@ -57,26 +58,25 @@ const REPORT: ProgressReport = {
   everyApplicableFlagOn: false,
   next: { flag: "in-cluster-ca", kind: "environment" },
 };
-const RELEASE_LOCK = JSON.stringify({
-  version: 1,
-  entries: {
-    cilium: { chart: "cilium", version: "1.0.0", digest: "sha256:aa" },
-  },
-});
+const USAGE =
+  "Missing --environment; run `harness flag progress --environment <env>`.";
 
-/** A progress command's context: the vps environment, with the given options. */
+/** The command's own context: the vps environment unless the options say otherwise. */
 const progressContext = (overrides: Partial<CommandContext> = {}) =>
   fakeContext({ options: { environment: "vps" }, ...overrides });
 
-function command(): Command {
-  const found = flagCommands["progress"];
-  if (found === undefined) {
-    throw new Error("flag commands have no progress command");
-  }
-  return found;
+/** The helper's option reader for these tests: a string option as given, anything else as absent. */
+function stringOption(options: CommandContext["options"], key: string) {
+  const value = options[key];
+  return typeof value === "string" ? value : undefined;
 }
 
 beforeEach(() => {
+  // The helpers pass their action through and read the options as given; their own spec covers the refusals.
+  vi.mocked(guarded).mockImplementation((_context, action) => action());
+  vi.mocked(root).mockResolvedValue("/repo");
+  vi.mocked(text).mockImplementation(stringOption);
+  vi.mocked(releaseLock).mockResolvedValue(undefined);
   vi.mocked(readOverlay).mockResolvedValue({
     environment: "vps",
     path: PATH,
@@ -92,28 +92,21 @@ beforeEach(() => {
 
 describe("flag progress refusals before any read of the report", () => {
   it("refuses a command with no --environment, naming the usage, and reads nothing", async () => {
-    const { context, err, out } = progressContext({ options: {} });
-    expect(await progress.run(context)).toBe(FAILED);
-    expect(err()).toBe(
-      "Missing --environment; run `harness flag progress --environment <env>`.\n",
-    );
+    const { context, out } = progressContext({ options: {} });
+    await expect(progress.run(context)).rejects.toEqual(new FlagError(USAGE));
     expect(out()).toBe("");
     expect(readOverlay).not.toHaveBeenCalled();
   });
 
-  it("refuses an environment with no overlay, naming it on stderr", async () => {
-    vi.mocked(readOverlay).mockRejectedValue(
-      new FlagError(
-        'No environment "nope" has an overlay at infra/environments/nope/environment.yaml. Environments: vps.',
-      ),
+  it("refuses an environment with no overlay, and prints nothing", async () => {
+    const refusal = new FlagError(
+      'No environment "nope" has an overlay at infra/environments/nope/environment.yaml. Environments: vps.',
     );
-    const { context, err, out } = progressContext({
+    vi.mocked(readOverlay).mockRejectedValue(refusal);
+    const { context, out } = progressContext({
       options: { environment: "nope" },
     });
-    expect(await progress.run(context)).toBe(FAILED);
-    expect(err()).toBe(
-      'No environment "nope" has an overlay at infra/environments/nope/environment.yaml. Environments: vps.\n',
-    );
+    await expect(progress.run(context)).rejects.toBe(refusal);
     expect(out()).toBe("");
   });
 });
@@ -136,6 +129,13 @@ describe("flag progress reads the overlay, the manifest and the recorded proofs"
     expect(openLedger).not.toHaveBeenCalled();
   });
 
+  it("reads the overlay and the manifest under the repository root", async () => {
+    const { context } = progressContext();
+    await progress.run(context);
+    expect(readOverlay).toHaveBeenCalledWith(context.deps.fs, "/repo", "vps");
+    expect(readManifest).toHaveBeenCalledWith(context.deps.fs, "/repo");
+  });
+
   it("reads the proofs of the environment, with production as the overlay states it", async () => {
     const { context } = progressContext();
     await progress.run(context);
@@ -147,25 +147,21 @@ describe("flag progress reads the overlay, the manifest and the recorded proofs"
     );
   });
 
-  it("compares the proofs with the release chart lock named by --chart-lock", async () => {
+  it("compares the proofs with the release chart lock the helper reads for --chart-lock", async () => {
+    const lock = { cilium: { version: "1.0.0", digest: "sha256:aa" } };
+    vi.mocked(releaseLock).mockResolvedValue(lock);
     const { context } = progressContext({
       options: {
         environment: "vps",
         "chart-lock": "platform-charts.lock.json",
       },
-      deps: {
-        ...fakeContext().deps,
-        fs: {
-          readFile: () => Promise.resolve(RELEASE_LOCK),
-          writeFile: () => Promise.resolve(),
-        } as unknown as CommandContext["deps"]["fs"],
-      },
     });
     await progress.run(context);
+    expect(releaseLock).toHaveBeenCalledWith(context, "/repo");
     expect(recordedProofs).toHaveBeenCalledWith(
       expect.anything(),
       "vps",
-      { cilium: { version: "1.0.0", digest: "sha256:aa" } },
+      lock,
       true,
     );
   });
@@ -182,7 +178,7 @@ describe("flag progress --json", () => {
 
 describe("flag progress registration", () => {
   it("is the progress command of the flag group, so harness flag progress runs it", () => {
-    expect(command()).toBe(progress);
+    expect(flagCommands["progress"]).toBe(progress);
   });
 
   it("takes --environment and --chart-lock as strings, so the parser accepts them", () => {
