@@ -1,10 +1,13 @@
 // The claim rules of a service's hostnames (ADR 0159, layer 1): kore validate reads
 // every record of an environment and refuses a hostname that breaks them, before a
 // merge. Pure: the caller reads the records and passes the domains in force, the
-// suborgs and the reserved names. A name inside the claimant's own zone needs no
-// claim; a name directly under the platform domain is a claim, and the first record
+// suborgs and the reserved names. A claim under the platform domain is written as a
+// label relative to it (`login` means `login.<domain>`, ADR 0164); a full hostname is
+// allowed only under a foreign domain. A name inside the claimant's own zone needs no
+// claim; a claim is a name directly under the platform domain, and the first record
 // that lists it holds it exclusively.
 // Docs: docs/decisions/0159-services-attach-to-the-platform-gateways-through-listener-sets-and-hostname-claims.md
+// Docs: docs/decisions/0164-the-platform-domain-is-a-run-time-value-and-the-repository-holds-a-placeholder.md
 
 import { platformDomainVariable } from "./run-time-domain.js";
 import {
@@ -76,11 +79,11 @@ function under(host: string, base: string): string | undefined {
   return host.endsWith(suffix) ? host.slice(0, -suffix.length) : undefined;
 }
 
-/** The form of a name a record may list, before any zone rule applies. */
-function formError(host: unknown, at: string, domain: string): string[] {
+/** The form of a name a record may list, before any zone rule applies: a label or a full DNS name. */
+function formError(host: unknown, at: string): string[] {
   if (typeof host !== "string") {
     return [
-      `${at} must be a string, a lowercase DNS name such as login.${domain}`,
+      `${at} must be a string: a label such as login, or a full hostname under another domain`,
     ];
   }
   if (host !== host.toLowerCase()) {
@@ -88,26 +91,66 @@ function formError(host: unknown, at: string, domain: string): string[] {
   }
   if (host.includes("*")) {
     return [
-      `${at} "${host}" is a wildcard: wildcards are refused in v1; list the exact name, for example login.${domain}`,
+      `${at} "${host}" is a wildcard: wildcards are refused in v1; list the exact name, for example login`,
     ];
   }
   if (ipv4.test(host) || host.includes(":")) {
     return [
-      `${at} "${host}" is an IP address: list a DNS name, for example login.${domain}`,
+      `${at} "${host}" is an IP address: list a DNS name, for example login`,
     ];
   }
   const labels = host.split(".");
-  if (labels.length < 2 || !labels.every((label) => dnsLabel.test(label))) {
+  if (!labels.every((label) => dnsLabel.test(label))) {
     return [
-      `${at} "${host}" must be a lowercase DNS name of letters, digits and hyphens with at least two labels, for example login.${domain}`,
+      `${at} "${host}" must be a lowercase DNS name of letters, digits and hyphens: a label such as login, or a full hostname under another domain`,
     ];
   }
   if (labels.some((label) => label.startsWith("xn--"))) {
     return [
-      `${at} "${host}" is a punycode (xn--) name: punycode names are refused in v1; list the name in plain letters and digits, for example login.${domain}`,
+      `${at} "${host}" is a punycode (xn--) name: punycode names are refused in v1; list the name in plain letters and digits, for example login`,
     ];
   }
   return [];
+}
+
+/**
+ * The label a full hostname directly under the platform domain is written as, or
+ * undefined when the name is not one (ADR 0164). A multi-label name under the domain
+ * is a name in a zone, not a claim, and keeps its full form.
+ */
+function labelOf(host: string, domain: string): string | undefined {
+  const rest = under(host.toLowerCase(), domain);
+  if (
+    rest === undefined ||
+    rest.includes(".") ||
+    !dnsLabel.test(rest) ||
+    rest.startsWith("xn--")
+  ) {
+    return undefined;
+  }
+  return rest;
+}
+
+/** A claim's resolved name, and whether it sits under a foreign domain (ADR 0164, ADR 0157). */
+export interface ResolvedHostname {
+  name: string;
+  foreign: boolean;
+}
+
+/**
+ * The name a listed hostname stands for. A relative label resolves to the label under
+ * the platform domain; a full hostname is its own name. A name outside the platform
+ * domain is foreign: its certificate is proven over HTTP-01 (ADR 0157).
+ */
+export function resolveHostname(
+  host: string,
+  domain: string,
+): ResolvedHostname {
+  if (!host.includes(".")) {
+    return { name: `${host}.${domain}`, foreign: false };
+  }
+  const inPlatformDomain = host === domain || host.endsWith(`.${domain}`);
+  return { name: host, foreign: !inPlatformDomain };
 }
 
 /**
@@ -178,6 +221,30 @@ function zoneError(host: string, scope: Scope): string | undefined {
   return undefined;
 }
 
+/**
+ * The form problems of one listed hostname, before any zone rule: a full hostname
+ * under the platform domain is refused for its label form, and the apex is refused.
+ * Neither message prints the domain value.
+ */
+function entryFormErrors(host: unknown, at: string, domain: string): string[] {
+  const label = typeof host === "string" ? labelOf(host, domain) : undefined;
+  if (label !== undefined) {
+    return [
+      `${at} is a full hostname under the platform domain: write the label alone, "${label}", and the platform domain is added to it`,
+    ];
+  }
+  const form = formError(host, at);
+  if (form.length > 0) {
+    return form;
+  }
+  if (host === domain) {
+    return [
+      `${at} is the apex of the platform domain: the apex is refused; write a label, for example login`,
+    ];
+  }
+  return [];
+}
+
 /** The problems of one service's hostnames list, and the claims it holds. */
 function hostnameErrors(
   service: ServiceClaim,
@@ -196,12 +263,12 @@ function hostnameErrors(
   const errors: string[] = [];
   service.hostnames.forEach((host: unknown, index) => {
     const at = `${service.file}: spec.hostnames[${index}]`;
-    const form = formError(host, at, domain);
-    if (form.length > 0) {
+    const form = entryFormErrors(host, at, domain);
+    if (form.length > 0 || typeof host !== "string") {
       errors.push(...form);
       return;
     }
-    const name = host as string;
+    const { name } = resolveHostname(host, domain);
     if (name === base) {
       errors.push(
         `${at} "${name}" is the apex of ${base}: the apex is refused; list a name under it, for example login.${base}`,
@@ -256,7 +323,7 @@ function suborgErrors(
     const holder = services.find(
       (service) =>
         Array.isArray(service.hostnames) &&
-        service.hostnames.includes(host) &&
+        service.hostnames.includes(suborg.name) &&
         isClaim(host, organizationOf(service), domain),
     );
     if (holder === undefined) {
