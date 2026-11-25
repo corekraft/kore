@@ -9,7 +9,7 @@ import type { Repository } from "./types.js";
  * project, naming the field. Off, none, so the flag-off render is unchanged.
  */
 export function suborgDeliveryArgs(
-  repository: Repository,
+  repository: Pick<Repository, "environment" | "goldenPathDelivery">,
   component: string,
 ): string[] {
   const repoURL = repository.goldenPathDelivery?.repoURL;

@@ -1,8 +1,9 @@
 // Docs: docs/decisions/0165-a-suborg-is-the-namespace-quota-and-trust-boundary-of-its-services.md
 import { beforeEach, expect, test, vi } from "vitest";
+import { fakeEnvironment } from "./config-support.js";
 import { featureEnabled } from "./features.js";
 import { suborgDeliveryArgs } from "./suborg-delivery-args.js";
-import type { Repository } from "./types.js";
+import type { GoldenPathDeliveryValues, Repository } from "./types.js";
 
 // Issue 1553: with suborg-delivery-project on, the platform-apis chart takes the Kore
 // repository URL its suborg AppProjects admit as their one source. The URL is the one the
@@ -15,16 +16,23 @@ vi.mock("./features.js", () => ({
 
 const repoURL = "https://github.com/corekraft/kore.git";
 
+/** The golden-path delivery values the sync composes from the git origin. */
+const golden: GoldenPathDeliveryValues = {
+  repoURL,
+  revision: "0123456789abcdef0123456789abcdef01234567",
+  environment: "local",
+  templateImages: {},
+  ingress: { platformDomain: "kore.internal", gatewayClassName: "istio" },
+};
+
 /** A repository whose golden-path delivery values are composed, or not. */
-function repository(composed: boolean): Repository {
+function repository(
+  composed: boolean,
+): Pick<Repository, "environment" | "goldenPathDelivery"> {
   return {
-    environment: { name: "local" },
-    ...(composed
-      ? {
-          goldenPathDelivery: { repoURL },
-        }
-      : {}),
-  } as unknown as Repository;
+    environment: fakeEnvironment(),
+    goldenPathDelivery: composed ? golden : undefined,
+  };
 }
 
 beforeEach(() => {
