@@ -237,6 +237,7 @@ const entryPoints = [
   "smtpSecretName",
   "smtpSecretNamespace",
   "startsAfterDelivery",
+  "suborgDeliveryArgs",
   "trustedSigners",
   "validateRepository",
 ];
