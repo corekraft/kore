@@ -46,6 +46,8 @@ export interface AppRecordCheck {
    * check reads no list and applies no claim rule.
    */
   hostnames?: HostnameCheck | undefined;
+  /** Whether the overlay declares a backup.target; unset, a database backup opt-in is refused (ADR 0155). */
+  backupTarget?: boolean | undefined;
 }
 
 export interface AppRecordReport {
@@ -181,7 +183,13 @@ async function checkSpecs(
     }
     parsed.set(stem, record);
     errors.push(
-      ...specFileErrors({ file, stem, manifest: record.manifest, xrdSpec }),
+      ...specFileErrors({
+        file,
+        stem,
+        manifest: record.manifest,
+        xrdSpec,
+        backupTarget: check.backupTarget,
+      }),
     );
   }
   return parsed;

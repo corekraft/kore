@@ -41,7 +41,7 @@ test("an unknown field in a spec file fails, naming the file, the field and the 
     [`${dir}/leads.release.json`]: release("leads"),
   });
   expect((await f.check()).errors).toEqual([
-    `${dir}/leads.json: spec.replicas is not a field of this record; the fields here are organization, environments, repository, path, components, soak, gateway, hostnames, backup, allowFrom, secrets`,
+    `${dir}/leads.json: spec.replicas is not a field of this record; the fields here are organization, environments, repository, path, components, soak, gateway, databases, hostnames, backup, allowFrom, secrets`,
   ]);
 });
 
