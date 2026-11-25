@@ -51,6 +51,7 @@
       "suborg-tenancy": false,
       "suborg-network-policy": false,
       "suborg-delivery-project": false,
+      "suborg-secret-store": false,
       "platform-sync-window": false,
       "release-recovery-argocd-refusal": false,
       "database-routes": false,
