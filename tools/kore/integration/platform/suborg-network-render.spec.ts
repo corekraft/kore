@@ -153,9 +153,20 @@ test("a suborg with no parent, the platform tenant root, gets no network policie
   );
 });
 
-test("with both flags on and no service range recorded the Organization composition refuses to render", () => {
-  assert.throws(() =>
-    render(...suborgOn(false), "--set", "features.suborg-network-policy=true"),
+test("with both flags on and no service range recorded the Organization composition refuses to render, naming both flags and the field to set", () => {
+  assert.throws(
+    () =>
+      render(
+        ...suborgOn(false),
+        "--set",
+        "features.suborg-network-policy=true",
+      ),
+    (error: unknown) => {
+      const message = error instanceof Error ? error.message : String(error);
+      assert.match(message, /suborg-tenancy and suborg-network-policy are on/);
+      assert.match(message, /cluster\.serviceCidr/);
+      return true;
+    },
   );
 });
 

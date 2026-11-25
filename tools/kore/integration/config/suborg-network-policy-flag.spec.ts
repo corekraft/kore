@@ -77,3 +77,44 @@ test("turning suborg-network-policy on with suborg-tenancy on passes validation 
     await withFlags("local", { [flag]: true, "suborg-tenancy": true }),
   );
 });
+
+// managed-example records no cluster.serviceCidr. With both suborg flags on, the chart cannot
+// render the policies without one, so validation refuses before any cluster is touched.
+const managedFlags = {
+  [flag]: true,
+  "suborg-tenancy": true,
+  "platform-organization-service-apis": true,
+  "platform-argocd-delivery": true,
+  "platform-portal": true,
+};
+
+test("with both suborg flags on, managed-example refuses validation for recording no cluster.serviceCidr, naming the field", async () => {
+  const repository = await withFlags("managed-example", managedFlags);
+  await assert.rejects(validateRepository(repository), (error: unknown) => {
+    const message = error instanceof Error ? error.message : String(error);
+    assert.match(
+      message,
+      /suborg-tenancy and suborg-network-policy are on in the managed-example overlay but it records no cluster\.serviceCidr/,
+    );
+    return true;
+  });
+});
+
+test("with both suborg flags on, a managed-example that records its service range passes the range check", async () => {
+  const base = await withFlags("managed-example", managedFlags);
+  const cluster = base.environment.cluster;
+  assert.ok(cluster, "managed-example declares a cluster block");
+  const repository = {
+    ...base,
+    environment: {
+      ...base.environment,
+      cluster: { ...cluster, serviceCidr: "10.43.0.0/16" },
+    },
+  };
+  const message = await validateRepository(repository).then(
+    () => "",
+    (error: unknown) =>
+      error instanceof Error ? error.message : String(error),
+  );
+  assert.doesNotMatch(message, /serviceCidr/);
+});

@@ -7,6 +7,7 @@ import { exists } from "./files.js";
 import { flagManifestErrors } from "./flag-manifest.js";
 import { k3sPinErrors } from "./k3s-pin.js";
 import { providerFlagErrors } from "./provider-flag-errors.js";
+import { suborgServiceRangeErrors } from "./platform-cluster-resolution.js";
 import type { Component, Environment, Repository } from "./types.js";
 
 const flagName = /^[a-z][a-z0-9-]*$/;
@@ -151,6 +152,7 @@ export async function overlayErrors(repository: Repository): Promise<string[]> {
     ...featureErrors(environment),
     ...alertEmailErrors(environment),
     ...providerFlagErrors(environment),
+    ...suborgServiceRangeErrors(environment),
     ...flagManifestErrors(repository),
     ...backupTargetErrors(repository),
     ...k3sPinErrors(repository),

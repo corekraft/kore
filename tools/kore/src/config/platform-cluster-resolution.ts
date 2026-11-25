@@ -49,13 +49,44 @@ export function suborgNetworkArgs(
   environment: Environment,
   component: string,
 ): string[] {
+  const serviceCidr = suborgServiceCidr(environment);
+  const on = component === "kore-platform-apis" && suborgNetworkOn(environment);
+  return on && serviceCidr !== undefined
+    ? ["--set-string", `suborgNetwork.serviceCidr=${serviceCidr}`]
+    : [];
+}
+
+/**
+ * With suborg-tenancy and suborg-network-policy both on, the errors of an overlay that
+ * records no service range (ADR 0165, issue 1552). The chart cannot render the suborg
+ * policies without one, so validation refuses it before any cluster is touched; the field
+ * named is the one the overlay sets for its provider. Otherwise none.
+ */
+export function suborgServiceRangeErrors(environment: Environment): string[] {
+  if (
+    !suborgNetworkOn(environment) ||
+    suborgServiceCidr(environment) !== undefined
+  ) {
+    return [];
+  }
+  const field =
+    environment.provider === "k3d" ? "k3d.serviceCidr" : "cluster.serviceCidr";
+  return [
+    `flags suborg-tenancy and suborg-network-policy are on in the ${environment.name} overlay but it records no ${field}, the cluster's service range; set ${field} in the ${environment.name} overlay, or turn suborg-network-policy off (ADR 0165)`,
+  ];
+}
+
+/** Both suborg flags are on in the environment. */
+function suborgNetworkOn(environment: Environment): boolean {
+  return (
+    featureEnabled(environment, suborgTenancyFlag) &&
+    featureEnabled(environment, suborgNetworkPolicyFlag)
+  );
+}
+
+/** The service range the environment's cluster records: the k3d cluster's on k3d, the cluster block's otherwise. */
+function suborgServiceCidr(environment: Environment): string | undefined {
   const cluster =
     environment.provider === "k3d" ? environment.k3d : environment.cluster;
-  const on =
-    component === "kore-platform-apis" &&
-    featureEnabled(environment, suborgTenancyFlag) &&
-    featureEnabled(environment, suborgNetworkPolicyFlag);
-  return on && cluster?.serviceCidr !== undefined
-    ? ["--set-string", `suborgNetwork.serviceCidr=${cluster.serviceCidr}`]
-    : [];
+  return cluster?.serviceCidr;
 }
