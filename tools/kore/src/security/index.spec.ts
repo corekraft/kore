@@ -24,6 +24,7 @@ vi.mock("./cloudflare-token.js");
 test("the security barrel exposes exactly the local secret sync, local trust, local CA distribution and local CA read entry points, the SMTP credential entry points, and the Cloudflare token entry points", () => {
   expect(Object.keys(security).sort()).toEqual([
     "activeTokenConsumers",
+    "applyBackupCredential",
     "applyCloudflareTokens",
     "applySmtpCredentials",
     "cloudflareTokenSecretName",

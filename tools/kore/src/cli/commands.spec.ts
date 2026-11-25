@@ -33,6 +33,7 @@ test("the command table names every command, in dispatch order", () => {
     "cluster",
     "platform",
     "data",
+    "backup",
     "app",
     "local",
     "signer",
@@ -59,11 +60,12 @@ test("each command's mutating actions are exactly the actions that change its en
     cluster: ["up", "stop", "destroy"],
     platform: ["bootstrap", "up", "gate-check", "stop", "destroy", "uninstall"],
     data: ["export", "restore"],
+    backup: ["prune"],
     app: ["up", "down"],
     local: ["up", "down"],
     signer: ["swap-key"],
     registry: ["rotate-credentials"],
-    secrets: ["sync", "smtp", "tokens"],
+    secrets: ["sync", "smtp", "tokens", "backup"],
     trust: ["install"],
     dns: ["install", "uninstall"],
     eval: [],
@@ -86,6 +88,7 @@ test("each command runs its own handler", () => {
   expect(runOf("cluster")).toBe(handlerOf(infra, "clusterCommand"));
   expect(runOf("platform")).toBe(handlerOf(infra, "platformCommand"));
   expect(runOf("data")).toBe(handlerOf(infra, "dataCommand"));
+  expect(runOf("backup")).toBe(handlerOf(infra, "backupCommand"));
   expect(runOf("app")).toBe(handlerOf(infra, "appCommand"));
   expect(runOf("local")).toBe(handlerOf(local, "localCommand"));
   expect(runOf("signer")).toBe(handlerOf(local, "signerCommand"));

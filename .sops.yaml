@@ -6,3 +6,7 @@ creation_rules:
   - path_regex: infra/environments/vps/secrets/.*\.enc\.yaml$
     encrypted_regex: "^(data|stringData)$"
     age: age1x9t7jczgl5xx3djfgy4x2cygnvj8k9qxjhnu0zxh79kr4aty3cgs6wulrg
+
+  - path_regex: infra/environments/vps/controller-secrets/.*\.enc\.yaml$
+    encrypted_regex: "^(data|stringData)$"
+    age: age1x9t7jczgl5xx3djfgy4x2cygnvj8k9qxjhnu0zxh79kr4aty3cgs6wulrg
