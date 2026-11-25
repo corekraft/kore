@@ -8,6 +8,8 @@ export interface UnprovenFlag {
   flag: string;
   environment: string;
   path: string;
+  /** The environment is production, so an owner waiver does not count as its proof (ADR 0147). */
+  production?: boolean;
 }
 
 /** A flag that is on because the owner waived its live run, not because a run proved it. */
@@ -44,12 +46,19 @@ export async function proofAudit(
       if (!on) {
         continue;
       }
-      const proof = await findProof(repo, flag, overlay.environment, sources);
+      const proof = await findProof(
+        repo,
+        flag,
+        overlay.environment,
+        sources,
+        overlay.production,
+      );
       if (proof === undefined) {
         audit.unproven.push({
           flag,
           environment: overlay.environment,
           path: overlay.path,
+          production: overlay.production === true,
         });
       } else if (proof.source === "owner-waiver") {
         audit.waived.push({
@@ -74,9 +83,12 @@ export async function unprovenFlags(
   return (await proofAudit(fs, clock, base)).unproven;
 }
 
-/** The audit's report line for one unproven flag. */
+/** The audit's report line for one unproven flag. In a production environment a waiver does not count, so the line says so (ADR 0147). */
 export function unprovenLine(u: UnprovenFlag): string {
-  return `Flag ${u.flag} is on in ${u.environment} (${u.path}) with no verification outcome. Set it back to false, then turn it on with \`harness flag activate ${u.flag} --environment ${u.environment}\` once a live run is recorded.`;
+  const outcome = u.production
+    ? "with no live-run verification outcome. An owner waiver does not count in a production environment (ADR 0147)."
+    : "with no verification outcome.";
+  return `Flag ${u.flag} is on in ${u.environment} (${u.path}) ${outcome} Set it back to false, then turn it on with \`harness flag activate ${u.flag} --environment ${u.environment}\` once a live run is recorded.`;
 }
 
 /** The audit's report line for a flag that rests on an owner waiver. */
