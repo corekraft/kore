@@ -1,6 +1,6 @@
 import { join } from "node:path";
 import type { Repository } from "../config/index.js";
-import type { Runner } from "../runtime/index.js";
+import { CommandError, type Runner } from "../runtime/index.js";
 import { reasonOf, type MissingPrerequisite } from "./preflight-message.js";
 
 // Docs: docs/decisions/0147-vps-v1-is-every-applicable-flag-proven-live-one-per-run-from-release-locks.md, docs/decisions/0151-host-and-k3s-changes-follow-the-same-safety-patterns-and-run-in-a-maintenance-window.md
@@ -38,6 +38,14 @@ export async function hostProblems(
     );
     output = result.stdout;
   } catch (error) {
+    // Ansible exits non-zero when it finds an unreachable or failed host, and the
+    // runner throws with that stdout. Its recap names the cause, so report it first.
+    const recap =
+      error instanceof CommandError ? RECAP.exec(error.result.stdout) : null;
+    const cause = recap === null ? null : uncleanRecap(name, recap);
+    if (cause !== null) {
+      return [cause];
+    }
     // An expected failure: the check cannot reach or run the host. Named, not thrown.
     return [
       {
@@ -57,15 +65,22 @@ export async function hostProblems(
       },
     ];
   }
+  const cause = uncleanRecap(name, recap);
+  return cause === null ? [] : [cause];
+}
+
+/** The missing prerequisite a recap names, or null when the recap shows no change, unreachable or failed host. */
+function uncleanRecap(
+  name: string,
+  recap: RegExpExecArray,
+): MissingPrerequisite | null {
   const [, changed = "0", unreachable = "0", failed = "0"] = recap;
   if (changed === "0" && unreachable === "0" && failed === "0") {
-    return [];
+    return null;
   }
-  return [
-    {
-      name,
-      problem: `the check-mode run of ${HOST} is not clean: changed=${changed} unreachable=${unreachable} failed=${failed}, so the host has a change not yet applied or cannot be checked`,
-      fix: FIX,
-    },
-  ];
+  return {
+    name,
+    problem: `the check-mode run of ${HOST} is not clean: changed=${changed} unreachable=${unreachable} failed=${failed}, so the host has a change not yet applied or cannot be checked`,
+    fix: FIX,
+  };
 }
