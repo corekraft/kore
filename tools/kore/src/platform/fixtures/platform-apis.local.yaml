@@ -276,6 +276,45 @@ spec:
                   enum: [internal, external]
                   default: internal
                   description: "internal by default; external is accepted here, and the ingress work enforces it"
+                # The databases the service claims (ADR 0155, ADR 0166). An entry is one
+                # PostgreSQL claim: its name, PostgreSQL major, storage size and
+                # retentionPolicy. backup is the opt-in: off unless written, and silence is
+                # never an error. kore validate refuses backup on a Delete claim and with no
+                # backup.target in the overlay (database-backup.ts). A platform database is
+                # always backed up.
+                databases:
+                  type: array
+                  description: "the databases the service claims; each entry is one PostgreSQL claim"
+                  items:
+                    type: object
+                    required: [name, version, size, retentionPolicy]
+                    properties:
+                      name:
+                        {
+                          type: string,
+                          pattern: "^[a-z0-9]([-a-z0-9]{0,61}[a-z0-9])?$",
+                          description: "the database's name, a DNS label"
+                        }
+                      version:
+                        { type: integer, enum: [16, 17, 18], description: "the PostgreSQL major" }
+                      size:
+                        {
+                          type: string,
+                          pattern: "^[1-9][0-9]*Gi$",
+                          description: "the storage size, a whole number of Gi"
+                        }
+                      retentionPolicy:
+                        {
+                          type: string,
+                          enum: [Delete, Retain],
+                          description: "Retain keeps the data past the claim; a Delete claim cannot be backed up"
+                        }
+                      backup:
+                        {
+                          type: boolean,
+                          default: false,
+                          description: "opt in to the scheduled backup; a Retain database with it off is allowed and reported unprotected"
+                        }
                 # Reserved for their own decisions: the ingress decision owns the
                 # hostnames shape, the backup decision owns backup, and the access
                 # decision owns allowFrom. Loose placeholders until then.

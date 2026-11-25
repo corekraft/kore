@@ -1,7 +1,11 @@
 // Docs: infra/plans/2-implementation.md#step-6-repository-and-local-cluster-foundation
-import { expect, test, vi } from "vitest";
+import { expect, expectTypeOf, test, vi } from "vitest";
 import * as config from "./index.js";
 import { approvedImageList } from "./approved.js";
+import {
+  backedUpDatabases,
+  platformOwnedDatabases,
+} from "./database-backup.js";
 import { checkCrdOwnership } from "./crd-ownership.js";
 import { exists } from "./files.js";
 import { featureEnabled } from "./features.js";
@@ -28,6 +32,10 @@ vi.mock("./alert-forwarding.js", () => ({
 }));
 vi.mock("./dashboard-sidecar.js", () => ({
   dashboardSidecarHelmArgs: vi.fn(),
+}));
+vi.mock("./database-backup.js", () => ({
+  backedUpDatabases: vi.fn(),
+  platformOwnedDatabases: [],
 }));
 vi.mock("./keycloak-operator-probe.js", () => ({
   keycloakOperatorProbeHelmArgs: vi.fn(),
@@ -133,6 +141,7 @@ const entryPoints = [
   "approvedImageList",
   "auditEvidence",
   "autoscalingFlag",
+  "backedUpDatabases",
   "backstageHostname",
   "chartDeliveryValues",
   "chartRepositoryUrls",
@@ -201,6 +210,7 @@ const entryPoints = [
   "platformDomainOrigin",
   "platformDomainVariable",
   "platformHelmArgs",
+  "platformOwnedDatabases",
   "platformPlan",
   "platformPortalFlag",
   "policyPromotionErrors",
@@ -262,4 +272,11 @@ test("each entry point is the function its own unit defines, not a copy", () => 
   expect(config.managedCluster).toBe(managedCluster);
   expect(config.validateRepository).toBe(validateRepository);
   expect(config.exists).toBe(exists);
+  expect(config.backedUpDatabases).toBe(backedUpDatabases);
+  expect(config.platformOwnedDatabases).toBe(platformOwnedDatabases);
+});
+
+test("the barrel exports the database entry types, which have no runtime value, so a removed type fails the typecheck", () => {
+  expectTypeOf<config.DatabaseEntry>().toHaveProperty("retentionPolicy");
+  expectTypeOf<config.ServiceDatabases>().toHaveProperty("databases");
 });
