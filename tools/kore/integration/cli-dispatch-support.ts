@@ -145,6 +145,8 @@ export const platformModule = () => ({
   platformStop: vi.fn(async () => void dispatch.push("platformStop")),
   platformUp: vi.fn(async () => void dispatch.push("platformUp")),
   composeChartDelivery: vi.fn(async (given: unknown) => given),
+  // The preflight passes through any environment but vps, which these dispatches never name.
+  platformPreflight: vi.fn(async () => undefined),
   upChartLockDrift: vi.fn(async (): Promise<unknown[]> => []),
   chartLockDriftMessage: vi.fn(() => ""),
   chartLockDrift: vi.fn(

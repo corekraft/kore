@@ -8,7 +8,7 @@ import {
   type Component,
   type Repository,
 } from "../config/index.js";
-import { isReleaseAutomationSigner } from "../images/index.js";
+import { describeSigners, isReleaseLock } from "./release-lock.js";
 import { featureFreeCharts } from "./feature-free-charts.js";
 
 // Docs: docs/decisions/0043-platform-configuration-through-argo-cd.md (the handover values)
@@ -74,44 +74,22 @@ async function readLock(lockPath: string): Promise<unknown> {
   }
 }
 
-/** The signers a lock declares, or none when it declares no list. */
-function declaredSigners(lock: unknown): unknown[] {
-  if (
-    typeof lock !== "object" ||
-    lock === null ||
-    !("authorizedSigners" in lock)
-  ) {
-    return [];
-  }
-  return Array.isArray(lock.authorizedSigners) ? lock.authorizedSigners : [];
-}
-
 /**
  * A managed environment takes only a lock that release automation signed at a
  * version tag, the one attached to a release. A main chart lock (ADR 0138), a
  * developer key's lock, or a lock that names no signer is refused before any
- * cluster call. This reads the signers the lock declares; it verifies no
- * signature, which the chart-signature check still to come will do (ADR 0147).
+ * cluster call (see `isReleaseLock`).
  */
 function assertReleaseLock(
   lock: unknown,
   lockPath: string,
   repository: Repository,
 ): void {
-  const signers = declaredSigners(lock);
-  if (
-    signers.length > 0 &&
-    signers.every(
-      (signer) =>
-        typeof signer === "string" && isReleaseAutomationSigner(signer),
-    )
-  ) {
+  if (isReleaseLock(lock)) {
     return;
   }
-  const named =
-    signers.length === 0 ? "no signer" : signers.map(String).join(", ");
   throw new Error(
-    `--platform-chart-lock ${lockPath} is not the release chart lock: it is signed by ${named}, and ${repository.environment.name} takes only a lock signed by release automation at a version tag (release.yaml@refs/tags/vX.Y.Z). Pass the platform-charts.lock.json attached to the release; a main chart lock serves a local proof only`,
+    `--platform-chart-lock ${lockPath} is not the release chart lock: it is signed by ${describeSigners(lock)}, and ${repository.environment.name} takes only a lock signed by release automation at a version tag (release.yaml@refs/tags/vX.Y.Z). Pass the platform-charts.lock.json attached to the release; a main chart lock serves a local proof only`,
   );
 }
 
