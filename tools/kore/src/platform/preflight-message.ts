@@ -10,14 +10,28 @@ export interface MissingPrerequisite {
   fix: string;
 }
 
+/** A URL: its address is the API server's, as kubectl names it. */
+const SCHEME_URL = /https?:\/\/\S+?(?=:\s|\s|$)/g;
+
 /**
- * The first line of a failure, with any API server address replaced: the
- * address of a tailnet host never reaches a message or a log.
+ * A bare address with an optional port: an IPv4 address, a bracketed IPv6
+ * address, or a dotted host name, as a dial error such as "dial tcp
+ * 100.64.0.7:6443" names it.
+ */
+const BARE_ADDRESS =
+  /\[[0-9a-f:]+\](?::\d+)?|\b(?:\d{1,3}\.){3}\d{1,3}(?::\d+)?\b|\b[a-z0-9-]+(?:\.[a-z0-9-]+)+:\d+\b/gi;
+
+/**
+ * The first line of a failure, with every address replaced: the address of a
+ * tailnet host never reaches a message or a log. A URL's address is named as
+ * the API server; any other address as just "the address".
  */
 export function reasonOf(error: unknown): string {
   const text = error instanceof Error ? error.message : String(error);
   const [first = ""] = text.split("\n");
-  return first.replace(/https?:\/\/\S+?(?=:\s|\s|$)/g, "the API server");
+  return first
+    .replace(SCHEME_URL, "the API server")
+    .replace(BARE_ADDRESS, "the address");
 }
 
 /**

@@ -16,6 +16,30 @@ test("an API server address in a failure's reason is replaced, since a tailnet a
   ).toBe("Get the API server: i/o timeout");
 });
 
+test("a kubectl dial timeout names no IP address or port, since the tailnet API server address never reaches a message", () => {
+  const reason = reasonOf(new Error("dial tcp 100.64.0.7:6443: i/o timeout"));
+  expect(reason).toBe("dial tcp the address: i/o timeout");
+  expect(reason).not.toMatch(/100\.64\.0\.7|6443/);
+});
+
+test("a host name with a port in a failure's reason is replaced too", () => {
+  expect(
+    reasonOf(new Error("dial tcp kube.example.com:6443: i/o timeout")),
+  ).toBe("dial tcp the address: i/o timeout");
+});
+
+test("a bracketed IPv6 address with a port in a failure's reason is replaced too", () => {
+  expect(
+    reasonOf(new Error("dial tcp [fd7a:115c:a1e0::7]:6443: i/o timeout")),
+  ).toBe("dial tcp the address: i/o timeout");
+});
+
+test("a reason with no address keeps its version numbers and words", () => {
+  expect(
+    reasonOf(new Error("kubectl 1.30.1 is older than the 1.31 this needs")),
+  ).toBe("kubectl 1.30.1 is older than the 1.31 this needs");
+});
+
 const sops: MissingPrerequisite = {
   name: "sops recipient",
   problem: "no creation rule for infra/environments/vps/secrets in .sops.yaml",
