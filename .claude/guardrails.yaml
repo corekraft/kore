@@ -15,6 +15,7 @@
     { "rule": "role-worktree", "kind": "bash-and-file", "mode": "enforce", "owner": "tools/harness/src/hook/guard-role-delivery.ts", "note": "A relative cd, git -C or written path resolves from the hook's directory and from an earlier cd in the same command, so cd ../.. back to the worktree root is allowed and anything past the root stays refused, by the owner's approval of 2026-11-14 (#417, ADR 0080)." },
     { "rule": "append-only", "kind": "bash-and-file", "mode": "audit", "owner": "tools/harness/src/hook/guard-append-only.ts" },
     { "rule": "flag-activation", "kind": "file", "mode": "audit", "owner": "tools/harness/src/hook/guard-file.ts" },
+    { "rule": "vps-flag-proof", "kind": "file", "mode": "audit", "owner": "tools/harness/src/cli/flag-audit-vps.ts", "note": "Audit mode (ADR 0080, ADR 0147): `harness flag audit --vps` lists each flag on in the vps overlay with no live-run outcome as a warning and exits 0; an owner waiver never proves vps. Enforce makes that audit fail (exit 1). Promotion to enforce is a later owner-approved guardrail activation through `guardrail request` and `guardrail activate` (ticket #1493)." },
     { "rule": "image-digest", "kind": "file", "mode": "audit", "owner": "tools/harness/src/hook/guard-file.ts" },
     { "rule": "idea-outcome", "kind": "file", "mode": "audit", "owner": "tools/harness/src/hook/guard-file.ts" },
     { "rule": "idea-issue-body", "kind": "bash", "mode": "audit", "owner": "tools/harness/src/hook/guard-commands.ts" },

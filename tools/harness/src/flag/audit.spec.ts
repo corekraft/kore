@@ -13,6 +13,8 @@ import {
   proofAudit,
   unprovenFlags,
   unprovenLine,
+  vpsLine,
+  vpsUnprovenFlags,
   waivedLine,
 } from "./audit.js";
 import { fakeFileSystem } from "./flag-support.js";
@@ -248,6 +250,64 @@ describe("waivedLine", () => {
       }),
     ).toBe(
       "Flag automatic-revert is on in local (infra/environments/local/environment.yaml) under an owner waiver, not a live run: docs/ideas/0044-proof.md.",
+    );
+  });
+});
+
+describe("vpsUnprovenFlags", () => {
+  const VPS_OVERLAY = "infra/environments/vps/environment.yaml";
+
+  it("lists a flag that is on in vps with no outcome", async () => {
+    overlays({
+      vps: overlayFor("vps", { openbao: true, "other-flag": false }),
+    });
+    expect(await vpsUnprovenFlags(fs, clock, BASE)).toEqual([
+      { flag: "openbao", environment: "vps", path: VPS_OVERLAY },
+    ]);
+  });
+
+  it("lists a vps flag that rests on an owner waiver, because a waiver never proves vps", async () => {
+    overlays({ vps: overlayFor("vps", { waived: true }) });
+    vi.mocked(findProof).mockResolvedValue({
+      idea: "0044",
+      path: "docs/ideas/0044-proof.md",
+      source: "owner-waiver",
+    });
+    expect(await vpsUnprovenFlags(fs, clock, BASE)).toEqual([
+      { flag: "waived", environment: "vps", path: VPS_OVERLAY },
+    ]);
+  });
+
+  it("reports nothing when every true vps flag has a live-run outcome", async () => {
+    overlays({ vps: overlayFor("vps", { a: true, b: true }) });
+    vi.mocked(findProof).mockResolvedValue({
+      idea: "0001",
+      path: "docs/ideas/0001.md",
+      source: "live-run",
+    });
+    expect(await vpsUnprovenFlags(fs, clock, BASE)).toEqual([]);
+  });
+
+  it("ignores flags on in other environments, and looks for proof only in vps", async () => {
+    overlays({
+      local: overlayFor("local", { a: true }),
+      vps: overlayFor("vps", { b: false }),
+    });
+    expect(await vpsUnprovenFlags(fs, clock, BASE)).toEqual([]);
+    expect(findProof).not.toHaveBeenCalled();
+  });
+});
+
+describe("vpsLine", () => {
+  it("names the flag and vps, and says a live run is needed before the flag goes on", () => {
+    expect(
+      vpsLine({
+        flag: "openbao",
+        environment: "vps",
+        path: "infra/environments/vps/environment.yaml",
+      }),
+    ).toBe(
+      "Flag openbao is on in vps (infra/environments/vps/environment.yaml) with no live-run outcome. Set it back to false, then turn it on with `harness flag activate openbao --environment vps` once a live run is recorded.",
     );
   });
 });
