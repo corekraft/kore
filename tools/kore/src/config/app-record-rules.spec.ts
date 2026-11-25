@@ -8,7 +8,9 @@ import {
   specFileErrors,
 } from "./app-record-rules.js";
 
-vi.mock("./database-backup.js", () => ({ databaseBackupErrors: () => [] }));
+vi.mock("./database-backup.js", () => ({
+  databaseBackupErrors: vi.fn(() => []),
+}));
 
 const file = "infra/environments/local/services/leads.json";
 const releaseFile = "infra/environments/local/services/leads.release.json";

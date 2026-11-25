@@ -119,13 +119,16 @@ test("each spec file is checked against the Service schema that yq reads from th
   });
 });
 
-test("each spec file is checked with whether the overlay declares a backup target, for its database backup rules", async () => {
-  files = { [`${dir}/leads.json`]: spec };
-  await check({ backupTarget: true });
-  expect(specFileErrors).toHaveBeenCalledWith(
-    expect.objectContaining({ backupTarget: true }),
-  );
-});
+test.each([true, false])(
+  "each spec file is checked with whether the overlay declares a backup target (%s), for its database backup rules",
+  async (backupTarget) => {
+    files = { [`${dir}/leads.json`]: spec };
+    await check({ backupTarget });
+    expect(specFileErrors).toHaveBeenCalledWith(
+      expect.objectContaining({ backupTarget }),
+    );
+  },
+);
 
 test("a missing yq names the pinned version and the mise command that installs it", async () => {
   files = { [`${dir}/leads.json`]: spec };
