@@ -60,6 +60,12 @@
         "requires": ["suborg-tenancy"]
       },
       {
+        "name": "suborg-delivery-project",
+        "kind": "feature",
+        "applies": ["local", "vps", "managed-example"],
+        "requires": ["suborg-tenancy", "platform-argocd-delivery"]
+      },
+      {
         "name": "platform-sync-window",
         "kind": "feature",
         "applies": ["local", "vps", "managed-example"]
@@ -153,6 +159,11 @@
       },
       {
         "name": "postgresql-service-class-instances",
+        "kind": "feature",
+        "applies": ["local", "vps", "managed-example"]
+      },
+      {
+        "name": "database-role-split",
         "kind": "feature",
         "applies": ["local", "vps", "managed-example"]
       },

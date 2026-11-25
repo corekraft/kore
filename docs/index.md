@@ -357,6 +357,7 @@ decisions; read one only when planning that area, and expect it to change.
 - [`docs/ideas/0083-golden-path-signin-after-portal-works-live-in-local.md`](ideas/0083-golden-path-signin-after-portal-works-live-in-local.md) — golden-path-signin-after-portal works live in local
 - [`docs/ideas/0084-drift-listing-mappings-works-live-on-release-locks.md`](ideas/0084-drift-listing-mappings-works-live-on-release-locks.md) — drift-listing-mappings works live in local on the v0.26.0 locks
 - [`docs/ideas/0085-golden-path-signin-after-portal-works-live-on-release-locks.md`](ideas/0085-golden-path-signin-after-portal-works-live-on-release-locks.md) — golden-path-signin-after-portal works live in local on the v0.26.0 locks
+- [`docs/ideas/0086-vps-flag-proof-audit.md`](ideas/0086-vps-flag-proof-audit.md) — A vps-limited flag audit warns on each true vps flag with no live-run outcome; its guardrail decides whether it fails
 
 ## Operations and Guides
 

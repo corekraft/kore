@@ -2,7 +2,7 @@
 status: proposed
 summary: An application's migrations run as an Argo CD PreSync hook Job from the new image with a DDL-only credential, after a shadow run on a copy of the data; a normal release carries only expand migrations, checked by a fail-closed DDL allowlist and an N-1 test, and a contract ships alone after a per-rollout soak window and against a restorable backup, with a recorded break-glass bypass of the shadow run.
 date: 2026-11-20
-last-verified: 2026-11-20
+last-verified: 2026-11-25
 ---
 
 # ADR 0171: App migrations run before the rollout, expand first and contract after the soak
@@ -74,6 +74,46 @@ soak (record 7).
   database younger than 24 hours; an application with data that has not opted into
   backup cannot ship a contract. Migrations are forward-only: a revert of a release
   never rolls a migration back.
+
+## Role passwords
+
+Source: [#1598](https://github.com/corekraft/kore/issues/1598), which asks for the two
+credentials to be "generated and rotated by the operator". This section refines that
+wording, because the operator cannot do it.
+
+- **CloudNativePG cannot generate a managed role's password.** A role under the
+  `Cluster`'s `spec.managed.roles` takes its password only from a `passwordSecret`
+  that something else supplies. CloudNativePG generates a password only for the
+  bootstrap owner (`app`). It neither creates nor rotates one for a role it manages.
+- **External Secrets generates them.** Behind the `database-role-split` flag, the
+  PostgreSQL composition declares two roles: `app_ddl`, a member of the owner, for
+  the migration hook, and `app_dml`, with no membership, for the running
+  application. For each role it composes an External Secrets `Password` generator
+  (48 characters, 12 digits, no symbols) and an `ExternalSecret` that writes the
+  `kubernetes.io/basic-auth` Secret `<database>-ddl` or `<database>-dml`. The role
+  reads that Secret through its `passwordSecret`. External Secrets is already
+  installed and pinned (2.14.0), so this adds no new dependency. The
+  `ExternalSecret` owns its Secret (`creationPolicy: Owner`), so each Secret has one
+  owner.
+- **The rotation period is a chart value.** The `ExternalSecret`'s
+  `refreshInterval` is the rotation period. On each refresh, External Secrets runs
+  the generator again and writes a new password. The period is
+  `databaseRoles.rotationPeriod` in the PostgreSQL API chart, 720h (30 days) by
+  default, so changing it needs no code change.
+- **CloudNativePG reloads the role.** The generated Secret carries the label
+  `cnpg.io/reload: "true"`. CloudNativePG watches Secrets with that label and
+  applies a changed password to the role without restarting the cluster.
+- **Consumers roll on their own marker.** The reference workload chart takes one
+  rotation marker per role (`platform.kore.dev/ddl-secret-version`,
+  `platform.kore.dev/dml-secret-version`), as it does with `secretVersion`. A
+  rotation rolls only the consumers of the role that changed.
+- **Activation waits on the live proof.** `database-role-split` is false in every
+  overlay. It turns on through `harness flag activate` only once the live proof in
+  [#1603](https://github.com/corekraft/kore/issues/1603) is recorded. That proof
+  checks that a rotated database credential rolls its consumer and that the runtime
+  role cannot change the schema. So two things must land before it can pass: the
+  `kore app up` wiring that sets the role markers, and the reference app's table
+  grants to `app_dml`.
 
 ## Consequences
 

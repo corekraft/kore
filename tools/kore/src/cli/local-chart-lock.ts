@@ -5,6 +5,7 @@ import {
   chartLockDriftMessage,
   composeChartDelivery,
   composeGoldenPathDelivery,
+  composeSuborgDelivery,
   fetchMainChartLock,
   upChartLockDrift,
 } from "../platform/index.js";
@@ -124,9 +125,10 @@ export async function composeLocalDelivery(
     chartLock,
     boolFlag(parsed, "require-fresh-lock"),
   );
-  return await composeGoldenPathDelivery(
+  const golden = await composeGoldenPathDelivery(
     charts,
     runner,
     stringFlag(parsed, "platform-template-lock"),
   );
+  return await composeSuborgDelivery(golden, runner);
 }

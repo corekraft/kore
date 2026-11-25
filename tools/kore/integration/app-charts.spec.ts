@@ -45,8 +45,9 @@ async function referenceTemplate(name: string): Promise<string> {
 test("reference workload injects the database password only through a secretKeyRef", async () => {
   const template = await referenceTemplate("workloads.yaml");
 
+  // The Secret is chosen by a variable: the app's own Secret, or the DML role's with database.roleSplit (ADR 0171).
   expect(template).toMatch(
-    /name: PGPASSWORD, valueFrom: \{secretKeyRef: \{name: \{\{ \$\.Values\.database\.passwordSecret\.name \}\}, key: \{\{ \$\.Values\.database\.passwordSecret\.key \}\}\}\}/,
+    /name: PGPASSWORD, valueFrom: \{secretKeyRef: \{name: \{\{ \$dbPassword\.name \}\}, key: \{\{ \$dbPassword\.key \}\}\}\}/,
   );
   expect(template).toContain(
     "name: PGSSLMODE, valueFrom: {secretKeyRef: {name: reference-db-connection, key: sslmode}}",

@@ -163,6 +163,7 @@ export const platformModule = () => ({
     ),
   ),
   composeGoldenPathDelivery: vi.fn(async (given: unknown) => given),
+  composeSuborgDelivery: vi.fn(async (given: unknown) => given),
 });
 
 export const securityModule = () => ({

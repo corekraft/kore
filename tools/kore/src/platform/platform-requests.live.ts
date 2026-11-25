@@ -21,6 +21,7 @@ import {
 import { ProcessRunner, liveEnvironment } from "../runtime/index.js";
 import { composeChartDelivery } from "./chart-delivery.js";
 import { composeGoldenPathDelivery } from "./golden-path-delivery.js";
+import { composeSuborgDelivery } from "./suborg-delivery.js";
 import { helmRenderer, platformRequests } from "./platform-requests.js";
 
 /**
@@ -38,13 +39,16 @@ export async function renderPlatformRequests(
     );
   }
   const runner = new ProcessRunner();
-  const repository = await composeGoldenPathDelivery(
-    await composeChartDelivery(
-      await loadRepository(liveEnvironment(), await findRoot()),
-      chartLock,
+  const repository = await composeSuborgDelivery(
+    await composeGoldenPathDelivery(
+      await composeChartDelivery(
+        await loadRepository(liveEnvironment(), await findRoot()),
+        chartLock,
+      ),
+      runner,
+      templateLock,
     ),
     runner,
-    templateLock,
   );
   return platformRequests(
     enabledComponents(repository),

@@ -104,6 +104,9 @@ export const suborgTenancyFlag = "suborg-tenancy";
 /** The flag that renders the suborg ingress and egress NetworkPolicies and the grant policies (ADR 0165, issue 1552); needs suborg-tenancy. Off in every overlay until a recorded live outcome (#1559). */
 export const suborgNetworkPolicyFlag = "suborg-network-policy";
 
+/** The flag that makes each suborg's Argo CD AppProject, which deploys only into the suborg's namespace from the Kore repository (ADR 0165, issue 1553); needs suborg-tenancy and platform-argocd-delivery. Off in every overlay until a recorded live outcome. */
+export const suborgDeliveryProjectFlag = "suborg-delivery-project";
+
 /** The flag that installs the Organization and Service platform APIs, for the platform organization only (plan 15 step 2). */
 export const organizationServiceApisFlag = "platform-organization-service-apis";
 
@@ -204,6 +207,9 @@ export const goldenPathTemplateAdmissionFlag = "golden-path-template-admission";
 
 /** The flag that routes databases by name through the shared Gateway's passthrough listener, and gives each database its certificate from the local CA (ADR 0136, ADR 0137). */
 export const databaseRoutesFlag = "database-routes";
+
+/** The flag that gives the PostgreSQL composition a DDL and a DML role beside the app role, their passwords generated and rotated, for the expand step of the role split (ADR 0171). Off in every overlay until a recorded live outcome. */
+export const databaseRoleSplitFlag = "database-role-split";
 
 /** The flag that derives a PostgreSQL's CloudNativePG instances from its serviceClass (standard 2 with the disruption budget, development 1 without), switchover, and a memory request equal to limit (ADR 0154). Off in every overlay until a recorded live outcome. */
 export const postgresqlServiceClassInstancesFlag =

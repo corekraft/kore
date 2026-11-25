@@ -4,13 +4,16 @@ export const LEDGER = "/repo/.kore/state/ledger.jsonl";
 export const OVERLAY = "infra/environments/local/environment.yaml";
 
 /** An environment overlay as prettier writes it: JSON-compatible YAML. */
-export function overlay(features: Record<string, boolean>): string {
+export function overlay(
+  features: Record<string, boolean>,
+  environment = "local",
+): string {
   const lines = Object.entries(features).map(
     ([name, on]) => `"${name}": ${on}`,
   );
   return [
     "{",
-    '  "name": "local",',
+    `  "name": "${environment}",`,
     `  "features": { ${lines.join(", ")} },`,
     '  "imageInventory": "audit"',
     "}",

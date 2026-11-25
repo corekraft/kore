@@ -65,6 +65,7 @@ export {
   runTimeDomainErrors,
 } from "./platform-domain.js";
 export type { PlatformPlan } from "./platform-domain.js";
+export { suborgDeliveryArgs } from "./suborg-delivery-args.js";
 export {
   platformDomainOrigin,
   platformDomainVariable,
@@ -134,6 +135,7 @@ export {
   registryTailnetForwardFlag,
   revertKeepFlag,
   signinAwaitsPortal,
+  suborgDeliveryProjectFlag,
 } from "./features.js";
 export {
   chartDeliveryValues,

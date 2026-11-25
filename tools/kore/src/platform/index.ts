@@ -26,6 +26,7 @@ export {
 } from "./chart-lock-drift.js";
 export type { ChartLockRow } from "./chart-lock-drift.js";
 export { composeGoldenPathDelivery } from "./golden-path-delivery.js";
+export { composeSuborgDelivery } from "./suborg-delivery.js";
 export { fetchMainChartLock } from "./chart-lock-fetch.js";
 export type { MainChartLock } from "./chart-lock-fetch.js";
 export { platformUp } from "./up.js";

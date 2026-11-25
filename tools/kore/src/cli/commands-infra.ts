@@ -18,6 +18,7 @@ import {
   platformStop,
   composeChartDelivery,
   composeGoldenPathDelivery,
+  composeSuborgDelivery,
   platformPreflight,
   platformUp,
   readinessFailureSummary,
@@ -79,9 +80,27 @@ export async function statusCommand(context: CommandContext): Promise<number> {
 }
 
 /**
+ * The repository `platform up` installs: the chart lock, the template lock and the Kore
+ * URL the suborg projects admit, all composed before any cluster call (issue 1553).
+ */
+async function platformUpRepository(context: CommandContext, runner: Runner) {
+  const charts = await composeChartDelivery(
+    context.repository,
+    stringFlag(context.parsed, "platform-chart-lock"),
+  );
+  const golden = await composeGoldenPathDelivery(
+    charts,
+    runner,
+    stringFlag(context.parsed, "platform-template-lock"),
+  );
+  return await composeSuborgDelivery(golden, runner);
+}
+
+/**
  * Installs the platform. A vps run is preflighted first, which names every
- * missing prerequisite before the first change (ADR 0147); then the chart lock
- * is schema-checked before any cluster call, and the install runs.
+ * missing prerequisite before the first change (ADR 0147); then the repository
+ * delivery is composed, with the chart lock schema-checked before any cluster
+ * call, and the install runs.
  */
 async function platformUpAction(
   context: CommandContext,
@@ -95,11 +114,7 @@ async function platformUpAction(
     templateLock,
   });
   await platformUp(
-    await composeGoldenPathDelivery(
-      await composeChartDelivery(repository, chartLock),
-      mutationRunner,
-      templateLock,
-    ),
+    await platformUpRepository(context, mutationRunner),
     mutationRunner,
   );
 }

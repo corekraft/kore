@@ -501,6 +501,8 @@ export interface Repository {
    * touches the cluster (ADR 0043).
    */
   goldenPathDelivery?: GoldenPathDeliveryValues | undefined;
+  /** Composed from the git origin while suborg-delivery-project is on (issue 1553): the Kore repository URL each suborg AppProject admits as its source. */
+  suborgDelivery?: { repoURL: string } | undefined;
   /**
    * The age recipients `.sops.yaml` names for this environment's secrets, read
    * by `loadRepository`; undefined when the file has no creation rule for it
