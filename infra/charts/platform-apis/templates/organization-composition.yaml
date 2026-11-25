@@ -166,7 +166,7 @@ spec:
             {{- end }}`}}
 {{- if index $features "suborg-delivery-project" }}
 {{- $delivery := .Values.suborgDelivery | default dict }}
-{{- $repoURL := required "suborgDelivery.repoURL is required while suborg-tenancy and suborg-delivery-project are on: kore passes the Kore repository's https URL the golden-path delivery syncs from, so set the git origin to the https URL of the repository" $delivery.repoURL }}
+{{- $repoURL := required "suborgDelivery.repoURL is required while suborg-tenancy and suborg-delivery-project are on: kore composes it from the git origin before it renders the platform (platform render, platform up, local up), so this render did not compose it; render through kore, with the origin set to the https URL of the repository" $delivery.repoURL }}
     # With suborg-tenancy and suborg-delivery-project on (ADR 0165, issue 1553) each suborg
     # gets one Argo CD AppProject, named after it, in the Argo CD namespace (ADR 0043). Its
     # only destination is the suborg's namespace on the cluster, its only source is the Kore

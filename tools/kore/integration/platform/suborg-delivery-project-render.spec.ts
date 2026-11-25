@@ -160,7 +160,7 @@ test("with suborg-delivery-project on, the platform-apis render's other document
   assert.deepEqual(withFlag, withoutFlag);
 });
 
-test("with suborg-delivery-project on, the render carries exactly the AppProjects of the Argo CD delivery and no other change", () => {
+test("with suborg-delivery-project on the chart renders no AppProject itself; the composition creates them at run time", () => {
   const rendered = render(...deliveryOn);
   assert.equal(
     ofKind(rendered, "AppProject"),

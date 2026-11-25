@@ -159,7 +159,7 @@ test.each([
 );
 
 test("a reserved name is reported by the reserved-name rule under the record's file path", () => {
-  const message = `${file}.metadata.name: "keycloak" is a reserved name: it is a platform namespace, default, internal, www or reference; choose another name, for example "keycloak-team"`;
+  const message = `${file}.metadata.name: "keycloak" is a reserved name: it is a platform namespace, an Argo CD project the platform owns, default, internal, www or reference; choose another name, for example "keycloak-team"`;
   vi.mocked(reservedNameErrors).mockReturnValue([message]);
   expect(
     check({ ...suborg, metadata: { name: "keycloak" } }, "keycloak"),

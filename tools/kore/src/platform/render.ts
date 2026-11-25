@@ -8,6 +8,7 @@ import {
 } from "../config/index.js";
 import type { Runner } from "../runtime/index.js";
 import { redactManifest } from "./render-redaction.js";
+import { composeSuborgDelivery } from "./suborg-delivery.js";
 import {
   envOption,
   helmEnv,
@@ -81,11 +82,13 @@ export async function platformRender(
   if (target) {
     await mkdir(target, { recursive: true });
   }
-  for (const component of orderedComponents(repository.catalog)) {
+  // The render composes what up composes, so a read-only render hands each chart the same values (issue 1553).
+  const composed = await composeSuborgDelivery(repository, runner);
+  for (const component of orderedComponents(composed.catalog)) {
     if (component.kind === "manifest") {
-      await validateManifest(repository, runner, component);
+      await validateManifest(composed, runner, component);
     } else {
-      await renderChart(repository, runner, component, target);
+      await renderChart(composed, runner, component, target);
     }
   }
 }

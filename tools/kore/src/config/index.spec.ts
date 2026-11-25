@@ -248,6 +248,7 @@ const entryPoints = [
   "smtpSecretNamespace",
   "startsAfterDelivery",
   "suborgDeliveryArgs",
+  "suborgDeliveryProjectFlag",
   "trustedSigners",
   "validateRepository",
 ];

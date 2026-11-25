@@ -3,11 +3,11 @@ import { beforeEach, expect, test, vi } from "vitest";
 import { fakeEnvironment } from "./config-support.js";
 import { featureEnabled } from "./features.js";
 import { suborgDeliveryArgs } from "./suborg-delivery-args.js";
-import type { GoldenPathDeliveryValues, Repository } from "./types.js";
+import type { Repository } from "./types.js";
 
 // Issue 1553: with suborg-delivery-project on, the platform-apis chart takes the Kore
-// repository URL its suborg AppProjects admit as their one source. The URL is the one the
-// golden-path release already syncs from, composed from the git origin.
+// repository URL its suborg AppProjects admit as their one source. The URL is composed from
+// the git origin before any command renders, so the argument is the composed field.
 
 vi.mock("./features.js", () => ({
   featureEnabled: vi.fn(),
@@ -16,22 +16,13 @@ vi.mock("./features.js", () => ({
 
 const repoURL = "https://github.com/corekraft/kore.git";
 
-/** The golden-path delivery values the sync composes from the git origin. */
-const golden: GoldenPathDeliveryValues = {
-  repoURL,
-  revision: "0123456789abcdef0123456789abcdef01234567",
-  environment: "local",
-  templateImages: {},
-  ingress: { platformDomain: "kore.internal", gatewayClassName: "istio" },
-};
-
-/** A repository whose golden-path delivery values are composed, or not. */
+/** A repository whose Kore URL is composed, or not. */
 function repository(
   composed: boolean,
-): Pick<Repository, "environment" | "goldenPathDelivery"> {
+): Pick<Repository, "environment" | "suborgDelivery"> {
   return {
     environment: fakeEnvironment(),
-    goldenPathDelivery: composed ? golden : undefined,
+    suborgDelivery: composed ? { repoURL } : undefined,
   };
 }
 
@@ -59,7 +50,7 @@ test("only the platform-apis chart takes the repository URL, not any other compo
   ).toStrictEqual([]);
 });
 
-test("with the flag on but no golden-path delivery composed, no URL is passed, so the chart refuses to render naming the field", () => {
+test("with the flag on but no URL composed, no URL is passed, so the chart refuses to render naming the field", () => {
   expect(
     suborgDeliveryArgs(repository(false), "kore-platform-apis"),
   ).toStrictEqual([]);

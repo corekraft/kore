@@ -11,6 +11,7 @@ import {
 } from "./helm.js";
 import { redactManifest } from "./render-redaction.js";
 import { platformRender } from "./render.js";
+import { composeSuborgDelivery } from "./suborg-delivery.js";
 import {
   fakeComponent,
   fakeRepository,
@@ -30,6 +31,7 @@ vi.mock("./helm.js", () => ({
   withAbsoluteChart: vi.fn(),
 }));
 vi.mock("./render-redaction.js", () => ({ redactManifest: vi.fn() }));
+vi.mock("./suborg-delivery.js", () => ({ composeSuborgDelivery: vi.fn() }));
 
 const repository = fakeRepository({}, "/repo");
 const chart = fakeComponent({ name: "reference" });
@@ -47,6 +49,22 @@ beforeEach(() => {
   vi.mocked(envOption).mockReturnValue({});
   vi.mocked(manifestSource).mockReturnValue("/repo/manifests/crds");
   vi.mocked(absolute).mockImplementation((_repo, path) => `/abs/${path}`);
+  vi.mocked(composeSuborgDelivery).mockImplementation(async (repo) => repo);
+});
+
+test("the render composes the Kore URL before it renders, so a read-only render gives each chart the URL up gives it", async () => {
+  const composed = {
+    ...repository,
+    suborgDelivery: { repoURL: "https://github.com/corekraft/kore.git" },
+  };
+  vi.mocked(composeSuborgDelivery).mockResolvedValue(composed);
+  vi.mocked(orderedComponents).mockReturnValue([chart]);
+  const { runner } = fakeRunner(() => "");
+
+  await platformRender(repository, runner);
+
+  expect(composeSuborgDelivery).toHaveBeenCalledWith(repository, runner);
+  expect(helmTemplateArgs).toHaveBeenCalledWith(composed, chart);
 });
 
 test("a chart is written to the output directory only after it is redacted, with owner-only permissions", async () => {
