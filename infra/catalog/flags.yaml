@@ -66,6 +66,12 @@
         "requires": ["suborg-tenancy", "platform-argocd-delivery"]
       },
       {
+        "name": "suborg-secret-store",
+        "kind": "feature",
+        "applies": ["local", "vps", "managed-example"],
+        "requires": ["suborg-tenancy"]
+      },
+      {
         "name": "platform-sync-window",
         "kind": "feature",
         "applies": ["local", "vps", "managed-example"]

@@ -11,6 +11,8 @@ Source: [issue #1484](https://github.com/corekraft/kore/issues/1484), the owner'
 
 Refines: [ADR 0009](0009-encrypted-secrets-through-external-secrets.md), [ADR 0024](0024-reference-app-database-access.md) (one role for DDL and DML becomes two). Builds on [ADR 0165](0165-a-suborg-is-the-namespace-quota-and-trust-boundary-of-its-services.md) (a suborg is the namespace, quota and trust boundary of its services) and on [ADR 0168](0168-the-openbao-static-seal-key-is-a-recorded-exception-to-no-plaintext-on-disk.md) (the OpenBao static seal key is a recorded exception to no plaintext on disk).
 
+> Refined by [ADR 0183](0183-a-suborg-s-secret-store-reads-its-own-kore-suborg-source-namespace-and-suborg-names-are-capped-at-51-characters-while-it-is-on.md) (proposed): while `suborg-secret-store` is on, the interim `kubernetes` provider reads a per-suborg source namespace `kore-suborg-<name>`, suborg names are capped at 51 characters, and #1595 swaps the provider to OpenBao behind the same store name.
+
 ## Context
 
 The `platform-secrets` ClusterSecretStore reads one namespace, `kore-secret-source`, and any ExternalSecret in any namespace can name any key in it. With several suborgs that lets one suborg read another's secrets. Local keeps sops with age. The owner wants vps secrets held by an open-source secret manager, not as ciphertext in the public repository. Vault has been under the BSL since 2023; OpenBao is MPL-2.0 with the Vault API. Today one generated role, `<cluster>-app`, does both schema changes (the migration hook Job) and runtime queries.

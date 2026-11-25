@@ -14,7 +14,9 @@ import { platformPlan } from "./platform-domain.js";
 import {
   reservedNameErrors,
   reservedSuborgNames,
+  secretStoreNameErrors,
   suborgDefaultZone,
+  suborgSecretStoreOn,
 } from "./suborg-names.js";
 import type { Environment } from "./types.js";
 
@@ -38,6 +40,8 @@ export interface OrganizationRecordInput {
   /** The file names of the environment's suborg records: a parent that is one is depth two. */
   suborgs: ReadonlySet<string>;
   reserved: ReadonlySet<string>;
+  /** Whether suborg-secret-store is on, so the name must also fit its source namespace (issue 1555). */
+  secretStore?: boolean | undefined;
 }
 
 /** The record's kind and name, with the rules every record shares. */
@@ -107,6 +111,9 @@ export function organizationRecordErrors(
     );
   }
   errors.push(...reservedNameErrors(name, file, reserved));
+  if (input.secretStore === true) {
+    errors.push(...secretStoreNameErrors(name, file));
+  }
   return errors;
 }
 
@@ -204,6 +211,7 @@ export async function checkOrganizationRecords(
   }
   const reserved = reservedSuborgNames(check.catalogNamespaces);
   const suborgs = new Set(files.keys());
+  const secretStore = suborgSecretStoreOn(check.environment);
   const organizations: OrganizationSummary[] = [];
   for (const [stem, record] of parsed) {
     if (record.manifest === undefined) {
@@ -215,6 +223,7 @@ export async function checkOrganizationRecords(
       manifest: record.manifest,
       suborgs,
       reserved,
+      secretStore,
     });
     errors.push(...recordErrors);
     errors.push(

@@ -5,6 +5,9 @@
 // are reserved beside them, and kube- and kore- are reserved as prefixes.
 // Docs: docs/decisions/0165-a-suborg-is-the-namespace-quota-and-trust-boundary-of-its-services.md
 
+import { featureEnabled, suborgSecretStoreFlag } from "./features.js";
+import type { Environment } from "./types.js";
+
 /**
  * Names the platform reserves beside the catalog's namespaces (ADR 0165, the reference app).
  * platform-configuration is the Argo CD AppProject the platform-config-delivery chart owns (ADR
@@ -59,3 +62,35 @@ export function reservedNameErrors(
  */
 export const suborgDefaultZone = (name: string, domain: string): string =>
   `${name}.${domain}`;
+
+/**
+ * The namespace a suborg's store reads its own source Secrets from (ADR 0167, issue 1555).
+ * The kore- prefix is reserved, so no suborg namespace can take it.
+ */
+export const suborgSourceNamespace = (name: string): string =>
+  `kore-suborg-${name}`;
+
+/**
+ * The longest suborg name that keeps its source namespace within the 63-character DNS
+ * label a namespace must be (the kore-suborg- prefix is 12 characters).
+ */
+export const maxSecretStoreSuborgName = 63 - "kore-suborg-".length;
+
+/**
+ * Why a suborg name is refused while suborg-secret-store is on: its source namespace would
+ * be longer than a namespace may be. `path` is the record's file path, which the message
+ * begins with; the caller decides whether the flag is on.
+ */
+export function secretStoreNameErrors(name: string, path: string): string[] {
+  if (name.length <= maxSecretStoreSuborgName) {
+    return [];
+  }
+  return [
+    `${path}.metadata.name: "${name}" is ${name.length} characters, too long for its source namespace ${suborgSourceNamespace(name)} while suborg-secret-store is on: a namespace name is at most 63 characters, so a suborg name is at most ${maxSecretStoreSuborgName} with that flag; choose a shorter name, for example "${name.slice(0, maxSecretStoreSuborgName)}", or turn suborg-secret-store off`,
+  ];
+}
+
+/** Whether suborg-secret-store is on: each suborg then has a store, and its name must fit that store's source namespace. */
+export const suborgSecretStoreOn = (
+  environment: Pick<Environment, "features">,
+): boolean => featureEnabled(environment, suborgSecretStoreFlag);
