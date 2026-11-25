@@ -78,6 +78,13 @@ test("the Organization XRD's quota patterns are the ones the claim check mirrors
   }
 });
 
+test("the Service XRD's database entry carries the fields the backup rules read, and backup is an opt-in that defaults to false", async () => {
+  const service = await xrd("service-xrd.yaml");
+  expect(service).toContain("required: [name, version, size, retentionPolicy]");
+  expect(service).toContain("enum: [Delete, Retain]");
+  expect(service).toMatch(/type: boolean,\s+default: false,/);
+});
+
 test("a suborg's zone is refused unless it is <suborg>.<platform domain>, inside the hostname-ownership flag", async () => {
   const organization = await xrd("organization-xrd.yaml");
   expect(organization).toContain(

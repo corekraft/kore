@@ -181,6 +181,12 @@ export {
   type AppRecordReport,
 } from "./app-records.js";
 export {
+  backedUpDatabases,
+  platformOwnedDatabases,
+  type DatabaseEntry,
+  type ServiceDatabases,
+} from "./database-backup.js";
+export {
   checkCrossFileRules,
   type CrossFileCheck,
 } from "./cross-file-check.js";
