@@ -166,7 +166,7 @@ spec:
             {{- end }}`}}
 {{- if index $features "suborg-network-policy" }}
 {{- $net := .Values.suborgNetwork | default dict }}
-{{- $serviceCidr := required "suborgNetwork.serviceCidr is required while suborg-tenancy and suborg-network-policy are on: set cluster.serviceCidr (k3d.serviceCidr on a k3d environment) in the environment overlay, which passes it to this chart" $net.serviceCidr }}
+{{- $serviceCidr := required "suborgNetwork.serviceCidr is required while suborg-tenancy and suborg-network-policy are on: set cluster.serviceCidr in the environment overlay, which passes it to this chart" $net.serviceCidr }}
 {{- $podCidr := $net.podCidr | default "10.42.0.0/16" }}
 {{- $excluded := concat (list $podCidr $serviceCidr) ($net.apiServerCidrs | default (list)) }}
     # With suborg-tenancy on (ADR 0165, issue 1552) the suborg is the trust boundary of
