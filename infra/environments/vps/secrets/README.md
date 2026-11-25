@@ -65,13 +65,15 @@ unchanged document applies nothing new. When the external-dns document changed
 and its Deployment exists, the same run applies the Secret and then rolls the
 external-dns Deployment once with `kubectl rollout restart`, in this
 environment's context. The upstream chart cannot carry the checksum in its pod
-template, so the restart is what rolls the pod. Once the restart succeeds, the
-run records the rolled checksum in the Secret's
+template, so the restart is what rolls the pod. The run then waits, up to five
+minutes, with `kubectl rollout status`. Once the new pod is ready, the run
+records the rolled checksum in the Secret's
 `platform.kore.dev/rolled-document-sha256` annotation; the Deployment is never
 annotated. A run restarts only when that record differs from the document's
 checksum, so an unchanged document restarts nothing. A first apply, before that
 Deployment exists, restarts nothing. cert-manager reads its token at challenge
 time, so the acme-dns01 document needs no restart. If the restart fails, the run
-records nothing and names the command to run by hand; rerunning
-`kore secrets tokens` retries the restart, because the record still holds the
-previous checksum.
+records nothing and names the command to run by hand. If the new pod does not
+become ready in time, the run records nothing and names the `kubectl logs`
+command that shows why. Either way, rerunning `kore secrets tokens` retries the
+restart, because the record still holds the previous checksum.
