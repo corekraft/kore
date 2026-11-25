@@ -99,18 +99,27 @@ function output(): string {
   return written.join("");
 }
 
-test("kore validate passes a service whose hostname no other record claims", async () => {
+test("kore validate passes a service whose relative label no other record claims", async () => {
   await records({
-    [`${servicesDir}/leads.json`]: service("leads", ["login.kore.internal"]),
+    [`${servicesDir}/leads.json`]: service("leads", ["login"]),
   });
   expect(await main(["validate", "--json"])).toBe(0);
   expect(JSON.parse(output())).toMatchObject({ status: "valid" });
 });
 
-test("kore validate refuses a second record that claims a name the first holds, naming the holder", async () => {
+test("kore validate refuses a full hostname under the platform domain, naming the label to write", async () => {
   await records({
     [`${servicesDir}/leads.json`]: service("leads", ["login.kore.internal"]),
-    [`${servicesDir}/quotes.json`]: service("quotes", ["login.kore.internal"]),
+  });
+  await expect(main(["validate"])).rejects.toThrow(
+    `${servicesDir}/leads.json: spec.hostnames[0] is a full hostname under the platform domain: write the label alone, "login", and the platform domain is added to it`,
+  );
+});
+
+test("kore validate refuses a second record that claims a name the first holds, naming the holder", async () => {
+  await records({
+    [`${servicesDir}/leads.json`]: service("leads", ["login"]),
+    [`${servicesDir}/quotes.json`]: service("quotes", ["login"]),
   });
   await expect(main(["validate"])).rejects.toThrow(
     `${servicesDir}/quotes.json: spec.hostnames[0] "login.kore.internal" is already claimed by ${servicesDir}/leads.json (service leads in suborg platform): the first claim holds a name exclusively; remove it from this record or choose another name`,
@@ -119,7 +128,7 @@ test("kore validate refuses a second record that claims a name the first holds, 
 
 test("kore validate refuses a hostname the reserved-name list holds, with the file to read", async () => {
   await records({
-    [`${servicesDir}/leads.json`]: service("leads", ["www.kore.internal"]),
+    [`${servicesDir}/leads.json`]: service("leads", ["www"]),
   });
   await expect(main(["validate"])).rejects.toThrow(
     `${servicesDir}/leads.json: spec.hostnames[0] "www.kore.internal" is a reserved name: www cannot be claimed; the reserved names are in ${reservedList}; choose another name, for example www-app.kore.internal`,
