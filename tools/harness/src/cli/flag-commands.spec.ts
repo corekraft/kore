@@ -1,13 +1,9 @@
 // Docs: docs/decisions/0077-live-proof-gates-activation-not-merge.md
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { IdeaRepository } from "../idea/index.js";
 import {
   activationProof,
   flagRequires,
   readOverlay,
-  proofAudit,
-  unprovenLine,
-  waivedLine,
   withFlagOn,
 } from "../flag/index.js";
 import type { Command } from "../runtime/index.js";
@@ -25,9 +21,6 @@ vi.mock("../flag/index.js", async (importOriginal) => ({
   activationProof: vi.fn(),
   flagRequires: vi.fn(),
   readOverlay: vi.fn(),
-  proofAudit: vi.fn(),
-  unprovenLine: vi.fn(),
-  waivedLine: vi.fn(),
   withFlagOn: vi.fn(),
 }));
 
@@ -50,7 +43,7 @@ const flagContext = (overrides: Partial<CommandContext> = {}) =>
     ...overrides,
   });
 
-function command(name: "activate" | "audit"): Command {
+function command(name: "activate"): Command {
   const found = flagCommands[name];
   if (found === undefined) {
     throw new Error(`flag commands have no ${name} command`);
@@ -75,9 +68,6 @@ beforeEach(() => {
   vi.mocked(activationProof).mockResolvedValue({ proof: PROOF, refused: [] });
   vi.mocked(withFlagOn).mockReturnValue("TURNED ON");
   vi.mocked(openLedger).mockResolvedValue({ ledger: fakeLedger().ledger });
-  vi.mocked(proofAudit).mockResolvedValue({ unproven: [], waived: [] });
-  vi.mocked(unprovenLine).mockImplementation((u) => `line ${u.flag}`);
-  vi.mocked(waivedLine).mockImplementation((w) => `waived ${w.flag}`);
 });
 
 describe("flag activate refusals before any write", () => {
@@ -247,85 +237,5 @@ describe("flag activate under an owner waiver", () => {
     expect(await command("activate").run(context)).toBe(0);
     expect(writeFile).not.toHaveBeenCalled();
     expect(unrecorded.write).toHaveBeenCalledTimes(1);
-  });
-});
-
-describe("flag audit", () => {
-  it("passes and says so when no flag is on without proof", async () => {
-    const { context, out, err } = flagContext({ operand: undefined });
-    expect(await command("audit").run(context)).toBe(0);
-    expect(out()).toBe("Flag audit passed: no flag is on without proof.\n");
-    expect(err()).toBe("");
-  });
-
-  it("prints an empty list as JSON when it passes", async () => {
-    const { context, out } = flagContext({ json: true, operand: undefined });
-    expect(await command("audit").run(context)).toBe(0);
-    expect(out()).toBe('{"unproven":[],"waived":[]}\n');
-  });
-
-  it("fails with one line per unproven flag on stderr", async () => {
-    const unproven = [
-      { flag: "a", environment: "local", path: OVERLAY },
-      { flag: "b", environment: "local", path: OVERLAY },
-    ];
-    vi.mocked(proofAudit).mockResolvedValue({ unproven, waived: [] });
-    const { context, err, out } = flagContext({ operand: undefined });
-    expect(await command("audit").run(context)).toBe(FAILED);
-    expect(err()).toBe("line a\nline b\n");
-    expect(out()).toBe("");
-  });
-
-  it("fails with the unproven list as JSON on stderr", async () => {
-    const unproven = [{ flag: "a", environment: "local", path: OVERLAY }];
-    vi.mocked(proofAudit).mockResolvedValue({ unproven, waived: [] });
-    const { context, err } = flagContext({ json: true, operand: undefined });
-    expect(await command("audit").run(context)).toBe(FAILED);
-    expect(err()).toBe(`${JSON.stringify({ unproven, waived: [] })}\n`);
-  });
-});
-
-describe("flag audit owner waivers", () => {
-  it("passes and names each flag that rests on an owner waiver, apart from a live run", async () => {
-    const waived = [
-      {
-        flag: "w",
-        environment: "local",
-        path: OVERLAY,
-        idea: "0044",
-        proof: "docs/ideas/0044-proof.md",
-      },
-    ];
-    vi.mocked(proofAudit).mockResolvedValue({ unproven: [], waived });
-    const { context, out, err } = flagContext({ operand: undefined });
-    expect(await command("audit").run(context)).toBe(0);
-    expect(out()).toBe(
-      "Flag audit passed: no flag is on without proof.\nwaived w\n",
-    );
-    expect(err()).toBe("");
-  });
-
-  it("prints the waived flags as JSON beside the unproven list", async () => {
-    const waived = [
-      {
-        flag: "w",
-        environment: "local",
-        path: OVERLAY,
-        idea: "0044",
-        proof: "docs/ideas/0044-proof.md",
-      },
-    ];
-    vi.mocked(proofAudit).mockResolvedValue({ unproven: [], waived });
-    const { context, out } = flagContext({ json: true, operand: undefined });
-    expect(await command("audit").run(context)).toBe(0);
-    expect(out()).toBe(`${JSON.stringify({ unproven: [], waived })}\n`);
-  });
-
-  it("reads the repository root from the deps, not the working directory", async () => {
-    const { context, deps } = flagContext({ operand: undefined });
-    deps.cwd = "/elsewhere";
-    await command("audit").run(context);
-    expect(proofAudit).toHaveBeenCalledWith(deps.fs, deps.clock, "/repo");
-    expect(IdeaRepository).not.toHaveBeenCalled();
   });
 });
