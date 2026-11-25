@@ -218,6 +218,16 @@ export interface BackupTargetDeclaration {
   kind: "interim" | "off-host";
 }
 
+/**
+ * The two gate facts the external Gateway check reads (ADR 0155): the overlay's target
+ * kind, and for each service of the environment whether it has data. Rendered into a
+ * ConfigMap only while database-backups is on.
+ */
+export interface BackupFacts {
+  targetKind: BackupTargetDeclaration["kind"];
+  services: Record<string, { hasData: boolean }>;
+}
+
 /** The backup declaration of an overlay: the target, the retention and the daily schedule (ADR 0155). */
 export interface BackupDeclaration {
   target: BackupTargetDeclaration;
@@ -515,6 +525,11 @@ export interface Repository {
    * Services from here (plan 15, #1235).
    */
   registeredServices?: readonly string[] | undefined;
+  /**
+   * The gate facts for the external Gateway check, loaded only while database-backups
+   * is on and a backup target is declared (ADR 0155); undefined otherwise.
+   */
+  backupFacts?: BackupFacts | undefined;
   /**
    * The suborg names the Organization records of the environment give, in name
    * order, each a record that passes the checks; set by `loadRepository` whatever

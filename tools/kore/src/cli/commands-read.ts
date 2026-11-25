@@ -102,6 +102,7 @@ export async function validateCommand(
     yqVersion: repository.versions.tools.yq ?? "",
     recordBase: stringFlag(context.parsed, "record-base"),
     backupTarget: repository.environment.backup !== undefined,
+    backupKind: repository.environment.backup?.target.kind,
     hostnames: {
       root: repository.root,
       environment: repository.environment,

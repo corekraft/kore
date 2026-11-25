@@ -10,6 +10,7 @@ import {
 } from "../config/index.js";
 import { describeSigners, isReleaseLock } from "./release-lock.js";
 import { featureFreeCharts } from "./feature-free-charts.js";
+import { backupFactsValueText } from "./backup-facts-values.js";
 
 // Docs: docs/decisions/0043-platform-configuration-through-argo-cd.md (the handover values)
 
@@ -42,6 +43,10 @@ async function valuesTexts(
     Object.keys(features).length > 0
   ) {
     texts.push(JSON.stringify({ features }));
+  }
+  const facts = backupFactsValueText(repository, component);
+  if (facts !== undefined) {
+    texts.push(facts);
   }
   return texts;
 }

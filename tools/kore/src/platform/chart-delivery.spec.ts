@@ -158,6 +158,31 @@ test("a delivered chart release also takes the environment's feature flags as th
   });
 });
 
+test("a delivered platform-config release takes the backup facts last, after its flags, while they are loaded (ADR 0155)", async () => {
+  const facts = {
+    targetKind: "interim",
+    services: { leads: { hasData: true } },
+  } as const;
+  const repo = {
+    ...withComponents(
+      { "database-backups": true },
+      fakeComponent({ name: "kore-platform-config", kind: "local-chart" }),
+    ),
+    backupFacts: facts,
+  };
+  vi.mocked(chartDeliveryValues).mockReturnValue(delivered);
+  vi.mocked(componentValues).mockReturnValue(["local.yaml"]);
+  readsFiles({ "/repo/local.yaml": "gateway: {}\n" });
+  const composed = await composeChartDelivery(repo, "lock.json");
+  expect(composed.chartDelivery?.releaseValues).toEqual({
+    "kore-platform-config": [
+      "gateway: {}\n",
+      '{"features":{"database-backups":true}}',
+      JSON.stringify({ backupFacts: facts }),
+    ],
+  });
+});
+
 test("a release with no values files and no flags is left out, so its Application takes the chart's defaults", async () => {
   const repo = withComponents(
     undefined,
