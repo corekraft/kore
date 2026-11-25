@@ -104,6 +104,9 @@ export async function renderDelivery(
     ...(chartDelivery.serviceClassInstances === true
       ? ["--set", "serviceClassInstances=true"]
       : []),
+    ...(chartDelivery.databaseRoleSplit === true
+      ? ["--set", "databaseRoleSplit=true"]
+      : []),
     ...extra,
   ]);
   return {

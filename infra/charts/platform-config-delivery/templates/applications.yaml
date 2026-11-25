@@ -59,7 +59,7 @@ spec:
       parameters:
         - name: "gateway.hostname"
           value: {{ $.Values.platformDomain | quote }}
-      {{- else if and (eq $name "kore-postgresql-api") (or $.Values.databaseRoutes $.Values.serviceClassInstances) }}
+      {{- else if and (eq $name "kore-postgresql-api") (or $.Values.databaseRoutes $.Values.serviceClassInstances $.Values.databaseRoleSplit) }}{{- /* With databaseRoleSplit on, the composition declares the DDL and DML roles beside the app role (ADR 0171); the comment below is unchanged so the render without it stays byte-identical. */}}
       # With database-routes on, the composition's derived host, certificate and
       # route need the flag, the platform domain, the organization identifier and
       # the Gateway the routes attach to (ADR 0137, ADR 0139). With
@@ -80,6 +80,10 @@ spec:
         {{- end }}
         {{- if $.Values.serviceClassInstances }}
         - name: "serviceClassInstances"
+          value: "true"
+        {{- end }}
+        {{- if $.Values.databaseRoleSplit }}
+        - name: "databaseRoleSplit"
           value: "true"
         {{- end }}
       {{- end }}

@@ -36,6 +36,10 @@
       "description": "Only while postgresql-service-class-instances is on, kore passes true, and the PostgreSQL API's Application takes it as a Helm parameter, so its instances and sizing derive from the serviceClass (ADR 0154). Absent, the Application carries none.",
       "type": "boolean"
     },
+    "databaseRoleSplit": {
+      "description": "Only while database-role-split is on, kore passes true, and the PostgreSQL API's Application takes it as a Helm parameter, so the composition declares the DDL and DML roles beside the app role (ADR 0171). Absent, the Application carries none.",
+      "type": "boolean"
+    },
     "inClusterCa": {
       "description": "Only while in-cluster-ca is on, kore passes true, and the AppProject admits the cert-manager ClusterIssuer kind and the cert-manager namespace that kore-local-tls renders the CA into (ADR 0142). Absent, the project is unchanged.",
       "type": "boolean"

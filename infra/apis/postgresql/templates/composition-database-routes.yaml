@@ -27,8 +27,9 @@ spec:
           template: |
             {{ $routesHeader }}
             {{ $serviceClassHeader }}
-{{ .Files.Get "compositions/database-routes/compose.gotmpl" | indent 12 }}
-    - step: project-status
+{{ $compose := .Files.Get "compositions/database-routes/compose.gotmpl" }}{{ if .Values.databaseRoleSplit }}{{ $compose = $compose | replace "  bootstrap: {initdb: {database: app, owner: app}}" (printf "  bootstrap: {initdb: {database: app, owner: app}}\n%s" (include "postgresql.databaseRoles.managed" . | indent 2)) }}{{ end }}{{ $compose | indent 12 }}
+{{ if .Values.databaseRoleSplit }}{{ include "postgresql.databaseRoles.step" . }}
+{{ end }}    - step: project-status
       functionRef: { name: function-go-templating }
       input:
         apiVersion: gotemplating.fn.crossplane.io/v1beta1

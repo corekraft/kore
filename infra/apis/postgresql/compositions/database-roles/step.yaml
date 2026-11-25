@@ -1,0 +1,53 @@
+    - step: compose-database-roles
+      functionRef: { name: function-go-templating }
+      input:
+        apiVersion: gotemplating.fn.crossplane.io/v1beta1
+        kind: GoTemplate
+        source: Inline
+        inline:
+          template: |
+            {{- $name := .observed.composite.resource.metadata.name }}
+            {{- $namespace := .observed.composite.resource.metadata.namespace }}
+            {{- range $role := list "ddl" "dml" }}
+            ---
+            apiVersion: generators.external-secrets.io/v1alpha1
+            kind: Password
+            metadata:
+              name: {{ $name }}-{{ $role }}-password
+              namespace: {{ $namespace }}
+              annotations:
+                gotemplating.fn.crossplane.io/composition-resource-name: {{ $role }}-password
+                gotemplating.fn.crossplane.io/ready: "True"
+            spec:
+              length: 48
+              digits: 12
+              symbols: 0
+            ---
+            apiVersion: external-secrets.io/v1
+            kind: ExternalSecret
+            metadata:
+              name: {{ $name }}-{{ $role }}
+              namespace: {{ $namespace }}
+              annotations:
+                gotemplating.fn.crossplane.io/composition-resource-name: {{ $role }}-secret
+                gotemplating.fn.crossplane.io/ready: "True"
+            spec:
+              refreshInterval: __ROTATION_PERIOD__
+              dataFrom:
+                - sourceRef:
+                    generatorRef:
+                      apiVersion: generators.external-secrets.io/v1alpha1
+                      kind: Password
+                      name: {{ $name }}-{{ $role }}-password
+              target:
+                name: {{ $name }}-{{ $role }}
+                creationPolicy: Owner
+                template:
+                  type: kubernetes.io/basic-auth
+                  metadata:
+                    labels:
+                      cnpg.io/reload: "true"
+                  data:
+                    username: app_{{ $role }}
+                    password: {{ "\"{{ .password }}\"" }}
+            {{- end }}

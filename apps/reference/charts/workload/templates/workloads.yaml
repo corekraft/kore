@@ -46,8 +46,9 @@ spec:
   selector: {matchLabels: {app.kubernetes.io/name: reference-{{ $component }}}}
   template:
     metadata:
-      {{- if $.Values.secretVersion }}
-      annotations: {platform.kore.dev/secret-version: {{ $.Values.secretVersion | quote }}}
+      {{- $dmlVersion := and (eq $component "api") $.Values.database.roleSplit $.Values.database.dml.secretVersion }}
+      {{- if or $.Values.secretVersion $dmlVersion }}
+      annotations: {{ "{" }}{{ if $.Values.secretVersion }}platform.kore.dev/secret-version: {{ $.Values.secretVersion | quote }}{{ end }}{{ if $dmlVersion }}{{ if $.Values.secretVersion }}, {{ end }}platform.kore.dev/dml-secret-version: {{ $dmlVersion | quote }}{{ end }}{{ "}" }}
       {{- end }}
       labels: {app.kubernetes.io/name: reference-{{ $component }}, app.kubernetes.io/part-of: reference, platform.kore.dev/service-account: reference-{{ $component }}, istio.io/dataplane-mode: ambient}
     spec:
@@ -66,9 +67,15 @@ spec:
             - {name: PGHOST, valueFrom: {secretKeyRef: {name: reference-db-connection, key: host}}}
             - {name: PGPORT, valueFrom: {secretKeyRef: {name: reference-db-connection, key: port}}}
             - {name: PGDATABASE, valueFrom: {secretKeyRef: {name: reference-db-connection, key: database}}}
+            {{- if $.Values.database.roleSplit }}
+            - {name: PGUSER, value: {{ $.Values.database.dml.username | quote }}}
+            {{- else }}
             - {name: PGUSER, valueFrom: {secretKeyRef: {name: reference-db-connection, key: username}}}
+            {{- end }}
             - {name: PGSSLMODE, valueFrom: {secretKeyRef: {name: reference-db-connection, key: sslmode}}}
-            - {name: PGPASSWORD, valueFrom: {secretKeyRef: {name: {{ $.Values.database.passwordSecret.name }}, key: {{ $.Values.database.passwordSecret.key }}}}}
+            {{- $dbPassword := $.Values.database.passwordSecret }}
+            {{- if $.Values.database.roleSplit }}{{ $dbPassword = $.Values.database.dml.passwordSecret }}{{ end }}
+            - {name: PGPASSWORD, valueFrom: {secretKeyRef: {name: {{ $dbPassword.name }}, key: {{ $dbPassword.key }}}}}
             {{- end }}
             - {name: API_TOKEN, valueFrom: {secretKeyRef: {name: reference-app, key: API_TOKEN}}}
           ports: [{name: http, containerPort: 8080}]

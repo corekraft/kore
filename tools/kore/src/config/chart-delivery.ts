@@ -1,5 +1,6 @@
 import { internalGateway } from "./gateways.js";
 import {
+  databaseRoleSplitFlag,
   databaseRoutesFlag,
   enabledComponents,
   inClusterCaFlag,
@@ -50,6 +51,12 @@ export interface ChartDeliveryValues {
    * derive from the serviceClass (ADR 0154). Absent, the Application carries none.
    */
   serviceClassInstances?: true;
+  /**
+   * Only while database-role-split is on: the PostgreSQL API's Application takes
+   * the flag as a Helm parameter, so the composition declares the DDL and DML
+   * roles beside the app role (ADR 0171). Absent, the Application carries none.
+   */
+  databaseRoleSplit?: true;
   /**
    * Only while in-cluster-ca is on: the AppProject admits the cert-manager
    * ClusterIssuer kind and namespace the CA objects need (ADR 0142). Absent,
@@ -176,6 +183,9 @@ export function chartDeliveryValues(
       postgresqlServiceClassInstancesFlag,
     )
       ? { serviceClassInstances: true as const }
+      : {}),
+    ...(featureEnabled(repository.environment, databaseRoleSplitFlag)
+      ? { databaseRoleSplit: true as const }
       : {}),
     ...(featureEnabled(repository.environment, inClusterCaFlag)
       ? { inClusterCa: true as const }

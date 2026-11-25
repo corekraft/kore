@@ -10,7 +10,7 @@ import { dnsHelmArgs } from "./dns-helm-args.js";
 import { clusterResolutionArgs } from "./platform-cluster-resolution.js";
 import { keycloakWaitArgs } from "./platform-keycloak-wait.js";
 import { platformDomainVariable, runTimeDomain } from "./run-time-domain.js";
-import { serviceClassArgs } from "./service-class-args.js";
+import { postgresqlFlagArgs } from "./postgresql-flag-args.js";
 import type { Environment } from "./types.js";
 
 /** The platform domain and the platform organization's identifier. */
@@ -409,7 +409,7 @@ export function platformHelmArgs(
     ...sharedGatewayArgs(environment, component, env),
     ...clusterResolutionArgs(environment, component),
     ...databaseRoutesArgs(environment, component, env),
-    ...serviceClassArgs(environment, component),
+    ...postgresqlFlagArgs(environment, component),
     ...otlpRouteArgs(environment, component, env),
     ...dnsHelmArgs(environment, component, env, suborgs),
   ];
