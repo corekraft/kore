@@ -12,3 +12,4 @@ export {
   cloudflareTokenSecretName,
 } from "./cloudflare-token.js";
 export { ensureLocalCaTrust, loadLocalCa } from "./local-ca-trust.js";
+export { applyBackupCredential } from "./backup-credentials.js";

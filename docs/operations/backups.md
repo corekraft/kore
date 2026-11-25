@@ -53,7 +53,9 @@ and ADR 0029. The restore time objective is measured by the opt-in spec
 **Planned.** The vps environment will back up its retained data on a schedule
 ([ADR 0155](../decisions/0155-retained-databases-are-backed-up-by-a-scheduled-age-encrypted-dump-and-restored-only-from-the-controller.md),
 with the rebuild in [ADR 0156](../decisions/0156-the-box-is-rebuilt-from-git-ghcr-and-backups-under-a-recovery-hold.md)).
-Nothing here is built yet, and both flags are off in every overlay.
+The backup job is not built yet. The controller's credential apply and prune are
+built dark behind `database-backups`, and both backup flags are off in every
+overlay, so nothing here runs until a live proof turns a flag on.
 
 - **What is backed up.** Each PostgreSQL database that opts in with `backup: true`
   on its entry in the app record, which requires `retentionPolicy: Retain`.
@@ -78,6 +80,19 @@ Nothing here is built yet, and both flags are off in every overlay.
   decryption and deletion run only on the controller, which holds the read and
   prune credentials. Every real-data backup is also encrypted to a second recovery
   recipient, whose identity is in the [recovery kit](recovery-kit.md).
+- **Retention and prune (built, dark).** The newest 14 daily backups per database
+  are kept. Where the target cannot enforce that itself, `kore backup prune
+--environment vps` removes the rest as the controller: it lists with the read
+  credential, asks for consent on a terminal, and only then deletes with the
+  delete credential, each backup's manifest first. It refuses in a job or a pod,
+  and while `database-backups` is off. `kore backup policy --environment vps`
+  prints the box's write-only policy: `s3:PutObject` alone, with an explicit deny
+  on every delete and retention right.
+- **Findings for the live drill (recorded, not asserted).** No code or document
+  here says the interim target supports object lock; the drill records whether
+  it does. The drill also records whether the interim target honours
+  `If-None-Match: *` on a PUT, which is what refuses an overwrite, since an S3
+  policy cannot tell a create from an overwrite of an existing key.
 - **Freshness.** The job writes the newest success into a ConfigMap, and the
   `backups` row, the contract check, the destroy check and the rollout check read
   it without decrypting. A backup is restorable when its manifest matches the

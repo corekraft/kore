@@ -1,4 +1,5 @@
 import {
+  backupCommand,
   clusterCommand,
   platformCommand,
   appCommand,
@@ -56,6 +57,8 @@ export const COMMANDS: ReadonlyMap<string, CommandSpec> = new Map<
     },
   ],
   ["data", { mutations: ["export", "restore"], run: dataCommand }],
+  // prune deletes past-retention backups behind a terminal consent (ADR 0155); policy only prints.
+  ["backup", { mutations: ["prune"], run: backupCommand }],
   ["app", { mutations: ["up", "down"], run: appCommand }],
   ["local", { mutations: ["up", "down"], run: localCommand }],
   ["signer", { mutations: ["swap-key"], run: signerCommand }],
@@ -64,7 +67,7 @@ export const COMMANDS: ReadonlyMap<string, CommandSpec> = new Map<
   [
     "secrets",
     {
-      mutations: ["sync", "smtp", "tokens"],
+      mutations: ["sync", "smtp", "tokens", "backup"],
       alwaysMutates: true,
       run: secretsCommand,
     },

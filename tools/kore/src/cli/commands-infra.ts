@@ -31,6 +31,9 @@ import { boolFlag, stringFlag } from "./flags.js";
 import { imageLockFlag } from "./image-lock-flag.js";
 import { print } from "./output.js";
 
+// Backup prune and policy sit with the data commands, since they manage retained data's copies.
+export { backupCommand } from "./commands-backup.js";
+
 function destroyOptions(context: CommandContext): {
   yes: boolean;
   purgeData: boolean;

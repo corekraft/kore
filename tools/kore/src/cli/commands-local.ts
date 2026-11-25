@@ -5,6 +5,7 @@ import {
 } from "../images/index.js";
 import { localDown, localUp, withHostResolver } from "../local/index.js";
 import {
+  applyBackupCredential,
   applyCloudflareTokens,
   applySmtpCredentials,
   installLocalTrust,
@@ -63,6 +64,17 @@ export async function secretsCommand(context: CommandContext): Promise<number> {
           parseSmtpCredentials(await readFile("/dev/stdin", "utf8")),
         );
         print({ status: "applied", secret: "grafana-smtp" }, context.json);
+        return 0;
+      }
+      if (context.action === "backup") {
+        // The write-only credential is decrypted from its sops document and streamed on stdin, never printed.
+        const applied = await applyBackupCredential(context.repository, runner);
+        print(
+          applied === undefined
+            ? { status: "nothing-to-apply", flag: "database-backups" }
+            : { status: "applied", ...applied },
+          context.json,
+        );
         return 0;
       }
       if (context.action === "tokens") {

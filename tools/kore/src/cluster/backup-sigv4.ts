@@ -9,6 +9,8 @@ export interface SigV4Request {
   method: string;
   /** The canonical path: each segment already URI-encoded, slashes kept. */
   path: string;
+  /** The canonical query: sorted by name, each name and value URI-encoded; empty when absent. */
+  query?: string;
   /** Lower-case header names; must include `host` and `x-amz-date`. */
   headers: Record<string, string>;
   /** Hex SHA-256 of the body, which SigV4 signs with the request. */
@@ -55,7 +57,7 @@ export function authorization(
   const canonicalRequest = [
     request.method,
     request.path,
-    "",
+    request.query ?? "",
     canonicalHeaders,
     signedHeaders,
     request.payloadHash,

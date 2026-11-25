@@ -20,3 +20,13 @@ export { buildBackupManifest } from "./backup-manifest.js";
 export { decryptBackup } from "./backup-restore.js";
 export type { BackupManifest } from "./backup-manifest.js";
 export type { BackupObject, BackupTarget } from "./backup-layout.js";
+// The write-only job credential and the controller's prune (ADR 0155).
+export { credentialFromDocument } from "./backup-credentials.js";
+export type { CredentialDocument } from "./backup-credentials.js";
+export { backupJobPolicy } from "./backup-policy.js";
+export type { JobPolicy } from "./backup-policy.js";
+export { pruneBackups } from "./backup-prune.js";
+export type { PruneOptions, PruneReport } from "./backup-prune.js";
+export { s3ObjectAdmin } from "./backup-s3-admin.js";
+export type { ObjectAdmin } from "./backup-s3-admin.js";
+export type { S3Credentials, S3Target } from "./backup-s3.js";
