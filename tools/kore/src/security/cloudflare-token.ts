@@ -9,6 +9,11 @@ import {
 } from "../config/index.js";
 import { withSecretsRedacted } from "../images/index.js";
 import type { Runner } from "../runtime/index.js";
+import {
+  rollDeployment,
+  rollsDeployment,
+  type RolloutTarget,
+} from "./token-rollout.js";
 
 // Docs: docs/decisions/0161-cert-manager-solves-dns-01-through-cloudflare-and-issues-per-suborg-wildcards-behind-acme-dns01.md, docs/decisions/0162-external-dns-publishes-route-records-for-the-external-gateway-behind-external-dns.md, docs/decisions/0163-one-cloudflare-zone-holds-the-platform-domain-opentofu-owns-fixed-records-and-external-dns-owns-route-records.md
 
@@ -27,6 +32,11 @@ export interface TokenConsumer {
   flag: string;
   namespace: string;
   document: string;
+  /**
+   * The Deployment that reads the token at start. Rolled once when its document
+   * changes; a consumer that reads its token at challenge time has none.
+   */
+  deployment?: string;
 }
 
 export const tokenConsumers: readonly TokenConsumer[] = [
@@ -35,6 +45,7 @@ export const tokenConsumers: readonly TokenConsumer[] = [
     flag: "external-dns",
     namespace: "kore-external-dns",
     document: "cloudflare-external-dns.enc.yaml",
+    deployment: "external-dns",
   },
   {
     name: "acme-dns01",
@@ -143,6 +154,26 @@ interface PreparedToken {
 }
 
 /**
+ * The Deployment a prepared token rolls when its document changed; undefined for
+ * a consumer that reads its token at challenge time.
+ */
+function rolloutTarget(
+  context: string,
+  { consumer, checksum }: PreparedToken,
+): RolloutTarget | undefined {
+  return consumer.deployment === undefined
+    ? undefined
+    : {
+        context,
+        name: consumer.name,
+        namespace: consumer.namespace,
+        secret: cloudflareTokenSecretName,
+        deployment: consumer.deployment,
+        checksum,
+      };
+}
+
+/**
  * Reads and decrypts one consumer's document. sops prints the plaintext only on
  * stdout, captured in memory, so it never reaches disk or an argument. The
  * checksum is over the encrypted bytes, so an unchanged document changes nothing.
@@ -191,7 +222,8 @@ export interface AppliedCloudflareToken {
  * decrypted before the first kubectl call, so a missing or bad document changes
  * nothing in the cluster. A local environment applies nothing: its external-dns
  * runs with the inmemory provider and needs no token. With every flag off the
- * function reads nothing.
+ * function reads nothing. A consumer whose document changed, with its Deployment
+ * in place, has that Deployment rolled once after its Secret applies.
  */
 export async function applyCloudflareTokens(
   repository: Repository,
@@ -208,6 +240,13 @@ export async function applyCloudflareTokens(
   const prepared: PreparedToken[] = [];
   for (const consumer of consumers) {
     prepared.push(await prepare(root, environment.name, consumer, runner));
+  }
+  const rolling: RolloutTarget[] = [];
+  for (const entry of prepared) {
+    const target = rolloutTarget(environment.kubeContext, entry);
+    if (target !== undefined && (await rollsDeployment(target, runner))) {
+      rolling.push(target);
+    }
   }
   await withSecretsRedacted(
     prepared.map(({ token }) => token),
@@ -233,6 +272,9 @@ export async function applyCloudflareTokens(
       }
     },
   );
+  for (const target of rolling) {
+    await rollDeployment(target, runner);
+  }
   return prepared.map(({ consumer }) => ({
     consumer: consumer.name,
     namespace: consumer.namespace,

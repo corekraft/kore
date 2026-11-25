@@ -6,6 +6,7 @@ import { withSecretsRedacted } from "../images/index.js";
 import type { Runner, RunResult } from "../runtime/index.js";
 import type { Run } from "./security-support.js";
 import { errno, fakeRepository } from "./security-support.js";
+import { rollsDeployment } from "./token-rollout.js";
 import {
   activeTokenConsumers,
   applyCloudflareTokens,
@@ -19,6 +20,10 @@ vi.mock("../config/index.js", () => ({
 }));
 vi.mock("../images/index.js", () => ({
   withSecretsRedacted: vi.fn(async (_secrets, operation) => await operation()),
+}));
+vi.mock("./token-rollout.js", () => ({
+  rollsDeployment: vi.fn(),
+  rollDeployment: vi.fn(),
 }));
 
 const externalDocument =
@@ -86,6 +91,7 @@ const vps = (features: Record<string, boolean>) =>
 
 beforeEach(() => {
   vi.resetAllMocks();
+  vi.mocked(rollsDeployment).mockResolvedValue(false);
   vi.mocked(withSecretsRedacted).mockImplementation(
     async (_secrets, operation) => await operation(),
   );
