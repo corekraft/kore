@@ -1,0 +1,112 @@
+---
+apiVersion: postgresql.cnpg.io/v1
+kind: Cluster
+metadata:
+  name: orders-db
+  namespace: orders
+  annotations:
+    gotemplating.fn.crossplane.io/composition-resource-name: database
+  labels:
+    platform.kore.dev/retention: Delete
+spec:
+  instances: 1
+  inheritedMetadata:
+    labels:
+      platform.kore.dev/retention: Delete
+      istio.io/dataplane-mode: none
+  imageName: ghcr.io/cloudnative-pg/postgresql:17.4@sha256:3c0ba08ea353c9705a755c113e4ae395be76553e0ed68076e5410cb09b9d17d9
+  storage:
+    size: 5Gi
+    storageClass: kore-standard
+  bootstrap: {initdb: {database: app, owner: app}}
+  managed:
+    roles:
+      - name: app_ddl
+        ensure: present
+        login: true
+        inRoles: [app]
+        passwordSecret: {name: orders-db-ddl}
+      - name: app_dml
+        ensure: present
+        login: true
+        passwordSecret: {name: orders-db-dml}
+---
+apiVersion: external-secrets.io/v1
+kind: ExternalSecret
+metadata:
+  name: orders-db-ddl
+  namespace: orders
+  annotations:
+    gotemplating.fn.crossplane.io/composition-resource-name: ddl-secret
+spec:
+  refreshInterval: 720h
+  dataFrom:
+    - sourceRef:
+        generatorRef:
+          apiVersion: generators.external-secrets.io/v1alpha1
+          kind: Password
+          name: orders-db-ddl-password
+  target:
+    name: orders-db-ddl
+    creationPolicy: Owner
+    template:
+      type: kubernetes.io/basic-auth
+      metadata:
+        labels:
+          cnpg.io/reload: "true"
+      data:
+        username: app_ddl
+        password: "{{ .password }}"
+---
+apiVersion: external-secrets.io/v1
+kind: ExternalSecret
+metadata:
+  name: orders-db-dml
+  namespace: orders
+  annotations:
+    gotemplating.fn.crossplane.io/composition-resource-name: dml-secret
+spec:
+  refreshInterval: 720h
+  dataFrom:
+    - sourceRef:
+        generatorRef:
+          apiVersion: generators.external-secrets.io/v1alpha1
+          kind: Password
+          name: orders-db-dml-password
+  target:
+    name: orders-db-dml
+    creationPolicy: Owner
+    template:
+      type: kubernetes.io/basic-auth
+      metadata:
+        labels:
+          cnpg.io/reload: "true"
+      data:
+        username: app_dml
+        password: "{{ .password }}"
+---
+apiVersion: generators.external-secrets.io/v1alpha1
+kind: Password
+metadata:
+  name: orders-db-ddl-password
+  namespace: orders
+  annotations:
+    gotemplating.fn.crossplane.io/composition-resource-name: ddl-password
+    gotemplating.fn.crossplane.io/ready: "True"
+spec:
+  length: 48
+  digits: 12
+  symbols: 0
+---
+apiVersion: generators.external-secrets.io/v1alpha1
+kind: Password
+metadata:
+  name: orders-db-dml-password
+  namespace: orders
+  annotations:
+    gotemplating.fn.crossplane.io/composition-resource-name: dml-password
+    gotemplating.fn.crossplane.io/ready: "True"
+spec:
+  length: 48
+  digits: 12
+  symbols: 0
