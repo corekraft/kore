@@ -36,7 +36,7 @@ rescue mode is the way back in.
 
 The `incus` role creates `kore-agents` (an Incus VM on the private bridge
 `incusbr0`), and the second play converges it through the host. The VM runs
-herdr-core (`hc`), bd (beads), Claude Code, gh, mise, mosh and tmux as the `agent` account,
+herdr-core (`hc`), bd (beads, with its usage metrics kept off), Claude Code, gh, mise, mosh and tmux as the `agent` account,
 which has Docker and no sudo. The `agents` role gives it a local mkcert CA in its
 home and trusts that CA in the system store, as root, so `kore local up` never
 asks for a password; the key stays on the VM. It also adds a `kore-dns` link that

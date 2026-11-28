@@ -75,3 +75,48 @@ test("bd is installed after the agent's local bin directory exists", async () =>
   const install = tasks.indexOf("- name: Install bd\n");
   assert.ok(bin >= 0 && install > bin);
 });
+
+test("the agent's bd config directory is created and owned by the agent", async () => {
+  const tasks = await readRoot(tasksPath);
+  assert.equal(
+    taskBlock(tasks, "Create the agent's bd config directory"),
+    [
+      "  ansible.builtin.file:",
+      '    path: "/home/{{ agents_user }}/.config/bd"',
+      "    state: directory",
+      '    owner: "{{ agents_user }}"',
+      '    group: "{{ agents_user }}"',
+      '    mode: "0755"',
+      "",
+    ].join("\n"),
+  );
+});
+
+test("bd's usage metrics are kept off in the agent's bd config", async () => {
+  const tasks = await readRoot(tasksPath);
+  assert.equal(
+    taskBlock(tasks, "Keep bd's usage metrics off"),
+    [
+      "  # By default bd sends anonymous usage metrics (command names, version, OS and",
+      "  # a machine-derived id) off the host. This is what `bd metrics off` writes,",
+      "  # so a rebuilt VM keeps them off too.",
+      "  ansible.builtin.copy:",
+      '    dest: "/home/{{ agents_user }}/.config/bd/config.yaml"',
+      "    content: |",
+      "      metrics:",
+      "        disabled: true",
+      '    owner: "{{ agents_user }}"',
+      '    group: "{{ agents_user }}"',
+      '    mode: "0644"',
+      "",
+    ].join("\n"),
+  );
+});
+
+test("bd's metrics are turned off after bd is installed, once its config directory exists", async () => {
+  const tasks = await readRoot(tasksPath);
+  const install = tasks.indexOf("- name: Install bd\n");
+  const dir = tasks.indexOf("- name: Create the agent's bd config directory\n");
+  const config = tasks.indexOf("- name: Keep bd's usage metrics off\n");
+  assert.ok(install >= 0 && dir > install && config > dir);
+});
