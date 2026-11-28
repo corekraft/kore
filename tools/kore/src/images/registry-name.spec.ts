@@ -2,6 +2,7 @@
 import { lookup } from "node:dns/promises";
 import { beforeEach, expect, test, vi } from "vitest";
 import { registryByName, registryHostname } from "../config/index.js";
+import { CommandError } from "../runtime/index.js";
 import { fakeRepository, fakeRunner } from "./images-support.js";
 import { registryRequest } from "./registry-https.js";
 import {
@@ -108,14 +109,108 @@ test("a connection the Gateway drops means the same missing route", async () => 
   );
 });
 
-test("a registry certificate without the name asks for the reissued certificate to be served", async () => {
+test("a registry certificate without the name is named, and kore local up restarts the proxy to serve the reissued one", async () => {
   vi.mocked(registryRequest).mockRejectedValue(
     failure("ERR_TLS_CERT_ALTNAME_INVALID"),
   );
-  const { runner } = fakeRunner();
+  const { runner, run } = fakeRunner();
   await expect(registryNameProblem(repository, runner)).resolves.toBe(
-    `the registry's certificate does not carry ${name} (ERR_TLS_CERT_ALTNAME_INVALID); cert-manager reissues it once registry-by-name is on, but the proxy reads it at start, so run \`kubectl --context k3d-kore-local --namespace kore-registry rollout restart deployment/oci-registry\``,
+    `the registry's certificate does not carry ${name} (ERR_TLS_CERT_ALTNAME_INVALID); cert-manager reissues it once registry-by-name is on, and \`kore local up\` restarts the registry proxy to serve it`,
   );
+  expect(run).not.toHaveBeenCalled();
+});
+
+test("a certificate that gained the name restarts the registry proxy in the environment's context, waits for it, and checks the name again", async () => {
+  vi.mocked(registryRequest)
+    .mockRejectedValueOnce(failure("ERR_TLS_CERT_ALTNAME_INVALID"))
+    .mockResolvedValueOnce({ status: 401, headers: {}, body: "" });
+  const { runner, run } = fakeRunner();
+  await expect(ensureRegistryName(repository, runner)).resolves.toBeUndefined();
+  expect(run.mock.calls).toEqual([
+    [
+      "kubectl",
+      [
+        "--context",
+        "k3d-kore-local",
+        "--namespace",
+        "kore-registry",
+        "rollout",
+        "restart",
+        "deployment/oci-registry",
+      ],
+    ],
+    [
+      "kubectl",
+      [
+        "--context",
+        "k3d-kore-local",
+        "--namespace",
+        "kore-registry",
+        "rollout",
+        "status",
+        "deployment/oci-registry",
+        "--timeout=2m",
+      ],
+    ],
+  ]);
+  expect(registryRequest).toHaveBeenCalledTimes(2);
+});
+
+test("a registry proxy whose new pod never becomes ready fails naming the deployment, namespace, context, the likely cause and how to inspect the pod, and checks the name no further", async () => {
+  vi.mocked(registryRequest).mockRejectedValue(
+    failure("ERR_TLS_CERT_ALTNAME_INVALID"),
+  );
+  const { runner, run } = fakeRunner();
+  const timedOut = new CommandError(
+    "kubectl",
+    ["rollout", "status", "deployment/oci-registry", "--timeout=2m"],
+    {
+      stdout: "",
+      stderr: "error: timed out waiting for the condition",
+      code: 1,
+    },
+  );
+  run
+    .mockResolvedValueOnce({ stdout: "", stderr: "", code: 0 })
+    .mockRejectedValueOnce(timedOut);
+  await expect(ensureRegistryName(repository, runner)).rejects.toThrow(
+    new Error(
+      "deployment/oci-registry in kore-registry on context k3d-kore-local did not finish rolling out within 2m after the restart (error: timed out waiting for the condition). The likely cause is that the new registry pod is not Ready; inspect it with `kubectl --context k3d-kore-local --namespace kore-registry describe pod -l app.kubernetes.io/name=oci-registry`, then run `kore local up` again",
+    ),
+  );
+  expect(run).toHaveBeenCalledTimes(2);
+  expect(registryRequest).toHaveBeenCalledTimes(1);
+});
+
+test("a certificate that still lacks the name after the proxy restarts names the Certificate to check, and does not restart again", async () => {
+  vi.mocked(registryRequest).mockRejectedValue(
+    failure("ERR_TLS_CERT_ALTNAME_INVALID"),
+  );
+  const { runner, run } = fakeRunner();
+  await expect(ensureRegistryName(repository, runner)).rejects.toThrow(
+    new Error(
+      `${name} is still missing from the registry's certificate after the registry proxy restarted (ERR_TLS_CERT_ALTNAME_INVALID); the proxy serves the certificate it read, so check that Certificate oci-registry-tls in kore-registry is Ready on context k3d-kore-local, then run \`kore local up\` again`,
+    ),
+  );
+  expect(run).toHaveBeenCalledTimes(2);
+  expect(run.mock.calls[0]?.[1]).toContain("restart");
+});
+
+test("a name the registry already serves restarts nothing", async () => {
+  const { runner, run } = fakeRunner();
+  await expect(ensureRegistryName(repository, runner)).resolves.toBeUndefined();
+  expect(run).not.toHaveBeenCalled();
+});
+
+test("a problem other than a missing name is reported as is, and the proxy is not restarted", async () => {
+  vi.mocked(registryRequest).mockRejectedValue(failure("ECONNREFUSED"));
+  const { runner, run } = fakeRunner();
+  await expect(ensureRegistryName(repository, runner)).rejects.toThrow(
+    new Error(
+      `nothing answers ${name} on port 443 (ECONNREFUSED); turn on platform-dns, which publishes the 443 mapping, and recreate a local cluster created without it with \`kore local down --prune\`, then \`kore local up\``,
+    ),
+  );
+  expect(run).not.toHaveBeenCalled();
 });
 
 test("an unexpected status from the registry name is reported with the status", async () => {
