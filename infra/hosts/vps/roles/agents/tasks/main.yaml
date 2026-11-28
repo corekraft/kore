@@ -192,6 +192,27 @@
   # A check run downloads nothing, so there is no tarball to unpack yet.
   when: not (ansible_check_mode and agents_beads_download.changed)
 
+- name: Create the agent's bd config directory
+  ansible.builtin.file:
+    path: "/home/{{ agents_user }}/.config/bd"
+    state: directory
+    owner: "{{ agents_user }}"
+    group: "{{ agents_user }}"
+    mode: "0755"
+
+- name: Keep bd's usage metrics off
+  # By default bd sends anonymous usage metrics (command names, version, OS and
+  # a machine-derived id) off the host. This is what `bd metrics off` writes,
+  # so a rebuilt VM keeps them off too.
+  ansible.builtin.copy:
+    dest: "/home/{{ agents_user }}/.config/bd/config.yaml"
+    content: |
+      metrics:
+        disabled: true
+    owner: "{{ agents_user }}"
+    group: "{{ agents_user }}"
+    mode: "0644"
+
 - name: Activate mise in the agent's shells
   ansible.builtin.lineinfile:
     path: "/home/{{ agents_user }}/.bashrc"
