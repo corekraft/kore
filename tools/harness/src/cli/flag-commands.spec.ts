@@ -9,13 +9,17 @@ vi.mock("./flag-audit-command.js", () => ({ audit: { summary: "audit" } }));
 vi.mock("./flag-progress-command.js", () => ({
   progress: { summary: "progress" },
 }));
+vi.mock("./flag-retire-command.js", () => ({
+  retire: { summary: "retire" },
+}));
 
 describe("flag command table", () => {
-  it("names the activate, audit and progress commands, each from its own module", () => {
+  it("names the activate, audit, progress and retire commands, each from its own module", () => {
     expect(flagCommands).toEqual({
       activate: { summary: "activate" },
       audit: { summary: "audit" },
       progress: { summary: "progress" },
+      retire: { summary: "retire" },
     });
   });
 });

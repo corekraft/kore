@@ -15,9 +15,10 @@ vi.mock("./proof.js");
 vi.mock("./recorded-lock.js");
 vi.mock("./release-lock.js");
 
-test("the flag barrel exposes exactly the overlay, proof, audit and app window entry points", () => {
+test("the flag barrel exposes exactly the overlay, proof, audit, app window and retirement entry points", () => {
   expect(Object.keys(flag).sort()).toEqual(
     [
+      "FLAG_MANIFEST",
       "FlagError",
       "activationProof",
       "assertMayTurnOn",
@@ -26,16 +27,21 @@ test("the flag barrel exposes exactly the overlay, proof, audit and app window e
       "flagRequires",
       "isWaiverRefusal",
       "parseCharts",
+      "parseManifest",
       "parseReleaseLock",
       "platformWindows",
       "proofAudit",
       "progressOf",
       "readManifest",
+      "readManifestText",
       "readOverlay",
       "recordAppFlagWindow",
       "recordedProofs",
+      "remainingReferences",
       "renderCharts",
       "renderProgress",
+      "retireRefusals",
+      "retirementEnvironments",
       "unprovenFlags",
       "unprovenLine",
       "VPS_ENVIRONMENT",
@@ -43,6 +49,8 @@ test("the flag barrel exposes exactly the overlay, proof, audit and app window e
       "vpsUnprovenFlags",
       "waivedLine",
       "withFlagOn",
+      "withoutFlag",
+      "withoutManifestEntry",
     ].sort(),
   );
 });

@@ -81,17 +81,22 @@ export function parseManifest(text: string): ManifestEntry[] {
   return flags.map(entryOf);
 }
 
+/** The manifest's text at the repository root; a manifest that cannot be read is refused by name (ADR 0148). */
+export async function readManifestText(
+  fs: FileSystem,
+  root: string,
+): Promise<string> {
+  return fs.readFile(`${root}/${FLAG_MANIFEST}`).catch((cause: unknown) => {
+    throw new FlagError(
+      `Cannot read ${FLAG_MANIFEST} (${cause instanceof Error ? cause.message : String(cause)}); the progress report reads the flag entries there. Restore the manifest, then rerun.`,
+    );
+  });
+}
+
 /** Reads the manifest at the repository root; a manifest that cannot be read is refused by name (ADR 0148). */
 export async function readManifest(
   fs: FileSystem,
   root: string,
 ): Promise<ManifestEntry[]> {
-  const text = await fs
-    .readFile(`${root}/${FLAG_MANIFEST}`)
-    .catch((cause: unknown) => {
-      throw new FlagError(
-        `Cannot read ${FLAG_MANIFEST} (${cause instanceof Error ? cause.message : String(cause)}); the progress report reads the flag entries there. Restore the manifest, then rerun.`,
-      );
-    });
-  return parseManifest(text);
+  return parseManifest(await readManifestText(fs, root));
 }

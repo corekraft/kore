@@ -1,7 +1,7 @@
 // Docs: docs/decisions/0148-a-flag-manifest-declares-each-flags-kind-environments-and-prerequisites.md
 import { describe, expect, it } from "vitest";
 import { FlagError } from "./overlay.js";
-import { parseManifest, readManifest } from "./manifest.js";
+import { parseManifest, readManifest, readManifestText } from "./manifest.js";
 import { errno, fakeFileSystem } from "./flag-support.js";
 
 const ROOT = "/repo";
@@ -137,6 +137,28 @@ describe("parseManifest refuses a manifest it cannot read", () => {
     expect(() => parseManifest(text)).toThrow(
       new FlagError(
         "infra/catalog/flags.yaml requires of a-flag must be a list of flag names. Fix it, then rerun.",
+      ),
+    );
+  });
+});
+
+describe("readManifestText", () => {
+  it("returns the manifest's text as the repository holds it, unparsed", async () => {
+    const text = manifestText([
+      { name: "x", kind: "feature", applies: ["vps"] },
+    ]);
+    const fs = fakeFileSystem({ [MANIFEST]: text });
+    expect(await readManifestText(fs, ROOT)).toBe(text);
+  });
+
+  it("refuses a manifest that cannot be read, naming the file and the cause", async () => {
+    const fs = fakeFileSystem(
+      {},
+      { readFile: () => Promise.reject(errno("ENOENT")) },
+    );
+    await expect(readManifestText(fs, ROOT)).rejects.toEqual(
+      new FlagError(
+        "Cannot read infra/catalog/flags.yaml (ENOENT); the progress report reads the flag entries there. Restore the manifest, then rerun.",
       ),
     );
   });

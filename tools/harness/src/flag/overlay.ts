@@ -100,7 +100,7 @@ export async function readOverlay(
 }
 
 /** The span of the `features` object's braces, or undefined when the overlay has none. */
-function featuresSpan(text: string): [number, number] | undefined {
+export function featuresSpan(text: string): [number, number] | undefined {
   const key = /["']?features["']?\s*:\s*\{/.exec(text);
   if (key === null) {
     return undefined;

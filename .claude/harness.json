@@ -1,5 +1,6 @@
 {
   "ownerLogin": "junners",
+  "retireSoakDays": 14,
   "cost": {
     "trailingIdeas": 5,
     "tokensPerIdea": {

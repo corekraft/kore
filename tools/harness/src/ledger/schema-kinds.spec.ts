@@ -16,6 +16,10 @@ describe("the ledger event kinds", () => {
     );
   });
 
+  it("lists flag.retired, the event flag retire writes when it removes a soaked feature flag (ADR 0149)", () => {
+    expect(KINDS).toContain("flag.retired");
+  });
+
   it("still accepts the kinds older events were written with, and the review run's", () => {
     expect(KINDS).toEqual(
       expect.arrayContaining(["challenge.round", "send-back", "review.run"]),
