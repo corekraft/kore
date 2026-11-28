@@ -7,14 +7,15 @@ import { renderChart } from "../../src/testing/index.js";
 // Renders the Gateway that platform-config owns, with the data-plane metrics
 // flag and the ingress flag stated on and off, and reads its infrastructure
 // block. The flag marks the data-plane pods for the chart's pod scrape only
-// with agentgateway as the GatewayClass.
+// with agentgateway as the GatewayClass, and bypasses ambient inbound capture
+// on those pods so the plaintext scrape reaches port 15020 (issue 1514).
 
 const flag = "agentgateway-data-plane-metrics";
 const ingressFlag = "ingress-agentgateway";
 // The annotations sit under the Gateway's infrastructure block, after its labels
 // and their comment lines.
 const scrapeAnnotations =
-  /^ {2}infrastructure:\n[\s\S]*?^ {4}annotations:\n {6}prometheus\.io\/scrape: "true"\n {6}prometheus\.io\/port: "15020"$/m;
+  /^ {2}infrastructure:\n[\s\S]*?^ {4}annotations:\n {6}prometheus\.io\/scrape: "true"\n {6}prometheus\.io\/port: "15020"\n {6}ambient\.istio\.io\/bypass-inbound-capture: "true"$/m;
 
 async function renderGateway(
   features: Record<string, boolean>,
@@ -49,14 +50,24 @@ test("with the flag on and agentgateway as the class, the data-plane pods are an
   assert.match(gateway, scrapeAnnotations);
 });
 
-test("with the flag off the Gateway carries no scrape annotation, so its rendered output is as before", async () => {
+test("with the flag on, the data-plane pods bypass ambient inbound capture, so only outbound traffic is captured", async () => {
+  const gateway = await renderGateway({ [flag]: true, [ingressFlag]: true });
+  assert.match(
+    gateway,
+    /^ {6}ambient\.istio\.io\/bypass-inbound-capture: "true"$/m,
+  );
+});
+
+test("with the flag off the Gateway carries no scrape annotation and no capture bypass, so its rendered output is as before", async () => {
   const gateway = await renderGateway({ [flag]: false, [ingressFlag]: true });
   assert.match(gateway, /gatewayClassName: agentgateway/);
   assert.doesNotMatch(gateway, /prometheus\.io\//);
+  assert.doesNotMatch(gateway, /bypass-inbound-capture/);
 });
 
-test("with the flag on but the Istio class, the Gateway gets no scrape annotation", async () => {
+test("with the flag on but the Istio class, the Gateway gets no scrape annotation and no capture bypass", async () => {
   const gateway = await renderGateway({ [flag]: true, [ingressFlag]: false });
   assert.match(gateway, /gatewayClassName: istio/);
   assert.doesNotMatch(gateway, /prometheus\.io\//);
+  assert.doesNotMatch(gateway, /bypass-inbound-capture/);
 });

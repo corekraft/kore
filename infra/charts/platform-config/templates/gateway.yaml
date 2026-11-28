@@ -16,11 +16,18 @@ spec:
 {{- end }}
 {{- if include "platform-config.agentgatewayMetrics" . }}
     # Marks the data-plane pods for the chart's Prometheus pod scrape, the same
-    # annotations the pinned ztunnel pods carry (issue 1514). Unverified until the
-    # live run: that agentgateway copies Gateway infrastructure annotations too.
+    # annotations the pinned ztunnel pods carry (issue 1514). The live run saw
+    # agentgateway copy them onto the pods. The plaintext scrape to port 15020
+    # fails with EOF on the enrolled pods; the cause is unverified, and the
+    # likely one is ambient's inbound capture. The Istio 1.31 bypass annotation
+    # keeps only outbound capture, for a workload that takes traffic from
+    # out-of-mesh clients, as this gateway does. Side effect: ztunnel no longer
+    # captures inbound to this pod, so kore-system's mesh policies (STRICT default,
+    # default-deny) do not gate its inbound. Unverified until the live run.
     annotations:
       prometheus.io/scrape: "true"
       prometheus.io/port: "15020"
+      ambient.istio.io/bypass-inbound-capture: "true"
 {{- end }}
 {{- if or .Values.gateway.service.type (include "platform-config.proxyDefaults" .) }}
 {{- if eq .Values.gateway.className "istio" }}
