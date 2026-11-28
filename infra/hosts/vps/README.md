@@ -82,22 +82,20 @@ kubeconfig to `~/.kube/kore-vps.yaml` on your machine with the context
 
 k3s pulls from the in-cluster registry (`registry.address` in
 `infra/environments/vps/environment.yaml`) over TLS, so its containerd needs
-the registry's public CA. The role manages this only while the `k3s-registry-trust`
-flag is on in `infra/environments/vps/environment.yaml` (off until a live run
-and `harness flag activate`); with it off a run changes nothing here. After
-`kore platform up --environment vps` has installed the registry, from your
-machine (only the public `ca.crt`, never a key; the file stays outside the
-repository; with the flag on and no file the run stops and says so):
+the registry's public CA. The role installs it with no by-hand step. While the
+`k3s-registry-trust` flag is on in `infra/environments/vps/environment.yaml` (off
+until a live run and `harness flag activate`), the role reads the public `ca.crt`
+from the registry's TLS Secret `kore-registry/oci-registry-tls` through the
+controller's kubeconfig, and only that key: the Secret's private key never leaves
+the cluster. It writes the CA to `/etc/rancher/k3s/registry-ca.crt` and
+`/etc/rancher/k3s/registries.yaml`, and restarts k3s only when one of them
+changed. A run with the flag off changes nothing here.
 
-```sh
-kubectl --context kore-vps -n cosign-system get configmap kore-registry-ca \
-  -o jsonpath='{.data.ca\.crt}' > ~/.kube/kore-vps-registry-ca.crt
-mise run vps-apply
-```
-
-The run installs the CA at `/etc/rancher/k3s/registry-ca.crt`, writes
-`/etc/rancher/k3s/registries.yaml`, and restarts k3s once (the pods restart
-with it). It refuses a file that holds a private key.
+Until `kore platform up --environment vps` has deployed the registry, the Secret
+is absent: the task skips and says the registry is not deployed yet, and the run
+succeeds. The next `mise run vps-apply` after the registry is deployed installs
+the CA. The role refuses a Secret whose `ca.crt` holds a private key or no
+certificate, before anything is written to the node.
 
 ## The OpenBao static seal key
 

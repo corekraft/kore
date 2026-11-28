@@ -28,9 +28,12 @@ k3s_registry_address: "{{ k3s_vps_environment.registry.address }}"
 # trust and a run changes nothing here.
 k3s_registry_trust: "{{ k3s_vps_environment.features['k3s-registry-trust'] | default(false) }}"
 
-# The registry's public CA (ca.crt only, never a key), exported on the
-# controller outside the repository.
-k3s_registry_ca_source: ~/.kube/kore-vps-registry-ca.crt
+# The registry's TLS Secret, which cert-manager fills (ADR 0058). The role reads
+# only its ca.crt key, with the controller's kubeconfig; the Secret's key never
+# leaves the cluster. The names are kore's (tools/kore/src/images/registry-auth.ts
+# and registry-tls.ts), and the role's test pins them to those.
+k3s_registry_namespace: kore-registry
+k3s_registry_secret_name: oci-registry-tls
 k3s_registry_ca_path: /etc/rancher/k3s/registry-ca.crt
 
 # Where the controller keeps the kubeconfig, outside the repository.
