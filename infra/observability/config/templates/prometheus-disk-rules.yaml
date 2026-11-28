@@ -1,0 +1,38 @@
+{{- /*
+Node disk and volume fill for the vps Prometheus (issue #1516). Its own ConfigMap,
+mounted only by the environment that loads these rules, so local renders as before.
+
+Sources, all already scraped by the chart's default kubernetes-nodes and
+kubernetes-nodes-cadvisor jobs, so no node-exporter image is needed (ADR 0114):
+- the node filesystem is cAdvisor's root-cgroup filesystem series, one per block device;
+- a volume is kubelet's volume stats. The local-path provisioner ignores a volume's
+  requested size, so its volumes report the filesystem they sit on.
+
+Notify-only (ADR 0114, ADR 0177): each alert carries enforcement: notify-only, which
+means it tells an operator and never blocks, rolls back or scales anything.
+
+The free-space series is the activation floor's source (ADR 0174). It is the lowest
+free ratio across the node's block devices, so it includes the filesystem that holds
+/var/lib/rancher and is never looser than that filesystem alone.
+
+Thresholds are chart values in percent (values.yaml, disk); the rules compare ratios.
+*/ -}}
+{{- $fill := divf .Values.disk.volumeFillPercent 100 }}
+{{- $critical := divf .Values.disk.nodeFilesystemCriticalPercent 100 }}
+{{- $records := list
+  (dict "record" "kore:node_filesystem_free_ratio" "expr" "min by (instance) (1 - container_fs_usage_bytes{id=\"/\", device=~\"/dev/.+\"} / container_fs_limit_bytes{id=\"/\", device=~\"/dev/.+\"})")
+  (dict "record" "kore:volume_fill_ratio" "expr" "kubelet_volume_stats_used_bytes / kubelet_volume_stats_capacity_bytes")
+}}
+{{- $alerts := list
+  (dict "alert" "KoreVolumeFillHigh" "expr" (printf "kore:volume_fill_ratio > %v" $fill) "for" "10m" "labels" (dict "severity" "warning" "enforcement" "notify-only") "annotations" (dict "summary" (printf "A volume on the node is more than %v percent full" .Values.disk.volumeFillPercent)))
+  (dict "alert" "KoreNodeFilesystemCritical" "expr" (printf "1 - kore:node_filesystem_free_ratio > %v" $critical) "for" "5m" "labels" (dict "severity" "critical" "enforcement" "notify-only") "annotations" (dict "summary" (printf "The node filesystem that holds the volumes is more than %v percent full" .Values.disk.nodeFilesystemCriticalPercent)))
+}}
+{{- $groups := list (dict "name" "kore.disk" "rules" (concat $records $alerts)) }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: kore-prometheus-disk-rules
+  namespace: {{ .Release.Namespace }}
+data:
+  disk.yaml: |
+{{ dict "groups" $groups | toPrettyJson | indent 4 }}
