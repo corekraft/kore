@@ -1,0 +1,68 @@
+{{- /*
+Application images in suborg namespaces (issue 1556, ADR 0165, ADR 0166). While
+suborg-image-policy is on, every app record with a release gets its own
+ClusterImagePolicy, kore-app-<service>. kore passes the records as
+applicationImages: each service, its record's repository and its release
+digests, and only while the flag is on.
+
+- Its globs are the record's release digests, "**@sha256:<digest>". A record
+  carries no image repository (ADR 0166, issue 1575), so the digest is what ties
+  an image to its record, whichever repository serves it.
+- It runs in enforce from the first deploy, whatever trust.mode says: no
+  application image exists yet to break. kore-platform-images keeps its own
+  policy and trust.mode (warn).
+- It has exactly one authority, platform-workflow: keyless, with the platform
+  workflow identity of trust (its issuer and exact subjects), never a regexp,
+  a static pass or a key.
+- Its Rego policy (policies/application-images.rego) binds the image to the
+  record: a signature from the platform workflow counts only when the repository
+  its workflow ran in (Fulcio OID 1.3.6.1.4.1.57264.1.5) is the record's
+  repository. Policy Controller v0.13.1 cannot read the newer source-repository
+  extension (OID 1.12) in a policy; its PolicyResult carries the GitHub workflow
+  repository only.
+
+A policy that matches an image must pass; a warn policy that matches the same
+image only warns, so this enforce policy decides for a record's digests.
+*/ -}}
+{{- $features := .Values.features | default dict }}
+{{- if index $features "suborg-image-policy" }}
+{{- if ne .Values.trust.type "keyless" }}
+{{- fail "suborg-image-policy needs a keyless trust (the platform workflow identity); set trust.type keyless in the kore-image-policy values overlay, or turn suborg-image-policy off" }}
+{{- end }}
+{{- $rules := .Files.Get "policies/application-images.rego" }}
+{{- range .Values.applicationImages }}
+{{- $record := dict "repository" (required "applicationImages[].repository is required: the record's repository that signs its images" .repository) "issuer" $.Values.trust.issuer "subjects" $.Values.trust.subjects }}
+---
+apiVersion: policy.sigstore.dev/v1beta1
+kind: ClusterImagePolicy
+metadata:
+  name: {{ printf "kore-app-%s" (required "applicationImages[].service is required" .service) }}
+  labels: {app.kubernetes.io/managed-by: Helm}
+spec:
+  mode: enforce
+  images:
+    {{- range .digests }}
+    - glob: {{ printf "**@%s" . | quote }}
+    {{- end }}
+  authorities:
+    - name: platform-workflow
+      keyless:
+        url: https://fulcio.sigstore.dev
+        identities:
+          {{- range $.Values.trust.subjects }}
+          - issuer: {{ $.Values.trust.issuer | quote }}
+            subject: {{ . | quote }}
+          {{- end }}
+      ctlog:
+        url: https://rekor.sigstore.dev
+      {{- with $.Values.trust.signaturePullSecret }}
+      source:
+        - signaturePullSecrets:
+            - name: {{ . | quote }}
+      {{- end }}
+  policy:
+    type: rego
+    data: |
+{{ printf "%s\nrecord := %s\n" $rules (toJson $record) | indent 6 }}
+{{- end }}
+{{- end }}

@@ -1,5 +1,6 @@
 // Docs: docs/decisions/0028-image-trust-authority.md
 import { beforeEach, expect, test, vi } from "vitest";
+import { applicationImageErrors } from "./application-images.js";
 import { enrollmentExemptionErrors } from "./enrollment.js";
 import {
   imagePolicyComponent,
@@ -22,6 +23,7 @@ import type { Component, Environment, Repository } from "./types.js";
 
 // Factories, not automocks: the collaborators' real modules never load here.
 vi.mock("./enrollment.js", () => ({ enrollmentExemptionErrors: vi.fn() }));
+vi.mock("./application-images.js", () => ({ applicationImageErrors: vi.fn() }));
 vi.mock("./registry-address.js", () => ({ registryPlan: vi.fn() }));
 vi.mock("./features.js", () => ({
   featureEnabled: vi.fn(),
@@ -76,6 +78,7 @@ function repositoryWith(options: {
 
 beforeEach(() => {
   vi.mocked(enrollmentExemptionErrors).mockReturnValue([]);
+  vi.mocked(applicationImageErrors).mockReturnValue([]);
   vi.mocked(featureEnabled).mockReturnValue(false);
   vi.mocked(registryPlan).mockReturnValue({
     address: "registry.example:5000",

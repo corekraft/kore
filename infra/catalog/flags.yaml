@@ -72,6 +72,12 @@
         "requires": ["suborg-tenancy"]
       },
       {
+        "name": "suborg-image-policy",
+        "kind": "feature",
+        "applies": ["local", "vps", "managed-example"],
+        "requires": ["suborg-tenancy"]
+      },
+      {
         "name": "platform-sync-window",
         "kind": "feature",
         "applies": ["local", "vps", "managed-example"]

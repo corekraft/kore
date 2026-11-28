@@ -1,3 +1,4 @@
+import { applicationImageErrors } from "./application-images.js";
 import { enrollmentExemptionErrors } from "./enrollment.js";
 import { featureEnabled, goldenPathTemplateAdmissionFlag } from "./features.js";
 import { registryPlan } from "./registry-address.js";
@@ -175,6 +176,7 @@ export function imageTrustErrors(repository: Repository): string[] {
     ...enrollmentExemptionErrors(repository),
     ...trustValueErrors(repository),
     ...templateTrustErrors(repository),
+    ...applicationImageErrors(repository),
   ];
 }
 

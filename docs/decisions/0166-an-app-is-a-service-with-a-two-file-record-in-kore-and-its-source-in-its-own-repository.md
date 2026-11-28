@@ -11,6 +11,8 @@ Source: [issue #1484](https://github.com/corekraft/kore/issues/1484), under the 
 
 Refines: [ADR 0043](0043-platform-configuration-through-argo-cd.md) and [ADR 0045](0045-static-frontends-as-signed-images.md), for services whose source is outside this repository.
 
+> Refined by [ADR 0184](0184-an-application-image-is-bound-to-its-record-by-one-enforce-policy-per-record-over-its-release-digests.md) (proposed): the binding compares the signature's GitHub workflow repository (Fulcio OID 1.3.6.1.4.1.57264.1.5), the only repository field Policy Controller v0.13.1 passes to a policy, with the record's `repository`, which must be `github.com/<owner>/<name>`.
+
 ## Context
 
 Today a service is a `kind: Service` file in `infra/services/*.yaml`. Nothing applies it to a cluster; the golden-path ApplicationSet and the service-observability chart read the directory from git. It carries an organization (the XRD allows only `platform`) and a list of environments, and the workload deploys the platform's two template images, not an image built from an application's own source.

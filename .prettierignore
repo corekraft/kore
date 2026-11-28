@@ -1,2 +1,4 @@
 # SOPS documents carry a MAC over their content; only sops may rewrite them.
 *.enc.yaml
+# A golden is Helm's render byte for byte; the image-policy templates are not in prettier's style.
+tools/kore/src/platform/fixtures/image-policy.suborg-tenancy-only.yaml

@@ -32,3 +32,7 @@ templates:
 # infra/catalog/gatekeeper-exemptions.yaml; kore validate checks it. The
 # templates do not read this list.
 staticPassNamespaces: [istio-system, cnpg-system]
+# The app records' images while suborg-image-policy is on (issue 1556): kore
+# passes each record with a release as {service, repository, digests}, and
+# nothing while the flag is off. The chart owns no record; overlays never set it.
+applicationImages: []

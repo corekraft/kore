@@ -98,6 +98,7 @@ test("the flags that apply to vps are the ones the manifest declares, pending fl
     "suborg-network-policy",
     "suborg-delivery-project",
     "suborg-secret-store",
+    "suborg-image-policy",
     "platform-sync-window",
     "platform-shared-gateway",
     "service-listener-sets",

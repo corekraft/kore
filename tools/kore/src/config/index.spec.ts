@@ -137,6 +137,7 @@ const entryPoints = [
   "alertEmailHelmArgs",
   "alertForwardingHelmArgs",
   "apiserverReadyFlag",
+  "applicationImageArgs",
   "appliedFlags",
   "approvedImageList",
   "auditEvidence",

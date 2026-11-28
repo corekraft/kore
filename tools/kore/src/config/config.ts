@@ -1,6 +1,7 @@
 import { dirname, isAbsolute, join, resolve } from "node:path";
 import { exists } from "./files.js";
 import {
+  loadApplicationImages,
   loadFlagManifest,
   loadImageTrustValues,
   loadJSON,
@@ -88,6 +89,7 @@ export async function loadRepository(
       ),
     ]);
   const imageTrustValues = await loadImageTrustValues(root, environment);
+  const applicationImages = await loadApplicationImages(root, environment);
   const repository = {
     root,
     versions,
@@ -110,6 +112,7 @@ export async function loadRepository(
       environment,
       catalog.components.map((component) => component.namespace),
     ),
+    ...(applicationImages === undefined ? {} : { applicationImages }),
   };
   const exemptions = new ExemptionCheck(new FileExemptionSource(root));
   const warnings = await validateRepository(repository, [], (repo) =>

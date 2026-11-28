@@ -4,6 +4,7 @@ import { vi } from "vitest";
 import {
   absolute,
   alertEmailHelmArgs,
+  applicationImageArgs,
   alertForwardingHelmArgs,
   componentValues,
   componentVersion,
@@ -37,6 +38,7 @@ export function configAnswers(): void {
   vi.mocked(noMatchPolicy).mockReturnValue("warn");
   vi.mocked(platformHelmArgs).mockReturnValue([]);
   vi.mocked(suborgDeliveryArgs).mockReturnValue([]);
+  vi.mocked(applicationImageArgs).mockReturnValue([]);
   vi.mocked(prometheusPortalHelmArgs).mockReturnValue([]);
   vi.mocked(registeredServiceHelmArgs).mockReturnValue([]);
   vi.mocked(registryHelmArgs).mockImplementation((_env, name) => [

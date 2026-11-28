@@ -52,6 +52,7 @@
       "suborg-network-policy": false,
       "suborg-delivery-project": false,
       "suborg-secret-store": false,
+      "suborg-image-policy": false,
       "platform-sync-window": false,
       "release-recovery-argocd-refusal": false,
       "database-routes": false,

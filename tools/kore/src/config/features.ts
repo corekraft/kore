@@ -110,6 +110,9 @@ export const suborgDeliveryProjectFlag = "suborg-delivery-project";
 /** The flag that makes each suborg's External Secrets ClusterSecretStore, limited to the suborg's own namespace (ADR 0167, issue 1555); needs suborg-tenancy. Off in every overlay until a recorded live outcome (#1559). */
 export const suborgSecretStoreFlag = "suborg-secret-store";
 
+/** The flag that admits an application image in a suborg namespace only when the platform workflow signed it from its record's repository: one enforce ClusterImagePolicy per app record over its release digests (ADR 0165, ADR 0166, issue 1556); needs suborg-tenancy. Off in every overlay until a recorded live outcome (#1559). */
+export const suborgImagePolicyFlag = "suborg-image-policy";
+
 /** The flag that installs the Organization and Service platform APIs, for the platform organization only (plan 15 step 2). */
 export const organizationServiceApisFlag = "platform-organization-service-apis";
 
