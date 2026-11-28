@@ -26,6 +26,12 @@ agents_tools:
 agents_herdr_core_version: "0.1.21"
 agents_herdr_core_sha256: "78424755c10a40dde38a0bdb55c20ac19706e9ae05ed68fc2acf1fcff0d941c1"
 
+# bd (beads), the dependency-aware issue tracker the lane sessions read their
+# next ready work from, from its GitHub release tarball checked against the
+# checksum in the release's checksums.txt. It lives as ~/.local/bin/bd.
+agents_beads_version: "1.3.4"
+agents_beads_sha256: "175c26904bde3ff9168d2282ff6b56f17b17f60c22fa5acb3dacc9fb3465303a"
+
 # Public keys allowed to log in as the agent account, read on the controller at
 # run time and never committed.
 agents_ssh_pubkey_files:
