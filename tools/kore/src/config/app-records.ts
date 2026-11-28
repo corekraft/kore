@@ -48,6 +48,8 @@ export interface AppRecordCheck {
   hostnames?: HostnameCheck | undefined;
   /** Whether the overlay declares a backup.target; unset, a database backup opt-in is refused (ADR 0155). */
   backupTarget?: boolean | undefined;
+  /** The overlay's backup target kind; unset, the external Gateway refusal for a service with data reads no kind (ADR 0155). */
+  backupKind?: "interim" | "off-host" | undefined;
 }
 
 export interface AppRecordReport {
@@ -189,6 +191,7 @@ async function checkSpecs(
         manifest: record.manifest,
         xrdSpec,
         backupTarget: check.backupTarget,
+        backupKind: check.backupKind,
       }),
     );
   }

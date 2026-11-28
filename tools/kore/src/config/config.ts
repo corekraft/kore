@@ -1,6 +1,7 @@
 import { dirname, isAbsolute, join, resolve } from "node:path";
 import { exists } from "./files.js";
 import {
+  loadBackupFacts,
   loadFlagManifest,
   loadImageTrustValues,
   loadJSON,
@@ -27,6 +28,7 @@ import type {
 export type {
   ApprovedImage,
   ApprovedImageManifest,
+  BackupFacts,
   Catalog,
   Component,
   ComponentKind,
@@ -104,6 +106,7 @@ export async function loadRepository(
       environment,
     ),
     registeredServices: await loadServiceRegistrations(root, environmentName),
+    backupFacts: await loadBackupFacts(root, environment),
     sopsRecipients: await loadSopsRecipients(root, environmentName),
     suborgs: await loadSuborgNames(
       root,

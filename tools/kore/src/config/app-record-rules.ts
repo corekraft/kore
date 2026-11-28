@@ -6,6 +6,10 @@
 // Docs: docs/decisions/0169-an-app-declares-its-flags-and-the-platform-holds-their-state.md
 
 import { databaseBackupErrors } from "./database-backup.js";
+import {
+  externalDataErrors,
+  type BackupKind,
+} from "./external-gateway-data.js";
 import { serviceNameErrors } from "./platform-claims.js";
 import { schemaErrors, type SchemaNode } from "./schema-subset.js";
 
@@ -115,6 +119,8 @@ export interface SpecFileInput {
   xrdSpec: SchemaNode;
   /** Whether the overlay declares a backup.target (ADR 0155); unset, a backup opt-in is refused. */
   backupTarget?: boolean | undefined;
+  /** The overlay's backup target kind; an external service with data is refused while it is interim (ADR 0155). */
+  backupKind?: BackupKind | undefined;
 }
 
 /**
@@ -141,6 +147,12 @@ export function specFileErrors(input: SpecFileInput): string[] {
       file,
       manifest,
       backupTargetDeclared: input.backupTarget === true,
+    }),
+    ...externalDataErrors({
+      file,
+      stem,
+      manifest,
+      backupKind: input.backupKind,
     }),
   ];
 }

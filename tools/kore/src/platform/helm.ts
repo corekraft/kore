@@ -21,6 +21,7 @@ import {
   type Repository,
 } from "../config/index.js";
 import type { Runner } from "../runtime/index.js";
+import { backupFactsHelmArgs } from "./backup-facts-values.js";
 import { goldenPathArgs } from "./golden-path-args.js";
 import { featureFreeCharts } from "./feature-free-charts.js";
 import { applyProbePatches } from "./patches.js";
@@ -85,6 +86,7 @@ function trailingArgs(repository: Repository, component: Component): string[] {
     ),
     ...suborgDeliveryArgs(repository, component.name),
     ...alertAndServiceArgs(repository, component),
+    ...backupFactsHelmArgs(repository, component),
     ...dashboardSidecarHelmArgs(repository.environment, component.name),
     ...prometheusPortalHelmArgs(repository.environment, component.name),
     ...keycloakOperatorProbeHelmArgs(repository.environment, component.name),

@@ -89,6 +89,7 @@ export {
 export type {
   ApprovedImage,
   ApprovedImageManifest,
+  BackupFacts,
   Catalog,
   Component,
   ComponentKind,

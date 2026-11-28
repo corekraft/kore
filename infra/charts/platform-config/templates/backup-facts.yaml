@@ -1,0 +1,22 @@
+{{- /*
+The ConfigMap the external Gateway check reads (ADR 0155): the backup target's kind and, for each service
+of the environment, whether it has data. kore hands the facts in as backupFacts, read from the overlay and
+the service records, so the chart keeps no copy of either. Rendered only while database-backups is on; off,
+nothing renders and no facts are needed. Its content follows the facts: the ingress spec's admission
+constraint reads this ConfigMap and never the overlay.
+*/}}
+{{- if index (.Values.features | default dict) "database-backups" }}
+{{- $facts := required "backupFacts must be handed in by kore while database-backups is on: declare backup.target in the environment overlay, or turn database-backups off (ADR 0155)" .Values.backupFacts }}
+{{- if not (has $facts.targetKind (list "interim" "off-host")) }}
+{{- fail (printf "backupFacts.targetKind must be interim or off-host, got %v: set backup.target.kind in the environment overlay (ADR 0155)" $facts.targetKind) }}
+{{- end }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: kore-backup-facts
+  namespace: kore-system
+  labels: {app.kubernetes.io/managed-by: Helm}
+data:
+  targetKind: {{ $facts.targetKind | quote }}
+  services.json: {{ toJson ($facts.services | default dict) | quote }}
+{{- end }}

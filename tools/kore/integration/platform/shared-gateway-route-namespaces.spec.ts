@@ -39,6 +39,8 @@ function allFlagsOn(repository: Repository): Repository {
       ...repository.environment,
       features: { ...features, "platform-shared-gateway": true },
     },
+    // database-backups is on here, so the chart needs the facts kore would hand it (ADR 0155).
+    backupFacts: { targetKind: "interim", services: {} },
   };
 }
 
