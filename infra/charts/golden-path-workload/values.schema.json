@@ -75,6 +75,35 @@
         "terminationGracePeriodSeconds": { "type": "integer", "minimum": 1 }
       }
     },
+    "migration": {
+      "description": "The PreSync migration hook (ADR 0171, issue 1570). While enabled, a Job runs the migrate command from the BFF image as the DDL credential; off, nothing renders.",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "enabled": { "type": "boolean" },
+        "command": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 }
+        },
+        "credentialSecret": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "name": { "type": "string" }
+          }
+        },
+        "activeDeadlineSeconds": { "type": "integer", "minimum": 1 },
+        "contract": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["advisoryLock", "migrationsTable"],
+          "properties": {
+            "advisoryLock": { "const": true },
+            "migrationsTable": { "const": "schema_migrations" }
+          }
+        }
+      }
+    },
     "resources": {
       "type": "object",
       "properties": {
