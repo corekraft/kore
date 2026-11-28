@@ -37,7 +37,7 @@ test("bd is downloaded from its pinned GitHub release and refused unless the che
     [
       "  register: agents_beads_download",
       "  ansible.builtin.get_url:",
-      '    url: "https://github.com/steveyegge/beads/releases/download/v{{ agents_beads_version }}/beads_{{ agents_beads_version }}_linux_amd64.tar.gz"',
+      '    url: "https://github.com/gastownhall/beads/releases/download/v{{ agents_beads_version }}/beads_{{ agents_beads_version }}_linux_amd64.tar.gz"',
       '    dest: "/var/cache/beads-{{ agents_beads_version }}.tar.gz"',
       '    checksum: "sha256:{{ agents_beads_sha256 }}"',
       "    owner: root",
