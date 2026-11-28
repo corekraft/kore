@@ -81,6 +81,7 @@ export {
 } from "./run-time.js";
 export type { RunTimeFile } from "./run-time.js";
 export { registryByName, registryHostname } from "./registry-name.js";
+export { foreignCertificateName } from "./foreign-certificates.js";
 export {
   registryConsumers,
   registryHelmArgs,

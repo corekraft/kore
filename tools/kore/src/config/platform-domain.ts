@@ -394,13 +394,15 @@ function zoneArgs(
  * Helm arguments that hand the platform domain to a component that names it:
  * the overlay's values files and the chart defaults hold no copy, so the
  * environment's field is the one source. `suborgs` are the names the Organization
- * records give (ADR 0161), which only the acme-dns01 flag reads.
+ * records give (ADR 0161), and `foreignNames` the names the service records claim under
+ * another domain (ADR 0157); only the acme-dns01 flag reads either.
  */
 export function platformHelmArgs(
   environment: Environment,
   component: string,
   env: NodeJS.ProcessEnv = process.env,
   suborgs: readonly string[] = [],
+  foreignNames: readonly string[] = [],
 ): string[] {
   const key = domainValueKeys[component];
   const wildcard = wildcardValueKeys[component];
@@ -415,7 +417,7 @@ export function platformHelmArgs(
     ...postgresqlFlagArgs(environment, component),
     ...suborgNetworkArgs(environment, component),
     ...otlpRouteArgs(environment, component, env),
-    ...dnsHelmArgs(environment, component, env, suborgs),
+    ...dnsHelmArgs(environment, component, env, suborgs, foreignNames),
   ];
   if (key === undefined && wildcard === undefined) {
     return shared;

@@ -34,9 +34,13 @@ acmeIssuers:
 # per suborg, against Let's Encrypt's 50 new certificates per registered domain per 7
 # days, ADR 0161). certificateIssuer is the issuer those Certificates reference: staging
 # first, and production only by a later change to this value after staging is Ready.
+# foreignNames is the list kore reads from the service records: each name under a domain
+# the platform does not own, claimed on the external Gateway. While acme-dns01 is on, each
+# renders one Certificate for that name alone, proven over HTTP-01 (ADR 0157, issue 1678).
 acmeDns01:
   zone: ""
   suborgs: []
+  foreignNames: []
   certificateIssuer: letsencrypt-staging
   tokenSecretName: cloudflare-token
   tokenKey: api-token

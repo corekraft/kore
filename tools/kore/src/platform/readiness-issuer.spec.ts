@@ -2,9 +2,19 @@
 import { beforeEach, expect, test, vi } from "vitest";
 import { isLocalProvider, type Repository } from "../config/index.js";
 import type { Runner } from "../runtime/index.js";
-import { assertIssuerReady, trustRemedy } from "./readiness-issuer.js";
+import {
+  assertIssuerReady,
+  namedForeignFailure,
+  trustRemedy,
+} from "./readiness-issuer.js";
+import { foreignCertificateFailure } from "./foreign-certificate.js";
 
 vi.mock("../config/index.js");
+vi.mock("./foreign-certificate.js", () => ({
+  foreignCertificatePrefix: "certificate/foreign-",
+  foreignCertificateFailure: vi.fn(),
+  foreignCertificateResources: vi.fn(),
+}));
 
 type Run = Runner["run"];
 
@@ -164,4 +174,61 @@ test("a read that fails for a reason other than NotFound is rethrown, not report
   await expect(
     assertIssuerReady(repository, runner, BASE, RESOURCE),
   ).rejects.toThrow("the server is unreachable");
+});
+
+const FOREIGN = "certificate/foreign-pay-example-net-fe743658";
+const NAMED = "foreign name pay.example.net is not proven: the cause";
+
+test("a timed-out wait on a foreign name's Certificate is replaced by the named cause and its fix", async () => {
+  vi.mocked(foreignCertificateFailure).mockResolvedValue(NAMED);
+  const { runner } = fakeRunner({});
+  const names = ["pay.example.net"];
+  const timeout = new Error(
+    `error: timed out waiting for the condition on certificates/${FOREIGN.slice("certificate/".length)}`,
+  );
+
+  await expect(
+    namedForeignFailure(
+      {
+        repository: { foreignNames: names } as unknown as Repository,
+        runner,
+        base: BASE,
+      },
+      FOREIGN,
+      timeout,
+    ),
+  ).rejects.toThrow(NAMED);
+  expect(vi.mocked(foreignCertificateFailure).mock.calls).toEqual([
+    [runner, BASE, FOREIGN, names],
+  ]);
+});
+
+test("a timed-out wait on a platform Certificate returns, so the caller rethrows it, and is never named as a foreign name", async () => {
+  const timeout = new Error("error: timed out waiting for the condition");
+  await expect(
+    namedForeignFailure(
+      { repository, runner: fakeRunner({}).runner, base: BASE },
+      RESOURCE,
+      timeout,
+    ),
+  ).resolves.toBeUndefined();
+  expect(vi.mocked(foreignCertificateFailure)).not.toHaveBeenCalled();
+});
+
+test("a foreign name's wait that fails for a reason other than a timeout, such as an unreachable cluster, returns so the caller rethrows it", async () => {
+  const unreachable = new Error("error: the server is unreachable");
+  await expect(
+    namedForeignFailure(
+      {
+        repository: {
+          foreignNames: ["pay.example.net"],
+        } as unknown as Repository,
+        runner: fakeRunner({}).runner,
+        base: BASE,
+      },
+      FOREIGN,
+      unreachable,
+    ),
+  ).resolves.toBeUndefined();
+  expect(vi.mocked(foreignCertificateFailure)).not.toHaveBeenCalled();
 });

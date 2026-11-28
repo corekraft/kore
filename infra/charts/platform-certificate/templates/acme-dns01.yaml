@@ -13,6 +13,10 @@ reaches is proved over HTTP and needs no DNS token. The HTTP-01 solver is listed
 first: cert-manager's docs rank dnsNames above dnsZones and do not rank a label
 match against dnsZones, so the first live proof must show a labelled Certificate
 under the platform zone taking HTTP-01.
+
+The same HTTP-01 solver serves a foreign name (issue 1678): it renders while there is
+a foreign name even with acme-issuers off, since the foreign Certificates select it by
+the same label and the platform zone's DNS-01 solver never matches a foreign name.
 */}}
 {{- $zone := required "set acmeDns01.zone, which kore passes as the platform domain while acme-dns01 is on" .Values.acmeDns01.zone }}
 {{- range .Values.acmeDns01.issuers }}
@@ -27,7 +31,7 @@ spec:
     privateKeySecretRef:
       name: {{ .accountKeySecretName }}
     solvers:
-{{- if index $.Values.features "acme-issuers" }}
+{{- if or (index $.Values.features "acme-issuers") (gt (len $.Values.acmeDns01.foreignNames) 0) }}
       - selector:
           matchLabels:
             {{ $.Values.acmeIssuers.http01.labelKey }}: {{ $.Values.acmeIssuers.http01.labelValue | quote }}

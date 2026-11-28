@@ -1,0 +1,28 @@
+{{- if index .Values.features "acme-dns01" }}
+{{- /*
+One Certificate for each foreign name (ADR 0157, issue 1678): a name under a domain the
+platform does not own, that a service claims on the external Gateway. Each is one name,
+never a wildcard, and is proven over HTTP-01 through the labelled solver in
+acme-dns01.yaml, so the platform holds no credential for the foreign zone and writes none
+of its DNS. The label is the only selector, and a foreign name matches no DNS-01 solver
+since no platform zone holds it. The Certificate's name carries a short hash of the full
+name, so two names that differ only by a dot or a dash never share a Certificate.
+*/}}
+{{- range .Values.acmeDns01.foreignNames }}
+{{- $name := printf "foreign-%s-%s" (. | replace "." "-" | trunc 40 | trimSuffix "-") (. | sha256sum | trunc 8) }}
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: {{ $name }}
+  labels:
+    {{ $.Values.acmeIssuers.http01.labelKey }}: {{ $.Values.acmeIssuers.http01.labelValue | quote }}
+spec:
+  secretName: {{ printf "%s-tls" $name }}
+  dnsNames:
+    - {{ . | quote }}
+  issuerRef:
+    kind: ClusterIssuer
+    name: {{ $.Values.acmeDns01.certificateIssuer }}
+{{- end }}
+{{- end }}

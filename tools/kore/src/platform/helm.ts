@@ -82,6 +82,7 @@ function trailingArgs(repository: Repository, component: Component): string[] {
       component.name,
       process.env,
       repository.suborgs ?? [],
+      repository.foreignNames ?? [],
     ),
     ...suborgDeliveryArgs(repository, component.name),
     ...alertAndServiceArgs(repository, component),

@@ -1,6 +1,7 @@
 import { beforeEach, expect, test, vi } from "vitest";
 import { errorMessage } from "./probe.js";
 import { primeReadinessFakes, waitOn } from "./readiness-support.js";
+import { foreignCertificateResources } from "./readiness-issuer.js";
 import {
   controlPlaneRestartCause,
   isControlPlaneDrop,
@@ -24,6 +25,8 @@ vi.mock("./readiness-poll.js", async (importOriginal) => ({
 
 beforeEach(() => {
   primeReadinessFakes();
+  // The foreign names are read from the records, and none of these fixtures names one.
+  vi.mocked(foreignCertificateResources).mockReturnValue([]);
   vi.mocked(isControlPlaneDrop).mockReturnValue(false);
   vi.mocked(controlPlaneRestartCause).mockReturnValue("CAUSE");
 });

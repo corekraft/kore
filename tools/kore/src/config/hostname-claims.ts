@@ -80,7 +80,7 @@ function under(host: string, base: string): string | undefined {
 }
 
 /** The form of a name a record may list, before any zone rule applies: a label or a full DNS name. */
-function formError(host: unknown, at: string): string[] {
+export function formError(host: unknown, at: string): string[] {
   if (typeof host !== "string") {
     return [
       `${at} must be a string: a label such as login, or a full hostname under another domain`,

@@ -1,9 +1,44 @@
 import { isLocalProvider, type Repository } from "../config/index.js";
 import type { Runner } from "../runtime/index.js";
+import {
+  foreignCertificateFailure,
+  foreignCertificatePrefix,
+} from "./foreign-certificate.js";
+
+export { foreignCertificateResources } from "./foreign-certificate.js";
 
 // cert-manager keeps ClusterIssuer CA Secrets in its cluster resource namespace.
 const CA_SECRET_NAMESPACE = "cert-manager";
 const NOT_FOUND = /NotFound|not found/i;
+const TIMED_OUT = /timed out waiting/i;
+
+/**
+ * Throws the named failure of a foreign name's Certificate that timed out, its cause and
+ * the owner's fix in place of a bare timeout (ADR 0157, issue 1678). Returns for any other
+ * error, a platform Certificate's or an unreachable cluster's, so the caller rethrows that
+ * error as it was.
+ */
+export async function namedForeignFailure(
+  context: { repository: Repository; runner: Runner; base: string[] },
+  resource: string,
+  error: unknown,
+): Promise<void> {
+  if (
+    !resource.startsWith(foreignCertificatePrefix) ||
+    !(error instanceof Error) ||
+    !TIMED_OUT.test(error.message)
+  ) {
+    return;
+  }
+  throw new Error(
+    await foreignCertificateFailure(
+      context.runner,
+      context.base,
+      resource,
+      context.repository.foreignNames ?? [],
+    ),
+  );
+}
 
 /** The actionable fix for a missing issuer, CA Secret, or issued TLS Secret. */
 export function trustRemedy(repository: Repository): string {

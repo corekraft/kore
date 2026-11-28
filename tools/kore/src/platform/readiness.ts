@@ -3,7 +3,12 @@ import { readinessGatedOff } from "../config/index.js";
 import type { Runner } from "../runtime/index.js";
 import { errorMessage } from "./probe.js";
 import { customCheck } from "./readiness-custom.js";
-import { assertIssuerReady, trustRemedy } from "./readiness-issuer.js";
+import {
+  assertIssuerReady,
+  foreignCertificateResources,
+  namedForeignFailure,
+  trustRemedy,
+} from "./readiness-issuer.js";
 import {
   controlPlaneRestartCause,
   failureAcrossBounds,
@@ -206,7 +211,10 @@ function checkFor(context: Context, resource: string): Check {
           context.base,
           resource,
         );
-        await wait.run(timeout);
+        await wait.run(timeout).catch(async (error: unknown) => {
+          await namedForeignFailure(context, resource, error);
+          throw error;
+        });
       },
     };
   }
@@ -276,7 +284,8 @@ async function runChecks(
     check: checkFor(context, resource),
   });
   const crds = component.ownsCRDs.map((crd) => `crd/${crd}`);
-  const waited = [...component.readiness, ...crds].filter(
+  const foreign = foreignCertificateResources(repository, component);
+  const waited = [...component.readiness, ...crds, ...foreign].filter(
     (resource) =>
       !readinessGatedOff(repository.environment, component, resource),
   );
