@@ -1,5 +1,16 @@
 # Changelog
 
+## [0.30.0](https://github.com/corekraft/kore/compare/v0.29.0...v0.30.0) (2026-11-28)
+
+
+### Features
+
+* **backup:** add the controller prune and the write-only backup credential ([#2087](https://github.com/corekraft/kore/issues/2087)) ([f9c826d](https://github.com/corekraft/kore/commit/f9c826d4342dba13e2fbf25f7c5698c64a65909d))
+* **hosts:** install the pinned bd on the agents VM through the agents role ([#2109](https://github.com/corekraft/kore/issues/2109)) ([6897088](https://github.com/corekraft/kore/commit/68970886c9a5075315c7631d0eb6f9a0ed3421c2))
+* **platform:** claim a hostname by its label and refuse a full name under the platform domain ([#2091](https://github.com/corekraft/kore/issues/2091)) ([ff1f1fa](https://github.com/corekraft/kore/commit/ff1f1fa50537f99a360b597bad4c3fdde982eedd))
+* **platform:** give each suborg its own secret store behind suborg-secret-store ([#2090](https://github.com/corekraft/kore/issues/2090)) ([756c812](https://github.com/corekraft/kore/commit/756c8126640ac3a7e31103010df8a2931d95d0c8))
+* **platform:** name every missing vps prerequisite before platform up changes anything ([#2085](https://github.com/corekraft/kore/issues/2085)) ([0c640bc](https://github.com/corekraft/kore/commit/0c640bce640a3bb8273dc7037b93519c84b7095e))
+
 ## [0.29.0](https://github.com/corekraft/kore/compare/v0.28.0...v0.29.0) (2026-11-25)
 
 
