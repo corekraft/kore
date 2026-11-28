@@ -167,6 +167,31 @@
     owner: "{{ agents_user }}"
     group: "{{ agents_user }}"
 
+# The pinned tarball, like herdr-core: only the bd binary is unpacked into
+# ~/.local/bin, so it sits ahead of the mise shims on the PATH.
+- name: Download the pinned bd
+  register: agents_beads_download
+  ansible.builtin.get_url:
+    url: "https://github.com/gastownhall/beads/releases/download/v{{ agents_beads_version }}/beads_{{ agents_beads_version }}_linux_amd64.tar.gz"
+    dest: "/var/cache/beads-{{ agents_beads_version }}.tar.gz"
+    checksum: "sha256:{{ agents_beads_sha256 }}"
+    owner: root
+    group: root
+    mode: "0644"
+
+- name: Install bd
+  ansible.builtin.unarchive:
+    src: "/var/cache/beads-{{ agents_beads_version }}.tar.gz"
+    dest: "/home/{{ agents_user }}/.local/bin"
+    remote_src: true
+    include:
+      - bd
+    owner: "{{ agents_user }}"
+    group: "{{ agents_user }}"
+    mode: "0755"
+  # A check run downloads nothing, so there is no tarball to unpack yet.
+  when: not (ansible_check_mode and agents_beads_download.changed)
+
 - name: Activate mise in the agent's shells
   ansible.builtin.lineinfile:
     path: "/home/{{ agents_user }}/.bashrc"
