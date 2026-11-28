@@ -1,4 +1,4 @@
-import { beforeEach, expect, test, vi } from "vitest";
+import { afterEach, beforeEach, expect, test, vi } from "vitest";
 import { apiserverReadyFlag, featureEnabled } from "../config/index.js";
 import { CommandError } from "../runtime/index.js";
 import { waitForApiserverReady } from "./apiserver-ready.js";
@@ -20,6 +20,7 @@ vi.mock("./readiness-poll.js", async (importOriginal) => ({
 
 const repository = fakeRepository();
 const operator = fakeComponent({ name: "keycloak-operator" });
+const CLOCK = new Date("2026-11-24T10:00:00Z");
 
 function failure(stderr: string): CommandError {
   return new CommandError("kubectl", ["get", "--raw", "/readyz"], {
@@ -35,13 +36,35 @@ async function probeOnce(): Promise<string | undefined> {
   return probe();
 }
 
+/** Makes the poll take `seconds`, by moving the clock the wait reads. */
+function pollTakes(seconds: number): void {
+  vi.mocked(pollUntil).mockImplementation(async () => {
+    vi.setSystemTime(Date.now() + seconds * 1000);
+  });
+}
+
+/** Everything written to the step output (stderr), in order. */
+let stepLines: string[] = [];
+
 beforeEach(() => {
   vi.resetAllMocks();
+  vi.useFakeTimers({ toFake: ["Date"] });
+  vi.setSystemTime(CLOCK);
+  stepLines = [];
+  vi.spyOn(process.stderr, "write").mockImplementation((chunk) => {
+    stepLines.push(String(chunk));
+    return true;
+  });
   vi.mocked(featureEnabled).mockReturnValue(true);
   vi.mocked(pollUntil).mockResolvedValue(undefined);
   vi.mocked(errorMessage).mockImplementation((error) =>
     error instanceof Error ? error.message : String(error),
   );
+});
+
+afterEach(() => {
+  vi.restoreAllMocks();
+  vi.useRealTimers();
 });
 
 test("with platform-apiserver-ready off nothing is read from the cluster", async () => {
@@ -124,4 +147,46 @@ test("a poll failure that is not a timeout is rethrown unchanged", async () => {
   await expect(
     waitForApiserverReady(repository, fakeRunner().runner, operator),
   ).rejects.toBe(broken);
+});
+
+test("with platform-apiserver-ready on, a wait that passes writes one step line naming the component and how long it took", async () => {
+  pollTakes(12);
+  await waitForApiserverReady(
+    repository,
+    fakeRunner(() => "ok").runner,
+    operator,
+  );
+  expect(stepLines).toEqual([
+    "apiserver ready before keycloak-operator rollout (12s)\n",
+  ]);
+});
+
+test("with platform-apiserver-ready off the wait writes nothing to the step output", async () => {
+  vi.mocked(featureEnabled).mockReturnValue(false);
+  pollTakes(12);
+  await waitForApiserverReady(
+    repository,
+    fakeRunner(() => "ok").runner,
+    operator,
+  );
+  expect(stepLines).toEqual([]);
+});
+
+test("a wait that times out writes no ready line, and the timeout error keeps its exact text", async () => {
+  vi.mocked(pollUntil).mockImplementation(async () => {
+    vi.setSystemTime(Date.now() + 180_000);
+    throw new ReadinessTimeout("The connection to the server was refused");
+  });
+  const message = await waitForApiserverReady(
+    repository,
+    fakeRunner().runner,
+    operator,
+  ).then(
+    () => "",
+    (error: Error) => error.message,
+  );
+  expect(stepLines).toEqual([]);
+  expect(message).toBe(
+    "the Kubernetes API server of k3d-kore-local was not ready within 3m, so the keycloak-operator rollout was not started: The connection to the server was refused. The controllers crash when they cannot reach it. Run kubectl --context k3d-kore-local get --raw /readyz and check the k3s server container (docker logs k3d-kore-local-server-0), then rerun kore local up.",
+  );
 });

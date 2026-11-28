@@ -23,6 +23,8 @@ const STARTING =
  * and crash-looped. One readiness step shared by those rollouts fails with the
  * cause named, in minutes, instead of a bare CrashLoopBackOff or a rollout
  * timeout. Read-only; a no-op with platform-apiserver-ready off, so the flag off runs what it ran before.
+ * A wait that passes writes one step line naming the component and how long
+ * the wait took, so a live proof can show the step ran; a timeout writes none.
  */
 export async function waitForApiserverReady(
   repository: Repository,
@@ -33,6 +35,7 @@ export async function waitForApiserverReady(
     return;
   }
   const context = repository.environment.kubeContext;
+  const started = Date.now();
   try {
     await pollUntil(BOUND, async () => {
       try {
@@ -61,4 +64,9 @@ export async function waitForApiserverReady(
       `the Kubernetes API server of ${context} was not ready within ${BOUND}, so the ${component.name} rollout was not started: ${error.message}. The controllers crash when they cannot reach it. Run kubectl --context ${context} get --raw /readyz and check the k3s server container (docker logs ${context}-server-0), then rerun kore local up.`,
     );
   }
+  // Only a wait that passed reaches this line; a timeout threw above.
+  const seconds = Math.round((Date.now() - started) / 1000);
+  process.stderr.write(
+    `apiserver ready before ${component.name} rollout (${seconds}s)\n`,
+  );
 }
